@@ -22,23 +22,14 @@
 use super::*;
 
 use extension::VerifySignature;
-use frame_support::{
-	derive_impl,
-	dispatch::GetDispatchInfo,
-	pallet_prelude::{InvalidTransaction, TransactionSource, TransactionValidityError},
-	traits::OriginTrait,
+use frame::{
+	testing_prelude::*,
+	traits::{DispatchTransaction, OriginTrait},
 };
 use frame_system::Call as SystemCall;
-use sp_io::hashing::blake2_256;
-use sp_runtime::{
-	generic::ExtensionVersion,
-	testing::{TestSignature, UintAuthorityId},
-	traits::DispatchTransaction,
-};
-
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -69,10 +60,9 @@ impl crate::Config for Test {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	use sp_runtime::BuildStorage;
+pub fn new_test_ext() -> TestExternalities {
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	let mut ext = sp_io::TestExternalities::new(t);
+	let mut ext = TestExternalities::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
 }
@@ -81,7 +71,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 fn verification_works() {
 	let who = 0;
 	let call: RuntimeCall = SystemCall::remark { remark: vec![] }.into();
-	let ext_version: ExtensionVersion = 0;
+	let ext_version: frame::deps::sp_runtime::generic::ExtensionVersion = 0;
 	let sig = TestSignature(0, (ext_version, &call).using_encoded(blake2_256).to_vec());
 	let info = call.get_dispatch_info();
 
