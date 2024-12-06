@@ -35,16 +35,7 @@
 
 use crate::{
 	configuration::{random_latency, TestAuthorities, TestConfiguration},
-	dummy_builder,
-	environment::{TestEnvironmentDependencies, GENESIS_HASH},
-	mock::{
-		candidate_backing::MockCandidateBacking,
-		chain_api::{ChainApiState, MockChainApi},
-		prospective_parachains::MockProspectiveParachains,
-		runtime_api::{MockRuntimeApi, MockRuntimeApiCoreState},
-		statement_distribution::MockStatementDistribution,
-		AlwaysSupportsParachains,
-	},
+	environment::TestEnvironmentDependencies,
 	NODE_UNDER_TEST,
 };
 use codec::Encode;
@@ -65,53 +56,27 @@ use net_protocol::{
 	request_response::{Recipient, Requests, ResponseSender},
 	ObservedRole, VersionedValidationProtocol, View,
 };
-use polkadot_network_bridge::{peer_sets_info, IsAuthority};
 use polkadot_node_network_protocol::{
-	self as net_protocol,
-	authority_discovery::AuthorityDiscovery,
-	peer_set::{PeerSet, PeerSetProtocolNames},
-	request_response::{
-		v1::StatementFetchingRequest, v2::AttestedCandidateRequest, IncomingRequest as IncomingReq,
-		IncomingRequestReceiver, ReqProtocolNames,
-	},
-	Versioned,
+	self as net_protocol, authority_discovery::AuthorityDiscovery, Versioned,
 };
 use polkadot_node_subsystem::messages::StatementDistributionMessage;
 use polkadot_node_subsystem_types::messages::NetworkBridgeEvent;
 use polkadot_node_subsystem_util::metrics::prometheus::{
 	self, CounterVec, Opts, PrometheusError, Registry,
 };
-use polkadot_overseer::{
-	AllMessages, Handle as OverseerHandle, Overseer, OverseerConnector, OverseerMetrics, SpawnGlue,
-};
-use polkadot_primitives::{AuthorityDiscoveryId, Block, Hash};
-use polkadot_service::overseer::{
-	NetworkBridgeMetrics, NetworkBridgeRxSubsystem, NetworkBridgeTxSubsystem,
-};
-use polkadot_statement_distribution::StatementDistributionSubsystem;
+use polkadot_overseer::AllMessages;
+use polkadot_primitives::AuthorityDiscoveryId;
 use prometheus_endpoint::U64;
-use rand::{seq::SliceRandom, thread_rng, SeedableRng};
+use rand::{seq::SliceRandom, thread_rng};
 use sc_network::{
-	config::{
-		FullNetworkConfiguration, NetworkConfiguration, NonReservedPeerMode, Params,
-		PeerStoreProvider, ProtocolId, RequestResponseConfig,
-	},
-	multiaddr,
-	request_responses::{IncomingRequest, OutgoingResponse, ProtocolConfig},
-	Multiaddr, NetworkWorker, NotificationMetrics, NotificationService, RequestFailure,
+	request_responses::{IncomingRequest, OutgoingResponse},
+	RequestFailure,
 };
-use sc_network_common::sync::message::BlockAnnouncesHandshake;
-use sc_network_types::{
-	ed25519::{Keypair, SecretKey},
-	PeerId,
-};
-use sc_service::{config::SetConfig, Role, SpawnTaskHandle};
+use sc_network_types::PeerId;
+use sc_service::SpawnTaskHandle;
 use sp_consensus::SyncOracle;
-use sp_core::{blake2_256, ed25519, Pair};
-use sp_runtime::traits::Zero;
 use std::{
 	collections::{HashMap, HashSet},
-	net::Ipv4Addr,
 	sync::Arc,
 	task::Poll,
 	time::{Duration, Instant},
@@ -230,10 +195,6 @@ impl NetworkMessage {
 pub struct NetworkInterface {
 	// Sender for subsystems.
 	bridge_to_interface_sender: UnboundedSender<NetworkMessage>,
-	pub peer_ids: Vec<PeerId>,
-	pub handles: Vec<OverseerHandle>,
-	pub listen_addresses: Vec<Multiaddr>,
-	pub notification_services: Vec<Box<dyn NotificationService>>,
 }
 
 // Wraps the receiving side of a interface to bridge channel. It is a required
@@ -278,10 +239,6 @@ impl NetworkInterface {
 		network: NetworkEmulatorHandle,
 		bandwidth_bps: usize,
 		mut from_network: UnboundedReceiver<NetworkMessage>,
-		peer_ids: Vec<PeerId>,
-		handles: Vec<OverseerHandle>,
-		listen_addresses: Vec<Multiaddr>,
-		notification_services: Vec<Box<dyn NotificationService>>,
 	) -> (NetworkInterface, NetworkInterfaceReceiver) {
 		let rx_limiter = Arc::new(Mutex::new(RateLimit::new(10, bandwidth_bps)));
 		let tx_limiter = Arc::new(Mutex::new(RateLimit::new(10, bandwidth_bps)));
@@ -428,13 +385,7 @@ impl NetworkInterface {
 		spawn_task_handle.spawn("network-interface-tx", "test-environment", tx_task);
 
 		(
-			Self {
-				bridge_to_interface_sender,
-				peer_ids,
-				handles,
-				listen_addresses,
-				notification_services,
-			},
+			Self { bridge_to_interface_sender },
 			NetworkInterfaceReceiver(interface_to_bridge_receiver),
 		)
 	}
@@ -892,19 +843,6 @@ pub fn new_network(
 		peers[*peer].disconnect();
 	}
 
-	let mut handles = vec![];
-	let mut peer_ids = vec![];
-	let mut listen_addresses = vec![];
-	let mut notification_services = vec![];
-	for (handle, peer_id, listen_address, notification_service) in
-		peers.iter().skip(1).map(|_| build_peer_overseer(config, dependencies))
-	{
-		handles.push(handle);
-		peer_ids.push(peer_id);
-		listen_addresses.push(listen_address);
-		notification_services.push(notification_service);
-	}
-
 	gum::info!(target: LOG_TARGET, "{}",format!("Network created, connected validator count {}", connected_count).bright_black());
 
 	let handle = NetworkEmulatorHandle {
@@ -919,10 +857,6 @@ pub fn new_network(
 		handle.clone(),
 		config.bandwidth,
 		from_network,
-		peer_ids,
-		handles,
-		listen_addresses,
-		notification_services,
 	);
 
 	(handle, network_interface, network_interface_receiver)
@@ -1175,7 +1109,17 @@ impl SyncOracle for DummySyncOracle {
 }
 
 #[derive(Clone, Debug)]
-pub struct DummyAuthotiryDiscoveryService;
+pub struct DummyAuthotiryDiscoveryService {
+	by_peer_id: Arc<std::sync::Mutex<HashMap<PeerId, HashSet<AuthorityDiscoveryId>>>>,
+}
+
+impl DummyAuthotiryDiscoveryService {
+	pub fn new(
+		by_peer_id: Arc<std::sync::Mutex<HashMap<PeerId, HashSet<AuthorityDiscoveryId>>>>,
+	) -> Self {
+		Self { by_peer_id }
+	}
+}
 
 #[async_trait::async_trait]
 impl AuthorityDiscovery for DummyAuthotiryDiscoveryService {
@@ -1183,181 +1127,16 @@ impl AuthorityDiscovery for DummyAuthotiryDiscoveryService {
 		&mut self,
 		authority: AuthorityDiscoveryId,
 	) -> Option<HashSet<sc_network::Multiaddr>> {
-		println!("get_addresses_by_authority_id authority: {:?}", authority);
-		None
+		todo!("get_addresses_by_authority_id authority: {:?}", authority);
 	}
 
 	async fn get_authority_ids_by_peer_id(
 		&mut self,
 		peer_id: PeerId,
 	) -> Option<HashSet<AuthorityDiscoveryId>> {
-		println!("get_authority_ids_by_peer_id peer_id: {:?}", peer_id);
-		None
+		let by_peer_id = self.by_peer_id.lock().unwrap();
+		by_peer_id.get(&peer_id).cloned()
 	}
-}
-
-fn build_peer_overseer(
-	config: &TestConfiguration,
-	dependencies: &TestEnvironmentDependencies,
-) -> (OverseerHandle, PeerId, Multiaddr, Box<dyn NotificationService>) {
-	let handle = Arc::new(dependencies.runtime.handle().clone());
-	let _guard = handle.enter();
-	let overseer_connector = OverseerConnector::with_event_capacity(64000);
-	let overseer_metrics = OverseerMetrics::default();
-	let spawn_task_handle = dependencies.task_manager.spawn_handle();
-
-	let network_bridge_metrics = NetworkBridgeMetrics::default();
-
-	let authority_discovery_service = DummyAuthotiryDiscoveryService;
-	let notification_sinks = Arc::new(parking_lot::Mutex::new(HashMap::new()));
-	let peer_set_protocol_names = PeerSetProtocolNames::new(GENESIS_HASH, None);
-
-	let req_protocol_names = ReqProtocolNames::new(GENESIS_HASH, None);
-	let mut net_conf = NetworkConfiguration::new_local();
-	let listen_address: Multiaddr = std::iter::once(sc_network::multiaddr::Protocol::Ip4(
-		std::net::Ipv4Addr::new(127, 0, 0, 1),
-	))
-	.chain(std::iter::once(sc_network::multiaddr::Protocol::Tcp(40001)))
-	.collect();
-	net_conf.listen_addresses = vec![listen_address.clone()];
-
-	let mut network_config =
-		FullNetworkConfiguration::<Block, Hash, NetworkWorker<Block, Hash>>::new(&net_conf, None);
-	let (statement_req_receiver, statement_req_cfg) =
-		IncomingReq::<StatementFetchingRequest>::get_config_receiver::<
-			Block,
-			NetworkWorker<Block, Hash>,
-		>(&req_protocol_names);
-	network_config.add_request_response_protocol(statement_req_cfg);
-	let (candidate_req_receiver, candidate_req_cfg) =
-		IncomingReq::<AttestedCandidateRequest>::get_config_receiver::<
-			Block,
-			NetworkWorker<Block, Hash>,
-		>(&req_protocol_names);
-	network_config.add_request_response_protocol(candidate_req_cfg);
-	let role = Role::Authority;
-	let peer_store_handle = network_config.peer_store_handle();
-	let block_announces_protocol =
-		format!("/{}/block-announces/1", array_bytes::bytes2hex("", GENESIS_HASH.as_ref()));
-	let protocol_id = ProtocolId::from("sup");
-	let notification_metrics = NotificationMetrics::new(None);
-	let (block_announce_config, notification_service) =
-		<NetworkWorker<Block, Hash> as sc_network::NetworkBackend<Block, Hash>>::notification_config(
-			block_announces_protocol.into(),
-			std::iter::once(format!("/{}/block-announces/1", protocol_id.as_ref()).into())
-				.collect(),
-			1024 * 1024,
-			Some(sc_network::config::NotificationHandshake::new(
-				BlockAnnouncesHandshake::<Block>::build(
-					sc_network::Roles::from(&role),
-					Zero::zero(),
-					GENESIS_HASH,
-					GENESIS_HASH,
-				),
-			)),
-			// NOTE: `set_config` will be ignored by `protocol.rs` as the block announcement
-			// protocol is still hardcoded into the peerset.
-			SetConfig {
-				in_peers: 0,
-				out_peers: 0,
-				reserved_nodes: vec![],
-				non_reserved_mode: NonReservedPeerMode::Deny,
-			},
-			notification_metrics.clone(),
-			Arc::clone(&peer_store_handle),
-		);
-
-	let notification_services = peer_sets_info::<Block, NetworkWorker<Block, Hash>>(
-		IsAuthority::Yes,
-		&peer_set_protocol_names,
-		notification_metrics.clone(),
-		Arc::clone(&peer_store_handle),
-	)
-	.into_iter()
-	.map(|(config, (peerset, service))| {
-		network_config.add_notification_protocol(config);
-		(peerset, service)
-	})
-	.collect::<std::collections::HashMap<PeerSet, Box<dyn sc_network::NotificationService>>>();
-	let worker =
-		<NetworkWorker<Block, Hash> as sc_network::NetworkBackend<Block, Hash>>::new(Params::<
-			Block,
-			Hash,
-			NetworkWorker<Block, Hash>,
-		> {
-			block_announce_config,
-			role,
-			executor: Box::new(|f| {
-				tokio::spawn(f);
-			}),
-			genesis_hash: GENESIS_HASH,
-			network_config,
-			protocol_id,
-			fork_id: None,
-			metrics_registry: None,
-			bitswap_config: None,
-			notification_metrics: notification_metrics.clone(),
-		})
-		.unwrap();
-	let network_service =
-		<NetworkWorker<Block, Hash> as sc_network::NetworkBackend<Block, Hash>>::network_service(
-			&worker,
-		);
-	let network_bridge_tx = NetworkBridgeTxSubsystem::new(
-		Arc::clone(&network_service),
-		authority_discovery_service.clone(),
-		network_bridge_metrics.clone(),
-		req_protocol_names,
-		peer_set_protocol_names.clone(),
-		Arc::clone(&notification_sinks),
-	);
-
-	let dummy_sync_oracle = Box::new(DummySyncOracle);
-
-	let network_bridge_rx = NetworkBridgeRxSubsystem::new(
-		Arc::clone(&network_service),
-		authority_discovery_service,
-		dummy_sync_oracle,
-		network_bridge_metrics,
-		peer_set_protocol_names,
-		notification_services,
-		Arc::clone(&notification_sinks),
-		false,
-	);
-
-	let statement_distribution = MockStatementDistribution::new(candidate_req_receiver, config);
-
-	let dummy = dummy_builder!(spawn_task_handle, overseer_metrics)
-		.replace_statement_distribution(|_| statement_distribution)
-		.replace_network_bridge_tx(|_| network_bridge_tx)
-		.replace_network_bridge_rx(|_| network_bridge_rx);
-
-	let (overseer, raw_handle) = dummy.build_with_connector(overseer_connector).unwrap();
-	let overseer_handle = OverseerHandle::new(raw_handle);
-
-	let spawn_handle = dependencies.task_manager.spawn_handle();
-	spawn_handle.spawn_blocking("1", "peer_overseer", overseer.run());
-	spawn_handle.spawn_blocking("1", "peer_network", worker.run());
-
-	let listen_address = tokio::spawn({
-		let network_service = Arc::clone(&network_service);
-
-		async move {
-			let listen_address = {
-				while network_service.listen_addresses().is_empty() {
-					tokio::time::sleep(Duration::from_millis(10)).await;
-				}
-				network_service.listen_addresses()[0].clone()
-			};
-			listen_address
-		}
-	});
-
-	let listen_address =
-		tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(listen_address))
-			.unwrap();
-
-	(overseer_handle, network_service.local_peer_id(), listen_address, notification_service)
 }
 
 #[cfg(test)]

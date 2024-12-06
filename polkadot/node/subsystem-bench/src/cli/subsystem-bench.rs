@@ -24,7 +24,7 @@ use polkadot_subsystem_bench::{approval, availability, configuration, statement}
 use pyroscope::PyroscopeAgent;
 use pyroscope_pprofrs::{pprof_backend, PprofConfig};
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
 mod valgrind;
 
@@ -164,13 +164,13 @@ impl BenchCli {
 					env.runtime().block_on(approval::bench_approvals(&mut env, state))
 				},
 				TestObjective::StatementDistribution => {
-					let state = statement::TestState::new(&test_config);
+					let state = Arc::new(statement::TestState::new(&test_config));
 					let (mut env, test_authorities, _protocol_config, _service) =
-						statement::prepare_test(&state, true);
+						statement::prepare_test(Arc::clone(&state), true);
 					env.runtime().block_on(statement::benchmark_statement_distribution(
 						&mut env,
 						&test_authorities,
-						&state,
+						state,
 					))
 				},
 			};
