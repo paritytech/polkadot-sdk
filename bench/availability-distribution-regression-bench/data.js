@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733438861768,
+  "lastUpdate": 1733495114400,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -41173,6 +41173,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009285197793333394,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1177472+mordamax@users.noreply.github.com",
+            "name": "Maksym H",
+            "username": "mordamax"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "526a440203d1ff96640c6163291e57e10c8e4f9b",
+          "message": "Update weights for westend pallet balances (#6777)\n\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-12-06T12:34:08Z",
+          "tree_id": "c34308d06a7d29fffefcd16aadfe5479d581dde6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/526a440203d1ff96640c6163291e57e10c8e4f9b"
+        },
+        "date": 1733495094707,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.008927649706666761,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1781944973333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.016292299753333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024702893313333325,
             "unit": "seconds"
           }
         ]
