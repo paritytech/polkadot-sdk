@@ -270,20 +270,19 @@ fetch_debian_package_from_s3() {
 }
 
 # Fetch the release artifacts like binary and signatures from S3. Assumes the ENV are set:
-# - RELEASE_ID
-# - GITHUB_TOKEN
-# - REPO in the form paritytech/polkadot
+# inputs: binary (polkadot), target(aarch64-apple-darwin)
 fetch_release_artifacts_from_s3() {
   BINARY=$1
-  OUTPUT_DIR=${OUTPUT_DIR:-"./release-artifacts/${BINARY}"}
+  TARGET=$2
+  OUTPUT_DIR=${OUTPUT_DIR:-"./release-artifacts/${TARGET}/${BINARY}"}
   echo "OUTPUT_DIR : $OUTPUT_DIR"
 
   URL_BASE=$(get_s3_url_base $BINARY)
   echo "URL_BASE=$URL_BASE"
 
-  URL_BINARY=$URL_BASE/$VERSION/$BINARY
-  URL_SHA=$URL_BASE/$VERSION/$BINARY.sha256
-  URL_ASC=$URL_BASE/$VERSION/$BINARY.asc
+  URL_BINARY=$URL_BASE/$VERSION/$TARGET/$BINARY
+  URL_SHA=$URL_BASE/$VERSION/$TARGET/$BINARY.sha256
+  URL_ASC=$URL_BASE/$VERSION/$TARGET/$BINARY.asc
 
   # Fetch artifacts
   mkdir -p "$OUTPUT_DIR"
@@ -298,7 +297,7 @@ fetch_release_artifacts_from_s3() {
   pwd
   ls -al --color
   popd > /dev/null
-
+  unset OUTPUT_DIR
 }
 
 # Pass the name of the binary as input, it will
@@ -306,15 +305,26 @@ fetch_release_artifacts_from_s3() {
 function get_s3_url_base() {
     name=$1
     case $name in
-    polkadot | polkadot-execute-worker | polkadot-prepare-worker | staking-miner)
+      polkadot | polkadot-execute-worker | polkadot-prepare-worker )
         printf "https://releases.parity.io/polkadot"
         ;;
 
-    polkadot-parachain)
-        printf "https://releases.parity.io/cumulus"
+      polkadot-parachain)
+        printf "https://releases.parity.io/polkadot-parachain"
         ;;
 
-    *)
+      polkadot-omni-node)
+        printf "https://releases.parity.io/polkadot-omni-node"
+        ;;
+
+      chain-spec-builder)
+        printf "https://releases.parity.io/chain-spec-builder"
+        ;;
+
+      frame-omni-bencher)
+        printf "https://releases.parity.io/frame-omni-bencher"
+        ;;
+      *)
         printf "UNSUPPORTED BINARY $name"
         exit 1
         ;;
@@ -496,4 +506,17 @@ validate_stable_tag() {
         echo "The input '$tag' does not match the pattern."
         exit 1
     fi
+}
+
+# Prepare docker stable tag form the polkadot stable tag
+# input: tag (polkaodot-stableYYMM(-X) or polkadot-stableYYMM(-X)-rcX)
+# output: stableYYMM(-X) or stableYYMM(-X)-rcX
+prepare_docker_stable_tag() {
+  tag="$1"
+  if [[ "$tag" =~ stable[0-9]{4}(-[0-9]+)?(-rc[0-9]+)? ]]; then
+      echo "${BASH_REMATCH[0]}"
+  else
+      echo "Tag is invalid: $tag"
+      exit 1
+  fi
 }
