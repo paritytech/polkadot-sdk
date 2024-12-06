@@ -6,6 +6,7 @@ title: XCMv5 - SetHints instruction
 doc:
   - audience: Runtime Dev
     description: |
+      Implementation of fellowship RFC 107.
       The new SetHints instruction is a repackaging of SetAssetClaimer that also allows future
       "hints" which alter the default behaviour of the executor.
       The AllowTopLevelPaidExecutionFrom barrier allows this instruction between WithdrawAsset and
