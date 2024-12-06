@@ -134,8 +134,7 @@ pub mod weights;
 
 use core::{cmp, result};
 use frame::{
-	prelude::*,
-	runtime::prelude::derive_impl,
+	runtime::prelude::*,
 	traits::{AtLeast32Bit, OnTimestampSet, Scale, Time, UnixTime},
 };
 use sp_timestamp::{InherentError, InherentType, INHERENT_IDENTIFIER};

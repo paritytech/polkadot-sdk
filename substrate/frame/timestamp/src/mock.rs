@@ -19,7 +19,7 @@
 
 use super::*;
 use crate as pallet_timestamp;
-use frame::{prelude::*, testing_prelude::*};
+use frame::testing_prelude::*;
 type Block = frame_system::mocking::MockBlock<Test>;
 type Moment = u64;
 
