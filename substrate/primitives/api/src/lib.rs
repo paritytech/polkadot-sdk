@@ -115,7 +115,7 @@ pub mod __private {
 
 #[cfg(feature = "std")]
 pub use sp_core::traits::CallContext;
-use sp_core::OpaqueMetadata;
+use sp_core::{OpaqueMetadata, ViewFunctionDispatchError, ViewFunctionId};
 #[cfg(feature = "std")]
 use sp_externalities::{Extension, Extensions};
 #[cfg(feature = "std")]
@@ -127,6 +127,7 @@ use sp_runtime::{traits::Block as BlockT, ExtrinsicInclusionMode};
 pub use sp_state_machine::StorageProof;
 #[cfg(feature = "std")]
 use sp_state_machine::{backend::AsTrieBackend, Backend as StateBackend, OverlayedChanges};
+use sp_std::vec::Vec;
 use sp_version::RuntimeVersion;
 #[cfg(feature = "std")]
 use std::cell::RefCell;
@@ -842,6 +843,12 @@ decl_runtime_apis! {
 		///
 		/// This can be used to call `metadata_at_version`.
 		fn metadata_versions() -> alloc::vec::Vec<u32>;
+	}
+
+	/// API for executing view function queriess
+	pub trait RuntimeViewFunction where {
+		/// Execute a view function query.
+		fn execute_view_function(query_id: ViewFunctionId, input: Vec<u8>) -> Result<Vec<u8>, ViewFunctionDispatchError>;
 	}
 }
 
