@@ -57,8 +57,16 @@ macro_rules! declare_pipeline {
 					fn from(e: ($( [< E $basket_0 >], )*)) -> Self {
 						TransactionExtensionPipeline(
 							$( e.$basket_0, )*
-							$( { $basket_1; () }, )*
-							$( { $basket_2; () }, )*
+							$( {
+								#[allow(clippy::no_effect)]
+								$basket_1;
+								()
+							}, )*
+							$( {
+								#[allow(clippy::no_effect)]
+								$basket_2;
+								()
+							}, )*
 						)
 					}
 				}
@@ -82,8 +90,16 @@ macro_rules! declare_pipeline {
 					fn from(e: ($( [< E $basket_0 >], )*)) -> Self {
 						TransactionExtensionPipelineImplicit(
 							$( e.$basket_0, )*
-							$( { $basket_1; () }, )*
-							$( { $basket_2; () }, )*
+							$( {
+								#[allow(clippy::no_effect)]
+								$basket_1;
+								()
+							}, )*
+							$( {
+								#[allow(clippy::no_effect)]
+								$basket_2;
+								()
+							}, )*
 						)
 					}
 				}
