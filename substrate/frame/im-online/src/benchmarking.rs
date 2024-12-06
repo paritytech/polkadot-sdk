@@ -19,15 +19,8 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use frame_benchmarking::v2::*;
-use frame_support::{traits::UnfilteredDispatchable, WeakBoundedVec};
-use frame_system::RawOrigin;
-use sp_runtime::{
-	traits::{ValidateUnsigned, Zero},
-	transaction_validity::TransactionSource,
-};
-
 use crate::*;
+use frame::{benchmarking::prelude::*, traits::UnfilteredDispatchable};
 
 const MAX_KEYS: u32 = 1000;
 

@@ -19,13 +19,19 @@
 
 #![cfg(test)]
 
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64},
-	weights::Weight,
+use frame::{
+	arithmetic::Permill,
+	deps::{
+		frame_system, sp_io,
+		sp_runtime::{self, testing::UintAuthorityId},
+	},
+	runtime::{
+		prelude::{construct_runtime, derive_impl, parameter_types, weights::Weight},
+		testing_prelude::BuildStorage,
+	},
+	traits::{ConstU32, ConstU64, ConvertInto, EstimateNextSessionRotation},
 };
 use pallet_session::historical as pallet_session_historical;
-use sp_runtime::{testing::UintAuthorityId, traits::ConvertInto, BuildStorage, Permill};
 use sp_staking::{
 	offence::{OffenceError, ReportOffence},
 	SessionIndex,
@@ -36,7 +42,7 @@ use crate::Config;
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Runtime {
 		System: frame_system,
 		Session: pallet_session,
@@ -150,7 +156,7 @@ parameter_types! {
 
 pub struct TestNextSessionRotation;
 
-impl frame_support::traits::EstimateNextSessionRotation<u64> for TestNextSessionRotation {
+impl EstimateNextSessionRotation<u64> for TestNextSessionRotation {
 	fn average_session_length() -> u64 {
 		// take the mock result if any and return it
 		let mock = MockAverageSessionLength::mutate(|p| p.take());
