@@ -666,7 +666,7 @@ mod tests {
 	}
 
 	#[test]
-	fn full_test() {
+	fn general_tx_test() {
 		type Pipeline = TransactionExtensionPipeline<TransactionExtensionA, TransactionExtensionB>;
 		let p = Pipeline::from((
 			TransactionExtensionA::new(A_EXPLICIT),
@@ -701,7 +701,7 @@ mod tests {
 		assert_eq!(pre.0, A_PRE);
 		assert_eq!(pre.1, B_PRE);
 
-		let details = Pipeline::post_dispatch_details(pre, &(), &mut (), 0, &Ok(())).unwrap();
+		let details = Pipeline::post_dispatch_details(pre, &(), &(), 0, &Ok(())).unwrap();
 
 		assert_eq!(details, (A_POST_DISPATCH_WEIGHT + B_POST_DISPATCH_WEIGHT).into());
 	}
