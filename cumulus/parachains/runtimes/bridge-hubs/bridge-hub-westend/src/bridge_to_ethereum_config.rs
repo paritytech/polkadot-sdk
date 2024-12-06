@@ -42,6 +42,7 @@ use testnet_parachains_constants::westend::{
 use crate::xcm_config::RelayNetwork;
 #[cfg(feature = "runtime-benchmarks")]
 use benchmark_helpers::DoNothingRouter;
+use cumulus_primitives_core::ParaId;
 use frame_support::{parameter_types, weights::ConstantMultiplier};
 use pallet_xcm::EnsureXcm;
 use sp_runtime::{
@@ -63,6 +64,7 @@ pub type SnowbridgeExporter = EthereumBlobExporter<
 
 parameter_types! {
 	pub storage WETHAddress: H160 = H160(hex_literal::hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"));
+	pub AssetHubParaId: ParaId = ParaId::from(westend_runtime_constants::system_parachain::ASSET_HUB_ID);
 }
 
 pub type SnowbridgeExporterV2 = EthereumBlobExporterV2<
@@ -72,6 +74,7 @@ pub type SnowbridgeExporterV2 = EthereumBlobExporterV2<
 	snowbridge_core::AgentIdOf,
 	EthereumSystem,
 	WETHAddress,
+	AssetHubParaId,
 >;
 
 // Ethereum Bridge

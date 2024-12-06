@@ -13,7 +13,7 @@ use frame_support::{
 	ensure,
 	traits::{Contains, Get, ProcessMessageError},
 };
-use snowbridge_core::TokenId;
+use snowbridge_core::{ParaId, TokenId};
 use snowbridge_outbound_primitives::v2::SendMessage;
 use sp_core::{H160, H256};
 use sp_runtime::traits::MaybeEquivalence;
@@ -31,6 +31,7 @@ pub struct EthereumBlobExporter<
 	AgentHashedDescription,
 	ConvertAssetId,
 	WETHAddress,
+	AssetHubParaId,
 >(
 	PhantomData<(
 		UniversalLocation,
@@ -39,6 +40,7 @@ pub struct EthereumBlobExporter<
 		AgentHashedDescription,
 		ConvertAssetId,
 		WETHAddress,
+		AssetHubParaId,
 	)>,
 );
 
@@ -49,6 +51,7 @@ impl<
 		AgentHashedDescription,
 		ConvertAssetId,
 		WETHAddress,
+		AssetHubParaId,
 	> ExportXcm
 	for EthereumBlobExporter<
 		UniversalLocation,
@@ -57,6 +60,7 @@ impl<
 		AgentHashedDescription,
 		ConvertAssetId,
 		WETHAddress,
+		AssetHubParaId,
 	>
 where
 	UniversalLocation: Get<InteriorLocation>,
@@ -65,6 +69,7 @@ where
 	AgentHashedDescription: ConvertLocation<H256>,
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
 	WETHAddress: Get<H160>,
+	AssetHubParaId: Get<ParaId>,
 {
 	type Ticket = (Vec<u8>, XcmHash);
 
@@ -93,7 +98,7 @@ where
 		}
 
 		// Cloning universal_source to avoid modifying the value so subsequent exporters can use it.
-		let (local_net, _) = universal_source.clone()
+		let (local_net, local_sub) = universal_source.clone()
             .ok_or_else(|| {
                 log::error!(target: TARGET, "universal source not provided.");
                 SendError::MissingArgument
@@ -106,6 +111,19 @@ where
 
 		if Ok(local_net) != universal_location.global_consensus() {
 			log::trace!(target: TARGET, "skipped due to unmatched relay network {local_net:?}.");
+			return Err(SendError::NotApplicable)
+		}
+
+		let para_id = match local_sub.as_slice() {
+			[Parachain(para_id)] => *para_id,
+			_ => {
+				log::error!(target: TARGET, "could not get parachain id from universal source '{local_sub:?}'.");
+				return Err(SendError::NotApplicable)
+			},
+		};
+
+		if ParaId::from(para_id) != AssetHubParaId::get() {
+			log::error!(target: TARGET, "is not from asset hub '{para_id:?}'.");
 			return Err(SendError::NotApplicable)
 		}
 
