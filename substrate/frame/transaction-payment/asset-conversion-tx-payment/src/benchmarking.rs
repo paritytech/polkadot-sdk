@@ -21,6 +21,8 @@ extern crate alloc;
 
 use super::*;
 use crate::Pallet;
+
+/*
 use frame_benchmarking::v2::*;
 use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
@@ -30,7 +32,8 @@ use frame_system::RawOrigin;
 use sp_runtime::traits::{
 	AsSystemOriginSigner, AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable,
 };
-
+*/
+use frame::{benchmarking::prelude::*, traits::{AsSystemOriginSigner, AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable}, prelude::{DispatchInfo, PostDispatchInfo}};
 #[benchmarks(where
 	T::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
