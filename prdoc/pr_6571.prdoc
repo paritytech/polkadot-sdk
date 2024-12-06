@@ -1,0 +1,17 @@
+title: '[draft] Introduce `TransactionExtensionPipeline` to use instead of tuple for
+  pipeline with more than 12 elements'
+doc:
+- audience: Todo
+  description: |-
+    Fix https://github.com/paritytech/polkadot-sdk/issues/6569
+
+    Introduce a new type `TransactionExtensionPipeline` that has 32 generics that default to `()`.
+    This type accepts up to 32 transaction extensions which is better than the limit of 12 for a tuple.
+
+    As stated in the linked issue, the issue with tuple is that tuple of tuple is not the same as a single tuple. The inherited implication is changing. But it is impossible to find out the order in the metadata because the metadata is just a vec of transaction extension metadata.
+
+    TODO:
+    * additional test for weights.
+crates:
+- name: sp-runtime
+  bump: major
