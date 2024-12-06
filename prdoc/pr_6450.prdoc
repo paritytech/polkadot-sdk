@@ -16,3 +16,7 @@ crates:
     bump: minor
   - name: polkadot-sdk-docs
     bump: minor
+  - name: sc-runtime-utilities
+    bump: minor
+  - name: frame-benchmarking-cli
+    bump: patch
