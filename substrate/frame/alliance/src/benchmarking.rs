@@ -21,18 +21,16 @@
 
 use super::{Call as AllianceCall, Pallet as Alliance, *};
 use core::{cmp, mem::size_of};
-use frame::{
-	benchmarking::prelude::*,
-	deps::frame_system::{Pallet as System, RawOrigin as SystemOrigin},
-	traits::{EnsureOrigin, Get, UnfilteredDispatchable},
-};
+use frame::{benchmarking::prelude::*, traits::UnfilteredDispatchable};
+use frame_system::Pallet as System;
+use RawOrigin as SystemOrigin;
 
 const SEED: u32 = 0;
 
 const MAX_BYTES: u32 = 1_024;
 
 fn assert_last_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::RuntimeEvent) {
-	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
+	System::<T>::assert_last_event(generic_event.into());
 }
 
 fn cid(input: impl AsRef<[u8]>) -> Cid {

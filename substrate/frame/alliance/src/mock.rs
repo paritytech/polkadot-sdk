@@ -18,14 +18,7 @@
 //! Test utilities
 use frame::{
 	arithmetic::Perbill,
-	runtime::{
-		prelude::{
-			construct_runtime, derive_impl, ord_parameter_types, parameter_types, BoundedVec,
-			EnsureRoot, EnsureSignedBy,
-		},
-		testing_prelude::BuildStorage,
-	},
-	testing_prelude::{assert_noop, assert_ok, TestExternalities},
+	testing_prelude::*,
 	traits::{EitherOfDiverse, IdentifyAccount, Lazy, Verify},
 };
 use pallet_identity::{

@@ -19,13 +19,7 @@
 
 use super::*;
 use crate::{self as alliance, mock::*};
-use frame::{
-	deps::{
-		frame_system::{EventRecord, Phase},
-		sp_runtime::DispatchError::BadOrigin,
-	},
-	testing_prelude::{assert_noop, assert_ok},
-};
+use frame::{deps::sp_runtime::DispatchError::BadOrigin, testing_prelude::*};
 
 type AllianceMotionEvent = pallet_collective::Event<Test, pallet_collective::Instance1>;
 

@@ -6,9 +6,11 @@ title: migrate pallet-alliance to umbrella crate.
 doc:
   - audience: Runtime Dev
     description: |
-      Imports frame umbrella crate systems into pallet-alliance and 
-      exports BoundedVec as part of runtime::prelude of the 
-      polkadot-sdk-frame crate.
+      This PR:
+      - Imports frame umbrella crate systems into pallet-alliance. 
+      - Includes BoundedVec as part of `runtime::prelude`.
+      - Includes the event module in `testing_prelude`, this are systems used in asseccing events
+      in mock runtimes across different crates in the PolkadotSDK.
 
 crates:
   - name: pallet-alliance
