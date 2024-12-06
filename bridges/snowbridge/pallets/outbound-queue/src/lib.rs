@@ -7,7 +7,7 @@
 //! Messages come either from sibling parachains via XCM, or BridgeHub itself
 //! via the `snowbridge-pallet-system`:
 //!
-//! 1. `snowbridge_router_primitives::outbound::EthereumBlobExporter::deliver`
+//! 1. `snowbridge_outbound_router_primitives::EthereumBlobExporter::deliver`
 //! 2. `snowbridge_pallet_system::Pallet::send`
 //!
 //! The message submission pipeline works like this:
@@ -110,12 +110,11 @@ use frame_support::{
 	traits::{tokens::Balance, Contains, Defensive, EnqueueMessage, Get, ProcessMessageError},
 	weights::{Weight, WeightToFee},
 };
-use snowbridge_core::{
-	outbound::{Fee, GasMeter, QueuedMessage, VersionedQueuedMessage, ETHER_DECIMALS},
-	BasicOperatingMode, ChannelId,
+use snowbridge_core::{BasicOperatingMode, ChannelId};
+use snowbridge_merkle_tree::merkle_root;
+use snowbridge_outbound_primitives::v1::{
+	Fee, GasMeter, QueuedMessage, VersionedQueuedMessage, ETHER_DECIMALS,
 };
-use snowbridge_outbound_queue_merkle_tree::merkle_root;
-pub use snowbridge_outbound_queue_merkle_tree::MerkleProof;
 use sp_core::{H256, U256};
 use sp_runtime::{
 	traits::{CheckedDiv, Hash},

@@ -100,6 +100,7 @@ bp-asset-hub-westend = { workspace = true }
 bp-bridge-hub-rococo = { workspace = true }
 bp-bridge-hub-westend = { workspace = true }
 snowbridge-router-primitives = { workspace = true }
+snowbridge-outbound-router-primitives = { workspace = true }
 
 [dev-dependencies]
 asset-test-utils = { workspace = true, default-features = true }
@@ -245,6 +246,7 @@ std = [
 	"primitive-types/std",
 	"scale-info/std",
 	"serde_json/std",
+	"snowbridge-outbound-router-primitives/std",
 	"snowbridge-router-primitives/std",
 	"sp-api/std",
 	"sp-block-builder/std",

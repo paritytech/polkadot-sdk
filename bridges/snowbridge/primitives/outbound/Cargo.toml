@@ -1,0 +1,56 @@
+[package]
+name = "snowbridge-outbound-primitives"
+description = "Snowbridge outbound primitives"
+version = "0.2.0"
+authors = ["Snowfork <contact@snowfork.com>"]
+edition.workspace = true
+repository.workspace = true
+license = "Apache-2.0"
+categories = ["cryptography::cryptocurrencies"]
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+hex-literal = { workspace = true, default-features = true }
+
+polkadot-parachain-primitives = { workspace = true }
+xcm = { workspace = true }
+xcm-builder = { workspace = true }
+
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-std = { workspace = true }
+sp-core = { workspace = true }
+sp-arithmetic = { workspace = true }
+
+ethabi = { workspace = true }
+alloy-primitives = { features = ["rlp"], workspace = true }
+alloy-sol-types = { workspace = true }
+
+snowbridge-core = { workspace = true }
+
+[dev-dependencies]
+hex = { workspace = true, default-features = true }
+xcm-executor = { workspace = true, default-features = true }
+
+[features]
+default = ["std"]
+std = [
+	"alloy-primitives/std",
+	"alloy-sol-types/std",
+	"codec/std",
+	"ethabi/std",
+	"frame-support/std",
+	"frame-system/std",
+	"polkadot-parachain-primitives/std",
+	"scale-info/std",
+	"snowbridge-core/std",
+	"sp-arithmetic/std",
+	"sp-core/std",
+	"sp-std/std",
+	"xcm-builder/std",
+	"xcm/std",
+]
