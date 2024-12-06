@@ -18,7 +18,6 @@
 //! Contains the [`OverheadCmd`] as entry point for the CLI to execute
 //! the *overhead* benchmarks.
 
-use super::runtime_utilities::*;
 use crate::{
 	extrinsic::{
 		bench::{Benchmark, BenchmarkParams as ExtrinsicBenchmarkParams},
@@ -50,6 +49,7 @@ use sc_cli::{CliConfiguration, Database, ImportParams, Result, SharedParams};
 use sc_client_api::{execution_extensions::ExecutionExtensions, UsageProvider};
 use sc_client_db::{BlocksPruning, DatabaseSettings};
 use sc_executor::WasmExecutor;
+use sc_runtime_utilities::fetch_latest_metadata_from_code_blob;
 use sc_service::{new_client, new_db_backend, BasePath, ClientConfig, TFullClient, TaskManager};
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -285,7 +285,7 @@ impl OverheadCmd {
 			log::debug!(target: LOG_TARGET, "Initializing state handler with chain-spec from API: {:?}", chain_spec);
 
 			let source = genesis_builder_to_source();
-			return Ok((GenesisStateHandler::ChainSpec(chain_spec, source), self.params.para_id))
+			return Ok((GenesisStateHandler::ChainSpec(chain_spec, source), self.params.para_id));
 		};
 
 		// Handle chain-spec passed in via CLI.
@@ -302,7 +302,7 @@ impl OverheadCmd {
 			return Ok((
 				GenesisStateHandler::ChainSpec(chain_spec, source),
 				self.params.para_id.or(para_id_from_chain_spec),
-			))
+			));
 		};
 
 		// Check for runtimes. In general, we make sure that `--runtime` and `--chain` are
@@ -317,7 +317,7 @@ impl OverheadCmd {
 					Some(self.params.genesis_builder_preset.clone()),
 				),
 				self.params.para_id,
-			))
+			));
 		};
 
 		Err("Neither a runtime nor a chain-spec were specified".to_string().into())
@@ -335,7 +335,7 @@ impl OverheadCmd {
 				ErrorKind::MissingRequiredArgument,
 				"Provide either a runtime via `--runtime` or a chain spec via `--chain`"
 					.to_string(),
-			))
+			));
 		}
 
 		match self.params.genesis_builder {
@@ -344,7 +344,7 @@ impl OverheadCmd {
 					return Err((
 						ErrorKind::MissingRequiredArgument,
 						"Provide a chain spec via `--chain`.".to_string(),
-					))
+					));
 				},
 			_ => {},
 		};
@@ -401,7 +401,10 @@ impl OverheadCmd {
 			.build();
 
 		let metadata =
-			fetch_latest_metadata_from_code_blob(&executor, state_handler.get_code_bytes()?)?;
+			fetch_latest_metadata_from_code_blob(&executor, state_handler.get_code_bytes()?)
+				.map_err(|_| {
+					<&str as Into<sc_cli::Error>>::into("Unable to fetch latest stable metadata")
+				})?;
 
 		// At this point we know what kind of chain we are dealing with.
 		let chain_type = identify_chain(&metadata, para_id);
