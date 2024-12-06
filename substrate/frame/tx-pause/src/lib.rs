@@ -79,14 +79,6 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use frame::{
-	/*
-	deps::frame_support::{dispatch::GetDispatchInfo, DefaultNoBound},
-	prelude::*,
-	traits::{
-		CallMetadata, Contains, Dispatchable, GetCallMetadata, IsSubType, IsType, TransactionPause,
-		TransactionPauseError,
-	},
-	*/
 	runtime::prelude::*,
 	traits::{CallMetadata, GetCallMetadata, TransactionPause, TransactionPauseError},
 };
@@ -104,7 +96,6 @@ pub type PalletCallNameOf<T> = BoundedVec<u8, <T as Config>::MaxNameLen>;
 /// to partially or fully specify an item a variant of a  [`Config::RuntimeCall`].
 pub type RuntimeCallNameOf<T> = (PalletNameOf<T>, PalletCallNameOf<T>);
 
-// #[frame_support::pallet]
 #[frame::pallet]
 pub mod pallet {
 	use super::*;
