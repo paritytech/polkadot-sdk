@@ -1,6 +1,6 @@
 title: 'Introduce `TransactionExtensionPipeline` to use instead of tuple for pipeline with more than 12 elements'
 doc:
-- audience: Todo
+- audience: Runtime Dev
   description: |-
     Introduce a new type `TransactionExtensionPipeline` that has 32 generics that default to `()`.
     This type accepts up to 32 transaction extensions. It can be used in place of tuple which is
