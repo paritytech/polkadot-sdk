@@ -33,6 +33,7 @@ use frame_support::weights::{
 	constants::WEIGHT_REF_TIME_PER_SECOND, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
 	WeightToFeePolynomial,
 };
+pub use genesis_config_presets::PARACHAIN_ID;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 
