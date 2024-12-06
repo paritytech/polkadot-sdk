@@ -26,10 +26,10 @@ mod sys {
 	mod abi {}
 
 	impl abi::FromHost for ReturnCode {
-		type Regs = (u32,);
+		type Regs = (u64,);
 
 		fn from_host((a0,): Self::Regs) -> Self {
-			ReturnCode(a0)
+			ReturnCode(a0 as _)
 		}
 	}
 
@@ -115,7 +115,7 @@ mod sys {
 			message_len: u32,
 			message_ptr: *const u8,
 		) -> ReturnCode;
-		pub fn set_code_hash(code_hash_ptr: *const u8) -> ReturnCode;
+		pub fn set_code_hash(code_hash_ptr: *const u8);
 		pub fn ecdsa_to_eth_address(key_ptr: *const u8, out_ptr: *mut u8) -> ReturnCode;
 		pub fn instantiation_nonce() -> u64;
 		pub fn lock_delegate_dependency(code_hash_ptr: *const u8);
@@ -207,33 +207,33 @@ impl HostFn for HostFnImpl {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let deposit_limit_ptr = ptr_or_sentinel(&deposit_limit);
 		let salt_ptr = ptr_or_sentinel(&salt);
-		#[repr(packed)]
+		#[repr(C)]
 		#[allow(dead_code)]
 		struct Args {
-			code_hash: *const u8,
+			code_hash: u32,
 			ref_time_limit: u64,
 			proof_size_limit: u64,
-			deposit_limit: *const u8,
-			value: *const u8,
-			input: *const u8,
+			deposit_limit: u32,
+			value: u32,
+			input: u32,
 			input_len: u32,
-			address: *const u8,
-			output: *mut u8,
-			output_len: *mut u32,
-			salt: *const u8,
+			address: u32,
+			output: u32,
+			output_len: u32,
+			salt: u32,
 		}
 		let args = Args {
-			code_hash: code_hash.as_ptr(),
+			code_hash: code_hash.as_ptr() as _,
 			ref_time_limit,
 			proof_size_limit,
-			deposit_limit: deposit_limit_ptr,
-			value: value.as_ptr(),
-			input: input.as_ptr(),
+			deposit_limit: deposit_limit_ptr as _,
+			value: value.as_ptr() as _,
+			input: input.as_ptr() as _,
 			input_len: input.len() as _,
-			address,
-			output: output_ptr,
-			output_len: &mut output_len as *mut _,
-			salt: salt_ptr,
+			address: address as _,
+			output: output_ptr as _,
+			output_len: &mut output_len as *mut _ as _,
+			salt: salt_ptr as _,
 		};
 
 		let ret_code = { unsafe { sys::instantiate(&args as *const Args as *const _) } };
@@ -257,31 +257,31 @@ impl HostFn for HostFnImpl {
 	) -> Result {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let deposit_limit_ptr = ptr_or_sentinel(&deposit_limit);
-		#[repr(packed)]
+		#[repr(C)]
 		#[allow(dead_code)]
 		struct Args {
 			flags: u32,
-			callee: *const u8,
+			callee: u32,
 			ref_time_limit: u64,
 			proof_size_limit: u64,
-			deposit_limit: *const u8,
-			value: *const u8,
-			input: *const u8,
+			deposit_limit: u32,
+			value: u32,
+			input: u32,
 			input_len: u32,
-			output: *mut u8,
-			output_len: *mut u32,
+			output: u32,
+			output_len: u32,
 		}
 		let args = Args {
 			flags: flags.bits(),
-			callee: callee.as_ptr(),
+			callee: callee.as_ptr() as _,
 			ref_time_limit,
 			proof_size_limit,
-			deposit_limit: deposit_limit_ptr,
-			value: value.as_ptr(),
-			input: input.as_ptr(),
+			deposit_limit: deposit_limit_ptr as _,
+			value: value.as_ptr() as _,
+			input: input.as_ptr() as _,
 			input_len: input.len() as _,
-			output: output_ptr,
-			output_len: &mut output_len as *mut _,
+			output: output_ptr as _,
+			output_len: &mut output_len as *mut _ as _,
 		};
 
 		let ret_code = { unsafe { sys::call(&args as *const Args as *const _) } };
@@ -308,29 +308,29 @@ impl HostFn for HostFnImpl {
 	) -> Result {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let deposit_limit_ptr = ptr_or_sentinel(&deposit_limit);
-		#[repr(packed)]
+		#[repr(C)]
 		#[allow(dead_code)]
 		struct Args {
 			flags: u32,
-			address: *const u8,
+			address: u32,
 			ref_time_limit: u64,
 			proof_size_limit: u64,
-			deposit_limit: *const u8,
-			input: *const u8,
+			deposit_limit: u32,
+			input: u32,
 			input_len: u32,
-			output: *mut u8,
-			output_len: *mut u32,
+			output: u32,
+			output_len: u32,
 		}
 		let args = Args {
 			flags: flags.bits(),
-			address: address.as_ptr(),
+			address: address.as_ptr() as _,
 			ref_time_limit,
 			proof_size_limit,
-			deposit_limit: deposit_limit_ptr,
-			input: input.as_ptr(),
+			deposit_limit: deposit_limit_ptr as _,
+			input: input.as_ptr() as _,
 			input_len: input.len() as _,
-			output: output_ptr,
-			output_len: &mut output_len as *mut _,
+			output: output_ptr as _,
+			output_len: &mut output_len as *mut _ as _,
 		};
 
 		let ret_code = { unsafe { sys::delegate_call(&args as *const Args as *const _) } };
@@ -531,9 +531,8 @@ impl HostFn for HostFnImpl {
 		ret_val.into_bool()
 	}
 
-	fn set_code_hash(code_hash: &[u8; 32]) -> Result {
-		let ret_val = unsafe { sys::set_code_hash(code_hash.as_ptr()) };
-		ret_val.into()
+	fn set_code_hash(code_hash: &[u8; 32]) {
+		unsafe { sys::set_code_hash(code_hash.as_ptr()) }
 	}
 
 	fn code_hash(address: &[u8; 20], output: &mut [u8; 32]) {

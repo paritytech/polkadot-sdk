@@ -149,9 +149,12 @@ impl From<TransactionExtensionMetadataIR> for SignedExtensionMetadata {
 
 impl From<ExtrinsicMetadataIR> for ExtrinsicMetadata {
 	fn from(ir: ExtrinsicMetadataIR) -> Self {
+		let lowest_supported_version =
+			ir.versions.iter().min().expect("Metadata V14 supports one version; qed");
+
 		ExtrinsicMetadata {
 			ty: ir.ty,
-			version: ir.version,
+			version: *lowest_supported_version,
 			signed_extensions: ir.extensions.into_iter().map(Into::into).collect(),
 		}
 	}
