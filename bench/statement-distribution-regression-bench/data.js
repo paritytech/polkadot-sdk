@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733438914876,
+  "lastUpdate": 1733495168031,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -23623,6 +23623,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.045514878937999964,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1177472+mordamax@users.noreply.github.com",
+            "name": "Maksym H",
+            "username": "mordamax"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "526a440203d1ff96640c6163291e57e10c8e4f9b",
+          "message": "Update weights for westend pallet balances (#6777)\n\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-12-06T12:34:08Z",
+          "tree_id": "c34308d06a7d29fffefcd16aadfe5479d581dde6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/526a440203d1ff96640c6163291e57e10c8e4f9b"
+        },
+        "date": 1733495148550,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.93399999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.045440217887999956,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03530249329200001,
             "unit": "seconds"
           }
         ]
