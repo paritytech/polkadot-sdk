@@ -139,11 +139,11 @@ pub mod genesis_config_presets {
 		let endowment = <MinimumBalance as Get<Balance>>::get().max(1) * 1000;
 		build_struct_json_patch!(RuntimeGenesisConfig {
 			balances: BalancesConfig {
-				balances: AccountKeyring::iter()
+				balances: Sr25519Keyring::iter()
 					.map(|a| (a.to_account_id(), endowment))
 					.collect::<Vec<_>>(),
 			},
-			sudo: SudoConfig { key: Some(AccountKeyring::Alice.to_account_id()) },
+			sudo: SudoConfig { key: Some(Sr25519Keyring::Alice.to_account_id()) },
 		})
 	}
 

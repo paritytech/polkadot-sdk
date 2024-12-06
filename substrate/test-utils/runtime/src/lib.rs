@@ -47,7 +47,7 @@ use frame_system::{
 };
 use scale_info::TypeInfo;
 use sp_application_crypto::Ss58Codec;
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic};
 use sp_core::{OpaqueMetadata, RuntimeDebug};
@@ -731,8 +731,8 @@ impl_runtime_apis! {
 				 let patch = match name.as_ref() {
 					"staging" => {
 						let endowed_accounts: Vec<AccountId> = vec![
-							AccountKeyring::Bob.public().into(),
-							AccountKeyring::Charlie.public().into(),
+							Sr25519Keyring::Bob.public().into(),
+							Sr25519Keyring::Charlie.public().into(),
 						];
 
 						json!({
@@ -741,8 +741,8 @@ impl_runtime_apis! {
 							},
 							"substrateTest": {
 								"authorities": [
-									AccountKeyring::Alice.public().to_ss58check(),
-									AccountKeyring::Ferdie.public().to_ss58check()
+									Sr25519Keyring::Alice.public().to_ss58check(),
+									Sr25519Keyring::Ferdie.public().to_ss58check()
 								],
 							}
 						})
@@ -911,11 +911,11 @@ pub mod storage_key_generator {
 
 		let balances_map_keys = (0..16_usize)
 			.into_iter()
-			.map(|i| AccountKeyring::numeric(i).public().to_vec())
+			.map(|i| Sr25519Keyring::numeric(i).public().to_vec())
 			.chain(vec![
-				AccountKeyring::Alice.public().to_vec(),
-				AccountKeyring::Bob.public().to_vec(),
-				AccountKeyring::Charlie.public().to_vec(),
+				Sr25519Keyring::Alice.public().to_vec(),
+				Sr25519Keyring::Bob.public().to_vec(),
+				Sr25519Keyring::Charlie.public().to_vec(),
 			])
 			.map(|pubkey| {
 				sp_crypto_hashing::blake2_128(&pubkey)
@@ -1133,8 +1133,8 @@ mod tests {
 
 	pub fn new_test_ext() -> sp_io::TestExternalities {
 		genesismap::GenesisStorageBuilder::new(
-			vec![AccountKeyring::One.public().into(), AccountKeyring::Two.public().into()],
-			vec![AccountKeyring::One.into(), AccountKeyring::Two.into()],
+			vec![Sr25519Keyring::One.public().into(), Sr25519Keyring::Two.public().into()],
+			vec![Sr25519Keyring::One.into(), Sr25519Keyring::Two.into()],
 			1000 * currency::DOLLARS,
 		)
 		.build()
@@ -1202,7 +1202,7 @@ mod tests {
 	fn check_substrate_check_signed_extension_works() {
 		sp_tracing::try_init_simple();
 		new_test_ext().execute_with(|| {
-			let x = AccountKeyring::Alice.into();
+			let x = Sr25519Keyring::Alice.into();
 			let info = DispatchInfo::default();
 			let len = 0_usize;
 			assert_eq!(
@@ -1472,8 +1472,8 @@ mod tests {
 				},
 				"substrateTest": {
 					"authorities": [
-						AccountKeyring::Ferdie.public().to_ss58check(),
-						AccountKeyring::Alice.public().to_ss58check()
+						Sr25519Keyring::Ferdie.public().to_ss58check(),
+						Sr25519Keyring::Alice.public().to_ss58check()
 					],
 				}
 			});
@@ -1502,8 +1502,8 @@ mod tests {
 			let authority_key_vec =
 				Vec::<sp_core::sr25519::Public>::decode(&mut &value[..]).unwrap();
 			assert_eq!(authority_key_vec.len(), 2);
-			assert_eq!(authority_key_vec[0], AccountKeyring::Ferdie.public());
-			assert_eq!(authority_key_vec[1], AccountKeyring::Alice.public());
+			assert_eq!(authority_key_vec[0], Sr25519Keyring::Ferdie.public());
+			assert_eq!(authority_key_vec[1], Sr25519Keyring::Alice.public());
 
 			//Babe|Authorities
 			let value: Vec<u8> = get_from_storage(

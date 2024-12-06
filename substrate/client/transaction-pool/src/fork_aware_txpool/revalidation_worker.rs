@@ -190,7 +190,7 @@ mod tests {
 	};
 	use futures::executor::block_on;
 	use substrate_test_runtime::{AccountId, Transfer, H256};
-	use substrate_test_runtime_client::AccountKeyring::Alice;
+	use substrate_test_runtime_client::Sr25519Keyring::Alice;
 	#[test]
 	fn revalidation_queue_works() {
 		let api = Arc::new(TestApi::default());
