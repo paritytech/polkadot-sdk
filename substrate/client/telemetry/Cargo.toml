@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 chrono = { workspace = true }
 futures = { workspace = true }
-libp2p = { features = ["dns", "tcp", "tokio", "wasm-ext", "websocket"], workspace = true }
+libp2p = { features = ["dns", "tcp", "tokio", "websocket"], workspace = true }
 log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 pin-project = { workspace = true }
