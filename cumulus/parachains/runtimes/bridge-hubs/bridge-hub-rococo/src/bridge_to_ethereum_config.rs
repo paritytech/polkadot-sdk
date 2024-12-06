@@ -24,7 +24,7 @@ use crate::{
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
-use snowbridge_router_primitives::{inbound::MessageToXcm, outbound::EthereumBlobExporter};
+use snowbridge_router_primitives::{inbound::v1::MessageToXcm, outbound::EthereumBlobExporter};
 use sp_core::H160;
 use testnet_parachains_constants::rococo::{
 	currency::*,
