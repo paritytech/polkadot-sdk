@@ -45,7 +45,6 @@ extern crate alloc;
 use alloc::boxed::Box;
 use codec::{DecodeLimit, Encode, FullCodec};
 use frame::{
-	deps::sp_api,
 	prelude::*,
 	traits::{QueryPreimage, StorePreimage},
 };
@@ -168,7 +167,7 @@ pub mod pallet {
 				.map_err(|_| Error::<T>::UnavailablePreImage)?;
 
 			let call = <T as Config>::RuntimeCall::decode_all_with_depth_limit(
-				sp_api::MAX_EXTRINSIC_DEPTH,
+				frame::deps::sp_api::MAX_EXTRINSIC_DEPTH,
 				&mut &call[..],
 			)
 			.map_err(|_| Error::<T>::UndecodableCall)?;

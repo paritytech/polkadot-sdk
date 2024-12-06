@@ -21,7 +21,7 @@
 
 use crate as pallet_whitelist;
 
-use frame::{pallet_macros::derive_impl, testing_prelude::*};
+use frame::testing_prelude::*;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 construct_runtime!(
