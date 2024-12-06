@@ -61,6 +61,8 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
+use frame::prelude::*;
+/*
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -72,7 +74,14 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
+*/
 use scale_info::TypeInfo;
+use frame::traits::{Currency, Convert, WithdrawReasons, ExistenceRequirement, LockableCurrency, LockIdentifier, BlockNumberProvider, VestingSchedule, VestedTransfer};
+use frame::runtime::{prelude::storage::with_transaction, prelude::TransactionOutcome};
+use frame::arithmetic::One;
+
+
+/*
 use sp_runtime::{
 	traits::{
 		AtLeast32BitUnsigned, BlockNumberProvider, Bounded, Convert, MaybeSerializeDeserialize,
@@ -80,6 +89,7 @@ use sp_runtime::{
 	},
 	DispatchError, RuntimeDebug,
 };
+*/
 
 pub use pallet::*;
 pub use vesting_info::*;
@@ -151,11 +161,14 @@ impl<T: Config> Get<u32> for MaxVestingSchedulesGet<T> {
 	}
 }
 
-#[frame_support::pallet]
+// #[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
+	/*
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	*/
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -220,7 +233,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
+	#[derive(frame::derive::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		pub vesting: Vec<(T::AccountId, BlockNumberFor<T>, BlockNumberFor<T>, BalanceOf<T>)>,
 	}
@@ -228,7 +241,7 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			use sp_runtime::traits::Saturating;
+			// use sp_runtime::traits::Saturating;
 
 			// Genesis uses the latest storage version.
 			StorageVersion::<T>::put(Releases::V1);
@@ -244,7 +257,7 @@ pub mod pallet {
 				// Total genesis `balance` minus `liquid` equals funds locked for vesting
 				let locked = balance.saturating_sub(liquid);
 				let length_as_balance = T::BlockNumberToBalance::convert(length);
-				let per_block = locked / length_as_balance.max(sp_runtime::traits::One::one());
+				let per_block = locked / length_as_balance.max(One::one());
 				let vesting_info = VestingInfo::new(locked, per_block, begin);
 				if !vesting_info.is_valid() {
 					panic!("Invalid VestingInfo params at genesis")
@@ -798,7 +811,7 @@ where
 		per_block: BalanceOf<T>,
 		starting_block: BlockNumberFor<T>,
 	) -> DispatchResult {
-		use frame_support::storage::{with_transaction, TransactionOutcome};
+		// use frame_support::storage::{with_transaction, TransactionOutcome};
 		let schedule = VestingInfo::new(locked, per_block, starting_block);
 		with_transaction(|| -> TransactionOutcome<DispatchResult> {
 			let result = Self::do_vested_transfer(source, target, schedule);
