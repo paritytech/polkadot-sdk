@@ -16,6 +16,7 @@ jobs:
   backport:
     name: Backport pull request
     runs-on: ubuntu-latest
+    environment: release
 
     # The 'github.event.pull_request.merged' ensures that it got into master:
     if: >
@@ -29,12 +30,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Generate token
-        id: generate_token
-        uses: tibdex/github-app-token@v2.1.0
+      - name: Generate content write token for the release automation
+        id: generate_write_token
+        uses: actions/create-github-app-token@v1
         with:
-          app_id: ${{ secrets.CMD_BOT_APP_ID }}
-          private_key: ${{ secrets.CMD_BOT_APP_KEY }}
+            app-id: ${{ vars.RELEASE_AUTOMATION_APP_ID }}
+            private-key: ${{ secrets.RELEASE_AUTOMATION_APP_PRIVATE_KEY }}
+            owner: paritytech
 
       - name: Create backport pull requests
         uses: korthout/backport-action@v3
@@ -42,7 +44,7 @@ jobs:
         with:
           target_branches: stable2407 stable2409
           merge_commits: skip
-          github_token: ${{ steps.generate_token.outputs.token }}
+          github_token: ${{ steps.generate_write_token.outputs.token }}
           pull_description: |
             Backport #${pull_number} into `${target_branch}` from ${pull_author}.
 
@@ -86,7 +88,7 @@ jobs:
             const reviewer = '${{ github.event.pull_request.user.login }}';
 
             for (const pullNumber of pullNumbers) {
-              await github.pulls.createReviewRequest({
+              await github.pulls.requestReviewers({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 pull_number: parseInt(pullNumber),
