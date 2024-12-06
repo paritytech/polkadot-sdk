@@ -449,6 +449,9 @@ pub trait AncestryHelper<Header: HeaderT> {
 		best_known_block_number: Option<Header::Number>,
 	) -> Option<Self::Proof>;
 
+	/// Check if the proof is optimal.
+	fn is_proof_optimal(proof: &Self::Proof) -> bool;
+
 	/// Extract the validation context from the provided header.
 	fn extract_validation_context(header: Header) -> Option<Self::ValidationContext>;
 
@@ -463,6 +466,9 @@ pub trait AncestryHelper<Header: HeaderT> {
 
 /// Weight information for the logic in `AncestryHelper`.
 pub trait AncestryHelperWeightInfo<Header: HeaderT>: AncestryHelper<Header> {
+	/// Weight info for the `AncestryHelper::is_proof_optimal()` method.
+	fn is_proof_optimal(proof: &<Self as AncestryHelper<Header>>::Proof) -> Weight;
+
 	/// Weight info for the `AncestryHelper::extract_validation_context()` method.
 	fn extract_validation_context() -> Weight;
 
