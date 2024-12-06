@@ -79,12 +79,16 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use frame::{
+	/*
 	deps::frame_support::{dispatch::GetDispatchInfo, DefaultNoBound},
 	prelude::*,
 	traits::{
 		CallMetadata, Contains, Dispatchable, GetCallMetadata, IsSubType, IsType, TransactionPause,
 		TransactionPauseError,
 	},
+	*/
+	runtime::prelude::*,
+	traits::{CallMetadata, GetCallMetadata, TransactionPause, TransactionPauseError},
 };
 pub use pallet::*;
 pub use weights::*;

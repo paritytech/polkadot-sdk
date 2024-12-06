@@ -19,10 +19,7 @@
 
 use super::*;
 use crate::mock::{RuntimeCall, *};
-use frame::{
-	deps::sp_runtime::DispatchError,
-	testing_prelude::{assert_err, assert_noop, assert_ok},
-};
+use frame::testing_prelude::*;
 // GENERAL SUCCESS/POSITIVE TESTS ---------------------
 
 #[docify::export]

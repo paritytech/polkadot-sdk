@@ -22,15 +22,8 @@
 use super::*;
 use crate as pallet_tx_pause;
 use frame::{
-	prelude::frame_system,
-	runtime::{
-		prelude::{
-			construct_runtime, derive_impl, ord_parameter_types, parameter_types, EnsureSignedBy,
-		},
-		testing_prelude::BuildStorage,
-	},
-	testing_prelude::TestExternalities,
-	traits::{BlakeTwo256, ConstU64, Everything, InsideBoth, InstanceFilter},
+	testing_prelude::*,
+	traits::{Everything, InsideBoth, InstanceFilter},
 };
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
