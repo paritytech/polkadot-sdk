@@ -840,7 +840,7 @@ impl<T: Config<I>, I: 'static> Node<T, I> {
 		crate::ListNodes::<T, I>::insert(self.id.clone(), self);
 	}
 
-	/// Update neighboring nodes to point to reach other.
+	/// Update neighboring nodes to point to each other.
 	///
 	/// Only updates storage for adjacent nodes, but not `self`; so the user may need to call
 	/// `self.put`.
