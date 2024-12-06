@@ -83,6 +83,7 @@ impl From<u32> for AggregateMessageOrigin {
 	}
 }
 
+/// Routes messages to either the XCMP or Snowbridge processor.
 pub struct BridgeHubMessageRouter<XcmpProcessor, SnowbridgeProcessor>(
 	PhantomData<(XcmpProcessor, SnowbridgeProcessor)>,
 )
@@ -112,7 +113,7 @@ where
 	}
 }
 
-/// Routes messages to either the XCMP or Snowbridge processor.
+/// Routes messages to either the XCMP|Snowbridge V1 processor|Snowbridge V2 processor
 pub struct BridgeHubDualMessageRouter<XcmpProcessor, SnowbridgeProcessor, SnowbridgeProcessorV2>(
 	PhantomData<(XcmpProcessor, SnowbridgeProcessor, SnowbridgeProcessorV2)>,
 )

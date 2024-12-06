@@ -3,4 +3,4 @@
 Provides an API:
 
 - to generate merkle proofs for outbound messages
-- calculate delivery fee for delivering messages to Ethereum
+- dry run the xcm to get a message structure to execute on Ethereum

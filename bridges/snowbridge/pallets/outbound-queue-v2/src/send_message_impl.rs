@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-//! Implementation for [`snowbridge_core::outbound::SendMessage`]
+//! Implementation for [`snowbridge_outbound_primitives::outbound::v2::SendMessage`]
 use super::*;
 use bridge_hub_common::AggregateMessageOrigin;
 use codec::Encode;
@@ -14,10 +14,6 @@ use snowbridge_outbound_primitives::{
 };
 use sp_core::H256;
 use sp_runtime::BoundedVec;
-
-/// The maximal length of an enqueued message, as determined by the MessageQueue pallet
-pub type MaxEnqueuedMessageSizeOf<T> =
-	<<T as Config>::MessageQueue as EnqueueMessage<AggregateMessageOrigin>>::MaxMessageLen;
 
 impl<T> SendMessage for Pallet<T>
 where
