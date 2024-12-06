@@ -16,6 +16,7 @@ jobs:
   backport:
     name: Backport pull request
     runs-on: ubuntu-latest
+    environment: release
 
     # The 'github.event.pull_request.merged' ensures that it got into master:
     if: >

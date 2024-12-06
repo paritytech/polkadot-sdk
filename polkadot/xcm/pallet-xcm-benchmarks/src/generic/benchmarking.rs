@@ -190,6 +190,7 @@ mod benchmarks {
 		let instruction = Instruction::Transact {
 			origin_kind: OriginKind::SovereignAccount,
 			call: double_encoded_noop_call,
+			fallback_max_weight: None,
 		};
 		let xcm = Xcm(vec![instruction]);
 		#[block]
