@@ -201,6 +201,18 @@ impl IntoPortable for ExtrinsicMetadataIR {
 	}
 }
 
+/// The type of the transaction extensions by version field.
+pub type TrasactionExtensionsByVersion = BTreeMap<u8, Vec<u32>>;
+
+impl ExtrinsicMetadataIR {
+	/// Returns the transaction extensions by version.
+	pub fn transaction_extensions_by_version(&self) -> TrasactionExtensionsByVersion {
+		// Assume version 0 for all extensions.
+		let indexes = (0..self.extensions.len()).map(|index| index as u32).collect();
+		[(0, indexes)].iter().cloned().collect()
+	}
+}
+
 /// Metadata of a pallet's associated type.
 #[derive(Clone, PartialEq, Eq, Encode, Debug)]
 pub struct PalletAssociatedTypeMetadataIR<T: Form = MetaForm> {
