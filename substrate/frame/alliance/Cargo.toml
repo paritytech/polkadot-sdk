@@ -30,7 +30,6 @@ array-bytes = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-collective = { workspace = true, default-features = true }
-pretty_assertions = { workspace = true }
 
 [features]
 default = ["std"]

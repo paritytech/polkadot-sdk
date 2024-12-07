@@ -11644,7 +11644,6 @@ dependencies = [
  "pallet-identity 29.0.0",
  "parity-scale-codec",
  "polkadot-sdk-frame 0.1.0",
- "pretty_assertions",
  "scale-info",
  "sp-crypto-hashing 0.1.0",
 ]

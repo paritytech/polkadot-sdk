@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{Config, Pallet, Weight, LOG_TARGET};
-use frame::{runtime::prelude::*, traits::OnRuntimeUpgrade};
+use frame::{testing_prelude::*, traits::OnRuntimeUpgrade};
 use log;
 use storage::migration;
 
@@ -164,8 +164,6 @@ pub(crate) mod v1_to_v2 {
 mod test {
 	use super::*;
 	use crate::{mock::*, MemberRole, Members};
-	use frame::testing_prelude::assert_ok;
-	use pretty_assertions::assert_eq;
 
 	#[test]
 	fn migration_v1_to_v2_works() {
