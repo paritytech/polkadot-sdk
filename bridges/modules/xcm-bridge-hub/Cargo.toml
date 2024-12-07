@@ -65,6 +65,7 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"bp-xcm-bridge-hub-router/std"
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
