@@ -77,4 +77,16 @@ impl<T: frame_system::Config> pallet_xcm_bridge_hub_router::WeightInfo for Weigh
 			.saturating_add(Weight::from_parts(0, 5487))
 			.saturating_add(T::DbWeight::get().reads(2))
 	}
+	/// Storage: `ToWestendXcmRouter::Bridge` (r:1 w:1)
+	/// Proof: `ToWestendXcmRouter::Bridge` (`max_values`: Some(1), `max_size`: Some(17), added: 512, mode: `MaxEncodedLen`)
+	fn report_bridge_status() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `150`
+		//  Estimated: `1502`
+		// Minimum execution time: 9_959_000 picoseconds.
+		Weight::from_parts(10_372_000, 0)
+			.saturating_add(Weight::from_parts(0, 1502))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }

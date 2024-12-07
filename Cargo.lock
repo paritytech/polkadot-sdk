@@ -1938,6 +1938,8 @@ dependencies = [
  "frame-support 28.0.0",
  "parity-scale-codec",
  "scale-info",
+ "sp-core 28.0.0",
+ "staging-xcm 7.0.0",
 ]
 
 [[package]]
@@ -1948,6 +1950,8 @@ dependencies = [
  "frame-support 28.0.0",
  "parity-scale-codec",
  "scale-info",
+ "sp-core 28.0.0",
+ "staging-xcm 7.0.0",
 ]
 
 [[package]]
