@@ -15,11 +15,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, Error, Input};
+use core::cmp;
 use scale_info::TypeInfo;
-use sp_std::{cmp, prelude::*};
+use sp_application_crypto::RuntimeAppPublic;
+use sp_runtime::traits::Hash;
 
-use crate::{Payload, ValidatorSetId};
+use crate::{BeefyAuthorityId, Payload, ValidatorSet, ValidatorSetId};
+
+/// A commitment signature, accompanied by the id of the validator that it belongs to.
+#[derive(Debug)]
+pub struct KnownSignature<TAuthorityId, TSignature> {
+	/// The signing validator.
+	pub validator_id: TAuthorityId,
+	/// The signature.
+	pub signature: TSignature,
+}
+
+impl<TAuthorityId: Clone, TSignature: Clone> KnownSignature<&TAuthorityId, &TSignature> {
+	/// Creates a `KnownSignature<TAuthorityId, TSignature>` from an
+	/// `KnownSignature<&TAuthorityId, &TSignature>`.
+	pub fn to_owned(&self) -> KnownSignature<TAuthorityId, TSignature> {
+		KnownSignature {
+			validator_id: self.validator_id.clone(),
+			signature: self.signature.clone(),
+		}
+	}
+}
 
 /// A commitment signed by GRANDPA validators as part of BEEFY protocol.
 ///
@@ -97,10 +120,10 @@ pub struct SignedCommitment<TBlockNumber, TSignature> {
 	pub signatures: Vec<Option<TSignature>>,
 }
 
-impl<TBlockNumber: sp_std::fmt::Debug, TSignature> sp_std::fmt::Display
+impl<TBlockNumber: core::fmt::Debug, TSignature> core::fmt::Display
 	for SignedCommitment<TBlockNumber, TSignature>
 {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		let signatures_count = self.signatures.iter().filter(|s| s.is_some()).count();
 		write!(
 			f,
@@ -112,8 +135,48 @@ impl<TBlockNumber: sp_std::fmt::Debug, TSignature> sp_std::fmt::Display
 
 impl<TBlockNumber, TSignature> SignedCommitment<TBlockNumber, TSignature> {
 	/// Return the number of collected signatures.
-	pub fn no_of_signatures(&self) -> usize {
+	pub fn signature_count(&self) -> usize {
 		self.signatures.iter().filter(|x| x.is_some()).count()
+	}
+
+	/// Verify all the commitment signatures against the validator set that was active
+	/// at the block where the commitment was generated.
+	///
+	/// Returns the valid validator-signature pairs if the commitment can be verified.
+	pub fn verify_signatures<'a, TAuthorityId, MsgHash>(
+		&'a self,
+		target_number: TBlockNumber,
+		validator_set: &'a ValidatorSet<TAuthorityId>,
+	) -> Result<Vec<KnownSignature<&'a TAuthorityId, &'a TSignature>>, u32>
+	where
+		TBlockNumber: Clone + Encode + PartialEq,
+		TAuthorityId: RuntimeAppPublic<Signature = TSignature> + BeefyAuthorityId<MsgHash>,
+		MsgHash: Hash,
+	{
+		if self.signatures.len() != validator_set.len() ||
+			self.commitment.validator_set_id != validator_set.id() ||
+			self.commitment.block_number != target_number
+		{
+			return Err(0)
+		}
+
+		// Arrangement of signatures in the commitment should be in the same order
+		// as validators for that set.
+		let encoded_commitment = self.commitment.encode();
+		let signatories: Vec<_> = validator_set
+			.validators()
+			.into_iter()
+			.zip(self.signatures.iter())
+			.filter_map(|(id, maybe_signature)| {
+				let signature = maybe_signature.as_ref()?;
+				match BeefyAuthorityId::verify(id, signature, &encoded_commitment) {
+					true => Some(KnownSignature { validator_id: id, signature }),
+					false => None,
+				}
+			})
+			.collect();
+
+		Ok(signatories)
 	}
 }
 
@@ -254,8 +317,8 @@ pub enum VersionedFinalityProof<N, S> {
 	V1(SignedCommitment<N, S>),
 }
 
-impl<N: sp_std::fmt::Debug, S> sp_std::fmt::Display for VersionedFinalityProof<N, S> {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl<N: core::fmt::Debug, S> core::fmt::Display for VersionedFinalityProof<N, S> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		match self {
 			VersionedFinalityProof::V1(sc) => write!(f, "VersionedFinalityProof::V1({})", sc),
 		}
@@ -419,7 +482,7 @@ mod tests {
 		assert_eq!(
 			encoded,
 			array_bytes::hex2bytes_unchecked(
-				"046d68343048656c6c6f20576f726c642105000000000000000000000000000000000000000000000004300400000008558455ad81279df0795cc985580e4fb75d72d948d1107b2ac80a09abed4da8480c746cc321f2319a5e99a830e314d10dd3cd68ce3dc0c33c86e99bcb7816f9ba015dd1c9b2237e54baa93d232cdf83a430b58a5efbc2f86ca1bab173a315ff6f15bef161425750c028055e9a23947b73002889a8b22168628438875a8ef25d76db998a80187b50719471286f054f3b3809b77a0cd87d7fe9c1a9d5d562683e25a70610f0804e92340549a43a7159b77b0c2d6e1f8105c337a86cdd9aaacdc496577f3db8c55ef9e6fd48f2c5c05a2274707491635d8ba3df64f324575b7b2a34487bca2324b6a0046395a71681be3d0c2a001074884b6998c82331bd57ffa0a02cbfd02483c765b9216eab6a1fc119206236bf7971be68acaebff7400edee943240006a6096c9cfa65e9eb4e67f025c27112d14b4574fb208c439500f45cf3a8060f6cf009044f3141cce0364a7c2710a19b1bdf4abf27f86e5e3db08bddd35a7d12"
+				"046d68343048656c6c6f20576f726c642105000000000000000000000000000000000000000000000004300400000008558455ad81279df0795cc985580e4fb75d72d948d1107b2ac80a09abed4da8480c746cc321f2319a5e99a830e314d10dd3cd68ce3dc0c33c86e99bcb7816f9ba0182022df4689ef25499205f7154a1a62eb2d6d5c4a3657efed321e2c277998130d1b01a264c928afb79534cb0fa9dcf79f67ed4e6bf2de576bb936146f2fa60fa56b8651677cc764ea4fe317c62294c2a0c5966e439653eed0572fded5e2461c888518e0769718dcce9f3ff612fb89d262d6e1f8105c337a86cdd9aaacdc496577f3db8c55ef9e6fd48f2c5c05a2274707491635d8ba3df64f324575b7b2a34487bca2324b6a0046395a71681be3d0c2a00a90973bea76fac3a4e2d76a25ec3926d6a5a20aacee15ec0756cd268088ed5612b67b4a49349cee70bc1185078d17c7f7df9d944e8be30022d9680d0437c4ba4600d74050692e8ee9b96e37df2a39d1cb4b4af4b6a058342dd9e8c7481a3a0b8975ad8614c953e950253aa327698d842"
 			)
 		);
 	}
@@ -438,13 +501,13 @@ mod tests {
 			commitment,
 			signatures: vec![None, None, Some(sigs.0), Some(sigs.1)],
 		};
-		assert_eq!(signed.no_of_signatures(), 2);
+		assert_eq!(signed.signature_count(), 2);
 
 		// when
 		signed.signatures[2] = None;
 
 		// then
-		assert_eq!(signed.no_of_signatures(), 1);
+		assert_eq!(signed.signature_count(), 1);
 	}
 
 	#[test]

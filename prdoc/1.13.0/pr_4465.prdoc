@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Bridge: added force_set_pallet_state call to pallet-bridge-grandpa"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Added `force_set_pallet_state` to the `pallet-bridge-grandpa`. It is only callable by the
+      root (governance or sudo) and may be used to update current authorities set and the best
+      finalized header without any additional checks.
+
+crates:
+  - name: pallet-bridge-grandpa
+    bump: major
+  - name: bridge-hub-rococo-runtime
+    bump: minor
+  - name: bridge-hub-westend-runtime
+    bump: minor

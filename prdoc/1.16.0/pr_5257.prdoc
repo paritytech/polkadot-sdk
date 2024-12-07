@@ -1,0 +1,20 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Enable proof-recording in benchmarking
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      We now enable proof recording in the timing benchmarks. This affects the standalone `frame-omni-bencher` as well
+      as the integrated benchmarking commands of the node. For parachains on recent versions of polkadot-sdk this is the
+      correct default setting, since PoV-reclaim requires proof recording to be enabled on block import.
+      This comes with a slight increase in timing weight due to the additional overhead. Relay- or solo-chains
+      which do not need proof recording can restore the old behaviour by passing `--disable-proof-recording` to the
+      benchmarking command.
+
+      In addition, the `ProofSizeExt` extension is available during benchmarking.
+
+crates:
+  - name: frame-benchmarking-cli
+    bump: minor

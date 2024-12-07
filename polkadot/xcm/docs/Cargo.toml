@@ -1,0 +1,39 @@
+[package]
+name = "xcm-docs"
+description = "Documentation and guides for XCM"
+version = "0.1.0"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+repository.workspace = true
+authors.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+# For XCM stuff
+xcm = { workspace = true, default-features = true }
+xcm-executor = { workspace = true, default-features = true }
+xcm-builder = { workspace = true, default-features = true }
+xcm-simulator = { workspace = true, default-features = true }
+pallet-xcm = { workspace = true, default-features = true }
+
+# For building FRAME runtimes
+frame = { features = ["experimental", "runtime"], workspace = true, default-features = true }
+codec = { workspace = true, default-features = true }
+scale-info = { workspace = true }
+polkadot-parachain-primitives = { workspace = true, default-features = true }
+polkadot-runtime-parachains = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-std = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+
+# Some pallets
+pallet-message-queue = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+
+# For building docs
+simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", branch = "main" }
+docify = { workspace = true }
+
+[dev-dependencies]
+test-log = { workspace = true }

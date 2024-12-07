@@ -31,15 +31,14 @@ use crate::*;
 use dynamic_params::*;
 use RuntimeParametersRenamed::*;
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = frame_system::mocking::MockBlock<Runtime>;
 	type AccountData = pallet_balances::AccountData<<Self as pallet_balances::Config>::Balance>;
 }
 
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
 }
 
@@ -80,7 +79,7 @@ impl Default for RuntimeParametersRenamed {
 	}
 }
 
-#[derive_impl(pallet_parameters::config_preludes::TestDefaultConfig as pallet_parameters::DefaultConfig)]
+#[derive_impl(pallet_parameters::config_preludes::TestDefaultConfig)]
 impl Config for Runtime {
 	type AdminOrigin = AsEnsureOriginWithArg<EnsureRoot<Self::AccountId>>;
 	type RuntimeParameters = RuntimeParametersRenamed;

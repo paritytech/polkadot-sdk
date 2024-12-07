@@ -47,10 +47,13 @@ use sc_executor::{WasmExecutionMethod, WasmtimeInstantiationStrategy};
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_consensus::BlockOrigin;
-use sp_core::{ed25519, sr25519, traits::SpawnNamed, Pair, Public};
+use sp_core::{
+	crypto::get_public_from_string_or_panic, ed25519, sr25519, traits::SpawnNamed, Pair,
+};
 use sp_crypto_hashing::blake2_256;
 use sp_inherents::InherentData;
 use sp_runtime::{
+	generic::{self, ExtrinsicFormat, Preamble, EXTRINSIC_FORMAT_VERSION},
 	traits::{Block as BlockT, IdentifyAccount, Verify},
 	OpaqueExtrinsic,
 };
@@ -84,7 +87,7 @@ impl BenchPair {
 
 /// Drop system cache.
 ///
-/// Will panic if cache drop is impossbile.
+/// Will panic if cache drop is impossible.
 pub fn drop_system_cache() {
 	#[cfg(target_os = "windows")]
 	{
@@ -173,7 +176,7 @@ impl Clone for BenchDb {
 
 		// We clear system cache after db clone but before any warmups.
 		// This populates system cache with some data unrelated to actual
-		// data we will be quering further under benchmark (like what
+		// data we will be querying further under benchmark (like what
 		// would have happened in real system that queries random entries
 		// from database).
 		drop_system_cache();
@@ -288,17 +291,18 @@ impl<'a> Iterator for BlockContentIterator<'a> {
 		}
 
 		let sender = self.keyring.at(self.iteration);
-		let receiver = get_account_id_from_seed::<sr25519::Public>(&format!(
+		let receiver = get_public_from_string_or_panic::<sr25519::Public>(&format!(
 			"random-user//{}",
 			self.iteration
-		));
+		))
+		.into();
 
 		let signed = self.keyring.sign(
 			CheckedExtrinsic {
-				signed: Some((
+				format: ExtrinsicFormat::Signed(
 					sender,
-					signed_extra(0, kitchensink_runtime::ExistentialDeposit::get() + 1),
-				)),
+					tx_ext(0, kitchensink_runtime::ExistentialDeposit::get() + 1),
+				),
 				function: match self.content.block_type {
 					BlockType::RandomTransfersKeepAlive =>
 						RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
@@ -443,7 +447,7 @@ impl BenchDb {
 		BlockContentIterator::new(content, &self.keyring, client)
 	}
 
-	/// Get cliet for this database operations.
+	/// Get client for this database operations.
 	pub fn client(&mut self) -> Client {
 		let (client, _backend, _task_executor) =
 			Self::bench_client(self.database_type, self.directory_guard.path(), &self.keyring);
@@ -562,15 +566,17 @@ impl BenchKeyring {
 		tx_version: u32,
 		genesis_hash: [u8; 32],
 	) -> UncheckedExtrinsic {
-		match xt.signed {
-			Some((signed, extra)) => {
+		match xt.format {
+			ExtrinsicFormat::Signed(signed, tx_ext) => {
 				let payload = (
 					xt.function,
-					extra.clone(),
+					tx_ext.clone(),
 					spec_version,
 					tx_version,
 					genesis_hash,
 					genesis_hash,
+					// metadata_hash
+					None::<()>,
 				);
 				let key = self.accounts.get(&signed).expect("Account id not found in keyring");
 				let signature = payload.using_encoded(|b| {
@@ -580,12 +586,26 @@ impl BenchKeyring {
 						key.sign(b)
 					}
 				});
-				UncheckedExtrinsic {
-					signature: Some((sp_runtime::MultiAddress::Id(signed), signature, extra)),
+				generic::UncheckedExtrinsic {
+					preamble: Preamble::Signed(
+						sp_runtime::MultiAddress::Id(signed),
+						signature,
+						tx_ext,
+					),
 					function: payload.0,
 				}
+				.into()
 			},
-			None => UncheckedExtrinsic { signature: None, function: xt.function },
+			ExtrinsicFormat::Bare => generic::UncheckedExtrinsic {
+				preamble: Preamble::Bare(EXTRINSIC_FORMAT_VERSION),
+				function: xt.function,
+			}
+			.into(),
+			ExtrinsicFormat::General(ext_version, tx_ext) => generic::UncheckedExtrinsic {
+				preamble: sp_runtime::generic::Preamble::General(ext_version, tx_ext),
+				function: xt.function,
+			}
+			.into(),
 		}
 	}
 
@@ -627,19 +647,6 @@ pub struct BenchContext {
 }
 
 type AccountPublic = <Signature as Verify>::Signer;
-
-fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
-	TPublic::Pair::from_string(&format!("//{}", seed), None)
-		.expect("static values are valid; qed")
-		.public()
-}
-
-fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
-where
-	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
-{
-	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
-}
 
 impl BenchContext {
 	/// Import some block.

@@ -18,11 +18,10 @@
 
 use bp_polkadot_core::Signature;
 use bridge_hub_rococo_runtime::{
-	bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages,
 	bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,
 	xcm_config::XcmConfig, AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages,
 	Executive, MessageQueueServiceWeight, Runtime, RuntimeCall, RuntimeEvent, SessionKeys,
-	SignedExtra, UncheckedExtrinsic,
+	TxExtension, UncheckedExtrinsic,
 };
 use codec::{Decode, Encode};
 use cumulus_primitives_core::XcmError::{FailedToTransactAsset, NotHoldingFees};
@@ -51,6 +50,7 @@ fn collator_session_keys() -> bridge_hub_test_utils::CollatorSessionKeys<Runtime
 #[test]
 pub fn transfer_token_to_ethereum_works() {
 	snowbridge_runtime_test_common::send_transfer_token_message_success::<Runtime, XcmConfig>(
+		11155111,
 		collator_session_keys(),
 		1013,
 		1000,
@@ -69,6 +69,7 @@ pub fn transfer_token_to_ethereum_works() {
 #[test]
 pub fn unpaid_transfer_token_to_ethereum_fails_with_barrier() {
 	snowbridge_runtime_test_common::send_unpaid_transfer_token_message::<Runtime, XcmConfig>(
+		11155111,
 		collator_session_keys(),
 		1013,
 		1000,
@@ -80,6 +81,7 @@ pub fn unpaid_transfer_token_to_ethereum_fails_with_barrier() {
 #[test]
 pub fn transfer_token_to_ethereum_fee_not_enough() {
 	snowbridge_runtime_test_common::send_transfer_token_message_failure::<Runtime, XcmConfig>(
+		11155111,
 		collator_session_keys(),
 		1013,
 		1000,
@@ -95,6 +97,7 @@ pub fn transfer_token_to_ethereum_fee_not_enough() {
 #[test]
 pub fn transfer_token_to_ethereum_insufficient_fund() {
 	snowbridge_runtime_test_common::send_transfer_token_message_failure::<Runtime, XcmConfig>(
+		11155111,
 		collator_session_keys(),
 		1013,
 		1000,
@@ -146,6 +149,7 @@ pub fn ethereum_outbound_queue_processes_messages_before_message_queue_works() {
 		XcmConfig,
 		AllPalletsWithoutSystem,
 	>(
+		11155111,
 		collator_session_keys(),
 		1013,
 		1000,
@@ -166,7 +170,7 @@ fn construct_extrinsic(
 	call: RuntimeCall,
 ) -> UncheckedExtrinsic {
 	let account_id = AccountId32::from(sender.public());
-	let extra: SignedExtra = (
+	let tx_ext: TxExtension = (
 		frame_system::CheckNonZeroSender::<Runtime>::new(),
 		frame_system::CheckSpecVersion::<Runtime>::new(),
 		frame_system::CheckTxVersion::<Runtime>::new(),
@@ -178,19 +182,13 @@ fn construct_extrinsic(
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
 		BridgeRejectObsoleteHeadersAndMessages::default(),
-		(
-			OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
-			OnBridgeHubRococoRefundRococoBulletinMessages::default(),
-		),
+		(OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),),
+		frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
+		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
 	);
-	let payload = SignedPayload::new(call.clone(), extra.clone()).unwrap();
+	let payload = SignedPayload::new(call.clone(), tx_ext.clone()).unwrap();
 	let signature = payload.using_encoded(|e| sender.sign(e));
-	UncheckedExtrinsic::new_signed(
-		call,
-		account_id.into(),
-		Signature::Sr25519(signature.clone()),
-		extra,
-	)
+	UncheckedExtrinsic::new_signed(call, account_id.into(), Signature::Sr25519(signature), tx_ext)
 }
 
 fn construct_and_apply_extrinsic(

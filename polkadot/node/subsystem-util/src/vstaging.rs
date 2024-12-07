@@ -18,39 +18,3 @@
 //!
 //! This module is intended to contain common boiler plate code handling unreleased runtime API
 //! calls.
-
-use polkadot_node_subsystem_types::messages::{RuntimeApiMessage, RuntimeApiRequest};
-use polkadot_overseer::SubsystemSender;
-use polkadot_primitives::{Hash, ValidatorIndex};
-
-use crate::{has_required_runtime, request_disabled_validators, runtime};
-
-const LOG_TARGET: &'static str = "parachain::subsystem-util-vstaging";
-
-// TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
-/// Returns disabled validators list if the runtime supports it. Otherwise logs a debug messages and
-/// returns an empty vec.
-/// Once runtime ver `DISABLED_VALIDATORS_RUNTIME_REQUIREMENT` is released remove this function and
-/// replace all usages with `request_disabled_validators`
-pub async fn get_disabled_validators_with_fallback<Sender: SubsystemSender<RuntimeApiMessage>>(
-	sender: &mut Sender,
-	relay_parent: Hash,
-) -> Result<Vec<ValidatorIndex>, runtime::Error> {
-	let disabled_validators = if has_required_runtime(
-		sender,
-		relay_parent,
-		RuntimeApiRequest::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT,
-	)
-	.await
-	{
-		request_disabled_validators(relay_parent, sender)
-			.await
-			.await
-			.map_err(runtime::Error::RuntimeRequestCanceled)??
-	} else {
-		gum::debug!(target: LOG_TARGET, "Runtime doesn't support `DisabledValidators` - continuing with an empty disabled validators set");
-		vec![]
-	};
-
-	Ok(disabled_validators)
-}

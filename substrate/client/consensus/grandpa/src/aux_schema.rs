@@ -20,9 +20,9 @@
 
 use std::fmt::Debug;
 
+use codec::{Decode, Encode};
 use finality_grandpa::round::State as RoundState;
 use log::{info, warn};
-use parity_scale_codec::{Decode, Encode};
 
 use fork_tree::ForkTree;
 use sc_client_api::backend::AuxStore;
@@ -743,7 +743,9 @@ mod test {
 			substrate_test_runtime_client::runtime::Block,
 			_,
 			_,
-		>(&client, H256::random(), 0, || unreachable!())
+		>(
+			&client, H256::random(), 0, || unreachable!()
+		)
 		.unwrap();
 
 		assert_eq!(

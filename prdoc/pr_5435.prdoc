@@ -1,0 +1,16 @@
+title: "Support registering assets on Asset Hubs over bridge"
+
+doc:
+  - audience: Runtime User
+    description: |
+      Allows one Asset Hub on one side, to register assets on the other Asset Hub over the bridge.  
+      Rococo <> Ethereum test bridge will be dropped in favor of Westend <> Ethereum test bridge.
+      This PR also changes emulated tests to simulate double bridging from Ethereum<>Westend<>Rococo.
+
+crates:
+  - name: assets-common
+    bump: patch
+  - name: asset-hub-rococo-runtime
+    bump: patch
+  - name: asset-hub-westend-runtime
+    bump: patch

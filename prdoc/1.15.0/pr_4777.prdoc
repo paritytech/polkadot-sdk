@@ -1,0 +1,27 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: XCM builder pattern allows clear_origin before buy_execution.
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Added clear_origin as an allowed command after commands that load the holdings register, in the safe xcm builder.
+      Previously, although it's logically allowed, an XCM could not be built like this:
+      ```rust
+      let xcm = Xcm::builder()
+          .withdraw_asset((Parent, 100u128))
+          .clear_origin()
+          .buy_execution((Parent, 1u128))
+          .deposit_asset(All, [0u8; 32])
+          .build();
+      ```
+      You had to use the unsafe_builder.
+      Now, it's allowed using the default builder.
+
+crates: 
+- name: "xcm-procedural"
+  bump: minor
+- name: "staging-xcm"
+  bump: minor
+

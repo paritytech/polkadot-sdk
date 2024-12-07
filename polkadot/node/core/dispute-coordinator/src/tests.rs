@@ -51,7 +51,6 @@ use sp_core::{sr25519::Pair, testing::TaskExecutor, Pair as PairT};
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{Keystore, KeystorePtr};
 
-use ::test_helpers::{dummy_candidate_receipt_bad_sig, dummy_digest, dummy_hash};
 use polkadot_node_primitives::{Timestamp, ACTIVE_DURATION_SECS};
 use polkadot_node_subsystem::{
 	messages::{AllMessages, BlockDescription, RuntimeApiMessage, RuntimeApiRequest},
@@ -61,11 +60,17 @@ use polkadot_node_subsystem_test_helpers::{
 	make_buffered_subsystem_context, mock::new_leaf, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
-	vstaging::NodeFeatures, ApprovalVote, BlockNumber, CandidateCommitments, CandidateEvent,
-	CandidateHash, CandidateReceipt, CoreIndex, DisputeStatement, ExecutorParams, GroupIndex, Hash,
-	HeadData, Header, IndexedVec, MultiDisputeStatementSet, ScrapedOnChainVotes, SessionIndex,
-	SessionInfo, SigningContext, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	vstaging::{
+		CandidateEvent, CandidateReceiptV2 as CandidateReceipt, MutateDescriptorV2,
+		ScrapedOnChainVotes,
+	},
+	ApprovalVote, BlockNumber, CandidateCommitments, CandidateHash, CoreIndex, DisputeStatement,
+	ExecutorParams, GroupIndex, Hash, HeadData, Header, IndexedVec, MultiDisputeStatementSet,
+	NodeFeatures, SessionIndex, SessionInfo, SigningContext, ValidDisputeStatementKind,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
+};
+use polkadot_primitives_test_helpers::{
+	dummy_candidate_receipt_v2_bad_sig, dummy_digest, dummy_hash,
 };
 
 use crate::{
@@ -580,6 +585,7 @@ impl TestState {
 			self.config,
 			self.subsystem_keystore.clone(),
 			Metrics::default(),
+			false,
 		);
 		let backend =
 			DbBackend::new(self.db.clone(), self.config.column_config(), Metrics::default());
@@ -647,11 +653,11 @@ fn make_valid_candidate_receipt() -> CandidateReceipt {
 }
 
 fn make_invalid_candidate_receipt() -> CandidateReceipt {
-	dummy_candidate_receipt_bad_sig(Default::default(), Some(Default::default()))
+	dummy_candidate_receipt_v2_bad_sig(Default::default(), Some(Default::default()))
 }
 
 fn make_another_valid_candidate_receipt(relay_parent: Hash) -> CandidateReceipt {
-	let mut candidate_receipt = dummy_candidate_receipt_bad_sig(relay_parent, dummy_hash());
+	let mut candidate_receipt = dummy_candidate_receipt_v2_bad_sig(relay_parent, dummy_hash());
 	candidate_receipt.commitments_hash = CandidateCommitments::default().hash();
 	candidate_receipt
 }
@@ -2226,7 +2232,7 @@ fn resume_dispute_without_local_statement() {
 			test_state
 		})
 	})
-	// Alice should send a DisputeParticiationMessage::Participate on restart since she has no
+	// Alice should send a DisputeParticipationMessage::Participate on restart since she has no
 	// local statement for the active dispute.
 	.resume(|mut test_state, mut virtual_overseer| {
 		Box::pin(async move {
@@ -2390,7 +2396,7 @@ fn resume_dispute_with_local_statement() {
 			test_state
 		})
 	})
-	// Alice should not send a DisputeParticiationMessage::Participate on restart since she has a
+	// Alice should not send a DisputeParticipationMessage::Participate on restart since she has a
 	// local statement for the active dispute, instead she should try to (re-)send her vote.
 	.resume(|mut test_state, mut virtual_overseer| {
 		let candidate_receipt = make_valid_candidate_receipt();
@@ -2495,7 +2501,7 @@ fn resume_dispute_without_local_statement_or_local_key() {
 				test_state
 			})
 		})
-		// Two should not send a DisputeParticiationMessage::Participate on restart since she is no
+		// Two should not send a DisputeParticipationMessage::Participate on restart since she is no
 		// validator in that dispute.
 		.resume(|mut test_state, mut virtual_overseer| {
 			Box::pin(async move {
@@ -2796,7 +2802,7 @@ fn participation_with_onchain_disabling_confirmed() {
 				})
 				.await;
 
-			handle_disabled_validators_queries(&mut virtual_overseer, vec![]).await;
+			handle_disabled_validators_queries(&mut virtual_overseer, vec![disabled_index]).await;
 			handle_approval_vote_request(&mut virtual_overseer, &candidate_hash, HashMap::new())
 				.await;
 			assert_eq!(confirmation_rx.await, Ok(ImportStatementsResult::ValidImport));
@@ -3857,14 +3863,15 @@ fn participation_requests_reprioritized_for_newly_included() {
 			for repetition in 1..=3u8 {
 				// Building candidate receipts
 				let mut candidate_receipt = make_valid_candidate_receipt();
-				candidate_receipt.descriptor.pov_hash = Hash::from(
+				candidate_receipt.descriptor.set_pov_hash(Hash::from(
 					[repetition; 32], // Altering this receipt so its hash will be changed
-				);
+				));
 				// Set consecutive parents (starting from zero). They will order the candidates for
 				// participation.
 				let parent_block_num: BlockNumber = repetition as BlockNumber - 1;
-				candidate_receipt.descriptor.relay_parent =
-					*test_state.block_num_to_header.get(&parent_block_num).unwrap();
+				candidate_receipt.descriptor.set_relay_parent(
+					*test_state.block_num_to_header.get(&parent_block_num).unwrap(),
+				);
 				receipts.push(candidate_receipt.clone());
 			}
 

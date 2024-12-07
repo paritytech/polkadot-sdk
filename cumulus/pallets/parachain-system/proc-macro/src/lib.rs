@@ -122,8 +122,8 @@ pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::To
 				#[no_mangle]
 				unsafe fn validate_block(arguments: *mut u8, arguments_len: usize) -> u64 {
 					// We convert the `arguments` into a boxed slice and then into `Bytes`.
-					let args = #crate_::validate_block::sp_std::boxed::Box::from_raw(
-						#crate_::validate_block::sp_std::slice::from_raw_parts_mut(
+					let args = #crate_::validate_block::Box::from_raw(
+						#crate_::validate_block::slice::from_raw_parts_mut(
 							arguments,
 							arguments_len,
 						)

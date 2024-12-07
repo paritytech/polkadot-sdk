@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "[pallet-contracts] Weights update"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Update Host functions benchmarks, instead of benchmarking the whole call extrinsic, this PR solely benchmark the execution of the Host function.
+      Previously, some benchmarks would overestimate the weight as both the parsing and execution of the contract were included in the benchmark.
+
+crates:
+- name: pallet-contracts
+  bump: patch

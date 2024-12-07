@@ -28,9 +28,9 @@
 //! `nonfungible` traits by using the `nonfungible::ItemOf` type adapter.
 
 use crate::dispatch::{DispatchResult, Parameter};
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use sp_runtime::{DispatchError, TokenError};
-use sp_std::prelude::*;
 
 /// Trait for providing an interface to many read-only NFT-like sets of items.
 pub trait Inspect<AccountId> {

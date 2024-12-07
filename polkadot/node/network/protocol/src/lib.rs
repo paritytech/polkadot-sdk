@@ -19,13 +19,13 @@
 #![deny(unused_crate_dependencies)]
 #![warn(missing_docs)]
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_primitives::{BlockNumber, Hash};
-use std::{collections::HashMap, fmt};
+use std::fmt;
 
 #[doc(hidden)]
-pub use polkadot_node_jaeger as jaeger;
-pub use sc_network::{IfDisconnected, PeerId};
+pub use sc_network::IfDisconnected;
+pub use sc_network_types::PeerId;
 #[doc(hidden)]
 pub use std::sync::Arc;
 
@@ -90,31 +90,16 @@ impl Into<sc_network::ObservedRole> for ObservedRole {
 }
 
 /// Specialized wrapper around [`View`].
-///
-/// Besides the access to the view itself, it also gives access to the [`jaeger::Span`] per
-/// leave/head.
 #[derive(Debug, Clone, Default)]
 pub struct OurView {
 	view: View,
-	span_per_head: HashMap<Hash, Arc<jaeger::Span>>,
 }
 
 impl OurView {
 	/// Creates a new instance.
-	pub fn new(
-		heads: impl IntoIterator<Item = (Hash, Arc<jaeger::Span>)>,
-		finalized_number: BlockNumber,
-	) -> Self {
-		let state_per_head = heads.into_iter().collect::<HashMap<_, _>>();
-		let view = View::new(state_per_head.keys().cloned(), finalized_number);
-		Self { view, span_per_head: state_per_head }
-	}
-
-	/// Returns the span per head map.
-	///
-	/// For each head there exists one span in this map.
-	pub fn span_per_head(&self) -> &HashMap<Hash, Arc<jaeger::Span>> {
-		&self.span_per_head
+	pub fn new(heads: impl IntoIterator<Item = Hash>, finalized_number: BlockNumber) -> Self {
+		let view = View::new(heads, finalized_number);
+		Self { view }
 	}
 }
 
@@ -132,8 +117,7 @@ impl std::ops::Deref for OurView {
 	}
 }
 
-/// Construct a new [`OurView`] with the given chain heads, finalized number 0 and disabled
-/// [`jaeger::Span`]'s.
+/// Construct a new [`OurView`] with the given chain heads, finalized number 0
 ///
 /// NOTE: Use for tests only.
 ///
@@ -148,7 +132,7 @@ impl std::ops::Deref for OurView {
 macro_rules! our_view {
 	( $( $hash:expr ),* $(,)? ) => {
 		$crate::OurView::new(
-			vec![ $( $hash.clone() ),* ].into_iter().map(|h| (h, $crate::Arc::new($crate::jaeger::Span::Disabled))),
+			vec![ $( $hash.clone() ),* ].into_iter().map(|h| h),
 			0,
 		)
 	};
@@ -461,7 +445,7 @@ impl_versioned_try_from!(
 
 /// v1 notification protocol types.
 pub mod v1 {
-	use parity_scale_codec::{Decode, Encode};
+	use codec::{Decode, Encode};
 
 	use polkadot_primitives::{
 		CandidateHash, CandidateIndex, CollatorId, CollatorSignature, CompactStatement, Hash,
@@ -610,7 +594,7 @@ pub mod v1 {
 	///
 	/// The payload is the local peer id of the node, which serves to prove that it
 	/// controls the collator key it is declaring an intention to collate under.
-	pub fn declare_signature_payload(peer_id: &sc_network::PeerId) -> Vec<u8> {
+	pub fn declare_signature_payload(peer_id: &sc_network_types::PeerId) -> Vec<u8> {
 		let mut payload = peer_id.to_bytes();
 		payload.extend_from_slice(b"COLL");
 		payload
@@ -620,7 +604,7 @@ pub mod v1 {
 /// v2 network protocol types.
 pub mod v2 {
 	use bitvec::{order::Lsb0, slice::BitSlice, vec::BitVec};
-	use parity_scale_codec::{Decode, Encode};
+	use codec::{Decode, Encode};
 
 	use polkadot_primitives::{
 		CandidateHash, CandidateIndex, CollatorId, CollatorSignature, GroupIndex, Hash,
@@ -863,7 +847,7 @@ pub mod v2 {
 	///
 	/// The payload is the local peer id of the node, which serves to prove that it
 	/// controls the collator key it is declaring an intention to collate under.
-	pub fn declare_signature_payload(peer_id: &sc_network::PeerId) -> Vec<u8> {
+	pub fn declare_signature_payload(peer_id: &sc_network_types::PeerId) -> Vec<u8> {
 		let mut payload = peer_id.to_bytes();
 		payload.extend_from_slice(b"COLL");
 		payload
@@ -871,10 +855,10 @@ pub mod v2 {
 }
 
 /// v3 network protocol types.
-/// Purpose is for chaning ApprovalDistributionMessage to
+/// Purpose is for changing ApprovalDistributionMessage to
 /// include more than one assignment and approval in a message.
 pub mod v3 {
-	use parity_scale_codec::{Decode, Encode};
+	use codec::{Decode, Encode};
 
 	use polkadot_node_primitives::approval::v2::{
 		CandidateBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2,

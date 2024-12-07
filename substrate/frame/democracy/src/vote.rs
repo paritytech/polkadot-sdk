@@ -25,7 +25,6 @@ use sp_runtime::{
 	traits::{Saturating, Zero},
 	BoundedVec, RuntimeDebug,
 };
-use sp_std::prelude::*;
 
 /// A number of lock periods, plus a vote, one way or the other.
 #[derive(Copy, Clone, Eq, PartialEq, Default, RuntimeDebug)]

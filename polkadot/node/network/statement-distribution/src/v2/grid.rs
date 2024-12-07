@@ -46,10 +46,8 @@
 //! - Request/response for the candidate + votes.
 //!   - Ignore if they are inconsistent with the manifest.
 //!   - A malicious backing group is capable of producing an unbounded number of backed candidates.
-//!     - We request the candidate only if the candidate has a hypothetical depth in any of our
-//!       fragment trees, and:
-//!     - the seconding validators have not seconded any other candidates at that depth in any of
-//!       those fragment trees
+//!     - We request the candidate only if the candidate is a hypothetical member in any of our
+//!       fragment chains, and:
 //! - All members of the group attempt to circulate all statements (in compact form) from the rest
 //!   of the group on candidates that have already been backed.
 //!   - They do this via the grid topology.

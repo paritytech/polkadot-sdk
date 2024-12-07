@@ -1,0 +1,43 @@
+title: "Bridge: make some headers submissions free"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds `FreeHeadersInterval` configuration constant to the `pallet_bridge_grandpa`.
+      Transactions that improve best known header by at least `FreeHeadersInterval` headers
+      are now free for the submitter. Additionally, we allow single free parachain header
+      update per every free relay chain header. Bridge signed extensions are adjusted
+      to support that new scheme. Bridge runtime APIs are extended to support that new
+      scheme. Bridge fees are decreased by ~98% because now they do not include cost of
+      finality submissions - we assume relayers will be submitting finality transactions
+      for free.
+
+crates:
+  - name: bridge-runtime-common
+    bump: major
+  - name: bp-bridge-hub-cumulus
+    bump: patch
+  - name: bp-bridge-hub-kusama
+    bump: major
+  - name: bp-bridge-hub-polkadot
+    bump: major
+  - name: bp-bridge-hub-rococo
+    bump: major
+  - name: bp-bridge-hub-westend
+    bump: major
+  - name: pallet-bridge-grandpa
+    bump: major
+  - name: pallet-bridge-parachains
+    bump: major
+  - name: bp-parachains
+    bump: major
+  - name: bp-runtime
+    bump: major
+  - name: relay-substrate-client
+    bump: major
+  - name: bridge-hub-rococo-runtime
+    bump: major
+  - name: bridge-hub-westend-runtime
+    bump: major
+  - name: bridge-hub-test-utils
+    bump: minor

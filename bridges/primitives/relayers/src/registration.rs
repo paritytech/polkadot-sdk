@@ -21,7 +21,7 @@
 //! required finality proofs). This extension boosts priority of message delivery
 //! transactions, based on the number of bundled messages. So transaction with more
 //! messages has larger priority than the transaction with less messages.
-//! See `bridge_runtime_common::priority_calculator` for details;
+//! See `bridge_runtime_common::extensions::priority_calculator` for details;
 //!
 //! This encourages relayers to include more messages to their delivery transactions.
 //! At the same time, we are not verifying storage proofs before boosting
@@ -45,6 +45,23 @@ use sp_runtime::{
 	traits::{Get, Zero},
 	DispatchError, DispatchResult,
 };
+
+/// Either explicit account reference or `RewardsAccountParams`.
+#[derive(Clone, Debug)]
+pub enum ExplicitOrAccountParams<AccountId, LaneId: Decode + Encode> {
+	/// Explicit account reference.
+	Explicit(AccountId),
+	/// Account, referenced using `RewardsAccountParams`.
+	Params(RewardsAccountParams<LaneId>),
+}
+
+impl<AccountId, LaneId: Decode + Encode> From<RewardsAccountParams<LaneId>>
+	for ExplicitOrAccountParams<AccountId, LaneId>
+{
+	fn from(params: RewardsAccountParams<LaneId>) -> Self {
+		ExplicitOrAccountParams::Params(params)
+	}
+}
 
 /// Relayer registration.
 #[derive(Copy, Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
@@ -88,9 +105,9 @@ pub trait StakeAndSlash<AccountId, BlockNumber, Balance> {
 	/// `beneficiary`.
 	///
 	/// Returns `Ok(_)` with non-zero balance if we have failed to repatriate some portion of stake.
-	fn repatriate_reserved(
+	fn repatriate_reserved<LaneId: Decode + Encode>(
 		relayer: &AccountId,
-		beneficiary: RewardsAccountParams,
+		beneficiary: ExplicitOrAccountParams<AccountId, LaneId>,
 		amount: Balance,
 	) -> Result<Balance, DispatchError>;
 }
@@ -111,9 +128,9 @@ where
 		Zero::zero()
 	}
 
-	fn repatriate_reserved(
+	fn repatriate_reserved<LaneId: Decode + Encode>(
 		_relayer: &AccountId,
-		_beneficiary: RewardsAccountParams,
+		_beneficiary: ExplicitOrAccountParams<AccountId, LaneId>,
 		_amount: Balance,
 	) -> Result<Balance, DispatchError> {
 		Ok(Zero::zero())

@@ -18,15 +18,9 @@
 
 //! RPC middleware to collect prometheus metrics on RPC calls.
 
-use std::{
-	future::Future,
-	pin::Pin,
-	task::{Context, Poll},
-	time::Instant,
-};
+use std::time::Instant;
 
-use jsonrpsee::{server::middleware::rpc::RpcServiceT, types::Request, MethodResponse};
-use pin_project::pin_project;
+use jsonrpsee::{types::Request, MethodResponse};
 use prometheus_endpoint::{
 	register, Counter, CounterVec, HistogramOpts, HistogramVec, Opts, PrometheusError, Registry,
 	U64,
@@ -77,7 +71,7 @@ impl RpcMetrics {
 							"Total time [μs] of processed RPC calls",
 						)
 						.buckets(HISTOGRAM_BUCKETS.to_vec()),
-						&["protocol", "method"],
+						&["protocol", "method", "is_rate_limited"],
 					)?,
 					metrics_registry,
 				)?,
@@ -97,7 +91,7 @@ impl RpcMetrics {
 							"substrate_rpc_calls_finished",
 							"Number of processed RPC calls (unique un-batched requests)",
 						),
-						&["protocol", "method", "is_error"],
+						&["protocol", "method", "is_error", "is_rate_limited"],
 					)?,
 					metrics_registry,
 				)?,
@@ -144,17 +138,67 @@ impl RpcMetrics {
 		self.ws_sessions_closed.as_ref().map(|counter| counter.inc());
 		self.ws_sessions_time.with_label_values(&["ws"]).observe(micros as _);
 	}
+
+	pub(crate) fn on_call(&self, req: &Request, transport_label: &'static str) {
+		log::trace!(
+			target: "rpc_metrics",
+			"[{transport_label}] on_call name={} params={:?}",
+			req.method_name(),
+			req.params(),
+		);
+
+		self.calls_started
+			.with_label_values(&[transport_label, req.method_name()])
+			.inc();
+	}
+
+	pub(crate) fn on_response(
+		&self,
+		req: &Request,
+		rp: &MethodResponse,
+		is_rate_limited: bool,
+		transport_label: &'static str,
+		now: Instant,
+	) {
+		log::trace!(target: "rpc_metrics", "[{transport_label}] on_response started_at={:?}", now);
+		log::trace!(target: "rpc_metrics::extra", "[{transport_label}] result={}", rp.as_result());
+
+		let micros = now.elapsed().as_micros();
+		log::debug!(
+			target: "rpc_metrics",
+			"[{transport_label}] {} call took {} μs",
+			req.method_name(),
+			micros,
+		);
+		self.calls_time
+			.with_label_values(&[
+				transport_label,
+				req.method_name(),
+				if is_rate_limited { "true" } else { "false" },
+			])
+			.observe(micros as _);
+		self.calls_finished
+			.with_label_values(&[
+				transport_label,
+				req.method_name(),
+				// the label "is_error", so `success` should be regarded as false
+				// and vice-versa to be registered correctly.
+				if rp.is_success() { "false" } else { "true" },
+				if is_rate_limited { "true" } else { "false" },
+			])
+			.inc();
+	}
 }
 
-/// Metrics layer.
-#[derive(Clone)]
-pub struct MetricsLayer {
-	inner: RpcMetrics,
-	transport_label: &'static str,
+/// Metrics with transport label.
+#[derive(Clone, Debug)]
+pub struct Metrics {
+	pub(crate) inner: RpcMetrics,
+	pub(crate) transport_label: &'static str,
 }
 
-impl MetricsLayer {
-	/// Create a new [`MetricsLayer`].
+impl Metrics {
+	/// Create a new [`Metrics`].
 	pub fn new(metrics: RpcMetrics, transport_label: &'static str) -> Self {
 		Self { inner: metrics, transport_label }
 	}
@@ -166,116 +210,18 @@ impl MetricsLayer {
 	pub(crate) fn ws_disconnect(&self, now: Instant) {
 		self.inner.ws_disconnect(now)
 	}
-}
 
-impl<S> tower::Layer<S> for MetricsLayer {
-	type Service = Metrics<S>;
-
-	fn layer(&self, inner: S) -> Self::Service {
-		Metrics::new(inner, self.inner.clone(), self.transport_label)
+	pub(crate) fn on_call(&self, req: &Request) {
+		self.inner.on_call(req, self.transport_label)
 	}
-}
 
-/// Metrics middleware.
-#[derive(Clone)]
-pub struct Metrics<S> {
-	service: S,
-	metrics: RpcMetrics,
-	transport_label: &'static str,
-}
-
-impl<S> Metrics<S> {
-	/// Create a new metrics middleware.
-	pub fn new(service: S, metrics: RpcMetrics, transport_label: &'static str) -> Metrics<S> {
-		Metrics { service, metrics, transport_label }
-	}
-}
-
-impl<'a, S> RpcServiceT<'a> for Metrics<S>
-where
-	S: Send + Sync + RpcServiceT<'a>,
-{
-	type Future = ResponseFuture<'a, S::Future>;
-
-	fn call(&self, req: Request<'a>) -> Self::Future {
-		let now = Instant::now();
-
-		log::trace!(
-			target: "rpc_metrics",
-			"[{}] on_call name={} params={:?}",
-			self.transport_label,
-			req.method_name(),
-			req.params(),
-		);
-		self.metrics
-			.calls_started
-			.with_label_values(&[self.transport_label, req.method_name()])
-			.inc();
-
-		ResponseFuture {
-			fut: self.service.call(req.clone()),
-			metrics: self.metrics.clone(),
-			req,
-			now,
-			transport_label: self.transport_label,
-		}
-	}
-}
-
-/// Response future for metrics.
-#[pin_project]
-pub struct ResponseFuture<'a, F> {
-	#[pin]
-	fut: F,
-	metrics: RpcMetrics,
-	req: Request<'a>,
-	now: Instant,
-	transport_label: &'static str,
-}
-
-impl<'a, F> std::fmt::Debug for ResponseFuture<'a, F> {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.write_str("ResponseFuture")
-	}
-}
-
-impl<'a, F: Future<Output = MethodResponse>> Future for ResponseFuture<'a, F> {
-	type Output = F::Output;
-
-	fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-		let this = self.project();
-
-		let res = this.fut.poll(cx);
-		if let Poll::Ready(rp) = &res {
-			let method_name = this.req.method_name();
-			let transport_label = &this.transport_label;
-			let now = this.now;
-			let metrics = &this.metrics;
-
-			log::trace!(target: "rpc_metrics", "[{transport_label}] on_response started_at={:?}", now);
-			log::trace!(target: "rpc_metrics::extra", "[{transport_label}] result={:?}", rp);
-
-			let micros = now.elapsed().as_micros();
-			log::debug!(
-				target: "rpc_metrics",
-				"[{transport_label}] {method_name} call took {} μs",
-				micros,
-			);
-			metrics
-				.calls_time
-				.with_label_values(&[transport_label, method_name])
-				.observe(micros as _);
-			metrics
-				.calls_finished
-				.with_label_values(&[
-					transport_label,
-					method_name,
-					// the label "is_error", so `success` should be regarded as false
-					// and vice-versa to be registrered correctly.
-					if rp.is_success() { "false" } else { "true" },
-				])
-				.inc();
-		}
-		res
+	pub(crate) fn on_response(
+		&self,
+		req: &Request,
+		rp: &MethodResponse,
+		is_rate_limited: bool,
+		now: Instant,
+	) {
+		self.inner.on_response(req, rp, is_rate_limited, self.transport_label, now)
 	}
 }

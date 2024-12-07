@@ -1,0 +1,13 @@
+title: "Fix multi-collator parachain transition to async backing"
+
+doc:
+  - audience: Node Operator
+    description: |
+      The dynamic Aura slot duration, introduced in PR#3211, didn't take the block import pipeline
+      into account. The result was the parachain backed by multiple collators not being able to
+      keep producing blocks after its runtime was upgraded to support async backing, requiring to
+      restart all the collator nodes. This change fixes the issue, introducing the dynamic Aura
+      slot duration into the block import pipeline.
+
+crates:
+  - name: "polkadot-parachain-bin"

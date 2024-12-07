@@ -1,0 +1,11 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: add option to whitelist peers in rpc rate limiting
+
+doc:
+  - audience: Node Operator
+    description: |
+      This PR adds two new CLI options to disable rate limiting for certain ip addresses and whether to trust "proxy headers".
+
+crates: [ ]

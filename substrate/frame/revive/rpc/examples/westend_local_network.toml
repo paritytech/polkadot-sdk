@@ -1,0 +1,41 @@
+[settings]
+node_spawn_timeout = 240
+
+[relaychain]
+default_command = "{{POLKADOT_BINARY}}"
+default_args = ["-lparachain=debug,xcm=trace"]
+chain = "westend-local"
+[[relaychain.nodes]]
+name = "alice-westend-validator"
+validator = true
+rpc_port = 9935
+ws_port = 9945
+balance = 2000000000000
+
+[[relaychain.nodes]]
+name = "bob-westend-validator"
+validator = true
+rpc_port = 9936
+ws_port = 9946
+balance = 2000000000000
+
+[[parachains]]
+id = 1000
+chain = "asset-hub-westend-local"
+cumulus_based = true
+
+[[parachains.collators]]
+name = "asset-hub-westend-collator1"
+rpc_port = 9011
+ws_port = 9944
+command = "{{POLKADOT_PARACHAIN_BINARY}}"
+args = [
+	"-lparachain=debug,runtime::revive=debug",
+]
+
+[[parachains.collators]]
+name = "asset-hub-westend-collator2"
+command = "{{POLKADOT_PARACHAIN_BINARY}}"
+args = [
+	"-lparachain=debug,runtime::revive=debug",
+]

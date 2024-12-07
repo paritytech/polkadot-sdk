@@ -375,68 +375,66 @@ async fn handle_new_best_parachain_head<Block, P>(
 			target: LOG_TARGET,
 			block_hash = ?hash,
 			"Skipping set new best block, because block is already the best.",
-		)
-	} else {
-		// Make sure the block is already known or otherwise we skip setting new best.
-		match parachain.block_status(hash) {
-			Ok(BlockStatus::InChainWithState) => {
-				unset_best_header.take();
-				tracing::debug!(
-					target: LOG_TARGET,
-					?hash,
-					"Importing block as new best for parachain.",
-				);
-				import_block_as_new_best(hash, parachain_head, parachain).await;
-			},
-			Ok(BlockStatus::InChainPruned) => {
-				tracing::error!(
-					target: LOG_TARGET,
-					block_hash = ?hash,
-					"Trying to set pruned block as new best!",
-				);
-			},
-			Ok(BlockStatus::Unknown) => {
-				*unset_best_header = Some(parachain_head);
+		);
+		return;
+	}
 
-				tracing::debug!(
-					target: LOG_TARGET,
-					block_hash = ?hash,
-					"Parachain block not yet imported, waiting for import to enact as best block.",
-				);
+	// Make sure the block is already known or otherwise we skip setting new best.
+	match parachain.block_status(hash) {
+		Ok(BlockStatus::InChainWithState) => {
+			unset_best_header.take();
+			tracing::debug!(
+				target: LOG_TARGET,
+				included = ?hash,
+				"Importing block as new best for parachain.",
+			);
+			import_block_as_new_best(hash, parachain_head, parachain).await;
+		},
+		Ok(BlockStatus::InChainPruned) => {
+			tracing::error!(
+				target: LOG_TARGET,
+				block_hash = ?hash,
+				"Trying to set pruned block as new best!",
+			);
+		},
+		Ok(BlockStatus::Unknown) => {
+			*unset_best_header = Some(parachain_head);
 
-				if let Some(ref mut recovery_chan_tx) = recovery_chan_tx {
-					// Best effort channel to actively encourage block recovery.
-					// An error here is not fatal; the relay chain continuously re-announces
-					// the best block, thus we will have other opportunities to retry.
-					let req = RecoveryRequest { hash, kind: RecoveryKind::Full };
-					if let Err(err) = recovery_chan_tx.try_send(req) {
-						tracing::warn!(
-							target: LOG_TARGET,
-							block_hash = ?hash,
-							error = ?err,
-							"Unable to notify block recovery subsystem"
-						)
-					}
+			tracing::debug!(
+				target: LOG_TARGET,
+				block_hash = ?hash,
+				"Parachain block not yet imported, waiting for import to enact as best block.",
+			);
+
+			if let Some(ref mut recovery_chan_tx) = recovery_chan_tx {
+				// Best effort channel to actively encourage block recovery.
+				// An error here is not fatal; the relay chain continuously re-announces
+				// the best block, thus we will have other opportunities to retry.
+				let req = RecoveryRequest { hash, kind: RecoveryKind::Full };
+				if let Err(err) = recovery_chan_tx.try_send(req) {
+					tracing::warn!(
+						target: LOG_TARGET,
+						block_hash = ?hash,
+						error = ?err,
+						"Unable to notify block recovery subsystem"
+					)
 				}
-			},
-			Err(e) => {
-				tracing::error!(
-					target: LOG_TARGET,
-					block_hash = ?hash,
-					error = ?e,
-					"Failed to get block status of block.",
-				);
-			},
-			_ => {},
-		}
+			}
+		},
+		Err(e) => {
+			tracing::error!(
+				target: LOG_TARGET,
+				block_hash = ?hash,
+				error = ?e,
+				"Failed to get block status of block.",
+			);
+		},
+		_ => {},
 	}
 }
 
-async fn import_block_as_new_best<Block, P>(
-	hash: Block::Hash,
-	header: Block::Header,
-	mut parachain: &P,
-) where
+async fn import_block_as_new_best<Block, P>(hash: Block::Hash, header: Block::Header, parachain: &P)
+where
 	Block: BlockT,
 	P: UsageProvider<Block> + Send + Sync + BlockBackend<Block>,
 	for<'a> &'a P: BlockImport<Block>,

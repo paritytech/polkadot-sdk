@@ -19,10 +19,11 @@
 
 #[allow(deprecated)]
 use super::PreimageProvider;
+use alloc::vec::Vec;
 use codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen};
+use core::{fmt::Debug, result::Result};
 use scale_info::TypeInfo;
 use sp_runtime::{traits::Saturating, DispatchError, RuntimeDebug};
-use sp_std::{fmt::Debug, prelude::*, result::Result};
 
 /// Information relating to the period of a scheduled task. First item is the length of the
 /// period and the second is the number of times it should be executed in total before the task
@@ -130,7 +131,7 @@ impl<T: Decode, H> MaybeHashed<T, H> {
 	}
 }
 
-// TODO: deprecate
+#[deprecated(note = "Use `v3` instead. Will be removed after September 2024.")]
 pub mod v1 {
 	use super::*;
 
@@ -182,7 +183,7 @@ pub mod v1 {
 	/// A type that can be used as a scheduler.
 	pub trait Named<BlockNumber, Call, RuntimeOrigin> {
 		/// An address which can be used for removing a scheduled task.
-		type Address: Codec + Clone + Eq + EncodeLike + sp_std::fmt::Debug + MaxEncodedLen;
+		type Address: Codec + Clone + Eq + EncodeLike + core::fmt::Debug + MaxEncodedLen;
 
 		/// Schedule a dispatch to happen at the beginning of some block in the future.
 		///
@@ -218,10 +219,12 @@ pub mod v1 {
 		fn next_dispatch_time(id: Vec<u8>) -> Result<BlockNumber, ()>;
 	}
 
+	#[allow(deprecated)]
 	impl<T, BlockNumber, Call, RuntimeOrigin> Anon<BlockNumber, Call, RuntimeOrigin> for T
 	where
 		T: v2::Anon<BlockNumber, Call, RuntimeOrigin>,
 	{
+		#[allow(deprecated)]
 		type Address = T::Address;
 
 		fn schedule(
@@ -232,10 +235,13 @@ pub mod v1 {
 			call: Call,
 		) -> Result<Self::Address, DispatchError> {
 			let c = MaybeHashed::<Call, T::Hash>::Value(call);
+
+			#[allow(deprecated)]
 			T::schedule(when, maybe_periodic, priority, origin, c)
 		}
 
 		fn cancel(address: Self::Address) -> Result<(), ()> {
+			#[allow(deprecated)]
 			T::cancel(address)
 		}
 
@@ -243,18 +249,22 @@ pub mod v1 {
 			address: Self::Address,
 			when: DispatchTime<BlockNumber>,
 		) -> Result<Self::Address, DispatchError> {
+			#[allow(deprecated)]
 			T::reschedule(address, when)
 		}
 
 		fn next_dispatch_time(address: Self::Address) -> Result<BlockNumber, ()> {
+			#[allow(deprecated)]
 			T::next_dispatch_time(address)
 		}
 	}
 
+	#[allow(deprecated)]
 	impl<T, BlockNumber, Call, RuntimeOrigin> Named<BlockNumber, Call, RuntimeOrigin> for T
 	where
 		T: v2::Named<BlockNumber, Call, RuntimeOrigin>,
 	{
+		#[allow(deprecated)]
 		type Address = T::Address;
 
 		fn schedule_named(
@@ -266,10 +276,12 @@ pub mod v1 {
 			call: Call,
 		) -> Result<Self::Address, ()> {
 			let c = MaybeHashed::<Call, T::Hash>::Value(call);
+			#[allow(deprecated)]
 			T::schedule_named(id, when, maybe_periodic, priority, origin, c)
 		}
 
 		fn cancel_named(id: Vec<u8>) -> Result<(), ()> {
+			#[allow(deprecated)]
 			T::cancel_named(id)
 		}
 
@@ -277,16 +289,18 @@ pub mod v1 {
 			id: Vec<u8>,
 			when: DispatchTime<BlockNumber>,
 		) -> Result<Self::Address, DispatchError> {
+			#[allow(deprecated)]
 			T::reschedule_named(id, when)
 		}
 
 		fn next_dispatch_time(id: Vec<u8>) -> Result<BlockNumber, ()> {
+			#[allow(deprecated)]
 			T::next_dispatch_time(id)
 		}
 	}
 }
 
-// TODO: deprecate
+#[deprecated(note = "Use `v3` instead. Will be removed after September 2024.")]
 pub mod v2 {
 	use super::*;
 
@@ -340,7 +354,7 @@ pub mod v2 {
 	/// A type that can be used as a scheduler.
 	pub trait Named<BlockNumber, Call, RuntimeOrigin> {
 		/// An address which can be used for removing a scheduled task.
-		type Address: Codec + Clone + Eq + EncodeLike + sp_std::fmt::Debug + MaxEncodedLen;
+		type Address: Codec + Clone + Eq + EncodeLike + core::fmt::Debug + MaxEncodedLen;
 		/// A means of expressing a call by the hash of its encoded data.
 		type Hash;
 
@@ -435,7 +449,7 @@ pub mod v3 {
 	/// A type that can be used as a scheduler.
 	pub trait Named<BlockNumber, Call, Origin> {
 		/// An address which can be used for removing a scheduled task.
-		type Address: Codec + MaxEncodedLen + Clone + Eq + EncodeLike + sp_std::fmt::Debug;
+		type Address: Codec + MaxEncodedLen + Clone + Eq + EncodeLike + core::fmt::Debug;
 		/// The hasher used in the runtime.
 		type Hasher: sp_runtime::traits::Hash;
 
@@ -478,4 +492,5 @@ pub mod v3 {
 	}
 }
 
+#[allow(deprecated)]
 pub use v1::*;

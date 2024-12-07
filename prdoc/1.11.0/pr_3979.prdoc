@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Deprecate `para_id()` from `CoreState` in polkadot primitives
+
+doc:
+  - audience: "Node Dev"
+    description: |
+     `CoreState`'s `para_id()` function is getting deprecated in favour of direct usage of the
+     `ClaimQueue`. This is the preferred approach because it provides a better view on what is
+     scheduled on each core.
+
+crates:
+  - name: polkadot-primitives
+    bump: minor
+  - name: polkadot-statement-distribution
+    bump: minor
+  - name: cumulus-client-consensus-aura
+    bump: minor

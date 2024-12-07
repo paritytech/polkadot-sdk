@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use codec::Encode;
+pub use core::cell::RefCell;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{
@@ -28,15 +29,15 @@ use polkadot_parachain_primitives::primitives::Id as ParaId;
 use polkadot_runtime_parachains::origin;
 use sp_core::H256;
 use sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage};
-pub use sp_std::cell::RefCell;
 use xcm::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, Case, ChildParachainAsNative, ChildParachainConvertsVia,
-	ChildSystemParachainAsSuperuser, DescribeAllTerminal, FixedRateOfFungible, FixedWeightBounds,
-	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete,
-	MatchedConvertedConcreteId, NoChecking, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, TakeWeightCredit, XcmFeeManagerFromComponents, XcmFeeToAccount,
+	ChildSystemParachainAsSuperuser, DescribeAllTerminal, EnsureDecodableXcm, FixedRateOfFungible,
+	FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter,
+	HashedDescription, IsConcrete, MatchedConvertedConcreteId, NoChecking, SendXcmFeeToAccount,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	XcmFeeManagerFromComponents,
 };
 use xcm_executor::{
 	traits::{Identity, JustTry},
@@ -172,7 +173,7 @@ impl SendXcm for TestSendXcm {
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<(Location, Xcm<()>)> {
 		if FAIL_SEND_XCM.with(|q| *q.borrow()) {
-			return Err(SendError::Transport("Intentional send failure used in tests"))
+			return Err(SendError::Transport("Intentional send failure used in tests"));
 		}
 		let pair = (dest.take().unwrap(), msg.take().unwrap());
 		Ok((pair, Assets::new()))
@@ -237,11 +238,7 @@ impl SendXcm for TestPaidForPara3000SendXcm {
 	}
 }
 
-parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-}
-
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
@@ -252,7 +249,6 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type Version = ();
@@ -270,24 +266,13 @@ impl frame_system::Config for Test {
 
 parameter_types! {
 	pub ExistentialDeposit: Balance = 1;
-	pub const MaxLocks: u32 = 50;
-	pub const MaxReserves: u32 = 50;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = MaxLocks;
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type MaxReserves = MaxReserves;
-	type ReserveIdentifier = [u8; 8];
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -361,11 +346,22 @@ parameter_types! {
 		0,
 		[Parachain(FOREIGN_ASSET_RESERVE_PARA_ID)]
 	);
+	pub PaidParaForeignReserveLocation: Location = Location::new(
+		0,
+		[Parachain(Para3000::get())]
+	);
 	pub ForeignAsset: Asset = Asset {
 		fun: Fungible(10),
 		id: AssetId(Location::new(
 			0,
 			[Parachain(FOREIGN_ASSET_RESERVE_PARA_ID), FOREIGN_ASSET_INNER_JUNCTION],
+		)),
+	};
+	pub PaidParaForeignAsset: Asset = Asset {
+		fun: Fungible(10),
+		id: AssetId(Location::new(
+			0,
+			[Parachain(Para3000::get())],
 		)),
 	};
 	pub UsdcReserveLocation: Location = Location::new(
@@ -402,7 +398,7 @@ parameter_types! {
 		)),
 	};
 	pub const AnyNetwork: Option<NetworkId> = None;
-	pub UniversalLocation: InteriorLocation = Here;
+	pub UniversalLocation: InteriorLocation = GlobalConsensus(ByGenesis([0; 32])).into();
 	pub UnitWeightCost: u64 = 1_000;
 	pub CheckingAccount: AccountId = XcmPallet::check_account();
 }
@@ -450,6 +446,8 @@ parameter_types! {
 	pub TrustedFilteredTeleport: (AssetFilter, Location) = (FilteredTeleportAsset::get().into(), FilteredTeleportLocation::get());
 	pub TeleportUsdtToForeign: (AssetFilter, Location) = (Usdt::get().into(), ForeignReserveLocation::get());
 	pub TrustedForeign: (AssetFilter, Location) = (ForeignAsset::get().into(), ForeignReserveLocation::get());
+	pub TrustedPaidParaForeign: (AssetFilter, Location) = (PaidParaForeignAsset::get().into(), PaidParaForeignReserveLocation::get());
+
 	pub TrustedUsdc: (AssetFilter, Location) = (Usdc::get().into(), UsdcReserveLocation::get());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
@@ -475,7 +473,8 @@ pub type Barrier = (
 	AllowSubscriptionsFrom<Everything>,
 );
 
-pub type XcmRouter = (TestPaidForPara3000SendXcm, TestSendXcmErrX8, TestSendXcm);
+pub type XcmRouter =
+	EnsureDecodableXcm<(TestPaidForPara3000SendXcm, TestSendXcmErrX8, TestSendXcm)>;
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
@@ -483,7 +482,7 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmSender = XcmRouter;
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = LocalOriginConverter;
-	type IsReserve = (Case<TrustedForeign>, Case<TrustedUsdc>);
+	type IsReserve = (Case<TrustedForeign>, Case<TrustedUsdc>, Case<TrustedPaidParaForeign>);
 	type IsTeleporter = (
 		Case<TrustedLocal>,
 		Case<TrustedSystemPara>,
@@ -505,7 +504,7 @@ impl xcm_executor::Config for XcmConfig {
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type FeeManager = XcmFeeManagerFromComponents<
 		EverythingBut<XcmFeesNotWaivedLocations>,
-		XcmFeeToAccount<Self::AssetTransactor, AccountId, XcmFeesTargetAccount>,
+		SendXcmFeeToAccount<Self::AssetTransactor, XcmFeesTargetAccount>,
 	>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
@@ -513,6 +512,10 @@ impl xcm_executor::Config for XcmConfig {
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
 	type TransactionalProcessor = FrameTransactionalProcessor;
+	type HrmpNewChannelOpenRequestHandler = ();
+	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = XcmPallet;
 }
 
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, AnyNetwork>;
@@ -564,7 +567,29 @@ impl pallet_test_notifier::Config for Test {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
+pub struct TestDeliveryHelper;
+#[cfg(feature = "runtime-benchmarks")]
+impl xcm_builder::EnsureDelivery for TestDeliveryHelper {
+	fn ensure_successful_delivery(
+		origin_ref: &Location,
+		_dest: &Location,
+		_fee_reason: xcm_executor::traits::FeeReason,
+	) -> (Option<xcm_executor::FeesMode>, Option<Assets>) {
+		use xcm_executor::traits::ConvertLocation;
+		let account = SovereignAccountOf::convert_location(origin_ref).expect("Valid location");
+		// Give the existential deposit at least
+		let balance = ExistentialDeposit::get();
+		let _ = <Balances as frame_support::traits::Currency<_>>::make_free_balance_be(
+			&account, balance,
+		);
+		(None, None)
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
 impl super::benchmarking::Config for Test {
+	type DeliveryHelper = TestDeliveryHelper;
+
 	fn reachable_dest() -> Option<Location> {
 		Some(Parachain(1000).into())
 	}
@@ -631,6 +656,10 @@ impl super::benchmarking::Config for Test {
 			);
 		});
 		Some((assets, fee_index as u32, dest, verify))
+	}
+
+	fn get_asset() -> Asset {
+		Asset { id: AssetId(Location::here()), fun: Fungible(ExistentialDeposit::get()) }
 	}
 }
 

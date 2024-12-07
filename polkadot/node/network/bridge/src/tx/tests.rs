@@ -26,7 +26,7 @@ use sc_network::{
 	IfDisconnected, ObservedRole as SubstrateObservedRole, ProtocolName, ReputationChange, Roles,
 };
 
-use parity_scale_codec::DecodeAll;
+use codec::DecodeAll;
 use polkadot_node_network_protocol::{
 	peer_set::{PeerSetProtocolNames, ValidationVersion},
 	request_response::{outgoing::Requests, ReqProtocolNames},
@@ -141,6 +141,14 @@ fn new_test_network(
 #[async_trait]
 impl Network for TestNetwork {
 	async fn set_reserved_peers(
+		&mut self,
+		_protocol: ProtocolName,
+		_: HashSet<Multiaddr>,
+	) -> Result<(), String> {
+		Ok(())
+	}
+
+	async fn add_peers_to_reserved_set(
 		&mut self,
 		_protocol: ProtocolName,
 		_: HashSet<Multiaddr>,

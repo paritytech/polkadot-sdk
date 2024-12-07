@@ -196,7 +196,7 @@ mod with_system {
 mod fully_qualified {
 	use super::with_system::*;
 
-	// Simple of using fully qualified syntax.
+	// Example of using fully qualified syntax.
 	type AccountIdOf<T> = <T as SystemConfig>::AccountId;
 }
 

@@ -28,10 +28,11 @@ struct ConstDef {
 	pub default_byte_impl: proc_macro2::TokenStream,
 	/// Constant name for Metadata (optional)
 	pub metadata_name: Option<syn::Ident>,
+	/// Deprecation_info:
+	pub deprecation_info: proc_macro2::TokenStream,
 }
 
-///
-/// * Impl fn module_constant_metadata for pallet.
+/// Implement the `pallet_constants_metadata` function for the pallet.
 pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 	let frame_support = &def.frame_support;
 	let type_impl_gen = &def.type_impl_generics(proc_macro2::Span::call_site());
@@ -43,11 +44,18 @@ pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 	where_clauses.extend(def.extra_constants.iter().map(|d| &d.where_clause));
 	let completed_where_clause = super::merge_where_clauses(&where_clauses);
 
-	let config_consts = def.config.consts_metadata.iter().map(|const_| {
+	let mut config_consts = vec![];
+	for const_ in def.config.consts_metadata.iter() {
 		let ident = &const_.ident;
 		let const_type = &const_.type_;
-
-		ConstDef {
+		let deprecation_info = match crate::deprecation::get_deprecation(
+			&quote::quote! { #frame_support },
+			&const_.attrs,
+		) {
+			Ok(deprecation) => deprecation,
+			Err(e) => return e.into_compile_error(),
+		};
+		config_consts.push(ConstDef {
 			ident: const_.ident.clone(),
 			type_: const_.type_.clone(),
 			doc: const_.doc.clone(),
@@ -57,13 +65,22 @@ pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 				#frame_support::__private::codec::Encode::encode(&value)
 			),
 			metadata_name: None,
-		}
-	});
+			deprecation_info,
+		})
+	}
 
-	let extra_consts = def.extra_constants.iter().flat_map(|d| &d.extra_constants).map(|const_| {
+	let mut extra_consts = vec![];
+	for const_ in def.extra_constants.iter().flat_map(|d| &d.extra_constants) {
 		let ident = &const_.ident;
+		let deprecation_info = match crate::deprecation::get_deprecation(
+			&quote::quote! { #frame_support },
+			&const_.attrs,
+		) {
+			Ok(deprecation) => deprecation,
+			Err(e) => return e.into_compile_error(),
+		};
 
-		ConstDef {
+		extra_consts.push(ConstDef {
 			ident: const_.ident.clone(),
 			type_: const_.type_.clone(),
 			doc: const_.doc.clone(),
@@ -72,10 +89,11 @@ pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 				#frame_support::__private::codec::Encode::encode(&value)
 			),
 			metadata_name: const_.metadata_name.clone(),
-		}
-	});
+			deprecation_info,
+		})
+	}
 
-	let consts = config_consts.chain(extra_consts).map(|const_| {
+	let consts = config_consts.into_iter().chain(extra_consts.into_iter()).map(|const_| {
 		let const_type = &const_.type_;
 		let ident_str = format!("{}", const_.metadata_name.unwrap_or(const_.ident));
 
@@ -83,13 +101,14 @@ pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 		let doc = if cfg!(feature = "no-metadata-docs") { &no_docs } else { &const_.doc };
 
 		let default_byte_impl = &const_.default_byte_impl;
-
+		let deprecation_info = &const_.deprecation_info;
 		quote::quote!({
 			#frame_support::__private::metadata_ir::PalletConstantMetadataIR {
 				name: #ident_str,
 				ty: #frame_support::__private::scale_info::meta_type::<#const_type>(),
 				value: { #default_byte_impl },
-				docs: #frame_support::__private::sp_std::vec![ #( #doc ),* ],
+				docs: #frame_support::__private::vec![ #( #doc ),* ],
+				deprecation_info: #deprecation_info
 			}
 		})
 	});
@@ -99,9 +118,9 @@ pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 
 			#[doc(hidden)]
 			pub fn pallet_constants_metadata()
-				-> #frame_support::__private::sp_std::vec::Vec<#frame_support::__private::metadata_ir::PalletConstantMetadataIR>
+				-> #frame_support::__private::Vec<#frame_support::__private::metadata_ir::PalletConstantMetadataIR>
 			{
-				#frame_support::__private::sp_std::vec![ #( #consts ),* ]
+				#frame_support::__private::vec![ #( #consts ),* ]
 			}
 		}
 	)

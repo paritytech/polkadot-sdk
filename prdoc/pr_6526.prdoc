@@ -1,0 +1,8 @@
+title: 'sp-runtime: Be a little bit more functional :D'
+doc:
+- audience: Runtime Dev
+  description: 
+    Some internal refactorings in the `Digest` code.
+crates:
+- name: sp-runtime
+  bump: patch

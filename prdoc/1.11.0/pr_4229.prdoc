@@ -1,0 +1,10 @@
+title: "Fix Stuck Collator Funds"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Fixes stuck collator funds by providing a migration that should have been in PR 1340.
+
+crates:
+  - name: pallet-collator-selection
+    bump: patch

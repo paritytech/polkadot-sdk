@@ -8,3 +8,4 @@ rustdocflags = [
 # Needed for musl builds so user doesn't have to install musl-tools.
 CC_x86_64_unknown_linux_musl = { value = ".cargo/musl-gcc", force = true, relative = true }
 CXX_x86_64_unknown_linux_musl = { value = ".cargo/musl-g++", force = true, relative = true }
+CARGO_WORKSPACE_ROOT_DIR = { value = "", relative = true }

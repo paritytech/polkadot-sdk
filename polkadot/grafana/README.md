@@ -8,7 +8,7 @@ monitor the liveliness and performance of a network and its validators.
 # How does it work ?
 
 Just import the dashboard JSON files from this folder in your Grafana installation. All dashboards are grouped in
-folder percategory (like for example `parachains`). The files have been created by Grafana export functionality and
+folder per category (like for example `parachains`). The files have been created by Grafana export functionality and
 follow the data model specified [here](https://grafana.com/docs/grafana/latest/dashboards/json-model/).
 
 We aim to keep the dashboards here in sync with the implementation, except dashboards for development and
@@ -90,4 +90,4 @@ and issue statement or initiate dispute.
 - **Assignment delay tranches**. Approval voting is designed such that validators assigned to check a specific
 candidate are split up into equal delay tranches (0.5 seconds each). All validators checks are ordered by the delay
 tranche index. Early tranches of validators have the opportunity to check the candidate first before later tranches
-that act as as backups in case of no shows.
+that act as backups in case of no shows.

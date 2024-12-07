@@ -1,0 +1,11 @@
+title: Make salt optional
+
+doc:
+  - audience: Runtime Dev
+    description: |
+     By making salt optional we allow clients to use CREATE1 semantics
+     when deploying a new contract.
+
+crates:
+  - name: pallet-revive
+    bump: major

@@ -30,9 +30,11 @@
 //! (which requires state not owned by the request manager).
 
 use super::{
-	seconded_and_sufficient, BENEFIT_VALID_RESPONSE, BENEFIT_VALID_STATEMENT,
-	COST_IMPROPERLY_DECODED_RESPONSE, COST_INVALID_RESPONSE, COST_INVALID_SIGNATURE,
-	COST_UNREQUESTED_RESPONSE_STATEMENT, REQUEST_RETRY_DELAY,
+	seconded_and_sufficient, CandidateDescriptorVersion, TransposedClaimQueue,
+	BENEFIT_VALID_RESPONSE, BENEFIT_VALID_STATEMENT, COST_IMPROPERLY_DECODED_RESPONSE,
+	COST_INVALID_CORE_INDEX, COST_INVALID_RESPONSE, COST_INVALID_SESSION_INDEX,
+	COST_INVALID_SIGNATURE, COST_UNREQUESTED_RESPONSE_STATEMENT,
+	COST_UNSUPPORTED_DESCRIPTOR_VERSION, REQUEST_RETRY_DELAY,
 };
 use crate::LOG_TARGET;
 
@@ -47,9 +49,9 @@ use polkadot_node_network_protocol::{
 	PeerId, UnifiedReputationChange as Rep,
 };
 use polkadot_primitives::{
-	CandidateHash, CommittedCandidateReceipt, CompactStatement, GroupIndex, Hash, Id as ParaId,
-	PersistedValidationData, SessionIndex, SignedStatement, SigningContext, ValidatorId,
-	ValidatorIndex,
+	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CandidateHash,
+	CompactStatement, GroupIndex, Hash, Id as ParaId, PersistedValidationData, SessionIndex,
+	SignedStatement, SigningContext, ValidatorId, ValidatorIndex,
 };
 
 use futures::{future::BoxFuture, prelude::*, stream::FuturesUnordered};
@@ -288,7 +290,7 @@ impl RequestManager {
 	/// Returns an instant at which the next request to be retried will be ready.
 	pub fn next_retry_time(&mut self) -> Option<Instant> {
 		let mut next = None;
-		for (_id, request) in &self.requests {
+		for (_id, request) in self.requests.iter().filter(|(_id, request)| !request.in_flight) {
 			if let Some(next_retry_time) = request.next_retry_time {
 				if next.map_or(true, |next| next_retry_time < next) {
 					next = Some(next_retry_time);
@@ -315,7 +317,16 @@ impl RequestManager {
 		request_props: impl Fn(&CandidateIdentifier) -> Option<RequestProperties>,
 		peer_advertised: impl Fn(&CandidateIdentifier, &PeerId) -> Option<StatementFilter>,
 	) -> Option<OutgoingRequest<AttestedCandidateRequest>> {
-		if response_manager.len() >= MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as usize {
+		// The number of parallel requests a node can answer is limited by
+		// `MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS`, however there is no
+		// need for the current node to limit itself to the same amount the
+		// requests, because the requests are going to different nodes anyways.
+		// While looking at https://github.com/paritytech/polkadot-sdk/issues/3314,
+		// found out that this requests take around 100ms to fulfill, so it
+		// would make sense to try to request things as early as we can, given
+		// we would need to request it for each candidate, around 25 right now
+		// on kusama.
+		if response_manager.len() >= 2 * MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as usize {
 			return None
 		}
 
@@ -357,6 +368,7 @@ impl RequestManager {
 				id,
 				&props,
 				&peer_advertised,
+				&response_manager,
 			) {
 				None => continue,
 				Some(t) => t,
@@ -378,14 +390,17 @@ impl RequestManager {
 			);
 
 			let stored_id = id.clone();
-			response_manager.push(Box::pin(async move {
-				TaggedResponse {
-					identifier: stored_id,
-					requested_peer: target,
-					props,
-					response: response_fut.await,
-				}
-			}));
+			response_manager.push(
+				Box::pin(async move {
+					TaggedResponse {
+						identifier: stored_id,
+						requested_peer: target,
+						props,
+						response: response_fut.await,
+					}
+				}),
+				target,
+			);
 
 			entry.in_flight = true;
 
@@ -413,28 +428,35 @@ impl RequestManager {
 /// A manager for pending responses.
 pub struct ResponseManager {
 	pending_responses: FuturesUnordered<BoxFuture<'static, TaggedResponse>>,
+	active_peers: HashSet<PeerId>,
 }
 
 impl ResponseManager {
 	pub fn new() -> Self {
-		Self { pending_responses: FuturesUnordered::new() }
+		Self { pending_responses: FuturesUnordered::new(), active_peers: HashSet::new() }
 	}
 
 	/// Await the next incoming response to a sent request, or immediately
 	/// return `None` if there are no pending responses.
 	pub async fn incoming(&mut self) -> Option<UnhandledResponse> {
-		self.pending_responses
-			.next()
-			.await
-			.map(|response| UnhandledResponse { response })
+		self.pending_responses.next().await.map(|response| {
+			self.active_peers.remove(&response.requested_peer);
+			UnhandledResponse { response }
+		})
 	}
 
 	fn len(&self) -> usize {
 		self.pending_responses.len()
 	}
 
-	fn push(&mut self, response: BoxFuture<'static, TaggedResponse>) {
+	fn push(&mut self, response: BoxFuture<'static, TaggedResponse>, target: PeerId) {
 		self.pending_responses.push(response);
+		self.active_peers.insert(target);
+	}
+
+	/// Returns true if we are currently sending a request to the peer.
+	fn is_sending_to(&self, peer: &PeerId) -> bool {
+		self.active_peers.contains(peer)
 	}
 }
 
@@ -462,10 +484,16 @@ fn find_request_target_with_update(
 	candidate_identifier: &CandidateIdentifier,
 	props: &RequestProperties,
 	peer_advertised: impl Fn(&CandidateIdentifier, &PeerId) -> Option<StatementFilter>,
+	response_manager: &ResponseManager,
 ) -> Option<PeerId> {
 	let mut prune = Vec::new();
 	let mut target = None;
 	for (i, p) in known_by.iter().enumerate() {
+		// If we are already sending to that peer, skip for now
+		if response_manager.is_sending_to(p) {
+			continue
+		}
+
 		let mut filter = match peer_advertised(candidate_identifier, p) {
 			None => {
 				prune.push(i);
@@ -540,6 +568,8 @@ impl UnhandledResponse {
 		validator_key_lookup: impl Fn(ValidatorIndex) -> Option<ValidatorId>,
 		allowed_para_lookup: impl Fn(ParaId, GroupIndex) -> bool,
 		disabled_mask: BitVec<u8, Lsb0>,
+		transposed_cq: &TransposedClaimQueue,
+		allow_v2_descriptors: bool,
 	) -> ResponseValidationOutput {
 		let UnhandledResponse {
 			response: TaggedResponse { identifier, requested_peer, props, response },
@@ -624,6 +654,8 @@ impl UnhandledResponse {
 			validator_key_lookup,
 			allowed_para_lookup,
 			disabled_mask,
+			transposed_cq,
+			allow_v2_descriptors,
 		);
 
 		if let CandidateRequestStatus::Complete { .. } = output.request_status {
@@ -644,6 +676,8 @@ fn validate_complete_response(
 	validator_key_lookup: impl Fn(ValidatorIndex) -> Option<ValidatorId>,
 	allowed_para_lookup: impl Fn(ParaId, GroupIndex) -> bool,
 	disabled_mask: BitVec<u8, Lsb0>,
+	transposed_cq: &TransposedClaimQueue,
+	allow_v2_descriptors: bool,
 ) -> ResponseValidationOutput {
 	let RequestProperties { backing_threshold, mut unwanted_mask } = props;
 
@@ -661,39 +695,83 @@ fn validate_complete_response(
 		unwanted_mask.validated_in_group.resize(group.len(), true);
 	}
 
-	let invalid_candidate_output = || ResponseValidationOutput {
+	let invalid_candidate_output = |cost: Rep| ResponseValidationOutput {
 		request_status: CandidateRequestStatus::Incomplete,
-		reputation_changes: vec![(requested_peer, COST_INVALID_RESPONSE)],
+		reputation_changes: vec![(requested_peer, cost)],
 		requested_peer,
 	};
+
+	let mut rep_changes = Vec::new();
 
 	// sanity-check candidate response.
 	// note: roughly ascending cost of operations
 	{
-		if response.candidate_receipt.descriptor.relay_parent != identifier.relay_parent {
-			return invalid_candidate_output()
+		if response.candidate_receipt.descriptor.relay_parent() != identifier.relay_parent {
+			return invalid_candidate_output(COST_INVALID_RESPONSE)
 		}
 
-		if response.candidate_receipt.descriptor.persisted_validation_data_hash !=
+		if response.candidate_receipt.descriptor.persisted_validation_data_hash() !=
 			response.persisted_validation_data.hash()
 		{
-			return invalid_candidate_output()
+			return invalid_candidate_output(COST_INVALID_RESPONSE)
 		}
 
 		if !allowed_para_lookup(
-			response.candidate_receipt.descriptor.para_id,
+			response.candidate_receipt.descriptor.para_id(),
 			identifier.group_index,
 		) {
-			return invalid_candidate_output()
+			return invalid_candidate_output(COST_INVALID_RESPONSE)
 		}
 
 		if response.candidate_receipt.hash() != identifier.candidate_hash {
-			return invalid_candidate_output()
+			return invalid_candidate_output(COST_INVALID_RESPONSE)
+		}
+
+		let candidate_hash = response.candidate_receipt.hash();
+
+		// V2 descriptors are invalid if not enabled by runtime.
+		if !allow_v2_descriptors &&
+			response.candidate_receipt.descriptor.version() == CandidateDescriptorVersion::V2
+		{
+			gum::debug!(
+				target: LOG_TARGET,
+				?candidate_hash,
+				peer = ?requested_peer,
+				"Version 2 candidate receipts are not enabled by the runtime"
+			);
+			return invalid_candidate_output(COST_UNSUPPORTED_DESCRIPTOR_VERSION)
+		}
+		// Validate the core index.
+		if let Err(err) = response.candidate_receipt.check_core_index(transposed_cq) {
+			gum::debug!(
+				target: LOG_TARGET,
+				?candidate_hash,
+				?err,
+				peer = ?requested_peer,
+				"Received candidate has invalid core index"
+			);
+			return invalid_candidate_output(COST_INVALID_CORE_INDEX)
+		}
+
+		// Check if `session_index` of relay parent matches candidate descriptor
+		// `session_index`.
+		if let Some(candidate_session_index) = response.candidate_receipt.descriptor.session_index()
+		{
+			if candidate_session_index != session {
+				gum::debug!(
+					target: LOG_TARGET,
+					?candidate_hash,
+					peer = ?requested_peer,
+					session_index = session,
+					candidate_session_index,
+					"Received candidate has invalid session index"
+				);
+				return invalid_candidate_output(COST_INVALID_SESSION_INDEX)
+			}
 		}
 	}
 
 	// statement checks.
-	let mut rep_changes = Vec::new();
 	let statements = {
 		let mut statements =
 			Vec::with_capacity(std::cmp::min(response.statements.len(), group.len() * 2));
@@ -789,7 +867,7 @@ fn validate_complete_response(
 		// Only accept responses which are sufficient, according to our
 		// required backing threshold.
 		if !seconded_and_sufficient(&received_filter, backing_threshold) {
-			return invalid_candidate_output()
+			return invalid_candidate_output(COST_INVALID_RESPONSE)
 		}
 
 		statements
@@ -993,7 +1071,9 @@ mod tests {
 		candidate_receipt.descriptor.persisted_validation_data_hash =
 			persisted_validation_data.hash();
 		let candidate = candidate_receipt.hash();
-		let requested_peer = PeerId::random();
+		let candidate_receipt: CommittedCandidateReceipt = candidate_receipt.into();
+		let requested_peer_1 = PeerId::random();
+		let requested_peer_2 = PeerId::random();
 
 		let identifier1 = request_manager
 			.get_or_insert(relay_parent, candidate, 1.into())
@@ -1001,14 +1081,14 @@ mod tests {
 			.clone();
 		request_manager
 			.get_or_insert(relay_parent, candidate, 1.into())
-			.add_peer(requested_peer);
+			.add_peer(requested_peer_1);
 		let identifier2 = request_manager
 			.get_or_insert(relay_parent, candidate, 2.into())
 			.identifier
 			.clone();
 		request_manager
 			.get_or_insert(relay_parent, candidate, 2.into())
-			.add_peer(requested_peer);
+			.add_peer(requested_peer_2);
 
 		assert_ne!(identifier1, identifier2);
 		assert_eq!(request_manager.requests.len(), 2);
@@ -1027,6 +1107,7 @@ mod tests {
 			let peer_advertised = |_identifier: &CandidateIdentifier, _peer: &_| {
 				Some(StatementFilter::full(group_size))
 			};
+
 			let outgoing = request_manager
 				.next_request(&mut response_manager, request_props, peer_advertised)
 				.unwrap();
@@ -1043,10 +1124,10 @@ mod tests {
 			let response = UnhandledResponse {
 				response: TaggedResponse {
 					identifier: identifier1,
-					requested_peer,
+					requested_peer: requested_peer_1,
 					props: request_properties.clone(),
 					response: Ok(AttestedCandidateResponse {
-						candidate_receipt: candidate_receipt.clone(),
+						candidate_receipt: candidate_receipt.clone().into(),
 						persisted_validation_data: persisted_validation_data.clone(),
 						statements,
 					}),
@@ -1062,17 +1143,19 @@ mod tests {
 				validator_key_lookup,
 				allowed_para_lookup,
 				disabled_mask.clone(),
+				&Default::default(),
+				false,
 			);
 			assert_eq!(
 				output,
 				ResponseValidationOutput {
-					requested_peer,
+					requested_peer: requested_peer_1,
 					request_status: CandidateRequestStatus::Complete {
 						candidate: candidate_receipt.clone(),
 						persisted_validation_data: persisted_validation_data.clone(),
 						statements,
 					},
-					reputation_changes: vec![(requested_peer, BENEFIT_VALID_RESPONSE)],
+					reputation_changes: vec![(requested_peer_1, BENEFIT_VALID_RESPONSE)],
 				}
 			);
 		}
@@ -1083,10 +1166,10 @@ mod tests {
 			let response = UnhandledResponse {
 				response: TaggedResponse {
 					identifier: identifier2,
-					requested_peer,
+					requested_peer: requested_peer_2,
 					props: request_properties,
 					response: Ok(AttestedCandidateResponse {
-						candidate_receipt: candidate_receipt.clone(),
+						candidate_receipt: candidate_receipt.clone().into(),
 						persisted_validation_data: persisted_validation_data.clone(),
 						statements,
 					}),
@@ -1101,16 +1184,20 @@ mod tests {
 				validator_key_lookup,
 				allowed_para_lookup,
 				disabled_mask,
+				&Default::default(),
+				false,
 			);
 			assert_eq!(
 				output,
 				ResponseValidationOutput {
-					requested_peer,
+					requested_peer: requested_peer_2,
 					request_status: CandidateRequestStatus::Outdated,
 					reputation_changes: vec![],
 				}
 			);
 		}
+
+		assert_eq!(request_manager.requests.len(), 0);
 	}
 
 	// Test case where we had a request in-flight and the request entry was garbage-collected on
@@ -1148,6 +1235,7 @@ mod tests {
 		{
 			let request_props =
 				|_identifier: &CandidateIdentifier| Some((&request_properties).clone());
+
 			let outgoing = request_manager
 				.next_request(&mut response_manager, request_props, peer_advertised)
 				.unwrap();
@@ -1166,7 +1254,7 @@ mod tests {
 					requested_peer,
 					props: request_properties,
 					response: Ok(AttestedCandidateResponse {
-						candidate_receipt: candidate_receipt.clone(),
+						candidate_receipt: candidate_receipt.clone().into(),
 						persisted_validation_data: persisted_validation_data.clone(),
 						statements,
 					}),
@@ -1182,6 +1270,8 @@ mod tests {
 				validator_key_lookup,
 				allowed_para_lookup,
 				disabled_mask,
+				&Default::default(),
+				false,
 			);
 			assert_eq!(
 				output,
@@ -1205,6 +1295,7 @@ mod tests {
 		candidate_receipt.descriptor.persisted_validation_data_hash =
 			persisted_validation_data.hash();
 		let candidate = candidate_receipt.hash();
+		let candidate_receipt: CommittedCandidateReceipt = candidate_receipt.into();
 		let requested_peer = PeerId::random();
 
 		let identifier = request_manager
@@ -1230,6 +1321,7 @@ mod tests {
 		{
 			let request_props =
 				|_identifier: &CandidateIdentifier| Some((&request_properties).clone());
+
 			let outgoing = request_manager
 				.next_request(&mut response_manager, request_props, peer_advertised)
 				.unwrap();
@@ -1262,6 +1354,8 @@ mod tests {
 				validator_key_lookup,
 				allowed_para_lookup,
 				disabled_mask,
+				&Default::default(),
+				false,
 			);
 			assert_eq!(
 				output,
@@ -1280,5 +1374,143 @@ mod tests {
 		// Ensure that cleanup occurred.
 		assert_eq!(request_manager.requests.len(), 0);
 		assert_eq!(request_manager.by_priority.len(), 0);
+	}
+
+	// Test case where we queue 2 requests to be sent to the same peer and 1 request to another
+	// peer. Same peer requests should be served one at a time but they should not block the other
+	// peer request.
+	#[test]
+	fn rate_limit_requests_to_same_peer() {
+		let mut request_manager = RequestManager::new();
+		let mut response_manager = ResponseManager::new();
+
+		let relay_parent = Hash::from_low_u64_le(1);
+
+		// Create 3 candidates
+		let mut candidate_receipt_1 = test_helpers::dummy_committed_candidate_receipt(relay_parent);
+		let persisted_validation_data_1 = dummy_pvd();
+		candidate_receipt_1.descriptor.persisted_validation_data_hash =
+			persisted_validation_data_1.hash();
+		let candidate_1 = candidate_receipt_1.hash();
+
+		let mut candidate_receipt_2 = test_helpers::dummy_committed_candidate_receipt(relay_parent);
+		let persisted_validation_data_2 = dummy_pvd();
+		candidate_receipt_2.descriptor.persisted_validation_data_hash =
+			persisted_validation_data_2.hash();
+		let candidate_2 = candidate_receipt_2.hash();
+
+		let mut candidate_receipt_3 = test_helpers::dummy_committed_candidate_receipt(relay_parent);
+		let persisted_validation_data_3 = dummy_pvd();
+		candidate_receipt_3.descriptor.persisted_validation_data_hash =
+			persisted_validation_data_3.hash();
+		let candidate_3 = candidate_receipt_3.hash();
+
+		// Create 2 peers
+		let requested_peer_1 = PeerId::random();
+		let requested_peer_2 = PeerId::random();
+
+		let group_size = 3;
+		let group = &[ValidatorIndex(0), ValidatorIndex(1), ValidatorIndex(2)];
+		let unwanted_mask = StatementFilter::blank(group_size);
+		let disabled_mask: BitVec<u8, Lsb0> = Default::default();
+		let request_properties = RequestProperties { unwanted_mask, backing_threshold: None };
+		let request_props = |_identifier: &CandidateIdentifier| Some((&request_properties).clone());
+		let peer_advertised =
+			|_identifier: &CandidateIdentifier, _peer: &_| Some(StatementFilter::full(group_size));
+
+		// Add request for candidate 1 from peer 1
+		let identifier1 = request_manager
+			.get_or_insert(relay_parent, candidate_1, 1.into())
+			.identifier
+			.clone();
+		request_manager
+			.get_or_insert(relay_parent, candidate_1, 1.into())
+			.add_peer(requested_peer_1);
+
+		// Add request for candidate 3 from peer 2 (this one can be served in parallel)
+		let _identifier3 = request_manager
+			.get_or_insert(relay_parent, candidate_3, 1.into())
+			.identifier
+			.clone();
+		request_manager
+			.get_or_insert(relay_parent, candidate_3, 1.into())
+			.add_peer(requested_peer_2);
+
+		// Successfully dispatch request for candidate 1 from peer 1 and candidate 3 from peer 2
+		for _ in 0..2 {
+			let outgoing =
+				request_manager.next_request(&mut response_manager, request_props, peer_advertised);
+			assert!(outgoing.is_some());
+		}
+		assert_eq!(response_manager.active_peers.len(), 2);
+		assert!(response_manager.is_sending_to(&requested_peer_1));
+		assert!(response_manager.is_sending_to(&requested_peer_2));
+		assert_eq!(request_manager.requests.len(), 2);
+
+		// Add request for candidate 2 from peer 1
+		let _identifier2 = request_manager
+			.get_or_insert(relay_parent, candidate_2, 1.into())
+			.identifier
+			.clone();
+		request_manager
+			.get_or_insert(relay_parent, candidate_2, 1.into())
+			.add_peer(requested_peer_1);
+
+		// Do not dispatch the request for the second candidate from peer 1 (already serving that
+		// peer)
+		let outgoing =
+			request_manager.next_request(&mut response_manager, request_props, peer_advertised);
+		assert!(outgoing.is_none());
+		assert_eq!(response_manager.active_peers.len(), 2);
+		assert!(response_manager.is_sending_to(&requested_peer_1));
+		assert!(response_manager.is_sending_to(&requested_peer_2));
+		assert_eq!(request_manager.requests.len(), 3);
+
+		// Manually mark response received (response future resolved)
+		response_manager.active_peers.remove(&requested_peer_1);
+		response_manager.pending_responses = FuturesUnordered::new();
+
+		// Validate first response (candidate 1 from peer 1)
+		{
+			let statements = vec![];
+			let response = UnhandledResponse {
+				response: TaggedResponse {
+					identifier: identifier1,
+					requested_peer: requested_peer_1,
+					props: request_properties.clone(),
+					response: Ok(AttestedCandidateResponse {
+						candidate_receipt: candidate_receipt_1.clone().into(),
+						persisted_validation_data: persisted_validation_data_1.clone(),
+						statements,
+					}),
+				},
+			};
+			let validator_key_lookup = |_v| None;
+			let allowed_para_lookup = |_para, _g_index| true;
+			let _output = response.validate_response(
+				&mut request_manager,
+				group,
+				0,
+				validator_key_lookup,
+				allowed_para_lookup,
+				disabled_mask.clone(),
+				&Default::default(),
+				false,
+			);
+
+			// First request served successfully
+			assert_eq!(request_manager.requests.len(), 2);
+			assert_eq!(response_manager.active_peers.len(), 1);
+			assert!(response_manager.is_sending_to(&requested_peer_2));
+		}
+
+		// Check if the request that was ignored previously will be served now
+		let outgoing =
+			request_manager.next_request(&mut response_manager, request_props, peer_advertised);
+		assert!(outgoing.is_some());
+		assert_eq!(response_manager.active_peers.len(), 2);
+		assert!(response_manager.is_sending_to(&requested_peer_1));
+		assert!(response_manager.is_sending_to(&requested_peer_2));
+		assert_eq!(request_manager.requests.len(), 2);
 	}
 }

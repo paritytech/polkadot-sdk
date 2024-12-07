@@ -148,7 +148,7 @@ mod test {
 	#[test]
 	fn basic_ed25519_encryption() {
 		let (pair, _) = sp_core::ed25519::Pair::generate();
-		let pk = pair.into();
+		let pk = pair.public();
 
 		let plain_message = b"An important secret message";
 		let encrypted = encrypt_ed25519(&pk, plain_message).unwrap();

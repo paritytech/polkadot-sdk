@@ -9,7 +9,7 @@ use frame_system::RawOrigin;
 
 use snowbridge_pallet_ethereum_client_fixtures::*;
 
-use primitives::{
+use snowbridge_beacon_primitives::{
 	fast_aggregate_verify, prepare_aggregate_pubkey, prepare_aggregate_signature,
 	verify_merkle_branch,
 };
@@ -61,24 +61,6 @@ mod benchmarks {
 		submit(RawOrigin::Signed(caller.clone()), Box::new(*sync_committee_update));
 
 		assert!(<NextSyncCommittee<T>>::exists());
-
-		Ok(())
-	}
-
-	#[benchmark]
-	fn submit_execution_header() -> Result<(), BenchmarkError> {
-		let caller: T::AccountId = whitelisted_caller();
-		let checkpoint_update = make_checkpoint();
-		let finalized_header_update = make_finalized_header_update();
-		let execution_header_update = make_execution_header_update();
-		let execution_header_hash = execution_header_update.execution_header.block_hash();
-		EthereumBeaconClient::<T>::process_checkpoint_update(&checkpoint_update)?;
-		EthereumBeaconClient::<T>::process_update(&finalized_header_update)?;
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), Box::new(*execution_header_update));
-
-		assert!(<ExecutionHeaders<T>>::contains_key(execution_header_hash));
 
 		Ok(())
 	}

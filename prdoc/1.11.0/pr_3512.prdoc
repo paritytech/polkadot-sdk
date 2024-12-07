@@ -1,0 +1,47 @@
+title: "[FRAME] Introduce Runtime Omni Bencher"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Introduces a new freestanding binary; the `frame-omni-bencher`. This can be used as alternative to the node-integrated `benchmark pallet` command. It currently only supports pallet benchmarking.
+
+      The optional change to integrate this MR is in the node. The `run` function is now deprecated in favour or `run_with_spec`. This should be rather easy to integrate:
+
+      ```patch
+      runner.sync_run(|config| cmd
+      -    .run::<HashingFor<Block>, ReclaimHostFunctions>(config)
+      +    .run_with_spec::<HashingFor<Block>, ReclaimHostFunctions>(Some(config.chain_spec))
+      )
+      ```
+
+      Additionally, a new `--runtime` CLI arg was introduced to the `benchmark pallet` command. It allows to generate the genesis state directly by the runtime, instead of using a spec file.
+
+crates:
+  - name: pallet-nis
+    bump: major
+  - name: frame-benchmarking-cli
+    bump: major
+  - name: polkadot-parachain-bin
+    bump: patch
+  - name: polkadot-cli
+    bump: patch
+  - name: polkadot-runtime-common
+    bump: patch
+  - name: polkadot-runtime-parachains
+    bump: patch
+  - name: rococo-runtime
+    bump: patch
+  - name: staging-node-cli
+    bump: patch
+  - name: kitchensink-runtime
+    bump: patch
+  - name: pallet-babe
+    bump: patch
+  - name: frame-benchmarking
+    bump: patch
+  - name: pallet-election-provider-multi-phase
+    bump: patch
+  - name: pallet-fast-unstake
+    bump: patch
+  - name: pallet-contracts
+    bump: patch

@@ -1,0 +1,35 @@
+title: "Allow any asset over the bridge lane between the two Asset Hubs"
+
+doc:
+  - audience: Runtime User
+    description: |
+      Allow all Rococo-native, Westend-native and Ethereum-native assets to flow over
+      the bridge between the Rococo and Westend AssetHubs.
+
+      On Rococo Asset Hub, we allow Westend Asset Hub to act as reserve for any asset
+      native to the Westend ecosystem.
+      We also allow Ethereum contracts to act as reserves for the foreign assets
+      identified by the same respective contracts locations (on the other side of Snowbridge).
+
+      On Westend Asset Hub, we allow Rococo Asset Hub to act as reserve for any asset
+      native to the Rococo or Ethereum ecosystems (practically providing Westend access
+      to Ethereum assets through double bridging: Ethereum <> Rococo <> Westend).
+
+crates:
+  - name: assets-common
+    bump: major
+  - name: asset-hub-rococo-runtime
+    bump: major
+  - name: asset-hub-westend-runtime
+    bump: major
+  - name: asset-hub-rococo-emulated-chain
+    bump: minor
+  - name: asset-hub-rococo-integration-tests
+    bump: minor
+  - name: bridge-hub-rococo-integration-tests
+    bump: minor
+  - name: bridge-hub-westend-integration-tests
+    bump: minor
+  - name: emulated-integration-tests-common
+    bump: minor
+

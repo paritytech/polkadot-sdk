@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove `pallet::getter` usage from pallet-democracy
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR removes the `pallet::getter`s from `pallet-democracy`.
+      The syntax `StorageItem::<T, I>::get()` should be used instead.
+
+crates:
+  - name: pallet-democracy
+    bump: major

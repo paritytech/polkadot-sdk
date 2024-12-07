@@ -1,0 +1,11 @@
+title: "Fix treasury benchmarks when `SpendOrigin` being `None`"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Fix treasury benchmarks when `SpendOrigin` not returning any succesful origin.
+      This is for example the case when `SpendOrigin` is set to `NeverOrigin`.
+
+crates:
+  - name: pallet-treasury
+    bump: patch

@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Asset Conversion: Pool Touch Call"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Introduce `touch` call designed to address operational prerequisites before providing liquidity to a pool.
+      This function ensures that essential requirements, such as the presence of the pool's accounts, are fulfilled.
+      It is particularly beneficial in scenarios where a pool creator removes the pool's accounts without providing liquidity.
+
+crates: 
+  - name: pallet-asset-conversion

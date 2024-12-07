@@ -18,8 +18,9 @@
 //! Mock runtime for `tasks-example` tests.
 #![cfg(test)]
 
-use crate::{self as tasks_example};
+use crate::{self as pallet_example_tasks};
 use frame_support::derive_impl;
+use sp_runtime::testing::TestXt;
 
 pub type AccountId = u32;
 pub type Balance = u32;
@@ -28,16 +29,45 @@ type Block = frame_system::mocking::MockBlock<Runtime>;
 frame_support::construct_runtime!(
 	pub enum Runtime {
 		System: frame_system,
-		TasksExample: tasks_example,
+		TasksExample: pallet_example_tasks,
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+pub type Extrinsic = TestXt<RuntimeCall, ()>;
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
 }
 
-impl tasks_example::Config for Runtime {
+impl<LocalCall> frame_system::offchain::CreateTransactionBase<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	type RuntimeCall = RuntimeCall;
+	type Extrinsic = Extrinsic;
+}
+
+impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		Extrinsic::new_bare(call)
+	}
+}
+
+impl pallet_example_tasks::Config for Runtime {
 	type RuntimeTask = RuntimeTask;
 	type WeightInfo = ();
+}
+
+pub fn advance_to(b: u64) {
+	#[cfg(feature = "experimental")]
+	use frame_support::traits::Hooks;
+	while System::block_number() < b {
+		System::set_block_number(System::block_number() + 1);
+		#[cfg(feature = "experimental")]
+		TasksExample::offchain_worker(System::block_number());
+	}
 }

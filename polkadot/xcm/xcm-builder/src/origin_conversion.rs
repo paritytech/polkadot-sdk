@@ -16,11 +16,11 @@
 
 //! Various implementations for `ConvertOrigin`.
 
+use core::marker::PhantomData;
 use frame_support::traits::{EnsureOrigin, Get, GetBacking, OriginTrait};
 use frame_system::RawOrigin as SystemRawOrigin;
 use polkadot_parachain_primitives::primitives::IsSystem;
 use sp_runtime::traits::TryConvert;
-use sp_std::marker::PhantomData;
 use xcm::latest::{BodyId, BodyPart, Junction, Junctions::*, Location, NetworkId, OriginKind};
 use xcm_executor::traits::{ConvertLocation, ConvertOrigin};
 

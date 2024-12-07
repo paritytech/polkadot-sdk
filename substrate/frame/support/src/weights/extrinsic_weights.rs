@@ -15,24 +15,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
-//! DATE: 2023-06-16 (Y/M/D)
-//! HOSTNAME: `runner-e8ezs4ez-project-145-concurrent-0`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
+//! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
+//! DATE: 2024-11-08 (Y/M/D)
+//! HOSTNAME: `runner-wiukf8gn-project-674-concurrent-0`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //!
 //! SHORT-NAME: `extrinsic`, LONG-NAME: `ExtrinsicBase`, RUNTIME: `Development`
 //! WARMUPS: `10`, REPEAT: `100`
-//! WEIGHT-PATH: `./frame/support/src/weights/`
+//! WEIGHT-PATH: `./substrate/frame/support/src/weights/`
 //! WEIGHT-METRIC: `Average`, WEIGHT-MUL: `1.0`, WEIGHT-ADD: `0`
 
 // Executed Command:
-//   ./target/production/substrate
+//   ./target/production/substrate-node
 //   benchmark
 //   overhead
 //   --chain=dev
-//   --execution=wasm
 //   --wasm-execution=compiled
-//   --weight-path=./frame/support/src/weights/
-//   --header=./HEADER-APACHE2
+//   --weight-path=./substrate/frame/support/src/weights/
+//   --header=./substrate/HEADER-APACHE2
 //   --warmup=10
 //   --repeat=100
 
@@ -40,21 +39,21 @@ use sp_core::parameter_types;
 use sp_weights::{constants::WEIGHT_REF_TIME_PER_NANOS, Weight};
 
 parameter_types! {
-	/// Time to execute a NO-OP extrinsic, for example `System::remark`.
+	/// Weight of executing a NO-OP extrinsic, for example `System::remark`.
 	/// Calculated by multiplying the *Average* with `1.0` and adding `0`.
 	///
 	/// Stats nanoseconds:
-	///   Min, Max: 123_875, 128_419
-	///   Average:  124_414
-	///   Median:   124_332
-	///   Std-Dev:  497.74
+	///   Min, Max: 107_464, 109_127
+	///   Average:  108_157
+	///   Median:   108_119
+	///   Std-Dev:  353.52
 	///
 	/// Percentiles nanoseconds:
-	///   99th: 125_245
-	///   95th: 124_989
-	///   75th: 124_498
+	///   99th: 109_041
+	///   95th: 108_748
+	///   75th: 108_405
 	pub const ExtrinsicBaseWeight: Weight =
-		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(124_414), 0);
+		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(108_157), 0);
 }
 
 #[cfg(test)]

@@ -1,0 +1,14 @@
+title: Enable collators to build on multiple cores
+
+doc:
+  - audience: Node Dev
+    description: |
+      Introduces a `CoreIndex` parameter in `SubmitCollationParams`. This enables
+      the collators to make use of potentially multiple cores assigned at some relay
+      chain block. This extra parameter is used by the collator protocol and collation
+      generation subsystems to forward the collation to the approapriate backing group.
+
+crates:
+- name: polkadot-node-collation-generation
+- name: polkadot-collator-protocol
+  bump: minor

@@ -18,6 +18,7 @@
 //! Functions for the Assets pallet.
 
 use super::*;
+use alloc::vec;
 use frame_support::{defensive, traits::Get, BoundedVec};
 
 #[must_use]
@@ -35,20 +36,20 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Return the extra "sid-car" data for `id`/`who`, or `None` if the account doesn't exist.
 	pub fn adjust_extra(
 		id: T::AssetId,
-		who: impl sp_std::borrow::Borrow<T::AccountId>,
+		who: impl core::borrow::Borrow<T::AccountId>,
 	) -> Option<ExtraMutator<T, I>> {
 		ExtraMutator::maybe_new(id, who)
 	}
 
 	/// Get the asset `id` balance of `who`, or zero if the asset-account doesn't exist.
-	pub fn balance(id: T::AssetId, who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
+	pub fn balance(id: T::AssetId, who: impl core::borrow::Borrow<T::AccountId>) -> T::Balance {
 		Self::maybe_balance(id, who).unwrap_or_default()
 	}
 
 	/// Get the asset `id` balance of `who` if the asset-account exists.
 	pub fn maybe_balance(
 		id: T::AssetId,
-		who: impl sp_std::borrow::Borrow<T::AccountId>,
+		who: impl core::borrow::Borrow<T::AccountId>,
 	) -> Option<T::Balance> {
 		Account::<T, I>::get(id, who.borrow()).map(|a| a.balance)
 	}
@@ -132,6 +133,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Some(details) => details,
 			None => return DepositConsequence::UnknownAsset,
 		};
+		if details.status == AssetStatus::Destroying {
+			return DepositConsequence::UnknownAsset
+		}
 		if increase_supply && details.supply.checked_add(&amount).is_none() {
 			return DepositConsequence::Overflow
 		}
@@ -174,6 +178,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 		if details.status == AssetStatus::Frozen {
 			return Frozen
+		}
+		if details.status == AssetStatus::Destroying {
+			return UnknownAsset
 		}
 		if amount.is_zero() {
 			return Success
@@ -368,11 +375,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(())
 	}
 
-	/// Returns a `DepositFrom` of an account only if balance is zero.
+	/// Refunds the `DepositFrom` of an account only if its balance is zero.
+	///
+	/// If the `maybe_check_caller` parameter is specified, it must match the account that provided
+	/// the deposit or must be the admin of the asset.
 	pub(super) fn do_refund_other(
 		id: T::AssetId,
 		who: &T::AccountId,
-		caller: &T::AccountId,
+		maybe_check_caller: Option<T::AccountId>,
 	) -> DispatchResult {
 		let mut account = Account::<T, I>::get(&id, &who).ok_or(Error::<T, I>::NoDeposit)?;
 		let (depositor, deposit) =
@@ -380,7 +390,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let mut details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 		ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
 		ensure!(!account.status.is_frozen(), Error::<T, I>::Frozen);
-		ensure!(caller == &depositor || caller == &details.admin, Error::<T, I>::NoPermission);
+		if let Some(caller) = maybe_check_caller {
+			ensure!(caller == depositor || caller == details.admin, Error::<T, I>::NoPermission);
+		}
 		ensure!(account.balance.is_zero(), Error::<T, I>::WouldBurn);
 
 		T::Currency::unreserve(&depositor, deposit);
@@ -491,7 +503,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 		ensure!(
 			d.status == AssetStatus::Live || d.status == AssetStatus::Frozen,
-			Error::<T, I>::AssetNotLive
+			Error::<T, I>::IncorrectStatus
 		);
 
 		let actual = Self::decrease_balance(id.clone(), target, amount, f, |actual, details| {
@@ -704,6 +716,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> DispatchResult {
 		ensure!(!Asset::<T, I>::contains_key(&id), Error::<T, I>::InUse);
 		ensure!(!min_balance.is_zero(), Error::<T, I>::MinBalanceZero);
+		if let Some(next_id) = NextAssetId::<T, I>::get() {
+			ensure!(id == next_id, Error::<T, I>::BadAssetId);
+		}
 
 		Asset::<T, I>::insert(
 			&id,
@@ -1012,5 +1027,29 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Self::maybe_balance(id.clone(), account.clone()).map(|balance| (id, balance))
 			})
 			.collect::<Vec<_>>()
+	}
+
+	/// Reset the team for the asset with the given `id`.
+	///
+	/// ### Parameters
+	/// - `id`: The identifier of the asset for which the team is being reset.
+	/// - `owner`: The new `owner` account for the asset.
+	/// - `admin`: The new `admin` account for the asset.
+	/// - `issuer`: The new `issuer` account for the asset.
+	/// - `freezer`: The new `freezer` account for the asset.
+	pub(crate) fn do_reset_team(
+		id: T::AssetId,
+		owner: T::AccountId,
+		admin: T::AccountId,
+		issuer: T::AccountId,
+		freezer: T::AccountId,
+	) -> DispatchResult {
+		let mut d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
+		d.owner = owner;
+		d.admin = admin;
+		d.issuer = issuer;
+		d.freezer = freezer;
+		Asset::<T, I>::insert(&id, d);
+		Ok(())
 	}
 }

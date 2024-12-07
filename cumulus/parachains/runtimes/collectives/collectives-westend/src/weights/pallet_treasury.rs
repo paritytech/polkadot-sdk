@@ -62,43 +62,6 @@ impl<T: frame_system::Config> pallet_treasury::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
-	/// Storage: `FellowshipTreasury::ProposalCount` (r:1 w:1)
-	/// Proof: `FellowshipTreasury::ProposalCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	/// Storage: `FellowshipTreasury::Proposals` (r:0 w:1)
-	/// Proof: `FellowshipTreasury::Proposals` (`max_values`: None, `max_size`: Some(108), added: 2583, mode: `MaxEncodedLen`)
-	fn propose_spend() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `143`
-		//  Estimated: `1489`
-		// Minimum execution time: 264_000_000 picoseconds.
-		Weight::from_parts(277_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 1489))
-			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().writes(2))
-	}
-	/// Storage: `FellowshipTreasury::Proposals` (r:1 w:1)
-	/// Proof: `FellowshipTreasury::Proposals` (`max_values`: None, `max_size`: Some(108), added: 2583, mode: `MaxEncodedLen`)
-	/// Storage: `System::Account` (r:1 w:1)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	fn reject_proposal() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `301`
-		//  Estimated: `3593`
-		// Minimum execution time: 289_000_000 picoseconds.
-		Weight::from_parts(312_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 3593))
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(2))
-	}
-	/// The range of component `p` is `[0, 99]`.
-	fn approve_proposal(_p: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 0_000 picoseconds.
-		Weight::from_parts(0, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-	}
 	/// Storage: `FellowshipTreasury::Approvals` (r:1 w:1)
 	/// Proof: `FellowshipTreasury::Approvals` (`max_values`: Some(1), `max_size`: Some(402), added: 897, mode: `MaxEncodedLen`)
 	fn remove_approval() -> Weight {

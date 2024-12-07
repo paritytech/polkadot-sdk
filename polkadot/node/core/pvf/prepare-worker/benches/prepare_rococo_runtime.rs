@@ -24,7 +24,11 @@ use polkadot_primitives::ExecutorParams;
 use std::time::Duration;
 
 fn do_prepare_runtime(pvf: PvfPrepData) {
-	let blob = match prevalidate(&pvf.code()) {
+	let maybe_compressed_code = pvf.maybe_compressed_code();
+	let raw_validation_code =
+		sp_maybe_compressed_blob::decompress(&maybe_compressed_code, usize::MAX).unwrap();
+
+	let blob = match prevalidate(&raw_validation_code) {
 		Err(err) => panic!("{:?}", err),
 		Ok(b) => b,
 	};

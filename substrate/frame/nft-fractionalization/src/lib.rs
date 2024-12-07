@@ -56,6 +56,7 @@ pub use weights::WeightInfo;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use core::fmt::Display;
 	use frame_support::{
 		dispatch::DispatchResult,
 		ensure,
@@ -75,7 +76,7 @@ pub mod pallet {
 				AssetId, Balance as AssetBalance,
 				Fortitude::Polite,
 				Precision::{BestEffort, Exact},
-				Preservation::Preserve,
+				Preservation::{Expendable, Preserve},
 			},
 		},
 		BoundedVec, PalletId,
@@ -83,7 +84,6 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::{format, string::String};
 	use sp_runtime::traits::{One, Zero};
-	use sp_std::{fmt::Display, prelude::*};
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -374,7 +374,7 @@ pub mod pallet {
 			account: &T::AccountId,
 			amount: AssetBalanceOf<T>,
 		) -> DispatchResult {
-			T::Assets::burn_from(asset_id.clone(), account, amount, Exact, Polite)?;
+			T::Assets::burn_from(asset_id.clone(), account, amount, Expendable, Exact, Polite)?;
 			T::Assets::start_destroy(asset_id, None)
 		}
 

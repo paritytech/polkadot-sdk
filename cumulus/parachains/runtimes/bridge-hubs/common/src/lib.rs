@@ -16,6 +16,7 @@
 
 pub mod digest_item;
 pub mod message_queue;
+pub mod xcm_version;
 
 pub use digest_item::CustomDigestItem;
 pub use message_queue::{AggregateMessageOrigin, BridgeHubMessageRouter};

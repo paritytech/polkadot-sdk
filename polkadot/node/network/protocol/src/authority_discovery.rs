@@ -23,7 +23,8 @@ use async_trait::async_trait;
 use sc_authority_discovery::Service as AuthorityDiscoveryService;
 
 use polkadot_primitives::AuthorityDiscoveryId;
-use sc_network::{Multiaddr, PeerId};
+use sc_network::Multiaddr;
+use sc_network_types::PeerId;
 
 /// An abstraction over the authority discovery service.
 ///

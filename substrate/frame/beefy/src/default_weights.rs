@@ -24,7 +24,11 @@ use frame_support::weights::{
 };
 
 impl crate::WeightInfo for () {
-	fn report_equivocation(validator_count: u32, max_nominators_per_validator: u32) -> Weight {
+	fn report_voting_equivocation(
+		votes_count: u32,
+		validator_count: u32,
+		max_nominators_per_validator: u32,
+	) -> Weight {
 		// we take the validator set count from the membership proof to
 		// calculate the weight but we set a floor of 100 validators.
 		let validator_count = validator_count.max(100) as u64;
@@ -37,7 +41,10 @@ impl crate::WeightInfo for () {
 			)
 			.saturating_add(DbWeight::get().reads(5))
 			// check equivocation proof
-			.saturating_add(Weight::from_parts(95u64 * WEIGHT_REF_TIME_PER_MICROS, 0))
+			.saturating_add(Weight::from_parts(
+				(50u64 * WEIGHT_REF_TIME_PER_MICROS).saturating_mul(votes_count as u64),
+				0,
+			))
 			// report offence
 			.saturating_add(Weight::from_parts(110u64 * WEIGHT_REF_TIME_PER_MICROS, 0))
 			.saturating_add(Weight::from_parts(

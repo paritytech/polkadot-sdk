@@ -27,18 +27,16 @@ use futures::{
 	FutureExt,
 };
 use polkadot_node_subsystem::{
-	errors::RuntimeApiError,
-	jaeger,
-	messages::{
-		AvailabilityStoreMessage, BitfieldDistributionMessage, RuntimeApiMessage, RuntimeApiRequest,
-	},
-	overseer, ActivatedLeaf, FromOrchestra, OverseerSignal, PerLeafSpan, SpawnedSubsystem,
-	SubsystemError, SubsystemResult, SubsystemSender,
+	messages::{AvailabilityStoreMessage, BitfieldDistributionMessage},
+	overseer, ActivatedLeaf, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
+	SubsystemResult,
 };
-use polkadot_node_subsystem_util::{self as util, Validator};
-use polkadot_primitives::{AvailabilityBitfield, CoreState, Hash, ValidatorIndex};
+use polkadot_node_subsystem_util::{
+	self as util, request_availability_cores, runtime::recv_runtime, Validator,
+};
+use polkadot_primitives::{vstaging::CoreState, AvailabilityBitfield, Hash, ValidatorIndex};
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
-use std::{collections::HashMap, iter::FromIterator, time::Duration};
+use std::{collections::HashMap, time::Duration};
 use wasm_timer::{Delay, Instant};
 
 mod metrics;
@@ -69,7 +67,7 @@ pub enum Error {
 	MpscSend(#[from] mpsc::SendError),
 
 	#[error(transparent)]
-	Runtime(#[from] RuntimeApiError),
+	Runtime(#[from] util::runtime::Error),
 
 	#[error("Keystore failed: {0:?}")]
 	Keystore(KeystoreError),
@@ -79,25 +77,19 @@ pub enum Error {
 /// for whether we have the availability chunk for our validator index.
 async fn get_core_availability(
 	core: &CoreState,
-	validator_idx: ValidatorIndex,
-	sender: &Mutex<&mut impl SubsystemSender<overseer::BitfieldSigningOutgoingMessages>>,
-	span: &jaeger::Span,
+	validator_index: ValidatorIndex,
+	sender: &Mutex<&mut impl overseer::BitfieldSigningSenderTrait>,
 ) -> Result<bool, Error> {
 	if let CoreState::Occupied(core) = core {
-		let _span = span.child("query-chunk-availability");
-
 		let (tx, rx) = oneshot::channel();
 		sender
 			.lock()
 			.await
-			.send_message(
-				AvailabilityStoreMessage::QueryChunkAvailability(
-					core.candidate_hash,
-					validator_idx,
-					tx,
-				)
-				.into(),
-			)
+			.send_message(AvailabilityStoreMessage::QueryChunkAvailability(
+				core.candidate_hash,
+				validator_index,
+				tx,
+			))
 			.await;
 
 		let res = rx.await.map_err(Into::into);
@@ -116,40 +108,18 @@ async fn get_core_availability(
 	}
 }
 
-/// delegates to the v1 runtime API
-async fn get_availability_cores(
-	relay_parent: Hash,
-	sender: &mut impl SubsystemSender<overseer::BitfieldSigningOutgoingMessages>,
-) -> Result<Vec<CoreState>, Error> {
-	let (tx, rx) = oneshot::channel();
-	sender
-		.send_message(
-			RuntimeApiMessage::Request(relay_parent, RuntimeApiRequest::AvailabilityCores(tx))
-				.into(),
-		)
-		.await;
-	match rx.await {
-		Ok(Ok(out)) => Ok(out),
-		Ok(Err(runtime_err)) => Err(runtime_err.into()),
-		Err(err) => Err(err.into()),
-	}
-}
-
 /// - get the list of core states from the runtime
 /// - for each core, concurrently determine chunk availability (see `get_core_availability`)
 /// - return the bitfield if there were no errors at any point in this process (otherwise, it's
 ///   prone to false negatives)
 async fn construct_availability_bitfield(
 	relay_parent: Hash,
-	span: &jaeger::Span,
 	validator_idx: ValidatorIndex,
-	sender: &mut impl SubsystemSender<overseer::BitfieldSigningOutgoingMessages>,
+	sender: &mut impl overseer::BitfieldSigningSenderTrait,
 ) -> Result<AvailabilityBitfield, Error> {
 	// get the set of availability cores from the runtime
-	let availability_cores = {
-		let _span = span.child("get-availability-cores");
-		get_availability_cores(relay_parent, sender).await?
-	};
+	let availability_cores =
+		{ recv_runtime(request_availability_cores(relay_parent, sender).await).await? };
 
 	// Wrap the sender in a Mutex to share it between the futures.
 	//
@@ -163,7 +133,7 @@ async fn construct_availability_bitfield(
 	let results = future::try_join_all(
 		availability_cores
 			.iter()
-			.map(|core| get_core_availability(core, validator_idx, &sender, span)),
+			.map(|core| get_core_availability(core, validator_idx, &sender)),
 	)
 	.await?;
 
@@ -257,8 +227,6 @@ async fn handle_active_leaves_update<Sender>(
 where
 	Sender: overseer::BitfieldSigningSenderTrait,
 {
-	let span = PerLeafSpan::new(leaf.span, "bitfield-signing");
-	let span_delay = span.child("delay");
 	let wait_until = Instant::now() + SPAWNED_TASK_DELAY;
 
 	// now do all the work we can before we need to wait for the availability store
@@ -276,28 +244,16 @@ where
 	// SPAWNED_TASK_DELAY each time.
 	let _timer = metrics.time_run();
 
-	drop(span_delay);
-	let span_availability = span.child("availability");
-
-	let bitfield = match construct_availability_bitfield(
-		leaf.hash,
-		&span_availability,
-		validator.index(),
-		&mut sender,
-	)
-	.await
-	{
-		Err(Error::Runtime(runtime_err)) => {
-			// Don't take down the node on runtime API errors.
-			gum::warn!(target: LOG_TARGET, err = ?runtime_err, "Encountered a runtime API error");
-			return Ok(())
-		},
-		Err(err) => return Err(err),
-		Ok(bitfield) => bitfield,
-	};
-
-	drop(span_availability);
-	let span_signing = span.child("signing");
+	let bitfield =
+		match construct_availability_bitfield(leaf.hash, validator.index(), &mut sender).await {
+			Err(Error::Runtime(runtime_err)) => {
+				// Don't take down the node on runtime API errors.
+				gum::warn!(target: LOG_TARGET, err = ?runtime_err, "Encountered a runtime API error");
+				return Ok(())
+			},
+			Err(err) => return Err(err),
+			Ok(bitfield) => bitfield,
+		};
 
 	let signed_bitfield =
 		match validator.sign(keystore, bitfield).map_err(|e| Error::Keystore(e))? {
@@ -312,9 +268,6 @@ where
 		};
 
 	metrics.on_bitfield_signed();
-
-	drop(span_signing);
-	let _span_gossip = span.child("gossip");
 
 	sender
 		.send_message(BitfieldDistributionMessage::DistributeBitfield(leaf.hash, signed_bitfield))

@@ -1,0 +1,47 @@
+title: Introduce approval-voting-parallel subsystem
+
+doc:
+  - audience: Node Dev
+    description: |
+        This introduces a new subsystem called approval-voting-parallel. It combines the tasks 
+        previously handled by the approval-voting and approval-distribution subsystems.
+        
+        The new subsystem is enabled by default on all test networks. On production networks 
+        like Polkadot and Kusama, the legacy system with two separate subsystems is still in use. 
+        However, there is a CLI option --enable-approval-voting-parallel to gradually roll out 
+        the new subsystem on specific nodes. Once we are confident that it works as expected, 
+        it will be enabled by default on all networks.
+        
+        The approval-voting-parallel subsystem coordinates two groups of workers:
+        - Four approval-distribution workers that operate in parallel, each handling tasks based 
+          on the validator_index of the message originator.
+        - One approval-voting worker that performs the tasks previously managed by the standalone
+          approval-voting subsystem.
+
+crates:
+  - name: polkadot-overseer
+    bump: major
+  - name: polkadot-node-primitives
+    bump: major
+  - name: polkadot-node-subsystem-types
+    bump: major
+  - name: polkadot-service
+    bump: major
+  - name: polkadot-approval-distribution
+    bump: major
+  - name: polkadot-node-core-approval-voting
+    bump: major
+  - name: polkadot-node-core-approval-voting-parallel
+    bump: major
+  - name: polkadot-network-bridge
+    bump: major
+  - name: polkadot-node-core-dispute-coordinator
+    bump: major
+  - name: cumulus-relay-chain-inprocess-interface
+    bump: major
+  - name: polkadot-cli
+    bump: major
+  - name: polkadot
+    bump: major
+  - name: polkadot-sdk
+    bump: minor

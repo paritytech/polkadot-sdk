@@ -4,7 +4,7 @@ version = "31.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Keyring support code for the runtime. A set of test accounts."
 documentation = "https://docs.rs/sp-keyring"
@@ -17,11 +17,14 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-strum = { version = "0.24.1", features = ["derive"], default-features = false }
-sp-core = { path = "../core" }
-sp-runtime = { path = "../runtime" }
+strum = { features = ["derive"], workspace = true }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
 
 [features]
+default = ["std"]
+std = ["sp-core/std", "sp-runtime/std", "strum/std"]
+
 # This feature adds Bandersnatch crypto primitives.
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.

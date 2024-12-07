@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-use primitives::merkle_proof::{generalized_index_length, subtree_index};
+use snowbridge_beacon_primitives::merkle_proof::{generalized_index_length, subtree_index};
 use static_assertions::const_assert;
 
 /// Generalized Indices

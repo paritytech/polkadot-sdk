@@ -16,7 +16,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::{arg_enums::SyncMode, params::node_key_params::NodeKeyParams};
+use crate::{
+	arg_enums::{NetworkBackendType, SyncMode},
+	params::node_key_params::NodeKeyParams,
+};
 use clap::Args;
 use sc_network::{
 	config::{
@@ -166,6 +169,20 @@ pub struct NetworkParams {
 	/// and observe block requests timing out.
 	#[arg(long, value_name = "COUNT", default_value_t = 64)]
 	pub max_blocks_per_request: u32,
+
+	/// Network backend used for P2P networking.
+	///
+	/// litep2p network backend is considered experimental and isn't as stable as the libp2p
+	/// network backend.
+	#[arg(
+		long,
+		value_enum,
+		value_name = "NETWORK_BACKEND",
+		default_value_t = NetworkBackendType::Libp2p,
+		ignore_case = true,
+		verbatim_doc_comment
+	)]
+	pub network_backend: NetworkBackendType,
 }
 
 impl NetworkParams {
@@ -261,6 +278,7 @@ impl NetworkParams {
 			yamux_window_size: None,
 			ipfs_server: self.ipfs_server,
 			sync_mode: self.sync.into(),
+			network_backend: self.network_backend.into(),
 		}
 	}
 }
@@ -310,7 +328,7 @@ mod tests {
 	}
 
 	#[test]
-	fn sync_ingores_case() {
+	fn sync_ignores_case() {
 		let params = Cli::try_parse_from(["", "--sync", "wArP"]).expect("Parses network params");
 
 		assert_eq!(SyncMode::Warp, params.network_params.sync);

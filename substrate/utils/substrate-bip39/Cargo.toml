@@ -1,0 +1,31 @@
+[package]
+name = "substrate-bip39"
+version = "0.4.7"
+license = "Apache-2.0"
+description = "Converting BIP39 entropy to valid Substrate (sr25519) SecretKeys"
+documentation = "https://docs.rs/substrate-bip39"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
+hmac = { workspace = true }
+pbkdf2 = { workspace = true }
+schnorrkel = { workspace = true }
+sha2 = { workspace = true }
+zeroize = { workspace = true }
+
+[dev-dependencies]
+bip39 = { workspace = true }
+rustc-hex = { workspace = true, default-features = true }
+
+[features]
+default = ["std"]
+std = [
+	"hmac/std",
+	"pbkdf2/std",
+	"schnorrkel/std",
+	"sha2/std",
+	"zeroize/alloc",
+	"zeroize/std",
+]

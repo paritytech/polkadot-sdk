@@ -14,13 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{net::SocketAddr, path::PathBuf};
+use std::path::PathBuf;
 
 use cumulus_client_cli::{ExportGenesisHeadCommand, ExportGenesisWasmCommand};
 use polkadot_service::{ChainSpec, ParaId, PrometheusConfig};
 use sc_cli::{
 	CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams,
-	Result as CliResult, SharedParams, SubstrateCli,
+	Result as CliResult, RpcEndpoint, SharedParams, SubstrateCli,
 };
 use sc_service::BasePath;
 
@@ -50,6 +50,12 @@ pub struct TestCollatorCli {
 
 	#[arg(long)]
 	pub fail_pov_recovery: bool,
+
+	/// EXPERIMENTAL: Use slot-based collator which can handle elastic scaling.
+	///
+	/// Use with care, this flag is unstable and subject to change.
+	#[arg(long)]
+	pub experimental_use_slot_based: bool,
 }
 
 #[derive(Debug, clap::Subcommand)]
@@ -116,7 +122,7 @@ impl CliConfiguration<Self> for RelayChainCli {
 			.or_else(|| self.base_path.clone().map(Into::into)))
 	}
 
-	fn rpc_addr(&self, default_listen_port: u16) -> CliResult<Option<SocketAddr>> {
+	fn rpc_addr(&self, default_listen_port: u16) -> CliResult<Option<Vec<RpcEndpoint>>> {
 		self.base.base.rpc_addr(default_listen_port)
 	}
 
@@ -133,10 +139,9 @@ impl CliConfiguration<Self> for RelayChainCli {
 		_support_url: &String,
 		_impl_version: &String,
 		_logger_hook: F,
-		_config: &sc_service::Configuration,
 	) -> CliResult<()>
 	where
-		F: FnOnce(&mut sc_cli::LoggerBuilder, &sc_service::Configuration),
+		F: FnOnce(&mut sc_cli::LoggerBuilder),
 	{
 		unreachable!("PolkadotCli is never initialized; qed");
 	}
@@ -253,8 +258,16 @@ impl SubstrateCli for TestCollatorCli {
 
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(match id {
-			"" =>
-				Box::new(cumulus_test_service::get_chain_spec(Some(ParaId::from(2000)))) as Box<_>,
+			"" => {
+				tracing::info!("Using default test service chain spec.");
+				Box::new(cumulus_test_service::get_chain_spec(Some(ParaId::from(2000)))) as Box<_>
+			},
+			"elastic-scaling" => {
+				tracing::info!("Using elastic-scaling chain spec.");
+				Box::new(cumulus_test_service::get_elastic_scaling_chain_spec(Some(ParaId::from(
+					2100,
+				)))) as Box<_>
+			},
 			path => {
 				let chain_spec =
 					cumulus_test_service::chain_spec::ChainSpec::from_json_file(path.into())?;

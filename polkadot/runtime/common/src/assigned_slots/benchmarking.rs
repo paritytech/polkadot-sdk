@@ -22,7 +22,7 @@ use super::*;
 use frame_benchmarking::v2::*;
 use frame_support::assert_ok;
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
-use primitives::Id as ParaId;
+use polkadot_primitives::Id as ParaId;
 use sp_runtime::traits::Bounded;
 
 type CurrencyOf<T> = <<T as Config>::Leaser as Leaser<BlockNumberFor<T>>>::Currency;

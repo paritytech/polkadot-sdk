@@ -1,0 +1,18 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix OurViewChange small race
+
+doc:
+  - audience: Node Dev
+    description: |
+      Always queue OurViewChange event before we send view changes to our peers, because otherwise we risk 
+      the peers sending us a message that can be processed by our subsystems before OurViewChange.
+      Normally, this is not really a problem because the latency of the ViewChange we send to our peers 
+      is way higher than that of our subsystem processing OurViewChange, however on testnets like versi 
+      where CPUs are sometimes overcommitted this race gets triggered occasionally, so let's fix it by 
+      sending the messages in the right order.
+
+crates:
+  - name: polkadot-network-bridge
+    bump: minor

@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Allow StakingAdmin to manage nomination pool configurations
+
+doc:
+  - audience: Runtime User
+    description: |
+      Adds a custom origin to Nomination pool configuration and allows StakingAdmin to be this origin in Westend. Other
+      runtimes could also set this origin to be the same that manages staking-pallet configurations.
+
+crates:
+  - name: pallet-nomination-pools
+    bump: major

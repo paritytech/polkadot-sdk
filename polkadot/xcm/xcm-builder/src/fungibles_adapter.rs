@@ -16,13 +16,17 @@
 
 //! Adapters to work with [`frame_support::traits::fungibles`] through XCM.
 
+use core::{marker::PhantomData, result};
 use frame_support::traits::{
 	tokens::{
-		fungibles, Fortitude::Polite, Precision::Exact, Preservation::Preserve, Provenance::Minted,
+		fungibles,
+		Fortitude::Polite,
+		Precision::Exact,
+		Preservation::{Expendable, Preserve},
+		Provenance::Minted,
 	},
 	Contains, Get,
 };
-use sp_std::{marker::PhantomData, prelude::*, result};
 use xcm::latest::prelude::*;
 use xcm_executor::traits::{ConvertLocation, Error as MatchError, MatchesFungibles, TransactAsset};
 
@@ -97,7 +101,7 @@ impl<AssetId> AssetChecking<AssetId> for NoChecking {
 
 /// Implementation of `AssetChecking` which subjects a given set of assets `T` to having their
 /// teleportations recorded with a `MintLocation::Local`.
-pub struct LocalMint<T>(sp_std::marker::PhantomData<T>);
+pub struct LocalMint<T>(core::marker::PhantomData<T>);
 impl<AssetId, T: Contains<AssetId>> AssetChecking<AssetId> for LocalMint<T> {
 	fn asset_checking(asset: &AssetId) -> Option<MintLocation> {
 		match T::contains(asset) {
@@ -109,7 +113,7 @@ impl<AssetId, T: Contains<AssetId>> AssetChecking<AssetId> for LocalMint<T> {
 
 /// Implementation of `AssetChecking` which subjects a given set of assets `T` to having their
 /// teleportations recorded with a `MintLocation::NonLocal`.
-pub struct NonLocalMint<T>(sp_std::marker::PhantomData<T>);
+pub struct NonLocalMint<T>(core::marker::PhantomData<T>);
 impl<AssetId, T: Contains<AssetId>> AssetChecking<AssetId> for NonLocalMint<T> {
 	fn asset_checking(asset: &AssetId) -> Option<MintLocation> {
 		match T::contains(asset) {
@@ -122,7 +126,7 @@ impl<AssetId, T: Contains<AssetId>> AssetChecking<AssetId> for NonLocalMint<T> {
 /// Implementation of `AssetChecking` which subjects a given set of assets `L` to having their
 /// teleportations recorded with a `MintLocation::Local` and a second set of assets `R` to having
 /// their teleportations recorded with a `MintLocation::NonLocal`.
-pub struct DualMint<L, R>(sp_std::marker::PhantomData<(L, R)>);
+pub struct DualMint<L, R>(core::marker::PhantomData<(L, R)>);
 impl<AssetId, L: Contains<AssetId>, R: Contains<AssetId>> AssetChecking<AssetId>
 	for DualMint<L, R>
 {
@@ -176,7 +180,8 @@ impl<
 	}
 	fn reduce_checked(asset_id: Assets::AssetId, amount: Assets::Balance) {
 		let checking_account = CheckingAccount::get();
-		let ok = Assets::burn_from(asset_id, &checking_account, amount, Exact, Polite).is_ok();
+		let ok = Assets::burn_from(asset_id, &checking_account, amount, Expendable, Exact, Polite)
+			.is_ok();
 		debug_assert!(ok, "`can_reduce_checked` must have returned `true` immediately prior; qed");
 	}
 }
@@ -235,7 +240,7 @@ impl<
 	fn can_check_out(_origin: &Location, what: &Asset, _context: &XcmContext) -> XcmResult {
 		log::trace!(
 			target: "xcm::fungibles_adapter",
-			"can_check_in origin: {:?}, what: {:?}",
+			"can_check_out origin: {:?}, what: {:?}",
 			_origin, what
 		);
 		// Check we handle this asset.
@@ -295,7 +300,7 @@ impl<
 		let (asset_id, amount) = Matcher::matches_fungibles(what)?;
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-		Assets::burn_from(asset_id, &who, amount, Exact, Polite)
+		Assets::burn_from(asset_id, &who, amount, Expendable, Exact, Polite)
 			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
 		Ok(what.clone().into())
 	}

@@ -1,0 +1,15 @@
+title: Complete removal of `TryRuntime` subcommand
+
+doc:
+  - audience: Node Operator
+    description: |
+      The deprecated `try-runtime` subcommand and `try-runtime-cli` crate has been completely removed.
+      If you are not already, you should be using the standalone CLI at https://github.com/paritytech/try-runtime-cli.
+
+crates:
+  - name: polkadot-parachain-bin
+    bump: patch
+  - name: polkadot-cli
+    bump: patch
+  - name: staging-node-cli
+    bump: patch

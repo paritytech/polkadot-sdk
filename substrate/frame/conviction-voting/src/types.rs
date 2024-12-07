@@ -18,6 +18,7 @@
 //! Miscellaneous additional datatypes.
 
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
+use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	traits::VoteTally, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
@@ -26,7 +27,6 @@ use sp_runtime::{
 	traits::{Saturating, Zero},
 	RuntimeDebug,
 };
-use sp_std::{fmt::Debug, marker::PhantomData};
 
 use super::*;
 use crate::{AccountVote, Conviction, Vote};
@@ -117,14 +117,9 @@ impl<
 	pub fn from_parts(
 		ayes_with_conviction: Votes,
 		nays_with_conviction: Votes,
-		ayes: Votes,
+		support: Votes,
 	) -> Self {
-		Self {
-			ayes: ayes_with_conviction,
-			nays: nays_with_conviction,
-			support: ayes,
-			dummy: PhantomData,
-		}
+		Self { ayes: ayes_with_conviction, nays: nays_with_conviction, support, dummy: PhantomData }
 	}
 
 	/// Add an account's vote into the tally.

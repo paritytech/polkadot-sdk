@@ -1,0 +1,13 @@
+title: "Adds ability to specify chain type in chain-spec-builder"
+
+doc:
+  - audience: Node Operator
+    description: |
+      Currently, `chain-spec-builder` only creates a spec with Live chain type. This PR adds the 
+      ability to specify it while keeping the same default.
+
+crates:
+  - name: staging-chain-spec-builder
+    bump: patch
+  - name: sc-chain-spec
+    bump: patch

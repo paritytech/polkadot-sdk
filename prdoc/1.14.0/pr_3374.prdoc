@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: removed `pallet::getter` from `pallet-timestamp`
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR removes all the `pallet::getter` usages from `pallet-timestamp`, and updates depdendant runtimes accordingly.
+      The syntax `StorageItem::<T, I>::get()` should be used instead.
+
+crates: 
+  - name: pallet-timestamp

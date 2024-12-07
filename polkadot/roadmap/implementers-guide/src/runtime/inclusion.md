@@ -1,5 +1,9 @@
 # Inclusion Pallet
 
+> NOTE: This module has suffered changes for the elastic scaling implementation. As a result, parts of this document may
+be out of date and will be updated at a later time. Issue tracking the update:
+https://github.com/paritytech/polkadot-sdk/issues/3699
+
 The inclusion module is responsible for inclusion and availability of scheduled parachains. It also manages the UMP
 dispatch queue of each parachain.
 
@@ -105,7 +109,7 @@ All failed checks should lead to an unrecoverable error making the block invalid
   1. Ensure that any code upgrade scheduled by the candidate does not happen within `config.validation_upgrade_cooldown`
      of `Paras::last_code_upgrade(para_id, true)`, if any, comparing against the value of `Paras::FutureCodeUpgrades`
      for the given para ID.
-  1. Check the collator's signature on the candidate data.
+  1. Check the collator's signature on the candidate data (only if `CandidateDescriptor` is version 1)
   1. check the backing of the candidate using the signatures and the bitfields, comparing against the validators
      assigned to the groups, fetched with the `group_validators` lookup, while group indices are computed by `Scheduler`
      according to group rotation info.
@@ -147,15 +151,18 @@ All failed checks should lead to an unrecoverable error making the block invalid
       // return a vector of cleaned-up core IDs.
     }
   ```
-* `force_enact(ParaId)`: Forcibly enact the candidate with the given ID as though it had been deemed available by
-  bitfields. Is a no-op if there is no candidate pending availability for this para-id. This should generally not be
-  used but it is useful during execution of Runtime APIs, where the changes to the state are expected to be discarded
-  directly after.
+* `force_enact(ParaId)`: Forcibly enact the pending candidates of the given paraid as though they had been deemed
+  available by bitfields. Is a no-op if there is no candidate pending availability for this para-id.
+  If there are multiple candidates pending availability for this para-id, it will enact all of
+  them. This should generally not be used but it is useful during execution of Runtime APIs,
+  where the changes to the state are expected to be discarded directly after.
 * `candidate_pending_availability(ParaId) -> Option<CommittedCandidateReceipt>`: returns the `CommittedCandidateReceipt`
+  pending availability for the para provided, if any.
+* `candidates_pending_availability(ParaId) -> Vec<CommittedCandidateReceipt>`: returns the `CommittedCandidateReceipt`s
   pending availability for the para provided, if any.
 * `pending_availability(ParaId) -> Option<CandidatePendingAvailability>`: returns the metadata around the candidate
   pending availability for the para, if any.
-* `collect_disputed(disputed: Vec<CandidateHash>) -> Vec<CoreIndex>`: Sweeps through all paras pending availability. If
+* `free_disputed(disputed: Vec<CandidateHash>) -> Vec<CoreIndex>`: Sweeps through all paras pending availability. If
   the candidate hash is one of the disputed candidates, then clean up the corresponding storage for that candidate and
   the commitments. Return a vector of cleaned-up core IDs.
 
@@ -163,10 +170,10 @@ These functions were formerly part of the UMP pallet:
 
 * `check_upward_messages(P: ParaId, Vec<UpwardMessage>)`:
     1. Checks that the parachain is not currently offboarding and error otherwise.
-    1. Checks that there are at most `config.max_upward_message_num_per_candidate` messages to be enqueued.
-    1. Checks that no message exceeds `config.max_upward_message_size`.
-    1. Checks that the total resulting queue size would not exceed `co`.
-    1. Verify that queuing up the messages could not result in exceeding the queue's footprint according to the config
+    2. Checks that there are at most `config.max_upward_message_num_per_candidate` messages to be enqueued.
+    3. Checks that no message exceeds `config.max_upward_message_size`.
+    4. Checks that the total resulting queue size would not exceed `co`.
+    5. Verify that queuing up the messages could not result in exceeding the queue's footprint according to the config
     items `config.max_upward_queue_count` and `config.max_upward_queue_size`. The queue's current footprint is provided
     in `well_known_keys` in order to facilitate oraclisation on to the para.
 

@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Bump Aura authoring duration to 2s.
+
+doc:
+  - audience: Node Dev
+    description: |
+      This PR bumps the Aura authoring duration in the asynchronous backing
+      guide and the polkadot-parachain service file to 2s in order to make
+      better use of the provided coretime.
+
+crates:
+  - name: polkadot-parachain-bin
+    bump: patch

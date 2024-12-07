@@ -1,0 +1,65 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Replace env_logger with sp_tracing
+
+doc:
+  - audience: Node Dev
+    description: |
+      This PR replaces env_logger with sp_tracing because of an issue with env_logger and gum #4660
+
+crates:
+  - name: relay-utils
+    bump: none
+  - name: snowbridge-outbound-queue-merkle-tree
+    bump: patch
+  - name: polkadot-node-core-approval-voting
+    bump: patch
+  - name: polkadot-node-core-av-store
+    bump: patch
+  - name: polkadot-approval-distribution
+    bump: patch
+  - name: polkadot-availability-bitfield-distribution
+    bump: patch
+  - name: polkadot-collator-protocol
+    bump: patch
+  - name: polkadot-service
+    bump: patch
+  - name: polkadot-subsystem-bench
+    bump: none
+  - name: polkadot-node-subsystem-util
+    bump: none
+  - name: xcm-runtime-apis
+    bump: patch
+  - name: sc-executor
+    bump: patch
+  - name: sc-rpc
+    bump: patch
+  - name: sc-statement-store
+    bump: patch
+  - name: pallet-contracts
+    bump: patch
+  - name: pallet-mmr
+    bump: patch
+  - name: sp-tracing
+    bump: patch
+  - name: binary-merkle-tree
+    bump: patch
+  - name: frame-omni-bencher
+    bump: patch
+  - name: pallet-balances
+    bump: patch
+  - name: pallet-staking
+    bump: patch
+  - name: pallet-treasury
+    bump: patch
+  - name: pallet-bounties
+    bump: patch
+  - name: pallet-conviction-voting
+    bump: patch
+  - name: pallet-democracy
+    bump: patch
+  - name: pallet-elections-phragmen
+    bump: patch
+  - name: pallet-referenda
+    bump: patch

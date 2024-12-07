@@ -42,7 +42,7 @@ pub mod pallet {
 		#[pallet::weight(0)]
 		pub fn set_custom_validation_head_data(
 			_: OriginFor<T>,
-			custom_header: sp_std::vec::Vec<u8>,
+			custom_header: alloc::vec::Vec<u8>,
 		) -> DispatchResult {
 			cumulus_pallet_parachain_system::Pallet::<T>::set_custom_validation_head_data(
 				custom_header,
@@ -78,18 +78,14 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
-		pub self_para_id: Option<cumulus_primitives_core::ParaId>,
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			sp_io::storage::set(TEST_RUNTIME_UPGRADE_KEY, &[1, 2, 3, 4]);
-			self.self_para_id.map(|para_id| {
-				crate::ParachainId::set(&para_id);
-			});
 		}
 	}
 }

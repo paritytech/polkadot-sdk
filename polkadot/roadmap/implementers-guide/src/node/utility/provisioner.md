@@ -1,5 +1,9 @@
 # Provisioner
 
+> NOTE: This module has suffered changes for the elastic scaling implementation. As a result, parts of this document may
+be out of date and will be updated at a later time. Issue tracking the update:
+https://github.com/paritytech/polkadot-sdk/issues/3699
+
 Relay chain block authorship authority is governed by BABE and is beyond the scope of the Overseer and the rest of the
 subsystems. That said, ultimately the block author needs to select a set of backable parachain candidates and other
 consensus data, and assemble a block from them. This subsystem is responsible for providing the necessary data to all
@@ -70,9 +74,8 @@ Subsystem](../disputes/dispute-coordinator.md). Misbehavior reports are currentl
 subsystem](../backing/candidate-backing.md) and contain the following misbehaviors:
 
 1. `Misbehavior::ValidityDoubleVote`
-2. `Misbehavior::MultipleCandidates`
-3. `Misbehavior::UnauthorizedStatement`
-4. `Misbehavior::DoubleSign`
+2. `Misbehavior::UnauthorizedStatement`
+3. `Misbehavior::DoubleSign`
 
 But we choose not to punish these forms of misbehavior for the time being. Risks from misbehavior are sufficiently
 mitigated at the protocol level via reputation changes. Punitive actions here may become desirable enough to dedicate

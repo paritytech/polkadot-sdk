@@ -1,0 +1,24 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "network: Upgrade `litep2p` to v0.6.0"
+
+doc:
+  - audience: Node Operator
+    description: |
+      This PR brings the latest `litep2p` v0.6.0 to polkadot-sdk with stability improvements,
+      security fixes, and performance optimizations.
+
+      Specifically:
+        - Incoming DHT records are now validated also with experimental litep2p network backend.
+        - Performance of TCP & WebSocket connections improved by setting `TCP_NODELAY` flag.
+        - Stability of secondary connection establishment improved.
+        - Multiple possible panics in litep2p library eliminated.
+
+crates:
+  - name: sc-authority-discovery
+    bump: patch
+  - name: sc-network
+    bump: patch
+  - name: sc-network-types
+    bump: patch

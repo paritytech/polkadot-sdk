@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! On demand assigner pallet benchmarking.
+//! Coretime pallet benchmarking.
 
 #![cfg(feature = "runtime-benchmarks")]
 
@@ -27,6 +27,30 @@ use pallet_broker::CoreIndex as BrokerCoreIndex;
 mod benchmarks {
 	use super::*;
 	use assigner_coretime::PartsOf57600;
+
+	#[benchmark]
+	fn request_revenue_at() {
+		let root_origin = <T as frame_system::Config>::RuntimeOrigin::root();
+		let mhr = <T as on_demand::Config>::MaxHistoricalRevenue::get();
+		frame_system::Pallet::<T>::set_block_number((mhr + 2).into());
+		let minimum_balance = <T as on_demand::Config>::Currency::minimum_balance();
+		let rev: BoundedVec<
+			<<T as on_demand::Config>::Currency as frame_support::traits::Currency<
+				T::AccountId,
+			>>::Balance,
+			T::MaxHistoricalRevenue,
+		> = BoundedVec::try_from((1..=mhr).map(|v| minimum_balance * v.into()).collect::<Vec<_>>())
+			.unwrap();
+		on_demand::Revenue::<T>::put(rev);
+
+		<T as on_demand::Config>::Currency::make_free_balance_be(
+			&<on_demand::Pallet<T>>::account_id(),
+			minimum_balance * (mhr * (mhr + 1)).into(),
+		);
+
+		#[extrinsic_call]
+		_(root_origin as <T as frame_system::Config>::RuntimeOrigin, mhr + 1)
+	}
 
 	#[benchmark]
 	fn request_core_count() {

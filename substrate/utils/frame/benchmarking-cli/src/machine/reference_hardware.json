@@ -1,11 +1,16 @@
 [
 	{
 		"metric": "Blake2256",
-		"minimum": 783.27
+		"minimum": 1000.00
+	},
+	{
+		"metric": {"Blake2256Parallel":{"num_cores":8}},
+		"minimum": 1000.00,
+		"validator_only": true
 	},
 	{
 		"metric": "Sr25519Verify",
-		"minimum": 0.547529297
+		"minimum": 0.622675781
 	},
 	{
 		"metric": "MemCopy",

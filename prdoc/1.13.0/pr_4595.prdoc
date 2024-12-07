@@ -1,0 +1,25 @@
+title: "Remove `elastic-scaling-experimental` feature flag"
+
+doc:
+  - audience: Node Dev
+    description: |
+      The feature was masking the ability of collators to respond with `CollationWithParentHeadData`
+      to validator collation fetch requests, a requirement for elastic scaling. 
+      Please note that `CollationWithParentHeadData` is only sent by collators of parachains with 
+      multiple cores assigned, otherwise collators must respond with `CollationFetchingResponse::Collation`
+  - audience: Node Operator
+    description: |
+      This change enables elastic scaling support in collators. Please upgrade to latest version, 
+      otherwise validator nodes will not be able to back elastic parachain blocks leading to 
+      missed rewards. 
+
+crates:
+  - name: polkadot-collator-protocol
+    bump: major
+    validate: false
+  - name: polkadot-service
+    bump: major
+    validate: false
+  - name: polkadot-parachain-bin
+    bump: minor
+    validate: false

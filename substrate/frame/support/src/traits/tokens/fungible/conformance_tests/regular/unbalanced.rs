@@ -94,7 +94,7 @@ where
 	);
 	assert_eq!(T::balance(&account_0), account_0_initial_balance - amount);
 
-	// Decreasing the balance below funds avalibale should fail when Precision::Exact
+	// Decreasing the balance below funds available should fail when Precision::Exact
 	let balance_before = T::balance(&account_0);
 	assert_eq!(
 		T::decrease_balance(

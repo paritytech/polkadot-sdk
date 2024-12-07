@@ -1,0 +1,24 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Allow to call arbitrary runtime apis using RelayChainInterface
+
+doc:
+  - audience: Node Dev
+    description: |
+      This PR adds a `call_runtime_api` method to RelayChainInterface trait, and a separate function also named `call_runtime_api`
+      which allows the caller to specify the input and output types, as opposed to having to encode them.
+
+crates:
+  - name: cumulus-relay-chain-interface
+    bump: patch
+  - name: cumulus-client-consensus-common
+    bump: patch
+  - name: cumulus-client-pov-recovery
+    bump: patch
+  - name: cumulus-client-network
+    bump: patch
+  - name: cumulus-relay-chain-inprocess-interface
+    bump: patch
+  - name: cumulus-relay-chain-rpc-interface
+    bump: patch

@@ -16,6 +16,9 @@
 // limitations under the License.
 
 //! The traits for putting holds within a single fungible token class.
+//!
+//! See the [`crate::traits::fungible`] doc for more information about fungible traits
+//! including the place of the Holds in FRAME.
 
 use crate::{
 	ensure,
@@ -214,8 +217,8 @@ pub trait Mutate<AccountId>:
 	///
 	/// The actual amount released is returned with `Ok`.
 	///
-	/// If `precision` is `BestEffort`, then the amount actually unreserved and returned as the
-	/// inner value of `Ok` may be smaller than the `amount` passed.
+	/// If `precision` is [`Precision::BestEffort`], then the amount actually unreserved and
+	/// returned as the inner value of `Ok` may be smaller than the `amount` passed.
 	///
 	/// NOTE! The inner of the `Ok` result variant returns the *actual* amount released. This is the
 	/// opposite of the `ReservableCurrency::unreserve()` result, which gives the amount not able
@@ -427,7 +430,11 @@ pub trait Mutate<AccountId>:
 }
 
 /// Trait for slashing a fungible asset which can be place on hold.
-pub trait Balanced<AccountId>: super::Balanced<AccountId> + Unbalanced<AccountId> {
+pub trait Balanced<AccountId>:
+	super::Balanced<AccountId>
+	+ Unbalanced<AccountId>
+	+ DoneSlash<Self::Reason, AccountId, Self::Balance>
+{
 	/// Reduce the balance of some funds on hold in an account.
 	///
 	/// The resulting imbalance is the first item of the tuple returned.
@@ -446,6 +453,16 @@ pub trait Balanced<AccountId>: super::Balanced<AccountId> + Unbalanced<AccountId
 		Self::done_slash(reason, who, decrease);
 		(credit, amount.saturating_sub(decrease))
 	}
+}
 
-	fn done_slash(_reason: &Self::Reason, _who: &AccountId, _amount: Self::Balance) {}
+/// Trait for optional bookkeeping callbacks after a slash.
+pub trait DoneSlash<Reason, AccountId, Balance> {
+	fn done_slash(_reason: &Reason, _who: &AccountId, _amount: Balance) {}
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+impl<Reason, AccountId, Balance: Copy> DoneSlash<Reason, AccountId, Balance> for Tuple {
+	fn done_slash(reason: &Reason, who: &AccountId, amount: Balance) {
+		for_tuples!( #( Tuple::done_slash(reason, who, amount); )* );
+	}
 }

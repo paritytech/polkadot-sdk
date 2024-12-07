@@ -4,7 +4,7 @@ version = "2.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Fuzzer for fixed point arithmetic primitives."
 documentation = "https://docs.rs/sp-arithmetic-fuzzer"
@@ -17,18 +17,18 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-honggfuzz = "0.5.54"
+honggfuzz = { workspace = true }
 
-pallet-nomination-pools = { path = "..", features = ["fuzzing"] }
+pallet-nomination-pools = { features = ["fuzzing"], workspace = true, default-features = true }
 
-frame-system = { path = "../../system" }
-frame-support = { path = "../../support" }
+frame-system = { workspace = true, default-features = true }
+frame-support = { workspace = true, default-features = true }
 
-sp-runtime = { path = "../../../primitives/runtime" }
-sp-io = { path = "../../../primitives/io" }
-sp-tracing = { path = "../../../primitives/tracing" }
+sp-runtime = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 
-rand = { version = "0.8.5", features = ["small_rng"] }
+rand = { features = ["small_rng"], workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
 
 [[bin]]

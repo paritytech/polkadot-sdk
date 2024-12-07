@@ -16,6 +16,7 @@
   "balances": {
     "balances": []
   },
+  "broker": {},
   "transactionPayment": {
     "multiplier": "1000000000000000000"
   },
@@ -33,7 +34,9 @@
     "maxNominatorCount": null
   },
   "session": {
-    "keys": []
+    "keys": [],
+    "nonAuthorityKeys": []
+
   },
   "democracy": {},
   "council": {
@@ -74,17 +77,20 @@
   "glutton": {
     "compute": "0",
     "storage": "0",
+    "blockLength": "0",
     "trashDataCount": 0
   },
   "assets": {
     "assets": [],
     "metadata": [],
-    "accounts": []
+    "accounts": [],
+    "nextAssetId": null
   },
   "poolAssets": {
     "assets": [],
     "metadata": [],
-    "accounts": []
+    "accounts": [],
+    "nextAssetId": null
   },
   "transactionStorage": {
     "byteFee": 10,
