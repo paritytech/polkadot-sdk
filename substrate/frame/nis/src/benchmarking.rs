@@ -24,10 +24,10 @@ use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller, BenchmarkE
 use frame_support::traits::{
 	fungible::Inspect as FunInspect, nonfungible::Inspect, EnsureOrigin, Get,
 };
-use frame_system::RawOrigin;
+use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
 use sp_arithmetic::Perquintill;
 use sp_runtime::{
-	traits::{Bounded, One, Zero},
+	traits::{Bounded, One, Zero, BlockNumberProvider},
 	DispatchError, PerThing,
 };
 
@@ -56,6 +56,11 @@ fn fill_queues<T: Config>() -> Result<(), DispatchError> {
 	}
 	Ok(())
 }
+/*
+fn set_block_number<T: Config>(n: BlockNumberFor<T>) {
+	<T as crate::Config>::BlockNumberProvider::set_block_number(n);
+}
+*/
 
 benchmarks! {
 	place_bid {
@@ -166,7 +171,7 @@ benchmarks! {
 		Nis::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
 		Nis::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
 		Nis::<T>::process_queues(Perquintill::one(), 1, 2, &mut WeightCounter::unlimited());
-		frame_system::Pallet::<T>::set_block_number(Receipts::<T>::get(0).unwrap().expiry);
+		<T as crate::Config>::BlockNumberProvider::set_block_number(Receipts::<T>::get(0).unwrap().expiry);
 	}: _(RawOrigin::Signed(caller.clone()), 0, None)
 	verify {
 		assert!(Receipts::<T>::get(0).is_none());
@@ -184,7 +189,7 @@ benchmarks! {
 		Nis::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
 		Nis::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
 		Nis::<T>::process_queues(Perquintill::one(), 1, 2, &mut WeightCounter::unlimited());
-		frame_system::Pallet::<T>::set_block_number(Receipts::<T>::get(0).unwrap().expiry);
+		<T as crate::Config>::BlockNumberProvider::set_block_number(Receipts::<T>::get(0).unwrap().expiry);
 		Nis::<T>::communify(RawOrigin::Signed(caller.clone()).into(), 0)?;
 	}: _(RawOrigin::Signed(caller.clone()), 0)
 	verify {
