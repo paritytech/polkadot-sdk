@@ -3,7 +3,6 @@ doc:
 - audience: Runtime Dev
   description: |-
     With [permissionless lanes PR#4949](https://github.com/paritytech/polkadot-sdk/pull/4949), the congestion mechanism based on sending `Transact(report_bridge_status(is_congested))` from `pallet-xcm-bridge-hub` to `pallet-xcm-bridge-hub-router` was replaced with a congestion mechanism that relied on monitoring XCMP queues. However, this approach could cause issues, such as suspending the entire XCMP queue instead of isolating the affected bridge. This PR reverts back to using `report_bridge_status` as before.
-    https://github.com/paritytech/polkadot-sdk/pull/6231
 crates:
 - name: pallet-xcm-bridge-hub-router
   bump: patch
