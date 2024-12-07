@@ -82,7 +82,7 @@ impl pallet_aura::Config for Test {
 	type SlotDuration = ConstU64<SLOT_DURATION>;
 }
 
-fn build_ext(authorities: Vec<u64>) -> frame::testing_prelude::TestExternalities {
+fn build_ext(authorities: Vec<u64>) -> TestExternalities {
 	let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_aura::GenesisConfig::<Test> {
 		authorities: authorities.into_iter().map(|a| UintAuthorityId(a).to_public_key()).collect(),

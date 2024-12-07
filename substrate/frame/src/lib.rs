@@ -311,7 +311,7 @@ pub mod testing_prelude {
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{
 		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok,
-		assert_storage_noop, storage_alias,
+		assert_storage_noop, storage_alias, ensure,
 	};
 
 	pub use frame_system::{self, mocking::*};
@@ -524,6 +524,7 @@ pub mod arithmetic {
 pub mod consensus {
 	pub use sp_consensus_aura::{ed25519::AuthorityId, AuthorityIndex, ConsensusLog, Slot, AURA_ENGINE_ID};
 	pub use sp_runtime::{DigestItem, Digest};
+	pub use sp_runtime::ConsensusEngineId;
 }
 
 /// All derive macros used in frame.

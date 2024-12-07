@@ -48,6 +48,9 @@ use frame::{
 };
 use log;
 
+#[cfg(feature = "try-runtime")]
+use frame::try_runtime::TryRuntimeError;
+
 pub mod migrations;
 mod mock;
 mod tests;
@@ -149,7 +152,7 @@ pub mod pallet {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn try_state(_: BlockNumberFor<T>) -> Result<(), frame::deps::sp_runtime::TryRuntimeError> {
+		fn try_state(_: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 			Self::do_try_state()
 		}
 	}
@@ -257,7 +260,7 @@ impl<T: Config> Pallet<T> {
 	/// * The number of authorities must be less than or equal to `T::MaxAuthorities`. This however,
 	///   is guarded by the type system.
 	#[cfg(any(test, feature = "try-runtime"))]
-	pub fn do_try_state() -> Result<(), frame::deps::sp_runtime::TryRuntimeError> {
+	pub fn do_try_state() -> Result<(), TryRuntimeError> {
 		// We don't have any guarantee that we are already after `on_initialize` and thus we have to
 		// check the current slot from the digest or take the last known slot.
 		let current_slot =
@@ -266,7 +269,7 @@ impl<T: Config> Pallet<T> {
 		// Check that the current slot is less than the maximal slot number, unless we allow for
 		// multiple blocks per slot.
 		if !T::AllowMultipleBlocksPerSlot::get() {
-			frame::deps::frame_support::ensure!(
+			ensure!(
 				current_slot < u64::MAX,
 				"Current slot has reached maximum value and cannot be incremented further.",
 			);
@@ -276,14 +279,11 @@ impl<T: Config> Pallet<T> {
 			<Authorities<T>>::decode_len().ok_or("Failed to decode authorities length")?;
 
 		// Check that the authorities are non-empty.
-		frame::deps::frame_support::ensure!(
-			!authorities_len.is_zero(),
-			"Authorities must be non-empty."
-		);
+		ensure!(!authorities_len.is_zero(), "Authorities must be non-empty.");
 
 		// Check that the current authority is not disabled.
 		let authority_index = *current_slot % authorities_len as u64;
-		frame::deps::frame_support::ensure!(
+		ensure!(
 			!T::DisabledValidators::is_disabled(authority_index as u32),
 			"Current validator is disabled and should not be attempting to author blocks.",
 		);
@@ -342,7 +342,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 impl<T: Config> FindAuthor<u32> for Pallet<T> {
 	fn find_author<'a, I>(digests: I) -> Option<u32>
 	where
-		I: 'a + IntoIterator<Item = (frame::deps::frame_support::ConsensusEngineId, &'a [u8])>,
+		I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
 	{
 		for (id, mut data) in digests.into_iter() {
 			if id == AURA_ENGINE_ID {
@@ -366,7 +366,7 @@ impl<T: Config, Inner: FindAuthor<u32>> FindAuthor<T::AuthorityId>
 {
 	fn find_author<'a, I>(digests: I) -> Option<T::AuthorityId>
 	where
-		I: 'a + IntoIterator<Item = (frame::deps::frame_support::ConsensusEngineId, &'a [u8])>,
+		I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
 	{
 		let i = Inner::find_author(digests)?;
 
