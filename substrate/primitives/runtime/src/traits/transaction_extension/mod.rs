@@ -44,7 +44,7 @@ mod transaction_extension_pipeline;
 pub use as_transaction_extension::AsTransactionExtension;
 pub use dispatch_transaction::DispatchTransaction;
 pub use transaction_extension_pipeline::{
-	TransactionExtensionPipeline, TransactionExtensionPipelineImplicit,
+	TransactionExtensionPipeline, TransactionExtensionPipelineImplicit, NoTxExt,
 };
 
 /// Shortcut for the result value of the `validate` function.
@@ -615,11 +615,9 @@ impl<Call: Dispatchable> TransactionExtension<Call> for () {
 	}
 	type Val = ();
 	type Pre = ();
-	#[inline]
 	fn weight(&self, _call: &Call) -> Weight {
 		Weight::zero()
 	}
-	#[inline]
 	fn validate(
 		&self,
 		origin: <Call as Dispatchable>::RuntimeOrigin,
@@ -635,60 +633,10 @@ impl<Call: Dispatchable> TransactionExtension<Call> for () {
 	> {
 		Ok((ValidTransaction::default(), (), origin))
 	}
-	#[inline]
 	fn prepare(
 		self,
 		_val: (),
 		_origin: &<Call as Dispatchable>::RuntimeOrigin,
-		_call: &Call,
-		_info: &DispatchInfoOf<Call>,
-		_len: usize,
-	) -> Result<(), TransactionValidityError> {
-		Ok(())
-	}
-	#[inline]
-	fn metadata() -> Vec<TransactionExtensionMetadata> {
-		vec![]
-	}
-	#[inline]
-	fn post_dispatch(
-		_pre: Self::Pre,
-		_info: &DispatchInfoOf<Call>,
-		_post_info: &mut PostDispatchInfoOf<Call>,
-		_len: usize,
-		_result: &DispatchResult,
-	) -> Result<(), TransactionValidityError> {
-		Ok(())
-	}
-	#[inline]
-	fn bare_validate(
-		_call: &Call,
-		_info: &DispatchInfoOf<Call>,
-		_len: usize,
-	) -> TransactionValidity {
-		Ok(ValidTransaction::default())
-	}
-	#[inline]
-	fn bare_post_dispatch(
-		_info: &DispatchInfoOf<Call>,
-		_post_info: &mut PostDispatchInfoOf<Call>,
-		_len: usize,
-		_result: &DispatchResult,
-	) -> Result<(), TransactionValidityError> {
-		Ok(())
-	}
-	#[inline]
-	fn post_dispatch_details(
-		_pre: Self::Pre,
-		_info: &DispatchInfoOf<Call>,
-		_post_info: &PostDispatchInfoOf<Call>,
-		_len: usize,
-		_result: &DispatchResult,
-	) -> Result<Weight, TransactionValidityError> {
-		Ok(Weight::zero())
-	}
-	#[inline]
-	fn bare_validate_and_prepare(
 		_call: &Call,
 		_info: &DispatchInfoOf<Call>,
 		_len: usize,

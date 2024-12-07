@@ -36,6 +36,101 @@ use core::fmt::Debug;
 use sp_weights::Weight;
 use tuplex::PushBack;
 
+/// A no-op implementation of [`TransactionExtension`].
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, TypeInfo)]
+pub struct NoTxExt;
+
+impl<Call: Dispatchable> TransactionExtension<Call> for NoTxExt {
+	const IDENTIFIER: &'static str = "NoTxExt";
+	type Implicit = ();
+	#[inline]
+	fn implicit(&self) -> sp_std::result::Result<Self::Implicit, TransactionValidityError> {
+		Ok(())
+	}
+	type Val = ();
+	type Pre = ();
+	#[inline]
+	fn weight(&self, _call: &Call) -> Weight {
+		Weight::zero()
+	}
+	#[inline]
+	fn validate(
+		&self,
+		origin: <Call as Dispatchable>::RuntimeOrigin,
+		_call: &Call,
+		_info: &DispatchInfoOf<Call>,
+		_len: usize,
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
+	) -> Result<
+		(ValidTransaction, (), <Call as Dispatchable>::RuntimeOrigin),
+		TransactionValidityError,
+	> {
+		Ok((ValidTransaction::default(), (), origin))
+	}
+	#[inline]
+	fn prepare(
+		self,
+		_val: (),
+		_origin: &<Call as Dispatchable>::RuntimeOrigin,
+		_call: &Call,
+		_info: &DispatchInfoOf<Call>,
+		_len: usize,
+	) -> Result<(), TransactionValidityError> {
+		Ok(())
+	}
+	#[inline]
+	fn metadata() -> Vec<TransactionExtensionMetadata> {
+		vec![]
+	}
+	#[inline]
+	fn post_dispatch(
+		_pre: Self::Pre,
+		_info: &DispatchInfoOf<Call>,
+		_post_info: &mut PostDispatchInfoOf<Call>,
+		_len: usize,
+		_result: &DispatchResult,
+	) -> Result<(), TransactionValidityError> {
+		Ok(())
+	}
+	#[inline]
+	fn bare_validate(
+		_call: &Call,
+		_info: &DispatchInfoOf<Call>,
+		_len: usize,
+	) -> TransactionValidity {
+		Ok(ValidTransaction::default())
+	}
+	#[inline]
+	fn bare_post_dispatch(
+		_info: &DispatchInfoOf<Call>,
+		_post_info: &mut PostDispatchInfoOf<Call>,
+		_len: usize,
+		_result: &DispatchResult,
+	) -> Result<(), TransactionValidityError> {
+		Ok(())
+	}
+	#[inline]
+	fn post_dispatch_details(
+		_pre: Self::Pre,
+		_info: &DispatchInfoOf<Call>,
+		_post_info: &PostDispatchInfoOf<Call>,
+		_len: usize,
+		_result: &DispatchResult,
+	) -> Result<Weight, TransactionValidityError> {
+		Ok(Weight::zero())
+	}
+	#[inline]
+	fn bare_validate_and_prepare(
+		_call: &Call,
+		_info: &DispatchInfoOf<Call>,
+		_len: usize,
+	) -> Result<(), TransactionValidityError> {
+		Ok(())
+	}
+}
+
 macro_rules! declare_pipeline {
 	($( $num:tt: $generic:ident, { $( $basket_0:tt )* }, { $( $basket_1:tt )* }, { $( $basket_2:tt )* }, )*) => {
 		/// A pipeline of transaction extensions. Same as a tuple of transaction extensions, but
@@ -43,7 +138,7 @@ macro_rules! declare_pipeline {
 		// NOTE: To extend beyond 32 elements we need to get rid of `push_back` usage.
 		#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, TypeInfo)]
 		pub struct TransactionExtensionPipeline<
-			$( $generic = (), )*
+			$( $generic = NoTxExt, )*
 		>(
 			$( pub $generic, )*
 		);
@@ -60,12 +155,12 @@ macro_rules! declare_pipeline {
 							$( {
 								#[allow(clippy::no_effect)]
 								$basket_1;
-								()
+								NoTxExt
 							}, )*
 							$( {
 								#[allow(clippy::no_effect)]
 								$basket_2;
-								()
+								NoTxExt
 							}, )*
 						)
 					}
