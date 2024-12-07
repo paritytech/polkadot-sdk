@@ -44,7 +44,7 @@ mod transaction_extension_pipeline;
 pub use as_transaction_extension::AsTransactionExtension;
 pub use dispatch_transaction::DispatchTransaction;
 pub use transaction_extension_pipeline::{
-	TransactionExtensionPipeline, TransactionExtensionPipelineImplicit, NoTxExt,
+	NoTxExt, TransactionExtensionPipeline, TransactionExtensionPipelineImplicit,
 };
 
 /// Shortcut for the result value of the `validate` function.
