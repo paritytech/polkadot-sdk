@@ -310,8 +310,9 @@ where
 							metrics.on_message("chunk_fetching_v1")
 						}
 					},
-					Requests::AvailableDataFetchingV1(_) =>
-						metrics.on_message("available_data_fetching_v1"),
+					Requests::AvailableDataFetchingV1(_) => {
+						metrics.on_message("available_data_fetching_v1")
+					},
 					Requests::CollationFetchingV1(_) => metrics.on_message("collation_fetching_v1"),
 					Requests::CollationFetchingV2(_) => metrics.on_message("collation_fetching_v2"),
 					Requests::PoVFetchingV1(_) => metrics.on_message("pov_fetching_v1"),
@@ -351,7 +352,7 @@ where
 				)
 				.await;
 
-			return (network_service, ads)
+			return (network_service, ads);
 		},
 		NetworkBridgeTxMessage::ConnectToResolvedValidators { validator_addrs, peer_set } => {
 			gum::trace!(
@@ -368,7 +369,7 @@ where
 			let network_service = validator_discovery
 				.on_resolved_request(all_addrs, peer_set, network_service)
 				.await;
-			return (network_service, authority_discovery_service)
+			return (network_service, authority_discovery_service);
 		},
 
 		NetworkBridgeTxMessage::AddToResolvedValidators { validator_addrs, peer_set } => {
@@ -384,7 +385,7 @@ where
 			let network_service = validator_discovery
 				.on_add_to_resolved_request(all_addrs, peer_set, network_service)
 				.await;
-			return (network_service, authority_discovery_service)
+			return (network_service, authority_discovery_service);
 		},
 	}
 	(network_service, authority_discovery_service)

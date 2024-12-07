@@ -44,7 +44,7 @@ pub trait EnsureOrigin<OuterOrigin> {
 		OuterOrigin: OriginTrait,
 	{
 		if o.caller().is_root() {
-			return Ok(None)
+			return Ok(None);
 		} else {
 			Self::ensure_origin(o).map(Some)
 		}
@@ -60,7 +60,7 @@ pub trait EnsureOrigin<OuterOrigin> {
 		OuterOrigin: OriginTrait,
 	{
 		if o.caller().is_root() {
-			return Ok(None)
+			return Ok(None);
 		} else {
 			Self::try_origin(o).map(Some)
 		}
@@ -141,7 +141,7 @@ where
 
 		// If this is the expected origin, it has the same privilege.
 		if o == expected_origin {
-			return Ok(())
+			return Ok(());
 		}
 
 		let cmp = PrivilegeCmp::cmp_privilege(&o, &expected_origin);

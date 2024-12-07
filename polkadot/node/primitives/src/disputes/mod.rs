@@ -113,11 +113,11 @@ impl ValidCandidateVotes {
 				true
 			},
 			Bentry::Occupied(mut occupied) => match occupied.get().0 {
-				ValidDisputeStatementKind::BackingValid(_) |
-				ValidDisputeStatementKind::BackingSeconded(_) => false,
-				ValidDisputeStatementKind::Explicit |
-				ValidDisputeStatementKind::ApprovalChecking |
-				ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(_) => {
+				ValidDisputeStatementKind::BackingValid(_)
+				| ValidDisputeStatementKind::BackingSeconded(_) => false,
+				ValidDisputeStatementKind::Explicit
+				| ValidDisputeStatementKind::ApprovalChecking
+				| ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(_) => {
 					occupied.insert((kind.clone(), sig));
 					kind != occupied.get().0
 				},

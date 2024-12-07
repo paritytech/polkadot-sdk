@@ -150,8 +150,8 @@ impl DataProviderBounds {
 	/// Returns true if `given_size` or `given_count` exhausts `self.size` or `self_count`,
 	/// respectively.
 	pub fn exhausted(self, given_size: Option<SizeBound>, given_count: Option<CountBound>) -> bool {
-		self.count_exhausted(given_count.unwrap_or(CountBound::zero())) ||
-			self.size_exhausted(given_size.unwrap_or(SizeBound::zero()))
+		self.count_exhausted(given_count.unwrap_or(CountBound::zero()))
+			|| self.size_exhausted(given_size.unwrap_or(SizeBound::zero()))
 	}
 
 	/// Returns an instance of `Self` that is constructed by capping both the `count` and `size`

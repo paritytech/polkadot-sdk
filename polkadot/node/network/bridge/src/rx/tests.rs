@@ -491,10 +491,10 @@ async fn await_peer_connections(
 	loop {
 		{
 			let shared = shared.0.lock();
-			if shared.validation_peers.len() == num_validation_peers &&
-				shared.collation_peers.len() == num_collation_peers
+			if shared.validation_peers.len() == num_validation_peers
+				&& shared.collation_peers.len() == num_collation_peers
 			{
-				break
+				break;
 			}
 		}
 
@@ -1445,15 +1445,18 @@ fn network_protocol_versioning_view_update() {
 
 		for &(peer_id, peer_set, version) in &peers {
 			let wire_msg = match version {
-				ValidationVersion::V1 =>
+				ValidationVersion::V1 => {
 					WireMessage::<protocol_v1::ValidationProtocol>::ViewUpdate(view.clone())
-						.encode(),
-				ValidationVersion::V2 =>
+						.encode()
+				},
+				ValidationVersion::V2 => {
 					WireMessage::<protocol_v2::ValidationProtocol>::ViewUpdate(view.clone())
-						.encode(),
-				ValidationVersion::V3 =>
+						.encode()
+				},
+				ValidationVersion::V3 => {
 					WireMessage::<protocol_v3::ValidationProtocol>::ViewUpdate(view.clone())
-						.encode(),
+						.encode()
+				},
 			};
 			assert_network_actions_contains(
 				&actions,

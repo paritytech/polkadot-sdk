@@ -89,7 +89,7 @@ where
 				let exts = span.extensions();
 				if let Some(prefix) = exts.get::<super::layers::Prefix>() {
 					write!(&mut writer, "{}", prefix.as_str())?;
-					break
+					break;
 				}
 			}
 		}
@@ -116,10 +116,10 @@ where
 		mut writer: format::Writer<'_>,
 		event: &Event,
 	) -> fmt::Result {
-		if self.dup_to_stdout &&
-			(event.metadata().level() == &Level::INFO ||
-				event.metadata().level() == &Level::WARN ||
-				event.metadata().level() == &Level::ERROR)
+		if self.dup_to_stdout
+			&& (event.metadata().level() == &Level::INFO
+				|| event.metadata().level() == &Level::WARN
+				|| event.metadata().level() == &Level::ERROR)
 		{
 			let mut out = String::new();
 			let buf_writer = format::Writer::new(&mut out);

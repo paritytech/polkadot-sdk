@@ -525,7 +525,7 @@ pub mod pallet {
 				if refund_count >= T::RemoveKeysLimit::get() {
 					// Not everyone was able to be refunded this time around.
 					all_refunded = false;
-					break
+					break;
 				}
 				CurrencyOf::<T>::transfer(&fund_account, &who, balance, AllowDeath)?;
 				CurrencyOf::<T>::reactivate(balance);
@@ -1005,15 +1005,15 @@ mod tests {
 
 			let ending_period = ending_period();
 			if after_early_end < ending_period {
-				return AuctionStatus::EndingPeriod(after_early_end, 0)
+				return AuctionStatus::EndingPeriod(after_early_end, 0);
 			} else {
 				let after_end = after_early_end - ending_period;
 				// Optional VRF delay
 				if after_end < vrf_delay() {
-					return AuctionStatus::VrfDelay(after_end)
+					return AuctionStatus::VrfDelay(after_end);
 				} else {
 					// VRF delay is done, so we just end the auction
-					return AuctionStatus::NotStarted
+					return AuctionStatus::NotStarted;
 				}
 			}
 		}
@@ -1098,7 +1098,7 @@ mod tests {
 		for i in 0.. {
 			let para: ParaId = i.into();
 			if TestRegistrar::<Test>::is_registered(para) {
-				continue
+				continue;
 			}
 			assert_ok!(TestRegistrar::<Test>::register(
 				1,
@@ -1106,7 +1106,7 @@ mod tests {
 				dummy_head_data(),
 				dummy_validation_code()
 			));
-			return para
+			return para;
 		}
 		unreachable!()
 	}

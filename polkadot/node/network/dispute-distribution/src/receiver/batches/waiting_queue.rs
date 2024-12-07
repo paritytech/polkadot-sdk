@@ -90,7 +90,7 @@ impl<Payload: Eq + Ord> WaitingQueue<Payload> {
 		let next_waiting = self.pending_wakes.peek();
 		let is_ready = next_waiting.map_or(false, |p| p.ready_at <= now);
 		if is_ready {
-			return
+			return;
 		}
 
 		self.timer = next_waiting.map(|p| Delay::new(p.ready_at.duration_since(now)));

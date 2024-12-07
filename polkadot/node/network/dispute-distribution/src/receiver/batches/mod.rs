@@ -99,7 +99,7 @@ impl Batches {
 		candidate_receipt: CandidateReceipt,
 	) -> JfyiResult<FoundBatch> {
 		if self.batches.len() >= MAX_BATCHES {
-			return Err(JfyiError::MaxBatchLimitReached)
+			return Err(JfyiError::MaxBatchLimitReached);
 		}
 		debug_assert!(candidate_hash == candidate_receipt.hash());
 		let result = match self.batches.entry(candidate_hash) {
@@ -148,7 +148,7 @@ impl Batches {
 				TickResult::Done(import) => {
 					gum::trace!(
 						target: LOG_TARGET,
-						candidate_hash = ?wake.payload,
+						candidate_hash = ?wake.payload.0,
 						"Batch became ready."
 					);
 					imports.push(import);
@@ -156,7 +156,7 @@ impl Batches {
 				TickResult::Alive(old_batch, next_tick) => {
 					gum::trace!(
 						target: LOG_TARGET,
-						candidate_hash = ?wake.payload,
+						candidate_hash = ?wake.payload.0,
 						"Batch found to be still alive on check."
 					);
 					let pending_wake = PendingWake { payload: wake.payload, ready_at: next_tick };

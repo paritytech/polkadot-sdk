@@ -487,14 +487,16 @@ async fn advertise_collation(
 	candidate: Option<(CandidateHash, Hash)>, // Candidate hash + parent head data hash.
 ) {
 	let wire_message = match candidate {
-		Some((candidate_hash, parent_head_data_hash)) =>
+		Some((candidate_hash, parent_head_data_hash)) => {
 			Versioned::V2(protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
 				relay_parent,
 				candidate_hash,
 				parent_head_data_hash,
-			}),
-		None =>
-			Versioned::V1(protocol_v1::CollatorProtocolMessage::AdvertiseCollation(relay_parent)),
+			})
+		},
+		None => {
+			Versioned::V1(protocol_v1::CollatorProtocolMessage::AdvertiseCollation(relay_parent))
+		},
 	};
 	overseer_send(
 		virtual_overseer,
@@ -1371,7 +1373,7 @@ fn delay_reputation_change() {
 			match overseer_recv(&mut virtual_overseer).await {
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::DisconnectPeer(_, _)) => {
 					gum::trace!("`Disconnecting inactive peer` message skipped");
-					continue
+					continue;
 				},
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(
 					ReportPeerMessage::Batch(v),
@@ -1381,7 +1383,7 @@ fn delay_reputation_change() {
 						add_reputation(&mut expected_change, peer_b, rep);
 					}
 					assert_eq!(v, expected_change);
-					break
+					break;
 				},
 				_ => panic!("Message should be either `DisconnectPeer` or `ReportPeer`"),
 			}

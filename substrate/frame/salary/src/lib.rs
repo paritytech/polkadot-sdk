@@ -460,11 +460,11 @@ impl<T: Config<I>, I: 'static>
 	) {
 		if who == new_who {
 			defensive!("Should not try to swap with self");
-			return
+			return;
 		}
 		if Claimant::<T, I>::contains_key(new_who) {
 			defensive!("Should not try to overwrite existing claimant");
-			return
+			return;
 		}
 
 		let Some(claimant) = Claimant::<T, I>::take(who) else {

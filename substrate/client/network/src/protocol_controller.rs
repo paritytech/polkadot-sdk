@@ -372,8 +372,9 @@ impl ProtocolController {
 	/// Process connection event.
 	fn process_event(&mut self, event: Event) {
 		match event {
-			Event::IncomingConnection(peer_id, index) =>
-				self.on_incoming_connection(peer_id, index),
+			Event::IncomingConnection(peer_id, index) => {
+				self.on_incoming_connection(peer_id, index)
+			},
 			Event::Dropped(peer_id) => self.on_peer_dropped(peer_id),
 		}
 	}
@@ -386,8 +387,9 @@ impl ProtocolController {
 			Action::SetReservedPeers(peer_ids) => self.on_set_reserved_peers(peer_ids),
 			Action::SetReservedOnly(reserved_only) => self.on_set_reserved_only(reserved_only),
 			Action::DisconnectPeer(peer_id) => self.on_disconnect_peer(peer_id),
-			Action::GetReservedPeers(pending_response) =>
-				self.on_get_reserved_peers(pending_response),
+			Action::GetReservedPeers(pending_response) => {
+				self.on_get_reserved_peers(pending_response)
+			},
 		}
 	}
 
@@ -469,7 +471,7 @@ impl ProtocolController {
 				"Trying to add an already reserved node {peer_id} as reserved on {:?}.",
 				self.set_id,
 			);
-			return
+			return;
 		}
 
 		// Get the peer out of non-reserved peers if it's there.
@@ -510,14 +512,14 @@ impl ProtocolController {
 					target: LOG_TARGET,
 					"Trying to remove unknown reserved node {peer_id} from {:?}.", self.set_id,
 				);
-				return
+				return;
 			},
 		};
 
 		if let PeerState::Connected(direction) = state {
 			// Disconnect if we're at (or over) the regular node limit
-			let disconnect = self.reserved_only ||
-				match direction {
+			let disconnect = self.reserved_only
+				|| match direction {
 					Direction::Inbound => self.num_in >= self.max_in,
 					Direction::Outbound => self.num_out >= self.max_out,
 				};
@@ -581,7 +583,7 @@ impl ProtocolController {
 		self.reserved_only = reserved_only;
 
 		if !reserved_only {
-			return self.alloc_slots()
+			return self.alloc_slots();
 		}
 
 		// Disconnect all non-reserved peers.
@@ -614,7 +616,7 @@ impl ProtocolController {
 				target: LOG_TARGET,
 				"Ignoring request to disconnect reserved peer {peer_id} from {:?}.", self.set_id,
 			);
-			return
+			return;
 		}
 
 		match self.nodes.remove(&peer_id) {
@@ -659,7 +661,7 @@ impl ProtocolController {
 
 		if self.reserved_only && !self.reserved_nodes.contains_key(&peer_id) {
 			self.reject_connection(peer_id, incoming_index);
-			return
+			return;
 		}
 
 		// Check if the node is reserved first.
@@ -671,15 +673,16 @@ impl ProtocolController {
 					*direction = Direction::Inbound;
 					self.accept_connection(peer_id, incoming_index);
 				},
-				PeerState::NotConnected =>
+				PeerState::NotConnected => {
 					if self.peer_store.is_banned(&peer_id.into()) {
 						self.reject_connection(peer_id, incoming_index);
 					} else {
 						*state = PeerState::Connected(Direction::Inbound);
 						self.accept_connection(peer_id, incoming_index);
-					},
+					}
+				},
 			}
-			return
+			return;
 		}
 
 		// If we're already connected, pretend we are not connected and decide on the node again.
@@ -700,12 +703,12 @@ impl ProtocolController {
 
 		if self.num_in >= self.max_in {
 			self.reject_connection(peer_id, incoming_index);
-			return
+			return;
 		}
 
 		if self.is_banned(&peer_id) {
 			self.reject_connection(peer_id, incoming_index);
-			return
+			return;
 		}
 
 		self.num_in += 1;
@@ -799,7 +802,7 @@ impl ProtocolController {
 
 		// Nothing more to do if we're in reserved-only mode or don't have slots available.
 		if self.reserved_only || self.num_out >= self.max_out {
-			return
+			return;
 		}
 
 		// Fill available slots.
@@ -823,8 +826,8 @@ impl ProtocolController {
 			.outgoing_candidates(available_slots, ignored)
 			.into_iter()
 			.filter_map(|peer_id| {
-				(!self.reserved_nodes.contains_key(&peer_id.into()) &&
-					!self.nodes.contains_key(&peer_id.into()))
+				(!self.reserved_nodes.contains_key(&peer_id.into())
+					&& !self.nodes.contains_key(&peer_id.into()))
 				.then_some(peer_id)
 				.or_else(|| {
 					error!(

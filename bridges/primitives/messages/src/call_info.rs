@@ -103,7 +103,7 @@ impl<LaneId> ReceiveMessagesProofInfo<LaneId> {
 	pub fn is_obsolete(&self, is_dispatcher_active: bool) -> bool {
 		// if dispatcher is inactive, we don't accept any delivery transactions
 		if !is_dispatcher_active {
-			return true
+			return true;
 		}
 
 		// transactions with zero bundled nonces are not allowed, unless they're message
@@ -116,7 +116,7 @@ impl<LaneId> ReceiveMessagesProofInfo<LaneId> {
 				// or if we can't accept new messages at all
 				self.unrewarded_relayers.free_message_slots == 0;
 
-			return !empty_transactions_allowed
+			return !empty_transactions_allowed;
 		}
 
 		// otherwise we require bundled messages to continue stored range

@@ -32,7 +32,7 @@ pub async fn wait_for_receipt(
 		tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 		let receipt = client.get_transaction_receipt(hash).await?;
 		if let Some(receipt) = receipt {
-			return Ok(receipt)
+			return Ok(receipt);
 		}
 	}
 

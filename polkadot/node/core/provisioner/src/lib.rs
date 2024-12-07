@@ -355,13 +355,14 @@ fn note_provisionable_data(
 	provisionable_data: ProvisionableData,
 ) {
 	match provisionable_data {
-		ProvisionableData::Bitfield(_, signed_bitfield) =>
-			per_relay_parent.signed_bitfields.push(signed_bitfield),
+		ProvisionableData::Bitfield(_, signed_bitfield) => {
+			per_relay_parent.signed_bitfields.push(signed_bitfield)
+		},
 		ProvisionableData::BackedCandidate(backed_candidate) => {
 			let candidate_hash = backed_candidate.hash();
 			gum::trace!(
 				target: LOG_TARGET,
-				?candidate_hash,
+				 candidate_hash = ?candidate_hash.0,
 				para = ?backed_candidate.descriptor().para_id(),
 				"noted backed candidate",
 			);
@@ -533,7 +534,7 @@ fn select_availability_bitfields(
 	'a: for bitfield in bitfields.iter().cloned() {
 		if bitfield.payload().0.len() != cores.len() {
 			gum::debug!(target: LOG_TARGET, ?leaf_hash, "dropping bitfield due to length mismatch");
-			continue
+			continue;
 		}
 
 		let is_better = selected
@@ -547,7 +548,7 @@ fn select_availability_bitfields(
 				?leaf_hash,
 				"dropping bitfield due to duplication - the better one is kept"
 			);
-			continue
+			continue;
 		}
 
 		for (idx, _) in cores.iter().enumerate().filter(|v| !v.1.is_occupied()) {
@@ -559,7 +560,7 @@ fn select_availability_bitfields(
 					?leaf_hash,
 					"dropping invalid bitfield - bit is set for an unoccupied core"
 				);
-				continue 'a
+				continue 'a;
 			}
 		}
 
@@ -608,16 +609,16 @@ async fn select_candidate_hashes_from_tracked(
 					if let Some(ref scheduled_core) = occupied_core.next_up_on_available {
 						(scheduled_core, OccupiedCoreAssumption::Included)
 					} else {
-						continue
+						continue;
 					}
 				} else {
 					if occupied_core.time_out_at != block_number {
-						continue
+						continue;
 					}
 					if let Some(ref scheduled_core) = occupied_core.next_up_on_time_out {
 						(scheduled_core, OccupiedCoreAssumption::TimedOut)
 					} else {
-						continue
+						continue;
 					}
 				}
 			},
@@ -627,7 +628,7 @@ async fn select_candidate_hashes_from_tracked(
 		if selected_candidates.contains_key(&scheduled_core.para_id) {
 			// We already picked a candidate for this parachain. Elastic scaling only works with
 			// prospective parachains mode.
-			continue
+			continue;
 		}
 
 		let validation_data = match request_persisted_validation_data(
@@ -650,14 +651,14 @@ async fn select_candidate_hashes_from_tracked(
 		// selection criteria
 		if let Some(candidate) = candidates.iter().find(|backed_candidate| {
 			let descriptor = &backed_candidate.descriptor;
-			descriptor.para_id() == scheduled_core.para_id &&
-				descriptor.persisted_validation_data_hash() == computed_validation_data_hash
+			descriptor.para_id() == scheduled_core.para_id
+				&& descriptor.persisted_validation_data_hash() == computed_validation_data_hash
 		}) {
 			let candidate_hash = candidate.hash();
 			gum::trace!(
 				target: LOG_TARGET,
 				leaf_hash=?relay_parent,
-				?candidate_hash,
+				 candidate_hash = ?candidate_hash.0,
 				para = ?candidate.descriptor.para_id(),
 				core = core_idx,
 				"Selected candidate receipt",
@@ -743,7 +744,7 @@ async fn request_backable_candidates(
 
 		// If elastic scaling MVP is disabled, only allow one candidate per parachain.
 		if !elastic_scaling_mvp && core_count > 1 {
-			continue
+			continue;
 		}
 
 		let response = get_backable_candidates(
@@ -762,7 +763,7 @@ async fn request_backable_candidates(
 				?para_id,
 				"No backable candidate returned by prospective parachains",
 			);
-			continue
+			continue;
 		}
 
 		selected_candidates.insert(para_id, response);
@@ -789,7 +790,7 @@ async fn select_candidates(
 	);
 
 	let selected_candidates = match prospective_parachains_mode {
-		ProspectiveParachainsMode::Enabled { .. } =>
+		ProspectiveParachainsMode::Enabled { .. } => {
 			request_backable_candidates(
 				availability_cores,
 				elastic_scaling_mvp,
@@ -797,8 +798,9 @@ async fn select_candidates(
 				relay_parent,
 				sender,
 			)
-			.await?,
-		ProspectiveParachainsMode::Disabled =>
+			.await?
+		},
+		ProspectiveParachainsMode::Disabled => {
 			select_candidate_hashes_from_tracked(
 				availability_cores,
 				bitfields,
@@ -806,7 +808,8 @@ async fn select_candidates(
 				relay_parent,
 				sender,
 			)
-			.await?,
+			.await?
+		},
 	};
 	gum::debug!(target: LOG_TARGET, ?selected_candidates, "Got backable candidates");
 
@@ -829,7 +832,7 @@ async fn select_candidates(
 		for candidate in para_candidates {
 			if candidate.candidate().commitments.new_validation_code.is_some() {
 				if with_validation_code {
-					break
+					break;
 				} else {
 					with_validation_code = true;
 				}
@@ -920,7 +923,7 @@ fn bitfields_indicate_availability(
 					availability_len,
 				);
 
-				return false
+				return false;
 			},
 			Some(mut bit_mut) => *bit_mut |= bitfield.payload().0[core_idx],
 		}

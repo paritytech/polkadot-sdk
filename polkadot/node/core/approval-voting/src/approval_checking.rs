@@ -93,8 +93,9 @@ impl Check {
 	pub fn is_approved(&self, max_assignment_tick: Tick) -> bool {
 		match *self {
 			Check::Unapproved => false,
-			Check::Approved(_, last_assignment_tick) =>
-				last_assignment_tick.map_or(true, |t| t <= max_assignment_tick),
+			Check::Approved(_, last_assignment_tick) => {
+				last_assignment_tick.map_or(true, |t| t <= max_assignment_tick)
+			},
 			Check::ApprovedOneThird => true,
 		}
 	}
@@ -118,7 +119,7 @@ pub fn check_approval(
 	// honest node approves, the candidate should be approved.
 	let approvals = candidate.approvals();
 	if 3 * approvals.count_ones() > approvals.len() {
-		return Check::ApprovedOneThird
+		return Check::ApprovedOneThird;
 	}
 
 	match required {
@@ -208,7 +209,7 @@ impl State {
 				required_tranches: RequiredTranches::All,
 				total_observed_no_shows: self.total_observed_no_shows,
 				no_show_validators: self.no_show_validators.clone(),
-			}
+			};
 		}
 
 		// If we have enough assignments and all no-shows are covered, we have reached the number
@@ -223,7 +224,7 @@ impl State {
 				},
 				total_observed_no_shows: self.total_observed_no_shows,
 				no_show_validators: self.no_show_validators.clone(),
-			}
+			};
 		}
 
 		// We're pending more assignments and should look at more tranches.
@@ -304,8 +305,8 @@ impl State {
 		// validators.
 		// If there are a lot then we've got bigger problems and no need to make this
 		// array unnecessarily large.
-		if self.no_show_validators.len() + no_show_validators.len() <
-			MAX_RECORDED_NO_SHOW_VALIDATORS_PER_CANDIDATE
+		if self.no_show_validators.len() + no_show_validators.len()
+			< MAX_RECORDED_NO_SHOW_VALIDATORS_PER_CANDIDATE
 		{
 			self.no_show_validators.extend(no_show_validators);
 		}
@@ -387,7 +388,7 @@ fn count_no_shows(
 			let has_approved = if let Some(approved) = approvals.get(v_index.0 as usize) {
 				*approved
 			} else {
-				return false
+				return false;
 			};
 
 			let is_no_show = !has_approved && no_show_at <= drifted_tick_now;

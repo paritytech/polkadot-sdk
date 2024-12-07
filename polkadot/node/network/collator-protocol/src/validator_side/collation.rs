@@ -136,22 +136,22 @@ pub fn fetched_collation_sanity_check(
 	maybe_parent_head_and_hash: Option<(HeadData, Hash)>,
 ) -> Result<(), SecondingError> {
 	if persisted_validation_data.hash() != fetched.descriptor().persisted_validation_data_hash() {
-		return Err(SecondingError::PersistedValidationDataMismatch)
+		return Err(SecondingError::PersistedValidationDataMismatch);
 	}
 
 	if advertised
 		.prospective_candidate
 		.map_or(false, |pc| pc.candidate_hash() != fetched.hash())
 	{
-		return Err(SecondingError::CandidateHashMismatch)
+		return Err(SecondingError::CandidateHashMismatch);
 	}
 
 	if advertised.relay_parent != fetched.descriptor.relay_parent() {
-		return Err(SecondingError::RelayParentMismatch)
+		return Err(SecondingError::RelayParentMismatch);
 	}
 
 	if maybe_parent_head_and_hash.map_or(false, |(head, hash)| head.hash() != hash) {
-		return Err(SecondingError::ParentHeadDataMismatch)
+		return Err(SecondingError::ParentHeadDataMismatch);
 	}
 
 	Ok(())
@@ -205,12 +205,13 @@ impl CollationStatus {
 	/// Downgrades to `Waiting`, but only if `self != Seconded`.
 	fn back_to_waiting(&mut self, relay_parent_mode: ProspectiveParachainsMode) {
 		match self {
-			Self::Seconded =>
+			Self::Seconded => {
 				if relay_parent_mode.is_enabled() {
 					// With async backing enabled it's allowed to
 					// second more candidates.
 					*self = Self::Waiting
-				},
+				}
+			},
 			_ => *self = Self::Waiting,
 		}
 	}
@@ -253,8 +254,8 @@ impl Collations {
 		// to replace it.
 		if let Some((collator_id, maybe_candidate_hash)) = self.fetching_from.as_ref() {
 			// If a candidate hash was saved previously, `finished_one` must include this too.
-			if collator_id != &finished_one.0 &&
-				maybe_candidate_hash.map_or(true, |hash| Some(&hash) != finished_one.1.as_ref())
+			if collator_id != &finished_one.0
+				&& maybe_candidate_hash.map_or(true, |hash| Some(&hash) != finished_one.1.as_ref())
 			{
 				gum::trace!(
 					target: LOG_TARGET,
@@ -262,7 +263,7 @@ impl Collations {
 					?finished_one,
 					"Not proceeding to the next collation - has already been done."
 				);
-				return None
+				return None;
 			}
 		}
 		self.status.back_to_waiting(relay_parent_mode);
@@ -270,14 +271,16 @@ impl Collations {
 		match self.status {
 			// We don't need to fetch any other collation when we already have seconded one.
 			CollationStatus::Seconded => None,
-			CollationStatus::Waiting =>
+			CollationStatus::Waiting => {
 				if self.is_seconded_limit_reached(relay_parent_mode) {
 					None
 				} else {
 					self.waiting_queue.pop_front()
-				},
-			CollationStatus::WaitingOnValidation | CollationStatus::Fetching =>
-				unreachable!("We have reset the status above!"),
+				}
+			},
+			CollationStatus::WaitingOnValidation | CollationStatus::Fetching => {
+				unreachable!("We have reset the status above!")
+			},
 		}
 	}
 
@@ -345,7 +348,7 @@ impl Future for CollationFetchRequest {
 					pending_collation: self.pending_collation,
 				},
 				Err(CollationFetchError::Cancelled),
-			))
+			));
 		}
 
 		let res = self.from_collator.poll_unpin(cx).map(|res| {

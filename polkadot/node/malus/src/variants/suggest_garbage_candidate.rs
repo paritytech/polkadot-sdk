@@ -87,7 +87,7 @@ where
 			} => {
 				gum::debug!(
 					target: MALUS,
-					candidate_hash = ?candidate.hash(),
+					candidate_hash = ?candidate.hash().0,
 					?relay_parent,
 					"Received request to second candidate",
 				);
@@ -150,7 +150,7 @@ where
 										);
 
 										sender.send(None).expect("channel is still open");
-										return
+										return;
 									},
 									Ok(None) => {
 										gum::debug!(
@@ -160,7 +160,7 @@ where
 										);
 
 										sender.send(None).expect("channel is still open");
-										return
+										return;
 									},
 									Ok(Some(c)) => c,
 								}
@@ -181,7 +181,7 @@ where
 
 					gum::trace!(
 						target: MALUS,
-						candidate_hash = ?candidate.hash(),
+						candidate_hash = ?candidate.hash().0,
 						?relay_parent,
 						?n_validators,
 						?validation_data_hash,
@@ -255,7 +255,7 @@ where
 
 					gum::info!(
 						target: MALUS,
-						candidate_hash = ?candidate.hash(),
+						candidate_hash = ?candidate.hash().0,
 						"😈 Intercepted CandidateBackingMessage::Second and created malicious candidate with hash: {:?}",
 						&malicious_candidate_hash
 					);

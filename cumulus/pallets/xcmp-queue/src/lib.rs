@@ -97,7 +97,8 @@ pub mod delivery_fee_constants {
 	/// Also, the number it gets divided by when decreased.
 	pub const EXPONENTIAL_FEE_BASE: FixedU128 = FixedU128::from_rational(105, 100); // 1.05
 	/// The contribution of each KB to a fee factor increase
-	pub const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000); // 0.001
+	pub const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000);
+	// 0.001
 }
 
 #[frame_support::pallet]
@@ -273,7 +274,7 @@ pub mod pallet {
 					Self::on_idle_weight(),
 					limit
 				);
-				return meter.consumed()
+				return meter.consumed();
 			}
 
 			migration::v3::lazy_migrate_inbound_queue::<T>();
@@ -439,9 +440,9 @@ impl QueueConfigData {
 	///
 	/// Should be called prior to accepting this as new config.
 	pub fn validate<T: crate::Config>(&self) -> sp_runtime::DispatchResult {
-		if self.resume_threshold < self.suspend_threshold &&
-			self.suspend_threshold <= self.drop_threshold &&
-			self.resume_threshold > 0
+		if self.resume_threshold < self.suspend_threshold
+			&& self.suspend_threshold <= self.drop_threshold
+			&& self.resume_threshold > 0
 		{
 			Ok(())
 		} else {
@@ -502,7 +503,7 @@ impl<T: Config> Pallet<T> {
 			.checked_add(format_size)
 			.ok_or(MessageSendError::TooBig)?;
 		if size_to_check > max_message_size {
-			return Err(MessageSendError::TooBig)
+			return Err(MessageSendError::TooBig);
 		}
 
 		let mut all_channels = <OutboundXcmpStatus<T>>::get();
@@ -534,10 +535,10 @@ impl<T: Config> Pallet<T> {
 						) != Ok(format)
 						{
 							defensive!("Bad format in outbound queue; dropping message");
-							return Err(())
+							return Err(());
 						}
 						if page.len() + encoded_fragment.len() > max_message_size {
-							return Err(())
+							return Err(());
 						}
 						for frag in encoded_fragment.iter() {
 							page.try_push(*frag)?;
@@ -645,7 +646,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), ()> {
 		if meter.try_consume(T::WeightInfo::enqueue_xcmp_message()).is_err() {
 			defensive!("Out of weight: cannot enqueue XCMP messages; dropping msg");
-			return Err(())
+			return Err(());
 		}
 
 		let QueueConfigData { drop_threshold, .. } = <QueueConfig<T>>::get();
@@ -656,7 +657,7 @@ impl<T: Config> Pallet<T> {
 			// This should not happen since the channel should have been suspended in
 			// [`on_queue_changed`].
 			log::error!("XCMP queue for sibling {:?} is full; dropping messages.", sender);
-			return Err(())
+			return Err(());
 		}
 
 		T::XcmpQueue::enqueue_message(xcm.as_bounded_slice(), sender);
@@ -672,12 +673,12 @@ impl<T: Config> Pallet<T> {
 		meter: &mut WeightMeter,
 	) -> Result<BoundedVec<u8, MaxXcmpMessageLenOf<T>>, ()> {
 		if data.is_empty() {
-			return Err(())
+			return Err(());
 		}
 
 		if meter.try_consume(T::WeightInfo::take_first_concatenated_xcm()).is_err() {
 			defensive!("Out of weight; could not decode all; dropping");
-			return Err(())
+			return Err(());
 		}
 
 		let xcm = VersionedXcm::<()>::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, data)
@@ -741,7 +742,7 @@ impl<T: Config> OnQueueChanged<ParaId> for Pallet<T> {
 impl<T: Config> QueuePausedQuery<ParaId> for Pallet<T> {
 	fn is_paused(para: &ParaId) -> bool {
 		if !QueueSuspended::<T>::get() {
-			return false
+			return false;
 		}
 
 		// Make an exception for the superuser queue:
@@ -768,12 +769,12 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 				Ok(f) => f,
 				Err(_) => {
 					defensive!("Unknown XCMP message format - dropping");
-					continue
+					continue;
 				},
 			};
 
 			match format {
-				XcmpMessageFormat::Signals =>
+				XcmpMessageFormat::Signals => {
 					while !data.is_empty() {
 						if meter
 							.try_consume(
@@ -783,7 +784,7 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 							.is_err()
 						{
 							defensive!("Not enough weight to process signals - dropping");
-							break
+							break;
 						}
 
 						match ChannelSignal::decode(&mut data) {
@@ -791,16 +792,17 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 							Ok(ChannelSignal::Resume) => Self::resume_channel(sender),
 							Err(_) => {
 								defensive!("Undecodable channel signal - dropping");
-								break
+								break;
 							},
 						}
-					},
-				XcmpMessageFormat::ConcatenatedVersionedXcm =>
+					}
+				},
+				XcmpMessageFormat::ConcatenatedVersionedXcm => {
 					while !data.is_empty() {
 						let Ok(xcm) = Self::take_first_concatenated_xcm(&mut data, &mut meter)
 						else {
 							defensive!("HRMP inbound decode stream broke; page will be dropped.",);
-							break
+							break;
 						};
 
 						if let Err(()) = Self::enqueue_xcmp_message(sender, xcm, &mut meter) {
@@ -808,12 +810,13 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 								"Could not enqueue XCMP messages. Used weight: ",
 								meter.consumed_ratio()
 							);
-							break
+							break;
 						}
-					},
+					}
+				},
 				XcmpMessageFormat::ConcatenatedEncodedBlob => {
 					defensive!("Blob messages are unhandled - dropping");
-					continue
+					continue;
 				},
 			}
 		}
@@ -849,7 +852,7 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 						<SignalMessages<T>>::remove(para_id);
 					}
 					*status = OutboundChannelDetails::new(para_id);
-					continue
+					continue;
 				},
 				ChannelStatus::Full => continue,
 				ChannelStatus::Ready(n, e) => (n, e),
@@ -859,7 +862,7 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 			if result.len() == max_message_count {
 				// We check this condition in the beginning of the loop so that we don't include
 				// a message where the limit is 0.
-				break
+				break;
 			}
 
 			let page = if signals_exist {
@@ -872,11 +875,11 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 					page
 				} else {
 					defensive!("Signals should fit into a single page");
-					continue
+					continue;
 				}
 			} else if outbound_state == OutboundState::Suspended {
 				// Signals are exempt from suspension.
-				continue
+				continue;
 			} else if last_index > first_index {
 				let page = <OutboundXcmpMessages<T>>::get(para_id, first_index);
 				if page.len() < max_size_now {
@@ -884,10 +887,10 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 					first_index += 1;
 					page
 				} else {
-					continue
+					continue;
 				}
 			} else {
-				continue
+				continue;
 			};
 			if first_index == last_index {
 				first_index = 0;

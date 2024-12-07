@@ -113,20 +113,21 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 
 							reencode_rx.await.map_err(|_| RecoveryError::ChannelClosed)?
 						},
-						PostRecoveryCheck::PovHash =>
-							(data.pov.hash() == common_params.pov_hash).then_some(data),
+						PostRecoveryCheck::PovHash => {
+							(data.pov.hash() == common_params.pov_hash).then_some(data)
+						},
 					};
 
 					match maybe_data {
 						Some(data) => {
 							gum::trace!(
 								target: LOG_TARGET,
-								candidate_hash = ?common_params.candidate_hash,
+								candidate_hash = ?common_params.candidate_hash.0,
 								"Received full data",
 							);
 
 							common_params.metrics.on_full_request_succeeded();
-							return Ok(data)
+							return Ok(data);
 						},
 						None => {
 							common_params.metrics.on_full_request_invalid();
@@ -134,7 +135,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 
 							gum::debug!(
 								target: LOG_TARGET,
-								candidate_hash = ?common_params.candidate_hash,
+								candidate_hash = ?common_params.candidate_hash.0,
 								?validator_index,
 								"Invalid data response",
 							);
@@ -150,8 +151,9 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 				Err(e) => {
 					match &e {
 						RequestError::Canceled(_) => common_params.metrics.on_full_request_error(),
-						RequestError::InvalidResponse(_) =>
-							common_params.metrics.on_full_request_invalid(),
+						RequestError::InvalidResponse(_) => {
+							common_params.metrics.on_full_request_invalid()
+						},
 						RequestError::NetworkError(req_failure) => {
 							if let RequestFailure::Network(OutboundFailure::Timeout) = req_failure {
 								common_params.metrics.on_full_request_timeout();
@@ -162,7 +164,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 					};
 					gum::debug!(
 						target: LOG_TARGET,
-						candidate_hash = ?common_params.candidate_hash,
+						candidate_hash = ?common_params.candidate_hash.0,
 						?validator_index,
 						err = ?e,
 						"Error fetching full available data."

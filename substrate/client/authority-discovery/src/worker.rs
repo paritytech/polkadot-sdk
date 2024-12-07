@@ -442,9 +442,9 @@ where
 				"Publishing authority DHT record peer_id='{local_peer_id}' with addresses='{addresses:?}'",
 			);
 
-			if !self.warn_public_addresses &&
-				self.public_addresses.is_empty() &&
-				!has_global_listen_addresses
+			if !self.warn_public_addresses
+				&& self.public_addresses.is_empty()
+				&& !has_global_listen_addresses
 			{
 				self.warn_public_addresses = true;
 
@@ -483,7 +483,7 @@ where
 			);
 
 			self.publish_interval.set_to_start();
-			return Ok(())
+			return Ok(());
 		}
 
 		let keys =
@@ -499,7 +499,7 @@ where
 			// If the authority keys did not change and the `publish_if_changed_interval` was
 			// triggered then do nothing.
 			if keys == self.latest_published_keys {
-				return Ok(())
+				return Ok(());
 			}
 
 			// We have detected a change in the authority keys, reset the timers to
@@ -692,8 +692,9 @@ where
 		// Make sure we don't ever work with an outdated set of authorities
 		// and that we do not update known_authorithies too often.
 		let best_hash = self.client.best_hash().await?;
-		if !self.known_authorities.contains_key(&record_key) &&
-			self.authorities_queried_at
+		if !self.known_authorities.contains_key(&record_key)
+			&& self
+				.authorities_queried_at
 				.map(|authorities_queried_at| authorities_queried_at != best_hash)
 				.unwrap_or(true)
 		{
@@ -763,7 +764,7 @@ where
 			.map_err(Error::EncodingDecodingScale)?;
 
 		if !AuthorityPair::verify(&auth_signature, &signed_record.record, &authority_id) {
-			return Err(Error::VerifyingDhtPayload)
+			return Err(Error::VerifyingDhtPayload);
 		}
 
 		Ok(signed_record)
@@ -788,7 +789,7 @@ where
 				Err(error) => return Err(Error::ParsingLibp2pIdentity(error)),
 			}
 		} else if self.strict_record_validation {
-			return Err(Error::MissingPeerIdSignature)
+			return Err(Error::MissingPeerIdSignature);
 		} else {
 			debug!(
 				target: LOG_TARGET,
@@ -918,7 +919,7 @@ where
 					authority_id, new_record.creation_time, current_record_info.creation_time
 			);
 			self.last_known_records.insert(kademlia_key, new_record);
-			return true
+			return true;
 		}
 
 		if new_record.creation_time == current_record_info.creation_time {
@@ -929,12 +930,12 @@ where
 					"Found same record for {:?} record creation time {:?}",
 					authority_id, new_record.creation_time
 			);
-			if current_record_info.peers_with_record.len() + new_record.peers_with_record.len() <=
-				DEFAULT_KADEMLIA_REPLICATION_FACTOR
+			if current_record_info.peers_with_record.len() + new_record.peers_with_record.len()
+				<= DEFAULT_KADEMLIA_REPLICATION_FACTOR
 			{
 				current_record_info.peers_with_record.extend(new_record.peers_with_record);
 			}
-			return true
+			return true;
 		}
 
 		debug!(
@@ -949,7 +950,7 @@ where
 			// storage, so we need to update that as well.
 			new_record.peers_with_record.is_empty(),
 		);
-		return false
+		return false;
 	}
 
 	/// Retrieve our public keys within the current and next authority set.

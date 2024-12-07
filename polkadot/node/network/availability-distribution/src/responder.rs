@@ -57,7 +57,7 @@ pub async fn run_pov_receiver<Sender>(
 					error = ?fatal,
 					"Shutting down POV receiver."
 				);
-				return
+				return;
 			},
 			Ok(Err(jfyi)) => {
 				gum::debug!(target: LOG_TARGET, error = ?jfyi, "Error decoding incoming PoV request.");
@@ -269,7 +269,7 @@ where
 		gum::trace!(
 			target: LOG_TARGET,
 			?validator_index,
-			?candidate_hash,
+			candidate_hash = ?candidate_hash.0,
 			error = ?e,
 			"Error retrieving chunk",
 		);

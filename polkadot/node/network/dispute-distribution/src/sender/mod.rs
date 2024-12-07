@@ -132,8 +132,8 @@ impl<M: 'static + Send + Sync> DisputeSender<M> {
 		let candidate_hash = req.0.candidate_receipt.hash();
 		match self.disputes.entry(candidate_hash) {
 			Entry::Occupied(_) => {
-				gum::trace!(target: LOG_TARGET, ?candidate_hash, "Dispute sending already active.");
-				return Ok(())
+				gum::trace!(target: LOG_TARGET, candidate_hash = ?candidate_hash.0, "Dispute sending already active.");
+				return Ok(());
 			},
 			Entry::Vacant(vacant) => {
 				self.rate_limit.limit("in start_sender", candidate_hash).await;
@@ -174,7 +174,7 @@ impl<M: 'static + Send + Sync> DisputeSender<M> {
 							?result,
 							"Received `FromSendingTask::Finished` for non existing dispute."
 						);
-						return Ok(())
+						return Ok(());
 					},
 					Some(task) => task,
 				};
@@ -338,7 +338,7 @@ impl RateLimit {
 					gum::debug!(
 						target: LOG_TARGET,
 						?occasion,
-						?candidate_hash,
+						candidate_hash = ?candidate_hash.0,
 						?num_wakes,
 						"Sending rate limit hit, slowing down requests"
 					);

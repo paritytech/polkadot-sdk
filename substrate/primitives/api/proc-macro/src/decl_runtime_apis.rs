@@ -170,7 +170,7 @@ fn parse_renamed_attribute(renamed: &Attribute) -> Result<(String, u32)> {
 			let version: LitInt = input.parse()?;
 
 			if !input.is_empty() {
-				return Err(input.error("No more arguments expected"))
+				return Err(input.error("No more arguments expected"));
 			}
 
 			Ok((old_name.value(), version.base10_parse()?))
@@ -621,7 +621,7 @@ impl CheckTraitDecl {
 				Ok(r) => r,
 				Err(e) => {
 					self.errors.push(e);
-					return
+					return;
 				},
 			};
 
@@ -663,12 +663,13 @@ impl<'ast> Visit<'ast> for CheckTraitDecl {
 
 	fn visit_generic_param(&mut self, input: &'ast GenericParam) {
 		match input {
-			GenericParam::Type(ty) if ty.ident == BLOCK_GENERIC_IDENT =>
+			GenericParam::Type(ty) if ty.ident == BLOCK_GENERIC_IDENT => {
 				self.errors.push(Error::new(
 					input.span(),
 					"`Block: BlockT` generic parameter will be added automatically by the \
 						`decl_runtime_apis!` macro!",
-				)),
+				))
+			},
 			_ => {},
 		}
 

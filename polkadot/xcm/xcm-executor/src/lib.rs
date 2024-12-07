@@ -262,7 +262,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 				error = ?e,
 				"Barrier blocked execution",
 			);
-			return Outcome::Error { error: XcmError::Barrier }
+			return Outcome::Error { error: XcmError::Barrier };
 		}
 
 		*id = properties.message_id.unwrap_or(*id);
@@ -483,8 +483,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		);
 		if current_surplus.any_gt(Weight::zero()) {
 			if let Some(w) = self.trader.refund_weight(current_surplus, &self.context) {
-				if !self.holding.contains_asset(&(w.id.clone(), 1).into()) &&
-					self.ensure_can_subsume_assets(1).is_err()
+				if !self.holding.contains_asset(&(w.id.clone(), 1).into())
+					&& self.ensure_can_subsume_assets(1).is_err()
 				{
 					let _ = self
 						.trader
@@ -496,7 +496,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						target: "xcm::refund_surplus",
 						"error: HoldingWouldOverflow",
 					);
-					return Err(XcmError::HoldingWouldOverflow)
+					return Err(XcmError::HoldingWouldOverflow);
 				}
 				self.total_refunded.saturating_accrue(current_surplus);
 				self.holding.subsume_assets(w.into());
@@ -516,7 +516,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 	fn take_fee(&mut self, fees: Assets, reason: FeeReason) -> XcmResult {
 		if Config::FeeManager::is_waived(self.origin_ref(), reason.clone()) {
-			return Ok(())
+			return Ok(());
 		}
 		tracing::trace!(
 			target: "xcm::fees",
@@ -794,7 +794,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let inst_res = recursion_count::using_once(&mut 1, || {
 						recursion_count::with(|count| {
 							if *count > RECURSION_LIMIT {
-								return Err(XcmError::ExceedsStackLimit)
+								return Err(XcmError::ExceedsStackLimit);
 							}
 							*count = count.saturating_add(1);
 							Ok(())
@@ -821,10 +821,11 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						});
 					}
 				},
-				Err(ref mut error) =>
+				Err(ref mut error) => {
 					if let Ok(x) = Config::Weigher::instr_weight(&mut instr) {
 						error.weight.saturating_accrue(x)
-					},
+					}
+				},
 			}
 		}
 		result

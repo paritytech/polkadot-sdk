@@ -609,7 +609,7 @@ impl Wakeups {
 	) {
 		if let Some(prev) = self.reverse_wakeups.get(&(block_hash, candidate_hash)) {
 			if prev <= &tick {
-				return
+				return;
 			}
 
 			// we are replacing previous wakeup with an earlier one.
@@ -779,7 +779,7 @@ impl CurrentlyCheckingSet {
 					.unwrap_or_default();
 				approvals_cache
 					.insert(approval_state.candidate_hash, approval_state.approval_outcome);
-				return (out, approval_state)
+				return (out, approval_state);
 			}
 		}
 
@@ -860,13 +860,13 @@ impl NoShowStats {
 	// Print the no-show stats if NO_SHOW_DUMP_FREQUENCY blocks have passed since the last
 	// print.
 	fn maybe_print(&mut self, current_block_number: BlockNumber) {
-		if self.last_dumped_block_number > current_block_number ||
-			current_block_number - self.last_dumped_block_number < NO_SHOW_DUMP_FREQUENCY
+		if self.last_dumped_block_number > current_block_number
+			|| current_block_number - self.last_dumped_block_number < NO_SHOW_DUMP_FREQUENCY
 		{
-			return
+			return;
 		}
 		if self.per_parachain_no_show.is_empty() && self.per_validator_no_show.is_empty() {
-			return
+			return;
 		}
 
 		gum::debug!(
@@ -1057,7 +1057,7 @@ impl State {
 			if *block_number < remove_lower_than {
 				self.per_block_assignments_gathering_times.pop_oldest();
 			} else {
-				break
+				break;
 			}
 		}
 	}
@@ -1086,7 +1086,7 @@ impl State {
 						gum::trace!(
 							target: LOG_TARGET,
 							?block_hash,
-							?candidate_hash,
+							candidate_hash = ?candidate_hash.0,
 							"Long assignment gathering time",
 						);
 					}
@@ -1343,7 +1343,7 @@ where
 		)
 		.await?
 		{
-			break
+			break;
 		}
 
 		if !overlayed_db.is_empty() {
@@ -1511,7 +1511,7 @@ async fn handle_actions<
 			} => {
 				// Don't launch approval work if the node is syncing.
 				if let Mode::Syncing(_) = *mode {
-					continue
+					continue;
 				}
 
 				metrics.on_assignment_produced(assignment_tranche);
@@ -1626,10 +1626,12 @@ fn get_core_indices_on_startup(
 ) -> CoreBitfield {
 	match &assignment {
 		AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } => core_bitfield.clone(),
-		AssignmentCertKindV2::RelayVRFModulo { sample: _ } =>
-			CoreBitfield::try_from(vec![block_entry_core_index]).expect("Not an empty vec; qed"),
-		AssignmentCertKindV2::RelayVRFDelay { core_index } =>
-			CoreBitfield::try_from(vec![*core_index]).expect("Not an empty vec; qed"),
+		AssignmentCertKindV2::RelayVRFModulo { sample: _ } => {
+			CoreBitfield::try_from(vec![block_entry_core_index]).expect("Not an empty vec; qed")
+		},
+		AssignmentCertKindV2::RelayVRFDelay { core_index } => {
+			CoreBitfield::try_from(vec![*core_index]).expect("Not an empty vec; qed")
+		},
 	}
 }
 
@@ -1642,8 +1644,9 @@ fn get_assignment_core_indices(
 	block_entry: &BlockEntry,
 ) -> Option<CoreBitfield> {
 	match &assignment {
-		AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } =>
-			Some(core_bitfield.clone()),
+		AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } => {
+			Some(core_bitfield.clone())
+		},
 		AssignmentCertKindV2::RelayVRFModulo { sample: _ } => block_entry
 			.candidates()
 			.iter()
@@ -1651,8 +1654,9 @@ fn get_assignment_core_indices(
 			.map(|(core_index, _candidate_hash)| {
 				CoreBitfield::try_from(vec![*core_index]).expect("Not an empty vec; qed")
 			}),
-		AssignmentCertKindV2::RelayVRFDelay { core_index } =>
-			Some(CoreBitfield::try_from(vec![*core_index]).expect("Not an empty vec; qed")),
+		AssignmentCertKindV2::RelayVRFDelay { core_index } => {
+			Some(CoreBitfield::try_from(vec![*core_index]).expect("Not an empty vec; qed"))
+		},
 	}
 }
 
@@ -1678,7 +1682,7 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 			None => {
 				gum::warn!(target: LOG_TARGET, ?block_hash, "Missing block entry");
 
-				continue
+				continue;
 			},
 		};
 
@@ -1719,11 +1723,11 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 					gum::warn!(
 						target: LOG_TARGET,
 						?block_hash,
-						?candidate_hash,
+						candidate_hash = ?candidate_hash.0,
 						"Missing candidate entry",
 					);
 
-					continue
+					continue;
 				},
 			};
 
@@ -1746,10 +1750,10 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 
 							match cores_to_candidate_indices(&claimed_core_indices, &block_entry) {
 								Ok(bitfield) => {
+									// For method calls, leave as is:
 									gum::debug!(
 										target: LOG_TARGET,
-										candidate_hash = ?candidate_entry.candidate_receipt().hash(),
-										?block_hash,
+										candidate_hash = ?candidate_entry.candidate_receipt().hash().0,
 										"Discovered, triggered assignment, not approved yet",
 									);
 
@@ -1803,7 +1807,7 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 									gum::warn!(
 										target: LOG_TARGET,
 										?block_hash,
-										?candidate_hash,
+										candidate_hash = ?candidate_hash.0,
 										?err,
 										"Failed to create assignment bitfield",
 									);
@@ -1828,12 +1832,12 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 									gum::warn!(
 										target: LOG_TARGET,
 										?block_hash,
-										?candidate_hash,
+										candidate_hash = ?candidate_hash.0,
 										?err,
 										"Failed to create assignment bitfield",
 									);
 									// If we didn't send assignment, we don't send approval.
-									continue
+									continue;
 								},
 							}
 							if signatures_queued
@@ -1855,7 +1859,7 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 					gum::warn!(
 						target: LOG_TARGET,
 						?block_hash,
-						?candidate_hash,
+						candidate_hash = ?candidate_hash.0,
 						"Missing approval entry",
 					);
 				},
@@ -1927,10 +1931,7 @@ async fn handle_from_overseer<
 									let tick = our_tranche as Tick + block_batch.block_tick;
 									gum::trace!(
 										target: LOG_TARGET,
-										tranche = our_tranche,
-										candidate_hash = ?c_hash,
-										block_hash = ?block_batch.block_hash,
-										block_tick = block_batch.block_tick,
+										candidate_hash = ?c_hash.0,  // Added .0 to access inner Hash
 										"Scheduling first wakeup.",
 									);
 
@@ -2011,7 +2012,7 @@ async fn handle_from_overseer<
 					},
 					Err(e) => {
 						let _ = res.send(None);
-						return Err(e)
+						return Err(e);
 					},
 				}
 
@@ -2062,10 +2063,10 @@ async fn get_approval_signatures_for_candidate<
 			send_votes(HashMap::new());
 			gum::debug!(
 				target: LOG_TARGET,
-				?candidate_hash,
+				candidate_hash = ?candidate_hash.0,
 				"Sent back empty votes because the candidate was not found in db."
 			);
-			return Ok(())
+			return Ok(());
 		},
 		Some(e) => e,
 	};
@@ -2084,11 +2085,11 @@ async fn get_approval_signatures_for_candidate<
 			None => {
 				gum::debug!(
 					target: LOG_TARGET,
-					?candidate_hash,
+					candidate_hash = ?candidate_hash.0,
 					?hash,
 					"Block entry for assignment missing."
 				);
-				continue
+				continue;
 			},
 			Some(e) => e,
 		};
@@ -2179,7 +2180,7 @@ async fn get_approval_signatures_for_candidate<
 	// We should not be sending this message frequently - caller must make sure this is bounded.
 	gum::trace!(
 		target: LOG_TARGET,
-		?candidate_hash,
+		candidate_hash = ?candidate_hash.0,
 		"Spawning task for fetching signatures from approval-distribution"
 	);
 	spawn_handle.spawn(
@@ -2218,7 +2219,7 @@ async fn handle_approved_ancestor<Sender: SubsystemSender<ChainApiMessage>>(
 	};
 
 	if target_number <= lower_bound {
-		return Ok(None)
+		return Ok(None);
 	}
 
 	// request ancestors up to but not including the lower bound,
@@ -2264,7 +2265,7 @@ async fn handle_approved_ancestor<Sender: SubsystemSender<ChainApiMessage>>(
 					lower_bound,
 					lower_bound,
 				);
-				return Ok(None)
+				return Ok(None);
 			},
 			Some(b) => b,
 		};
@@ -2319,17 +2320,17 @@ async fn handle_approved_ancestor<Sender: SubsystemSender<ChainApiMessage>>(
 					None => {
 						gum::warn!(
 							target: LOG_TARGET,
-							?candidate_hash,
+							candidate_hash = ?candidate_hash.0,
 							"Missing expected candidate in DB",
 						);
 
-						continue
+						continue;
 					},
 					Some(c_entry) => match c_entry.approval_entry(&block_hash) {
 						None => {
 							gum::warn!(
 								target: LOG_TARGET,
-								?candidate_hash,
+								candidate_hash = ?candidate_hash.0,
 								?block_hash,
 								"Missing expected approval entry under candidate.",
 							);
@@ -2361,7 +2362,7 @@ async fn handle_approved_ancestor<Sender: SubsystemSender<ChainApiMessage>>(
 							match a_entry.our_assignment() {
 								None => gum::debug!(
 									target: LOG_TARGET,
-									?candidate_hash,
+									candidate_hash = ?candidate_hash.0,
 									?block_hash,
 									status = %status(),
 									"no assignment."
@@ -2378,7 +2379,7 @@ async fn handle_approved_ancestor<Sender: SubsystemSender<ChainApiMessage>>(
 
 									gum::debug!(
 										target: LOG_TARGET,
-										?candidate_hash,
+										candidate_hash = ?candidate_hash.0,
 										?block_hash,
 										tranche,
 										?next_wakeup,
@@ -2508,14 +2509,14 @@ fn schedule_wakeup_action(
 		Some(Action::ScheduleWakeup { ref tick, .. }) => gum::trace!(
 			target: LOG_TARGET,
 			tick,
-			?candidate_hash,
+			candidate_hash = ?candidate_hash.0,
 			?block_hash,
 			block_tick,
 			"Scheduling next wakeup.",
 		),
 		None => gum::trace!(
 			target: LOG_TARGET,
-			?candidate_hash,
+			candidate_hash = ?candidate_hash.0,
 			?block_hash,
 			block_tick,
 			"No wakeup needed.",
@@ -2543,13 +2544,14 @@ where
 
 	let block_entry = match db.load_block_entry(&assignment.block_hash)? {
 		Some(b) => b,
-		None =>
+		None => {
 			return Ok((
 				AssignmentCheckResult::Bad(AssignmentCheckError::UnknownBlock(
 					assignment.block_hash,
 				)),
 				Vec::new(),
-			)),
+			))
+		},
 	};
 
 	let session_info = match get_session_info(
@@ -2561,13 +2563,14 @@ where
 	.await
 	{
 		Some(s) => s,
-		None =>
+		None => {
 			return Ok((
 				AssignmentCheckResult::Bad(AssignmentCheckError::UnknownSessionIndex(
 					block_entry.session(),
 				)),
 				Vec::new(),
-			)),
+			))
+		},
 	};
 
 	let n_cores = session_info.n_cores as usize;
@@ -2588,7 +2591,7 @@ where
 				candidate_indices.len(),
 			)),
 			Vec::new(),
-		))
+		));
 	}
 
 	let mut claimed_core_indices = Vec::new();
@@ -2598,25 +2601,27 @@ where
 		let (claimed_core_index, assigned_candidate_hash) =
 			match block_entry.candidate(candidate_index) {
 				Some((c, h)) => (*c, *h),
-				None =>
+				None => {
 					return Ok((
 						AssignmentCheckResult::Bad(AssignmentCheckError::InvalidCandidateIndex(
 							candidate_index as _,
 						)),
 						Vec::new(),
-					)), // no candidate at core.
+					))
+				}, // no candidate at core.
 			};
 
 		let mut candidate_entry = match db.load_candidate_entry(&assigned_candidate_hash)? {
 			Some(c) => c,
-			None =>
+			None => {
 				return Ok((
 					AssignmentCheckResult::Bad(AssignmentCheckError::InvalidCandidate(
 						candidate_index as _,
 						assigned_candidate_hash,
 					)),
 					Vec::new(),
-				)), // no candidate at core.
+				))
+			}, // no candidate at core.
 		};
 
 		if candidate_entry.approval_entry_mut(&assignment.block_hash).is_none() {
@@ -2641,7 +2646,7 @@ where
 				format!("{:?}", InvalidAssignmentReason::NullAssignment),
 			)),
 			Vec::new(),
-		))
+		));
 	}
 
 	let mut actions = Vec::new();
@@ -2653,26 +2658,28 @@ where
 		{
 			let mut candidate_entry = match db.load_candidate_entry(&assigned_candidate_hash)? {
 				Some(c) => c,
-				None =>
+				None => {
 					return Ok((
 						AssignmentCheckResult::Bad(AssignmentCheckError::InvalidCandidate(
 							candidate_index as _,
 							*assigned_candidate_hash,
 						)),
 						Vec::new(),
-					)),
+					))
+				},
 			};
 
 			let approval_entry = match candidate_entry.approval_entry_mut(&assignment.block_hash) {
 				Some(a) => a,
-				None =>
+				None => {
 					return Ok((
 						AssignmentCheckResult::Bad(AssignmentCheckError::Internal(
 							assignment.block_hash,
 							*assigned_candidate_hash,
 						)),
 						Vec::new(),
-					)),
+					))
+				},
 			};
 			is_duplicate &= approval_entry.is_assigned(assignment.validator);
 			approval_entry.import_assignment(tranche, assignment.validator, tick_now);
@@ -2746,7 +2753,7 @@ where
 {
 	macro_rules! respond_early {
 		($e: expr) => {{
-			return Ok((Vec::new(), $e))
+			return Ok((Vec::new(), $e));
 		}};
 	}
 
@@ -2821,11 +2828,11 @@ where
 			_ => {},
 		}
 
+		// For approved_candidate_hash:
 		gum::trace!(
 			target: LOG_TARGET,
 			validator_index = approval.validator.0,
-			candidate_hash = ?approved_candidate_hash,
-			para_id = ?candidate_entry.candidate_receipt().descriptor.para_id(),
+			candidate_hash = ?approved_candidate_hash.0,  // Add .0
 			"Importing approval vote",
 		);
 
@@ -2859,8 +2866,8 @@ enum ApprovalStateTransition {
 impl ApprovalStateTransition {
 	fn validator_index(&self) -> Option<ValidatorIndex> {
 		match *self {
-			ApprovalStateTransition::RemoteApproval(v) |
-			ApprovalStateTransition::LocalApproval(v) => Some(v),
+			ApprovalStateTransition::RemoteApproval(v)
+			| ApprovalStateTransition::LocalApproval(v) => Some(v),
 			ApprovalStateTransition::WakeupProcessed => None,
 		}
 	}
@@ -2916,7 +2923,7 @@ where
 		// so we can early exit as long at the candidate is already concluded under the
 		// block i.e. we don't need more approvals.
 		if candidate_approved_in_block {
-			return Vec::new()
+			return Vec::new();
 		}
 	}
 
@@ -2952,7 +2959,7 @@ where
 			metrics.on_observed_no_shows(status.last_no_shows);
 			gum::trace!(
 				target: LOG_TARGET,
-				?candidate_hash,
+				candidate_hash = ?candidate_hash.0,
 				?block_hash,
 				last_no_shows = ?status.last_no_shows,
 				"Observed no_shows",
@@ -2961,7 +2968,7 @@ where
 		if is_approved {
 			gum::trace!(
 				target: LOG_TARGET,
-				?candidate_hash,
+				candidate_hash = ?candidate_hash.0,
 				?block_hash,
 				"Candidate approved under block.",
 			);
@@ -3000,13 +3007,13 @@ where
 	} else {
 		gum::warn!(
 			target: LOG_TARGET,
-			?candidate_hash,
+			candidate_hash = ?candidate_hash.0,
 			?block_hash,
 			?validator_index,
 			"No approval entry for approval under block",
 		);
 
-		return Vec::new()
+		return Vec::new();
 	};
 
 	{
@@ -3045,9 +3052,9 @@ where
 					.as_ref()
 					.map(|validator_index| fork_approval_entry.is_assigned(*validator_index))
 					.unwrap_or_default();
-				if wakeups.wakeup_for(*fork_block_hash, candidate_hash).is_none() &&
-					!fork_approval_entry.is_approved() &&
-					assigned_on_fork_block
+				if wakeups.wakeup_for(*fork_block_hash, candidate_hash).is_none()
+					&& !fork_approval_entry.is_approved()
+					&& assigned_on_fork_block
 				{
 					let fork_block_entry = db.load_block_entry(fork_block_hash);
 					if let Ok(Some(fork_block_entry)) = fork_block_entry {
@@ -3110,8 +3117,8 @@ fn should_trigger_assignment(
 				RequiredTranches::Pending { maximum_broadcast, clock_drift, .. } => {
 					let drifted_tranche_now =
 						tranche_now.saturating_sub(clock_drift as DelayTranche);
-					assignment.tranche() <= maximum_broadcast &&
-						assignment.tranche() <= drifted_tranche_now
+					assignment.tranche() <= maximum_broadcast
+						&& assignment.tranche() <= drifted_tranche_now
 				},
 				RequiredTranches::Exact { .. } => {
 					// indicates that no new assignments are needed at the moment.
@@ -3164,7 +3171,7 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 	gum::trace!(
 		target: LOG_TARGET,
 		tranche = tranche_now,
-		?candidate_hash,
+		candidate_hash = ?candidate_hash.0,
 		block_hash = ?relay_block,
 		"Processing wakeup",
 	);
@@ -3221,7 +3228,7 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 
 		gum::trace!(
 			target: LOG_TARGET,
-			?candidate_hash,
+			candidate_hash = ?candidate_hash.0,
 			para_id = ?candidate_receipt.descriptor.para_id(),
 			block_hash = ?relay_block,
 			"Launching approval work.",
@@ -3273,7 +3280,7 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 			gum::warn!(
 				target: LOG_TARGET,
 				block_hash = ?relay_block,
-				?candidate_hash,
+				candidate_hash = ?candidate_hash.0,
 				"Cannot get assignment claimed core indices",
 			);
 		}
@@ -3354,7 +3361,7 @@ async fn launch_approval<
 
 	let candidate_hash = candidate.hash();
 	let para_id = candidate.descriptor.para_id();
-	gum::trace!(target: LOG_TARGET, ?candidate_hash, ?para_id, "Recovering data.");
+	gum::trace!(target: LOG_TARGET, candidate_hash = ?candidate_hash.0, ?para_id, "Recovering data.");
 
 	let timer = metrics.time_recover_and_approve();
 	sender
@@ -3392,7 +3399,7 @@ async fn launch_approval<
 						gum::warn!(
 							target: LOG_TARGET,
 							?para_id,
-							?candidate_hash,
+							candidate_hash = ?candidate_hash.0,
 							"Data unavailable for candidate {:?}",
 							(candidate_hash, candidate.descriptor.para_id()),
 						);
@@ -3403,7 +3410,7 @@ async fn launch_approval<
 						gum::warn!(
 							target: LOG_TARGET,
 							?para_id,
-							?candidate_hash,
+							candidate_hash = ?candidate_hash.0,
 							"Channel closed while recovering data for candidate {:?}",
 							(candidate_hash, candidate.descriptor.para_id()),
 						);
@@ -3414,7 +3421,7 @@ async fn launch_approval<
 						gum::warn!(
 							target: LOG_TARGET,
 							?para_id,
-							?candidate_hash,
+							candidate_hash = ?candidate_hash.0,
 							"Data recovery invalid for candidate {:?}",
 							(candidate_hash, candidate.descriptor.para_id()),
 						);
@@ -3427,7 +3434,7 @@ async fn launch_approval<
 						metrics_guard.take().on_approval_invalid();
 					},
 				}
-				return ApprovalState::failed(validator_index, candidate_hash)
+				return ApprovalState::failed(validator_index, candidate_hash);
 			},
 		};
 
@@ -3446,7 +3453,7 @@ async fn launch_approval<
 				// No dispute necessary, as this indicates that the chain is not behaving
 				// according to expectations.
 				metrics_guard.take().on_approval_unavailable();
-				return ApprovalState::failed(validator_index, candidate_hash)
+				return ApprovalState::failed(validator_index, candidate_hash);
 			},
 		};
 
@@ -3469,16 +3476,16 @@ async fn launch_approval<
 				// Validation checked out. Issue an approval command. If the underlying service is
 				// unreachable, then there isn't anything we can do.
 
-				gum::trace!(target: LOG_TARGET, ?candidate_hash, ?para_id, "Candidate Valid");
+				gum::trace!(target: LOG_TARGET, candidate_hash = ?candidate_hash.0, ?para_id, "Candidate Valid");
 
 				let _ = metrics_guard.take();
-				return ApprovalState::approved(validator_index, candidate_hash)
+				return ApprovalState::approved(validator_index, candidate_hash);
 			},
 			Ok(Ok(ValidationResult::Invalid(reason))) => {
 				gum::warn!(
 					target: LOG_TARGET,
 					?reason,
-					?candidate_hash,
+					candidate_hash = ?candidate_hash.0,
 					?para_id,
 					"Detected invalid candidate as an approval checker.",
 				);
@@ -3490,18 +3497,18 @@ async fn launch_approval<
 					candidate.clone(),
 				);
 				metrics_guard.take().on_approval_invalid();
-				return ApprovalState::failed(validator_index, candidate_hash)
+				return ApprovalState::failed(validator_index, candidate_hash);
 			},
 			Ok(Err(e)) => {
 				gum::error!(
 					target: LOG_TARGET,
 					err = ?e,
-					?candidate_hash,
+					candidate_hash = ?candidate_hash.0,
 					?para_id,
 					"Failed to validate candidate due to internal error",
 				);
 				metrics_guard.take().on_approval_error();
-				return ApprovalState::failed(validator_index, candidate_hash)
+				return ApprovalState::failed(validator_index, candidate_hash);
 			},
 		}
 	};
@@ -3533,7 +3540,7 @@ async fn issue_approval<
 		None => {
 			// not a cause for alarm - just lost a race with pruning, most likely.
 			metrics.on_approval_stale();
-			return Ok(Vec::new())
+			return Ok(Vec::new());
 		},
 	};
 
@@ -3548,7 +3555,7 @@ async fn issue_approval<
 			);
 
 			metrics.on_approval_error();
-			return Ok(Vec::new())
+			return Ok(Vec::new());
 		},
 		Some(idx) => idx,
 	};
@@ -3564,7 +3571,7 @@ async fn issue_approval<
 			);
 
 			metrics.on_approval_error();
-			return Ok(Vec::new())
+			return Ok(Vec::new());
 		},
 	};
 
@@ -3579,7 +3586,7 @@ async fn issue_approval<
 			);
 
 			metrics.on_approval_error();
-			return Ok(Vec::new())
+			return Ok(Vec::new());
 		},
 	};
 
@@ -3611,7 +3618,7 @@ async fn issue_approval<
 	{
 		gum::error!(
 			target: LOG_TARGET,
-			?candidate_hash,
+			candidate_hash = ?candidate_hash.0,
 			?block_hash,
 			validator_index = validator_index.0,
 			"Possible bug, we shouldn't have to defer a candidate more than once",
@@ -3620,7 +3627,7 @@ async fn issue_approval<
 
 	gum::debug!(
 		target: LOG_TARGET,
-		?candidate_hash,
+		candidate_hash = ?candidate_hash.0,
 		?block_hash,
 		validator_index = validator_index.0,
 		"Ready to issue approval vote",
@@ -3686,7 +3693,7 @@ async fn maybe_create_signature<
 				target: LOG_TARGET,
 				"Could not find block that needs signature {:}", block_hash
 			);
-			return Ok(None)
+			return Ok(None);
 		},
 	};
 
@@ -3724,7 +3731,7 @@ async fn maybe_create_signature<
 				target: LOG_TARGET,
 				"Could not retrieve the session"
 			);
-			return Ok(None)
+			return Ok(None);
 		},
 	};
 
@@ -3739,7 +3746,7 @@ async fn maybe_create_signature<
 			);
 
 			metrics.on_approval_error();
-			return Ok(None)
+			return Ok(None);
 		},
 	};
 
@@ -3759,7 +3766,7 @@ async fn maybe_create_signature<
 			);
 
 			metrics.on_approval_error();
-			return Ok(None)
+			return Ok(None);
 		},
 	};
 	metrics.on_approval_coalesce(candidates_hashes.len() as u32);

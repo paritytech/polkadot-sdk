@@ -82,20 +82,21 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 		instructions[..end]
 			.matcher()
 			.match_next_inst(|inst| match inst {
-				WithdrawAsset(ref assets) |
-				ReceiveTeleportedAsset(ref assets) |
-				ReserveAssetDeposited(ref assets) |
-				ClaimAsset { ref assets, .. } =>
+				WithdrawAsset(ref assets)
+				| ReceiveTeleportedAsset(ref assets)
+				| ReserveAssetDeposited(ref assets)
+				| ClaimAsset { ref assets, .. } => {
 					if assets.len() <= MAX_ASSETS_FOR_BUY_EXECUTION {
 						Ok(())
 					} else {
 						Err(ProcessMessageError::BadFormat)
-					},
+					}
+				},
 				_ => Err(ProcessMessageError::BadFormat),
 			})?
 			.skip_inst_while(|inst| {
-				matches!(inst, ClearOrigin | AliasOrigin(..)) ||
-					matches!(inst, DescendOrigin(child) if child != &Here)
+				matches!(inst, ClearOrigin | AliasOrigin(..))
+					|| matches!(inst, DescendOrigin(child) if child != &Here)
 			})?
 			.match_next_inst(|inst| match inst {
 				BuyExecution { weight_limit: Limited(ref mut weight), .. }
@@ -197,7 +198,7 @@ impl<InnerBarrier: ShouldExecute, LocalUniversal: Get<InteriorLocation>, MaxPref
 					},
 					DescendOrigin(j) => {
 						let Ok(_) = actual_origin.append_with(j.clone()) else {
-							return Err(ProcessMessageError::Unsupported)
+							return Err(ProcessMessageError::Unsupported);
 						};
 					},
 					_ => return Ok(ControlFlow::Break(())),
@@ -370,7 +371,9 @@ impl<ResponseHandler: OnResponse> ShouldExecute for AllowKnownQueryResponses<Res
 			.match_next_inst(|inst| match inst {
 				QueryResponse { query_id, querier, .. }
 					if ResponseHandler::expecting_response(origin, *query_id, querier.as_ref()) =>
-					Ok(()),
+				{
+					Ok(())
+				},
 				_ => Err(ProcessMessageError::BadFormat),
 			})?;
 		Ok(())
@@ -430,9 +433,9 @@ impl ShouldExecute for AllowHrmpNotificationsFromRelayChain {
 			.matcher()
 			.assert_remaining_insts(1)?
 			.match_next_inst(|inst| match inst {
-				HrmpNewChannelOpenRequest { .. } |
-				HrmpChannelAccepted { .. } |
-				HrmpChannelClosing { .. } => Ok(()),
+				HrmpNewChannelOpenRequest { .. }
+				| HrmpChannelAccepted { .. }
+				| HrmpChannelClosing { .. } => Ok(()),
 				_ => Err(ProcessMessageError::BadFormat),
 			})?;
 		Ok(())
@@ -477,9 +480,9 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 				InitiateReserveWithdraw {
 					reserve: Location { parents: 1, interior: Here },
 					..
-				} |
-				DepositReserveAsset { dest: Location { parents: 1, interior: Here }, .. } |
-				TransferReserveAsset { dest: Location { parents: 1, interior: Here }, .. } => {
+				}
+				| DepositReserveAsset { dest: Location { parents: 1, interior: Here }, .. }
+				| TransferReserveAsset { dest: Location { parents: 1, interior: Here }, .. } => {
 					Err(ProcessMessageError::Unsupported) // Deny
 				},
 

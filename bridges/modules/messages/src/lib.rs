@@ -222,8 +222,8 @@ pub mod pallet {
 
 			// reject transactions that are declaring too many messages
 			ensure!(
-				MessageNonce::from(messages_count) <=
-					BridgedChainOf::<T, I>::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
+				MessageNonce::from(messages_count)
+					<= BridgedChainOf::<T, I>::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
 				Error::<T, I>::TooManyMessagesInTheProof
 			);
 
@@ -319,9 +319,9 @@ pub mod pallet {
 						valid_messages += 1;
 						dispatch_result.unspent_weight
 					},
-					ReceptionResult::InvalidNonce |
-					ReceptionResult::TooManyUnrewardedRelayers |
-					ReceptionResult::TooManyUnconfirmedMessages => message_dispatch_weight,
+					ReceptionResult::InvalidNonce
+					| ReceptionResult::TooManyUnrewardedRelayers
+					| ReceptionResult::TooManyUnconfirmedMessages => message_dispatch_weight,
 				};
 				messages_received_status.push(message.key.nonce, receival_result);
 
@@ -730,10 +730,10 @@ where
 
 /// Ensure that the pallet is in normal operational mode.
 fn ensure_normal_operating_mode<T: Config<I>, I: 'static>() -> Result<(), Error<T, I>> {
-	if PalletOperatingMode::<T, I>::get() ==
-		MessagesOperatingMode::Basic(BasicOperatingMode::Normal)
+	if PalletOperatingMode::<T, I>::get()
+		== MessagesOperatingMode::Basic(BasicOperatingMode::Normal)
 	{
-		return Ok(())
+		return Ok(());
 	}
 
 	Err(Error::<T, I>::NotOperatingNormally)

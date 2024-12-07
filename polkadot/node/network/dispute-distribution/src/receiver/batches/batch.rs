@@ -177,8 +177,8 @@ impl Batch {
 	/// This function is supposed to be called at instants given at construction and as returned as
 	/// part of `TickResult`.
 	pub(super) fn tick(mut self, now: Instant) -> TickResult {
-		if self.votes_batched_since_last_tick >= MIN_KEEP_BATCH_ALIVE_VOTES &&
-			now < self.best_before
+		if self.votes_batched_since_last_tick >= MIN_KEEP_BATCH_ALIVE_VOTES
+			&& now < self.best_before
 		{
 			// Still good:
 			let next_tick = self.calculate_next_tick(now);

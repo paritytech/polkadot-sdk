@@ -171,7 +171,7 @@ impl Diff {
 		} else {
 			debug_assert_eq!(self.bytes_removed, 0);
 			debug_assert_eq!(self.items_removed, 0);
-			return bytes_deposit.saturating_add(&items_deposit)
+			return bytes_deposit.saturating_add(&items_deposit);
 		};
 
 		// Refunds are calculated pro rata based on the accumulated storage within the contract
@@ -194,16 +194,20 @@ impl Diff {
 		info.storage_items =
 			info.storage_items.saturating_add(items_added).saturating_sub(items_removed);
 		match &bytes_deposit {
-			Deposit::Charge(amount) =>
-				info.storage_byte_deposit = info.storage_byte_deposit.saturating_add(*amount),
-			Deposit::Refund(amount) =>
-				info.storage_byte_deposit = info.storage_byte_deposit.saturating_sub(*amount),
+			Deposit::Charge(amount) => {
+				info.storage_byte_deposit = info.storage_byte_deposit.saturating_add(*amount)
+			},
+			Deposit::Refund(amount) => {
+				info.storage_byte_deposit = info.storage_byte_deposit.saturating_sub(*amount)
+			},
 		}
 		match &items_deposit {
-			Deposit::Charge(amount) =>
-				info.storage_item_deposit = info.storage_item_deposit.saturating_add(*amount),
-			Deposit::Refund(amount) =>
-				info.storage_item_deposit = info.storage_item_deposit.saturating_sub(*amount),
+			Deposit::Charge(amount) => {
+				info.storage_item_deposit = info.storage_item_deposit.saturating_add(*amount)
+			},
+			Deposit::Refund(amount) => {
+				info.storage_item_deposit = info.storage_item_deposit.saturating_sub(*amount)
+			},
 		}
 
 		bytes_deposit.saturating_add(&items_deposit)
@@ -265,8 +269,9 @@ impl<T: Config> Contribution<T> {
 	fn update_contract(&self, info: Option<&mut ContractInfo<T>>) -> DepositOf<T> {
 		match self {
 			Self::Alive(diff) => diff.update_contract::<T>(info),
-			Self::Terminated { deposit, beneficiary: _ } | Self::Checked(deposit) =>
-				deposit.clone(),
+			Self::Terminated { deposit, beneficiary: _ } | Self::Checked(deposit) => {
+				deposit.clone()
+			},
 		}
 	}
 }
@@ -346,8 +351,9 @@ where
 	/// Returns the state of the currently executed contract.
 	fn contract_state(&self) -> ContractState<T> {
 		match &self.own_contribution {
-			Contribution::Terminated { deposit: _, beneficiary } =>
-				ContractState::Terminated { beneficiary: beneficiary.clone() },
+			Contribution::Terminated { deposit: _, beneficiary } => {
+				ContractState::Terminated { beneficiary: beneficiary.clone() }
+			},
 			_ => ContractState::Alive,
 		}
 	}
@@ -377,7 +383,7 @@ where
 				let limit = E::check_limit(o, limit, min_leftover)?;
 				Ok(Self { limit, ..Default::default() })
 			},
-		}
+		};
 	}
 
 	/// The total amount of deposit that should change hands as result of the execution
@@ -490,7 +496,7 @@ where
 		}
 		if let Deposit::Charge(amount) = total_deposit {
 			if amount > self.limit {
-				return Err(<Error<T>>::StorageDepositLimitExhausted.into())
+				return Err(<Error<T>>::StorageDepositLimitExhausted.into());
 			}
 		}
 		Ok(())
@@ -524,8 +530,8 @@ impl<T: Config> Ext<T> for ReservingExt {
 		let default = max.min(T::DefaultDepositLimit::get());
 		let limit = limit.unwrap_or(default);
 		ensure!(
-			limit <= max &&
-				matches!(T::Currency::can_withdraw(origin, limit), WithdrawConsequence::Success),
+			limit <= max
+				&& matches!(T::Currency::can_withdraw(origin, limit), WithdrawConsequence::Success),
 			<Error<T>>::StorageDepositNotEnoughFunds,
 		);
 		Ok(limit)

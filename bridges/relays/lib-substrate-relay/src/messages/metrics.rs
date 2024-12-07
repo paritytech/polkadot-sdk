@@ -46,7 +46,7 @@ where
 	LaneId: Clone + Copy + Decode + EncodeLike + Send + Sync + Labeled,
 {
 	if relay_accounts.is_empty() {
-		return Ok(())
+		return Ok(());
 	}
 
 	// if `tokenDecimals` is missing from system properties, we'll be using

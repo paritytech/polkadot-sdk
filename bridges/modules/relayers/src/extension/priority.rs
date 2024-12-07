@@ -98,9 +98,9 @@ mod integrity_tests {
 			let priority_with_tip = estimate_priority(1, tip);
 
 			const ERROR_MARGIN: TransactionPriority = 5; // 5%
-			if priority_with_boost.abs_diff(priority_with_tip).saturating_mul(100) /
-				priority_with_tip >
-				ERROR_MARGIN
+			if priority_with_boost.abs_diff(priority_with_tip).saturating_mul(100)
+				/ priority_with_tip
+				> ERROR_MARGIN
 			{
 				panic!(
 					"The {param_name} value ({}) must be fixed to: {}",

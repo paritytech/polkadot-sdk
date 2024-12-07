@@ -149,7 +149,7 @@ where
 						storage_deposit_limit,
 						self.encoded_size(),
 					)?;
-					return Ok(checked)
+					return Ok(checked);
 				};
 			}
 		}
@@ -334,8 +334,9 @@ pub trait EthExtra {
 			}
 		} else {
 			let blob = match polkavm::ProgramBlob::blob_length(&data) {
-				Some(blob_len) =>
-					blob_len.try_into().ok().and_then(|blob_len| (data.split_at_checked(blob_len))),
+				Some(blob_len) => {
+					blob_len.try_into().ok().and_then(|blob_len| (data.split_at_checked(blob_len)))
+				},
 				_ => None,
 			};
 
@@ -386,7 +387,7 @@ pub trait EthExtra {
 		// by the account.
 		if eth_fee < actual_fee {
 			log::debug!(target: LOG_TARGET, "fees {eth_fee:?} too low for the extrinsic {actual_fee:?}");
-			return Err(InvalidTransaction::Payment.into())
+			return Err(InvalidTransaction::Payment.into());
 		}
 
 		let min = actual_fee.min(eth_fee_no_tip);
@@ -394,7 +395,7 @@ pub trait EthExtra {
 		let diff = Percent::from_rational(max - min, min);
 		if diff > Percent::from_percent(10) {
 			log::trace!(target: LOG_TARGET, "Difference between the extrinsic fees {actual_fee:?} and the Ethereum gas fees {eth_fee_no_tip:?} should be no more than 10% got {diff:?}");
-			return Err(InvalidTransaction::Call.into())
+			return Err(InvalidTransaction::Call.into());
 		} else {
 			log::trace!(target: LOG_TARGET, "Difference between the extrinsic fees {actual_fee:?} and the Ethereum gas fees {eth_fee_no_tip:?}:  {diff:?}");
 		}

@@ -204,7 +204,7 @@ impl TestState {
 					.candidate_hash_to_core_index
 					.insert(candidate_receipt.hash(), core_index.into());
 
-				gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_receipt.hash(), "new candidate");
+				gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_receipt.hash().0, "new candidate");
 
 				candidate_receipt
 			})

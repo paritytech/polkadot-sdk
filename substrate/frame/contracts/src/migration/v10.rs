@@ -308,8 +308,8 @@ where
 				&contract.deposit_account,
 			);
 			ensure!(
-				deposit ==
-					contract
+				deposit
+					== contract
 						.storage_base_deposit
 						.saturating_add(contract.storage_item_deposit)
 						.saturating_add(contract.storage_byte_deposit),

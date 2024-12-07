@@ -99,23 +99,23 @@ fn is_chunk_valid(params: &RecoveryParams, chunk: &ErasureChunk) -> bool {
 			Err(e) => {
 				gum::debug!(
 					target: LOG_TARGET,
-					candidate_hash = ?params.candidate_hash,
+					candidate_hash = ?params.candidate_hash.0,
 					chunk_index = ?chunk.index,
 					error = ?e,
 					"Invalid Merkle proof",
 				);
-				return false
+				return false;
 			},
 		};
 	let erasure_chunk_hash = BlakeTwo256::hash(&chunk.chunk);
 	if anticipated_hash != erasure_chunk_hash {
 		gum::debug!(
 			target: LOG_TARGET,
-			candidate_hash = ?params.candidate_hash,
+			candidate_hash = ?params.candidate_hash.0,
 			chunk_index = ?chunk.index,
 			"Merkle proof mismatch"
 		);
-		return false
+		return false;
 	}
 	true
 }
@@ -143,7 +143,7 @@ async fn do_post_recovery_check(
 			reencode_rx.await.map_err(|_| RecoveryError::ChannelClosed)?.ok_or_else(|| {
 				gum::trace!(
 					target: LOG_TARGET,
-					candidate_hash = ?params.candidate_hash,
+					candidate_hash = ?params.candidate_hash.0,
 					erasure_root = ?params.erasure_root,
 					"Data recovery error - root mismatch",
 				);
@@ -155,7 +155,7 @@ async fn do_post_recovery_check(
 			(pov.hash() == params.pov_hash).then_some(data).ok_or_else(|| {
 				gum::trace!(
 					target: LOG_TARGET,
-					candidate_hash = ?params.candidate_hash,
+					candidate_hash = ?params.candidate_hash.0,
 					expected_pov_hash = ?params.pov_hash,
 					actual_pov_hash = ?pov.hash(),
 					"Data recovery error - PoV hash mismatch",
@@ -294,7 +294,7 @@ impl State {
 					if is_chunk_valid(params, &chunk) {
 						gum::trace!(
 							target: LOG_TARGET,
-							candidate_hash = ?params.candidate_hash,
+							candidate_hash = ?params.candidate_hash.0,
 							chunk_index = ?chunk.index,
 							"Found valid chunk on disk"
 						);
@@ -315,7 +315,7 @@ impl State {
 			Err(oneshot::Canceled) => {
 				gum::warn!(
 					target: LOG_TARGET,
-					candidate_hash = ?params.candidate_hash,
+					candidate_hash = ?params.candidate_hash.0,
 					"Failed to reach the availability store"
 				);
 
@@ -344,7 +344,7 @@ impl State {
 
 		gum::trace!(
 			target: LOG_TARGET,
-			?candidate_hash,
+			candidate_hash = ?candidate_hash.0,
 			"Attempting to launch {} requests",
 			to_launch
 		);
@@ -355,7 +355,7 @@ impl State {
 					target: LOG_TARGET,
 					?authority_id,
 					?validator_index,
-					?candidate_hash,
+					candidate_hash = ?candidate_hash.0,
 					"Requesting chunk",
 				);
 
@@ -382,13 +382,15 @@ impl State {
 				requesting_chunks.push(Box::pin(async move {
 					let _timer = timer;
 					let res = match res.await {
-						Ok((bytes, protocol)) =>
+						Ok((bytes, protocol)) => {
 							if v2_protocol_name == protocol {
 								match req_res::v2::ChunkFetchingResponse::decode(&mut &bytes[..]) {
-									Ok(req_res::v2::ChunkFetchingResponse::Chunk(chunk)) =>
-										Ok((Some(chunk.into()), protocol)),
-									Ok(req_res::v2::ChunkFetchingResponse::NoSuchChunk) =>
-										Ok((None, protocol)),
+									Ok(req_res::v2::ChunkFetchingResponse::Chunk(chunk)) => {
+										Ok((Some(chunk.into()), protocol))
+									},
+									Ok(req_res::v2::ChunkFetchingResponse::NoSuchChunk) => {
+										Ok((None, protocol))
+									},
 									Err(e) => Err(RequestError::InvalidResponse(e)),
 								}
 							} else if v1_protocol_name == protocol {
@@ -401,7 +403,7 @@ impl State {
 								if chunk_mapping_enabled {
 									gum::info!(
 										target: LOG_TARGET,
-										?candidate_hash,
+										candidate_hash = ?candidate_hash.0,
 										authority_id = ?authority_id_clone,
 										"Another validator is responding on /req_chunk/1 protocol while the availability chunk \
 										mapping feature is enabled in the runtime. All validators must switch to /req_chunk/2."
@@ -413,13 +415,15 @@ impl State {
 										Some(chunk.recombine_into_chunk(&raw_request_v1)),
 										protocol,
 									)),
-									Ok(req_res::v1::ChunkFetchingResponse::NoSuchChunk) =>
-										Ok((None, protocol)),
+									Ok(req_res::v1::ChunkFetchingResponse::NoSuchChunk) => {
+										Ok((None, protocol))
+									},
 									Err(e) => Err(RequestError::InvalidResponse(e)),
 								}
 							} else {
 								Err(RequestError::NetworkError(RequestFailure::UnknownProtocol))
-							},
+							}
+						},
 
 						Err(e) => Err(e),
 					};
@@ -427,7 +431,7 @@ impl State {
 					(authority_id, validator_index, res)
 				}));
 			} else {
-				break
+				break;
 			}
 		}
 
@@ -484,20 +488,22 @@ impl State {
 			match request_result {
 				Ok((maybe_chunk, protocol)) => {
 					match protocol {
-						name if name == params.req_v1_protocol_name =>
-							params.metrics.on_chunk_response_v1(),
-						name if name == params.req_v2_protocol_name =>
-							params.metrics.on_chunk_response_v2(),
+						name if name == params.req_v1_protocol_name => {
+							params.metrics.on_chunk_response_v1()
+						},
+						name if name == params.req_v2_protocol_name => {
+							params.metrics.on_chunk_response_v2()
+						},
 						_ => {},
 					}
 
 					match maybe_chunk {
-						Some(chunk) =>
+						Some(chunk) => {
 							if is_chunk_valid(params, &chunk) {
 								metrics.on_chunk_request_succeeded(strategy_type);
 								gum::trace!(
 									target: LOG_TARGET,
-									candidate_hash = ?params.candidate_hash,
+									candidate_hash = ?params.candidate_hash.0,
 									?authority_id,
 									?validator_index,
 									"Received valid chunk",
@@ -513,12 +519,13 @@ impl State {
 								// don't try requesting this again.
 								self.record_error_fatal(authority_id.clone(), validator_index);
 								is_error = true;
-							},
+							}
+						},
 						None => {
 							metrics.on_chunk_request_no_such_chunk(strategy_type);
 							gum::trace!(
 								target: LOG_TARGET,
-								candidate_hash = ?params.candidate_hash,
+								candidate_hash = ?params.candidate_hash.0,
 								?authority_id,
 								?validator_index,
 								"Validator did not have the chunk",
@@ -536,7 +543,7 @@ impl State {
 
 					gum::trace!(
 						target: LOG_TARGET,
-						candidate_hash= ?params.candidate_hash,
+						candidate_hash= ?params.candidate_hash.0,
 						?err,
 						?authority_id,
 						?validator_index,
@@ -551,7 +558,7 @@ impl State {
 
 							gum::debug!(
 								target: LOG_TARGET,
-								candidate_hash = ?params.candidate_hash,
+								candidate_hash = ?params.candidate_hash.0,
 								?err,
 								?authority_id,
 								?validator_index,
@@ -617,13 +624,13 @@ impl State {
 				gum::debug!(
 					target: LOG_TARGET,
 					validators_len = validators.len(),
-					candidate_hash = ?params.candidate_hash,
+					candidate_hash = ?params.candidate_hash.0,
 					received_chunks_count = ?self.chunk_count(),
 					requested_chunks_count = ?requesting_chunks.len(),
 					threshold = ?params.threshold,
 					"Can conclude availability recovery strategy",
 				);
-				break
+				break;
 			}
 		}
 

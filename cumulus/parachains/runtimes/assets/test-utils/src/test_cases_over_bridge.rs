@@ -149,9 +149,9 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 			// we just check here, that user retains enough balance after withdrawal
 			// and also we check if `balance_to_transfer` is more than `existential_deposit`,
 			assert!(
-				(<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account) -
-					balance_to_transfer.into()) >=
-					existential_deposit
+				(<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account)
+					- balance_to_transfer.into())
+					>= existential_deposit
 			);
 			// SA has just ED
 			assert_eq!(
@@ -210,8 +210,9 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 				.into_iter()
 				.filter_map(|e| unwrap_xcmp_queue_event(e.event.encode()))
 				.find_map(|e| match e {
-					cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { message_hash } =>
-						Some(message_hash),
+					cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { message_hash } => {
+						Some(message_hash)
+					},
 					_ => None,
 				});
 
@@ -258,7 +259,9 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 						// explicit unpaid execution on BridgeHub)
 						UnpaidExecution { weight_limit, check_origin }
 							if weight_limit == &Unlimited && check_origin.is_none() =>
-							Ok(()),
+						{
+							Ok(())
+						},
 						_ => Err(ProcessMessageError::BadFormat),
 					})
 					.expect("contains UnpaidExecution")
@@ -312,8 +315,8 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 				let delivery_fees_account_balance_after =
 					<pallet_balances::Pallet<Runtime>>::free_balance(&delivery_fees_account);
 				assert!(
-					delivery_fees_account_balance_after - delivery_fees.into() >=
-						delivery_fees_account_balance_before
+					delivery_fees_account_balance_after - delivery_fees.into()
+						>= delivery_fees_account_balance_before
 				);
 			}
 		})

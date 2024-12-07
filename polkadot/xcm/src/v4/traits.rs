@@ -95,7 +95,7 @@ pub trait ExecuteXcm<Call> {
 		};
 		let xcm_weight = pre.weight_of();
 		if xcm_weight.any_gt(weight_limit) {
-			return Outcome::Error { error: Error::WeightLimitReached(xcm_weight) }
+			return Outcome::Error { error: Error::WeightLimitReached(xcm_weight) };
 		}
 		Self::execute(origin, pre, id, weight_credit)
 	}

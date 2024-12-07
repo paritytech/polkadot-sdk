@@ -305,22 +305,25 @@ pub enum CandidateEvent<H = Hash> {
 impl<H: Encode + Copy> From<CandidateEvent<H>> for super::v8::CandidateEvent<H> {
 	fn from(value: CandidateEvent<H>) -> Self {
 		match value {
-			CandidateEvent::CandidateBacked(receipt, head_data, core_index, group_index) =>
+			CandidateEvent::CandidateBacked(receipt, head_data, core_index, group_index) => {
 				super::v8::CandidateEvent::CandidateBacked(
 					receipt.into(),
 					head_data,
 					core_index,
 					group_index,
-				),
-			CandidateEvent::CandidateIncluded(receipt, head_data, core_index, group_index) =>
+				)
+			},
+			CandidateEvent::CandidateIncluded(receipt, head_data, core_index, group_index) => {
 				super::v8::CandidateEvent::CandidateIncluded(
 					receipt.into(),
 					head_data,
 					core_index,
 					group_index,
-				),
-			CandidateEvent::CandidateTimedOut(receipt, head_data, core_index) =>
-				super::v8::CandidateEvent::CandidateTimedOut(receipt.into(), head_data, core_index),
+				)
+			},
+			CandidateEvent::CandidateTimedOut(receipt, head_data, core_index) => {
+				super::v8::CandidateEvent::CandidateTimedOut(receipt.into(), head_data, core_index)
+			},
 		}
 	}
 }
@@ -454,14 +457,15 @@ impl CandidateCommitments {
 			let Some(core_selector_message) = signals_iter.next() else { return Ok(None) };
 			// We should have exactly one signal beyond the separator
 			if signals_iter.next().is_some() {
-				return Err(CommittedCandidateReceiptError::TooManyUMPSignals)
+				return Err(CommittedCandidateReceiptError::TooManyUMPSignals);
 			}
 
 			match UMPSignal::decode(&mut core_selector_message.as_slice())
 				.map_err(|_| CommittedCandidateReceiptError::UmpSignalDecode)?
 			{
-				UMPSignal::SelectCore(core_index_selector, cq_offset) =>
-					Ok(Some((core_index_selector, cq_offset))),
+				UMPSignal::SelectCore(core_index_selector, cq_offset) => {
+					Ok(Some((core_index_selector, cq_offset)))
+				},
 			}
 		} else {
 			Ok(None)
@@ -530,7 +534,7 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 	/// and the internal `version` field is 0.
 	pub fn version(&self) -> CandidateDescriptorVersion {
 		if self.reserved2 != [0u8; 64] || self.reserved1 != [0u8; 25] {
-			return CandidateDescriptorVersion::V1
+			return CandidateDescriptorVersion::V1;
 		}
 
 		match self.version.0 {
@@ -570,7 +574,7 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 	/// Returns the collator signature of `V1` candidate descriptors, `None` otherwise.
 	pub fn signature(&self) -> Option<CollatorSignature> {
 		if self.version() == CandidateDescriptorVersion::V1 {
-			return Some(self.rebuild_signature_field())
+			return Some(self.rebuild_signature_field());
 		}
 
 		None
@@ -579,7 +583,7 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 	/// Returns the `core_index` of `V2` candidate descriptors, `None` otherwise.
 	pub fn core_index(&self) -> Option<CoreIndex> {
 		if self.version() == CandidateDescriptorVersion::V1 {
-			return None
+			return None;
 		}
 
 		Some(CoreIndex(self.core_index as u32))
@@ -588,7 +592,7 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 	/// Returns the `core_index` of `V2` candidate descriptors, `None` otherwise.
 	pub fn session_index(&self) -> Option<SessionIndex> {
 		if self.version() == CandidateDescriptorVersion::V1 {
-			return None
+			return None;
 		}
 
 		Some(self.session_index)
@@ -607,8 +611,9 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 			// Don't check v1 descriptors.
 			CandidateDescriptorVersion::V1 => return Ok(()),
 			CandidateDescriptorVersion::V2 => {},
-			CandidateDescriptorVersion::Unknown =>
-				return Err(CommittedCandidateReceiptError::UnknownVersion(self.descriptor.version)),
+			CandidateDescriptorVersion::Unknown => {
+				return Err(CommittedCandidateReceiptError::UnknownVersion(self.descriptor.version))
+			},
 		}
 
 		let (maybe_core_index_selector, cq_offset) = self.commitments.core_selector()?.map_or_else(
@@ -623,7 +628,7 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 			.ok_or(CommittedCandidateReceiptError::NoAssignment)?;
 
 		if assigned_cores.is_empty() {
-			return Err(CommittedCandidateReceiptError::NoAssignment)
+			return Err(CommittedCandidateReceiptError::NoAssignment);
 		}
 
 		let descriptor_core_index = CoreIndex(self.descriptor.core_index as u32);
@@ -635,11 +640,11 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 			// We got more than one assigned core and no core selector. Special care is needed.
 			if !assigned_cores.contains(&descriptor_core_index) {
 				// core index in the descriptor is not assigned to the para. Error.
-				return Err(CommittedCandidateReceiptError::InvalidCoreIndex)
+				return Err(CommittedCandidateReceiptError::InvalidCoreIndex);
 			} else {
 				// the descriptor core index is indeed assigned to the para. This is the most we can
 				// check for now
-				return Ok(())
+				return Ok(());
 			}
 		} else {
 			// No core selector but there's only one assigned core, use it.
@@ -653,7 +658,7 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 			.copied()?;
 
 		if core_index != descriptor_core_index {
-			return Err(CommittedCandidateReceiptError::CoreIndexMismatch)
+			return Err(CommittedCandidateReceiptError::CoreIndexMismatch);
 		}
 
 		Ok(())
@@ -920,8 +925,9 @@ impl<H: Copy> From<CoreState<H>> for super::v8::CoreState<H> {
 		match value {
 			CoreState::Free => super::v8::CoreState::Free,
 			CoreState::Scheduled(core) => super::v8::CoreState::Scheduled(core),
-			CoreState::Occupied(occupied_core) =>
-				super::v8::CoreState::Occupied(occupied_core.into()),
+			CoreState::Occupied(occupied_core) => {
+				super::v8::CoreState::Occupied(occupied_core.into())
+			},
 		}
 	}
 }

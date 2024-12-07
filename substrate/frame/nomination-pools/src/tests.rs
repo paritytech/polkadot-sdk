@@ -3574,8 +3574,8 @@ mod pool_withdraw_unbonded {
 			// `total_stake` and the `free_balance`.
 			// This relation is not guaranteed in the wild as arbitrary transfers towards
 			// `free_balance` can be made to the pool that are not accounted for.
-			let non_locked_balance = Balances::free_balance(&default_bonded_account()) -
-				StakingMock::total_stake(&default_bonded_account()).unwrap();
+			let non_locked_balance = Balances::free_balance(&default_bonded_account())
+				- StakingMock::total_stake(&default_bonded_account()).unwrap();
 			assert_eq!(member_balance, TotalValueLocked::<T>::get() + non_locked_balance);
 		});
 	}

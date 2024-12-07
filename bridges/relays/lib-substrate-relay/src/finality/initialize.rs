@@ -130,7 +130,7 @@ where
 			TargetChain::NAME,
 		);
 		if !dry_run {
-			return Ok(None)
+			return Ok(None);
 		}
 	}
 

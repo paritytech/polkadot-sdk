@@ -88,7 +88,7 @@ impl AllowedRelayParents {
 		};
 
 		if base_number < para_min {
-			return &[]
+			return &[];
 		}
 
 		let diff = base_number - para_min;
@@ -170,7 +170,7 @@ impl View {
 			+ SubsystemSender<RuntimeApiMessage>,
 	{
 		if self.leaves.contains_key(&leaf_hash) {
-			return Err(FetchError::AlreadyKnown)
+			return Err(FetchError::AlreadyKnown);
 		}
 
 		let res = fetch_fresh_leaf_and_insert_ancestry(
@@ -213,7 +213,7 @@ impl View {
 		ancestors: &[BlockInfoProspectiveParachains],
 	) {
 		if self.leaves.contains_key(&leaf.hash) {
-			return
+			return;
 		}
 
 		// Retain at least `MINIMUM_RETAIN_LENGTH` blocks in storage.
@@ -261,7 +261,7 @@ impl View {
 		let mut removed = Vec::new();
 
 		if self.leaves.remove(&leaf_hash).is_none() {
-			return removed
+			return removed;
 		}
 
 		// Prune everything before the minimum out of all leaves,
@@ -430,7 +430,7 @@ where
 			// We should never underflow here, the ChainAPI stops at genesis block.
 			min = min.saturating_sub(1);
 		} else {
-			break
+			break;
 		}
 	}
 
@@ -454,21 +454,24 @@ where
 
 		match rx.await {
 			Ok(Ok(Some(header))) => header,
-			Ok(Ok(None)) =>
+			Ok(Ok(None)) => {
 				return Err(FetchError::BlockHeaderUnavailable(
 					leaf_hash,
 					BlockHeaderUnavailableReason::Unknown,
-				)),
-			Ok(Err(e)) =>
+				))
+			},
+			Ok(Err(e)) => {
 				return Err(FetchError::BlockHeaderUnavailable(
 					leaf_hash,
 					BlockHeaderUnavailableReason::Internal(e),
-				)),
-			Err(_) =>
+				))
+			},
+			Err(_) => {
 				return Err(FetchError::BlockHeaderUnavailable(
 					leaf_hash,
 					BlockHeaderUnavailableReason::SubsystemUnavailable,
-				)),
+				))
+			},
 		}
 	};
 
@@ -506,21 +509,24 @@ where
 
 				let header = match rx.await {
 					Ok(Ok(Some(header))) => header,
-					Ok(Ok(None)) =>
+					Ok(Ok(None)) => {
 						return Err(FetchError::BlockHeaderUnavailable(
 							next_ancestor_hash,
 							BlockHeaderUnavailableReason::Unknown,
-						)),
-					Ok(Err(e)) =>
+						))
+					},
+					Ok(Err(e)) => {
 						return Err(FetchError::BlockHeaderUnavailable(
 							next_ancestor_hash,
 							BlockHeaderUnavailableReason::Internal(e),
-						)),
-					Err(_) =>
+						))
+					},
+					Err(_) => {
 						return Err(FetchError::BlockHeaderUnavailable(
 							next_ancestor_hash,
 							BlockHeaderUnavailableReason::SubsystemUnavailable,
-						)),
+						))
+					},
 				};
 
 				block_info_storage.insert(
@@ -537,7 +543,7 @@ where
 
 			ancestry.push(next_ancestor_hash);
 			if next_ancestor_number == 0 {
-				break
+				break;
 			}
 
 			next_ancestor_number -= 1;

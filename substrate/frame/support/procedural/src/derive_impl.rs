@@ -51,7 +51,7 @@ fn is_runtime_type(item: &syn::ImplItemType) -> bool {
 		if let Ok(PalletAttr { typ: PalletAttrType::RuntimeType(_), .. }) =
 			parse2::<PalletAttr>(attr.into_token_stream())
 		{
-			return true
+			return true;
 		}
 		false
 	})
@@ -78,7 +78,9 @@ impl syn::parse::Parse for DeriveImplAttrArgs {
 				(default_impl_path, Some(args.clone()))
 			},
 			Some(PathSegment { arguments: PathArguments::None, .. }) => (default_impl_path, None),
-			_ => return Err(syn::Error::new(default_impl_path.span(), "Invalid default impl path")),
+			_ => {
+				return Err(syn::Error::new(default_impl_path.span(), "Invalid default impl path"))
+			},
 		};
 
 		let lookahead = input.lookahead1();
@@ -177,7 +179,7 @@ fn combine_impls(
 		if let Some(ident) = impl_item_ident(&item) {
 			if existing_local_keys.contains(&ident) {
 				// do not copy colliding items that have an ident
-				return None
+				return None;
 			}
 			if let ImplItem::Type(typ) = item.clone() {
 				let cfg_attrs = typ
@@ -194,14 +196,14 @@ fn combine_impls(
 					} else {
 						item
 					};
-					return Some(item)
+					return Some(item);
 				}
 				// modify and insert uncolliding type items
 				let modified_item: ImplItem = parse_quote! {
 					#( #cfg_attrs )*
 					type #ident = <#default_impl_path #generics as #disambiguation_path>::#ident;
 				};
-				return Some(modified_item)
+				return Some(modified_item);
 			}
 			// copy uncolliding non-type items that have an ident
 			Some(item)
@@ -228,13 +230,14 @@ fn compute_disambiguation_path(
 ) -> Result<Path> {
 	match (disambiguation_path, foreign_impl.clone().trait_) {
 		(Some(disambiguation_path), _) => Ok(disambiguation_path),
-		(None, Some((_, foreign_impl_path, _))) =>
+		(None, Some((_, foreign_impl_path, _))) => {
 			if default_impl_path.segments.len() > 1 {
 				let scope = default_impl_path.segments.first();
 				Ok(parse_quote!(#scope :: #foreign_impl_path))
 			} else {
 				Ok(foreign_impl_path)
-			},
+			}
+		},
 		_ => Err(syn::Error::new(
 			default_impl_path.span(),
 			"Impl statement must have a defined type being implemented \

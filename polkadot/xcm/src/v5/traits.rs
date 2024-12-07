@@ -227,8 +227,9 @@ impl MaxEncodedLen for Error {
 impl From<SendError> for Error {
 	fn from(e: SendError) -> Self {
 		match e {
-			SendError::NotApplicable | SendError::Unroutable | SendError::MissingArgument =>
-				Error::Unroutable,
+			SendError::NotApplicable | SendError::Unroutable | SendError::MissingArgument => {
+				Error::Unroutable
+			},
 			SendError::Transport(s) => Error::Transport(s),
 			SendError::DestinationUnsupported => Error::DestinationUnsupported,
 			SendError::ExceedsMaxMessageSize => Error::ExceedsMaxMessageSize,
@@ -309,7 +310,7 @@ pub trait ExecuteXcm<Call> {
 		};
 		let xcm_weight = pre.weight_of();
 		if xcm_weight.any_gt(weight_limit) {
-			return Outcome::Error { error: Error::WeightLimitReached(xcm_weight) }
+			return Outcome::Error { error: Error::WeightLimitReached(xcm_weight) };
 		}
 		Self::execute(origin, pre, id, weight_credit)
 	}

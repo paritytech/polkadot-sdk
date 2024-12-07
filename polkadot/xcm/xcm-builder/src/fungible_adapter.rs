@@ -127,10 +127,12 @@ impl<
 		// Check we handle this asset
 		let amount = Matcher::matches_fungible(what).ok_or(MatchError::AssetNotHandled)?;
 		match CheckingAccount::get() {
-			Some((checking_account, MintLocation::Local)) =>
-				Self::can_reduce_checked(checking_account, amount),
-			Some((checking_account, MintLocation::NonLocal)) =>
-				Self::can_accrue_checked(checking_account, amount),
+			Some((checking_account, MintLocation::Local)) => {
+				Self::can_reduce_checked(checking_account, amount)
+			},
+			Some((checking_account, MintLocation::NonLocal)) => {
+				Self::can_accrue_checked(checking_account, amount)
+			},
 			None => Ok(()),
 		}
 	}
@@ -143,10 +145,12 @@ impl<
 		);
 		if let Some(amount) = Matcher::matches_fungible(what) {
 			match CheckingAccount::get() {
-				Some((checking_account, MintLocation::Local)) =>
-					Self::reduce_checked(checking_account, amount),
-				Some((checking_account, MintLocation::NonLocal)) =>
-					Self::accrue_checked(checking_account, amount),
+				Some((checking_account, MintLocation::Local)) => {
+					Self::reduce_checked(checking_account, amount)
+				},
+				Some((checking_account, MintLocation::NonLocal)) => {
+					Self::accrue_checked(checking_account, amount)
+				},
 				None => (),
 			}
 		}
@@ -161,10 +165,12 @@ impl<
 		);
 		let amount = Matcher::matches_fungible(what).ok_or(MatchError::AssetNotHandled)?;
 		match CheckingAccount::get() {
-			Some((checking_account, MintLocation::Local)) =>
-				Self::can_accrue_checked(checking_account, amount),
-			Some((checking_account, MintLocation::NonLocal)) =>
-				Self::can_reduce_checked(checking_account, amount),
+			Some((checking_account, MintLocation::Local)) => {
+				Self::can_accrue_checked(checking_account, amount)
+			},
+			Some((checking_account, MintLocation::NonLocal)) => {
+				Self::can_reduce_checked(checking_account, amount)
+			},
 			None => Ok(()),
 		}
 	}
@@ -178,10 +184,12 @@ impl<
 		);
 		if let Some(amount) = Matcher::matches_fungible(what) {
 			match CheckingAccount::get() {
-				Some((checking_account, MintLocation::Local)) =>
-					Self::accrue_checked(checking_account, amount),
-				Some((checking_account, MintLocation::NonLocal)) =>
-					Self::reduce_checked(checking_account, amount),
+				Some((checking_account, MintLocation::Local)) => {
+					Self::accrue_checked(checking_account, amount)
+				},
+				Some((checking_account, MintLocation::NonLocal)) => {
+					Self::reduce_checked(checking_account, amount)
+				},
 				None => (),
 			}
 		}

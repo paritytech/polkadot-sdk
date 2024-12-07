@@ -116,7 +116,7 @@ impl<Output> Stream for FuturesUndead<Output> {
 				// Cleanup in case we became completely empty:
 				if self.inner.len() == 0 {
 					*self = Self::new();
-					return Poll::Ready(Some(v))
+					return Poll::Ready(Some(v));
 				}
 
 				let first_live = match self.first_live {

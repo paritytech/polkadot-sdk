@@ -239,13 +239,13 @@ impl PeerData {
 					active_leaves,
 					state.para_id,
 				) {
-					return Err(InsertAdvertisementError::OutOfOurView)
+					return Err(InsertAdvertisementError::OutOfOurView);
 				}
 
 				match (relay_parent_mode, candidate_hash) {
 					(ProspectiveParachainsMode::Disabled, candidate_hash) => {
 						if state.advertisements.contains_key(&on_relay_parent) {
-							return Err(InsertAdvertisementError::Duplicate)
+							return Err(InsertAdvertisementError::Duplicate);
 						}
 						state
 							.advertisements
@@ -261,14 +261,14 @@ impl PeerData {
 								.get(&on_relay_parent)
 								.map_or(false, |candidates| candidates.contains(&candidate_hash))
 							{
-								return Err(InsertAdvertisementError::Duplicate)
+								return Err(InsertAdvertisementError::Duplicate);
 							}
 
 							let candidates =
 								state.advertisements.entry(on_relay_parent).or_default();
 
 							if candidates.len() > max_candidate_depth {
-								return Err(InsertAdvertisementError::PeerLimitReached)
+								return Err(InsertAdvertisementError::PeerLimitReached);
 							}
 							candidates.insert(candidate_hash);
 						} else {
@@ -281,7 +281,7 @@ impl PeerData {
 							}
 
 							if state.advertisements.contains_key(&on_relay_parent) {
-								return Err(InsertAdvertisementError::Duplicate)
+								return Err(InsertAdvertisementError::Duplicate);
 							}
 							state
 								.advertisements
@@ -356,8 +356,9 @@ impl PeerData {
 	fn is_inactive(&self, policy: &crate::CollatorEvictionPolicy) -> bool {
 		match self.state {
 			PeerState::Connected(connected_at) => connected_at.elapsed() >= policy.undeclared,
-			PeerState::Collating(ref state) =>
-				state.last_active.elapsed() >= policy.inactive_collator,
+			PeerState::Collating(ref state) => {
+				state.last_active.elapsed() >= policy.inactive_collator
+			},
 		}
 	}
 }
@@ -447,8 +448,8 @@ fn is_relay_parent_in_implicit_view(
 	match relay_parent_mode {
 		ProspectiveParachainsMode::Disabled => active_leaves.contains_key(relay_parent),
 		ProspectiveParachainsMode::Enabled { .. } => active_leaves.iter().any(|(hash, mode)| {
-			mode.is_enabled() &&
-				implicit_view
+			mode.is_enabled()
+				&& implicit_view
 					.known_allowed_relay_parents_under(hash, Some(para_id))
 					.unwrap_or_default()
 					.contains(relay_parent)
@@ -491,7 +492,7 @@ where
 		rotation_info.core_for_group(group, cores.len())
 	} else {
 		gum::trace!(target: LOG_TARGET, ?relay_parent, "Not a validator");
-		return Ok(None)
+		return Ok(None);
 	};
 
 	let claim_queue = request_claim_queue(relay_parent, sender)
@@ -683,7 +684,7 @@ async fn request_collation(
 	peer_protocol_version: CollationVersion,
 ) -> std::result::Result<(), FetchError> {
 	if state.collation_requests_cancel_handles.contains_key(&pending_collation) {
-		return Err(FetchError::AlreadyRequested)
+		return Err(FetchError::AlreadyRequested);
 	}
 
 	let PendingCollation { relay_parent, para_id, peer_id, prospective_candidate, .. } =
@@ -767,9 +768,9 @@ async fn process_incoming_peer_message<Context>(
 	use sp_runtime::traits::AppVerify;
 
 	match msg {
-		Versioned::V1(V1::Declare(collator_id, para_id, signature)) |
-		Versioned::V2(V2::Declare(collator_id, para_id, signature)) |
-		Versioned::V3(V2::Declare(collator_id, para_id, signature)) => {
+		Versioned::V1(V1::Declare(collator_id, para_id, signature))
+		| Versioned::V2(V2::Declare(collator_id, para_id, signature))
+		| Versioned::V3(V2::Declare(collator_id, para_id, signature)) => {
 			if collator_peer_id(&state.peer_data, &collator_id).is_some() {
 				modify_reputation(
 					&mut state.reputation,
@@ -778,7 +779,7 @@ async fn process_incoming_peer_message<Context>(
 					COST_UNEXPECTED_MESSAGE,
 				)
 				.await;
-				return
+				return;
 			}
 
 			let peer_data = match state.peer_data.get_mut(&origin) {
@@ -797,7 +798,7 @@ async fn process_incoming_peer_message<Context>(
 						COST_UNEXPECTED_MESSAGE,
 					)
 					.await;
-					return
+					return;
 				},
 			};
 
@@ -815,7 +816,7 @@ async fn process_incoming_peer_message<Context>(
 					COST_UNEXPECTED_MESSAGE,
 				)
 				.await;
-				return
+				return;
 			}
 
 			if !signature.verify(&*protocol_v1::declare_signature_payload(&origin), &collator_id) {
@@ -832,7 +833,7 @@ async fn process_incoming_peer_message<Context>(
 					COST_INVALID_SIGNATURE,
 				)
 				.await;
-				return
+				return;
 			}
 
 			if state.current_assignments.contains_key(&para_id) {
@@ -866,7 +867,7 @@ async fn process_incoming_peer_message<Context>(
 				disconnect_peer(ctx.sender(), origin).await;
 			}
 		},
-		Versioned::V1(V1::AdvertiseCollation(relay_parent)) =>
+		Versioned::V1(V1::AdvertiseCollation(relay_parent)) => {
 			if let Err(err) =
 				handle_advertisement(ctx.sender(), state, relay_parent, origin, None).await
 			{
@@ -881,13 +882,14 @@ async fn process_incoming_peer_message<Context>(
 				if let Some(rep) = err.reputation_changes() {
 					modify_reputation(&mut state.reputation, ctx.sender(), origin, rep).await;
 				}
-			},
+			}
+		},
 		Versioned::V3(V2::AdvertiseCollation {
 			relay_parent,
 			candidate_hash,
 			parent_head_data_hash,
-		}) |
-		Versioned::V2(V2::AdvertiseCollation {
+		})
+		| Versioned::V2(V2::AdvertiseCollation {
 			relay_parent,
 			candidate_hash,
 			parent_head_data_hash,
@@ -905,7 +907,7 @@ async fn process_incoming_peer_message<Context>(
 					target: LOG_TARGET,
 					peer_id = ?origin,
 					?relay_parent,
-					?candidate_hash,
+					candidate_hash = ?candidate_hash.0,
 					error = ?err,
 					"Rejected v2 advertisement",
 				);
@@ -915,9 +917,9 @@ async fn process_incoming_peer_message<Context>(
 				}
 			}
 		},
-		Versioned::V1(V1::CollationSeconded(..)) |
-		Versioned::V2(V2::CollationSeconded(..)) |
-		Versioned::V3(V2::CollationSeconded(..)) => {
+		Versioned::V1(V1::CollationSeconded(..))
+		| Versioned::V2(V2::CollationSeconded(..))
+		| Versioned::V3(V2::CollationSeconded(..)) => {
 			gum::warn!(
 				target: LOG_TARGET,
 				peer_id = ?origin,
@@ -990,7 +992,7 @@ where
 			?err,
 			?candidate_relay_parent,
 			?candidate_para_id,
-			?candidate_hash,
+			candidate_hash = ?candidate_hash.0,
 			"CanSecond-request responder was dropped",
 		);
 
@@ -1064,7 +1066,7 @@ where
 
 	if peer_data.version == CollationVersion::V1 && !state.active_leaves.contains_key(&relay_parent)
 	{
-		return Err(AdvertisementError::ProtocolMisuse)
+		return Err(AdvertisementError::ProtocolMisuse);
 	}
 
 	let per_relay_parent = state
@@ -1080,7 +1082,7 @@ where
 
 	// Check if this is assigned to us.
 	if !assignment.current.contains(&collator_para_id) {
-		return Err(AdvertisementError::InvalidAssignment)
+		return Err(AdvertisementError::InvalidAssignment);
 	}
 
 	// Always insert advertisements that pass all the checks for spam protection.
@@ -1096,15 +1098,15 @@ where
 		.map_err(AdvertisementError::Invalid)?;
 
 	if per_relay_parent.collations.is_seconded_limit_reached(relay_parent_mode) {
-		return Err(AdvertisementError::SecondedLimitReached)
+		return Err(AdvertisementError::SecondedLimitReached);
 	}
 
 	if let Some((candidate_hash, parent_head_data_hash)) = prospective_candidate {
 		// Check if backing subsystem allows to second this candidate.
 		//
 		// This is also only important when async backing or elastic scaling is enabled.
-		let seconding_not_allowed = relay_parent_mode.is_enabled() &&
-			!can_second(
+		let seconding_not_allowed = relay_parent_mode.is_enabled()
+			&& !can_second(
 				sender,
 				collator_para_id,
 				relay_parent,
@@ -1114,7 +1116,7 @@ where
 			.await;
 
 		if seconding_not_allowed {
-			return Err(AdvertisementError::BlockedByBacking)
+			return Err(AdvertisementError::BlockedByBacking);
 		}
 	}
 
@@ -1176,7 +1178,7 @@ where
 				?prospective_candidate,
 				"Candidate relay parent went out of view for valid advertisement",
 			);
-			return Ok(())
+			return Ok(());
 		},
 	};
 	let relay_parent_mode = per_relay_parent.prospective_parachains_mode;
@@ -1195,7 +1197,7 @@ where
 			?relay_parent,
 			"Limit of seconded collations reached for valid advertisement",
 		);
-		return Ok(())
+		return Ok(());
 	}
 
 	let pending_collation =
@@ -1274,7 +1276,7 @@ where
 		)
 		.await?
 		else {
-			continue
+			continue;
 		};
 
 		state.active_leaves.insert(*leaf, mode);
@@ -1402,7 +1404,7 @@ async fn handle_network_msg<Context>(
 						?err,
 						"Unsupported protocol version"
 					);
-					return Ok(())
+					return Ok(());
 				},
 			};
 			state.peer_data.entry(peer_id).or_insert_with(|| PeerData {
@@ -1481,7 +1483,7 @@ async fn process_msg<Context>(
 						relay_parent = %parent,
 						"Seconded message received with a `Valid` statement",
 					);
-					return
+					return;
 				},
 			};
 			let output_head_data = receipt.commitments.head_data.clone();
@@ -1554,17 +1556,19 @@ async fn process_msg<Context>(
 			let candidate_hash = fetched_collation.candidate_hash;
 			let id = match state.fetched_candidates.entry(fetched_collation) {
 				Entry::Occupied(entry)
-					if entry.get().pending_collation.commitments_hash ==
-						Some(candidate_receipt.commitments_hash) =>
-					entry.remove().collator_id,
+					if entry.get().pending_collation.commitments_hash
+						== Some(candidate_receipt.commitments_hash) =>
+				{
+					entry.remove().collator_id
+				},
 				Entry::Occupied(_) => {
 					gum::error!(
 						target: LOG_TARGET,
 						relay_parent = ?parent,
-						candidate = ?candidate_receipt.hash(),
+						candidate_hash = ?candidate_receipt.hash().0,
 						"Reported invalid candidate for unknown `pending_candidate`!",
 					);
-					return
+					return;
 				},
 				Entry::Vacant(_) => return,
 			};
@@ -1751,7 +1755,7 @@ async fn dequeue_next_collation_and_fetch<Context>(
 				"Failed to request a collation, dequeueing next one",
 			);
 		} else {
-			break
+			break;
 		}
 	}
 }
@@ -1825,7 +1829,7 @@ async fn kick_off_seconding<Context>(
 				relay_parent = ?relay_parent,
 				"Fetched collation for a parent out of view",
 			);
-			return Ok(false)
+			return Ok(false);
 		},
 	};
 
@@ -1873,7 +1877,7 @@ async fn kick_off_seconding<Context>(
 			},
 			_ => {
 				// `handle_advertisement` checks for protocol mismatch.
-				return Ok(false)
+				return Ok(false);
 			},
 		};
 
@@ -1891,7 +1895,7 @@ async fn kick_off_seconding<Context>(
 				};
 				gum::debug!(
 					target: LOG_TARGET,
-					candidate_hash = ?blocked_collation.candidate_receipt.hash(),
+					candidate_hash = ?blocked_collation.candidate_receipt.hash().0,
 					relay_parent = ?blocked_collation.candidate_receipt.descriptor.relay_parent(),
 					"Collation having parent head data hash {} is blocked from seconding. Waiting on its parent to be validated.",
 					parent_head_data_hash
@@ -1905,12 +1909,12 @@ async fn kick_off_seconding<Context>(
 					.or_insert_with(Vec::new)
 					.push(blocked_collation);
 
-				return Ok(false)
+				return Ok(false);
 			},
 			(None, _, _) => {
 				// Even though we already have the parent head data, the pvd fetching failed. We
 				// don't need to wait for seconding another collation outputting this head data.
-				return Err(SecondingError::PersistedValidationDataNotFound)
+				return Err(SecondingError::PersistedValidationDataNotFound);
 			},
 		};
 
@@ -1976,7 +1980,7 @@ async fn handle_collation_fetch_response(
 				peer_id = ?pending_collation.peer_id,
 				"Request was cancelled from the validator side"
 			);
-			return Err(None)
+			return Err(None);
 		},
 		Err(CollationFetchError::Request(req_error)) => Err(req_error),
 		Ok(resp) => Ok(resp),
@@ -2041,10 +2045,10 @@ async fn handle_collation_fetch_response(
 			Err(None)
 		},
 		Ok(
-			request_v1::CollationFetchingResponse::Collation(receipt, _) |
-			request_v2::CollationFetchingResponse::Collation(receipt, _) |
-			request_v1::CollationFetchingResponse::CollationWithParentHeadData { receipt, .. } |
-			request_v2::CollationFetchingResponse::CollationWithParentHeadData { receipt, .. },
+			request_v1::CollationFetchingResponse::Collation(receipt, _)
+			| request_v2::CollationFetchingResponse::Collation(receipt, _)
+			| request_v1::CollationFetchingResponse::CollationWithParentHeadData { receipt, .. }
+			| request_v2::CollationFetchingResponse::CollationWithParentHeadData { receipt, .. },
 		) if receipt.descriptor().para_id() != pending_collation.para_id => {
 			gum::debug!(
 				target: LOG_TARGET,
@@ -2061,7 +2065,7 @@ async fn handle_collation_fetch_response(
 				target: LOG_TARGET,
 				para_id = %pending_collation.para_id,
 				hash = ?pending_collation.relay_parent,
-				candidate_hash = ?candidate_receipt.hash(),
+				candidate_hash = ?candidate_receipt.hash().0,
 				"Received collation",
 			);
 
@@ -2086,7 +2090,7 @@ async fn handle_collation_fetch_response(
 				target: LOG_TARGET,
 				para_id = %pending_collation.para_id,
 				hash = ?pending_collation.relay_parent,
-				candidate_hash = ?receipt.hash(),
+				candidate_hash = ?receipt.hash().0,
 				"Received collation (v3)",
 			);
 
@@ -2120,7 +2124,7 @@ fn descriptor_version_sanity_check(
 					return Err(SecondingError::InvalidCoreIndex(
 						core_index.0,
 						per_relay_parent.current_core.0,
-					))
+					));
 				}
 			}
 
@@ -2129,7 +2133,7 @@ fn descriptor_version_sanity_check(
 					return Err(SecondingError::InvalidSessionIndex(
 						session_index,
 						per_relay_parent.session_index,
-					))
+					));
 				}
 			}
 

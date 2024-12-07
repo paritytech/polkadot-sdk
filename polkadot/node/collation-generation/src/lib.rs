@@ -206,7 +206,7 @@ impl CollationGenerationSubsystem {
 					our_para = %config.para_id,
 					"No validation data for para - does it exist at this relay-parent?",
 				);
-				return Ok(())
+				return Ok(());
 			},
 		};
 
@@ -259,7 +259,7 @@ impl CollationGenerationSubsystem {
 		// If there is no collation function provided, bail out early.
 		// Important: Lookahead collator and slot based collator do not use `CollatorFn`.
 		if config.collator.is_none() {
-			return Ok(())
+			return Ok(());
 		}
 
 		let para_id = config.para_id;
@@ -283,7 +283,7 @@ impl CollationGenerationSubsystem {
 
 		// Nothing to do if no core assigned to us.
 		if cores_to_build_on.is_empty() {
-			return Ok(())
+			return Ok(());
 		}
 
 		// We are being very optimistic here, but one of the cores could be pending availability
@@ -308,7 +308,7 @@ impl CollationGenerationSubsystem {
 					our_para = %para_id,
 					"validation data is not available",
 				);
-				return Ok(())
+				return Ok(());
 			},
 		};
 
@@ -331,7 +331,7 @@ impl CollationGenerationSubsystem {
 					our_para = %para_id,
 					"validation code hash is not found.",
 				);
-				return Ok(())
+				return Ok(());
 			},
 		};
 
@@ -359,7 +359,7 @@ impl CollationGenerationSubsystem {
 									?para_id,
 									"collator returned no collation on collate",
 								);
-								return
+								return;
 							},
 						};
 
@@ -389,7 +389,7 @@ impl CollationGenerationSubsystem {
 							"Failed to construct and distribute collation: {}",
 							err
 						);
-						return
+						return;
 					}
 
 					// Chain the collations. All else stays the same as we build the chained
@@ -436,7 +436,7 @@ impl SessionInfoCache {
 		sender: &mut Sender,
 	) -> Result<PerSessionInfo> {
 		if let Some(info) = self.0.get(&session_index) {
-			return Ok(info.clone())
+			return Ok(info.clone());
 		}
 
 		let n_validators =
@@ -506,7 +506,10 @@ async fn construct_and_distribute_receipt(
 		// As such, honest collators never produce an uncompressed PoV which starts with
 		// a compression magic number, which would lead validators to reject the collation.
 		if encoded_size > validation_data.max_pov_size as usize {
-			return Err(Error::POVSizeExceeded(encoded_size, validation_data.max_pov_size as usize))
+			return Err(Error::POVSizeExceeded(
+				encoded_size,
+				validation_data.max_pov_size as usize,
+			));
 		}
 
 		pov
@@ -582,7 +585,7 @@ async fn construct_and_distribute_receipt(
 
 	gum::debug!(
 		target: LOG_TARGET,
-		candidate_hash = ?receipt.hash(),
+		candidate_hash = ?receipt.hash().0,
 		?pov_hash,
 		?relay_parent,
 		para_id = %para_id,

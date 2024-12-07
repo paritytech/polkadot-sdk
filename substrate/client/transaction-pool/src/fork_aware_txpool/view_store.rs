@@ -170,7 +170,7 @@ where
 
 		if let Some(Err(err)) = result {
 			log::trace!(target: LOG_TARGET, "[{:?}] submit_local: err: {}", tx_hash, err);
-			return Err(err)
+			return Err(err);
 		};
 
 		Ok(tx_hash)
@@ -191,7 +191,7 @@ where
 	) -> Result<TxStatusStream<ChainApi>, ChainApi::Error> {
 		let tx_hash = self.api.hash_and_length(&xt).0;
 		let Some(external_watcher) = self.listener.create_external_watcher_for_tx(tx_hash) else {
-			return Err(PoolError::AlreadyImported(Box::new(tx_hash)).into())
+			return Err(PoolError::AlreadyImported(Box::new(tx_hash)).into());
 		};
 		let submit_and_watch_futures = {
 			let active_views = self.active_views.read();
@@ -288,9 +288,9 @@ where
 			.map(|(v, _)| v.pool.validated_pool().ready());
 
 		if let Some(ready_iterator) = ready_iterator {
-			return Box::new(ready_iterator)
+			return Box::new(ready_iterator);
 		} else {
-			return Box::new(std::iter::empty())
+			return Box::new(std::iter::empty());
 		}
 	}
 
@@ -424,7 +424,7 @@ where
 		}
 		if allow_inactive {
 			if let Some(view) = self.inactive_views.read().get(&at) {
-				return Some((view.clone(), true))
+				return Some((view.clone(), true));
 			}
 		};
 		None
@@ -578,7 +578,7 @@ where
 		if let Entry::Vacant(entry) = self.pending_txs_replacements.write().entry(replaced) {
 			entry.insert(PendingTxReplacement::new(xt.clone(), source.clone(), watched));
 		} else {
-			return
+			return;
 		};
 
 		let xt_hash = self.api.hash_and_length(&xt).0;

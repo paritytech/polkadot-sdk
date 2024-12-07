@@ -198,7 +198,7 @@ fn note_hash(
 	h: CandidateHash,
 ) -> bool {
 	if observed.contains(&h) {
-		return true
+		return true;
 	}
 
 	observed.try_push(h).is_ok()
@@ -285,11 +285,11 @@ impl PeerRelayParentKnowledge {
 	/// This returns `true` if the peer cannot accept this statement, without altering internal
 	/// state, `false` otherwise.
 	fn can_send(&self, fingerprint: &(CompactStatement, ValidatorIndex)) -> bool {
-		let already_known = self.sent_statements.contains(fingerprint) ||
-			self.received_statements.contains(fingerprint);
+		let already_known = self.sent_statements.contains(fingerprint)
+			|| self.received_statements.contains(fingerprint);
 
 		if already_known {
-			return false
+			return false;
 		}
 
 		match fingerprint.0 {
@@ -326,7 +326,7 @@ impl PeerRelayParentKnowledge {
 		// We don't check `sent_statements` because a statement could be in-flight from both
 		// sides at the same time.
 		if self.received_statements.contains(fingerprint) {
-			return Err(COST_DUPLICATE_STATEMENT)
+			return Err(COST_DUPLICATE_STATEMENT);
 		}
 
 		let (candidate_hash, fresh) = match fingerprint.0 {
@@ -338,14 +338,14 @@ impl PeerRelayParentKnowledge {
 					.note_remote(*h);
 
 				if !allowed_remote {
-					return Err(COST_UNEXPECTED_STATEMENT_REMOTE)
+					return Err(COST_UNEXPECTED_STATEMENT_REMOTE);
 				}
 
 				(h, !self.is_known_candidate(h))
 			},
 			CompactStatement::Valid(ref h) => {
 				if !self.is_known_candidate(h) {
-					return Err(COST_UNEXPECTED_STATEMENT_UNKNOWN_CANDIDATE)
+					return Err(COST_UNEXPECTED_STATEMENT_UNKNOWN_CANDIDATE);
 				}
 
 				(h, false)
@@ -357,7 +357,7 @@ impl PeerRelayParentKnowledge {
 				self.received_message_count.entry(*candidate_hash).or_insert(0);
 
 			if *received_per_candidate >= max_message_count {
-				return Err(COST_APPARENT_FLOOD)
+				return Err(COST_APPARENT_FLOOD);
 			}
 
 			*received_per_candidate += 1;
@@ -371,7 +371,7 @@ impl PeerRelayParentKnowledge {
 	/// Note a received large statement metadata.
 	fn receive_large_statement(&mut self) -> std::result::Result<(), Rep> {
 		if self.large_statement_count >= MAX_LARGE_STATEMENTS_PER_SENDER {
-			return Err(COST_APPARENT_FLOOD)
+			return Err(COST_APPARENT_FLOOD);
 		}
 		self.large_statement_count += 1;
 		Ok(())
@@ -388,7 +388,7 @@ impl PeerRelayParentKnowledge {
 		// We don't check `sent_statements` because a statement could be in-flight from both
 		// sides at the same time.
 		if self.received_statements.contains(fingerprint) {
-			return Err(COST_DUPLICATE_STATEMENT)
+			return Err(COST_DUPLICATE_STATEMENT);
 		}
 
 		let candidate_hash = match fingerprint.0 {
@@ -399,14 +399,14 @@ impl PeerRelayParentKnowledge {
 					.map_or(true, |r| r.is_wanted_candidate(h));
 
 				if !allowed_remote {
-					return Err(COST_UNEXPECTED_STATEMENT_REMOTE)
+					return Err(COST_UNEXPECTED_STATEMENT_REMOTE);
 				}
 
 				h
 			},
 			CompactStatement::Valid(ref h) => {
 				if !self.is_known_candidate(&h) {
-					return Err(COST_UNEXPECTED_STATEMENT_UNKNOWN_CANDIDATE)
+					return Err(COST_UNEXPECTED_STATEMENT_UNKNOWN_CANDIDATE);
 				}
 
 				h
@@ -716,7 +716,7 @@ impl ActiveHeadData {
 						?statement,
 						"Extra statement is ignored"
 					);
-					return NotedStatement::NotUseful
+					return NotedStatement::NotUseful;
 				}
 
 				self.candidates.insert(h);
@@ -754,7 +754,7 @@ impl ActiveHeadData {
 						?statement,
 						"Statement for unknown candidate"
 					);
-					return NotedStatement::NotUseful
+					return NotedStatement::NotUseful;
 				}
 
 				if let Some(old) = self.statements.insert(comparator.clone(), statement) {
@@ -808,7 +808,7 @@ impl ActiveHeadData {
 						?statement,
 						"Extra statement is ignored",
 					);
-					return Err(DeniedStatement::NotUseful)
+					return Err(DeniedStatement::NotUseful);
 				}
 
 				if self.statements.contains_key(&comparator) {
@@ -818,7 +818,7 @@ impl ActiveHeadData {
 						?statement,
 						"Known statement",
 					);
-					return Err(DeniedStatement::UsefulButKnown)
+					return Err(DeniedStatement::UsefulButKnown);
 				}
 			},
 			CompactStatement::Valid(h) => {
@@ -829,7 +829,7 @@ impl ActiveHeadData {
 						?statement,
 						"Statement for unknown candidate",
 					);
-					return Err(DeniedStatement::NotUseful)
+					return Err(DeniedStatement::NotUseful);
 				}
 
 				if self.statements.contains_key(&comparator) {
@@ -839,7 +839,7 @@ impl ActiveHeadData {
 						?statement,
 						"Known statement",
 					);
-					return Err(DeniedStatement::UsefulButKnown)
+					return Err(DeniedStatement::UsefulButKnown);
 				}
 			},
 		}
@@ -976,7 +976,7 @@ fn is_statement_large(statement: &SignedFullStatement) -> (bool, Option<usize>) 
 			let size = statement.as_unchecked().encoded_size();
 			// Runtime upgrades will always be large and even if not - no harm done.
 			if committed.commitments.new_validation_code.is_some() {
-				return (true, Some(size))
+				return (true, Some(size));
 			}
 
 			// Half max size seems to be a good threshold to start not using notifications:
@@ -1145,7 +1145,7 @@ async fn send_statements_about<Context>(
 	for statement in active_head.statements_about(candidate_hash) {
 		let fingerprint = statement.fingerprint();
 		if !peer_data.can_send(&relay_parent, &fingerprint) {
-			continue
+			continue;
 		}
 		peer_data.send(&relay_parent, &fingerprint);
 		let payload = v1_statement_message(relay_parent, statement.statement.clone(), metrics);
@@ -1154,7 +1154,7 @@ async fn send_statements_about<Context>(
 			target: LOG_TARGET,
 			?peer,
 			?relay_parent,
-			?candidate_hash,
+			candidate_hash = ?candidate_hash.0,
 			statement = ?statement.statement,
 			"Sending statement",
 		);
@@ -1181,7 +1181,7 @@ async fn send_statements<Context>(
 	for statement in active_head.statements() {
 		let fingerprint = statement.fingerprint();
 		if !peer_data.can_send(&relay_parent, &fingerprint) {
-			continue
+			continue;
 		}
 		peer_data.send(&relay_parent, &fingerprint);
 		let payload = v1_statement_message(relay_parent, statement.statement.clone(), metrics);
@@ -1236,7 +1236,7 @@ async fn retrieve_statement_from_message<'a, Context>(
 	// Immediately return any Seconded statement:
 	let message = if let protocol_v1::StatementDistributionMessage::Statement(h, s) = message {
 		if let Statement::Seconded(_) = s.unchecked_payload() {
-			return Some(s)
+			return Some(s);
 		}
 		protocol_v1::StatementDistributionMessage::Statement(h, s)
 	} else {
@@ -1278,14 +1278,15 @@ async fn retrieve_statement_from_message<'a, Context>(
 						protocol_v1::StatementDistributionMessage::Statement(_, s) => {
 							// We can now immediately return any statements (should only be
 							// `Statement::Valid` ones, but we don't care at this point.)
-							return Some(s)
+							return Some(s);
 						},
-						protocol_v1::StatementDistributionMessage::LargeStatement(metadata) =>
+						protocol_v1::StatementDistributionMessage::LargeStatement(metadata) => {
 							return Some(UncheckedSignedFullStatement::new(
 								Statement::Seconded(committed.clone()),
 								metadata.signed_by,
 								metadata.signature.clone(),
-							)),
+							))
+						},
 					}
 				},
 			}
@@ -1310,7 +1311,7 @@ async fn retrieve_statement_from_message<'a, Context>(
 					// No fetch in progress, safe to return any statement immediately (we don't
 					// bother about normal network jitter which might cause `Valid` statements to
 					// arrive early for now.).
-					return Some(s)
+					return Some(s);
 				},
 			}
 		},
@@ -1337,7 +1338,7 @@ async fn launch_request<Context>(
 	let result = ctx.spawn("large-statement-fetcher", task.boxed());
 	if let Err(err) = result {
 		gum::error!(target: LOG_TARGET, ?err, "Spawning task failed.");
-		return None
+		return None;
 	}
 	let available_peers = {
 		let mut m = IndexMap::new();
@@ -1377,7 +1378,7 @@ async fn handle_incoming_message_and_circulate<'a, Context, R>(
 	R: rand::Rng,
 {
 	let handled_incoming = match peers.get_mut(&peer) {
-		Some(data) =>
+		Some(data) => {
 			handle_incoming_message(
 				peer,
 				data,
@@ -1389,7 +1390,8 @@ async fn handle_incoming_message_and_circulate<'a, Context, R>(
 				metrics,
 				reputation,
 			)
-			.await,
+			.await
+		},
 		None => None,
 	};
 
@@ -1406,8 +1408,9 @@ async fn handle_incoming_message_and_circulate<'a, Context, R>(
 
 		let session_index = runtime.get_session_index_for_child(ctx.sender(), relay_parent).await;
 		let topology = match session_index {
-			Ok(session_index) =>
-				topology_storage.get_topology_or_fallback(session_index).local_grid_neighbors(),
+			Ok(session_index) => {
+				topology_storage.get_topology_or_fallback(session_index).local_grid_neighbors()
+			},
 			Err(e) => {
 				gum::debug!(
 					target: LOG_TARGET,
@@ -1458,8 +1461,8 @@ async fn handle_incoming_message<'a, Context>(
 
 	let message = match message {
 		Versioned::V1(m) => m,
-		Versioned::V2(protocol_v2::StatementDistributionMessage::V1Compatibility(m)) |
-		Versioned::V3(protocol_v3::StatementDistributionMessage::V1Compatibility(m)) => m,
+		Versioned::V2(protocol_v2::StatementDistributionMessage::V1Compatibility(m))
+		| Versioned::V3(protocol_v3::StatementDistributionMessage::V1Compatibility(m)) => m,
 		Versioned::V2(_) | Versioned::V3(_) => {
 			// The higher-level subsystem code is supposed to filter out
 			// all non v1 messages.
@@ -1468,7 +1471,7 @@ async fn handle_incoming_message<'a, Context>(
 				"Legacy statement-distribution code received unintended v2 message"
 			);
 
-			return None
+			return None;
 		},
 	};
 
@@ -1487,7 +1490,7 @@ async fn handle_incoming_message<'a, Context>(
 				modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).await;
 			}
 
-			return None
+			return None;
 		},
 	};
 
@@ -1495,7 +1498,7 @@ async fn handle_incoming_message<'a, Context>(
 		if let Err(rep) = peer_data.receive_large_statement(&relay_parent) {
 			gum::debug!(target: LOG_TARGET, ?peer, ?message, ?rep, "Unexpected large statement.",);
 			modify_reputation(reputation, ctx.sender(), peer, rep).await;
-			return None
+			return None;
 		}
 	}
 
@@ -1544,7 +1547,7 @@ async fn handle_incoming_message<'a, Context>(
 			},
 		}
 
-		return None
+		return None;
 	}
 
 	let checked_compact = {
@@ -1563,7 +1566,7 @@ async fn handle_incoming_message<'a, Context>(
 					.expect("checked in `check_can_receive` above; qed");
 				modify_reputation(reputation, ctx.sender(), peer, BENEFIT_VALID_STATEMENT).await;
 
-				return None
+				return None;
 			},
 		}
 
@@ -1572,7 +1575,7 @@ async fn handle_incoming_message<'a, Context>(
 			Err(statement) => {
 				gum::debug!(target: LOG_TARGET, ?peer, ?statement, "Invalid statement signature");
 				modify_reputation(reputation, ctx.sender(), peer, COST_INVALID_SIGNATURE).await;
-				return None
+				return None;
 			},
 			Ok(statement) => statement,
 		}
@@ -1605,7 +1608,7 @@ async fn handle_incoming_message<'a, Context>(
 				"Full statement had bad payload."
 			);
 			modify_reputation(reputation, ctx.sender(), peer, COST_WRONG_HASH).await;
-			return None
+			return None;
 		},
 		Ok(statement) => statement,
 	};
@@ -1715,8 +1718,8 @@ async fn update_peer_view_and_maybe_send_unlocked<Context, R>(
 
 	// Use both grid directions
 	let is_gossip_peer = topology.route_to_peer(RequiredRouting::GridXY, &peer);
-	let lucky = is_gossip_peer ||
-		util::gen_ratio_rng(
+	let lucky = is_gossip_peer
+		|| util::gen_ratio_rng(
 			util::MIN_GOSSIP_PEERS.saturating_sub(topology.len()),
 			util::MIN_GOSSIP_PEERS,
 			rng,
@@ -1728,7 +1731,7 @@ async fn update_peer_view_and_maybe_send_unlocked<Context, R>(
 	for new in new_view.iter().copied() {
 		peer_data.view_knowledge.insert(new, Default::default());
 		if !lucky {
-			continue
+			continue;
 		}
 		if let Some(active_head) = active_heads.get(&new) {
 			send_statements(peer, peer_data, ctx, new, active_head, metrics).await;
@@ -1769,7 +1772,7 @@ pub(crate) async fn handle_network_update<Context, R>(
 						?protocol_version,
 						"unknown protocol version, ignoring"
 					);
-					return
+					return;
 				},
 			};
 
@@ -1848,7 +1851,7 @@ pub(crate) async fn handle_network_update<Context, R>(
 			let _ = metrics.time_network_bridge_update("peer_view_change");
 			gum::trace!(target: LOG_TARGET, ?peer, ?view, "Peer view change");
 			match peers.get_mut(&peer) {
-				Some(data) =>
+				Some(data) => {
 					update_peer_view_and_maybe_send_unlocked(
 						peer,
 						topology_storage.get_current_topology().local_grid_neighbors(),
@@ -1859,7 +1862,8 @@ pub(crate) async fn handle_network_update<Context, R>(
 						metrics,
 						rng,
 					)
-					.await,
+					.await
+				},
 				None => (),
 			}
 		},
@@ -1911,7 +1915,7 @@ pub(crate) async fn handle_responder_message(
 				return Err(JfyiError::RequestedUnannouncedCandidate(
 					requesting_peer,
 					candidate_hash,
-				))
+				));
 			}
 
 			let active_head =
@@ -1919,8 +1923,12 @@ pub(crate) async fn handle_responder_message(
 
 			let committed = match active_head.waiting_large_statements.get(&candidate_hash) {
 				Some(LargeStatementStatus::FetchedOrShared(committed)) => committed.clone(),
-				_ =>
-					return Err(JfyiError::NoSuchFetchedLargeStatement(relay_parent, candidate_hash)),
+				_ => {
+					return Err(JfyiError::NoSuchFetchedLargeStatement(
+						relay_parent,
+						candidate_hash,
+					))
+				},
 			};
 
 			tx.send(committed).map_err(|_| JfyiError::ResponderGetDataCanceled)?;
@@ -1967,10 +1975,11 @@ pub(crate) async fn handle_requester_message<Context, R: rand::Rng>(
 				Some(LargeStatementStatus::Fetching(info)) => info,
 				Some(LargeStatementStatus::FetchedOrShared(_)) => {
 					// We are no longer interested in the data.
-					return Ok(())
+					return Ok(());
 				},
-				None =>
-					return Err(JfyiError::NoSuchLargeStatementStatus(relay_parent, candidate_hash)),
+				None => {
+					return Err(JfyiError::NoSuchLargeStatementStatus(relay_parent, candidate_hash))
+				},
 			};
 
 			active_head
@@ -2016,10 +2025,11 @@ pub(crate) async fn handle_requester_message<Context, R: rand::Rng>(
 				Some(LargeStatementStatus::FetchedOrShared(_)) => {
 					// This task is going to die soon - no need to send it anything.
 					gum::debug!(target: LOG_TARGET, "Zombie task wanted more peers.");
-					return Ok(())
+					return Ok(());
 				},
-				None =>
-					return Err(JfyiError::NoSuchLargeStatementStatus(relay_parent, candidate_hash)),
+				None => {
+					return Err(JfyiError::NoSuchLargeStatementStatus(relay_parent, candidate_hash))
+				},
 			};
 
 			if info.peers_to_try.is_empty() {
@@ -2032,8 +2042,9 @@ pub(crate) async fn handle_requester_message<Context, R: rand::Rng>(
 				}
 			}
 		},
-		RequesterMessage::ReportPeer(peer, rep) =>
-			modify_reputation(reputation, ctx.sender(), peer, rep).await,
+		RequesterMessage::ReportPeer(peer, rep) => {
+			modify_reputation(reputation, ctx.sender(), peer, rep).await
+		},
 	}
 	Ok(())
 }
@@ -2126,7 +2137,7 @@ pub(crate) async fn share_local_statement<Context, R: Rng>(
 				.into_iter()
 				.filter_map(|i| {
 					if Some(*i) == validator_info.our_index {
-						return None
+						return None;
 					}
 					let authority_id = &session_info.discovery_keys[i.0 as usize];
 					state.authorities.get(authority_id).map(|p| *p)
@@ -2177,9 +2188,11 @@ fn compatible_v1_message(
 ) -> net_protocol::StatementDistributionMessage {
 	match version {
 		ValidationVersion::V1 => Versioned::V1(message),
-		ValidationVersion::V2 =>
-			Versioned::V2(protocol_v2::StatementDistributionMessage::V1Compatibility(message)),
-		ValidationVersion::V3 =>
-			Versioned::V3(protocol_v3::StatementDistributionMessage::V1Compatibility(message)),
+		ValidationVersion::V2 => {
+			Versioned::V2(protocol_v2::StatementDistributionMessage::V1Compatibility(message))
+		},
+		ValidationVersion::V3 => {
+			Versioned::V3(protocol_v3::StatementDistributionMessage::V1Compatibility(message))
+		},
 	}
 }

@@ -394,7 +394,7 @@ impl PeerState {
 	// under an active leaf.
 	fn reconcile_active_leaf(&mut self, leaf_hash: Hash, implicit: &[Hash]) -> Vec<Hash> {
 		if !self.view.contains(&leaf_hash) {
-			return Vec::new()
+			return Vec::new();
 		}
 
 		let mut v = Vec::with_capacity(implicit.len());
@@ -436,10 +436,10 @@ pub(crate) async fn handle_network_update<Context>(
 		NetworkBridgeEvent::PeerConnected(peer_id, role, protocol_version, mut authority_ids) => {
 			gum::trace!(target: LOG_TARGET, ?peer_id, ?role, ?protocol_version, "Peer connected");
 
-			let versioned_protocol = if protocol_version != ValidationVersion::V2.into() &&
-				protocol_version != ValidationVersion::V3.into()
+			let versioned_protocol = if protocol_version != ValidationVersion::V2.into()
+				&& protocol_version != ValidationVersion::V3.into()
 			{
-				return
+				return;
 			} else {
 				protocol_version.try_into().expect("Qed, we checked above")
 			};
@@ -504,16 +504,16 @@ pub(crate) async fn handle_network_update<Context>(
 			net_protocol::StatementDistributionMessage::V1(_) => return,
 			net_protocol::StatementDistributionMessage::V2(
 				protocol_v2::StatementDistributionMessage::V1Compatibility(_),
-			) |
-			net_protocol::StatementDistributionMessage::V3(
+			)
+			| net_protocol::StatementDistributionMessage::V3(
 				protocol_v3::StatementDistributionMessage::V1Compatibility(_),
 			) => return,
 			net_protocol::StatementDistributionMessage::V2(
 				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
-			) |
-			net_protocol::StatementDistributionMessage::V3(
+			)
+			| net_protocol::StatementDistributionMessage::V3(
 				protocol_v3::StatementDistributionMessage::Statement(relay_parent, statement),
-			) =>
+			) => {
 				handle_incoming_statement(
 					ctx,
 					state,
@@ -523,24 +523,27 @@ pub(crate) async fn handle_network_update<Context>(
 					reputation,
 					metrics,
 				)
-				.await,
+				.await
+			},
 			net_protocol::StatementDistributionMessage::V2(
 				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(inner),
-			) |
-			net_protocol::StatementDistributionMessage::V3(
+			)
+			| net_protocol::StatementDistributionMessage::V3(
 				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(inner),
 			) => handle_incoming_manifest(ctx, state, peer_id, inner, reputation, metrics).await,
 			net_protocol::StatementDistributionMessage::V2(
 				protocol_v2::StatementDistributionMessage::BackedCandidateKnown(inner),
-			) |
-			net_protocol::StatementDistributionMessage::V3(
+			)
+			| net_protocol::StatementDistributionMessage::V3(
 				protocol_v3::StatementDistributionMessage::BackedCandidateKnown(inner),
-			) =>
+			) => {
 				handle_incoming_acknowledgement(ctx, state, peer_id, inner, reputation, metrics)
-					.await,
+					.await
+			},
 		},
-		NetworkBridgeEvent::PeerViewChange(peer_id, view) =>
-			handle_peer_view_update(ctx, state, peer_id, view, metrics).await,
+		NetworkBridgeEvent::PeerViewChange(peer_id, view) => {
+			handle_peer_view_update(ctx, state, peer_id, view, metrics).await
+		},
 		NetworkBridgeEvent::OurViewChange(_view) => {
 			// handled by `handle_activated_leaf`
 		},
@@ -637,7 +640,7 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 						"No session info available for current session"
 					);
 
-					continue
+					continue;
 				},
 				Some(s) => s,
 			};
@@ -678,7 +681,7 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 		}
 
 		if state.per_relay_parent.contains_key(&new_relay_parent) {
-			continue
+			continue;
 		}
 
 		let group_rotation_info =
@@ -774,7 +777,7 @@ fn find_active_validator_state(
 	seconding_limit: usize,
 ) -> Option<LocalValidatorState> {
 	if groups.all().is_empty() {
-		return None
+		return None;
 	}
 
 	let our_group = groups.by_validator_index(validator_index)?;
@@ -985,7 +988,7 @@ async fn send_pending_cluster_statements<Context>(
 		.into_iter()
 		.filter_map(|(originator, compact)| {
 			if !candidates.is_confirmed(compact.candidate_hash()) {
-				return None
+				return None;
 			}
 
 			let res = pending_statement_network_message(
@@ -1211,10 +1214,12 @@ pub(crate) async fn share_local_statement<Context>(
 	// Two possibilities: either the statement is `Seconded` or we already
 	// have the candidate. Sanity: check the para-id is valid.
 	let expected = match statement.payload() {
-		FullStatementWithPVD::Seconded(ref c, _) =>
-			Some((c.descriptor.para_id(), c.descriptor.relay_parent())),
-		FullStatementWithPVD::Valid(hash) =>
-			state.candidates.get_confirmed(&hash).map(|c| (c.para_id(), c.relay_parent())),
+		FullStatementWithPVD::Seconded(ref c, _) => {
+			Some((c.descriptor.para_id(), c.descriptor.relay_parent()))
+		},
+		FullStatementWithPVD::Valid(hash) => {
+			state.candidates.get_confirmed(&hash).map(|c| (c.para_id(), c.relay_parent()))
+		},
 	};
 
 	let is_seconded = match statement.payload() {
@@ -1228,23 +1233,23 @@ pub(crate) async fn share_local_statement<Context>(
 	};
 
 	if local_index != statement.validator_index() {
-		return Err(JfyiError::InvalidShare)
+		return Err(JfyiError::InvalidShare);
 	}
 
-	if is_seconded &&
-		per_relay_parent.statement_store.seconded_count(&local_index) ==
-			per_relay_parent.seconding_limit
+	if is_seconded
+		&& per_relay_parent.statement_store.seconded_count(&local_index)
+			== per_relay_parent.seconding_limit
 	{
 		gum::warn!(
 			target: LOG_TARGET,
 			limit = ?per_relay_parent.seconding_limit,
 			"Local node has issued too many `Seconded` statements",
 		);
-		return Err(JfyiError::InvalidShare)
+		return Err(JfyiError::InvalidShare);
 	}
 
 	if !local_assignments.contains(&expected_para) || relay_parent != expected_relay_parent {
-		return Err(JfyiError::InvalidShare)
+		return Err(JfyiError::InvalidShare);
 	}
 
 	let mut post_confirmation = None;
@@ -1252,7 +1257,7 @@ pub(crate) async fn share_local_statement<Context>(
 	// Insert candidate if unknown + more sanity checks.
 	let compact_statement = {
 		let compact_statement = FullStatementWithPVD::signed_to_compact(statement.clone());
-		let candidate_hash = CandidateHash(*statement.payload().candidate_hash());
+		let candidate_hash = statement.payload().candidate_hash().clone();
 
 		if let FullStatementWithPVD::Seconded(ref c, ref pvd) = statement.payload() {
 			post_confirmation = state.candidates.confirm_candidate(
@@ -1274,7 +1279,7 @@ pub(crate) async fn share_local_statement<Context>(
 					statement = ?compact_statement.payload(),
 					"Candidate backing issued redundant statement?",
 				);
-				return Err(JfyiError::InvalidShare)
+				return Err(JfyiError::InvalidShare);
 			},
 			Ok(true) => {},
 		}
@@ -1558,7 +1563,7 @@ async fn handle_incoming_statement<Context>(
 	let peer_state = match state.peers.get(&peer) {
 		None => {
 			// sanity: should be impossible.
-			return
+			return;
 		},
 		Some(p) => p,
 	};
@@ -1573,7 +1578,7 @@ async fn handle_incoming_statement<Context>(
 				COST_UNEXPECTED_STATEMENT_MISSING_KNOWLEDGE,
 			)
 			.await;
-			return
+			return;
 		},
 		Some(p) => p,
 	};
@@ -1586,7 +1591,7 @@ async fn handle_incoming_statement<Context>(
 				"Missing expected session info.",
 			);
 
-			return
+			return;
 		},
 		Some(s) => s,
 	};
@@ -1600,7 +1605,7 @@ async fn handle_incoming_statement<Context>(
 			"Ignoring a statement from disabled validator."
 		);
 		modify_reputation(reputation, ctx.sender(), peer, COST_DISABLED_VALIDATOR).await;
-		return
+		return;
 	}
 
 	let local_validator = match per_relay_parent.local_validator.as_mut() {
@@ -1616,7 +1621,7 @@ async fn handle_incoming_statement<Context>(
 				)
 				.await;
 			}
-			return
+			return;
 		},
 		Some(l) => l,
 	};
@@ -1632,7 +1637,7 @@ async fn handle_incoming_statement<Context>(
 					COST_UNEXPECTED_STATEMENT_VALIDATOR_NOT_FOUND,
 				)
 				.await;
-				return
+				return;
 			},
 		};
 
@@ -1674,7 +1679,7 @@ async fn handle_incoming_statement<Context>(
 			Ok(None) => return,
 			Err(rep) => {
 				modify_reputation(reputation, ctx.sender(), peer, rep).await;
-				return
+				return;
 			},
 		}
 	} else {
@@ -1709,7 +1714,7 @@ async fn handle_incoming_statement<Context>(
 					Ok(s) => s,
 					Err(rep) => {
 						modify_reputation(reputation, ctx.sender(), peer, rep).await;
-						return
+						return;
 					},
 				}
 			} else {
@@ -1726,7 +1731,7 @@ async fn handle_incoming_statement<Context>(
 				COST_UNEXPECTED_STATEMENT_INVALID_SENDER,
 			)
 			.await;
-			return
+			return;
 		}
 	};
 
@@ -1754,7 +1759,7 @@ async fn handle_incoming_statement<Context>(
 				COST_UNEXPECTED_STATEMENT_BAD_ADVERTISE,
 			)
 			.await;
-			return
+			return;
 		}
 	}
 
@@ -1789,7 +1794,7 @@ async fn handle_incoming_statement<Context>(
 				"Error - accepted message from unknown validator."
 			);
 
-			return
+			return;
 		},
 		Ok(known) => known,
 	};
@@ -1861,12 +1866,13 @@ fn handle_cluster_statement(
 			Ok(ClusterAccept::Ok) => true,
 			Ok(ClusterAccept::WithPrejudice) => false,
 			Err(ClusterRejectIncoming::ExcessiveSeconded) => return Err(COST_EXCESSIVE_SECONDED),
-			Err(ClusterRejectIncoming::CandidateUnknown | ClusterRejectIncoming::Duplicate) =>
-				return Err(COST_UNEXPECTED_STATEMENT_CLUSTER_REJECTED),
+			Err(ClusterRejectIncoming::CandidateUnknown | ClusterRejectIncoming::Duplicate) => {
+				return Err(COST_UNEXPECTED_STATEMENT_CLUSTER_REJECTED)
+			},
 			Err(ClusterRejectIncoming::NotInGroup) => {
 				// sanity: shouldn't be possible; we already filtered this
 				// out above.
-				return Err(COST_UNEXPECTED_STATEMENT_NOT_IN_GROUP)
+				return Err(COST_UNEXPECTED_STATEMENT_NOT_IN_GROUP);
 			},
 		}
 	};
@@ -2007,7 +2013,7 @@ async fn provide_candidate_to_grid<Context>(
 				"Cannot handle backable candidate due to lack of topology",
 			);
 
-			return
+			return;
 		},
 	};
 
@@ -2015,14 +2021,14 @@ async fn provide_candidate_to_grid<Context>(
 		None => {
 			gum::warn!(
 				target: LOG_TARGET,
-				?candidate_hash,
+				candidate_hash = ?candidate_hash.0,
 				?relay_parent,
 				?group_index,
 				session = relay_parent_state.session,
 				"Handled backed candidate with unknown group?",
 			);
 
-			return
+			return;
 		},
 		Some(g) => g.len(),
 	};
@@ -2061,12 +2067,13 @@ async fn provide_candidate_to_grid<Context>(
 	for (v, action) in actions {
 		let p = match connected_validator_peer(authorities, per_session, v) {
 			None => continue,
-			Some(p) =>
+			Some(p) => {
 				if peers.get(&p).map_or(false, |d| d.knows_relay_parent(&relay_parent)) {
 					(p, peers.get(&p).expect("Qed, was checked above").protocol_version.into())
 				} else {
-					continue
-				},
+					continue;
+				}
+			},
 		};
 
 		match action {
@@ -2101,7 +2108,7 @@ async fn provide_candidate_to_grid<Context>(
 	if !manifest_peers_v2.is_empty() {
 		gum::debug!(
 			target: LOG_TARGET,
-			?candidate_hash,
+			candidate_hash = ?candidate_hash.0,
 			local_validator = ?per_session.local_validator,
 			n_peers = manifest_peers_v2.len(),
 			"Sending manifest to v2 peers"
@@ -2120,7 +2127,7 @@ async fn provide_candidate_to_grid<Context>(
 	if !manifest_peers_v3.is_empty() {
 		gum::debug!(
 			target: LOG_TARGET,
-			?candidate_hash,
+			candidate_hash = ?candidate_hash.0,
 			local_validator = ?per_session.local_validator,
 			n_peers = manifest_peers_v3.len(),
 			"Sending manifest to v3 peers"
@@ -2141,7 +2148,7 @@ async fn provide_candidate_to_grid<Context>(
 	if !ack_peers_v2.is_empty() {
 		gum::debug!(
 			target: LOG_TARGET,
-			?candidate_hash,
+			candidate_hash = ?candidate_hash.0,
 			local_validator = ?per_session.local_validator,
 			n_peers = ack_peers_v2.len(),
 			"Sending acknowledgement to v2 peers"
@@ -2160,7 +2167,7 @@ async fn provide_candidate_to_grid<Context>(
 	if !ack_peers_v3.is_empty() {
 		gum::debug!(
 			target: LOG_TARGET,
-			?candidate_hash,
+			candidate_hash = ?candidate_hash.0,
 			local_validator = ?per_session.local_validator,
 			n_peers = ack_peers_v3.len(),
 			"Sending acknowledgement to v3 peers"
@@ -2250,7 +2257,7 @@ async fn fragment_chain_update_inner<Context>(
 	for (hypo, membership) in candidate_memberships {
 		// skip parablocks which aren't potential candidates
 		if membership.is_empty() {
-			continue
+			continue;
 		}
 
 		for leaf_hash in membership {
@@ -2273,10 +2280,10 @@ async fn fragment_chain_update_inner<Context>(
 				// Sanity check if group_index is valid for this para at relay parent.
 				let Some(expected_groups) = prs.groups_per_para.get(&receipt.descriptor.para_id())
 				else {
-					continue
+					continue;
 				};
 				if !expected_groups.iter().any(|g| *g == group_index) {
-					continue
+					continue;
 				}
 
 				if let Some(per_session) = per_session {
@@ -2365,7 +2372,7 @@ async fn handle_incoming_manifest_common<'a, Context>(
 				COST_UNEXPECTED_MANIFEST_MISSING_KNOWLEDGE,
 			)
 			.await;
-			return None
+			return None;
 		},
 		Some(s) => s,
 	};
@@ -2385,17 +2392,17 @@ async fn handle_incoming_manifest_common<'a, Context>(
 			)
 			.await;
 		}
-		return None
+		return None;
 	}
 
 	let Some(expected_groups) = relay_parent_state.groups_per_para.get(&para_id) else {
 		modify_reputation(reputation, ctx.sender(), peer, COST_MALFORMED_MANIFEST).await;
-		return None
+		return None;
 	};
 
 	if !expected_groups.iter().any(|g| g == &manifest_summary.claimed_group_index) {
 		modify_reputation(reputation, ctx.sender(), peer, COST_MALFORMED_MANIFEST).await;
-		return None
+		return None;
 	}
 
 	let grid_topology = match per_session.grid_view.as_ref() {
@@ -2419,7 +2426,7 @@ async fn handle_incoming_manifest_common<'a, Context>(
 				COST_UNEXPECTED_MANIFEST_PEER_UNKNOWN,
 			)
 			.await;
-			return None
+			return None;
 		},
 		Some(s) => s,
 	};
@@ -2448,24 +2455,24 @@ async fn handle_incoming_manifest_common<'a, Context>(
 		Ok(x) => x,
 		Err(grid::ManifestImportError::Conflicting) => {
 			modify_reputation(reputation, ctx.sender(), peer, COST_CONFLICTING_MANIFEST).await;
-			return None
+			return None;
 		},
 		Err(grid::ManifestImportError::Overflow) => {
 			modify_reputation(reputation, ctx.sender(), peer, COST_EXCESSIVE_SECONDED).await;
-			return None
+			return None;
 		},
 		Err(grid::ManifestImportError::Insufficient) => {
 			modify_reputation(reputation, ctx.sender(), peer, COST_INSUFFICIENT_MANIFEST).await;
-			return None
+			return None;
 		},
 		Err(grid::ManifestImportError::Malformed) => {
 			modify_reputation(reputation, ctx.sender(), peer, COST_MALFORMED_MANIFEST).await;
-			return None
+			return None;
 		},
 		Err(grid::ManifestImportError::Disallowed) => {
 			modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_MANIFEST_DISALLOWED)
 				.await;
-			return None
+			return None;
 		},
 	};
 
@@ -2478,13 +2485,13 @@ async fn handle_incoming_manifest_common<'a, Context>(
 		Some((claimed_parent_hash, para_id)),
 	) {
 		modify_reputation(reputation, ctx.sender(), peer, COST_INACCURATE_ADVERTISEMENT).await;
-		return None
+		return None;
 	}
 
 	if acknowledge {
 		gum::trace!(
 			target: LOG_TARGET,
-			?candidate_hash,
+			candidate_hash = ?candidate_hash.0,
 			from = ?sender_index,
 			local_index = ?per_session.local_validator,
 			?manifest_kind,
@@ -2562,7 +2569,7 @@ async fn handle_incoming_manifest<Context>(
 ) {
 	gum::debug!(
 		target: LOG_TARGET,
-		candidate_hash = ?manifest.candidate_hash,
+		candidate_hash = ?manifest.candidate_hash.0,
 		?peer,
 		"Received incoming manifest",
 	);
@@ -2596,8 +2603,7 @@ async fn handle_incoming_manifest<Context>(
 	if acknowledge {
 		// 4. if already known within grid (confirmed & backed), acknowledge candidate
 		gum::trace!(
-			target: LOG_TARGET,
-			candidate_hash = ?manifest.candidate_hash,
+			target: LOG_TARGET, candidate_hash = ?manifest.candidate_hash.0,
 			"Known candidate - acknowledging manifest",
 		);
 
@@ -2642,7 +2648,7 @@ async fn handle_incoming_manifest<Context>(
 		// 5. if unconfirmed, add request entry
 		gum::trace!(
 			target: LOG_TARGET,
-			candidate_hash = ?manifest.candidate_hash,
+			candidate_hash = ?manifest.candidate_hash.0,
 			"Unknown candidate - requesting",
 		);
 
@@ -2694,7 +2700,7 @@ fn acknowledgement_and_statement_messages(
 				"Bug ValidationVersion::V1 should not be used in statement-distribution v2,
 				legacy should have handled this"
 			);
-			return (Vec::new(), 0)
+			return (Vec::new(), 0);
 		},
 	};
 
@@ -2737,7 +2743,7 @@ async fn handle_incoming_acknowledgement<Context>(
 
 	gum::debug!(
 		target: LOG_TARGET,
-		candidate_hash = ?acknowledgement.candidate_hash,
+		candidate_hash = ?acknowledgement.candidate_hash.0,
 		?peer,
 		"Received incoming acknowledgement",
 	);
@@ -2754,7 +2760,7 @@ async fn handle_incoming_acknowledgement<Context>(
 					COST_UNEXPECTED_ACKNOWLEDGEMENT_UNKNOWN_CANDIDATE,
 				)
 				.await;
-				return
+				return;
 			},
 		}
 	};
@@ -2833,11 +2839,11 @@ pub(crate) async fn handle_backed_candidate_message<Context>(
 		None => {
 			gum::debug!(
 				target: LOG_TARGET,
-				?candidate_hash,
+				candidate_hash = ?candidate_hash.0,
 				"Received backed candidate notification for unknown or unconfirmed",
 			);
 
-			return
+			return;
 		},
 		Some(c) => c,
 	};
@@ -2854,7 +2860,7 @@ pub(crate) async fn handle_backed_candidate_message<Context>(
 
 	gum::debug!(
 		target: LOG_TARGET,
-		?candidate_hash,
+		candidate_hash = ?candidate_hash.0,
 		group_index = ?confirmed.group_index(),
 		"Candidate Backed - initiating grid distribution & child fetches"
 	);
@@ -2975,7 +2981,7 @@ async fn apply_post_confirmation<Context>(
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
 pub(crate) async fn dispatch_requests<Context>(ctx: &mut Context, state: &mut State) {
 	if !state.request_manager.has_pending_requests() {
-		return
+		return;
 	}
 
 	let peers = &state.peers;
@@ -2994,7 +3000,7 @@ pub(crate) async fn dispatch_requests<Context>(ctx: &mut Context, state: &mut St
 			// but have surely sent us some.
 			if let Some(active) = local_validator.active.as_ref() {
 				if active.cluster_tracker.knows_candidate(validator_id, identifier.candidate_hash) {
-					return Some(StatementFilter::blank(active.cluster_tracker.targets().len()))
+					return Some(StatementFilter::blank(active.cluster_tracker.targets().len()));
 				}
 			}
 
@@ -3003,7 +3009,7 @@ pub(crate) async fn dispatch_requests<Context>(ctx: &mut Context, state: &mut St
 				.advertised_statements(validator_id, &identifier.candidate_hash);
 
 			if let Some(f) = filter {
-				return Some(f)
+				return Some(f);
 			}
 		}
 
@@ -3076,8 +3082,9 @@ pub(crate) async fn receive_response(response_manager: &mut ResponseManager) -> 
 /// this API must call `dispatch_requests`.
 pub(crate) async fn next_retry(request_manager: &mut RequestManager) {
 	match request_manager.next_retry_time() {
-		Some(instant) =>
-			futures_timer::Delay::new(instant.saturating_duration_since(Instant::now())).await,
+		Some(instant) => {
+			futures_timer::Delay::new(instant.saturating_duration_since(Instant::now())).await
+		},
 		None => futures::future::pending().await,
 	}
 }
@@ -3098,7 +3105,7 @@ pub(crate) async fn handle_response<Context>(
 
 	gum::trace!(
 		target: LOG_TARGET,
-		?candidate_hash,
+		candidate_hash = ?candidate_hash.0,
 		?peer,
 		"Received response",
 	);
@@ -3128,7 +3135,7 @@ pub(crate) async fn handle_response<Context>(
 			|v| per_session.session_info.validators.get(v).map(|x| x.clone()),
 			|para, g_index| {
 				let Some(expected_groups) = relay_parent_state.groups_per_para.get(&para) else {
-					return false
+					return false;
 				};
 
 				expected_groups.iter().any(|g| g == &g_index)
@@ -3147,11 +3154,11 @@ pub(crate) async fn handle_response<Context>(
 			requests::CandidateRequestStatus::Incomplete => {
 				gum::trace!(
 					target: LOG_TARGET,
-					?candidate_hash,
+					candidate_hash = ?candidate_hash.0,
 					"Response incomplete. Retrying"
 				);
 
-				return
+				return;
 			},
 			requests::CandidateRequestStatus::Complete {
 				candidate,
@@ -3160,7 +3167,7 @@ pub(crate) async fn handle_response<Context>(
 			} => {
 				gum::trace!(
 					target: LOG_TARGET,
-					?candidate_hash,
+					candidate_hash = ?candidate_hash.0,
 					n_statements = statements.len(),
 					"Successfully received candidate"
 				);
@@ -3184,11 +3191,11 @@ pub(crate) async fn handle_response<Context>(
 		} else {
 			gum::warn!(
 				target: LOG_TARGET,
-				?candidate_hash,
+				candidate_hash = ?candidate_hash.0,
 				"Candidate re-confirmed by request/response: logic error",
 			);
 
-			return
+			return;
 		}
 	};
 
@@ -3201,7 +3208,7 @@ pub(crate) async fn handle_response<Context>(
 	// hypothetical member of the fragment chain. Later, when it is,
 	// we will import statements.
 	if !confirmed.is_importable(None) {
-		return
+		return;
 	}
 
 	let relay_parent_state = match state.per_relay_parent.get_mut(&relay_parent) {
@@ -3248,7 +3255,7 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 
 	gum::trace!(
 		target: LOG_TARGET,
-		?candidate_hash,
+		candidate_hash = ?candidate_hash.0,
 		peer = ?request.peer,
 		"Received request"
 	);
@@ -3297,7 +3304,7 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 			sent_feedback: None,
 		});
 
-		return
+		return;
 	}
 
 	// check peer is allowed to request the candidate (i.e. they're in the cluster or we've sent
@@ -3315,12 +3322,12 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 			{
 				validator_id = Some(v);
 				is_cluster = true;
-				break
+				break;
 			}
 
 			if local_validator.grid_tracker.can_request(v, *candidate_hash) {
 				validator_id = Some(v);
-				break
+				break;
 			}
 		}
 
@@ -3333,7 +3340,7 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 					sent_feedback: None,
 				});
 
-				return
+				return;
 			},
 		}
 	};
@@ -3383,12 +3390,12 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 		if !seconded_and_sufficient(&sent_filter, Some(threshold)) {
 			gum::info!(
 				target: LOG_TARGET,
-				?candidate_hash,
+				candidate_hash = ?candidate_hash.0,
 				relay_parent = ?confirmed.relay_parent(),
 				?group_index,
 				"Dropping a request from a grid peer because the backing threshold is no longer met."
 			);
-			return
+			return;
 		}
 	}
 
