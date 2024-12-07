@@ -27,7 +27,6 @@ use frame::{
 		tokens::{Fortitude, Preservation},
 	},
 };
-
 use pallet_assets::FrozenBalance;
 
 const WHO: AccountId = 1;
