@@ -20,8 +20,8 @@
 use crate::mock::*;
 
 use codec::Compact;
-use frame_support::{
-	assert_ok, assert_storage_noop,
+use frame::{
+	testing_prelude::*,
 	traits::{
 		fungibles::{Inspect, InspectFreeze, MutateFreeze},
 		tokens::{Fortitude, Preservation},
@@ -281,8 +281,6 @@ mod impl_mutate_freeze {
 }
 
 mod with_pallet_assets {
-	use frame_support::assert_noop;
-
 	use super::*;
 
 	#[test]
