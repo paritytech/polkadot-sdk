@@ -5,6 +5,8 @@ doc:
       Migrate and update API's into polkavm 0.18.0.
 
 crates:
+  - name: frame-support
+    bump: minor
   - name: sc-executor-common
     bump: minor
   - name: sc-executor-polkavm
