@@ -1,4 +1,4 @@
-name: Short benchmarks (frame-omni-bencher)
+name: Weekly update of benchmarks (frame-omni-bencher)
 
 on:
   pull_request: 
@@ -84,7 +84,7 @@ jobs:
       - name: Upload diff
         uses: actions/upload-artifact@v4
         with:
-          name: cmd-output
+          name: diff-${{ matrix.runtime.name }}
           path: diff-${{ matrix.runtime.name }}.patch
 
   apply-diff-commit:
