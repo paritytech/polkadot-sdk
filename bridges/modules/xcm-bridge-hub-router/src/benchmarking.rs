@@ -57,4 +57,17 @@ benchmarks_instance_pallet! {
 	}: {
 		crate::Pallet::<T, I>::on_initialize(Zero::zero())
 	}
+
+	report_bridge_status {
+		Bridge::<T, I>::put(BridgeState::default());
+
+		let origin: T::RuntimeOrigin = T::BridgeHubOrigin::try_successful_origin().expect("expected valid BridgeHubOrigin");
+		let bridge_id = Default::default();
+		let is_congested = true;
+
+		let call = Call::<T, I>::report_bridge_status { bridge_id, is_congested };
+	}: { call.dispatch_bypass_filter(origin)? }
+	verify {
+		assert!(Bridge::<T, I>::get().is_congested);
+	}
 }
