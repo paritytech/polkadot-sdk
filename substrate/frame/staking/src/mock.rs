@@ -113,6 +113,7 @@ parameter_types! {
 	pub static SessionsPerEra: SessionIndex = 3;
 	pub static ExistentialDeposit: Balance = 1;
 	pub static SlashDeferDuration: EraIndex = 0;
+	pub static SlashCancellationDuration: EraIndex = 0;
 	pub static Period: BlockNumber = 5;
 	pub static Offset: BlockNumber = 0;
 	pub static MaxControllersInDeprecationBatch: u32 = 5900;
@@ -270,6 +271,7 @@ impl crate::pallet::pallet::Config for Test {
 	type Reward = MockReward;
 	type SessionsPerEra = SessionsPerEra;
 	type SlashDeferDuration = SlashDeferDuration;
+	type SlashCancellationDuration = SlashCancellationDuration;
 	type AdminOrigin = EnsureOneOrRoot;
 	type SessionInterface = Self;
 	type EraPayout = ConvertCurve<RewardCurve>;
@@ -369,6 +371,11 @@ impl ExtBuilder {
 	}
 	pub fn slash_defer_duration(self, eras: EraIndex) -> Self {
 		SLASH_DEFER_DURATION.with(|v| *v.borrow_mut() = eras);
+		self
+	}
+
+	pub fn slash_cancellation_window(self, eras: EraIndex) -> Self {
+		SLASH_CANCELLATION_DURATION.with(|v| *v.borrow_mut() = eras);
 		self
 	}
 	pub fn invulnerables(mut self, invulnerables: Vec<AccountId>) -> Self {
