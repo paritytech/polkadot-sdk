@@ -169,7 +169,7 @@ pub mod pallet {
 	pub type CurrentSlot<T: Config> = StorageValue<_, Slot, ValueQuery>;
 
 	#[pallet::genesis_config]
-	#[derive(frame::derive::DefaultNoBound)]
+	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		pub authorities: Vec<T::AuthorityId>,
 	}
