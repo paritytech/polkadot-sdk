@@ -24,6 +24,7 @@ use std::{
 	collections::{HashMap, VecDeque},
 	sync::Arc,
 };
+use tokio::sync::RwLock;
 
 /// The number of recent blocks maintained by the cache.
 /// For each block in the cache, we also store the EVM transaction receipts.
@@ -34,29 +35,69 @@ pub const CACHE_SIZE: usize = 256;
 pub struct BlockCache<const N: usize = CACHE_SIZE> {
 	/// A double-ended queue of the last N blocks.
 	/// The most recent block is at the back of the queue, and the oldest block is at the front.
-	pub buffer: VecDeque<Arc<SubstrateBlock>>,
+	buffer: VecDeque<Arc<SubstrateBlock>>,
 
 	/// A map of blocks by block number.
-	pub blocks_by_number: HashMap<SubstrateBlockNumber, Arc<SubstrateBlock>>,
+	blocks_by_number: HashMap<SubstrateBlockNumber, Arc<SubstrateBlock>>,
 
 	/// A map of blocks by block hash.
-	pub blocks_by_hash: HashMap<H256, Arc<SubstrateBlock>>,
+	blocks_by_hash: HashMap<H256, Arc<SubstrateBlock>>,
 
 	/// A map of receipts by hash.
-	pub receipts_by_hash: HashMap<H256, ReceiptInfo>,
+	receipts_by_hash: HashMap<H256, ReceiptInfo>,
 
 	/// A map of Signed transaction by hash.
-	pub signed_tx_by_hash: HashMap<H256, TransactionSigned>,
+	signed_tx_by_hash: HashMap<H256, TransactionSigned>,
 
 	/// A map of receipt hashes by block hash.
-	pub tx_hashes_by_block_and_index: HashMap<H256, HashMap<U256, H256>>,
+	tx_hashes_by_block_and_index: HashMap<H256, HashMap<U256, H256>>,
+}
+
+pub struct BlockDataProvider {
+	cache: Arc<RwLock<BlockCache<CACHE_SIZE>>>,
+}
+
+impl Default for BlockDataProvider {
+	fn default() -> Self {
+		Self { cache: Arc::new(RwLock::new(BlockCache::default())) }
+	}
+}
+
+impl BlockDataProvider {
+	async fn cache(&self) -> tokio::sync::RwLockReadGuard<'_, BlockCache<CACHE_SIZE>> {
+		self.cache.read().await
+	}
+
+	pub async fn latest_block(&self) -> Option<Arc<SubstrateBlock>> {
+		let cache = self.cache().await;
+		cache.buffer.back().cloned()
+	}
+
+	pub async fn block_by_number(
+		&self,
+		number: SubstrateBlockNumber,
+	) -> Option<Arc<SubstrateBlock>> {
+		let cache = self.cache().await;
+		cache.blocks_by_number.get(&number).cloned()
+	}
+
+	pub async fn block_by_hash(&self, hash: &H256) -> Option<Arc<SubstrateBlock>> {
+		let cache = self.cache().await;
+		cache.blocks_by_hash.get(hash).cloned()
+	}
+
+	pub async fn receipt_by_hash(&self, hash: &H256) -> Option<ReceiptInfo> {
+		let cache = self.cache().await;
+		cache.receipts_by_hash.get(hash).cloned()
+	}
+
+	pub async fn signed_tx_by_hash(&self, hash: &H256) -> Option<TransactionSigned> {
+		let cache = self.cache().await;
+		cache.signed_tx_by_hash.get(hash).cloned()
+	}
 }
 
 impl<const N: usize> BlockCache<N> {
-	pub fn latest_block(&self) -> Option<&Arc<SubstrateBlock>> {
-		self.buffer.back()
-	}
-
 	/// Insert an entry into the cache, and prune the oldest entry if the cache is full.
 	pub fn insert(
 		&mut self,
