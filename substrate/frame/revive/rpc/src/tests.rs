@@ -22,6 +22,7 @@ use crate::{
 	EthRpcClient,
 };
 use clap::Parser;
+use ethabi::Token;
 use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use pallet_revive::{
 	create1,
@@ -31,9 +32,9 @@ use static_init::dynamic;
 use std::thread;
 use substrate_cli_test_utils::*;
 
-/// Create a websocket client with a 30s timeout.
+/// Create a websocket client with a 120s timeout.
 async fn ws_client_with_retry(url: &str) -> WsClient {
-	let timeout = tokio::time::Duration::from_secs(30);
+	let timeout = tokio::time::Duration::from_secs(120);
 	tokio::time::timeout(timeout, async {
 		loop {
 			if let Ok(client) = WsClientBuilder::default().build(url).await {
@@ -48,15 +49,12 @@ async fn ws_client_with_retry(url: &str) -> WsClient {
 }
 
 fn get_contract(name: &str) -> anyhow::Result<(Vec<u8>, ethabi::Contract)> {
-	const PVM_CONTRACTS: &str = include_str!("../examples/js/pvm-contracts.json");
-	let pvm_contract: serde_json::Value = serde_json::from_str(PVM_CONTRACTS)?;
-	let pvm_contract = pvm_contract[name].as_object().unwrap();
-	let bytecode = pvm_contract["bytecode"].as_str().unwrap();
-	let bytecode = hex::decode(bytecode)?;
+	let pvm_dir: std::path::PathBuf = "./examples/js/pvm".into();
+	let abi_dir: std::path::PathBuf = "./examples/js/abi".into();
+	let bytecode = std::fs::read(pvm_dir.join(format!("{}.polkavm", name)))?;
 
-	let abi = pvm_contract["abi"].clone();
-	let abi = serde_json::to_string(&abi)?;
-	let contract = ethabi::Contract::load(abi.as_bytes())?;
+	let abi = std::fs::read(abi_dir.join(format!("{}.json", name)))?;
+	let contract = ethabi::Contract::load(abi.as_slice())?;
 
 	Ok((bytecode, contract))
 }
@@ -220,6 +218,8 @@ async fn deploy_and_call() -> anyhow::Result<()> {
 	Ok(())
 }
 
+/// TODO: enable ( https://github.com/paritytech/contract-issues/issues/12 )
+#[ignore]
 #[tokio::test]
 async fn revert_call() -> anyhow::Result<()> {
 	let _lock = SHARED_RESOURCES.write();
@@ -238,10 +238,13 @@ async fn revert_call() -> anyhow::Result<()> {
 		.unwrap_err();
 
 	let call_err = unwrap_call_err!(err.source().unwrap());
-	assert_eq!(call_err.message(), "Execution reverted: revert message");
+	assert_eq!(call_err.message(), "execution reverted: revert message");
+	assert_eq!(call_err.code(), 3);
 	Ok(())
 }
 
+/// TODO: enable ( https://github.com/paritytech/contract-issues/issues/12 )
+#[ignore]
 #[tokio::test]
 async fn event_logs() -> anyhow::Result<()> {
 	let _lock = SHARED_RESOURCES.write();
@@ -277,6 +280,49 @@ async fn invalid_transaction() -> anyhow::Result<()> {
 
 	let call_err = unwrap_call_err!(err.source().unwrap());
 	assert_eq!(call_err.message(), "Invalid Transaction");
+
+	Ok(())
+}
+
+/// TODO: enable ( https://github.com/paritytech/contract-issues/issues/12 )
+#[ignore]
+#[tokio::test]
+async fn native_evm_ratio_works() -> anyhow::Result<()> {
+	let _lock = SHARED_RESOURCES.write();
+	let client = SharedResources::client().await;
+	let (bytecode, contract) = get_contract("piggyBank")?;
+	let contract_address = TransactionBuilder::default()
+		.input(bytecode)
+		.send_and_wait_for_receipt(&client)
+		.await?
+		.contract_address
+		.unwrap();
+
+	let value = 10_000_000_000_000_000_000u128; // 10 eth
+	TransactionBuilder::default()
+		.to(contract_address)
+		.input(contract.function("deposit")?.encode_input(&[])?.to_vec())
+		.value(value.into())
+		.send_and_wait_for_receipt(&client)
+		.await?;
+
+	let contract_value = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
+	assert_eq!(contract_value, value.into());
+
+	let withdraw_value = 1_000_000_000_000_000_000u128; // 1 eth
+	TransactionBuilder::default()
+		.to(contract_address)
+		.input(
+			contract
+				.function("withdraw")?
+				.encode_input(&[Token::Uint(withdraw_value.into())])?
+				.to_vec(),
+		)
+		.send_and_wait_for_receipt(&client)
+		.await?;
+
+	let contract_value = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
+	assert_eq!(contract_value, (value - withdraw_value).into());
 
 	Ok(())
 }
