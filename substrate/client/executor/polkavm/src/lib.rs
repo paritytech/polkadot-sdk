@@ -45,12 +45,11 @@ impl WasmInstance for Instance {
 	) -> (Result<Vec<u8>, Error>, Option<AllocationStats>) {
 		let pc = match self.0.module().exports().find(|e| e.symbol() == name) {
 			Some(export) => export.program_counter(),
-			None => {
+			None =>
 				return (
 					Err(format!("cannot call into the runtime: export not found: '{name}'").into()),
 					None,
-				)
-			},
+				),
 		};
 
 		let Ok(raw_data_length) = u32::try_from(raw_data.len()) else {
@@ -62,20 +61,24 @@ impl WasmInstance for Instance {
 
 		// TODO: This will leak guest memory; find a better solution.
 
-		// Make sure the memory is cleared...
-		if self.0.reset_memory().is_err() {
+		// Make sure that the memory is cleared...
+		if let Err(err) = self.0.reset_memory() {
 			return (
-				Err(format!("call into the runtime method '{name}' failed: initialize memory")
-					.into()),
+				Err(format!(
+					"call into the runtime method '{name}' failed: reset memory failed: {err}"
+				)
+				.into()),
 				None,
 			);
 		}
 
-		// ...and allocate space for the input payload.
-		if self.0.sbrk(raw_data_length).is_err() {
+		// ... and allocate space for the input payload.
+		if let Err(err) = self.0.sbrk(raw_data_length) {
 			return (
-				Err(format!("call into the runtime method '{name}' failed: allocate payload")
-					.into()),
+				Err(format!(
+					"call into the runtime method '{name}' failed: reset memory failed: {err}"
+				)
+				.into()),
 				None,
 			);
 		}
@@ -183,7 +186,7 @@ fn call_host_function(
 				args[nth_arg] = Value::F32(caller.instance.reg(Reg::ARG_REGS[nth_reg]) as u32);
 				nth_reg += 1;
 			},
-			ValueType::I64 => {
+			ValueType::I64 =>
 				if caller.instance.is_64_bit() {
 					args[nth_arg] = Value::I64(caller.instance.reg(Reg::ARG_REGS[nth_reg]) as i64);
 					nth_reg += 1;
@@ -196,9 +199,8 @@ fn call_host_function(
 
 					args[nth_arg] =
 						Value::I64((u64::from(value_lo) | (u64::from(value_hi) << 32)) as i64);
-				}
-			},
-			ValueType::F64 => {
+				},
+			ValueType::F64 =>
 				if caller.instance.is_64_bit() {
 					args[nth_arg] = Value::F64(caller.instance.reg(Reg::ARG_REGS[nth_reg]));
 					nth_reg += 1;
@@ -210,8 +212,7 @@ fn call_host_function(
 					nth_reg += 1;
 
 					args[nth_arg] = Value::F64(u64::from(value_lo) | (u64::from(value_hi) << 32));
-				}
-			},
+				},
 		}
 	}
 
@@ -225,12 +226,11 @@ fn call_host_function(
 		.execute(&mut Context(caller), &mut args.into_iter().take(function.signature().args.len()))
 	{
 		Ok(value) => value,
-		Err(error) => {
+		Err(error) =>
 			return Err(polkavm::CallError::User(format!(
 				"Call into the host function '{}' failed: {error}",
 				function.name()
-			)))
-		},
+			))),
 	};
 
 	if let Some(value) = value {
@@ -241,22 +241,20 @@ fn call_host_function(
 			Value::F32(value) => {
 				caller.instance.set_reg(Reg::A0, value as u64);
 			},
-			Value::I64(value) => {
+			Value::I64(value) =>
 				if caller.instance.is_64_bit() {
 					caller.instance.set_reg(Reg::A0, value as u64);
 				} else {
 					caller.instance.set_reg(Reg::A0, value as u64);
 					caller.instance.set_reg(Reg::A1, (value >> 32) as u64);
-				}
-			},
-			Value::F64(value) => {
+				},
+			Value::F64(value) =>
 				if caller.instance.is_64_bit() {
 					caller.instance.set_reg(Reg::A0, value as u64);
 				} else {
 					caller.instance.set_reg(Reg::A0, value as u64);
 					caller.instance.set_reg(Reg::A1, (value >> 32) as u64);
-				}
-			},
+				},
 		}
 	}
 
