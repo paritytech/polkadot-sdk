@@ -301,6 +301,9 @@ pub mod weights_prelude {
 pub mod testing_prelude {
 	pub use crate::{prelude::*, runtime::prelude::*};
 
+	/// Testing includes event cheking.
+	pub use crate::event::*;
+
 	/// Testing includes building a runtime, so we bring in all preludes related to runtimes as
 	/// well.
 	pub use super::runtime::testing_prelude::*;
@@ -341,6 +344,9 @@ pub mod runtime {
 		///
 		/// Consider using the new version of this [`frame_construct_runtime`].
 		pub use frame_support::construct_runtime;
+
+		/// Related to runtime contruction.
+		pub use frame_support::BoundedVec;
 
 		/// Macro to amalgamate the runtime into `struct Runtime`.
 		///
@@ -511,6 +517,11 @@ pub mod traits {
 /// The arithmetic types used for safe math.
 pub mod arithmetic {
 	pub use sp_arithmetic::{traits::*, *};
+}
+
+/// Event checking system for mock runtimes.
+pub mod event {
+	pub use frame_system::{EventRecord, Phase};
 }
 
 /// All derive macros used in frame.
