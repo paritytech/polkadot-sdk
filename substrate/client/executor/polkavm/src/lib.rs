@@ -43,11 +43,14 @@ impl WasmInstance for Instance {
 		name: &str,
 		raw_data: &[u8],
 	) -> (Result<Vec<u8>, Error>, Option<AllocationStats>) {
-		let Some(export) = self.0.module().exports().find(|e| e.symbol() == name) else {
-			return (
-				Err(format!("cannot call into the runtime: export not found: '{name}'").into()),
-				None,
-			);
+		let pc = match self.0.module().exports().find(|e| e.symbol() == name) {
+			Some(export) => export.program_counter(),
+			None => {
+				return (
+					Err(format!("cannot call into the runtime: export not found: '{name}'").into()),
+					None,
+				)
+			},
 		};
 
 		let Ok(raw_data_length) = u32::try_from(raw_data.len()) else {
@@ -85,10 +88,7 @@ impl WasmInstance for Instance {
 			return (Err(format!("call into the runtime method '{name}': failed to write the input payload into guest memory: {error}").into()), None);
 		}
 
-		match self
-			.0
-			.call_typed(&mut (), export.program_counter(), (data_pointer, raw_data_length))
-		{
+		match self.0.call_typed(&mut (), pc, (data_pointer, raw_data_length)) {
 			Ok(()) => {},
 			Err(polkavm::CallError::Trap) => {
 				return (
