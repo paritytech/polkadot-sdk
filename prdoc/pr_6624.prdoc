@@ -6,6 +6,6 @@ title: Use `cmd_lib` instead of `std::process::Command` when using `#[docify::ex
 doc:
   - audience: Runtime Dev
     description: |
-      "Simplified the display of commands and ensured they are tested for chain spec builder's `polkadot-sdk` reference docs."
+      Simplified the display of commands and ensured they are tested for chain spec builder's `polkadot-sdk` reference docs.
 
 crates: []
