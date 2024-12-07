@@ -16,15 +16,11 @@
 // limitations under the License.
 
 use super::*;
-
-use frame::{
-	deps::sp_runtime,
-	traits::{
-		fungibles::{Inspect, InspectFreeze, MutateFreeze},
-		tokens::{DepositConsequence, Fortitude, Preservation, Provenance, WithdrawConsequence},
-		Zero,
-	},
+use frame::traits::{
+	fungibles::{Inspect, InspectFreeze, MutateFreeze},
+	tokens::{DepositConsequence, Fortitude, Preservation, Provenance, WithdrawConsequence},
 };
+
 use pallet_assets::FrozenBalance;
 
 // Implements [`FrozenBalance`] from [`pallet-assets`], so it can understand how much of an
@@ -118,7 +114,7 @@ impl<T: Config<I>, I: 'static> MutateFreeze<T::AccountId> for Pallet<T, I> {
 		id: &Self::Id,
 		who: &T::AccountId,
 		amount: Self::Balance,
-	) -> sp_runtime::DispatchResult {
+	) -> DispatchResult {
 		if amount.is_zero() {
 			return Self::thaw(asset, id, who);
 		}
@@ -138,7 +134,7 @@ impl<T: Config<I>, I: 'static> MutateFreeze<T::AccountId> for Pallet<T, I> {
 		id: &Self::Id,
 		who: &T::AccountId,
 		amount: Self::Balance,
-	) -> sp_runtime::DispatchResult {
+	) -> DispatchResult {
 		if amount.is_zero() {
 			return Ok(());
 		}
@@ -153,7 +149,7 @@ impl<T: Config<I>, I: 'static> MutateFreeze<T::AccountId> for Pallet<T, I> {
 		Self::update_freezes(asset, who, freezes.as_bounded_slice())
 	}
 
-	fn thaw(asset: Self::AssetId, id: &Self::Id, who: &T::AccountId) -> sp_runtime::DispatchResult {
+	fn thaw(asset: Self::AssetId, id: &Self::Id, who: &T::AccountId) -> DispatchResult {
 		let mut freezes = Freezes::<T, I>::get(asset.clone(), who);
 		freezes.retain(|f| &f.id != id);
 		Self::update_freezes(asset, who, freezes.as_bounded_slice())

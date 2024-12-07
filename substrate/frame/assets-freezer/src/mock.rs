@@ -21,14 +21,8 @@ use crate as pallet_assets_freezer;
 pub use crate::*;
 use codec::{Compact, Decode, Encode, MaxEncodedLen};
 use frame::{
-	hashing::H256,
-	pallet_macros::derive_impl,
-	runtime::{
-		prelude::{construct_runtime, ConstU32, ConstU64},
-		testing_prelude::BuildStorage,
-	},
-	testing_prelude::{assert_ok, TestExternalities},
-	traits::{AsEnsureOriginWithArg, BlakeTwo256, Everything, IdentityLookup},
+	testing_prelude::*,
+	traits::{AsEnsureOriginWithArg, Everything, IdentityLookup},
 };
 use scale_info::TypeInfo;
 
