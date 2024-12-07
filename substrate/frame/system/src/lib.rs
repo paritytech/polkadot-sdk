@@ -786,7 +786,7 @@ pub mod pallet {
 		#[pallet::call_index(8)]
 		#[pallet::weight(task.weight())]
 		#[pallet::authorize(|_source, task| Pallet::<T>::validate_do_task(task).map(|v| (v, Weight::zero())))]
-		// Weight of authorize is already included in the call weight.
+		// TODO TODO: weight of is_valid is and was ignored.
 		#[pallet::weight_of_authorize(Weight::zero())]
 		pub fn do_task(origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
 			let skip_validity = origin.as_system_ref() == Some(&RawOrigin::Authorized);
@@ -1087,23 +1087,10 @@ pub mod pallet {
 		type Call = Call<T>;
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			match call {
-				Call::apply_authorized_upgrade { ref code } => {
-					log::warn!(
-						target: LOG_TARGET,
-						"Using unsigned transaction to apply an authorized upgrade is deprecated. \
-						Consider using a general transaction instead."
-					);
-					Self::validate_apply_authorized_upgrade(code)
-				},
+				Call::apply_authorized_upgrade { ref code } =>
+					Self::validate_apply_authorized_upgrade(code),
 				#[cfg(feature = "experimental")]
-				Call::do_task { ref task } => {
-					log::warn!(
-						target: LOG_TARGET,
-						"Using unsigned transaction to execute task is deprecated. \
-						Consider using a general transaction instead."
-					);
-					Self::validate_do_task(task)
-				},
+				Call::do_task { ref task } => Self::validate_do_task(task),
 				_ => Err(InvalidTransaction::Call.into()),
 			}
 		}
