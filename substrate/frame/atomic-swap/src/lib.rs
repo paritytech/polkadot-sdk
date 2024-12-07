@@ -51,17 +51,8 @@ use core::{
 	ops::{Deref, DerefMut},
 };
 use frame::{
-	deps::{
-		frame_support::{
-			dispatch::DispatchResult,
-			pallet_prelude::MaxEncodedLen,
-			traits::{BalanceStatus, Currency, Get, ReservableCurrency},
-			weights::Weight,
-		},
-		sp_io::hashing::blake2_256,
-	},
-	derive::{RuntimeDebug, RuntimeDebugNoBound},
 	prelude::*,
+	traits::{BalanceStatus, Currency, ReservableCurrency},
 };
 use scale_info::TypeInfo;
 
@@ -162,7 +153,6 @@ where
 
 pub use pallet::*;
 
-// #[frame_support::pallet]
 #[frame::pallet]
 pub mod pallet {
 	use super::*;

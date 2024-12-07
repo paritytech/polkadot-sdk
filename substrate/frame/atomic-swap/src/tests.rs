@@ -19,13 +19,7 @@
 
 use super::*;
 use crate as pallet_atomic_swap;
-use frame::{
-	runtime::{
-		prelude::{construct_runtime, derive_impl, ConstU32},
-		testing_prelude::BuildStorage,
-	},
-	testing_prelude::TestExternalities,
-};
+use frame::testing_prelude::*;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
