@@ -295,6 +295,7 @@ pub(crate) mod mock;
 #[cfg(test)]
 mod tests;
 
+pub mod asset;
 pub mod election_size_tracker;
 pub mod inflation;
 pub mod ledger;
@@ -304,6 +305,9 @@ pub mod weights;
 
 mod pallet;
 
+extern crate alloc;
+
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
 	defensive, defensive_assert,
@@ -320,12 +324,11 @@ use sp_runtime::{
 	Perbill, Perquintill, Rounding, RuntimeDebug, Saturating,
 };
 use sp_staking::{
-	offence::{Offence, OffenceError, ReportOffence},
+	offence::{Offence, OffenceError, OffenceSeverity, ReportOffence},
 	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, SessionIndex,
 	StakingAccount,
 };
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 pub use weights::WeightInfo;
 
 pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
@@ -361,7 +364,7 @@ pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::PositiveImbalance;
-type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
+pub type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 
@@ -376,7 +379,7 @@ pub struct ActiveEraInfo {
 	///
 	/// Start can be none if start hasn't been set for the era yet,
 	/// Start is set on the first on_finalize of the era to guarantee usage of `Time`.
-	start: Option<u64>,
+	pub start: Option<u64>,
 }
 
 /// Reward points of an era. Used to split era total payout between validators.
@@ -489,6 +492,20 @@ pub struct StakingLedger<T: Config> {
 	/// Use [`controller`] function to get the controller associated with the ledger.
 	#[codec(skip)]
 	controller: Option<T::AccountId>,
+}
+
+/// State of a ledger with regards with its data and metadata integrity.
+#[derive(PartialEq, Debug)]
+enum LedgerIntegrityState {
+	/// Ledger, bond and corresponding staking lock is OK.
+	Ok,
+	/// Ledger and/or bond is corrupted. This means that the bond has a ledger with a different
+	/// stash than the bonded stash.
+	Corrupted,
+	/// Ledger was corrupted and it has been killed.
+	CorruptedKilled,
+	/// Ledger and bond are OK, however the ledger's stash lock is out of sync.
+	LockCorrupted,
 }
 
 impl<T: Config> StakingLedger<T> {
@@ -660,7 +677,7 @@ impl<T: Config> StakingLedger<T> {
 				// slightly under-slashed, by at most `MaxUnlockingChunks * ED`, which is not a big
 				// deal.
 				slash_from_target =
-					sp_std::mem::replace(target, Zero::zero()).saturating_add(slash_from_target)
+					core::mem::replace(target, Zero::zero()).saturating_add(slash_from_target)
 			}
 
 			self.total = self.total.saturating_sub(slash_from_target);
@@ -832,6 +849,9 @@ pub trait SessionInterface<AccountId> {
 	/// Disable the validator at the given index, returns `false` if the validator was already
 	/// disabled or the index is out of bounds.
 	fn disable_validator(validator_index: u32) -> bool;
+	/// Re-enable a validator that was previously disabled. Returns `false` if the validator was
+	/// already enabled or the index is out of bounds.
+	fn enable_validator(validator_index: u32) -> bool;
 	/// Get the validators from session.
 	fn validators() -> Vec<AccountId>;
 	/// Prune historical session tries up to but not including the given index.
@@ -856,6 +876,10 @@ where
 		<pallet_session::Pallet<T>>::disable_index(validator_index)
 	}
 
+	fn enable_validator(validator_index: u32) -> bool {
+		<pallet_session::Pallet<T>>::enable_index(validator_index)
+	}
+
 	fn validators() -> Vec<<T as frame_system::Config>::AccountId> {
 		<pallet_session::Pallet<T>>::validators()
 	}
@@ -867,6 +891,9 @@ where
 
 impl<AccountId> SessionInterface<AccountId> for () {
 	fn disable_validator(_: u32) -> bool {
+		true
+	}
+	fn enable_validator(_: u32) -> bool {
 		true
 	}
 	fn validators() -> Vec<AccountId> {
@@ -902,7 +929,7 @@ impl<Balance: Default> EraPayout<Balance> for () {
 
 /// Adaptor to turn a `PiecewiseLinear` curve definition into an `EraPayout` impl, used for
 /// backwards compatibility.
-pub struct ConvertCurve<T>(sp_std::marker::PhantomData<T>);
+pub struct ConvertCurve<T>(core::marker::PhantomData<T>);
 impl<Balance, T> EraPayout<Balance> for ConvertCurve<T>
 where
 	Balance: AtLeast32BitUnsigned + Clone + Copy,
@@ -960,7 +987,7 @@ impl Default for Forcing {
 
 /// A `Convert` implementation that finds the stash of the given controller account,
 /// if any.
-pub struct StashOf<T>(sp_std::marker::PhantomData<T>);
+pub struct StashOf<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for StashOf<T> {
 	fn convert(controller: T::AccountId) -> Option<T::AccountId> {
@@ -973,20 +1000,20 @@ impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for StashOf<T> {
 ///
 /// Active exposure is the exposure of the validator set currently validating, i.e. in
 /// `active_era`. It can differ from the latest planned exposure in `current_era`.
-pub struct ExposureOf<T>(sp_std::marker::PhantomData<T>);
+pub struct ExposureOf<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>>>>
 	for ExposureOf<T>
 {
 	fn convert(validator: T::AccountId) -> Option<Exposure<T::AccountId, BalanceOf<T>>> {
-		<Pallet<T>>::active_era()
+		ActiveEra::<T>::get()
 			.map(|active_era| <Pallet<T>>::eras_stakers(active_era.index, &validator))
 	}
 }
 
 /// Filter historical offences out and only allow those from the bonding period.
 pub struct FilterHistoricalOffences<T, R> {
-	_inner: sp_std::marker::PhantomData<(T, R)>,
+	_inner: core::marker::PhantomData<(T, R)>,
 }
 
 impl<T, Reporter, Offender, R, O> ReportOffence<Reporter, Offender, O>
@@ -1019,13 +1046,39 @@ where
 /// Wrapper struct for Era related information. It is not a pure encapsulation as these storage
 /// items can be accessed directly but nevertheless, its recommended to use `EraInfo` where we
 /// can and add more functions to it as needed.
-pub struct EraInfo<T>(sp_std::marker::PhantomData<T>);
+pub struct EraInfo<T>(core::marker::PhantomData<T>);
 impl<T: Config> EraInfo<T> {
+	/// Returns true if validator has one or more page of era rewards not claimed yet.
+	// Also looks at legacy storage that can be cleaned up after #433.
+	pub fn pending_rewards(era: EraIndex, validator: &T::AccountId) -> bool {
+		let page_count = if let Some(overview) = <ErasStakersOverview<T>>::get(&era, validator) {
+			overview.page_count
+		} else {
+			if <ErasStakers<T>>::contains_key(era, validator) {
+				// this means non paged exposure, and we treat them as single paged.
+				1
+			} else {
+				// if no exposure, then no rewards to claim.
+				return false
+			}
+		};
+
+		// check if era is marked claimed in legacy storage.
+		if <Ledger<T>>::get(validator)
+			.map(|l| l.legacy_claimed_rewards.contains(&era))
+			.unwrap_or_default()
+		{
+			return false
+		}
+
+		ClaimedRewards::<T>::get(era, validator).len() < page_count as usize
+	}
+
 	/// Temporary function which looks at both (1) passed param `T::StakingLedger` for legacy
 	/// non-paged rewards, and (2) `T::ClaimedRewards` for paged rewards. This function can be
 	/// removed once `T::HistoryDepth` eras have passed and none of the older non-paged rewards
 	/// are relevant/claimable.
-	// Refer tracker issue for cleanup: #13034
+	// Refer tracker issue for cleanup: https://github.com/paritytech/polkadot-sdk/issues/433
 	pub(crate) fn is_rewards_claimed_with_legacy_fallback(
 		era: EraIndex,
 		ledger: &StakingLedger<T>,
@@ -1224,4 +1277,201 @@ pub struct TestBenchmarkingConfig;
 impl BenchmarkingConfig for TestBenchmarkingConfig {
 	type MaxValidators = frame_support::traits::ConstU32<100>;
 	type MaxNominators = frame_support::traits::ConstU32<100>;
+}
+
+/// Controls validator disabling
+pub trait DisablingStrategy<T: Config> {
+	/// Make a disabling decision. Returning a [`DisablingDecision`]
+	fn decision(
+		offender_stash: &T::AccountId,
+		offender_slash_severity: OffenceSeverity,
+		slash_era: EraIndex,
+		currently_disabled: &Vec<(u32, OffenceSeverity)>,
+	) -> DisablingDecision;
+}
+
+/// Helper struct representing a decision coming from a given [`DisablingStrategy`] implementing
+/// `decision`
+///
+/// `disable` is the index of the validator to disable,
+/// `reenable` is the index of the validator to re-enable.
+#[derive(Debug)]
+pub struct DisablingDecision {
+	pub disable: Option<u32>,
+	pub reenable: Option<u32>,
+}
+
+/// Calculate the disabling limit based on the number of validators and the disabling limit factor.
+///
+/// This is a sensible default implementation for the disabling limit factor for most disabling
+/// strategies.
+///
+/// Disabling limit factor n=2 -> 1/n = 1/2 = 50% of validators can be disabled
+fn factor_based_disable_limit(validators_len: usize, disabling_limit_factor: usize) -> usize {
+	validators_len
+		.saturating_sub(1)
+		.checked_div(disabling_limit_factor)
+		.unwrap_or_else(|| {
+			defensive!("DISABLING_LIMIT_FACTOR should not be 0");
+			0
+		})
+}
+
+/// Implementation of [`DisablingStrategy`] using factor_based_disable_limit which disables
+/// validators from the active set up to a threshold. `DISABLING_LIMIT_FACTOR` is the factor of the
+/// maximum disabled validators in the active set. E.g. setting this value to `3` means no more than
+/// 1/3 of the validators in the active set can be disabled in an era.
+///
+/// By default a factor of 3 is used which is the byzantine threshold.
+pub struct UpToLimitDisablingStrategy<const DISABLING_LIMIT_FACTOR: usize = 3>;
+
+impl<const DISABLING_LIMIT_FACTOR: usize> UpToLimitDisablingStrategy<DISABLING_LIMIT_FACTOR> {
+	/// Disabling limit calculated from the total number of validators in the active set. When
+	/// reached no more validators will be disabled.
+	pub fn disable_limit(validators_len: usize) -> usize {
+		factor_based_disable_limit(validators_len, DISABLING_LIMIT_FACTOR)
+	}
+}
+
+impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
+	for UpToLimitDisablingStrategy<DISABLING_LIMIT_FACTOR>
+{
+	fn decision(
+		offender_stash: &T::AccountId,
+		_offender_slash_severity: OffenceSeverity,
+		slash_era: EraIndex,
+		currently_disabled: &Vec<(u32, OffenceSeverity)>,
+	) -> DisablingDecision {
+		let active_set = T::SessionInterface::validators();
+
+		// We don't disable more than the limit
+		if currently_disabled.len() >= Self::disable_limit(active_set.len()) {
+			log!(
+				debug,
+				"Won't disable: reached disabling limit {:?}",
+				Self::disable_limit(active_set.len())
+			);
+			return DisablingDecision { disable: None, reenable: None }
+		}
+
+		// We don't disable for offences in previous eras
+		if ActiveEra::<T>::get().map(|e| e.index).unwrap_or_default() > slash_era {
+			log!(
+				debug,
+				"Won't disable: current_era {:?} > slash_era {:?}",
+				CurrentEra::<T>::get().unwrap_or_default(),
+				slash_era
+			);
+			return DisablingDecision { disable: None, reenable: None }
+		}
+
+		let offender_idx = if let Some(idx) = active_set.iter().position(|i| i == offender_stash) {
+			idx as u32
+		} else {
+			log!(debug, "Won't disable: offender not in active set",);
+			return DisablingDecision { disable: None, reenable: None }
+		};
+
+		log!(debug, "Will disable {:?}", offender_idx);
+
+		DisablingDecision { disable: Some(offender_idx), reenable: None }
+	}
+}
+
+/// Implementation of [`DisablingStrategy`] which disables validators from the active set up to a
+/// limit (factor_based_disable_limit) and if the limit is reached and the new offender is higher
+/// (bigger punishment/severity) then it re-enables the lowest offender to free up space for the new
+/// offender.
+///
+/// This strategy is not based on cumulative severity of offences but only on the severity of the
+/// highest offence. Offender first committing a 25% offence and then a 50% offence will be treated
+/// the same as an offender committing 50% offence.
+///
+/// An extension of [`UpToLimitDisablingStrategy`].
+pub struct UpToLimitWithReEnablingDisablingStrategy<const DISABLING_LIMIT_FACTOR: usize = 3>;
+
+impl<const DISABLING_LIMIT_FACTOR: usize>
+	UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>
+{
+	/// Disabling limit calculated from the total number of validators in the active set. When
+	/// reached re-enabling logic might kick in.
+	pub fn disable_limit(validators_len: usize) -> usize {
+		factor_based_disable_limit(validators_len, DISABLING_LIMIT_FACTOR)
+	}
+}
+
+impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
+	for UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>
+{
+	fn decision(
+		offender_stash: &T::AccountId,
+		offender_slash_severity: OffenceSeverity,
+		slash_era: EraIndex,
+		currently_disabled: &Vec<(u32, OffenceSeverity)>,
+	) -> DisablingDecision {
+		let active_set = T::SessionInterface::validators();
+
+		// We don't disable for offences in previous eras
+		if ActiveEra::<T>::get().map(|e| e.index).unwrap_or_default() > slash_era {
+			log!(
+				debug,
+				"Won't disable: current_era {:?} > slash_era {:?}",
+				Pallet::<T>::current_era().unwrap_or_default(),
+				slash_era
+			);
+			return DisablingDecision { disable: None, reenable: None }
+		}
+
+		// We don't disable validators that are not in the active set
+		let offender_idx = if let Some(idx) = active_set.iter().position(|i| i == offender_stash) {
+			idx as u32
+		} else {
+			log!(debug, "Won't disable: offender not in active set",);
+			return DisablingDecision { disable: None, reenable: None }
+		};
+
+		// Check if offender is already disabled
+		if let Some((_, old_severity)) =
+			currently_disabled.iter().find(|(idx, _)| *idx == offender_idx)
+		{
+			if offender_slash_severity > *old_severity {
+				log!(debug, "Offender already disabled but with lower severity, will disable again to refresh severity of {:?}", offender_idx);
+				return DisablingDecision { disable: Some(offender_idx), reenable: None };
+			} else {
+				log!(debug, "Offender already disabled with higher or equal severity");
+				return DisablingDecision { disable: None, reenable: None };
+			}
+		}
+
+		// We don't disable more than the limit (but we can re-enable a smaller offender to make
+		// space)
+		if currently_disabled.len() >= Self::disable_limit(active_set.len()) {
+			log!(
+				debug,
+				"Reached disabling limit {:?}, checking for re-enabling",
+				Self::disable_limit(active_set.len())
+			);
+
+			// Find the smallest offender to re-enable that is not higher than
+			// offender_slash_severity
+			if let Some((smallest_idx, _)) = currently_disabled
+				.iter()
+				.filter(|(_, severity)| *severity <= offender_slash_severity)
+				.min_by_key(|(_, severity)| *severity)
+			{
+				log!(debug, "Will disable {:?} and re-enable {:?}", offender_idx, smallest_idx);
+				return DisablingDecision {
+					disable: Some(offender_idx),
+					reenable: Some(*smallest_idx),
+				}
+			} else {
+				log!(debug, "No smaller offender found to re-enable");
+				return DisablingDecision { disable: None, reenable: None }
+			}
+		} else {
+			// If we are not at the limit, just disable the new offender and dont re-enable anyone
+			log!(debug, "Will disable {:?}", offender_idx);
+			return DisablingDecision { disable: Some(offender_idx), reenable: None }
+		}
+	}
 }

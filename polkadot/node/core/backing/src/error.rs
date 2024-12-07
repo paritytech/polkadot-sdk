@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use std::collections::HashMap;
+
 use fatality::Nested;
 use futures::channel::{mpsc, oneshot};
 
@@ -22,9 +24,9 @@ use polkadot_node_subsystem::{
 	RuntimeApiError, SubsystemError,
 };
 use polkadot_node_subsystem_util::{runtime, Error as UtilError};
-use polkadot_primitives::{BackedCandidate, ValidationCodeHash};
+use polkadot_primitives::{vstaging::BackedCandidate, ValidationCodeHash};
 
-use crate::LOG_TARGET;
+use crate::{ParaId, LOG_TARGET};
 
 pub type Result<T> = std::result::Result<T, Error>;
 pub type FatalResult<T> = std::result::Result<T, FatalError>;
@@ -55,7 +57,7 @@ pub enum Error {
 	InvalidSignature,
 
 	#[error("Failed to send candidates {0:?}")]
-	Send(Vec<BackedCandidate>),
+	Send(HashMap<ParaId, Vec<BackedCandidate>>),
 
 	#[error("FetchPoV failed")]
 	FetchPoV,
@@ -86,7 +88,7 @@ pub enum Error {
 	JoinMultiple(#[source] oneshot::Canceled),
 
 	#[error("Obtaining erasure chunks failed")]
-	ObtainErasureChunks(#[from] erasure_coding::Error),
+	ObtainErasureChunks(#[from] polkadot_erasure_coding::Error),
 
 	#[error(transparent)]
 	ValidationFailed(#[from] ValidationFailed),
@@ -103,6 +105,9 @@ pub enum Error {
 
 	#[error("Availability store error")]
 	StoreAvailableData(#[source] StoreAvailableDataError),
+
+	#[error("Runtime API returned None for executor params")]
+	MissingExecutorParams,
 }
 
 /// Utility for eating top level errors and log them.

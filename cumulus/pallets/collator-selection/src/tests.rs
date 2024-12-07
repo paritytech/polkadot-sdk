@@ -14,7 +14,10 @@
 // limitations under the License.
 
 use crate as collator_selection;
-use crate::{mock::*, CandidateInfo, Error};
+use crate::{
+	mock::*, CandidacyBond, CandidateInfo, CandidateList, DesiredCandidates, Error, Invulnerables,
+	LastAuthoredBlock,
+};
 use frame_support::{
 	assert_noop, assert_ok,
 	traits::{Currency, OnInitialize},
@@ -25,12 +28,12 @@ use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin, BuildStorage};
 #[test]
 fn basic_setup_works() {
 	new_test_ext().execute_with(|| {
-		assert_eq!(CollatorSelection::desired_candidates(), 2);
-		assert_eq!(CollatorSelection::candidacy_bond(), 10);
+		assert_eq!(DesiredCandidates::<Test>::get(), 2);
+		assert_eq!(CandidacyBond::<Test>::get(), 10);
 
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 0);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 0);
 		// genesis should sort input
-		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2]);
+		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2]);
 	});
 }
 
@@ -43,7 +46,7 @@ fn it_should_set_invulnerables() {
 			new_set.clone()
 		));
 		new_set.sort();
-		assert_eq!(CollatorSelection::invulnerables(), new_set);
+		assert_eq!(Invulnerables::<Test>::get(), new_set);
 
 		// cannot set with non-root.
 		assert_noop!(
@@ -56,7 +59,7 @@ fn it_should_set_invulnerables() {
 #[test]
 fn it_should_set_invulnerables_even_with_some_invalid() {
 	new_test_ext().execute_with(|| {
-		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2]);
+		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2]);
 		let new_with_invalid = vec![1, 4, 3, 42, 2];
 
 		assert_ok!(CollatorSelection::set_invulnerables(
@@ -65,7 +68,7 @@ fn it_should_set_invulnerables_even_with_some_invalid() {
 		));
 
 		// should succeed and order them, but not include 42
-		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2, 3, 4]);
+		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2, 3, 4]);
 	});
 }
 
@@ -73,7 +76,7 @@ fn it_should_set_invulnerables_even_with_some_invalid() {
 fn add_invulnerable_works() {
 	new_test_ext().execute_with(|| {
 		initialize_to_block(1);
-		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2]);
+		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2]);
 		let new = 3;
 
 		// function runs
@@ -93,7 +96,7 @@ fn add_invulnerable_works() {
 		);
 
 		// new element is now part of the invulnerables list
-		assert!(CollatorSelection::invulnerables().to_vec().contains(&new));
+		assert!(Invulnerables::<Test>::get().to_vec().contains(&new));
 
 		// cannot add with non-root
 		assert_noop!(CollatorSelection::add_invulnerable(RuntimeOrigin::signed(1), new), BadOrigin);
@@ -113,7 +116,7 @@ fn add_invulnerable_works() {
 #[test]
 fn invulnerable_limit_works() {
 	new_test_ext().execute_with(|| {
-		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2]);
+		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2]);
 
 		// MaxInvulnerables: u32 = 20
 		for ii in 3..=21 {
@@ -140,7 +143,7 @@ fn invulnerable_limit_works() {
 			}
 		}
 		let expected: Vec<u64> = (1..=20).collect();
-		assert_eq!(CollatorSelection::invulnerables(), expected);
+		assert_eq!(Invulnerables::<Test>::get(), expected);
 
 		// Cannot set too many Invulnerables
 		let too_many_invulnerables: Vec<u64> = (1..=21).collect();
@@ -151,7 +154,7 @@ fn invulnerable_limit_works() {
 			),
 			Error::<Test>::TooManyInvulnerables
 		);
-		assert_eq!(CollatorSelection::invulnerables(), expected);
+		assert_eq!(Invulnerables::<Test>::get(), expected);
 	});
 }
 
@@ -159,7 +162,7 @@ fn invulnerable_limit_works() {
 fn remove_invulnerable_works() {
 	new_test_ext().execute_with(|| {
 		initialize_to_block(1);
-		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2]);
+		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2]);
 
 		assert_ok!(CollatorSelection::add_invulnerable(
 			RuntimeOrigin::signed(RootAccount::get()),
@@ -170,7 +173,7 @@ fn remove_invulnerable_works() {
 			3
 		));
 
-		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2, 3, 4]);
+		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2, 3, 4]);
 
 		assert_ok!(CollatorSelection::remove_invulnerable(
 			RuntimeOrigin::signed(RootAccount::get()),
@@ -180,7 +183,7 @@ fn remove_invulnerable_works() {
 		System::assert_last_event(RuntimeEvent::CollatorSelection(
 			crate::Event::InvulnerableRemoved { account_id: 2 },
 		));
-		assert_eq!(CollatorSelection::invulnerables(), vec![1, 3, 4]);
+		assert_eq!(Invulnerables::<Test>::get(), vec![1, 3, 4]);
 
 		// cannot remove invulnerable not in the list
 		assert_noop!(
@@ -200,11 +203,11 @@ fn remove_invulnerable_works() {
 fn candidate_to_invulnerable_works() {
 	new_test_ext().execute_with(|| {
 		initialize_to_block(1);
-		assert_eq!(CollatorSelection::desired_candidates(), 2);
-		assert_eq!(CollatorSelection::candidacy_bond(), 10);
+		assert_eq!(DesiredCandidates::<Test>::get(), 2);
+		assert_eq!(CandidacyBond::<Test>::get(), 10);
 
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 0);
-		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2]);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 0);
+		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2]);
 
 		assert_eq!(Balances::free_balance(3), 100);
 		assert_eq!(Balances::free_balance(4), 100);
@@ -225,9 +228,9 @@ fn candidate_to_invulnerable_works() {
 		System::assert_has_event(RuntimeEvent::CollatorSelection(
 			crate::Event::InvulnerableAdded { account_id: 3 },
 		));
-		assert!(CollatorSelection::invulnerables().to_vec().contains(&3));
+		assert!(Invulnerables::<Test>::get().to_vec().contains(&3));
 		assert_eq!(Balances::free_balance(3), 100);
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 1);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 1);
 
 		assert_ok!(CollatorSelection::add_invulnerable(
 			RuntimeOrigin::signed(RootAccount::get()),
@@ -239,10 +242,10 @@ fn candidate_to_invulnerable_works() {
 		System::assert_has_event(RuntimeEvent::CollatorSelection(
 			crate::Event::InvulnerableAdded { account_id: 4 },
 		));
-		assert!(CollatorSelection::invulnerables().to_vec().contains(&4));
+		assert!(Invulnerables::<Test>::get().to_vec().contains(&4));
 		assert_eq!(Balances::free_balance(4), 100);
 
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 0);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 0);
 	});
 }
 
@@ -250,14 +253,14 @@ fn candidate_to_invulnerable_works() {
 fn set_desired_candidates_works() {
 	new_test_ext().execute_with(|| {
 		// given
-		assert_eq!(CollatorSelection::desired_candidates(), 2);
+		assert_eq!(DesiredCandidates::<Test>::get(), 2);
 
 		// can set
 		assert_ok!(CollatorSelection::set_desired_candidates(
 			RuntimeOrigin::signed(RootAccount::get()),
 			7
 		));
-		assert_eq!(CollatorSelection::desired_candidates(), 7);
+		assert_eq!(DesiredCandidates::<Test>::get(), 7);
 
 		// rejects bad origin
 		assert_noop!(
@@ -271,16 +274,16 @@ fn set_desired_candidates_works() {
 fn set_candidacy_bond_empty_candidate_list() {
 	new_test_ext().execute_with(|| {
 		// given
-		assert_eq!(CollatorSelection::candidacy_bond(), 10);
-		assert!(<crate::CandidateList<Test>>::get().is_empty());
+		assert_eq!(CandidacyBond::<Test>::get(), 10);
+		assert!(CandidateList::<Test>::get().is_empty());
 
 		// can decrease without candidates
 		assert_ok!(CollatorSelection::set_candidacy_bond(
 			RuntimeOrigin::signed(RootAccount::get()),
 			7
 		));
-		assert_eq!(CollatorSelection::candidacy_bond(), 7);
-		assert!(<crate::CandidateList<Test>>::get().is_empty());
+		assert_eq!(CandidacyBond::<Test>::get(), 7);
+		assert!(CandidateList::<Test>::get().is_empty());
 
 		// rejects bad origin.
 		assert_noop!(CollatorSelection::set_candidacy_bond(RuntimeOrigin::signed(1), 8), BadOrigin);
@@ -290,8 +293,8 @@ fn set_candidacy_bond_empty_candidate_list() {
 			RuntimeOrigin::signed(RootAccount::get()),
 			20
 		));
-		assert!(<crate::CandidateList<Test>>::get().is_empty());
-		assert_eq!(CollatorSelection::candidacy_bond(), 20);
+		assert!(CandidateList::<Test>::get().is_empty());
+		assert_eq!(CandidacyBond::<Test>::get(), 20);
 	});
 }
 
@@ -299,36 +302,36 @@ fn set_candidacy_bond_empty_candidate_list() {
 fn set_candidacy_bond_with_one_candidate() {
 	new_test_ext().execute_with(|| {
 		// given
-		assert_eq!(CollatorSelection::candidacy_bond(), 10);
-		assert!(<crate::CandidateList<Test>>::get().is_empty());
+		assert_eq!(CandidacyBond::<Test>::get(), 10);
+		assert!(CandidateList::<Test>::get().is_empty());
 
 		let candidate_3 = CandidateInfo { who: 3, deposit: 10 };
 
 		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
-		assert_eq!(<crate::CandidateList<Test>>::get(), vec![candidate_3.clone()]);
+		assert_eq!(CandidateList::<Test>::get(), vec![candidate_3.clone()]);
 
 		// can decrease with one candidate
 		assert_ok!(CollatorSelection::set_candidacy_bond(
 			RuntimeOrigin::signed(RootAccount::get()),
 			7
 		));
-		assert_eq!(CollatorSelection::candidacy_bond(), 7);
-		assert_eq!(<crate::CandidateList<Test>>::get(), vec![candidate_3.clone()]);
+		assert_eq!(CandidacyBond::<Test>::get(), 7);
+		assert_eq!(CandidateList::<Test>::get(), vec![candidate_3.clone()]);
 
 		// can increase up to initial deposit
 		assert_ok!(CollatorSelection::set_candidacy_bond(
 			RuntimeOrigin::signed(RootAccount::get()),
 			10
 		));
-		assert_eq!(CollatorSelection::candidacy_bond(), 10);
-		assert_eq!(<crate::CandidateList<Test>>::get(), vec![candidate_3.clone()]);
+		assert_eq!(CandidacyBond::<Test>::get(), 10);
+		assert_eq!(CandidateList::<Test>::get(), vec![candidate_3.clone()]);
 
 		// can increase past initial deposit, should kick existing candidate
 		assert_ok!(CollatorSelection::set_candidacy_bond(
 			RuntimeOrigin::signed(RootAccount::get()),
 			20
 		));
-		assert!(<crate::CandidateList<Test>>::get().is_empty());
+		assert!(CandidateList::<Test>::get().is_empty());
 	});
 }
 
@@ -336,8 +339,8 @@ fn set_candidacy_bond_with_one_candidate() {
 fn set_candidacy_bond_with_many_candidates_same_deposit() {
 	new_test_ext().execute_with(|| {
 		// given
-		assert_eq!(CollatorSelection::candidacy_bond(), 10);
-		assert!(<crate::CandidateList<Test>>::get().is_empty());
+		assert_eq!(CandidacyBond::<Test>::get(), 10);
+		assert!(CandidateList::<Test>::get().is_empty());
 
 		let candidate_3 = CandidateInfo { who: 3, deposit: 10 };
 		let candidate_4 = CandidateInfo { who: 4, deposit: 10 };
@@ -347,7 +350,7 @@ fn set_candidacy_bond_with_many_candidates_same_deposit() {
 		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(4)));
 		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(5)));
 		assert_eq!(
-			<crate::CandidateList<Test>>::get(),
+			CandidateList::<Test>::get(),
 			vec![candidate_5.clone(), candidate_4.clone(), candidate_3.clone()]
 		);
 
@@ -356,9 +359,9 @@ fn set_candidacy_bond_with_many_candidates_same_deposit() {
 			RuntimeOrigin::signed(RootAccount::get()),
 			7
 		));
-		assert_eq!(CollatorSelection::candidacy_bond(), 7);
+		assert_eq!(CandidacyBond::<Test>::get(), 7);
 		assert_eq!(
-			<crate::CandidateList<Test>>::get(),
+			CandidateList::<Test>::get(),
 			vec![candidate_5.clone(), candidate_4.clone(), candidate_3.clone()]
 		);
 
@@ -367,9 +370,9 @@ fn set_candidacy_bond_with_many_candidates_same_deposit() {
 			RuntimeOrigin::signed(RootAccount::get()),
 			10
 		));
-		assert_eq!(CollatorSelection::candidacy_bond(), 10);
+		assert_eq!(CandidacyBond::<Test>::get(), 10);
 		assert_eq!(
-			<crate::CandidateList<Test>>::get(),
+			CandidateList::<Test>::get(),
 			vec![candidate_5.clone(), candidate_4.clone(), candidate_3.clone()]
 		);
 
@@ -378,7 +381,7 @@ fn set_candidacy_bond_with_many_candidates_same_deposit() {
 			RuntimeOrigin::signed(RootAccount::get()),
 			20
 		));
-		assert!(<crate::CandidateList<Test>>::get().is_empty());
+		assert!(CandidateList::<Test>::get().is_empty());
 	});
 }
 
@@ -386,8 +389,8 @@ fn set_candidacy_bond_with_many_candidates_same_deposit() {
 fn set_candidacy_bond_with_many_candidates_different_deposits() {
 	new_test_ext().execute_with(|| {
 		// given
-		assert_eq!(CollatorSelection::candidacy_bond(), 10);
-		assert!(<crate::CandidateList<Test>>::get().is_empty());
+		assert_eq!(CandidacyBond::<Test>::get(), 10);
+		assert!(CandidateList::<Test>::get().is_empty());
 
 		let candidate_3 = CandidateInfo { who: 3, deposit: 10 };
 		let candidate_4 = CandidateInfo { who: 4, deposit: 20 };
@@ -399,7 +402,7 @@ fn set_candidacy_bond_with_many_candidates_different_deposits() {
 		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(5), 30));
 		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(4), 20));
 		assert_eq!(
-			<crate::CandidateList<Test>>::get(),
+			CandidateList::<Test>::get(),
 			vec![candidate_3.clone(), candidate_4.clone(), candidate_5.clone()]
 		);
 
@@ -408,9 +411,9 @@ fn set_candidacy_bond_with_many_candidates_different_deposits() {
 			RuntimeOrigin::signed(RootAccount::get()),
 			7
 		));
-		assert_eq!(CollatorSelection::candidacy_bond(), 7);
+		assert_eq!(CandidacyBond::<Test>::get(), 7);
 		assert_eq!(
-			<crate::CandidateList<Test>>::get(),
+			CandidateList::<Test>::get(),
 			vec![candidate_3.clone(), candidate_4.clone(), candidate_5.clone()]
 		);
 		// can increase up to initial deposit
@@ -418,9 +421,9 @@ fn set_candidacy_bond_with_many_candidates_different_deposits() {
 			RuntimeOrigin::signed(RootAccount::get()),
 			10
 		));
-		assert_eq!(CollatorSelection::candidacy_bond(), 10);
+		assert_eq!(CandidacyBond::<Test>::get(), 10);
 		assert_eq!(
-			<crate::CandidateList<Test>>::get(),
+			CandidateList::<Test>::get(),
 			vec![candidate_3.clone(), candidate_4.clone(), candidate_5.clone()]
 		);
 
@@ -429,27 +432,24 @@ fn set_candidacy_bond_with_many_candidates_different_deposits() {
 			RuntimeOrigin::signed(RootAccount::get()),
 			20
 		));
-		assert_eq!(CollatorSelection::candidacy_bond(), 20);
-		assert_eq!(
-			<crate::CandidateList<Test>>::get(),
-			vec![candidate_4.clone(), candidate_5.clone()]
-		);
+		assert_eq!(CandidacyBond::<Test>::get(), 20);
+		assert_eq!(CandidateList::<Test>::get(), vec![candidate_4.clone(), candidate_5.clone()]);
 
 		// can increase past 4's deposit, should kick 4
 		assert_ok!(CollatorSelection::set_candidacy_bond(
 			RuntimeOrigin::signed(RootAccount::get()),
 			25
 		));
-		assert_eq!(CollatorSelection::candidacy_bond(), 25);
-		assert_eq!(<crate::CandidateList<Test>>::get(), vec![candidate_5.clone()]);
+		assert_eq!(CandidacyBond::<Test>::get(), 25);
+		assert_eq!(CandidateList::<Test>::get(), vec![candidate_5.clone()]);
 
 		// lowering the minimum deposit should have no effect
 		assert_ok!(CollatorSelection::set_candidacy_bond(
 			RuntimeOrigin::signed(RootAccount::get()),
 			5
 		));
-		assert_eq!(CollatorSelection::candidacy_bond(), 5);
-		assert_eq!(<crate::CandidateList<Test>>::get(), vec![candidate_5.clone()]);
+		assert_eq!(CandidacyBond::<Test>::get(), 5);
+		assert_eq!(CandidateList::<Test>::get(), vec![candidate_5.clone()]);
 
 		// add 3 and 4 back but with higher deposits than minimum
 		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
@@ -457,7 +457,7 @@ fn set_candidacy_bond_with_many_candidates_different_deposits() {
 		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(3), 10));
 		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(4), 20));
 		assert_eq!(
-			<crate::CandidateList<Test>>::get(),
+			CandidateList::<Test>::get(),
 			vec![candidate_3.clone(), candidate_4.clone(), candidate_5.clone()]
 		);
 
@@ -467,8 +467,8 @@ fn set_candidacy_bond_with_many_candidates_different_deposits() {
 			RuntimeOrigin::signed(RootAccount::get()),
 			40
 		));
-		assert_eq!(CollatorSelection::candidacy_bond(), 40);
-		assert!(<crate::CandidateList<Test>>::get().is_empty());
+		assert_eq!(CandidacyBond::<Test>::get(), 40);
+		assert!(CandidateList::<Test>::get().is_empty());
 	});
 }
 
@@ -500,8 +500,8 @@ fn cannot_register_candidate_if_too_many() {
 #[test]
 fn cannot_unregister_candidate_if_too_few() {
 	new_test_ext().execute_with(|| {
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 0);
-		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2]);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 0);
+		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2]);
 		assert_ok!(CollatorSelection::remove_invulnerable(
 			RuntimeOrigin::signed(RootAccount::get()),
 			1
@@ -532,7 +532,7 @@ fn cannot_unregister_candidate_if_too_few() {
 #[test]
 fn cannot_register_as_candidate_if_invulnerable() {
 	new_test_ext().execute_with(|| {
-		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2]);
+		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2]);
 
 		// can't 1 because it is invulnerable.
 		assert_noop!(
@@ -561,10 +561,10 @@ fn cannot_register_dupe_candidate() {
 		// tuple of (id, deposit).
 		let addition = CandidateInfo { who: 3, deposit: 10 };
 		assert_eq!(
-			<crate::CandidateList<Test>>::get().iter().cloned().collect::<Vec<_>>(),
+			CandidateList::<Test>::get().iter().cloned().collect::<Vec<_>>(),
 			vec![addition]
 		);
-		assert_eq!(CollatorSelection::last_authored_block(3), 10);
+		assert_eq!(LastAuthoredBlock::<Test>::get(3), 10);
 		assert_eq!(Balances::free_balance(3), 90);
 
 		// but no more
@@ -596,11 +596,11 @@ fn cannot_register_as_candidate_if_poor() {
 fn register_as_candidate_works() {
 	new_test_ext().execute_with(|| {
 		// given
-		assert_eq!(CollatorSelection::desired_candidates(), 2);
-		assert_eq!(CollatorSelection::candidacy_bond(), 10);
+		assert_eq!(DesiredCandidates::<Test>::get(), 2);
+		assert_eq!(CandidacyBond::<Test>::get(), 10);
 
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 0);
-		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2]);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 0);
+		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2]);
 
 		// take two endowed, non-invulnerables accounts.
 		assert_eq!(Balances::free_balance(3), 100);
@@ -612,14 +612,14 @@ fn register_as_candidate_works() {
 		assert_eq!(Balances::free_balance(3), 90);
 		assert_eq!(Balances::free_balance(4), 90);
 
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 2);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 2);
 	});
 }
 
 #[test]
 fn cannot_take_candidate_slot_if_invulnerable() {
 	new_test_ext().execute_with(|| {
-		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2]);
+		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2]);
 
 		// can't 1 because it is invulnerable.
 		assert_noop!(
@@ -649,11 +649,10 @@ fn cannot_take_candidate_slot_if_duplicate() {
 		// tuple of (id, deposit).
 		let candidate_3 = CandidateInfo { who: 3, deposit: 10 };
 		let candidate_4 = CandidateInfo { who: 4, deposit: 10 };
-		let actual_candidates =
-			<crate::CandidateList<Test>>::get().iter().cloned().collect::<Vec<_>>();
+		let actual_candidates = CandidateList::<Test>::get().iter().cloned().collect::<Vec<_>>();
 		assert_eq!(actual_candidates, vec![candidate_4, candidate_3]);
-		assert_eq!(CollatorSelection::last_authored_block(3), 10);
-		assert_eq!(CollatorSelection::last_authored_block(4), 10);
+		assert_eq!(LastAuthoredBlock::<Test>::get(3), 10);
+		assert_eq!(LastAuthoredBlock::<Test>::get(4), 10);
 		assert_eq!(Balances::free_balance(3), 90);
 
 		// but no more
@@ -672,10 +671,10 @@ fn cannot_take_candidate_slot_if_target_invalid() {
 		// tuple of (id, deposit).
 		let candidate_3 = CandidateInfo { who: 3, deposit: 10 };
 		assert_eq!(
-			<crate::CandidateList<Test>>::get().iter().cloned().collect::<Vec<_>>(),
+			CandidateList::<Test>::get().iter().cloned().collect::<Vec<_>>(),
 			vec![candidate_3]
 		);
-		assert_eq!(CollatorSelection::last_authored_block(3), 10);
+		assert_eq!(LastAuthoredBlock::<Test>::get(3), 10);
 		assert_eq!(Balances::free_balance(3), 90);
 		assert_eq!(Balances::free_balance(4), 100);
 
@@ -744,11 +743,11 @@ fn cannot_take_candidate_slot_if_deposit_less_than_target() {
 fn take_candidate_slot_works() {
 	new_test_ext().execute_with(|| {
 		// given
-		assert_eq!(CollatorSelection::desired_candidates(), 2);
-		assert_eq!(CollatorSelection::candidacy_bond(), 10);
+		assert_eq!(DesiredCandidates::<Test>::get(), 2);
+		assert_eq!(CandidacyBond::<Test>::get(), 10);
 
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 0);
-		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2]);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 0);
+		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2]);
 
 		// take two endowed, non-invulnerables accounts.
 		assert_eq!(Balances::free_balance(3), 100);
@@ -763,7 +762,7 @@ fn take_candidate_slot_works() {
 		assert_eq!(Balances::free_balance(4), 90);
 		assert_eq!(Balances::free_balance(5), 90);
 
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 3);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 3);
 
 		Balances::make_free_balance_be(&6, 100);
 		let key = MockSessionKeys { aura: UintAuthorityId(6) };
@@ -785,10 +784,10 @@ fn take_candidate_slot_works() {
 		let candidate_6 = CandidateInfo { who: 6, deposit: 50 };
 		let candidate_5 = CandidateInfo { who: 5, deposit: 10 };
 		let mut actual_candidates =
-			<crate::CandidateList<Test>>::get().iter().cloned().collect::<Vec<_>>();
+			CandidateList::<Test>::get().iter().cloned().collect::<Vec<_>>();
 		actual_candidates.sort_by(|info_1, info_2| info_1.deposit.cmp(&info_2.deposit));
 		assert_eq!(
-			<crate::CandidateList<Test>>::get().iter().cloned().collect::<Vec<_>>(),
+			CandidateList::<Test>::get().iter().cloned().collect::<Vec<_>>(),
 			vec![candidate_5, candidate_3, candidate_6]
 		);
 	});
@@ -798,11 +797,11 @@ fn take_candidate_slot_works() {
 fn increase_candidacy_bond_non_candidate_account() {
 	new_test_ext().execute_with(|| {
 		// given
-		assert_eq!(CollatorSelection::desired_candidates(), 2);
-		assert_eq!(CollatorSelection::candidacy_bond(), 10);
+		assert_eq!(DesiredCandidates::<Test>::get(), 2);
+		assert_eq!(CandidacyBond::<Test>::get(), 10);
 
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 0);
-		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2]);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 0);
+		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2]);
 
 		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
 		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(4)));
@@ -818,11 +817,11 @@ fn increase_candidacy_bond_non_candidate_account() {
 fn increase_candidacy_bond_insufficient_balance() {
 	new_test_ext().execute_with(|| {
 		// given
-		assert_eq!(CollatorSelection::desired_candidates(), 2);
-		assert_eq!(CollatorSelection::candidacy_bond(), 10);
+		assert_eq!(DesiredCandidates::<Test>::get(), 2);
+		assert_eq!(CandidacyBond::<Test>::get(), 10);
 
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 0);
-		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2]);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 0);
+		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2]);
 
 		// take two endowed, non-invulnerables accounts.
 		assert_eq!(Balances::free_balance(3), 100);
@@ -850,11 +849,11 @@ fn increase_candidacy_bond_insufficient_balance() {
 fn increase_candidacy_bond_works() {
 	new_test_ext().execute_with(|| {
 		// given
-		assert_eq!(CollatorSelection::desired_candidates(), 2);
-		assert_eq!(CollatorSelection::candidacy_bond(), 10);
+		assert_eq!(DesiredCandidates::<Test>::get(), 2);
+		assert_eq!(CandidacyBond::<Test>::get(), 10);
 
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 0);
-		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2]);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 0);
+		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2]);
 
 		// take three endowed, non-invulnerables accounts.
 		assert_eq!(Balances::free_balance(3), 100);
@@ -873,7 +872,7 @@ fn increase_candidacy_bond_works() {
 		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(4), 30));
 		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(5), 40));
 
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 3);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 3);
 		assert_eq!(Balances::free_balance(3), 80);
 		assert_eq!(Balances::free_balance(4), 70);
 		assert_eq!(Balances::free_balance(5), 60);
@@ -881,7 +880,7 @@ fn increase_candidacy_bond_works() {
 		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(3), 40));
 		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(4), 60));
 
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 3);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 3);
 		assert_eq!(Balances::free_balance(3), 60);
 		assert_eq!(Balances::free_balance(4), 40);
 		assert_eq!(Balances::free_balance(5), 60);
@@ -892,11 +891,11 @@ fn increase_candidacy_bond_works() {
 fn decrease_candidacy_bond_non_candidate_account() {
 	new_test_ext().execute_with(|| {
 		// given
-		assert_eq!(CollatorSelection::desired_candidates(), 2);
-		assert_eq!(CollatorSelection::candidacy_bond(), 10);
+		assert_eq!(DesiredCandidates::<Test>::get(), 2);
+		assert_eq!(CandidacyBond::<Test>::get(), 10);
 
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 0);
-		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2]);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 0);
+		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2]);
 
 		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
 		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(4)));
@@ -914,11 +913,11 @@ fn decrease_candidacy_bond_non_candidate_account() {
 fn decrease_candidacy_bond_insufficient_funds() {
 	new_test_ext().execute_with(|| {
 		// given
-		assert_eq!(CollatorSelection::desired_candidates(), 2);
-		assert_eq!(CollatorSelection::candidacy_bond(), 10);
+		assert_eq!(DesiredCandidates::<Test>::get(), 2);
+		assert_eq!(CandidacyBond::<Test>::get(), 10);
 
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 0);
-		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2]);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 0);
+		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2]);
 
 		// take two endowed, non-invulnerables accounts.
 		assert_eq!(Balances::free_balance(3), 100);
@@ -961,7 +960,7 @@ fn decrease_candidacy_bond_insufficient_funds() {
 #[test]
 fn decrease_candidacy_bond_occupying_top_slot() {
 	new_test_ext().execute_with(|| {
-		assert_eq!(CollatorSelection::desired_candidates(), 2);
+		assert_eq!(DesiredCandidates::<Test>::get(), 2);
 		// Register 3 candidates.
 		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
 		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(4)));
@@ -976,7 +975,7 @@ fn decrease_candidacy_bond_occupying_top_slot() {
 		let candidate_4 = CandidateInfo { who: 4, deposit: 30 };
 		let candidate_5 = CandidateInfo { who: 5, deposit: 60 };
 		assert_eq!(
-			<crate::CandidateList<Test>>::get().iter().cloned().collect::<Vec<_>>(),
+			CandidateList::<Test>::get().iter().cloned().collect::<Vec<_>>(),
 			vec![candidate_4, candidate_3, candidate_5]
 		);
 
@@ -1000,7 +999,7 @@ fn decrease_candidacy_bond_occupying_top_slot() {
 		let candidate_4 = CandidateInfo { who: 4, deposit: 35 };
 		let candidate_5 = CandidateInfo { who: 5, deposit: 60 };
 		assert_eq!(
-			<crate::CandidateList<Test>>::get().iter().cloned().collect::<Vec<_>>(),
+			CandidateList::<Test>::get().iter().cloned().collect::<Vec<_>>(),
 			vec![candidate_3, candidate_4, candidate_5]
 		);
 
@@ -1023,11 +1022,11 @@ fn decrease_candidacy_bond_occupying_top_slot() {
 fn decrease_candidacy_bond_works() {
 	new_test_ext().execute_with(|| {
 		// given
-		assert_eq!(CollatorSelection::desired_candidates(), 2);
-		assert_eq!(CollatorSelection::candidacy_bond(), 10);
+		assert_eq!(DesiredCandidates::<Test>::get(), 2);
+		assert_eq!(CandidacyBond::<Test>::get(), 10);
 
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 0);
-		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2]);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 0);
+		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2]);
 
 		// take three endowed, non-invulnerables accounts.
 		assert_eq!(Balances::free_balance(3), 100);
@@ -1046,14 +1045,14 @@ fn decrease_candidacy_bond_works() {
 		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(4), 30));
 		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(5), 40));
 
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 3);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 3);
 		assert_eq!(Balances::free_balance(3), 80);
 		assert_eq!(Balances::free_balance(4), 70);
 		assert_eq!(Balances::free_balance(5), 60);
 
 		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(3), 10));
 
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 3);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 3);
 		assert_eq!(Balances::free_balance(3), 90);
 		assert_eq!(Balances::free_balance(4), 70);
 		assert_eq!(Balances::free_balance(5), 60);
@@ -1064,11 +1063,11 @@ fn decrease_candidacy_bond_works() {
 fn update_candidacy_bond_with_identical_amount() {
 	new_test_ext().execute_with(|| {
 		// given
-		assert_eq!(CollatorSelection::desired_candidates(), 2);
-		assert_eq!(CollatorSelection::candidacy_bond(), 10);
+		assert_eq!(DesiredCandidates::<Test>::get(), 2);
+		assert_eq!(CandidacyBond::<Test>::get(), 10);
 
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 0);
-		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2]);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 0);
+		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2]);
 
 		// take three endowed, non-invulnerables accounts.
 		assert_eq!(Balances::free_balance(3), 100);
@@ -1087,7 +1086,7 @@ fn update_candidacy_bond_with_identical_amount() {
 		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(4), 30));
 		assert_ok!(CollatorSelection::update_bond(RuntimeOrigin::signed(5), 40));
 
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 3);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 3);
 		assert_eq!(Balances::free_balance(3), 80);
 		assert_eq!(Balances::free_balance(4), 70);
 		assert_eq!(Balances::free_balance(5), 60);
@@ -1104,11 +1103,11 @@ fn update_candidacy_bond_with_identical_amount() {
 fn candidate_list_works() {
 	new_test_ext().execute_with(|| {
 		// given
-		assert_eq!(CollatorSelection::desired_candidates(), 2);
-		assert_eq!(CollatorSelection::candidacy_bond(), 10);
+		assert_eq!(DesiredCandidates::<Test>::get(), 2);
+		assert_eq!(CandidacyBond::<Test>::get(), 10);
 
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 0);
-		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2]);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 0);
+		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2]);
 
 		// take three endowed, non-invulnerables accounts.
 		assert_eq!(Balances::free_balance(3), 100);
@@ -1131,7 +1130,7 @@ fn candidate_list_works() {
 		let candidate_4 = CandidateInfo { who: 4, deposit: 25 };
 		let candidate_5 = CandidateInfo { who: 5, deposit: 10 };
 		assert_eq!(
-			<crate::CandidateList<Test>>::get().iter().cloned().collect::<Vec<_>>(),
+			CandidateList::<Test>::get().iter().cloned().collect::<Vec<_>>(),
 			vec![candidate_5, candidate_4, candidate_3]
 		);
 	});
@@ -1157,7 +1156,7 @@ fn leave_intent() {
 		// bond is returned
 		assert_ok!(CollatorSelection::leave_intent(RuntimeOrigin::signed(3)));
 		assert_eq!(Balances::free_balance(3), 100);
-		assert_eq!(CollatorSelection::last_authored_block(3), 0);
+		assert_eq!(LastAuthoredBlock::<Test>::get(3), 0);
 	});
 }
 
@@ -1177,10 +1176,10 @@ fn authorship_event_handler() {
 		let collator = CandidateInfo { who: 4, deposit: 10 };
 
 		assert_eq!(
-			<crate::CandidateList<Test>>::get().iter().cloned().collect::<Vec<_>>(),
+			CandidateList::<Test>::get().iter().cloned().collect::<Vec<_>>(),
 			vec![collator]
 		);
-		assert_eq!(CollatorSelection::last_authored_block(4), 0);
+		assert_eq!(LastAuthoredBlock::<Test>::get(4), 0);
 
 		// half of the pot goes to the collator who's the author (4 in tests).
 		assert_eq!(Balances::free_balance(4), 140);
@@ -1206,10 +1205,10 @@ fn fees_edgecases() {
 		let collator = CandidateInfo { who: 4, deposit: 10 };
 
 		assert_eq!(
-			<crate::CandidateList<Test>>::get().iter().cloned().collect::<Vec<_>>(),
+			CandidateList::<Test>::get().iter().cloned().collect::<Vec<_>>(),
 			vec![collator]
 		);
-		assert_eq!(CollatorSelection::last_authored_block(4), 0);
+		assert_eq!(LastAuthoredBlock::<Test>::get(4), 0);
 		// Nothing received
 		assert_eq!(Balances::free_balance(4), 90);
 		// all fee stays
@@ -1236,7 +1235,7 @@ fn session_management_single_candidate() {
 		// session won't see this.
 		assert_eq!(SessionHandlerCollators::get(), vec![1, 2]);
 		// but we have a new candidate.
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 1);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 1);
 
 		initialize_to_block(10);
 		assert_eq!(SessionChangeBlock::get(), 10);
@@ -1274,7 +1273,7 @@ fn session_management_max_candidates() {
 		// session won't see this.
 		assert_eq!(SessionHandlerCollators::get(), vec![1, 2]);
 		// but we have a new candidate.
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 3);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 3);
 
 		initialize_to_block(10);
 		assert_eq!(SessionChangeBlock::get(), 10);
@@ -1313,7 +1312,7 @@ fn session_management_increase_bid_with_list_update() {
 		// session won't see this.
 		assert_eq!(SessionHandlerCollators::get(), vec![1, 2]);
 		// but we have a new candidate.
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 3);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 3);
 
 		initialize_to_block(10);
 		assert_eq!(SessionChangeBlock::get(), 10);
@@ -1352,7 +1351,7 @@ fn session_management_candidate_list_eager_sort() {
 		// session won't see this.
 		assert_eq!(SessionHandlerCollators::get(), vec![1, 2]);
 		// but we have a new candidate.
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 3);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 3);
 
 		initialize_to_block(10);
 		assert_eq!(SessionChangeBlock::get(), 10);
@@ -1399,7 +1398,7 @@ fn session_management_reciprocal_outbidding() {
 		// session won't see this.
 		assert_eq!(SessionHandlerCollators::get(), vec![1, 2]);
 		// but we have a new candidate.
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 3);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 3);
 
 		initialize_to_block(10);
 		assert_eq!(SessionChangeBlock::get(), 10);
@@ -1451,7 +1450,7 @@ fn session_management_decrease_bid_after_auction() {
 		// session won't see this.
 		assert_eq!(SessionHandlerCollators::get(), vec![1, 2]);
 		// but we have a new candidate.
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 3);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 3);
 
 		initialize_to_block(10);
 		assert_eq!(SessionChangeBlock::get(), 10);
@@ -1476,20 +1475,20 @@ fn kick_mechanism() {
 		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
 		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(4)));
 		initialize_to_block(10);
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 2);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 2);
 		initialize_to_block(20);
 		assert_eq!(SessionChangeBlock::get(), 20);
 		// 4 authored this block, gets to stay 3 was kicked
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 1);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 1);
 		// 3 will be kicked after 1 session delay
 		assert_eq!(SessionHandlerCollators::get(), vec![1, 2, 3, 4]);
 		// tuple of (id, deposit).
 		let collator = CandidateInfo { who: 4, deposit: 10 };
 		assert_eq!(
-			<crate::CandidateList<Test>>::get().iter().cloned().collect::<Vec<_>>(),
+			CandidateList::<Test>::get().iter().cloned().collect::<Vec<_>>(),
 			vec![collator]
 		);
-		assert_eq!(CollatorSelection::last_authored_block(4), 20);
+		assert_eq!(LastAuthoredBlock::<Test>::get(4), 20);
 		initialize_to_block(30);
 		// 3 gets kicked after 1 session delay
 		assert_eq!(SessionHandlerCollators::get(), vec![1, 2, 4]);
@@ -1503,8 +1502,8 @@ fn should_not_kick_mechanism_too_few() {
 	new_test_ext().execute_with(|| {
 		// remove the invulnerables and add new collators 3 and 5
 
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 0);
-		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2]);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 0);
+		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2]);
 		assert_ok!(CollatorSelection::remove_invulnerable(
 			RuntimeOrigin::signed(RootAccount::get()),
 			1
@@ -1517,21 +1516,21 @@ fn should_not_kick_mechanism_too_few() {
 		));
 
 		initialize_to_block(10);
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 2);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 2);
 
 		initialize_to_block(20);
 		assert_eq!(SessionChangeBlock::get(), 20);
 		// 4 authored this block, 3 is kicked, 5 stays because of too few collators
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 1);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 1);
 		// 3 will be kicked after 1 session delay
 		assert_eq!(SessionHandlerCollators::get(), vec![3, 5]);
 		// tuple of (id, deposit).
 		let collator = CandidateInfo { who: 3, deposit: 10 };
 		assert_eq!(
-			<crate::CandidateList<Test>>::get().iter().cloned().collect::<Vec<_>>(),
+			CandidateList::<Test>::get().iter().cloned().collect::<Vec<_>>(),
 			vec![collator]
 		);
-		assert_eq!(CollatorSelection::last_authored_block(4), 20);
+		assert_eq!(LastAuthoredBlock::<Test>::get(4), 20);
 
 		initialize_to_block(30);
 		// 3 gets kicked after 1 session delay
@@ -1544,7 +1543,7 @@ fn should_not_kick_mechanism_too_few() {
 #[test]
 fn should_kick_invulnerables_from_candidates_on_session_change() {
 	new_test_ext().execute_with(|| {
-		assert_eq!(<crate::CandidateList<Test>>::get().iter().count(), 0);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 0);
 		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(3)));
 		assert_ok!(CollatorSelection::register_as_candidate(RuntimeOrigin::signed(4)));
 		assert_eq!(Balances::free_balance(3), 90);
@@ -1558,20 +1557,19 @@ fn should_kick_invulnerables_from_candidates_on_session_change() {
 		let collator_3 = CandidateInfo { who: 3, deposit: 10 };
 		let collator_4 = CandidateInfo { who: 4, deposit: 10 };
 
-		let actual_candidates =
-			<crate::CandidateList<Test>>::get().iter().cloned().collect::<Vec<_>>();
+		let actual_candidates = CandidateList::<Test>::get().iter().cloned().collect::<Vec<_>>();
 		assert_eq!(actual_candidates, vec![collator_4.clone(), collator_3]);
-		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2, 3]);
+		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2, 3]);
 
 		// session change
 		initialize_to_block(10);
 		// 3 is removed from candidates
 		assert_eq!(
-			<crate::CandidateList<Test>>::get().iter().cloned().collect::<Vec<_>>(),
+			CandidateList::<Test>::get().iter().cloned().collect::<Vec<_>>(),
 			vec![collator_4]
 		);
 		// but not from invulnerables
-		assert_eq!(CollatorSelection::invulnerables(), vec![1, 2, 3]);
+		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2, 3]);
 		// and it got its deposit back
 		assert_eq!(Balances::free_balance(3), 100);
 	});

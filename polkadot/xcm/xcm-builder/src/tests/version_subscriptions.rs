@@ -27,16 +27,32 @@ fn simple_version_subscriptions_should_work() {
 	]);
 	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(20, 20);
-	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
-		origin,
-		message,
-		&mut hash,
-		weight_limit,
-		Weight::zero(),
-	);
-	assert_eq!(r, Outcome::Error { error: XcmError::Barrier });
 
-	let origin = Parachain(1000);
+	// this case fails because the origin is not allowed
+	assert_eq!(
+		XcmExecutor::<TestConfig>::prepare_and_execute(
+			origin,
+			message.clone(),
+			&mut hash,
+			weight_limit,
+			Weight::zero(),
+		),
+		Outcome::Error { error: XcmError::Barrier }
+	);
+
+	// this case fails because the additional `SetAppendix` instruction is not allowed in the
+	// `AllowSubscriptionsFrom`
+	assert_eq!(
+		XcmExecutor::<TestConfig>::prepare_and_execute(
+			Parent,
+			message,
+			&mut hash,
+			weight_limit,
+			Weight::zero(),
+		),
+		Outcome::Error { error: XcmError::Barrier }
+	);
+
 	let message = Xcm::<TestCall>(vec![SubscribeVersion {
 		query_id: 42,
 		max_response_weight: Weight::from_parts(5000, 5000),

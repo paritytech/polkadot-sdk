@@ -29,7 +29,9 @@ use polkadot_node_network_protocol::{
 	},
 	PeerId, UnifiedReputationChange as Rep,
 };
-use polkadot_primitives::{CandidateHash, CommittedCandidateReceipt, Hash};
+use polkadot_primitives::{
+	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CandidateHash, Hash,
+};
 
 use crate::LOG_TARGET;
 
@@ -64,7 +66,7 @@ pub async fn respond(
 		//    late, as each requester having the data will help distributing it.
 		// 2. If we take too long, the requests timing out will not yet have had any data sent, thus
 		//    we wasted no bandwidth.
-		// 3. If the queue is full, requestes will get an immediate error instead of running in a
+		// 3. If the queue is full, requests will get an immediate error instead of running in a
 		//    timeout, thus requesters can immediately try another peer and be faster.
 		//
 		// From this perspective we would not want parallel response sending at all, but we don't

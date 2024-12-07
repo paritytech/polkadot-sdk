@@ -14,21 +14,17 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::HashMap;
-
+use futures::FutureExt;
 use std::future::Future;
 
-use futures::FutureExt;
-
-use polkadot_node_network_protocol::jaeger;
+use polkadot_node_network_protocol::request_response::ReqProtocolNames;
 use polkadot_node_primitives::{BlockData, ErasureChunk, PoV};
-use polkadot_node_subsystem_test_helpers::mock::new_leaf;
 use polkadot_node_subsystem_util::runtime::RuntimeInfo;
 use polkadot_primitives::{
-	vstaging::NodeFeatures, BlockNumber, CoreState, ExecutorParams, GroupIndex, Hash, Id as ParaId,
+	vstaging::CoreState, BlockNumber, ChunkIndex, ExecutorParams, GroupIndex, Hash, Id as ParaId,
 	ScheduledCore, SessionIndex, SessionInfo,
 };
-use sp_core::traits::SpawnNamed;
+use sp_core::{testing::TaskExecutor, traits::SpawnNamed};
 
 use polkadot_node_subsystem::{
 	messages::{
@@ -38,19 +34,21 @@ use polkadot_node_subsystem::{
 	ActiveLeavesUpdate, SpawnGlue,
 };
 use polkadot_node_subsystem_test_helpers::{
-	make_subsystem_context, mock::make_ferdie_keystore, TestSubsystemContext,
-	TestSubsystemContextHandle,
+	make_subsystem_context,
+	mock::{make_ferdie_keystore, new_leaf},
+	TestSubsystemContext, TestSubsystemContextHandle,
 };
 
-use sp_core::testing::TaskExecutor;
-
-use crate::tests::mock::{get_valid_chunk_data, make_session_info, OccupiedCoreBuilder};
+use crate::tests::{
+	mock::{get_valid_chunk_data, make_session_info, OccupiedCoreBuilder},
+	node_features_with_mapping_enabled,
+};
 
 use super::Requester;
 
 fn get_erasure_chunk() -> ErasureChunk {
 	let pov = PoV { block_data: BlockData(vec![45, 46, 47]) };
-	get_valid_chunk_data(pov).1
+	get_valid_chunk_data(pov, 10, ChunkIndex(0)).1
 }
 
 #[derive(Clone)]
@@ -126,7 +124,7 @@ fn spawn_virtual_overseer(
 									.expect("Receiver should be alive.");
 							},
 							RuntimeApiRequest::NodeFeatures(_, tx) => {
-								tx.send(Ok(NodeFeatures::EMPTY))
+								tx.send(Ok(node_features_with_mapping_enabled()))
 									.expect("Receiver should be alive.");
 							},
 							RuntimeApiRequest::AvailabilityCores(tx) => {
@@ -146,6 +144,8 @@ fn spawn_virtual_overseer(
 													group_responsible: GroupIndex(1),
 													para_id,
 													relay_parent: hash,
+													n_validators: 10,
+													chunk_index: ChunkIndex(0),
 												}
 												.build()
 												.0,
@@ -201,13 +201,13 @@ fn test_harness<T: Future<Output = ()>>(
 #[test]
 fn check_ancestry_lookup_in_same_session() {
 	let test_state = TestState::new();
-	let mut requester = Requester::new(Default::default());
+	let mut requester =
+		Requester::new(ReqProtocolNames::new(&Hash::repeat_byte(0xff), None), Default::default());
 	let keystore = make_ferdie_keystore();
 	let mut runtime = RuntimeInfo::new(Some(keystore));
 
 	test_harness(test_state.clone(), |mut ctx| async move {
 		let chain = &test_state.relay_chain;
-		let spans: HashMap<Hash, jaeger::PerLeafSpan> = HashMap::new();
 		let block_number = 1;
 		let update = ActiveLeavesUpdate {
 			activated: Some(new_leaf(chain[block_number], block_number as u32)),
@@ -215,7 +215,7 @@ fn check_ancestry_lookup_in_same_session() {
 		};
 
 		requester
-			.update_fetching_heads(&mut ctx, &mut runtime, update, &spans)
+			.update_fetching_heads(&mut ctx, &mut runtime, update)
 			.await
 			.expect("Leaf processing failed");
 		let fetch_tasks = &requester.fetches;
@@ -230,7 +230,7 @@ fn check_ancestry_lookup_in_same_session() {
 		};
 
 		requester
-			.update_fetching_heads(&mut ctx, &mut runtime, update, &spans)
+			.update_fetching_heads(&mut ctx, &mut runtime, update)
 			.await
 			.expect("Leaf processing failed");
 		let fetch_tasks = &requester.fetches;
@@ -251,7 +251,7 @@ fn check_ancestry_lookup_in_same_session() {
 			deactivated: vec![chain[1], chain[2]].into(),
 		};
 		requester
-			.update_fetching_heads(&mut ctx, &mut runtime, update, &spans)
+			.update_fetching_heads(&mut ctx, &mut runtime, update)
 			.await
 			.expect("Leaf processing failed");
 		let fetch_tasks = &requester.fetches;
@@ -268,7 +268,8 @@ fn check_ancestry_lookup_in_same_session() {
 #[test]
 fn check_ancestry_lookup_in_different_sessions() {
 	let mut test_state = TestState::new();
-	let mut requester = Requester::new(Default::default());
+	let mut requester =
+		Requester::new(ReqProtocolNames::new(&Hash::repeat_byte(0xff), None), Default::default());
 	let keystore = make_ferdie_keystore();
 	let mut runtime = RuntimeInfo::new(Some(keystore));
 
@@ -279,7 +280,6 @@ fn check_ancestry_lookup_in_different_sessions() {
 
 	test_harness(test_state.clone(), |mut ctx| async move {
 		let chain = &test_state.relay_chain;
-		let spans: HashMap<Hash, jaeger::PerLeafSpan> = HashMap::new();
 		let block_number = 3;
 		let update = ActiveLeavesUpdate {
 			activated: Some(new_leaf(chain[block_number], block_number as u32)),
@@ -287,7 +287,7 @@ fn check_ancestry_lookup_in_different_sessions() {
 		};
 
 		requester
-			.update_fetching_heads(&mut ctx, &mut runtime, update, &spans)
+			.update_fetching_heads(&mut ctx, &mut runtime, update)
 			.await
 			.expect("Leaf processing failed");
 		let fetch_tasks = &requester.fetches;
@@ -300,7 +300,7 @@ fn check_ancestry_lookup_in_different_sessions() {
 		};
 
 		requester
-			.update_fetching_heads(&mut ctx, &mut runtime, update, &spans)
+			.update_fetching_heads(&mut ctx, &mut runtime, update)
 			.await
 			.expect("Leaf processing failed");
 		let fetch_tasks = &requester.fetches;
@@ -313,7 +313,7 @@ fn check_ancestry_lookup_in_different_sessions() {
 		};
 
 		requester
-			.update_fetching_heads(&mut ctx, &mut runtime, update, &spans)
+			.update_fetching_heads(&mut ctx, &mut runtime, update)
 			.await
 			.expect("Leaf processing failed");
 		let fetch_tasks = &requester.fetches;

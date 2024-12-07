@@ -23,48 +23,38 @@
 //! Chaum-Pedersen proof uses the same hash-to-field specified in RFC 9380 for the field of the BLS
 //! curve.
 
-#[cfg(feature = "serde")]
-use crate::crypto::Ss58Codec;
-use crate::crypto::{ByteArray, CryptoType, Derive, Public as TraitPublic, UncheckedFrom};
-#[cfg(feature = "full_crypto")]
-use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError};
+use crate::crypto::{
+	CryptoType, DeriveError, DeriveJunction, Pair as TraitPair, PublicBytes, SecretStringError,
+	SignatureBytes, UncheckedFrom,
+};
 
-#[cfg(feature = "full_crypto")]
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
-use codec::{Decode, Encode, MaxEncodedLen};
-use scale_info::TypeInfo;
-
-#[cfg(feature = "serde")]
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::alloc::{format, string::String};
-
-use w3f_bls::{DoublePublicKey, DoubleSignature, EngineBLS, SerializableToBytes, TinyBLS381};
-#[cfg(feature = "full_crypto")]
-use w3f_bls::{DoublePublicKeyScheme, Keypair, Message, SecretKey};
-
-use sp_runtime_interface::pass_by::{self, PassBy, PassByInner};
-use sp_std::{convert::TryFrom, marker::PhantomData, ops::Deref};
+use w3f_bls::{
+	DoublePublicKey, DoublePublicKeyScheme, DoubleSignature, EngineBLS, Keypair, Message,
+	SecretKey, SerializableToBytes, TinyBLS381,
+};
 
 /// BLS-377 specialized types
 pub mod bls377 {
 	pub use super::{PUBLIC_KEY_SERIALIZED_SIZE, SIGNATURE_SERIALIZED_SIZE};
 	use crate::crypto::CryptoTypeId;
-	use w3f_bls::TinyBLS377;
+	pub(crate) use w3f_bls::TinyBLS377 as BlsEngine;
 
 	/// An identifier used to match public keys against BLS12-377 keys
 	pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"bls7");
 
-	/// BLS12-377 key pair.
-	#[cfg(feature = "full_crypto")]
-	pub type Pair = super::Pair<TinyBLS377>;
-	/// BLS12-377 public key.
-	pub type Public = super::Public<TinyBLS377>;
-	/// BLS12-377 signature.
-	pub type Signature = super::Signature<TinyBLS377>;
+	#[doc(hidden)]
+	pub type Bls377Tag = BlsEngine;
 
-	impl super::HardJunctionId for TinyBLS377 {
+	/// BLS12-377 key pair.
+	pub type Pair = super::Pair<BlsEngine>;
+	/// BLS12-377 public key.
+	pub type Public = super::Public<BlsEngine>;
+	/// BLS12-377 signature.
+	pub type Signature = super::Signature<BlsEngine>;
+
+	impl super::HardJunctionId for BlsEngine {
 		const ID: &'static str = "BLS12377HDKD";
 	}
 }
@@ -73,20 +63,22 @@ pub mod bls377 {
 pub mod bls381 {
 	pub use super::{PUBLIC_KEY_SERIALIZED_SIZE, SIGNATURE_SERIALIZED_SIZE};
 	use crate::crypto::CryptoTypeId;
-	use w3f_bls::TinyBLS381;
+	pub(crate) use w3f_bls::TinyBLS381 as BlsEngine;
 
 	/// An identifier used to match public keys against BLS12-381 keys
 	pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"bls8");
 
-	/// BLS12-381 key pair.
-	#[cfg(feature = "full_crypto")]
-	pub type Pair = super::Pair<TinyBLS381>;
-	/// BLS12-381 public key.
-	pub type Public = super::Public<TinyBLS381>;
-	/// BLS12-381 signature.
-	pub type Signature = super::Signature<TinyBLS381>;
+	#[doc(hidden)]
+	pub type Bls381Tag = BlsEngine;
 
-	impl super::HardJunctionId for TinyBLS381 {
+	/// BLS12-381 key pair.
+	pub type Pair = super::Pair<BlsEngine>;
+	/// BLS12-381 public key.
+	pub type Public = super::Public<BlsEngine>;
+	/// BLS12-381 signature.
+	pub type Signature = super::Signature<BlsEngine>;
+
+	impl super::HardJunctionId for BlsEngine {
 		const ID: &'static str = "BLS12381HDKD";
 	}
 }
@@ -96,7 +88,6 @@ trait BlsBound: EngineBLS + HardJunctionId + Send + Sync + 'static {}
 impl<T: EngineBLS + HardJunctionId + Send + Sync + 'static> BlsBound for T {}
 
 /// Secret key serialized size
-#[cfg(feature = "full_crypto")]
 const SECRET_KEY_SERIALIZED_SIZE: usize =
 	<SecretKey<TinyBLS381> as SerializableToBytes>::SERIALIZED_BYTES_SIZE;
 
@@ -113,314 +104,28 @@ pub const SIGNATURE_SERIALIZED_SIZE: usize =
 /// It's not called a "secret key" because ring doesn't expose the secret keys
 /// of the key pair (yeah, dumb); as such we're forced to remember the seed manually if we
 /// will need it later (such as for HDKD).
-#[cfg(feature = "full_crypto")]
 type Seed = [u8; SECRET_KEY_SERIALIZED_SIZE];
 
+#[doc(hidden)]
+pub struct BlsTag;
+
 /// A public key.
-#[derive(Copy, Encode, Decode, MaxEncodedLen, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub struct Public<T> {
-	inner: [u8; PUBLIC_KEY_SERIALIZED_SIZE],
-	_phantom: PhantomData<fn() -> T>,
-}
-
-impl<T> Clone for Public<T> {
-	fn clone(&self) -> Self {
-		Self { inner: self.inner, _phantom: PhantomData }
-	}
-}
-
-impl<T> PartialEq for Public<T> {
-	fn eq(&self, other: &Self) -> bool {
-		self.inner == other.inner
-	}
-}
-
-impl<T> Eq for Public<T> {}
-
-impl<T> PartialOrd for Public<T> {
-	fn partial_cmp(&self, other: &Self) -> Option<sp_std::cmp::Ordering> {
-		Some(self.cmp(other))
-	}
-}
-
-impl<T> Ord for Public<T> {
-	fn cmp(&self, other: &Self) -> sp_std::cmp::Ordering {
-		self.inner.cmp(&other.inner)
-	}
-}
-
-#[cfg(feature = "full_crypto")]
-impl<T> sp_std::hash::Hash for Public<T> {
-	fn hash<H: sp_std::hash::Hasher>(&self, state: &mut H) {
-		self.inner.hash(state)
-	}
-}
-
-impl<T> ByteArray for Public<T> {
-	const LEN: usize = PUBLIC_KEY_SERIALIZED_SIZE;
-}
-
-impl<T> PassByInner for Public<T> {
-	type Inner = [u8; PUBLIC_KEY_SERIALIZED_SIZE];
-
-	fn into_inner(self) -> Self::Inner {
-		self.inner
-	}
-
-	fn inner(&self) -> &Self::Inner {
-		&self.inner
-	}
-
-	fn from_inner(inner: Self::Inner) -> Self {
-		Self { inner, _phantom: PhantomData }
-	}
-}
-
-impl<T> PassBy for Public<T> {
-	type PassBy = pass_by::Inner<Self, [u8; PUBLIC_KEY_SERIALIZED_SIZE]>;
-}
-
-impl<T> AsRef<[u8; PUBLIC_KEY_SERIALIZED_SIZE]> for Public<T> {
-	fn as_ref(&self) -> &[u8; PUBLIC_KEY_SERIALIZED_SIZE] {
-		&self.inner
-	}
-}
-
-impl<T> AsRef<[u8]> for Public<T> {
-	fn as_ref(&self) -> &[u8] {
-		&self.inner[..]
-	}
-}
-
-impl<T> AsMut<[u8]> for Public<T> {
-	fn as_mut(&mut self) -> &mut [u8] {
-		&mut self.inner[..]
-	}
-}
-
-impl<T> Deref for Public<T> {
-	type Target = [u8];
-
-	fn deref(&self) -> &Self::Target {
-		&self.inner
-	}
-}
-
-impl<T> TryFrom<&[u8]> for Public<T> {
-	type Error = ();
-
-	fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
-		if data.len() != PUBLIC_KEY_SERIALIZED_SIZE {
-			return Err(())
-		}
-		let mut r = [0u8; PUBLIC_KEY_SERIALIZED_SIZE];
-		r.copy_from_slice(data);
-		Ok(Self::unchecked_from(r))
-	}
-}
-
-impl<T> From<Public<T>> for [u8; PUBLIC_KEY_SERIALIZED_SIZE] {
-	fn from(x: Public<T>) -> Self {
-		x.inner
-	}
-}
-
-#[cfg(feature = "full_crypto")]
-impl<T: BlsBound> From<Pair<T>> for Public<T> {
-	fn from(x: Pair<T>) -> Self {
-		x.public()
-	}
-}
-
-impl<T> UncheckedFrom<[u8; PUBLIC_KEY_SERIALIZED_SIZE]> for Public<T> {
-	fn unchecked_from(data: [u8; PUBLIC_KEY_SERIALIZED_SIZE]) -> Self {
-		Public { inner: data, _phantom: PhantomData }
-	}
-}
-
-#[cfg(feature = "std")]
-impl<T: BlsBound> std::str::FromStr for Public<T> {
-	type Err = crate::crypto::PublicError;
-
-	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		Self::from_ss58check(s)
-	}
-}
-
-#[cfg(feature = "std")]
-impl<T: BlsBound> std::fmt::Display for Public<T> {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(f, "{}", self.to_ss58check())
-	}
-}
-
-#[cfg(feature = "std")]
-impl<T: BlsBound> sp_std::fmt::Debug for Public<T> {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		let s = self.to_ss58check();
-		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.inner), &s[0..8])
-	}
-}
-
-#[cfg(not(feature = "std"))]
-impl<T> sp_std::fmt::Debug for Public<T> {
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		Ok(())
-	}
-}
-
-#[cfg(feature = "serde")]
-impl<T: BlsBound> Serialize for Public<T> {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: Serializer,
-	{
-		serializer.serialize_str(&self.to_ss58check())
-	}
-}
-
-#[cfg(feature = "serde")]
-impl<'de, T: BlsBound> Deserialize<'de> for Public<T> {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: Deserializer<'de>,
-	{
-		Public::from_ss58check(&String::deserialize(deserializer)?)
-			.map_err(|e| de::Error::custom(format!("{:?}", e)))
-	}
-}
-
-impl<T: BlsBound> TraitPublic for Public<T> {}
-
-impl<T> Derive for Public<T> {}
+pub type Public<SubTag> = PublicBytes<PUBLIC_KEY_SERIALIZED_SIZE, (BlsTag, SubTag)>;
 
 impl<T: BlsBound> CryptoType for Public<T> {
-	#[cfg(feature = "full_crypto")]
 	type Pair = Pair<T>;
 }
 
 /// A generic BLS signature.
-#[derive(Copy, Encode, Decode, MaxEncodedLen, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub struct Signature<T> {
-	inner: [u8; SIGNATURE_SERIALIZED_SIZE],
-	_phantom: PhantomData<fn() -> T>,
-}
-
-impl<T> Clone for Signature<T> {
-	fn clone(&self) -> Self {
-		Self { inner: self.inner, _phantom: PhantomData }
-	}
-}
-
-impl<T> PartialEq for Signature<T> {
-	fn eq(&self, other: &Self) -> bool {
-		self.inner == other.inner
-	}
-}
-
-impl<T> Eq for Signature<T> {}
-
-#[cfg(feature = "full_crypto")]
-impl<T> sp_std::hash::Hash for Signature<T> {
-	fn hash<H: sp_std::hash::Hasher>(&self, state: &mut H) {
-		self.inner.hash(state)
-	}
-}
-
-impl<T> ByteArray for Signature<T> {
-	const LEN: usize = SIGNATURE_SERIALIZED_SIZE;
-}
-
-impl<T> TryFrom<&[u8]> for Signature<T> {
-	type Error = ();
-
-	fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
-		if data.len() != SIGNATURE_SERIALIZED_SIZE {
-			return Err(())
-		}
-		let mut inner = [0u8; SIGNATURE_SERIALIZED_SIZE];
-		inner.copy_from_slice(data);
-		Ok(Signature::unchecked_from(inner))
-	}
-}
-
-#[cfg(feature = "serde")]
-impl<T> Serialize for Signature<T> {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: Serializer,
-	{
-		serializer.serialize_str(&array_bytes::bytes2hex("", self))
-	}
-}
-
-#[cfg(feature = "serde")]
-impl<'de, T> Deserialize<'de> for Signature<T> {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: Deserializer<'de>,
-	{
-		let signature_hex = array_bytes::hex2bytes(&String::deserialize(deserializer)?)
-			.map_err(|e| de::Error::custom(format!("{:?}", e)))?;
-		Signature::try_from(signature_hex.as_ref())
-			.map_err(|e| de::Error::custom(format!("{:?}", e)))
-	}
-}
-
-impl<T> From<Signature<T>> for [u8; SIGNATURE_SERIALIZED_SIZE] {
-	fn from(signature: Signature<T>) -> [u8; SIGNATURE_SERIALIZED_SIZE] {
-		signature.inner
-	}
-}
-
-impl<T> AsRef<[u8; SIGNATURE_SERIALIZED_SIZE]> for Signature<T> {
-	fn as_ref(&self) -> &[u8; SIGNATURE_SERIALIZED_SIZE] {
-		&self.inner
-	}
-}
-
-impl<T> AsRef<[u8]> for Signature<T> {
-	fn as_ref(&self) -> &[u8] {
-		&self.inner[..]
-	}
-}
-
-impl<T> AsMut<[u8]> for Signature<T> {
-	fn as_mut(&mut self) -> &mut [u8] {
-		&mut self.inner[..]
-	}
-}
-
-impl<T> sp_std::fmt::Debug for Signature<T> {
-	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.inner))
-	}
-
-	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		Ok(())
-	}
-}
-
-impl<T> UncheckedFrom<[u8; SIGNATURE_SERIALIZED_SIZE]> for Signature<T> {
-	fn unchecked_from(data: [u8; SIGNATURE_SERIALIZED_SIZE]) -> Self {
-		Signature { inner: data, _phantom: PhantomData }
-	}
-}
+pub type Signature<SubTag> = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, (BlsTag, SubTag)>;
 
 impl<T: BlsBound> CryptoType for Signature<T> {
-	#[cfg(feature = "full_crypto")]
 	type Pair = Pair<T>;
 }
 
 /// A key pair.
-#[cfg(feature = "full_crypto")]
 pub struct Pair<T: EngineBLS>(Keypair<T>);
 
-#[cfg(feature = "full_crypto")]
 impl<T: EngineBLS> Clone for Pair<T> {
 	fn clone(&self) -> Self {
 		Pair(self.0.clone())
@@ -432,15 +137,13 @@ trait HardJunctionId {
 }
 
 /// Derive a single hard junction.
-#[cfg(feature = "full_crypto")]
 fn derive_hard_junction<T: HardJunctionId>(secret_seed: &Seed, cc: &[u8; 32]) -> Seed {
+	use codec::Encode;
 	(T::ID, secret_seed, cc).using_encoded(sp_crypto_hashing::blake2_256)
 }
 
-#[cfg(feature = "full_crypto")]
 impl<T: EngineBLS> Pair<T> {}
 
-#[cfg(feature = "full_crypto")]
 impl<T: BlsBound> TraitPair for Pair<T> {
 	type Seed = Seed;
 	type Public = Public<T>;
@@ -480,6 +183,7 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 		Self::Public::unchecked_from(raw)
 	}
 
+	#[cfg(feature = "full_crypto")]
 	fn sign(&self, message: &[u8]) -> Self::Signature {
 		let mut mutable_self = self.clone();
 		let r: [u8; SIGNATURE_SERIALIZED_SIZE] =
@@ -501,7 +205,7 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 			Err(_) => return false,
 		};
 
-		let sig_array = match sig.inner[..].try_into() {
+		let sig_array = match sig.0[..].try_into() {
 			Ok(s) => s,
 			Err(_) => return false,
 		};
@@ -523,40 +227,57 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 	}
 }
 
-#[cfg(feature = "full_crypto")]
 impl<T: BlsBound> CryptoType for Pair<T> {
 	type Pair = Pair<T>;
 }
 
 // Test set exercising the BLS12-377 implementation
 #[cfg(test)]
-mod test {
+mod tests {
 	use super::*;
+	#[cfg(feature = "serde")]
+	use crate::crypto::Ss58Codec;
 	use crate::crypto::DEV_PHRASE;
-	use bls377::{Pair, Signature};
+	use bls377::Pair as Bls377Pair;
+	use bls381::Pair as Bls381Pair;
 
-	#[test]
-	fn default_phrase_should_be_used() {
+	fn default_phrase_should_be_used<E: BlsBound>() {
 		assert_eq!(
-			Pair::from_string("//Alice///password", None).unwrap().public(),
-			Pair::from_string(&format!("{}//Alice", DEV_PHRASE), Some("password"))
+			Pair::<E>::from_string("//Alice///password", None).unwrap().public(),
+			Pair::<E>::from_string(&format!("{}//Alice", DEV_PHRASE), Some("password"))
 				.unwrap()
 				.public(),
 		);
 	}
 
 	#[test]
-	fn seed_and_derive_should_work() {
+	fn default_phrase_should_be_used_for_bls377() {
+		default_phrase_should_be_used::<bls377::BlsEngine>();
+	}
+
+	#[test]
+	fn default_phrase_should_be_used_for_bls381() {
+		default_phrase_should_be_used::<bls381::BlsEngine>();
+	}
+
+	fn seed_and_derive_should_work<E: BlsBound>() -> Vec<u8> {
 		let seed = array_bytes::hex2array_unchecked(
 			"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
 		);
-		let pair = Pair::from_seed(&seed);
+		let pair = Pair::<E>::from_seed(&seed);
 		// we are using hash-to-field so this is not going to work
 		// assert_eq!(pair.seed(), seed);
 		let path = vec![DeriveJunction::Hard([0u8; 32])];
 		let derived = pair.derive(path.into_iter(), None).ok().unwrap().0;
+		println!("derived is: {:?}", array_bytes::bytes2hex("", derived.to_raw_vec()));
+		derived.to_raw_vec()
+	}
+
+	#[test]
+	fn seed_and_derive_should_work_for_bls377() {
+		let derived_as_raw_vector = seed_and_derive_should_work::<bls377::BlsEngine>();
 		assert_eq!(
-			derived.to_raw_vec(),
+			derived_as_raw_vector,
 			array_bytes::hex2array_unchecked::<_, 32>(
 				"3a0626d095148813cd1642d38254f1cfff7eb8cc1a2fc83b2a135377c3554c12"
 			)
@@ -564,99 +285,163 @@ mod test {
 	}
 
 	#[test]
-	fn test_vector_should_work() {
-		let pair = Pair::from_seed(&array_bytes::hex2array_unchecked(
-			"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
-		));
-		let public = pair.public();
+	fn seed_and_derive_should_work_for_bls381() {
+		let derived_as_raw_vector = seed_and_derive_should_work::<bls381::BlsEngine>();
 		assert_eq!(
-			public,
-			Public::unchecked_from(array_bytes::hex2array_unchecked(
-				"7a84ca8ce4c37c93c95ecee6a3c0c9a7b9c225093cf2f12dc4f69cbfb847ef9424a18f5755d5a742247d386ff2aabb806bcf160eff31293ea9616976628f77266c8a8cc1d8753be04197bd6cdd8c5c87a148f782c4c1568d599b48833fd539001e580cff64bbc71850605433fcd051f3afc3b74819786f815ffb5272030a8d03e5df61e6183f8fd8ea85f26defa83400"
-			))
+			derived_as_raw_vector,
+			array_bytes::hex2array_unchecked::<_, 32>(
+				"bb6ac58be00d3c7ae5608ca64180b5af628e79b58592b6067136bb46255cea27"
+			)
 		);
-		let message = b"";
-		let signature =
-	array_bytes::hex2array_unchecked("d1e3013161991e142d8751017d4996209c2ff8a9ee160f373733eda3b4b785ba6edce9f45f87104bbe07aa6aa6eb2780aa705efb2c13d3b317d6409d159d23bdc7cdd5c2a832d1551cf49d811d49c901495e527dbd532e3a462335ce2686009104aba7bc11c5b22be78f3198d2727a0b"
-	);
-		let signature = Signature::unchecked_from(signature);
-		assert!(pair.sign(&message[..]) == signature);
-		assert!(Pair::verify(&signature, &message[..], &public));
 	}
 
-	#[test]
-	fn test_vector_by_string_should_work() {
-		let pair = Pair::from_string(
-			"0x9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
-			None,
-		)
-		.unwrap();
+	fn test_vector_should_work<E: BlsBound>(
+		pair: Pair<E>,
+		hex_expected_pub_key: &str,
+		hex_expected_signature: &str,
+	) {
 		let public = pair.public();
+		let public_bytes: &[u8] = public.as_ref();
+		println!("pub key is: {:?}", array_bytes::bytes2hex("", public_bytes));
 		assert_eq!(
 			public,
-			Public::unchecked_from(array_bytes::hex2array_unchecked(
-				"7a84ca8ce4c37c93c95ecee6a3c0c9a7b9c225093cf2f12dc4f69cbfb847ef9424a18f5755d5a742247d386ff2aabb806bcf160eff31293ea9616976628f77266c8a8cc1d8753be04197bd6cdd8c5c87a148f782c4c1568d599b48833fd539001e580cff64bbc71850605433fcd051f3afc3b74819786f815ffb5272030a8d03e5df61e6183f8fd8ea85f26defa83400"
-			))
+			Public::unchecked_from(array_bytes::hex2array_unchecked(hex_expected_pub_key))
 		);
 		let message = b"";
-		let signature =
-	array_bytes::hex2array_unchecked("d1e3013161991e142d8751017d4996209c2ff8a9ee160f373733eda3b4b785ba6edce9f45f87104bbe07aa6aa6eb2780aa705efb2c13d3b317d6409d159d23bdc7cdd5c2a832d1551cf49d811d49c901495e527dbd532e3a462335ce2686009104aba7bc11c5b22be78f3198d2727a0b"
-	);
-		let expected_signature = Signature::unchecked_from(signature);
-		println!("signature is {:?}", pair.sign(&message[..]));
+		let expected_signature_bytes = array_bytes::hex2array_unchecked(hex_expected_signature);
+
+		let expected_signature = Signature::unchecked_from(expected_signature_bytes);
 		let signature = pair.sign(&message[..]);
 		assert!(signature == expected_signature);
 		assert!(Pair::verify(&signature, &message[..], &public));
 	}
+
 	#[test]
-	fn generated_pair_should_work() {
-		let (pair, _) = Pair::generate();
+	fn test_vector_should_work_for_bls377() {
+		let pair = Bls377Pair::from_seed(&array_bytes::hex2array_unchecked(
+			"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+		));
+		test_vector_should_work(pair,
+	    "7a84ca8ce4c37c93c95ecee6a3c0c9a7b9c225093cf2f12dc4f69cbfb847ef9424a18f5755d5a742247d386ff2aabb806bcf160eff31293ea9616976628f77266c8a8cc1d8753be04197bd6cdd8c5c87a148f782c4c1568d599b48833fd539001e580cff64bbc71850605433fcd051f3afc3b74819786f815ffb5272030a8d03e5df61e6183f8fd8ea85f26defa83400",
+	    "d1e3013161991e142d8751017d4996209c2ff8a9ee160f373733eda3b4b785ba6edce9f45f87104bbe07aa6aa6eb2780aa705efb2c13d3b317d6409d159d23bdc7cdd5c2a832d1551cf49d811d49c901495e527dbd532e3a462335ce2686009104aba7bc11c5b22be78f3198d2727a0b"
+	    )
+	}
+
+	#[test]
+	fn test_vector_should_work_for_bls381() {
+		let pair = Bls381Pair::from_seed(&array_bytes::hex2array_unchecked(
+			"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+		));
+		test_vector_should_work(pair,
+				    "88ff6c3a32542bc85f2adf1c490a929b7fcee50faeb95af9a036349390e9b3ea7326247c4fc4ebf88050688fd6265de0806284eec09ba0949f5df05dc93a787a14509749f36e4a0981bb748d953435483740907bb5c2fe8ffd97e8509e1a038b05fb08488db628ea0638b8d48c3ddf62ed437edd8b23d5989d6c65820fc70f80fb39b486a3766813e021124aec29a566",
+	    "8c29473f44ac4f0a8ac4dc8c8da09adf9d2faa2dbe0cfdce3ce7c920714196a1b7bf48dc05048e453c161ebc2db9f44fae060b3be77e14e66d1a5262f14d3da0c3a18e650018761a7402b31abc7dd803d466bdcb71bc28c77eb73c610cbff53c00130b79116831e520a04a8ef6630e6f"
+	    )
+	}
+
+	#[test]
+	fn test_vector_by_string_should_work_for_bls377() {
+		let pair = Bls377Pair::from_string(
+			"0x9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+			None,
+		)
+		.unwrap();
+		test_vector_should_work(pair,
+	    "7a84ca8ce4c37c93c95ecee6a3c0c9a7b9c225093cf2f12dc4f69cbfb847ef9424a18f5755d5a742247d386ff2aabb806bcf160eff31293ea9616976628f77266c8a8cc1d8753be04197bd6cdd8c5c87a148f782c4c1568d599b48833fd539001e580cff64bbc71850605433fcd051f3afc3b74819786f815ffb5272030a8d03e5df61e6183f8fd8ea85f26defa83400",
+	    "d1e3013161991e142d8751017d4996209c2ff8a9ee160f373733eda3b4b785ba6edce9f45f87104bbe07aa6aa6eb2780aa705efb2c13d3b317d6409d159d23bdc7cdd5c2a832d1551cf49d811d49c901495e527dbd532e3a462335ce2686009104aba7bc11c5b22be78f3198d2727a0b"
+	    )
+	}
+
+	#[test]
+	fn test_vector_by_string_should_work_for_bls381() {
+		let pair = Bls381Pair::from_string(
+			"0x9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+			None,
+		)
+		.unwrap();
+		test_vector_should_work(pair,
+	    "88ff6c3a32542bc85f2adf1c490a929b7fcee50faeb95af9a036349390e9b3ea7326247c4fc4ebf88050688fd6265de0806284eec09ba0949f5df05dc93a787a14509749f36e4a0981bb748d953435483740907bb5c2fe8ffd97e8509e1a038b05fb08488db628ea0638b8d48c3ddf62ed437edd8b23d5989d6c65820fc70f80fb39b486a3766813e021124aec29a566",
+	    "8c29473f44ac4f0a8ac4dc8c8da09adf9d2faa2dbe0cfdce3ce7c920714196a1b7bf48dc05048e453c161ebc2db9f44fae060b3be77e14e66d1a5262f14d3da0c3a18e650018761a7402b31abc7dd803d466bdcb71bc28c77eb73c610cbff53c00130b79116831e520a04a8ef6630e6f"
+	    )
+	}
+
+	fn test_pair<E: BlsBound>(pair: Pair<E>) -> (String, String) {
 		let public = pair.public();
 		let message = b"Something important";
 		let signature = pair.sign(&message[..]);
 		assert!(Pair::verify(&signature, &message[..], &public));
 		assert!(!Pair::verify(&signature, b"Something else", &public));
+		let public_bytes: &[u8] = public.as_ref();
+		let signature_bytes: &[u8] = signature.as_ref();
+		(array_bytes::bytes2hex("", public_bytes), array_bytes::bytes2hex("", signature_bytes))
 	}
 
 	#[test]
-	fn seeded_pair_should_work() {
-		let pair = Pair::from_seed(b"12345678901234567890123456789012");
-		let public = pair.public();
+	fn generated_pair_should_work_for_bls377() {
+		let (pair, _) = Bls377Pair::generate();
+		test_pair(pair);
+	}
+
+	#[test]
+	fn generated_pair_should_work_for_bls381() {
+		let (pair, _) = Bls381Pair::generate();
+		test_pair(pair);
+	}
+
+	#[test]
+	fn seeded_pair_should_work_for_bls377() {
+		let pair = Bls377Pair::from_seed(b"12345678901234567890123456789012");
+		let (public, _) = test_pair(pair);
+		assert_eq!(
+		    public,
+		    "754d2f2bbfa67df54d7e0e951979a18a1e0f45948857752cc2bac6bbb0b1d05e8e48bcc453920bf0c4bbd5993212480112a1fb433f04d74af0a8b700d93dc957ab3207f8d071e948f5aca1a7632c00bdf6d06be05b43e2e6216dccc8a5d55a0071cb2313cfd60b7e9114619cd17c06843b352f0b607a99122f6651df8f02e1ad3697bd208e62af047ddd7b942ba80080"
+		);
+	}
+
+	#[test]
+	fn seeded_pair_should_work_for_bls381() {
+		let pair = Bls381Pair::from_seed(b"12345678901234567890123456789012");
+		let (public, _) = test_pair(pair);
 		assert_eq!(
 			public,
-			Public::unchecked_from(
-				array_bytes::hex2array_unchecked(
-				"754d2f2bbfa67df54d7e0e951979a18a1e0f45948857752cc2bac6bbb0b1d05e8e48bcc453920bf0c4bbd5993212480112a1fb433f04d74af0a8b700d93dc957ab3207f8d071e948f5aca1a7632c00bdf6d06be05b43e2e6216dccc8a5d55a0071cb2313cfd60b7e9114619cd17c06843b352f0b607a99122f6651df8f02e1ad3697bd208e62af047ddd7b942ba80080")
-			)
+		    "abe9554cc2cab7fdc391a4e07ed0f45544cf0fe235babedf553c098d37dd162d9402a0aed95c00ed01349a6017a3d864adcc9756e98b7931aa3526b1511730c9cbacf3cbe781ae5efefdb177b301bca0229a5cf87432251cd31341c9b88aea9501005fa16e814ad31a95fcc396633baf563f6306e982ddec978faa0399ba73c1c1a87fa4791b3f5bbb719c1401b2af37"
 		);
-		let message =
-	array_bytes::hex2bytes_unchecked("2f8c6129d816cf51c374bc7f08c3e63ed156cf78aefb4a6550d97b87997977ee00000000000000000200d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a4500000000000000"
-	);
-		let signature = pair.sign(&message[..]);
-		println!("Correct signature: {:?}", signature);
-		assert!(Pair::verify(&signature, &message[..], &public));
-		assert!(!Pair::verify(&signature, "Other message", &public));
+	}
+
+	fn test_recover_with_phrase<E: BlsBound>(
+		pair: Pair<E>,
+		phrase: String,
+		password: Option<&str>,
+	) {
+		let (recovered_pair, _) = Pair::from_phrase(&phrase, password).unwrap();
+
+		assert_eq!(pair.public(), recovered_pair.public());
 	}
 
 	#[test]
-	fn generate_with_phrase_recovery_possible() {
-		let (pair1, phrase, _) = Pair::generate_with_phrase(None);
-		let (pair2, _) = Pair::from_phrase(&phrase, None).unwrap();
-
-		assert_eq!(pair1.public(), pair2.public());
+	fn generate_with_phrase_recovery_possible_for_bls377() {
+		let (pair, phrase, _) = Bls377Pair::generate_with_phrase(None);
+		test_recover_with_phrase(pair, phrase, None);
 	}
 
 	#[test]
-	fn generate_with_password_phrase_recovery_possible() {
-		let (pair1, phrase, _) = Pair::generate_with_phrase(Some("password"));
-		let (pair2, _) = Pair::from_phrase(&phrase, Some("password")).unwrap();
-
-		assert_eq!(pair1.public(), pair2.public());
+	fn generate_with_phrase_recovery_possible_for_bls381() {
+		let (pair, phrase, _) = Bls381Pair::generate_with_phrase(None);
+		test_recover_with_phrase(pair, phrase, None);
 	}
 
 	#[test]
-	fn generate_with_phrase_should_be_recoverable_with_from_string() {
-		let (pair, phrase, seed) = Pair::generate_with_phrase(None);
+	fn generate_with_password_phrase_recovery_possible_for_bls377() {
+		let (pair, phrase, _) = Bls377Pair::generate_with_phrase(Some("password"));
+		test_recover_with_phrase(pair, phrase, Some("password"));
+	}
+
+	#[test]
+	fn generate_with_password_phrase_recovery_possible_for_bls381() {
+		let (pair, phrase, _) = Bls381Pair::generate_with_phrase(Some("password"));
+		test_recover_with_phrase(pair, phrase, Some("password"));
+	}
+
+	fn test_recover_from_seed_and_string<E: BlsBound>(pair: Pair<E>, phrase: String, seed: Seed) {
 		let repair_seed = Pair::from_seed_slice(seed.as_ref()).expect("seed slice is valid");
 		assert_eq!(pair.public(), repair_seed.public());
 		assert_eq!(pair.to_raw_vec(), repair_seed.to_raw_vec());
@@ -672,17 +457,37 @@ mod test {
 	}
 
 	#[test]
-	fn password_does_something() {
-		let (pair1, phrase, _) = Pair::generate_with_phrase(Some("password"));
-		let (pair2, _) = Pair::from_phrase(&phrase, None).unwrap();
+	fn generate_with_phrase_should_be_recoverable_with_from_string_for_bls377() {
+		let (pair, phrase, seed) = Bls377Pair::generate_with_phrase(None);
+		test_recover_from_seed_and_string(pair, phrase, seed);
+	}
+
+	#[test]
+	fn generate_with_phrase_should_be_recoverable_with_from_string_for_bls381() {
+		let (pair, phrase, seed) = Bls381Pair::generate_with_phrase(None);
+		test_recover_from_seed_and_string(pair, phrase, seed);
+	}
+
+	fn password_does_something<E: BlsBound>() {
+		let (pair1, phrase, _) = Pair::<E>::generate_with_phrase(Some("password"));
+		let (pair2, _) = Pair::<E>::from_phrase(&phrase, None).unwrap();
 
 		assert_ne!(pair1.public(), pair2.public());
 		assert_ne!(pair1.to_raw_vec(), pair2.to_raw_vec());
 	}
 
 	#[test]
-	fn ss58check_roundtrip_works() {
-		let pair = Pair::from_seed(b"12345678901234567890123456789012");
+	fn password_does_something_for_bls377() {
+		password_does_something::<bls377::BlsEngine>();
+	}
+
+	#[test]
+	fn password_does_something_for_bls381() {
+		password_does_something::<bls381::BlsEngine>();
+	}
+
+	fn ss58check_roundtrip_works<E: BlsBound>() {
+		let pair = Pair::<E>::from_seed(b"12345678901234567890123456789012");
 		let public = pair.public();
 		let s = public.to_ss58check();
 		println!("Correct: {}", s);
@@ -691,25 +496,52 @@ mod test {
 	}
 
 	#[test]
-	fn signature_serialization_works() {
-		let pair = Pair::from_seed(b"12345678901234567890123456789012");
+	fn ss58check_roundtrip_works_for_bls377() {
+		ss58check_roundtrip_works::<bls377::BlsEngine>();
+	}
+
+	#[test]
+	fn ss58check_roundtrip_works_for_bls381() {
+		ss58check_roundtrip_works::<bls381::BlsEngine>();
+	}
+
+	fn signature_serialization_works<E: BlsBound>() {
+		let pair = Pair::<E>::from_seed(b"12345678901234567890123456789012");
 		let message = b"Something important";
 		let signature = pair.sign(&message[..]);
 		let serialized_signature = serde_json::to_string(&signature).unwrap();
 		// Signature is 112 bytes, hexify * 2, so 224  chars + 2 quote chars
 		assert_eq!(serialized_signature.len(), 226);
 		let signature = serde_json::from_str(&serialized_signature).unwrap();
-		assert!(Pair::verify(&signature, &message[..], &pair.public()));
+		assert!(Pair::<E>::verify(&signature, &message[..], &pair.public()));
+	}
+	#[test]
+	fn signature_serialization_works_for_bls377() {
+		signature_serialization_works::<bls377::BlsEngine>();
 	}
 
 	#[test]
-	fn signature_serialization_doesnt_panic() {
-		fn deserialize_signature(text: &str) -> Result<Signature, serde_json::error::Error> {
+	fn signature_serialization_works_for_bls381() {
+		signature_serialization_works::<bls381::BlsEngine>();
+	}
+	fn signature_serialization_doesnt_panic<E: BlsBound>() {
+		fn deserialize_signature<E: BlsBound>(
+			text: &str,
+		) -> Result<Signature<E>, serde_json::error::Error> {
 			serde_json::from_str(text)
 		}
-		assert!(deserialize_signature("Not valid json.").is_err());
-		assert!(deserialize_signature("\"Not an actual signature.\"").is_err());
+		assert!(deserialize_signature::<E>("Not valid json.").is_err());
+		assert!(deserialize_signature::<E>("\"Not an actual signature.\"").is_err());
 		// Poorly-sized
-		assert!(deserialize_signature("\"abc123\"").is_err());
+		assert!(deserialize_signature::<E>("\"abc123\"").is_err());
+	}
+	#[test]
+	fn signature_serialization_doesnt_panic_for_bls377() {
+		signature_serialization_doesnt_panic::<bls377::BlsEngine>();
+	}
+
+	#[test]
+	fn signature_serialization_doesnt_panic_for_bls381() {
+		signature_serialization_doesnt_panic::<bls381::BlsEngine>();
 	}
 }

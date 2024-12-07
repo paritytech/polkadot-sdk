@@ -6,4 +6,4 @@ doc:
       Enable better req-response protocol versioning, by allowing for fallback requests on different protocols.
 
 crates:
-  - name: sc_network
+  - name: sc-network

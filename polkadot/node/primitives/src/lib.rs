@@ -25,18 +25,19 @@
 use std::pin::Pin;
 
 use bounded_vec::BoundedVec;
+use codec::{Decode, Encode, Error as CodecError, Input};
 use futures::Future;
-use parity_scale_codec::{Decode, Encode, Error as CodecError, Input};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use polkadot_primitives::{
-	BlakeTwo256, BlockNumber, CandidateCommitments, CandidateHash, CollatorPair,
-	CommittedCandidateReceipt, CompactStatement, EncodeAs, Hash, HashT, HeadData, Id as ParaId,
-	PersistedValidationData, SessionIndex, Signed, UncheckedSigned, ValidationCode,
-	ValidationCodeHash, ValidatorIndex, MAX_CODE_SIZE, MAX_POV_SIZE,
+	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, BlakeTwo256, BlockNumber,
+	CandidateCommitments, CandidateHash, ChunkIndex, CollatorPair, CompactStatement, CoreIndex,
+	EncodeAs, Hash, HashT, HeadData, Id as ParaId, PersistedValidationData, SessionIndex, Signed,
+	UncheckedSigned, ValidationCode, ValidationCodeHash, MAX_CODE_SIZE, MAX_POV_SIZE,
 };
 pub use sp_consensus_babe::{
 	AllowedSlots as BabeAllowedSlots, BabeEpochConfiguration, Epoch as BabeEpoch,
+	Randomness as BabeRandomness,
 };
 
 pub use polkadot_parachain_primitives::primitives::{
@@ -58,7 +59,7 @@ pub use disputes::{
 /// relatively rare.
 ///
 /// The associated worker binaries should use the same version as the node that spawns them.
-pub const NODE_VERSION: &'static str = "1.7.0";
+pub const NODE_VERSION: &'static str = "1.16.1";
 
 // For a 16-ary Merkle Prefix Trie, we can expect at most 16 32-byte hashes per node
 // plus some overhead:
@@ -74,7 +75,7 @@ pub const VALIDATION_CODE_BOMB_LIMIT: usize = (MAX_CODE_SIZE * 4u32) as usize;
 pub const POV_BOMB_LIMIT: usize = (MAX_POV_SIZE * 4u32) as usize;
 
 /// How many blocks after finalization an information about backed/included candidate should be
-/// pre-loaded (when scraoing onchain votes) and kept locally (when pruning).
+/// pre-loaded (when scraping onchain votes) and kept locally (when pruning).
 ///
 /// We don't want to remove scraped candidates on finalization because we want to
 /// be sure that disputes will conclude on abandoned forks.
@@ -104,7 +105,7 @@ pub const MAX_FINALITY_LAG: u32 = 500;
 /// Type of a session window size.
 ///
 /// We are not using `NonZeroU32` here because `expect` and `unwrap` are not yet const, so global
-/// constants of `SessionWindowSize` would require `lazy_static` in that case.
+/// constants of `SessionWindowSize` would require `LazyLock` in that case.
 ///
 /// See: <https://github.com/rust-lang/rust/issues/67441>
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
@@ -347,6 +348,10 @@ pub enum InvalidCandidate {
 	CodeHashMismatch,
 	/// Validation has generated different candidate commitments.
 	CommitmentsHashMismatch,
+	/// The candidate receipt contains an invalid session index.
+	InvalidSessionIndex,
+	/// The candidate receipt contains an invalid core index.
+	InvalidCoreIndex,
 }
 
 /// Result of the validation of the candidate.
@@ -524,6 +529,8 @@ pub struct SubmitCollationParams {
 	/// okay to just drop it. However, if it is called, it should be called with the signed
 	/// statement of a parachain validator seconding the collation.
 	pub result_sender: Option<futures::channel::oneshot::Sender<CollationSecondedSignal>>,
+	/// The core index on which the resulting candidate should be backed
+	pub core_index: CoreIndex,
 }
 
 /// This is the data we keep available for each candidate included in the relay chain.
@@ -637,7 +644,7 @@ pub struct ErasureChunk {
 	/// The erasure-encoded chunk of data belonging to the candidate block.
 	pub chunk: Vec<u8>,
 	/// The index of this erasure-encoded chunk of data.
-	pub index: ValidatorIndex,
+	pub index: ChunkIndex,
 	/// Proof for this chunk's branch in the Merkle tree.
 	pub proof: Proof,
 }

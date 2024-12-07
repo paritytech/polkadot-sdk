@@ -111,14 +111,6 @@ impl<'de> Deserialize<'de> for Signature {
 }
 
 #[derive(Copy, Clone, Default, Encode, Decode, TypeInfo, MaxEncodedLen)]
-pub struct ExecutionHeaderState {
-	pub beacon_block_root: H256,
-	pub beacon_slot: u64,
-	pub block_hash: H256,
-	pub block_number: u64,
-}
-
-#[derive(Copy, Clone, Default, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub struct FinalizedHeaderState {
 	pub beacon_block_root: H256,
 	pub beacon_slot: u64,
@@ -350,35 +342,6 @@ impl ExecutionPayloadHeader {
 	Default,
 	Encode,
 	Decode,
-	CloneNoBound,
-	PartialEqNoBound,
-	RuntimeDebugNoBound,
-	TypeInfo,
-	MaxEncodedLen,
-)]
-pub struct CompactExecutionHeader {
-	pub parent_hash: H256,
-	#[codec(compact)]
-	pub block_number: u64,
-	pub state_root: H256,
-	pub receipts_root: H256,
-}
-
-impl From<ExecutionPayloadHeader> for CompactExecutionHeader {
-	fn from(execution_payload: ExecutionPayloadHeader) -> Self {
-		Self {
-			parent_hash: execution_payload.parent_hash,
-			block_number: execution_payload.block_number,
-			state_root: execution_payload.state_root,
-			receipts_root: execution_payload.receipts_root,
-		}
-	}
-}
-
-#[derive(
-	Default,
-	Encode,
-	Decode,
 	Copy,
 	Clone,
 	PartialEqNoBound,
@@ -403,18 +366,6 @@ pub struct CompactBeaconState {
 pub enum VersionedExecutionPayloadHeader {
 	Capella(ExecutionPayloadHeader),
 	Deneb(deneb::ExecutionPayloadHeader),
-}
-
-/// Convert VersionedExecutionPayloadHeader to CompactExecutionHeader
-impl From<VersionedExecutionPayloadHeader> for CompactExecutionHeader {
-	fn from(versioned_execution_header: VersionedExecutionPayloadHeader) -> Self {
-		match versioned_execution_header {
-			VersionedExecutionPayloadHeader::Capella(execution_payload_header) =>
-				execution_payload_header.into(),
-			VersionedExecutionPayloadHeader::Deneb(execution_payload_header) =>
-				execution_payload_header.into(),
-		}
-	}
 }
 
 impl VersionedExecutionPayloadHeader {
@@ -448,6 +399,45 @@ impl VersionedExecutionPayloadHeader {
 				execution_payload_header.block_number,
 		}
 	}
+
+	pub fn receipts_root(&self) -> H256 {
+		match self {
+			VersionedExecutionPayloadHeader::Capella(execution_payload_header) =>
+				execution_payload_header.receipts_root,
+			VersionedExecutionPayloadHeader::Deneb(execution_payload_header) =>
+				execution_payload_header.receipts_root,
+		}
+	}
+}
+
+#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo)]
+#[cfg_attr(
+	feature = "std",
+	derive(serde::Deserialize),
+	serde(deny_unknown_fields, bound(serialize = ""), bound(deserialize = ""))
+)]
+pub struct ExecutionProof {
+	/// Header for the beacon block containing the execution payload
+	pub header: BeaconHeader,
+	/// Proof that `header` is an ancestor of a finalized header
+	pub ancestry_proof: Option<AncestryProof>,
+	/// The execution header to be verified
+	pub execution_header: VersionedExecutionPayloadHeader,
+	/// Merkle proof that execution payload is contained within `header`
+	pub execution_branch: Vec<H256>,
+}
+
+#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo)]
+#[cfg_attr(
+	feature = "std",
+	derive(serde::Deserialize),
+	serde(deny_unknown_fields, bound(serialize = ""), bound(deserialize = ""))
+)]
+pub struct AncestryProof {
+	/// Merkle proof that `header` is an ancestor of `finalized_header`
+	pub header_branch: Vec<H256>,
+	/// Root of a finalized block that has already been imported into the light client
+	pub finalized_block_root: H256,
 }
 
 #[cfg(test)]
@@ -576,7 +566,6 @@ pub enum Mode {
 }
 
 pub mod deneb {
-	use crate::CompactExecutionHeader;
 	use codec::{Decode, Encode};
 	use frame_support::{CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 	use scale_info::TypeInfo;
@@ -626,16 +615,5 @@ pub mod deneb {
 		pub withdrawals_root: H256,
 		pub blob_gas_used: u64,   // [New in Deneb:EIP4844]
 		pub excess_blob_gas: u64, // [New in Deneb:EIP4844]
-	}
-
-	impl From<ExecutionPayloadHeader> for CompactExecutionHeader {
-		fn from(execution_payload: ExecutionPayloadHeader) -> Self {
-			Self {
-				parent_hash: execution_payload.parent_hash,
-				block_number: execution_payload.block_number,
-				state_root: execution_payload.state_root,
-				receipts_root: execution_payload.receipts_root,
-			}
-		}
 	}
 }

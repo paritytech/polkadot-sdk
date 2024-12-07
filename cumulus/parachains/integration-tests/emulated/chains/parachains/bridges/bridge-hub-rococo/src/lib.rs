@@ -15,6 +15,12 @@
 
 pub mod genesis;
 
+pub use bridge_hub_rococo_runtime::{
+	xcm_config::XcmConfig as BridgeHubRococoXcmConfig, EthereumBeaconClient, EthereumInboundQueue,
+	ExistentialDeposit as BridgeHubRococoExistentialDeposit,
+	RuntimeOrigin as BridgeHubRococoRuntimeOrigin,
+};
+
 // Substrate
 use frame_support::traits::OnInitialize;
 

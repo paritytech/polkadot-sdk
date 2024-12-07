@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove ValidateFromChainState
+
+doc:
+  - audience: Node Dev
+    description: |
+      Removed the `CandidateValidationMessage::ValidateFromChainState`, which was previously used by backing, but is no longer relevant since initial async backing implementation
+
+crates:
+  - name: polkadot-node-subsystem-types
+    bump: major
+  - name: polkadot-node-core-candidate-validation
+    bump: major
+  - name: polkadot
+    bump: patch
+  - name: polkadot-overseer
+    bump: patch

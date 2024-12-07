@@ -18,14 +18,23 @@
 //! A set of well-known keys used for testing.
 
 pub use sp_core::bandersnatch;
+
+use crate::ParseKeyringError;
+#[cfg(feature = "std")]
+use sp_core::bandersnatch::Signature;
 use sp_core::{
-	bandersnatch::{Pair, Public, Signature},
+	bandersnatch::{Pair, Public},
 	crypto::UncheckedFrom,
 	hex2array, ByteArray, Pair as PairT,
 };
 
+extern crate alloc;
+use alloc::{format, str::FromStr, string::String, vec::Vec};
+
 /// Set of test accounts.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::Display, strum::EnumIter)]
+#[derive(
+	Debug, Clone, Copy, PartialEq, Eq, Hash, strum::Display, strum::EnumIter, Ord, PartialOrd,
+)]
 pub enum Keyring {
 	Alice,
 	Bob,
@@ -56,6 +65,7 @@ impl Keyring {
 		Public::from(self).to_raw_vec()
 	}
 
+	#[cfg(feature = "std")]
 	pub fn sign(self, msg: &[u8]) -> Signature {
 		Pair::from(self).sign(msg)
 	}
@@ -99,19 +109,10 @@ impl From<Keyring> for &'static str {
 	}
 }
 
-#[derive(Debug)]
-pub struct ParseKeyringError;
-
-impl std::fmt::Display for ParseKeyringError {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "ParseKeyringError")
-	}
-}
-
-impl std::str::FromStr for Keyring {
+impl FromStr for Keyring {
 	type Err = ParseKeyringError;
 
-	fn from_str(s: &str) -> Result<Self, <Self as std::str::FromStr>::Err> {
+	fn from_str(s: &str) -> Result<Self, <Self as FromStr>::Err> {
 		match s {
 			"Alice" => Ok(Keyring::Alice),
 			"Bob" => Ok(Keyring::Bob),

@@ -46,7 +46,7 @@ where
 	// 			  B2 -> C3
 	// 		A1 -> D2
 
-	let mut client = TestClientBuilder::with_backend(backend.clone()).build();
+	let client = TestClientBuilder::with_backend(backend.clone()).build();
 	let blockchain = backend.blockchain();
 
 	let genesis_hash = client.chain_info().genesis_hash;
@@ -221,7 +221,7 @@ where
 	// 			  B2 -> C3
 	// 		A1 -> D2
 
-	let mut client = TestClientBuilder::with_backend(backend.clone()).build();
+	let client = TestClientBuilder::with_backend(backend.clone()).build();
 	let blockchain = backend.blockchain();
 	let genesis_hash = client.chain_info().genesis_hash;
 
@@ -390,7 +390,7 @@ where
 	// 		A1 -> B2 -> B3 -> B4
 	// 			  B2 -> C3
 	// 		A1 -> D2
-	let mut client = TestClientBuilder::with_backend(backend.clone()).build();
+	let client = TestClientBuilder::with_backend(backend.clone()).build();
 	let blockchain = backend.blockchain();
 	let genesis_hash = client.chain_info().genesis_hash;
 

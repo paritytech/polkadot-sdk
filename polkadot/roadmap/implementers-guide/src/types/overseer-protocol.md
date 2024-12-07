@@ -22,7 +22,7 @@ All subsystems have their own message types; all of them need to be able to list
 are currently two proposals for how to handle that with unified communication channels:
 
 1. Retaining the `OverseerSignal` definition above, add `enum FromOrchestra<T> {Signal(OverseerSignal), Message(T)}`.
-1. Add a generic varint to `OverseerSignal`: `Message(T)`.
+1. Add a generic variant to `OverseerSignal`: `Message(T)`.
 
 Either way, there will be some top-level type encapsulating messages from the overseer to each subsystem.
 
@@ -111,21 +111,15 @@ pub enum ApprovalCheckError {
 }
 
 enum ApprovalVotingMessage {
-    /// Check if the assignment is valid and can be accepted by our view of the protocol.
-    /// Should not be sent unless the block hash is known.
-    CheckAndImportAssignment(
-        IndirectAssignmentCert,
-        CandidateIndex, // The index of the candidate included in the block.
-        ResponseChannel<AssignmentCheckResult>,
-    ),
-    /// Check if the approval vote is valid and can be accepted by our view of the
-    /// protocol.
-    ///
-    /// Should not be sent unless the block hash within the indirect vote is known.
-    CheckAndImportApproval(
-        IndirectSignedApprovalVote,
-        ResponseChannel<ApprovalCheckResult>,
-    ),
+	/// Import an assignment into the approval-voting database.
+	///
+	/// Should not be sent unless the block hash is known and the VRF assignment checks out.
+	ImportAssignment(CheckedIndirectAssignment, Option<oneshot::Sender<AssignmentCheckResult>>),
+	/// Import an approval vote into approval-voting database
+	///
+	/// Should not be sent unless the block hash within the indirect vote is known, vote is
+	/// correctly signed and we had a previous assignment for the candidate.
+	ImportApproval(CheckedIndirectSignedApprovalVote, Option<oneshot::Sender<ApprovalCheckResult>>),
     /// Returns the highest possible ancestor hash of the provided block hash which is
     /// acceptable to vote on finality for. Along with that, return the lists of candidate hashes
     /// which appear in every block from the (non-inclusive) base number up to (inclusive) the specified
@@ -238,6 +232,9 @@ enum AvailabilityRecoveryMessage {
         CandidateReceipt,
         SessionIndex,
         Option<GroupIndex>, // Backing validator group to request the data directly from.
+        Option<CoreIndex>, /* A `CoreIndex` needs to be specified for the recovery process to
+		                    * prefer systematic chunk recovery. This is the core that the candidate
+                            * was occupying while pending availability. */
         ResponseChannel<Result<AvailableData, RecoveryError>>,
     ),
 }
@@ -340,9 +337,15 @@ enum BitfieldSigningMessage { }
 ```rust
 enum CandidateBackingMessage {
   /// Requests a set of backable candidates attested by the subsystem.
-  ///
-  /// Each pair is (candidate_hash, candidate_relay_parent).
-  GetBackedCandidates(Vec<(CandidateHash, Hash)>, oneshot::Sender<Vec<BackedCandidate>>),
+  /// The order of candidates of the same para must be preserved in the response.
+  /// If a backed candidate of a para cannot be retrieved, the response should not contain any
+  /// candidates of the same para that follow it in the input vector. In other words, assuming
+  /// candidates are supplied in dependency order, we must ensure that this dependency order is
+  /// preserved.
+  GetBackedCandidates(
+    HashMap<ParaId, Vec<(CandidateHash, Hash)>>,
+    oneshot::Sender<HashMap<ParaId, Vec<BackedCandidate>>>,
+  ),
   /// Note that the Candidate Backing subsystem should second the given candidate in the context of the
   /// given relay-parent (ref. by hash). This candidate must be validated using the provided PoV.
   /// The PoV is expected to match the `pov_hash` in the descriptor.
@@ -433,9 +436,6 @@ enum CollatorProtocolMessage {
     DistributeCollation(CandidateReceipt, PoV, Option<oneshot::Sender<CollationSecondedSignal>>),
     /// Fetch a collation under the given relay-parent for the given ParaId.
     FetchCollation(Hash, ParaId, ResponseChannel<(CandidateReceipt, PoV)>),
-    /// Report a collator as having provided an invalid collation. This should lead to disconnect
-    /// and blacklist of the collator.
-    ReportCollator(CollatorId),
     /// Note a collator as having provided a good collation.
     NoteGoodCollation(CollatorId, SignedFullStatement),
     /// Notify a collator that its collation was seconded.
@@ -694,14 +694,6 @@ mod generic {
         Invalidity(Digest, Signature, Signature),
     }
 
-    /// Misbehavior: declaring multiple candidates.
-    pub struct MultipleCandidates<Candidate, Signature> {
-        /// The first candidate seen.
-        pub first: (Candidate, Signature),
-        /// The second candidate seen.
-        pub second: (Candidate, Signature),
-    }
-
     /// Misbehavior: submitted statement for wrong group.
     pub struct UnauthorizedStatement<Candidate, Digest, AuthorityId, Signature> {
         /// A signed statement which was submitted without proper authority.
@@ -711,8 +703,6 @@ mod generic {
     pub enum Misbehavior<Candidate, Digest, AuthorityId, Signature> {
         /// Voted invalid and valid on validity.
         ValidityDoubleVote(ValidityDoubleVote<Candidate, Digest, Signature>),
-        /// Submitted multiple candidates.
-        MultipleCandidates(MultipleCandidates<Candidate, Signature>),
         /// Submitted a message that was unauthorized.
         UnauthorizedStatement(UnauthorizedStatement<Candidate, Digest, AuthorityId, Signature>),
         /// Submitted two valid signatures for the same message.
@@ -898,22 +888,6 @@ const APPROVAL_EXECUTION_TIMEOUT: Duration = 6 seconds;
 /// or `Ok(ValidationResult::Invalid)`.
 #[derive(Debug)]
 pub enum CandidateValidationMessage {
-    /// Validate a candidate with provided parameters using relay-chain state.
-    ///
-    /// This will implicitly attempt to gather the `PersistedValidationData` and `ValidationCode`
-    /// from the runtime API of the chain, based on the `relay_parent`
-    /// of the `CandidateDescriptor`.
-    ///
-    /// This will also perform checking of validation outputs against the acceptance criteria.
-    ///
-    /// If there is no state available which can provide this data or the core for
-    /// the para is not free at the relay-parent, an error is returned.
-    ValidateFromChainState(
-        CandidateDescriptor,
-        Arc<PoV>,
-        Duration, // Execution timeout.
-        oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
-    ),
     /// Validate a candidate with provided, exhaustive parameters for validation.
     ///
     /// Explicitly provide the `PersistedValidationData` and `ValidationCode` so this can do full

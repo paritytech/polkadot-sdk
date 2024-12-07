@@ -17,7 +17,7 @@
 use crate::configuration::*;
 use frame_benchmarking::{benchmarks, BenchmarkError, BenchmarkResult};
 use frame_system::RawOrigin;
-use primitives::{ExecutorParam, ExecutorParams, PvfExecKind, PvfPrepKind};
+use polkadot_primitives::{ExecutorParam, ExecutorParams, PvfExecKind, PvfPrepKind};
 use sp_runtime::traits::One;
 
 benchmarks! {
@@ -50,6 +50,8 @@ benchmarks! {
 	set_config_with_perbill {}: set_on_demand_fee_variability(RawOrigin::Root, Perbill::from_percent(100))
 
 	set_node_feature{}: set_node_feature(RawOrigin::Root, 255, true)
+
+	set_config_with_scheduler_params {} : set_scheduler_params(RawOrigin::Root, SchedulerParams::default())
 
 	impl_benchmark_test_suite!(
 		Pallet,

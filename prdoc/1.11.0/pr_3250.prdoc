@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Asset Conversion: Pool Account ID derivation with additional Pallet ID seed"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Introduce PalletId as an additional seed parameter for pool's account id derivation.
+      The PR also introduces the `pallet_asset_conversion_ops` pallet with a call to migrate 
+      a pool to the new account. Additionally `fungibles::roles::ResetTeam` and 
+      `fungible::lifetime::Refund` traits, to facilitate the migration functionality.
+
+crates: 
+  - name: pallet-asset-conversion
+    bump: minor

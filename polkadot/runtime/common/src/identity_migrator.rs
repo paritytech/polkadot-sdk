@@ -31,7 +31,7 @@ use pallet_identity;
 use sp_core::Get;
 
 #[cfg(feature = "runtime-benchmarks")]
-use frame_benchmarking::{account, impl_benchmark_test_suite, v2::*, BenchmarkError};
+use frame_benchmarking::{account, v2::*, BenchmarkError};
 
 pub trait WeightInfo {
 	fn reap_identity(r: u32, s: u32) -> Weight;
@@ -172,15 +172,15 @@ impl<AccountId> OnReapIdentity<AccountId> for () {
 #[benchmarks]
 mod benchmarks {
 	use super::*;
+	use alloc::{boxed::Box, vec, vec::Vec};
+	use codec::Encode;
 	use frame_support::traits::EnsureOrigin;
 	use frame_system::RawOrigin;
 	use pallet_identity::{Data, IdentityInformationProvider, Judgement, Pallet as Identity};
-	use parity_scale_codec::Encode;
 	use sp_runtime::{
 		traits::{Bounded, Hash, StaticLookup},
 		Saturating,
 	};
-	use sp_std::{boxed::Box, vec::Vec, *};
 
 	const SEED: u32 = 0;
 

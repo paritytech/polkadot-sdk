@@ -24,7 +24,7 @@ pub mod client_ext;
 pub use self::client_ext::{BlockOrigin, ClientBlockImportExt, ClientExt};
 pub use sc_client_api::{execution_extensions::ExecutionExtensions, BadBlocks, ForkBlocks};
 pub use sc_client_db::{self, Backend, BlocksPruning};
-pub use sc_executor::{self, NativeElseWasmExecutor, WasmExecutionMethod, WasmExecutor};
+pub use sc_executor::{self, WasmExecutionMethod, WasmExecutor};
 pub use sc_service::{client, RpcHandlers};
 pub use sp_consensus;
 pub use sp_keyring::{
@@ -72,6 +72,7 @@ pub struct TestClientBuilder<Block: BlockT, ExecutorDispatch, Backend: 'static, 
 	fork_blocks: ForkBlocks<Block>,
 	bad_blocks: BadBlocks<Block>,
 	enable_offchain_indexing_api: bool,
+	enable_import_proof_recording: bool,
 	no_genesis: bool,
 }
 
@@ -120,6 +121,7 @@ impl<Block: BlockT, ExecutorDispatch, Backend, G: GenesisInit>
 			bad_blocks: None,
 			enable_offchain_indexing_api: false,
 			no_genesis: false,
+			enable_import_proof_recording: false,
 		}
 	}
 
@@ -165,6 +167,12 @@ impl<Block: BlockT, ExecutorDispatch, Backend, G: GenesisInit>
 		self
 	}
 
+	/// Enable proof recording on import.
+	pub fn enable_import_proof_recording(mut self) -> Self {
+		self.enable_import_proof_recording = true;
+		self
+	}
+
 	/// Disable writing genesis.
 	pub fn set_no_genesis(mut self) -> Self {
 		self.no_genesis = true;
@@ -202,6 +210,7 @@ impl<Block: BlockT, ExecutorDispatch, Backend, G: GenesisInit>
 		};
 
 		let client_config = ClientConfig {
+			enable_import_proof_recording: self.enable_import_proof_recording,
 			offchain_indexing_api: self.enable_offchain_indexing_api,
 			no_genesis: self.no_genesis,
 			..Default::default()
@@ -236,14 +245,8 @@ impl<Block: BlockT, ExecutorDispatch, Backend, G: GenesisInit>
 	}
 }
 
-impl<Block: BlockT, D, Backend, G: GenesisInit>
-	TestClientBuilder<
-		Block,
-		client::LocalCallExecutor<Block, Backend, NativeElseWasmExecutor<D>>,
-		Backend,
-		G,
-	> where
-	D: sc_executor::NativeExecutionDispatch,
+impl<Block: BlockT, H, Backend, G: GenesisInit>
+	TestClientBuilder<Block, client::LocalCallExecutor<Block, Backend, WasmExecutor<H>>, Backend, G>
 {
 	/// Build the test client with the given native executor.
 	pub fn build_with_native_executor<RuntimeApi, I>(
@@ -252,21 +255,18 @@ impl<Block: BlockT, D, Backend, G: GenesisInit>
 	) -> (
 		client::Client<
 			Backend,
-			client::LocalCallExecutor<Block, Backend, NativeElseWasmExecutor<D>>,
+			client::LocalCallExecutor<Block, Backend, WasmExecutor<H>>,
 			Block,
 			RuntimeApi,
 		>,
 		sc_consensus::LongestChain<Backend, Block>,
 	)
 	where
-		I: Into<Option<NativeElseWasmExecutor<D>>>,
-		D: sc_executor::NativeExecutionDispatch + 'static,
+		I: Into<Option<WasmExecutor<H>>>,
 		Backend: sc_client_api::backend::Backend<Block> + 'static,
+		H: sc_executor::HostFunctions,
 	{
-		let mut executor = executor.into().unwrap_or_else(|| {
-			NativeElseWasmExecutor::new_with_wasm_executor(WasmExecutor::builder().build())
-		});
-		executor.disable_use_native();
+		let executor = executor.into().unwrap_or_else(|| WasmExecutor::<H>::builder().build());
 		let executor = LocalCallExecutor::new(
 			self.backend.clone(),
 			executor.clone(),

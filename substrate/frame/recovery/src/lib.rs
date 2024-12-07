@@ -150,13 +150,15 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{CheckedAdd, CheckedMul, Dispatchable, SaturatedConversion, StaticLookup},
 	RuntimeDebug,
 };
-use sp_std::prelude::*;
 
 use frame_support::{
 	dispatch::{GetDispatchInfo, PostDispatchInfo},
@@ -376,7 +378,7 @@ pub mod pallet {
 		#[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
 			(
-				T::WeightInfo::as_recovered().saturating_add(dispatch_info.weight),
+				T::WeightInfo::as_recovered().saturating_add(dispatch_info.call_weight),
 				dispatch_info.class,
 			)})]
 		pub fn as_recovered(

@@ -1,0 +1,31 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Replace `Multiaddr` & related types with substrate-specific types
+
+doc:
+  - audience: Node Dev
+    description: |
+      Introduce custom types / substrate wrappers for `Multiaddr`, `multiaddr::Protocol`,
+      `Multihash`, `ed25519::*` and supplementary types like errors and iterators.
+
+      Common code in substrate uses these custom types, while `libp2p` & `litep2p` network
+      backends use their corresponding libraries types.
+
+      This is needed to independently upgrade `libp2p` & `litep2p` dependencies.
+
+crates:
+  - name: sc-network-types
+    bump: minor
+  - name: sc-network
+    bump: minor
+  - name: sc-network-sync
+    bump: minor
+  - name: sc-authority-discovery
+    bump: minor
+  - name: sc-cli
+    bump: patch
+  - name: sc-mixnet
+    bump: patch
+  - name: sc-telemetry
+    bump: patch

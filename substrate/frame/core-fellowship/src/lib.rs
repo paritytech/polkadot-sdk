@@ -57,11 +57,14 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::boxed::Box;
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::{fmt::Debug, marker::PhantomData};
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{Saturating, Zero};
 use sp_runtime::RuntimeDebug;
-use sp_std::{marker::PhantomData, prelude::*};
 
 use frame_support::{
 	defensive,
@@ -71,7 +74,7 @@ use frame_support::{
 		tokens::Balance as BalanceTrait, EnsureOrigin, EnsureOriginWithArg, Get, RankedMembers,
 		RankedMembersSwapHandler,
 	},
-	BoundedVec,
+	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 
 #[cfg(test)]
@@ -79,10 +82,11 @@ mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+pub mod migration;
 pub mod weights;
 
 pub use pallet::*;
-pub use weights::WeightInfo;
+pub use weights::*;
 
 /// The desired outcome for which evidence is presented.
 #[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
@@ -100,29 +104,46 @@ pub enum Wish {
 pub type Evidence<T, I> = BoundedVec<u8, <T as Config<I>>::EvidenceSize>;
 
 /// The status of the pallet instance.
-#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
-pub struct ParamsType<Balance, BlockNumber, const RANKS: usize> {
+#[derive(
+	Encode,
+	Decode,
+	CloneNoBound,
+	EqNoBound,
+	PartialEqNoBound,
+	RuntimeDebugNoBound,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+#[scale_info(skip_type_params(Ranks))]
+pub struct ParamsType<
+	Balance: Clone + Eq + PartialEq + Debug,
+	BlockNumber: Clone + Eq + PartialEq + Debug,
+	Ranks: Get<u32>,
+> {
 	/// The amounts to be paid when a member of a given rank (-1) is active.
-	active_salary: [Balance; RANKS],
+	pub active_salary: BoundedVec<Balance, Ranks>,
 	/// The amounts to be paid when a member of a given rank (-1) is passive.
-	passive_salary: [Balance; RANKS],
+	pub passive_salary: BoundedVec<Balance, Ranks>,
 	/// The period between which unproven members become demoted.
-	demotion_period: [BlockNumber; RANKS],
+	pub demotion_period: BoundedVec<BlockNumber, Ranks>,
 	/// The period between which members must wait before they may proceed to this rank.
-	min_promotion_period: [BlockNumber; RANKS],
+	pub min_promotion_period: BoundedVec<BlockNumber, Ranks>,
 	/// Amount by which an account can remain at rank 0 (candidate before being offboard entirely).
-	offboard_timeout: BlockNumber,
+	pub offboard_timeout: BlockNumber,
 }
 
-impl<Balance: Default + Copy, BlockNumber: Default + Copy, const RANKS: usize> Default
-	for ParamsType<Balance, BlockNumber, RANKS>
+impl<
+		Balance: Default + Copy + Eq + Debug,
+		BlockNumber: Default + Copy + Eq + Debug,
+		Ranks: Get<u32>,
+	> Default for ParamsType<Balance, BlockNumber, Ranks>
 {
 	fn default() -> Self {
 		Self {
-			active_salary: [Balance::default(); RANKS],
-			passive_salary: [Balance::default(); RANKS],
-			demotion_period: [BlockNumber::default(); RANKS],
-			min_promotion_period: [BlockNumber::default(); RANKS],
+			active_salary: Default::default(),
+			passive_salary: Default::default(),
+			demotion_period: Default::default(),
+			min_promotion_period: Default::default(),
 			offboard_timeout: BlockNumber::default(),
 		}
 	}
@@ -148,10 +169,11 @@ pub mod pallet {
 		traits::{tokens::GetSalary, EnsureOrigin},
 	};
 	use frame_system::{ensure_root, pallet_prelude::*};
-
-	const RANK_COUNT: usize = 9;
+	/// The in-code storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	#[pallet::config]
@@ -190,12 +212,28 @@ pub mod pallet {
 		/// rank to which it can promote.
 		type PromoteOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = RankOf<Self, I>>;
 
+		/// The origin that has permission to "fast" promote a member by ignoring promotion periods
+		/// and skipping ranks. The `Success` value is the maximum rank to which it can promote.
+		type FastPromoteOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = RankOf<Self, I>>;
+
 		/// The maximum size in bytes submitted evidence is allowed to be.
 		#[pallet::constant]
 		type EvidenceSize: Get<u32>;
+
+		/// Represents the highest possible rank in this pallet.
+		///
+		/// Increasing this value is supported, but decreasing it may lead to a broken state.
+		#[pallet::constant]
+		type MaxRank: Get<u32>;
 	}
 
-	pub type ParamsOf<T, I> = ParamsType<<T as Config<I>>::Balance, BlockNumberFor<T>, RANK_COUNT>;
+	pub type ParamsOf<T, I> =
+		ParamsType<<T as Config<I>>::Balance, BlockNumberFor<T>, <T as Config<I>>::MaxRank>;
+	pub type PartialParamsOf<T, I> = ParamsType<
+		Option<<T as Config<I>>::Balance>,
+		Option<BlockNumberFor<T>>,
+		<T as Config<I>>::MaxRank,
+	>;
 	pub type MemberStatusOf<T> = MemberStatus<BlockNumberFor<T>>;
 	pub type RankOf<T, I> = <<T as Config<I>>::Members as RankedMembers>::Rank;
 
@@ -337,8 +375,10 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		pub fn set_params(origin: OriginFor<T>, params: Box<ParamsOf<T, I>>) -> DispatchResult {
 			T::ParamsOrigin::ensure_origin_or_root(origin)?;
+
 			Params::<T, I>::put(params.as_ref());
 			Self::deposit_event(Event::<T, I>::ParamsChanged { params: *params });
+
 			Ok(())
 		}
 
@@ -465,6 +505,44 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Fast promotions can skip ranks and ignore the `min_promotion_period`.
+		///
+		/// This is useful for out-of-band promotions, hence it has its own `FastPromoteOrigin` to
+		/// be (possibly) more restrictive than `PromoteOrigin`. Note that the member must already
+		/// be inducted.
+		#[pallet::weight(T::WeightInfo::promote_fast(*to_rank as u32))]
+		#[pallet::call_index(10)]
+		pub fn promote_fast(
+			origin: OriginFor<T>,
+			who: T::AccountId,
+			to_rank: RankOf<T, I>,
+		) -> DispatchResult {
+			match T::FastPromoteOrigin::try_origin(origin) {
+				Ok(allow_rank) => ensure!(allow_rank >= to_rank, Error::<T, I>::NoPermission),
+				Err(origin) => ensure_root(origin)?,
+			}
+			ensure!(to_rank as u32 <= T::MaxRank::get(), Error::<T, I>::InvalidRank);
+			let curr_rank = T::Members::rank_of(&who).ok_or(Error::<T, I>::Unranked)?;
+			ensure!(to_rank > curr_rank, Error::<T, I>::UnexpectedRank);
+
+			let mut member = Member::<T, I>::get(&who).ok_or(Error::<T, I>::NotTracked)?;
+			let now = frame_system::Pallet::<T>::block_number();
+			member.last_promotion = now;
+			member.last_proof = now;
+
+			for rank in (curr_rank + 1)..=to_rank {
+				T::Members::promote(&who)?;
+
+				// NOTE: We could factor this out, but it would destroy our invariants:
+				Member::<T, I>::insert(&who, &member);
+
+				Self::dispose_evidence(who.clone(), rank.saturating_sub(1), Some(rank));
+				Self::deposit_event(Event::<T, I>::Promoted { who: who.clone(), to_rank: rank });
+			}
+
+			Ok(())
+		}
+
 		/// Stop tracking a prior member who is now not a ranked member of the collective.
 		///
 		/// - `origin`: A `Signed` origin of an account.
@@ -530,16 +608,66 @@ pub mod pallet {
 
 			Ok(Pays::No.into())
 		}
+
+		/// Set the parameters partially.
+		///
+		/// - `origin`: An origin complying with `ParamsOrigin` or root.
+		/// - `partial_params`: The new parameters for the pallet.
+		///
+		/// This update config with multiple arguments without duplicating
+		/// the fields that does not need to update (set to None).
+		#[pallet::weight(T::WeightInfo::set_partial_params())]
+		#[pallet::call_index(9)]
+		pub fn set_partial_params(
+			origin: OriginFor<T>,
+			partial_params: Box<PartialParamsOf<T, I>>,
+		) -> DispatchResult {
+			T::ParamsOrigin::ensure_origin_or_root(origin)?;
+			let params = Params::<T, I>::mutate(|p| {
+				Self::set_partial_params_slice(&mut p.active_salary, partial_params.active_salary);
+				Self::set_partial_params_slice(
+					&mut p.passive_salary,
+					partial_params.passive_salary,
+				);
+				Self::set_partial_params_slice(
+					&mut p.demotion_period,
+					partial_params.demotion_period,
+				);
+				Self::set_partial_params_slice(
+					&mut p.min_promotion_period,
+					partial_params.min_promotion_period,
+				);
+				if let Some(new_offboard_timeout) = partial_params.offboard_timeout {
+					p.offboard_timeout = new_offboard_timeout;
+				}
+				p.clone()
+			});
+			Self::deposit_event(Event::<T, I>::ParamsChanged { params });
+			Ok(())
+		}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Partially update the base slice with a new slice
+		///
+		/// Only elements in the base slice which has a new value in the new slice will be updated.
+		pub(crate) fn set_partial_params_slice<S>(
+			base_slice: &mut BoundedVec<S, <T as Config<I>>::MaxRank>,
+			new_slice: BoundedVec<Option<S>, <T as Config<I>>::MaxRank>,
+		) {
+			for (base_element, new_element) in base_slice.iter_mut().zip(new_slice) {
+				if let Some(element) = new_element {
+					*base_element = element;
+				}
+			}
+		}
 		/// Convert a rank into a `0..RANK_COUNT` index suitable for the arrays in Params.
 		///
 		/// Rank 1 becomes index 0, rank `RANK_COUNT` becomes index `RANK_COUNT - 1`. Any rank not
 		/// in the range `1..=RANK_COUNT` is `None`.
 		pub(crate) fn rank_to_index(rank: RankOf<T, I>) -> Option<usize> {
 			match TryInto::<usize>::try_into(rank) {
-				Ok(r) if r <= RANK_COUNT && r > 0 => Some(r - 1),
+				Ok(r) if r as u32 <= <T as Config<I>>::MaxRank::get() && r > 0 => Some(r - 1),
 				_ => return None,
 			}
 		}

@@ -77,10 +77,6 @@ pub fn expand_outer_config(
 		}
 
 		#[cfg(any(feature = "std", test))]
-		#[deprecated(note = "GenesisConfig is planned to be removed in December 2023. Use `RuntimeGenesisConfig` instead.")]
-		pub type GenesisConfig = RuntimeGenesisConfig;
-
-		#[cfg(any(feature = "std", test))]
 		impl #scrate::sp_runtime::BuildStorage for RuntimeGenesisConfig {
 			fn assimilate_storage(
 				&self,

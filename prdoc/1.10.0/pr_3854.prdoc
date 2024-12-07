@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Export unified `ParachainHostFunctions` from `cumulus-client-service`
+
+doc:
+  - audience: Node Dev
+    description: |
+      Exports `ParachainHostFunctions` to have a bundled version of `SubstrateHostFunctions` and
+      `cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions`. This increases discoverability and makes
+      it more obvious that they should be used together in parachain nodes.
+
+crates:
+  - name: cumulus-client-service
+    bump: minor

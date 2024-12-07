@@ -1,31 +1,34 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Polkadot.
+// This file is part of Cumulus.
 
-// Polkadot is free software: you can redistribute it and/or modify
+// Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Polkadot is distributed in the hope that it will be useful,
+// Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 //! A module that is responsible for migration of storage.
 
+pub mod v5;
+
 use crate::{Config, OverweightIndex, Pallet, QueueConfig, QueueConfigData, DEFAULT_POV_SIZE};
+use alloc::vec::Vec;
 use cumulus_primitives_core::XcmpMessageFormat;
 use frame_support::{
 	pallet_prelude::*,
-	traits::{EnqueueMessage, OnRuntimeUpgrade, StorageVersion},
+	traits::{EnqueueMessage, StorageVersion, UncheckedOnRuntimeUpgrade},
 	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight},
 };
 
-/// The current storage version.
-pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+/// The in-code storage version.
+pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
 pub const LOG: &str = "runtime::xcmp-queue-migration";
 
@@ -96,7 +99,7 @@ pub mod v2 {
 	/// 2D weights).
 	pub struct UncheckedMigrationToV2<T: Config>(PhantomData<T>);
 
-	impl<T: Config> OnRuntimeUpgrade for UncheckedMigrationToV2<T> {
+	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrationToV2<T> {
 		#[allow(deprecated)]
 		fn on_runtime_upgrade() -> Weight {
 			let translate = |pre: v1::QueueConfigData| -> v2::QueueConfigData {
@@ -187,7 +190,7 @@ pub mod v3 {
 	/// Migrates the pallet storage to v3.
 	pub struct UncheckedMigrationToV3<T: Config>(PhantomData<T>);
 
-	impl<T: Config> OnRuntimeUpgrade for UncheckedMigrationToV3<T> {
+	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrationToV3<T> {
 		fn on_runtime_upgrade() -> Weight {
 			#[frame_support::storage_alias]
 			type Overweight<T: Config> =
@@ -266,7 +269,7 @@ pub mod v4 {
 	/// thresholds to at least the default values.
 	pub struct UncheckedMigrationToV4<T: Config>(PhantomData<T>);
 
-	impl<T: Config> OnRuntimeUpgrade for UncheckedMigrationToV4<T> {
+	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrationToV4<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let translate = |pre: v2::QueueConfigData| -> QueueConfigData {
 				let pre_default = v2::QueueConfigData::default();
@@ -315,6 +318,7 @@ pub mod v4 {
 mod tests {
 	use super::*;
 	use crate::mock::{new_test_ext, Test};
+	use frame_support::traits::OnRuntimeUpgrade;
 
 	#[test]
 	#[allow(deprecated)]

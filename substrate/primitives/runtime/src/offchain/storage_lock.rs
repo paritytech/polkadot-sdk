@@ -556,7 +556,7 @@ mod tests {
 			let res = lock.try_lock();
 			assert_eq!(res.is_ok(), false);
 
-			// sleep again untill sleep_until > deadline
+			// sleep again until sleep_until > deadline
 			offchain::sleep_until(offchain::timestamp().add(Duration::from_millis(200)));
 
 			// the lock has expired, failed to extend it

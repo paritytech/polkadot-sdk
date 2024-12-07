@@ -1,0 +1,25 @@
+title: (Breaking change)Enforce network key presence on authorities.
+
+doc:
+  - audience: Node Operator
+    description: |
+      (Breaking change) For all authority nodes, the node binary now enforces the presence 
+      of a network key, instead of auto-generating when it is absent.
+
+      Before this change, all node binaries were auto-generating the node key when it was not present,
+      that is dangerous because other nodes in the network expects a stable identity for authorities.
+
+      To prevent accidental generation of node key, we removed this behaviour and node binary will now throw
+      an error if the network key is not present and operators will receive instructions to either persist
+      their network key or explicitly generate a new one with the `polkadot key generate-node-key`.
+
+      To prevent this error on restart/upgrades node operators need to make sure their network key are always
+      persisted, if nodes already correctly persist all directories in `--base-path` then no action is needed.
+
+crates:
+  - name: sc-cli
+    bump: major
+  - name: polkadot
+    bump: major
+  - name: subkey
+    bump: minor

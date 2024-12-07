@@ -125,6 +125,14 @@ execution request:
    reason, which may or may not be independent of the candidate or PVF.
 5. **Internal errors:** See "Internal Errors" section. In this case, after the
    retry we abstain from voting.
+6. **RuntimeConstruction** error. The precheck handles a general case of a wrong
+   artifact but doesn't guarantee its consistency between the preparation and
+   the execution. If something happened with the artifact between
+   the preparation of the artifact and its execution (e.g. the artifact was
+   corrupted on disk or a dirty node upgrade happened when the prepare worker
+   has a wasmtime version different from the execute worker's wasmtime version).
+   We treat such an error as possibly transient due to local issues and retry
+   one time.
 
 ### Preparation timeouts
 

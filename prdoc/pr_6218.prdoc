@@ -1,0 +1,9 @@
+title: Enable approval-voting-parallel by default on kusama
+
+doc:
+  - audience: Node Dev
+    description: |
+        Enable approval-voting-parallel by default on kusama
+crates:
+  - name: polkadot-service
+    bump: patch

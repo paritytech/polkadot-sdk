@@ -1,0 +1,20 @@
+title: "State trie migration on asset-hub westend and collectives westend"
+
+doc:
+  - audience: Node Dev
+    description: |
+      On westend and rococo asset-hub and collectives westend the state version is switched to one
+      and a manual migration will be operate as describe in https://hackmd.io/JagpUd8tTjuKf9HQtpvHIQ
+      `2.2 Running the signed migration` with account `5F4EbSkZz18X36xhbsjvDNs6NuZ82HyYtq5UiJ1h9SBHJXZD`.
+  - audience: Runtime User
+    description: |
+      On westend and rococo asset-hub and collectives westend the parachain state will migrate
+      and warpsync will be broken during migration.
+
+crates:
+  - name: asset-hub-rococo-runtime
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: collectives-westend-runtime
+    bump: minor

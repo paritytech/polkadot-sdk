@@ -31,7 +31,6 @@ mod instances;
 mod origin;
 mod pallet_struct;
 mod storage;
-mod store_trait;
 mod tasks;
 mod tt_default_parts;
 mod type_value;
@@ -61,6 +60,7 @@ pub fn expand(mut def: Def) -> proc_macro2::TokenStream {
 	let constants = constants::expand_constants(&mut def);
 	let pallet_struct = pallet_struct::expand_pallet_struct(&mut def);
 	let config = config::expand_config(&mut def);
+	let associated_types = config::expand_config_metadata(&def);
 	let call = call::expand_call(&mut def);
 	let tasks = tasks::expand_tasks(&mut def);
 	let error = error::expand_error(&mut def);
@@ -68,7 +68,6 @@ pub fn expand(mut def: Def) -> proc_macro2::TokenStream {
 	let storages = storage::expand_storages(&mut def);
 	let inherents = inherent::expand_inherents(&mut def);
 	let instances = instances::expand_instances(&mut def);
-	let store_trait = store_trait::expand_store_trait(&mut def);
 	let hooks = hooks::expand_hooks(&mut def);
 	let genesis_build = genesis_build::expand_genesis_build(&mut def);
 	let genesis_config = genesis_config::expand_genesis_config(&mut def);
@@ -103,6 +102,7 @@ storage item. Otherwise, all storage items are listed among [*Type Definitions*]
 		#constants
 		#pallet_struct
 		#config
+		#associated_types
 		#call
 		#tasks
 		#error
@@ -110,7 +110,6 @@ storage item. Otherwise, all storage items are listed among [*Type Definitions*]
 		#storages
 		#inherents
 		#instances
-		#store_trait
 		#hooks
 		#genesis_build
 		#genesis_config

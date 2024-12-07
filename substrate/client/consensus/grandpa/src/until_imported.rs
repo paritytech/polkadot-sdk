@@ -632,7 +632,7 @@ mod tests {
 	impl BlockSyncRequesterT<Block> for TestBlockSyncRequester {
 		fn set_sync_fork_request(
 			&self,
-			_peers: Vec<sc_network::PeerId>,
+			_peers: Vec<sc_network_types::PeerId>,
 			hash: Hash,
 			number: NumberFor<Block>,
 		) {
@@ -1002,7 +1002,7 @@ mod tests {
 	}
 
 	#[test]
-	fn block_global_message_wait_completed_return_none_on_block_number_missmatch() {
+	fn block_global_message_wait_completed_return_none_on_block_number_mismatch() {
 		let msg_inner = test_catch_up();
 
 		let waiting_block_1 =

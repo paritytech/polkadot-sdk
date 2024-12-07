@@ -24,10 +24,11 @@ use crate::{
 		ReversibleKeyGenerator, TupleToEncodedIter,
 	},
 };
+use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use codec::{Decode, Encode, EncodeLike, FullCodec, FullEncode};
+use core::marker::PhantomData;
 use sp_core::storage::ChildInfo;
 use sp_runtime::generic::{Digest, DigestItem};
-use sp_std::{collections::btree_set::BTreeSet, marker::PhantomData, prelude::*};
 
 pub use self::{
 	stream_iter::StorageStreamIter,
@@ -159,7 +160,7 @@ pub trait StorageValue<T: FullCodec> {
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completly
+	/// `None` does not mean that `get()` does not return a value. The default value is completely
 	/// ignored by this function.
 	fn decode_len() -> Option<usize>
 	where
@@ -363,7 +364,7 @@ pub trait StorageMap<K: FullEncode, V: FullCodec> {
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completly
+	/// `None` does not mean that `get()` does not return a value. The default value is completely
 	/// ignored by this function.
 	fn decode_len<KeyArg: EncodeLike<K>>(key: KeyArg) -> Option<usize>
 	where
@@ -381,7 +382,8 @@ pub trait StorageMap<K: FullEncode, V: FullCodec> {
 	///
 	/// # Warning
 	///
-	///  - `None` does not mean that `get()` does not return a value. The default value is completly
+	///  - `None` does not mean that `get()` does not return a value. The default value is
+	///    completely
 	/// ignored by this function.
 	///
 	/// - The value returned is the non-deduplicated length of the underlying Vector in storage.This
@@ -410,7 +412,7 @@ pub trait StorageMap<K: FullEncode, V: FullCodec> {
 pub trait IterableStorageMap<K: FullEncode, V: FullCodec>: StorageMap<K, V> {
 	/// The type that iterates over all `(key, value)`.
 	type Iterator: Iterator<Item = (K, V)>;
-	/// The type that itereates over all `key`s.
+	/// The type that iterates over all `key`s.
 	type KeyIterator: Iterator<Item = K>;
 
 	/// Enumerate all elements in the map in lexicographical order of the encoded key. If you
@@ -777,7 +779,7 @@ pub trait StorageDoubleMap<K1: FullEncode, K2: FullEncode, V: FullCodec> {
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completly
+	/// `None` does not mean that `get()` does not return a value. The default value is completely
 	/// ignored by this function.
 	fn decode_len<KArg1, KArg2>(key1: KArg1, key2: KArg2) -> Option<usize>
 	where
@@ -798,7 +800,7 @@ pub trait StorageDoubleMap<K1: FullEncode, K2: FullEncode, V: FullCodec> {
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completly
+	/// `None` does not mean that `get()` does not return a value. The default value is completely
 	/// ignored by this function.
 	fn decode_non_dedup_len<KArg1, KArg2>(key1: KArg1, key2: KArg2) -> Option<usize>
 	where
@@ -980,7 +982,7 @@ pub trait StorageNMap<K: KeyGenerator, V: FullCodec> {
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completly
+	/// `None` does not mean that `get()` does not return a value. The default value is completely
 	/// ignored by this function.
 	fn decode_len<KArg: EncodeLikeTuple<K::KArg> + TupleToEncodedIter>(key: KArg) -> Option<usize>
 	where
@@ -1488,8 +1490,8 @@ pub trait StorageDecodeLength: private::Sealed + codec::DecodeLength {
 	}
 }
 
-/// It is expected that the length is at the beginning of the encoded objectand that the length is a
-/// `Compact<u32>`.
+/// It is expected that the length is at the beginning of the encoded object and that the length is
+/// a `Compact<u32>`.
 ///
 /// # Note
 /// The length returned by this trait is not deduplicated, i.e. it is the length of the underlying
@@ -1691,6 +1693,46 @@ where
 	}
 }
 
+/// Storage N map that is capable of [`StorageTryAppend`].
+pub trait TryAppendNMap<K: KeyGenerator, T: StorageTryAppend<I>, I: Encode> {
+	/// Try and append the `item` into the storage N map at the given `key`.
+	///
+	/// This might fail if bounds are not respected.
+	fn try_append<
+		LikeK: EncodeLikeTuple<K::KArg> + TupleToEncodedIter + Clone,
+		LikeI: EncodeLike<I>,
+	>(
+		key: LikeK,
+		item: LikeI,
+	) -> Result<(), ()>;
+}
+
+impl<K, T, I, StorageNMapT> TryAppendNMap<K, T, I> for StorageNMapT
+where
+	K: KeyGenerator,
+	T: FullCodec + StorageTryAppend<I>,
+	I: Encode,
+	StorageNMapT: generator::StorageNMap<K, T>,
+{
+	fn try_append<
+		LikeK: EncodeLikeTuple<K::KArg> + TupleToEncodedIter + Clone,
+		LikeI: EncodeLike<I>,
+	>(
+		key: LikeK,
+		item: LikeI,
+	) -> Result<(), ()> {
+		let bound = T::bound();
+		let current = Self::decode_len(key.clone()).unwrap_or_default();
+		if current < bound {
+			let key = Self::storage_n_map_final_key::<K, _>(key);
+			sp_io::storage::append(&key, item.encode());
+			Ok(())
+		} else {
+			Err(())
+		}
+	}
+}
+
 /// Returns the storage prefix for a specific pallet name and storage name.
 ///
 /// The storage prefix is `concat(twox_128(pallet_name), twox_128(storage_name))`.
@@ -1790,7 +1832,7 @@ mod test {
 		});
 	}
 
-	// This test ensures that the Digest encoding does not change without being noticied.
+	// This test ensures that the Digest encoding does not change without being noticed.
 	#[test]
 	fn digest_storage_append_works_as_expected() {
 		TestExternalities::default().execute_with(|| {
@@ -2017,6 +2059,17 @@ mod test {
 		(NMapKey<Twox128, u32>, NMapKey<Twox128, u32>, NMapKey<Twox128, u32>),
 		u64,
 	>;
+	#[crate::storage_alias]
+	type FooQuadMap = StorageNMap<
+		Prefix,
+		(
+			NMapKey<Twox128, u32>,
+			NMapKey<Twox128, u32>,
+			NMapKey<Twox128, u32>,
+			NMapKey<Twox128, u32>,
+		),
+		BoundedVec<u32, ConstU32<7>>,
+	>;
 
 	#[test]
 	fn contains_prefix_works() {
@@ -2104,6 +2157,31 @@ mod test {
 			assert_ok!(FooDoubleMap::try_append(2, 1, 5));
 			assert_eq!(
 				FooDoubleMap::get(2, 1).unwrap(),
+				BoundedVec::<u32, ConstU32<7>>::try_from(vec![4, 5]).unwrap(),
+			);
+		});
+
+		TestExternalities::default().execute_with(|| {
+			let bounded: BoundedVec<u32, ConstU32<7>> = vec![1, 2, 3].try_into().unwrap();
+			FooQuadMap::insert((1, 1, 1, 1), bounded);
+
+			assert_ok!(FooQuadMap::try_append((1, 1, 1, 1), 4));
+			assert_ok!(FooQuadMap::try_append((1, 1, 1, 1), 5));
+			assert_ok!(FooQuadMap::try_append((1, 1, 1, 1), 6));
+			assert_ok!(FooQuadMap::try_append((1, 1, 1, 1), 7));
+			assert_eq!(FooQuadMap::decode_len((1, 1, 1, 1)).unwrap(), 7);
+			assert!(FooQuadMap::try_append((1, 1, 1, 1), 8).is_err());
+
+			// append to a non-existing
+			assert!(FooQuadMap::get((2, 1, 1, 1)).is_none());
+			assert_ok!(FooQuadMap::try_append((2, 1, 1, 1), 4));
+			assert_eq!(
+				FooQuadMap::get((2, 1, 1, 1)).unwrap(),
+				BoundedVec::<u32, ConstU32<7>>::try_from(vec![4]).unwrap(),
+			);
+			assert_ok!(FooQuadMap::try_append((2, 1, 1, 1), 5));
+			assert_eq!(
+				FooQuadMap::get((2, 1, 1, 1)).unwrap(),
 				BoundedVec::<u32, ConstU32<7>>::try_from(vec![4, 5]).unwrap(),
 			);
 		});

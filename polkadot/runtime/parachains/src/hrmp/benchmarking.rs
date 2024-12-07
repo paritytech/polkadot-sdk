@@ -22,7 +22,7 @@ use crate::{
 	paras::{Pallet as Paras, ParaKind, ParachainsCache},
 	shared::Pallet as Shared,
 };
-use frame_benchmarking::{impl_benchmark_test_suite, v2::*, whitelisted_caller};
+use frame_benchmarking::{v2::*, whitelisted_caller};
 use frame_support::{assert_ok, traits::Currency};
 
 type BalanceOf<T> =
@@ -50,6 +50,13 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	assert_eq!(event, &system_event);
 }
 
+fn assert_has_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+	let events = frame_system::Pallet::<T>::events();
+	let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
+
+	assert!(events.iter().any(|record| record.event == system_event));
+}
+
 /// Enumerates the phase in the setup process of a channel between two parachains.
 enum ParachainSetupStep {
 	/// A channel open has been requested
@@ -71,11 +78,13 @@ fn establish_para_connection<T: Config>(
 where
 	<T as frame_system::Config>::RuntimeOrigin: From<crate::Origin>,
 {
-	let config = Configuration::<T>::config();
+	let config = configuration::ActiveConfig::<T>::get();
 	let ed = T::Currency::minimum_balance();
 	let deposit: BalanceOf<T> = config.hrmp_sender_deposit.unique_saturated_into();
 	let capacity = config.hrmp_channel_max_capacity;
 	let message_size = config.hrmp_channel_max_message_size;
+	assert!(message_size > 0, "Invalid genesis for benchmarking");
+	assert!(capacity > 0, "Invalid genesis for benchmarking");
 
 	let sender: ParaId = from.into();
 	let sender_origin: crate::Origin = from.into();
@@ -109,7 +118,7 @@ where
 		return output
 	}
 
-	Hrmp::<T>::process_hrmp_open_channel_requests(&Configuration::<T>::config());
+	Hrmp::<T>::process_hrmp_open_channel_requests(&configuration::ActiveConfig::<T>::get());
 	if matches!(until, ParachainSetupStep::Established) {
 		return output
 	}
@@ -154,13 +163,14 @@ mod benchmarks {
 
 		// make sure para is registered, and has enough balance.
 		let ed = T::Currency::minimum_balance();
-		let deposit: BalanceOf<T> =
-			Configuration::<T>::config().hrmp_sender_deposit.unique_saturated_into();
+		let deposit: BalanceOf<T> = configuration::ActiveConfig::<T>::get()
+			.hrmp_sender_deposit
+			.unique_saturated_into();
 		register_parachain_with_balance::<T>(sender_id, deposit + ed);
 		register_parachain_with_balance::<T>(recipient_id, deposit + ed);
 
-		let capacity = Configuration::<T>::config().hrmp_channel_max_capacity;
-		let message_size = Configuration::<T>::config().hrmp_channel_max_message_size;
+		let capacity = configuration::ActiveConfig::<T>::get().hrmp_channel_max_capacity;
+		let message_size = configuration::ActiveConfig::<T>::get().hrmp_channel_max_message_size;
 
 		#[extrinsic_call]
 		_(sender_origin, recipient_id, capacity, message_size);
@@ -226,7 +236,7 @@ mod benchmarks {
 		// .. and enact it.
 		Configuration::<T>::initializer_on_new_session(&Shared::<T>::scheduled_session());
 
-		let config = Configuration::<T>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 		let deposit: BalanceOf<T> = config.hrmp_sender_deposit.unique_saturated_into();
 
 		let para: ParaId = 1u32.into();
@@ -358,7 +368,7 @@ mod benchmarks {
 
 		assert_eq!(HrmpOpenChannelRequestsList::<T>::decode_len().unwrap_or_default() as u32, c);
 		let outgoing = (0..c).map(|id| (id + PREFIX_1).into()).collect::<Vec<ParaId>>();
-		let config = Configuration::<T>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 
 		#[block]
 		{
@@ -381,13 +391,14 @@ mod benchmarks {
 		// Make sure para is registered. The sender does actually need the normal deposit because it
 		// is first going the "init" route.
 		let ed = T::Currency::minimum_balance();
-		let sender_deposit: BalanceOf<T> =
-			Configuration::<T>::config().hrmp_sender_deposit.unique_saturated_into();
+		let sender_deposit: BalanceOf<T> = configuration::ActiveConfig::<T>::get()
+			.hrmp_sender_deposit
+			.unique_saturated_into();
 		register_parachain_with_balance::<T>(sender_id, sender_deposit + ed);
 		register_parachain_with_balance::<T>(recipient_id, Zero::zero());
 
-		let capacity = Configuration::<T>::config().hrmp_channel_max_capacity;
-		let message_size = Configuration::<T>::config().hrmp_channel_max_message_size;
+		let capacity = configuration::ActiveConfig::<T>::get().hrmp_channel_max_capacity;
+		let message_size = configuration::ActiveConfig::<T>::get().hrmp_channel_max_message_size;
 
 		let channel_id = HrmpChannelId { sender: sender_id, recipient: recipient_id };
 		if c == 1 {
@@ -434,7 +445,7 @@ mod benchmarks {
 		let recipient_id: ParaId = 2u32.into();
 
 		let caller: T::AccountId = whitelisted_caller();
-		let config = Configuration::<T>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 
 		// make sure para is registered, and has zero balance.
 		register_parachain_with_balance::<T>(sender_id, Zero::zero());
@@ -464,7 +475,7 @@ mod benchmarks {
 		let channel_id = HrmpChannelId { sender: sender_id, recipient: recipient_id };
 
 		let caller: T::AccountId = whitelisted_caller();
-		let config = Configuration::<T>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 
 		// make sure para is registered, and has balance to reserve.
 		let ed = T::Currency::minimum_balance();
@@ -510,6 +521,43 @@ mod benchmarks {
 		assert_eq!(
 			T::Currency::reserved_balance(&recipient_id.into_account_truncating()),
 			0u128.unique_saturated_into()
+		);
+	}
+
+	#[benchmark]
+	fn establish_channel_with_system() {
+		let sender_id = 1u32;
+		let recipient_id: ParaId = 2u32.into();
+
+		let sender_origin: crate::Origin = sender_id.into();
+
+		// make sure para is registered, and has zero balance.
+		register_parachain_with_balance::<T>(sender_id.into(), Zero::zero());
+		register_parachain_with_balance::<T>(recipient_id, Zero::zero());
+
+		#[extrinsic_call]
+		_(sender_origin, recipient_id);
+
+		let (max_message_size, max_capacity) = T::DefaultChannelSizeAndCapacityWithSystem::get();
+
+		assert_has_event::<T>(
+			Event::<T>::HrmpSystemChannelOpened {
+				sender: sender_id.into(),
+				recipient: recipient_id,
+				proposed_max_capacity: max_capacity,
+				proposed_max_message_size: max_message_size,
+			}
+			.into(),
+		);
+
+		assert_has_event::<T>(
+			Event::<T>::HrmpSystemChannelOpened {
+				sender: recipient_id,
+				recipient: sender_id.into(),
+				proposed_max_capacity: max_capacity,
+				proposed_max_message_size: max_message_size,
+			}
+			.into(),
 		);
 	}
 

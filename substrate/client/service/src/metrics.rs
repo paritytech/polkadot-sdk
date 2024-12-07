@@ -16,9 +16,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::time::SystemTime;
-
-use crate::config::Configuration;
 use futures_timer::Delay;
 use prometheus_endpoint::{register, Gauge, GaugeVec, Opts, PrometheusError, Registry, U64};
 use sc_client_api::{ClientInfo, UsageProvider};
@@ -31,7 +28,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::{Block, NumberFor, SaturatedConversion, UniqueSaturatedInto};
 use std::{
 	sync::Arc,
-	time::{Duration, Instant},
+	time::{Duration, Instant, SystemTime},
 };
 
 struct PrometheusMetrics {
@@ -149,26 +146,24 @@ impl MetricsService {
 	pub fn with_prometheus(
 		telemetry: Option<TelemetryHandle>,
 		registry: &Registry,
-		config: &Configuration,
+		role: Role,
+		node_name: &str,
+		impl_version: &str,
 	) -> Result<Self, PrometheusError> {
-		let role_bits = match config.role {
+		let role_bits = match role {
 			Role::Full => 1u64,
 			// 2u64 used to represent light client role
 			Role::Authority { .. } => 4u64,
 		};
 
-		PrometheusMetrics::setup(
-			registry,
-			&config.network.node_name,
-			&config.impl_version,
-			role_bits,
-		)
-		.map(|p| MetricsService {
-			metrics: Some(p),
-			last_total_bytes_inbound: 0,
-			last_total_bytes_outbound: 0,
-			last_update: Instant::now(),
-			telemetry,
+		PrometheusMetrics::setup(registry, node_name, impl_version, role_bits).map(|p| {
+			MetricsService {
+				metrics: Some(p),
+				last_total_bytes_inbound: 0,
+				last_total_bytes_outbound: 0,
+				last_update: Instant::now(),
+				telemetry,
+			}
 		})
 	}
 
