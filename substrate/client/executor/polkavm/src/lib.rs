@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use polkavm::{Caller, Reg};
+use polkavm::{CallError, Caller, Reg};
 use sc_executor_common::{
 	error::{Error, WasmError},
 	wasm_runtime::{AllocationStats, WasmInstance, WasmModule},
@@ -26,10 +26,10 @@ use sp_wasm_interface::{
 };
 
 #[repr(transparent)]
-pub struct InstancePre(polkavm::InstancePre<(), polkavm::CallError<String>>);
+pub struct InstancePre(polkavm::InstancePre<(), String>);
 
 #[repr(transparent)]
-pub struct Instance(polkavm::Instance<(), polkavm::CallError<String>>);
+pub struct Instance(polkavm::Instance<(), String>);
 
 impl WasmModule for InstancePre {
 	fn new_instance(&self) -> Result<Box<dyn WasmInstance>, Error> {
@@ -87,26 +87,31 @@ impl WasmInstance for Instance {
 		// the memory for the input payload.
 		let data_pointer = self.0.module().memory_map().heap_base();
 
-		if let Err(error) = self.0.write_memory(data_pointer, raw_data) {
-			return (Err(format!("call into the runtime method '{name}': failed to write the input payload into guest memory: {error}").into()), None);
+		if let Err(err) = self.0.write_memory(data_pointer, raw_data) {
+			return (Err(format!("call into the runtime method '{name}': failed to write the input payload into guest memory: {err}").into()), None);
 		}
 
 		match self.0.call_typed(&mut (), pc, (data_pointer, raw_data_length)) {
 			Ok(()) => {},
-			Err(polkavm::CallError::Trap) => {
+			Err(CallError::Trap) => {
 				return (
 					Err(format!("call into the runtime method '{name}' failed: trap").into()),
 					None,
 				);
 			},
-			Err(polkavm::CallError::Error(error)) => {
+			Err(CallError::Error(err)) => {
 				return (
-					Err(format!("call into the runtime method '{name}' failed: {error}").into()),
+					Err(format!("call into the runtime method '{name}' failed: {err}").into()),
 					None,
 				);
 			},
-			Err(polkavm::CallError::NotEnoughGas) => unreachable!("gas metering is never enabled"),
-			Err(polkavm::CallError::User(_)) => unreachable!(),
+			Err(CallError::User(err)) => {
+				return (
+					Err(format!("call into the runtime method '{name}' failed: {err}").into()),
+					None,
+				);
+			},
+			Err(CallError::NotEnoughGas) => unreachable!("gas metering is never enabled"),
 		};
 
 		let result_pointer = self.0.reg(Reg::A0);
@@ -170,10 +175,7 @@ impl<'r, 'a> FunctionContext for Context<'r, 'a> {
 	}
 }
 
-fn call_host_function(
-	caller: &mut Caller<()>,
-	function: &dyn Function,
-) -> Result<(), polkavm::CallError<String>> {
+fn call_host_function(caller: &mut Caller<()>, function: &dyn Function) -> Result<(), String> {
 	let mut args = [Value::I64(0); Reg::ARG_REGS.len()];
 	let mut nth_reg = 0;
 	for (nth_arg, kind) in function.signature().args.iter().enumerate() {
@@ -227,10 +229,7 @@ fn call_host_function(
 	{
 		Ok(value) => value,
 		Err(error) =>
-			return Err(polkavm::CallError::User(format!(
-				"Call into the host function '{}' failed: {error}",
-				function.name()
-			))),
+			return Err(format!("Call into the host function '{}' failed: {error}", function.name())),
 	};
 
 	if let Some(value) = value {
