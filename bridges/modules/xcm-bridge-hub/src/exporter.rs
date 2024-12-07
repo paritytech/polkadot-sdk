@@ -678,7 +678,10 @@ mod tests {
 			ExportMessageOriginUniversalLocation::set(Some(SiblingUniversalLocation::get()));
 			// send `ExportMessage(message)` by `pallet_xcm_bridge_hub_router`.
 			ExecuteXcmOverSendXcm::set_origin_for_execute(SiblingLocation::get());
-			assert_ok!(send_xcm::<XcmOverBridgeWrappedWithExportMessageRouter>(dest.clone(), Xcm::<()>::default()));
+			assert_ok!(send_xcm::<XcmOverBridgeWrappedWithExportMessageRouter>(
+				dest.clone(),
+				Xcm::<()>::default()
+			));
 
 			// check after - a message ready to be relayed
 			assert_eq!(
@@ -793,8 +796,10 @@ mod tests {
 			let dest = Location::new(2, BridgedUniversalDestination::get());
 
 			fn router_bridge_state() -> pallet_xcm_bridge_hub_router::BridgeState {
-				pallet_xcm_bridge_hub_router::Bridge::<TestRuntime,
-					XcmOverBridgeWrappedWithExportMessageRouterInstance>::get()
+				pallet_xcm_bridge_hub_router::Bridge::<
+					TestRuntime,
+					XcmOverBridgeWrappedWithExportMessageRouterInstance,
+				>::get()
 			}
 
 			// open two bridges

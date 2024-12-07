@@ -27,8 +27,8 @@ use asset_hub_rococo_runtime::{
 	AllPalletsWithoutSystem, AssetConversion, AssetDeposit, Assets, Balances, Block,
 	CollatorSelection, ExistentialDeposit, ForeignAssets, ForeignAssetsInstance,
 	MetadataDepositBase, MetadataDepositPerByte, ParachainSystem, Runtime, RuntimeCall,
-	RuntimeEvent, RuntimeOrigin, SessionKeys, ToWestendXcmRouterInstance, TrustBackedAssetsInstance,
-	XcmpQueue,
+	RuntimeEvent, RuntimeOrigin, SessionKeys, ToWestendXcmRouterInstance,
+	TrustBackedAssetsInstance, XcmpQueue,
 };
 use asset_test_utils::{
 	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
@@ -1269,14 +1269,14 @@ mod asset_hub_rococo_tests {
 					is_congested: true,
 				}
 			)
-				.encode(),
+			.encode(),
 			bp_asset_hub_rococo::Call::ToWestendXcmRouter(
 				bp_asset_hub_rococo::XcmBridgeHubRouterCall::report_bridge_status {
 					bridge_id: Default::default(),
 					is_congested: true,
 				}
 			)
-				.encode()
+			.encode()
 		);
 	}
 

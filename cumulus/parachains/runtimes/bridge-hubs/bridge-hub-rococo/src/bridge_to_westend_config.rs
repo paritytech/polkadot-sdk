@@ -16,10 +16,16 @@
 
 //! Bridge definitions used on BridgeHubRococo for bridging to BridgeHubWestend.
 
-use crate::{bridge_common_config::{
-	BridgeParachainWestendInstance, DeliveryRewardInBalance,
-	RelayersForLegacyLaneIdsMessagesInstance,
-}, weights, xcm_config::UniversalLocation, AccountId, Balance, Balances, BridgeWestendMessages, PolkadotXcm, Runtime, RuntimeEvent, RuntimeHoldReason, XcmOverBridgeHubWestend, XcmRouter, XcmpQueue};
+use crate::{
+	bridge_common_config::{
+		BridgeParachainWestendInstance, DeliveryRewardInBalance,
+		RelayersForLegacyLaneIdsMessagesInstance,
+	},
+	weights,
+	xcm_config::UniversalLocation,
+	AccountId, Balance, Balances, BridgeWestendMessages, PolkadotXcm, Runtime, RuntimeEvent,
+	RuntimeHoldReason, XcmOverBridgeHubWestend, XcmRouter, XcmpQueue,
+};
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
 	target_chain::FromBridgedChainMessagesProof, LegacyLaneId,
@@ -161,36 +167,33 @@ impl pallet_xcm_bridge_hub::LocalXcmChannelManager for CongestionManager {
 	type Error = SendError;
 
 	fn is_congested(with: &Location) -> bool {
-		// This is used to check the inbound bridge queue/messages to determine if they can be dispatched
-		// and sent to the sibling parachain. Therefore, checking outbound `XcmpQueue` is sufficient here.
+		// This is used to check the inbound bridge queue/messages to determine if they can be
+		// dispatched and sent to the sibling parachain. Therefore, checking outbound `XcmpQueue`
+		// is sufficient here.
 		use bp_xcm_bridge_hub_router::XcmChannelStatusProvider;
 		cumulus_pallet_xcmp_queue::bridging::OutXcmpChannelStatusProvider::<Runtime>::is_congested(
 			with,
 		)
 	}
 
-	fn suspend_bridge(
-		local_origin: &Location,
-		bridge: BridgeId,
-	) -> Result<(), Self::Error> {
+	fn suspend_bridge(local_origin: &Location, bridge: BridgeId) -> Result<(), Self::Error> {
 		// This bridge is intended for AH<>AH communication with a hard-coded/static lane,
 		// so `local_origin` is expected to represent only the local AH.
 		send_xcm::<XcmpQueue>(
 			local_origin.clone(),
-			bp_asset_hub_rococo::build_congestion_message(bridge.inner(), true).into()
-		).map(|_| ())
+			bp_asset_hub_rococo::build_congestion_message(bridge.inner(), true).into(),
+		)
+		.map(|_| ())
 	}
 
-	fn resume_bridge(
-		local_origin: &Location,
-		bridge: BridgeId,
-	) -> Result<(), Self::Error> {
+	fn resume_bridge(local_origin: &Location, bridge: BridgeId) -> Result<(), Self::Error> {
 		// This bridge is intended for AH<>AH communication with a hard-coded/static lane,
 		// so `local_origin` is expected to represent only the local AH.
 		send_xcm::<XcmpQueue>(
 			local_origin.clone(),
-			bp_asset_hub_rococo::build_congestion_message(bridge.inner(), false).into()
-		).map(|_| ())
+			bp_asset_hub_rococo::build_congestion_message(bridge.inner(), false).into(),
+		)
+		.map(|_| ())
 	}
 }
 

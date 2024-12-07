@@ -1274,14 +1274,14 @@ fn test_report_bridge_status_call_compatibility() {
 			bridge_id: Default::default(),
 			is_congested: true,
 		})
-			.encode(),
+		.encode(),
 		bp_asset_hub_westend::Call::ToRococoXcmRouter(
 			bp_asset_hub_westend::XcmBridgeHubRouterCall::report_bridge_status {
 				bridge_id: Default::default(),
 				is_congested: true,
 			}
 		)
-			.encode()
+		.encode()
 	)
 }
 

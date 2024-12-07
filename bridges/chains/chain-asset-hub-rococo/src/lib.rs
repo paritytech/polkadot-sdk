@@ -47,21 +47,23 @@ frame_support::parameter_types! {
 	pub const XcmBridgeHubRouterTransactCallMaxWeight: frame_support::weights::Weight = frame_support::weights::Weight::from_parts(200_000_000, 6144);
 }
 
-/// Builds an (un)congestion XCM program with the `report_bridge_status` call for `ToWestendXcmRouter`.
-pub fn build_congestion_message<RuntimeCall>(bridge_id: sp_core::H256, is_congested: bool) -> alloc::vec::Vec<Instruction<RuntimeCall>> {
+/// Builds an (un)congestion XCM program with the `report_bridge_status` call for
+/// `ToWestendXcmRouter`.
+pub fn build_congestion_message<RuntimeCall>(
+	bridge_id: sp_core::H256,
+	is_congested: bool,
+) -> alloc::vec::Vec<Instruction<RuntimeCall>> {
 	alloc::vec![
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 		Transact {
 			origin_kind: OriginKind::Xcm,
 			fallback_max_weight: Some(XcmBridgeHubRouterTransactCallMaxWeight::get()),
-			call: Call::ToWestendXcmRouter(
-				XcmBridgeHubRouterCall::report_bridge_status {
-					bridge_id,
-					is_congested,
-				}
-			)
-				.encode()
-				.into(),
+			call: Call::ToWestendXcmRouter(XcmBridgeHubRouterCall::report_bridge_status {
+				bridge_id,
+				is_congested,
+			})
+			.encode()
+			.into(),
 		},
 		ExpectTransactStatus(MaybeErrorCode::Success),
 	]

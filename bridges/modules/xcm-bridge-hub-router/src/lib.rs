@@ -33,8 +33,8 @@
 pub use bp_xcm_bridge_hub_router::{BridgeState, XcmChannelStatusProvider};
 use codec::Encode;
 use frame_support::traits::Get;
-use sp_runtime::{FixedPointNumber, FixedU128, Saturating};
 use sp_core::H256;
+use sp_runtime::{FixedPointNumber, FixedU128, Saturating};
 use sp_std::vec::Vec;
 use xcm::prelude::*;
 use xcm_builder::{ExporterFor, InspectMessageQueues, SovereignPaidRemoteExporter};
@@ -190,7 +190,8 @@ pub mod pallet {
 		/// Called when new message is sent (queued to local outbound XCM queue) over the bridge.
 		pub(crate) fn on_message_sent_to_bridge(message_size: u32) {
 			let _ = Bridge::<T, I>::try_mutate(|bridge| {
-				let is_channel_with_bridge_hub_congested = T::LocalXcmChannelManager::is_congested(&T::SiblingBridgeHubLocation::get());
+				let is_channel_with_bridge_hub_congested =
+					T::LocalXcmChannelManager::is_congested(&T::SiblingBridgeHubLocation::get());
 				let is_bridge_congested = bridge.is_congested;
 
 				// if outbound queue is not congested AND bridge has not reported congestion, do
@@ -213,7 +214,9 @@ pub mod pallet {
 					previous_factor,
 					bridge.delivery_fee_factor,
 				);
-				Self::deposit_event(Event::DeliveryFeeFactorIncreased { new_value: bridge.delivery_fee_factor });
+				Self::deposit_event(Event::DeliveryFeeFactorIncreased {
+					new_value: bridge.delivery_fee_factor,
+				});
 				Ok(())
 			});
 		}
@@ -491,7 +494,10 @@ mod tests {
 
 			// verify that it doesn't decrease anymore
 			XcmBridgeHubRouter::on_initialize(One::one());
-			assert_eq!(XcmBridgeHubRouter::bridge(), uncongested_bridge(MINIMAL_DELIVERY_FEE_FACTOR));
+			assert_eq!(
+				XcmBridgeHubRouter::bridge(),
+				uncongested_bridge(MINIMAL_DELIVERY_FEE_FACTOR)
+			);
 
 			// check emitted event
 			let first_system_event = System::events().first().cloned();

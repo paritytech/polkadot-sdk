@@ -44,7 +44,7 @@ use xcm_builder::{
 	InspectMessageQueues, NetworkExportTable, NetworkExportTableItem, ParentIsPreset,
 	SiblingParachainConvertsVia,
 };
-use xcm_executor::{XcmExecutor, traits::ConvertOrigin};
+use xcm_executor::{traits::ConvertOrigin, XcmExecutor};
 
 pub type AccountId = AccountId32;
 pub type Balance = u64;
@@ -211,7 +211,9 @@ impl pallet_xcm_bridge_hub::Config for TestRuntime {
 /// A router instance simulates a scenario where the router is deployed on a different chain than
 /// the `MessageExporter`. This means that the router sends an `ExportMessage`.
 pub type XcmOverBridgeWrappedWithExportMessageRouterInstance = ();
-impl pallet_xcm_bridge_hub_router::Config<XcmOverBridgeWrappedWithExportMessageRouterInstance> for TestRuntime {
+impl pallet_xcm_bridge_hub_router::Config<XcmOverBridgeWrappedWithExportMessageRouterInstance>
+	for TestRuntime
+{
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 
@@ -341,9 +343,11 @@ thread_local! {
 	pub static EXPORT_MESSAGE_ORIGIN_UNIVERSAL_LOCATION: RefCell<Option<InteriorLocation>> = RefCell::new(None);
 }
 
-pub struct BridgeHubLocationXcmOriginAsRoot<RuntimeOrigin>(sp_std::marker::PhantomData<RuntimeOrigin>);
+pub struct BridgeHubLocationXcmOriginAsRoot<RuntimeOrigin>(
+	sp_std::marker::PhantomData<RuntimeOrigin>,
+);
 impl<RuntimeOrigin: OriginTrait> ConvertOrigin<RuntimeOrigin>
-for BridgeHubLocationXcmOriginAsRoot<RuntimeOrigin>
+	for BridgeHubLocationXcmOriginAsRoot<RuntimeOrigin>
 {
 	fn convert_origin(
 		origin: impl Into<Location>,
@@ -441,7 +445,8 @@ impl EnsureOrigin<RuntimeOrigin> for OpenBridgeOrigin {
 	}
 }
 
-pub(crate) type OpenBridgeOriginOf<T, I> = <T as pallet_xcm_bridge_hub::Config<I>>::OpenBridgeOrigin;
+pub(crate) type OpenBridgeOriginOf<T, I> =
+	<T as pallet_xcm_bridge_hub::Config<I>>::OpenBridgeOrigin;
 
 pub struct TestLocalXcmChannelManager;
 
@@ -479,21 +484,31 @@ impl TestLocalXcmChannelManager {
 			Transact {
 				origin_kind: OriginKind::Xcm,
 				fallback_max_weight: None,
-				call: Call::XcmOverBridgeWrappedWithExportMessageRouter(XcmBridgeHubRouterCall::report_bridge_status {
-					bridge_id: bridge.inner(),
-					is_congested,
-				})
-					.encode()
-					.into(),
+				call: Call::XcmOverBridgeWrappedWithExportMessageRouter(
+					XcmBridgeHubRouterCall::report_bridge_status {
+						bridge_id: bridge.inner(),
+						is_congested,
+					}
+				)
+				.encode()
+				.into(),
 			},
 			ExpectTransactStatus(MaybeErrorCode::Success),
 		]
 	}
 
-	fn report_bridge_status(local_origin: &Location, bridge: &BridgeId, is_congested: bool, key: Vec<u8>) -> Result<(), SendError> {
+	fn report_bridge_status(
+		local_origin: &Location,
+		bridge: &BridgeId,
+		is_congested: bool,
+		key: Vec<u8>,
+	) -> Result<(), SendError> {
 		// send as BridgeHub would send to sibling chain
 		ExecuteXcmOverSendXcm::set_origin_for_execute(BridgeHubLocation::get());
-		let result = send_xcm::<ExecuteXcmOverSendXcm>(local_origin.clone(), Self::build_congestion_message(&bridge, is_congested).into());
+		let result = send_xcm::<ExecuteXcmOverSendXcm>(
+			local_origin.clone(),
+			Self::build_congestion_message(&bridge, is_congested).into(),
+		);
 
 		if result.is_ok() {
 			frame_support::storage::unhashed::put(&key, &true);
