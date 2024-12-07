@@ -21,8 +21,6 @@ log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 frame = { workspace = true, features = ["experimental", "runtime"] }
 pallet-timestamp = { workspace = true }
-sp-application-crypto = { workspace = true }
-sp-consensus-aura = { workspace = true }
 
 [features]
 default = ["std"]
@@ -32,8 +30,6 @@ std = [
 	"log/std",
 	"pallet-timestamp/std",
 	"scale-info/std",
-	"sp-application-crypto/std",
-	"sp-consensus-aura/std",
 ]
 try-runtime = [
 	"frame/try-runtime",

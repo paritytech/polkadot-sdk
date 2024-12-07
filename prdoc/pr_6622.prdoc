@@ -6,9 +6,12 @@ title: migrate pallet-aura to umbrella crate
 doc:
   - audience: Runtime Dev
     description: |
-      Imports frame umbrella crate systems into pallet-aura and
-      includes BoundedSlice as a runtime::prelude export from the 
-      polkadot-sdk-frame crate.
+      This PR
+      - Imports frame umbrella crate systems into pallet-aura.
+      - Includes BoundedSlice as a runtime::prelude export from the polkadot-sdk-frame crate.
+      - Includes `sp-application-crypto` in polkadot-sdk-frame crate, re-exports 
+        `RuntimeAppPublic` and `BoundToRuntimeAppPublic` as part of the cryptography module.
+      - Adds a consensus module for commonly used consensus types.
 
 crates:
   - name: pallet-aura

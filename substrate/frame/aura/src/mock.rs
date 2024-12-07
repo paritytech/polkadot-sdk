@@ -20,13 +20,7 @@
 #![cfg(test)]
 
 use crate as pallet_aura;
-use frame::{
-	deps::sp_runtime::{testing::UintAuthorityId, BuildStorage},
-	prelude::*,
-	runtime::prelude::{construct_runtime, derive_impl, parameter_types},
-	traits::{ConstU32, ConstU64, DisabledValidators},
-};
-use sp_consensus_aura::{ed25519::AuthorityId, AuthorityIndex};
+use frame::testing_prelude::*;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -70,7 +64,7 @@ impl MockDisabledValidators {
 	}
 }
 
-impl DisabledValidators for MockDisabledValidators {
+impl crate::DisabledValidators for MockDisabledValidators {
 	fn is_disabled(index: AuthorityIndex) -> bool {
 		DisabledValidatorTestValue::get().binary_search(&index).is_ok()
 	}

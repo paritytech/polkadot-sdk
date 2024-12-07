@@ -43,19 +43,10 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame::{
-	deps::{
-		frame_support::{ConsensusEngineId, Parameter},
-		sp_runtime::{generic::DigestItem, BoundToRuntimeAppPublic, RuntimeAppPublic},
-	},
-	prelude::*,
-	runtime::prelude::{BoundedSlice, BoundedVec},
-	traits::{
-		DisabledValidators, FindAuthor, Get, IsMember, OnTimestampSet, OneSessionHandler,
-		SaturatedConversion, Saturating, Zero,
-	},
+	runtime::prelude::*,
+	traits::{DisabledValidators, FindAuthor, IsMember, OnTimestampSet, OneSessionHandler},
 };
 use log;
-use sp_consensus_aura::{AuthorityIndex, ConsensusLog, Slot, AURA_ENGINE_ID};
 
 pub mod migrations;
 mod mock;
@@ -351,7 +342,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 impl<T: Config> FindAuthor<u32> for Pallet<T> {
 	fn find_author<'a, I>(digests: I) -> Option<u32>
 	where
-		I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
+		I: 'a + IntoIterator<Item = (frame::deps::frame_support::ConsensusEngineId, &'a [u8])>,
 	{
 		for (id, mut data) in digests.into_iter() {
 			if id == AURA_ENGINE_ID {
@@ -375,7 +366,7 @@ impl<T: Config, Inner: FindAuthor<u32>> FindAuthor<T::AuthorityId>
 {
 	fn find_author<'a, I>(digests: I) -> Option<T::AuthorityId>
 	where
-		I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
+		I: 'a + IntoIterator<Item = (frame::deps::frame_support::ConsensusEngineId, &'a [u8])>,
 	{
 		let i = Inner::find_author(digests)?;
 

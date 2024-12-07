@@ -214,7 +214,10 @@ pub mod prelude {
 	pub use super::derive::*;
 
 	/// All hashing related things
-	pub use super::hashing::*;
+	pub use super::cryptography::*;
+
+	/// Consensus types needed in runtime construction.
+	pub use super::consensus::*;
 
 	/// Runtime traits
 	#[doc(no_inline)]
@@ -497,6 +500,7 @@ pub mod runtime {
 	pub mod testing_prelude {
 		pub use sp_core::storage::Storage;
 		pub use sp_runtime::BuildStorage;
+		pub use sp_runtime::testing::{TestSignature, UintAuthorityId};
 	}
 }
 
@@ -516,6 +520,12 @@ pub mod arithmetic {
 	pub use sp_arithmetic::{traits::*, *};
 }
 
+/// Consensus types
+pub mod consensus {
+	pub use sp_consensus_aura::{ed25519::AuthorityId, AuthorityIndex, ConsensusLog, Slot, AURA_ENGINE_ID};
+	pub use sp_runtime::{DigestItem, Digest};
+}
+
 /// All derive macros used in frame.
 ///
 /// This is already part of the [`prelude`].
@@ -530,9 +540,14 @@ pub mod derive {
 	pub use sp_runtime::RuntimeDebug;
 }
 
-pub mod hashing {
-	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
+pub mod cryptography {
+	pub use sp_core::{
+		crypto::{VrfPublic, VrfSecret, Wraps},
+		hashing::*,
+		Pair, H160, H256, H512, U256, U512,
+	};
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
+	pub use sp_application_crypto::{RuntimeAppPublic, BoundToRuntimeAppPublic};
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
@@ -578,6 +593,8 @@ pub mod deps {
 	pub use sp_storage;
 	#[cfg(feature = "runtime")]
 	pub use sp_version;
+	#[cfg(feature = "runtime")]
+	pub use sp_application_crypto;
 
 	#[cfg(feature = "runtime-benchmarks")]
 	pub use frame_benchmarking;
