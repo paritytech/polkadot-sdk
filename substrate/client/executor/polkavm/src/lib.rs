@@ -93,24 +93,21 @@ impl WasmInstance for Instance {
 
 		match self.0.call_typed(&mut (), pc, (data_pointer, raw_data_length)) {
 			Ok(()) => {},
-			Err(CallError::Trap) => {
+			Err(CallError::Trap) =>
 				return (
 					Err(format!("call into the runtime method '{name}' failed: trap").into()),
 					None,
-				);
-			},
-			Err(CallError::Error(err)) => {
+				),
+			Err(CallError::Error(err)) =>
 				return (
 					Err(format!("call into the runtime method '{name}' failed: {err}").into()),
 					None,
-				);
-			},
-			Err(CallError::User(err)) => {
+				),
+			Err(CallError::User(err)) =>
 				return (
 					Err(format!("call into the runtime method '{name}' failed: {err}").into()),
 					None,
-				);
-			},
+				),
 			Err(CallError::NotEnoughGas) => unreachable!("gas metering is never enabled"),
 		};
 
@@ -228,8 +225,10 @@ fn call_host_function(caller: &mut Caller<()>, function: &dyn Function) -> Resul
 		.execute(&mut Context(caller), &mut args.into_iter().take(function.signature().args.len()))
 	{
 		Ok(value) => value,
-		Err(error) =>
-			return Err(format!("Call into the host function '{}' failed: {error}", function.name())),
+		Err(error) => {
+			let name = function.name();
+			return Err(format!("call into the host function '{name}' failed: {error}"))
+		},
 	};
 
 	if let Some(value) = value {
@@ -289,7 +288,6 @@ where
 			call_host_function(&mut caller, function)
 		})?;
 	}
-
 	let instance_pre = linker.instantiate_pre(&module)?;
 	Ok(Box::new(InstancePre(instance_pre)))
 }
