@@ -232,20 +232,12 @@ jobs:
           fi
 
           if [[ $BODY == "/cmd bench"* ]]; then
-              RUNNER=parity-weights
-              echo "RUNNER=$RUNNER" >> $GITHUB_OUTPUT
+              echo "RUNNER=parity-weights" >> $GITHUB_OUTPUT
           elif [[ $BODY == "/cmd update-ui"* ]]; then
-              RUNNER=parity-large
-              echo "RUNNER=$RUNNER" >> $GITHUB_OUTPUT
+              echo "RUNNER=parity-large" >> $GITHUB_OUTPUT
           else
-              RUNNER=ubuntu-latest
-              echo "RUNNER=$RUNNER" >> $GITHUB_OUTPUT
+              echo "RUNNER=ubuntu-latest" >> $GITHUB_OUTPUT
           fi
-
-          echo "BODY=$BODY"
-
-          echo "RUNNER=$RUNNER"
-          echo "IMAGE=$IMAGE"
       - name: Print outputs
         run: |
           echo "RUNNER=${{ steps.set-image.outputs.RUNNER }}"
