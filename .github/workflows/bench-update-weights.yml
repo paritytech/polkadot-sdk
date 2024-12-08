@@ -38,7 +38,7 @@ jobs:
     runs-on: ${{ needs.preflight.outputs.RUNNER_WEIGHTS }}
     needs: [preflight, runtime-matrix]
     if: ${{ needs.preflight.outputs.changes_rust }}
-    timeout-minutes: 30
+    timeout-minutes: 1440 # 24 hours per runtime
     strategy:
       fail-fast: false # keep running other workflows even if one fails, to see the logs of all possible failures
       matrix:
