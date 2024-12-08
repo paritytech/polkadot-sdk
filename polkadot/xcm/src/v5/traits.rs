@@ -428,6 +428,7 @@ pub type SendResult<T> = result::Result<(T, Assets), SendError>;
 /// let message = Xcm(vec![Instruction::Transact {
 ///     origin_kind: OriginKind::Superuser,
 ///     call: call.into(),
+///     fallback_max_weight: None,
 /// }]);
 /// let message_hash = message.using_encoded(sp_io::hashing::blake2_256);
 ///
