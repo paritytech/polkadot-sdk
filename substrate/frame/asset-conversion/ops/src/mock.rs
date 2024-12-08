@@ -19,6 +19,8 @@
 
 use crate as pallet_asset_conversion_ops;
 use core::default::Default;
+use frame::{prelude::*, testing_prelude::*, hashing::U256, arithmetic::Permill, runtime::{prelude::{construct_runtime, derive_impl, ord_parameter_types, parameter_types, EnsureSigned, EnsureSignedBy}}, traits::{AccountIdConversion, tokens::{fungible::{NativeFromLeft, NativeOrWithId, UnionOf}, imbalance::ResolveAssetTo}, AsEnsureOriginWithArg, ConstU32, ConstU64}, deps::frame_support::{PalletId, instances::{Instance1, Instance2}}};
+/*
 use frame_support::{
 	construct_runtime, derive_impl,
 	instances::{Instance1, Instance2},
@@ -33,10 +35,12 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::{EnsureSigned, EnsureSignedBy};
+*/
 use pallet_asset_conversion::{self, AccountIdConverter, AccountIdConverterNoSeed, Ascending};
+/*
 use sp_arithmetic::Permill;
 use sp_runtime::{traits::AccountIdConversion, BuildStorage};
-
+*/
 type Block = frame_system::mocking::MockBlock<Test>;
 
 construct_runtime!(
@@ -97,7 +101,7 @@ pub type AscendingLocator = Ascending<u64, NativeOrWithId<u32>, PoolIdToAccountI
 impl pallet_asset_conversion::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = <Self as pallet_balances::Config>::Balance;
-	type HigherPrecisionBalance = sp_core::U256;
+	type HigherPrecisionBalance = U256;
 	type AssetKind = NativeOrWithId<u32>;
 	type Assets = NativeAndAssets;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
@@ -130,7 +134,7 @@ impl pallet_asset_conversion_ops::Config for Test {
 	type WeightInfo = ();
 }
 
-pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
+pub(crate) fn new_test_ext() -> TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	pallet_balances::GenesisConfig::<Test> {
@@ -139,7 +143,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 	.assimilate_storage(&mut t)
 	.unwrap();
 
-	let mut ext = sp_io::TestExternalities::new(t);
+	let mut ext = TestExternalities::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
 }

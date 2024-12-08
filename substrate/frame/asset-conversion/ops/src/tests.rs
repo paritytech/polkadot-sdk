@@ -18,6 +18,7 @@
 //! Asset Conversion Ops pallet tests.
 
 use crate::{mock::*, *};
+/*
 use frame_support::{
 	assert_noop, assert_ok,
 	traits::{
@@ -26,6 +27,8 @@ use frame_support::{
 		Incrementable,
 	},
 };
+*/
+use frame::{testing_prelude::*, traits::{fungible::{Inspect as FungibleInspect, NativeOrWithId}, fungibles::{Create, Inspect}, Incrementable}};
 
 #[test]
 fn migrate_pool_account_id_with_native() {
