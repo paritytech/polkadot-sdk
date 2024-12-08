@@ -91,15 +91,22 @@ jobs:
     runs-on: ubuntu-latest
     needs: [run-frame-omni-bencher]
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
+        with:
+          path: patches
 
       - name: Apply diff from artifacts folder
         run: |
-          # scan all files in the directory
-          for file in $(ls); do
-            echo "Applying $file"
-            git apply $file
+          # scan all patch files in the patches directory
+          for file in patches/diff-*/diff-*.patch; do
+            if [ -f "$file" ]; then
+              echo "Applying $file"
+              git apply "$file"
+            fi
           done
 
           git status
