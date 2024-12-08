@@ -286,4 +286,10 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::paras::WeightInfo for
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	fn include_pvf_check_statement_general_finalize_upgrade_accept() -> Weight { Weight::zero() }
+	fn include_pvf_check_statement_general_finalize_upgrade_reject() -> Weight { Weight::zero() }
+	fn include_pvf_check_statement_general_finalize_onboarding_accept() -> Weight { Weight::zero() }
+	fn include_pvf_check_statement_general_finalize_onboarding_reject() -> Weight { Weight::zero() }
+	fn include_pvf_check_statement_general() -> Weight { Weight::zero() }
+	fn authorize_include_pvf_check_statement_general() -> Weight { Weight::zero() }
 }

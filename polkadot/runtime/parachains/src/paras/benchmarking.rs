@@ -162,6 +162,7 @@ benchmarks! {
 	include_pvf_check_statement {
 		let (stmt, signature) = pvf_check::prepare_inclusion_bench::<T>();
 	}: {
+		#[allow(deprecated)]
 		let _ = Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into(), stmt, signature);
 	}
 
@@ -171,6 +172,7 @@ benchmarks! {
 			VoteOutcome::Accept,
 		);
 	}: {
+		#[allow(deprecated)]
 		let _ = Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into(), stmt, signature);
 	}
 
@@ -180,6 +182,7 @@ benchmarks! {
 			VoteOutcome::Reject,
 		);
 	}: {
+		#[allow(deprecated)]
 		let _ = Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into(), stmt, signature);
 	}
 
@@ -189,6 +192,7 @@ benchmarks! {
 			VoteOutcome::Accept,
 		);
 	}: {
+		#[allow(deprecated)]
 		let _ = Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into(), stmt, signature);
 	}
 
@@ -198,7 +202,60 @@ benchmarks! {
 			VoteOutcome::Reject,
 		);
 	}: {
+		#[allow(deprecated)]
 		let _ = Pallet::<T>::include_pvf_check_statement(RawOrigin::None.into(), stmt, signature);
+	}
+
+	include_pvf_check_statement_finalize_general_upgrade_accept {
+		let (stmt, signature) = pvf_check::prepare_finalization_bench::<T>(
+			VoteCause::Upgrade,
+			VoteOutcome::Accept,
+		);
+	}: {
+		let _ = Pallet::<T>::include_pvf_check_statement_general(RawOrigin::Authorized.into(), stmt, signature);
+	}
+
+	include_pvf_check_statement_finalize_general_upgrade_reject {
+		let (stmt, signature) = pvf_check::prepare_finalization_bench::<T>(
+			VoteCause::Upgrade,
+			VoteOutcome::Reject,
+		);
+	}: {
+		let _ = Pallet::<T>::include_pvf_check_statement_general(RawOrigin::Authorized.into(), stmt, signature);
+	}
+
+	include_pvf_check_statement_finalize_general_onboarding_accept {
+		let (stmt, signature) = pvf_check::prepare_finalization_bench::<T>(
+			VoteCause::Onboarding,
+			VoteOutcome::Accept,
+		);
+	}: {
+		let _ = Pallet::<T>::include_pvf_check_statement_general(RawOrigin::Authorized.into(), stmt, signature);
+	}
+
+	include_pvf_check_statement_finalize_general_onboarding_reject {
+		let (stmt, signature) = pvf_check::prepare_finalization_bench::<T>(
+			VoteCause::Onboarding,
+			VoteOutcome::Reject,
+		);
+	}: {
+		let _ = Pallet::<T>::include_pvf_check_statement_general(RawOrigin::Authorized.into(), stmt, signature);
+	}
+
+	include_pvf_check_statement_general {
+		let (stmt, signature) = pvf_check::prepare_inclusion_bench::<T>();
+	}: {
+		let _ = Pallet::<T>::include_pvf_check_statement_general(RawOrigin::Authorized.into(), stmt, signature);
+	}
+
+	authorize_include_pvf_check_statement_general {
+		let (stmt, signature) = pvf_check::prepare_inclusion_bench::<T>();
+	}: {
+		use frame_support::pallet_prelude::Authorize;
+		Call::<T>::include_pvf_check_statement_general { stmt, signature }
+			.authorize(TransactionSource::Local)
+			.expect("Call give some authorization")
+			.expect("Authorization is valid");
 	}
 
 	impl_benchmark_test_suite!(

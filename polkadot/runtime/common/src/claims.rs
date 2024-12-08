@@ -51,9 +51,13 @@ type CurrencyOf<T> = <<T as Config>::VestingSchedule as VestingSchedule<
 type BalanceOf<T> = <CurrencyOf<T> as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub trait WeightInfo {
-	fn claim() -> Weight;
+	fn claim_with_validate_unsigned() -> Weight;
+	fn claim_without_validate_unsigned() -> Weight;
+	fn authorize_claim() -> Weight;
 	fn mint_claim() -> Weight;
-	fn claim_attest() -> Weight;
+	fn claim_attest_with_validate_unsigned() -> Weight;
+	fn claim_attest_without_validate_unsigned() -> Weight;
+	fn authorize_claim_attest() -> Weight;
 	fn attest() -> Weight;
 	fn move_claim() -> Weight;
 	fn prevalidate_attests() -> Weight;
@@ -61,13 +65,25 @@ pub trait WeightInfo {
 
 pub struct TestWeightInfo;
 impl WeightInfo for TestWeightInfo {
-	fn claim() -> Weight {
+	fn claim_with_validate_unsigned() -> Weight {
+		Weight::zero()
+	}
+	fn claim_without_validate_unsigned() -> Weight {
+		Weight::zero()
+	}
+	fn authorize_claim() -> Weight {
 		Weight::zero()
 	}
 	fn mint_claim() -> Weight {
 		Weight::zero()
 	}
-	fn claim_attest() -> Weight {
+	fn claim_attest_with_validate_unsigned() -> Weight {
+		Weight::zero()
+	}
+	fn claim_attest_without_validate_unsigned() -> Weight {
+		Weight::zero()
+	}
+	fn authorize_claim_attest() -> Weight {
 		Weight::zero()
 	}
 	fn attest() -> Weight {
@@ -289,13 +305,14 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
-	#[pallet::call]
+	#[pallet::call(weight = T::WeightInfo)]
 	impl<T: Config> Pallet<T> {
 		/// Make a claim to collect your DOTs.
 		///
-		/// The dispatch origin for this call must be _None_.
+		/// The dispatch origin for this call must be _None_ or _Authorized_.
+		/// It can be dispatched with a general transaction or an unsigned transaction.
 		///
-		/// Unsigned Validation:
+		/// Validation/Authorization:
 		/// A call to claim is deemed valid if the signature provided matches
 		/// the expected signed message of:
 		///
@@ -316,21 +333,27 @@ pub mod pallet {
 		/// Total Complexity: O(1)
 		/// </weight>
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::claim())]
+		#[pallet::authorize(|_source, dest, ethereum_sig|
+			Pallet::<T>::validate_claim(dest, ethereum_sig, None).map(|v| (v, Weight::zero()))
+		)]
+		#[pallet::weight(T::WeightInfo::claim_with_validate_unsigned())]
 		pub fn claim(
 			origin: OriginFor<T>,
 			dest: T::AccountId,
 			ethereum_signature: EcdsaSignature,
-		) -> DispatchResult {
-			ensure_none(origin)?;
+		) -> DispatchResultWithPostInfo {
+			let is_authorized = ensure_authorized(origin.clone()).is_ok();
+			let is_none = ensure_none(origin).is_ok();
 
-			let data = dest.using_encoded(to_ascii_hex);
-			let signer = Self::eth_recover(&ethereum_signature, &data, &[][..])
-				.ok_or(Error::<T>::InvalidEthereumSignature)?;
-			ensure!(Signing::<T>::get(&signer).is_none(), Error::<T>::InvalidStatement);
+			ensure!(is_authorized || is_none, DispatchError::BadOrigin);
 
-			Self::process_claim(signer, dest)?;
-			Ok(())
+			Self::do_claim(dest, ethereum_signature)?;
+
+			if is_authorized {
+				Ok(Some(T::WeightInfo::claim_without_validate_unsigned()).into())
+			} else {
+				Ok(().into())
+			}
 		}
 
 		/// Mint a new claim to collect DOTs.
@@ -372,9 +395,10 @@ pub mod pallet {
 
 		/// Make a claim to collect your DOTs by signing a statement.
 		///
-		/// The dispatch origin for this call must be _None_.
+		/// The dispatch origin for this call must be _None_ or _Authorized_.
+		/// It can be dispatched with a general transaction or an unsigned transaction.
 		///
-		/// Unsigned Validation:
+		/// Validation/Authorization:
 		/// A call to `claim_attest` is deemed valid if the signature provided matches
 		/// the expected signed message of:
 		///
@@ -398,23 +422,28 @@ pub mod pallet {
 		/// Total Complexity: O(1)
 		/// </weight>
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::claim_attest())]
+		#[pallet::authorize(|_source, dest, ethereum_sig, stmt|
+			Pallet::<T>::validate_claim(dest, ethereum_sig, Some(stmt)).map(|v| (v, Weight::zero()))
+		)]
+		#[pallet::weight(T::WeightInfo::claim_attest_with_validate_unsigned())]
 		pub fn claim_attest(
 			origin: OriginFor<T>,
 			dest: T::AccountId,
 			ethereum_signature: EcdsaSignature,
 			statement: Vec<u8>,
-		) -> DispatchResult {
-			ensure_none(origin)?;
+		) -> DispatchResultWithPostInfo {
+			let is_authorized = ensure_authorized(origin.clone()).is_ok();
+			let is_none = ensure_none(origin).is_ok();
 
-			let data = dest.using_encoded(to_ascii_hex);
-			let signer = Self::eth_recover(&ethereum_signature, &data, &statement)
-				.ok_or(Error::<T>::InvalidEthereumSignature)?;
-			if let Some(s) = Signing::<T>::get(signer) {
-				ensure!(s.to_text() == &statement[..], Error::<T>::InvalidStatement);
+			ensure!(is_authorized || is_none, DispatchError::BadOrigin);
+
+			Self::do_claim_attest(dest, ethereum_signature, statement)?;
+
+			if is_authorized {
+				Ok(Some(T::WeightInfo::claim_attest_without_validate_unsigned()).into())
+			} else {
+				Ok(().into())
 			}
-			Self::process_claim(signer, dest)?;
-			Ok(())
 		}
 
 		/// Attest to a statement, needed to finalize the claims process.
@@ -482,27 +511,61 @@ pub mod pallet {
 		type Call = Call<T>;
 
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			const PRIORITY: u64 = 100;
-
-			let (maybe_signer, maybe_statement) = match call {
+			match call {
 				// <weight>
 				// The weight of this logic is included in the `claim` dispatchable.
 				// </weight>
-				Call::claim { dest: account, ethereum_signature } => {
-					let data = account.using_encoded(to_ascii_hex);
-					(Self::eth_recover(&ethereum_signature, &data, &[][..]), None)
-				},
+				Call::claim { dest: account, ethereum_signature } =>
+					Self::validate_claim(account, ethereum_signature, None),
 				// <weight>
 				// The weight of this logic is included in the `claim_attest` dispatchable.
 				// </weight>
-				Call::claim_attest { dest: account, ethereum_signature, statement } => {
-					let data = account.using_encoded(to_ascii_hex);
-					(
-						Self::eth_recover(&ethereum_signature, &data, &statement),
-						Some(statement.as_slice()),
-					)
-				},
+				Call::claim_attest { dest: account, ethereum_signature, statement } =>
+					Self::validate_claim(account, ethereum_signature, Some(statement)),
 				_ => return Err(InvalidTransaction::Call.into()),
+			}
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		fn do_claim(dest: T::AccountId, ethereum_signature: EcdsaSignature) -> DispatchResult {
+			let data = dest.using_encoded(to_ascii_hex);
+			let signer = Self::eth_recover(&ethereum_signature, &data, &[][..])
+				.ok_or(Error::<T>::InvalidEthereumSignature)?;
+			ensure!(Signing::<T>::get(&signer).is_none(), Error::<T>::InvalidStatement);
+
+			Self::process_claim(signer, dest)?;
+			Ok(())
+		}
+
+		fn do_claim_attest(
+			dest: T::AccountId,
+			ethereum_signature: EcdsaSignature,
+			statement: Vec<u8>,
+		) -> DispatchResult {
+			let data = dest.using_encoded(to_ascii_hex);
+			let signer = Self::eth_recover(&ethereum_signature, &data, &statement)
+				.ok_or(Error::<T>::InvalidEthereumSignature)?;
+			if let Some(s) = Signing::<T>::get(signer) {
+				ensure!(s.to_text() == &statement[..], Error::<T>::InvalidStatement);
+			}
+			Self::process_claim(signer, dest)?;
+			Ok(())
+		}
+
+		fn validate_claim(
+			account: &T::AccountId,
+			ethereum_signature: &EcdsaSignature,
+			maybe_statement: Option<&Vec<u8>>,
+		) -> TransactionValidity {
+			const PRIORITY: u64 = 100;
+
+			let maybe_signer = if let Some(statement) = &maybe_statement {
+				let data = account.using_encoded(to_ascii_hex);
+				Self::eth_recover(&ethereum_signature, &data, statement)
+			} else {
+				let data = account.using_encoded(to_ascii_hex);
+				Self::eth_recover(&ethereum_signature, &data, &[][..])
 			};
 
 			let signer = maybe_signer.ok_or(InvalidTransaction::Custom(
@@ -515,7 +578,7 @@ pub mod pallet {
 			let e = InvalidTransaction::Custom(ValidityError::InvalidStatement.into());
 			match Signing::<T>::get(signer) {
 				None => ensure!(maybe_statement.is_none(), e),
-				Some(s) => ensure!(Some(s.to_text()) == maybe_statement, e),
+				Some(s) => ensure!(Some(s.to_text()) == maybe_statement.map(|s| s.as_slice()), e),
 			}
 
 			Ok(ValidTransaction {
@@ -718,8 +781,8 @@ mod tests {
 	use super::*;
 	use hex_literal::hex;
 	use secp_utils::*;
-	use sp_runtime::transaction_validity::TransactionSource::External;
 
+	use frame_support::pallet_prelude::TransactionSource::External;
 	use codec::Encode;
 	// The testing primitives are very useful for avoiding having to work with signatures
 	// or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
@@ -733,14 +796,24 @@ mod tests {
 	};
 	use pallet_balances;
 	use sp_runtime::{
-		traits::{DispatchTransaction, Identity},
-		transaction_validity::TransactionLongevity,
+		testing::UintAuthorityId,
+		traits::{Applyable, Checkable, DispatchTransaction, Identity},
+		transaction_validity::{TransactionLongevity, TransactionSource},
 		BuildStorage,
 		DispatchError::BadOrigin,
 		TokenError,
 	};
 
-	type Block = frame_system::mocking::MockBlock<Test>;
+	pub type TransactionExtension = frame_system::AuthorizeCall<Test>;
+
+	pub type Header = sp_runtime::generic::Header<u64, sp_runtime::traits::BlakeTwo256>;
+	pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
+	pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<
+		u64,
+		RuntimeCall,
+		UintAuthorityId,
+		TransactionExtension,
+	>;
 
 	frame_support::construct_runtime!(
 		pub enum Test
@@ -754,12 +827,8 @@ mod tests {
 
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
-		type RuntimeOrigin = RuntimeOrigin;
-		type RuntimeCall = RuntimeCall;
 		type Block = Block;
-		type RuntimeEvent = RuntimeEvent;
 		type AccountData = pallet_balances::AccountData<u64>;
-		type MaxConsumers = frame_support::traits::ConstU32<16>;
 	}
 
 	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
@@ -864,11 +933,27 @@ mod tests {
 	}
 
 	#[test]
-	fn claiming_works() {
+	#[allow(deprecated)]
+	fn legacy_claiming_works() {
 		new_test_ext().execute_with(|| {
 			assert_eq!(Balances::free_balance(42), 0);
 			assert_ok!(Claims::claim(
 				RuntimeOrigin::none(),
+				42,
+				sig::<Test>(&alice(), &42u64.encode(), &[][..])
+			));
+			assert_eq!(Balances::free_balance(&42), 100);
+			assert_eq!(Vesting::vesting_balance(&42), Some(50));
+			assert_eq!(claims::Total::<Test>::get(), total_claims() - 100);
+		});
+	}
+
+	#[test]
+	fn claiming_works() {
+		new_test_ext().execute_with(|| {
+			assert_eq!(Balances::free_balance(42), 0);
+			assert_ok!(Claims::claim(
+				frame_system::RawOrigin::Authorized.into(),
 				42,
 				sig::<Test>(&alice(), &42u64.encode(), &[][..])
 			));
@@ -894,20 +979,41 @@ mod tests {
 			));
 			assert_noop!(
 				Claims::claim(
-					RuntimeOrigin::none(),
+					frame_system::RawOrigin::Authorized.into(),
 					42,
 					sig::<Test>(&alice(), &42u64.encode(), &[][..])
 				),
 				Error::<Test>::SignerHasNoClaim
 			);
 			assert_ok!(Claims::claim(
-				RuntimeOrigin::none(),
+				frame_system::RawOrigin::Authorized.into(),
 				42,
 				sig::<Test>(&bob(), &42u64.encode(), &[][..])
 			));
 			assert_eq!(Balances::free_balance(&42), 100);
 			assert_eq!(Vesting::vesting_balance(&42), Some(50));
 			assert_eq!(claims::Total::<Test>::get(), total_claims() - 100);
+		});
+	}
+
+	#[test]
+	#[allow(deprecated)]
+	fn legacy_claim_attest_moving_works() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(Claims::move_claim(
+				RuntimeOrigin::signed(6),
+				eth(&dave()),
+				eth(&bob()),
+				None
+			));
+			let s = sig::<Test>(&bob(), &42u64.encode(), StatementKind::Regular.to_text());
+			assert_ok!(Claims::claim_attest(
+				RuntimeOrigin::none(),
+				42,
+				s,
+				StatementKind::Regular.to_text().to_vec()
+			));
+			assert_eq!(Balances::free_balance(&42), 200);
 		});
 	}
 
@@ -922,7 +1028,7 @@ mod tests {
 			));
 			let s = sig::<Test>(&bob(), &42u64.encode(), StatementKind::Regular.to_text());
 			assert_ok!(Claims::claim_attest(
-				RuntimeOrigin::none(),
+				frame_system::RawOrigin::Authorized.into(),
 				42,
 				s,
 				StatementKind::Regular.to_text().to_vec()
@@ -952,13 +1058,13 @@ mod tests {
 	fn claiming_does_not_bypass_signing() {
 		new_test_ext().execute_with(|| {
 			assert_ok!(Claims::claim(
-				RuntimeOrigin::none(),
+				frame_system::RawOrigin::Authorized.into(),
 				42,
 				sig::<Test>(&alice(), &42u64.encode(), &[][..])
 			));
 			assert_noop!(
 				Claims::claim(
-					RuntimeOrigin::none(),
+					frame_system::RawOrigin::Authorized.into(),
 					42,
 					sig::<Test>(&dave(), &42u64.encode(), &[][..])
 				),
@@ -966,14 +1072,14 @@ mod tests {
 			);
 			assert_noop!(
 				Claims::claim(
-					RuntimeOrigin::none(),
+					frame_system::RawOrigin::Authorized.into(),
 					42,
 					sig::<Test>(&eve(), &42u64.encode(), &[][..])
 				),
 				Error::<Test>::InvalidStatement,
 			);
 			assert_ok!(Claims::claim(
-				RuntimeOrigin::none(),
+				frame_system::RawOrigin::Authorized.into(),
 				42,
 				sig::<Test>(&frank(), &42u64.encode(), &[][..])
 			));
@@ -986,7 +1092,7 @@ mod tests {
 			assert_eq!(Balances::free_balance(42), 0);
 			let s = sig::<Test>(&dave(), &42u64.encode(), StatementKind::Saft.to_text());
 			let r = Claims::claim_attest(
-				RuntimeOrigin::none(),
+				frame_system::RawOrigin::Authorized.into(),
 				42,
 				s.clone(),
 				StatementKind::Saft.to_text().to_vec(),
@@ -994,7 +1100,7 @@ mod tests {
 			assert_noop!(r, Error::<Test>::InvalidStatement);
 
 			let r = Claims::claim_attest(
-				RuntimeOrigin::none(),
+				frame_system::RawOrigin::Authorized.into(),
 				42,
 				s,
 				StatementKind::Regular.to_text().to_vec(),
@@ -1005,7 +1111,7 @@ mod tests {
 
 			let s = sig::<Test>(&dave(), &42u64.encode(), StatementKind::Regular.to_text());
 			assert_ok!(Claims::claim_attest(
-				RuntimeOrigin::none(),
+				frame_system::RawOrigin::Authorized.into(),
 				42,
 				s,
 				StatementKind::Regular.to_text().to_vec()
@@ -1015,7 +1121,7 @@ mod tests {
 
 			let s = sig::<Test>(&dave(), &42u64.encode(), StatementKind::Regular.to_text());
 			let r = Claims::claim_attest(
-				RuntimeOrigin::none(),
+				frame_system::RawOrigin::Authorized.into(),
 				42,
 				s,
 				StatementKind::Regular.to_text().to_vec(),
@@ -1054,7 +1160,7 @@ mod tests {
 			assert_eq!(Balances::free_balance(42), 0);
 			// Alice's claim is 100
 			assert_ok!(Claims::claim(
-				RuntimeOrigin::none(),
+				frame_system::RawOrigin::Authorized.into(),
 				42,
 				sig::<Test>(&alice(), &42u64.encode(), &[][..])
 			));
@@ -1107,7 +1213,7 @@ mod tests {
 		new_test_ext().execute_with(|| {
 			assert_eq!(Balances::free_balance(42), 0);
 			let s = sig::<Test>(&dave(), &42u64.encode(), &[]);
-			let r = Claims::claim(RuntimeOrigin::none(), 42, s.clone());
+			let r = Claims::claim(frame_system::RawOrigin::Authorized.into(), 42, s.clone());
 			assert_noop!(r, Error::<Test>::InvalidStatement);
 		});
 	}
@@ -1122,7 +1228,7 @@ mod tests {
 			assert_eq!(Balances::free_balance(42), 0);
 			assert_noop!(
 				Claims::claim(
-					RuntimeOrigin::none(),
+					frame_system::RawOrigin::Authorized.into(),
 					69,
 					sig::<Test>(&bob(), &69u64.encode(), &[][..])
 				),
@@ -1131,7 +1237,7 @@ mod tests {
 			assert_ok!(Claims::mint_claim(RuntimeOrigin::root(), eth(&bob()), 200, None, None));
 			assert_eq!(claims::Total::<Test>::get(), total_claims() + 200);
 			assert_ok!(Claims::claim(
-				RuntimeOrigin::none(),
+				frame_system::RawOrigin::Authorized.into(),
 				69,
 				sig::<Test>(&bob(), &69u64.encode(), &[][..])
 			));
@@ -1157,7 +1263,7 @@ mod tests {
 			assert_eq!(Balances::free_balance(42), 0);
 			assert_noop!(
 				Claims::claim(
-					RuntimeOrigin::none(),
+					frame_system::RawOrigin::Authorized.into(),
 					69,
 					sig::<Test>(&bob(), &69u64.encode(), &[][..])
 				),
@@ -1171,7 +1277,7 @@ mod tests {
 				None
 			));
 			assert_ok!(Claims::claim(
-				RuntimeOrigin::none(),
+				frame_system::RawOrigin::Authorized.into(),
 				69,
 				sig::<Test>(&bob(), &69u64.encode(), &[][..])
 			));
@@ -1208,7 +1314,7 @@ mod tests {
 			let signature = sig::<Test>(&bob(), &69u64.encode(), StatementKind::Regular.to_text());
 			assert_noop!(
 				Claims::claim_attest(
-					RuntimeOrigin::none(),
+					frame_system::RawOrigin::Authorized.into(),
 					69,
 					signature.clone(),
 					StatementKind::Regular.to_text().to_vec()
@@ -1223,11 +1329,16 @@ mod tests {
 				Some(StatementKind::Regular)
 			));
 			assert_noop!(
-				Claims::claim_attest(RuntimeOrigin::none(), 69, signature.clone(), vec![],),
+				Claims::claim_attest(
+					frame_system::RawOrigin::Authorized.into(),
+					69,
+					signature.clone(),
+					vec![],
+				),
 				Error::<Test>::SignerHasNoClaim
 			);
 			assert_ok!(Claims::claim_attest(
-				RuntimeOrigin::none(),
+				frame_system::RawOrigin::Authorized.into(),
 				69,
 				signature.clone(),
 				StatementKind::Regular.to_text().to_vec()
@@ -1256,13 +1367,13 @@ mod tests {
 		new_test_ext().execute_with(|| {
 			assert_eq!(Balances::free_balance(42), 0);
 			assert_ok!(Claims::claim(
-				RuntimeOrigin::none(),
+				frame_system::RawOrigin::Authorized.into(),
 				42,
 				sig::<Test>(&alice(), &42u64.encode(), &[][..])
 			));
 			assert_noop!(
 				Claims::claim(
-					RuntimeOrigin::none(),
+					frame_system::RawOrigin::Authorized.into(),
 					42,
 					sig::<Test>(&alice(), &42u64.encode(), &[][..])
 				),
@@ -1296,7 +1407,7 @@ mod tests {
 			// They should not be able to claim
 			assert_noop!(
 				Claims::claim(
-					RuntimeOrigin::none(),
+					frame_system::RawOrigin::Authorized.into(),
 					69,
 					sig::<Test>(&bob(), &69u64.encode(), &[][..])
 				),
@@ -1311,7 +1422,7 @@ mod tests {
 			assert_eq!(Balances::free_balance(42), 0);
 			assert_noop!(
 				Claims::claim(
-					RuntimeOrigin::none(),
+					frame_system::RawOrigin::Authorized.into(),
 					42,
 					sig::<Test>(&alice(), &69u64.encode(), &[][..])
 				),
@@ -1326,7 +1437,7 @@ mod tests {
 			assert_eq!(Balances::free_balance(42), 0);
 			assert_noop!(
 				Claims::claim(
-					RuntimeOrigin::none(),
+					frame_system::RawOrigin::Authorized.into(),
 					42,
 					sig::<Test>(&bob(), &69u64.encode(), &[][..])
 				),
@@ -1448,6 +1559,85 @@ mod tests {
 			);
 		});
 	}
+
+	#[test]
+	fn test_legacy_valid_tx() {
+		new_test_ext().execute_with(|| {
+			let call = RuntimeCall::Claims(ClaimsCall::claim {
+				dest: 42,
+				ethereum_signature: sig::<Test>(&alice(), &42u64.encode(), &[][..]),
+			});
+			let tx = UncheckedExtrinsic::new_bare(call);
+
+			let info = tx.get_dispatch_info();
+			let len = tx.using_encoded(|e| e.len());
+
+			let checked = Checkable::check(tx, &frame_system::ChainContext::<Test>::default())
+				.expect("Signature is good");
+
+			checked
+				.validate::<Test>(TransactionSource::External, &info, len)
+				.expect("Transaction is valid");
+
+			checked
+				.apply::<Test>(&info, len)
+				.expect("Transaction is valid")
+				.expect("Transaction is successful");
+		});
+	}
+
+	#[test]
+	fn test_valid_tx() {
+		new_test_ext().execute_with(|| {
+			let call = RuntimeCall::Claims(ClaimsCall::claim {
+				dest: 42,
+				ethereum_signature: sig::<Test>(&alice(), &42u64.encode(), &[][..]),
+			});
+			let tx = UncheckedExtrinsic::new_bare(call);
+
+			let info = tx.get_dispatch_info();
+			let len = tx.using_encoded(|e| e.len());
+
+			let checked = Checkable::check(tx, &frame_system::ChainContext::<Test>::default())
+				.expect("Signature is good");
+
+			checked
+				.validate::<Test>(TransactionSource::External, &info, len)
+				.expect("Transaction is valid");
+
+			checked
+				.apply::<Test>(&info, len)
+				.expect("Transaction is valid")
+				.expect("Transaction is successful");
+		});
+	}
+
+	#[test]
+	fn test_invalid_signed_tx() {
+		new_test_ext().execute_with(|| {
+			let call = RuntimeCall::Claims(ClaimsCall::claim {
+				dest: 42,
+				ethereum_signature: sig::<Test>(&alice(), &42u64.encode(), &[][..]),
+			});
+			let tx_ext = frame_system::AuthorizeCall::new();
+			let tx = UncheckedExtrinsic::new_signed(call, 4u64, 4.into(), tx_ext);
+
+			let info = tx.get_dispatch_info();
+			let len = tx.using_encoded(|e| e.len());
+
+			let checked = Checkable::check(tx, &frame_system::ChainContext::<Test>::default())
+				.expect("Signature is good");
+
+			checked
+				.validate::<Test>(TransactionSource::External, &info, len)
+				.expect("Transaction is valid");
+
+			checked
+				.apply::<Test>(&info, len)
+				.expect("Transaction is valid")
+				.expect_err("Transaction is failing");
+		});
+	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -1511,7 +1701,7 @@ mod benchmarking {
 
 		// Benchmark `claim` including `validate_unsigned` logic.
 		#[benchmark]
-		fn claim() -> Result<(), BenchmarkError> {
+		fn claim_with_validate_unsigned() -> Result<(), BenchmarkError> {
 			let c = MAX_CLAIMS;
 			for _ in 0..c / 2 {
 				create_claim::<T>(c)?;
@@ -1548,6 +1738,39 @@ mod benchmarking {
 			Ok(())
 		}
 
+		// Benchmark `claim` without `validate_unsigned` logic.
+		#[benchmark]
+		fn claim_without_validate_unsigned() -> Result<(), BenchmarkError> {
+			let c = MAX_CLAIMS;
+			for _ in 0..c / 2 {
+				create_claim::<T>(c)?;
+				create_claim_attest::<T>(u32::MAX - c)?;
+			}
+			let secret_key = libsecp256k1::SecretKey::parse(&keccak_256(&c.encode())).unwrap();
+			let eth_address = eth(&secret_key);
+			let account: T::AccountId = account("user", c, SEED);
+			let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
+			let signature = sig::<T>(&secret_key, &account.encode(), &[][..]);
+			super::Pallet::<T>::mint_claim(
+				RawOrigin::Root.into(),
+				eth_address,
+				VALUE.into(),
+				vesting,
+				None,
+			)?;
+			assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into()));
+			let call_enc =
+				Call::<T>::claim { dest: account.clone(), ethereum_signature: signature.clone() };
+
+			#[block]
+			{
+				call.dispatch_bypass_filter(RawOrigin::None.into())?;
+			}
+
+			assert_eq!(Claims::<T>::get(eth_address), None);
+			Ok(())
+		}
+
 		// Benchmark `mint_claim` when there already exists `c` claims in storage.
 		#[benchmark]
 		fn mint_claim() -> Result<(), BenchmarkError> {
@@ -1569,7 +1792,7 @@ mod benchmarking {
 
 		// Benchmark `claim_attest` including `validate_unsigned` logic.
 		#[benchmark]
-		fn claim_attest() -> Result<(), BenchmarkError> {
+		fn claim_attest_with_validate_unsigned() -> Result<(), BenchmarkError> {
 			let c = MAX_CLAIMS;
 			for _ in 0..c / 2 {
 				create_claim::<T>(c)?;
@@ -1606,6 +1829,46 @@ mod benchmarking {
 					.expect("call is encoded above, encoding must be correct");
 				super::Pallet::<T>::validate_unsigned(source, &call)
 					.map_err(|e| -> &'static str { e.into() })?;
+				call.dispatch_bypass_filter(RawOrigin::None.into())?;
+			}
+
+			assert_eq!(Claims::<T>::get(eth_address), None);
+			Ok(())
+		}
+
+		// Benchmark `claim_attest` without `validate_unsigned` logic.
+		#[benchmark]
+		fn claim_attest_without_validate_unsigned() -> Result<(), BenchmarkError> {
+			let c = MAX_CLAIMS;
+			for _ in 0..c / 2 {
+				create_claim::<T>(c)?;
+				create_claim_attest::<T>(u32::MAX - c)?;
+			}
+			// Crate signature
+			let attest_c = u32::MAX - c;
+			let secret_key =
+				libsecp256k1::SecretKey::parse(&keccak_256(&attest_c.encode())).unwrap();
+			let eth_address = eth(&secret_key);
+			let account: T::AccountId = account("user", c, SEED);
+			let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
+			let statement = StatementKind::Regular;
+			let signature = sig::<T>(&secret_key, &account.encode(), statement.to_text());
+			super::Pallet::<T>::mint_claim(
+				RawOrigin::Root.into(),
+				eth_address,
+				VALUE.into(),
+				vesting,
+				Some(statement),
+			)?;
+			assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into()));
+			let call = Call::<T>::claim_attest {
+				dest: account.clone(),
+				ethereum_signature: signature.clone(),
+				statement: StatementKind::Regular.to_text().to_vec(),
+			};
+
+			#[block]
+			{
 				call.dispatch_bypass_filter(RawOrigin::None.into())?;
 			}
 
@@ -1747,6 +2010,69 @@ mod benchmarking {
 			}
 
 			Ok(())
+		}
+
+		#[benchmark]
+		fn authorize_claim() -> Result<(), BenchmarkError> {
+			let c = MAX_CLAIMS;
+
+			for i in 0 .. c / 2 {
+				create_claim::<T>(c)?;
+				create_claim_attest::<T>(u32::MAX - c)?;
+			}
+
+			let secret_key = libsecp256k1::SecretKey::parse(&keccak_256(&c.encode())).unwrap();
+			let eth_address = eth(&secret_key);
+			let account: T::AccountId = account("user", c, SEED);
+			let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
+			let signature = sig::<T>(&secret_key, &account.encode(), &[][..]);
+			super::Pallet::<T>::mint_claim(RawOrigin::Root.into(), eth_address, VALUE.into(), vesting, None)?;
+			assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into()));
+			let call = Call::<T>::claim {
+				dest: account.clone(), ethereum_signature: signature.clone()
+			};
+
+			#[block]
+			{
+				use frame_support::pallet_prelude::Authorize;
+				call.authorize(TransactionSource::External)
+					.expect("Call give some authorization")
+					.expect("Authorization is valid");
+			}
+		}
+
+		#[benchmark]
+		fn authorize_claim_attest() -> Result<(), BenchmarkError> {
+			let c = MAX_CLAIMS;
+
+			for i in 0 .. c / 2 {
+				create_claim::<T>(c)?;
+				create_claim_attest::<T>(u32::MAX - c)?;
+			}
+
+			// Crate signature
+			let attest_c = u32::MAX - c;
+			let secret_key = libsecp256k1::SecretKey::parse(&keccak_256(&attest_c.encode())).unwrap();
+			let eth_address = eth(&secret_key);
+			let account: T::AccountId = account("user", c, SEED);
+			let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
+			let statement = StatementKind::Regular;
+			let signature = sig::<T>(&secret_key, &account.encode(), statement.to_text());
+			super::Pallet::<T>::mint_claim(RawOrigin::Root.into(), eth_address, VALUE.into(), vesting, Some(statement))?;
+			assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into()));
+			let call = Call::<T>::claim_attest {
+				dest: account.clone(),
+				ethereum_signature: signature.clone(),
+				statement: StatementKind::Regular.to_text().to_vec()
+			};
+
+			#[block]
+			{
+				use frame_support::pallet_prelude::Authorize;
+				call.authorize(TransactionSource::External)
+					.expect("Call give some authorization")
+					.expect("Authorization is valid");
+			}
 		}
 
 		impl_benchmark_test_suite!(
