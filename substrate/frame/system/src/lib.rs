@@ -786,7 +786,7 @@ pub mod pallet {
 		#[pallet::call_index(8)]
 		#[pallet::weight(task.weight())]
 		#[pallet::authorize(|_source, task| Pallet::<T>::validate_do_task(task).map(|v| (v, Weight::zero())))]
-		// TODO TODO: weight of is_valid is and was ignored.
+		// Weight of task validation is already part of the task weight.
 		#[pallet::weight_of_authorize(Weight::zero())]
 		pub fn do_task(origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
 			let skip_validity = origin.as_system_ref() == Some(&RawOrigin::Authorized);
