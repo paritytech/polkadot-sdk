@@ -6,6 +6,7 @@ doc:
     This was to have a fallback when sending a message to v4 chains, which happens in the small time window when chains are upgrading.
     We originally put no fallback for a message in snowbridge's inbound queue but we should have one.
     This PR adds it.
+
 crates:
 - name: snowbridge-router-primitives
   bump: patch
