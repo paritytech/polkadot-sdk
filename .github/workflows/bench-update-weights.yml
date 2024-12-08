@@ -67,7 +67,7 @@ jobs:
           python3 .github/scripts/cmd/cmd.py bench --help # --runtime ${{ matrix.runtime.name }}
           # append test to README.md
           echo "${{ matrix.runtime.name }}|" >> README-${{matrix.runtime.name}}.md
-          git add README-${{matrix.runtime.name}}.md
+          git add .
           git status
           git diff
 
@@ -80,11 +80,8 @@ jobs:
             echo "$CMD_OUTPUT" >> $GITHUB_OUTPUT
             echo 'EOF' >> $GITHUB_OUTPUT
           fi
+          git diff HEAD > diff-${{ matrix.runtime.name }}.patch
       
-      - name: Save diff
-        run: |
-          git diff > diff-${{ matrix.runtime.name }}.patch
-
       - name: Upload diff
         uses: actions/upload-artifact@v4
         with:
