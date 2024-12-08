@@ -19,7 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use frame_benchmarking::{v2::*, BenchmarkError};
+use frame_benchmarking::v2::*;
 use frame_support::traits::{
 	fungible::Inspect as FunInspect, nonfungible::Inspect, EnsureOrigin, Get,
 };
