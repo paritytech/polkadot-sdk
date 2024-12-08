@@ -51,6 +51,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          branch: master
 
       - name: script
         id: required
@@ -64,6 +67,7 @@ jobs:
           python3 .github/scripts/cmd/cmd.py bench --help # --runtime ${{ matrix.runtime.name }}
           # append test to README.md
           echo "${{ matrix.runtime.name }}|" >> README-${{matrix.runtime.name}}.md
+          git add README-${{matrix.runtime.name}}.md
           git status
           git diff
 
