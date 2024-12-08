@@ -909,7 +909,7 @@ pub mod pallet_prelude {
 			Task, TypedGet,
 		},
 		Blake2_128, Blake2_128Concat, Blake2_256, CloneNoBound, DebugNoBound, EqNoBound, Identity,
-		PartialEqNoBound, RuntimeDebugNoBound, Twox128, Twox256, Twox64Concat,
+		PalletId, PartialEqNoBound, RuntimeDebugNoBound, Twox128, Twox256, Twox64Concat,
 	};
 	pub use codec::{Decode, Encode, MaxEncodedLen};
 	pub use core::marker::PhantomData;

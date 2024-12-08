@@ -19,16 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use frame_benchmarking::v2::*;
-use frame_support::traits::{
-	fungible::Inspect as FunInspect, nonfungible::Inspect, EnsureOrigin, Get,
-};
-use frame_system::RawOrigin;
-use sp_arithmetic::Perquintill;
-use sp_runtime::{
-	traits::{Bounded, One, Zero},
-	DispatchError, PerThing,
-};
+use frame::benchmarking::prelude::*;
 
 use crate::*;
 
