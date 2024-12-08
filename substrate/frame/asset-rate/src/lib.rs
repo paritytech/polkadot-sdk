@@ -62,6 +62,7 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
+/*
 use frame_support::traits::{
 	fungible::Inspect,
 	tokens::{ConversionFromAssetBalance, ConversionToAssetBalance},
@@ -70,7 +71,8 @@ use sp_runtime::{
 	traits::{CheckedDiv, Zero},
 	FixedPointNumber, FixedU128,
 };
-
+*/
+use frame::{prelude::*, traits::{fungible::Inspect, tokens::{ConversionFromAssetBalance, ConversionToAssetBalance}, CheckedDiv, Zero}, deps::sp_runtime::{FixedPointNumber, FixedU128}};
 pub use pallet::*;
 pub use weights::WeightInfo;
 
@@ -91,11 +93,14 @@ type AssetKindOf<T> = <T as Config>::AssetKind;
 // Generic fungible balance type.
 type BalanceOf<T> = <<T as Config>::Currency as Inspect<AccountIdOf<T>>>::Balance;
 
-#[frame_support::pallet]
+// #[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
+	/*
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	*/
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
