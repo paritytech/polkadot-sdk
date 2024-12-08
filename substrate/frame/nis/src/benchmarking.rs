@@ -24,7 +24,7 @@ use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller, BenchmarkE
 use frame_support::traits::{
 	fungible::Inspect as FunInspect, nonfungible::Inspect, EnsureOrigin, Get,
 };
-use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
+use frame_system::RawOrigin;
 use sp_arithmetic::Perquintill;
 use sp_runtime::{
 	traits::{BlockNumberProvider, Bounded, One, Zero},
