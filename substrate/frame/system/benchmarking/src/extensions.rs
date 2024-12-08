@@ -23,6 +23,7 @@ use alloc::vec;
 use frame_benchmarking::{account, v2::*, BenchmarkError};
 use frame_support::{
 	dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo},
+	pallet_prelude::Zero,
 	weights::Weight,
 };
 use frame_system::{
@@ -53,11 +54,14 @@ mod benchmarks {
 		let caller = account("caller", 0, 0);
 		let info = DispatchInfo { call_weight: Weight::zero(), ..Default::default() };
 		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
+		frame_benchmarking::benchmarking::add_to_whitelist(
+			frame_system::BlockHash::<T>::hashed_key_for(BlockNumberFor::<T>::zero()).into(),
+		);
 
 		#[block]
 		{
 			CheckGenesis::<T>::new()
-				.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, |_| Ok(().into()))
+				.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| Ok(().into()))
 				.unwrap()
 				.unwrap();
 		}
@@ -81,10 +85,13 @@ mod benchmarks {
 			..Default::default()
 		};
 		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
+		frame_benchmarking::benchmarking::add_to_whitelist(
+			frame_system::BlockHash::<T>::hashed_key_for(prev_block).into(),
+		);
 
 		#[block]
 		{
-			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, |_| Ok(().into()))
+			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| Ok(().into()))
 				.unwrap()
 				.unwrap();
 		}
@@ -109,10 +116,13 @@ mod benchmarks {
 			..Default::default()
 		};
 		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
+		frame_benchmarking::benchmarking::add_to_whitelist(
+			frame_system::BlockHash::<T>::hashed_key_for(BlockNumberFor::<T>::zero()).into(),
+		);
 
 		#[block]
 		{
-			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, |_| Ok(().into()))
+			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| Ok(().into()))
 				.unwrap()
 				.unwrap();
 		}
@@ -129,7 +139,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, |_| Ok(().into()))
+			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| Ok(().into()))
 				.unwrap()
 				.unwrap();
 		}
@@ -151,7 +161,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			ext.test_run(RawOrigin::Signed(caller.clone()).into(), &call, &info, len, |_| {
+			ext.test_run(RawOrigin::Signed(caller.clone()).into(), &call, &info, len, 0, |_| {
 				Ok(().into())
 			})
 			.unwrap()
@@ -173,7 +183,7 @@ mod benchmarks {
 		#[block]
 		{
 			CheckSpecVersion::<T>::new()
-				.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, |_| Ok(().into()))
+				.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| Ok(().into()))
 				.unwrap()
 				.unwrap();
 		}
@@ -190,7 +200,7 @@ mod benchmarks {
 		#[block]
 		{
 			CheckTxVersion::<T>::new()
-				.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, |_| Ok(().into()))
+				.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| Ok(().into()))
 				.unwrap()
 				.unwrap();
 		}
@@ -230,7 +240,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, |_| Ok(post_info))
+			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| Ok(post_info))
 				.unwrap()
 				.unwrap();
 		}

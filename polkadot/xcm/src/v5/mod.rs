@@ -493,13 +493,21 @@ pub enum Instruction<Call> {
 	///
 	/// - `origin_kind`: The means of expressing the message origin as a dispatch origin.
 	/// - `call`: The encoded transaction to be applied.
+	/// - `fallback_max_weight`: Used for compatibility with previous versions. Corresponds to the
+	///   `require_weight_at_most` parameter in previous versions. If you don't care about
+	///   compatibility you can just put `None`. WARNING: If you do, your XCM might not work with
+	///   older versions. Make sure to dry-run and validate.
 	///
 	/// Safety: No concerns.
 	///
 	/// Kind: *Command*.
 	///
 	/// Errors:
-	Transact { origin_kind: OriginKind, call: DoubleEncoded<Call> },
+	Transact {
+		origin_kind: OriginKind,
+		fallback_max_weight: Option<Weight>,
+		call: DoubleEncoded<Call>,
+	},
 
 	/// A message to notify about a new incoming HRMP channel. This message is meant to be sent by
 	/// the relay-chain to a para.
@@ -1109,6 +1117,25 @@ pub enum Instruction<Call> {
 		assets: Vec<AssetTransferFilter>,
 		remote_xcm: Xcm<()>,
 	},
+
+	/// Executes inner `xcm` with origin set to the provided `descendant_origin`. Once the inner
+	/// `xcm` is executed, the original origin (the one active for this instruction) is restored.
+	///
+	/// Parameters:
+	/// - `descendant_origin`: The origin that will be used during the execution of the inner
+	///   `xcm`. If set to `None`, the inner `xcm` is executed with no origin. If set to `Some(o)`,
+	///   the inner `xcm` is executed as if there was a `DescendOrigin(o)` executed before it, and
+	///   runs the inner xcm with origin: `original_origin.append_with(o)`.
+	/// - `xcm`: Inner instructions that will be executed with the origin modified according to
+	///   `descendant_origin`.
+	///
+	/// Safety: No concerns.
+	///
+	/// Kind: *Command*
+	///
+	/// Errors:
+	/// - `BadOrigin`
+	ExecuteWithOrigin { descendant_origin: Option<InteriorLocation>, xcm: Xcm<Call> },
 }
 
 impl<Call> Xcm<Call> {
@@ -1140,7 +1167,8 @@ impl<Call> Instruction<Call> {
 			HrmpChannelAccepted { recipient } => HrmpChannelAccepted { recipient },
 			HrmpChannelClosing { initiator, sender, recipient } =>
 				HrmpChannelClosing { initiator, sender, recipient },
-			Transact { origin_kind, call } => Transact { origin_kind, call: call.into() },
+			Transact { origin_kind, call, fallback_max_weight } =>
+				Transact { origin_kind, call: call.into(), fallback_max_weight },
 			ReportError(response_info) => ReportError(response_info),
 			DepositAsset { assets, beneficiary } => DepositAsset { assets, beneficiary },
 			DepositReserveAsset { assets, dest, xcm } => DepositReserveAsset { assets, dest, xcm },
@@ -1189,6 +1217,8 @@ impl<Call> Instruction<Call> {
 			PayFees { asset } => PayFees { asset },
 			InitiateTransfer { destination, remote_fees, preserve_origin, assets, remote_xcm } =>
 				InitiateTransfer { destination, remote_fees, preserve_origin, assets, remote_xcm },
+			ExecuteWithOrigin { descendant_origin, xcm } =>
+				ExecuteWithOrigin { descendant_origin, xcm: xcm.into() },
 		}
 	}
 }
@@ -1206,7 +1236,8 @@ impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 			TransferAsset { assets, beneficiary } => W::transfer_asset(assets, beneficiary),
 			TransferReserveAsset { assets, dest, xcm } =>
 				W::transfer_reserve_asset(&assets, dest, xcm),
-			Transact { origin_kind, call } => W::transact(origin_kind, call),
+			Transact { origin_kind, fallback_max_weight, call } =>
+				W::transact(origin_kind, fallback_max_weight, call),
 			HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } =>
 				W::hrmp_new_channel_open_request(sender, max_message_size, max_capacity),
 			HrmpChannelAccepted { recipient } => W::hrmp_channel_accepted(recipient),
@@ -1261,6 +1292,8 @@ impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 			PayFees { asset } => W::pay_fees(asset),
 			InitiateTransfer { destination, remote_fees, preserve_origin, assets, remote_xcm } =>
 				W::initiate_transfer(destination, remote_fees, preserve_origin, assets, remote_xcm),
+			ExecuteWithOrigin { descendant_origin, xcm } =>
+				W::execute_with_origin(descendant_origin, xcm),
 		}
 	}
 }
@@ -1320,8 +1353,11 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 			HrmpChannelAccepted { recipient } => Self::HrmpChannelAccepted { recipient },
 			HrmpChannelClosing { initiator, sender, recipient } =>
 				Self::HrmpChannelClosing { initiator, sender, recipient },
-			Transact { origin_kind, require_weight_at_most: _, call } =>
-				Self::Transact { origin_kind, call: call.into() },
+			Transact { origin_kind, require_weight_at_most, call } => Self::Transact {
+				origin_kind,
+				call: call.into(),
+				fallback_max_weight: Some(require_weight_at_most),
+			},
 			ReportError(response_info) => Self::ReportError(QueryResponseInfo {
 				query_id: response_info.query_id,
 				destination: response_info.destination.try_into().map_err(|_| ())?,
@@ -1552,6 +1588,59 @@ mod tests {
 		assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm.clone()).unwrap());
 		let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
 		assert_eq!(new_xcm, xcm);
+	}
+
+	#[test]
+	fn transact_roundtrip_works() {
+		// We can convert as long as there's a fallback.
+		let xcm = Xcm::<()>(vec![
+			WithdrawAsset((Here, 1u128).into()),
+			Transact {
+				origin_kind: OriginKind::SovereignAccount,
+				call: vec![200, 200, 200].into(),
+				fallback_max_weight: Some(Weight::from_parts(1_000_000, 1_024)),
+			},
+		]);
+		let old_xcm = OldXcm::<()>(vec![
+			OldInstruction::WithdrawAsset((OldHere, 1u128).into()),
+			OldInstruction::Transact {
+				origin_kind: OriginKind::SovereignAccount,
+				call: vec![200, 200, 200].into(),
+				require_weight_at_most: Weight::from_parts(1_000_000, 1_024),
+			},
+		]);
+		assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm.clone()).unwrap());
+		let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
+		assert_eq!(new_xcm, xcm);
+
+		// If we have no fallback the resulting message won't know the weight.
+		let xcm_without_fallback = Xcm::<()>(vec![
+			WithdrawAsset((Here, 1u128).into()),
+			Transact {
+				origin_kind: OriginKind::SovereignAccount,
+				call: vec![200, 200, 200].into(),
+				fallback_max_weight: None,
+			},
+		]);
+		let old_xcm = OldXcm::<()>(vec![
+			OldInstruction::WithdrawAsset((OldHere, 1u128).into()),
+			OldInstruction::Transact {
+				origin_kind: OriginKind::SovereignAccount,
+				call: vec![200, 200, 200].into(),
+				require_weight_at_most: Weight::MAX,
+			},
+		]);
+		assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm_without_fallback.clone()).unwrap());
+		let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
+		let xcm_with_max_weight_fallback = Xcm::<()>(vec![
+			WithdrawAsset((Here, 1u128).into()),
+			Transact {
+				origin_kind: OriginKind::SovereignAccount,
+				call: vec![200, 200, 200].into(),
+				fallback_max_weight: Some(Weight::MAX),
+			},
+		]);
+		assert_eq!(new_xcm, xcm_with_max_weight_fallback);
 	}
 
 	#[test]

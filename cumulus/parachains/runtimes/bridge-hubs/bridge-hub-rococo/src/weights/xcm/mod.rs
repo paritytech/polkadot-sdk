@@ -84,7 +84,11 @@ impl<Call> XcmWeightInfo<Call> for BridgeHubRococoXcmWeight<Call> {
 	fn transfer_reserve_asset(assets: &Assets, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
 		assets.weigh_assets(XcmFungibleWeight::<Runtime>::transfer_reserve_asset())
 	}
-	fn transact(_origin_type: &OriginKind, _call: &DoubleEncoded<Call>) -> Weight {
+	fn transact(
+		_origin_type: &OriginKind,
+		_fallback_max_weight: &Option<Weight>,
+		_call: &DoubleEncoded<Call>,
+	) -> Weight {
 		XcmGeneric::<Runtime>::transact()
 	}
 	fn hrmp_new_channel_open_request(
@@ -255,5 +259,8 @@ impl<Call> XcmWeightInfo<Call> for BridgeHubRococoXcmWeight<Call> {
 	}
 	fn set_asset_claimer(_location: &Location) -> Weight {
 		XcmGeneric::<Runtime>::set_asset_claimer()
+	}
+	fn execute_with_origin(_: &Option<InteriorLocation>, _: &Xcm<Call>) -> Weight {
+		XcmGeneric::<Runtime>::execute_with_origin()
 	}
 }

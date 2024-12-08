@@ -311,7 +311,7 @@ pub mod pallet {
 			type Hash = sp_core::hash::H256;
 			type Hashing = sp_runtime::traits::BlakeTwo256;
 			type AccountId = u64;
-			type Lookup = sp_runtime::traits::IdentityLookup<u64>;
+			type Lookup = sp_runtime::traits::IdentityLookup<Self::AccountId>;
 			type MaxConsumers = frame_support::traits::ConstU32<16>;
 			type AccountData = ();
 			type OnNewAccount = ();
@@ -973,6 +973,7 @@ pub mod pallet {
 
 	/// Digest of the current block, also part of the block header.
 	#[pallet::storage]
+	#[pallet::whitelist_storage]
 	#[pallet::unbounded]
 	#[pallet::getter(fn digest)]
 	pub(super) type Digest<T: Config> = StorageValue<_, generic::Digest, ValueQuery>;

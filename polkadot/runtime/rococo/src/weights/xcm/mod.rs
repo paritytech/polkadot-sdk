@@ -111,7 +111,11 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for RococoXcmWeight<RuntimeCall> {
 	fn transfer_reserve_asset(assets: &Assets, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
 		assets.weigh_assets(XcmBalancesWeight::<Runtime>::transfer_reserve_asset())
 	}
-	fn transact(_origin_kind: &OriginKind, _call: &DoubleEncoded<RuntimeCall>) -> Weight {
+	fn transact(
+		_origin_kind: &OriginKind,
+		_fallback_max_weight: &Option<Weight>,
+		_call: &DoubleEncoded<RuntimeCall>,
+	) -> Weight {
 		XcmGeneric::<Runtime>::transact()
 	}
 	fn hrmp_new_channel_open_request(
@@ -288,6 +292,9 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for RococoXcmWeight<RuntimeCall> {
 	}
 	fn set_asset_claimer(_location: &Location) -> Weight {
 		XcmGeneric::<Runtime>::set_asset_claimer()
+	}
+	fn execute_with_origin(_: &Option<InteriorLocation>, _: &Xcm<RuntimeCall>) -> Weight {
+		XcmGeneric::<Runtime>::execute_with_origin()
 	}
 }
 

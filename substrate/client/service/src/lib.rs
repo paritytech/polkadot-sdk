@@ -23,14 +23,11 @@
 #![recursion_limit = "1024"]
 
 pub mod chain_ops;
+pub mod client;
 pub mod config;
 pub mod error;
 
 mod builder;
-#[cfg(feature = "test-helpers")]
-pub mod client;
-#[cfg(not(feature = "test-helpers"))]
-mod client;
 mod metrics;
 mod task_manager;
 
@@ -64,8 +61,8 @@ pub use self::{
 		new_client, new_db_backend, new_full_client, new_full_parts, new_full_parts_record_import,
 		new_full_parts_with_genesis_builder, new_wasm_executor,
 		propagate_transaction_notifications, spawn_tasks, BuildNetworkAdvancedParams,
-		BuildNetworkParams, DefaultSyncingEngineConfig, KeystoreContainer, NetworkStarter,
-		SpawnTasksParams, TFullBackend, TFullCallExecutor, TFullClient,
+		BuildNetworkParams, DefaultSyncingEngineConfig, KeystoreContainer, SpawnTasksParams,
+		TFullBackend, TFullCallExecutor, TFullClient,
 	},
 	client::{ClientConfig, LocalCallExecutor},
 	error::Error,
@@ -528,13 +525,17 @@ where
 		};
 
 		let start = std::time::Instant::now();
-		let import_future = self.pool.submit_one(
-			self.client.info().best_hash,
-			sc_transaction_pool_api::TransactionSource::External,
-			uxt,
-		);
+		let pool = self.pool.clone();
+		let client = self.client.clone();
 		Box::pin(async move {
-			match import_future.await {
+			match pool
+				.submit_one(
+					client.info().best_hash,
+					sc_transaction_pool_api::TransactionSource::External,
+					uxt,
+				)
+				.await
+			{
 				Ok(_) => {
 					let elapsed = start.elapsed();
 					debug!(target: sc_transaction_pool::LOG_TARGET, "import transaction: {elapsed:?}");

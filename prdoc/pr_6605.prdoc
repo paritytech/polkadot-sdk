@@ -1,0 +1,10 @@
+title: Notify telemetry only every second about the tx pool status
+doc:
+- audience: Node Operator
+  description: |-
+    Before this was done for every imported transaction. When a lot of transactions got imported, the import notification channel was filled. The underlying problem was that the `status` call is read locking the `validated_pool` which will be write locked by the internal submitting logic. Thus, the submitting and status reading was interferring which each other.
+crates:
+- name: cumulus-client-service
+  bump: patch
+- name: sc-service
+  bump: patch

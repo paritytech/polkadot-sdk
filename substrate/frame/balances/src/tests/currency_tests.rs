@@ -265,6 +265,7 @@ fn lock_should_work_reserve() {
 				CALL,
 				&info_from_weight(Weight::from_parts(1, 0)),
 				1,
+				0,
 			)
 			.is_err());
 			assert!(ChargeTransactionPayment::<Test>::validate_and_prepare(
@@ -273,6 +274,7 @@ fn lock_should_work_reserve() {
 				CALL,
 				&info_from_weight(Weight::from_parts(1, 0)),
 				1,
+				0,
 			)
 			.is_err());
 		});
@@ -296,6 +298,7 @@ fn lock_should_work_tx_fee() {
 				CALL,
 				&info_from_weight(Weight::from_parts(1, 0)),
 				1,
+				0,
 			)
 			.is_err());
 			assert!(ChargeTransactionPayment::<Test>::validate_and_prepare(
@@ -304,6 +307,7 @@ fn lock_should_work_tx_fee() {
 				CALL,
 				&info_from_weight(Weight::from_parts(1, 0)),
 				1,
+				0,
 			)
 			.is_err());
 		});

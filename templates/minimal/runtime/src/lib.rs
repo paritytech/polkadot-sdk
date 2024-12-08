@@ -51,17 +51,14 @@ pub mod genesis_config_presets {
 	/// Returns a development genesis config preset.
 	pub fn development_config_genesis() -> Value {
 		let endowment = <MinimumBalance as Get<Balance>>::get().max(1) * 1000;
-		let config = RuntimeGenesisConfig {
+		frame_support::build_struct_json_patch!(RuntimeGenesisConfig {
 			balances: BalancesConfig {
 				balances: AccountKeyring::iter()
 					.map(|a| (a.to_account_id(), endowment))
 					.collect::<Vec<_>>(),
 			},
 			sudo: SudoConfig { key: Some(AccountKeyring::Alice.to_account_id()) },
-			..Default::default()
-		};
-
-		serde_json::to_value(config).expect("Could not build genesis config.")
+		})
 	}
 
 	/// Get the set of the available genesis config presets.
