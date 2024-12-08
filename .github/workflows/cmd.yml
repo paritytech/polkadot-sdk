@@ -227,16 +227,22 @@ jobs:
           cat .github/env >> $GITHUB_OUTPUT
 
           if [ -n "$IMAGE_OVERRIDE" ]; then
-              echo "IMAGE=$IMAGE_OVERRIDE" >> $GITHUB_OUTPUT
+              IMAGE=$IMAGE_OVERRIDE
+              echo "IMAGE=$IMAGE" >> $GITHUB_OUTPUT
           fi
 
           if [[ $BODY == "/cmd bench"* ]]; then
-              echo "RUNNER=parity-weights" >> $GITHUB_OUTPUT
+              RUNNER=parity-weights
+              echo "RUNNER=$RUNNER" >> $GITHUB_OUTPUT
           elif [[ $BODY == "/cmd update-ui"* ]]; then
-              echo "RUNNER=parity-large" >> $GITHUB_OUTPUT
+              RUNNER=parity-large
+              echo "RUNNER=$RUNNER" >> $GITHUB_OUTPUT
           else
-              echo "RUNNER=ubuntu-latest" >> $GITHUB_OUTPUT
+              RUNNER=ubuntu-latest
+              echo "RUNNER=$RUNNER" >> $GITHUB_OUTPUT
           fi
+
+          echo "BODY=$BODY"
 
           echo "RUNNER=$RUNNER"
           echo "IMAGE=$IMAGE"
