@@ -96,14 +96,17 @@ pub type Votes = u32;
 #[codec(mel_bound())]
 pub struct Tally<T, I, M: GetMaxVoters> {
 	bare_ayes: MemberIndex,
+	out_of_rank_ayes: MemberIndex,
+	out_of_rank_nays: MemberIndex,
 	ayes: Votes,
 	nays: Votes,
 	dummy: PhantomData<(T, I, M)>,
+
 }
 
 impl<T: Config<I>, I: 'static, M: GetMaxVoters> Tally<T, I, M> {
-	pub fn from_parts(bare_ayes: MemberIndex, ayes: Votes, nays: Votes) -> Self {
-		Tally { bare_ayes, ayes, nays, dummy: PhantomData }
+	pub fn from_parts(bare_ayes: MemberIndex, out_of_rank_ayes: MemberIndex, out_of_rank_nays: MemberIndex, ayes: Votes, nays: Votes) -> Self {
+		Tally { bare_ayes, out_of_rank_ayes, out_of_rank_nays, ayes, nays, dummy: PhantomData }
 	}
 }
 
@@ -123,7 +126,7 @@ impl<T: Config<I>, I: 'static, M: GetMaxVoters<Class = ClassOf<T, I>>>
 	VoteTally<Votes, ClassOf<T, I>> for Tally<T, I, M>
 {
 	fn new(_: ClassOf<T, I>) -> Self {
-		Self { bare_ayes: 0, ayes: 0, nays: 0, dummy: PhantomData }
+		Self { bare_ayes: 0, out_of_rank_ayes: 0, out_of_rank_nays: 0, ayes: 0, nays: 0, dummy: PhantomData }
 	}
 	fn ayes(&self, _: ClassOf<T, I>) -> Votes {
 		self.bare_ayes
@@ -514,8 +517,6 @@ pub mod pallet {
 		NoneRemaining,
 		/// Unexpected error in state.
 		Corruption,
-		/// The member's rank is too low to vote.
-		RankTooLow,
 		/// The information provided is incorrect.
 		InvalidWitness,
 		/// The origin is not sufficiently privileged to do the operation.
@@ -631,22 +632,48 @@ pub mod pallet {
 						PollStatus::Ongoing(ref mut tally, class) => {
 							match Voting::<T, I>::get(&poll, &who) {
 								Some(Aye(votes)) => {
-									tally.bare_ayes.saturating_dec();
-									tally.ayes.saturating_reduce(votes);
+									if votes > 0 {
+										tally.bare_ayes.saturating_dec();
+										tally.ayes.saturating_reduce(votes);
+									} else {
+										tally.out_of_rank_ayes.saturating_dec();
+									}
+									
 								},
-								Some(Nay(votes)) => tally.nays.saturating_reduce(votes),
+								Some(Nay(votes)) => {
+									if votes > 0 {
+										tally.nays.saturating_reduce(votes)
+									} else {
+										tally.out_of_rank_nays.saturating_dec();
+									}
+								},
 								None => pays = Pays::No,
 							}
 							let min_rank = T::MinRankOfClass::convert(class);
-							let votes = Self::rank_to_votes(record.rank, min_rank)?;
+							let votes = Self::rank_to_votes(record.rank, min_rank).unwrap_or(0);
 							let vote = VoteRecord::from((aye, votes));
-							match aye {
-								true => {
-									tally.bare_ayes.saturating_inc();
-									tally.ayes.saturating_accrue(votes);
+							match votes {
+								0 => {
+									match aye {
+										true => {
+											tally.out_of_rank_ayes.saturating_inc();
+										},
+										false => {
+											tally.out_of_rank_nays.saturating_inc();
+										},
+									}
 								},
-								false => tally.nays.saturating_accrue(votes),
+								_ => {
+									match aye {
+										true => {
+											tally.bare_ayes.saturating_inc();
+											tally.ayes.saturating_accrue(votes);
+										},
+										false => tally.nays.saturating_accrue(votes),
+									}
+								},
 							}
+							
 							Voting::<T, I>::insert(&poll, &who, &vote);
 							Ok((tally.clone(), vote))
 						},
@@ -741,9 +768,9 @@ pub mod pallet {
 			Members::<T, I>::get(who).ok_or(Error::<T, I>::NotMember.into())
 		}
 
-		fn rank_to_votes(rank: Rank, min: Rank) -> Result<Votes, DispatchError> {
-			let excess = rank.checked_sub(min).ok_or(Error::<T, I>::RankTooLow)?;
-			Ok(T::VoteWeight::convert(excess))
+		fn rank_to_votes(rank: Rank, min: Rank) -> Option<Votes> {
+			let excess = rank.checked_sub(min)?;
+			Some(T::VoteWeight::convert(excess))
 		}
 
 		fn remove_from_rank(who: &T::AccountId, rank: Rank) -> DispatchResult {
