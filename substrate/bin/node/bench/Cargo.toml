@@ -15,6 +15,7 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+async-trait = { workspace = true }
 array-bytes = { workspace = true, default-features = true }
 clap = { features = ["derive"], workspace = true }
 log = { workspace = true, default-features = true }

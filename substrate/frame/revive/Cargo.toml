@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 environmental = { workspace = true }
 paste = { workspace = true }
-polkavm = { version = "0.13.0", default-features = false }
+polkavm = { version = "0.17.0", default-features = false }
 bitflags = { workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
@@ -40,7 +40,7 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-balances = { optional = true, workspace = true }
-pallet-revive-fixtures = { workspace = true, default-features = false }
+pallet-revive-fixtures = { workspace = true, default-features = false, optional = true }
 pallet-revive-uapi = { workspace = true, default-features = true }
 pallet-revive-proc-macro = { workspace = true, default-features = true }
 pallet-transaction-payment = { workspace = true }
@@ -65,6 +65,7 @@ pallet-revive-fixtures = { workspace = true, default-features = true }
 secp256k1 = { workspace = true, features = ["recovery"] }
 serde_json = { workspace = true }
 hex-literal = { workspace = true }
+env_logger = { workspace = true }
 
 # Polkadot SDK Dependencies
 pallet-balances = { workspace = true, default-features = true }
@@ -91,7 +92,7 @@ std = [
 	"log/std",
 	"pallet-balances?/std",
 	"pallet-proxy/std",
-	"pallet-revive-fixtures/std",
+	"pallet-revive-fixtures?/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
@@ -121,6 +122,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
+	"pallet-revive-fixtures",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",

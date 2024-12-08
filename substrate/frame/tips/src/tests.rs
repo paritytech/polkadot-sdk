@@ -209,6 +209,7 @@ fn last_event() -> TipEvent<Test> {
 }
 
 #[test]
+#[allow(deprecated)]
 fn genesis_config_works() {
 	build_and_execute(|| {
 		assert_eq!(Treasury::pot(), 0);

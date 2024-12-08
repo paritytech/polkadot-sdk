@@ -82,9 +82,9 @@
 /// in practice at most once every few weeks.
 use polkadot_node_subsystem::messages::HypotheticalCandidate;
 use polkadot_primitives::{
-	async_backing::Constraints as PrimitiveConstraints, BlockNumber, CandidateCommitments,
-	CandidateHash, Hash, HeadData, Id as ParaId, PersistedValidationData, UpgradeRestriction,
-	ValidationCodeHash,
+	async_backing::Constraints as PrimitiveConstraints, vstaging::skip_ump_signals, BlockNumber,
+	CandidateCommitments, CandidateHash, Hash, HeadData, Id as ParaId, PersistedValidationData,
+	UpgradeRestriction, ValidationCodeHash,
 };
 use std::{collections::HashMap, sync::Arc};
 
@@ -601,13 +601,8 @@ impl Fragment {
 		persisted_validation_data: &PersistedValidationData,
 	) -> Result<ConstraintModifications, FragmentValidityError> {
 		// Filter UMP signals and the separator.
-		let upward_messages = if let Some(separator_index) =
-			commitments.upward_messages.iter().position(|message| message.is_empty())
-		{
-			commitments.upward_messages.split_at(separator_index).0
-		} else {
-			&commitments.upward_messages
-		};
+		let upward_messages =
+			skip_ump_signals(commitments.upward_messages.iter()).collect::<Vec<_>>();
 
 		let ump_messages_sent = upward_messages.len();
 		let ump_bytes_sent = upward_messages.iter().map(|msg| msg.len()).sum();

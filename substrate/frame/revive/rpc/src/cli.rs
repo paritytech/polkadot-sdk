@@ -15,7 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! The Ethereum JSON-RPC server.
-use crate::{client::Client, EthRpcServer, EthRpcServerImpl};
+use crate::{
+	client::Client, EthRpcServer, EthRpcServerImpl, SystemHealthRpcServer,
+	SystemHealthRpcServerImpl,
+};
 use clap::Parser;
 use futures::{pin_mut, FutureExt};
 use jsonrpsee::server::RpcModule;
@@ -118,7 +121,10 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 
 		match tokio_handle.block_on(signals.try_until_signal(fut)) {
 			Ok(Ok(client)) => rpc_module(is_dev, client),
-			Ok(Err(err)) => Err(sc_service::Error::Application(err.into())),
+			Ok(Err(err)) => {
+				log::error!("Error connecting to the node at {node_rpc_url}: {err}");
+				Err(sc_service::Error::Application(err.into()))
+			},
 			Err(_) => Err(sc_service::Error::Application("Client connection interrupted".into())),
 		}
 	};
@@ -142,11 +148,14 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 
 /// Create the JSON-RPC module.
 fn rpc_module(is_dev: bool, client: Client) -> Result<RpcModule<()>, sc_service::Error> {
-	let eth_api = EthRpcServerImpl::new(client)
+	let eth_api = EthRpcServerImpl::new(client.clone())
 		.with_accounts(if is_dev { vec![crate::Account::default()] } else { vec![] })
 		.into_rpc();
 
+	let health_api = SystemHealthRpcServerImpl::new(client).into_rpc();
+
 	let mut module = RpcModule::new(());
 	module.merge(eth_api).map_err(|e| sc_service::Error::Application(e.into()))?;
+	module.merge(health_api).map_err(|e| sc_service::Error::Application(e.into()))?;
 	Ok(module)
 }

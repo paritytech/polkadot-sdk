@@ -22,7 +22,7 @@ use emulated_integration_tests_common::{
 	accounts, build_genesis_storage, collators, SAFE_XCM_VERSION,
 };
 use parachains_common::Balance;
-use xcm::latest::prelude::*;
+use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 
 pub const ASSETHUB_PARA_ID: u32 = 1000;
 pub const PARA_ID: u32 = 1013;
@@ -73,7 +73,7 @@ pub fn genesis() -> Storage {
 				// open AHR -> AHW bridge
 				(
 					Location::new(1, [Parachain(1000)]),
-					Junctions::from([Westend.into(), Parachain(1000)]),
+					Junctions::from([ByGenesis(WESTEND_GENESIS_HASH).into(), Parachain(1000)]),
 					Some(bp_messages::LegacyLaneId([0, 0, 0, 2])),
 				),
 			],

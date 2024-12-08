@@ -160,13 +160,16 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 			};
 			let Meta::List(ref list) = builder_attr.meta else { unreachable!("We checked before") };
 			let inner_ident: Ident = syn::parse2(list.tokens.clone()).map_err(|_| {
-				Error::new_spanned(&builder_attr, "Expected `builder(loads_holding)`")
+				Error::new_spanned(
+					&builder_attr,
+					"Expected `builder(loads_holding)` or `builder(pays_fees)`",
+				)
 			})?;
 			let ident_to_match: Ident = syn::parse_quote!(loads_holding);
 			if inner_ident == ident_to_match {
 				Ok(Some(variant))
 			} else {
-				Err(Error::new_spanned(&builder_attr, "Expected `builder(loads_holding)`"))
+				Ok(None) // Must have been `pays_fees` instead.
 			}
 		})
 		.collect::<Result<Vec<_>>>()?;
@@ -260,50 +263,75 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 		.collect::<std::result::Result<Vec<_>, _>>()?;
 
 	// Then we require fees to be paid
-	let buy_execution_method = data_enum
+	let pay_fees_variants = data_enum
 		.variants
 		.iter()
-		.find(|variant| variant.ident == "BuyExecution")
-		.map_or(
-			Err(Error::new_spanned(&data_enum.variants, "No BuyExecution instruction")),
-			|variant| {
-				let variant_name = &variant.ident;
-				let method_name_string = &variant_name.to_string().to_snake_case();
-				let method_name = syn::Ident::new(method_name_string, variant_name.span());
-				let docs = get_doc_comments(variant);
-				let fields = match &variant.fields {
-					Fields::Named(fields) => {
-						let arg_names: Vec<_> =
-							fields.named.iter().map(|field| &field.ident).collect();
-						let arg_types: Vec<_> =
-							fields.named.iter().map(|field| &field.ty).collect();
-						quote! {
-							#(#docs)*
-							pub fn #method_name(self, #(#arg_names: impl Into<#arg_types>),*) -> XcmBuilder<Call, AnythingGoes> {
-								let mut new_instructions = self.instructions;
-								#(let #arg_names = #arg_names.into();)*
-								new_instructions.push(#name::<Call>::#variant_name { #(#arg_names),* });
-								XcmBuilder {
-									instructions: new_instructions,
-									state: core::marker::PhantomData,
-								}
+		.map(|variant| {
+			let maybe_builder_attr = variant.attrs.iter().find(|attr| match attr.meta {
+				Meta::List(ref list) => list.path.is_ident("builder"),
+				_ => false,
+			});
+			let builder_attr = match maybe_builder_attr {
+				Some(builder) => builder.clone(),
+				None => return Ok(None), /* It's not going to be an instruction that pays fees */
+			};
+			let Meta::List(ref list) = builder_attr.meta else { unreachable!("We checked before") };
+			let inner_ident: Ident = syn::parse2(list.tokens.clone()).map_err(|_| {
+				Error::new_spanned(
+					&builder_attr,
+					"Expected `builder(loads_holding)` or `builder(pays_fees)`",
+				)
+			})?;
+			let ident_to_match: Ident = syn::parse_quote!(pays_fees);
+			if inner_ident == ident_to_match {
+				Ok(Some(variant))
+			} else {
+				Ok(None) // Must have been `loads_holding` instead.
+			}
+		})
+		.collect::<Result<Vec<_>>>()?;
+
+	let pay_fees_methods = pay_fees_variants
+		.into_iter()
+		.flatten()
+		.map(|variant| {
+			let variant_name = &variant.ident;
+			let method_name_string = &variant_name.to_string().to_snake_case();
+			let method_name = syn::Ident::new(method_name_string, variant_name.span());
+			let docs = get_doc_comments(variant);
+			let fields = match &variant.fields {
+				Fields::Named(fields) => {
+					let arg_names: Vec<_> =
+						fields.named.iter().map(|field| &field.ident).collect();
+					let arg_types: Vec<_> =
+						fields.named.iter().map(|field| &field.ty).collect();
+					quote! {
+						#(#docs)*
+						pub fn #method_name(self, #(#arg_names: impl Into<#arg_types>),*) -> XcmBuilder<Call, AnythingGoes> {
+							let mut new_instructions = self.instructions;
+							#(let #arg_names = #arg_names.into();)*
+							new_instructions.push(#name::<Call>::#variant_name { #(#arg_names),* });
+							XcmBuilder {
+								instructions: new_instructions,
+								state: core::marker::PhantomData,
 							}
 						}
-					},
-					_ =>
-						return Err(Error::new_spanned(
-							variant,
-							"BuyExecution should have named fields",
-						)),
-				};
-				Ok(fields)
-			},
-		)?;
+					}
+				},
+				_ =>
+					return Err(Error::new_spanned(
+						variant,
+						"Both BuyExecution and PayFees have named fields",
+					)),
+			};
+			Ok(fields)
+		})
+		.collect::<Result<Vec<_>>>()?;
 
 	let second_impl = quote! {
 		impl<Call> XcmBuilder<Call, LoadedHolding> {
 			#(#allowed_after_load_holding_methods)*
-			#buy_execution_method
+			#(#pay_fees_methods)*
 		}
 	};
 
