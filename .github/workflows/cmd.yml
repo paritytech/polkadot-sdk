@@ -246,6 +246,10 @@ jobs:
 
           echo "RUNNER=$RUNNER"
           echo "IMAGE=$IMAGE"
+      - name: Print outputs
+        run: |
+          echo "RUNNER=${{ steps.set-image.outputs.RUNNER }}"
+          echo "IMAGE=${{ steps.set-image.outputs.IMAGE }}"
 
   # Get PR branch name, because the issue_comment event does not contain the PR branch name
   get-pr-branch:
