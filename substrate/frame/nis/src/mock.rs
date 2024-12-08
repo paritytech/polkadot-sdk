@@ -27,7 +27,7 @@ use frame_support::{
 };
 use pallet_balances::{Instance1, Instance2};
 use sp_core::ConstU128;
-use sp_runtime::{BuildStorage, traits::BlockNumberProvider};
+use sp_runtime::{traits::BlockNumberProvider, BuildStorage};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -150,11 +150,23 @@ pub fn new_test_ext_empty() -> sp_io::TestExternalities {
 pub fn run_to_block(n: u64) {
 	while <Test as pallet_nis::Config>::BlockNumberProvider::current_block_number() < n {
 		Nis::on_finalize(<Test as pallet_nis::Config>::BlockNumberProvider::current_block_number());
-		Balances::on_finalize(<Test as pallet_nis::Config>::BlockNumberProvider::current_block_number());
-		System::on_finalize(<Test as pallet_nis::Config>::BlockNumberProvider::current_block_number());
-		System::set_block_number(<Test as pallet_nis::Config>::BlockNumberProvider::current_block_number() + 1);
-		System::on_initialize(<Test as pallet_nis::Config>::BlockNumberProvider::current_block_number());
-		Balances::on_initialize(<Test as pallet_nis::Config>::BlockNumberProvider::current_block_number());
-		Nis::on_initialize(<Test as pallet_nis::Config>::BlockNumberProvider::current_block_number());
+		Balances::on_finalize(
+			<Test as pallet_nis::Config>::BlockNumberProvider::current_block_number(),
+		);
+		System::on_finalize(
+			<Test as pallet_nis::Config>::BlockNumberProvider::current_block_number(),
+		);
+		System::set_block_number(
+			<Test as pallet_nis::Config>::BlockNumberProvider::current_block_number() + 1,
+		);
+		System::on_initialize(
+			<Test as pallet_nis::Config>::BlockNumberProvider::current_block_number(),
+		);
+		Balances::on_initialize(
+			<Test as pallet_nis::Config>::BlockNumberProvider::current_block_number(),
+		);
+		Nis::on_initialize(
+			<Test as pallet_nis::Config>::BlockNumberProvider::current_block_number(),
+		);
 	}
 }

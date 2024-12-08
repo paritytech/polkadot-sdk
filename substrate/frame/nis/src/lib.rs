@@ -190,14 +190,18 @@ pub mod pallet {
 		},
 		PalletId,
 	};
-	use frame_system::pallet_prelude::{BlockNumberFor as SystemBlockNumberFor, ensure_signed, OriginFor};
+	use frame_system::pallet_prelude::{BlockNumberFor as SystemBlockNumberFor, *};
 	use sp_arithmetic::{PerThing, Perquintill};
 	use sp_runtime::{
-		traits::{AccountIdConversion, Bounded, Convert, ConvertBack, Saturating, Zero, BlockNumberProvider},
+		traits::{
+			AccountIdConversion, BlockNumberProvider, Bounded, Convert, ConvertBack, Saturating,
+			Zero,
+		},
 		Rounding, TokenError,
 	};
 
-	type BlockNumberFor<T> = <<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+	type BlockNumberFor<T> =
+		<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 	type BalanceOf<T> =
 		<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
 	type DebtOf<T> =
@@ -523,7 +527,8 @@ pub mod pallet {
 			let block_number = T::BlockNumberProvider::current_block_number();
 			let mut weight_counter =
 				WeightCounter { used: Weight::zero(), limit: T::MaxIntakeWeight::get() };
-			if T::IntakePeriod::get().is_zero() || (block_number % T::IntakePeriod::get()).is_zero() {
+			if T::IntakePeriod::get().is_zero() || (block_number % T::IntakePeriod::get()).is_zero()
+			{
 				if weight_counter.check_accrue(T::WeightInfo::process_queues()) {
 					Self::process_queues(
 						T::Target::get(),
