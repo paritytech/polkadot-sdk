@@ -54,13 +54,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          branch: master
+          ref: master
 
       - name: script
         id: required
         run: |
-          #cargo install subweight --locked
-          #cargo install --path substrate/utils/frame/omni-bencher --locked
+          cargo install subweight --locked
+          cargo install --path substrate/utils/frame/omni-bencher --locked
           # Fixes "detected dubious ownership" error in the ci
           git config --global --add safe.directory '*'
           git remote -v
