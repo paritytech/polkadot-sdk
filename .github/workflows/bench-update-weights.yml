@@ -27,7 +27,8 @@ jobs:
       - uses: actions/checkout@v4
       - id: runtime
         run: |
-          RUNTIMES=$(jq '[.[] | select(.package != null)]' .github/workflows/runtimes-matrix.json)
+          # only first two runtimes
+          RUNTIMES=$(jq '[.[] | select(.package != null)]' .github/workflows/runtimes-matrix.json | jq '.[0:2]')
 
           RUNTIMES=$(echo $RUNTIMES | jq -c .)
           echo "runtime=$RUNTIMES"
@@ -64,9 +65,7 @@ jobs:
           git config --global --add safe.directory '*'
           git remote -v
           python3 -m pip install -r .github/scripts/generate-prdoc.requirements.txt
-          python3 .github/scripts/cmd/cmd.py bench --help # --runtime ${{ matrix.runtime.name }}
-          # append test to README.md
-          echo "${{ matrix.runtime.name }}|" >> README-${{matrix.runtime.name}}.md
+          python3 .github/scripts/cmd/cmd.py bench --runtime ${{ matrix.runtime.name }}
           git add .
           git status
           git diff
@@ -109,9 +108,17 @@ jobs:
               git apply "$file"
             fi
           done
-
+          DATE=$(date +'%Y-%m-%d-%s')
+          BRANCH="update-weights-weekly-$DATE"
+          rm -rf patches
+          git checkout -b "$BRANCH"
           git status
           git diff
+          git add .
+          git commit -m "Update all weights weekly for $DATE"
+          git push --set-upstream origin "$BRANCH"
+          git status
+          gh pr create --title "Update weights weekly for $DATE" --body "Update weights weekly for $DATE"
 
   confirm-frame-omni-benchers-passed:
     runs-on: ubuntu-latest
