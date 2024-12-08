@@ -273,6 +273,10 @@ fn editing_subaccounts_should_work() {
 
 		// rename first sub account
 		assert_ok!(Identity::rename_sub(RuntimeOrigin::signed(ten.clone()), one.clone(), data(11)));
+		System::assert_last_event(tests::RuntimeEvent::Identity(Event::SubIdentityRenamed {
+			main: ten.clone(),
+			sub: one.clone(),
+		}));
 		assert_eq!(SuperOf::<Test>::get(one.clone()), Some((ten.clone(), data(11))));
 		assert_eq!(SuperOf::<Test>::get(two.clone()), Some((ten.clone(), data(2))));
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - 2 * sub_deposit);
@@ -546,6 +550,13 @@ fn setting_subaccounts_should_work() {
 		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(ten.clone()), Box::new(ten_info)));
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit);
 		assert_ok!(Identity::set_subs(RuntimeOrigin::signed(ten.clone()), subs.clone()));
+
+		System::assert_last_event(tests::RuntimeEvent::Identity(Event::SubIdentitiesSet {
+			main: ten.clone(),
+			number_of_subs: 1,
+			new_deposit: sub_deposit,
+		}));
+
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - sub_deposit);
 		assert_eq!(
 			SubsOf::<Test>::get(ten.clone()),

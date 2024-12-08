@@ -17,23 +17,8 @@
 //! The Ethereum JSON-RPC server.
 use clap::Parser;
 use pallet_revive_eth_rpc::cli;
-use tracing_subscriber::{util::SubscriberInitExt, EnvFilter, FmtSubscriber};
 
-/// Initialize tracing
-fn init_tracing() {
-	let env_filter =
-		EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("eth_rpc=trace"));
-
-	FmtSubscriber::builder()
-		.with_env_filter(env_filter)
-		.finish()
-		.try_init()
-		.expect("failed to initialize tracing");
-}
-
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-	init_tracing();
+fn main() -> anyhow::Result<()> {
 	let cmd = cli::CliCommand::parse();
-	cli::run(cmd).await
+	cli::run(cmd)
 }

@@ -119,6 +119,7 @@ impl pallet_treasury::Config for Test {
 	type Paymaster = PayFromAccount<Balances, TreasuryAccount>;
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = ConstU64<10>;
+	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -141,6 +142,7 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type Paymaster = PayFromAccount<Balances, TreasuryInstance1Account>;
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = ConstU64<10>;
+	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -207,6 +209,7 @@ fn last_event() -> TipEvent<Test> {
 }
 
 #[test]
+#[allow(deprecated)]
 fn genesis_config_works() {
 	build_and_execute(|| {
 		assert_eq!(Treasury::pot(), 0);

@@ -35,12 +35,12 @@ use core::{cmp, marker::PhantomData};
 use cumulus_primitives_core::{
 	relay_chain::{
 		self,
-		vstaging::{ClaimQueueOffset, CoreSelector},
+		vstaging::{ClaimQueueOffset, CoreSelector, DEFAULT_CLAIM_QUEUE_OFFSET},
 	},
 	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, GetChannelInfo,
 	InboundDownwardMessage, InboundHrmpMessage, ListChannelInfos, MessageSendError,
 	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
-	XcmpMessageHandler, XcmpMessageSource, DEFAULT_CLAIM_QUEUE_OFFSET,
+	XcmpMessageHandler, XcmpMessageSource,
 };
 use cumulus_primitives_parachain_inherent::{MessageQueueChain, ParachainInherentData};
 use frame_support::{

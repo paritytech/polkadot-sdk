@@ -67,6 +67,7 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
+	#[pallet::whitelist_storage]
 	/// Author of current block.
 	pub(super) type Author<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 }

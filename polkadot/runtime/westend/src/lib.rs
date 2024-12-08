@@ -46,6 +46,7 @@ use frame_support::{
 use frame_system::{EnsureRoot, EnsureSigned};
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_identity::legacy::IdentityInfo;
+use pallet_nomination_pools::PoolId;
 use pallet_session::historical as session_historical;
 use pallet_transaction_payment::{FeeDetails, FungibleAdapter, RuntimeDispatchInfo};
 use polkadot_primitives::{
@@ -95,7 +96,7 @@ use sp_consensus_beefy::{
 };
 use sp_core::{ConstU8, OpaqueMetadata, RuntimeDebug, H256};
 use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys,
+	generic, impl_opaque_keys,
 	traits::{
 		AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, IdentityLookup, Keccak256,
 		OpaqueKeys, SaturatedConversion, Verify,
@@ -168,8 +169,8 @@ pub mod fast_runtime_binary {
 /// Runtime version (Westend).
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("westend"),
-	impl_name: create_runtime_str!("parity-westend"),
+	spec_name: alloc::borrow::Cow::Borrowed("westend"),
+	impl_name: alloc::borrow::Cow::Borrowed("parity-westend"),
 	authoring_version: 2,
 	spec_version: 1_016_001,
 	impl_version: 0,
@@ -542,7 +543,7 @@ impl Get<u32> for MaybeSignedPhase {
 	fn get() -> u32 {
 		// 1 day = 4 eras -> 1 week = 28 eras. We want to disable signed phase once a week to test
 		// the fallback unsigned phase is able to compute elections on Westend.
-		if Staking::current_era().unwrap_or(1) % 28 == 0 {
+		if pallet_staking::CurrentEra::<Runtime>::get().unwrap_or(1) % 28 == 0 {
 			0
 		} else {
 			SignedPhase::get()
@@ -754,7 +755,7 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = polkadot_runtime_common::StakingBenchmarkingConfig;
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
-	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
+	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -823,6 +824,7 @@ impl pallet_treasury::Config for Runtime {
 		AssetRate,
 	>;
 	type PayoutPeriod = PayoutSpendPeriod;
+	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments;
 }
@@ -1002,6 +1004,7 @@ impl pallet_multisig::Config for Runtime {
 	type DepositFactor = DepositFactor;
 	type MaxSignatories = MaxSignatories;
 	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 parameter_types! {
@@ -1202,6 +1205,7 @@ impl pallet_proxy::Config for Runtime {
 	type CallHasher = BlakeTwo256;
 	type AnnouncementDepositBase = AnnouncementDepositBase;
 	type AnnouncementDepositFactor = AnnouncementDepositFactor;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 impl parachains_origin::Config for Runtime {}
@@ -1836,6 +1840,7 @@ pub mod migrations {
 		>,
 		parachains_shared::migration::MigrateToV1<Runtime>,
 		parachains_scheduler::migration::MigrateV2ToV3<Runtime>,
+		pallet_staking::migrations::v16::MigrateV15ToV16<Runtime>,
 		// permanent
 		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	);
@@ -2493,15 +2498,15 @@ sp_api::impl_runtime_apis! {
 			NominationPools::api_pending_rewards(member).unwrap_or_default()
 		}
 
-		fn points_to_balance(pool_id: pallet_nomination_pools::PoolId, points: Balance) -> Balance {
+		fn points_to_balance(pool_id: PoolId, points: Balance) -> Balance {
 			NominationPools::api_points_to_balance(pool_id, points)
 		}
 
-		fn balance_to_points(pool_id: pallet_nomination_pools::PoolId, new_funds: Balance) -> Balance {
+		fn balance_to_points(pool_id: PoolId, new_funds: Balance) -> Balance {
 			NominationPools::api_balance_to_points(pool_id, new_funds)
 		}
 
-		fn pool_pending_slash(pool_id: pallet_nomination_pools::PoolId) -> Balance {
+		fn pool_pending_slash(pool_id: PoolId) -> Balance {
 			NominationPools::api_pool_pending_slash(pool_id)
 		}
 
@@ -2509,7 +2514,7 @@ sp_api::impl_runtime_apis! {
 			NominationPools::api_member_pending_slash(member)
 		}
 
-		fn pool_needs_delegate_migration(pool_id: pallet_nomination_pools::PoolId) -> bool {
+		fn pool_needs_delegate_migration(pool_id: PoolId) -> bool {
 			NominationPools::api_pool_needs_delegate_migration(pool_id)
 		}
 
@@ -2521,8 +2526,12 @@ sp_api::impl_runtime_apis! {
 			NominationPools::api_member_total_balance(member)
 		}
 
-		fn pool_balance(pool_id: pallet_nomination_pools::PoolId) -> Balance {
+		fn pool_balance(pool_id: PoolId) -> Balance {
 			NominationPools::api_pool_balance(pool_id)
+		}
+
+		fn pool_accounts(pool_id: PoolId) -> (AccountId, AccountId) {
+			NominationPools::api_pool_accounts(pool_id)
 		}
 	}
 
@@ -2591,7 +2600,7 @@ sp_api::impl_runtime_apis! {
 			config: frame_benchmarking::BenchmarkConfig,
 		) -> Result<
 			Vec<frame_benchmarking::BenchmarkBatch>,
-			sp_runtime::RuntimeString,
+			alloc::string::String,
 		> {
 			use frame_support::traits::WhitelistedStorageKeys;
 			use frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};

@@ -480,7 +480,7 @@ where
 				continue
 			}
 
-			let (hashes, to_send): (Vec<_>, Vec<_>) = transactions
+			let (hashes, to_send): (Vec<_>, Transactions<_>) = transactions
 				.iter()
 				.filter(|(hash, _)| peer.known_transactions.insert(hash.clone()))
 				.cloned()

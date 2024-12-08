@@ -30,7 +30,9 @@ use polkadot_primitives::CoreIndex;
 
 use codec::Decode;
 use frame_support::{
-	assert_ok, derive_impl, parameter_types,
+	assert_ok, derive_impl,
+	dispatch::GetDispatchInfo,
+	parameter_types,
 	traits::{
 		Currency, ProcessMessage, ProcessMessageError, ValidatorSet, ValidatorSetWithIdentification,
 	},
@@ -56,7 +58,7 @@ use std::{
 };
 use xcm::{
 	prelude::XcmVersion,
-	v4::{Assets, InteriorLocation, Location, SendError, SendResult, SendXcm, Xcm, XcmHash},
+	v5::{Assets, InteriorLocation, Location, SendError, SendResult, SendXcm, Xcm, XcmHash},
 	IntoVersion, VersionedXcm, WrapVersion,
 };
 
@@ -260,7 +262,7 @@ thread_local! {
 /// versions in the `VERSION_WRAPPER`.
 pub struct TestUsesOnlyStoredVersionWrapper;
 impl WrapVersion for TestUsesOnlyStoredVersionWrapper {
-	fn wrap_version<RuntimeCall>(
+	fn wrap_version<RuntimeCall: Decode + GetDispatchInfo>(
 		dest: &Location,
 		xcm: impl Into<VersionedXcm<RuntimeCall>>,
 	) -> Result<VersionedXcm<RuntimeCall>, ()> {
