@@ -138,7 +138,7 @@ pub trait HostFn: private::Sealed {
 	/// - [CalleeReverted][`crate::ReturnErrorCode::CalleeReverted]: Output buffer is returned.
 	/// - [CalleeTrapped][`crate::ReturnErrorCode::CalleeTrapped]
 	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
-	/// - [NotCallable][`crate::ReturnErrorCode::NotCallable]
+	/// - [OutOfResources][`crate::ReturnErrorCode::OutOfResources]
 	fn call(
 		flags: CallFlags,
 		callee: &[u8; 20],
@@ -341,7 +341,7 @@ pub trait HostFn: private::Sealed {
 	///
 	/// - [CalleeReverted][`crate::ReturnErrorCode::CalleeReverted]: Output buffer is returned.
 	/// - [CalleeTrapped][`crate::ReturnErrorCode::CalleeTrapped]
-	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
+	/// - [OutOfResources][`crate::ReturnErrorCode::OutOfResources]
 	fn delegate_call(
 		flags: CallFlags,
 		address: &[u8; 20],
@@ -468,7 +468,7 @@ pub trait HostFn: private::Sealed {
 	/// - [CalleeReverted][`crate::ReturnErrorCode::CalleeReverted]: Output buffer is returned.
 	/// - [CalleeTrapped][`crate::ReturnErrorCode::CalleeTrapped]
 	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
-	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
+	/// - [OutOfResources][`crate::ReturnErrorCode::OutOfResources]
 	fn instantiate(
 		code_hash: &[u8; 32],
 		ref_time_limit: u64,
@@ -566,10 +566,10 @@ pub trait HostFn: private::Sealed {
 	/// - `code_hash`: The hash of the new code. Should be decodable as an `T::Hash`. Traps
 	///   otherwise.
 	///
-	/// # Errors
+	/// # Panics
 	///
-	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
-	fn set_code_hash(code_hash: &[u8; 32]) -> Result;
+	/// Panics if there is no code on-chain with the specified hash.
+	fn set_code_hash(code_hash: &[u8; 32]);
 
 	/// Set the value at the given key in the contract storage.
 	///
