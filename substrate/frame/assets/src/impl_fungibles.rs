@@ -18,6 +18,7 @@
 //! Implementations for fungibles trait.
 
 use alloc::vec::Vec;
+/*
 use frame_support::{
 	defensive,
 	traits::tokens::{
@@ -27,6 +28,9 @@ use frame_support::{
 		Provenance::{self, Minted},
 	},
 };
+*/
+use frame::{traits::tokens::{Fortitude, Precision::{self, BestEffort}, Preservation::{self, Expendable}, Provenance::{self, Minted}}};
+use frame::deps::frame_support::defensive;
 
 use super::*;
 
@@ -316,7 +320,7 @@ impl<T: Config<I>, I: 'static> fungibles::roles::Inspect<<T as SystemConfig>::Ac
 }
 
 impl<T: Config<I>, I: 'static> fungibles::InspectEnumerable<T::AccountId> for Pallet<T, I> {
-	type AssetsIterator = KeyPrefixIterator<<T as Config<I>>::AssetId>;
+	type AssetsIterator = frame::runtime::prelude::storage::KeyPrefixIterator<<T as Config<I>>::AssetId>;
 
 	/// Returns an iterator of the assets in existence.
 	///
