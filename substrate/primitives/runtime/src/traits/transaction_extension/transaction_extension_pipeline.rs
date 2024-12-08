@@ -30,7 +30,7 @@ use crate::{
 	},
 	DispatchResult,
 };
-use alloc::vec::{self, Vec};
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use core::fmt::Debug;
 use sp_weights::Weight;
@@ -82,7 +82,7 @@ impl<Call: Dispatchable> TransactionExtension<Call> for NoTxExt {
 	}
 	#[inline]
 	fn metadata() -> Vec<TransactionExtensionMetadata> {
-		vec![]
+		alloc::vec![]
 	}
 	#[inline]
 	fn post_dispatch(
