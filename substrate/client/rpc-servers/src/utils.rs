@@ -176,16 +176,18 @@ pub(crate) struct Listener {
 
 impl Listener {
 	/// Accepts a new connection.
-	pub(crate) async fn accept(
-		&mut self,
-	) -> std::io::Result<(tokio::net::TcpStream, SocketAddr, RpcSettings)> {
+	pub(crate) async fn accept(&mut self) -> std::io::Result<(tokio::net::TcpStream, SocketAddr)> {
 		let (sock, remote_addr) = self.listener.accept().await?;
-		Ok((sock, remote_addr, self.cfg.clone()))
+		Ok((sock, remote_addr))
 	}
 
 	/// Returns the local address the listener is bound to.
 	pub fn local_addr(&self) -> SocketAddr {
 		self.local_addr
+	}
+
+	pub fn rpc_settings(&self) -> RpcSettings {
+		self.cfg.clone()
 	}
 }
 
