@@ -288,31 +288,15 @@ jobs:
     env:
       JOB_NAME: "cmd"
     runs-on: ${{ needs.set-image.outputs.RUNNER }}
-    timeout-minutes: 4320 # 72 hours -> 3 days; as it could take a long time to run all the runtimes/pallets
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+    timeout-minutes: 1440 # 24 hours per runtime
     steps:
-      - name: Install updates and protobuf-compiler
-        run: |
-          sudo apt update && sudo apt install --assume-yes \
-            openssl pkg-config g++ make cmake protobuf-compiler curl libssl-dev libclang-dev libudev-dev git jq python3 python3-pip
-
       - name: Checkout
         uses: actions/checkout@v4
         with:
           repository: ${{ needs.get-pr-branch.outputs.repo }}
           ref: ${{ needs.get-pr-branch.outputs.pr-branch }}
-
-      - name: Set rust version from env file
-        run: |
-          RUST_VERSION=$(cat .github/env | sed -E 's/.*ci-unified:([^-]+)-([^-]+).*/\2/')
-          echo $RUST_VERSION
-          echo "RUST_VERSION=${RUST_VERSION}" >> $GITHUB_ENV
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@master
-        with:
-          targets: "wasm32-unknown-unknown,x86_64-unknown-linux-musl"
-          components: "rust-src rustfmt clippy"
-          toolchain: "${{env.RUST_VERSION}}"
 
       - name: Get command
         uses: actions-ecosystem/action-regex-match@v2
@@ -368,12 +352,6 @@ jobs:
               body: `Command "${{ steps.get-pr-comment.outputs.group2 }}" has started 🚀 [See logs here](${job_url})`
             })
       
-      - name: Cache Rust dependencies
-        if: startsWith(steps.get-pr-comment.outputs.group2, 'bench')
-        uses: Swatinem/rust-cache@82a92a6e8fbeee089604da2575dc567ae9ddeaab # v2.7.5
-        with:
-          cache-on-failure: true
-
       - name: Install dependencies for bench
         if: startsWith(steps.get-pr-comment.outputs.group2, 'bench')
         run: |
