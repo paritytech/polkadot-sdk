@@ -39,6 +39,7 @@ sp-io = { workspace = true }
 bp-runtime = { workspace = true }
 bp-header-chain = { workspace = true }
 pallet-xcm-bridge-hub-router = { workspace = true }
+bp-xcm-bridge-hub-router = { workspace = true }
 polkadot-parachain-primitives = { workspace = true }
 
 [features]
@@ -47,6 +48,7 @@ std = [
 	"bp-header-chain/std",
 	"bp-messages/std",
 	"bp-runtime/std",
+	"bp-xcm-bridge-hub-router/std",
 	"bp-xcm-bridge-hub/std",
 	"codec/std",
 	"frame-support/std",
