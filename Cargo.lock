@@ -18529,6 +18529,7 @@ dependencies = [
  "pallet-asset-tx-payment 28.0.0",
  "pallet-assets 29.1.0",
  "pallet-assets-freezer 0.1.0",
+ "pallet-assets-holder",
  "pallet-atomic-swap 28.0.0",
  "pallet-aura 27.0.0",
  "pallet-authority-discovery 28.0.0",
