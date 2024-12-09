@@ -73,7 +73,7 @@ pub mod v17 {
 			v16::MaxValidatorsCount::<T>::kill();
 
 			let old_disabled_validators = v16::DisabledValidators::<T>::get();
-			// BoundedVec with MaxWinners limit, this should always work
+			// BoundedVec with MaxDisabledValidators limit, this should always work
 			let disabled_validators_maybe = BoundedVec::try_from(old_disabled_validators);
 			match disabled_validators_maybe {
 				Ok(disabled_validators) => DisabledValidators::<T>::set(disabled_validators),
@@ -95,7 +95,7 @@ pub mod v17 {
 			}
 
 			let old_invulnerables = v16::Invulnerables::<T>::get();
-			// BoundedVec with MaxWinners limit, this should always work
+			// BoundedVec with MaxInvulnerables limit, this should always work
 			let invulnerables_maybe = BoundedVec::try_from(old_invulnerables);
 			match invulnerables_maybe {
 				Ok(invulnerables) => Invulnerables::<T>::set(invulnerables),
