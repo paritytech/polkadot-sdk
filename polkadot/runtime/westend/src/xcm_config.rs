@@ -44,7 +44,7 @@ use xcm_builder::{
 	FungibleAdapter, HashedDescription, IsChildSystemParachain, IsConcrete, MintLocation,
 	OriginToPluralityVoice, SendXcmFeeToAccount, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
+	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents, AliasChildLocation,
 };
 use xcm_executor::XcmExecutor;
 

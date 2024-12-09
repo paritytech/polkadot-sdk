@@ -43,7 +43,8 @@ use xcm_builder::{
 	ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative,
 	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
+	WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents, AliasChildLocation,
+	AliasOriginRootUsingFilter,
 };
 use xcm_executor::XcmExecutor;
 
@@ -191,6 +192,13 @@ pub type WaivedLocations = (
 /// - DOT with the parent Relay Chain and sibling parachains.
 pub type TrustedTeleporters = ConcreteAssetFromSystem<WndLocation>;
 
+/// We allow locations to alias into their own child locations, as well as
+/// AssetHub to alias into anything.
+pub type Aliasers = (
+	AliasChildLocation,
+	AliasOriginRootUsingFilter<AssetHub, Everything>,
+);
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -227,7 +235,7 @@ impl xcm_executor::Config for XcmConfig {
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
-	type Aliasers = Nothing;
+	type Aliasers = Aliasers;
 	type TransactionalProcessor = FrameTransactionalProcessor;
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
