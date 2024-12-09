@@ -41,7 +41,7 @@ jobs:
           forklift cargo build --locked --quiet --release -p asset-hub-westend-runtime --features runtime-benchmarks
           forklift cargo run --locked --release -p frame-omni-bencher --quiet -- v1 benchmark pallet --runtime target/release/wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.compact.compressed.wasm --all --steps 2 --repeat 1 --quiet
       - name: Stop all workflows if failed
-        if: ${{ failure() && steps.required.conclusion == 'failure' }}
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
         with:
           app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
@@ -99,7 +99,7 @@ jobs:
           echo "Running command: $cmd"
           eval "$cmd"
       - name: Stop all workflows if failed
-        if: ${{ failure() && steps.required.conclusion == 'failure' }}
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
         with:
           app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
