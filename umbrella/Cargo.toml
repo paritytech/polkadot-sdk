@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-sdk"
-version = "0.5.0"
+version = "0.6.0"
 description = "Polkadot SDK umbrella crate. (polkadot v1.15.0)"
 license = "Apache-2.0"
 
@@ -556,7 +556,7 @@ workspace = true
 path = "../cumulus/parachains/runtimes/assets/common"
 default-features = false
 optional = true
-version = "0.17.0"
+version = "0.17.1"
 
 [dependencies.binary-merkle-tree]
 path = "../substrate/utils/binary-merkle-tree"
@@ -610,7 +610,7 @@ version = "0.13.0"
 path = "../bridges/primitives/header-chain"
 default-features = false
 optional = true
-version = "0.17.0"
+version = "0.17.1"
 
 [dependencies.bp-kusama]
 path = "../bridges/chains/chain-kusama"
@@ -1222,19 +1222,19 @@ version = "37.0.0"
 path = "../substrate/frame/nomination-pools"
 default-features = false
 optional = true
-version = "34.0.0"
+version = "36.0.0"
 
 [dependencies.pallet-nomination-pools-benchmarking]
 path = "../substrate/frame/nomination-pools/benchmarking"
 default-features = false
 optional = true
-version = "35.0.0"
+version = "37.0.0"
 
 [dependencies.pallet-nomination-pools-runtime-api]
 path = "../substrate/frame/nomination-pools/runtime-api"
 default-features = false
 optional = true
-version = "32.0.0"
+version = "34.0.0"
 
 [dependencies.pallet-offences]
 path = "../substrate/frame/offences"
@@ -1414,7 +1414,7 @@ version = "36.0.0"
 path = "../substrate/frame/transaction-payment"
 default-features = false
 optional = true
-version = "37.0.0"
+version = "37.0.1"
 
 [dependencies.pallet-transaction-payment-rpc-runtime-api]
 path = "../substrate/frame/transaction-payment/rpc/runtime-api"
@@ -1528,7 +1528,7 @@ version = "16.0.0"
 path = "../polkadot/runtime/parachains"
 default-features = false
 optional = true
-version = "16.0.2"
+version = "16.0.3"
 
 [dependencies.polkadot-sdk-frame]
 path = "../substrate/frame"
@@ -1816,7 +1816,7 @@ version = "34.0.0"
 path = "../substrate/primitives/runtime"
 default-features = false
 optional = true
-version = "39.0.2"
+version = "39.0.3"
 
 [dependencies.sp-runtime-interface]
 path = "../substrate/primitives/runtime-interface"
@@ -1936,7 +1936,7 @@ version = "14.1.0"
 path = "../polkadot/xcm/xcm-builder"
 default-features = false
 optional = true
-version = "16.0.2"
+version = "16.0.3"
 
 [dependencies.staging-xcm-executor]
 path = "../polkadot/xcm/xcm-executor"
@@ -1978,7 +1978,7 @@ version = "10.1.0"
 path = "../polkadot/xcm/xcm-runtime-apis"
 default-features = false
 optional = true
-version = "0.3.0"
+version = "0.3.1"
 
 [dependencies.asset-test-utils]
 path = "../cumulus/parachains/runtimes/assets/test-utils"
@@ -2050,13 +2050,13 @@ version = "0.17.0"
 path = "../cumulus/client/service"
 default-features = false
 optional = true
-version = "0.17.0"
+version = "0.18.0"
 
 [dependencies.cumulus-relay-chain-inprocess-interface]
 path = "../cumulus/client/relay-chain-inprocess-interface"
 default-features = false
 optional = true
-version = "0.17.0"
+version = "0.18.0"
 
 [dependencies.cumulus-relay-chain-interface]
 path = "../cumulus/client/relay-chain-interface"
@@ -2068,7 +2068,7 @@ version = "0.17.0"
 path = "../cumulus/client/relay-chain-minimal-node"
 default-features = false
 optional = true
-version = "0.17.0"
+version = "0.18.0"
 
 [dependencies.cumulus-relay-chain-rpc-interface]
 path = "../cumulus/client/relay-chain-rpc-interface"
@@ -2086,7 +2086,7 @@ version = "0.15.0"
 path = "../cumulus/parachains/integration-tests/emulated/common"
 default-features = false
 optional = true
-version = "13.1.0"
+version = "13.2.0"
 
 [dependencies.fork-tree]
 path = "../substrate/utils/fork-tree"
@@ -2176,7 +2176,7 @@ version = "17.0.0"
 path = "../polkadot/cli"
 default-features = false
 optional = true
-version = "17.0.0"
+version = "18.0.0"
 
 [dependencies.polkadot-collator-protocol]
 path = "../polkadot/node/network/collator-protocol"
@@ -2272,7 +2272,7 @@ version = "17.0.0"
 path = "../polkadot/node/core/prospective-parachains"
 default-features = false
 optional = true
-version = "16.1.0"
+version = "16.1.1"
 
 [dependencies.polkadot-node-core-provisioner]
 path = "../polkadot/node/core/provisioner"
@@ -2374,7 +2374,7 @@ version = "17.0.0"
 path = "../polkadot/node/service"
 default-features = false
 optional = true
-version = "17.0.1"
+version = "18.0.0"
 
 [dependencies.polkadot-statement-distribution]
 path = "../polkadot/node/network/statement-distribution"
@@ -2554,7 +2554,7 @@ version = "0.14.0"
 path = "../substrate/client/network"
 default-features = false
 optional = true
-version = "0.44.0"
+version = "0.44.1"
 
 [dependencies.sc-network-common]
 path = "../substrate/client/network/common"
