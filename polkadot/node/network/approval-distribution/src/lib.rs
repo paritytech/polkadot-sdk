@@ -1413,13 +1413,6 @@ impl State {
 					if peer_knowledge.contains(&message_subject, message_kind) {
 						// wasn't included before
 						if !peer_knowledge.received.insert(message_subject.clone(), message_kind) {
-							gum::debug!(
-								target: LOG_TARGET,
-								?peer_id,
-								?message_subject,
-								"Duplicate assignment",
-							);
-
 							if !Self::accept_duplicates_from_validators(
 								&self.blocks_by_number,
 								&self.topologies,
@@ -1427,6 +1420,13 @@ impl State {
 								entry,
 								peer_id,
 							) {
+								gum::debug!(
+									target: LOG_TARGET,
+									?peer_id,
+									?message_subject,
+									"Duplicate assignment",
+								);
+
 								modify_reputation(
 									&mut self.reputation,
 									network_sender,
@@ -1782,12 +1782,6 @@ impl State {
 						.received
 						.insert(approval_knowledge_key.0.clone(), approval_knowledge_key.1)
 					{
-						gum::trace!(
-							target: LOG_TARGET,
-							?peer_id,
-							?approval_knowledge_key,
-							"Duplicate approval",
-						);
 						if !Self::accept_duplicates_from_validators(
 							blocks_by_number,
 							topologies,
@@ -1795,6 +1789,12 @@ impl State {
 							entry,
 							peer_id,
 						) {
+							gum::trace!(
+								target: LOG_TARGET,
+								?peer_id,
+								?approval_knowledge_key,
+								"Duplicate approval",
+							);
 							modify_reputation(
 								reputation,
 								network_sender,
