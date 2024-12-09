@@ -279,6 +279,7 @@ where
 			// Call create_asset on foreign assets pallet.
 			Transact {
 				origin_kind: OriginKind::Xcm,
+				fallback_max_weight: None,
 				call: (
 					create_call_index,
 					asset_id,
