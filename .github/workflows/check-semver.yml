@@ -78,6 +78,11 @@ jobs:
 
       - name: check semver
         run: |
+          if [ -z "$PR" ]; then
+            echo "Skipping master/merge queue"
+            exit 0
+          fi
+
           export CARGO_TARGET_DIR=target
           export RUSTFLAGS='-A warnings -A missing_docs'
           export SKIP_WASM_BUILD=1
