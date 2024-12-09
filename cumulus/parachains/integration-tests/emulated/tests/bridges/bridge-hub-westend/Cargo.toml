@@ -12,6 +12,7 @@ workspace = true
 
 [dependencies]
 hex-literal = { workspace = true, default-features = true }
+hex = { workspace = true, default-features = true }
 codec = { workspace = true }
 log = { workspace = true }
 scale-info = { workspace = true }
@@ -43,6 +44,7 @@ rococo-westend-system-emulated-network = { workspace = true }
 testnet-parachains-constants = { features = ["rococo", "westend"], workspace = true, default-features = true }
 asset-hub-westend-runtime = { workspace = true }
 bridge-hub-westend-runtime = { workspace = true }
+penpal-emulated-chain = { workspace = true }
 
 # Snowbridge
 snowbridge-core = { workspace = true }
