@@ -28,6 +28,11 @@ use sp_core::{H160, H256};
 use sp_runtime::MultiAddress;
 use emulated_integration_tests_common::RESERVABLE_ASSET_ID;
 use penpal_emulated_chain::PARA_ID_B;
+use snowbridge_core::AssetMetadata;
+use xcm_executor::traits::ConvertLocation;
+use snowbridge_core::TokenIdOf;
+use snowbridge_router_primitives::inbound::v2::Asset::ForeignTokenERC20;
+const TOKEN_AMOUNT: u128 = 100_000_000_000;
 
 /// Calculates the XCM prologue fee for sending an XCM to AH.
 const INITIAL_FUND: u128 = 5_000_000_000_000;
@@ -592,11 +597,16 @@ fn send_token_to_penpal_v2() {
 	});
 }
 
-/*
 #[test]
 fn send_foreign_erc20_token_back_to_polkadot() {
+	let relayer = BridgeHubWestendSender::get();
+	let relayer_location =
+		Location::new(0, AccountId32 { network: None, id: relayer.clone().into() });
+
 	let claimer = AccountId32 { network: None, id: H256::random().into() };
 	let claimer_bytes = claimer.encode();
+	let beneficiary =
+		Location::new(0, AccountId32 { network: None, id: AssetHubWestendReceiver::get().into() });
 
 	let asset_id: Location =
 		[PalletInstance(ASSETS_PALLET_ID), GeneralIndex(RESERVABLE_ASSET_ID.into())].into();
@@ -620,6 +630,8 @@ fn send_foreign_erc20_token_back_to_polkadot() {
 		.appended_with(asset_id.clone().interior)
 		.unwrap();
 
+	let ethereum_destination = Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]);
+
 	// Register token
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeOrigin = <BridgeHubWestend as Chain>::RuntimeOrigin;
@@ -641,23 +653,28 @@ fn send_foreign_erc20_token_back_to_polkadot() {
 			.into();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 
-	// Mint some token into Snowbridge sovereign to mimic locked assets
 	AssetHubWestend::mint_asset(
-		<AssetHubWestend as Chain>::RuntimeOrigin::signed(ethereum_sovereign),
+		<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendAssetOwner::get()),
 		RESERVABLE_ASSET_ID,
 		AssetHubWestendSender::get(),
 		TOKEN_AMOUNT,
 	);
 
 	let token_id = TokenIdOf::convert_location(&asset_id_after_reanchored).unwrap();
-	let asset: Asset = (asset_id_after_reanchored, amount).into();
+	let asset: Asset = (asset_id_after_reanchored, TOKEN_AMOUNT).into();
+
+	let assets = vec![
+		// to pay fees
+		NativeTokenERC20 { token_id: WETH.into(), value: 2_000_000_000_000u128 },
+		// the token being transferred
+		ForeignTokenERC20 { token_id: token_id.into(), value: TOKEN_AMOUNT },
+	];
 
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 		let instructions = vec![
 			WithdrawAsset(asset.clone().into()),
 			DepositAsset { assets: Wild(AllCounted(2)), beneficiary },
-			SetTopic(message_id.into()),
 		];
 		let xcm: Xcm<()> = instructions.into();
 		let versioned_message_xcm = VersionedXcm::V5(xcm);
@@ -710,7 +727,7 @@ fn send_foreign_erc20_token_back_to_polkadot() {
 			"Token minted to beneficiary."
 		);
 	});
-}*/
+}
 
 #[test]
 fn invalid_xcm_traps_funds_on_ah() {
