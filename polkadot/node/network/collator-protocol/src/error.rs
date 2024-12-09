@@ -103,10 +103,7 @@ impl SecondingError {
 			PersistedValidationDataMismatch |
 				CandidateHashMismatch |
 				RelayParentMismatch |
-				ParentHeadDataMismatch |
-				InvalidCoreIndex(_, _) |
-				InvalidSessionIndex(_, _) |
-				InvalidReceiptVersion(_)
+				ParentHeadDataMismatch
 		)
 	}
 }
