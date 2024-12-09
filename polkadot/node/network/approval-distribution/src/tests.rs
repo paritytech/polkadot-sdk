@@ -3892,7 +3892,7 @@ fn resends_messages_periodically() {
 				// Add blocks until resend is done.
 				{
 					let mut parent_hash = hash;
-					for level in 0..2 {
+					for level in 0..4 {
 						number = number + 1;
 						let hash = BlakeTwo256::hash_of(&(parent_hash, number));
 						let meta = BlockApprovalMeta {
