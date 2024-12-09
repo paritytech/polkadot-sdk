@@ -1,0 +1,22 @@
+error: use of deprecated constant `pallet::warnings::ConstantWeight_0::_w`:
+               It is deprecated to use hard-coded constant as call weight.
+               Please instead benchmark all calls or put the pallet into `dev` mode.
+
+               For more info see:
+                   <https://github.com/paritytech/substrate/pull/13798>
+  --> tests/pallet_ui/authorize_wrong_weight.rs:37:33
+   |
+37 |         #[pallet::weight_of_authorize("foo")]
+   |                                       ^^^^^
+   |
+   = note: `-D deprecated` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(deprecated)]`
+
+error[E0308]: mismatched types
+  --> tests/pallet_ui/authorize_wrong_weight.rs:37:33
+   |
+18 | #[frame_support::pallet]
+   | ------------------------ expected `frame_support::weights::Weight` because of return type
+...
+37 |         #[pallet::weight_of_authorize("foo")]
+   |                                       ^^^^^ expected `Weight`, found `&str`

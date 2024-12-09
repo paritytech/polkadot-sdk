@@ -101,6 +101,8 @@ pub fn native_version() -> NativeVersion {
 
 /// The transaction extensions that are added to the runtime.
 type TxExtension = (
+	// Authorize calls that validate themselves.
+	frame_system::AuthorizeCall<Runtime>,
 	// Checks that the sender is not the zero address.
 	frame_system::CheckNonZeroSender<Runtime>,
 	// Checks that the runtime version is correct.
