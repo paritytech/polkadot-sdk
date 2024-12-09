@@ -1039,7 +1039,7 @@ mod tests {
 		};
 
 		// Parse the items
-		let RuntimeApiImpls { impls: mut api_impls, uses } =
+		let RuntimeApiImpls { impls: mut api_impls, uses : _ } =
 			syn::parse2::<RuntimeApiImpls>(code).unwrap();
 
 		// Run the renamer which is being run first in the `impl_runtime_apis!` macro.
