@@ -20,9 +20,9 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use frame_benchmarking::v2::*;
+use frame::benchmarking::prelude::*;
 
-type Header = sp_runtime::generic::Header<u64, sp_runtime::traits::BlakeTwo256>;
+type Header = frame::deps::sp_runtime::generic::Header<u64, BlakeTwo256>;
 
 #[benchmarks]
 mod benchmarks {
@@ -69,7 +69,7 @@ mod benchmarks {
 		}
 
 		assert!(sp_consensus_babe::check_equivocation_proof::<Header>(equivocation_proof2));
-	}
 
-	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(3), crate::mock::Test,);
+		impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(3), crate::mock::Test,);
+	}
 }
