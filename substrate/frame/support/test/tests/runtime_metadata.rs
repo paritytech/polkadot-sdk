@@ -14,7 +14,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#![allow(useless_deprecated, deprecated, clippy::deprecated_semver)]
+#![allow(useless_deprecated, clippy::deprecated_semver)]
 
 use frame_support::{derive_impl, traits::ConstU32};
 use scale_info::{form::MetaForm, meta_type};
@@ -67,6 +67,7 @@ sp_api::decl_runtime_apis! {
 	///
 	/// Documentation on multiline.
 	#[deprecated]
+	#[allow(deprecated)]
 	pub trait Api {
 		fn test(data: u64);
 		/// something_with_block.
@@ -85,6 +86,7 @@ mod apis {
 	use super::{Block, BlockT, Runtime};
 
 	sp_api::impl_runtime_apis! {
+		#[allow(deprecated)]
 		impl crate::Api<Block> for Runtime {
 			fn test(_data: u64) {
 				unimplemented!()

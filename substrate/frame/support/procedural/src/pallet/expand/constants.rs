@@ -55,11 +55,20 @@ pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 			Ok(deprecation) => deprecation,
 			Err(e) => return e.into_compile_error(),
 		};
+
+		// Extracts #[allow] attributes, necessary so that we don't run into compiler warnings
+		let maybe_allow_attrs = const_
+			.attrs
+			.iter()
+			.filter(|attr| attr.path().is_ident("allow"))
+			.collect::<Vec<_>>();
+
 		config_consts.push(ConstDef {
 			ident: const_.ident.clone(),
 			type_: const_.type_.clone(),
 			doc: const_.doc.clone(),
 			default_byte_impl: quote::quote!(
+				#(#maybe_allow_attrs)*
 				let value = <<T as Config #trait_use_gen>::#ident as
 					#frame_support::traits::Get<#const_type>>::get();
 				#frame_support::__private::codec::Encode::encode(&value)
@@ -79,12 +88,19 @@ pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 			Ok(deprecation) => deprecation,
 			Err(e) => return e.into_compile_error(),
 		};
+		// Extracts #[allow] attributes, necessary so that we don't run into compiler warnings
+		let maybe_allow_attrs = const_
+			.attrs
+			.iter()
+			.filter(|attr| attr.path().is_ident("allow"))
+			.collect::<Vec<_>>();
 
 		extra_consts.push(ConstDef {
 			ident: const_.ident.clone(),
 			type_: const_.type_.clone(),
 			doc: const_.doc.clone(),
 			default_byte_impl: quote::quote!(
+				#(#maybe_allow_attrs)*
 				let value = <Pallet<#type_use_gen>>::#ident();
 				#frame_support::__private::codec::Encode::encode(&value)
 			),
