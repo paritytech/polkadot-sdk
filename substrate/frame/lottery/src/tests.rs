@@ -18,12 +18,15 @@
 //! Tests for the module.
 
 use super::*;
-use frame_support::{assert_noop, assert_ok, assert_storage_noop};
 use mock::{
 	new_test_ext, run_to_block, Balances, BalancesCall, Lottery, RuntimeCall, RuntimeOrigin,
 	SystemCall, Test,
 };
-use sp_runtime::{traits::BadOrigin, TokenError};
+use frame::{
+	prelude::TokenError,
+	testing_prelude::{assert_noop, assert_ok, assert_storage_noop},
+	traits::BadOrigin,
+};
 
 #[test]
 fn initial_state() {
