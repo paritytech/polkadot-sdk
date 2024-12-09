@@ -30,7 +30,7 @@ use serde::Serialize;
 use sp_blockchain::HashAndNumber;
 use sp_runtime::{
 	traits::{self, SaturatedConversion},
-	transaction_validity::{TransactionSource, TransactionTag as Tag, ValidTransaction},
+	transaction_validity::{TransactionTag as Tag, ValidTransaction},
 };
 use std::time::Instant;
 
@@ -62,7 +62,7 @@ impl<Hash, Ex, Error> ValidatedTransaction<Hash, Ex, Error> {
 	pub fn valid_at(
 		at: u64,
 		hash: Hash,
-		source: TransactionSource,
+		source: base::TimedTransactionSource,
 		data: Ex,
 		bytes: usize,
 		validity: ValidTransaction,
@@ -280,7 +280,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 			// run notifications
 			let mut listener = self.listener.write();
 			for h in &removed {
-				listener.dropped(h, None, true);
+				listener.limit_enforced(h);
 			}
 
 			removed
@@ -453,7 +453,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 				match final_status {
 					Status::Future => listener.future(&hash),
 					Status::Ready => listener.ready(&hash, None),
-					Status::Dropped => listener.dropped(&hash, None, false),
+					Status::Dropped => listener.dropped(&hash),
 					Status::Failed => listener.invalid(&hash),
 				}
 			}
@@ -492,7 +492,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 				fire_events(&mut *listener, promoted);
 			}
 			for f in &status.failed {
-				listener.dropped(f, None, false);
+				listener.dropped(f);
 			}
 		}
 
@@ -671,6 +671,21 @@ impl<B: ChainApi> ValidatedPool<B> {
 	) -> super::listener::DroppedByLimitsStream<ExtrinsicHash<B>, BlockHash<B>> {
 		self.listener.write().create_dropped_by_limits_stream()
 	}
+
+	/// Resends ready and future events for all the ready and future transactions that are already
+	/// in the pool.
+	///
+	/// Intended to be called after cloning the instance of `ValidatedPool`.
+	pub fn retrigger_notifications(&self) {
+		let pool = self.pool.read();
+		let mut listener = self.listener.write();
+		pool.ready().for_each(|r| {
+			listener.ready(&r.hash, None);
+		});
+		pool.futures().for_each(|f| {
+			listener.future(&f.hash);
+		});
+	}
 }
 
 fn fire_events<H, B, Ex>(listener: &mut Listener<H, B>, imported: &base::Imported<H, Ex>)
@@ -682,7 +697,7 @@ where
 		base::Imported::Ready { ref promoted, ref failed, ref removed, ref hash } => {
 			listener.ready(hash, None);
 			failed.iter().for_each(|f| listener.invalid(f));
-			removed.iter().for_each(|r| listener.dropped(&r.hash, Some(hash), false));
+			removed.iter().for_each(|r| listener.usurped(&r.hash, hash));
 			promoted.iter().for_each(|p| listener.ready(p, None));
 		},
 		base::Imported::Future { ref hash } => listener.future(hash),
