@@ -9,6 +9,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+permissions: # allow the action to create a PR
+  contents: write
+  issues: write
+  pull-requests: write
+  actions: read
+
 jobs:
   preflight:
     uses: ./.github/workflows/reusable-preflight.yml
@@ -50,11 +56,13 @@ jobs:
       FLAGS: ${{ matrix.runtime.bench_flags }}
       RUST_LOG: "frame_omni_bencher=info,polkadot_sdk_frame=info"
     steps:
+    
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: master
+
 
       - name: script
         id: required
@@ -65,10 +73,9 @@ jobs:
           git config --global --add safe.directory '*'
           git remote -v
           python3 -m pip install -r .github/scripts/generate-prdoc.requirements.txt
-          python3 .github/scripts/cmd/cmd.py bench --runtime ${{ matrix.runtime.name }}
+          python3 .github/scripts/cmd/cmd.py bench --runtime ${{ matrix.runtime.name }} --pallet pallet_balances
           git add .
           git status
-          git diff
 
           if [ -f /tmp/cmd/command_output.log ]; then
             CMD_OUTPUT=$(cat /tmp/cmd/command_output.log)
@@ -98,6 +105,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: patches
+      
+      - uses: actions/create-github-app-token@v1
+        id: generate_token
+        with:
+          app-id: ${{ secrets.CMD_BOT_APP_ID }}
+          private-key: ${{ secrets.CMD_BOT_APP_KEY }}
 
       - name: Apply diff from artifacts folder
         run: |
@@ -111,13 +124,17 @@ jobs:
           DATE=$(date +'%Y-%m-%d-%s')
           BRANCH="update-weights-weekly-$DATE"
           rm -rf patches
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git checkout -b "$BRANCH"
           git status
-          git diff
           git add .
           git commit -m "Update all weights weekly for $DATE"
           git push --set-upstream origin "$BRANCH"
           git status
+          gh auth login --with-token ${{ steps.generate_token.outputs.token }}
           gh pr create --title "Update weights weekly for $DATE" --body "Update weights weekly for $DATE"
 
   confirm-frame-omni-benchers-passed:
