@@ -917,11 +917,17 @@ pub mod pallet {
 			mode: Forcing,
 		},
 		/// Report of a controller batch deprecation.
-		ControllerBatchDeprecated { failures: u32 },
+		ControllerBatchDeprecated {
+			failures: u32,
+		},
 		/// Validator has been disabled.
-		ValidatorDisabled { stash: T::AccountId },
+		ValidatorDisabled {
+			stash: T::AccountId,
+		},
 		/// Validator has been re-enabled.
-		ValidatorReenabled { stash: T::AccountId },
+		ValidatorReenabled {
+			stash: T::AccountId,
+		},
 	}
 
 	#[pallet::error]

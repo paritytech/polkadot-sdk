@@ -2321,7 +2321,7 @@ fn phragmen_should_not_overflow() {
 
 #[test]
 fn reward_validator_slashing_validator_does_not_overflow() {
-	ExtBuilder::default().build_and_execute(|| {
+	ExtBuilder::default().nominate(false).build_and_execute(|| {
 		let stake = u64::MAX as Balance * 2;
 		let reward_slash = u64::MAX as Balance * 2;
 
@@ -2339,7 +2339,19 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 
 		// Check reward
 		ErasRewardPoints::<Test>::insert(0, reward);
-		EraInfo::<Test>::upsert_exposure(0, &11, exposure);
+
+		// force exposure metadata to account for the overflowing `stake`.
+		ErasStakersOverview::<Test>::insert(
+			current_era(),
+			11,
+			PagedExposureMetadata { total: stake, own: stake, nominator_count: 0, page_count: 0 },
+		);
+
+		// we want to slash only self-stake, confirm that no others exposed.
+		let full_exposure_after = EraInfo::<Test>::get_full_exposure(current_era(), &11);
+		assert_eq!(full_exposure_after.total, stake);
+		assert_eq!(full_exposure_after.others, vec![]);
+
 		ErasValidatorReward::<Test>::insert(0, stake);
 		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 0, 0));
 		assert_eq!(asset::total_balance::<Test>(&11), stake * 2);
@@ -2350,13 +2362,19 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 
 		// only slashes out of bonded stake are applied. without this line, it is 0.
 		Staking::bond(RuntimeOrigin::signed(2), stake - 1, RewardDestination::Staked).unwrap();
-		// Override exposure of 11
-		EraInfo::<Test>::upsert_exposure(
-			0,
-			&11,
-			Exposure {
-				total: stake,
-				own: 1,
+
+		// Override metadata and exposures of 11 so that it exposes minmal self stake and `stake` -
+		// 1 from nominator 2.
+		ErasStakersOverview::<Test>::insert(
+			current_era(),
+			11,
+			PagedExposureMetadata { total: stake, own: 1, nominator_count: 1, page_count: 1 },
+		);
+
+		ErasStakersPaged::<Test>::insert(
+			(current_era(), &11, 0),
+			ExposurePage {
+				page_total: stake - 1,
 				others: vec![IndividualExposure { who: 2, value: stake - 1 }],
 			},
 		);
