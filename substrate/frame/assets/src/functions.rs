@@ -27,7 +27,6 @@ pub(super) enum DeadConsequence {
 	Keep,
 }
 
-use frame_support::storage::with_storage_layer;
 use DeadConsequence::*;
 
 // The main implementation block for the module.
