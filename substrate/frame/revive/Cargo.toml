@@ -32,17 +32,15 @@ impl-trait-for-tuples = { workspace = true }
 rlp = { workspace = true }
 derive_more = { workspace = true }
 hex = { workspace = true }
-jsonrpsee = { workspace = true, features = ["full"], optional = true }
 ethereum-types = { workspace = true, features = ["codec", "rlp", "serialize"] }
 
 # Polkadot SDK Dependencies
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-pallet-balances = { optional = true, workspace = true }
-pallet-revive-fixtures = { workspace = true, default-features = false, optional = true }
-pallet-revive-uapi = { workspace = true, default-features = true }
-pallet-revive-proc-macro = { workspace = true, default-features = true }
+pallet-revive-fixtures = { workspace = true, optional = true }
+pallet-revive-uapi = { workspace = true, features = ["scale"] }
+pallet-revive-proc-macro = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 sp-api = { workspace = true }
 sp-arithmetic = { workspace = true }
@@ -61,19 +59,16 @@ subxt-signer = { workspace = true, optional = true, features = [
 array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
 pretty_assertions = { workspace = true }
-pallet-revive-fixtures = { workspace = true, default-features = true }
 secp256k1 = { workspace = true, features = ["recovery"] }
 serde_json = { workspace = true }
 hex-literal = { workspace = true }
-env_logger = { workspace = true }
 
 # Polkadot SDK Dependencies
 pallet-balances = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
-pallet-message-queue = { workspace = true, default-features = true }
 pallet-utility = { workspace = true, default-features = true }
-pallet-assets = { workspace = true, default-features = true }
 pallet-proxy = { workspace = true, default-features = true }
+pallet-revive-fixtures = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 xcm-builder = { workspace = true, default-features = true }
@@ -88,9 +83,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"hex/std",
-	"jsonrpsee",
 	"log/std",
-	"pallet-balances?/std",
 	"pallet-proxy/std",
 	"pallet-revive-fixtures?/std",
 	"pallet-timestamp/std",
@@ -118,9 +111,7 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-message-queue/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-revive-fixtures",
 	"pallet-timestamp/runtime-benchmarks",
@@ -132,9 +123,7 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-assets/try-runtime",
 	"pallet-balances/try-runtime",
-	"pallet-message-queue/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
