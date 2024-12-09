@@ -103,7 +103,7 @@ impl SecondingError {
 			PersistedValidationDataMismatch |
 				CandidateHashMismatch |
 				RelayParentMismatch |
-				ParentHeadDataMismatch |
+				ParentHeadDataMismatch
 		)
 	}
 }
