@@ -1314,8 +1314,20 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 			HrmpChannelAccepted { recipient } => Self::HrmpChannelAccepted { recipient },
 			HrmpChannelClosing { initiator, sender, recipient } =>
 				Self::HrmpChannelClosing { initiator, sender, recipient },
-			Transact { origin_kind, mut call } => {
-				let require_weight_at_most = call.take_decoded()?.get_dispatch_info().call_weight;
+			Transact { origin_kind, mut call, fallback_max_weight } => {
+				// We first try to decode the call, if we can't, we use the fallback weight,
+				// if there's no fallback, we just return `Weight::MAX`.
+				let require_weight_at_most = match call.take_decoded() {
+					Ok(decoded) => decoded.get_dispatch_info().call_weight,
+					Err(error) => {
+						log::error!(
+							target: "xcm::versions::v5Tov4",
+							"Couldn't decode call in Transact: {:?}, using fallback weight.",
+							error,
+						);
+						fallback_max_weight.unwrap_or(Weight::MAX)
+					},
+				};
 				Self::Transact { origin_kind, require_weight_at_most, call: call.into() }
 			},
 			ReportError(response_info) => Self::ReportError(QueryResponseInfo {
@@ -1423,7 +1435,7 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 			},
 			InitiateTransfer { .. } |
 			PayFees { .. } |
-			SetAssetClaimer { .. } |
+			SetHints { .. } |
 			ExecuteWithOrigin { .. } => {
 				log::debug!(target: "xcm::versions::v5tov4", "`{new_instruction:?}` not supported by v4");
 				return Err(());

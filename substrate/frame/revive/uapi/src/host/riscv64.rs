@@ -115,7 +115,7 @@ mod sys {
 			message_len: u32,
 			message_ptr: *const u8,
 		) -> ReturnCode;
-		pub fn set_code_hash(code_hash_ptr: *const u8) -> ReturnCode;
+		pub fn set_code_hash(code_hash_ptr: *const u8);
 		pub fn ecdsa_to_eth_address(key_ptr: *const u8, out_ptr: *mut u8) -> ReturnCode;
 		pub fn instantiation_nonce() -> u64;
 		pub fn lock_delegate_dependency(code_hash_ptr: *const u8);
@@ -531,9 +531,8 @@ impl HostFn for HostFnImpl {
 		ret_val.into_bool()
 	}
 
-	fn set_code_hash(code_hash: &[u8; 32]) -> Result {
-		let ret_val = unsafe { sys::set_code_hash(code_hash.as_ptr()) };
-		ret_val.into()
+	fn set_code_hash(code_hash: &[u8; 32]) {
+		unsafe { sys::set_code_hash(code_hash.as_ptr()) }
 	}
 
 	fn code_hash(address: &[u8; 20], output: &mut [u8; 32]) {

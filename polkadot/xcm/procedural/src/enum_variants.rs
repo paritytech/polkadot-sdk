@@ -14,17 +14,25 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Test error when the `BuyExecution` instruction doesn't take named fields.
+//! Simple derive macro for getting the number of variants in an enum.
 
-use xcm_procedural::Builder;
+use proc_macro2::TokenStream as TokenStream2;
+use quote::{format_ident, quote};
+use syn::{Data, DeriveInput, Error, Result};
 
-struct Xcm<Call>(pub Vec<Instruction<Call>>);
-
-#[derive(Builder)]
-enum Instruction<Call> {
-    BuyExecution { fees: u128 },
-    UnpaidExecution(u32, u32),
-    Transact { call: Call },
+pub fn derive(input: DeriveInput) -> Result<TokenStream2> {
+	let data_enum = match &input.data {
+		Data::Enum(data_enum) => data_enum,
+		_ => return Err(Error::new_spanned(&input, "Expected an enum.")),
+	};
+	let ident = format_ident!("{}NumVariants", input.ident);
+	let number_of_variants: usize = data_enum.variants.iter().count();
+	Ok(quote! {
+		pub struct #ident;
+		impl ::frame_support::traits::Get<u32> for #ident {
+			fn get() -> u32 {
+				#number_of_variants as u32
+			}
+		}
+	})
 }
-
-fn main() {}
