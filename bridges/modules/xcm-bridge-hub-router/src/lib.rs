@@ -182,6 +182,13 @@ pub mod pallet {
 		}
 	}
 
+	/// Bridge that we are using.
+	///
+	/// **bridges-v1** assumptions: all outbound messages through this router are using single lane
+	/// and to single remote consensus. If there is some other remote consensus that uses the same
+	/// bridge hub, the separate pallet instance shall be used, In `v2` we'll have all required
+	/// primitives (lane-id aka bridge-id, derived from XCM locations) to support multiple  bridges
+	/// by the same pallet instance.
 	#[pallet::storage]
 	#[pallet::getter(fn bridge)]
 	pub type Bridge<T: Config<I>, I: 'static = ()> = StorageValue<_, BridgeState, ValueQuery>;
