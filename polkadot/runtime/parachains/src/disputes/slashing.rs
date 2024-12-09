@@ -80,20 +80,6 @@ const SLASH_FOR_INVALID: Perbill = Perbill::from_percent(100);
 const SLASH_AGAINST_VALID: Perbill = Perbill::zero();
 const DEFENSIVE_PROOF: &'static str = "disputes module should bail on old session";
 
-#[cfg(feature = "runtime-benchmarks")]
-pub mod benchmarking;
-
-/// The benchmarking configuration.
-pub trait BenchmarkingConfiguration {
-	const MAX_VALIDATORS: u32;
-}
-
-pub struct BenchConfig<const M: u32>;
-
-impl<const M: u32> BenchmarkingConfiguration for BenchConfig<M> {
-	const MAX_VALIDATORS: u32 = M;
-}
-
 /// An offence that is filed when a series of validators lost a dispute.
 #[derive(TypeInfo)]
 #[cfg_attr(feature = "std", derive(Clone, PartialEq, Eq))]
@@ -400,9 +386,6 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
-
-		/// Benchmarking configuration.
-		type BenchmarkingConfig: BenchmarkingConfiguration;
 	}
 
 	#[pallet::pallet]

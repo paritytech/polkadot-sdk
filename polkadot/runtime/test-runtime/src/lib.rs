@@ -556,7 +556,6 @@ impl parachains_slashing::Config for Runtime {
 		ReportLongevity,
 	>;
 	type WeightInfo = parachains_disputes::slashing::TestWeightInfo;
-	type BenchmarkingConfig = parachains_slashing::BenchConfig<1000>;
 }
 
 impl parachains_paras_inherent::Config for Runtime {

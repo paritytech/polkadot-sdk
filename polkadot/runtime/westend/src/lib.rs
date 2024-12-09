@@ -1432,7 +1432,6 @@ impl parachains_slashing::Config for Runtime {
 		ReportLongevity,
 	>;
 	type WeightInfo = weights::polkadot_runtime_parachains_disputes_slashing::WeightInfo<Runtime>;
-	type BenchmarkingConfig = parachains_slashing::BenchConfig<300>;
 }
 
 parameter_types! {
@@ -2713,7 +2712,6 @@ sp_api::impl_runtime_apis! {
 			}
 			impl frame_system_benchmarking::Config for Runtime {}
 			impl pallet_nomination_pools_benchmarking::Config for Runtime {}
-			impl polkadot_runtime_parachains::disputes::slashing::benchmarking::Config for Runtime {}
 
 			use xcm::latest::{
 				AssetId, Fungibility::*, InteriorLocation, Junction, Junctions::*,
