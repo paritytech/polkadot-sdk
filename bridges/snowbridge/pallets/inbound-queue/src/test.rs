@@ -5,7 +5,7 @@ use super::*;
 use frame_support::{assert_noop, assert_ok};
 use hex_literal::hex;
 use snowbridge_core::{inbound::Proof, ChannelId};
-use sp_keyring::AccountKeyring as Keyring;
+use sp_keyring::Sr25519Keyring as Keyring;
 use sp_runtime::DispatchError;
 use sp_std::convert::From;
 
