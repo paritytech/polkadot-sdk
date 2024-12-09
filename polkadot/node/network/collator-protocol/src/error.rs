@@ -104,9 +104,6 @@ impl SecondingError {
 				CandidateHashMismatch |
 				RelayParentMismatch |
 				ParentHeadDataMismatch |
-				InvalidCoreIndex(_, _) |
-				InvalidSessionIndex(_, _) |
-				InvalidReceiptVersion(_)
 		)
 	}
 }
