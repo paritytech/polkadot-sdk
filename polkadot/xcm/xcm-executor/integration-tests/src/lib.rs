@@ -79,7 +79,11 @@ fn transact_recursion_limit_works() {
 		Xcm(vec![
 			WithdrawAsset((Here, 1_000).into()),
 			BuyExecution { fees: (Here, 1).into(), weight_limit: Unlimited },
-			Transact { origin_kind: OriginKind::Native, call: call.encode().into() },
+			Transact {
+				origin_kind: OriginKind::Native,
+				call: call.encode().into(),
+				fallback_max_weight: None,
+			},
 		])
 	};
 	let mut call: Option<polkadot_test_runtime::RuntimeCall> = None;
