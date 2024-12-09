@@ -37,10 +37,25 @@
 - 🤏 This template is a minimal (in terms of complexity and the number of components)
 template for building a blockchain node.
 
+
 - 🔧 Its runtime is configured with a single custom pallet as a starting point, and a handful of ready-made pallets
 such as a [Balances pallet](https://paritytech.github.io/polkadot-sdk/master/pallet_balances/index.html).
 
+
 - 👤 The template has no consensus configured - it is best for experimenting with a single node network.
+
+
+- 🔧 To simplify the process of using Zombienet with Omni Node, we've added pre-configured development chain specs to the template. This ensures that developers can easily set up the chain_spec_path in the Zombienet configuration, without having to generate the spec manually.
+
+
+- ⚠️ The README files for the templates in this repository are currently speculative and based on unreleased changes in the Polkadot SDK master branch. Attempting to install staging-chain-spec-builder following these READMEs will install version 6.0.0, which does not align with the latest master branch changes. A stable release addressing this is expected in December.
+
+
+-  For the most accurate chain spec generation,  `staging-chain-spec-builder` or other mentioned binaries and runtimes, please try to build them based on the polkadot-sdk most updated master branch an example: 
+  ```bash
+  cargo install --path substrate/bin/utils/chain-spec-builder
+```
+
 
 ## Template Structure
 
@@ -61,7 +76,7 @@ compiled unless building the entire workspace).
 - 🛠️ Depending on your operating system and Rust version, there might be additional
 packages required to compile this template - please take note of the Rust compiler output.
 
-Fetch minimal template code:
+Fetch minimal template code (Note: The template repositories are outdated, and their READMEs are not synced. Please ignore this step for now.):
 
 ```sh
 git clone https://github.com/paritytech/polkadot-sdk-minimal-template.git minimal-template
@@ -81,15 +96,18 @@ be used to run the minimal template's runtime. `polkadot-omni-node` binary crate
 
 Please see installation section on [crates.io/omni-node](https://crates.io/crates/polkadot-omni-node).
 
-#### Build `minimal-template-runtime`
+#### Build `minimal-template-runtime` (A reminder to  build on the most updated version of polkadot-sdk master)
 
 ```sh
 cargo build -p minimal-template-runtime --release
 ```
 
 #### Install `staging-chain-spec-builder`
+  ```bash
+  cargo install --path substrate/bin/utils/chain-spec-builder
+```
 
-Please see the installation section at [`crates.io/staging-chain-spec-builder`](https://crates.io/crates/staging-chain-spec-builder).
+Or Please see the installation section at [`crates.io/staging-chain-spec-builder`](https://crates.io/crates/staging-chain-spec-builder).
 
 #### Use chain-spec-builder to generate the chain_spec.json file
 
