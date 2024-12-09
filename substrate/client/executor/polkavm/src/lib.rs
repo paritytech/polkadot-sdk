@@ -279,7 +279,7 @@ where
 	};
 
 	let module =
-		polkavm::Module::from_blob(&engine, &polkavm::ModuleConfig::default(), blob.clone())?;
+		polkavm::Module::from_blob(&engine, &polkavm::ModuleConfig::default(), blob)?;
 
 	let mut linker = polkavm::Linker::new();
 
