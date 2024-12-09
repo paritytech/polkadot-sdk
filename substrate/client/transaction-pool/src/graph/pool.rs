@@ -37,7 +37,7 @@ use std::{
 use super::{
 	base_pool as base,
 	validated_pool::{IsValidator, ValidatedPool, ValidatedTransaction},
-	watcher::Watcher,
+	ValidatedPoolSubmitOutcome,
 };
 
 /// Modification notification event stream type;
@@ -161,7 +161,7 @@ impl Default for Options {
 /// Should we check that the transaction is banned
 /// in the pool, before we verify it?
 #[derive(Copy, Clone)]
-enum CheckBannedBeforeVerify {
+pub(crate) enum CheckBannedBeforeVerify {
 	Yes,
 	No,
 }
@@ -182,7 +182,7 @@ impl<B: ChainApi> Pool<B> {
 		&self,
 		at: &HashAndNumber<B::Block>,
 		xts: impl IntoIterator<Item = (base::TimedTransactionSource, ExtrinsicFor<B>)>,
-	) -> Vec<Result<ExtrinsicHash<B>, B::Error>> {
+	) -> Vec<Result<ValidatedPoolSubmitOutcome<B>, B::Error>> {
 		let validated_transactions = self.verify(at, xts, CheckBannedBeforeVerify::Yes).await;
 		self.validated_pool.submit(validated_transactions.into_values())
 	}
@@ -194,7 +194,7 @@ impl<B: ChainApi> Pool<B> {
 		&self,
 		at: &HashAndNumber<B::Block>,
 		xts: impl IntoIterator<Item = (base::TimedTransactionSource, ExtrinsicFor<B>)>,
-	) -> Vec<Result<ExtrinsicHash<B>, B::Error>> {
+	) -> Vec<Result<ValidatedPoolSubmitOutcome<B>, B::Error>> {
 		let validated_transactions = self.verify(at, xts, CheckBannedBeforeVerify::No).await;
 		self.validated_pool.submit(validated_transactions.into_values())
 	}
@@ -205,7 +205,7 @@ impl<B: ChainApi> Pool<B> {
 		at: &HashAndNumber<B::Block>,
 		source: base::TimedTransactionSource,
 		xt: ExtrinsicFor<B>,
-	) -> Result<ExtrinsicHash<B>, B::Error> {
+	) -> Result<ValidatedPoolSubmitOutcome<B>, B::Error> {
 		let res = self.submit_at(at, std::iter::once((source, xt))).await.pop();
 		res.expect("One extrinsic passed; one result returned; qed")
 	}
@@ -216,7 +216,7 @@ impl<B: ChainApi> Pool<B> {
 		at: &HashAndNumber<B::Block>,
 		source: base::TimedTransactionSource,
 		xt: ExtrinsicFor<B>,
-	) -> Result<Watcher<ExtrinsicHash<B>, ExtrinsicHash<B>>, B::Error> {
+	) -> Result<ValidatedPoolSubmitOutcome<B>, B::Error> {
 		let (_, tx) = self
 			.verify_one(at.hash, at.number, source, xt, CheckBannedBeforeVerify::Yes)
 			.await;
@@ -409,7 +409,7 @@ impl<B: ChainApi> Pool<B> {
 	}
 
 	/// Returns future that validates single transaction at given block.
-	async fn verify_one(
+	pub(crate) async fn verify_one(
 		&self,
 		block_hash: <B::Block as BlockT>::Hash,
 		block_number: NumberFor<B>,
@@ -516,6 +516,7 @@ mod tests {
 				.into(),
 			),
 		)
+		.map(|outcome| outcome.hash())
 		.unwrap();
 
 		// then
@@ -544,7 +545,10 @@ mod tests {
 
 		// when
 		let txs = txs.into_iter().map(|x| (SOURCE, Arc::from(x))).collect::<Vec<_>>();
-		let hashes = block_on(pool.submit_at(&api.expect_hash_and_number(0), txs));
+		let hashes = block_on(pool.submit_at(&api.expect_hash_and_number(0), txs))
+			.into_iter()
+			.map(|r| r.map(|o| o.hash()))
+			.collect::<Vec<_>>();
 		log::debug!("--> {hashes:#?}");
 
 		// then
@@ -568,7 +572,8 @@ mod tests {
 
 		// when
 		pool.validated_pool.ban(&Instant::now(), vec![pool.hash_of(&uxt)]);
-		let res = block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt.into()));
+		let res = block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt.into()))
+			.map(|o| o.hash());
 		assert_eq!(pool.validated_pool().status().ready, 0);
 		assert_eq!(pool.validated_pool().status().future, 0);
 
@@ -591,7 +596,8 @@ mod tests {
 		let uxt = ExtrinsicBuilder::new_include_data(vec![42]).build();
 
 		// when
-		let res = block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt.into()));
+		let res = block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt.into()))
+			.map(|o| o.hash());
 
 		// then
 		assert_matches!(res.unwrap_err(), error::Error::Unactionable);
@@ -619,7 +625,8 @@ mod tests {
 					.into(),
 				),
 			)
-			.unwrap();
+			.unwrap()
+			.hash();
 			let hash1 = block_on(
 				pool.submit_one(
 					&han_of_block0,
@@ -633,7 +640,8 @@ mod tests {
 					.into(),
 				),
 			)
-			.unwrap();
+			.unwrap()
+			.hash();
 			// future doesn't count
 			let _hash = block_on(
 				pool.submit_one(
@@ -648,7 +656,8 @@ mod tests {
 					.into(),
 				),
 			)
-			.unwrap();
+			.unwrap()
+			.hash();
 
 			assert_eq!(pool.validated_pool().status().ready, 2);
 			assert_eq!(pool.validated_pool().status().future, 1);
@@ -681,7 +690,8 @@ mod tests {
 				.into(),
 			),
 		)
-		.unwrap();
+		.unwrap()
+		.hash();
 		let hash2 = block_on(
 			pool.submit_one(
 				&han_of_block0,
@@ -695,7 +705,8 @@ mod tests {
 				.into(),
 			),
 		)
-		.unwrap();
+		.unwrap()
+		.hash();
 		let hash3 = block_on(
 			pool.submit_one(
 				&han_of_block0,
@@ -709,7 +720,8 @@ mod tests {
 				.into(),
 			),
 		)
-		.unwrap();
+		.unwrap()
+		.hash();
 
 		// when
 		pool.validated_pool.clear_stale(&api.expect_hash_and_number(5));
@@ -741,7 +753,8 @@ mod tests {
 				.into(),
 			),
 		)
-		.unwrap();
+		.unwrap()
+		.hash();
 
 		// when
 		block_on(pool.prune_tags(&api.expect_hash_and_number(1), vec![vec![0]], vec![hash1]));
@@ -769,8 +782,9 @@ mod tests {
 		let api = Arc::new(TestApi::default());
 		let pool = Pool::new(options, true.into(), api.clone());
 
-		let hash1 =
-			block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, xt.into())).unwrap();
+		let hash1 = block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, xt.into()))
+			.unwrap()
+			.hash();
 		assert_eq!(pool.validated_pool().status().future, 1);
 
 		// when
@@ -787,7 +801,8 @@ mod tests {
 				.into(),
 			),
 		)
-		.unwrap();
+		.unwrap()
+		.hash();
 
 		// then
 		assert_eq!(pool.validated_pool().status().future, 1);
@@ -819,6 +834,7 @@ mod tests {
 				.into(),
 			),
 		)
+		.map(|o| o.hash())
 		.unwrap_err();
 
 		// then
@@ -845,6 +861,7 @@ mod tests {
 				.into(),
 			),
 		)
+		.map(|o| o.hash())
 		.unwrap_err();
 
 		// then
@@ -873,7 +890,8 @@ mod tests {
 					.into(),
 				),
 			)
-			.unwrap();
+			.unwrap()
+			.expect_watcher();
 			assert_eq!(pool.validated_pool().status().ready, 1);
 			assert_eq!(pool.validated_pool().status().future, 0);
 
@@ -910,7 +928,8 @@ mod tests {
 					.into(),
 				),
 			)
-			.unwrap();
+			.unwrap()
+			.expect_watcher();
 			assert_eq!(pool.validated_pool().status().ready, 1);
 			assert_eq!(pool.validated_pool().status().future, 0);
 
@@ -949,7 +968,8 @@ mod tests {
 					.into(),
 				),
 			)
-			.unwrap();
+			.unwrap()
+			.expect_watcher();
 			assert_eq!(pool.validated_pool().status().ready, 0);
 			assert_eq!(pool.validated_pool().status().future, 1);
 
@@ -988,7 +1008,8 @@ mod tests {
 			});
 			let watcher =
 				block_on(pool.submit_and_watch(&api.expect_hash_and_number(0), SOURCE, uxt.into()))
-					.unwrap();
+					.unwrap()
+					.expect_watcher();
 			assert_eq!(pool.validated_pool().status().ready, 1);
 
 			// when
@@ -1013,7 +1034,8 @@ mod tests {
 			});
 			let watcher =
 				block_on(pool.submit_and_watch(&api.expect_hash_and_number(0), SOURCE, uxt.into()))
-					.unwrap();
+					.unwrap()
+					.expect_watcher();
 			assert_eq!(pool.validated_pool().status().ready, 1);
 
 			// when
@@ -1046,7 +1068,8 @@ mod tests {
 			});
 			let watcher =
 				block_on(pool.submit_and_watch(&api.expect_hash_and_number(0), SOURCE, xt.into()))
-					.unwrap();
+					.unwrap()
+					.expect_watcher();
 			assert_eq!(pool.validated_pool().status().ready, 1);
 
 			// when
@@ -1113,7 +1136,9 @@ mod tests {
 				// after validation `IncludeData` will have priority set to 9001
 				// (validate_transaction mock)
 				let xt = ExtrinsicBuilder::new_include_data(Vec::new()).build();
-				block_on(pool.submit_and_watch(&han_of_block0, SOURCE, xt.into())).unwrap();
+				block_on(pool.submit_and_watch(&han_of_block0, SOURCE, xt.into()))
+					.unwrap()
+					.expect_watcher();
 				assert_eq!(pool.validated_pool().status().ready, 1);
 
 				// after validation `Transfer` will have priority set to 4 (validate_transaction
@@ -1124,8 +1149,9 @@ mod tests {
 					amount: 5,
 					nonce: 0,
 				});
-				let watcher =
-					block_on(pool.submit_and_watch(&han_of_block0, SOURCE, xt.into())).unwrap();
+				let watcher = block_on(pool.submit_and_watch(&han_of_block0, SOURCE, xt.into()))
+					.unwrap()
+					.expect_watcher();
 				assert_eq!(pool.validated_pool().status().ready, 2);
 
 				// when
