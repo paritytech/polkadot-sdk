@@ -946,7 +946,7 @@ mod benchmarks {
 	#[benchmark]
 	fn get_npos_voters(
 		// number of validator intention. we will iterate all of them.
-		v: Linear<{ T::MaxValidatorsCount::get() / 2 }, { T::MaxValidatorsCount::<T>::get() }>,
+		v: Linear<{ T::MaxValidatorsCount::get() / 2 }, { T::MaxValidatorsCount::get() }>,
 
 		// number of nominator intention. we will iterate all of them.
 		n: Linear<{ MaxNominators::<T>::get() / 2 }, { MaxNominators::<T>::get() }>,
