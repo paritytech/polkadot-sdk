@@ -231,6 +231,8 @@ parameter_types! {
 	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
 		BlockWeights::get().max_block;
 	pub const MaxScheduledPerBlock: u32 = 50;
+	pub const MaxScheduledBlocks: u32 = 50;
+	pub const MaxStaleTaskAge: u32 = 10;
 	pub const NoPreimagePostponement: Option<u32> = Some(10);
 }
 
@@ -331,6 +333,9 @@ impl pallet_scheduler::Config for Runtime {
 	type WeightInfo = weights::pallet_scheduler::WeightInfo<Runtime>;
 	type OriginPrivilegeCmp = OriginPrivilegeCmp;
 	type Preimages = Preimage;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
+	type MaxScheduledBlocks = MaxScheduledBlocks;
+	type MaxStaleTaskAge = MaxStaleTaskAge;
 }
 
 parameter_types! {
