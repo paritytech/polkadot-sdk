@@ -1174,7 +1174,7 @@ impl<T: Config> Pallet<T> {
 		T::OldCurrency::remove_lock(STAKING_ID, &stash);
 
 		// check if we can hold all stake.
-		let max_hold = asset::stakeable_balance::<T>(&stash);
+		let max_hold = asset::free_to_stake::<T>(&stash);
 		let force_withdraw = if max_hold >= staked {
 			// this means we can hold all stake. yay!
 			asset::update_stake::<T>(&stash, staked)?;

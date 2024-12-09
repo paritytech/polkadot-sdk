@@ -252,7 +252,7 @@ mod remote_tests {
 		}
 		sp_tracing::try_init_simple();
 
-		let transport: Transport = var("WS").unwrap_or("ws://127.0.0.1:9900".to_string()).into();
+		let transport: Transport = var("WS").unwrap_or("ws://127.0.0.1:9944".to_string()).into();
 		let maybe_state_snapshot: Option<SnapshotConfig> = var("SNAP").map(|s| s.into()).ok();
 		let online_config = OnlineConfig {
 			transport,

@@ -795,7 +795,7 @@ pub mod pallet {
 					status
 				);
 				assert!(
-					asset::stakeable_balance::<T>(stash) >= balance,
+					asset::free_to_stake::<T>(stash) >= balance,
 					"Stash does not have enough balance to bond."
 				);
 				frame_support::assert_ok!(<Pallet<T>>::bond(
@@ -1209,7 +1209,7 @@ pub mod pallet {
 				return Err(Error::<T>::InsufficientBond.into())
 			}
 
-			let stash_balance = asset::stakeable_balance::<T>(&stash);
+			let stash_balance = asset::free_to_stake::<T>(&stash);
 			let value = value.min(stash_balance);
 			Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: value });
 			let ledger = StakingLedger::<T>::new(stash.clone(), value);
