@@ -584,6 +584,7 @@ impl parachains_paras::Config for Runtime {
 
 parameter_types! {
 	pub const BrokerId: u32 = 10u32;
+	pub MaxXcmTransactWeight: Weight = Weight::from_parts(10_000_000, 10_000);
 }
 
 pub struct BrokerPot;
@@ -657,6 +658,7 @@ impl coretime::Config for Runtime {
 	type BrokerId = BrokerId;
 	type WeightInfo = crate::coretime::TestWeightInfo;
 	type SendXcm = DummyXcmSender;
+	type MaxXcmTransactWeight = MaxXcmTransactWeight;
 	type BrokerPotLocation = BrokerPot;
 	type AssetTransactor = ();
 	type AccountToLocation = ();
