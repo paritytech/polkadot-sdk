@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Update pallet-nis to support Block Number Provider
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR makes the block number provider used in the nis pallet configurable. 
+      Before this PR, pallet-nis always used the system block number, 
+      with this PR some runtime can opt to use the relay chain block number instead.
+
+crates:
+  - name: pallet-nis
+    bump: minor
