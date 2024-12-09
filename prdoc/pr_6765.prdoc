@@ -1,0 +1,6 @@
+title: '[CI/CD] Add release environment to the backport job'
+doc:
+- audience: Todo
+  description: Fix adds release environment to the backport job, so that token could
+    be properly generated
+crates: []
