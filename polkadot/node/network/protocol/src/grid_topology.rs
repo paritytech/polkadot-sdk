@@ -607,6 +607,8 @@ mod tests {
 	#[test]
 	fn test_required_routing_combine() {
 		assert_eq!(RequiredRouting::All.combine(RequiredRouting::None), RequiredRouting::All);
+		assert_eq!(RequiredRouting::All.combine(RequiredRouting::GridXY), RequiredRouting::All);
+		assert_eq!(RequiredRouting::GridXY.combine(RequiredRouting::All), RequiredRouting::All);
 		assert_eq!(RequiredRouting::None.combine(RequiredRouting::All), RequiredRouting::All);
 		assert_eq!(RequiredRouting::None.combine(RequiredRouting::None), RequiredRouting::None);
 		assert_eq!(
