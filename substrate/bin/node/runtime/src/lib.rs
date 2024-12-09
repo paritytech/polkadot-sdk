@@ -699,7 +699,6 @@ parameter_types! {
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 	pub const MaxNominators: u32 = 64;
 	pub const MaxControllersInDeprecationBatch: u32 = 5900;
-	pub const MaxValidatorsCount: u32 = 1000;
 	pub OffchainRepeat: BlockNumber = 5;
 	pub HistoryDepth: u32 = 84;
 }
@@ -710,7 +709,6 @@ const MAX_QUOTA_NOMINATIONS: u32 = 16;
 pub struct StakingBenchmarkingConfig;
 impl pallet_staking::BenchmarkingConfig for StakingBenchmarkingConfig {
 	type MaxNominators = ConstU32<1000>;
-	type MaxValidators = MaxValidatorsCount;
 }
 
 impl pallet_staking::Config for Runtime {
@@ -750,8 +748,8 @@ impl pallet_staking::Config for Runtime {
 	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy;
 	type MaxInvulnerables = ConstU32<20>;
 	type MaxRewardPagesPerValidator = ConstU32<20>;
-	type MaxValidatorsCount = MaxValidatorsCount;
-	type MaxDisabledValidators = ConstU32<300>;
+	type MaxValidatorsCount = ConstU32<300>;
+	type MaxDisabledValidators = ConstU32<100>;
 }
 
 impl pallet_fast_unstake::Config for Runtime {

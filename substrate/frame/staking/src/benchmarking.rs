@@ -44,7 +44,6 @@ const SEED: u32 = 0;
 const MAX_SPANS: u32 = 100;
 const MAX_SLASHES: u32 = 1000;
 
-type MaxValidators<T> = <<T as Config>::BenchmarkingConfig as BenchmarkingConfig>::MaxValidators;
 type MaxNominators<T> = <<T as Config>::BenchmarkingConfig as BenchmarkingConfig>::MaxNominators;
 
 // Add slashing spans to a user account. Not relevant for actual use, only to benchmark
@@ -570,7 +569,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_validator_count() {
-		let validator_count = MaxValidators::<T>::get();
+		let validator_count = T::MaxValidatorsCount::get();
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, validator_count);
@@ -947,7 +946,7 @@ mod benchmarks {
 	#[benchmark]
 	fn get_npos_voters(
 		// number of validator intention. we will iterate all of them.
-		v: Linear<{ MaxValidators::<T>::get() / 2 }, { MaxValidators::<T>::get() }>,
+		v: Linear<{ T::MaxValidatorsCount::get() / 2 }, { T::MaxValidatorsCount::<T>::get() }>,
 
 		// number of nominator intention. we will iterate all of them.
 		n: Linear<{ MaxNominators::<T>::get() / 2 }, { MaxNominators::<T>::get() }>,
@@ -980,7 +979,7 @@ mod benchmarks {
 	#[benchmark]
 	fn get_npos_targets(
 		// number of validator intention.
-		v: Linear<{ MaxValidators::<T>::get() / 2 }, { MaxValidators::<T>::get() }>,
+		v: Linear<{ T::MaxValidatorsCount::get() / 2 }, { T::MaxValidatorsCount::get() }>,
 	) -> Result<(), BenchmarkError> {
 		// number of nominator intention.
 		let n = MaxNominators::<T>::get();

@@ -1220,8 +1220,6 @@ impl<T: Config> EraInfo<T> {
 /// Configurations of the benchmarking of the pallet.
 pub trait BenchmarkingConfig {
 	/// The maximum number of validators to use.
-	type MaxValidators: Get<u32>;
-	/// The maximum number of nominators to use.
 	type MaxNominators: Get<u32>;
 }
 
@@ -1233,7 +1231,6 @@ pub struct TestBenchmarkingConfig;
 
 #[cfg(feature = "std")]
 impl BenchmarkingConfig for TestBenchmarkingConfig {
-	type MaxValidators = frame_support::traits::ConstU32<100>;
 	type MaxNominators = frame_support::traits::ConstU32<100>;
 }
 

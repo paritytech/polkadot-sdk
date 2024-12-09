@@ -230,7 +230,6 @@ impl<T: pallet_session::Config> OneSessionHandler<T::AccountId>
 /// A reasonable benchmarking config for staking pallet.
 pub struct StakingBenchmarkingConfig;
 impl pallet_staking::BenchmarkingConfig for StakingBenchmarkingConfig {
-	type MaxValidators = ConstU32<1000>;
 	type MaxNominators = ConstU32<1000>;
 }
 
