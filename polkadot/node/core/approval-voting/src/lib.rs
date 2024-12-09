@@ -1582,7 +1582,7 @@ async fn handle_actions<
 					session_info_provider,
 				)
 				.await?;
-				for mesasge in messages.into_iter() {
+				for message in messages.into_iter() {
 					approval_voting_sender.send_unbounded_message(message);
 				}
 				let next_actions: Vec<Action> =
