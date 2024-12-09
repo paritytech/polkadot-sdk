@@ -2748,6 +2748,7 @@ dependencies = [
  "pallet-xcm-bridge-hub 0.2.0",
  "parachains-common 7.0.0",
  "parity-scale-codec",
+ "penpal-emulated-chain",
  "rococo-westend-system-emulated-network",
  "scale-info",
  "snowbridge-core 0.2.0",

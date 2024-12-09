@@ -50,7 +50,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
-
+use frame_support::traits::Contains;
 use snowbridge_router_primitives::inbound::v2::Message;
 use sp_runtime::DispatchError;
 #[cfg(feature = "std")]
@@ -267,6 +267,22 @@ parameter_types! {
 }
 
 // Configure FRAME pallets to include in runtime.
+pub struct BaseFilter;
+impl Contains<RuntimeCall> for BaseFilter {
+	fn contains(call: &RuntimeCall) -> bool {
+		// Disallow these Snowbridge system calls.
+		if matches!(
+			call,
+			RuntimeCall::EthereumSystem(snowbridge_pallet_system::Call::create_agent { .. })
+		) || matches!(
+			call,
+			RuntimeCall::EthereumSystem(snowbridge_pallet_system::Call::create_channel { .. })
+		) {
+			return false
+		}
+		return true
+	}
+}
 
 #[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig)]
 impl frame_system::Config for Runtime {
@@ -299,6 +315,7 @@ impl frame_system::Config for Runtime {
 	/// The action to take on a Runtime Upgrade
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type BaseCallFilter = BaseFilter;
 }
 
 impl pallet_timestamp::Config for Runtime {

@@ -146,6 +146,8 @@ where
 		let mut reserve_assets = vec![];
 		let mut withdraw_assets = vec![];
 
+		let mut refund_surplus_to = origin_account_location;
+
 		if let Some(claimer) = message.claimer {
 			// If the claimer can be decoded, add it to the message. If the claimer decoding fails,
 			// do not add it to the message, because it will cause the xcm to fail.
@@ -184,8 +186,6 @@ where
 		if withdraw_assets.len() > 0 {
 			instructions.push(WithdrawAsset(withdraw_assets.into()));
 		}
-
-		let mut refund_surplus_to = origin_account_location;
 
 		// If the message origin is not the gateway proxy contract, set the origin to
 		// the original sender on Ethereum. Important to be before the arbitrary XCM that is
