@@ -27,6 +27,7 @@ pub(super) enum DeadConsequence {
 	Keep,
 }
 
+use frame_support::storage::with_storage_layer;
 use DeadConsequence::*;
 
 // The main implementation block for the module.
@@ -593,6 +594,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				account.balance = account.balance.saturating_sub(actual);
 				if account.balance < details.min_balance {
 					debug_assert!(account.balance.is_zero(), "checked in prep; qed");
+					Self::ensure_account_can_die(id.clone(), target)?;
 					target_died = Some(Self::dead_account(target, details, &account.reason, false));
 					if let Some(Remove) = target_died {
 						return Ok(())
