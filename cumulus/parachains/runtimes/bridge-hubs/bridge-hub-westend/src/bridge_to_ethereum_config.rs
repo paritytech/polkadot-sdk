@@ -125,6 +125,8 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 		EthereumSystem,
 		WethAddress,
 		EthereumGatewayAddress,
+		EthereumUniversalLocation,
+		AssetHubFromEthereum,
 	>;
 }
 

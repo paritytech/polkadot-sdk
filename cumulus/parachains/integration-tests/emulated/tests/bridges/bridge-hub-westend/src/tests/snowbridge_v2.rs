@@ -19,19 +19,20 @@ use bridge_hub_westend_runtime::{
 	EthereumInboundQueueV2,
 };
 use codec::Encode;
+use emulated_integration_tests_common::RESERVABLE_ASSET_ID;
 use hex_literal::hex;
+use penpal_emulated_chain::PARA_ID_B;
+use snowbridge_core::{AssetMetadata, TokenIdOf};
 use snowbridge_router_primitives::inbound::{
-	v2::{Asset::NativeTokenERC20, Message},
+	v2::{
+		Asset::{ForeignTokenERC20, NativeTokenERC20},
+		Message,
+	},
 	EthereumLocationsConverterFor,
 };
 use sp_core::{H160, H256};
 use sp_runtime::MultiAddress;
-use emulated_integration_tests_common::RESERVABLE_ASSET_ID;
-use penpal_emulated_chain::PARA_ID_B;
-use snowbridge_core::AssetMetadata;
 use xcm_executor::traits::ConvertLocation;
-use snowbridge_core::TokenIdOf;
-use snowbridge_router_primitives::inbound::v2::Asset::ForeignTokenERC20;
 const TOKEN_AMOUNT: u128 = 100_000_000_000;
 
 /// Calculates the XCM prologue fee for sending an XCM to AH.
@@ -537,14 +538,16 @@ fn send_token_to_penpal_v2() {
 					// Pay fees on Penpal.
 					PayFees { asset: weth_fee_penpal },
 					// Deposit assets to beneficiary.
-					DepositAsset { assets: Wild(AllOf {
-						id: AssetId(token_location.clone()),
-						fun: WildFungibility::Fungible,
-					}),
-						beneficiary: beneficiary.clone(), },
+					DepositAsset {
+						assets: Wild(AllOf {
+							id: AssetId(token_location.clone()),
+							fun: WildFungibility::Fungible,
+						}),
+						beneficiary: beneficiary.clone(),
+					},
 					SetTopic(H256::random().into()),
 				]
-					.into(),
+				.into(),
 			},
 		];
 		let xcm: Xcm<()> = instructions.into();
@@ -611,6 +614,8 @@ fn send_foreign_erc20_token_back_to_polkadot() {
 	let asset_id: Location =
 		[PalletInstance(ASSETS_PALLET_ID), GeneralIndex(RESERVABLE_ASSET_ID.into())].into();
 
+	register_foreign_asset(weth_location());
+
 	let asset_id_in_bh: Location = Location::new(
 		1,
 		[
@@ -627,8 +632,8 @@ fn send_foreign_erc20_token_back_to_polkadot() {
 			Parachain(AssetHubWestend::para_id().into()),
 		],
 	)
-		.appended_with(asset_id.clone().interior)
-		.unwrap();
+	.appended_with(asset_id.clone().interior)
+	.unwrap();
 
 	let ethereum_destination = Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]);
 
@@ -653,36 +658,33 @@ fn send_foreign_erc20_token_back_to_polkadot() {
 			.into();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 
+	// Mint the asset into the bridge sovereign account, to mimic locked funds
 	AssetHubWestend::mint_asset(
 		<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendAssetOwner::get()),
 		RESERVABLE_ASSET_ID,
-		AssetHubWestendSender::get(),
+		ethereum_sovereign.clone(),
 		TOKEN_AMOUNT,
 	);
 
 	let token_id = TokenIdOf::convert_location(&asset_id_after_reanchored).unwrap();
-	let asset: Asset = (asset_id_after_reanchored, TOKEN_AMOUNT).into();
 
 	let assets = vec![
 		// to pay fees
-		NativeTokenERC20 { token_id: WETH.into(), value: 2_000_000_000_000u128 },
+		NativeTokenERC20 { token_id: WETH.into(), value: 3_000_000_000_000u128 },
 		// the token being transferred
 		ForeignTokenERC20 { token_id: token_id.into(), value: TOKEN_AMOUNT },
 	];
 
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-		let instructions = vec![
-			WithdrawAsset(asset.clone().into()),
-			DepositAsset { assets: Wild(AllCounted(2)), beneficiary },
-		];
+		let instructions = vec![DepositAsset { assets: Wild(AllCounted(2)), beneficiary }];
 		let xcm: Xcm<()> = instructions.into();
 		let versioned_message_xcm = VersionedXcm::V5(xcm);
 		let origin = EthereumGatewayAddress::get();
 
 		let message = Message {
 			origin,
-			fee: 1_500_000_000_000u128,
+			fee: 3_500_000_000_000u128,
 			assets,
 			xcm: versioned_message_xcm.encode(),
 			claimer: Some(claimer_bytes),
@@ -943,7 +945,6 @@ pub(crate) fn set_up_weth_and_dot_pool(asset: v5::Location) {
 	});
 }
 
-
 pub(crate) fn set_up_weth_and_dot_pool_on_penpal(asset: v5::Location) {
 	let wnd: v5::Location = v5::Parent.into();
 	let penpal_location = BridgeHubWestend::sibling_location_of(PenpalB::para_id());
@@ -956,8 +957,7 @@ pub(crate) fn set_up_weth_and_dot_pool_on_penpal(asset: v5::Location) {
 		type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
 
 		let signed_owner = <PenpalB as Chain>::RuntimeOrigin::signed(owner.clone());
-		let signed_bh_sovereign =
-			<PenpalB as Chain>::RuntimeOrigin::signed(bh_sovereign.clone());
+		let signed_bh_sovereign = <PenpalB as Chain>::RuntimeOrigin::signed(bh_sovereign.clone());
 
 		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::mint(
 			signed_bh_sovereign.clone(),

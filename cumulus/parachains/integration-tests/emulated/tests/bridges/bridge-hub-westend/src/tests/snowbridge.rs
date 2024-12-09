@@ -19,6 +19,7 @@ use codec::{Decode, Encode};
 use emulated_integration_tests_common::RESERVABLE_ASSET_ID;
 use frame_support::pallet_prelude::TypeInfo;
 use hex_literal::hex;
+use penpal_emulated_chain::PARA_ID_B;
 use rococo_westend_system_emulated_network::asset_hub_westend_emulated_chain::genesis::AssetHubWestendAssetOwner;
 use snowbridge_core::{outbound::OperatingMode, AssetMetadata, TokenIdOf};
 use snowbridge_router_primitives::inbound::{
@@ -28,8 +29,6 @@ use snowbridge_router_primitives::inbound::{
 use sp_core::H256;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm_executor::traits::ConvertLocation;
-use penpal_emulated_chain::PARA_ID_B;
-use penpal_emulated_chain::penpal_runtime;
 
 const INITIAL_FUND: u128 = 5_000_000_000_000;
 pub const CHAIN_ID: u64 = 11155111;
@@ -38,7 +37,7 @@ const ETHEREUM_DESTINATION_ADDRESS: [u8; 20] = hex!("44a57ee2f2FCcb85FDa2B0B18EB
 const XCM_FEE: u128 = 100_000_000_000;
 const TOKEN_AMOUNT: u128 = 100_000_000_000;
 
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeIfmtnfo)]
 pub enum ControlCall {
 	#[codec(index = 3)]
 	CreateAgent,
@@ -289,7 +288,6 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 	});
 }
 
-
 /// Tests sending a token to a 3rd party parachain, called PenPal. The token reserve is
 /// still located on AssetHub.
 #[test]
@@ -336,7 +334,9 @@ fn send_token_from_ethereum_to_penpal() {
 			1000,
 		));
 
-		assert!(<PenpalB as PenpalBPallet>::ForeignAssets::asset_exists(weth_asset_location.clone()));
+		assert!(<PenpalB as PenpalBPallet>::ForeignAssets::asset_exists(
+			weth_asset_location.clone()
+		));
 	});
 
 	AssetHubWestend::execute_with(|| {

@@ -55,8 +55,10 @@ pub enum Asset {
 /// Reason why a message conversion failed.
 #[derive(Copy, Clone, TypeInfo, PalletError, Encode, Decode, RuntimeDebug)]
 pub enum ConvertMessageError {
-	/// Invalid foreign ERC20 token ID
+	/// Invalid foreign ERC-20 token ID
 	InvalidAsset,
+	/// Cannot reachor a foreign ERC-20 asset location.
+	CannotReanchor,
 }
 
 pub trait ConvertMessage {
@@ -69,12 +71,16 @@ pub struct MessageToXcm<
 	ConvertAssetId,
 	WethAddress,
 	GatewayProxyAddress,
+	EthereumUniversalLocation,
+	GlobalAssetHubLocation,
 > where
 	EthereumNetwork: Get<NetworkId>,
 	InboundQueuePalletInstance: Get<u8>,
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
 	WethAddress: Get<H160>,
 	GatewayProxyAddress: Get<H160>,
+	EthereumUniversalLocation: Get<InteriorLocation>,
+	GlobalAssetHubLocation: Get<Location>,
 {
 	_phantom: PhantomData<(
 		EthereumNetwork,
@@ -82,6 +88,8 @@ pub struct MessageToXcm<
 		ConvertAssetId,
 		WethAddress,
 		GatewayProxyAddress,
+		EthereumUniversalLocation,
+		GlobalAssetHubLocation,
 	)>,
 }
 
@@ -91,6 +99,8 @@ impl<
 		ConvertAssetId,
 		WethAddress,
 		GatewayProxyAddress,
+		EthereumUniversalLocation,
+		GlobalAssetHubLocation,
 	> ConvertMessage
 	for MessageToXcm<
 		EthereumNetwork,
@@ -98,6 +108,8 @@ impl<
 		ConvertAssetId,
 		WethAddress,
 		GatewayProxyAddress,
+		EthereumUniversalLocation,
+		GlobalAssetHubLocation,
 	>
 where
 	EthereumNetwork: Get<NetworkId>,
@@ -105,6 +117,8 @@ where
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
 	WethAddress: Get<H160>,
 	GatewayProxyAddress: Get<H160>,
+	EthereumUniversalLocation: Get<InteriorLocation>,
+	GlobalAssetHubLocation: Get<Location>,
 {
 	fn convert(
 		message: Message,
@@ -172,9 +186,13 @@ where
 					reserve_assets.push(asset);
 				},
 				Asset::ForeignTokenERC20 { token_id, value } => {
-					let asset_id = ConvertAssetId::convert(&token_id)
+					let asset_loc = ConvertAssetId::convert(&token_id)
 						.ok_or(ConvertMessageError::InvalidAsset)?;
-					let asset: XcmAsset = (asset_id, *value).into();
+					let mut reanchored_asset_loc = asset_loc.clone();
+					reanchored_asset_loc
+						.reanchor(&GlobalAssetHubLocation::get(), &EthereumUniversalLocation::get())
+						.map_err(|_| ConvertMessageError::CannotReanchor)?;
+					let asset: XcmAsset = (reanchored_asset_loc, *value).into();
 					withdraw_assets.push(asset);
 				},
 			}
