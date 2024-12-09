@@ -1,0 +1,135 @@
+name: check-runtimes-template-spec-chain.yml
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+  workflow_dispatch:
+
+jobs:
+  preflight:
+    uses: ./.github/workflows/reusable-preflight.yml
+
+  build-wasm:
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    needs: preflight
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install srtool-cli
+        run: |
+          cargo install --git https://github.com/chevdor/srtool-cli
+          echo "Using srtool-cli Version:"
+          srtool --version
+
+      - name: Pull srtool docker image
+        run: |
+          srtool pull
+
+      - name: Build your runtime binary
+        run: |
+          srtool build --package minimal-template-runtime --runtime-dir ./templates/minimal/runtime
+
+      - name: Upload runtime artifact
+        uses: actions/upload-artifact@v4.3.1
+        with:
+          name: wasm-runtime
+          path: ./templates/minimal/runtime/target/srtool/release/wbuild/minimal-template-runtime/minimal_template_runtime.compact.compressed.wasm
+          retention-days: 1
+          compression-level: 0
+          overwrite: true
+
+  build-test-spec-chain:
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    needs: build-wasm
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download runtime artifact
+        uses: actions/download-artifact@v4.3.1
+        with:
+          name: wasm-runtime
+          path: ./downloaded-wasm
+
+      - name: List downloaded files
+        run: |
+          ls -la ./downloaded-wasm
+          echo "Downloaded WASM path: $(pwd)/downloaded-wasm/minimal_template_runtime.compact.compressed.wasm"
+
+      - name: Verify downloaded WASM
+        run: |
+          if [ -f "./downloaded-wasm/minimal_template_runtime.compact.compressed.wasm" ]; then
+            echo "✅ WASM binary found"
+          else
+            echo "❌ WASM binary not found"
+            exit 1
+          fi
+
+      - name: Install staging-chain-spec-builder
+        run: |
+          cargo install --path substrate/bin/utils/chain-spec-builder
+
+      - name: Create test spec chain using srtool minimal runtime
+        run: |
+          chain-spec-builder create \
+            --relay-chain "dev" \
+            --para-id 1000 \
+            --runtime "./downloaded-wasm/minimal_template_runtime.compact.compressed.wasm" \
+            named-preset development > chain_spec.json
+
+      - name: Upload chain spec json file artifact
+        uses: actions/upload-artifact@v4.3.1
+        with:
+          name: test_chain_spec
+          path: ./chain_spec.json
+          retention-days: 1
+          compression-level: 0
+          overwrite: true
+
+  verify-spec-match:
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    needs: build-test-spec-chain
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download spec artifact
+        uses: actions/download-artifact@v4.3.1
+        with:
+          name: test_chain_spec
+          path: ./test_chain_spec
+
+      - name: List and verify chain spec
+        run: |
+          ls -la ./test_chain_spec
+          if [ -f "./test_chain_spec/chain_spec.json" ]; then
+            echo "✅ test chain_spec JSON found"
+            echo "Path: $(pwd)/test_chain_spec/chain_spec.json"
+          else
+            echo "❌ test chain_spec JSON not found"
+            exit 1
+          fi
+
+      - name: Compare specs
+        run: |
+          apt-get update && apt-get install -y jq
+          jq -S . ./templates/minimal/dev_chain_spec.json > existing_spec_sorted.json
+          jq -S . ./test_chain_spec/chain_spec.json > generated_spec_sorted.json
+          
+          if diff existing_spec_sorted.json generated_spec_sorted.json; then
+            echo "✅ Spec files match perfectly"
+          else
+            echo "❌ Spec files differ:"
+            diff existing_spec_sorted.json generated_spec_sorted.json
+            exit 1
+          fi
