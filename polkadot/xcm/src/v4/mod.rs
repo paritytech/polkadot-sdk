@@ -1321,7 +1321,7 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 					Ok(decoded) => decoded.get_dispatch_info().call_weight,
 					Err(error) => {
 						let fallback_weight = fallback_max_weight.unwrap_or(Weight::MAX);
-						log::error!(
+						log::debug!(
 							target: "xcm::versions::v5Tov4",
 							"Couldn't decode call in Transact: {:?}, using fallback weight: {:?}",
 							error,
