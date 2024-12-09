@@ -20,6 +20,7 @@ use proc_macro::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
 
 mod builder_pattern;
+mod enum_variants;
 mod v3;
 mod v4;
 mod v5;
@@ -83,6 +84,14 @@ pub fn impl_conversion_functions_for_location_v5(input: TokenStream) -> TokenStr
 pub fn derive_builder(input: TokenStream) -> TokenStream {
 	let input = parse_macro_input!(input as DeriveInput);
 	builder_pattern::derive(input)
+		.unwrap_or_else(syn::Error::into_compile_error)
+		.into()
+}
+
+#[proc_macro_derive(NumVariants)]
+pub fn derive_num_variants(input: TokenStream) -> TokenStream {
+	let input = parse_macro_input!(input as DeriveInput);
+	enum_variants::derive(input)
 		.unwrap_or_else(syn::Error::into_compile_error)
 		.into()
 }
