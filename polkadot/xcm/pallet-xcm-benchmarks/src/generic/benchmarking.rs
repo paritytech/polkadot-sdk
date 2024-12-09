@@ -403,11 +403,7 @@ mod benchmarks {
 		let instruction = Instruction::SubscribeVersion { query_id, max_response_weight };
 		let xcm = Xcm(vec![instruction]);
 
-		T::DeliveryHelper::ensure_successful_delivery(
-			&origin,
-			&origin,
-			FeeReason::QueryPallet,
-		);
+		T::DeliveryHelper::ensure_successful_delivery(&origin, &origin, FeeReason::QueryPallet);
 
 		#[block]
 		{
@@ -425,11 +421,7 @@ mod benchmarks {
 		// First we need to subscribe to notifications.
 		let (origin, _) = T::transact_origin_and_runtime_call()?;
 
-		T::DeliveryHelper::ensure_successful_delivery(
-			&origin,
-			&origin,
-			FeeReason::QueryPallet,
-		);
+		T::DeliveryHelper::ensure_successful_delivery(&origin, &origin, FeeReason::QueryPallet);
 
 		let query_id = Default::default();
 		let max_response_weight = Default::default();
