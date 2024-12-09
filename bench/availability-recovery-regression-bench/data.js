@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733495086916,
+  "lastUpdate": 1733704503309,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -33167,6 +33167,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.2316256446,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "franciscoaguirreperez@gmail.com",
+            "name": "Francisco Aguirre",
+            "username": "franciscoaguirre"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "906fa9e51306635245a22e03160d1c761fae6cc3",
+          "message": "XCM V5 - SetHints instruction (#6566)\n\nLast feature we wanted for V5, changing `SetAssetClaimer` to be just one\nof many possible \"hints\" that you can specify at the beginning of your\nprogram to change its behaviour.\n\nThis makes it easier to add new hints in the future and have barriers\naccept them.\n\n---------\n\nCo-authored-by: GitHub Action <action@github.com>",
+          "timestamp": "2024-12-08T23:02:38Z",
+          "tree_id": "eb5adfc56c5c6a486ea39ced93a49577a136f4a6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/906fa9e51306635245a22e03160d1c761fae6cc3"
+        },
+        "date": 1733704484628,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.402922623433335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.2303085694,
             "unit": "seconds"
           }
         ]
