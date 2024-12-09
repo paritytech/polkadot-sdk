@@ -523,6 +523,9 @@ pub use sp_api_proc_macro::impl_runtime_apis;
 /// ```
 pub use sp_api_proc_macro::mock_impl_runtime_apis;
 
+/// Ass
+pub use sp_api_proc_macro::impl_runtime_apis_ext;
+
 /// A type that records all accessed trie nodes and generates a proof out of it.
 #[cfg(feature = "std")]
 pub type ProofRecorder<B> = sp_trie::recorder::Recorder<HashingFor<B>>;
@@ -848,3 +851,4 @@ decl_runtime_apis! {
 sp_core::generate_feature_enabled_macro!(std_enabled, feature = "std", $);
 sp_core::generate_feature_enabled_macro!(std_disabled, not(feature = "std"), $);
 sp_core::generate_feature_enabled_macro!(frame_metadata_enabled, feature = "frame-metadata", $);
+pub trait RuntimeBase {}

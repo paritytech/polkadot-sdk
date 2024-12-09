@@ -42,3 +42,8 @@ pub fn mock_impl_runtime_apis(input: TokenStream) -> TokenStream {
 pub fn decl_runtime_apis(input: TokenStream) -> TokenStream {
 	decl_runtime_apis::decl_runtime_apis_impl(input)
 }
+
+#[proc_macro_attribute]
+pub fn impl_runtime_apis_ext(_attrs: TokenStream, tokens: TokenStream) -> TokenStream {
+	impl_runtime_apis::impl_runtime_apis_impl_ext(tokens)
+}

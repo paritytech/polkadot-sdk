@@ -17,7 +17,7 @@
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::{parse_quote, spanned::Spanned, ItemImpl, ItemTrait, Result};
+use syn::{parse_quote, spanned::Spanned, ItemImpl, ItemTrait, Result, TypePath};
 
 use crate::utils::{
 	extract_api_version, extract_impl_trait, filter_cfg_attributes, generate_crate_access,
@@ -190,12 +190,17 @@ pub fn generate_decl_runtime_metadata<'a>(
 	)
 }
 
+pub(crate) enum Kind<'a> {
+	Main(&'a [TypePath]),
+	Ext,
+}
+
 /// Implement the `runtime_metadata` function on the runtime that
 /// generates the metadata for the given traits.
 ///
 /// The metadata of each trait is extracted from the generic function
 /// exposed by `generate_decl_runtime_metadata`.
-pub fn generate_impl_runtime_metadata(impls: &[ItemImpl]) -> Result<TokenStream2> {
+pub fn generate_impl_runtime_metadata(impls: &[ItemImpl], kind: Kind) -> Result<TokenStream2> {
 	if impls.is_empty() {
 		return Ok(quote!());
 	}
@@ -298,14 +303,30 @@ pub fn generate_impl_runtime_metadata(impls: &[ItemImpl]) -> Result<TokenStream2
 	// Therefore, the `Deref` trait will resolve the `runtime_metadata` from `impl_runtime_apis!`
 	// when both macros are called; and will resolve an empty `runtime_metadata` when only the
 	// `construct_runtime!` is called.
-	Ok(quote!(
-		#crate_::frame_metadata_enabled! {
-			#[doc(hidden)]
-			impl #crate_::metadata_ir::InternalImplRuntimeApis for #runtime_name {
-				fn runtime_metadata(&self) -> #crate_::vec::Vec<#crate_::metadata_ir::RuntimeApiMetadataIR> {
-					#crate_::vec![ #( #metadata, )* ]
+	let block = match kind {
+		Kind::Main(paths) => {
+			quote! {
+				#[doc(hidden)]
+				impl #crate_::metadata_ir::InternalImplRuntimeApis for #runtime_name {
+					fn runtime_metadata(&self) -> #crate_::vec::Vec<#crate_::metadata_ir::RuntimeApiMetadataIR> {
+						let other_apis: #crate_::vec::Vec<#crate_::metadata_ir::RuntimeApiMetadataIR> = #crate_::vec::Vec::from([#crate_::vec![ #( #metadata, )*], #(#paths::runtime_metadata(),)*]).concat();
+						other_apis
+					}
 				}
 			}
+		},
+		Kind::Ext => quote! {
+					#[doc(hidden)]
+					#[inline(always)]
+					pub fn runtime_metadata() -> #crate_::vec::Vec<#crate_::metadata_ir::RuntimeApiMetadataIR> {
+						#crate_::vec![ #( #metadata, )* ]
+					}
+
+		},
+	};
+	Ok(quote!(
+		#crate_::frame_metadata_enabled! {
+			#block
 		}
 	))
 }
