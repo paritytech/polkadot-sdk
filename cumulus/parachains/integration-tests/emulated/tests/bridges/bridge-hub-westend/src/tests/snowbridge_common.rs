@@ -8,16 +8,13 @@ use frame_support::traits::fungibles::Mutate;
 use hex_literal::hex;
 use rococo_westend_system_emulated_network::penpal_emulated_chain::{
 	penpal_runtime::xcm_config::{
-		derived_from_here, AccountIdOf, CheckingAccount, LocalTeleportableToAssetHub,
-		TELEPORTABLE_ASSET_ID,
+		derived_from_here, AccountIdOf, CheckingAccount, TELEPORTABLE_ASSET_ID,
 	},
 	PenpalAssetOwner,
 };
 use snowbridge_core::AssetMetadata;
-use snowbridge_outbound_primitives::TransactInfo;
 use snowbridge_router_primitives::inbound::EthereumLocationsConverterFor;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
-use xcm::v5::AssetTransferFilter;
 use xcm_executor::traits::ConvertLocation;
 
 pub const INITIAL_FUND: u128 = 50_000_000_000_000;
@@ -49,6 +46,10 @@ pub fn beneficiary() -> Location {
 
 pub fn asset_hub() -> Location {
 	Location::new(1, Parachain(AssetHubWestend::para_id().into()))
+}
+
+pub fn bridge_hub() -> Location {
+	Location::new(1, Parachain(BridgeHubWestend::para_id().into()))
 }
 
 pub fn fund_on_bh() {
@@ -170,51 +171,51 @@ pub fn fund_on_penpal() {
 		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::mint_into(
 			Location::parent(),
 			&PenpalBReceiver::get(),
-			TOKEN_AMOUNT,
+			INITIAL_FUND,
 		));
 		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::mint_into(
 			Location::parent(),
 			&PenpalBSender::get(),
-			TOKEN_AMOUNT,
+			INITIAL_FUND,
 		));
 		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::mint_into(
 			Location::parent(),
 			&sudo_account,
-			TOKEN_AMOUNT,
+			INITIAL_FUND,
 		));
 	});
 	PenpalB::execute_with(|| {
 		assert_ok!(<PenpalB as PenpalBPallet>::Assets::mint_into(
 			TELEPORTABLE_ASSET_ID,
 			&PenpalBReceiver::get(),
-			TOKEN_AMOUNT,
+			INITIAL_FUND,
 		));
 		assert_ok!(<PenpalB as PenpalBPallet>::Assets::mint_into(
 			TELEPORTABLE_ASSET_ID,
 			&PenpalBSender::get(),
-			TOKEN_AMOUNT,
+			INITIAL_FUND,
 		));
 		assert_ok!(<PenpalB as PenpalBPallet>::Assets::mint_into(
 			TELEPORTABLE_ASSET_ID,
 			&sudo_account,
-			TOKEN_AMOUNT,
+			INITIAL_FUND,
 		));
 	});
 	PenpalB::execute_with(|| {
 		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::mint_into(
 			weth_location().try_into().unwrap(),
 			&PenpalBReceiver::get(),
-			TOKEN_AMOUNT,
+			INITIAL_FUND,
 		));
 		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::mint_into(
 			weth_location().try_into().unwrap(),
 			&PenpalBSender::get(),
-			TOKEN_AMOUNT,
+			INITIAL_FUND,
 		));
 		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::mint_into(
 			weth_location().try_into().unwrap(),
 			&sudo_account,
-			TOKEN_AMOUNT,
+			INITIAL_FUND,
 		));
 	});
 }
@@ -243,17 +244,17 @@ pub fn fund_on_ah() {
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint_into(
 			weth_location().try_into().unwrap(),
 			&penpal_sovereign,
-			TOKEN_AMOUNT,
+			INITIAL_FUND,
 		));
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint_into(
 			weth_location().try_into().unwrap(),
 			&AssetHubWestendReceiver::get(),
-			TOKEN_AMOUNT,
+			INITIAL_FUND,
 		));
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint_into(
 			weth_location().try_into().unwrap(),
 			&AssetHubWestendSender::get(),
-			TOKEN_AMOUNT,
+			INITIAL_FUND,
 		));
 	});
 

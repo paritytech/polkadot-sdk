@@ -14,24 +14,11 @@
 // limitations under the License.
 
 use crate::{
-	create_pool_with_native_on,
 	imports::*,
-	tests::{
-		snowbridge::{CHAIN_ID, WETH},
-		snowbridge_common::*,
-	},
+	tests::{snowbridge::WETH, snowbridge_common::*},
 };
 use emulated_integration_tests_common::PenpalBTeleportableAssetLocation;
-use frame_support::traits::fungibles::Mutate;
-use hex_literal::hex;
-use rococo_westend_system_emulated_network::penpal_emulated_chain::{
-	penpal_runtime::xcm_config::{
-		derived_from_here, AccountIdOf, CheckingAccount, LocalTeleportableToAssetHub,
-		TELEPORTABLE_ASSET_ID,
-	},
-	PenpalAssetOwner,
-};
-use snowbridge_core::AssetMetadata;
+use rococo_westend_system_emulated_network::penpal_emulated_chain::penpal_runtime::xcm_config::LocalTeleportableToAssetHub;
 use snowbridge_outbound_primitives::TransactInfo;
 use snowbridge_router_primitives::inbound::EthereumLocationsConverterFor;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
