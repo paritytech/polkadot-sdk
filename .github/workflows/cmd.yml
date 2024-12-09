@@ -292,9 +292,17 @@ jobs:
       image: ${{ needs.set-image.outputs.IMAGE }}
     timeout-minutes: 1440 # 24 hours per runtime
     steps:
+      - name: Generate token
+        uses: actions/create-github-app-token@v1
+        id: generate_token
+        with:
+          app-id: ${{ secrets.CMD_BOT_APP_ID }}
+          private-key: ${{ secrets.CMD_BOT_APP_KEY }}
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          token: ${{ steps.generate_token.outputs.token }}
           repository: ${{ needs.get-pr-branch.outputs.repo }}
           ref: ${{ needs.get-pr-branch.outputs.pr-branch }}
 
@@ -392,18 +400,12 @@ jobs:
           name: command-output
           path: /tmp/cmd/command_output.log
 
-      - name: Generate token
-        uses: actions/create-github-app-token@v1
-        id: generate_token
-        with:
-          app-id: ${{ secrets.CMD_BOT_APP_ID }}
-          private-key: ${{ secrets.CMD_BOT_APP_KEY }}
-
       - name: Commit changes
         run: |
           if [ -n "$(git status --porcelain)" ]; then
-            git config --local user.email "action@github.com"
-            git config --local user.name "cmd-bot"
+            git config --global user.name command-bot
+            git config --global user.email "<>"
+            git config --global pull.rebase false
 
             # Push the results to the target branch
             git remote add \
