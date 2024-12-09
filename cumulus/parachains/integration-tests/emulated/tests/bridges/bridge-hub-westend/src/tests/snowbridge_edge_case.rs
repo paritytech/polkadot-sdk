@@ -21,6 +21,8 @@ use crate::{
 	},
 };
 use bridge_hub_westend_runtime::xcm_config::LocationToAccountId;
+use snowbridge_core::AssetMetadata;
+use snowbridge_pallet_system::Error;
 use xcm_executor::traits::ConvertLocation;
 
 // The user origin should be banned in ethereum_blob_exporter with error logs
@@ -90,6 +92,34 @@ fn user_export_message_from_ah_directly_will_fail() {
 		assert_expected_events!(
 			BridgeHubWestend,
 			vec![RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed{ success:false, .. }) => {},]
+		);
+	});
+}
+
+// ENA is not allowed to be registered as PNA
+#[test]
+fn test_register_ena_on_bh_will_fail() {
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeOrigin = <BridgeHubWestend as Chain>::RuntimeOrigin;
+		type Runtime = <BridgeHubWestend as Chain>::Runtime;
+
+		assert_ok!(<BridgeHubWestend as BridgeHubWestendPallet>::Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			sp_runtime::MultiAddress::Id(BridgeHubWestendSender::get()),
+			INITIAL_FUND * 10,
+		));
+
+		assert_err!(
+			<BridgeHubWestend as BridgeHubWestendPallet>::EthereumSystem::register_token(
+				RuntimeOrigin::root(),
+				Box::new(VersionedLocation::from(weth_location())),
+				AssetMetadata {
+					name: "weth".as_bytes().to_vec().try_into().unwrap(),
+					symbol: "weth".as_bytes().to_vec().try_into().unwrap(),
+					decimals: 18,
+				},
+			),
+			Error::<Runtime>::LocationConversionFailed
 		);
 	});
 }
