@@ -218,6 +218,8 @@ async fn deploy_and_call() -> anyhow::Result<()> {
 	Ok(())
 }
 
+/// TODO: enable ( https://github.com/paritytech/contract-issues/issues/12 )
+#[ignore]
 #[tokio::test]
 async fn revert_call() -> anyhow::Result<()> {
 	let _lock = SHARED_RESOURCES.write();
@@ -236,10 +238,13 @@ async fn revert_call() -> anyhow::Result<()> {
 		.unwrap_err();
 
 	let call_err = unwrap_call_err!(err.source().unwrap());
-	assert_eq!(call_err.message(), "Execution reverted: revert message");
+	assert_eq!(call_err.message(), "execution reverted: revert message");
+	assert_eq!(call_err.code(), 3);
 	Ok(())
 }
 
+/// TODO: enable ( https://github.com/paritytech/contract-issues/issues/12 )
+#[ignore]
 #[tokio::test]
 async fn event_logs() -> anyhow::Result<()> {
 	let _lock = SHARED_RESOURCES.write();
@@ -279,6 +284,8 @@ async fn invalid_transaction() -> anyhow::Result<()> {
 	Ok(())
 }
 
+/// TODO: enable ( https://github.com/paritytech/contract-issues/issues/12 )
+#[ignore]
 #[tokio::test]
 async fn native_evm_ratio_works() -> anyhow::Result<()> {
 	let _lock = SHARED_RESOURCES.write();

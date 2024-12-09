@@ -23,7 +23,7 @@ use jsonrpsee::{
 	core::{async_trait, RpcResult},
 	types::{ErrorCode, ErrorObjectOwned},
 };
-use pallet_revive::{evm::*, EthContractResult};
+use pallet_revive::evm::*;
 use sp_core::{keccak_256, H160, H256, U256};
 use thiserror::Error;
 
@@ -128,10 +128,22 @@ impl EthRpcServer for EthRpcServerImpl {
 	async fn estimate_gas(
 		&self,
 		transaction: GenericTransaction,
-		_block: Option<BlockNumberOrTag>,
+		block: Option<BlockNumberOrTag>,
 	) -> RpcResult<U256> {
-		let result = self.client.estimate_gas(&transaction, BlockTag::Latest.into()).await?;
-		Ok(result)
+		let dry_run = self.client.dry_run(transaction, block.unwrap_or_default().into()).await?;
+		Ok(dry_run.eth_gas)
+	}
+
+	async fn call(
+		&self,
+		transaction: GenericTransaction,
+		block: Option<BlockNumberOrTagOrHash>,
+	) -> RpcResult<Bytes> {
+		let dry_run = self
+			.client
+			.dry_run(transaction, block.unwrap_or_else(|| BlockTag::Latest.into()))
+			.await?;
+		Ok(dry_run.data.into())
 	}
 
 	async fn send_raw_transaction(&self, transaction: Bytes) -> RpcResult<H256> {
@@ -150,15 +162,17 @@ impl EthRpcServer for EthRpcServerImpl {
 		let tx = GenericTransaction::from_signed(tx, Some(eth_addr));
 
 		// Dry run the transaction to get the weight limit and storage deposit limit
-		let dry_run = self.client.dry_run(&tx, BlockTag::Latest.into()).await?;
+		let dry_run = self.client.dry_run(tx, BlockTag::Latest.into()).await?;
 
-		let EthContractResult { gas_required, storage_deposit, .. } = dry_run;
 		let call = subxt_client::tx().revive().eth_transact(
 			transaction.0,
-			gas_required.into(),
-			storage_deposit,
+			dry_run.gas_required.into(),
+			dry_run.storage_deposit,
 		);
-		self.client.submit(call).await?;
+		self.client.submit(call).await.map_err(|err| {
+			log::debug!(target: LOG_TARGET, "submit call failed: {err:?}");
+			err
+		})?;
 		log::debug!(target: LOG_TARGET, "send_raw_transaction hash: {hash:?}");
 		Ok(hash)
 	}
@@ -232,18 +246,6 @@ impl EthRpcServer for EthRpcServerImpl {
 
 	async fn accounts(&self) -> RpcResult<Vec<H160>> {
 		Ok(self.accounts.iter().map(|account| account.address()).collect())
-	}
-
-	async fn call(
-		&self,
-		transaction: GenericTransaction,
-		block: Option<BlockNumberOrTagOrHash>,
-	) -> RpcResult<Bytes> {
-		let dry_run = self
-			.client
-			.dry_run(&transaction, block.unwrap_or_else(|| BlockTag::Latest.into()))
-			.await?;
-		Ok(dry_run.result.into())
 	}
 
 	async fn get_block_by_number(
