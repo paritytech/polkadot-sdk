@@ -21,6 +21,7 @@
 #![cfg_attr(feature = "runtime-benchmarks", recursion_limit = "1024")]
 
 extern crate alloc;
+
 mod address;
 mod benchmarking;
 mod exec;
@@ -34,9 +35,9 @@ mod wasm;
 #[cfg(test)]
 mod tests;
 
-pub mod chain_extension;
 pub mod debug;
 pub mod evm;
+pub mod precompiles;
 pub mod test_utils;
 pub mod weights;
 
@@ -192,7 +193,7 @@ pub mod pallet {
 
 		/// Type that allows the runtime authors to add new host functions for a contract to call.
 		#[pallet::no_default_bounds]
-		type ChainExtension: chain_extension::ChainExtension<Self> + Default;
+		type Precompiles: precompiles::Precompiles<Self>;
 
 		/// The amount of balance a caller has to pay for each byte of storage.
 		///
@@ -213,7 +214,7 @@ pub mod pallet {
 		type DepositPerItem: Get<BalanceOf<Self>>;
 
 		/// The percentage of the storage deposit that should be held for using a code hash.
-		/// Instantiating a contract, or calling [`chain_extension::Ext::lock_delegate_dependency`]
+		/// Instantiating a contract, or calling [`exec::Ext::lock_delegate_dependency`]
 		/// protects the code from being removed. In order to prevent abuse these actions are
 		/// protected with a percentage of the code deposit.
 		#[pallet::constant]
@@ -352,7 +353,7 @@ pub mod pallet {
 			#[inject_runtime_type]
 			type RuntimeCall = ();
 			type CallFilter = ();
-			type ChainExtension = ();
+			type Precompiles = ();
 			type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 			type DepositPerByte = DepositPerByte;
 			type DepositPerItem = DepositPerItem;
@@ -488,10 +489,6 @@ pub mod pallet {
 		InputForwarded,
 		/// The amount of topics passed to `seal_deposit_events` exceeds the limit.
 		TooManyTopics,
-		/// The chain does not provide a chain extension. Calling the chain extension results
-		/// in this error. Note that this usually  shouldn't happen as deploying such contracts
-		/// is rejected.
-		NoChainExtension,
 		/// Failed to decode the XCM program.
 		XCMDecodeFailed,
 		/// A contract with the same AccountId already exists.

@@ -26,7 +26,7 @@ pub use crate::wasm::runtime::SyscallDoc;
 #[cfg(feature = "runtime-benchmarks")]
 pub use crate::wasm::runtime::{ReturnData, TrapReason};
 
-pub use crate::wasm::runtime::{Memory, Runtime, RuntimeCosts};
+pub use crate::wasm::runtime::{Runtime, RuntimeCosts};
 
 use crate::{
 	address::AddressMapper,

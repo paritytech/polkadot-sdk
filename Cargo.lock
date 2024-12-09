@@ -14825,6 +14825,7 @@ dependencies = [
 name = "pallet-revive"
 version = "0.1.0"
 dependencies = [
+ "alloy-core",
  "array-bytes",
  "assert_matches",
  "derive_more 0.99.17",
@@ -14865,6 +14866,7 @@ dependencies = [
  "staging-xcm 7.0.0",
  "staging-xcm-builder 7.0.0",
  "subxt-signer",
+ "trybuild",
 ]
 
 [[package]]

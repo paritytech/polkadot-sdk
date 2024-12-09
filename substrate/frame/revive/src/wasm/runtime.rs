@@ -381,8 +381,6 @@ pub enum RuntimeCosts {
 	EcdsaRecovery,
 	/// Weight of calling `seal_sr25519_verify` for the given input size.
 	Sr25519Verify(u32),
-	/// Weight charged by a chain extension through `seal_call_chain_extension`.
-	ChainExtension(Weight),
 	/// Weight charged for calling into the runtime.
 	CallRuntime(Weight),
 	/// Weight charged for calling xcm_execute.
@@ -520,7 +518,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			HashBlake128(len) => T::WeightInfo::seal_hash_blake2_128(len),
 			EcdsaRecovery => T::WeightInfo::seal_ecdsa_recover(),
 			Sr25519Verify(len) => T::WeightInfo::seal_sr25519_verify(len),
-			ChainExtension(weight) | CallRuntime(weight) | CallXcmExecute(weight) => weight,
+			CallRuntime(weight) | CallXcmExecute(weight) => weight,
 			SetCodeHash => T::WeightInfo::seal_set_code_hash(),
 			EcdsaToEthAddress => T::WeightInfo::seal_ecdsa_to_eth_address(),
 			LockDelegateDependency => T::WeightInfo::lock_delegate_dependency(),
@@ -570,7 +568,6 @@ fn already_charged(_: u32) -> Option<RuntimeCosts> {
 pub struct Runtime<'a, E: Ext, M: ?Sized> {
 	ext: &'a mut E,
 	input_data: Option<Vec<u8>>,
-	chain_extension: Option<Box<<E::T as Config>::ChainExtension>>,
 	_phantom_data: PhantomData<M>,
 }
 
@@ -620,18 +617,10 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 
 impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	pub fn new(ext: &'a mut E, input_data: Vec<u8>) -> Self {
-		Self {
-			ext,
-			input_data: Some(input_data),
-			chain_extension: Some(Box::new(Default::default())),
-			_phantom_data: Default::default(),
-		}
+		Self { ext, input_data: Some(input_data), _phantom_data: Default::default() }
 	}
 
 	/// Get a mutable reference to the inner `Ext`.
-	///
-	/// This is mainly for the chain extension to have access to the environment the
-	/// contract is executing in.
 	pub fn ext(&mut self) -> &mut E {
 		self.ext
 	}
@@ -639,7 +628,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	/// Charge the gas meter with the specified token.
 	///
 	/// Returns `Err(HostError)` if there is not enough gas.
-	pub fn charge_gas(&mut self, costs: RuntimeCosts) -> Result<ChargedAmount, DispatchError> {
+	fn charge_gas(&mut self, costs: RuntimeCosts) -> Result<ChargedAmount, DispatchError> {
 		charge_gas!(self, costs)
 	}
 
@@ -647,7 +636,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	///
 	/// This is when a maximum a priori amount was charged and then should be partially
 	/// refunded to match the actual amount.
-	pub fn adjust_gas(&mut self, charged: ChargedAmount, actual_costs: RuntimeCosts) {
+	fn adjust_gas(&mut self, charged: ChargedAmount, actual_costs: RuntimeCosts) {
 		self.ext.gas_meter_mut().adjust_gas(charged, actual_costs);
 	}
 
@@ -1727,36 +1716,6 @@ pub mod env {
 	fn ref_time_left(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
 		self.charge_gas(RuntimeCosts::RefTimeLeft)?;
 		Ok(self.ext.gas_meter().gas_left().ref_time())
-	}
-
-	/// Call into the chain extension provided by the chain if any.
-	/// See [`pallet_revive_uapi::HostFn::call_chain_extension`].
-	fn call_chain_extension(
-		&mut self,
-		memory: &mut M,
-		id: u32,
-		input_ptr: u32,
-		input_len: u32,
-		output_ptr: u32,
-		output_len_ptr: u32,
-	) -> Result<u32, TrapReason> {
-		use crate::chain_extension::{ChainExtension, Environment, RetVal};
-		if !<E::T as Config>::ChainExtension::enabled() {
-			return Err(Error::<E::T>::NoChainExtension.into());
-		}
-		let mut chain_extension = self.chain_extension.take().expect(
-            "Constructor initializes with `Some`. This is the only place where it is set to `None`.\
-			It is always reset to `Some` afterwards. qed",
-        );
-		let env =
-			Environment::new(self, memory, id, input_ptr, input_len, output_ptr, output_len_ptr);
-		let ret = match chain_extension.call(env)? {
-			RetVal::Converging(val) => Ok(val),
-			RetVal::Diverging { flags, data } =>
-				Err(TrapReason::Return(ReturnData { flags: flags.bits(), data })),
-		};
-		self.chain_extension = Some(chain_extension);
-		ret
 	}
 
 	/// Call some dispatchable of the runtime.
