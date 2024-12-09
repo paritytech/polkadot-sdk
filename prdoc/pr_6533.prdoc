@@ -9,3 +9,5 @@ crates:
     bump: major
   - name: sc-executor-polkavm
     bump: minor
+  - name: substrate-wasm-builder
+    bump: minor
