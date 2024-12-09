@@ -2081,7 +2081,7 @@ impl<T: Config> Pallet<T> {
 			"wrong external count"
 		);
 		ensure!(
-			ValidatorCount::<T>::get() <= T::MaxValidatorsCount::get(),
+			ValidatorCount::<T>::get() <= <T::ElectionProvider as frame_election_provider_support::ElectionProviderBase>::MaxWinners::get(),
 			Error::<T>::TooManyValidators
 		);
 		Ok(())

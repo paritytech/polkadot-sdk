@@ -1534,7 +1534,10 @@ pub mod pallet {
 			ensure_root(origin)?;
 			// ensure new validator count does not exceed maximum winners
 			// support by election provider.
-			ensure!(new <= T::MaxValidatorsCount::get(), Error::<T>::TooManyValidators);
+			ensure!(
+				new <= <T::ElectionProvider as ElectionProviderBase>::MaxWinners::get(),
+				Error::<T>::TooManyValidators
+			);
 			ValidatorCount::<T>::put(new);
 			Ok(())
 		}
@@ -1555,7 +1558,10 @@ pub mod pallet {
 			ensure_root(origin)?;
 			let old = ValidatorCount::<T>::get();
 			let new = old.checked_add(additional).ok_or(ArithmeticError::Overflow)?;
-			ensure!(new <= T::MaxValidatorsCount::get(), Error::<T>::TooManyValidators);
+			ensure!(
+				new <= <T::ElectionProvider as ElectionProviderBase>::MaxWinners::get(),
+				Error::<T>::TooManyValidators
+			);
 
 			ValidatorCount::<T>::put(new);
 			Ok(())
@@ -1575,7 +1581,10 @@ pub mod pallet {
 			let old = ValidatorCount::<T>::get();
 			let new = old.checked_add(factor.mul_floor(old)).ok_or(ArithmeticError::Overflow)?;
 
-			ensure!(new <= T::MaxValidatorsCount::get(), Error::<T>::TooManyValidators);
+			ensure!(
+				new <= <T::ElectionProvider as ElectionProviderBase>::MaxWinners::get(),
+				Error::<T>::TooManyValidators
+			);
 
 			ValidatorCount::<T>::put(new);
 			Ok(())
