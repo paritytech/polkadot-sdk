@@ -1,0 +1,11 @@
+title: "Migrate into polkavm 0.18.0"
+doc:
+  - audience: Runtime Dev
+    description: |
+      Migrate and update API's into polkavm 0.18.0.
+
+crates:
+  - name: sc-executor-common
+    bump: major
+  - name: sc-executor-polkavm
+    bump: minor
