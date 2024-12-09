@@ -2307,14 +2307,14 @@ impl State {
 			&self.topologies,
 			|block_entry| {
 				let block_age = max_age - block_entry.number;
-				// We want to resend only for blocks between min_age and min_age +
-				// resend_unfinalized_period, there is no point in resending for blocks newer than
-				// that, because we are just going to create load and not gain anything.
+				// We want to resend only for blocks of min_age, there is no point in
+				// resending for blocks newer than that, because we are just going to create load
+				// and not gain anything.
 				let diff_from_min_age = block_entry.number - min_age;
 
 				// We want to back-off on resending for blocks that have been resent recently, to
 				// give time for nodes to process all the extra messages, if we still have not
-				// finalized we are going to resend again after unfinalized_period * 3 since the
+				// finalized we are going to resend again after unfinalized_period * 2 since the
 				// last resend.
 				let blocks_since_last_sent = block_entry
 					.last_resent_at_block_number
@@ -2323,14 +2323,14 @@ impl State {
 				let can_resend_at_this_age = blocks_since_last_sent
 					.zip(config.resend_unfinalized_period)
 					.map(|(blocks_since_last_sent, unfinalized_period)| {
-						blocks_since_last_sent > unfinalized_period * 3
+						blocks_since_last_sent >= unfinalized_period * 2
 					})
 					.unwrap_or(true);
 
 				if resend == Resend::Yes &&
 					config.resend_unfinalized_period.as_ref().map_or(false, |p| {
 						block_age > 0 &&
-							block_age % p == 0 && diff_from_min_age < *p &&
+							block_age % p == 0 && diff_from_min_age == 0 &&
 							can_resend_at_this_age
 					}) {
 					// Retry sending to all peers.
@@ -2341,6 +2341,7 @@ impl State {
 					gum::debug!(
 						target: LOG_TARGET,
 						block_number = ?block_entry.number,
+						?max_age,
 						"Aggression enabled with resend for block",
 					);
 					true
