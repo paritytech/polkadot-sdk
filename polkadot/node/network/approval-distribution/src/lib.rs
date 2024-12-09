@@ -514,7 +514,7 @@ struct BlockEntry {
 	vrf_story: RelayVRFStory,
 	/// The block slot.
 	slot: Slot,
-	/// Backing of from re-sending messages to peers.
+	/// Backing off from re-sending messages to peers.
 	last_resent_at_block_number: Option<u32>,
 }
 
