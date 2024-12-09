@@ -1411,10 +1411,10 @@ impl SignaturePayload for () {
 
 /// Implementor is an [`Extrinsic`] and provides metadata about this extrinsic.
 pub trait ExtrinsicMetadata {
-	/// The format version of the `Extrinsic`.
+	/// The format versions of the `Extrinsic`.
 	///
-	/// By format is meant the encoded representation of the `Extrinsic`.
-	const VERSION: u8;
+	/// By format we mean the encoded representation of the `Extrinsic`.
+	const VERSIONS: &'static [u8];
 
 	/// Transaction extensions attached to this `Extrinsic`.
 	type TransactionExtensions;
@@ -2350,7 +2350,8 @@ pub trait BlockNumberProvider {
 		+ TypeInfo
 		+ Debug
 		+ MaxEncodedLen
-		+ Copy;
+		+ Copy
+		+ EncodeLike;
 
 	/// Returns the current block number.
 	///
