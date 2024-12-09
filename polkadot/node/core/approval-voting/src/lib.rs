@@ -1866,6 +1866,9 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 	}
 
 	messages[0] = ApprovalDistributionMessage::NewBlocks(approval_meta);
+	// Approvals are appended at the end, to make sure all assignments are sent
+	// before the approvals, otherwise if they arrive ahead in approval-distribution
+	// they will be ignored.
 	messages.extend(approvals.into_iter());
 	Ok((messages, actions))
 }
