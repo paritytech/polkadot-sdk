@@ -47,7 +47,7 @@ mock_runtimes_matrix = [
 
 def get_mock_bench_output(runtime, pallets, output_path, header, bench_flags, template = None):
     return f"frame-omni-bencher v1 benchmark pallet --extrinsic=* " \
-           f"--runtime=target/release/wbuild/{runtime}-runtime/{runtime.replace('-', '_')}_runtime.wasm " \
+           f"--runtime=target/production/wbuild/{runtime}-runtime/{runtime.replace('-', '_')}_runtime.wasm " \
            f"--pallet={pallets} --header={header} " \
            f"--output={output_path} " \
            f"--wasm-execution=compiled " \
@@ -93,7 +93,7 @@ class TestCmd(unittest.TestCase):
 
     def test_bench_command_normal_execution_all_runtimes(self):
         self.mock_parse_args.return_value = (argparse.Namespace(
-            command='bench',
+            command='bench-omni',
             runtime=list(map(lambda x: x['name'], mock_runtimes_matrix)),
             pallet=['pallet_balances'],
             fail_fast=True,
@@ -117,10 +117,10 @@ class TestCmd(unittest.TestCase):
 
             expected_calls = [
                 # Build calls
-                call("forklift cargo build -p kitchensink-runtime --profile release --features=runtime-benchmarks"),
-                call("forklift cargo build -p westend-runtime --profile release --features=runtime-benchmarks"),
-                call("forklift cargo build -p rococo-runtime --profile release --features=runtime-benchmarks"),
-                call("forklift cargo build -p asset-hub-westend-runtime --profile release --features=runtime-benchmarks"),
+                call("forklift cargo build -p kitchensink-runtime --profile production --features=runtime-benchmarks"),
+                call("forklift cargo build -p westend-runtime --profile production --features=runtime-benchmarks"),
+                call("forklift cargo build -p rococo-runtime --profile production --features=runtime-benchmarks"),
+                call("forklift cargo build -p asset-hub-westend-runtime --profile production --features=runtime-benchmarks"),
 
                 call(get_mock_bench_output(
                     runtime='kitchensink',
@@ -150,7 +150,7 @@ class TestCmd(unittest.TestCase):
 
     def test_bench_command_normal_execution(self):
         self.mock_parse_args.return_value = (argparse.Namespace(
-            command='bench',
+            command='bench-omni',
             runtime=['westend'],
             pallet=['pallet_balances', 'pallet_staking'],
             fail_fast=True,
@@ -170,7 +170,7 @@ class TestCmd(unittest.TestCase):
 
             expected_calls = [
                 # Build calls
-                call("forklift cargo build -p westend-runtime --profile release --features=runtime-benchmarks"),
+                call("forklift cargo build -p westend-runtime --profile production --features=runtime-benchmarks"),
 
                 # Westend runtime calls
                 call(get_mock_bench_output(
@@ -193,7 +193,7 @@ class TestCmd(unittest.TestCase):
 
     def test_bench_command_normal_execution_xcm(self):
         self.mock_parse_args.return_value = (argparse.Namespace(
-            command='bench',
+            command='bench-omni',
             runtime=['westend'],
             pallet=['pallet_xcm_benchmarks::generic'],
             fail_fast=True,
@@ -213,7 +213,7 @@ class TestCmd(unittest.TestCase):
 
             expected_calls = [
                 # Build calls
-                call("forklift cargo build -p westend-runtime --profile release --features=runtime-benchmarks"),
+                call("forklift cargo build -p westend-runtime --profile production --features=runtime-benchmarks"),
 
                 # Westend runtime calls
                 call(get_mock_bench_output(
@@ -229,7 +229,7 @@ class TestCmd(unittest.TestCase):
 
     def test_bench_command_two_runtimes_two_pallets(self):
         self.mock_parse_args.return_value = (argparse.Namespace(
-            command='bench',
+            command='bench-omni',
             runtime=['westend', 'rococo'],
             pallet=['pallet_balances', 'pallet_staking'],
             fail_fast=True,
@@ -250,8 +250,8 @@ class TestCmd(unittest.TestCase):
 
             expected_calls = [
                 # Build calls
-                call("forklift cargo build -p westend-runtime --profile release --features=runtime-benchmarks"),
-                call("forklift cargo build -p rococo-runtime --profile release --features=runtime-benchmarks"),
+                call("forklift cargo build -p westend-runtime --profile production --features=runtime-benchmarks"),
+                call("forklift cargo build -p rococo-runtime --profile production --features=runtime-benchmarks"),
                 # Westend runtime calls
                 call(get_mock_bench_output(
                     runtime='westend',
@@ -287,7 +287,7 @@ class TestCmd(unittest.TestCase):
 
     def test_bench_command_one_dev_runtime(self):
         self.mock_parse_args.return_value = (argparse.Namespace(
-            command='bench',
+            command='bench-omni',
             runtime=['dev'],
             pallet=['pallet_balances'],
             fail_fast=True,
@@ -309,7 +309,7 @@ class TestCmd(unittest.TestCase):
 
             expected_calls = [
                 # Build calls
-                call("forklift cargo build -p kitchensink-runtime --profile release --features=runtime-benchmarks"),
+                call("forklift cargo build -p kitchensink-runtime --profile production --features=runtime-benchmarks"),
                 # Westend runtime calls
                 call(get_mock_bench_output(
                     runtime='kitchensink',
@@ -324,7 +324,7 @@ class TestCmd(unittest.TestCase):
 
     def test_bench_command_one_cumulus_runtime(self):
         self.mock_parse_args.return_value = (argparse.Namespace(
-            command='bench',
+            command='bench-omni',
             runtime=['asset-hub-westend'],
             pallet=['pallet_assets'],
             fail_fast=True,
@@ -344,7 +344,7 @@ class TestCmd(unittest.TestCase):
 
             expected_calls = [
                 # Build calls
-                call("forklift cargo build -p asset-hub-westend-runtime --profile release --features=runtime-benchmarks"),
+                call("forklift cargo build -p asset-hub-westend-runtime --profile production --features=runtime-benchmarks"),
                 # Asset-hub-westend runtime calls
                 call(get_mock_bench_output(
                     runtime='asset-hub-westend',
@@ -359,7 +359,7 @@ class TestCmd(unittest.TestCase):
 
     def test_bench_command_one_cumulus_runtime_xcm(self):
         self.mock_parse_args.return_value = (argparse.Namespace(
-            command='bench',
+            command='bench-omni',
             runtime=['asset-hub-westend'],
             pallet=['pallet_xcm_benchmarks::generic', 'pallet_assets'],
             fail_fast=True,
@@ -379,7 +379,7 @@ class TestCmd(unittest.TestCase):
 
             expected_calls = [
                 # Build calls
-                call("forklift cargo build -p asset-hub-westend-runtime --profile release --features=runtime-benchmarks"),
+                call("forklift cargo build -p asset-hub-westend-runtime --profile production --features=runtime-benchmarks"),
                 # Asset-hub-westend runtime calls
                 call(get_mock_bench_output(
                     runtime='asset-hub-westend',
