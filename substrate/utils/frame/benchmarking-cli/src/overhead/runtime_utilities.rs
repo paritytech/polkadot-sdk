@@ -35,14 +35,19 @@ pub fn fetch_latest_metadata_from_code_blob<HF: HostFunctions>(
 
 	let opaque_metadata: OpaqueMetadata = match version_result {
 		Ok(supported_versions) => {
-			let latest_version = Vec::<u32>::decode(&mut supported_versions.as_slice())
-				.map_err(|e| format!("Unable to decode version list: {e}"))?
-				.pop()
-				.ok_or("No metadata versions supported".to_string())?;
+			let supported_versions = Vec::<u32>::decode(&mut supported_versions.as_slice())
+				.map_err(|e| format!("Unable to decode version list: {e}"))?;
+
+			let latest_stable = supported_versions
+				.into_iter()
+				.filter(|v| *v != u32::MAX)
+				.max()
+				.ok_or("No stable metadata versions supported".to_string())?;
 
 			let encoded = runtime_caller
-				.call("Metadata_metadata_at_version", latest_version)
+				.call("Metadata_metadata_at_version", latest_stable)
 				.map_err(|_| "Unable to fetch metadata from blob".to_string())?;
+
 			Option::<OpaqueMetadata>::decode(&mut encoded.as_slice())?
 				.ok_or_else(|| "Metadata not found".to_string())?
 		},
