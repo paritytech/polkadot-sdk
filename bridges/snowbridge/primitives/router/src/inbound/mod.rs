@@ -259,7 +259,13 @@ where
 				instructions.extend(vec![
 					// Perform a deposit reserve to send to destination chain.
 					DepositReserveAsset {
+<<<<<<< HEAD
 						assets: Definite(vec![dest_para_fee_asset.clone(), asset.clone()].into()),
+=======
+						// Send over assets and unspent fees, XCM delivery fee will be charged from
+						// here.
+						assets: Wild(AllCounted(2)),
+>>>>>>> e79fd2b (xcm-executor: take transport fee from transferred assets if necessary (#4834))
 						dest: Location::new(1, [Parachain(dest_para_id)]),
 						xcm: vec![
 							// Buy execution on target.
