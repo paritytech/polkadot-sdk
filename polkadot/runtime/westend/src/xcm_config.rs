@@ -183,6 +183,11 @@ pub type Barrier = TrailingSetTopicAsId<(
 /// We only waive fees for system functions, which these locations represent.
 pub type WaivedLocations = (SystemParachains, Equals<RootLocation>, LocalPlurality);
 
+/// We let locations alias into child locations of their own.
+/// This is a very simple aliasing rule, mimicking the behaviour of
+/// the `DescendOrigin` instruction.
+pub type Aliasers = AliasChildLocation;
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -216,7 +221,7 @@ impl xcm_executor::Config for XcmConfig {
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
-	type Aliasers = Nothing;
+	type Aliasers = Aliasers;
 	type TransactionalProcessor = FrameTransactionalProcessor;
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
