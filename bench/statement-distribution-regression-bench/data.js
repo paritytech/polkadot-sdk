@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733495168031,
+  "lastUpdate": 1733704580689,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -23667,6 +23667,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03530249329200001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "franciscoaguirreperez@gmail.com",
+            "name": "Francisco Aguirre",
+            "username": "franciscoaguirre"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "906fa9e51306635245a22e03160d1c761fae6cc3",
+          "message": "XCM V5 - SetHints instruction (#6566)\n\nLast feature we wanted for V5, changing `SetAssetClaimer` to be just one\nof many possible \"hints\" that you can specify at the beginning of your\nprogram to change its behaviour.\n\nThis makes it easier to add new hints in the future and have barriers\naccept them.\n\n---------\n\nCo-authored-by: GitHub Action <action@github.com>",
+          "timestamp": "2024-12-08T23:02:38Z",
+          "tree_id": "eb5adfc56c5c6a486ea39ced93a49577a136f4a6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/906fa9e51306635245a22e03160d1c761fae6cc3"
+        },
+        "date": 1733704561785,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.94399999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.045702662501999954,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.035516034798000015,
             "unit": "seconds"
           }
         ]
