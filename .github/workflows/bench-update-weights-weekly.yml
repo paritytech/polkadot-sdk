@@ -1,0 +1,154 @@
+name: Weekly update of benchmarks (frame-omni-bencher)
+
+on:
+  pull_request: 
+  schedule:
+    - cron: '0 1 * * 0' # weekly on Sunday night 01:00 UTC
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions: # allow the action to create a PR
+  contents: write
+  issues: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  preflight:
+    uses: ./.github/workflows/reusable-preflight.yml
+
+  runtime-matrix:
+    runs-on: ubuntu-latest
+    needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
+    timeout-minutes: 30
+    outputs:
+      runtime: ${{ steps.runtime.outputs.runtime }}
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    name: Extract runtimes from matrix
+    steps:
+      - uses: actions/checkout@v4
+      - id: runtime
+        run: |
+          # only first two runtimes
+          RUNTIMES=$(jq '[.[] | select(.package != null)]' .github/workflows/runtimes-matrix.json | jq '.[0:2]')
+
+          RUNTIMES=$(echo $RUNTIMES | jq -c .)
+          echo "runtime=$RUNTIMES"
+          echo "runtime=$RUNTIMES" >> $GITHUB_OUTPUT
+
+  run-frame-omni-bencher:
+    runs-on: ${{ needs.preflight.outputs.RUNNER_WEIGHTS }}
+    needs: [preflight, runtime-matrix]
+    if: ${{ needs.preflight.outputs.changes_rust }}
+    timeout-minutes: 1440 # 24 hours per runtime
+    strategy:
+      fail-fast: false # keep running other workflows even if one fails, to see the logs of all possible failures
+      matrix:
+        runtime: ${{ fromJSON(needs.runtime-matrix.outputs.runtime) }}
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    env:
+      PACKAGE_NAME: ${{ matrix.runtime.package }}
+      FLAGS: ${{ matrix.runtime.bench_flags }}
+      RUST_LOG: "frame_omni_bencher=info,polkadot_sdk_frame=info"
+    steps:
+    
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: master
+
+
+      - name: script
+        id: required
+        run: |
+          cargo install subweight --locked
+          cargo install --path substrate/utils/frame/omni-bencher --locked
+          # Fixes "detected dubious ownership" error in the ci
+          git config --global --add safe.directory '*'
+          git remote -v
+          python3 -m pip install -r .github/scripts/generate-prdoc.requirements.txt
+          python3 .github/scripts/cmd/cmd.py bench --runtime ${{ matrix.runtime.name }} --pallet pallet_balances
+          git add .
+          git status
+
+          if [ -f /tmp/cmd/command_output.log ]; then
+            CMD_OUTPUT=$(cat /tmp/cmd/command_output.log)
+            # export to summary to display in the PR
+            echo "$CMD_OUTPUT" >> $GITHUB_STEP_SUMMARY
+            # should be multiline, otherwise it captures the first line only
+            echo 'cmd_output<<EOF' >> $GITHUB_OUTPUT
+            echo "$CMD_OUTPUT" >> $GITHUB_OUTPUT
+            echo 'EOF' >> $GITHUB_OUTPUT
+          fi
+          git diff HEAD > diff-${{ matrix.runtime.name }}.patch
+      
+      - name: Upload diff
+        uses: actions/upload-artifact@v4
+        with:
+          name: diff-${{ matrix.runtime.name }}
+          path: diff-${{ matrix.runtime.name }}.patch
+
+  apply-diff-commit:
+    runs-on: ubuntu-latest
+    needs: [run-frame-omni-bencher]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: patches
+      
+      - uses: actions/create-github-app-token@v1
+        id: generate_token
+        with:
+          app-id: ${{ secrets.CMD_BOT_APP_ID }}
+          private-key: ${{ secrets.CMD_BOT_APP_KEY }}
+
+      - name: Apply diff from artifacts folder
+        run: |
+          # scan all patch files in the patches directory
+          for file in patches/diff-*/diff-*.patch; do
+            if [ -f "$file" ]; then
+              echo "Applying $file"
+              git apply "$file"
+            fi
+          done
+          DATE=$(date +'%Y-%m-%d-%s')
+          BRANCH="update-weights-weekly-$DATE"
+          rm -rf patches
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "$BRANCH"
+          git status
+          git add .
+          git commit -m "Update all weights weekly for $DATE"
+          git push --set-upstream origin "$BRANCH"
+          git status
+          gh auth login --with-token ${{ steps.generate_token.outputs.token }}
+          gh pr create --title "Update weights weekly for $DATE" --body "Update weights weekly for $DATE"
+
+  confirm-frame-omni-benchers-passed:
+    runs-on: ubuntu-latest
+    name: All benchmarks passed
+    needs: [run-frame-omni-bencher]
+    if: always() && !cancelled()
+    steps:
+      - run: |
+          tee resultfile <<< '${{ toJSON(needs) }}'
+          FAILURES=$(cat resultfile | grep '"result": "failure"' | wc -l)
+          if [ $FAILURES -gt 0 ]; then
+            echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo '### Good job! All the required jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
+          fi
