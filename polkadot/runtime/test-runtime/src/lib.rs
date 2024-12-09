@@ -93,7 +93,7 @@ use sp_staking::SessionIndex;
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use xcm::v4::{Assets, InteriorLocation, Location, SendError, SendResult, SendXcm, XcmHash};
+use xcm::latest::{Assets, InteriorLocation, Location, SendError, SendResult, SendXcm, XcmHash};
 
 pub use pallet_balances::Call as BalancesCall;
 #[cfg(feature = "std")]
@@ -395,7 +395,7 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = polkadot_runtime_common::StakingBenchmarkingConfig;
 	type EventListeners = ();
 	type WeightInfo = ();
-	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
+	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy;
 }
 
 parameter_types! {
@@ -640,7 +640,7 @@ impl SendXcm for DummyXcmSender {
 	type Ticket = ();
 	fn validate(
 		_: &mut Option<Location>,
-		_: &mut Option<xcm::v4::Xcm<()>>,
+		_: &mut Option<xcm::latest::Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
 		Ok(((), Assets::new()))
 	}

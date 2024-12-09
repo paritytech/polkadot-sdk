@@ -19,7 +19,7 @@ mod imports {
 	pub use frame_support::{assert_ok, sp_runtime::DispatchResult, traits::fungibles::Inspect};
 
 	// Polkadot
-	pub use xcm::prelude::*;
+	pub use xcm::{latest::WESTEND_GENESIS_HASH, prelude::*};
 
 	// Cumulus
 	pub use asset_test_utils::xcm_helpers;

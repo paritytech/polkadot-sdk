@@ -186,9 +186,9 @@ macro_rules! assert_pool_status {
 
 #[macro_export]
 macro_rules! assert_ready_iterator {
-	($hash:expr, $pool:expr, [$( $xt:expr ),+]) => {{
+	($hash:expr, $pool:expr, [$( $xt:expr ),*]) => {{
 		let ready_iterator = $pool.ready_at($hash).now_or_never().unwrap();
-		let expected = vec![ $($pool.api().hash_and_length(&$xt).0),+];
+		let expected = vec![ $($pool.api().hash_and_length(&$xt).0),*];
 		let output: Vec<_> = ready_iterator.collect();
 		log::debug!(target:LOG_TARGET, "expected: {:#?}", expected);
 		log::debug!(target:LOG_TARGET, "output: {:#?}", output);
@@ -198,6 +198,20 @@ macro_rules! assert_ready_iterator {
 				o.hash == *e
 			})
 		);
+	}};
+}
+
+#[macro_export]
+macro_rules! assert_future_iterator {
+	($hash:expr, $pool:expr, [$( $xt:expr ),*]) => {{
+		let futures = $pool.futures_at($hash).unwrap();
+		let expected = vec![ $($pool.api().hash_and_length(&$xt).0),*];
+		log::debug!(target:LOG_TARGET, "expected: {:#?}", futures);
+		log::debug!(target:LOG_TARGET, "output: {:#?}", expected);
+		assert_eq!(expected.len(), futures.len());
+		let hsf = futures.iter().map(|a| a.hash).collect::<std::collections::HashSet<_>>();
+		let hse = expected.into_iter().collect::<std::collections::HashSet<_>>();
+		assert_eq!(hse,hsf);
 	}};
 }
 

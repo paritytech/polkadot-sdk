@@ -80,6 +80,9 @@ use bridge_hub_common::{
 };
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
+
+#[cfg(feature = "runtime-benchmarks")]
+use xcm::latest::WESTEND_GENESIS_HASH;
 use xcm::VersionedLocation;
 use xcm_config::{TreasuryAccount, XcmOriginToTransactDispatchOrigin, XcmRouter};
 
@@ -166,7 +169,6 @@ pub type Migrations = (
 		bridge_to_westend_config::WithBridgeHubWestendMessagesInstance,
 	>,
 	bridge_to_westend_config::migration::StaticToDynamicLanes,
-	bridge_to_bulletin_config::migration::StaticToDynamicLanes,
 	frame_support::migrations::RemoveStorage<
 		BridgeWestendMessagesPalletName,
 		OutboundLanesCongestedSignalsKey,
@@ -534,6 +536,7 @@ impl pallet_multisig::Config for Runtime {
 	type DepositFactor = DepositFactor;
 	type MaxSignatories = ConstU32<100>;
 	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -843,7 +846,8 @@ impl_runtime_apis! {
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
-			match asset.try_as::<AssetId>() {
+			let latest_asset_id: Result<AssetId, ()> = asset.clone().try_into();
+			match latest_asset_id {
 				Ok(asset_id) if asset_id.0 == xcm_config::TokenLocation::get() => {
 					// for native token
 					Ok(WeightToFee::weight_to_fee(&weight))
@@ -1270,7 +1274,7 @@ impl_runtime_apis! {
 					);
 
 					// open bridge
-					let bridge_destination_universal_location: InteriorLocation = [GlobalConsensus(NetworkId::Westend), Parachain(8765)].into();
+					let bridge_destination_universal_location: InteriorLocation = [GlobalConsensus(NetworkId::ByGenesis(WESTEND_GENESIS_HASH)), Parachain(8765)].into();
 					let locations = XcmOverBridgeHubWestend::bridge_locations(
 						sibling_parachain_location.clone(),
 						bridge_destination_universal_location.clone(),
@@ -1292,7 +1296,7 @@ impl_runtime_apis! {
 					Ok(
 						(
 							sibling_parachain_location,
-							NetworkId::Westend,
+							NetworkId::ByGenesis(WESTEND_GENESIS_HASH),
 							[Parachain(8765)].into()
 						)
 					)

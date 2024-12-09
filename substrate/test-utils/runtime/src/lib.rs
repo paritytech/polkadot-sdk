@@ -292,6 +292,7 @@ impl sp_runtime::traits::TransactionExtension<RuntimeCall> for CheckSubstrateCal
 		_len: usize,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
 	) -> Result<
 		(ValidTransaction, Self::Val, <RuntimeCall as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,
@@ -1053,7 +1054,7 @@ mod tests {
 	use sp_core::{storage::well_known_keys::HEAP_PAGES, traits::CallContext};
 	use sp_runtime::{
 		traits::{DispatchTransaction, Hash as _},
-		transaction_validity::{InvalidTransaction, ValidTransaction},
+		transaction_validity::{InvalidTransaction, TransactionSource::External, ValidTransaction},
 	};
 	use substrate_test_runtime_client::{
 		prelude::*, runtime::TestAPI, DefaultTestClientBuilderExt, TestClientBuilder,
@@ -1211,6 +1212,8 @@ mod tests {
 						&ExtrinsicBuilder::new_call_with_priority(16).build().function,
 						&info,
 						len,
+						External,
+						0,
 					)
 					.unwrap()
 					.0
@@ -1225,6 +1228,8 @@ mod tests {
 						&ExtrinsicBuilder::new_call_do_not_propagate().build().function,
 						&info,
 						len,
+						External,
+						0,
 					)
 					.unwrap()
 					.0

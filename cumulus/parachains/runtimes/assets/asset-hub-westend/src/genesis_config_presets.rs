@@ -18,6 +18,7 @@
 use crate::*;
 use alloc::{vec, vec::Vec};
 use cumulus_primitives_core::ParaId;
+use frame_support::build_struct_json_patch;
 use hex_literal::hex;
 use parachains_common::{AccountId, AuraId};
 use sp_core::crypto::UncheckedInto;
@@ -35,15 +36,14 @@ fn asset_hub_westend_genesis(
 	endowment: Balance,
 	id: ParaId,
 ) -> serde_json::Value {
-	let config = RuntimeGenesisConfig {
+	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect(),
 		},
-		parachain_info: ParachainInfoConfig { parachain_id: id, ..Default::default() },
+		parachain_info: ParachainInfoConfig { parachain_id: id },
 		collator_selection: CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: ASSET_HUB_WESTEND_ED * 16,
-			..Default::default()
 		},
 		session: SessionConfig {
 			keys: invulnerables
@@ -56,16 +56,9 @@ fn asset_hub_westend_genesis(
 					)
 				})
 				.collect(),
-			..Default::default()
 		},
-		polkadot_xcm: PolkadotXcmConfig {
-			safe_xcm_version: Some(SAFE_XCM_VERSION),
-			..Default::default()
-		},
-		..Default::default()
-	};
-
-	serde_json::to_value(config).expect("Could not build genesis config.")
+		polkadot_xcm: PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
+	})
 }
 
 /// Encapsulates names of predefined presets.

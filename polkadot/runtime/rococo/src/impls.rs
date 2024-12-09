@@ -163,7 +163,7 @@ where
 			// Poke the deposit to reserve the appropriate amount on the parachain.
 			Transact {
 				origin_kind: OriginKind::Superuser,
-				require_weight_at_most: remote_weight_limit,
+				fallback_max_weight: Some(remote_weight_limit),
 				call: poke.encode().into(),
 			},
 		]);
@@ -171,8 +171,8 @@ where
 		// send
 		let _ = <pallet_xcm::Pallet<Runtime>>::send(
 			RawOrigin::Root.into(),
-			Box::new(VersionedLocation::V4(destination)),
-			Box::new(VersionedXcm::V4(program)),
+			Box::new(VersionedLocation::from(destination)),
+			Box::new(VersionedXcm::from(program)),
 		)?;
 		Ok(())
 	}

@@ -36,6 +36,7 @@ extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 use assets_common::{
+	foreign_creators::ForeignCreators,
 	local_and_foreign_assets::{LocalFromLeft, TargetFromLeft},
 	AssetIdForTrustBackedAssetsConvert,
 };
@@ -82,7 +83,7 @@ pub use sp_runtime::{traits::ConvertInto, MultiAddress, Perbill, Permill};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use xcm_config::{ForeignAssetsAssetId, XcmOriginToTransactDispatchOrigin};
+use xcm_config::{ForeignAssetsAssetId, LocationToAccountId, XcmOriginToTransactDispatchOrigin};
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -494,7 +495,10 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type AssetId = ForeignAssetsAssetId;
 	type AssetIdParameter = ForeignAssetsAssetId;
 	type Currency = Balances;
-	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
+	// This is to allow any other remote location to create foreign assets. Used in tests, not
+	// recommended on real chains.
+	type CreateOrigin =
+		ForeignCreators<Everything, LocationToAccountId, AccountId, xcm::latest::Location>;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type AssetDeposit = ForeignAssetsAssetDeposit;
 	type MetadataDepositBase = ForeignAssetsMetadataDepositBase;

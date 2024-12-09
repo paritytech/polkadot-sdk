@@ -1,0 +1,24 @@
+title: Adds `BlockNumberProvider` in multisig, proxy and nft pallets
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR adds the ability for these pallets to specify their source of the block number.
+      This is useful when these pallets are migrated from the relay chain to a parachain and 
+      vice versa.
+
+      This change is backwards compatible:
+      1. If the `BlockNumberProvider` continues to use the system pallet's block number
+      2. When a pallet deployed on the relay chain is moved to a parachain, but still uses the 
+      relay chain's block number
+
+      However, we would need migrations if the deployed pallets are upgraded on an existing parachain,
+      and the `BlockNumberProvider` uses the relay chain block number.  
+
+crates:
+  - name: pallet-multisig
+    bump: major
+  - name: pallet-proxy
+    bump: major
+  - name: pallet-nfts
+    bump: major

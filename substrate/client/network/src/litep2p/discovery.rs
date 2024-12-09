@@ -27,7 +27,6 @@ use array_bytes::bytes2hex;
 use futures::{FutureExt, Stream};
 use futures_timer::Delay;
 use ip_network::IpNetwork;
-use libp2p::kad::record::Key as KademliaKey;
 use litep2p::{
 	protocol::{
 		libp2p::{
@@ -45,6 +44,7 @@ use litep2p::{
 	PeerId, ProtocolName,
 };
 use parking_lot::RwLock;
+use sc_network_types::kad::Key as KademliaKey;
 use schnellru::{ByLength, LruMap};
 
 use std::{
@@ -162,6 +162,9 @@ pub enum DiscoveryEvent {
 
 /// Discovery.
 pub struct Discovery {
+	/// Local peer ID.
+	local_peer_id: litep2p::PeerId,
+
 	/// Ping event stream.
 	ping_event_stream: Box<dyn Stream<Item = PingEvent> + Send + Unpin>,
 
@@ -233,6 +236,7 @@ impl Discovery {
 	/// Enables `/ipfs/ping/1.0.0` and `/ipfs/identify/1.0.0` by default and starts
 	/// the mDNS peer discovery if it was enabled.
 	pub fn new<Hash: AsRef<[u8]> + Clone>(
+		local_peer_id: litep2p::PeerId,
 		config: &NetworkConfiguration,
 		genesis_hash: Hash,
 		fork_id: Option<&str>,
@@ -273,6 +277,7 @@ impl Discovery {
 
 		(
 			Self {
+				local_peer_id,
 				ping_event_stream,
 				identify_event_stream,
 				mdns_event_stream,
@@ -591,24 +596,43 @@ impl Stream for Discovery {
 				observed_address,
 				..
 			})) => {
-				let (is_new, expired_address) =
-					this.is_new_external_address(&observed_address, peer);
+				let observed_address =
+					if let Some(Protocol::P2p(peer_id)) = observed_address.iter().last() {
+						if peer_id != *this.local_peer_id.as_ref() {
+							log::warn!(
+								target: LOG_TARGET,
+								"Discovered external address for a peer that is not us: {observed_address}",
+							);
+							None
+						} else {
+							Some(observed_address)
+						}
+					} else {
+						Some(observed_address.with(Protocol::P2p(this.local_peer_id.into())))
+					};
 
-				if let Some(expired_address) = expired_address {
-					log::trace!(
-						target: LOG_TARGET,
-						"Removing expired external address expired={expired_address} is_new={is_new} observed={observed_address}",
-					);
+				// Ensure that an external address with a different peer ID does not have
+				// side effects of evicting other external addresses via `ExternalAddressExpired`.
+				if let Some(observed_address) = observed_address {
+					let (is_new, expired_address) =
+						this.is_new_external_address(&observed_address, peer);
 
-					this.pending_events.push_back(DiscoveryEvent::ExternalAddressExpired {
-						address: expired_address,
-					});
-				}
+					if let Some(expired_address) = expired_address {
+						log::trace!(
+							target: LOG_TARGET,
+							"Removing expired external address expired={expired_address} is_new={is_new} observed={observed_address}",
+						);
 
-				if is_new {
-					this.pending_events.push_back(DiscoveryEvent::ExternalAddressDiscovered {
-						address: observed_address.clone(),
-					});
+						this.pending_events.push_back(DiscoveryEvent::ExternalAddressExpired {
+							address: expired_address,
+						});
+					}
+
+					if is_new {
+						this.pending_events.push_back(DiscoveryEvent::ExternalAddressDiscovered {
+							address: observed_address.clone(),
+						});
+					}
 				}
 
 				return Poll::Ready(Some(DiscoveryEvent::Identified {

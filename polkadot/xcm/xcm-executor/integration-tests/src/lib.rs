@@ -17,7 +17,7 @@
 #![cfg(test)]
 
 use codec::Encode;
-use frame_support::{dispatch::GetDispatchInfo, weights::Weight};
+use frame_support::weights::Weight;
 use polkadot_test_client::{
 	BlockBuilderExt, ClientBlockImportExt, DefaultTestClientBuilderExt, InitPolkadotBlockBuilder,
 	TestClientBuilder, TestClientBuilderExt,
@@ -81,8 +81,8 @@ fn transact_recursion_limit_works() {
 			BuyExecution { fees: (Here, 1).into(), weight_limit: Unlimited },
 			Transact {
 				origin_kind: OriginKind::Native,
-				require_weight_at_most: call.get_dispatch_info().call_weight,
 				call: call.encode().into(),
+				fallback_max_weight: None,
 			},
 		])
 	};
@@ -241,7 +241,7 @@ fn query_response_fires() {
 		assert_eq!(
 			polkadot_test_runtime::Xcm::query(query_id),
 			Some(QueryStatus::Ready {
-				response: VersionedResponse::V4(Response::ExecutionResult(None)),
+				response: VersionedResponse::from(Response::ExecutionResult(None)),
 				at: 2u32.into()
 			}),
 		)

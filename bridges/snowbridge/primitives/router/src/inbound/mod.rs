@@ -7,7 +7,7 @@ mod tests;
 
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
-use frame_support::{traits::tokens::Balance as BalanceT, weights::Weight, PalletError};
+use frame_support::{traits::tokens::Balance as BalanceT, PalletError};
 use scale_info::TypeInfo;
 use snowbridge_core::TokenId;
 use sp_core::{Get, RuntimeDebug, H160, H256};
@@ -279,7 +279,7 @@ where
 			// Call create_asset on foreign assets pallet.
 			Transact {
 				origin_kind: OriginKind::Xcm,
-				require_weight_at_most: Weight::from_parts(400_000_000, 8_000),
+				fallback_max_weight: None,
 				call: (
 					create_call_index,
 					asset_id,

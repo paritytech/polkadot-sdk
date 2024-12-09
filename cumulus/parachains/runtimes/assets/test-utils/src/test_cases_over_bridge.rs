@@ -331,7 +331,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 	block_author_account: AccountIdOf<Runtime>,
 	(foreign_asset_owner, foreign_asset_id_location, foreign_asset_id_minimum_balance): (
 		AccountIdOf<Runtime>,
-		xcm::v4::Location,
+		xcm::v5::Location,
 		u128,
 	),
 	foreign_asset_id_amount_to_transfer: u128,
@@ -357,9 +357,9 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 	BalanceOf<Runtime>: From<Balance> + Into<Balance>,
 	XcmConfig: xcm_executor::Config,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetId:
-		From<xcm::v4::Location> + Into<xcm::v4::Location>,
+		From<xcm::v5::Location> + Into<xcm::v5::Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetIdParameter:
-		From<xcm::v4::Location> + Into<xcm::v4::Location>,
+		From<xcm::v5::Location> + Into<xcm::v5::Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::Balance:
 		From<Balance> + Into<u128> + From<u128>,
 	<Runtime as frame_system::Config>::AccountId: Into<<<Runtime as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>

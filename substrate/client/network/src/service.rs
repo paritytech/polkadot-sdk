@@ -68,7 +68,6 @@ use libp2p::{
 	core::{upgrade, ConnectedPoint, Endpoint},
 	identify::Info as IdentifyInfo,
 	identity::ed25519,
-	kad::{record::Key as KademliaKey, Record},
 	multiaddr::{self, Multiaddr},
 	swarm::{
 		Config as SwarmConfig, ConnectionError, ConnectionId, DialError, Executor, ListenError,
@@ -80,6 +79,7 @@ use log::{debug, error, info, trace, warn};
 use metrics::{Histogram, MetricSources, Metrics};
 use parking_lot::Mutex;
 use prometheus_endpoint::Registry;
+use sc_network_types::kad::{Key as KademliaKey, Record};
 
 use sc_client_api::BlockBackend;
 use sc_network_common::{
@@ -1455,17 +1455,17 @@ where
 	fn handle_worker_message(&mut self, msg: ServiceToWorkerMsg) {
 		match msg {
 			ServiceToWorkerMsg::GetValue(key) =>
-				self.network_service.behaviour_mut().get_value(key),
+				self.network_service.behaviour_mut().get_value(key.into()),
 			ServiceToWorkerMsg::PutValue(key, value) =>
-				self.network_service.behaviour_mut().put_value(key, value),
+				self.network_service.behaviour_mut().put_value(key.into(), value),
 			ServiceToWorkerMsg::PutRecordTo { record, peers, update_local_storage } => self
 				.network_service
 				.behaviour_mut()
-				.put_record_to(record, peers, update_local_storage),
+				.put_record_to(record.into(), peers, update_local_storage),
 			ServiceToWorkerMsg::StoreRecord(key, value, publisher, expires) => self
 				.network_service
 				.behaviour_mut()
-				.store_record(key, value, publisher, expires),
+				.store_record(key.into(), value, publisher, expires),
 			ServiceToWorkerMsg::AddKnownAddress(peer_id, addr) =>
 				self.network_service.behaviour_mut().add_known_address(peer_id, addr),
 			ServiceToWorkerMsg::EventStream(sender) => self.event_streams.push(sender),

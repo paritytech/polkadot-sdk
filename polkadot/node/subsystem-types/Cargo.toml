@@ -5,6 +5,8 @@ version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -32,4 +34,3 @@ prometheus-endpoint = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 async-trait = { workspace = true }
 bitvec = { features = ["alloc"], workspace = true }
-strum = { features = ["derive"], workspace = true, default-features = true }
