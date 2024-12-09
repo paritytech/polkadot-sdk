@@ -1,11 +1,15 @@
-title: "Migrate into polkavm 0.18.0"
+title: "Migrate executor into PolkaVM 0.18.0"
 doc:
   - audience: Runtime Dev
     description: |
-      Migrate and update API's into polkavm 0.18.0.
+      Migrate Migrate sc-executor-polkavm into PolkaVM 0.18.0.
 
 crates:
+  - name: pallet-revive
+    bump: minor
   - name: sc-executor-common
     bump: major
   - name: sc-executor-polkavm
+    bump: minor
+  - name: substrate-wasm-builder
     bump: minor
