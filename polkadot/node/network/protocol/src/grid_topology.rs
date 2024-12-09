@@ -596,7 +596,6 @@ impl RequiredRouting {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use futures::future::Pending;
 	use rand::SeedableRng;
 	use rand_chacha::ChaCha12Rng;
 
