@@ -196,6 +196,10 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Called when new message is sent (queued to local outbound XCM queue) over the bridge.
 		pub(crate) fn on_message_sent_to_bridge(message_size: u32) {
+			log::trace!(
+				target: LOG_TARGET,
+				"on_message_sent_to_bridge - message_size: {message_size:?}",
+			);
 			let _ = Bridge::<T, I>::try_mutate(|bridge| {
 				let is_channel_with_bridge_hub_congested =
 					T::LocalXcmChannelManager::is_congested(&T::SiblingBridgeHubLocation::get());
