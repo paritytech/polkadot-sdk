@@ -35,7 +35,8 @@ use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use westend_runtime_constants::xcm as xcm_constants;
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
-	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
+	AccountId32Aliases, AliasChildLocation, AliasOriginRootUsingFilter,
+	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal, DescribeFamily,
 	EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter,
@@ -43,8 +44,7 @@ use xcm_builder::{
 	ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative,
 	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents, AliasChildLocation,
-	AliasOriginRootUsingFilter,
+	WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
 
@@ -194,10 +194,7 @@ pub type TrustedTeleporters = ConcreteAssetFromSystem<WndLocation>;
 
 /// We allow locations to alias into their own child locations, as well as
 /// AssetHub to alias into anything.
-pub type Aliasers = (
-	AliasChildLocation,
-	AliasOriginRootUsingFilter<AssetHub, Everything>,
-);
+pub type Aliasers = (AliasChildLocation, AliasOriginRootUsingFilter<AssetHub, Everything>);
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {

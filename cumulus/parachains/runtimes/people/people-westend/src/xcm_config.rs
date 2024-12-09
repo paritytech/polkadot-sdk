@@ -36,7 +36,8 @@ use polkadot_parachain_primitives::primitives::Sibling;
 use sp_runtime::traits::AccountIdConversion;
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
-	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
+	AccountId32Aliases, AliasChildLocation, AliasOriginRootUsingFilter,
+	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal, DescribeFamily,
 	DescribeTerminus, EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter,
@@ -44,7 +45,7 @@ use xcm_builder::{
 	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeManagerFromComponents, AliasChildLocation, AliasOriginRootUsingFilter,
+	XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
 
@@ -198,10 +199,7 @@ pub type WaivedLocations = (
 
 /// We allow locations to alias into their own child locations, as well as
 /// AssetHub to alias into anything.
-pub type Aliasers = (
-	AliasChildLocation,
-	AliasOriginRootUsingFilter<AssetHubLocation, Everything>,
-);
+pub type Aliasers = (AliasChildLocation, AliasOriginRootUsingFilter<AssetHubLocation, Everything>);
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
