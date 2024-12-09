@@ -39,7 +39,6 @@ ethereum-types = { workspace = true, features = ["codec", "rlp", "serialize"] }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-pallet-balances = { optional = true, workspace = true }
 pallet-revive-fixtures = { workspace = true, default-features = false, optional = true }
 pallet-revive-uapi = { workspace = true, default-features = true }
 pallet-revive-proc-macro = { workspace = true, default-features = true }
@@ -90,7 +89,6 @@ std = [
 	"hex/std",
 	"jsonrpsee",
 	"log/std",
-	"pallet-balances?/std",
 	"pallet-proxy/std",
 	"pallet-revive-fixtures?/std",
 	"pallet-timestamp/std",
