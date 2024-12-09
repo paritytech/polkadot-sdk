@@ -19,12 +19,16 @@
 
 use super::*;
 use alloc::vec::Vec;
+/*
 use frame_support::{
 	storage::KeyPrefixIterator,
 	traits::{tokens::nonfungibles::*, Get},
 	BoundedSlice,
 };
 use sp_runtime::{DispatchError, DispatchResult};
+*/
+use pallet_nfts::{CollectionConfigFor, CollectionSettings, ItemConfig, MintSettings};
+use frame::{prelude::*, traits::{tokens::nonfungibles_v2::*, Currency}, runtime::prelude::storage::{bounded_vec::BoundedSlice, KeyPrefixIterator}};
 
 impl<T: Config<I>, I: 'static> Inspect<<T as SystemConfig>::AccountId> for Pallet<T, I> {
 	type ItemId = T::ItemId;
@@ -86,7 +90,7 @@ impl<T: Config<I>, I: 'static> Inspect<<T as SystemConfig>::AccountId> for Palle
 	}
 }
 
-impl<T: Config<I>, I: 'static> Create<<T as SystemConfig>::AccountId> for Pallet<T, I> {
+impl<T: Config<I>, I: 'static> Create<<T as SystemConfig>::AccountId, CollectionConfigFor<T, I>> for Pallet<T, I> {
 	/// Create a `collection` of nonfungible items to be owned by `who` and managed by `admin`.
 	fn create_collection(
 		collection: &Self::CollectionId,
@@ -97,7 +101,7 @@ impl<T: Config<I>, I: 'static> Create<<T as SystemConfig>::AccountId> for Pallet
 			collection.clone(),
 			who.clone(),
 			admin.clone(),
-			T::CollectionDeposit::get(),
+			<T as pallet::Config<I>>::CollectionDeposit::get(),
 			false,
 			Event::Created {
 				collection: collection.clone(),
@@ -124,11 +128,13 @@ impl<T: Config<I>, I: 'static> Destroy<<T as SystemConfig>::AccountId> for Palle
 	}
 }
 
-impl<T: Config<I>, I: 'static> Mutate<<T as SystemConfig>::AccountId> for Pallet<T, I> {
+impl<T: Config<I>, I: 'static> Mutate<<T as SystemConfig>::AccountId, ItemConfig> for Pallet<T, I> {
 	fn mint_into(
 		collection: &Self::CollectionId,
 		item: &Self::ItemId,
 		who: &T::AccountId,
+		_item_config: &ItemConfig,
+		_deposit_collection_owner: bool,
 	) -> DispatchResult {
 		Self::do_mint(collection.clone(), *item, who.clone(), |_| Ok(()))
 	}

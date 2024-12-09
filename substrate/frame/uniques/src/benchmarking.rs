@@ -21,6 +21,8 @@
 
 use super::*;
 use alloc::{vec, vec::Vec};
+use frame::benchmarking::prelude::*;
+/*
 use frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelist_account, whitelisted_caller, BenchmarkError,
 };
@@ -30,7 +32,7 @@ use frame_support::{
 };
 use frame_system::RawOrigin as SystemOrigin;
 use sp_runtime::traits::Bounded;
-
+*/
 use crate::Pallet as Uniques;
 
 const SEED: u32 = 0;

@@ -45,15 +45,20 @@ pub mod weights;
 extern crate alloc;
 
 use alloc::vec::Vec;
+/*
 use codec::{Decode, Encode};
 use frame_support::traits::{
 	tokens::Locker, BalanceStatus::Reserved, Currency, EnsureOriginWithArg, ReservableCurrency,
 };
+*/
+use frame::{prelude::*, traits::{ReservableCurrency, EnsureOriginWithArg, Locker, BalanceStatus::Reserved}};
 use frame_system::Config as SystemConfig;
+/*
 use sp_runtime::{
 	traits::{Saturating, StaticLookup, Zero},
 	ArithmeticError, RuntimeDebug,
 };
+*/
 
 pub use pallet::*;
 pub use types::*;
@@ -65,12 +70,14 @@ const LOG_TARGET: &str = "runtime::uniques";
 /// A type alias for the account ID type used in the dispatchable functions of this pallet.
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
-#[frame_support::pallet]
+// #[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
+	/*
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-
+	*/
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
