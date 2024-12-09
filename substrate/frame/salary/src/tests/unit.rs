@@ -19,19 +19,19 @@
 
 use std::collections::BTreeMap;
 
+use crate as pallet_salary;
+use crate::*;
 use core::cell::RefCell;
 use frame_support::{
 	assert_noop, assert_ok, derive_impl,
 	pallet_prelude::Weight,
 	parameter_types,
-	traits::{tokens::ConvertRank, ConstU64},
+	traits::{tokens::ConvertRank, ConstU64, Task},
 };
-use sp_runtime::{traits::Identity, BuildStorage, DispatchResult};
-
-use crate as pallet_salary;
-use crate::*;
-
+use sp_runtime::{testing::TestXt, traits::Identity, BuildStorage, DispatchResult};
 type Block = frame_system::mocking::MockBlock<Test>;
+
+pub type Extrinsic = TestXt<RuntimeCall, ()>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -40,6 +40,23 @@ frame_support::construct_runtime!(
 		Salary: pallet_salary,
 	}
 );
+
+impl<LocalCall> frame_system::offchain::CreateTransactionBase<LocalCall> for Test
+where
+	RuntimeCall: From<LocalCall>,
+{
+	type RuntimeCall = RuntimeCall;
+	type Extrinsic = Extrinsic;
+}
+
+impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Test
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		Extrinsic::new_bare(call)
+	}
+}
 
 parameter_types! {
 	pub BlockWeights: frame_system::limits::BlockWeights =
@@ -613,5 +630,122 @@ fn other_mixed_bankruptcy_fails_gracefully() {
 		assert_eq!(paid(1), 0);
 		assert_eq!(paid(2), 3);
 		assert_eq!(paid(3), 6);
+	});
+}
+
+#[test]
+fn task_enumerate_works() {
+	new_test_ext().execute_with(|| {
+		set_rank(1, 1);
+		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
+		run_to(7);
+		assert_eq!(crate::pallet::Task::<Test>::iter().collect::<Vec<_>>().len(), 1);
+	});
+}
+
+#[test]
+fn runtime_task_enumerate_works_via_frame_system_config() {
+	new_test_ext().execute_with(|| {
+		set_rank(1, 1);
+		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
+		run_to(7);
+		assert_eq!(
+			<Test as frame_system::Config>::RuntimeTask::iter().collect::<Vec<_>>().len(),
+			1
+		);
+	});
+}
+
+#[test]
+fn runtime_task_enumerate_works() {
+	new_test_ext().execute_with(|| {
+		set_rank(1, 1);
+		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
+		run_to(7);
+		assert_eq!(RuntimeTask::iter().collect::<Vec<_>>().len(), 1);
+	});
+}
+
+#[test]
+fn task_index_works_at_pallet_level() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(crate::pallet::Task::<Test>::BumpOffchain {}.task_index(), 0);
+	});
+}
+
+#[test]
+fn task_index_works_at_runtime_level() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(
+			<Test as frame_system::Config>::RuntimeTask::Salary(
+				crate::pallet::Task::<Test>::BumpOffchain {}
+			)
+			.task_index(),
+			0
+		);
+	});
+}
+
+#[cfg(feature = "experimental")]
+#[test]
+fn task_execution_works() {
+	new_test_ext().execute_with(|| {
+		set_rank(1, 1);
+		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
+
+		let task = <Test as frame_system::Config>::RuntimeTask::Salary(
+			crate::pallet::Task::<Test>::BumpOffchain {},
+		);
+		assert_eq!(
+			Salary::status(),
+			Some(StatusType {
+				cycle_index: 0,
+				cycle_start: 1,
+				budget: 10,
+				total_registrations: 0,
+				total_unregistered_paid: 0,
+			})
+		);
+		run_to(5);
+		assert_ok!(System::do_task(RuntimeOrigin::signed(1), task.clone(),));
+		assert_eq!(
+			Salary::status(),
+			Some(StatusType {
+				cycle_index: 1,
+				cycle_start: 5,
+				budget: 10,
+				total_registrations: 0,
+				total_unregistered_paid: 0,
+			})
+		);
+		System::assert_last_event(frame_system::Event::<Test>::TaskCompleted { task }.into());
+	});
+}
+
+#[cfg(feature = "experimental")]
+#[test]
+fn task_execution_fails_for_invalid_task() {
+	new_test_ext().execute_with(|| {
+		set_rank(1, 1);
+		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
+		assert_eq!(
+			Salary::status(),
+			Some(StatusType {
+				cycle_index: 0,
+				cycle_start: 1,
+				budget: 10,
+				total_registrations: 0,
+				total_unregistered_paid: 0,
+			})
+		);
+		assert_noop!(
+			System::do_task(
+				RuntimeOrigin::signed(1),
+				<Test as frame_system::Config>::RuntimeTask::Salary(
+					crate::pallet::Task::<Test>::BumpOffchain {}
+				),
+			),
+			frame_system::Error::<Test>::InvalidTask
+		);
 	});
 }
