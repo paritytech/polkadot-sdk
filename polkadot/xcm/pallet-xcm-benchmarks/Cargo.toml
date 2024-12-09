@@ -5,6 +5,8 @@ edition.workspace = true
 license.workspace = true
 version = "7.0.0"
 description = "Benchmarks for the XCM pallet"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true

@@ -5,6 +5,8 @@ description = "Pallets and constants used in Relay Chain networks."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
