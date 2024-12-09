@@ -6,6 +6,6 @@ doc:
 
 crates:
   - name: sc-executor-common
-    bump: minor
+    bump: major
   - name: sc-executor-polkavm
     bump: minor
