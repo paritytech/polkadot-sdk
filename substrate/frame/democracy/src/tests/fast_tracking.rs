@@ -21,7 +21,7 @@ use super::*;
 
 #[test]
 fn fast_track_referendum_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(0);
 		let h = set_balance_proposal(2).hash();
 		assert_noop!(
@@ -60,7 +60,7 @@ fn fast_track_referendum_works() {
 
 #[test]
 fn instant_referendum_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(0);
 		let h = set_balance_proposal(2).hash();
 		assert_noop!(
@@ -98,7 +98,7 @@ fn instant_referendum_works() {
 
 #[test]
 fn instant_next_block_referendum_backed() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		// arrange
 		let start_block_number = 10;
 		let majority_origin_id = 3;
@@ -152,7 +152,7 @@ fn instant_next_block_referendum_backed() {
 
 #[test]
 fn fast_track_referendum_fails_when_no_simple_majority() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(0);
 		let h = set_balance_proposal(2).hash();
 		assert_ok!(Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2)));
