@@ -20,16 +20,19 @@ use bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID;
 use bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID;
 use bp_polkadot_core::Signature;
 use bridge_hub_westend_runtime::{
-	bridge_to_rococo_config, xcm_config::XcmConfig, AllPalletsWithoutSystem,
-	BridgeRejectObsoleteHeadersAndMessages, Executive, MessageQueueServiceWeight, Runtime,
-	RuntimeCall, RuntimeEvent, SessionKeys, TxExtension, UncheckedExtrinsic,
+	bridge_to_ethereum_config::{EthereumGatewayAddress, WETHAddress},
+	bridge_to_rococo_config,
+	xcm_config::XcmConfig,
+	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, Executive,
+	MessageQueueServiceWeight, Runtime, RuntimeCall, RuntimeEvent, SessionKeys, TxExtension,
+	UncheckedExtrinsic,
 };
 use codec::{Decode, Encode};
 use cumulus_primitives_core::XcmError::{FailedToTransactAsset, NotHoldingFees};
 use frame_support::parameter_types;
 use parachains_common::{AccountId, AuraId, Balance};
 use snowbridge_pallet_ethereum_client::WeightInfo;
-use sp_core::H160;
+use sp_core::{bytes::to_hex, H160};
 use sp_keyring::AccountKeyring::Alice;
 use sp_runtime::{
 	generic::{Era, SignedPayload},
@@ -199,4 +202,12 @@ fn construct_and_apply_extrinsic(
 	let xt = construct_extrinsic(origin, call);
 	let r = Executive::apply_extrinsic(xt);
 	r.unwrap()
+}
+
+#[test]
+fn snowbridge_configurable_key() {
+	let weth_key = WETHAddress::key().to_vec();
+	assert_eq!(to_hex(weth_key.as_slice(), true), "0x36f2f46ef8ffc0cc013470f259488ca1");
+	let gateway_key = EthereumGatewayAddress::key().to_vec();
+	assert_eq!(to_hex(gateway_key.as_slice(), true), "0xaed97c7854d601808b98ae43079dafb3");
 }

@@ -1184,10 +1184,6 @@ pub use snowbridge_core;
 #[cfg(feature = "snowbridge-ethereum")]
 pub use snowbridge_ethereum;
 
-/// Snowbridge Outbound Queue Merkle Tree.
-#[cfg(feature = "snowbridge-outbound-queue-merkle-tree")]
-pub use snowbridge_outbound_queue_merkle_tree;
-
 /// Snowbridge Outbound Queue Runtime API.
 #[cfg(feature = "snowbridge-outbound-queue-runtime-api")]
 pub use snowbridge_outbound_queue_runtime_api;
@@ -1231,6 +1227,26 @@ pub use snowbridge_runtime_test_common;
 /// Snowbridge System Runtime API.
 #[cfg(feature = "snowbridge-system-runtime-api")]
 pub use snowbridge_system_runtime_api;
+
+/// Snowbridge merkle tree.
+#[cfg(feature = "snowbridge-merkle-tree")]
+pub use snowbridge_merkle_tree;
+
+/// Snowbridge Outbound primitives.
+#[cfg(feature = "snowbridge-outbound-primitives")]
+pub use snowbridge_outbound_primitives;
+
+/// Snowbridge Outbound router primitives.
+#[cfg(feature = "snowbridge-outbound-router-primitives")]
+pub use snowbridge_outbound_router_primitives;
+
+/// Snowbridge Outbound Queue Runtime API.
+#[cfg(feature = "snowbridge-outbound-queue-runtime-api-v2")]
+pub use snowbridge_outbound_queue_runtime_api_v2;
+
+/// Snowbridge Outbound Queue Pallet V2.
+#[cfg(feature = "snowbridge-pallet-outbound-queue-v2")]
+pub use snowbridge_pallet_outbound_queue_v2;
 
 /// Substrate runtime api primitives.
 #[cfg(feature = "sp-api")]
