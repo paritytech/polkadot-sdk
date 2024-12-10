@@ -10,8 +10,6 @@
 //! normal parachain runtime WILL mess things up.
 
 use anyhow::anyhow;
-#[subxt::subxt(runtime_metadata_path = "metadata-files/rococo-local.scale")]
-pub mod rococo {}
 
 #[subxt::subxt(runtime_metadata_path = "metadata-files/coretime-rococo-local.scale")]
 mod coretime_rococo {}
