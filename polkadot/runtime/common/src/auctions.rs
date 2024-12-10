@@ -1927,7 +1927,7 @@ mod benchmarking {
 
 			#[block]
 			{
-				let _ = Auctions::<T>::on_initialize(duration + now + T::EndingPeriod::get());
+				Auctions::<T>::on_initialize(duration + now + T::EndingPeriod::get());
 			}
 
 			let auction_index = AuctionCounter::<T>::get();
