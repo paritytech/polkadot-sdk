@@ -483,7 +483,10 @@ impl TestLocalXcmChannelManager {
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 			Transact {
 				origin_kind: OriginKind::Xcm,
-				require_weight_at_most: frame_support::weights::Weight::from_parts(200_000_000, 6144),
+				require_weight_at_most: frame_support::weights::Weight::from_parts(
+					200_000_000,
+					6144
+				),
 				call: Call::XcmOverBridgeWrappedWithExportMessageRouter(
 					XcmBridgeHubRouterCall::report_bridge_status {
 						bridge_id: bridge.inner(),
