@@ -240,6 +240,10 @@ type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	UNINCLUDED_SEGMENT_CAPACITY,
 >;
 
+#[docify::export(default_select_core)]
+/// Core selection policy
+type SelectCore<Runtime> = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
+
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
 pub fn native_version() -> NativeVersion {
