@@ -112,7 +112,6 @@ pub mod pallet {
 		                 + Dispatchable<
 			Info = DispatchInfo,
 			PostInfo = PostDispatchInfo,
-			RuntimeOrigin = <Self as Config>::RuntimeOrigin,
 		>,
 		RuntimeOrigin: AsTransactionAuthorizedOrigin + From<SystemOrigin<Self::AccountId>>,
 	>
