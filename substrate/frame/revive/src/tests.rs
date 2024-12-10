@@ -39,8 +39,8 @@ use crate::{
 	wasm::Memory,
 	weights::WeightInfo,
 	AccountId32Mapper, BalanceOf, Code, CodeInfoOf, CollectEvents, Config, ContractInfo,
-	ContractInfoOf, DebugInfo, DeletionQueueCounter, DepositLimit, Error, HoldReason, Origin,
-	Pallet, PristineCode, H160,
+	ContractInfoOf, DebugInfo, DeletionQueueCounter, DepositLimit, Error, EthTransactError,
+	HoldReason, Origin, Pallet, PristineCode, H160,
 };
 
 use crate::test_utils::builder::Contract;
