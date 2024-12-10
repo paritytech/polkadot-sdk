@@ -8,8 +8,7 @@ doc:
     description: |
       OmniNode parses runtime metadata and checks against the existence of `cumulus-pallet-parachain-system`
       and `frame-system`, by filtering pallets by names: `ParachainSystem` and `System`. It also checks the
-      `frame-system` pallet storage `Number` type, and then compares it to the OmniNode hardcoded block number
-      which is currently `u32`.
+      `frame-system` pallet storage `Number` type, and then uses it to configure AURA if `u32` or `u64`.
 
 crates:
   - name: polkadot-omni-node-lib
