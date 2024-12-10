@@ -4430,6 +4430,12 @@ fn call_data_load_api_works() {
 		assert_eq!(received.flags, ReturnFlags::empty());
 		assert_eq!(U256::from_little_endian(&received.data), U256::zero());
 
+		// Normal case
+		let input = (3u8, U256::max_value(), U256::max_value()).encode();
+		let received = builder::bare_call(addr).data(input).build().result.unwrap();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		assert_eq!(U256::from_little_endian(&received.data), U256::max_value());
+
 		// No calldata should return the zero value
 		let received = builder::bare_call(addr).build().result.unwrap();
 		assert_eq!(received.flags, ReturnFlags::empty());

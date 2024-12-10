@@ -1354,9 +1354,8 @@ pub mod env {
 				data // Solidity expects right-padded data
 			};
 
-			let write_outcome = (|| {
-				self.write_fixed_sandbox_output(memory, out_ptr, data, false, already_charged)
-			})();
+			let write_outcome =
+				self.write_fixed_sandbox_output(memory, out_ptr, data, false, already_charged);
 
 			self.input_data = Some(input);
 
