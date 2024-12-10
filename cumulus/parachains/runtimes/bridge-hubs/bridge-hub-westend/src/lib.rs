@@ -566,7 +566,8 @@ construct_runtime!(
 		EthereumOutboundQueue: snowbridge_pallet_outbound_queue = 81,
 		EthereumBeaconClient: snowbridge_pallet_ethereum_client = 82,
 		EthereumSystem: snowbridge_pallet_system = 83,
-		EthereumOutboundQueueV2: snowbridge_pallet_outbound_queue_v2 = 85,
+		EthereumOutboundQueueV2: snowbridge_pallet_outbound_queue_v2 = 84,
+		EthereumSystemV2: snowbridge_pallet_system_v2 = 85,
 
 		// Message Queue. Importantly, is registered last so that messages are processed after
 		// the `on_initialize` hooks of bridging pallets.
@@ -624,6 +625,7 @@ mod benches {
 		[snowbridge_pallet_inbound_queue, EthereumInboundQueue]
 		[snowbridge_pallet_outbound_queue, EthereumOutboundQueue]
 		[snowbridge_pallet_system, EthereumSystem]
+		[snowbridge_pallet_system_v2, EthereumSystemV2]
 		[snowbridge_pallet_ethereum_client, EthereumBeaconClient]
 		[snowbridge_pallet_outbound_queue_v2, EthereumOutboundQueueV2]
 	);
@@ -917,6 +919,12 @@ impl_runtime_apis! {
 	impl snowbridge_system_runtime_api::ControlApi<Block> for Runtime {
 		fn agent_id(location: VersionedLocation) -> Option<AgentId> {
 			snowbridge_pallet_system::api::agent_id::<Runtime>(location)
+		}
+	}
+
+	impl snowbridge_system_runtime_api_v2::ControlV2Api<Block> for Runtime {
+		fn agent_id(location: VersionedLocation) -> Option<AgentId> {
+			snowbridge_pallet_system_v2::api::agent_id::<Runtime>(location)
 		}
 	}
 

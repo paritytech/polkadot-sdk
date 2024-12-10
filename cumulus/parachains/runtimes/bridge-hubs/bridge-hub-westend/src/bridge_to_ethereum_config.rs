@@ -19,8 +19,8 @@ use crate::XcmRouter;
 use crate::{
 	xcm_config,
 	xcm_config::{TreasuryAccount, UniversalLocation},
-	Balances, EthereumInboundQueue, EthereumOutboundQueue, EthereumSystem, MessageQueue, Runtime,
-	RuntimeEvent, TransactionByteFee,
+	Balances, EthereumInboundQueue, EthereumOutboundQueue, EthereumOutboundQueueV2, EthereumSystem,
+	MessageQueue, Runtime, RuntimeEvent, TransactionByteFee,
 };
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
@@ -43,7 +43,7 @@ use crate::xcm_config::RelayNetwork;
 #[cfg(feature = "runtime-benchmarks")]
 use benchmark_helpers::DoNothingRouter;
 use cumulus_primitives_core::ParaId;
-use frame_support::{parameter_types, weights::ConstantMultiplier};
+use frame_support::{parameter_types, traits::Contains, weights::ConstantMultiplier};
 use pallet_xcm::EnsureXcm;
 use sp_runtime::{
 	traits::{ConstU32, ConstU8, Keccak256},
@@ -232,6 +232,34 @@ impl snowbridge_pallet_system::Config for Runtime {
 	type EthereumLocation = EthereumLocation;
 }
 
+pub struct AllowFromAssetHub;
+impl Contains<Location> for AllowFromAssetHub {
+	fn contains(location: &Location) -> bool {
+		match location.unpack() {
+			(1, [Parachain(para_id)]) => {
+				if *para_id == westend_runtime_constants::system_parachain::ASSET_HUB_ID {
+					true
+				} else {
+					false
+				}
+			},
+			_ => false,
+		}
+	}
+}
+
+impl snowbridge_pallet_system_v2::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type OutboundQueue = EthereumOutboundQueueV2;
+	type SiblingOrigin = EnsureXcm<AllowFromAssetHub>;
+	type AgentIdOf = snowbridge_core::AgentIdOf;
+	type WeightInfo = crate::weights::snowbridge_pallet_system_v2::WeightInfo<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Helper = ();
+	type UniversalLocation = UniversalLocation;
+	type EthereumLocation = EthereumLocation;
+}
+
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmark_helpers {
 	use crate::{EthereumBeaconClient, Runtime, RuntimeOrigin};
@@ -264,6 +292,12 @@ pub mod benchmark_helpers {
 	}
 
 	impl snowbridge_pallet_system::BenchmarkHelper<RuntimeOrigin> for () {
+		fn make_xcm_origin(location: Location) -> RuntimeOrigin {
+			RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
+		}
+	}
+
+	impl snowbridge_pallet_system_v2::BenchmarkHelper<RuntimeOrigin> for () {
 		fn make_xcm_origin(location: Location) -> RuntimeOrigin {
 			RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
 		}
