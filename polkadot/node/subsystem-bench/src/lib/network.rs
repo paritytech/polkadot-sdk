@@ -152,6 +152,7 @@ impl RateLimit {
 
 /// A wrapper for both gossip and request/response protocols along with the destination
 /// peer(`AuthorityDiscoveryId``).
+#[derive(Debug)]
 pub enum NetworkMessage {
 	/// A gossip message from peer to node.
 	MessageFromPeer(PeerId, VersionedValidationProtocol),
@@ -1110,14 +1111,17 @@ impl SyncOracle for DummySyncOracle {
 
 #[derive(Clone, Debug)]
 pub struct DummyAuthotiryDiscoveryService {
-	by_peer_id: Arc<std::sync::Mutex<HashMap<PeerId, HashSet<AuthorityDiscoveryId>>>>,
+	by_peer_id: HashMap<PeerId, HashSet<AuthorityDiscoveryId>>,
 }
 
 impl DummyAuthotiryDiscoveryService {
-	pub fn new(
-		by_peer_id: Arc<std::sync::Mutex<HashMap<PeerId, HashSet<AuthorityDiscoveryId>>>>,
-	) -> Self {
-		Self { by_peer_id }
+	pub fn new(by_peer_id: HashMap<PeerId, AuthorityDiscoveryId>) -> Self {
+		Self {
+			by_peer_id: by_peer_id
+				.into_iter()
+				.map(|(peer_id, authority_id)| (peer_id, HashSet::from([authority_id])))
+				.collect(),
+		}
 	}
 }
 
@@ -1134,8 +1138,7 @@ impl AuthorityDiscovery for DummyAuthotiryDiscoveryService {
 		&mut self,
 		peer_id: PeerId,
 	) -> Option<HashSet<AuthorityDiscoveryId>> {
-		let by_peer_id = self.by_peer_id.lock().unwrap();
-		by_peer_id.get(&peer_id).cloned()
+		self.by_peer_id.get(&peer_id).cloned()
 	}
 }
 

@@ -32,8 +32,8 @@ fn main() -> Result<(), String> {
 	sp_tracing::try_init_simple();
 	let mut messages = vec![];
 	let mut config = TestConfiguration::default();
-	config.n_cores = 10;
-	config.n_validators = 50;
+	config.n_cores = 1;
+	config.n_validators = 2;
 	config.num_blocks = 10;
 	config.connectivity = 100;
 	config.generate_pov_sizes();
@@ -44,13 +44,9 @@ fn main() -> Result<(), String> {
 		.map(|n| {
 			print!("\r[{}{}]", "#".repeat(n), "_".repeat(BENCH_COUNT - n));
 			std::io::stdout().flush().unwrap();
-			let (mut env, test_authorities, _cfgs, _service) =
-				prepare_test(Arc::clone(&state), false);
-			env.runtime().block_on(benchmark_statement_distribution(
-				&mut env,
-				&test_authorities,
-				Arc::clone(&state),
-			))
+			let (mut env, _cfgs, _service) = prepare_test(Arc::clone(&state), false);
+			env.runtime()
+				.block_on(benchmark_statement_distribution(&mut env, Arc::clone(&state)))
 		})
 		.collect();
 	println!("\rDone!{}", " ".repeat(BENCH_COUNT));

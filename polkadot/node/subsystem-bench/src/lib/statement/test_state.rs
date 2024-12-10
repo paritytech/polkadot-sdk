@@ -271,6 +271,7 @@ impl HandleNetworkMessage for TestState {
 		message: NetworkMessage,
 		node_sender: &mut futures::channel::mpsc::UnboundedSender<NetworkMessage>,
 	) -> Option<NetworkMessage> {
+		todo!("unexpected message {:?}", message);
 		match message {
 			NetworkMessage::RequestFromNode(_authority_id, Requests::AttestedCandidateV2(req)) => {
 				let payload = req.payload;

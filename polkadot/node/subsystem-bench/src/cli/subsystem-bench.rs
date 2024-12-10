@@ -165,13 +165,10 @@ impl BenchCli {
 				},
 				TestObjective::StatementDistribution => {
 					let state = Arc::new(statement::TestState::new(&test_config));
-					let (mut env, test_authorities, _protocol_config, _service) =
+					let (mut env, _protocol_config, _service) =
 						statement::prepare_test(Arc::clone(&state), true);
-					env.runtime().block_on(statement::benchmark_statement_distribution(
-						&mut env,
-						&test_authorities,
-						state,
-					))
+					env.runtime()
+						.block_on(statement::benchmark_statement_distribution(&mut env, state))
 				},
 			};
 			println!("\n{}\n{}", benchmark_name.purple(), usage);

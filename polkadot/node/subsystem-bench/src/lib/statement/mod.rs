@@ -74,8 +74,8 @@ use sc_service::{config::SetConfig, Role, SpawnTaskHandle};
 use sp_keystore::{Keystore, KeystorePtr};
 use sp_runtime::{traits::Zero, RuntimeAppPublic};
 use std::{
-	collections::{HashMap, HashSet},
-	sync::{atomic::Ordering, Arc, Mutex},
+	collections::HashMap,
+	sync::{atomic::Ordering, Arc},
 	time::{Duration, Instant},
 };
 pub use test_state::TestState;
@@ -97,8 +97,7 @@ fn build_peer_overseer(
 	test_state: Arc<TestState>,
 	dependencies: &TestEnvironmentDependencies,
 	index: u16,
-	by_peer_id: Arc<Mutex<HashMap<PeerId, HashSet<AuthorityDiscoveryId>>>>,
-) -> (OverseerHandle, PeerId, Multiaddr, Box<dyn NotificationService>) {
+) -> (OverseerHandle, Box<dyn NotificationService>, (PeerId, Multiaddr)) {
 	let handle = Arc::new(dependencies.runtime.handle().clone());
 	let _guard = handle.enter();
 	let overseer_connector = OverseerConnector::with_event_capacity(64000);
@@ -107,7 +106,9 @@ fn build_peer_overseer(
 
 	let network_bridge_metrics = NetworkBridgeMetrics::default();
 
-	let authority_discovery_service = DummyAuthotiryDiscoveryService::new(Arc::clone(&by_peer_id));
+	let authority_discovery_service = DummyAuthotiryDiscoveryService::new(
+		test_state.test_authorities.peer_id_to_authority.clone(),
+	);
 	let notification_sinks = Arc::new(parking_lot::Mutex::new(HashMap::new()));
 	let peer_set_protocol_names = PeerSetProtocolNames::new(GENESIS_HASH, None);
 
@@ -119,6 +120,7 @@ fn build_peer_overseer(
 	.chain(std::iter::once(sc_network::multiaddr::Protocol::Tcp(40000 + index)))
 	.collect();
 	net_conf.listen_addresses = vec![listen_address.clone()];
+	net_conf.node_key = test_state.test_authorities.node_key_configs[index as usize].clone();
 
 	let mut network_config =
 		FullNetworkConfiguration::<Block, Hash, NetworkWorker<Block, Hash>>::new(&net_conf, None);
@@ -230,14 +232,8 @@ fn build_peer_overseer(
 
 	let spawn_handle = dependencies.task_manager.spawn_handle();
 	let index_string = Box::leak(format!("{}", index).into_boxed_str());
-	spawn_handle.spawn(index_string, "peer_network", async move {
-		loop {
-			tokio::select! {
-				_ = worker.run() => break,
-				_ = overseer.run() => break,
-			}
-		}
-	});
+	spawn_handle.spawn(index_string, "peer_worker", worker.run());
+	spawn_handle.spawn(index_string, "peer_overseer", overseer.run());
 
 	let listen_address = tokio::spawn({
 		let network_service = Arc::clone(&network_service);
@@ -256,14 +252,13 @@ fn build_peer_overseer(
 		tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(listen_address))
 			.unwrap();
 
-	(overseer_handle, network_service.local_peer_id(), listen_address, notification_service)
+	(overseer_handle, notification_service, (network_service.local_peer_id(), listen_address))
 }
 
 fn build_overseer(
 	state: Arc<TestState>,
-	test_authorities: &TestAuthorities,
 	dependencies: &TestEnvironmentDependencies,
-	by_peer_id: Arc<Mutex<HashMap<PeerId, HashSet<AuthorityDiscoveryId>>>>,
+	peer_id_to_listen_address: HashMap<PeerId, Multiaddr>,
 ) -> (
 	Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
 	OverseerHandle,
@@ -277,7 +272,7 @@ fn build_overseer(
 	let spawn_task_handle = dependencies.task_manager.spawn_handle();
 	let mock_runtime_api = MockRuntimeApi::new(
 		state.config.clone(),
-		test_authorities.clone(),
+		state.test_authorities.clone(),
 		state.candidate_receipts.clone(),
 		Default::default(),
 		Default::default(),
@@ -289,7 +284,12 @@ fn build_overseer(
 	let mock_prospective_parachains = MockProspectiveParachains::new();
 	let mock_candidate_backing = MockCandidateBacking::new(
 		state.config.clone(),
-		test_authorities.validator_pairs.get(NODE_UNDER_TEST as usize).unwrap().clone(),
+		state
+			.test_authorities
+			.validator_pairs
+			.get(NODE_UNDER_TEST as usize)
+			.unwrap()
+			.clone(),
 		state.pvd.clone(),
 		state.own_backing_group.clone(),
 	);
@@ -395,7 +395,8 @@ fn build_overseer(
 	let network_bridge_metrics =
 		NetworkBridgeMetrics::register(Some(&dependencies.registry)).unwrap();
 
-	let authority_discovery_service = DummyAuthotiryDiscoveryService::new(Arc::clone(&by_peer_id));
+	let authority_discovery_service =
+		DummyAuthotiryDiscoveryService::new(state.test_authorities.peer_id_to_authority.clone());
 	let notification_sinks = Arc::new(parking_lot::Mutex::new(HashMap::new()));
 	let network_bridge_tx = NetworkBridgeTxSubsystem::new(
 		Arc::clone(&network_service),
@@ -434,23 +435,17 @@ fn build_overseer(
 
 	let ready = tokio::spawn({
 		let network_service = Arc::clone(&network_service);
-		let test_authorities = test_authorities.clone();
 
 		async move {
 			while network_service.listen_addresses().is_empty() {
 				tokio::time::sleep(Duration::from_millis(10)).await;
 			}
 
-			for (peer_id, listen_address) in test_authorities
-				.peer_ids
-				.iter()
-				.cloned()
-				.zip(test_authorities.listen_address.iter().cloned())
-			{
+			for (peer_id, listen_address) in peer_id_to_listen_address {
 				network_service.add_known_address(peer_id, listen_address.clone());
 			}
 
-			tokio::time::sleep(Duration::from_secs(1)).await;
+			tokio::time::sleep(Duration::from_secs(5)).await;
 		}
 	});
 
@@ -462,68 +457,24 @@ fn build_overseer(
 pub fn prepare_test(
 	state: Arc<TestState>,
 	with_prometheus_endpoint: bool,
-) -> (TestEnvironment, TestAuthorities, Vec<ProtocolConfig>, Box<dyn NotificationService>) {
+) -> (TestEnvironment, Vec<ProtocolConfig>, Box<dyn NotificationService>) {
 	let dependencies = TestEnvironmentDependencies::default();
-	let (mut network, _network_interface, _network_receiver) = new_network(
-		&state.config,
-		&dependencies,
-		&state.test_authorities,
-		vec![Arc::new(state.clone())],
-	);
-	let by_peer_id = Default::default();
-
+	let (network, _network_interface, _network_receiver) =
+		new_network(&state.config, &dependencies, &state.test_authorities, vec![]);
 	let mut handles = vec![];
-	let mut peer_ids = vec![];
-	let mut listen_addresses = vec![];
 	let mut notification_services = vec![];
-	for (handle, peer_id, listen_address, notification_service) in network
-		.peers
-		.iter()
-		.enumerate()
-		.filter(|(index, _)| *index as u32 != NODE_UNDER_TEST)
-		.map(|(index, _)| {
-			build_peer_overseer(
-				Arc::clone(&state),
-				&dependencies,
-				index as u16,
-				Arc::clone(&by_peer_id),
-			)
-		}) {
+	let mut addresses = vec![];
+	for (handle, notification_service, address) in (0..state.config.n_validators)
+		.filter(|index| *index as u32 != NODE_UNDER_TEST)
+		.map(|index| build_peer_overseer(Arc::clone(&state), &dependencies, index as u16))
+	{
 		handles.push(handle);
-		peer_ids.push(peer_id);
-		listen_addresses.push(listen_address);
 		notification_services.push(notification_service);
+		addresses.push(address);
 	}
 
-	network.peers.iter_mut().enumerate().for_each(|(i, peer)| {
-		if i != NODE_UNDER_TEST as usize {
-			peer.handle_mut().peer_id = peer_ids[i - 1];
-		}
-	});
-
-	// Replacing PeerIds with the ones from the network
-	let mut test_authorities = state.test_authorities.clone();
-	test_authorities.peer_ids = peer_ids.clone();
-	test_authorities.listen_address = listen_addresses.clone();
-	test_authorities.peer_id_to_authority = peer_ids
-		.iter()
-		.cloned()
-		.zip(test_authorities.validator_authority_id.iter().cloned())
-		.collect();
-
-	let mut by_peer_id_guard = by_peer_id.lock().unwrap();
-	*by_peer_id_guard = test_authorities
-		.peer_id_to_authority
-		.iter()
-		.map(|(peer_id, authority_id)| (*peer_id, HashSet::from([authority_id.clone()])))
-		.collect();
-
-	let (overseer, overseer_handle, cfg, service) = build_overseer(
-		Arc::clone(&state),
-		&test_authorities,
-		&dependencies,
-		Arc::clone(&by_peer_id),
-	);
+	let (overseer, overseer_handle, cfg, service) =
+		build_overseer(Arc::clone(&state), &dependencies, addresses.into_iter().collect());
 
 	(
 		TestEnvironment::new(
@@ -532,10 +483,9 @@ pub fn prepare_test(
 			network,
 			overseer,
 			overseer_handle,
-			test_authorities.clone(),
+			state.test_authorities.clone(),
 			with_prometheus_endpoint,
 		),
-		test_authorities,
 		cfg,
 		service,
 	)
@@ -587,7 +537,6 @@ pub fn generate_topology(test_authorities: &TestAuthorities) -> SessionGridTopol
 
 pub async fn benchmark_statement_distribution(
 	env: &mut TestEnvironment,
-	test_authorities: &TestAuthorities,
 	state: Arc<TestState>,
 ) -> BenchmarkUsage {
 	state.reset_trackers();
@@ -616,7 +565,7 @@ pub async fn benchmark_statement_distribution(
 	env.metrics().set_n_validators(config.n_validators);
 	env.metrics().set_n_cores(config.n_cores);
 
-	let topology = generate_topology(test_authorities);
+	let topology = generate_topology(&state.test_authorities);
 	let peer_connected_messages = env.network().generate_peer_connected(|e| {
 		AllMessages::StatementDistribution(StatementDistributionMessage::NetworkBridgeUpdate(e))
 	});
@@ -690,7 +639,8 @@ pub async fn benchmark_statement_distribution(
 			.iter()
 			.chain(connected_neighbors_y.iter())
 			.map(|validator_index| {
-				let peer_id = *test_authorities.peer_ids.get(validator_index.0 as usize).unwrap();
+				let peer_id =
+					*state.test_authorities.peer_ids.get(validator_index.0 as usize).unwrap();
 				let group_index =
 					groups.iter().position(|group| group.contains(validator_index)).unwrap();
 				(peer_id, group_index)
@@ -699,7 +649,8 @@ pub async fn benchmark_statement_distribution(
 		let two_hop_x_peers_and_groups = connected_neighbors_x
 			.iter()
 			.flat_map(|validator_index| {
-				let peer_id = *test_authorities.peer_ids.get(validator_index.0 as usize).unwrap();
+				let peer_id =
+					*state.test_authorities.peer_ids.get(validator_index.0 as usize).unwrap();
 				topology
 					.compute_grid_neighbors_for(*validator_index)
 					.unwrap()
@@ -718,7 +669,8 @@ pub async fn benchmark_statement_distribution(
 		let two_hop_y_peers_and_groups = connected_neighbors_y
 			.iter()
 			.flat_map(|validator_index| {
-				let peer_id = *test_authorities.peer_ids.get(validator_index.0 as usize).unwrap();
+				let peer_id =
+					*state.test_authorities.peer_ids.get(validator_index.0 as usize).unwrap();
 				topology
 					.compute_grid_neighbors_for(*validator_index)
 					.unwrap()

@@ -68,6 +68,7 @@ impl MockStatementDistribution {
 					err => println!("🚨🚨🚨 recv error: {:?}", err),
 				},
 				req = self.req_receiver.recv(|| vec![COST_INVALID_REQUEST]) => {
+					println!("🚀🚀🚀 Received candidate request: {:?}", req);
 					let req = req.expect("Receiver never fails");
 					let candidate_receipt = self
 						.test_state
