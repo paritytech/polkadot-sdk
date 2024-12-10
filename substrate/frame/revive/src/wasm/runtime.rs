@@ -22,11 +22,13 @@ use crate::{
 	exec::{ExecError, ExecResult, Ext, Key},
 	gas::{ChargedAmount, Token},
 	limits,
+	precompiles::Environment,
 	primitives::ExecReturnValue,
 	weights::WeightInfo,
 	Config, Error, LOG_TARGET, SENTINEL,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
+use alloy_core::primitives::Address;
 use codec::{Decode, DecodeLimit, Encode};
 use core::{fmt, marker::PhantomData, mem};
 use frame_support::{
@@ -1114,6 +1116,12 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let beneficiary = memory.read_h160(beneficiary_ptr)?;
 		self.ext.terminate(&beneficiary)?;
 		Err(TrapReason::Termination)
+	}
+}
+
+impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Environment for Runtime<'a, E, M> {
+	fn address(&self) -> Address {
+		Address::from_slice(self.ext.address().as_ref())
 	}
 }
 

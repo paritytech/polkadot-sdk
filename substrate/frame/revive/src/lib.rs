@@ -21,11 +21,13 @@
 #![cfg_attr(feature = "runtime-benchmarks", recursion_limit = "1024")]
 
 extern crate alloc;
+
 mod address;
 mod benchmarking;
 mod exec;
 mod gas;
 mod limits;
+mod primitive_precompiles;
 mod primitives;
 mod storage;
 mod transient_storage;
@@ -37,6 +39,7 @@ mod tests;
 pub mod chain_extension;
 pub mod debug;
 pub mod evm;
+pub mod precompiles;
 pub mod test_utils;
 pub mod weights;
 
