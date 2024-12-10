@@ -65,7 +65,7 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 	let native_token = Location::parent();
 	let amount = ASSET_HUB_WESTEND_ED * 1_000;
 
-	// fund the AHR's SA on BHR for paying bridge transport fees
+	// fund the AHR's SA on BHR for paying bridge delivery fees
 	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id(), 10_000_000_000_000u128);
 	// fund sender
 	AssetHubWestend::fund_accounts(vec![(AssetHubWestendSender::get().into(), amount * 10)]);
