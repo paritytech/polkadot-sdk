@@ -10,7 +10,7 @@ edition.workspace = true
 publish = false
 
 [dependencies]
-codec = { features = ["derive"], workspace = true }
+codec = { workspace = true }
 scale-info = { workspace = true }
 polkadot-sdk = { workspace = true, features = [
 	"pallet-balances",
@@ -24,11 +24,6 @@ serde_json = { workspace = true, default-features = false, features = ["alloc"] 
 
 # local pallet templates
 pallet-minimal-template = { workspace = true }
-
-[dev-dependencies]
-serde = { features = ["derive"], workspace = true, default-features = true }
-sc-service = { workspace = true }
-sc-chain-spec = { workspace = true }
 
 [build-dependencies]
 polkadot-sdk = { optional = true, workspace = true, features = [
