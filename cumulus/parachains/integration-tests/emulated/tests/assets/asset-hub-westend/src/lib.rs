@@ -106,6 +106,7 @@ mod imports {
 	pub type ParaToParaThroughRelayTest = Test<PenpalA, PenpalB, Westend>;
 	pub type ParaToParaThroughAHTest = Test<PenpalA, PenpalB, AssetHubWestend>;
 	pub type RelayToParaThroughAHTest = Test<Westend, PenpalA, AssetHubWestend>;
+	pub type PenpalToRelayThroughAHTest = Test<PenpalA, Westend, AssetHubWestend>;
 }
 
 #[cfg(test)]
