@@ -28,12 +28,15 @@ use frame_support::{
 use pallet_ranked_collective::{EnsureRanked, Geometric};
 use sp_core::{ConstU16, Get};
 use sp_runtime::{
+	testing::TestXt,
 	traits::{Convert, ReduceBy, ReplaceWithDefault},
 	BuildStorage,
 };
 
 type Rank = u16;
 type Block = frame_system::mocking::MockBlock<Test>;
+
+pub type Extrinsic = TestXt<RuntimeCall, ()>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -52,6 +55,23 @@ parameter_types! {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
+}
+
+impl<LocalCall> frame_system::offchain::CreateTransactionBase<LocalCall> for Test
+where
+	RuntimeCall: From<LocalCall>,
+{
+	type RuntimeCall = RuntimeCall;
+	type Extrinsic = Extrinsic;
+}
+
+impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Test
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		Extrinsic::new_bare(call)
+	}
 }
 
 pub struct MinRankOfClass<Delta>(PhantomData<Delta>);
