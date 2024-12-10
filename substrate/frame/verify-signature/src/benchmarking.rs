@@ -20,23 +20,13 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 extern crate alloc;
-
 use super::*;
+use frame::benchmarking::prelude::*;
 
 #[allow(unused)]
 use crate::{extension::VerifySignature, Config, Pallet as VerifySignaturePallet};
 use alloc::vec;
-use frame_benchmarking::{v2::*, BenchmarkError};
-use frame_support::{
-	dispatch::{DispatchInfo, GetDispatchInfo},
-	pallet_prelude::TransactionSource,
-};
-use frame_system::{Call as SystemCall, RawOrigin};
-use sp_io::hashing::blake2_256;
-use sp_runtime::{
-	generic::ExtensionVersion,
-	traits::{AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable},
-};
+use frame_system::Call as SystemCall;
 
 pub trait BenchmarkHelper<Signature, Signer> {
 	fn create_signature(entropy: &[u8], msg: &[u8]) -> (Signature, Signer);
@@ -45,16 +35,17 @@ pub trait BenchmarkHelper<Signature, Signer> {
 #[benchmarks(where
 	T: Config + Send + Sync,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo> + GetDispatchInfo,
-	T::RuntimeOrigin: AsTransactionAuthorizedOrigin,
+	T::RuntimeOrigin: frame::traits::AsTransactionAuthorizedOrigin,
 )]
 mod benchmarks {
 	use super::*;
+	use frame::traits::DispatchTransaction;
 
 	#[benchmark]
 	fn verify_signature() -> Result<(), BenchmarkError> {
 		let entropy = [42u8; 256];
 		let call: T::RuntimeCall = SystemCall::remark { remark: vec![] }.into();
-		let ext_version: ExtensionVersion = 0;
+		let ext_version: frame::deps::sp_runtime::generic::ExtensionVersion = 0;
 		let info = call.get_dispatch_info();
 		let msg = (ext_version, &call).using_encoded(blake2_256).to_vec();
 		let (signature, signer) = T::BenchmarkHelper::create_signature(&entropy, &msg[..]);
