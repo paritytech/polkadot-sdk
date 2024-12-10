@@ -545,7 +545,14 @@ where
 					self.process_service_command(command),
 				notification_event = self.notification_service.next_event() => match notification_event {
 					Some(event) => self.process_notification_event(event),
-					None => return,
+					None => {
+						error!(
+							target: LOG_TARGET,
+							"Terminating `SyncingEngine` because `NotificationService` has terminated.",
+						);
+
+						return;
+					}
 				},
 				response_event = self.pending_responses.select_next_some() =>
 					self.process_response_event(response_event),
