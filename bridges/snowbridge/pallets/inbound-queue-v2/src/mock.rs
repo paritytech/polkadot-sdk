@@ -19,8 +19,7 @@ use sp_runtime::{
 	BuildStorage, MultiSignature,
 };
 use sp_std::{convert::From, default::Default};
-use xcm::{latest::SendXcm, prelude::*};
-use xcm::opaque::latest::WESTEND_GENESIS_HASH;
+use xcm::{latest::SendXcm, opaque::latest::WESTEND_GENESIS_HASH, prelude::*};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

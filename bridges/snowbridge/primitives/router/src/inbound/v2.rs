@@ -146,7 +146,8 @@ where
 		// use eth as asset
 		let fee_asset = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
 		let fee: XcmAsset = (fee_asset.clone(), message.execution_fee).into();
-		let eth: XcmAsset = (fee_asset.clone(), message.execution_fee.saturating_add(message.value)).into();
+		let eth: XcmAsset =
+			(fee_asset.clone(), message.execution_fee.saturating_add(message.value)).into();
 		let mut instructions = vec![
 			DescendOrigin(PalletInstance(InboundQueuePalletInstance::get()).into()),
 			UniversalOrigin(GlobalConsensus(network)),
@@ -355,7 +356,7 @@ mod tests {
 				reserve_deposited_found = reserve_deposited_found + 1;
 				if reserve_deposited_found == 1 {
 					let fee_asset = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
-					let fee: XcmAsset = (fee_asset, execution_fee).into();
+					let fee: XcmAsset = (fee_asset, execution_fee + value).into();
 					let fee_assets: Assets = fee.into();
 					assert_eq!(fee_assets, reserve_assets.clone());
 				}
