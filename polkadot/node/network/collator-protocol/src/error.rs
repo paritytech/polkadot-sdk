@@ -102,7 +102,7 @@ impl SecondingError {
 			self,
 			PersistedValidationDataMismatch |
 				CandidateHashMismatch |
-				Duplicate | ParentHeadDataMismatch
+				ParentHeadDataMismatch
 		)
 	}
 }
