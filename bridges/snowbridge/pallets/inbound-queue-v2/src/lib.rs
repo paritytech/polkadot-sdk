@@ -226,7 +226,8 @@ pub mod pallet {
 
 			let origin_account_location = Self::account_to_location(who)?;
 
-			let (xcm, _relayer_reward) = Self::do_convert(message, origin_account_location.clone())?;
+			let (xcm, _relayer_reward) =
+				Self::do_convert(message, origin_account_location.clone())?;
 
 			// Todo: Deposit fee(in Ether) to RewardLeger which should cover all of:
 			// T::RewardLeger::deposit(who, relayer_reward.into())?;

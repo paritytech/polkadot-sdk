@@ -125,4 +125,3 @@ fn test_set_operating_mode_root_only() {
 		);
 	});
 }
-

@@ -162,8 +162,14 @@ impl inbound_queue_v2::Config for Test {
 	type WeightToFee = IdentityFee<u128>;
 	type GatewayAddress = GatewayAddress;
 	type AssetHubParaId = ConstU32<1000>;
-	type MessageConverter =
-		MessageToXcm<EthereumNetwork, InboundQueuePalletInstance, MockTokenIdConvert, WethAddress, UniversalLocation, AssetHubFromEthereum>;
+	type MessageConverter = MessageToXcm<
+		EthereumNetwork,
+		InboundQueuePalletInstance,
+		MockTokenIdConvert,
+		WethAddress,
+		UniversalLocation,
+		AssetHubFromEthereum,
+	>;
 	type Token = Balances;
 	type Balance = u128;
 	#[cfg(feature = "runtime-benchmarks")]
