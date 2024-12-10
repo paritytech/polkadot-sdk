@@ -18,8 +18,9 @@
 
 //! Substrate client runtime utilities.
 //!
-//! Provides simpler APIs for calling into a `frame` runtime WASM blob and
-//! return metadata that needs to be checked.
+//! Provides convienent APIs to ease with making function calls contained
+//! into a FRAME runtime WASM blob.
+#![warn(missing_docs)]
 
 use codec::{Decode, Encode};
 use error::{Error, Result};
@@ -38,43 +39,32 @@ pub mod error;
 pub fn fetch_latest_metadata_from_code_blob<HF: HostFunctions>(
 	executor: &WasmExecutor<HF>,
 	code_bytes: Cow<[u8]>,
-) -> Result<subxt::Metadata> {
+) -> Result<OpaqueMetadata> {
 	let runtime_caller = RuntimeCaller::new(executor, code_bytes);
 	let version_result = runtime_caller.call("Metadata_metadata_versions", ());
 
-	let opaque_metadata: OpaqueMetadata = match version_result {
+	match version_result {
 		Ok(supported_versions) => {
-			let supported_versions = Vec::<u32>::decode(&mut supported_versions.as_slice())
-				.map_err(|e| format!("Unable to decode version list: {e}"))?;
-
+			let supported_versions = Vec::<u32>::decode(&mut supported_versions.as_slice())?;
 			let latest_stable = supported_versions
 				.into_iter()
 				.filter(|v| *v != u32::MAX)
 				.max()
-				.ok_or("No stable metadata versions supported".to_string())?;
+				.ok_or(Error::StableMetadataVersionNotFound)?;
 
-			let encoded = runtime_caller
-				.call("Metadata_metadata_at_version", latest_stable)
-				.map_err(|_| "Unable to fetch metadata from blob".to_string())?;
+			let encoded = runtime_caller.call("Metadata_metadata_at_version", latest_stable)?;
 
-			Option::<OpaqueMetadata>::decode(&mut encoded.as_slice())
-				.map_err(|_| <&str as Into<Error>>::into("Unable to decode to opaque metadata"))?
-				.ok_or_else(|| "Opaque metadata not found".to_string())?
+			Option::<OpaqueMetadata>::decode(&mut encoded.as_slice())?
+				.ok_or(Error::OpaqueMetadataNotFound)
 		},
 		Err(_) => {
-			let encoded = runtime_caller
-				.call("Metadata_metadata", ())
-				.map_err(|_| "Unable to fetch metadata from blob".to_string())?;
-			Decode::decode(&mut encoded.as_slice())
-				.map_err(|_| <&str as Into<Error>>::into("Unable to decode to opaque metadata"))?
+			let encoded = runtime_caller.call("Metadata_metadata", ())?;
+			Decode::decode(&mut encoded.as_slice()).map_err(Into::into)
 		},
-	};
-
-	subxt::Metadata::decode(&mut (*opaque_metadata).as_slice())
-		.map_err(|_| "Unable to decode opaque metadata".into())
+	}
 }
 
-pub struct BasicCodeFetcher<'a> {
+struct BasicCodeFetcher<'a> {
 	code: Cow<'a, [u8]>,
 	hash: Vec<u8>,
 }
@@ -86,11 +76,11 @@ impl<'a> FetchRuntimeCode for BasicCodeFetcher<'a> {
 }
 
 impl<'a> BasicCodeFetcher<'a> {
-	pub fn new(code: Cow<'a, [u8]>) -> Self {
+	fn new(code: Cow<'a, [u8]>) -> Self {
 		Self { hash: sp_crypto_hashing::blake2_256(&code).to_vec(), code }
 	}
 
-	pub fn runtime_code(&'a self) -> RuntimeCode<'a> {
+	fn runtime_code(&'a self) -> RuntimeCode<'a> {
 		RuntimeCode {
 			code_fetcher: self as &'a dyn FetchRuntimeCode,
 			heap_pages: None,
@@ -106,15 +96,14 @@ pub struct RuntimeCaller<'a, 'b, HF: HostFunctions> {
 }
 
 impl<'a, 'b, HF: HostFunctions> RuntimeCaller<'a, 'b, HF> {
+	/// Instantiate a new runtime caller.
 	pub fn new(executor: &'b WasmExecutor<HF>, code_bytes: Cow<'a, [u8]>) -> Self {
 		Self { executor, code_fetcher: BasicCodeFetcher::new(code_bytes) }
 	}
 
-	pub fn call(
-		&self,
-		method: &str,
-		data: impl Encode,
-	) -> sc_executor_common::error::Result<Vec<u8>> {
+	/// Calls a runtime function represented by a `method` name and `parity-scale-codec`
+	/// encodable arguments that will be passed to it.
+	pub fn call(&self, method: &str, data: impl Encode) -> Result<Vec<u8>> {
 		let mut ext = BasicExternalities::default();
 		self.executor
 			.call(
@@ -125,6 +114,7 @@ impl<'a, 'b, HF: HostFunctions> RuntimeCaller<'a, 'b, HF> {
 				CallContext::Offchain,
 			)
 			.0
+			.map_err(Into::into)
 	}
 }
 
@@ -145,8 +135,12 @@ mod tests {
 		let code_bytes = cumulus_test_runtime::WASM_BINARY
 			.expect("To run this test, build the wasm binary of cumulus-test-runtime")
 			.to_vec();
-		let metadata =
-			super::fetch_latest_metadata_from_code_blob(&executor, code_bytes.into()).unwrap();
+		let metadata = subxt::Metadata::decode(
+			&mut (*super::fetch_latest_metadata_from_code_blob(&executor, code_bytes.into())
+				.unwrap())
+			.as_slice(),
+		)
+		.unwrap();
 		assert!(metadata.pallet_by_name("ParachainInfo").is_some());
 	}
 

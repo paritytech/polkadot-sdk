@@ -179,27 +179,18 @@
 //!
 //! ### Runtime conventions
 //!
-//! Given OmniNode purpose is to be compatible with most Polkadot parachains, we thought it is
-//! also achievable to guide how the developed parachain's runtimes should be composed. The
-//! runtimes should contain a set the basis for a functional parachain in the context of any
-//! node. We check for these pallets at OmniNode start-up, parsing through the runtime metadata.
-//! The checks are best effort, given the runtime code is custom, and can be considered as lint
-//! rules which will generate warning level logs in the Omni Node log file, when not complied with.
-//!
-//! The checks were introduced mainly to detect incomplete runtime implementations, from a
-//! parachain compatibility standpoint, but they are also useful to ensure deeper compatibility
-//! with Omni Node, which should be compatible with the majority of the parachains in the
-//! ecosystem, and enable/disable certain features given a chain spec, runtime metadata, or a
-//! set of CLI flags. Such built-in checks should improve the developer experience by providing
-//! useful feedback, developers setup their runtime correctly for a parachain use case.
+//! The Omni Node needs to make some assumptions about the runtime. During startup, the node fetches
+//! the runtime metadata and asserts that the runtime represents a compatible parachain.
+//! The checks are best effort and will generate warning level logs in the Omni Node log file on
+//! failure.
 //!
 //! The list of checks should evolve and possibly be treated in a separate dedicated space in these
 //! docs, but for now they are only based on a few rules:
 //! * runtimes must define a type for [`cumulus-pallet-parachain-system`], which is recommended to
 //!   be named as `ParachainSystem`.
 //! * runtimes must define a type for [`frame-system`] pallet, which is recommended to be named as
-//!   `System`.
-//! * runtimes must configure the [`frame-system`] pallet's [`block number`] type as `u32`.
+//!   `System`. The configured [`block number`] here will be used by Omni Node to configure AURA
+//!   accordingly.
 //!
 //! [`templates`]: crate::polkadot_sdk::templates
 //! [`parachain-template`]: https://github.com/paritytech/polkadot-sdk-parachain-template

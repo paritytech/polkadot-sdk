@@ -16,6 +16,7 @@
 
 //! Runtime parameters.
 
+use codec::Decode;
 use cumulus_client_service::ParachainHostFunctions;
 use sc_chain_spec::ChainSpec;
 use sc_executor::WasmExecutor;
@@ -134,7 +135,7 @@ pub struct MetadataInspector(subxt::Metadata);
 impl MetadataInspector {
 	/// Creates an instance of `MetadataInspector`.
 	pub fn new(chain_spec: &dyn ChainSpec) -> Result<MetadataInspector, sc_cli::Error> {
-		MetadataInspector::get(chain_spec).map(MetadataInspector)
+		MetadataInspector::fetch_metadata(chain_spec).map(MetadataInspector)
 	}
 
 	/// Checks if pallet exists in runtime's metadata based on pallet name.
@@ -157,41 +158,45 @@ impl MetadataInspector {
 	}
 
 	/// Get the runtime metadata from a wasm blob existing in a chain spec.
-	pub fn get(chain_spec: &dyn ChainSpec) -> Result<subxt::Metadata, sc_cli::Error> {
+	pub fn fetch_metadata(chain_spec: &dyn ChainSpec) -> Result<subxt::Metadata, sc_cli::Error> {
 		let mut storage = chain_spec.build_storage()?;
 		let code_bytes = storage
 			.top
 			.remove(sp_storage::well_known_keys::CODE)
 			.ok_or("chain spec genesis does not contain code")?;
-		fetch_latest_metadata_from_code_blob(
+		let opaque_metadata = fetch_latest_metadata_from_code_blob(
 			&WasmExecutor::<ParachainHostFunctions>::builder()
 				.with_allow_missing_host_functions(true)
 				.build(),
 			sp_runtime::Cow::Borrowed(code_bytes.as_slice()),
 		)
-		.map_err(|err| err.to_string().into())
+		.map_err(|err| <String as Into<String>>::into(err.to_string()))?;
+
+		subxt::Metadata::decode(&mut (*opaque_metadata).as_slice()).map_err(Into::into)
 	}
 }
 
 #[cfg(test)]
 mod tests {
-	use cumulus_client_service::ParachainHostFunctions;
-	use sc_executor::WasmExecutor;
-	use sc_runtime_utilities::fetch_latest_metadata_from_code_blob;
-
 	use crate::runtime::{
 		BlockNumber, MetadataInspector, DEFAULT_FRAME_SYSTEM_PALLET_NAME,
 		DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME,
 	};
+	use codec::Decode;
+	use cumulus_client_service::ParachainHostFunctions;
+	use sc_executor::WasmExecutor;
+	use sc_runtime_utilities::fetch_latest_metadata_from_code_blob;
 
 	fn cumulus_test_runtime_metadata() -> subxt::Metadata {
-		fetch_latest_metadata_from_code_blob(
+		let opaque_metadata = fetch_latest_metadata_from_code_blob(
 			&WasmExecutor::<ParachainHostFunctions>::builder()
 				.with_allow_missing_host_functions(true)
 				.build(),
 			sp_runtime::Cow::Borrowed(cumulus_test_runtime::WASM_BINARY.unwrap()),
 		)
-		.unwrap()
+		.unwrap();
+
+		subxt::Metadata::decode(&mut (*opaque_metadata).as_slice()).unwrap()
 	}
 
 	#[test]

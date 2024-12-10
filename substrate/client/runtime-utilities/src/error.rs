@@ -15,6 +15,7 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+//! Errors types of runtime utilities.
 
 /// Generic result for the runtime utilities.
 pub type Result<T> = std::result::Result<T, Error>;
@@ -23,18 +24,12 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
 pub enum Error {
-	#[error("Runtime utility internal error: {0}")]
-	Internal(String),
-}
-
-impl From<&str> for Error {
-	fn from(s: &str) -> Error {
-		Error::Internal(s.to_string())
-	}
-}
-
-impl From<String> for Error {
-	fn from(s: String) -> Error {
-		Error::Internal(s)
-	}
+	#[error("Scale codec error: {0}")]
+	ScaleCodec(#[from] codec::Error),
+	#[error("Opaque metadata not found")]
+	OpaqueMetadataNotFound,
+	#[error("Stable metadata version not found")]
+	StableMetadataVersionNotFound,
+	#[error("WASM executor error: {0}")]
+	Executor(#[from] sc_executor_common::error::Error),
 }

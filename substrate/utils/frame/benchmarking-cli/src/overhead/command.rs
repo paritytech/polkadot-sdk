@@ -36,7 +36,7 @@ use crate::{
 	},
 };
 use clap::{error::ErrorKind, Args, CommandFactory, Parser};
-use codec::Encode;
+use codec::{Decode, Encode};
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use fake_runtime_api::RuntimeApi as FakeRuntimeApi;
 use frame_support::Deserialize;
@@ -285,7 +285,7 @@ impl OverheadCmd {
 			log::debug!(target: LOG_TARGET, "Initializing state handler with chain-spec from API: {:?}", chain_spec);
 
 			let source = genesis_builder_to_source();
-			return Ok((GenesisStateHandler::ChainSpec(chain_spec, source), self.params.para_id));
+			return Ok((GenesisStateHandler::ChainSpec(chain_spec, source), self.params.para_id))
 		};
 
 		// Handle chain-spec passed in via CLI.
@@ -302,7 +302,7 @@ impl OverheadCmd {
 			return Ok((
 				GenesisStateHandler::ChainSpec(chain_spec, source),
 				self.params.para_id.or(para_id_from_chain_spec),
-			));
+			))
 		};
 
 		// Check for runtimes. In general, we make sure that `--runtime` and `--chain` are
@@ -400,11 +400,12 @@ impl OverheadCmd {
 			.with_allow_missing_host_functions(true)
 			.build();
 
-		let metadata =
+		let opaque_metadata =
 			fetch_latest_metadata_from_code_blob(&executor, state_handler.get_code_bytes()?)
 				.map_err(|_| {
 					<&str as Into<sc_cli::Error>>::into("Unable to fetch latest stable metadata")
 				})?;
+		let metadata = subxt::Metadata::decode(&mut (*opaque_metadata).as_slice())?;
 
 		// At this point we know what kind of chain we are dealing with.
 		let chain_type = identify_chain(&metadata, para_id);
