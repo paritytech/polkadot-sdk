@@ -3171,6 +3171,7 @@ dependencies = [
 name = "chain-spec-guide-runtime"
 version = "0.0.0"
 dependencies = [
+ "cmd_lib",
  "docify",
  "frame-support 28.0.0",
  "pallet-balances 28.0.0",
@@ -19054,6 +19055,7 @@ version = "0.0.1"
 dependencies = [
  "assert_cmd",
  "chain-spec-guide-runtime",
+ "cmd_lib",
  "cumulus-client-service",
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
