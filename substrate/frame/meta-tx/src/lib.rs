@@ -109,10 +109,7 @@ pub mod pallet {
 		frame_system::Config<
 		RuntimeCall: Parameter
 		                 + GetDispatchInfo
-		                 + Dispatchable<
-			Info = DispatchInfo,
-			PostInfo = PostDispatchInfo,
-		>,
+		                 + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 		RuntimeOrigin: AsTransactionAuthorizedOrigin + From<SystemOrigin<Self::AccountId>>,
 	>
 	{
