@@ -163,8 +163,6 @@ enum ApprovalEntryError {
 	InvalidCandidateIndex,
 	DuplicateApproval,
 	UnknownAssignment,
-	#[allow(dead_code)]
-	AssignmentsFollowedDifferentPaths(RequiredRouting, RequiredRouting),
 }
 
 impl ApprovalEntry {
@@ -568,7 +566,7 @@ impl BlockEntry {
 		&mut self,
 		approval: IndirectSignedApprovalVoteV2,
 	) -> Result<(RequiredRouting, HashSet<PeerId>), ApprovalEntryError> {
-		let mut required_routing = None;
+		let mut required_routing: Option<RequiredRouting> = None;
 		let mut peers_randomly_routed_to = HashSet::new();
 
 		if self.candidates.len() < approval.candidate_indices.len() as usize {
@@ -595,16 +593,11 @@ impl BlockEntry {
 				peers_randomly_routed_to
 					.extend(approval_entry.routing_info().peers_randomly_routed.iter());
 
-				if let Some(required_routing) = required_routing {
-					if required_routing != approval_entry.routing_info().required_routing {
-						// This shouldn't happen since the required routing is computed based on the
-						// validator_index, so two assignments from the same validators will have
-						// the same required routing.
-						return Err(ApprovalEntryError::AssignmentsFollowedDifferentPaths(
-							required_routing,
-							approval_entry.routing_info().required_routing,
-						))
-					}
+				if let Some(current_required_routing) = required_routing {
+					required_routing = Some(
+						current_required_routing
+							.combine(approval_entry.routing_info().required_routing),
+					);
 				} else {
 					required_routing = Some(approval_entry.routing_info().required_routing)
 				}
