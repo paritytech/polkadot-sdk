@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Propagate deprecation information from `impl_runtime_apis!` blocks
+
+doc:
+  - audience: Runtime User, Runtime Dev
+    description: |
+      Prior to this PR, the metadata for runtime APIs would not propagate deprecation information
+      from `#[deprecated]` attributes inside `impl_runtime_apis!` blocks. Now such information will be 
+      propagated into the metadata and will override deprecation information from `decl_runtime_apis!` if 
+      it was present.
+
+crates:
+  - name: sp-api-proc-macro
+    bump: none
