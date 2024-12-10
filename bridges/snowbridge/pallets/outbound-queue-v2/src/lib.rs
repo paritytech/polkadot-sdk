@@ -12,9 +12,9 @@
 //!
 //! The message submission pipeline works like this:
 //! 1. The message is first validated via the implementation for
-//!    [`snowbridge_core::outbound::v2::SendMessage::validate`]
+//!    [`snowbridge_outbound_primitives::v2::SendMessage::validate`]
 //! 2. The message is then enqueued for later processing via the implementation for
-//!    [`snowbridge_core::outbound::v2::SendMessage::deliver`]
+//!    [`snowbridge_outbound_primitives::v2::SendMessage::deliver`]
 //! 3. The underlying message queue is implemented by [`Config::MessageQueue`]
 //! 4. The message queue delivers messages back to this pallet via the implementation for
 //!    [`frame_support::traits::ProcessMessage::process_message`]
