@@ -23,7 +23,7 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-asset-conversion = { workspace = true }
-log = { workspace = true }
+tracing = { workspace = true }
 
 # Polkadot dependencies
 polkadot-parachain-primitives = { workspace = true }
@@ -62,7 +62,7 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
+	"tracing/std",
 	"pallet-asset-conversion/std",
 	"pallet-transaction-payment/std",
 	"polkadot-parachain-primitives/std",

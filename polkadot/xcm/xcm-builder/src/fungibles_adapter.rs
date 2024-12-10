@@ -47,7 +47,7 @@ impl<
 		to: &Location,
 		_context: &XcmContext,
 	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::fungibles_adapter",
 			"internal_transfer_asset what: {:?}, from: {:?}, to: {:?}",
 			what, from, to
@@ -204,7 +204,7 @@ impl<
 	>
 {
 	fn can_check_in(_origin: &Location, what: &Asset, _context: &XcmContext) -> XcmResult {
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::fungibles_adapter",
 			"can_check_in origin: {:?}, what: {:?}",
 			_origin, what
@@ -221,7 +221,7 @@ impl<
 	}
 
 	fn check_in(_origin: &Location, what: &Asset, _context: &XcmContext) {
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::fungibles_adapter",
 			"check_in origin: {:?}, what: {:?}",
 			_origin, what
@@ -238,7 +238,7 @@ impl<
 	}
 
 	fn can_check_out(_origin: &Location, what: &Asset, _context: &XcmContext) -> XcmResult {
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::fungibles_adapter",
 			"can_check_out origin: {:?}, what: {:?}",
 			_origin, what
@@ -255,7 +255,7 @@ impl<
 	}
 
 	fn check_out(_dest: &Location, what: &Asset, _context: &XcmContext) {
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::fungibles_adapter",
 			"check_out dest: {:?}, what: {:?}",
 			_dest, what
@@ -272,7 +272,7 @@ impl<
 	}
 
 	fn deposit_asset(what: &Asset, who: &Location, _context: Option<&XcmContext>) -> XcmResult {
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::fungibles_adapter",
 			"deposit_asset what: {:?}, who: {:?}",
 			what, who,
@@ -291,7 +291,7 @@ impl<
 		who: &Location,
 		_maybe_context: Option<&XcmContext>,
 	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::fungibles_adapter",
 			"withdraw_asset what: {:?}, who: {:?}",
 			what, who,

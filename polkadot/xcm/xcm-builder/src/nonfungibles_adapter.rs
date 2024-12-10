@@ -48,7 +48,7 @@ impl<
 		to: &Location,
 		context: &XcmContext,
 	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
 			"transfer_asset what: {:?}, from: {:?}, to: {:?}, context: {:?}",
 			what,
@@ -138,7 +138,7 @@ impl<
 	>
 {
 	fn can_check_in(_origin: &Location, what: &Asset, context: &XcmContext) -> XcmResult {
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
 			"can_check_in origin: {:?}, what: {:?}, context: {:?}",
 			_origin,
@@ -157,7 +157,7 @@ impl<
 	}
 
 	fn check_in(_origin: &Location, what: &Asset, context: &XcmContext) {
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
 			"check_in origin: {:?}, what: {:?}, context: {:?}",
 			_origin,
@@ -176,7 +176,7 @@ impl<
 	}
 
 	fn can_check_out(_dest: &Location, what: &Asset, context: &XcmContext) -> XcmResult {
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
 			"can_check_out dest: {:?}, what: {:?}, context: {:?}",
 			_dest,
@@ -195,7 +195,7 @@ impl<
 	}
 
 	fn check_out(_dest: &Location, what: &Asset, context: &XcmContext) {
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
 			"check_out dest: {:?}, what: {:?}, context: {:?}",
 			_dest,
@@ -214,7 +214,7 @@ impl<
 	}
 
 	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
 			"deposit_asset what: {:?}, who: {:?}, context: {:?}",
 			what,
@@ -234,7 +234,7 @@ impl<
 		who: &Location,
 		maybe_context: Option<&XcmContext>,
 	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
 			"withdraw_asset what: {:?}, who: {:?}, maybe_context: {:?}",
 			what,

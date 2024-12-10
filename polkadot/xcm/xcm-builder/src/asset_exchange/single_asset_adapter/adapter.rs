@@ -61,7 +61,7 @@ where
 	) -> Result<AssetsInHolding, AssetsInHolding> {
 		let mut give_iter = give.fungible_assets_iter();
 		let give_asset = give_iter.next().ok_or_else(|| {
-			log::trace!(
+			tracing::trace!(
 				target: "xcm::SingleAssetExchangeAdapter::exchange_asset",
 				"No fungible asset was in `give`.",
 			);
@@ -73,7 +73,7 @@ where
 		let want_asset = want.get(0).ok_or_else(|| give.clone())?;
 		let (give_asset_id, give_amount) =
 			Matcher::matches_fungibles(&give_asset).map_err(|error| {
-				log::trace!(
+				tracing::trace!(
 					target: "xcm::SingleAssetExchangeAdapter::exchange_asset",
 					"Could not map XCM asset give {:?} to FRAME asset. Error: {:?}",
 					give_asset,
@@ -83,7 +83,7 @@ where
 			})?;
 		let (want_asset_id, want_amount) =
 			Matcher::matches_fungibles(&want_asset).map_err(|error| {
-				log::trace!(
+				tracing::trace!(
 					target: "xcm::SingleAssetExchangeAdapter::exchange_asset",
 					"Could not map XCM asset want {:?} to FRAME asset. Error: {:?}",
 					want_asset,
@@ -106,7 +106,7 @@ where
 				Some(want_amount),
 			)
 			.map_err(|(credit_in, error)| {
-				log::error!(
+				tracing::error!(
 					target: "xcm::SingleAssetExchangeAdapter::exchange_asset",
 					"Could not perform the swap, error: {:?}.",
 					error
@@ -127,7 +127,7 @@ where
 					want_amount,
 				)
 				.map_err(|(credit_in, error)| {
-					log::error!(
+					tracing::error!(
 						target: "xcm::SingleAssetExchangeAdapter::exchange_asset",
 						"Could not perform the swap, error: {:?}.",
 						error
@@ -162,7 +162,7 @@ where
 		// We first match both XCM assets to the asset ID types `AssetConversion` can handle.
 		let (give_asset_id, give_amount) = Matcher::matches_fungibles(give_asset)
 			.map_err(|error| {
-				log::trace!(
+				tracing::trace!(
 					target: "xcm::SingleAssetExchangeAdapter::quote_exchange_price",
 					"Could not map XCM asset {:?} to FRAME asset. Error: {:?}.",
 					give_asset,
@@ -173,7 +173,7 @@ where
 			.ok()?;
 		let (want_asset_id, want_amount) = Matcher::matches_fungibles(want_asset)
 			.map_err(|error| {
-				log::trace!(
+				tracing::trace!(
 					target: "xcm::SingleAssetExchangeAdapter::quote_exchange_price",
 					"Could not map XCM asset {:?} to FRAME asset. Error: {:?}.",
 					want_asset,
