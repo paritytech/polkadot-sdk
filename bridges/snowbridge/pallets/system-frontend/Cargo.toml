@@ -1,6 +1,6 @@
 [package]
-name = "snowbridge-pallet-system-v2"
-description = "Snowbridge System Pallet V2"
+name = "snowbridge-system-frontend"
+description = "Snowbridge System Frontend Pallet"
 version = "0.2.0"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
@@ -23,25 +23,19 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
-
 sp-core = { workspace = true }
 sp-std = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
 pallet-xcm = { workspace = true }
-
 snowbridge-core = { workspace = true }
-snowbridge-outbound-primitives = { workspace = true }
 
 [dev-dependencies]
 hex = { workspace = true, default-features = true }
 hex-literal = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
-snowbridge-pallet-outbound-queue-v2 = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -54,7 +48,6 @@ std = [
 	"pallet-xcm/std",
 	"scale-info/std",
 	"snowbridge-core/std",
-	"snowbridge-outbound-primitives/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
@@ -68,9 +61,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
-	"polkadot-primitives/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
-	"snowbridge-pallet-outbound-queue-v2/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 ]
@@ -79,6 +70,5 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-xcm/try-runtime",
-	"snowbridge-pallet-outbound-queue-v2/try-runtime",
 	"sp-runtime/try-runtime",
 ]

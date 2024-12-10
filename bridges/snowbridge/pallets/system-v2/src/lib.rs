@@ -141,7 +141,7 @@ pub mod pallet {
 		/// Fee required: Yes
 		///
 		/// - `origin`: Must be `Location` of a sibling parachain
-		#[pallet::call_index(3)]
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::create_agent())]
 		pub fn create_agent(
 			origin: OriginFor<T>,
@@ -178,7 +178,7 @@ pub mod pallet {
 		/// - `origin`: Must be root
 		/// - `location`: Location of the asset (relative to this chain)
 		/// - `metadata`: Metadata to include in the instantiated ERC20 contract on Ethereum
-		#[pallet::call_index(10)]
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::register_token())]
 		pub fn register_token(
 			origin: OriginFor<T>,

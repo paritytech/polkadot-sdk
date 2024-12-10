@@ -55,6 +55,7 @@ members = [
 	"bridges/snowbridge/pallets/outbound-queue-v2/runtime-api",
 	"bridges/snowbridge/pallets/outbound-queue/runtime-api",
 	"bridges/snowbridge/pallets/system",
+	"bridges/snowbridge/pallets/system-frontend",
 	"bridges/snowbridge/pallets/system-v2",
 	"bridges/snowbridge/pallets/system-v2/runtime-api",
 	"bridges/snowbridge/pallets/system/runtime-api",
@@ -1245,6 +1246,7 @@ snowbridge-pallet-system-v2 = { path = "bridges/snowbridge/pallets/system-v2", d
 snowbridge-router-primitives = { path = "bridges/snowbridge/primitives/router", default-features = false }
 snowbridge-runtime-common = { path = "bridges/snowbridge/runtime/runtime-common", default-features = false }
 snowbridge-runtime-test-common = { path = "bridges/snowbridge/runtime/test-common", default-features = false }
+snowbridge-system-frontend = { path = "bridges/snowbridge/pallets/system-frontend", default-features = false }
 snowbridge-system-runtime-api = { path = "bridges/snowbridge/pallets/system/runtime-api", default-features = false }
 snowbridge-system-runtime-api-v2 = { path = "bridges/snowbridge/pallets/system-v2/runtime-api", default-features = false }
 soketto = { version = "0.8.0" }
