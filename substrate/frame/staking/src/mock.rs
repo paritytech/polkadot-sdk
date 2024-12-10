@@ -374,7 +374,7 @@ impl ExtBuilder {
 		self
 	}
 
-	pub fn slash_cancellation_window(self, eras: EraIndex) -> Self {
+	pub fn slash_cancellation_duration(self, eras: EraIndex) -> Self {
 		SLASH_CANCELLATION_DURATION.with(|v| *v.borrow_mut() = eras);
 		self
 	}

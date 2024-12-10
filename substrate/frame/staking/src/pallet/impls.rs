@@ -1474,12 +1474,12 @@ where
 			let eras = BondedEras::<T>::get();
 			add_db_reads_writes(1, 0);
 
-			// earliest era that can be reported
-			let latest_era = active_era.saturating_sub(T::SlashCancellationDuration::get());
+			// oldest era that can be reported
+			let oldest_era = active_era.saturating_sub(T::SlashDeferDuration::get()).saturating_add(T::SlashCancellationDuration::get());
 
 			match eras
 				.iter()
-				.filter(|(era, _)| era < &latest_era)
+				// .filter(|(era, _)| era > &oldest_era)
 				// Reverse because it's more likely to find reports from recent eras.
 				.rev()
 				.find(|&(_, sesh)| sesh <= &slash_session)
