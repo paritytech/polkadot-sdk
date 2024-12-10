@@ -64,6 +64,7 @@ pub trait WeightInfo {
 	fn unmap_account() -> Weight;
 	fn dispatch_as_fallback_account() -> Weight;
 	fn noop_host_fn(r: u32, ) -> Weight;
+	fn seal_call_data_load() -> Weight;
 	fn seal_caller() -> Weight;
 	fn seal_origin() -> Weight;
 	fn seal_is_contract() -> Weight;
@@ -345,6 +346,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(180_036, 0).saturating_mul(r.into()))
 	}
 	fn seal_caller() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 287_000 picoseconds.
+		Weight::from_parts(317_000, 0)
+	}
+	fn seal_call_data_load() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -1176,6 +1184,13 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(180_036, 0).saturating_mul(r.into()))
 	}
 	fn seal_caller() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 287_000 picoseconds.
+		Weight::from_parts(317_000, 0)
+	}
+	fn seal_call_data_load() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
