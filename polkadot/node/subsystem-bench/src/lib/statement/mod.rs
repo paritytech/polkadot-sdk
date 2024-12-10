@@ -63,9 +63,11 @@ use rand::SeedableRng;
 use sc_keystore::LocalKeystore;
 use sc_network::{
 	config::{
-		FullNetworkConfiguration, NetworkConfiguration, NonReservedPeerMode, Params, ProtocolId,
+		FullNetworkConfiguration, MultiaddrWithPeerId, NetworkConfiguration, NonReservedPeerMode,
+		Params, ProtocolId,
 	},
 	request_responses::ProtocolConfig,
+	service::traits::{NotificationEvent, ValidationResult},
 	Multiaddr, NetworkWorker, NotificationMetrics, NotificationService,
 };
 use sc_network_common::sync::message::BlockAnnouncesHandshake;
@@ -97,7 +99,7 @@ fn build_peer_overseer(
 	test_state: Arc<TestState>,
 	dependencies: &TestEnvironmentDependencies,
 	index: u16,
-) -> (OverseerHandle, Box<dyn NotificationService>, (PeerId, Multiaddr)) {
+) -> (OverseerHandle, (PeerId, Multiaddr)) {
 	let handle = Arc::new(dependencies.runtime.handle().clone());
 	let _guard = handle.enter();
 	let overseer_connector = OverseerConnector::with_event_capacity(64000);
@@ -136,7 +138,7 @@ fn build_peer_overseer(
 		format!("/{}/block-announces/1", array_bytes::bytes2hex("", GENESIS_HASH.as_ref()));
 	let protocol_id = ProtocolId::from("sup");
 	let notification_metrics = NotificationMetrics::new(None);
-	let (block_announce_config, notification_service) =
+	let (block_announce_config, mut notification_service) =
 		<NetworkWorker<Block, Hash> as sc_network::NetworkBackend<Block, Hash>>::notification_config(
 			block_announces_protocol.into(),
 			std::iter::once(format!("/{}/block-announces/1", protocol_id.as_ref()).into())
@@ -234,6 +236,18 @@ fn build_peer_overseer(
 	let index_string = Box::leak(format!("{}", index).into_boxed_str());
 	spawn_handle.spawn(index_string, "peer_worker", worker.run());
 	spawn_handle.spawn(index_string, "peer_overseer", overseer.run());
+	spawn_handle.spawn(index_string, "peer_notification", {
+		let mut notification_service = notification_service.clone().unwrap();
+		async move {
+			while let Some(event) = notification_service.next_event().await {
+				match event {
+					NotificationEvent::ValidateInboundSubstream { result_tx, peer, .. } =>
+						result_tx.send(ValidationResult::Accept).unwrap(),
+					_ => {},
+				}
+			}
+		}
+	});
 
 	let listen_address = tokio::spawn({
 		let network_service = Arc::clone(&network_service);
@@ -252,7 +266,7 @@ fn build_peer_overseer(
 		tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(listen_address))
 			.unwrap();
 
-	(overseer_handle, notification_service, (network_service.local_peer_id(), listen_address))
+	(overseer_handle, (network_service.local_peer_id(), listen_address))
 }
 
 fn build_overseer(
@@ -263,7 +277,6 @@ fn build_overseer(
 	Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
 	OverseerHandle,
 	Vec<ProtocolConfig>,
-	Box<dyn NotificationService>,
 ) {
 	let handle = Arc::new(dependencies.runtime.handle().clone());
 	let _guard = handle.enter();
@@ -328,7 +341,7 @@ fn build_overseer(
 		format!("/{}/block-announces/1", array_bytes::bytes2hex("", GENESIS_HASH.as_ref()));
 	let protocol_id = ProtocolId::from("sup");
 	let notification_metrics = NotificationMetrics::new(Some(&dependencies.registry));
-	let (block_announce_config, notification_service) =
+	let (block_announce_config, mut notification_service) =
 		<NetworkWorker<Block, Hash> as sc_network::NetworkBackend<Block, Hash>>::notification_config(
 			block_announces_protocol.into(),
 			std::iter::once(format!("/{}/block-announces/1", protocol_id.as_ref()).into())
@@ -432,6 +445,18 @@ fn build_overseer(
 	let spawn_handle = dependencies.task_manager.spawn_handle();
 	let index_string = Box::leak(format!("{}", NODE_UNDER_TEST).into_boxed_str());
 	spawn_handle.spawn(index_string, "peer_network", async move { worker.run().await });
+	spawn_handle.spawn(index_string, "peer_notification", {
+		let mut notification_service = notification_service.clone().unwrap();
+		async move {
+			while let Some(event) = notification_service.next_event().await {
+				match event {
+					NotificationEvent::ValidateInboundSubstream { result_tx, peer, .. } =>
+						result_tx.send(ValidationResult::Accept).unwrap(),
+					_ => {},
+				}
+			}
+		}
+	});
 
 	let ready = tokio::spawn({
 		let network_service = Arc::clone(&network_service);
@@ -441,8 +466,11 @@ fn build_overseer(
 				tokio::time::sleep(Duration::from_millis(10)).await;
 			}
 
-			for (peer_id, listen_address) in peer_id_to_listen_address {
-				network_service.add_known_address(peer_id, listen_address.clone());
+			for (peer_id, multiaddr) in peer_id_to_listen_address {
+				network_service.add_known_address(peer_id, multiaddr.clone());
+				network_service
+					.add_reserved_peer(MultiaddrWithPeerId { multiaddr, peer_id })
+					.unwrap();
 			}
 
 			tokio::time::sleep(Duration::from_secs(5)).await;
@@ -451,29 +479,27 @@ fn build_overseer(
 
 	let _ = tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(ready));
 
-	(overseer, overseer_handle, vec![], notification_service)
+	(overseer, overseer_handle, vec![])
 }
 
 pub fn prepare_test(
 	state: Arc<TestState>,
 	with_prometheus_endpoint: bool,
-) -> (TestEnvironment, Vec<ProtocolConfig>, Box<dyn NotificationService>) {
+) -> (TestEnvironment, Vec<ProtocolConfig>) {
 	let dependencies = TestEnvironmentDependencies::default();
 	let (network, _network_interface, _network_receiver) =
 		new_network(&state.config, &dependencies, &state.test_authorities, vec![]);
 	let mut handles = vec![];
-	let mut notification_services = vec![];
 	let mut addresses = vec![];
-	for (handle, notification_service, address) in (0..state.config.n_validators)
+	for (handle, address) in (0..state.config.n_validators)
 		.filter(|index| *index as u32 != NODE_UNDER_TEST)
 		.map(|index| build_peer_overseer(Arc::clone(&state), &dependencies, index as u16))
 	{
 		handles.push(handle);
-		notification_services.push(notification_service);
 		addresses.push(address);
 	}
 
-	let (overseer, overseer_handle, cfg, service) =
+	let (overseer, overseer_handle, cfg) =
 		build_overseer(Arc::clone(&state), &dependencies, addresses.into_iter().collect());
 
 	(
@@ -487,7 +513,6 @@ pub fn prepare_test(
 			with_prometheus_endpoint,
 		),
 		cfg,
-		service,
 	)
 }
 
@@ -566,9 +591,7 @@ pub async fn benchmark_statement_distribution(
 	env.metrics().set_n_cores(config.n_cores);
 
 	let topology = generate_topology(&state.test_authorities);
-	let peer_connected_messages = env.network().generate_peer_connected(|e| {
-		AllMessages::StatementDistribution(StatementDistributionMessage::NetworkBridgeUpdate(e))
-	});
+	let peer_connected_messages = vec![];
 	let new_session_topology_messages =
 		generate_new_session_topology(&topology, ValidatorIndex(NODE_UNDER_TEST));
 	for message in peer_connected_messages.into_iter().chain(new_session_topology_messages) {

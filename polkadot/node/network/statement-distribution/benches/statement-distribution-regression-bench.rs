@@ -44,7 +44,7 @@ fn main() -> Result<(), String> {
 		.map(|n| {
 			print!("\r[{}{}]", "#".repeat(n), "_".repeat(BENCH_COUNT - n));
 			std::io::stdout().flush().unwrap();
-			let (mut env, _cfgs, _service) = prepare_test(Arc::clone(&state), false);
+			let (mut env, _cfgs) = prepare_test(Arc::clone(&state), false);
 			env.runtime()
 				.block_on(benchmark_statement_distribution(&mut env, Arc::clone(&state)))
 		})
