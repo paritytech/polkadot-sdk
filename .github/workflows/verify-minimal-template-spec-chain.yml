@@ -1,4 +1,4 @@
-name: check-runtimes-template-spec-chain.yml
+name: verify-minimal-template-spec-chain.yml
 on:
   push:
     branches:
@@ -29,7 +29,7 @@ jobs:
 
       - name: Pull srtool docker image
         run: |
-          srtool pull
+          srtool pull --engine docker
 
       - name: Build your runtime binary
         run: |
