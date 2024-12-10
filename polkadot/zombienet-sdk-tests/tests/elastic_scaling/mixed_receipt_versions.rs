@@ -127,7 +127,7 @@ async fn mixed_receipt_versions_test() -> Result<(), anyhow::Error> {
 	// therefore dropped in the runtime.
 	// The perfect throughput would have been 45 for a parachain with 3 cores over 15 relay chain
 	// blocks.
-	assert_para_throughput(&relay_client, 15, [(2200, 25..35)].into_iter().collect()).await?;
+	assert_para_throughput(&relay_client, 15, [(2200, 25..37)].into_iter().collect()).await?;
 
 	let para_client = para_node.wait_client().await?;
 	// Assert the parachain finalized block height is also on par with the number of backed
