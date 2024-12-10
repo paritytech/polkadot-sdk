@@ -18,8 +18,8 @@
 
 //! Substrate client runtime utilities.
 //!
-//! Provides convienent APIs to ease with making function calls contained
-//! into a FRAME runtime WASM blob.
+//! Provides convenient APIs to ease calling functions contained by a FRAME
+//! runtime WASM blob.
 #![warn(missing_docs)]
 
 use codec::{Decode, Encode};
