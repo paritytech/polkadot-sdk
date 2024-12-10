@@ -76,7 +76,11 @@ const LOG_TARGET: &str = "runtime::parachains::slashing";
 
 // These are constants, but we want to make them configurable
 // via `HostConfiguration` in the future.
-const SLASH_FOR_INVALID: Perbill = Perbill::from_percent(100);
+// Major slash as backers are responsible for the validity of the candidate
+const SLASH_BACKED_INVALID: Perbill = Perbill::from_percent(100);
+// Minor slash to deter lazy validators
+const SLASH_FOR_INVALID: Perbill = Perbill::from_percent(2);
+// Will cause disablement of the validator (has an opportunity cost)
 const SLASH_AGAINST_VALID: Perbill = Perbill::zero();
 const DEFENSIVE_PROOF: &'static str = "disputes module should bail on old session";
 
@@ -151,6 +155,7 @@ impl<KeyOwnerIdentification> SlashingOffence<KeyOwnerIdentification> {
 	) -> Self {
 		let time_slot = DisputesTimeSlot::new(session_index, candidate_hash);
 		let slash_fraction = match kind {
+			SlashingOffenceKind::BackedInvalid => SLASH_BACKED_INVALID,
 			SlashingOffenceKind::ForInvalid => SLASH_FOR_INVALID,
 			SlashingOffenceKind::AgainstValid => SLASH_AGAINST_VALID,
 		};
@@ -210,11 +215,6 @@ where
 		losers: impl IntoIterator<Item = ValidatorIndex>,
 		backers: impl IntoIterator<Item = ValidatorIndex>,
 	) {
-		// sanity check for the current implementation
-		if kind == SlashingOffenceKind::AgainstValid {
-			debug_assert!(false, "should only slash ForInvalid disputes");
-			return
-		}
 		let losers: BTreeSet<_> = losers.into_iter().collect();
 		if losers.is_empty() {
 			return
@@ -268,6 +268,16 @@ impl<T> disputes::SlashingHandler<BlockNumberFor<T>> for SlashValidatorsForDispu
 where
 	T: Config<KeyOwnerIdentification = IdentificationTuple<T>>,
 {
+	fn punish_backed_invalid(
+		session_index: SessionIndex,
+		candidate_hash: CandidateHash,
+		losers: impl IntoIterator<Item = ValidatorIndex>,
+		backers: impl IntoIterator<Item = ValidatorIndex>,
+	) {
+		let kind = SlashingOffenceKind::BackedInvalid;
+		Self::do_punish(session_index, candidate_hash, kind, losers, backers);
+	}
+
 	fn punish_for_invalid(
 		session_index: SessionIndex,
 		candidate_hash: CandidateHash,
@@ -279,13 +289,13 @@ where
 	}
 
 	fn punish_against_valid(
-		_session_index: SessionIndex,
-		_candidate_hash: CandidateHash,
-		_losers: impl IntoIterator<Item = ValidatorIndex>,
-		_backers: impl IntoIterator<Item = ValidatorIndex>,
+		session_index: SessionIndex,
+		candidate_hash: CandidateHash,
+		losers: impl IntoIterator<Item = ValidatorIndex>,
+		backers: impl IntoIterator<Item = ValidatorIndex>,
 	) {
-		// do nothing for now
-		// NOTE: changing that requires modifying `do_punish` implementation
+		let kind = SlashingOffenceKind::AgainstValid;
+		Self::do_punish(session_index, candidate_hash, kind, losers, backers);
 	}
 
 	fn initializer_initialize(now: BlockNumberFor<T>) -> Weight {
