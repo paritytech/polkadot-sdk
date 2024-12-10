@@ -8,18 +8,26 @@ on:
   merge_group:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   preflight:
     uses: ./.github/workflows/reusable-preflight.yml
 
   build-wasm:
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    needs: preflight
-    container:
-      image: ${{ needs.preflight.outputs.IMAGE }}
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
 
       - name: Install srtool-cli
         run: |
@@ -29,7 +37,7 @@ jobs:
 
       - name: Pull srtool docker image
         run: |
-          srtool pull --engine docker
+          srtool pull --engine podman
 
       - name: Build your runtime binary
         run: |
@@ -45,10 +53,8 @@ jobs:
           overwrite: true
 
   build-test-spec-chain:
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    needs: build-wasm
-    container:
-      image: ${{ needs.preflight.outputs.IMAGE }}
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -95,10 +101,8 @@ jobs:
           overwrite: true
 
   verify-spec-match:
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    needs: build-test-spec-chain
-    container:
-      image: ${{ needs.preflight.outputs.IMAGE }}
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
