@@ -762,7 +762,7 @@ type Migrations = (
 	pallet_core_fellowship::migration::MigrateV0ToV1<Runtime, FellowshipCoreInstance>,
 	// unreleased
 	pallet_core_fellowship::migration::MigrateV0ToV1<Runtime, AmbassadorCoreInstance>,
-	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>
+	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.
