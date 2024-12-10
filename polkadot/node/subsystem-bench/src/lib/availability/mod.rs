@@ -149,7 +149,6 @@ fn build_overseer_for_availability_write(
 pub fn prepare_test(
 	state: &TestState,
 	mode: TestDataAvailability,
-	with_prometheus_endpoint: bool,
 ) -> (TestEnvironment, Vec<ProtocolConfig>) {
 	let dependencies = TestEnvironmentDependencies::default();
 
@@ -295,7 +294,6 @@ pub fn prepare_test(
 			overseer,
 			overseer_handle,
 			state.test_authorities.clone(),
-			with_prometheus_endpoint,
 		),
 		req_cfgs,
 	)

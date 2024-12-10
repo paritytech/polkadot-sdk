@@ -27,6 +27,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 mod valgrind;
+mod prometheus;
 
 const LOG_TARGET: &str = "subsystem-bench::cli";
 
@@ -101,6 +102,10 @@ struct BenchCli {
 	/// Enable Cache Misses Profiling with Valgrind. Linux only, Valgrind must be in the PATH
 	pub cache_misses: bool,
 
+	#[clap(long, default_value_t = false)]
+	/// Enable prometheus
+	pub prometheus: bool,
+
 	#[arg(required = true)]
 	/// Path to the test sequence configuration file
 	pub path: String,
@@ -111,6 +116,11 @@ impl BenchCli {
 		let is_valgrind_running = valgrind::is_valgrind_running();
 		if !is_valgrind_running && self.cache_misses {
 			return valgrind::relaunch_in_valgrind_mode()
+		}
+
+		let is_prometheus_running = prometheus::is_prometheus_running();
+		if !is_prometheus_running && self.prometheus {
+			return prometheus::relaunch_in_prometheus_mode()
 		}
 
 		let agent_running = if self.profile {
@@ -143,8 +153,8 @@ impl BenchCli {
 					let (mut env, _protocol_config) = availability::prepare_test(
 						&state,
 						availability::TestDataAvailability::Read(opts),
-						true,
 					);
+
 					env.runtime()
 						.block_on(availability::benchmark_availability_read(&mut env, &state))
 				},
@@ -153,19 +163,21 @@ impl BenchCli {
 					let (mut env, _protocol_config) = availability::prepare_test(
 						&state,
 						availability::TestDataAvailability::Write,
-						true,
 					);
+
 					env.runtime()
 						.block_on(availability::benchmark_availability_write(&mut env, &state))
 				},
 				TestObjective::ApprovalVoting(ref options) => {
 					let (mut env, state) =
-						approval::prepare_test(test_config.clone(), options.clone(), true);
+						approval::prepare_test(test_config.clone(), options.clone());
+
 					env.runtime().block_on(approval::bench_approvals(&mut env, state))
 				},
 				TestObjective::StatementDistribution => {
 					let state = statement::TestState::new(&test_config);
-					let (mut env, _protocol_config) = statement::prepare_test(&state, true);
+					let (mut env, _protocol_config) = statement::prepare_test(&state);
+
 					env.runtime()
 						.block_on(statement::benchmark_statement_distribution(&mut env, &state))
 				},

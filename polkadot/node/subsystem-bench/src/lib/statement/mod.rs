@@ -154,7 +154,6 @@ fn build_overseer(
 
 pub fn prepare_test(
 	state: &TestState,
-	with_prometheus_endpoint: bool,
 ) -> (TestEnvironment, Vec<ProtocolConfig>) {
 	let dependencies = TestEnvironmentDependencies::default();
 	let (network, network_interface, network_receiver) = new_network(
@@ -174,7 +173,6 @@ pub fn prepare_test(
 			overseer,
 			overseer_handle,
 			state.test_authorities.clone(),
-			with_prometheus_endpoint,
 		),
 		cfg,
 	)

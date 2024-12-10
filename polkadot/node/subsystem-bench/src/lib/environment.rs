@@ -31,7 +31,6 @@ use polkadot_node_subsystem_util::metrics::prometheus::{
 };
 use polkadot_overseer::{BlockInfo, Handle as OverseerHandle};
 use sc_service::{SpawnTaskHandle, TaskManager};
-use std::net::{Ipv4Addr, SocketAddr};
 use tokio::runtime::Handle;
 
 const LOG_TARGET: &str = "subsystem-bench::environment";
@@ -202,29 +201,12 @@ impl TestEnvironment {
 		overseer: Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
 		overseer_handle: OverseerHandle,
 		authorities: TestAuthorities,
-		with_prometheus_endpoint: bool,
 	) -> Self {
 		let metrics = TestEnvironmentMetrics::new(&dependencies.registry)
 			.expect("Metrics need to be registered");
 
 		let spawn_handle = dependencies.task_manager.spawn_handle();
 		spawn_handle.spawn_blocking("overseer", "overseer", overseer.run().boxed());
-
-		if with_prometheus_endpoint {
-			let registry_clone = dependencies.registry.clone();
-			dependencies.task_manager.spawn_handle().spawn_blocking(
-				"prometheus",
-				"test-environment",
-				async move {
-					prometheus_endpoint::init_prometheus(
-						SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::LOCALHOST), 9999),
-						registry_clone,
-					)
-					.await
-					.unwrap();
-				},
-			);
-		}
 
 		TestEnvironment {
 			runtime_handle: dependencies.runtime.handle().clone(),
