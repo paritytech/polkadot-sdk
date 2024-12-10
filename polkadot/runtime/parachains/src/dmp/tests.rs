@@ -22,7 +22,7 @@ use crate::{
 use codec::Encode;
 use frame_support::assert_ok;
 use hex_literal::hex;
-use polkadot_primitives::{BlockNumber, HeadData};
+use polkadot_primitives::BlockNumber;
 
 pub(crate) fn run_to_block(to: BlockNumber, new_session: Option<Vec<BlockNumber>>) {
 	while System::block_number() < to {
