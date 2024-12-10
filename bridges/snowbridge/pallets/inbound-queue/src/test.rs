@@ -5,7 +5,7 @@ use super::*;
 use frame_support::{assert_noop, assert_ok};
 use hex_literal::hex;
 use snowbridge_core::{inbound::Proof, ChannelId};
-use sp_keyring::AccountKeyring as Keyring;
+use sp_keyring::Sr25519Keyring as Keyring;
 use sp_runtime::DispatchError;
 use sp_std::convert::From;
 
@@ -40,8 +40,8 @@ fn test_submit_happy_path() {
 				.into(),
 			nonce: 1,
 			message_id: [
-				97, 161, 116, 204, 182, 115, 192, 144, 130, 243, 240, 193, 122, 154, 108, 91, 247,
-				41, 226, 237, 202, 158, 238, 239, 210, 8, 147, 131, 84, 146, 171, 176,
+				118, 166, 139, 182, 84, 52, 165, 189, 54, 14, 178, 73, 2, 228, 192, 97, 153, 201,
+				4, 75, 151, 15, 82, 6, 164, 187, 162, 133, 26, 183, 186, 126,
 			],
 			fee_burned: 110000000000,
 		}
