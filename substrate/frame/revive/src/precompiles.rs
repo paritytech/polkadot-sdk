@@ -27,15 +27,6 @@ pub enum AddressMatcher {
 	Prefix([u8; 8]),
 }
 
-impl AddressMatcher {
-	pub fn matches(&self, address: &[u8; 20]) -> bool {
-		match self {
-			AddressMatcher::Fixed(needle) => needle == address,
-			AddressMatcher::Prefix(prefix) => prefix == &address[..8],
-		}
-	}
-}
-
 pub trait Precompile {
 	const MATCHER: AddressMatcher;
 	type Interface: SolInterface;
