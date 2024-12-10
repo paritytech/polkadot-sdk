@@ -8,7 +8,7 @@ doc:
 
     The new scenarios include:
     - Sending a cross-chain transfer from one system chain to another and doing a Transact on the same message (1 hop)
-    - Sending a reserve asset transfer from one chain to another going through asset have and doing Transact on the same message (2 hops)
+    - Sending a reserve asset transfer from one chain to another going through asset hub and doing Transact on the same message (2 hops)
 
     The updated chains are:
     - Relay: added `AliasChildLocation`
