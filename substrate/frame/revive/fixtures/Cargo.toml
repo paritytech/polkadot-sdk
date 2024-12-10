@@ -5,6 +5,11 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Fixtures for testing and benchmarking"
+homepage.workspace = true
+repository.workspace = true
+
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
 
 [lints]
 workspace = true

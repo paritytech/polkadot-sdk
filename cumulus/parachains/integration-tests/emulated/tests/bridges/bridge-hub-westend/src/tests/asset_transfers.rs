@@ -17,7 +17,7 @@ use crate::{create_pool_with_native_on, tests::*};
 use xcm::latest::AssetTransferFilter;
 
 fn send_assets_over_bridge<F: FnOnce()>(send_fn: F) {
-	// fund the AHW's SA on BHW for paying bridge transport fees
+	// fund the AHW's SA on BHW for paying bridge delivery fees
 	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id(), 10_000_000_000_000u128);
 
 	// set XCM versions
@@ -592,7 +592,7 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 			// XCM to be executed at dest (Rococo Asset Hub)
 			let xcm_on_dest = Xcm(vec![
 				// since this is the last hop, we don't need to further use any assets previously
-				// reserved for fees (there are no further hops to cover transport fees for); we
+				// reserved for fees (there are no further hops to cover delivery fees for); we
 				// RefundSurplus to get back any unspent fees
 				RefundSurplus,
 				// deposit everything to final beneficiary
