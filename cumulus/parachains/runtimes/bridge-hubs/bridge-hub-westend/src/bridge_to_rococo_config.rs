@@ -237,7 +237,7 @@ where
 		bp_runtime::AccountIdOf<pallet_xcm_bridge_hub::ThisChainOf<R, XBHI>>,
 	>,
 {
-	use pallet_xcm_bridge_hub::{Bridge, BridgeId, BridgeState};
+	use pallet_xcm_bridge_hub::{Bridge, BridgeState};
 	use sp_runtime::traits::Zero;
 	use xcm::VersionedInteriorLocation;
 
