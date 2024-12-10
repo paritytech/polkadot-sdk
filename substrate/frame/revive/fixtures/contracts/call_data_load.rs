@@ -15,7 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This calls another contract as passed as its account id.
+//! This uses the call data load API to first the first input byte.
+//! This single input byte is used as the offset for a second call
+//! to the call data load API.
+//! The output of the second API call is returned.
+
 #![no_std]
 #![no_main]
 
