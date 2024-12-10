@@ -674,13 +674,7 @@ where
 		<frame_system::Pallet<System>>::note_inherents_applied();
 		<System as frame_system::Config>::PostInherents::post_inherents();
 
-		if <System as frame_system::Config>::MultiBlockMigrator::ongoing() {
-			let used_weight = <System as frame_system::Config>::MultiBlockMigrator::step();
-			<frame_system::Pallet<System>>::register_extra_weight_unchecked(
-				used_weight,
-				DispatchClass::Mandatory,
-			);
-		} else {
+		if !<System as frame_system::Config>::MultiBlockMigrator::ongoing() {
 			let block_number = <frame_system::Pallet<System>>::block_number();
 			Self::on_poll_hook(block_number);
 		}
@@ -720,6 +714,11 @@ where
 	/// ongoing MBMs.
 	fn on_idle_hook(block_number: NumberFor<Block>) {
 		if <System as frame_system::Config>::MultiBlockMigrator::ongoing() {
+			let used_weight = <System as frame_system::Config>::MultiBlockMigrator::step();
+			<frame_system::Pallet<System>>::register_extra_weight_unchecked(
+				used_weight,
+				DispatchClass::Mandatory,
+			);
 			return
 		}
 
