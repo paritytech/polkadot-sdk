@@ -80,6 +80,9 @@ const SLASH_FOR_INVALID: Perbill = Perbill::from_percent(100);
 const SLASH_AGAINST_VALID: Perbill = Perbill::zero();
 const DEFENSIVE_PROOF: &'static str = "disputes module should bail on old session";
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
 /// An offence that is filed when a series of validators lost a dispute.
 #[derive(TypeInfo)]
 #[cfg_attr(feature = "std", derive(Clone, PartialEq, Eq))]
