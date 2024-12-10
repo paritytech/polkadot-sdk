@@ -1126,7 +1126,8 @@ fn peer_sending_us_duplicates_while_aggression_enabled_is_ok() {
 			// now we should
 			expect_reputation_change(overseer, peer, COST_DUPLICATE_MESSAGE).await;
 
-			// When approval aggression is enabled, we should not punish the peer again.
+			// Peers will be continously punished for sending duplicates until approval-distribution
+			// aggression kicks, at which point they aren't anymore.
 			let mut parent_hash = hash;
 			for level in 0..16 {
 				// As long as the lag is bellow l1 aggression, punish peers for duplicates.
