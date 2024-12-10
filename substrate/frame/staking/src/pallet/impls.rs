@@ -1474,8 +1474,16 @@ where
 			let eras = BondedEras::<T>::get();
 			add_db_reads_writes(1, 0);
 
-			// Reverse because it's more likely to find reports from recent eras.
-			match eras.iter().rev().find(|&(_, sesh)| sesh <= &slash_session) {
+			// earliest era that can be reported
+			let latest_era = active_era.saturating_sub(T::SlashCancellationDuration::get());
+
+			match eras
+				.iter()
+				.filter(|(era, _)| era < &latest_era)
+				// Reverse because it's more likely to find reports from recent eras.
+				.rev()
+				.find(|&(_, sesh)| sesh <= &slash_session)
+			{
 				Some((slash_era, _)) => *slash_era,
 				// Before bonding period. defensive - should be filtered out.
 				None => return consumed_weight,
