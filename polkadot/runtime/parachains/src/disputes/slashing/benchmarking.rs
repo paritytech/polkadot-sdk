@@ -47,7 +47,7 @@ where
 
 	let balance_factor = 1000;
 	// create validators and set random session keys
-	for (n, who) in create_validators::<T>(n, balance_factor).unwrap().into_iter().enumerate() {
+	for (m, who) in create_validators::<T>(n, balance_factor).unwrap().into_iter().enumerate() {
 		use rand::{RngCore, SeedableRng};
 
 		let validator = T::Lookup::lookup(who).unwrap();
@@ -62,7 +62,7 @@ where
 				keys_len += 1;
 			}
 			let mut keys = vec![0u8; keys_len];
-			let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(n as u64);
+			let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(m as u64);
 			rng.fill_bytes(&mut keys);
 			keys
 		};
