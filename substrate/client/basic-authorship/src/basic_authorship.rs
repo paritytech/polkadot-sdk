@@ -910,8 +910,8 @@ mod tests {
 		let extrinsics_num = 5;
 		let extrinsics = std::iter::once(
 			Transfer {
-				from: AccountKeyring::Alice.into(),
-				to: AccountKeyring::Bob.into(),
+				from: Sr25519Keyring::Alice.into(),
+				to: Sr25519Keyring::Bob.into(),
 				amount: 100,
 				nonce: 0,
 			}
@@ -1016,7 +1016,7 @@ mod tests {
 		};
 		let huge = |who| {
 			ExtrinsicBuilder::new_fill_block(Perbill::from_parts(HUGE))
-				.signer(AccountKeyring::numeric(who))
+				.signer(Sr25519Keyring::numeric(who))
 				.build()
 		};
 
@@ -1082,13 +1082,13 @@ mod tests {
 
 		let tiny = |who| {
 			ExtrinsicBuilder::new_fill_block(Perbill::from_parts(TINY))
-				.signer(AccountKeyring::numeric(who))
+				.signer(Sr25519Keyring::numeric(who))
 				.nonce(1)
 				.build()
 		};
 		let huge = |who| {
 			ExtrinsicBuilder::new_fill_block(Perbill::from_parts(HUGE))
-				.signer(AccountKeyring::numeric(who))
+				.signer(Sr25519Keyring::numeric(who))
 				.build()
 		};
 
