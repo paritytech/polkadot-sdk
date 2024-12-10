@@ -32,14 +32,27 @@ use frame_support::{
 	pallet_prelude::TransactionSource,
 };
 use frame_system::{Call as SystemCall, RawOrigin};
-use sp_io::hashing::blake2_256;
+use sp_io::{
+	crypto::{sr25519_generate, sr25519_sign},
+	hashing::blake2_256,
+};
 use sp_runtime::{
 	generic::ExtensionVersion,
-	traits::{AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable},
+	traits::{AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable, IdentifyAccount},
+	AccountId32, MultiSignature, MultiSigner,
 };
 
 pub trait BenchmarkHelper<Signature, Signer> {
 	fn create_signature(entropy: &[u8], msg: &[u8]) -> (Signature, Signer);
+}
+
+impl BenchmarkHelper<MultiSignature, AccountId32> for () {
+	fn create_signature(_entropy: &[u8], msg: &[u8]) -> (MultiSignature, AccountId32) {
+		let public = sr25519_generate(0.into(), None);
+		let who_account: AccountId32 = MultiSigner::Sr25519(public).into_account().into();
+		let signature = MultiSignature::Sr25519(sr25519_sign(0.into(), &public, msg).unwrap());
+		(signature, who_account)
+	}
 }
 
 #[benchmarks(where
