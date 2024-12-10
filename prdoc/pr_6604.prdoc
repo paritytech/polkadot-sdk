@@ -1,7 +1,10 @@
 title: 'dmp: Check that the para exist before delivering a message'
 doc:
 - audience: Runtime Dev
-  description: null
+  description: |
+    Ensure that a para exists before trying to deliver a message to it. 
+    Besides that `ensure_successful_delivery` function is added to `SendXcm`. This function
+    should be used by benchmarks to ensure that the delivery of a Xcm will work in the benchmark.
 crates:
 - name: polkadot-runtime-parachains
   bump: major
