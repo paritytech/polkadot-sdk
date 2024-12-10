@@ -38,14 +38,14 @@
 template for building a blockchain node.
 
 
+- 🔧 To simplify the process of using Zombienet with Omni Node, we've added a pre-configured development chain spec (dev_chain_spec.json) to the minimal template. Additionally, the zombienet-omni-node.toml file has been updated to include a valid chain spec path pointing to dev_chain_spec.json
+
+
 - 🔧 Its runtime is configured with a single custom pallet as a starting point, and a handful of ready-made pallets
 such as a [Balances pallet](https://paritytech.github.io/polkadot-sdk/master/pallet_balances/index.html).
 
 
 - 👤 The template has no consensus configured - it is best for experimenting with a single node network.
-
-
-- 🔧 To simplify the process of using Zombienet with Omni Node, we've added pre-configured development chain specs to the template. This ensures that developers can easily set up the chain_spec_path in the Zombienet configuration, without having to generate the spec manually.
 
 
 - ⚠️ The README files for the templates in this repository are currently speculative and based on unreleased changes in the Polkadot SDK master branch. Attempting to install staging-chain-spec-builder following these READMEs will install version 6.0.0, which does not align with the latest master branch changes. A stable release addressing this is expected in December.
