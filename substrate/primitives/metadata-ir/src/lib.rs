@@ -122,6 +122,7 @@ mod test {
 				event_enum_ty: meta_type::<()>(),
 				error_enum_ty: meta_type::<()>(),
 			},
+			view_functions: RuntimeViewFunctionsIR { ty: meta_type::<()>(), groups: vec![] },
 		}
 	}
 
