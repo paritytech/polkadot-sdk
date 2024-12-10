@@ -11,5 +11,5 @@ doc:
       and make resend enable only for the latest unfinalized block.
 
 crates:
-  - name: polkadot-node-network-protocol
+  - name: polkadot-approval-distribution
     bump: minor
