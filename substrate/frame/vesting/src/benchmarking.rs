@@ -18,12 +18,17 @@
 //! Vesting pallet benchmarking.
 
 #![cfg(feature = "runtime-benchmarks")]
-
+/*
 use frame_benchmarking::{v2::*, BenchmarkError};
 use frame_support::assert_ok;
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_runtime::traits::{Bounded, CheckedDiv, CheckedMul};
-
+*/
+use frame::benchmarking::prelude::*;
+use frame::testing_prelude::assert_ok;
+use frame::traits::{Currency, Convert, WithdrawReasons, ExistenceRequirement, LockableCurrency, LockIdentifier, BlockNumberProvider, VestingSchedule, VestedTransfer};
+use frame::arithmetic::{AtLeast32BitUnsigned, One};
+use frame::runtime::{prelude::storage::with_transaction, prelude::TransactionOutcome};
 use crate::*;
 
 const SEED: u32 = 0;
