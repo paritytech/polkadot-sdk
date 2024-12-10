@@ -20,7 +20,7 @@ use sp_runtime::{
 };
 use sp_std::{convert::From, default::Default};
 use xcm::{latest::SendXcm, prelude::*};
-use xcm_executor::{traits::TransactAsset, AssetsInHolding};
+use xcm::opaque::latest::WESTEND_GENESIS_HASH;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -100,7 +100,6 @@ impl Verifier for MockVerifier {
 }
 
 const GATEWAY_ADDRESS: [u8; 20] = hex!["eda338e4dc46038493b885327842fd3e301cab39"];
-const WETH_ADDRESS: [u8; 20] = hex!["fff9976782d46cc05630d1f6ebab18b2324d6b14"];
 
 #[cfg(feature = "runtime-benchmarks")]
 impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Test {
@@ -146,7 +145,6 @@ impl MaybeEquivalence<TokenId, Location> for MockTokenIdConvert {
 parameter_types! {
 	pub const EthereumNetwork: xcm::v5::NetworkId = xcm::v5::NetworkId::Ethereum { chain_id: 11155111 };
 	pub const GatewayAddress: H160 = H160(GATEWAY_ADDRESS);
-	pub const WethAddress: H160 = H160(WETH_ADDRESS);
 	pub const InboundQueuePalletInstance: u8 = 84;
 	pub AssetHubLocation: InteriorLocation = Parachain(1000).into();
 	pub UniversalLocation: InteriorLocation =
@@ -166,7 +164,7 @@ impl inbound_queue_v2::Config for Test {
 		EthereumNetwork,
 		InboundQueuePalletInstance,
 		MockTokenIdConvert,
-		WethAddress,
+		GatewayAddress,
 		UniversalLocation,
 		AssetHubFromEthereum,
 	>;
@@ -174,52 +172,6 @@ impl inbound_queue_v2::Config for Test {
 	type Balance = u128;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
-}
-
-pub struct SuccessfulTransactor;
-impl TransactAsset for SuccessfulTransactor {
-	fn can_check_in(_origin: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
-		Ok(())
-	}
-
-	fn can_check_out(_dest: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
-		Ok(())
-	}
-
-	fn deposit_asset(_what: &Asset, _who: &Location, _context: Option<&XcmContext>) -> XcmResult {
-		Ok(())
-	}
-
-	fn withdraw_asset(
-		_what: &Asset,
-		_who: &Location,
-		_context: Option<&XcmContext>,
-	) -> Result<AssetsInHolding, XcmError> {
-		Ok(AssetsInHolding::default())
-	}
-
-	fn internal_transfer_asset(
-		_what: &Asset,
-		_from: &Location,
-		_to: &Location,
-		_context: &XcmContext,
-	) -> Result<AssetsInHolding, XcmError> {
-		Ok(AssetsInHolding::default())
-	}
-}
-
-pub fn last_events(n: usize) -> Vec<RuntimeEvent> {
-	frame_system::Pallet::<Test>::events()
-		.into_iter()
-		.rev()
-		.take(n)
-		.rev()
-		.map(|e| e.event)
-		.collect()
-}
-
-pub fn expect_events(e: Vec<RuntimeEvent>) {
-	assert_eq!(last_events(e.len()), e);
 }
 
 pub fn setup() {
@@ -250,19 +202,6 @@ pub fn mock_event_log() -> Log {
         ],
         // Nonce + Payload
         data: hex!("00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000002e000f000000000000000087d1f7fdfee7f651fabc8bfcb6e086c278b77a7d00e40b54020000000000000000000000000000000000000000000000000000000000").into(),
-    }
-}
-
-pub fn mock_event_log_invalid_channel() -> Log {
-	Log {
-        address: hex!("eda338e4dc46038493b885327842fd3e301cab39").into(),
-        topics: vec![
-            hex!("7153f9357c8ea496bba60bf82e67143e27b64462b49041f8e689e1b05728f84f").into(),
-            // invalid channel id
-            hex!("0000000000000000000000000000000000000000000000000000000000000000").into(),
-            hex!("5f7060e971b0dc81e63f0aa41831091847d97c1a4693ac450cc128c7214e65e0").into(),
-        ],
-        data: hex!("00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000001e000f000000000000000087d1f7fdfee7f651fabc8bfcb6e086c278b77a7d0000").into(),
     }
 }
 

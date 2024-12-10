@@ -43,6 +43,10 @@ const WETH: [u8; 20] = hex!("fff9976782d46cc05630d1f6ebab18b2324d6b14");
 const TOKEN_ID: [u8; 20] = hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2");
 const CHAIN_ID: u64 = 11155111u64;
 
+pub fn eth_location() -> Location {
+	Location::new(2, [GlobalConsensus(EthereumNetwork::get().into())])
+}
+
 pub fn weth_location() -> Location {
 	erc20_token_location(WETH.into())
 }
@@ -63,9 +67,9 @@ fn register_token_v2() {
 	let receiver = AssetHubWestendReceiver::get();
 	BridgeHubWestend::fund_accounts(vec![(relayer.clone(), INITIAL_FUND)]);
 
-	register_foreign_asset(weth_location());
+	register_foreign_asset(eth_location());
 
-	set_up_weth_and_dot_pool(weth_location());
+	set_up_eth_and_dot_pool(eth_location());
 
 	let claimer = AccountId32 { network: None, id: receiver.clone().into() };
 	let claimer_bytes = claimer.encode();
@@ -81,15 +85,13 @@ fn register_token_v2() {
 	let dot_asset = Location::new(1, Here);
 	let dot_fee: xcm::prelude::Asset = (dot_asset, CreateAssetDeposit::get()).into();
 
-	// Used to pay the asset creation deposit.
-	let weth_asset_value = 9_000_000_000_000u128;
-	let assets = vec![NativeTokenERC20 { token_id: WETH.into(), value: weth_asset_value }];
-	let asset_deposit: xcm::prelude::Asset = (weth_location(), weth_asset_value).into();
+	let eth_asset_value = 9_000_000_000_000u128;
+	let asset_deposit: xcm::prelude::Asset = (eth_location(), eth_asset_value).into();
 
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 		let instructions = vec![
-			// Exchange weth for dot to pay the asset creation deposit
+			// Exchange eth for dot to pay the asset creation deposit
 			ExchangeAsset {
 				give: asset_deposit.clone().into(),
 				want: dot_fee.clone().into(),
@@ -119,10 +121,11 @@ fn register_token_v2() {
 
 		let message = Message {
 			origin,
-			assets,
+			assets: vec![],
 			xcm: versioned_message_xcm.encode(),
 			claimer: Some(claimer_bytes),
-			value: 3_500_000_000_000u128,
+			// Used to pay the asset creation deposit.
+			value: 9_000_000_000_000u128,
 			execution_fee: 1_500_000_000_000u128,
 			relayer_fee: 1_500_000_000_000u128,
 		};
@@ -164,14 +167,12 @@ fn send_token_v2() {
 	let claimer = AccountId32 { network: None, id: claimer_acc_id.into() };
 	let claimer_bytes = claimer.encode();
 
-	register_foreign_asset(weth_location());
+	register_foreign_asset(eth_location());
 	register_foreign_asset(token_location.clone());
 
 	let token_transfer_value = 2_000_000_000_000u128;
 
 	let assets = vec![
-		// to pay fees
-		NativeTokenERC20 { token_id: WETH.into(), value: 1_500_000_000_000u128 },
 		// the token being transferred
 		NativeTokenERC20 { token_id: token.into(), value: token_transfer_value },
 	];
@@ -194,7 +195,7 @@ fn send_token_v2() {
 			assets,
 			xcm: versioned_message_xcm.encode(),
 			claimer: Some(claimer_bytes),
-			value: 3_500_000_000_000u128,
+			value: 1_500_000_000_000u128,
 			execution_fee: 1_500_000_000_000u128,
 			relayer_fee: 1_500_000_000_000u128,
 		};
@@ -223,8 +224,8 @@ fn send_token_v2() {
 			token_transfer_value
 		);
 
-		// Claimer received weth refund for fees paid
-		assert!(ForeignAssets::balance(weth_location(), AccountId::from(claimer_acc_id_bytes)) > 0);
+		// Claimer received eth refund for fees paid
+		assert!(ForeignAssets::balance(eth_location(), AccountId::from(claimer_acc_id_bytes)) > 0);
 	});
 }
 
@@ -244,14 +245,14 @@ fn send_weth_v2() {
 	let claimer = AccountId32 { network: None, id: claimer_acc_id.into() };
 	let claimer_bytes = claimer.encode();
 
+	register_foreign_asset(eth_location());
 	register_foreign_asset(weth_location());
 
 	let token_transfer_value = 2_000_000_000_000u128;
 
 	let assets = vec![
-		// to pay fees
-		NativeTokenERC20 { token_id: WETH.into(), value: token_transfer_value },
 		// the token being transferred
+		NativeTokenERC20 { token_id: WETH.into(), value: token_transfer_value },
 	];
 
 	BridgeHubWestend::execute_with(|| {
@@ -289,7 +290,7 @@ fn send_weth_v2() {
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
-		// Check that the token was received and issued as a foreign asset on AssetHub
+		// Check that the weth was received and issued as a foreign asset on AssetHub
 		assert_expected_events!(
 			AssetHubWestend,
 			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { .. }) => {},]
@@ -301,8 +302,8 @@ fn send_weth_v2() {
 			token_transfer_value
 		);
 
-		// Claimer received weth refund for fees paid
-		assert!(ForeignAssets::balance(weth_location(), AccountId::from(claimer_acc_id_bytes)) > 0);
+		// Claimer received eth refund for fees paid
+		assert!(ForeignAssets::balance(eth_location(), AccountId::from(claimer_acc_id_bytes)) > 0);
 	});
 }
 
@@ -333,9 +334,10 @@ fn register_and_send_multiple_tokens_v2() {
 	let claimer = AccountId32 { network: None, id: claimer_acc_id.into() };
 	let claimer_bytes = claimer.encode();
 
+	register_foreign_asset(eth_location());
 	register_foreign_asset(weth_location());
 
-	set_up_weth_and_dot_pool(weth_location());
+	set_up_eth_and_dot_pool(eth_location());
 
 	let token_transfer_value = 2_000_000_000_000u128;
 	let weth_transfer_value = 2_500_000_000_000u128;
@@ -344,13 +346,11 @@ fn register_and_send_multiple_tokens_v2() {
 	let dot_fee: xcm::prelude::Asset = (dot_asset, CreateAssetDeposit::get()).into();
 
 	// Used to pay the asset creation deposit.
-	let weth_asset_value = 9_000_000_000_000u128;
-	let asset_deposit: xcm::prelude::Asset = (weth_location(), weth_asset_value).into();
+	let eth_asset_value = 9_000_000_000_000u128;
+	let asset_deposit: xcm::prelude::Asset = (eth_location(), eth_asset_value).into();
 
 	let assets = vec![
-		// to pay fees and transfer assets
 		NativeTokenERC20 { token_id: WETH.into(), value: 2_800_000_000_000u128 },
-		// the token being transferred
 		NativeTokenERC20 { token_id: token.into(), value: token_transfer_value },
 	];
 
@@ -444,8 +444,8 @@ fn register_and_send_multiple_tokens_v2() {
 				weth_transfer_value
 		);
 
-		// Claimer received weth refund for fees paid
-		assert!(ForeignAssets::balance(weth_location(), AccountId::from(claimer_acc_id_bytes)) > 0);
+		// Claimer received eth refund for fees paid
+		assert!(ForeignAssets::balance(eth_location(), AccountId::from(claimer_acc_id_bytes)) > 0);
 	});
 }
 
@@ -468,9 +468,9 @@ fn send_token_to_penpal_v2() {
 	let claimer_bytes = claimer.encode();
 
 	// To pay fees on Penpal.
-	let weth_fee_penpal: xcm::prelude::Asset = (weth_location(), 3_000_000_000_000u128).into();
+	let eth_fee_penpal: xcm::prelude::Asset = (eth_location(), 3_000_000_000_000u128).into();
 
-	register_foreign_asset(weth_location());
+	register_foreign_asset(eth_location());
 	register_foreign_asset(token_location.clone());
 
 	// To satisfy ED
@@ -497,17 +497,17 @@ fn send_token_to_penpal_v2() {
 			token_location.clone().try_into().unwrap(),
 		));
 
-		// Register weth on Penpal
+		// Register eth on Penpal
 		assert_ok!(<PenpalB as PenpalBPallet>::ForeignAssets::force_create(
 			RuntimeOrigin::root(),
-			weth_location().try_into().unwrap(),
+			eth_location().try_into().unwrap(),
 			penpal_sovereign.clone().into(),
 			true,
 			1000,
 		));
 
 		assert!(<PenpalB as PenpalBPallet>::ForeignAssets::asset_exists(
-			weth_location().try_into().unwrap(),
+			eth_location().try_into().unwrap(),
 		));
 
 		assert_ok!(<PenpalB as Chain>::System::set_storage(
@@ -519,15 +519,12 @@ fn send_token_to_penpal_v2() {
 		));
 	});
 
-	set_up_weth_and_dot_pool(weth_location());
-
-	set_up_weth_and_dot_pool_on_penpal(weth_location());
+	set_up_eth_and_dot_pool(eth_location());
+	set_up_eth_and_dot_pool_on_penpal(eth_location());
 
 	let token_transfer_value = 2_000_000_000_000u128;
 
 	let assets = vec![
-		// to pay fees
-		NativeTokenERC20 { token_id: WETH.into(), value: 5_000_000_000_000u128 },
 		// the token being transferred
 		NativeTokenERC20 { token_id: token.into(), value: token_transfer_value },
 	];
@@ -538,13 +535,13 @@ fn send_token_to_penpal_v2() {
 		let instructions = vec![
 			// Send message to Penpal
 			DepositReserveAsset {
-				// Send the token plus some weth for execution fees
-				assets: Definite(vec![weth_fee_penpal.clone(), token_asset].into()),
+				// Send the token plus some eth for execution fees
+				assets: Definite(vec![eth_fee_penpal.clone(), token_asset].into()),
 				// Penpal
 				dest: Location::new(1, [Parachain(PARA_ID_B)]),
 				xcm: vec![
 					// Pay fees on Penpal.
-					PayFees { asset: weth_fee_penpal },
+					PayFees { asset: eth_fee_penpal },
 					// Deposit assets to beneficiary.
 					DepositAsset {
 						assets: Wild(AllOf {
@@ -624,7 +621,7 @@ fn send_foreign_erc20_token_back_to_polkadot() {
 	let asset_id: Location =
 		[PalletInstance(ASSETS_PALLET_ID), GeneralIndex(RESERVABLE_ASSET_ID.into())].into();
 
-	register_foreign_asset(weth_location());
+	register_foreign_asset(eth_location());
 
 	let asset_id_in_bh: Location = Location::new(
 		1,
@@ -679,8 +676,6 @@ fn send_foreign_erc20_token_back_to_polkadot() {
 	let token_id = TokenIdOf::convert_location(&asset_id_after_reanchored).unwrap();
 
 	let assets = vec![
-		// to pay fees
-		NativeTokenERC20 { token_id: WETH.into(), value: 3_000_000_000_000u128 },
 		// the token being transferred
 		ForeignTokenERC20 { token_id: token_id.into(), value: TOKEN_AMOUNT },
 	];
@@ -759,12 +754,12 @@ fn invalid_xcm_traps_funds_on_ah() {
 		3_000_000_000_000,
 	)]);
 
-	register_foreign_asset(weth_location());
+	register_foreign_asset(eth_location());
 
-	set_up_weth_and_dot_pool(weth_location());
+	set_up_eth_and_dot_pool(eth_location());
 
 	let assets = vec![
-		// to pay fees and transfer assets
+		// to transfer assets
 		NativeTokenERC20 { token_id: WETH.into(), value: 2_800_000_000_000u128 },
 		// the token being transferred
 		NativeTokenERC20 { token_id: token.into(), value: 2_000_000_000_000u128 },
@@ -815,14 +810,14 @@ fn invalid_claimer_does_not_fail_the_message() {
 	let beneficiary_acc: [u8; 32] = H256::random().into();
 	let beneficiary = Location::new(0, AccountId32 { network: None, id: beneficiary_acc.into() });
 
+	register_foreign_asset(eth_location());
 	register_foreign_asset(weth_location());
 
 	let token_transfer_value = 2_000_000_000_000u128;
 
 	let assets = vec![
-		// to pay fees
-		NativeTokenERC20 { token_id: WETH.into(), value: token_transfer_value },
 		// the token being transferred
+		NativeTokenERC20 { token_id: WETH.into(), value: token_transfer_value },
 	];
 
 	BridgeHubWestend::execute_with(|| {
@@ -874,8 +869,8 @@ fn invalid_claimer_does_not_fail_the_message() {
 			token_transfer_value
 		);
 
-		// Relayer (instead of claimer) received weth refund for fees paid
-		assert!(ForeignAssets::balance(weth_location(), AccountId::from(relayer)) > 0);
+		// Relayer (instead of claimer) received eth refund for fees paid
+		assert!(ForeignAssets::balance(eth_location(), AccountId::from(relayer)) > 0);
 	});
 }
 
@@ -899,7 +894,7 @@ pub fn register_foreign_asset(token_location: Location) {
 	});
 }
 
-pub(crate) fn set_up_weth_and_dot_pool(asset: v5::Location) {
+pub(crate) fn set_up_eth_and_dot_pool(asset: v5::Location) {
 	let wnd: v5::Location = v5::Parent.into();
 	let assethub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
 	let owner = AssetHubWestendSender::get();
@@ -961,7 +956,7 @@ pub(crate) fn set_up_weth_and_dot_pool(asset: v5::Location) {
 	});
 }
 
-pub(crate) fn set_up_weth_and_dot_pool_on_penpal(asset: v5::Location) {
+pub(crate) fn set_up_eth_and_dot_pool_on_penpal(asset: v5::Location) {
 	let wnd: v5::Location = v5::Parent.into();
 	let penpal_location = BridgeHubWestend::sibling_location_of(PenpalB::para_id());
 	let owner = PenpalBSender::get();

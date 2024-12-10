@@ -76,7 +76,6 @@ pub struct MessageToXcm<
 	EthereumNetwork,
 	InboundQueuePalletInstance,
 	ConvertAssetId,
-	WethAddress,
 	GatewayProxyAddress,
 	EthereumUniversalLocation,
 	GlobalAssetHubLocation,
@@ -84,7 +83,6 @@ pub struct MessageToXcm<
 	EthereumNetwork: Get<NetworkId>,
 	InboundQueuePalletInstance: Get<u8>,
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
-	WethAddress: Get<H160>,
 	GatewayProxyAddress: Get<H160>,
 	EthereumUniversalLocation: Get<InteriorLocation>,
 	GlobalAssetHubLocation: Get<Location>,
@@ -93,7 +91,6 @@ pub struct MessageToXcm<
 		EthereumNetwork,
 		InboundQueuePalletInstance,
 		ConvertAssetId,
-		WethAddress,
 		GatewayProxyAddress,
 		EthereumUniversalLocation,
 		GlobalAssetHubLocation,
@@ -104,7 +101,6 @@ impl<
 		EthereumNetwork,
 		InboundQueuePalletInstance,
 		ConvertAssetId,
-		WethAddress,
 		GatewayProxyAddress,
 		EthereumUniversalLocation,
 		GlobalAssetHubLocation,
@@ -113,7 +109,6 @@ impl<
 		EthereumNetwork,
 		InboundQueuePalletInstance,
 		ConvertAssetId,
-		WethAddress,
 		GatewayProxyAddress,
 		EthereumUniversalLocation,
 		GlobalAssetHubLocation,
@@ -122,7 +117,6 @@ where
 	EthereumNetwork: Get<NetworkId>,
 	InboundQueuePalletInstance: Get<u8>,
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
-	WethAddress: Get<H160>,
 	GatewayProxyAddress: Get<H160>,
 	EthereumUniversalLocation: Get<InteriorLocation>,
 	GlobalAssetHubLocation: Get<Location>,
@@ -149,19 +143,14 @@ where
 
 		let network = EthereumNetwork::get();
 
-		// use weth as asset
-		let fee_asset = Location::new(
-			2,
-			[
-				GlobalConsensus(EthereumNetwork::get()),
-				AccountKey20 { network: None, key: WethAddress::get().into() },
-			],
-		);
+		// use eth as asset
+		let fee_asset = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
 		let fee: XcmAsset = (fee_asset.clone(), message.execution_fee).into();
+		let eth: XcmAsset = (fee_asset.clone(), message.execution_fee.saturating_add(message.value)).into();
 		let mut instructions = vec![
 			DescendOrigin(PalletInstance(InboundQueuePalletInstance::get()).into()),
 			UniversalOrigin(GlobalConsensus(network)),
-			ReserveAssetDeposited(fee.clone().into()),
+			ReserveAssetDeposited(eth.into()),
 			PayFees { asset: fee },
 		];
 		let mut reserve_assets = vec![];
@@ -253,12 +242,9 @@ mod tests {
 	use sp_runtime::traits::MaybeEquivalence;
 	use xcm::{opaque::latest::WESTEND_GENESIS_HASH, prelude::*};
 	const GATEWAY_ADDRESS: [u8; 20] = hex!["eda338e4dc46038493b885327842fd3e301cab39"];
-	const WETH_ADDRESS: [u8; 20] = hex!["fff9976782d46cc05630d1f6ebab18b2324d6b14"];
-
 	parameter_types! {
 		pub const EthereumNetwork: xcm::v5::NetworkId = xcm::v5::NetworkId::Ethereum { chain_id: 11155111 };
 		pub const GatewayAddress: H160 = H160(GATEWAY_ADDRESS);
-		pub const WethAddress: H160 = H160(WETH_ADDRESS);
 		pub const InboundQueuePalletInstance: u8 = 84;
 		pub AssetHubLocation: InteriorLocation = Parachain(1000).into();
 		pub UniversalLocation: InteriorLocation =
@@ -329,7 +315,6 @@ mod tests {
 			EthereumNetwork,
 			InboundQueuePalletInstance,
 			MockTokenIdConvert,
-			WethAddress,
 			GatewayAddress,
 			UniversalLocation,
 			AssetHubFromEthereum,
@@ -361,13 +346,7 @@ mod tests {
 				}
 			}
 			if let PayFees { ref asset } = instruction {
-				let fee_asset = Location::new(
-					2,
-					[
-						GlobalConsensus(EthereumNetwork::get()),
-						AccountKey20 { network: None, key: WethAddress::get().into() },
-					],
-				);
+				let fee_asset = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
 				assert_eq!(asset.id, AssetId(fee_asset));
 				assert_eq!(asset.fun, Fungible(execution_fee));
 				pay_fees_found = true;
@@ -375,13 +354,7 @@ mod tests {
 			if let ReserveAssetDeposited(ref reserve_assets) = instruction {
 				reserve_deposited_found = reserve_deposited_found + 1;
 				if reserve_deposited_found == 1 {
-					let fee_asset = Location::new(
-						2,
-						[
-							GlobalConsensus(EthereumNetwork::get()),
-							AccountKey20 { network: None, key: WethAddress::get().into() },
-						],
-					);
+					let fee_asset = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
 					let fee: XcmAsset = (fee_asset, execution_fee).into();
 					let fee_assets: Assets = fee.into();
 					assert_eq!(fee_assets, reserve_assets.clone());
@@ -464,7 +437,6 @@ mod tests {
 			EthereumNetwork,
 			InboundQueuePalletInstance,
 			MockTokenIdConvert,
-			WethAddress,
 			GatewayAddress,
 			UniversalLocation,
 			AssetHubFromEthereum,
@@ -524,7 +496,6 @@ mod tests {
 			EthereumNetwork,
 			InboundQueuePalletInstance,
 			MockFailedTokenConvert,
-			WethAddress,
 			GatewayAddress,
 			UniversalLocation,
 			AssetHubFromEthereum,
@@ -573,7 +544,6 @@ mod tests {
 			EthereumNetwork,
 			InboundQueuePalletInstance,
 			MockTokenIdConvert,
-			WethAddress,
 			GatewayAddress,
 			UniversalLocation,
 			AssetHubFromEthereum,
@@ -609,13 +579,7 @@ mod tests {
 		assert!(last.is_some());
 		assert!(second_last.is_some());
 
-		let fee_asset = Location::new(
-			2,
-			[
-				GlobalConsensus(EthereumNetwork::get()),
-				AccountKey20 { network: None, key: WethAddress::get().into() },
-			],
-		);
+		let fee_asset = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
 		assert_eq!(
 			last,
 			Some(DepositAsset {
@@ -657,7 +621,6 @@ mod tests {
 			EthereumNetwork,
 			InboundQueuePalletInstance,
 			MockTokenIdConvert,
-			WethAddress,
 			GatewayAddress,
 			UniversalLocation,
 			AssetHubFromEthereum,

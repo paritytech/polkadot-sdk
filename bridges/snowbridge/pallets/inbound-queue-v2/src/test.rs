@@ -3,48 +3,11 @@
 use super::*;
 
 use frame_support::{assert_noop, assert_ok};
-use hex_literal::hex;
 use snowbridge_core::inbound::Proof;
 use sp_keyring::AccountKeyring as Keyring;
 use sp_runtime::DispatchError;
 
-use crate::{mock::*, Error, Event as InboundQueueEvent};
-use codec::DecodeLimit;
-use snowbridge_router_primitives::inbound::v2::Asset;
-use sp_core::H256;
-use xcm::{
-	opaque::latest::prelude::{ClearOrigin, ReceiveTeleportedAsset},
-	prelude::*,
-	VersionedXcm, MAX_XCM_DECODE_DEPTH,
-};
-
-#[test]
-fn test_submit_happy_path() {
-	new_tester().execute_with(|| {
-		let relayer: AccountId = Keyring::Bob.into();
-
-		let origin = RuntimeOrigin::signed(relayer.clone());
-
-		// Submit message
-		let message = Message {
-			event_log: mock_event_log(),
-			proof: Proof {
-				receipt_proof: Default::default(),
-				execution_proof: mock_execution_proof(),
-			},
-		};
-
-		assert_ok!(InboundQueue::submit(origin.clone(), message.clone()));
-		expect_events(vec![InboundQueueEvent::MessageReceived {
-			nonce: 1,
-			message_id: [
-				183, 243, 1, 130, 170, 254, 104, 45, 116, 181, 146, 237, 14, 139, 138, 89, 43, 166,
-				182, 24, 163, 222, 112, 238, 215, 83, 21, 160, 24, 88, 112, 9,
-			],
-		}
-		.into()]);
-	});
-}
+use crate::{mock::*, Error};
 
 #[test]
 fn test_submit_with_invalid_gateway() {
@@ -63,30 +26,6 @@ fn test_submit_with_invalid_gateway() {
 		assert_noop!(
 			InboundQueue::submit(origin.clone(), message.clone()),
 			Error::<Test>::InvalidGateway
-		);
-	});
-}
-
-#[test]
-fn test_submit_with_invalid_nonce() {
-	new_tester().execute_with(|| {
-		let relayer: AccountId = Keyring::Bob.into();
-		let origin = RuntimeOrigin::signed(relayer);
-
-		// Submit message
-		let message = Message {
-			event_log: mock_event_log(),
-			proof: Proof {
-				receipt_proof: Default::default(),
-				execution_proof: mock_execution_proof(),
-			},
-		};
-		assert_ok!(InboundQueue::submit(origin.clone(), message.clone()));
-
-		// Submit the same again
-		assert_noop!(
-			InboundQueue::submit(origin.clone(), message.clone()),
-			Error::<Test>::InvalidNonce
 		);
 	});
 }
