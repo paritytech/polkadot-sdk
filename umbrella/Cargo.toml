@@ -168,11 +168,16 @@ std = [
 	"snowbridge-beacon-primitives?/std",
 	"snowbridge-core?/std",
 	"snowbridge-ethereum?/std",
+	"snowbridge-merkle-tree?/std",
+	"snowbridge-outbound-primitives?/std",
+	"snowbridge-outbound-queue-runtime-api-v2?/std",
 	"snowbridge-outbound-queue-runtime-api?/std",
+	"snowbridge-outbound-router-primitives?/std",
 	"snowbridge-pallet-ethereum-client-fixtures?/std",
 	"snowbridge-pallet-ethereum-client?/std",
 	"snowbridge-pallet-inbound-queue-fixtures?/std",
 	"snowbridge-pallet-inbound-queue?/std",
+	"snowbridge-pallet-outbound-queue-v2?/std",
 	"snowbridge-pallet-outbound-queue?/std",
 	"snowbridge-pallet-system?/std",
 	"snowbridge-router-primitives?/std",
@@ -351,6 +356,7 @@ runtime-benchmarks = [
 	"snowbridge-pallet-ethereum-client?/runtime-benchmarks",
 	"snowbridge-pallet-inbound-queue-fixtures?/runtime-benchmarks",
 	"snowbridge-pallet-inbound-queue?/runtime-benchmarks",
+	"snowbridge-pallet-outbound-queue-v2/runtime-benchmarks",
 	"snowbridge-pallet-outbound-queue?/runtime-benchmarks",
 	"snowbridge-pallet-system?/runtime-benchmarks",
 	"snowbridge-router-primitives?/runtime-benchmarks",
@@ -477,6 +483,7 @@ try-runtime = [
 	"polkadot-service?/try-runtime",
 	"snowbridge-pallet-ethereum-client?/try-runtime",
 	"snowbridge-pallet-inbound-queue?/try-runtime",
+	"snowbridge-pallet-outbound-queue-v2?/try-runtime",
 	"snowbridge-pallet-outbound-queue?/try-runtime",
 	"snowbridge-pallet-system?/try-runtime",
 	"sp-runtime?/try-runtime",
@@ -1482,6 +1489,31 @@ optional = true
 
 [dependencies.snowbridge-system-runtime-api]
 path = "../bridges/snowbridge/pallets/system/runtime-api"
+default-features = false
+optional = true
+
+[dependencies.snowbridge-merkle-tree]
+path = "../bridges/snowbridge/primitives/merkle-tree"
+default-features = false
+optional = true
+
+[dependencies.snowbridge-outbound-primitives]
+path = "../bridges/snowbridge/primitives/outbound"
+default-features = false
+optional = true
+
+[dependencies.snowbridge-outbound-router-primitives]
+path = "../bridges/snowbridge/primitives/outbound-router"
+default-features = false
+optional = true
+
+[dependencies.snowbridge-pallet-outbound-queue-v2]
+path = "../bridges/snowbridge/pallets/outbound-queue-v2"
+default-features = false
+optional = true
+
+[dependencies.snowbridge-outbound-queue-runtime-api-v2]
+path = "../bridges/snowbridge/pallets/outbound-queue-v2/runtime-api"
 default-features = false
 optional = true
 
