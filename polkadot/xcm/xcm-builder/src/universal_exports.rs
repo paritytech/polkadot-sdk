@@ -628,7 +628,7 @@ mod tests {
 		}
 
 		#[cfg(feature = "runtime-benchmarks")]
-		fn ensure_successful_delivery(location: Option<Location>) {}
+		fn ensure_successful_delivery(_: Option<Location>) {}
 	}
 	impl<Filter: Contains<(NetworkId, InteriorLocation)>> ExportXcm for OkFor<Filter> {
 		type Ticket = ();
