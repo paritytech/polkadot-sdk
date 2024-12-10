@@ -735,4 +735,67 @@ mod sorted_list_provider {
 			assert!(non_existent_ids.iter().all(|id| !BagsList::contains(id)));
 		})
 	}
+
+	#[test]
+	fn on_update_with_preserve_order_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			// initial iter state.
+			let initial_iter = ListNodes::<Runtime>::iter().map(|(a, _)| a).collect::<Vec<_>>();
+			assert_eq!(initial_iter, vec![3, 4, 1, 2]);
+
+			assert_eq!(ListBags::<Runtime>::iter().count(), 2);
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+
+			assert_eq!(BagsList::get_score(&1), Ok(10));
+
+			// sets preserve order.
+			PreserveOrder::set(true);
+
+			// update 1's score in score provider and call on_update.
+			StakingMock::set_score_of(&1, 2_000);
+			assert_ok!(BagsList::on_update(&1, 2_000));
+
+			// preserve order is set, so the node's bag score and iter state remain the same,
+			// despite the updated score in the score provider for 1.
+			assert_eq!(BagsList::get_score(&1), Ok(10));
+			assert_eq!(
+				initial_iter,
+				ListNodes::<Runtime>::iter().map(|(a, _)| a).collect::<Vec<_>>()
+			);
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+
+			// unsets preserve order.
+			PreserveOrder::set(false);
+			assert_ok!(BagsList::rebag(RuntimeOrigin::signed(0), 1));
+
+			// now the rebag worked as expected.
+			assert_eq!(BagsList::get_score(&1), Ok(2_000));
+			assert_eq!(List::<Runtime>::get_bags(), vec![(1_000, vec![2, 3, 4]), (2_000, vec![1])]);
+		})
+	}
+
+	#[test]
+	fn calls_with_preserve_order_fails() {
+		use crate::pallet::Error;
+
+		ExtBuilder::default().build_and_execute(|| {
+			// sets preserve order.
+			PreserveOrder::set(true);
+
+			assert_noop!(
+				BagsList::rebag(RuntimeOrigin::signed(0), 1),
+				Error::<Runtime>::MustPreserveOrder
+			);
+
+			assert_noop!(
+				BagsList::put_in_front_of(RuntimeOrigin::signed(0), 1),
+				Error::<Runtime>::MustPreserveOrder
+			);
+
+			assert_noop!(
+				BagsList::put_in_front_of_other(RuntimeOrigin::signed(0), 1, 2),
+				Error::<Runtime>::MustPreserveOrder
+			);
+		})
+	}
 }

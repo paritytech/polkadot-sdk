@@ -1,0 +1,10 @@
+title: Implements a mechanism to perserve the bags-list ID order
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Refactors the bags list pallet to support a mode which perserves the order of the elements in the list.
+
+crates:
+ - name: pallet-bags-list
+   bump: major
