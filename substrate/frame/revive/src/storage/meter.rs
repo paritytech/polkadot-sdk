@@ -373,24 +373,36 @@ where
 		}
 	}
 
+	/// Create new storage meter without checking the limit.
+	pub fn new_unchecked(limit: BalanceOf<T>) -> Self {
+		return Self { limit, ..Default::default() }
+	}
+
 	/// The total amount of deposit that should change hands as result of the execution
 	/// that this meter was passed into. This will also perform all the charges accumulated
 	/// in the whole contract stack.
 	///
 	/// This drops the root meter in order to make sure it is only called when the whole
 	/// execution did finish.
-	pub fn try_into_deposit(self, origin: &Origin<T>) -> Result<DepositOf<T>, DispatchError> {
-		// Only refund or charge deposit if the origin is not root.
-		let origin = match origin {
-			Origin::Root => return Ok(Deposit::Charge(Zero::zero())),
-			Origin::Signed(o) => o,
-		};
-		for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Refund(_))) {
-			E::charge(origin, &charge.contract, &charge.amount, &charge.state)?;
+	pub fn try_into_deposit(
+		self,
+		origin: &Origin<T>,
+		skip_transfer: bool,
+	) -> Result<DepositOf<T>, DispatchError> {
+		if !skip_transfer {
+			// Only refund or charge deposit if the origin is not root.
+			let origin = match origin {
+				Origin::Root => return Ok(Deposit::Charge(Zero::zero())),
+				Origin::Signed(o) => o,
+			};
+			for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Refund(_))) {
+				E::charge(origin, &charge.contract, &charge.amount, &charge.state)?;
+			}
+			for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Charge(_))) {
+				E::charge(origin, &charge.contract, &charge.amount, &charge.state)?;
+			}
 		}
-		for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Charge(_))) {
-			E::charge(origin, &charge.contract, &charge.amount, &charge.state)?;
-		}
+
 		Ok(self.total_deposit)
 	}
 }
@@ -425,13 +437,18 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 		contract: &T::AccountId,
 		contract_info: &mut ContractInfo<T>,
 		code_info: &CodeInfo<T>,
+		skip_transfer: bool,
 	) -> Result<(), DispatchError> {
 		debug_assert!(matches!(self.contract_state(), ContractState::Alive));
 
 		// We need to make sure that the contract's account exists.
 		let ed = Pallet::<T>::min_balance();
 		self.total_deposit = Deposit::Charge(ed);
-		T::Currency::transfer(origin, contract, ed, Preservation::Preserve)?;
+		if skip_transfer {
+			T::Currency::set_balance(contract, ed);
+		} else {
+			T::Currency::transfer(origin, contract, ed, Preservation::Preserve)?;
+		}
 
 		// A consumer is added at account creation and removed it on termination, otherwise the
 		// runtime could remove the account. As long as a contract exists its account must exist.
@@ -479,6 +496,7 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 		}
 		if let Deposit::Charge(amount) = total_deposit {
 			if amount > self.limit {
+				log::debug!( target: LOG_TARGET, "Storage deposit limit exhausted: {:?} > {:?}", amount, self.limit);
 				return Err(<Error<T>>::StorageDepositLimitExhausted.into())
 			}
 		}
@@ -811,7 +829,10 @@ mod tests {
 			nested0.enforce_limit(Some(&mut nested0_info)).unwrap();
 			meter.absorb(nested0, &BOB, Some(&mut nested0_info));
 
-			assert_eq!(meter.try_into_deposit(&test_case.origin).unwrap(), test_case.deposit);
+			assert_eq!(
+				meter.try_into_deposit(&test_case.origin, false).unwrap(),
+				test_case.deposit
+			);
 
 			assert_eq!(nested0_info.extra_deposit(), 112);
 			assert_eq!(nested1_info.extra_deposit(), 110);
@@ -882,7 +903,10 @@ mod tests {
 			nested0.absorb(nested1, &CHARLIE, None);
 
 			meter.absorb(nested0, &BOB, None);
-			assert_eq!(meter.try_into_deposit(&test_case.origin).unwrap(), test_case.deposit);
+			assert_eq!(
+				meter.try_into_deposit(&test_case.origin, false).unwrap(),
+				test_case.deposit
+			);
 			assert_eq!(TestExtTestValue::get(), test_case.expected)
 		}
 	}
