@@ -37,7 +37,7 @@ const ETHEREUM_DESTINATION_ADDRESS: [u8; 20] = hex!("44a57ee2f2FCcb85FDa2B0B18EB
 const XCM_FEE: u128 = 100_000_000_000;
 const TOKEN_AMOUNT: u128 = 100_000_000_000;
 
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeIfmtnfo)]
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 pub enum ControlCall {
 	#[codec(index = 3)]
 	CreateAgent,

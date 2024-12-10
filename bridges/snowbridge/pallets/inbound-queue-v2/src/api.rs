@@ -15,7 +15,7 @@ where
 {
 	// Convert message to XCM
 	let dummy_origin = Location::new(0, AccountId32 { id: H256::zero().into(), network: None });
-	let xcm = T::MessageConverter::convert(message, dummy_origin)
+	let (xcm, _) = T::MessageConverter::convert(message, dummy_origin)
 		.map_err(|e| Error::<T>::ConvertMessage(e))?;
 
 	// Calculate fee. Consists of the cost of the "submit" extrinsic as well as the XCM execution

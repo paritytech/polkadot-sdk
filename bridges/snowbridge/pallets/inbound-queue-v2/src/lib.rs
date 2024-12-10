@@ -226,10 +226,10 @@ pub mod pallet {
 
 			let origin_account_location = Self::account_to_location(who)?;
 
-			let xcm = Self::do_convert(message, origin_account_location.clone())?;
+			let (xcm, _relayer_reward) = Self::do_convert(message, origin_account_location.clone())?;
 
 			// Todo: Deposit fee(in Ether) to RewardLeger which should cover all of:
-			// T::RewardLeger::deposit(who, envelope.fee.into())?;
+			// T::RewardLeger::deposit(who, relayer_reward.into())?;
 			// a. The submit extrinsic cost on BH
 			// b. The delivery cost to AH
 			// c. The execution cost on AH
@@ -277,7 +277,7 @@ pub mod pallet {
 		pub fn do_convert(
 			message: MessageV2,
 			origin_account_location: Location,
-		) -> Result<Xcm<()>, Error<T>> {
+		) -> Result<(Xcm<()>, u128), Error<T>> {
 			Ok(T::MessageConverter::convert(message, origin_account_location)
 				.map_err(|e| Error::<T>::ConvertMessage(e))?)
 		}

@@ -149,6 +149,9 @@ parameter_types! {
 	pub const WethAddress: H160 = H160(WETH_ADDRESS);
 	pub const InboundQueuePalletInstance: u8 = 84;
 	pub AssetHubLocation: InteriorLocation = Parachain(1000).into();
+	pub UniversalLocation: InteriorLocation =
+		[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1002)].into();
+	pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),Parachain(1000)]);
 }
 
 impl inbound_queue_v2::Config for Test {
@@ -160,7 +163,7 @@ impl inbound_queue_v2::Config for Test {
 	type GatewayAddress = GatewayAddress;
 	type AssetHubParaId = ConstU32<1000>;
 	type MessageConverter =
-		MessageToXcm<EthereumNetwork, InboundQueuePalletInstance, MockTokenIdConvert, WethAddress>;
+		MessageToXcm<EthereumNetwork, InboundQueuePalletInstance, MockTokenIdConvert, WethAddress, UniversalLocation, AssetHubFromEthereum>;
 	type Token = Balances;
 	type Balance = u128;
 	#[cfg(feature = "runtime-benchmarks")]

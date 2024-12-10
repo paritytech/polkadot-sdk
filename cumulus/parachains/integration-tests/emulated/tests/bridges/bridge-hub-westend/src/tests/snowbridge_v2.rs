@@ -119,12 +119,14 @@ fn register_token_v2() {
 
 		let message = Message {
 			origin,
-			fee: 1_500_000_000_000u128,
 			assets,
 			xcm: versioned_message_xcm.encode(),
 			claimer: Some(claimer_bytes),
+			value: 3_500_000_000_000u128,
+			execution_fee: 1_500_000_000_000u128,
+			relayer_fee: 1_500_000_000_000u128,
 		};
-		let xcm = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
+		let (xcm, _) = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
 		let _ = EthereumInboundQueueV2::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
 
 		assert_expected_events!(
@@ -189,13 +191,15 @@ fn send_token_v2() {
 
 		let message = Message {
 			origin,
-			fee: 1_500_000_000_000u128,
 			assets,
 			xcm: versioned_message_xcm.encode(),
 			claimer: Some(claimer_bytes),
+			value: 3_500_000_000_000u128,
+			execution_fee: 1_500_000_000_000u128,
+			relayer_fee: 1_500_000_000_000u128,
 		};
 
-		let xcm = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
+		let (xcm, _) = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
 		let _ = EthereumInboundQueueV2::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
 
 		assert_expected_events!(
@@ -265,13 +269,15 @@ fn send_weth_v2() {
 
 		let message = Message {
 			origin,
-			fee: 1_500_000_000_000u128,
 			assets,
 			xcm: versioned_message_xcm.encode(),
 			claimer: Some(claimer_bytes),
+			value: 3_500_000_000_000u128,
+			execution_fee: 1_500_000_000_000u128,
+			relayer_fee: 1_500_000_000_000u128,
 		};
 
-		let xcm = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
+		let (xcm, _) = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
 		let _ = EthereumInboundQueueV2::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
 
 		assert_expected_events!(
@@ -394,13 +400,15 @@ fn register_and_send_multiple_tokens_v2() {
 
 		let message = Message {
 			origin,
-			fee: 1_500_000_000_000u128,
 			assets,
 			xcm: versioned_message_xcm.encode(),
 			claimer: Some(claimer_bytes),
+			value: 3_500_000_000_000u128,
+			execution_fee: 1_500_000_000_000u128,
+			relayer_fee: 1_500_000_000_000u128,
 		};
 
-		let xcm = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
+		let (xcm, _) = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
 		let _ = EthereumInboundQueueV2::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
 
 		assert_expected_events!(
@@ -556,13 +564,15 @@ fn send_token_to_penpal_v2() {
 
 		let message = Message {
 			origin,
-			fee: 1_000_000_000_000u128,
 			assets,
 			xcm: versioned_message_xcm.encode(),
 			claimer: Some(claimer_bytes),
+			value: 3_500_000_000_000u128,
+			execution_fee: 1_500_000_000_000u128,
+			relayer_fee: 1_500_000_000_000u128,
 		};
 
-		let xcm = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
+		let (xcm, _) = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
 		let _ = EthereumInboundQueueV2::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
 
 		assert_expected_events!(
@@ -684,13 +694,15 @@ fn send_foreign_erc20_token_back_to_polkadot() {
 
 		let message = Message {
 			origin,
-			fee: 3_500_000_000_000u128,
 			assets,
 			xcm: versioned_message_xcm.encode(),
 			claimer: Some(claimer_bytes),
+			value: 1_500_000_000_000u128,
+			execution_fee: 3_500_000_000_000u128,
+			relayer_fee: 1_500_000_000_000u128,
 		};
 
-		let xcm = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
+		let (xcm, _) = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
 		let _ = EthereumInboundQueueV2::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
 
 		assert_expected_events!(
@@ -766,13 +778,15 @@ fn invalid_xcm_traps_funds_on_ah() {
 
 		let message = Message {
 			origin,
-			fee: 1_500_000_000_000u128,
 			assets,
 			xcm: instructions.to_vec(),
 			claimer: Some(claimer_bytes),
+			value: 1_500_000_000_000u128,
+			execution_fee: 1_500_000_000_000u128,
+			relayer_fee: 1_500_000_000_000u128,
 		};
 
-		let xcm = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
+		let (xcm, _) = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
 		let _ = EthereumInboundQueueV2::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
 
 		assert_expected_events!(
@@ -826,14 +840,16 @@ fn invalid_claimer_does_not_fail_the_message() {
 
 		let message = Message {
 			origin,
-			fee: 1_500_000_000_000u128,
 			assets,
 			xcm: versioned_message_xcm.encode(),
 			// Set an invalid claimer
 			claimer: Some(hex!("2b7ce7bc7e87e4d6619da21487c7a53f").to_vec()),
+			value: 1_500_000_000_000u128,
+			execution_fee: 1_500_000_000_000u128,
+			relayer_fee: 1_500_000_000_000u128,
 		};
 
-		let xcm = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
+		let (xcm, _) = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
 		let _ = EthereumInboundQueueV2::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
 
 		assert_expected_events!(
