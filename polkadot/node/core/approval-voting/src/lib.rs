@@ -1491,14 +1491,10 @@ async fn handle_actions<Context>(
 					session_info_provider,
 				)
 				.await?;
-<<<<<<< HEAD
-
-				ctx.send_messages(messages.into_iter()).await;
-=======
 				for message in messages.into_iter() {
-					approval_voting_sender.send_unbounded_message(message);
+					ctx.send_unbounded_message(message);
 				}
->>>>>>> 65a4e5ee (Fix order of  resending  messages after restart (#6729))
+
 				let next_actions: Vec<Action> =
 					next_actions.into_iter().map(|v| v.clone()).chain(actions_iter).collect();
 
