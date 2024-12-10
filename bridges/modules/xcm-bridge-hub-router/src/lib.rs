@@ -30,9 +30,13 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+<<<<<<< HEAD
 use bp_xcm_bridge_hub_router::{
 	BridgeState, XcmChannelStatusProvider, MINIMAL_DELIVERY_FEE_FACTOR,
 };
+=======
+pub use bp_xcm_bridge_hub_router::{BridgeState, XcmChannelStatusProvider};
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
 use codec::Encode;
 use frame_support::traits::Get;
 use sp_core::H256;
@@ -130,7 +134,11 @@ pub mod pallet {
 				return T::WeightInfo::on_initialize_when_congested()
 			}
 
+<<<<<<< HEAD
 			// if fee factor is already minimal, we don't change anything
+=======
+			// if we can't decrease the delivery fee factor anymore, we don't change anything
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
 			if bridge.delivery_fee_factor == MINIMAL_DELIVERY_FEE_FACTOR {
 				return T::WeightInfo::on_initialize_when_congested()
 			}
@@ -138,12 +146,24 @@ pub mod pallet {
 			let previous_factor = bridge.delivery_fee_factor;
 			bridge.delivery_fee_factor =
 				MINIMAL_DELIVERY_FEE_FACTOR.max(bridge.delivery_fee_factor / EXPONENTIAL_FEE_BASE);
+<<<<<<< HEAD
+=======
+
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
 			log::info!(
 				target: LOG_TARGET,
 				"Bridge queue is uncongested. Decreased fee factor from {} to {}",
 				previous_factor,
 				bridge.delivery_fee_factor,
 			);
+<<<<<<< HEAD
+=======
+			Self::deposit_event(Event::DeliveryFeeFactorDecreased {
+				new_value: bridge.delivery_fee_factor,
+			});
+
+			Bridge::<T, I>::put(bridge);
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
 
 			Bridge::<T, I>::put(bridge);
 			T::WeightInfo::on_initialize_when_non_congested()
@@ -197,7 +217,12 @@ pub mod pallet {
 				"on_message_sent_to_bridge - message_size: {message_size:?}",
 			);
 			let _ = Bridge::<T, I>::try_mutate(|bridge| {
+<<<<<<< HEAD
 				let is_channel_with_bridge_hub_congested = T::WithBridgeHubChannel::is_congested();
+=======
+				let is_channel_with_bridge_hub_congested =
+					T::LocalXcmChannelManager::is_congested(&T::SiblingBridgeHubLocation::get());
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
 				let is_bridge_congested = bridge.is_congested;
 
 				// if outbound queue is not congested AND bridge has not reported congestion, do
@@ -220,7 +245,13 @@ pub mod pallet {
 					previous_factor,
 					bridge.delivery_fee_factor,
 				);
+<<<<<<< HEAD
 
+=======
+				Self::deposit_event(Event::DeliveryFeeFactorIncreased {
+					new_value: bridge.delivery_fee_factor,
+				});
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
 				Ok(())
 			});
 		}
@@ -438,12 +469,22 @@ mod tests {
 	fn fee_factor_is_not_decreased_from_on_initialize_when_xcm_channel_is_congested() {
 		run_test(|| {
 			Bridge::<TestRuntime, ()>::put(uncongested_bridge(FixedU128::from_rational(125, 100)));
+<<<<<<< HEAD
 			TestWithBridgeHubChannel::make_congested();
 
 			// it should not decrease, because xcm channel is congested
 			let old_bridge = XcmBridgeHubRouter::bridge();
 			XcmBridgeHubRouter::on_initialize(One::one());
 			assert_eq!(XcmBridgeHubRouter::bridge(), old_bridge);
+=======
+			TestLocalXcmChannelManager::make_congested(&SiblingBridgeHubLocation::get());
+
+			// it should not decrease, because queue is congested
+			let old_delivery = XcmBridgeHubRouter::bridge();
+			XcmBridgeHubRouter::on_initialize(One::one());
+			assert_eq!(XcmBridgeHubRouter::bridge(), old_delivery);
+			assert_eq!(System::events(), vec![]);
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
 		})
 	}
 
@@ -456,21 +497,42 @@ mod tests {
 			let old_bridge = XcmBridgeHubRouter::bridge();
 			XcmBridgeHubRouter::on_initialize(One::one());
 			assert_eq!(XcmBridgeHubRouter::bridge(), old_bridge);
+<<<<<<< HEAD
+=======
+			assert_eq!(System::events(), vec![]);
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
 		})
 	}
 
 	#[test]
 	fn fee_factor_is_decreased_from_on_initialize_when_xcm_channel_is_uncongested() {
 		run_test(|| {
+<<<<<<< HEAD
 			Bridge::<TestRuntime, ()>::put(uncongested_bridge(FixedU128::from_rational(125, 100)));
 
 			// it should eventually decreased to one
+=======
+			let initial_fee_factor = FixedU128::from_rational(125, 100);
+			Bridge::<TestRuntime, ()>::put(uncongested_bridge(initial_fee_factor));
+
+			// it should eventually decrease to one
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
 			while XcmBridgeHubRouter::bridge().delivery_fee_factor > MINIMAL_DELIVERY_FEE_FACTOR {
 				XcmBridgeHubRouter::on_initialize(One::one());
 			}
 
-			// verify that it doesn't decreases anymore
+			// verify that it doesn't decrease anymore
 			XcmBridgeHubRouter::on_initialize(One::one());
+<<<<<<< HEAD
+=======
+			assert_eq!(
+				XcmBridgeHubRouter::bridge(),
+				uncongested_bridge(MINIMAL_DELIVERY_FEE_FACTOR)
+			);
+
+			// check emitted event
+			let first_system_event = System::events().first().cloned();
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
 			assert_eq!(
 				XcmBridgeHubRouter::bridge(),
 				uncongested_bridge(MINIMAL_DELIVERY_FEE_FACTOR)
@@ -598,6 +660,31 @@ mod tests {
 	fn sent_message_doesnt_increase_factor_if_xcm_channel_is_uncongested() {
 		run_test(|| {
 			let old_bridge = XcmBridgeHubRouter::bridge();
+<<<<<<< HEAD
+=======
+			assert_eq!(
+				send_xcm::<XcmBridgeHubRouter>(
+					Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]),
+					vec![ClearOrigin].into(),
+				)
+				.map(drop),
+				Ok(()),
+			);
+
+			assert!(TestToBridgeHubSender::is_message_sent());
+			assert_eq!(old_bridge, XcmBridgeHubRouter::bridge());
+
+			assert_eq!(System::events(), vec![]);
+		});
+	}
+
+	#[test]
+	fn sent_message_increases_factor_if_xcm_channel_is_congested() {
+		run_test(|| {
+			TestLocalXcmChannelManager::make_congested(&SiblingBridgeHubLocation::get());
+
+			let old_bridge = XcmBridgeHubRouter::bridge();
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
 			assert_ok!(send_xcm::<XcmBridgeHubRouter>(
 				Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]),
 				vec![ClearOrigin].into(),
@@ -605,9 +692,47 @@ mod tests {
 			.map(drop));
 
 			assert!(TestToBridgeHubSender::is_message_sent());
+<<<<<<< HEAD
 			assert_eq!(old_bridge, XcmBridgeHubRouter::bridge());
 		});
 	}
+=======
+			assert!(
+				old_bridge.delivery_fee_factor < XcmBridgeHubRouter::bridge().delivery_fee_factor
+			);
+
+			// check emitted event
+			let first_system_event = System::events().first().cloned();
+			assert!(matches!(
+				first_system_event,
+				Some(EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::XcmBridgeHubRouter(
+						Event::DeliveryFeeFactorIncreased { .. }
+					),
+					..
+				})
+			));
+		});
+	}
+
+	#[test]
+	fn sent_message_increases_factor_if_bridge_has_reported_congestion() {
+		run_test(|| {
+			Bridge::<TestRuntime, ()>::put(congested_bridge(MINIMAL_DELIVERY_FEE_FACTOR));
+
+			let old_bridge = XcmBridgeHubRouter::bridge();
+			assert_ok!(send_xcm::<XcmBridgeHubRouter>(
+				Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]),
+				vec![ClearOrigin].into(),
+			)
+			.map(drop));
+
+			assert!(TestToBridgeHubSender::is_message_sent());
+			assert!(
+				old_bridge.delivery_fee_factor < XcmBridgeHubRouter::bridge().delivery_fee_factor
+			);
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
 
 	#[test]
 	fn sent_message_increases_factor_if_xcm_channel_is_congested() {

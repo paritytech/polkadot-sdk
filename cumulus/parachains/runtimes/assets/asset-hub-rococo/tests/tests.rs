@@ -27,7 +27,12 @@ use asset_hub_rococo_runtime::{
 	AllPalletsWithoutSystem, AssetConversion, AssetDeposit, Assets, Balances, Block,
 	CollatorSelection, ExistentialDeposit, ForeignAssets, ForeignAssetsInstance,
 	MetadataDepositBase, MetadataDepositPerByte, ParachainSystem, Runtime, RuntimeCall,
+<<<<<<< HEAD
 	RuntimeEvent, RuntimeOrigin, SessionKeys, ToWestendXcmRouterInstance, TrustBackedAssetsInstance, XcmpQueue,
+=======
+	RuntimeEvent, RuntimeOrigin, SessionKeys, ToWestendXcmRouterInstance,
+	TrustBackedAssetsInstance, XcmpQueue,
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
 };
 use asset_test_utils::{
 	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
@@ -1276,6 +1281,7 @@ mod asset_hub_rococo_tests {
 		>(
 			collator_session_keys(),
 			bridging_to_asset_hub_westend,
+<<<<<<< HEAD
 			|| {
 				vec![
 					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
@@ -1314,6 +1320,10 @@ mod asset_hub_rococo_tests {
 				]
 				.into()
 			},
+=======
+			|| bp_asset_hub_rococo::build_congestion_message(Default::default(), true).into(),
+			|| bp_asset_hub_rococo::build_congestion_message(Default::default(), false).into(),
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
 		)
 	}
 

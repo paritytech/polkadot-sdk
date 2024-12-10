@@ -1257,6 +1257,7 @@ fn report_bridge_status_from_xcm_bridge_router_for_rococo_works() {
 	>(
 		collator_session_keys(),
 		bridging_to_asset_hub_rococo,
+<<<<<<< HEAD
 		|| {
 			vec![
 				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
@@ -1295,6 +1296,10 @@ fn report_bridge_status_from_xcm_bridge_router_for_rococo_works() {
 			]
 			.into()
 		},
+=======
+		|| bp_asset_hub_westend::build_congestion_message(Default::default(), true).into(),
+		|| bp_asset_hub_westend::build_congestion_message(Default::default(), false).into(),
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
 	)
 }
 
@@ -1321,8 +1326,13 @@ fn test_report_bridge_status_call_compatibility() {
 fn check_sane_weight_report_bridge_status() {
 	use pallet_xcm_bridge_hub_router::WeightInfo;
 	let actual = <Runtime as pallet_xcm_bridge_hub_router::Config<
+<<<<<<< HEAD
 			ToRococoXcmRouterInstance,
 		>>::WeightInfo::report_bridge_status();
+=======
+		ToRococoXcmRouterInstance,
+	>>::WeightInfo::report_bridge_status();
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
 	let max_weight = bp_asset_hub_westend::XcmBridgeHubRouterTransactCallMaxWeight::get();
 	assert!(
 		actual.all_lte(max_weight),

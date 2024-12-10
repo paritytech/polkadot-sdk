@@ -911,6 +911,7 @@ impl pallet_xcm_bridge_hub_router::Config<ToWestendXcmRouterInstance> for Runtim
 	type Bridges = xcm_config::bridging::NetworkExportTable;
 	type DestinationVersion = PolkadotXcm;
 
+<<<<<<< HEAD
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type BridgeHubOrigin = EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -921,6 +922,12 @@ impl pallet_xcm_bridge_hub_router::Config<ToWestendXcmRouterInstance> for Runtim
 		EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>,
 	>;
 
+=======
+	type BridgeHubOrigin = frame_support::traits::EitherOfDiverse<
+		EnsureRoot<AccountId>,
+		EnsureXcm<Equals<Self::SiblingBridgeHubLocation>>,
+	>;
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
 	type ToBridgeHubSender = XcmpQueue;
 	type WithBridgeHubChannel =
 		cumulus_pallet_xcmp_queue::bridging::InAndOutXcmpChannelStatusProvider<

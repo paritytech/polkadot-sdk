@@ -29,15 +29,26 @@ xcm-builder.workspace = true
 xcm-executor.workspace = true
 
 [dev-dependencies]
+<<<<<<< HEAD
 bp-header-chain = { default-features = true, path = "../../primitives/header-chain" }
 pallet-balances = { default-features = true, path = "../../../substrate/frame/balances" }
 sp-io = { default-features = true, path = "../../../substrate/primitives/io" }
+=======
+pallet-balances = { workspace = true }
+sp-io = { workspace = true }
+bp-runtime = { workspace = true }
+bp-header-chain = { workspace = true }
+pallet-xcm-bridge-hub-router = { workspace = true }
+bp-xcm-bridge-hub-router = { workspace = true }
+polkadot-parachain-primitives = { workspace = true }
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
 
 [features]
 default = ["std"]
 std = [
 	"bp-messages/std",
 	"bp-runtime/std",
+	"bp-xcm-bridge-hub-router/std",
 	"bp-xcm-bridge-hub/std",
 	"bridge-runtime-common/std",
 	"codec/std",

@@ -46,7 +46,11 @@ use frame_support::{
 		fungible, fungibles,
 		tokens::{imbalance::ResolveAssetTo, nonfungibles_v2::Inspect},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, Equals,
+<<<<<<< HEAD
 		InstanceFilter, TransformOrigin,
+=======
+		InstanceFilter, Nothing, TransformOrigin,
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
 	},
 	weights::{ConstantMultiplier, Weight, WeightToFee as _},
 	BoundedVec, PalletId,
@@ -57,6 +61,10 @@ use frame_system::{
 };
 use pallet_asset_conversion_tx_payment::AssetConversionAdapter;
 use pallet_nfts::{DestroyWitness, PalletFeatures};
+<<<<<<< HEAD
+=======
+use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
 use pallet_xcm::EnsureXcm;
 use parachains_common::{
 	impls::DealWithFees, message_queue::*, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
@@ -900,6 +908,7 @@ impl pallet_xcm_bridge_hub_router::Config<ToRococoXcmRouterInstance> for Runtime
 	type Bridges = xcm_config::bridging::NetworkExportTable;
 	type DestinationVersion = PolkadotXcm;
 
+<<<<<<< HEAD
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type BridgeHubOrigin = EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -910,6 +919,12 @@ impl pallet_xcm_bridge_hub_router::Config<ToRococoXcmRouterInstance> for Runtime
 		EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>,
 	>;
 
+=======
+	type BridgeHubOrigin = frame_support::traits::EitherOfDiverse<
+		EnsureRoot<AccountId>,
+		EnsureXcm<Equals<Self::SiblingBridgeHubLocation>>,
+	>;
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
 	type ToBridgeHubSender = XcmpQueue;
 	type WithBridgeHubChannel =
 		cumulus_pallet_xcmp_queue::bridging::InAndOutXcmpChannelStatusProvider<

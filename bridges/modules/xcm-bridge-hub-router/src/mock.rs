@@ -80,7 +80,11 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type DestinationVersion =
 		LatestOrNoneForLocationVersionChecker<Equals<UnknownXcmVersionForRoutableLocation>>;
 
+<<<<<<< HEAD
 	type BridgeHubOrigin = EnsureRoot<AccountId>;
+=======
+	type BridgeHubOrigin = frame_system::EnsureRoot<u64>;
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
 	type ToBridgeHubSender = TestToBridgeHubSender;
 	type WithBridgeHubChannel = TestWithBridgeHubChannel;
 

@@ -1657,6 +1657,8 @@ dependencies = [
  "frame-support",
  "parity-scale-codec",
  "scale-info",
+ "sp-core 28.0.0",
+ "staging-xcm 7.0.0",
 ]
 
 [[package]]
@@ -1667,6 +1669,8 @@ dependencies = [
  "frame-support",
  "parity-scale-codec",
  "scale-info",
+ "sp-core 28.0.0",
+ "staging-xcm 7.0.0",
 ]
 
 [[package]]
@@ -2039,6 +2043,7 @@ dependencies = [
  "bp-rococo",
  "bp-runtime",
  "bp-westend",
+<<<<<<< HEAD
  "bridge-hub-common",
  "bridge-hub-test-utils",
  "bridge-runtime-common",
@@ -2058,6 +2063,29 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+=======
+ "bp-xcm-bridge-hub-router 0.6.0",
+ "bridge-hub-common 0.1.0",
+ "bridge-hub-test-utils 0.7.0",
+ "bridge-runtime-common 0.7.0",
+ "cumulus-pallet-aura-ext 0.7.0",
+ "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-xcm 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.0",
+ "cumulus-primitives-aura 0.7.0",
+ "cumulus-primitives-core 0.7.0",
+ "cumulus-primitives-storage-weight-reclaim 1.0.0",
+ "cumulus-primitives-utility 0.7.0",
+ "frame-benchmarking 28.0.0",
+ "frame-executive 28.0.0",
+ "frame-metadata-hash-extension 0.1.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "frame-system-benchmarking 28.0.0",
+ "frame-system-rpc-runtime-api 26.0.0",
+ "frame-try-runtime 0.34.0",
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
  "hex-literal",
  "log",
  "pallet-aura",
@@ -2213,6 +2241,7 @@ dependencies = [
  "bp-rococo",
  "bp-runtime",
  "bp-westend",
+<<<<<<< HEAD
  "bridge-hub-common",
  "bridge-hub-test-utils",
  "bridge-runtime-common",
@@ -2232,6 +2261,29 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+=======
+ "bp-xcm-bridge-hub-router 0.6.0",
+ "bridge-hub-common 0.1.0",
+ "bridge-hub-test-utils 0.7.0",
+ "bridge-runtime-common 0.7.0",
+ "cumulus-pallet-aura-ext 0.7.0",
+ "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-xcm 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.0",
+ "cumulus-primitives-aura 0.7.0",
+ "cumulus-primitives-core 0.7.0",
+ "cumulus-primitives-storage-weight-reclaim 1.0.0",
+ "cumulus-primitives-utility 0.7.0",
+ "frame-benchmarking 28.0.0",
+ "frame-executive 28.0.0",
+ "frame-metadata-hash-extension 0.1.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "frame-system-benchmarking 28.0.0",
+ "frame-system-rpc-runtime-api 26.0.0",
+ "frame-try-runtime 0.34.0",
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
  "hex-literal",
  "log",
  "pallet-aura",
@@ -11780,6 +11832,7 @@ dependencies = [
 name = "pallet-xcm-bridge-hub"
 version = "0.12.1"
 dependencies = [
+<<<<<<< HEAD
  "bp-header-chain",
  "bp-messages",
  "bp-runtime",
@@ -11787,6 +11840,15 @@ dependencies = [
  "bridge-runtime-common",
  "frame-support",
  "frame-system",
+=======
+ "bp-header-chain 0.7.0",
+ "bp-messages 0.7.0",
+ "bp-runtime 0.7.0",
+ "bp-xcm-bridge-hub 0.2.0",
+ "bp-xcm-bridge-hub-router 0.6.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
  "log",
  "pallet-balances",
  "pallet-bridge-messages",

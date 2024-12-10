@@ -17,14 +17,23 @@
 //! Bridge definitions used on BridgeHub with the Westend flavor.
 
 use crate::{
+<<<<<<< HEAD
 	bridge_common_config::DeliveryRewardInBalance, weights, xcm_config::UniversalLocation,
 	BridgeRococoMessages, PolkadotXcm, Runtime, RuntimeEvent, XcmOverBridgeHubRococo, XcmRouter,
+=======
+	bridge_common_config::{DeliveryRewardInBalance, RelayersForLegacyLaneIdsMessagesInstance},
+	weights,
+	xcm_config::UniversalLocation,
+	AccountId, Balance, Balances, BridgeRococoMessages, PolkadotXcm, Runtime, RuntimeEvent,
+	RuntimeHoldReason, XcmOverBridgeHubRococo, XcmRouter, XcmpQueue,
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
 };
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
 	target_chain::FromBridgedChainMessagesProof, LaneId,
 };
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
+<<<<<<< HEAD
 use bp_runtime::Chain;
 use bridge_runtime_common::{
 	extensions::refund_relayer_extension::{
@@ -37,6 +46,11 @@ use bridge_runtime_common::{
 	},
 };
 use codec::Encode;
+=======
+use bridge_hub_common::xcm_version::XcmVersionOfDestAndRemoteBridge;
+use pallet_xcm_bridge_hub::{BridgeId, XcmAsPlainPayload};
+
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
 use frame_support::{
 	parameter_types,
 	traits::{ConstU32, PalletInfoAccess},
@@ -229,8 +243,113 @@ impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubRococoInstance> for Runtime {
 	type BridgeMessagesPalletInstance = WithBridgeHubRococoMessagesInstance;
 	type MessageExportPrice = ();
 	type DestinationVersion = XcmVersionOfDestAndRemoteBridge<PolkadotXcm, BridgeHubRococoLocation>;
+<<<<<<< HEAD
 	type Lanes = ActiveLanes;
 	type LanesSupport = ToBridgeHubRococoXcmBlobHauler;
+=======
+
+	type ForceOrigin = EnsureRoot<AccountId>;
+	// We don't want to allow creating bridges for this instance with `LegacyLaneId`.
+	type OpenBridgeOrigin = EnsureNever<Location>;
+	// Converter aligned with `OpenBridgeOrigin`.
+	type BridgeOriginAccountIdConverter =
+		(ParentIsPreset<AccountId>, SiblingParachainConvertsVia<Sibling, AccountId>);
+
+	type BridgeDeposit = BridgeDeposit;
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	// Do not require deposit from system parachains or relay chain
+	type AllowWithoutBridgeDeposit =
+		RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>;
+
+	type LocalXcmChannelManager = CongestionManager;
+	type BlobDispatcher = FromRococoMessageBlobDispatcher;
+}
+
+/// Implementation of `bp_xcm_bridge_hub::LocalXcmChannelManager` for congestion management.
+pub struct CongestionManager;
+impl pallet_xcm_bridge_hub::LocalXcmChannelManager for CongestionManager {
+	type Error = SendError;
+
+	fn is_congested(with: &Location) -> bool {
+		// This is used to check the inbound bridge queue/messages to determine if they can be
+		// dispatched and sent to the sibling parachain. Therefore, checking outbound `XcmpQueue`
+		// is sufficient here.
+		use bp_xcm_bridge_hub_router::XcmChannelStatusProvider;
+		cumulus_pallet_xcmp_queue::bridging::OutXcmpChannelStatusProvider::<Runtime>::is_congested(
+			with,
+		)
+	}
+
+	fn suspend_bridge(local_origin: &Location, bridge: BridgeId) -> Result<(), Self::Error> {
+		// This bridge is intended for AH<>AH communication with a hard-coded/static lane,
+		// so `local_origin` is expected to represent only the local AH.
+		send_xcm::<XcmpQueue>(
+			local_origin.clone(),
+			bp_asset_hub_westend::build_congestion_message(bridge.inner(), true).into(),
+		)
+		.map(|_| ())
+	}
+
+	fn resume_bridge(local_origin: &Location, bridge: BridgeId) -> Result<(), Self::Error> {
+		// This bridge is intended for AH<>AH communication with a hard-coded/static lane,
+		// so `local_origin` is expected to represent only the local AH.
+		send_xcm::<XcmpQueue>(
+			local_origin.clone(),
+			bp_asset_hub_westend::build_congestion_message(bridge.inner(), false).into(),
+		)
+		.map(|_| ())
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub(crate) fn open_bridge_for_benchmarks<R, XBHI, C>(
+	with: pallet_xcm_bridge_hub::LaneIdOf<R, XBHI>,
+	sibling_para_id: u32,
+) -> InteriorLocation
+where
+	R: pallet_xcm_bridge_hub::Config<XBHI>,
+	XBHI: 'static,
+	C: xcm_executor::traits::ConvertLocation<
+		bp_runtime::AccountIdOf<pallet_xcm_bridge_hub::ThisChainOf<R, XBHI>>,
+	>,
+{
+	use pallet_xcm_bridge_hub::{Bridge, BridgeId, BridgeState};
+	use sp_runtime::traits::Zero;
+	use xcm::{latest::WESTEND_GENESIS_HASH, VersionedInteriorLocation};
+
+	// insert bridge metadata
+	let lane_id = with;
+	let sibling_parachain = Location::new(1, [Parachain(sibling_para_id)]);
+	let universal_source =
+		[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(sibling_para_id)].into();
+	let universal_destination =
+		[GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)), Parachain(2075)].into();
+	let bridge_id = BridgeId::new(&universal_source, &universal_destination);
+
+	// insert only bridge metadata, because the benchmarks create lanes
+	pallet_xcm_bridge_hub::Bridges::<R, XBHI>::insert(
+		bridge_id,
+		Bridge {
+			bridge_origin_relative_location: alloc::boxed::Box::new(
+				sibling_parachain.clone().into(),
+			),
+			bridge_origin_universal_location: alloc::boxed::Box::new(
+				VersionedInteriorLocation::from(universal_source.clone()),
+			),
+			bridge_destination_universal_location: alloc::boxed::Box::new(
+				VersionedInteriorLocation::from(universal_destination),
+			),
+			state: BridgeState::Opened,
+			bridge_owner_account: C::convert_location(&sibling_parachain).expect("valid AccountId"),
+			deposit: Zero::zero(),
+			lane_id,
+		},
+	);
+	pallet_xcm_bridge_hub::LaneToBridge::<R, XBHI>::insert(lane_id, bridge_id);
+
+	universal_source
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
 }
 
 #[cfg(test)]

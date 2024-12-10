@@ -53,7 +53,10 @@ pub trait WeightInfo {
 	fn on_initialize_when_non_congested() -> Weight;
 	fn on_initialize_when_congested() -> Weight;
 	fn report_bridge_status() -> Weight;
+<<<<<<< HEAD
 	fn send_message() -> Weight;
+=======
+>>>>>>> 8f4b99c (Bridges - revert-back congestion mechanism (#6781))
 }
 
 /// Weights for `pallet_xcm_bridge_hub_router` that are generated using one of the Bridge testnets.
@@ -131,6 +134,19 @@ impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	/// Storage: `XcmBridgeHubRouter::Bridge` (r:1 w:1)
+	///
+	/// Proof: `XcmBridgeHubRouter::Bridge` (`max_values`: Some(1), `max_size`: Some(17), added:
+	/// 512, mode: `MaxEncodedLen`)
+	fn report_bridge_status() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `53`
+		//  Estimated: `1502`
+		// Minimum execution time: 10_427 nanoseconds.
+		Weight::from_parts(10_682_000, 1502)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 }
 
 // For backwards compatibility and tests
@@ -203,6 +219,19 @@ impl WeightInfo for () {
 		// Minimum execution time: 19_709 nanoseconds.
 		Weight::from_parts(20_110_000, 3517)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `XcmBridgeHubRouter::Bridge` (r:1 w:1)
+	///
+	/// Proof: `XcmBridgeHubRouter::Bridge` (`max_values`: Some(1), `max_size`: Some(17), added:
+	/// 512, mode: `MaxEncodedLen`)
+	fn report_bridge_status() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `53`
+		//  Estimated: `1502`
+		// Minimum execution time: 10_427 nanoseconds.
+		Weight::from_parts(10_682_000, 1502)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
