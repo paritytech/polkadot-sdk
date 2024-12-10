@@ -224,7 +224,7 @@ async fn revert_call() -> anyhow::Result<()> {
 	let client = SharedResources::client().await;
 	let (bytecode, contract) = get_contract("ErrorTester")?;
 	let receipt = TransactionBuilder::default()
-		.input(contract.constructor.clone().unwrap().encode_input(bytecode, &[]).unwrap())
+		.input(bytecode)
 		.send_and_wait_for_receipt(&client)
 		.await?;
 
