@@ -596,8 +596,8 @@ mod tests {
 		let transaction = Transfer {
 			amount: 5,
 			nonce: 0,
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Bob.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Bob.into(),
 		}
 		.into_unchecked_extrinsic();
 		block_on(pool.submit_one(best.hash(), source, transaction.clone())).unwrap();

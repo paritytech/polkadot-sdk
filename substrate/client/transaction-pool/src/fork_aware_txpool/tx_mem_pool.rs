@@ -469,7 +469,7 @@ mod tx_mem_pool_tests {
 	use super::*;
 	use crate::{common::tests::TestApi, graph::ChainApi};
 	use substrate_test_runtime::{AccountId, Extrinsic, ExtrinsicBuilder, Transfer, H256};
-	use substrate_test_runtime_client::AccountKeyring::*;
+	use substrate_test_runtime_client::Sr25519Keyring::*;
 	fn uxt(nonce: u64) -> Extrinsic {
 		crate::common::tests::uxt(Transfer {
 			from: Alice.into(),
