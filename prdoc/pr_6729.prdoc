@@ -11,5 +11,5 @@ doc:
       is ignored and never distribute, which will lead to no-shows.
 
 crates:
-  - name: polkadot-approval-voting
+  - name: polkadot-node-core-approval-voting
     bump: minor
