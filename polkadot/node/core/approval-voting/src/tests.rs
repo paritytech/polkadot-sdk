@@ -4645,7 +4645,7 @@ async fn build_chain_with_block_with_two_candidates(
 async fn setup_overseer_with_blocks_with_two_assignments_triggered(
 	virtual_overseer: &mut VirtualOverseer,
 	store: TestStore,
-	clock: &Arc<MockClock>,
+	clock: &Box<MockClock>,
 	sync_oracle_handle: TestSyncOracleHandle,
 ) {
 	assert_matches!(
@@ -4657,13 +4657,13 @@ async fn setup_overseer_with_blocks_with_two_assignments_triggered(
 
 	let block_hash = Hash::repeat_byte(0x01);
 	let candidate_commitments = CandidateCommitments::default();
-	let mut candidate_receipt = dummy_candidate_receipt_v2(block_hash);
+	let mut candidate_receipt = dummy_candidate_receipt(block_hash);
 	candidate_receipt.commitments_hash = candidate_commitments.hash();
 	let candidate_hash = candidate_receipt.hash();
 
 	let mut candidate_commitments2 = CandidateCommitments::default();
 	candidate_commitments2.processed_downward_messages = 3;
-	let mut candidate_receipt2 = dummy_candidate_receipt_v2(block_hash);
+	let mut candidate_receipt2 = dummy_candidate_receipt(block_hash);
 	candidate_receipt2.commitments_hash = candidate_commitments2.hash();
 	let candidate_hash2 = candidate_receipt2.hash();
 
@@ -5308,12 +5308,12 @@ fn subsystem_sends_assignment_approval_in_correct_order_on_approval_restart() {
 
 		let block_hash = Hash::repeat_byte(0x01);
 		let candidate_commitments = CandidateCommitments::default();
-		let mut candidate_receipt = dummy_candidate_receipt_v2(block_hash);
+		let mut candidate_receipt = dummy_candidate_receipt(block_hash);
 		candidate_receipt.commitments_hash = candidate_commitments.hash();
 
 		let mut candidate_commitments2 = CandidateCommitments::default();
 		candidate_commitments2.processed_downward_messages = 3;
-		let mut candidate_receipt2 = dummy_candidate_receipt_v2(block_hash);
+		let mut candidate_receipt2 = dummy_candidate_receipt(block_hash);
 		candidate_receipt2.commitments_hash = candidate_commitments2.hash();
 
 		let slot = Slot::from(1);
