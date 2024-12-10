@@ -16,10 +16,9 @@
 // limitations under the License.
 //! Utilities for working with Ethereum accounts.
 use crate::{
-	evm::{TransactionLegacySigned, TransactionLegacyUnsigned},
+	evm::{TransactionSigned, TransactionUnsigned},
 	H160,
 };
-use rlp::Encodable;
 use sp_runtime::AccountId32;
 
 /// A simple account that can sign transactions
@@ -38,6 +37,11 @@ impl From<subxt_signer::eth::Keypair> for Account {
 }
 
 impl Account {
+	/// Create a new account from a secret
+	pub fn from_secret_key(secret_key: [u8; 32]) -> Self {
+		subxt_signer::eth::Keypair::from_secret_key(secret_key).unwrap().into()
+	}
+
 	/// Get the [`H160`] address of the account.
 	pub fn address(&self) -> H160 {
 		H160::from_slice(&self.0.public_key().to_account_id().as_ref())
@@ -52,9 +56,21 @@ impl Account {
 	}
 
 	/// Sign a transaction.
-	pub fn sign_transaction(&self, tx: TransactionLegacyUnsigned) -> TransactionLegacySigned {
-		let rlp_encoded = tx.rlp_bytes();
-		let signature = self.0.sign(&rlp_encoded);
-		TransactionLegacySigned::from(tx, signature.as_ref())
+	pub fn sign_transaction(&self, tx: TransactionUnsigned) -> TransactionSigned {
+		let payload = tx.unsigned_payload();
+		let signature = self.0.sign(&payload).0;
+		tx.with_signature(signature)
 	}
+}
+
+#[test]
+fn from_secret_key_works() {
+	let account = Account::from_secret_key(hex_literal::hex!(
+		"a872f6cbd25a0e04a08b1e21098017a9e6194d101d75e13111f71410c59cd57f"
+	));
+
+	assert_eq!(
+		account.address(),
+		H160::from(hex_literal::hex!("75e480db528101a381ce68544611c169ad7eb342"))
+	)
 }

@@ -30,7 +30,7 @@ jobs:
         id: required
         run: cargo +nightly fmt --all -- --check
       - name: Stop all workflows if failed
-        if: ${{ failure() && steps.required.conclusion == 'failure' }}
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
         with:
           app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
@@ -97,7 +97,6 @@ jobs:
           --exclude
           "substrate/frame/contracts/fixtures/build"
           "substrate/frame/contracts/fixtures/contracts/common"
-          "substrate/frame/revive/fixtures/build"
           "substrate/frame/revive/fixtures/contracts/common"
       - name: deny git deps
         run: python3 .github/scripts/deny-git-deps.py .
