@@ -243,7 +243,7 @@ where
 mod tests {
 	use crate::inbound::v2::{
 		Asset::{ForeignTokenERC20, NativeTokenERC20},
-		ConvertMessage, ConvertMessageError, Message, MessageToXcm,
+		ConvertMessage, ConvertMessageError, Message, MessageToXcm, XcmAsset,
 	};
 	use codec::Encode;
 	use frame_support::{assert_err, assert_ok, parameter_types};
@@ -342,26 +342,147 @@ mod tests {
 		let mut instructions = xcm.into_iter();
 
 		let mut asset_claimer_found = false;
-		let mut commands_found = 0;
+		let mut pay_fees_found = false;
+		let mut descend_origin_found = 0;
+		let mut reserve_deposited_found = 0;
+		let mut withdraw_assets_found = 0;
 		while let Some(instruction) = instructions.next() {
 			if let SetAssetClaimer { ref location } = instruction {
 				assert_eq!(Location::new(0, [claimer_account]), location.clone());
 				asset_claimer_found = true;
 			}
 			if let DescendOrigin(ref location) = instruction {
-				commands_found = commands_found + 1;
-				if commands_found == 2 {
+				descend_origin_found = descend_origin_found + 1;
+				// The second DescendOrigin should be the message.origin (sender)
+				if descend_origin_found == 2 {
 					let junctions: Junctions =
 						AccountKey20 { key: origin.into(), network: None }.into();
 					assert_eq!(junctions, location.clone());
 				}
 			}
+			if let PayFees { ref asset } = instruction {
+				let fee_asset = Location::new(
+					2,
+					[
+						GlobalConsensus(EthereumNetwork::get()),
+						AccountKey20 { network: None, key: WethAddress::get().into() },
+					],
+				);
+				assert_eq!(asset.id, AssetId(fee_asset));
+				assert_eq!(asset.fun, Fungible(execution_fee));
+				pay_fees_found = true;
+			}
+			if let ReserveAssetDeposited(ref reserve_assets) = instruction {
+				reserve_deposited_found = reserve_deposited_found + 1;
+				if reserve_deposited_found == 1 {
+					let fee_asset = Location::new(
+						2,
+						[
+							GlobalConsensus(EthereumNetwork::get()),
+							AccountKey20 { network: None, key: WethAddress::get().into() },
+						],
+					);
+					let fee: XcmAsset = (fee_asset, execution_fee).into();
+					let fee_assets: Assets = fee.into();
+					assert_eq!(fee_assets, reserve_assets.clone());
+				}
+				if reserve_deposited_found == 2 {
+					let token_asset = Location::new(
+						2,
+						[
+							GlobalConsensus(EthereumNetwork::get()),
+							AccountKey20 { network: None, key: native_token_id.into() },
+						],
+					);
+					let token: XcmAsset = (token_asset, token_value).into();
+					let token_assets: Assets = token.into();
+					assert_eq!(token_assets, reserve_assets.clone());
+				}
+			}
+			if let WithdrawAsset(ref withdraw_assets) = instruction {
+				withdraw_assets_found = withdraw_assets_found + 1;
+				let token_asset = Location::new(2, Here);
+				let token: XcmAsset = (token_asset, token_value).into();
+				let token_assets: Assets = token.into();
+				assert_eq!(token_assets, withdraw_assets.clone());
+			}
 		}
 		// SetAssetClaimer must be in the message.
 		assert!(asset_claimer_found);
+		// PayFees must be in the message.
+		assert!(pay_fees_found);
 		// The first DescendOrigin to descend into the InboundV2 pallet index and the DescendOrigin
 		// into the message.origin
-		assert!(commands_found == 2);
+		assert!(descend_origin_found == 2);
+		// Expecting two ReserveAssetDeposited instructions, one for the fee and one for the token
+		// being transferred.
+		assert!(reserve_deposited_found == 2);
+		// Expecting one WithdrawAsset for the foreign ERC-20
+		assert!(withdraw_assets_found == 1);
+	}
+
+	#[test]
+	fn test_message_with_gateway_origin_does_not_descend_origin_into_sender() {
+		let origin_account =
+			Location::new(0, [AccountId32 { network: None, id: H256::random().into() }]);
+		let origin: H160 = GatewayAddress::get();
+		let native_token_id: H160 = hex!("5615deb798bb3e4dfa0139dfa1b3d433cc23b72f").into();
+		let foreign_token_id: H256 =
+			hex!("37a6c666da38711a963d938eafdd09314fd3f95a96a3baffb55f26560f4ecdd8").into();
+		let beneficiary =
+			hex!("908783d8cd24c9e02cee1d26ab9c46d458621ad0150b626c536a40b9df3f09c6").into();
+		let message_id: H256 =
+			hex!("8b69c7e376e28114618e829a7ec768dbda28357d359ba417a3bd79b11215059d").into();
+		let token_value = 3_000_000_000_000u128;
+		let assets = vec![
+			NativeTokenERC20 { token_id: native_token_id, value: token_value },
+			ForeignTokenERC20 { token_id: foreign_token_id, value: token_value },
+		];
+		let instructions = vec![
+			DepositAsset { assets: Wild(AllCounted(1).into()), beneficiary },
+			SetTopic(message_id.into()),
+		];
+		let xcm: Xcm<()> = instructions.into();
+		let versioned_xcm = VersionedXcm::V5(xcm);
+		let claimer_account = AccountId32 { network: None, id: H256::random().into() };
+		let claimer: Option<Vec<u8>> = Some(claimer_account.clone().encode());
+		let value = 6_000_000_000_000u128;
+		let execution_fee = 1_000_000_000_000u128;
+		let relayer_fee = 5_000_000_000_000u128;
+
+		let message = Message {
+			origin: origin.clone(),
+			assets,
+			xcm: versioned_xcm.encode(),
+			claimer,
+			value,
+			execution_fee,
+			relayer_fee,
+		};
+
+		let result = MessageToXcm::<
+			EthereumNetwork,
+			InboundQueuePalletInstance,
+			MockTokenIdConvert,
+			WethAddress,
+			GatewayAddress,
+			UniversalLocation,
+			AssetHubFromEthereum,
+		>::convert(message, origin_account);
+
+		assert_ok!(result.clone());
+
+		let (xcm, _) = result.unwrap();
+
+		let mut instructions = xcm.into_iter();
+		let mut commands_found = 0;
+		while let Some(instruction) = instructions.next() {
+			if let DescendOrigin(ref _location) = instruction {
+				commands_found = commands_found + 1;
+			}
+		}
+		// There should only be 1 DescendOrigin in the message.
+		assert!(commands_found == 1);
 	}
 
 	#[test]
