@@ -841,8 +841,6 @@ fn genesis_default_works() {
 		assert_eq!(NextFeeMultiplier::<Runtime>::get(), Multiplier::saturating_from_integer(1));
 	});
 }
-<<<<<<< HEAD
-=======
 
 #[test]
 fn no_fee_and_no_weight_for_other_origins() {
@@ -917,4 +915,3 @@ fn fungible_adapter_no_zero_refund_action() {
 		);
 	});
 }
->>>>>>> f520adb0 (Zero refund check for FungibleAdapter (#6506))
