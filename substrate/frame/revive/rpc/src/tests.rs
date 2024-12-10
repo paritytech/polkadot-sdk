@@ -245,7 +245,7 @@ async fn revert_call() -> anyhow::Result<()> {
 async fn event_logs() -> anyhow::Result<()> {
 	let _lock = SHARED_RESOURCES.write();
 	let client = SharedResources::client().await;
-	let (bytecode, contract) = get_contract("Event")?;
+	let (bytecode, contract) = get_contract("EventExample")?;
 	let receipt = TransactionBuilder::default()
 		.input(bytecode)
 		.send_and_wait_for_receipt(&client)
