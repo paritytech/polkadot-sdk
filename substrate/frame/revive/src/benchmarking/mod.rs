@@ -34,11 +34,10 @@ use frame_benchmarking::v2::*;
 use frame_support::{
 	self, assert_ok,
 	storage::child,
-	traits::{fungible::InspectHold, Currency},
+	traits::fungible::InspectHold,
 	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
-use pallet_balances;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, StorageFlags};
 use sp_runtime::traits::{Bounded, Hash};
 
@@ -68,7 +67,7 @@ struct Contract<T: Config> {
 
 impl<T> Contract<T>
 where
-	T: Config + pallet_balances::Config,
+	T: Config,
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
 	T::Hash: frame_support::traits::IsType<H256>,
@@ -220,11 +219,10 @@ fn default_deposit_limit<T: Config>() -> BalanceOf<T> {
 #[benchmarks(
 	where
 		BalanceOf<T>: Into<U256> + TryFrom<U256>,
-		T: Config + pallet_balances::Config,
+		T: Config,
 		MomentOf<T>: Into<U256>,
 		<T as frame_system::Config>::RuntimeEvent: From<pallet::Event<T>>,
 		<T as Config>::RuntimeCall: From<frame_system::Call<T>>,
-		<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance: From<BalanceOf<T>>,
 		<T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 )]
 mod benchmarks {
