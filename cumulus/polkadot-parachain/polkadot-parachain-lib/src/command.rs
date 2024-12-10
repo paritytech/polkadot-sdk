@@ -35,11 +35,13 @@ use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunc
 use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
-use sc_cli::{Result, SubstrateCli};
+use sc_cli::{CliConfiguration, Result, SubstrateCli};
 use sp_runtime::traits::AccountIdConversion;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
 use std::panic::{RefUnwindSafe, UnwindSafe};
+
+const DEFAULT_DEV_BLOCK_TIME_MS: u64 = 3000;
 
 /// Structure that can be used in order to provide customizers for different functionalities of the
 /// node binary that is being built using this library.
@@ -216,6 +218,32 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 			let collator_options = cli.run.collator_options();
 
 			runner.run_node_until_exit(|config| async move {
+<<<<<<< HEAD:cumulus/polkadot-parachain/polkadot-parachain-lib/src/command.rs
+=======
+				let node_spec =
+					new_node_spec(&config, &cmd_config.runtime_resolver, &cli.node_extra_args())?;
+				let para_id = ParaId::from(
+					Extensions::try_get(&*config.chain_spec)
+						.map(|e| e.para_id)
+						.ok_or("Could not find parachain extension in chain-spec.")?,
+				);
+
+				if cli.run.base.is_dev()? {
+					// Set default dev block time to 3000ms if not set.
+					// TODO: take block time from AURA config if set.
+					let dev_block_time = cli.dev_block_time.unwrap_or(DEFAULT_DEV_BLOCK_TIME_MS);
+					return node_spec
+						.start_manual_seal_node(config, para_id, dev_block_time)
+						.map_err(Into::into);
+				}
+
+				if let Some(dev_block_time) = cli.dev_block_time {
+					return node_spec
+						.start_manual_seal_node(config, para_id, dev_block_time)
+						.map_err(Into::into);
+				}
+
+>>>>>>> 48c28d4c (omni-node: --dev sets manual seal and allows --chain to be set (#6646)):cumulus/polkadot-omni-node/lib/src/command.rs
 				// If Statemint (Statemine, Westmint, Rockmine) DB exists and we're using the
 				// asset-hub chain spec, then rename the base path to the new chain ID. In the case
 				// that both file paths exist, the node will exit, as the user must decide (by

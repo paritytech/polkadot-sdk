@@ -45,7 +45,63 @@ packages required to compile this template - please take note of the Rust compil
 cargo build --release
 ```
 
+<<<<<<< HEAD
 🐳 Alternatively, build the docker image:
+=======
+## Starting a Minimal Template Chain
+
+### Omni Node
+
+[Omni Node](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/omni_node/index.html) can
+be used to run the minimal template's runtime. `polkadot-omni-node` binary crate usage is described at a high-level
+[on crates.io](https://crates.io/crates/polkadot-omni-node).
+
+#### Install `polkadot-omni-node`
+
+Please see installation section on [crates.io/omni-node](https://crates.io/crates/polkadot-omni-node).
+
+#### Build `minimal-template-runtime`
+
+```sh
+cargo build -p minimal-template-runtime --release
+```
+
+#### Install `staging-chain-spec-builder`
+
+Please see the installation section at [`crates.io/staging-chain-spec-builder`](https://crates.io/crates/staging-chain-spec-builder).
+
+#### Use chain-spec-builder to generate the chain_spec.json file
+
+```sh
+chain-spec-builder create --relay-chain "dev" --para-id 1000 --runtime \
+    target/release/wbuild/minimal-template-runtime/minimal_template_runtime.wasm named-preset development
+```
+
+**Note**: the `relay-chain` and `para-id` flags are extra bits of information required to
+configure the node for the case of representing a parachain that is connected to a relay chain.
+They are not relevant to minimal template business logic, but they are mandatory information for
+Omni Node, nonetheless.
+
+#### Run Omni Node
+
+Start Omni Node in development mode (sets up block production and finalization based on manual seal,
+sealing a new block every 3 seconds), with a minimal template runtime chain spec.
+
+```sh
+polkadot-omni-node --chain <path/to/chain_spec.json> --dev
+```
+
+### Minimal Template Node
+
+#### Build both node & runtime
+
+```sh
+cargo build --workspace --release
+```
+
+🐳 Alternatively, build the docker image which builds all the workspace members,
+and has as entry point the node binary:
+>>>>>>> 48c28d4c (omni-node: --dev sets manual seal and allows --chain to be set (#6646))
 
 ```sh
 docker build . -t polkadot-sdk-minimal-template
@@ -64,9 +120,46 @@ docker run --rm polkadot-sdk-minimal-template --dev
 
 Development chains:
 
+<<<<<<< HEAD
 * 🧹 Do not persist the state.
 * 💰 Are pre-configured with a genesis state that includes several pre-funded development accounts.
 * 🧑‍⚖️ One development account (`ALICE`) is used as `sudo` accounts.
+=======
+#### Install `zombienet`
+
+We can install `zombienet` as described [here](https://paritytech.github.io/zombienet/install.html#installation),
+and `zombienet-omni-node.toml` contains the network specification we want to start.
+
+#### Update `zombienet-omni-node.toml` with a valid chain spec path
+
+Before starting the network with zombienet we must update the network specification
+with a valid chain spec path. If we need to generate one, we can look up at the previous
+section for chain spec creation [here](#use-chain-spec-builder-to-generate-the-chain_specjson-file).
+
+Then make the changes in the network specification like so:
+
+```toml
+# ...
+chain = "dev"
+chain_spec_path = "<TO BE UPDATED WITH A VALID PATH>"
+default_args = ["--dev"]
+# ..
+```
+
+#### Start the network
+
+```sh
+zombienet --provider native spawn zombienet-omni-node.toml
+```
+
+### Zombienet with `minimal-template-node`
+
+For this one we just need to have `zombienet` installed and run:
+
+```sh
+zombienet --provider native spawn zombienet-multi-node.toml
+```
+>>>>>>> 48c28d4c (omni-node: --dev sets manual seal and allows --chain to be set (#6646))
 
 ### Connect with the Polkadot-JS Apps Front-End
 
