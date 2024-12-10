@@ -16,21 +16,10 @@ workspace = true
 [dependencies]
 codec = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-<<<<<<< HEAD
 frame-support.workspace = true
+sp-core.workspace = true
 bp-xcm-bridge-hub-router.workspace = true
-=======
-
-# Substrate Dependencies
-frame-support = { workspace = true }
-sp-core = { workspace = true }
-
-# Bridge Dependencies
-bp-xcm-bridge-hub-router = { workspace = true }
->>>>>>> 8f4b99cf (Bridges - revert-back congestion mechanism (#6781))
-
-# Polkadot dependencies
-xcm = { workspace = true }
+xcm.workspace = true
 
 [features]
 default = ["std"]
