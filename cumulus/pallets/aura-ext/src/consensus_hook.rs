@@ -133,10 +133,10 @@ impl<
 			return false
 		}
 
-		// Check that we have not authored more than `V + 1` parachain blocks in the current relay
+		// Check that we have not authored more than `V` parachain blocks in the current relay
 		// chain slot.
 		if last_slot == new_slot {
-			authored_so_far < velocity + 1
+			authored_so_far < velocity
 		} else {
 			// disallow slot from moving backwards.
 			last_slot < new_slot

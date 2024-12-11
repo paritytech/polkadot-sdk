@@ -293,7 +293,7 @@ mod test {
 			assert!(Hook::can_build_upon(hash, relay_slot));
 
 			set_relay_slot(10, VELOCITY);
-			assert!(Hook::can_build_upon(hash, relay_slot));
+			assert!(!Hook::can_build_upon(hash, relay_slot));
 
 			set_relay_slot(10, VELOCITY + 1);
 			// Velocity too high
@@ -323,7 +323,7 @@ mod test {
 		new_test_ext(1).execute_with(|| {
 			let relay_slot = Slot::from(10);
 
-			set_relay_slot(10, VELOCITY);
+			set_relay_slot(10, 1);
 			// Size after included is two, we can not build
 			let hash = H256::repeat_byte(0x1);
 			assert!(!Hook::can_build_upon(hash, relay_slot));
