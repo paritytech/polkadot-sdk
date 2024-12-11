@@ -316,7 +316,7 @@ impl Default for AggressionConfig {
 	fn default() -> Self {
 		AggressionConfig {
 			l1_threshold: Some(16),
-			l2_threshold: Some(28),
+			l2_threshold: Some(64),
 			resend_unfinalized_period: Some(8),
 		}
 	}
@@ -512,6 +512,8 @@ struct BlockEntry {
 	vrf_story: RelayVRFStory,
 	/// The block slot.
 	slot: Slot,
+	/// Backing off from re-sending messages to peers.
+	last_resent_at_block_number: Option<u32>,
 }
 
 impl BlockEntry {
@@ -878,6 +880,7 @@ impl State {
 						candidates_metadata: meta.candidates,
 						vrf_story: meta.vrf_story,
 						slot: meta.slot,
+						last_resent_at_block_number: None,
 					});
 
 					self.topologies.inc_session_refs(meta.session);
@@ -1317,6 +1320,33 @@ impl State {
 		self.enable_aggression(network_sender, Resend::No, metrics).await;
 	}
 
+	// When finality is lagging as a last resort nodes start sending the messages they have
+	// multiples times. This means it is safe to accept duplicate messages without punishing the
+	// peer and reduce the reputation and can end up banning the Peer, which in turn will create
+	// more no-shows.
+	fn accept_duplicates_from_validators(
+		blocks_by_number: &BTreeMap<BlockNumber, Vec<Hash>>,
+		topologies: &SessionGridTopologies,
+		aggression_config: &AggressionConfig,
+		entry: &BlockEntry,
+		peer: PeerId,
+	) -> bool {
+		let topology = topologies.get_topology(entry.session);
+		let min_age = blocks_by_number.iter().next().map(|(num, _)| num);
+		let max_age = blocks_by_number.iter().rev().next().map(|(num, _)| num);
+
+		// Return if we don't have at least 1 block.
+		let (min_age, max_age) = match (min_age, max_age) {
+			(Some(min), Some(max)) => (*min, *max),
+			_ => return false,
+		};
+
+		let age = max_age.saturating_sub(min_age);
+
+		aggression_config.should_trigger_aggression(age) &&
+			topology.map(|topology| topology.is_validator(&peer)).unwrap_or(false)
+	}
+
 	async fn import_and_circulate_assignment<A, N, RA, R>(
 		&mut self,
 		approval_voting_sender: &mut A,
@@ -1381,20 +1411,29 @@ impl State {
 					if peer_knowledge.contains(&message_subject, message_kind) {
 						// wasn't included before
 						if !peer_knowledge.received.insert(message_subject.clone(), message_kind) {
-							gum::debug!(
-								target: LOG_TARGET,
-								?peer_id,
-								?message_subject,
-								"Duplicate assignment",
-							);
-
-							modify_reputation(
-								&mut self.reputation,
-								network_sender,
+							if !Self::accept_duplicates_from_validators(
+								&self.blocks_by_number,
+								&self.topologies,
+								&self.aggression_config,
+								entry,
 								peer_id,
-								COST_DUPLICATE_MESSAGE,
-							)
-							.await;
+							) {
+								gum::debug!(
+									target: LOG_TARGET,
+									?peer_id,
+									?message_subject,
+									"Duplicate assignment",
+								);
+
+								modify_reputation(
+									&mut self.reputation,
+									network_sender,
+									peer_id,
+									COST_DUPLICATE_MESSAGE,
+								)
+								.await;
+							}
+
 							metrics.on_assignment_duplicate();
 						} else {
 							gum::trace!(
@@ -1710,6 +1749,9 @@ impl State {
 		assignments_knowledge_key: &Vec<(MessageSubject, MessageKind)>,
 		approval_knowledge_key: &(MessageSubject, MessageKind),
 		entry: &mut BlockEntry,
+		blocks_by_number: &BTreeMap<BlockNumber, Vec<Hash>>,
+		topologies: &SessionGridTopologies,
+		aggression_config: &AggressionConfig,
 		reputation: &mut ReputationAggregator,
 		peer_id: PeerId,
 		metrics: &Metrics,
@@ -1738,20 +1780,27 @@ impl State {
 						.received
 						.insert(approval_knowledge_key.0.clone(), approval_knowledge_key.1)
 					{
-						gum::trace!(
-							target: LOG_TARGET,
-							?peer_id,
-							?approval_knowledge_key,
-							"Duplicate approval",
-						);
-
-						modify_reputation(
-							reputation,
-							network_sender,
+						if !Self::accept_duplicates_from_validators(
+							blocks_by_number,
+							topologies,
+							aggression_config,
+							entry,
 							peer_id,
-							COST_DUPLICATE_MESSAGE,
-						)
-						.await;
+						) {
+							gum::trace!(
+								target: LOG_TARGET,
+								?peer_id,
+								?approval_knowledge_key,
+								"Duplicate approval",
+							);
+							modify_reputation(
+								reputation,
+								network_sender,
+								peer_id,
+								COST_DUPLICATE_MESSAGE,
+							)
+							.await;
+						}
 						metrics.on_approval_duplicate();
 					}
 					return false
@@ -1843,6 +1892,9 @@ impl State {
 				&assignments_knowledge_keys,
 				&approval_knwowledge_key,
 				entry,
+				&self.blocks_by_number,
+				&self.topologies,
+				&self.aggression_config,
 				&mut self.reputation,
 				peer_id,
 				metrics,
@@ -2253,18 +2305,43 @@ impl State {
 			&self.topologies,
 			|block_entry| {
 				let block_age = max_age - block_entry.number;
+				// We want to resend only for blocks of min_age, there is no point in
+				// resending for blocks newer than that, because we are just going to create load
+				// and not gain anything.
+				let diff_from_min_age = block_entry.number - min_age;
+
+				// We want to back-off on resending for blocks that have been resent recently, to
+				// give time for nodes to process all the extra messages, if we still have not
+				// finalized we are going to resend again after unfinalized_period * 2 since the
+				// last resend.
+				let blocks_since_last_sent = block_entry
+					.last_resent_at_block_number
+					.map(|last_resent_at_block_number| max_age - last_resent_at_block_number);
+
+				let can_resend_at_this_age = blocks_since_last_sent
+					.zip(config.resend_unfinalized_period)
+					.map(|(blocks_since_last_sent, unfinalized_period)| {
+						blocks_since_last_sent >= unfinalized_period * 2
+					})
+					.unwrap_or(true);
 
 				if resend == Resend::Yes &&
-					config
-						.resend_unfinalized_period
-						.as_ref()
-						.map_or(false, |p| block_age > 0 && block_age % p == 0)
-				{
+					config.resend_unfinalized_period.as_ref().map_or(false, |p| {
+						block_age > 0 &&
+							block_age % p == 0 && diff_from_min_age == 0 &&
+							can_resend_at_this_age
+					}) {
 					// Retry sending to all peers.
 					for (_, knowledge) in block_entry.known_by.iter_mut() {
 						knowledge.sent = Knowledge::default();
 					}
-
+					block_entry.last_resent_at_block_number = Some(max_age);
+					gum::debug!(
+						target: LOG_TARGET,
+						block_number = ?block_entry.number,
+						?max_age,
+						"Aggression enabled with resend for block",
+					);
 					true
 				} else {
 					false

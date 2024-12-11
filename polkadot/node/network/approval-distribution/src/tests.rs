@@ -1031,6 +1031,141 @@ fn peer_sending_us_the_same_we_just_sent_them_is_ok() {
 }
 
 #[test]
+fn peer_sending_us_duplicates_while_aggression_enabled_is_ok() {
+	let parent_hash = Hash::repeat_byte(0xFF);
+	let hash = Hash::repeat_byte(0xAA);
+
+	let peers = make_peers_and_authority_ids(8);
+	let peer_a = peers.first().unwrap().0;
+
+	let _ = test_harness(
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
+		Arc::new(SystemClock {}),
+		state_without_reputation_delay(),
+		|mut virtual_overseer| async move {
+			let overseer = &mut virtual_overseer;
+			let peer = &peer_a;
+			setup_peer_with_view(overseer, peer, view![], ValidationVersion::V3).await;
+
+			let peers_with_optional_peer_id = peers
+				.iter()
+				.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
+				.collect_vec();
+			// Setup a topology where peer_a is neighbor to current node.
+			setup_gossip_topology(
+				overseer,
+				make_gossip_topology(1, &peers_with_optional_peer_id, &[0], &[2], 1),
+			)
+			.await;
+
+			// new block `hash` with 1 candidates
+			let meta = BlockApprovalMeta {
+				hash,
+				parent_hash,
+				number: 1,
+				candidates: vec![Default::default(); 1],
+				slot: 1.into(),
+				session: 1,
+				vrf_story: RelayVRFStory(Default::default()),
+			};
+			let msg = ApprovalDistributionMessage::NewBlocks(vec![meta]);
+			overseer_send(overseer, msg).await;
+
+			// import an assignment related to `hash` locally
+			let validator_index = ValidatorIndex(0);
+			let candidate_indices: CandidateBitfield =
+				vec![0 as CandidateIndex].try_into().unwrap();
+			let candidate_bitfields = vec![CoreIndex(0)].try_into().unwrap();
+			let cert = fake_assignment_cert_v2(hash, validator_index, candidate_bitfields);
+			overseer_send(
+				overseer,
+				ApprovalDistributionMessage::DistributeAssignment(
+					cert.clone().into(),
+					candidate_indices.clone(),
+				),
+			)
+			.await;
+
+			// update peer view to include the hash
+			overseer_send(
+				overseer,
+				ApprovalDistributionMessage::NetworkBridgeUpdate(
+					NetworkBridgeEvent::PeerViewChange(*peer, view![hash]),
+				),
+			)
+			.await;
+
+			// we should send them the assignment
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+					peers,
+					Versioned::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+						protocol_v3::ApprovalDistributionMessage::Assignments(assignments)
+					))
+				)) => {
+					assert_eq!(peers.len(), 1);
+					assert_eq!(assignments.len(), 1);
+				}
+			);
+
+			// but if someone else is sending it the same assignment
+			// the peer could send us it as well
+			let assignments = vec![(cert, candidate_indices)];
+			let msg = protocol_v3::ApprovalDistributionMessage::Assignments(assignments);
+			send_message_from_peer_v3(overseer, peer, msg.clone()).await;
+
+			assert!(
+				overseer.recv().timeout(TIMEOUT).await.is_none(),
+				"we should not punish the peer"
+			);
+
+			// send the assignments again
+			send_message_from_peer_v3(overseer, peer, msg.clone()).await;
+
+			// now we should
+			expect_reputation_change(overseer, peer, COST_DUPLICATE_MESSAGE).await;
+
+			// Peers will be continously punished for sending duplicates until approval-distribution
+			// aggression kicks, at which point they aren't anymore.
+			let mut parent_hash = hash;
+			for level in 0..16 {
+				// As long as the lag is bellow l1 aggression, punish peers for duplicates.
+				send_message_from_peer_v3(overseer, peer, msg.clone()).await;
+				expect_reputation_change(overseer, peer, COST_DUPLICATE_MESSAGE).await;
+
+				let number = 1 + level + 1; // first block had number 1
+				let hash = BlakeTwo256::hash_of(&(parent_hash, number));
+				let meta = BlockApprovalMeta {
+					hash,
+					parent_hash,
+					number,
+					candidates: vec![],
+					slot: (level as u64).into(),
+					session: 1,
+					vrf_story: RelayVRFStory(Default::default()),
+				};
+
+				let msg = ApprovalDistributionMessage::ApprovalCheckingLagUpdate(level + 1);
+				overseer_send(overseer, msg).await;
+
+				let msg = ApprovalDistributionMessage::NewBlocks(vec![meta]);
+				overseer_send(overseer, msg).await;
+
+				parent_hash = hash;
+			}
+
+			// send the assignments again, we should not punish the peer because aggression is
+			// enabled.
+			send_message_from_peer_v3(overseer, peer, msg).await;
+
+			assert!(overseer.recv().timeout(TIMEOUT).await.is_none(), "no message should be sent");
+			virtual_overseer
+		},
+	);
+}
+
+#[test]
 fn import_approval_happy_path_v1_v2_peers() {
 	let peers = make_peers_and_authority_ids(15);
 
@@ -3892,7 +4027,7 @@ fn resends_messages_periodically() {
 				// Add blocks until resend is done.
 				{
 					let mut parent_hash = hash;
-					for level in 0..2 {
+					for level in 0..4 {
 						number = number + 1;
 						let hash = BlakeTwo256::hash_of(&(parent_hash, number));
 						let meta = BlockApprovalMeta {
