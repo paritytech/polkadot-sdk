@@ -28,8 +28,8 @@ sp-io = { workspace = true, default-features = true }
 default = ["std"]
 std = [
 	"codec/std",
-	"scale-info/std",
 	"frame/std",
+	"scale-info/std",
 ]
 runtime-benchmarks = [
 	"frame/runtime-benchmarks",
