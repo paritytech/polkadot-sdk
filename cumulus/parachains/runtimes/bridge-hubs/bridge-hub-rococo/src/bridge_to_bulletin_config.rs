@@ -70,7 +70,7 @@ parameter_types! {
 	///
 	/// It is determined semi-automatically - see `FEE_BOOST_PER_MESSAGE` constant to get the
 	/// meaning of this value.
-	pub PriorityBoostPerMessage: u64 = 182_044_444_444_444;
+	pub PriorityBoostPerMessage: u64 = 364_088_888_888_888;
 
 	/// PeopleRococo location
 	pub PeopleRococoLocation: Location = Location::new(1, [Parachain(rococo_runtime_constants::system_parachain::PEOPLE_ID)]);
