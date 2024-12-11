@@ -146,7 +146,6 @@ benchmarks! {
 	report_dispute_lost {
 		let _n  = T::MaxValidatorsCount::get();
 	}: {
-		let result = Ok(());
-		assert!(result.is_ok());
+		assert_eq!(0, 0);
 	}
 }
