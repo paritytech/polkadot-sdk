@@ -1,0 +1,13 @@
+title: Add block header pruning support.
+
+doc:
+  - audience: Node Dev
+    description: |
+      This PR adds block header pruning support and introduces the related CLI flag - `--prune-block-headers`
+
+crates:
+  - name: polkadot-test-service
+  - name: sc-cli
+  - name: sc-client-db
+  - name: sc-service
+  - name: substrate-test-utils
