@@ -275,6 +275,8 @@ pub enum RuntimeCosts {
 	CopyFromContract(u32),
 	/// Weight charged for copying data to the sandbox.
 	CopyToContract(u32),
+	/// Weight of calling `seal_call_data_load``.
+	CallDataLoad,
 	/// Weight of calling `seal_caller`.
 	Caller,
 	/// Weight of calling `seal_origin`.
@@ -437,6 +439,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			HostFn => cost_args!(noop_host_fn, 1),
 			CopyToContract(len) => T::WeightInfo::seal_input(len),
 			CopyFromContract(len) => T::WeightInfo::seal_return(len),
+			CallDataLoad => T::WeightInfo::seal_call_data_load(),
 			Caller => T::WeightInfo::seal_caller(),
 			Origin => T::WeightInfo::seal_origin(),
 			IsContract => T::WeightInfo::seal_is_contract(),
@@ -1322,6 +1325,41 @@ pub mod env {
 		} else {
 			Err(Error::<E::T>::InputForwarded.into())
 		}
+	}
+
+	/// Stores the U256 value at given call input `offset` into the supplied buffer.
+	/// See [`pallet_revive_uapi::HostFn::call_data_load`].
+	#[api_version(0)]
+	fn call_data_load(
+		&mut self,
+		memory: &mut M,
+		out_ptr: u32,
+		offset: u32,
+	) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::CallDataLoad)?;
+
+		let Some(input) = self.input_data.as_ref() else {
+			return Err(Error::<E::T>::InputForwarded.into());
+		};
+
+		let mut data = [0; 32];
+		let len = input.len();
+		let start = offset as usize;
+		let data = if start > len {
+			data // Any index is valid to request; OOB offsets return zero.
+		} else {
+			let mut end = start.saturating_add(32);
+			if end > len {
+				end = len;
+			}
+			data[..end - start].copy_from_slice(&input[start..end]);
+			data.reverse();
+			data // Solidity expects right-padded data
+		};
+
+		self.write_fixed_sandbox_output(memory, out_ptr, &data, false, already_charged)?;
+
+		Ok(())
 	}
 
 	/// Cease contract execution and save a data buffer as a result of the execution.

@@ -839,6 +839,21 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn seal_call_data_load() {
+		let mut setup = CallSetup::<T>::default();
+		let (mut ext, _) = setup.ext();
+		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![42u8; 32]);
+		let mut memory = memory!(vec![0u8; 32],);
+		let result;
+		#[block]
+		{
+			result = runtime.bench_call_data_load(memory.as_mut_slice(), 0, 0);
+		}
+		assert_ok!(result);
+		assert_eq!(&memory[..], &vec![42u8; 32]);
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_input(n: Linear<0, { limits::code::BLOB_BYTES - 4 }>) {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
