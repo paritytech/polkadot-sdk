@@ -16,7 +16,7 @@
 
 //! A generic statement distribution subsystem mockup suitable to be used in benchmarks.
 
-use crate::{statement::TestState, NODE_UNDER_TEST};
+use crate::{statement::TestState, NODE_UNDER_TEST, SESSION_INDEX};
 use bitvec::vec::BitVec;
 use futures::FutureExt;
 use polkadot_node_network_protocol::{
@@ -38,7 +38,7 @@ use std::sync::{atomic::Ordering, Arc};
 
 const COST_INVALID_REQUEST: UnifiedReputationChange =
 	UnifiedReputationChange::CostMajor("Peer sent unparsable request");
-const SESSION_INDEX: u32 = 0;
+const LOG_TARGET: &str = "subsystem-bench::statement-distribution-mock";
 
 pub struct MockStatementDistribution {
 	/// Receiver for attested candidate requests.
@@ -207,9 +207,9 @@ impl MockStatementDistribution {
 									.as_ref()
 									.store(true, Ordering::SeqCst);
 							},
-							msg => println!("🚨🚨🚨 Received message: {:?}", msg),
+							msg => gum::debug!(target: LOG_TARGET, ?msg, "Unhandled message"),
 						},
-					err => println!("recv error: {:?}", err),
+					err => gum::error!(target: LOG_TARGET, ?err, "recv error"),
 				},
 				req = self.req_receiver.recv(|| vec![COST_INVALID_REQUEST]) => {
 					let req = req.expect("Receiver never fails");

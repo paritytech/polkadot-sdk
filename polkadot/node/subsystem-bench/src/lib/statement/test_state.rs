@@ -17,7 +17,7 @@
 use crate::{
 	configuration::{TestAuthorities, TestConfiguration},
 	mock::runtime_api::session_info_for_peers,
-	NODE_UNDER_TEST,
+	NODE_UNDER_TEST, SESSION_INDEX,
 };
 use itertools::Itertools;
 use polkadot_node_primitives::{AvailableData, BlockData, PoV};
@@ -45,8 +45,6 @@ use std::{
 		Arc,
 	},
 };
-
-const SESSION_INDEX: u32 = 0;
 
 #[derive(Clone)]
 pub struct TestState {
