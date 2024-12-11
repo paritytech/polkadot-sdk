@@ -44,7 +44,7 @@ fn test_set_asset_claimer_within_a_chain() {
 
 	type RuntimeCall = <AssetHubWestend as Chain>::RuntimeCall;
 	let asset_trap_xcm = Xcm::<RuntimeCall>::builder_unsafe()
-		.set_asset_claimer(bob_location.clone())
+		.set_hints(vec![AssetClaimer { location: bob_location.clone() }])
 		.withdraw_asset(assets.clone())
 		.clear_origin()
 		.build();
@@ -116,7 +116,7 @@ fn test_set_asset_claimer_between_the_chains() {
 	let assets: Assets = (Parent, trap_amount).into();
 	type RuntimeCall = <BridgeHubWestend as Chain>::RuntimeCall;
 	let trap_xcm = Xcm::<RuntimeCall>::builder_unsafe()
-		.set_asset_claimer(alice_bh_sibling.clone())
+		.set_hints(vec![AssetClaimer { location: alice_bh_sibling.clone() }])
 		.withdraw_asset(assets.clone())
 		.clear_origin()
 		.build();

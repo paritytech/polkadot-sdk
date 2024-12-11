@@ -17,13 +17,12 @@
 //! The client connects to the source substrate chain
 //! and is used by the rpc server to query and send transactions to the substrate chain.
 use crate::{
-	rlp,
 	runtime::GAS_PRICE,
 	subxt_client::{
 		revive::{calls::types::EthTransact, events::ContractEmitted},
 		runtime_types::pallet_revive::storage::ContractInfo,
 	},
-	TransactionLegacySigned, LOG_TARGET,
+	LOG_TARGET,
 };
 use futures::{stream, StreamExt};
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
@@ -33,7 +32,7 @@ use pallet_revive::{
 		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Bytes256, GenericTransaction, Log,
 		ReceiptInfo, SyncingProgress, SyncingStatus, TransactionSigned, H160, H256, U256,
 	},
-	EthContractResult,
+	EthTransactError, EthTransactInfo,
 };
 use sp_core::keccak_256;
 use sp_weights::Weight;
@@ -117,18 +116,42 @@ fn unwrap_call_err(err: &subxt::error::RpcError) -> Option<ErrorObjectOwned> {
 
 /// Extract the revert message from a revert("msg") solidity statement.
 fn extract_revert_message(exec_data: &[u8]) -> Option<String> {
-	let function_selector = exec_data.get(0..4)?;
+	let error_selector = exec_data.get(0..4)?;
 
-	// keccak256("Error(string)")
-	let expected_selector = [0x08, 0xC3, 0x79, 0xA0];
-	if function_selector != expected_selector {
-		return None;
-	}
+	match error_selector {
+		// assert(false)
+		[0x4E, 0x48, 0x7B, 0x71] => {
+			let panic_code: u32 = U256::from_big_endian(exec_data.get(4..36)?).try_into().ok()?;
 
-	let decoded = ethabi::decode(&[ethabi::ParamType::String], &exec_data[4..]).ok()?;
-	match decoded.first()? {
-		ethabi::Token::String(msg) => Some(msg.to_string()),
-		_ => None,
+			// See https://docs.soliditylang.org/en/latest/control-structures.html#panic-via-assert-and-error-via-require
+			let msg = match panic_code {
+				0x00 => "generic panic",
+				0x01 => "assert(false)",
+				0x11 => "arithmetic underflow or overflow",
+				0x12 => "division or modulo by zero",
+				0x21 => "enum overflow",
+				0x22 => "invalid encoded storage byte array accessed",
+				0x31 => "out-of-bounds array access; popping on an empty array",
+				0x32 => "out-of-bounds access of an array or bytesN",
+				0x41 => "out of memory",
+				0x51 => "uninitialized function",
+				code => return Some(format!("execution reverted: unknown panic code: {code:#x}")),
+			};
+
+			Some(format!("execution reverted: {msg}"))
+		},
+		// revert(string)
+		[0x08, 0xC3, 0x79, 0xA0] => {
+			let decoded = ethabi::decode(&[ethabi::ParamType::String], &exec_data[4..]).ok()?;
+			if let Some(ethabi::Token::String(msg)) = decoded.first() {
+				return Some(format!("execution reverted: {msg}"))
+			}
+			Some("execution reverted".to_string())
+		},
+		_ => {
+			log::debug!(target: LOG_TARGET, "Unknown revert function selector: {error_selector:?}");
+			Some("execution reverted".to_string())
+		},
 	}
 }
 
@@ -147,42 +170,46 @@ pub enum ClientError {
 	/// A [`codec::Error`] wrapper error.
 	#[error(transparent)]
 	CodecError(#[from] codec::Error),
-	/// The dry run failed.
-	#[error("Dry run failed: {0}")]
-	DryRunFailed(String),
 	/// Contract reverted
-	#[error("Execution reverted: {}", extract_revert_message(.0).unwrap_or_default())]
-	Reverted(Vec<u8>),
+	#[error("contract reverted")]
+	Reverted(EthTransactError),
 	/// A decimal conversion failed.
-	#[error("Conversion failed")]
+	#[error("conversion failed")]
 	ConversionFailed,
 	/// The block hash was not found.
-	#[error("Hash not found")]
+	#[error("hash not found")]
 	BlockNotFound,
 	/// The transaction fee could not be found
-	#[error("TransactionFeePaid event not found")]
+	#[error("transactionFeePaid event not found")]
 	TxFeeNotFound,
 	/// The cache is empty.
-	#[error("Cache is empty")]
+	#[error("cache is empty")]
 	CacheEmpty,
 }
 
-// TODO convert error code to https://eips.ethereum.org/EIPS/eip-1474#error-codes
+const REVERT_CODE: i32 = 3;
 impl From<ClientError> for ErrorObjectOwned {
 	fn from(err: ClientError) -> Self {
-		let msg = err.to_string();
 		match err {
 			ClientError::SubxtError(subxt::Error::Rpc(err)) | ClientError::RpcError(err) => {
 				if let Some(err) = unwrap_call_err(&err) {
 					return err;
 				}
-				ErrorObjectOwned::owned::<Vec<u8>>(CALL_EXECUTION_FAILED_CODE, msg, None)
+				ErrorObjectOwned::owned::<Vec<u8>>(
+					CALL_EXECUTION_FAILED_CODE,
+					err.to_string(),
+					None,
+				)
 			},
-			ClientError::Reverted(data) => {
+			ClientError::Reverted(EthTransactError::Data(data)) => {
+				let msg = extract_revert_message(&data).unwrap_or_default();
 				let data = format!("0x{}", hex::encode(data));
-				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, Some(data))
+				ErrorObjectOwned::owned::<String>(REVERT_CODE, msg, Some(data))
 			},
-			_ => ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None),
+			ClientError::Reverted(EthTransactError::Message(msg)) =>
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None),
+			_ =>
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None),
 		}
 	}
 }
@@ -269,25 +296,26 @@ impl ClientInner {
 		let extrinsics = extrinsics.iter().flat_map(|ext| {
 			let call = ext.as_extrinsic::<EthTransact>().ok()??;
 			let transaction_hash = H256(keccak_256(&call.payload));
-			let tx = rlp::decode::<TransactionLegacySigned>(&call.payload).ok()?;
-			let from = tx.recover_eth_address().ok()?;
-			let contract_address = if tx.transaction_legacy_unsigned.to.is_none() {
-				Some(create1(&from, tx.transaction_legacy_unsigned.nonce.try_into().ok()?))
+			let signed_tx = TransactionSigned::decode(&call.payload).ok()?;
+			let from = signed_tx.recover_eth_address().ok()?;
+			let tx_info = GenericTransaction::from_signed(signed_tx.clone(), Some(from));
+			let contract_address = if tx_info.to.is_none() {
+				Some(create1(&from, tx_info.nonce.unwrap_or_default().try_into().ok()?))
 			} else {
 				None
 			};
 
-			Some((from, tx, transaction_hash, contract_address, ext))
+			Some((from, signed_tx, tx_info, transaction_hash, contract_address, ext))
 		});
 
 		// Map each extrinsic to a receipt
 		stream::iter(extrinsics)
-			.map(|(from, tx, transaction_hash, contract_address, ext)| async move {
+			.map(|(from, signed_tx, tx_info, transaction_hash, contract_address, ext)| async move {
 				let events = ext.events().await?;
 				let tx_fees =
 					events.find_first::<TransactionFeePaid>()?.ok_or(ClientError::TxFeeNotFound)?;
 
-				let gas_price = tx.transaction_legacy_unsigned.gas_price;
+				let gas_price = tx_info.gas_price.unwrap_or_default();
 				let gas_used = (tx_fees.tip.saturating_add(tx_fees.actual_fee))
 					.checked_div(gas_price.as_u128())
 					.unwrap_or_default();
@@ -324,16 +352,16 @@ impl ClientInner {
 					contract_address,
 					from,
 					logs,
-					tx.transaction_legacy_unsigned.to,
+					tx_info.to,
 					gas_price,
 					gas_used.into(),
 					success,
 					transaction_hash,
 					transaction_index.into(),
-					tx.transaction_legacy_unsigned.r#type.as_byte()
+					tx_info.r#type.unwrap_or_default()
 				);
 
-				Ok::<_, ClientError>((receipt.transaction_hash, (tx.into(), receipt)))
+				Ok::<_, ClientError>((receipt.transaction_hash, (signed_tx, receipt)))
 			})
 			.buffer_unordered(10)
 			.collect::<Vec<Result<_, _>>>()
@@ -634,52 +662,23 @@ impl Client {
 		Ok(result)
 	}
 
-	/// Dry run a transaction and returns the [`EthContractResult`] for the transaction.
+	/// Dry run a transaction and returns the [`EthTransactInfo`] for the transaction.
 	pub async fn dry_run(
 		&self,
-		tx: &GenericTransaction,
+		tx: GenericTransaction,
 		block: BlockNumberOrTagOrHash,
-	) -> Result<EthContractResult<Balance, Vec<u8>>, ClientError> {
+	) -> Result<EthTransactInfo<Balance>, ClientError> {
 		let runtime_api = self.runtime_api(&block).await?;
+		let payload = subxt_client::apis().revive_api().eth_transact(tx.into());
 
-		// TODO: remove once subxt is updated
-		let value = subxt::utils::Static(tx.value.unwrap_or_default());
-		let from = tx.from.map(|v| v.0.into());
-		let to = tx.to.map(|v| v.0.into());
-
-		let payload = subxt_client::apis().revive_api().eth_transact(
-			from.unwrap_or_default(),
-			to,
-			value,
-			tx.input.clone().unwrap_or_default().0,
-			None,
-			None,
-		);
-
-		let EthContractResult { fee, gas_required, storage_deposit, result } =
-			runtime_api.call(payload).await?.0;
+		let result = runtime_api.call(payload).await?;
 		match result {
 			Err(err) => {
 				log::debug!(target: LOG_TARGET, "Dry run failed {err:?}");
-				Err(ClientError::DryRunFailed(format!("{err:?}")))
+				Err(ClientError::Reverted(err.0))
 			},
-			Ok(result) if result.did_revert() => {
-				log::debug!(target: LOG_TARGET, "Dry run reverted");
-				Err(ClientError::Reverted(result.0.data))
-			},
-			Ok(result) =>
-				Ok(EthContractResult { fee, gas_required, storage_deposit, result: result.0.data }),
+			Ok(result) => Ok(result.0),
 		}
-	}
-
-	/// Dry run a transaction and returns the gas estimate for the transaction.
-	pub async fn estimate_gas(
-		&self,
-		tx: &GenericTransaction,
-		block: BlockNumberOrTagOrHash,
-	) -> Result<U256, ClientError> {
-		let dry_run = self.dry_run(tx, block).await?;
-		Ok(U256::from(dry_run.fee / GAS_PRICE as u128) + GAS_PRICE)
 	}
 
 	/// Get the nonce of the given address.
