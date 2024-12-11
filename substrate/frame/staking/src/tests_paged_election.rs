@@ -531,7 +531,7 @@ mod paged_on_initialize {
 			ElectingStartedAt::<Test>::kill();
 			assert_err!(
 				Staking::ensure_snapshot_metadata_state(System::block_number()),
-				"election prep should have started already, no election metadata in storage."
+				"election prep should have started already, but no election metadata in storage."
 			);
 			ElectingStartedAt::<Test>::set(Some(424242));
 			assert_err!(

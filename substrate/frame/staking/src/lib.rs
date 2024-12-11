@@ -384,7 +384,17 @@ macro_rules! log {
 	};
 }
 
-/// Alias fo the maximum number of winners (aka. active validators), as defined in by this pallet's
+/// Alias for a bounded set of exposures behind a validator, parameterized by this pallet's
+/// election provider.
+pub type BoundedExposuresOf<T> = BoundedVec<
+	(
+		<T as frame_system::Config>::AccountId,
+		Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
+	),
+	MaxWinnersPerPageOf<<T as Config>::ElectionProvider>,
+>;
+
+/// Alias for the maximum number of winners (aka. active validators), as defined in by this pallet's
 /// config.
 pub type MaxWinnersOf<T> = <T as Config>::MaxValidatorSet;
 
@@ -1336,7 +1346,7 @@ impl<T: Config> EraInfo<T> {
 			last_page.others.extend(exposures_append.others);
 			ErasStakersPaged::<T>::insert((era, &validator, last_page_idx), last_page);
 
-			// now handle the remainig exposures and append the exposure pages. The metadata update
+			// now handle the remaining exposures and append the exposure pages. The metadata update
 			// has been already handled above.
 			let (_, exposure_pages) = exposure.into_pages(page_size);
 

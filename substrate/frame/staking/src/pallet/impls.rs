@@ -51,10 +51,10 @@ use sp_staking::{
 
 use crate::{
 	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
-	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
-	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, MaxWinnersPerPageOf, Nominations,
-	NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface, SnapshotStatus,
-	StakingLedger, ValidatorPrefs,
+	BalanceOf, BoundedExposuresOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing,
+	IndividualExposure, LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, MaxWinnersPerPageOf,
+	Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface,
+	SnapshotStatus, StakingLedger, ValidatorPrefs,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 
@@ -671,7 +671,7 @@ impl<T: Config> Pallet<T> {
 				.unwrap_or_default();
 
 			// set stakers info for genesis era (0).
-			Self::store_stakers_info(exposures.into_inner(), Zero::zero());
+			Self::store_stakers_info(exposures, Zero::zero());
 
 			validators
 		} else {
@@ -725,7 +725,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Fetches the election page with index `page` from the election provider.
 	///
-	/// The results from the elect call shold be stored in the `ElectableStashes` storage. In
+	/// The results from the elect call should be stored in the `ElectableStashes` storage. In
 	/// addition, it stores stakers' information for next planned era based on the paged solution
 	/// data returned.
 	///
@@ -765,10 +765,7 @@ impl<T: Config> Pallet<T> {
 
 		match Self::add_electables(supports.iter().map(|(s, _)| s.clone())) {
 			Ok(_) => {
-				let _ = Self::store_stakers_info(
-					Self::collect_exposures(supports).into_inner(),
-					planning_era,
-				);
+				let _ = Self::store_stakers_info(Self::collect_exposures(supports), planning_era);
 				Ok(())
 			},
 			Err(not_included) => {
@@ -782,10 +779,7 @@ impl<T: Config> Pallet<T> {
 				// storage bounds to prevent collecting their exposures.
 				supports.retain(|(s, _)| !not_included.contains(s));
 
-				let _ = Self::store_stakers_info(
-					Self::collect_exposures(supports).into_inner(),
-					planning_era,
-				);
+				let _ = Self::store_stakers_info(Self::collect_exposures(supports), planning_era);
 				Err(())
 			},
 		}
@@ -795,7 +789,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Store staking information for the new planned era of a single election page.
 	pub fn store_stakers_info(
-		exposures: Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>,
+		exposures: BoundedExposuresOf<T>,
 		new_planned_era: EraIndex,
 	) -> BoundedVec<T::AccountId, MaxWinnersPerPageOf<T::ElectionProvider>> {
 		// populate elected stash, stakers, exposures, and the snapshot of validator prefs.
@@ -815,7 +809,7 @@ impl<T: Config> Pallet<T> {
 		let elected_stashes: BoundedVec<_, MaxWinnersPerPageOf<T::ElectionProvider>> =
 			elected_stashes_page
 				.try_into()
-				.expect("elected_stashes.len() always equal to exposures.len(); qed");
+				.expect("both typs are bounded by MaxWinnersPerPageOf; qed");
 
 		// adds to total stake in this era.
 		EraInfo::<T>::add_total_stake(new_planned_era, total_stake_page);
@@ -845,10 +839,7 @@ impl<T: Config> Pallet<T> {
 	/// of max winners per page returned by the election provider.
 	pub(crate) fn collect_exposures(
 		supports: BoundedSupportsOf<T::ElectionProvider>,
-	) -> BoundedVec<
-		(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>),
-		MaxWinnersPerPageOf<T::ElectionProvider>,
-	> {
+	) -> BoundedExposuresOf<T> {
 		let total_issuance = asset::total_issuance::<T>();
 		let to_currency = |e: frame_election_provider_support::ExtendedBalance| {
 			T::CurrencyToVote::to_currency(e, total_issuance)
@@ -1131,8 +1122,6 @@ impl<T: Config> Pallet<T> {
 						} else {
 							*status = SnapshotStatus::Ongoing(last.clone());
 						}
-					} else {
-						debug_assert!(*status == SnapshotStatus::Consumed);
 					}
 				},
 				// do nothing.
@@ -2174,54 +2163,57 @@ impl<T: Config> Pallet<T> {
 
 		let election_prep_started = now >= expect_election_start_at;
 
-		// check election metadata, electable targets and era exposures if election should have
-		// already started.
-		match election_prep_started {
-			// election prep should have been started.
-			true =>
-				if let Some(started_at) = ElectingStartedAt::<T>::get() {
-					ensure!(
-						started_at == expect_election_start_at,
-						"unexpected electing_started_at block number in storage."
-					);
-					ensure!(
-						!ElectableStashes::<T>::get().is_empty(),
-						"election should have been started and the electable stashes non empty."
-					);
+		if !election_prep_started {
+			// election prep should have not been started yet, no metadata in storage.
+			ensure!(
+				ElectableStashes::<T>::get().is_empty(),
+				"unexpected electable stashes in storage while election prep hasn't started."
+			);
+			ensure!(
+				ElectingStartedAt::<T>::get().is_none(),
+				"unexpected election metadata while election prep hasn't started.",
+			);
 
-					// all the current electable stashes exposures should have been collected and
-					// stored for the next era, and their total exposure suhould be > 0.
-					for s in ElectableStashes::<T>::get().iter() {
-						ensure!(
-							EraInfo::<T>::get_paged_exposure(
-								Self::current_era().unwrap_or_default().saturating_add(1),
-								s,
-								0
-							)
-							.defensive_proof("electable stash exposure does not exist, unexpected.")
-							.unwrap()
-							.exposure_metadata
-							.total != Zero::zero(),
-							"no exposures collected for an electable stash."
-						);
-					}
-				} else {
-					return Err(
-					"election prep should have started already, no election metadata in storage."
-						.into(),
-				);
-				},
-			// election prep should have not been started.
-			false => {
-				ensure!(
-					ElectableStashes::<T>::get().is_empty(),
-					"unexpected electable stashes in storage while election prep hasn't started."
-				);
-				ensure!(
-					ElectingStartedAt::<T>::get().is_none(),
-					"unexpected election metadata while election prep hasn't started.",
-				);
-			},
+			return Ok(())
+		}
+
+		// from now on, we expect the election to have started. check election metadata, electable
+		// targets and era exposures.
+		let maybe_electing_started = ElectingStartedAt::<T>::get();
+
+		if maybe_electing_started.is_none() {
+			return Err(
+				"election prep should have started already, but no election metadata in storage."
+					.into(),
+			);
+		}
+
+		let started_at = maybe_electing_started.unwrap();
+
+		ensure!(
+			started_at == expect_election_start_at,
+			"unexpected electing_started_at block number in storage."
+		);
+		ensure!(
+			!ElectableStashes::<T>::get().is_empty(),
+			"election should have been started and the electable stashes non empty."
+		);
+
+		// all the current electable stashes exposures should have been collected and
+		// stored for the next era, and their total exposure should be > 0.
+		for s in ElectableStashes::<T>::get().iter() {
+			ensure!(
+				EraInfo::<T>::get_paged_exposure(
+					Self::current_era().unwrap_or_default().saturating_add(1),
+					s,
+					0
+				)
+				.defensive_proof("electable stash exposure does not exist, unexpected.")
+				.unwrap()
+				.exposure_metadata
+				.total != Zero::zero(),
+				"no exposures collected for an electable stash."
+			);
 		}
 
 		Ok(())
