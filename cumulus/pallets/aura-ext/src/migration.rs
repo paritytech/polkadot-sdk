@@ -53,7 +53,7 @@ mod v1 {
 		}
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-			ensure!(v0::SlotInfo::<T>::exists() == false, "SlotInfo should not exist");
+			ensure!(!v0::SlotInfo::<T>::exists(), "SlotInfo should not exist");
 			Ok(())
 		}
 	}
