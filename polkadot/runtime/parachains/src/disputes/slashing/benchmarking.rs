@@ -47,11 +47,16 @@ where
 
 	let balance_factor = 1000;
 	// create validators and set random session keys
-	for (m, who) in create_validators::<T>(n, balance_factor).unwrap().into_iter().enumerate() {
+	for (m, who) in create_validators::<T>(n, balance_factor)
+		.expect("Could not create validators")
+		.into_iter()
+		.enumerate()
+	{
 		use rand::{RngCore, SeedableRng};
 
-		let validator = T::Lookup::lookup(who).unwrap();
-		let controller = pallet_staking::Pallet::<T>::bonded(&validator).unwrap();
+		let validator = T::Lookup::lookup(who).expect("Could not find validator");
+		let controller =
+			pallet_staking::Pallet::<T>::bonded(&validator).expect("Could not find controller");
 
 		let keys = {
 			const SESSION_KEY_LEN: usize = 32;
