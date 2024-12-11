@@ -24,17 +24,16 @@ use polkadot_primitives::{Hash, Id as ParaId};
 
 /// Represents a single claim from the claim queue, mapped to the relay chain block where it could
 /// be backed on-chain.
-/// - `hash` is `Option` since the claim might be for a future block.
-/// - `claim` represents the `ParaId` scheduled for the block. Can be `None` if nothing is scheduled
-///   at this block.
-/// - `claim_queue_len` is the length of the claim queue at the block. It is used to determine the
-///  'block window' where a claim can be made.
-/// - `claimed` is a flag that indicates if the slot is claimed or not.
 #[derive(Debug, PartialEq)]
 struct ClaimInfo {
+	// Hash of the relay chain block. Can be `None` if it is still not known (a future block).
 	hash: Option<Hash>,
+	/// Represents the `ParaId` scheduled for the block. Can be `None` if nothing is scheduled.
 	claim: Option<ParaId>,
+	/// The length of the claim queue at the block. It is used to determine the 'block window'
+	/// where a claim can be made.
 	claim_queue_len: usize,
+	/// A flag that indicates if the slot is claimed or not.
 	claimed: bool,
 }
 
@@ -115,6 +114,11 @@ impl ClaimQueueState {
 					self.future_blocks.push_back(ClaimInfo {
 						hash: None,
 						claim: Some(*expected_claim),
+						// For future blocks we don't know the size of the claim queue.
+						// `claim_queue_len` could be an option but there is not much benefit from
+						// the extra boilerplate code to handle it. We set it to one since we
+						// usually know about one claim at each future block but this value is not
+						// used anywhere in the code.
 						claim_queue_len: 1,
 						claimed: false,
 					});
