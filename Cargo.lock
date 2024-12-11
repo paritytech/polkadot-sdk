@@ -17977,7 +17977,6 @@ dependencies = [
  "substrate-frame-rpc-system",
  "substrate-prometheus-endpoint",
  "substrate-state-trie-migration-rpc",
- "subxt",
  "subxt-metadata",
  "tokio",
  "wait-timeout",

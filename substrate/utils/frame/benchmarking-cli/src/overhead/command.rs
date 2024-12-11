@@ -686,6 +686,7 @@ mod tests {
 		OverheadCmd,
 	};
 	use clap::Parser;
+	use codec::Decode;
 	use sc_executor::WasmExecutor;
 
 	#[test]
@@ -694,8 +695,9 @@ mod tests {
 		let code_bytes = westend_runtime::WASM_BINARY
 			.expect("To run this test, build the wasm binary of westend-runtime")
 			.to_vec();
-		let metadata =
+		let opaque_metadata =
 			super::fetch_latest_metadata_from_code_blob(&executor, code_bytes.into()).unwrap();
+		let metadata = subxt::Metadata::decode(&mut (*opaque_metadata).as_slice()).unwrap();
 		let chain_type = identify_chain(&metadata, None);
 		assert_eq!(chain_type, ChainType::Relaychain);
 		assert_eq!(chain_type.requires_proof_recording(), false);
@@ -707,8 +709,9 @@ mod tests {
 		let code_bytes = cumulus_test_runtime::WASM_BINARY
 			.expect("To run this test, build the wasm binary of cumulus-test-runtime")
 			.to_vec();
-		let metadata =
+		let opaque_metadata =
 			super::fetch_latest_metadata_from_code_blob(&executor, code_bytes.into()).unwrap();
+		let metadata = subxt::Metadata::decode(&mut (*opaque_metadata).as_slice()).unwrap();
 		let chain_type = identify_chain(&metadata, Some(100));
 		assert_eq!(chain_type, ChainType::Parachain(100));
 		assert!(chain_type.requires_proof_recording());
@@ -721,8 +724,9 @@ mod tests {
 		let code_bytes = substrate_test_runtime::WASM_BINARY
 			.expect("To run this test, build the wasm binary of substrate-test-runtime")
 			.to_vec();
-		let metadata =
+		let opaque_metadata =
 			super::fetch_latest_metadata_from_code_blob(&executor, code_bytes.into()).unwrap();
+		let metadata = subxt::Metadata::decode(&mut (*opaque_metadata).as_slice()).unwrap();
 		let chain_type = identify_chain(&metadata, None);
 		assert_eq!(chain_type, ChainType::Unknown);
 		assert_eq!(chain_type.requires_proof_recording(), false);

@@ -23,7 +23,7 @@ use sc_executor::WasmExecutor;
 use sc_runtime_utilities::fetch_latest_metadata_from_code_blob;
 use scale_info::{form::PortableForm, TypeDef, TypeDefPrimitive};
 use std::fmt::Display;
-use subxt_metadata::StorageEntryType;
+use subxt_metadata::{Metadata, StorageEntryType};
 
 /// Expected parachain system pallet runtime type name.
 pub const DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME: &str = "ParachainSystem";
@@ -130,7 +130,7 @@ impl RuntimeResolver for DefaultRuntimeResolver {
 }
 
 /// Inspect runtime metadata.
-pub struct MetadataInspector(subxt::Metadata);
+pub struct MetadataInspector(Metadata);
 
 impl MetadataInspector {
 	/// Creates an instance of `MetadataInspector`.
@@ -158,7 +158,7 @@ impl MetadataInspector {
 	}
 
 	/// Get the runtime metadata from a wasm blob existing in a chain spec.
-	pub fn fetch_metadata(chain_spec: &dyn ChainSpec) -> Result<subxt::Metadata, sc_cli::Error> {
+	pub fn fetch_metadata(chain_spec: &dyn ChainSpec) -> Result<Metadata, sc_cli::Error> {
 		let mut storage = chain_spec.build_storage()?;
 		let code_bytes = storage
 			.top
@@ -172,7 +172,7 @@ impl MetadataInspector {
 		)
 		.map_err(|err| <String as Into<String>>::into(err.to_string()))?;
 
-		subxt::Metadata::decode(&mut (*opaque_metadata).as_slice()).map_err(Into::into)
+		Metadata::decode(&mut (*opaque_metadata).as_slice()).map_err(Into::into)
 	}
 }
 
@@ -187,7 +187,7 @@ mod tests {
 	use sc_executor::WasmExecutor;
 	use sc_runtime_utilities::fetch_latest_metadata_from_code_blob;
 
-	fn cumulus_test_runtime_metadata() -> subxt::Metadata {
+	fn cumulus_test_runtime_metadata() -> subxt_metadata::Metadata {
 		let opaque_metadata = fetch_latest_metadata_from_code_blob(
 			&WasmExecutor::<ParachainHostFunctions>::builder()
 				.with_allow_missing_host_functions(true)
@@ -196,7 +196,7 @@ mod tests {
 		)
 		.unwrap();
 
-		subxt::Metadata::decode(&mut (*opaque_metadata).as_slice()).unwrap()
+		subxt_metadata::Metadata::decode(&mut (*opaque_metadata).as_slice()).unwrap()
 	}
 
 	#[test]
