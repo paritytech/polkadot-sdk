@@ -1,0 +1,172 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The `pallet` module in each FRAME pallet hosts the most important items needed to construct this pallet."><title>polkadot_runtime_parachains::dmp::pallet - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_runtime_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../polkadot_runtime_parachains/index.html">polkadot_runtime_parachains</a><span class="version">7.0.0</span></h2></div><h2 class="location"><a href="#">Module pallet</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section><h2><a href="../index.html">In polkadot_runtime_parachains::dmp</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_runtime_parachains</a>::<wbr><a href="../index.html">dmp</a>::<wbr><a class="mod" href="#">pallet</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_runtime_parachains/dmp.rs.html#111">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</p>
+<p>The main components of this pallet are:</p>
+<ul>
+<li><a href="struct.Pallet.html" title="struct polkadot_runtime_parachains::dmp::pallet::Pallet"><code>Pallet</code></a>, which implements all of the dispatchable extrinsics of the pallet, among
+other public functions.
+<ul>
+<li>The subset of the functions that are dispatchable can be identified either in the
+<a href="dispatchables/index.html" title="mod polkadot_runtime_parachains::dmp::pallet::dispatchables"><code>dispatchables</code></a> module or in the <a href="enum.Call.html" title="enum polkadot_runtime_parachains::dmp::pallet::Call"><code>Call</code></a> enum.</li>
+</ul>
+</li>
+<li><a href="storage_types/index.html" title="mod polkadot_runtime_parachains::dmp::pallet::storage_types"><code>storage_types</code></a>, which contains the list of all types that are representing a
+storage item. Otherwise, all storage items are listed among <a href="#types"><em>Type Definitions</em></a>.</li>
+<li><a href="trait.Config.html" title="trait polkadot_runtime_parachains::dmp::pallet::Config"><code>Config</code></a>, which contains the configuration trait of this pallet.</li>
+<li>[<code>Event</code>] and [<code>Error</code>], which are listed among the <a href="#enums"><em>Enums</em></a>.</li>
+</ul>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.tt_error_token"><code>pub use __tt_error_token_41 as tt_error_token;</code></div></li><li><div class="item-name" id="reexport.tt_default_parts"><code>pub use __tt_default_parts_47 as tt_default_parts;</code></div></li><li><div class="item-name" id="reexport.tt_extra_parts"><code>pub use __tt_extra_parts_47 as tt_extra_parts;</code></div></li><li><div class="item-name" id="reexport.tt_default_parts_v2"><code>pub use __tt_default_parts_v2_47 as tt_default_parts_v2;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="dispatchables/index.html" title="mod polkadot_runtime_parachains::dmp::pallet::dispatchables">dispatchables</a></div><div class="desc docblock-short">Auto-generated docs-only module listing all defined dispatchables for this pallet.</div></li><li><div class="item-name"><a class="mod" href="storage_types/index.html" title="mod polkadot_runtime_parachains::dmp::pallet::storage_types">storage_types</a></div><div class="desc docblock-short">Auto-generated docs-only module listing all (public and private) defined storage types
+for this pallet.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.InitialFactor.html" title="struct polkadot_runtime_parachains::dmp::pallet::InitialFactor">InitialFactor</a></div><div class="desc docblock-short">Initialization value for the DeliveryFee factor.</div></li><li><div class="item-name"><a class="struct" href="struct.Pallet.html" title="struct polkadot_runtime_parachains::dmp::pallet::Pallet">Pallet</a></div><div class="desc docblock-short">The <code>Pallet</code> struct, the main type that implements traits and standalone
+functions within the pallet.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.Call.html" title="enum polkadot_runtime_parachains::dmp::pallet::Call">Call</a></div><div class="desc docblock-short">Contains a variant per dispatchable extrinsic that this pallet has.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Config.html" title="trait polkadot_runtime_parachains::dmp::pallet::Config">Config</a></div><div class="desc docblock-short">Configuration trait of this pallet.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.__type_value_for_initial_factor.html" title="fn polkadot_runtime_parachains::dmp::pallet::__type_value_for_initial_factor">__type_value_for_initial_factor</a></div><div class="desc docblock-short">Initialization value for the DeliveryFee factor.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.DownwardMessageQueues.html" title="type polkadot_runtime_parachains::dmp::pallet::DownwardMessageQueues">DownwardMessageQueues</a></div><div class="desc docblock-short">The downward messages addressed for a certain para.</div></li><li><div class="item-name"><a class="type" href="type.Module.html" title="type polkadot_runtime_parachains::dmp::pallet::Module">Module</a><span class="stab deprecated" title="">Deprecated</span></div><div class="desc docblock-short">Type alias to <code>Pallet</code>, to be used by <code>construct_runtime</code>.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

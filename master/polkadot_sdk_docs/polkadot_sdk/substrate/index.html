@@ -1,0 +1,286 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Learn about Substrate, the main blockchain framework used in the Polkadot ecosystem."><title>polkadot_sdk_docs::polkadot_sdk::substrate - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.com/favicon.ico"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module substrate</a></h2><div class="sidebar-elems"><h2><a href="../index.html">In polkadot_sdk_docs::polkadot_sdk</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">polkadot_sdk</a>::<wbr><a class="mod" href="#">substrate</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/polkadot_sdk/substrate.rs.html#1-137">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn about Substrate, the main blockchain framework used in the Polkadot ecosystem.</p>
+<h2 id="substrate"><a class="doc-anchor" href="#substrate">§</a>Substrate</h2>
+<p>Substrate is a Rust framework for building blockchains in a modular and extensible way. While in
+itself un-opinionated, it is the main engine behind the Polkadot ecosystem.</p>
+<h3 id="overview-philosophy"><a class="doc-anchor" href="#overview-philosophy">§</a>Overview, Philosophy</h3>
+<p>Substrate approaches blockchain development with an acknowledgement of a few self-evident
+truths:</p>
+<ol>
+<li>Society and technology evolves.</li>
+<li>Humans are fallible.</li>
+</ol>
+<p>This makes the task of designing a correct, safe and long-lasting blockchain system hard.</p>
+<p>Nonetheless, in strive towards achieving this goal, Substrate embraces the following:</p>
+<ol>
+<li>Use of <strong>Rust</strong> as a modern and safe programming language, which limits human error through
+various means, most notably memory and type safety.</li>
+<li>Substrate is written from the ground-up with a <em>generic, modular and extensible</em> design. This
+ensures that software components can be easily swapped and upgraded. Examples of this is
+multiple consensus mechanisms provided by Substrate, as listed below.</li>
+<li>Lastly, the final blockchain system created with the above properties needs to be
+upgradeable. In order to achieve this, Substrate is designed as a meta-protocol, whereby the
+application logic of the blockchain (called “Runtime”) is encoded as a WASM blob, and is
+stored in the state. The rest of the system (called “node”) acts as the executor of the WASM
+blob.</li>
+</ol>
+<p>In essence, the meta-protocol of all Substrate based chains is the “Runtime as WASM blob”
+accord. This enables the Runtime to become inherently upgradeable, crucially without <a href="https://en.wikipedia.org/wiki/Fork_(blockchain)">forks</a>. The
+upgrade is merely a matter of the WASM blob being changed in the state, which is, in principle,
+same as updating an account’s balance. Learn more about this in detail in
+<a href="../../reference_docs/wasm_meta_protocol/index.html" title="mod polkadot_sdk_docs::reference_docs::wasm_meta_protocol"><code>crate::reference_docs::wasm_meta_protocol</code></a>.</p>
+<blockquote>
+<p>A great analogy for substrate is the following: Substrate node is a gaming console, and a WASM
+runtime, possibly created with FRAME is the game being inserted into the console.</p>
+</blockquote>
+<p><a href="../../../polkadot_sdk_frame/index.html" title="mod polkadot_sdk_frame"><code>frame</code></a>, Substrate’s default runtime development library, takes the above safety practices
+even further by embracing a declarative programming model whereby correctness is enhanced and
+the system is highly configurable through parameterization. Learn more about this in
+<a href="../../reference_docs/trait_based_programming/index.html" title="mod polkadot_sdk_docs::reference_docs::trait_based_programming"><code>crate::reference_docs::trait_based_programming</code></a>.</p>
+<h3 id="how-to-get-started"><a class="doc-anchor" href="#how-to-get-started">§</a>How to Get Started</h3>
+<p>Substrate offers different options at the spectrum of technical freedom &lt;-&gt; development ease.</p>
+<ul>
+<li>The easiest way to use Substrate is to use one of the templates (some of which listed at
+<a href="../templates/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::templates"><code>crate::polkadot_sdk::templates</code></a>) and only tweak the parameters of the runtime or node. This
+allows you to launch a blockchain in minutes, but is limited in technical freedom.</li>
+<li>Next, most developers wish to develop their custom runtime modules, for which the de-facto way
+is <a href="../frame_runtime/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::frame_runtime"><code>frame</code></a>.</li>
+<li>Finally, Substrate is highly configurable at the node side as well, but this is the most
+technically demanding.</li>
+</ul>
+<blockquote>
+<p>A notable Substrate-based blockchain that has built both custom FRAME pallets and custom
+node-side components is <a href="https://github.com/Cardinal-Cryptography/aleph-node">https://github.com/Cardinal-Cryptography/aleph-node</a>.</p>
+</blockquote>
+<pre class="mermaid" style="text-align:center;background: transparent;">
+flowchart LR
+	T[Using a Template] --> P[Writing Your Own FRAME-Based Pallet] --> C[Custom Node]
+
+</pre><script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";var doc_theme = localStorage.getItem("rustdoc-theme");if (doc_theme === "dark" || doc_theme === "ayu") mermaid.initialize({theme: "dark"});</script>
+<h3 id="structure"><a class="doc-anchor" href="#structure">§</a>Structure</h3>
+<p>Substrate contains a large number of crates, therefore it is useful to have an overview of what
+they are, and how they are organized. In broad terms, these crates are divided into three
+categories:</p>
+<ul>
+<li><code>sc-*</code> (short for <em>Substrate-client</em>) crates, located under <code>./client</code> folder. These are all
+the crates that lead to the node software. Notable examples are <a href="../../../sc_network/index.html" title="mod sc_network"><code>sc_network</code></a>, various
+consensus crates, RPC (<a href="../../../sc_rpc_api/index.html" title="mod sc_rpc_api"><code>sc_rpc_api</code></a>) and database (<a href="../../../sc_client_db/index.html" title="mod sc_client_db"><code>sc_client_db</code></a>), all of which are
+expected to reside in the node side.</li>
+<li><code>sp-*</code> (short for <em>substrate-primitives</em>) crates, located under <code>./primitives</code> folder. These
+are crates that facilitate both the node and the runtime, but are not opinionated about what
+framework is using for building the runtime. Notable examples are <a href="../../../sp_api/index.html" title="mod sp_api"><code>sp_api</code></a> and <a href="../../../sp_io/index.html" title="mod sp_io"><code>sp_io</code></a>,
+which form the communication bridge between the node and runtime.</li>
+<li><code>pallet-*</code> and <code>frame-*</code> crates, located under <code>./frame</code> folder. These are the crates related
+to FRAME. See <a href="../../../polkadot_sdk_frame/index.html" title="mod polkadot_sdk_frame"><code>frame</code></a> for more information.</li>
+</ul>
+<h4 id="wasm-build"><a class="doc-anchor" href="#wasm-build">§</a>WASM Build</h4>
+<p>Many of the Substrate crates, such as entire <code>sp-*</code>, need to compile to both WASM (when a WASM
+runtime is being generated) and native (for example, when testing). To achieve this, Substrate
+follows the convention of the Rust community, and uses a <code>feature = "std"</code> to signify that a
+crate is being built with the standard library, and is built for native. Otherwise, it is built
+for <code>no_std</code>.</p>
+<p>This can be summarized in <code>#![cfg_attr(not(feature = "std"), no_std)]</code>, which you can often find
+in any Substrate-based runtime.</p>
+<p>Substrate-based runtimes use <a href="../../../substrate_wasm_builder/index.html" title="mod substrate_wasm_builder"><code>substrate_wasm_builder</code></a> in their <code>build.rs</code> to automatically
+build their WASM files as a part of normal build command (e.g. <code>cargo build</code>). Once built, the
+wasm file is placed in <code>./target/{debug|release}/wbuild/{runtime_name}/{runtime_name}.wasm</code>.</p>
+<p>In order to ensure that the WASM build is <strong>deterministic</strong>, the <a href="https://github.com/paritytech/srtool">Substrate Runtime Toolbox (srtool)</a> can be used.</p>
+<h4 id="anatomy-of-a-binary-crate"><a class="doc-anchor" href="#anatomy-of-a-binary-crate">§</a>Anatomy of a Binary Crate</h4>
+<p>From the above, <a href="../../../staging_node_cli/index.html" title="mod staging_node_cli"><code>node_cli</code></a>/[<code>kitchensink_runtime</code>] and <code>node-template</code> are essentially
+blueprints of a Substrate-based project, as the name of the latter is implying. Each
+Substrate-based project typically contains the following:</p>
+<ul>
+<li>
+<p>Under <code>./runtime</code>, a <code>./runtime/src/lib.rs</code> which is the top level runtime amalgamator file.
+This file typically contains the <a href="../../../frame_support_procedural/macro.construct_runtime.html" title="macro frame_support_procedural::construct_runtime"><code>frame::runtime::prelude::construct_runtime</code></a> and
+<a href="../../../sp_api_proc_macro/macro.impl_runtime_apis.html" title="macro sp_api_proc_macro::impl_runtime_apis"><code>frame::runtime::prelude::impl_runtime_apis</code></a> macro calls, which is the final definition of a
+runtime.</p>
+</li>
+<li>
+<p>Under <code>./node</code>, a <code>main.rs</code>, which is the starting point, and a <code>./service.rs</code>, which contains
+all the node side components. Skimming this file yields an overview of the networking,
+database, consensus and similar node side components.</p>
+</li>
+</ul>
+<blockquote>
+<p>The above two are conventions, not rules.</p>
+</blockquote>
+<blockquote>
+<p>See <a href="https://github.com/paritytech/polkadot-sdk/issues/5">https://github.com/paritytech/polkadot-sdk/issues/5</a> for an update on how the node side
+components are being amalgamated.</p>
+</blockquote>
+<h3 id="parachain"><a class="doc-anchor" href="#parachain">§</a>Parachain?</h3>
+<p>As noted above, Substrate is the main engine behind the Polkadot ecosystem. One of the ways
+through which Polkadot can be utilized is by building “parachains”, blockchains that are
+connected to Polkadot’s shared security.</p>
+<p>To build a parachain, one could use <a href="../cumulus/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::cumulus">Cumulus</a>, the library on
+top of Substrate, empowering any substrate-based chain to be a Polkadot parachain.</p>
+<h3 id="where-to-go-next"><a class="doc-anchor" href="#where-to-go-next">§</a>Where To Go Next?</h3>
+<p>Additional noteworthy crates within substrate:</p>
+<ul>
+<li>RPC APIs of a Substrate node: <a href="../../../sc_rpc_api/index.html" title="mod sc_rpc_api"><code>sc_rpc_api</code></a>/<a href="../../../sc_rpc/index.html" title="mod sc_rpc"><code>sc_rpc</code></a></li>
+<li>CLI Options of a Substrate node: <a href="../../../sc_cli/index.html" title="mod sc_cli"><code>sc_cli</code></a></li>
+<li>All of the consensus related crates provided by Substrate:
+<ul>
+<li><a href="../../../sc_consensus_aura/index.html" title="mod sc_consensus_aura"><code>sc_consensus_aura</code></a></li>
+<li><a href="../../../sc_consensus_babe/index.html" title="mod sc_consensus_babe"><code>sc_consensus_babe</code></a></li>
+<li><a href="../../../sc_consensus_grandpa/index.html" title="mod sc_consensus_grandpa"><code>sc_consensus_grandpa</code></a></li>
+<li><a href="../../../sc_consensus_beefy/index.html" title="mod sc_consensus_beefy"><code>sc_consensus_beefy</code></a> (TODO: @adrian, add some high level docs <a href="https://github.com/paritytech/polkadot-sdk-docs/issues/57">https://github.com/paritytech/polkadot-sdk-docs/issues/57</a>)</li>
+<li><a href="../../../sc_consensus_manual_seal/index.html" title="mod sc_consensus_manual_seal"><code>sc_consensus_manual_seal</code></a></li>
+<li><a href="../../../sc_consensus_pow/index.html" title="mod sc_consensus_pow"><code>sc_consensus_pow</code></a></li>
+</ul>
+</li>
+</ul>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,236 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A utility trait for something to implement `ElectionDataProvider` in a sensible way."><title>SortedListProvider in frame_election_provider_support - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="frame_election_provider_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../frame_election_provider_support/index.html">frame_election_provider_support</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">SortedListProvider</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Error">Error</a></li><li><a href="#associatedtype.Score">Score</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.contains">contains</a></li><li><a href="#tymethod.count">count</a></li><li><a href="#tymethod.get_score">get_score</a></li><li><a href="#tymethod.iter">iter</a></li><li><a href="#tymethod.iter_from">iter_from</a></li><li><a href="#tymethod.on_insert">on_insert</a></li><li><a href="#tymethod.on_remove">on_remove</a></li><li><a href="#tymethod.on_update">on_update</a></li><li><a href="#tymethod.score_update_worst_case">score_update_worst_case</a></li><li><a href="#tymethod.try_state">try_state</a></li><li><a href="#tymethod.unsafe_clear">unsafe_clear</a></li><li><a href="#tymethod.unsafe_regenerate">unsafe_regenerate</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.on_decrease">on_decrease</a></li><li><a href="#method.on_increase">on_increase</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In crate frame_election_provider_support</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">frame_election_provider_support</a>::<wbr><a class="trait" href="#">SortedListProvider</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/frame_election_provider_support/lib.rs.html#490-580">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait SortedListProvider&lt;AccountId&gt; {
+    type <a href="#associatedtype.Error" class="associatedtype">Error</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a>;
+    type <a href="#associatedtype.Score" class="associatedtype">Score</a>: <a class="trait" href="https://docs.rs/num-traits/0.2/num_traits/bounds/trait.Bounded.html" title="trait num_traits::bounds::Bounded">Bounded</a> + Saturating + <a class="trait" href="https://docs.rs/num-traits/0.2/num_traits/identities/trait.Zero.html" title="trait num_traits::identities::Zero">Zero</a>;
+
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 14 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.iter" class="fn">iter</a>() -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html" title="trait core::iter::traits::iterator::Iterator">Iterator</a>&lt;Item = AccountId&gt;&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.iter_from" class="fn">iter_from</a>(
+        start: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html" title="trait core::iter::traits::iterator::Iterator">Iterator</a>&lt;Item = AccountId&gt;&gt;, Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Error" title="type frame_election_provider_support::SortedListProvider::Error">Error</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.count" class="fn">count</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.contains" class="fn">contains</a>(id: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.on_insert" class="fn">on_insert</a>(id: AccountId, score: Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Score" title="type frame_election_provider_support::SortedListProvider::Score">Score</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Error" title="type frame_election_provider_support::SortedListProvider::Error">Error</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.on_update" class="fn">on_update</a>(id: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>, score: Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Score" title="type frame_election_provider_support::SortedListProvider::Score">Score</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Error" title="type frame_election_provider_support::SortedListProvider::Error">Error</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.get_score" class="fn">get_score</a>(id: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Score" title="type frame_election_provider_support::SortedListProvider::Score">Score</a>, Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Error" title="type frame_election_provider_support::SortedListProvider::Error">Error</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.on_remove" class="fn">on_remove</a>(id: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Error" title="type frame_election_provider_support::SortedListProvider::Error">Error</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.unsafe_regenerate" class="fn">unsafe_regenerate</a>(
+        all: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/collect/trait.IntoIterator.html" title="trait core::iter::traits::collect::IntoIterator">IntoIterator</a>&lt;Item = AccountId&gt;,
+        score_of: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Score" title="type frame_election_provider_support::SortedListProvider::Score">Score</a>&gt;,
+    ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.unsafe_clear" class="fn">unsafe_clear</a>();
+<span class="item-spacer"></span>    fn <a href="#tymethod.try_state" class="fn">try_state</a>() -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, TryRuntimeError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.score_update_worst_case" class="fn">score_update_worst_case</a>(
+        _who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        _is_increase: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>,
+    ) -&gt; Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Score" title="type frame_election_provider_support::SortedListProvider::Score">Score</a>;
+
+    // Provided methods
+    fn <a href="#method.on_increase" class="fn">on_increase</a>(
+        id: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        additional: Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Score" title="type frame_election_provider_support::SortedListProvider::Score">Score</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Error" title="type frame_election_provider_support::SortedListProvider::Error">Error</a>&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.on_decrease" class="fn">on_decrease</a>(
+        id: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        decreased: Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Score" title="type frame_election_provider_support::SortedListProvider::Score">Score</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Error" title="type frame_election_provider_support::SortedListProvider::Error">Error</a>&gt; { ... }
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A utility trait for something to implement <code>ElectionDataProvider</code> in a sensible way.</p>
+<p>This is generic over <code>AccountId</code> and it can represent a validator, a nominator, or any other
+entity.</p>
+<p>The scores (see <a href="trait.SortedListProvider.html#associatedtype.Score"><code>Self::Score</code></a>) are ascending, the higher, the better.</p>
+<p>Something that implements this trait will do a best-effort sort over ids, and thus can be
+used on the implementing side of <a href="trait.ElectionDataProvider.html" title="trait frame_election_provider_support::ElectionDataProvider"><code>ElectionDataProvider</code></a>.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.Error" class="method"><a class="src rightside" href="../src/frame_election_provider_support/lib.rs.html#492">source</a><h4 class="code-header">type <a href="#associatedtype.Error" class="associatedtype">Error</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a></h4></section></summary><div class="docblock"><p>The list’s error type.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Score" class="method"><a class="src rightside" href="../src/frame_election_provider_support/lib.rs.html#495">source</a><h4 class="code-header">type <a href="#associatedtype.Score" class="associatedtype">Score</a>: <a class="trait" href="https://docs.rs/num-traits/0.2/num_traits/bounds/trait.Bounded.html" title="trait num_traits::bounds::Bounded">Bounded</a> + Saturating + <a class="trait" href="https://docs.rs/num-traits/0.2/num_traits/identities/trait.Zero.html" title="trait num_traits::identities::Zero">Zero</a></h4></section></summary><div class="docblock"><p>The type used by the list to compare nodes for ordering.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.iter" class="method"><a class="src rightside" href="../src/frame_election_provider_support/lib.rs.html#498">source</a><h4 class="code-header">fn <a href="#tymethod.iter" class="fn">iter</a>() -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html" title="trait core::iter::traits::iterator::Iterator">Iterator</a>&lt;Item = AccountId&gt;&gt;</h4></section></summary><div class="docblock"><p>An iterator over the list, which can have <code>take</code> called on it.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.iter_from" class="method"><a class="src rightside" href="../src/frame_election_provider_support/lib.rs.html#503">source</a><h4 class="code-header">fn <a href="#tymethod.iter_from" class="fn">iter_from</a>(
+    start: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html" title="trait core::iter::traits::iterator::Iterator">Iterator</a>&lt;Item = AccountId&gt;&gt;, Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Error" title="type frame_election_provider_support::SortedListProvider::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Returns an iterator over the list, starting right after from the given voter.</p>
+<p>May return an error if <code>start</code> is invalid.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.count" class="method"><a class="src rightside" href="../src/frame_election_provider_support/lib.rs.html#506">source</a><h4 class="code-header">fn <a href="#tymethod.count" class="fn">count</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a></h4></section></summary><div class="docblock"><p>The current count of ids in the list.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.contains" class="method"><a class="src rightside" href="../src/frame_election_provider_support/lib.rs.html#509">source</a><h4 class="code-header">fn <a href="#tymethod.contains" class="fn">contains</a>(id: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Return true if the list already contains <code>id</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.on_insert" class="method"><a class="src rightside" href="../src/frame_election_provider_support/lib.rs.html#514">source</a><h4 class="code-header">fn <a href="#tymethod.on_insert" class="fn">on_insert</a>(id: AccountId, score: Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Score" title="type frame_election_provider_support::SortedListProvider::Score">Score</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Error" title="type frame_election_provider_support::SortedListProvider::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Hook for inserting a new id.</p>
+<p>Implementation should return an error if duplicate item is being inserted.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.on_update" class="method"><a class="src rightside" href="../src/frame_election_provider_support/lib.rs.html#521">source</a><h4 class="code-header">fn <a href="#tymethod.on_update" class="fn">on_update</a>(id: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>, score: Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Score" title="type frame_election_provider_support::SortedListProvider::Score">Score</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Error" title="type frame_election_provider_support::SortedListProvider::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Hook for updating a single id.</p>
+<p>The <code>new</code> score is given.</p>
+<p>Returns <code>Ok(())</code> iff it successfully updates an item, an <code>Err(_)</code> otherwise.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.get_score" class="method"><a class="src rightside" href="../src/frame_election_provider_support/lib.rs.html#524">source</a><h4 class="code-header">fn <a href="#tymethod.get_score" class="fn">get_score</a>(id: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Score" title="type frame_election_provider_support::SortedListProvider::Score">Score</a>, Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Error" title="type frame_election_provider_support::SortedListProvider::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Get the score of <code>id</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.on_remove" class="method"><a class="src rightside" href="../src/frame_election_provider_support/lib.rs.html#549">source</a><h4 class="code-header">fn <a href="#tymethod.on_remove" class="fn">on_remove</a>(id: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Error" title="type frame_election_provider_support::SortedListProvider::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Hook for removing am id from the list.</p>
+<p>Returns <code>Ok(())</code> iff it successfully removes an item, an <code>Err(_)</code> otherwise.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.unsafe_regenerate" class="method"><a class="src rightside" href="../src/frame_election_provider_support/lib.rs.html#559-562">source</a><h4 class="code-header">fn <a href="#tymethod.unsafe_regenerate" class="fn">unsafe_regenerate</a>(
+    all: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/collect/trait.IntoIterator.html" title="trait core::iter::traits::collect::IntoIterator">IntoIterator</a>&lt;Item = AccountId&gt;,
+    score_of: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Score" title="type frame_election_provider_support::SortedListProvider::Score">Score</a>&gt;,
+) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a></h4></section></summary><div class="docblock"><p>Regenerate this list from scratch. Returns the count of items inserted.</p>
+<p>This should typically only be used at a runtime upgrade.</p>
+<h6 id="warning"><a class="doc-anchor" href="#warning">§</a>WARNING</h6>
+<p>This function should be called with care, regenerate will remove the current list write the
+new list, which can lead to too many storage accesses, exhausting the block weight.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.unsafe_clear" class="method"><a class="src rightside" href="../src/frame_election_provider_support/lib.rs.html#570">source</a><h4 class="code-header">fn <a href="#tymethod.unsafe_clear" class="fn">unsafe_clear</a>()</h4></section></summary><div class="docblock"><p>Remove all items from the list.</p>
+<h6 id="warning-1"><a class="doc-anchor" href="#warning-1">§</a>WARNING</h6>
+<p>This function should never be called in production settings because it can lead to an
+unbounded amount of storage accesses.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.try_state" class="method"><a class="src rightside" href="../src/frame_election_provider_support/lib.rs.html#574">source</a><h4 class="code-header">fn <a href="#tymethod.try_state" class="fn">try_state</a>() -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, TryRuntimeError&gt;</h4></section></summary><div class="docblock"><p>Check internal state of the list. Only meant for debugging.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.score_update_worst_case" class="method"><a class="src rightside" href="../src/frame_election_provider_support/lib.rs.html#579">source</a><h4 class="code-header">fn <a href="#tymethod.score_update_worst_case" class="fn">score_update_worst_case</a>(_who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>, _is_increase: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>) -&gt; Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Score" title="type frame_election_provider_support::SortedListProvider::Score">Score</a></h4></section></summary><div class="docblock"><p>If <code>who</code> changes by the returned amount they are guaranteed to have a worst case change
+in their list position.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.on_increase" class="method"><a class="src rightside" href="../src/frame_election_provider_support/lib.rs.html#527-531">source</a><h4 class="code-header">fn <a href="#method.on_increase" class="fn">on_increase</a>(
+    id: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    additional: Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Score" title="type frame_election_provider_support::SortedListProvider::Score">Score</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Error" title="type frame_election_provider_support::SortedListProvider::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Same as <code>on_update</code>, but incorporate some increased score.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.on_decrease" class="method"><a class="src rightside" href="../src/frame_election_provider_support/lib.rs.html#536-544">source</a><h4 class="code-header">fn <a href="#method.on_decrease" class="fn">on_decrease</a>(
+    id: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    decreased: Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Score" title="type frame_election_provider_support::SortedListProvider::Score">Score</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, Self::<a class="associatedtype" href="trait.SortedListProvider.html#associatedtype.Error" title="type frame_election_provider_support::SortedListProvider::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Same as <code>on_update</code>, but incorporate some decreased score.</p>
+<p>If the new score of the item is <code>Zero</code>, it is removed.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/frame_election_provider_support/trait.SortedListProvider.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

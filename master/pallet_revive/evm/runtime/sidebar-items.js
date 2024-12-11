@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["GAS_PRICE"],"struct":["UncheckedExtrinsic"],"trait":["EthExtra"]};

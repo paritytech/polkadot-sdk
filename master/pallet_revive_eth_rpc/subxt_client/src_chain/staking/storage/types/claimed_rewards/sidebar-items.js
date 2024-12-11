@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["ClaimedRewards","Param0","Param1"]};

@@ -1,0 +1,156 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Primitives of messages module."><title>bp_messages - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="bp_messages" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../bp_messages/index.html">bp_messages</a><span class="version">0.7.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">bp_messages</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/bp_messages/lib.rs.html#17-608">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Primitives of messages module.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="source_chain/index.html" title="mod bp_messages::source_chain">source_chain</a></div><div class="desc docblock-short">Primitives of messages module, that are used on the source chain.</div></li><li><div class="item-name"><a class="mod" href="storage_keys/index.html" title="mod bp_messages::storage_keys">storage_keys</a></div><div class="desc docblock-short">Storage keys of bridge messages pallet.</div></li><li><div class="item-name"><a class="mod" href="target_chain/index.html" title="mod bp_messages::target_chain">target_chain</a></div><div class="desc docblock-short">Primitives of messages module, that are used on the target chain.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.BaseMessagesProofInfo.html" title="struct bp_messages::BaseMessagesProofInfo">BaseMessagesProofInfo</a></div><div class="desc docblock-short">Generic info about a messages delivery/confirmation proof.</div></li><li><div class="item-name"><a class="struct" href="struct.DeliveredMessages.html" title="struct bp_messages::DeliveredMessages">DeliveredMessages</a></div><div class="desc docblock-short">Delivered messages with their dispatch result.</div></li><li><div class="item-name"><a class="struct" href="struct.HashedLaneId.html" title="struct bp_messages::HashedLaneId">HashedLaneId</a></div><div class="desc docblock-short">Bridge lane identifier.</div></li><li><div class="item-name"><a class="struct" href="struct.InboundLaneData.html" title="struct bp_messages::InboundLaneData">InboundLaneData</a></div><div class="desc docblock-short">Inbound lane data.</div></li><li><div class="item-name"><a class="struct" href="struct.InboundMessageDetails.html" title="struct bp_messages::InboundMessageDetails">InboundMessageDetails</a></div><div class="desc docblock-short">Inbound message details, returned by runtime APIs.</div></li><li><div class="item-name"><a class="struct" href="struct.LegacyLaneId.html" title="struct bp_messages::LegacyLaneId">LegacyLaneId</a></div><div class="desc docblock-short">Bridge lane identifier (legacy).</div></li><li><div class="item-name"><a class="struct" href="struct.Message.html" title="struct bp_messages::Message">Message</a></div><div class="desc docblock-short">Message as it is stored in the storage.</div></li><li><div class="item-name"><a class="struct" href="struct.MessageKey.html" title="struct bp_messages::MessageKey">MessageKey</a></div><div class="desc docblock-short">Message key (unique message identifier) as it is stored in the storage.</div></li><li><div class="item-name"><a class="struct" href="struct.OutboundLaneData.html" title="struct bp_messages::OutboundLaneData">OutboundLaneData</a></div><div class="desc docblock-short">Outbound lane data.</div></li><li><div class="item-name"><a class="struct" href="struct.OutboundMessageDetails.html" title="struct bp_messages::OutboundMessageDetails">OutboundMessageDetails</a></div><div class="desc docblock-short">Outbound message details, returned by runtime APIs.</div></li><li><div class="item-name"><a class="struct" href="struct.ReceiveMessagesDeliveryProofInfo.html" title="struct bp_messages::ReceiveMessagesDeliveryProofInfo">ReceiveMessagesDeliveryProofInfo</a></div><div class="desc docblock-short">Info about a <code>ReceiveMessagesDeliveryProof</code> call which tries to update a single lane.</div></li><li><div class="item-name"><a class="struct" href="struct.ReceiveMessagesProofInfo.html" title="struct bp_messages::ReceiveMessagesProofInfo">ReceiveMessagesProofInfo</a></div><div class="desc docblock-short">Info about a <code>ReceiveMessagesProof</code> call which tries to update a single lane.</div></li><li><div class="item-name"><a class="struct" href="struct.ReceivedMessages.html" title="struct bp_messages::ReceivedMessages">ReceivedMessages</a></div><div class="desc docblock-short">Received messages with their dispatch result.</div></li><li><div class="item-name"><a class="struct" href="struct.UnrewardedRelayer.html" title="struct bp_messages::UnrewardedRelayer">UnrewardedRelayer</a></div><div class="desc docblock-short">Unrewarded relayer entry stored in the inbound lane data.</div></li><li><div class="item-name"><a class="struct" href="struct.UnrewardedRelayerOccupation.html" title="struct bp_messages::UnrewardedRelayerOccupation">UnrewardedRelayerOccupation</a></div><div class="desc docblock-short">Occupation state of the unrewarded relayers vector.</div></li><li><div class="item-name"><a class="struct" href="struct.UnrewardedRelayersState.html" title="struct bp_messages::UnrewardedRelayersState">UnrewardedRelayersState</a></div><div class="desc docblock-short">Gist of <code>InboundLaneData::relayers</code> field used by runtime APIs.</div></li><li><div class="item-name"><a class="struct" href="struct.Weight.html" title="struct bp_messages::Weight">Weight</a></div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.BridgeMessagesCall.html" title="enum bp_messages::BridgeMessagesCall">BridgeMessagesCall</a></div><div class="desc docblock-short">A minimized version of <code>pallet-bridge-messages::Call</code> that can be used without a runtime.</div></li><li><div class="item-name"><a class="enum" href="enum.LaneState.html" title="enum bp_messages::LaneState">LaneState</a></div><div class="desc docblock-short">Lane state.</div></li><li><div class="item-name"><a class="enum" href="enum.MessagesCallInfo.html" title="enum bp_messages::MessagesCallInfo">MessagesCallInfo</a></div><div class="desc docblock-short">Info about a <code>ReceiveMessagesProof</code> or a <code>ReceiveMessagesDeliveryProof</code> call
+which tries to update a single lane.</div></li><li><div class="item-name"><a class="enum" href="enum.MessagesOperatingMode.html" title="enum bp_messages::MessagesOperatingMode">MessagesOperatingMode</a></div><div class="desc docblock-short">Messages pallet operating mode.</div></li><li><div class="item-name"><a class="enum" href="enum.ReceptionResult.html" title="enum bp_messages::ReceptionResult">ReceptionResult</a></div><div class="desc docblock-short">Result of single message receival.</div></li><li><div class="item-name"><a class="enum" href="enum.VerificationError.html" title="enum bp_messages::VerificationError">VerificationError</a></div><div class="desc docblock-short">Error that happens during message verification.</div></li></ul><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.HARD_MESSAGE_SIZE_LIMIT.html" title="constant bp_messages::HARD_MESSAGE_SIZE_LIMIT">HARD_MESSAGE_SIZE_LIMIT</a></div><div class="desc docblock-short">Hard limit on message size that can be sent over the bridge.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.ChainWithMessages.html" title="trait bp_messages::ChainWithMessages">ChainWithMessages</a></div><div class="desc docblock-short">Substrate-based chain with messaging support.</div></li><li><div class="item-name"><a class="trait" href="trait.LaneIdType.html" title="trait bp_messages::LaneIdType">LaneIdType</a></div><div class="desc docblock-short">Trait representing a generic <code>LaneId</code> type.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.calc_relayers_rewards.html" title="fn bp_messages::calc_relayers_rewards">calc_relayers_rewards</a></div><div class="desc docblock-short">Calculate the number of messages that the relayers have delivered.</div></li><li><div class="item-name"><a class="fn" href="fn.maximal_incoming_message_size.html" title="fn bp_messages::maximal_incoming_message_size">maximal_incoming_message_size</a></div><div class="desc docblock-short">Return maximal size of the message the chain with <code>max_extrinsic_size</code> is able to receive.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.MessageNonce.html" title="type bp_messages::MessageNonce">MessageNonce</a></div><div class="desc docblock-short">Message nonce. Valid messages will never have 0 nonce.</div></li><li><div class="item-name"><a class="type" href="type.MessagePayload.html" title="type bp_messages::MessagePayload">MessagePayload</a></div><div class="desc docblock-short">Opaque message payload. We only decode this payload when it is dispatched.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

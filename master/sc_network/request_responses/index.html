@@ -1,0 +1,176 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Collection of request-response protocols."><title>sc_network::request_responses - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../sc_network/index.html">sc_network</a><span class="version">0.34.0</span></h2></div><h2 class="location"><a href="#">Module request_responses</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li></ul></section><h2><a href="../index.html">In crate sc_network</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">sc_network</a>::<wbr><a class="mod" href="#">request_responses</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/sc_network/request_responses.rs.html#19-1801">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Collection of request-response protocols.</p>
+<p>The <a href="struct.RequestResponsesBehaviour.html" title="struct sc_network::request_responses::RequestResponsesBehaviour"><code>RequestResponsesBehaviour</code></a> struct defined in this module provides support for zero or
+more so-called “request-response” protocols.</p>
+<p>A request-response protocol works in the following way:</p>
+<ul>
+<li>
+<p>For every emitted request, a new substream is open and the protocol is negotiated. If the
+remote supports the protocol, the size of the request is sent as a LEB128 number, followed
+with the request itself. The remote then sends the size of the response as a LEB128 number,
+followed with the response.</p>
+</li>
+<li>
+<p>Requests have a certain time limit before they time out. This time includes the time it
+takes to send/receive the request and response.</p>
+</li>
+<li>
+<p>If provided, a <a href="struct.ProtocolConfig.html#structfield.inbound_queue" title="field sc_network::request_responses::ProtocolConfig::inbound_queue">“requests processing”</a> channel
+is used to handle incoming requests.</p>
+</li>
+</ul>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Config.html" title="struct sc_network::request_responses::Config">Config</a></div><div class="desc docblock-short">The configuration for a <code>Behaviour</code> protocol.</div></li><li><div class="item-name"><a class="struct" href="struct.IncomingRequest.html" title="struct sc_network::request_responses::IncomingRequest">IncomingRequest</a></div><div class="desc docblock-short">A single request received by a peer on a request-response protocol.</div></li><li><div class="item-name"><a class="struct" href="struct.OutgoingResponse.html" title="struct sc_network::request_responses::OutgoingResponse">OutgoingResponse</a></div><div class="desc docblock-short">Response for an incoming request to be send by a request protocol handler.</div></li><li><div class="item-name"><a class="struct" href="struct.ProtocolConfig.html" title="struct sc_network::request_responses::ProtocolConfig">ProtocolConfig</a></div><div class="desc docblock-short">Configuration for a single request-response protocol.</div></li><li><div class="item-name"><a class="struct" href="struct.RequestId.html" title="struct sc_network::request_responses::RequestId">RequestId</a></div><div class="desc docblock-short">The ID of an inbound or outbound request.</div></li><li><div class="item-name"><a class="struct" href="struct.RequestResponsesBehaviour.html" title="struct sc_network::request_responses::RequestResponsesBehaviour">RequestResponsesBehaviour</a></div><div class="desc docblock-short">Implementation of <code>NetworkBehaviour</code> that provides support for request-response protocols.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.Event.html" title="enum sc_network::request_responses::Event">Event</a></div><div class="desc docblock-short">Event generated by the <a href="struct.RequestResponsesBehaviour.html" title="struct sc_network::request_responses::RequestResponsesBehaviour"><code>RequestResponsesBehaviour</code></a>.</div></li><li><div class="item-name"><a class="enum" href="enum.IfDisconnected.html" title="enum sc_network::request_responses::IfDisconnected">IfDisconnected</a></div><div class="desc docblock-short">When sending a request, what to do on a disconnected recipient.</div></li><li><div class="item-name"><a class="enum" href="enum.InboundFailure.html" title="enum sc_network::request_responses::InboundFailure">InboundFailure</a></div><div class="desc docblock-short">Possible failures occurring in the context of receiving an inbound request and sending a
+response.</div></li><li><div class="item-name"><a class="enum" href="enum.OutboundFailure.html" title="enum sc_network::request_responses::OutboundFailure">OutboundFailure</a></div><div class="desc docblock-short">Possible failures occurring in the context of sending an outbound request and receiving the
+response.</div></li><li><div class="item-name"><a class="enum" href="enum.RegisterError.html" title="enum sc_network::request_responses::RegisterError">RegisterError</a></div><div class="desc docblock-short">Error when registering a protocol.</div></li><li><div class="item-name"><a class="enum" href="enum.RequestFailure.html" title="enum sc_network::request_responses::RequestFailure">RequestFailure</a></div><div class="desc docblock-short">Error in a request.</div></li><li><div class="item-name"><a class="enum" href="enum.ResponseFailure.html" title="enum sc_network::request_responses::ResponseFailure">ResponseFailure</a></div><div class="desc docblock-short">Error when processing a request sent by a remote.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

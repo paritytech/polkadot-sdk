@@ -1,0 +1,293 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="An introduction to the Polkadot SDK. Read this module to learn about the structure of the SDK, the tools that are provided as a part of it, and to gain a high level understanding of each."><title>polkadot_sdk_docs::polkadot_sdk - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="icon" href="https://polkadot.com/favicon.ico"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt="logo"></a><h2><a href="../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module polkadot_sdk</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#modules">Modules</a></li></ul></section><h2><a href="../index.html">In crate polkadot_sdk_docs</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">polkadot_sdk_docs</a>::<wbr><a class="mod" href="#">polkadot_sdk</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/polkadot_sdk_docs/polkadot_sdk/mod.rs.html#1-158">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>An introduction to the Polkadot SDK. Read this module to learn about the structure of the SDK,
+the tools that are provided as a part of it, and to gain a high level understanding of each.</p>
+<h2 id="polkadot-sdk"><a class="doc-anchor" href="#polkadot-sdk">§</a>Polkadot SDK</h2>
+<p><a href="https://github.com/paritytech/polkadot-sdk">Polkadot SDK</a> provides the main resources needed to
+start building on the <a href="https://polkadot.network">Polkadot network</a>, a scalable, multi-chain
+blockchain platform that enables different blockchains to securely interoperate.</p>
+<p><a href="https://substrate.stackexchange.com/"><img src="https://img.shields.io/badge/StackExchange-Polkadot%20and%20Substrate-222222?logo=stackexchange" alt="StackExchange" /></a></p>
+<p><a href="https://github.com/Awsmdot/awesome-dot"><img src="https://img.shields.io/badge/polkadot-awesome-e6007a?logo=polkadot" alt="awesomeDot" /></a>
+<a href="https://wiki.polkadot.network/"><img src="https://img.shields.io/badge/polkadot-wiki-e6007a?logo=polkadot" alt="wiki" /></a>
+<a href="https://forum.polkadot.network/"><img src="https://img.shields.io/badge/polkadot-forum-e6007a?logo=polkadot" alt="forum" /></a></p>
+<p><a href="https://github.com/polkadot-fellows/rfcs"><img src="https://img.shields.io/badge/fellowship-RFCs-e6007a?logo=polkadot" alt="RFCs" /></a>
+<a href="https://github.com/polkadot-fellows/runtimes"><img src="https://img.shields.io/badge/fellowship-runtimes-e6007a?logo=polkadot" alt="Runtime" /></a>
+<a href="https://github.com/polkadot-fellows/manifesto/blob/main/manifesto.pdf"><img src="https://img.shields.io/badge/fellowship-manifesto-e6007a?logo=polkadot" alt="Manifesto" /></a></p>
+<h3 id="getting-started"><a class="doc-anchor" href="#getting-started">§</a>Getting Started</h3>
+<p>The primary way to get started with the Polkadot SDK is to start writing a FRAME-based runtime.
+See:</p>
+<ul>
+<li><a href="polkadot/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::polkadot"><code>polkadot</code></a>, to understand what is Polkadot as a development platform.</li>
+<li><a href="substrate/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::substrate"><code>substrate</code></a>, for an overview of what Substrate as the main blockchain framework of Polkadot
+SDK.</li>
+<li><a href="frame_runtime/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::frame_runtime"><code>frame</code></a>, to learn about how to write blockchain applications aka. “App Chains”.</li>
+<li>Continue with the <a href="../index.html#getting-started" title="mod polkadot_sdk_docs"><code>polkadot_sdk_docs</code>’s “getting started”</a>.</li>
+</ul>
+<h3 id="components"><a class="doc-anchor" href="#components">§</a>Components</h3><h5 id="substrate"><a class="doc-anchor" href="#substrate">§</a>Substrate</h5>
+<p><a href="https://github.com/paritytech/polkadot-sdk/blob/master/substrate/LICENSE-APACHE2"><img src="https://img.shields.io/badge/License-GPL3%2FApache2.0-blue" alt="Substrate-license" /></a>
+<a href="https://github.com/paritytech/polkadot-sdk/blob/master/substrate"><img src="https://img.shields.io/badge/github-substrate-2324CC85" alt="GitHub Repo" /></a></p>
+<p><a href="substrate/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::substrate"><code>substrate</code></a> is the base blockchain framework used to power the Polkadot SDK. It is a full
+toolkit to create sovereign blockchains, including but not limited to those which connect to
+Polkadot as parachains.</p>
+<h5 id="frame"><a class="doc-anchor" href="#frame">§</a>FRAME</h5>
+<p><a href="https://github.com/paritytech/polkadot-sdk/blob/master/substrate/LICENSE-APACHE2"><img src="https://img.shields.io/badge/License-Apache2.0-blue" alt="Substrate-license" /></a>
+<a href="https://github.com/paritytech/polkadot-sdk/blob/master/substrate/frame"><img src="https://img.shields.io/badge/github-frame-2324CC85" alt="GitHub Repo" /></a></p>
+<p><a href="frame_runtime/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::frame_runtime"><code>frame</code></a> is the framework used to create Substrate-based application logic, aka. runtimes.
+Learn more about the distinction of a runtime and node in
+<a href="../reference_docs/wasm_meta_protocol/index.html" title="mod polkadot_sdk_docs::reference_docs::wasm_meta_protocol"><code>reference_docs::wasm_meta_protocol</code></a>.</p>
+<h5 id="cumulus"><a class="doc-anchor" href="#cumulus">§</a>Cumulus</h5>
+<p><a href="https://github.com/paritytech/polkadot-sdk/blob/master/cumulus/LICENSE"><img src="https://img.shields.io/badge/License-GPL3-blue" alt="Cumulus-license" /></a>
+<a href="https://github.com/paritytech/polkadot-sdk/blob/master/cumulus"><img src="https://img.shields.io/badge/github-cumulus-white" alt="GitHub Repo" /></a></p>
+<p><a href="cumulus/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::cumulus"><code>cumulus</code></a> transforms FRAME-based runtimes into Polkadot-compatible parachain runtimes, and
+Substrate-based nodes into Polkadot/Parachain-compatible nodes.</p>
+<h5 id="xcm"><a class="doc-anchor" href="#xcm">§</a>XCM</h5>
+<p><a href="https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/LICENSE"><img src="https://img.shields.io/badge/License-GPL3-blue" alt="XCM-license" /></a>
+<a href="https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/xcm"><img src="https://img.shields.io/badge/github-XCM-e6007a?logo=polkadot" alt="GitHub Repo" /></a></p>
+<p><a href="xcm/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::xcm"><code>xcm</code></a>, short for “cross consensus message”, is the primary format that is used for
+communication between parachains, but is intended to be extensible to other use cases as well.</p>
+<h5 id="polkadot"><a class="doc-anchor" href="#polkadot">§</a>Polkadot</h5>
+<p><a href="https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/LICENSE"><img src="https://img.shields.io/badge/License-GPL3-blue" alt="Polkadot-license" /></a>
+<a href="https://github.com/paritytech/polkadot-sdk/blob/master/polkadot"><img src="https://img.shields.io/badge/github-polkadot-e6007a?logo=polkadot" alt="GitHub Repo" /></a></p>
+<p><a href="polkadot/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::polkadot"><code>polkadot</code></a> is an implementation of a Polkadot node in Rust, by <code>@paritytech</code>. The Polkadot
+runtimes are located under the
+<a href="https://github.com/polkadot-fellows/runtimes"><code>polkadot-fellows/runtimes</code></a> repository.</p>
+<h4 id="binaries"><a class="doc-anchor" href="#binaries">§</a>Binaries</h4>
+<p>The main binaries that are part of the Polkadot SDK are:</p>
+<ul>
+<li><a href="polkadot/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::polkadot"><code>polkadot</code></a>: The Polkadot relay chain node binary, as noted above.</li>
+<li><a href="https://crates.io/crates/polkadot-omni-node"><code>polkadot-omni-node</code></a>: A white-labeled parachain collator node. See more in
+<a href="../reference_docs/omni_node/index.html" title="mod polkadot_sdk_docs::reference_docs::omni_node"><code>crate::reference_docs::omni_node</code></a>.</li>
+<li><a href="https://crates.io/crates/polkadot-parachain-bin"><code>polkadot-parachain-bin</code></a>: The collator node used to run collators for all Polkadot system
+parachains.</li>
+<li><a href="https://crates.io/crates/frame-omni-bencher"><code>frame-omni-bencher</code></a>: a benchmarking tool for FRAME-based runtimes. Nodes typically contain
+a
+<code>benchmark</code> subcommand that does the same.</li>
+<li><a href="../../staging_chain_spec_builder/index.html" title="mod staging_chain_spec_builder"><code>chain_spec_builder</code></a>: Utility to build chain-specs Nodes  typically contain a <code>build-spec</code>
+subcommand that does the same.</li>
+<li><a href="../../subkey/index.html" title="mod subkey"><code>subkey</code></a>: Substrate’s key management utility.</li>
+<li><a href="../../staging_node_cli/index.html" title="mod staging_node_cli"><code>substrate-node</code></a> is an extensive substrate node that contains the superset of all
+runtime and node side features. The corresponding runtime, called [<code>kitchensink_runtime</code>]
+contains all of the modules that are provided with <code>FRAME</code>. This node and runtime is only used
+for testing and demonstration.</li>
+</ul>
+<h4 id="summary"><a class="doc-anchor" href="#summary">§</a>Summary</h4>
+<p>The following diagram summarizes how some of the components of Polkadot SDK work together:</p>
+<pre class="mermaid" style="text-align:center;background: transparent;">
+flowchart LR
+	subgraph SubstrateChain[A Substrate-based blockchain]
+		Node
+		Runtime
+	end
+
+    FRAME -.-> Runtime
+    Substrate[Substrate Node Libraries] -.-> Node
+
+</pre><script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";var doc_theme = localStorage.getItem("rustdoc-theme");if (doc_theme === "dark" || doc_theme === "ayu") mermaid.initialize({theme: "dark"});</script>
+<p>A Substrate-based chain is a blockchain composed of a runtime and a node. As noted above, the
+runtime is the application logic of the blockchain, and the node is everything else.
+See <a href="../reference_docs/wasm_meta_protocol/index.html" title="mod polkadot_sdk_docs::reference_docs::wasm_meta_protocol"><code>reference_docs::wasm_meta_protocol</code></a> for an in-depth explanation of this. The
+former is built with <a href="frame_runtime/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::frame_runtime"><code>frame</code></a>, and the latter is built with rest of Substrate.</p>
+<blockquote>
+<p>You can think of a Substrate-based chain as a white-labeled blockchain.</p>
+</blockquote>
+<pre class="mermaid" style="text-align:center;background: transparent;">
+flowchart LR
+
+	subgraph Polkadot[The Polkadot Relay Chain]
+		PolkadotNode[Polkadot Node]
+		PolkadotRuntime[Polkadot Runtime]
+	end
+
+    FRAME -.-> PolkadotRuntime
+    Substrate[Substrate Node Libraries] -.-> PolkadotNode
+
+
+</pre><script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";var doc_theme = localStorage.getItem("rustdoc-theme");if (doc_theme === "dark" || doc_theme === "ayu") mermaid.initialize({theme: "dark"});</script>
+<p>Polkadot is itself a Substrate-based chain, composed of the exact same two components. It has
+specialized logic in both the node and the runtime side, but it is not “special” in any way.</p>
+<p>A parachain is a “special” Substrate-based chain, whereby both the node and the runtime
+components have became “Polkadot-aware” using Cumulus.</p>
+<pre class="mermaid" style="text-align:center;background: transparent;">
+flowchart LR
+	subgraph Parachain[A Polkadot Parachain]
+		ParachainNode[Parachain Node]
+		ParachainRuntime[Parachain Runtime]
+	end
+
+    FRAME -.-> ParachainRuntime
+    Substrate[Substrate Node Libraries] -.-> ParachainNode
+
+    CumulusC[Cumulus Node Libraries] -.-> ParachainNode
+    CumulusR[Cumulus Runtime Libraries] -.-> ParachainRuntime
+
+</pre><script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";var doc_theme = localStorage.getItem("rustdoc-theme");if (doc_theme === "dark" || doc_theme === "ayu") mermaid.initialize({theme: "dark"});</script>
+<h3 id="notable-upstream-crates"><a class="doc-anchor" href="#notable-upstream-crates">§</a>Notable Upstream Crates</h3>
+<ul>
+<li><a href="https://github.com/paritytech/parity-scale-codec"><code>parity-scale-codec</code></a></li>
+<li><a href="https://github.com/paritytech/parity-db"><code>parity-db</code></a></li>
+<li><a href="https://github.com/paritytech/trie"><code>trie</code></a></li>
+<li><a href="https://github.com/paritytech/parity-common"><code>parity-common</code></a></li>
+</ul>
+<h3 id="trophy-section-notable-downstream-projects"><a class="doc-anchor" href="#trophy-section-notable-downstream-projects">§</a>Trophy Section: Notable Downstream Projects</h3>
+<p>A list of projects and tools in the blockchain ecosystem that one way or another use parts of
+the Polkadot SDK:</p>
+<ul>
+<li><a href="https://github.com/availproject/avail">Avail</a></li>
+<li><a href="https://iohk.io/en/blog/posts/2023/11/03/partner-chains-are-coming-to-cardano/">Cardano Partner Chains</a></li>
+<li><a href="https://github.com/keep-starknet-strange/madara">Starknet’s Madara Sequencer</a></li>
+<li><a href="https://polymesh.network/">Polymesh</a></li>
+</ul>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="cumulus/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::cumulus">cumulus</a></div><div class="desc docblock-short">Learn about Cumulus, the framework that transforms <a href="substrate/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::substrate"><code>substrate</code></a>-based chains into
+<a href="polkadot/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::polkadot"><code>polkadot</code></a>-enabled parachains.</div></li><li><div class="item-name"><a class="mod" href="frame_runtime/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::frame_runtime">frame_runtime</a></div><div class="desc docblock-short">Learn about FRAME, the framework used to build Substrate runtimes.</div></li><li><div class="item-name"><a class="mod" href="polkadot/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::polkadot">polkadot</a></div><div class="desc docblock-short">Learn about Polkadot as a platform.</div></li><li><div class="item-name"><a class="mod" href="smart_contracts/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::smart_contracts">smart_contracts</a></div><div class="desc docblock-short">Learn about different ways through which smart contracts can be utilized on top of Substrate,
+and in the Polkadot ecosystem.</div></li><li><div class="item-name"><a class="mod" href="substrate/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::substrate">substrate</a></div><div class="desc docblock-short">Learn about Substrate, the main blockchain framework used in the Polkadot ecosystem.</div></li><li><div class="item-name"><a class="mod" href="templates/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::templates">templates</a></div><div class="desc docblock-short">Index of all the templates that can act as first scaffold for a new project.</div></li><li><div class="item-name"><a class="mod" href="xcm/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::xcm">xcm</a></div><div class="desc docblock-short">Learn about XCM, the de-facto communication language between different consensus systems.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

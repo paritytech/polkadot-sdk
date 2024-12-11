@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"relay_substrate_client":[["impl <a class=\"trait\" href=\"relay_substrate_client/trait.UnderlyingChainProvider.html\" title=\"trait relay_substrate_client::UnderlyingChainProvider\">UnderlyingChainProvider</a> for <a class=\"struct\" href=\"relay_substrate_client/test_chain/struct.TestParachain.html\" title=\"struct relay_substrate_client::test_chain::TestParachain\">TestParachain</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

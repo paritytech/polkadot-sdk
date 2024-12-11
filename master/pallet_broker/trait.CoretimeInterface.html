@@ -1,0 +1,215 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Type able to accept Coretime scheduling instructions and provide certain usage information. Generally implemented by the Relay-chain or some means of communicating with it."><title>CoretimeInterface in pallet_broker - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_broker" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_broker/index.html">pallet_broker</a><span class="version">0.6.0</span></h2></div><h2 class="location"><a href="#">CoretimeInterface</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.AccountId">AccountId</a></li><li><a href="#associatedtype.Balance">Balance</a></li><li><a href="#associatedtype.RelayChainBlockNumberProvider">RelayChainBlockNumberProvider</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.assign_core">assign_core</a></li><li><a href="#tymethod.credit_account">credit_account</a></li><li><a href="#tymethod.request_core_count">request_core_count</a></li><li><a href="#tymethod.request_revenue_info_at">request_revenue_info_at</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.on_new_timeslice">on_new_timeslice</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-CoretimeInterface-for-()">()</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In crate pallet_broker</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">pallet_broker</a>::<wbr><a class="trait" href="#">CoretimeInterface</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/pallet_broker/coretime_interface.rs.html#63-117">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait CoretimeInterface {
+    type <a href="#associatedtype.AccountId" class="associatedtype">AccountId</a>: Parameter;
+    type <a href="#associatedtype.Balance" class="associatedtype">Balance</a>: AtLeast32BitUnsigned + Encode + Decode + MaxEncodedLen + TypeInfo + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a>;
+    type <a href="#associatedtype.RelayChainBlockNumberProvider" class="associatedtype">RelayChainBlockNumberProvider</a>: BlockNumberProvider;
+
+    // Required methods
+    fn <a href="#tymethod.request_core_count" class="fn">request_core_count</a>(count: <a class="type" href="type.CoreIndex.html" title="type pallet_broker::CoreIndex">CoreIndex</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.request_revenue_info_at" class="fn">request_revenue_info_at</a>(when: <a class="type" href="type.RCBlockNumberOf.html" title="type pallet_broker::RCBlockNumberOf">RCBlockNumberOf</a>&lt;Self&gt;);
+<span class="item-spacer"></span>    fn <a href="#tymethod.credit_account" class="fn">credit_account</a>(who: Self::<a class="associatedtype" href="trait.CoretimeInterface.html#associatedtype.AccountId" title="type pallet_broker::CoretimeInterface::AccountId">AccountId</a>, amount: Self::<a class="associatedtype" href="trait.CoretimeInterface.html#associatedtype.Balance" title="type pallet_broker::CoretimeInterface::Balance">Balance</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.assign_core" class="fn">assign_core</a>(
+        core: <a class="type" href="type.CoreIndex.html" title="type pallet_broker::CoreIndex">CoreIndex</a>,
+        begin: <a class="type" href="type.RCBlockNumberOf.html" title="type pallet_broker::RCBlockNumberOf">RCBlockNumberOf</a>&lt;Self&gt;,
+        assignment: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="enum" href="enum.CoreAssignment.html" title="enum pallet_broker::CoreAssignment">CoreAssignment</a>, <a class="type" href="type.PartsOf57600.html" title="type pallet_broker::PartsOf57600">PartsOf57600</a>)&gt;,
+        end_hint: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="type" href="type.RCBlockNumberOf.html" title="type pallet_broker::RCBlockNumberOf">RCBlockNumberOf</a>&lt;Self&gt;&gt;,
+    );
+
+    // Provided method
+    fn <a href="#method.on_new_timeslice" class="fn">on_new_timeslice</a>(_timeslice: <a class="type" href="type.Timeslice.html" title="type pallet_broker::Timeslice">Timeslice</a>) { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Type able to accept Coretime scheduling instructions and provide certain usage information.
+Generally implemented by the Relay-chain or some means of communicating with it.</p>
+<p>The trait representation of RFC#5 <code>&lt;https://github.com/polkadot-fellows/RFCs/pull/5&gt;</code>.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.AccountId" class="method"><a class="src rightside" href="../src/pallet_broker/coretime_interface.rs.html#65">source</a><h4 class="code-header">type <a href="#associatedtype.AccountId" class="associatedtype">AccountId</a>: Parameter</h4></section></summary><div class="docblock"><p>A (Relay-chain-side) account ID.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Balance" class="method"><a class="src rightside" href="../src/pallet_broker/coretime_interface.rs.html#68">source</a><h4 class="code-header">type <a href="#associatedtype.Balance" class="associatedtype">Balance</a>: AtLeast32BitUnsigned + Encode + Decode + MaxEncodedLen + TypeInfo + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a></h4></section></summary><div class="docblock"><p>A (Relay-chain-side) balance.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.RelayChainBlockNumberProvider" class="method"><a class="src rightside" href="../src/pallet_broker/coretime_interface.rs.html#71">source</a><h4 class="code-header">type <a href="#associatedtype.RelayChainBlockNumberProvider" class="associatedtype">RelayChainBlockNumberProvider</a>: BlockNumberProvider</h4></section></summary><div class="docblock"><p>A provider for the relay chain block number.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.request_core_count" class="method"><a class="src rightside" href="../src/pallet_broker/coretime_interface.rs.html#75">source</a><h4 class="code-header">fn <a href="#tymethod.request_core_count" class="fn">request_core_count</a>(count: <a class="type" href="type.CoreIndex.html" title="type pallet_broker::CoreIndex">CoreIndex</a>)</h4></section></summary><div class="docblock"><p>Requests the Relay-chain to alter the number of schedulable cores to <code>count</code>. Under normal
+operation, the Relay-chain SHOULD send a <code>notify_core_count(count)</code> message back.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.request_revenue_info_at" class="method"><a class="src rightside" href="../src/pallet_broker/coretime_interface.rs.html#85">source</a><h4 class="code-header">fn <a href="#tymethod.request_revenue_info_at" class="fn">request_revenue_info_at</a>(when: <a class="type" href="type.RCBlockNumberOf.html" title="type pallet_broker::RCBlockNumberOf">RCBlockNumberOf</a>&lt;Self&gt;)</h4></section></summary><div class="docblock"><p>Requests that the Relay-chain send a <code>notify_revenue</code> message back at or soon after
+Relay-chain block number <code>when</code> whose <code>until</code> parameter is equal to <code>when</code>.</p>
+<p><code>when</code> may never be greater than the result of <code>Self::latest()</code>.
+The period in to the past which <code>when</code> is allowed to be may be limited; if so the limit
+should be understood on a channel outside of this proposal. In the case that the request
+cannot be serviced because <code>when</code> is too old a block then a <code>notify_revenue</code> message must
+still be returned, but its <code>revenue</code> field may be <code>None</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.credit_account" class="method"><a class="src rightside" href="../src/pallet_broker/coretime_interface.rs.html#93">source</a><h4 class="code-header">fn <a href="#tymethod.credit_account" class="fn">credit_account</a>(who: Self::<a class="associatedtype" href="trait.CoretimeInterface.html#associatedtype.AccountId" title="type pallet_broker::CoretimeInterface::AccountId">AccountId</a>, amount: Self::<a class="associatedtype" href="trait.CoretimeInterface.html#associatedtype.Balance" title="type pallet_broker::CoretimeInterface::Balance">Balance</a>)</h4></section></summary><div class="docblock"><p>Instructs the Relay-chain to add the <code>amount</code> of DOT to the Instantaneous Coretime Market
+Credit account of <code>who</code>.</p>
+<p>It is expected that Instantaneous Coretime Market Credit on the Relay-chain is NOT
+transferrable and only redeemable when used to assign cores in the Instantaneous Coretime
+Pool.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.assign_core" class="method"><a class="src rightside" href="../src/pallet_broker/coretime_interface.rs.html#106-111">source</a><h4 class="code-header">fn <a href="#tymethod.assign_core" class="fn">assign_core</a>(
+    core: <a class="type" href="type.CoreIndex.html" title="type pallet_broker::CoreIndex">CoreIndex</a>,
+    begin: <a class="type" href="type.RCBlockNumberOf.html" title="type pallet_broker::RCBlockNumberOf">RCBlockNumberOf</a>&lt;Self&gt;,
+    assignment: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="enum" href="enum.CoreAssignment.html" title="enum pallet_broker::CoreAssignment">CoreAssignment</a>, <a class="type" href="type.PartsOf57600.html" title="type pallet_broker::PartsOf57600">PartsOf57600</a>)&gt;,
+    end_hint: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="type" href="type.RCBlockNumberOf.html" title="type pallet_broker::RCBlockNumberOf">RCBlockNumberOf</a>&lt;Self&gt;&gt;,
+)</h4></section></summary><div class="docblock"><p>Instructs the Relay-chain to ensure that the core indexed as <code>core</code> is utilised for a number
+of assignments in specific ratios given by <code>assignment</code> starting as soon after <code>begin</code> as
+possible. Core assignments take the form of a <code>CoreAssignment</code> value which can either task
+the core to a <code>ParaId</code> value or indicate that the core should be used in the Instantaneous
+Pool. Each assignment comes with a ratio value, represented as the numerator of the fraction
+with a denominator of 57,600.</p>
+<p>If <code>end_hint</code> is <code>Some</code> and the inner is greater than the current block number, then the
+Relay-chain should optimize in the expectation of receiving a new <code>assign_core(core, ...)</code>
+message at or prior to the block number of the inner value. Specific functionality should
+remain unchanged regardless of the <code>end_hint</code> value.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.on_new_timeslice" class="method"><a class="src rightside" href="../src/pallet_broker/coretime_interface.rs.html#116">source</a><h4 class="code-header">fn <a href="#method.on_new_timeslice" class="fn">on_new_timeslice</a>(_timeslice: <a class="type" href="type.Timeslice.html" title="type pallet_broker::Timeslice">Timeslice</a>)</h4></section></summary><div class="docblock"><p>A hook supposed to be called right after a new timeslice has begun. Likely to be used for
+batching different matters happened during the timeslice that may benifit from batched
+processing.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-CoretimeInterface-for-()" class="impl"><a class="src rightside" href="../src/pallet_broker/coretime_interface.rs.html#119-134">source</a><a href="#impl-CoretimeInterface-for-()" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.CoretimeInterface.html" title="trait pallet_broker::CoretimeInterface">CoretimeInterface</a> for <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><section id="associatedtype.AccountId-1" class="associatedtype trait-impl"><a href="#associatedtype.AccountId-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.AccountId" class="associatedtype">AccountId</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h4></section><section id="associatedtype.Balance-1" class="associatedtype trait-impl"><a href="#associatedtype.Balance-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Balance" class="associatedtype">Balance</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u64.html">u64</a></h4></section><section id="associatedtype.RelayChainBlockNumberProvider-1" class="associatedtype trait-impl"><a href="#associatedtype.RelayChainBlockNumberProvider-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.RelayChainBlockNumberProvider" class="associatedtype">RelayChainBlockNumberProvider</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h4></section><section id="method.request_core_count" class="method trait-impl"><a class="src rightside" href="../src/pallet_broker/coretime_interface.rs.html#124">source</a><a href="#method.request_core_count" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.request_core_count" class="fn">request_core_count</a>(_count: <a class="type" href="type.CoreIndex.html" title="type pallet_broker::CoreIndex">CoreIndex</a>)</h4></section><section id="method.request_revenue_info_at" class="method trait-impl"><a class="src rightside" href="../src/pallet_broker/coretime_interface.rs.html#125">source</a><a href="#method.request_revenue_info_at" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.request_revenue_info_at" class="fn">request_revenue_info_at</a>(_when: <a class="type" href="type.RCBlockNumberOf.html" title="type pallet_broker::RCBlockNumberOf">RCBlockNumberOf</a>&lt;Self&gt;)</h4></section><section id="method.credit_account" class="method trait-impl"><a class="src rightside" href="../src/pallet_broker/coretime_interface.rs.html#126">source</a><a href="#method.credit_account" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.credit_account" class="fn">credit_account</a>(_who: Self::<a class="associatedtype" href="trait.CoretimeInterface.html#associatedtype.AccountId" title="type pallet_broker::CoretimeInterface::AccountId">AccountId</a>, _amount: Self::<a class="associatedtype" href="trait.CoretimeInterface.html#associatedtype.Balance" title="type pallet_broker::CoretimeInterface::Balance">Balance</a>)</h4></section><section id="method.assign_core" class="method trait-impl"><a class="src rightside" href="../src/pallet_broker/coretime_interface.rs.html#127-133">source</a><a href="#method.assign_core" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.assign_core" class="fn">assign_core</a>(
+    _core: <a class="type" href="type.CoreIndex.html" title="type pallet_broker::CoreIndex">CoreIndex</a>,
+    _begin: <a class="type" href="type.RCBlockNumberOf.html" title="type pallet_broker::RCBlockNumberOf">RCBlockNumberOf</a>&lt;Self&gt;,
+    _assignment: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="enum" href="enum.CoreAssignment.html" title="enum pallet_broker::CoreAssignment">CoreAssignment</a>, <a class="type" href="type.PartsOf57600.html" title="type pallet_broker::PartsOf57600">PartsOf57600</a>)&gt;,
+    _end_hint: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="type" href="type.RCBlockNumberOf.html" title="type pallet_broker::RCBlockNumberOf">RCBlockNumberOf</a>&lt;Self&gt;&gt;,
+)</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/pallet_broker/coretime_interface/trait.CoretimeInterface.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["ItemConfigOf","Param0","Param1"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["create_agent","create_channel","force_transfer_native_from_agent","force_update_channel","register_token","set_operating_mode","set_pricing_parameters","set_token_transfer_fees","transfer_native_from_agent","update_channel","upgrade"]};

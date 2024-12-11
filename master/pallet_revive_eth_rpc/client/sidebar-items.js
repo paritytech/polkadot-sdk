@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CACHE_SIZE"],"enum":["ClientError"],"struct":["Client"],"type":["Balance","Shared","SubstrateBlock","SubstrateBlockHash","SubstrateBlockNumber"]};

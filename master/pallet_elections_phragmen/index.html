@@ -1,0 +1,221 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Phragmén Election Module."><title>pallet_elections_phragmen - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_elections_phragmen" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_elections_phragmen/index.html">pallet_elections_phragmen</a><span class="version">29.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">pallet_elections_phragmen</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/pallet_elections_phragmen/lib.rs.html#18-3295">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="phragmén-election-module"><a class="doc-anchor" href="#phragmén-election-module">§</a>Phragmén Election Module.</h2>
+<p>An election module based on sequential phragmen.</p>
+<h4 id="term-and-round"><a class="doc-anchor" href="#term-and-round">§</a>Term and Round</h4>
+<p>The election happens in <em>rounds</em>: every <code>N</code> blocks, all previous members are retired and a new
+set is elected (which may or may not have an intersection with the previous set). Each round
+lasts for some number of blocks defined by <a href="pallet/trait.Config.html#associatedtype.TermDuration" title="associated type pallet_elections_phragmen::pallet::Config::TermDuration"><code>Config::TermDuration</code></a>. The words <em>term</em> and
+<em>round</em> can be used interchangeably in this context.</p>
+<p><a href="pallet/trait.Config.html#associatedtype.TermDuration" title="associated type pallet_elections_phragmen::pallet::Config::TermDuration"><code>Config::TermDuration</code></a> might change during a round. This can shorten or extend the length of
+the round. The next election round’s block number is never stored but rather always checked on
+the fly. Based on the current block number and <a href="pallet/trait.Config.html#associatedtype.TermDuration" title="associated type pallet_elections_phragmen::pallet::Config::TermDuration"><code>Config::TermDuration</code></a>, the condition
+<code>BlockNumber % TermDuration == 0</code> being satisfied will always trigger a new election round.</p>
+<h4 id="bonds-and-deposits"><a class="doc-anchor" href="#bonds-and-deposits">§</a>Bonds and Deposits</h4>
+<p>Both voting and being a candidate requires deposits to be taken, in exchange for the data that
+needs to be kept on-chain. The terms <em>bond</em> and <em>deposit</em> can be used interchangeably in this
+context.</p>
+<p>Bonds will be unreserved only upon adhering to the protocol laws. Failing to do so will cause in
+the bond to slashed.</p>
+<h4 id="voting"><a class="doc-anchor" href="#voting">§</a>Voting</h4>
+<p>Voters can vote for a limited number of the candidates by providing a list of account ids,
+bounded by <a href="pallet/trait.Config.html#associatedtype.MaxVotesPerVoter" title="associated type pallet_elections_phragmen::pallet::Config::MaxVotesPerVoter"><code>Config::MaxVotesPerVoter</code></a>. Invalid votes (voting for non-candidates) and duplicate
+votes are ignored during election. Yet, a voter <em>might</em> vote for a future candidate. Voters
+reserve a bond as they vote. Each vote defines a <code>value</code>. This amount is locked from the account
+of the voter and indicates the weight of the vote. Voters can update their votes at any time by
+calling <code>vote()</code> again. This can update the vote targets (which might update the deposit) or
+update the vote’s stake (<a href="struct.Voter.html#structfield.stake" title="field pallet_elections_phragmen::Voter::stake"><code>Voter::stake</code></a>). After a round, votes are kept and might still be
+valid for further rounds. A voter is responsible for calling <code>remove_voter</code> once they are done
+to have their bond back and remove the lock.</p>
+<p>See <a href="pallet/enum.Call.html#variant.vote" title="variant pallet_elections_phragmen::pallet::Call::vote"><code>Call::vote</code></a>, <a href="pallet/enum.Call.html#variant.remove_voter" title="variant pallet_elections_phragmen::pallet::Call::remove_voter"><code>Call::remove_voter</code></a>.</p>
+<h4 id="defunct-voter"><a class="doc-anchor" href="#defunct-voter">§</a>Defunct Voter</h4>
+<p>A voter is defunct once all of the candidates that they have voted for are not a valid candidate
+(as seen further below, members and runners-up are also always candidates). Defunct voters can
+be removed via a root call (<a href="pallet/enum.Call.html#variant.clean_defunct_voters" title="variant pallet_elections_phragmen::pallet::Call::clean_defunct_voters"><code>Call::clean_defunct_voters</code></a>). Upon being removed, their bond is
+returned. This is an administrative operation and can be called only by the root origin in the
+case of state bloat.</p>
+<h4 id="candidacy-and-members"><a class="doc-anchor" href="#candidacy-and-members">§</a>Candidacy and Members</h4>
+<p>Candidates also reserve a bond as they submit candidacy. A candidate can end up in one of the
+below situations:</p>
+<ul>
+<li><strong>Members</strong>: A winner is kept as a <em>member</em>. They must still have a bond in reserve and they
+are automatically counted as a candidate for the next election. The number of desired
+members is set by <a href="pallet/trait.Config.html#associatedtype.DesiredMembers" title="associated type pallet_elections_phragmen::pallet::Config::DesiredMembers"><code>Config::DesiredMembers</code></a>.</li>
+<li><strong>Runner-up</strong>: Runners-up are the best candidates immediately after the winners. The number
+of runners up to keep is set by <a href="pallet/trait.Config.html#associatedtype.DesiredRunnersUp" title="associated type pallet_elections_phragmen::pallet::Config::DesiredRunnersUp"><code>Config::DesiredRunnersUp</code></a>. Runners-up are used, in the
+same order as they are elected, as replacements when a candidate is kicked by
+<a href="pallet/enum.Call.html#variant.remove_member" title="variant pallet_elections_phragmen::pallet::Call::remove_member"><code>Call::remove_member</code></a>, or when an active member renounces their candidacy. Runners are
+automatically counted as a candidate for the next election.</li>
+<li><strong>Loser</strong>: Any of the candidate who are not member/runner-up are left as losers. A loser
+might be an <em>outgoing member or runner-up</em>, meaning that they are an active member who
+failed to keep their spot. <strong>An outgoing candidate/member/runner-up will always lose their
+bond</strong>.</li>
+</ul>
+<h5 id="renouncing-candidacy"><a class="doc-anchor" href="#renouncing-candidacy">§</a>Renouncing candidacy.</h5>
+<p>All candidates, elected or not, can renounce their candidacy. A call to
+<a href="pallet/enum.Call.html#variant.renounce_candidacy" title="variant pallet_elections_phragmen::pallet::Call::renounce_candidacy"><code>Call::renounce_candidacy</code></a> will always cause the candidacy bond to be refunded.</p>
+<p>Note that with the members being the default candidates for the next round and votes persisting
+in storage, the election system is entirely stable given no further input. This means that if
+the system has a particular set of candidates <code>C</code> and voters <code>V</code> that lead to a set of members
+<code>M</code> being elected, as long as <code>V</code> and <code>C</code> don’t remove their candidacy and votes, <code>M</code> will keep
+being re-elected at the end of each round.</p>
+<h4 id="module-information"><a class="doc-anchor" href="#module-information">§</a>Module Information</h4>
+<ul>
+<li><a href="pallet/trait.Config.html" title="trait pallet_elections_phragmen::pallet::Config"><code>Config</code></a></li>
+<li><a href="pallet/enum.Call.html" title="enum pallet_elections_phragmen::pallet::Call"><code>Call</code></a></li>
+<li><a href="pallet/type.Module.html" title="type pallet_elections_phragmen::pallet::Module"><code>Module</code></a></li>
+</ul>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.WeightInfo"><code>pub use weights::<a class="trait" href="weights/trait.WeightInfo.html" title="trait pallet_elections_phragmen::weights::WeightInfo">WeightInfo</a>;</code></div></li><li><div class="item-name"><code>pub use <a class="mod" href="pallet/index.html" title="mod pallet_elections_phragmen::pallet">pallet</a>::*;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="migrations/index.html" title="mod pallet_elections_phragmen::migrations">migrations</a></div><div class="desc docblock-short">All migrations.
+All migrations of this pallet.</div></li><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod pallet_elections_phragmen::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="weights/index.html" title="mod pallet_elections_phragmen::weights">weights</a></div><div class="desc docblock-short">Autogenerated weights for <code>pallet_elections_phragmen</code></div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.SeatHolder.html" title="struct pallet_elections_phragmen::SeatHolder">SeatHolder</a></div><div class="desc docblock-short">A holder of a seat as either a member or a runner-up.</div></li><li><div class="item-name"><a class="struct" href="struct.Voter.html" title="struct pallet_elections_phragmen::Voter">Voter</a></div><div class="desc docblock-short">An active voter.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.Renouncing.html" title="enum pallet_elections_phragmen::Renouncing">Renouncing</a></div><div class="desc docblock-short">An indication that the renouncing account currently has which of the below roles.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

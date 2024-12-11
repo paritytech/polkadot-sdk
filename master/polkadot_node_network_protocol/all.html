@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="List of all items in this crate"><title>List of all items in this crate</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="polkadot_node_network_protocol" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod sys"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../polkadot_node_network_protocol/index.html">polkadot_node_network_protocol</a><span class="version">7.0.0</span></h2></div><div class="sidebar-elems"><section><ul class="block"><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><h1>List of all items</h1><h3 id="structs">Structs</h3><ul class="all-items"><li><a href="struct.OurView.html">OurView</a></li><li><a href="struct.PeerId.html">PeerId</a></li><li><a href="struct.ReputationChange.html">ReputationChange</a></li><li><a href="struct.View.html">View</a></li><li><a href="struct.WrongVariant.html">WrongVariant</a></li><li><a href="grid_topology/struct.GridNeighbors.html">grid_topology::GridNeighbors</a></li><li><a href="grid_topology/struct.RandomRouting.html">grid_topology::RandomRouting</a></li><li><a href="grid_topology/struct.SessionBoundGridTopologyStorage.html">grid_topology::SessionBoundGridTopologyStorage</a></li><li><a href="grid_topology/struct.SessionGridTopologies.html">grid_topology::SessionGridTopologies</a></li><li><a href="grid_topology/struct.SessionGridTopology.html">grid_topology::SessionGridTopology</a></li><li><a href="grid_topology/struct.SessionGridTopologyEntry.html">grid_topology::SessionGridTopologyEntry</a></li><li><a href="grid_topology/struct.TopologyPeerInfo.html">grid_topology::TopologyPeerInfo</a></li><li><a href="peer_set/struct.CollationVersionIter.html">peer_set::CollationVersionIter</a></li><li><a href="peer_set/struct.PeerSetIter.html">peer_set::PeerSetIter</a></li><li><a href="peer_set/struct.PeerSetProtocolNames.html">peer_set::PeerSetProtocolNames</a></li><li><a href="peer_set/struct.PerPeerSet.html">peer_set::PerPeerSet</a></li><li><a href="peer_set/struct.ProtocolVersion.html">peer_set::ProtocolVersion</a></li><li><a href="peer_set/struct.UnknownVersion.html">peer_set::UnknownVersion</a></li><li><a href="peer_set/struct.ValidationVersionIter.html">peer_set::ValidationVersionIter</a></li><li><a href="request_response/struct.ProtocolIter.html">request_response::ProtocolIter</a></li><li><a href="request_response/struct.ReqProtocolNames.html">request_response::ReqProtocolNames</a></li><li><a href="request_response/struct.RequestResponseConfig.html">request_response::RequestResponseConfig</a></li><li><a href="request_response/incoming/struct.IncomingRequest.html">request_response::incoming::IncomingRequest</a></li><li><a href="request_response/incoming/struct.IncomingRequestReceiver.html">request_response::incoming::IncomingRequestReceiver</a></li><li><a href="request_response/incoming/struct.OutgoingResponse.html">request_response::incoming::OutgoingResponse</a></li><li><a href="request_response/incoming/struct.OutgoingResponseSender.html">request_response::incoming::OutgoingResponseSender</a></li><li><a href="request_response/network/struct.FullNetworkConfiguration.html">request_response::network::FullNetworkConfiguration</a></li><li><a href="request_response/network/struct.IncomingRequest.html">request_response::network::IncomingRequest</a></li><li><a href="request_response/network/struct.MultiaddrWithPeerId.html">request_response::network::MultiaddrWithPeerId</a></li><li><a href="request_response/network/struct.NetworkConfiguration.html">request_response::network::NetworkConfiguration</a></li><li><a href="request_response/network/struct.NonDefaultSetConfig.html">request_response::network::NonDefaultSetConfig</a></li><li><a href="request_response/network/struct.NotificationHandshake.html">request_response::network::NotificationHandshake</a></li><li><a href="request_response/network/struct.NotificationMetrics.html">request_response::network::NotificationMetrics</a></li><li><a href="request_response/network/struct.NotificationsSink.html">request_response::network::NotificationsSink</a></li><li><a href="request_response/network/struct.OutgoingResponse.html">request_response::network::OutgoingResponse</a></li><li><a href="request_response/network/struct.Params.html">request_response::network::Params</a></li><li><a href="request_response/network/struct.ProtocolHandlePair.html">request_response::network::ProtocolHandlePair</a></li><li><a href="request_response/network/struct.ProtocolId.html">request_response::network::ProtocolId</a></li><li><a href="request_response/network/struct.RequestResponseConfig.html">request_response::network::RequestResponseConfig</a></li><li><a href="request_response/network/struct.Roles.html">request_response::network::Roles</a></li><li><a href="request_response/network/struct.SetConfig.html">request_response::network::SetConfig</a></li><li><a href="request_response/network/ed25519/struct.Keypair.html">request_response::network::ed25519::Keypair</a></li><li><a href="request_response/network/ed25519/struct.PublicKey.html">request_response::network::ed25519::PublicKey</a></li><li><a href="request_response/network/ed25519/struct.SecretKey.html">request_response::network::ed25519::SecretKey</a></li><li><a href="request_response/outgoing/struct.OutgoingRequest.html">request_response::outgoing::OutgoingRequest</a></li><li><a href="request_response/v1/struct.AvailableDataFetchingRequest.html">request_response::v1::AvailableDataFetchingRequest</a></li><li><a href="request_response/v1/struct.ChunkFetchingRequest.html">request_response::v1::ChunkFetchingRequest</a></li><li><a href="request_response/v1/struct.ChunkResponse.html">request_response::v1::ChunkResponse</a></li><li><a href="request_response/v1/struct.CollationFetchingRequest.html">request_response::v1::CollationFetchingRequest</a></li><li><a href="request_response/v1/struct.DisputeRequest.html">request_response::v1::DisputeRequest</a></li><li><a href="request_response/v1/struct.PoVFetchingRequest.html">request_response::v1::PoVFetchingRequest</a></li><li><a href="request_response/v1/struct.StatementFetchingRequest.html">request_response::v1::StatementFetchingRequest</a></li><li><a href="request_response/v2/struct.AttestedCandidateRequest.html">request_response::v2::AttestedCandidateRequest</a></li><li><a href="request_response/v2/struct.AttestedCandidateResponse.html">request_response::v2::AttestedCandidateResponse</a></li><li><a href="request_response/v2/struct.ChunkFetchingRequest.html">request_response::v2::ChunkFetchingRequest</a></li><li><a href="request_response/v2/struct.CollationFetchingRequest.html">request_response::v2::CollationFetchingRequest</a></li><li><a href="v1/struct.StatementMetadata.html">v1::StatementMetadata</a></li><li><a href="v2/struct.BackedCandidateAcknowledgement.html">v2::BackedCandidateAcknowledgement</a></li><li><a href="v2/struct.BackedCandidateManifest.html">v2::BackedCandidateManifest</a></li><li><a href="v2/struct.StatementFilter.html">v2::StatementFilter</a></li></ul><h3 id="enums">Enums</h3><ul class="all-items"><li><a href="enum.ObservedRole.html">ObservedRole</a></li><li><a href="enum.UnifiedReputationChange.html">UnifiedReputationChange</a></li><li><a href="enum.Versioned.html">Versioned</a></li><li><a href="grid_topology/enum.RequiredRouting.html">grid_topology::RequiredRouting</a></li><li><a href="peer_set/enum.CollationVersion.html">peer_set::CollationVersion</a></li><li><a href="peer_set/enum.IsAuthority.html">peer_set::IsAuthority</a></li><li><a href="peer_set/enum.PeerSet.html">peer_set::PeerSet</a></li><li><a href="peer_set/enum.ValidationVersion.html">peer_set::ValidationVersion</a></li><li><a href="request_response/enum.Protocol.html">request_response::Protocol</a></li><li><a href="request_response/enum.ProtocolName.html">request_response::ProtocolName</a></li><li><a href="request_response/incoming/enum.Error.html">request_response::incoming::Error</a></li><li><a href="request_response/incoming/enum.FatalError.html">request_response::incoming::FatalError</a></li><li><a href="request_response/incoming/enum.JfyiError.html">request_response::incoming::JfyiError</a></li><li><a href="request_response/network/enum.NetworkBackendType.html">request_response::network::NetworkBackendType</a></li><li><a href="request_response/network/enum.NodeKeyConfig.html">request_response::network::NodeKeyConfig</a></li><li><a href="request_response/network/enum.NonReservedPeerMode.html">request_response::network::NonReservedPeerMode</a></li><li><a href="request_response/network/enum.ParseErr.html">request_response::network::ParseErr</a></li><li><a href="request_response/network/enum.ProtocolName.html">request_response::network::ProtocolName</a></li><li><a href="request_response/network/enum.Role.html">request_response::network::Role</a></li><li><a href="request_response/network/enum.Secret.html">request_response::network::Secret</a></li><li><a href="request_response/network/enum.SyncMode.html">request_response::network::SyncMode</a></li><li><a href="request_response/network/enum.TransportConfig.html">request_response::network::TransportConfig</a></li><li><a href="request_response/network/ed25519/enum.DecodingError.html">request_response::network::ed25519::DecodingError</a></li><li><a href="request_response/outgoing/enum.Recipient.html">request_response::outgoing::Recipient</a></li><li><a href="request_response/outgoing/enum.RequestError.html">request_response::outgoing::RequestError</a></li><li><a href="request_response/outgoing/enum.Requests.html">request_response::outgoing::Requests</a></li><li><a href="request_response/v1/enum.AvailableDataFetchingResponse.html">request_response::v1::AvailableDataFetchingResponse</a></li><li><a href="request_response/v1/enum.ChunkFetchingResponse.html">request_response::v1::ChunkFetchingResponse</a></li><li><a href="request_response/v1/enum.CollationFetchingResponse.html">request_response::v1::CollationFetchingResponse</a></li><li><a href="request_response/v1/enum.DisputeResponse.html">request_response::v1::DisputeResponse</a></li><li><a href="request_response/v1/enum.PoVFetchingResponse.html">request_response::v1::PoVFetchingResponse</a></li><li><a href="request_response/v1/enum.StatementFetchingResponse.html">request_response::v1::StatementFetchingResponse</a></li><li><a href="request_response/v2/enum.ChunkFetchingResponse.html">request_response::v2::ChunkFetchingResponse</a></li><li><a href="v1/enum.ApprovalDistributionMessage.html">v1::ApprovalDistributionMessage</a></li><li><a href="v1/enum.BitfieldDistributionMessage.html">v1::BitfieldDistributionMessage</a></li><li><a href="v1/enum.CollationProtocol.html">v1::CollationProtocol</a></li><li><a href="v1/enum.CollatorProtocolMessage.html">v1::CollatorProtocolMessage</a></li><li><a href="v1/enum.GossipSupportNetworkMessage.html">v1::GossipSupportNetworkMessage</a></li><li><a href="v1/enum.StatementDistributionMessage.html">v1::StatementDistributionMessage</a></li><li><a href="v1/enum.ValidationProtocol.html">v1::ValidationProtocol</a></li><li><a href="v2/enum.ApprovalDistributionMessage.html">v2::ApprovalDistributionMessage</a></li><li><a href="v2/enum.BitfieldDistributionMessage.html">v2::BitfieldDistributionMessage</a></li><li><a href="v2/enum.CollationProtocol.html">v2::CollationProtocol</a></li><li><a href="v2/enum.CollatorProtocolMessage.html">v2::CollatorProtocolMessage</a></li><li><a href="v2/enum.GossipSupportNetworkMessage.html">v2::GossipSupportNetworkMessage</a></li><li><a href="v2/enum.StatementDistributionMessage.html">v2::StatementDistributionMessage</a></li><li><a href="v2/enum.ValidationProtocol.html">v2::ValidationProtocol</a></li><li><a href="v3/enum.ApprovalDistributionMessage.html">v3::ApprovalDistributionMessage</a></li><li><a href="v3/enum.ValidationProtocol.html">v3::ValidationProtocol</a></li></ul><h3 id="traits">Traits</h3><ul class="all-items"><li><a href="authority_discovery/trait.AuthorityDiscovery.html">authority_discovery::AuthorityDiscovery</a></li><li><a href="request_response/trait.IsRequest.html">request_response::IsRequest</a></li><li><a href="request_response/network/trait.ExHashT.html">request_response::network::ExHashT</a></li><li><a href="request_response/network/trait.NotificationConfig.html">request_response::network::NotificationConfig</a></li><li><a href="request_response/network/trait.NotificationService.html">request_response::network::NotificationService</a></li><li><a href="request_response/network/trait.PeerStore.html">request_response::network::PeerStore</a></li><li><a href="request_response/network/trait.PeerStoreProvider.html">request_response::network::PeerStoreProvider</a></li></ul><h3 id="macros">Macros</h3><ul class="all-items"><li><a href="macro.our_view.html">our_view</a></li><li><a href="request_response/network/macro.build_multiaddr.html">request_response::network::build_multiaddr</a></li><li><a href="macro.view.html">view</a></li></ul><h3 id="functions">Functions</h3><ul class="all-items"><li><a href="fn.filter_by_peer_version.html">filter_by_peer_version</a></li><li><a href="peer_set/fn.peer_sets_info.html">peer_set::peer_sets_info</a></li><li><a href="request_response/network/fn.notification_service.html">request_response::network::notification_service</a></li><li><a href="request_response/network/fn.parse_addr.html">request_response::network::parse_addr</a></li><li><a href="request_response/network/fn.parse_str_addr.html">request_response::network::parse_str_addr</a></li><li><a href="v1/fn.declare_signature_payload.html">v1::declare_signature_payload</a></li><li><a href="v2/fn.declare_signature_payload.html">v2::declare_signature_payload</a></li></ul><h3 id="types">Type Aliases</h3><ul class="all-items"><li><a href="type.ApprovalDistributionMessage.html">ApprovalDistributionMessage</a></li><li><a href="type.BitfieldDistributionMessage.html">BitfieldDistributionMessage</a></li><li><a href="type.CollatorProtocolMessage.html">CollatorProtocolMessage</a></li><li><a href="type.GossipSupportNetworkMessage.html">GossipSupportNetworkMessage</a></li><li><a href="type.StatementDistributionMessage.html">StatementDistributionMessage</a></li><li><a href="type.VersionedCollationProtocol.html">VersionedCollationProtocol</a></li><li><a href="type.VersionedValidationProtocol.html">VersionedValidationProtocol</a></li><li><a href="request_response/incoming/type.Result.html">request_response::incoming::Result</a></li><li><a href="request_response/network/type.Ed25519Secret.html">request_response::network::Ed25519Secret</a></li><li><a href="request_response/outgoing/type.OutgoingResult.html">request_response::outgoing::OutgoingResult</a></li><li><a href="request_response/outgoing/type.ResponseSender.html">request_response::outgoing::ResponseSender</a></li><li><a href="request_response/v2/type.CollationFetchingResponse.html">request_response::v2::CollationFetchingResponse</a></li></ul><h3 id="constants">Constants</h3><ul class="all-items"><li><a href="constant.MIN_GOSSIP_PEERS.html">MIN_GOSSIP_PEERS</a></li><li><a href="grid_topology/constant.DEFAULT_RANDOM_CIRCULATION.html">grid_topology::DEFAULT_RANDOM_CIRCULATION</a></li><li><a href="grid_topology/constant.DEFAULT_RANDOM_SAMPLE_RATE.html">grid_topology::DEFAULT_RANDOM_SAMPLE_RATE</a></li><li><a href="peer_set/constant.MAX_NOTIFICATION_SIZE.html">peer_set::MAX_NOTIFICATION_SIZE</a></li><li><a href="request_response/constant.CHUNK_REQUEST_TIMEOUT.html">request_response::CHUNK_REQUEST_TIMEOUT</a></li><li><a href="request_response/constant.DISPUTE_REQUEST_TIMEOUT.html">request_response::DISPUTE_REQUEST_TIMEOUT</a></li><li><a href="request_response/constant.MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS.html">request_response::MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS</a></li><li><a href="request_response/constant.MAX_PARALLEL_STATEMENT_REQUESTS.html">request_response::MAX_PARALLEL_STATEMENT_REQUESTS</a></li><li><a href="request_response/network/constant.DEFAULT_KADEMLIA_REPLICATION_FACTOR.html">request_response::network::DEFAULT_KADEMLIA_REPLICATION_FACTOR</a></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

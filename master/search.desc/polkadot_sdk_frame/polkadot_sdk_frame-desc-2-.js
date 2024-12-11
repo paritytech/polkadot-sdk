@@ -1,0 +1,1 @@
+searchState.loadedDescShard("polkadot_sdk_frame", 2, "Zero-sized type used to mark things that “act like” …\nBy default, Substrate uses RocksDB, so this will be the …\nReturn the current value.")
