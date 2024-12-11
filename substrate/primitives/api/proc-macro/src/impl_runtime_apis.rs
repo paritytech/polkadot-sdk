@@ -867,27 +867,38 @@ fn impl_runtime_apis_impl_inner(
 	let runtime_api_versions = generate_runtime_api_versions(api_impls)?;
 	let wasm_interface = generate_wasm_interface(api_impls)?;
 	let api_impls_for_runtime_api = generate_api_impl_for_runtime_api(api_impls)?;
-	let modules: Vec<TypePath> = uses
+	let modules = match uses
 		.iter()
 		.map(|item| {
 			let mut path: Vec<Ident> = vec![];
-			fn call(path: &mut Vec<Ident>, item: &UseTree) {
+			fn call(path: &mut Vec<Ident>, item: &UseTree) -> Result<()> {
 				match &item {
 					syn::UseTree::Path(use_path) => {
 						path.push(use_path.ident.clone());
-						call(path, use_path.tree.as_ref());
+						call(path, use_path.tree.as_ref())
 					},
-					syn::UseTree::Glob(_) => (),
-					syn::UseTree::Name(_) | syn::UseTree::Rename(_) | syn::UseTree::Group(_) =>
-						unimplemented!(),
+					syn::UseTree::Glob(_) => Ok(()),
+					syn::UseTree::Name(_) | syn::UseTree::Rename(_) | syn::UseTree::Group(_) => {
+						let error = Error::new(
+							item.span(),
+							"Unsupported syntax used to import api implementaions from an extension module. \
+							Try using `pub use <path>::*` or `use <path>::*`",
+						);
+						return Err(error)
+					},
 				}
 			}
-			call(&mut path, &item.tree);
+			call(&mut path, &item.tree)?;
 			let tok = quote::quote! {#(#path)::*};
-			syn::parse::<TypePath>(tok.into()).unwrap()
+			Ok(syn::parse::<TypePath>(tok.into())
+				.expect("Can't happen, a valid TypePath was used in the `UseTree`"))
 		})
-		.collect();
-
+		.collect::<Result<Vec<TypePath>>>()
+		.map_err(|e| e.into_compile_error())
+	{
+		Ok(items) => items,
+		Err(e) => return Ok(e),
+	};
 	let dispatch_impl = generate_dispatch_function(api_impls, Kind::Main(&modules))?;
 
 	let runtime_metadata =
@@ -1039,7 +1050,7 @@ mod tests {
 		};
 
 		// Parse the items
-		let RuntimeApiImpls { impls: mut api_impls, uses : _ } =
+		let RuntimeApiImpls { impls: mut api_impls, uses: _ } =
 			syn::parse2::<RuntimeApiImpls>(code).unwrap();
 
 		// Run the renamer which is being run first in the `impl_runtime_apis!` macro.
