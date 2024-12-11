@@ -143,6 +143,17 @@ struct ConnectionContext {
 	num_connections: usize,
 }
 
+/// Kademlia query we are tracking.
+#[derive(Debug)]
+enum KadQuery {
+	/// `GET_VALUE` query for key and wnen it was initiated.
+	GetValue(RecordKey, Instant),
+	/// `PUT_VALUE` query for key and wnen it was initiated.
+	PutValue(RecordKey, Instant),
+	/// `GET_PROVIDERS` query for key and when it was initiated.
+	GetProviders(RecordKey, Instant),
+}
+
 /// Networking backend for `litep2p`.
 pub struct Litep2pNetworkBackend {
 	/// Main `litep2p` object.
@@ -157,14 +168,8 @@ pub struct Litep2pNetworkBackend {
 	/// `Peerset` handles to notification protocols.
 	peerset_handles: HashMap<ProtocolName, ProtocolControlHandle>,
 
-	/// Pending `GET_VALUE` queries.
-	pending_get_values: HashMap<QueryId, (RecordKey, Instant)>,
-
-	/// Pending `PUT_VALUE` queries.
-	pending_put_values: HashMap<QueryId, (RecordKey, Instant)>,
-
-	/// Pending `GET_PROVIDERS` queries.
-	pending_get_providers: HashMap<QueryId, (RecordKey, Instant)>,
+	/// Pending Kademlia queries.
+	pending_queries: HashMap<QueryId, KadQuery>,
 
 	/// Discovery.
 	discovery: Discovery,
@@ -618,9 +623,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			peerset_handles: notif_protocols,
 			num_connected,
 			discovery,
-			pending_put_values: HashMap::new(),
-			pending_get_values: HashMap::new(),
-			pending_get_providers: HashMap::new(),
+			pending_queries: HashMap::new(),
 			peerstore_handle: peer_store_handle,
 			block_announce_protocol,
 			event_streams: out_events::OutChannels::new(None)?,
@@ -708,16 +711,16 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 					Some(command) => match command {
 						NetworkServiceCommand::GetValue{ key } => {
 							let query_id = self.discovery.get_value(key.clone()).await;
-							self.pending_get_values.insert(query_id, (key, Instant::now()));
+							self.pending_queries.insert(query_id, KadQuery::GetValue(key, Instant::now()));
 						}
 						NetworkServiceCommand::PutValue { key, value } => {
 							let query_id = self.discovery.put_value(key.clone(), value).await;
-							self.pending_put_values.insert(query_id, (key, Instant::now()));
+							self.pending_queries.insert(query_id, KadQuery::PutValue(key, Instant::now()));
 						}
 						NetworkServiceCommand::PutValueTo { record, peers, update_local_storage} => {
 							let kademlia_key = record.key.clone();
 							let query_id = self.discovery.put_value_to_peers(record.into(), peers, update_local_storage).await;
-							self.pending_put_values.insert(query_id, (kademlia_key, Instant::now()));
+							self.pending_queries.insert(query_id, KadQuery::PutValue(kademlia_key, Instant::now()));
 						}
 						NetworkServiceCommand::StoreRecord { key, value, publisher, expires } => {
 							self.discovery.store_record(key, value, publisher.map(Into::into), expires).await;
@@ -730,7 +733,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						}
 						NetworkServiceCommand::GetProviders { key } => {
 							let query_id = self.discovery.get_providers(key.clone()).await;
-							self.pending_get_providers.insert(query_id, (key, Instant::now()));
+							self.pending_queries.insert(query_id, KadQuery::GetProviders(key, Instant::now()));
 						}
 						NetworkServiceCommand::EventStream { tx } => {
 							self.event_streams.push(tx);
@@ -834,12 +837,8 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						}
 					}
 					Some(DiscoveryEvent::GetRecordSuccess { query_id, records }) => {
-						match self.pending_get_values.remove(&query_id) {
-							None => log::warn!(
-								target: LOG_TARGET,
-								"`GET_VALUE` succeeded for a non-existent query",
-							),
-							Some((key, started)) => {
+						match self.pending_queries.remove(&query_id) {
+							Some(KadQuery::GetValue(key, started)) => {
 								log::trace!(
 									target: LOG_TARGET,
 									"`GET_VALUE` for {:?} ({query_id:?}) succeeded",
@@ -861,16 +860,19 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 										.with_label_values(&["value-get"])
 										.observe(started.elapsed().as_secs_f64());
 								}
-							}
+							},
+							query => {
+								log::error!(
+									target: LOG_TARGET,
+									"Missing/invalid pending query for `GET_VALUE`: {query:?}"
+								);
+								debug_assert!(false);
+							},
 						}
 					}
 					Some(DiscoveryEvent::PutRecordSuccess { query_id }) => {
-						match self.pending_put_values.remove(&query_id) {
-							None => log::warn!(
-								target: LOG_TARGET,
-								"`PUT_VALUE` succeeded for a non-existent query",
-							),
-							Some((key, started)) => {
+						match self.pending_queries.remove(&query_id) {
+							Some(KadQuery::PutValue(key, started)) => {
 								log::trace!(
 									target: LOG_TARGET,
 									"`PUT_VALUE` for {key:?} ({query_id:?}) succeeded",
@@ -886,16 +888,19 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 										.with_label_values(&["value-put"])
 										.observe(started.elapsed().as_secs_f64());
 								}
+							},
+							query => {
+								log::error!(
+									target: LOG_TARGET,
+									"Missing/invalid pending query for `PUT_VALUE`: {query:?}"
+								);
+								debug_assert!(false);
 							}
 						}
 					}
 					Some(DiscoveryEvent::GetProvidersSuccess { query_id, providers }) => {
-						match self.pending_get_providers.remove(&query_id) {
-							None => log::warn!(
-								target: LOG_TARGET,
-								"`GET_PROVIDERS` succeeded for a non-existent query",
-							),
-							Some((key, started)) => {
+						match self.pending_queries.remove(&query_id) {
+							Some(KadQuery::GetProviders(key, started)) => {
 								log::trace!(
 									target: LOG_TARGET,
 									"`GET_PROVIDERS` for {key:?} ({query_id:?}) succeeded",
@@ -914,63 +919,75 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 										.with_label_values(&["providers-get"])
 										.observe(started.elapsed().as_secs_f64());
 								}
+							},
+							query => {
+								log::error!(
+									target: LOG_TARGET,
+									"Missing/invalid pending query for `GET_PROVIDERS`: {query:?}"
+								);
+								debug_assert!(false);
 							}
 						}
 					}
 					Some(DiscoveryEvent::QueryFailed { query_id }) => {
-						if let Some((key, started)) = self.pending_get_values.remove(&query_id) {
-							log::debug!(
-								target: LOG_TARGET,
-								"`GET_VALUE` ({query_id:?}) failed for key {key:?}",
-							);
+						match self.pending_queries.remove(&query_id) {
+							Some(KadQuery::GetValue(key, started)) => {
+								log::debug!(
+									target: LOG_TARGET,
+									"`GET_VALUE` ({query_id:?}) failed for key {key:?}",
+								);
 
-							self.event_streams.send(Event::Dht(
-								DhtEvent::ValueNotFound(key)
-							));
+								self.event_streams.send(Event::Dht(
+									DhtEvent::ValueNotFound(key)
+								));
 
-							if let Some(ref metrics) = self.metrics {
-								metrics
-									.kademlia_query_duration
-									.with_label_values(&["value-get-failed"])
-									.observe(started.elapsed().as_secs_f64());
+								if let Some(ref metrics) = self.metrics {
+									metrics
+										.kademlia_query_duration
+										.with_label_values(&["value-get-failed"])
+										.observe(started.elapsed().as_secs_f64());
+								}
+							},
+							Some(KadQuery::PutValue(key, started)) => {
+								log::debug!(
+									target: LOG_TARGET,
+									"`PUT_VALUE` ({query_id:?}) failed for key {key:?}",
+								);
+
+								self.event_streams.send(Event::Dht(
+									DhtEvent::ValuePutFailed(key)
+								));
+
+								if let Some(ref metrics) = self.metrics {
+									metrics
+										.kademlia_query_duration
+										.with_label_values(&["value-put-failed"])
+										.observe(started.elapsed().as_secs_f64());
+								}
+							},
+							Some(KadQuery::GetProviders(key, started)) => {
+								log::debug!(
+									target: LOG_TARGET,
+									"`GET_PROVIDERS` ({query_id:?}) failed for key {key:?}"
+								);
+
+								self.event_streams.send(Event::Dht(
+									DhtEvent::ProvidersNotFound(key)
+								));
+
+								if let Some(ref metrics) = self.metrics {
+									metrics
+										.kademlia_query_duration
+										.with_label_values(&["providers-get-failed"])
+										.observe(started.elapsed().as_secs_f64());
+								}
+							},
+							None => {
+								log::warn!(
+									target: LOG_TARGET,
+									"non-existent query failed ({query_id:?})",
+								);
 							}
-						} else if let Some((key, started)) = self.pending_put_values.remove(&query_id) {
-							log::debug!(
-								target: LOG_TARGET,
-								"`PUT_VALUE` ({query_id:?}) failed for key {key:?}",
-							);
-
-							self.event_streams.send(Event::Dht(
-								DhtEvent::ValuePutFailed(key)
-							));
-
-							if let Some(ref metrics) = self.metrics {
-								metrics
-									.kademlia_query_duration
-									.with_label_values(&["value-put-failed"])
-									.observe(started.elapsed().as_secs_f64());
-							}
-						} else if let Some((key, started)) = self.pending_get_providers.remove(&query_id) {
-							log::debug!(
-								target: LOG_TARGET,
-								"`GET_PROVIDERS` ({query_id:?}) failed for key {key:?}"
-							);
-
-							self.event_streams.send(Event::Dht(
-								DhtEvent::ProvidersNotFound(key)
-							));
-
-							if let Some(ref metrics) = self.metrics {
-								metrics
-									.kademlia_query_duration
-									.with_label_values(&["providers-get-failed"])
-									.observe(started.elapsed().as_secs_f64());
-							}
-						} else {
-							log::warn!(
-								target: LOG_TARGET,
-								"non-existent query failed ({query_id:?})",
-							);
 						}
 					}
 					Some(DiscoveryEvent::Identified { peer, listen_addresses, supported_protocols, .. }) => {
