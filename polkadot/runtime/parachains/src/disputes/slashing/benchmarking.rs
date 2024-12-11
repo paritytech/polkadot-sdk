@@ -144,9 +144,9 @@ benchmarks! {
 	// in this setup we have a single `ForInvalid` dispute
 	// submitted for a past session
 	report_dispute_lost {
-		let _n in 4..T::MaxValidatorsCount::get();
+		let _n  = T::MaxValidatorsCount::get();
 	}: {
-		let result = Ok();
+		let result = Ok(());
 		assert!(result.is_ok());
 	}
 }
