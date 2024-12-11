@@ -8,4 +8,6 @@ doc:
     description: |
       Collation-generation is only needed for Collators, and therefore not needed for validators
 
-crates: []
+crates: 
+  - name: polkadot-service
+    bump: patch
