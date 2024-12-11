@@ -19,7 +19,7 @@
 
 use super::*;
 use alloc::vec;
-use frame_support::{defensive, traits::Get, BoundedVec};
+use frame::{deps::frame_support::{BoundedVec, defensive, traits::Get}};
 
 #[must_use]
 pub(super) enum DeadConsequence {

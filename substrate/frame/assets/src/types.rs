@@ -18,12 +18,14 @@
 //! Various basic types for use in the assets pallet.
 
 use super::*;
+/*
 use frame_support::{
 	pallet_prelude::*,
 	traits::{fungible, tokens::ConversionToAssetBalance},
 };
 use sp_runtime::{traits::Convert, FixedPointNumber, FixedU128};
-
+*/
+use frame::{deps::frame_support::pallet_prelude::*, traits::{fungible, tokens::ConversionToAssetBalance, Convert}, deps::sp_runtime::{FixedPointNumber, FixedU128}};
 pub(super) type DepositBalanceOf<T, I = ()> =
 	<<T as Config<I>>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
 pub(super) type AssetAccountOf<T, I> = AssetAccount<
