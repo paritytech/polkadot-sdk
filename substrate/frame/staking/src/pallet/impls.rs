@@ -745,8 +745,12 @@ impl<T: Config> Pallet<T> {
 			},
 		};
 
-		if let Err(_) = Self::do_elect_paged_inner(paged_result) {
-			defensive!("electable stashes exceeded limit, unexpected but election proceeds.");
+		if let Err(not_included) = Self::do_elect_paged_inner(paged_result) {
+			defensive!(
+				"electable stashes exceeded limit, unexpected but election proceeds.\
+                {} stashes from election result discarded",
+				not_included.len()
+			);
 		};
 
 		T::WeightInfo::do_elect_paged(T::MaxValidatorSet::get())
@@ -755,10 +759,11 @@ impl<T: Config> Pallet<T> {
 	/// Inner implementation of [`Self::do_elect_paged`].
 	///
 	/// Returns an error if adding election winners to the electable stashes storage fails due to
-	/// exceeded bounds.
+	/// exceeded bounds. In case of error, it returns the stashes that were not included in the
+	/// electable stashes storage due to bounds contraints.
 	pub(crate) fn do_elect_paged_inner(
 		mut supports: BoundedSupportsOf<T::ElectionProvider>,
-	) -> Result<(), ()> {
+	) -> Result<(), Vec<T::AccountId>> {
 		// preparing the next era. Note: we expect `do_elect_paged` to be called *only* during a
 		// non-genesis era, thus current era should be set by now.
 		let planning_era = CurrentEra::<T>::get().defensive_unwrap_or_default().saturating_add(1);
@@ -780,7 +785,7 @@ impl<T: Config> Pallet<T> {
 				supports.retain(|(s, _)| !not_included.contains(s));
 
 				let _ = Self::store_stakers_info(Self::collect_exposures(supports), planning_era);
-				Err(())
+				Err(not_included)
 			},
 		}
 	}
@@ -877,15 +882,12 @@ impl<T: Config> Pallet<T> {
 	/// Deduplicates stashes in place and returns an error if the bounds are exceeded. In case of
 	/// error, it returns the stashes that were not added to the storage.
 	pub(crate) fn add_electables(
-		mut stashes_iter: impl Iterator<Item = T::AccountId>,
+		stashes_iter: impl Iterator<Item = T::AccountId> + Clone,
 	) -> Result<(), Vec<T::AccountId>> {
 		ElectableStashes::<T>::mutate(|electable| {
-			while let Some(stash) = stashes_iter.next() {
-				if let Err(_) = (*electable).try_insert(stash.clone()) {
-					let mut not_included = stashes_iter.collect::<Vec<_>>();
-					not_included.push(stash);
-
-					return Err(not_included);
+			for stash in stashes_iter.clone() {
+				if electable.try_insert(stash.clone()).is_err() {
+					return Err(stashes_iter.skip_while(|s| *s != stash).collect::<Vec<_>>());
 				}
 			}
 			Ok(())
