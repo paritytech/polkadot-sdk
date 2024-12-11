@@ -59,6 +59,9 @@ substrate-build-script-utils = { workspace = true, default-features = true }
 
 [features]
 default = []
+full-pov-size = [
+	"polkadot-omni-node-lib/full-pov-size",
+]
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
