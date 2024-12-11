@@ -76,6 +76,6 @@ example = ["hex-literal", "rlp", "secp256k1", "subxt-signer"]
 env_logger = { workspace = true }
 static_init = { workspace = true }
 hex-literal = { workspace = true }
-pallet-revive-fixtures = { workspace = true }
+pallet-revive-fixtures = { workspace = true, default-features = true }
 substrate-cli-test-utils = { workspace = true }
 subxt-signer = { workspace = true, features = ["unstable-eth"] }
