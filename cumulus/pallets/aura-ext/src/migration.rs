@@ -16,9 +16,9 @@
 extern crate alloc;
 
 use crate::{Config, Pallet};
-use frame_support::{migrations::VersionedMigration, pallet_prelude::StorageVersion};
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
+use frame_support::{migrations::VersionedMigration, pallet_prelude::StorageVersion};
 
 /// The in-code storage version.
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
