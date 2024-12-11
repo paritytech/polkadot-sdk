@@ -144,7 +144,7 @@ benchmarks! {
 	// in this setup we have a single `ForInvalid` dispute
 	// submitted for a past session
 	report_dispute_lost {
-		let n in 4..300;
+		let n in 4..<T as pallet_staking::Config>::MaxValidatorsCount::get();
 
 		let origin = RawOrigin::None.into();
 		let (session_index, key_owner_proof, validator_id) = setup_validator_set::<T>(n);
