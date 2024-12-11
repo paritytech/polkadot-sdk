@@ -2331,7 +2331,6 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 		// Set staker
 		let _ = asset::set_stakeable_balance::<Test>(&11, stake);
 
-		let exposure = Exposure::<AccountId, Balance> { total: stake, own: stake, others: vec![] };
 		let reward = EraRewardPoints::<AccountId> {
 			total: 1,
 			individual: vec![(11, 1)].into_iter().collect(),

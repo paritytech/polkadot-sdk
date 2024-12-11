@@ -1010,20 +1010,11 @@ pub mod pallet {
 			let pages: BlockNumberFor<T> = Self::election_pages().into();
 
 			// election ongoing, fetch the next page.
-			if let Some(started_at) = ElectingStartedAt::<T>::get() {
+			let inner_weight = if let Some(started_at) = ElectingStartedAt::<T>::get() {
 				let next_page =
 					pages.saturating_sub(One::one()).saturating_sub(now.saturating_sub(started_at));
 
-				// note: this pallet is expected to fetch all the solution pages starting from the
-				// most significant one through to the page 0. Fetching page zero is an indication
-				// that all the solution pages have been fetched.
-				if next_page == Zero::zero() {
-					crate::log!(trace, "elect(): finished fetching all paged solutions.");
-					Self::do_elect_paged(Zero::zero());
-				} else {
-					crate::log!(trace, "elect(): progressing, {:?} remaining pages.", next_page);
-					Self::do_elect_paged(next_page.saturated_into::<PageIndex>());
-				}
+				Self::do_elect_paged(next_page.saturated_into::<PageIndex>())
 			} else {
 				// election isn't ongoing yet, check if it should start.
 				let next_election = <Self as ElectionDataProvider>::next_election_prediction(now);
@@ -1031,19 +1022,18 @@ pub mod pallet {
 				if now == (next_election.saturating_sub(pages)) {
 					crate::log!(
 						trace,
-						"elect(): start fetching solution pages. expected pages: {}",
+						"elect(): start fetching solution pages. expected pages: {:?}",
 						pages
 					);
 
 					ElectingStartedAt::<T>::set(Some(now));
-					Self::do_elect_paged(pages.saturated_into::<PageIndex>().saturating_sub(1));
+					Self::do_elect_paged(pages.saturated_into::<PageIndex>().saturating_sub(1))
+				} else {
+					Weight::default()
 				}
 			};
 
-			// TODO: benchmark on_initialize
-
-			// return the weight of the on_finalize.
-			T::DbWeight::get().reads(1)
+			T::WeightInfo::on_initialize_noop().saturating_add(inner_weight)
 		}
 
 		fn on_finalize(_n: BlockNumberFor<T>) {
@@ -1878,6 +1868,7 @@ pub mod pallet {
 			era: EraIndex,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
+
 			Self::do_payout_stakers(validator_stash, era)
 		}
 

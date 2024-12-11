@@ -150,8 +150,7 @@ mod paged_on_initialize {
 				assert_eq!(expected_elected.len(), 2);
 
 				// 1. election prep hasn't started yet, election cursor and electable stashes are
-				//    not
-				// set yet.
+				// not set yet.
 				run_to_block(next_election - pages - 1);
 				assert_eq!(ElectingStartedAt::<Test>::get(), None);
 				assert!(ElectableStashes::<Test>::get().is_empty());
@@ -677,6 +676,25 @@ mod paged_snapshot {
 
 mod paged_exposures {
 	use super::*;
+
+	#[test]
+	fn genesis_collect_exposures_works() {
+		ExtBuilder::default().multi_page_election_provider(3).build_and_execute(|| {
+			// first, clean up all the era data and metadata to mimic a genesis election next.
+			Staking::clear_era_information(current_era());
+
+			// genesis election is single paged.
+			let genesis_result = <<Test as Config>::GenesisElectionProvider>::elect(0u32).unwrap();
+			let expected_exposures = Staking::collect_exposures(genesis_result.clone());
+
+			Staking::try_trigger_new_era(0u32, true);
+
+			// expected exposures are stored for the expected genesis validators.
+			for exposure in expected_exposures {
+				assert_eq!(EraInfo::<Test>::get_full_exposure(0, &exposure.0), exposure.1);
+			}
+		})
+	}
 
 	#[test]
 	fn store_stakers_info_elect_works() {

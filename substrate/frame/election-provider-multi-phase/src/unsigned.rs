@@ -552,7 +552,7 @@ impl<T: MinerConfig> Miner<T> {
 					// filter out lowest stake edge in this support.
 					// optimization note: collects edge voters to remove from assignments into a
 					// btree set to optimize the search in the next loop.
-					let filtered: std::collections::BTreeSet<_> = support
+					let filtered: alloc::collections::BTreeSet<_> = support
 						.voters
 						.split_off(max_backers_per_winner)
 						.into_iter()

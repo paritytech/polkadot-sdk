@@ -442,7 +442,6 @@ pub trait ElectionProvider {
 	///
 	/// The result is returned in a target major format, namely as vector of supports.
 	///
-	/// TODO(gpestana): remove self-weighing?
 	/// This should be implemented as a self-weighing function. The implementor should register its
 	/// appropriate weight at the end of execution with the system pallet directly.
 	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error>;

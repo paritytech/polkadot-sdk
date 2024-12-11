@@ -74,6 +74,7 @@ pub fn create_validator_with_nominators<T: Config>(
 	dead_controller: bool,
 	unique_controller: bool,
 	destination: RewardDestination<T::AccountId>,
+	era: u32,
 ) -> Result<(T::AccountId, Vec<(T::AccountId, T::AccountId)>), &'static str> {
 	// Clean up any existing state.
 	clear_validators_and_nominators::<T>();
@@ -129,14 +130,13 @@ pub fn create_validator_with_nominators<T: Config>(
 		individual: points_individual.into_iter().collect(),
 	};
 
-	let current_era = CurrentEra::<T>::get().unwrap();
-	ErasRewardPoints::<T>::insert(current_era, reward);
+	ErasRewardPoints::<T>::insert(era, reward);
 
 	// Create reward pool
 	let total_payout = asset::existential_deposit::<T>()
 		.saturating_mul(upper_bound.into())
 		.saturating_mul(1000u32.into());
-	<ErasValidatorReward<T>>::insert(current_era, total_payout);
+	<ErasValidatorReward<T>>::insert(era, total_payout);
 
 	Ok((v_stash, nominators))
 }
@@ -223,6 +223,67 @@ const USER_SEED: u32 = 999666;
 #[benchmarks]
 mod benchmarks {
 	use super::*;
+
+	#[benchmark]
+	fn on_initialize_noop() {
+		assert!(ElectableStashes::<T>::get().is_empty());
+		assert_eq!(ElectingStartedAt::<T>::get(), None);
+
+		#[block]
+		{
+			Pallet::<T>::on_initialize(1_u32.into());
+		}
+
+		assert!(ElectableStashes::<T>::get().is_empty());
+		assert_eq!(ElectingStartedAt::<T>::get(), None);
+	}
+
+	#[benchmark]
+	fn do_elect_paged(v: Linear<1, { T::MaxValidatorSet::get() }>) -> Result<(), BenchmarkError> {
+		assert!(ElectableStashes::<T>::get().is_empty());
+
+		create_validators_with_nominators_for_era::<T>(
+			v,
+			100,
+			MaxNominationsOf::<T>::get() as usize,
+			false,
+			None,
+		)?;
+
+		#[block]
+		{
+			Pallet::<T>::do_elect_paged(0u32);
+		}
+
+		assert!(!ElectableStashes::<T>::get().is_empty());
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn clear_election_metadata(
+		v: Linear<1, { T::MaxValidatorSet::get() }>,
+	) -> Result<(), BenchmarkError> {
+		use frame_support::BoundedBTreeSet;
+
+		let mut stashes: BoundedBTreeSet<T::AccountId, T::MaxValidatorSet> = BoundedBTreeSet::new();
+		for u in (0..v).into_iter() {
+			frame_support::assert_ok!(stashes.try_insert(account("stash", u, SEED)));
+		}
+
+		ElectableStashes::<T>::set(stashes);
+		ElectingStartedAt::<T>::set(Some(10u32.into()));
+
+		#[block]
+		{
+			Pallet::<T>::clear_election_metadata()
+		}
+
+		assert!(ElectingStartedAt::<T>::get().is_none());
+		assert!(ElectableStashes::<T>::get().is_empty());
+
+		Ok(())
+	}
 
 	#[benchmark]
 	fn bond() {
@@ -696,15 +757,20 @@ mod benchmarks {
 	fn payout_stakers_alive_staked(
 		n: Linear<0, { T::MaxExposurePageSize::get() as u32 }>,
 	) -> Result<(), BenchmarkError> {
+		// reset genesis era 0 so that triggering the new genesis era works as expected.
+		CurrentEra::<T>::set(Some(0));
+		let current_era = CurrentEra::<T>::get().unwrap();
+		Staking::<T>::clear_era_information(current_era);
+
 		let (validator, nominators) = create_validator_with_nominators::<T>(
 			n,
 			T::MaxExposurePageSize::get() as u32,
 			false,
 			true,
 			RewardDestination::Staked,
+			current_era,
 		)?;
 
-		let current_era = CurrentEra::<T>::get().unwrap();
 		// set the commission for this particular era as well.
 		<ErasValidatorPrefs<T>>::insert(
 			current_era,
@@ -989,7 +1055,7 @@ mod benchmarks {
 		#[block]
 		{
 			// default bounds are unbounded.
-			targets = <Staking<T>>::get_npos_targets(DataProviderBounds::default(), SINGLE_PAGE);
+			targets = <Staking<T>>::get_npos_targets(DataProviderBounds::default());
 		}
 
 		assert_eq!(targets.len() as u32, v);
@@ -1185,6 +1251,7 @@ mod tests {
 				false,
 				false,
 				RewardDestination::Staked,
+				CurrentEra::<T>::get().unwrap(),
 			)
 			.unwrap();
 
@@ -1217,6 +1284,7 @@ mod tests {
 				false,
 				false,
 				RewardDestination::Staked,
+				CurrentEra::<T>::get().unwrap(),
 			)
 			.unwrap();
 

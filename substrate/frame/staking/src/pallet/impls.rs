@@ -271,6 +271,7 @@ impl<T: Config> Pallet<T> {
 		})?;
 
 		let history_depth = T::HistoryDepth::get();
+
 		ensure!(
 			era <= current_era && era >= current_era.saturating_sub(history_depth),
 			Error::<T>::InvalidEraToReward
@@ -731,22 +732,24 @@ impl<T: Config> Pallet<T> {
 	/// If any new election winner does not fit in the electable stashes storage, it truncates the
 	/// result of the election. We ensure that only the winners that are part of the electable
 	/// stashes have exposures collected for the next era.
-	pub(crate) fn do_elect_paged(page: PageIndex) {
+	pub(crate) fn do_elect_paged(page: PageIndex) -> Weight {
 		let paged_result = match <T::ElectionProvider>::elect(page) {
 			Ok(result) => result,
 			Err(e) => {
 				log!(warn, "election provider page failed due to {:?} (page: {})", e, page);
 				// election failed, clear election prep metadata.
 				Self::clear_election_metadata();
-
 				Self::deposit_event(Event::StakingElectionFailed);
-				return
+
+				return T::WeightInfo::clear_election_metadata();
 			},
 		};
 
 		if let Err(_) = Self::do_elect_paged_inner(paged_result) {
 			defensive!("electable stashes exceeded limit, unexpected but election proceeds.");
 		};
+
+		T::WeightInfo::do_elect_paged(T::MaxValidatorSet::get())
 	}
 
 	/// Inner implementation of [`Self::do_elect_paged`].
@@ -805,6 +808,7 @@ impl<T: Config> Pallet<T> {
 			// accumulate total stake.
 			total_stake_page = total_stake_page.saturating_add(exposure.total);
 			// set or update staker exposure for this era.
+
 			EraInfo::<T>::upsert_exposure(new_planned_era, &stash, exposure);
 		});
 
@@ -839,7 +843,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns vec of all the exposures of a validator in `paged_supports`, bounded by the number
 	/// of max winners per page returned by the election provider.
-	fn collect_exposures(
+	pub(crate) fn collect_exposures(
 		supports: BoundedSupportsOf<T::ElectionProvider>,
 	) -> BoundedVec<
 		(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>),
