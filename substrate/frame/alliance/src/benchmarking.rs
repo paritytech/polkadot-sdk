@@ -21,9 +21,7 @@
 
 use super::{Call as AllianceCall, Pallet as Alliance, *};
 use core::{cmp, mem::size_of};
-use frame::{benchmarking::prelude::*, traits::UnfilteredDispatchable};
-use frame_system::Pallet as System;
-use RawOrigin as SystemOrigin;
+use frame::benchmarking::prelude::{*, RawOrigin as SystemOrigin, frame_system::Pallet as System};
 
 const SEED: u32 = 0;
 

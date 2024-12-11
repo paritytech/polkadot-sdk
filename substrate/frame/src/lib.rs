@@ -194,6 +194,9 @@ pub mod prelude {
 	#[doc(inline)]
 	pub use frame_system;
 
+	/// Bounded types.
+	pub use frame_support::{BoundedVec, BoundedSlice};
+
 	/// Pallet prelude of `frame-support`.
 	///
 	/// Note: this needs to revised once `frame-support` evolves.
@@ -266,6 +269,7 @@ pub mod benchmarking {
 		pub use super::shared::*;
 		pub use crate::prelude::*;
 		pub use frame_benchmarking::v2::*;
+		pub use frame_support::traits::UnfilteredDispatchable;
 	}
 }
 
@@ -301,9 +305,6 @@ pub mod weights_prelude {
 pub mod testing_prelude {
 	pub use crate::{prelude::*, runtime::prelude::*};
 
-	/// Testing includes event cheking.
-	pub use crate::event::*;
-
 	/// Testing includes building a runtime, so we bring in all preludes related to runtimes as
 	/// well.
 	pub use super::runtime::testing_prelude::*;
@@ -337,6 +338,9 @@ pub mod runtime {
 	pub mod prelude {
 		pub use crate::prelude::*;
 
+		/// Testing includes event cheking.
+		pub use crate::event::*;
+
 		/// All of the types related to the FRAME runtime executive.
 		pub use frame_executive::*;
 
@@ -344,9 +348,6 @@ pub mod runtime {
 		///
 		/// Consider using the new version of this [`frame_construct_runtime`].
 		pub use frame_support::construct_runtime;
-
-		/// Related to runtime contruction.
-		pub use frame_support::BoundedVec;
 
 		/// Macro to amalgamate the runtime into `struct Runtime`.
 		///
