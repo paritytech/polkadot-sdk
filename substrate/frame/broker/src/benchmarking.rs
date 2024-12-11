@@ -842,17 +842,12 @@ mod benches {
 		})?;
 
 		// Advance to the block before the rotate_sale in which the auto-renewals will take place.
-		advance_to::<T>(
-			timeslice_period.saturating_mul(config.region_length).saturating_mul(2) - 1,
-		);
+		let rotate_block = timeslice_period.saturating_mul(config.region_length).saturating_mul(2);
+		advance_to::<T>(rotate_block);
 
 		// Advance one block and manually tick so we can isolate the `rotate_sale` call.
-		System::<T>::set_block_number(
-			timeslice_period.saturating_mul(config.region_length.saturating_mul(2)).into(),
-		);
-		RCBlockNumberProviderOf::<T::Coretime>::set_block_number(
-			timeslice_period.saturating_mul(config.region_length.saturating_mul(2)).into(),
-		);
+		System::<T>::set_block_number(rotate_block.into());
+		RCBlockNumberProviderOf::<T::Coretime>::set_block_number(rotate_block.into());
 		let mut status = Status::<T>::get().expect("Sale has started.");
 		let sale = SaleInfo::<T>::get().expect("Sale has started.");
 		Broker::<T>::process_core_count(&mut status);
@@ -871,7 +866,7 @@ mod benches {
 
 		assert_has_event::<T>(
 			Event::SaleInitialized {
-				sale_start: new_sale.region_end.into(),
+				sale_start: (rotate_block + 1).into(), // sale starts after interlude
 				leadin_length: 1u32.into(),
 				start_price: Broker::<T>::sale_price(&new_sale, now),
 				end_price: new_prices.end_price,
@@ -898,7 +893,7 @@ mod benches {
 					old_core: n_reservations as u16 + n_leases as u16 + indx as u16,
 					core: n_reservations as u16 + n_leases as u16 + indx as u16,
 					price: 11_000_000u32.into(), // Renewal bump from config.
-					begin: new_sale.region_begin,
+					begin: sale.region_begin,
 					duration: config.region_length,
 					workload: Schedule::truncate_from(vec![ScheduleItem {
 						assignment: Task(task),
@@ -1039,10 +1034,11 @@ mod benches {
 
 	#[benchmark]
 	fn enable_auto_renew() -> Result<(), BenchmarkError> {
-		let _core = setup_and_start_sale::<T>()?;
+		let _core_id = setup_and_start_sale::<T>()?;
 
 		advance_to::<T>(2);
 
+		let sale = SaleInfo::<T>::get().expect("Sale has already started.");
 		// We assume max auto renewals for worst case.
 		(0..T::MaxAutoRenewals::get() - 1).try_for_each(|indx| -> Result<(), BenchmarkError> {
 			let task = 1000 + indx;
@@ -1060,7 +1056,7 @@ mod benches {
 			Broker::<T>::do_assign(region, None, task, Final)
 				.map_err(|_| BenchmarkError::Weightless)?;
 
-			Broker::<T>::do_enable_auto_renew(caller, region.core, task, Some(7))?;
+			Broker::<T>::do_enable_auto_renew(caller, region.core, task, Some(sale.region_end))?;
 
 			Ok(())
 		})?;
@@ -1081,16 +1077,19 @@ mod benches {
 
 		// The most 'intensive' path is when we renew the core upon enabling auto-renewal.
 		// Therefore, we advance to next bulk sale:
-		advance_to::<T>(6);
+		let timeslice_period: u32 = T::TimeslicePeriod::get().try_into().ok().unwrap();
+		let config = Configuration::<T>::get().expect("Already configured.");
+		advance_to::<T>(config.region_length * timeslice_period);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), region.core, 2001, None);
 
 		assert_last_event::<T>(Event::AutoRenewalEnabled { core: region.core, task: 2001 }.into());
 		// Make sure we indeed renewed:
+		let sale = SaleInfo::<T>::get().expect("Sales have started.");
 		assert!(PotentialRenewals::<T>::get(PotentialRenewalId {
 			core: region.core,
-			when: 10 // region end after renewal
+			when: sale.region_end,
 		})
 		.is_some());
 
@@ -1099,12 +1098,13 @@ mod benches {
 
 	#[benchmark]
 	fn disable_auto_renew() -> Result<(), BenchmarkError> {
-		let _core = setup_and_start_sale::<T>()?;
+		let core_id = setup_and_start_sale::<T>()?;
 
 		advance_to::<T>(2);
 
+		let sale = SaleInfo::<T>::get().expect("Sale has already started.");
 		// We assume max auto renewals for worst case.
-		(0..T::MaxAutoRenewals::get() - 1).try_for_each(|indx| -> Result<(), BenchmarkError> {
+		(0..T::MaxAutoRenewals::get()).try_for_each(|indx| -> Result<(), BenchmarkError> {
 			let task = 1000 + indx;
 			let caller: T::AccountId = T::SovereignAccountOf::maybe_convert(task)
 				.expect("Failed to get sovereign account");
@@ -1119,17 +1119,20 @@ mod benches {
 			Broker::<T>::do_assign(region, None, task, Final)
 				.map_err(|_| BenchmarkError::Weightless)?;
 
-			Broker::<T>::do_enable_auto_renew(caller, region.core, task, Some(7))?;
+			Broker::<T>::do_enable_auto_renew(caller, region.core, task, Some(sale.region_end))?;
 
 			Ok(())
 		})?;
 
-		let caller: T::AccountId =
-			T::SovereignAccountOf::maybe_convert(1000).expect("Failed to get sovereign account");
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), _core, 1000);
+		let task = 1000;
 
-		assert_last_event::<T>(Event::AutoRenewalDisabled { core: _core, task: 1000 }.into());
+		let caller: T::AccountId =
+			T::SovereignAccountOf::maybe_convert(task).expect("Failed to get sovereign account");
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), core_id, task);
+
+		assert_last_event::<T>(Event::AutoRenewalDisabled { core: core_id, task }.into());
 
 		Ok(())
 	}
