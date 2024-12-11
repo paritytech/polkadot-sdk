@@ -2286,20 +2286,15 @@ fn claims_above_are_counted_correctly() {
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
 
-		let hash_a = Hash::from_low_u64_be(test_state.relay_parent.to_low_u64_be() - 1);
-		let hash_b = Hash::from_low_u64_be(hash_a.to_low_u64_be() - 1);
-		let hash_c = Hash::from_low_u64_be(hash_b.to_low_u64_be() - 1);
+		let hash_a = Hash::from_low_u64_be(test_state.relay_parent.to_low_u64_be() - 1); // block 0
+		let hash_b = Hash::from_low_u64_be(hash_a.to_low_u64_be() - 1); // block 1
+		let hash_c = Hash::from_low_u64_be(hash_b.to_low_u64_be() - 1); // block 2
 
 		let pair_a = CollatorPair::generate().0;
 		let collator_a = PeerId::random();
 		let para_id_a = test_state.chain_ids[0];
 
-		update_view(
-			&mut virtual_overseer,
-			&mut test_state,
-			vec![(hash_a, 0), (hash_b, 1), (hash_c, 2)],
-		)
-		.await;
+		update_view(&mut virtual_overseer, &mut test_state, vec![(hash_c, 2)]).await;
 
 		connect_and_declare_collator(
 			&mut virtual_overseer,
@@ -2397,20 +2392,15 @@ fn claim_fills_last_free_slot() {
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
 
-		let hash_a = Hash::from_low_u64_be(test_state.relay_parent.to_low_u64_be() - 1);
-		let hash_b = Hash::from_low_u64_be(hash_a.to_low_u64_be() - 1);
-		let hash_c = Hash::from_low_u64_be(hash_b.to_low_u64_be() - 1);
+		let hash_a = Hash::from_low_u64_be(test_state.relay_parent.to_low_u64_be() - 1); // block 0
+		let hash_b = Hash::from_low_u64_be(hash_a.to_low_u64_be() - 1); // block 1
+		let hash_c = Hash::from_low_u64_be(hash_b.to_low_u64_be() - 1); // block 2
 
 		let pair_a = CollatorPair::generate().0;
 		let collator_a = PeerId::random();
 		let para_id_a = test_state.chain_ids[0];
 
-		update_view(
-			&mut virtual_overseer,
-			&mut test_state,
-			vec![(hash_a, 0), (hash_b, 1), (hash_c, 2)],
-		)
-		.await;
+		update_view(&mut virtual_overseer, &mut test_state, vec![(hash_c, 2)]).await;
 
 		connect_and_declare_collator(
 			&mut virtual_overseer,
@@ -2432,17 +2422,6 @@ fn claim_fills_last_free_slot() {
 		)
 		.await;
 
-		// Collation at hash_c claims its own spot
-		submit_second_and_assert(
-			&mut virtual_overseer,
-			keystore.clone(),
-			ParaId::from(test_state.chain_ids[0]),
-			hash_c,
-			collator_a,
-			HeadData(vec![2u8]),
-		)
-		.await;
-
 		// Collation at hash_b claims its own spot
 		submit_second_and_assert(
 			&mut virtual_overseer,
@@ -2451,6 +2430,17 @@ fn claim_fills_last_free_slot() {
 			hash_b,
 			collator_a,
 			HeadData(vec![3u8]),
+		)
+		.await;
+
+		// Collation at hash_c claims its own spot
+		submit_second_and_assert(
+			&mut virtual_overseer,
+			keystore.clone(),
+			ParaId::from(test_state.chain_ids[0]),
+			hash_c,
+			collator_a,
+			HeadData(vec![2u8]),
 		)
 		.await;
 

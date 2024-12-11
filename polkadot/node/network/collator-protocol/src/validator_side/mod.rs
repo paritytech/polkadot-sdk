@@ -1065,30 +1065,45 @@ fn ensure_seconding_limit_is_respected(
 		"Checking seconding limit",
 	);
 
+	let mut has_claim_at_some_path = false;
 	for path in paths {
 		let mut cq_state = ClaimQueueState::new();
-		for ancestor in path {
+		for ancestor in &path {
 			let seconded_and_pending = state.seconded_and_pending_for_para(&ancestor, &para_id);
 			cq_state.add_leaf(
 				&ancestor,
 				&state
 					.per_relay_parent
-					.get(&ancestor)
+					.get(ancestor)
 					.ok_or(AdvertisementError::RelayParentUnknown)?
 					.assignment
 					.current,
 			);
 			for _ in 0..seconded_and_pending {
-				cq_state.claim_at(&ancestor, &para_id);
+				cq_state.claim_at(ancestor, &para_id);
 			}
 		}
 
-		if !cq_state.can_claim_at(relay_parent, &para_id) {
-			return Err(AdvertisementError::SecondedLimitReached)
+		if cq_state.can_claim_at(relay_parent, &para_id) {
+			gum::trace!(
+				target: LOG_TARGET,
+				?relay_parent,
+				?para_id,
+				?path,
+				"Seconding limit respected at path",
+			);
+			has_claim_at_some_path = true;
+			break
 		}
 	}
 
-	Ok(())
+	// If there is a place in the claim queue for the candidate at at least one path we will accept
+	// it.
+	if has_claim_at_some_path {
+		Ok(())
+	} else {
+		Err(AdvertisementError::SecondedLimitReached)
+	}
 }
 
 async fn handle_advertisement<Sender>(
