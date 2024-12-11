@@ -415,6 +415,22 @@ pub use sp_api_proc_macro::decl_runtime_apis;
 ///  // impl skipped
 /// }
 /// ```
+///
+///  # Importing implementations defined using `sp_api::impl_runtime_apis_ext`
+///
+///  `impl_runtime_apis!` allows the user to define implementaions in multiple modules/blocks
+///  through `impl_runtime_apis_ext` and including them through a `use` inside the block.
+///  ```ignore
+///  sp_api::impl_runtime_apis! {
+///     impl self::ExampleApi<Block> for Runtime {
+///         fn stable_one(_: u64) {}
+///
+///         #[cfg(feature = "enable-staging-api")]
+///         fn staging_one() {}
+///     }
+///     use path::to::the::extension::module::*;
+/// }
+///  ```
 pub use sp_api_proc_macro::impl_runtime_apis;
 
 /// Mocks given trait implementations as runtime apis.
@@ -523,7 +539,74 @@ pub use sp_api_proc_macro::impl_runtime_apis;
 /// ```
 pub use sp_api_proc_macro::mock_impl_runtime_apis;
 
-/// Ass
+/// Tags given trait implementations as runtime apis in an extension module.
+///
+/// All traits given to this macro, need to be declared with the
+/// [`decl_runtime_apis!`](macro.decl_runtime_apis.html) macro. The implementation of the trait
+/// should follow the declaration given to the
+/// [`decl_runtime_apis!`](macro.decl_runtime_apis.html) macro, besides the `Block` type that
+/// is required as first generic parameter for each runtime api trait. When implementing a
+/// runtime api trait, it is required that the trait is referenced by a path, e.g. `impl
+/// my_trait::MyTrait for Runtime`. The macro will use this path to access the declaration of
+/// the trait for the runtime side.
+///
+///  # Usage
+///  
+///  This macro follows the same rules and structure as `impl_runtime_apis!` except for a few
+/// differnces:
+///  - It is a proc-macro attribute that needs to be used on a module within a file.
+///  - It doesn't generate base RuntimeApi scaffolding as `impl_runtime_apis!`.
+///  - To be effectively visible from `impl_runtime_apis!` it needs to be imported inside of it
+///    through `pub use`/`use`.
+///
+///  # Example
+///
+/// ```ignore
+/// pub enum Runtime {}
+///
+/// sp_api::decl_runtime_apis! {
+///      /// Declare the api trait.
+///      pub trait Balance {
+///          /// Get the balance.
+///          fn get_balance() -> u64;
+///          /// Set the balance.
+///          fn set_balance(val: u64);
+///      }
+///      pub trait BlockBuilder {
+///         fn build_block() -> Block;
+///      }
+/// }
+///
+/// sp_api::impl_runtime_apis! {
+/// 	impl sp_api::Core<Block> for Runtime {
+///     	fn version() -> sp_version::RuntimeVersion {
+///             unimplemented!()
+///         }
+///         fn execute_block(_block: Block) {}
+///         fn initialize_block(_header: &<Block as BlockT>::Header) -> ExtrinsicInclusionMode {
+///         	unimplemented!()
+///         }
+/// 	}
+/// 	// Using the code declared inside `extensions` module.
+/// 	pub use extensions::*;
+///     impl self::BlockBuilder<Block> for Runtime {
+///     	fn build_block() -> Block {
+///         	unimplemented!("Please implement me!")
+///         }
+///     }
+/// }
+/// #[impl_runtime_apis_ext]
+/// mod extensions {
+///     impl self::Balance<Block> for Runtime {
+///         fn get_balance() -> u64 {
+///             1
+///         }
+///         fn set_balance(_bal: u64) {
+///             // Store the balance
+///         }
+///     }
+/// }
+/// ```
 pub use sp_api_proc_macro::impl_runtime_apis_ext;
 
 /// A type that records all accessed trie nodes and generates a proof out of it.
