@@ -89,7 +89,7 @@ mod tests;
 pub use pallet::*;
 pub use weights::WeightInfo;
 
-use alloc::{vec, Vec};
+use alloc::{vec, vec::Vec};
 use frame::{
 	arithmetic::{PerThing, Perquintill, RationalArg, Rounding, Unsigned},
 	prelude::*,
