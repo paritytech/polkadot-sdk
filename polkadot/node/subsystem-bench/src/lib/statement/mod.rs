@@ -152,9 +152,7 @@ fn build_overseer(
 	(overseer, overseer_handle, vec![statement_req_cfg])
 }
 
-pub fn prepare_test(
-	state: &TestState,
-) -> (TestEnvironment, Vec<ProtocolConfig>) {
+pub fn prepare_test(state: &TestState) -> (TestEnvironment, Vec<ProtocolConfig>) {
 	let dependencies = TestEnvironmentDependencies::default();
 	let (network, network_interface, network_receiver) = new_network(
 		&state.config,

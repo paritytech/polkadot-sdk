@@ -26,8 +26,8 @@ use pyroscope_pprofrs::{pprof_backend, PprofConfig};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-mod valgrind;
 mod prometheus;
+mod valgrind;
 
 const LOG_TARGET: &str = "subsystem-bench::cli";
 

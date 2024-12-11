@@ -14,39 +14,37 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use color_eyre::eyre;
-
-static PROMETHEUS_RUNNING: AtomicBool = AtomicBool::new(false);
 
 /// Show if the app is running under Prometheus monitoring
 pub(crate) fn is_prometheus_running() -> bool {
-    PROMETHEUS_RUNNING.load(Ordering::SeqCst)
+	use std::net::TcpStream;
+
+	let prometheus_address = "127.0.0.1:9999"; // Replace with your Prometheus endpoint
+	TcpStream::connect(prometheus_address).is_ok()
 }
 
 /// Relaunch the app in Prometheus monitoring mode
 pub(crate) fn relaunch_in_prometheus_mode() -> eyre::Result<()> {
-    if is_prometheus_running() {
-        println!("Prometheus mode is already active.");
-        return Ok(());
-    }
+	use tokio::runtime::Runtime;
 
-    // Mark Prometheus as running
-    PROMETHEUS_RUNNING.store(true, Ordering::SeqCst);
+	if is_prometheus_running() {
+		println!("Prometheus mode is already active.");
+		return Ok(());
+	}
 
-    // Start Prometheus monitoring on a predefined address
-    let registry = prometheus::Registry::new();
-    tokio::spawn(async move {
-        if let Err(e) = prometheus_endpoint::init_prometheus(
-            std::net::SocketAddr::new(std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST), 9999),
-            registry,
-        )
-        .await
-        {
-            eprintln!("Failed to initialize Prometheus endpoint: {:?}", e);
-        }
-    });
+	// Initialize Tokio runtime for blocking the future
+	let runtime = Runtime::new()?;
+	runtime.block_on(async {
+		let registry = prometheus::Registry::new();
+		let addr =
+			std::net::SocketAddr::new(std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST), 9999);
 
-    println!("App relaunched in Prometheus monitoring mode.");
-    Ok(())
+		prometheus_endpoint::init_prometheus(addr, registry).await.map_err(|e| {
+			eyre::eyre!("Failed to initialize Prometheus endpoint at {}: {:?}", addr, e)
+		})
+	})?;
+
+	println!("App relaunched in Prometheus monitoring mode.");
+	Ok(())
 }

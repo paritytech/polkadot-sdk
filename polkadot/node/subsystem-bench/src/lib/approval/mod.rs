@@ -916,11 +916,7 @@ pub fn prepare_test(
 	config: TestConfiguration,
 	options: ApprovalsOptions,
 ) -> (TestEnvironment, ApprovalTestState) {
-	prepare_test_inner(
-		config,
-		TestEnvironmentDependencies::default(),
-		options,
-	)
+	prepare_test_inner(config, TestEnvironmentDependencies::default(), options)
 }
 
 /// Build the test environment for an Approval benchmark.
