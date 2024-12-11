@@ -30,7 +30,7 @@ use super::{metrics::MetricsLink as PrometheusMetrics, multi_view_listener::Mult
 use crate::{
 	common::log_xt::log_xt_trace,
 	graph,
-	graph::{tracked_map::Size, ExtrinsicFor, ExtrinsicHash},
+	graph::{base_pool::TimedTransactionSource, tracked_map::Size, ExtrinsicFor, ExtrinsicHash},
 	LOG_TARGET,
 };
 use futures::FutureExt;
@@ -74,7 +74,7 @@ where
 	/// Size of the extrinsics actual body.
 	bytes: usize,
 	/// Transaction source.
-	source: TransactionSource,
+	source: TimedTransactionSource,
 	/// When the transaction was revalidated, used to periodically revalidate the mem pool buffer.
 	validated_at: AtomicU64,
 	//todo: we need to add future / ready status at finalized block.
@@ -95,18 +95,30 @@ where
 	/// Shall the progress of transaction be watched.
 	///
 	/// Was transaction sent with `submit_and_watch`.
-	fn is_watched(&self) -> bool {
+	pub(crate) fn is_watched(&self) -> bool {
 		self.watched
 	}
 
 	/// Creates a new instance of wrapper for unwatched transaction.
 	fn new_unwatched(source: TransactionSource, tx: ExtrinsicFor<ChainApi>, bytes: usize) -> Self {
-		Self { watched: false, tx, source, validated_at: AtomicU64::new(0), bytes }
+		Self {
+			watched: false,
+			tx,
+			source: TimedTransactionSource::from_transaction_source(source, true),
+			validated_at: AtomicU64::new(0),
+			bytes,
+		}
 	}
 
 	/// Creates a new instance of wrapper for watched transaction.
 	fn new_watched(source: TransactionSource, tx: ExtrinsicFor<ChainApi>, bytes: usize) -> Self {
-		Self { watched: true, tx, source, validated_at: AtomicU64::new(0), bytes }
+		Self {
+			watched: true,
+			tx,
+			source: TimedTransactionSource::from_transaction_source(source, true),
+			validated_at: AtomicU64::new(0),
+			bytes,
+		}
 	}
 
 	/// Provides a clone of actual transaction body.
@@ -117,8 +129,8 @@ where
 	}
 
 	/// Returns the source of the transaction.
-	pub(crate) fn source(&self) -> TransactionSource {
-		self.source
+	pub(crate) fn source(&self) -> TimedTransactionSource {
+		self.source.clone()
 	}
 }
 
@@ -174,6 +186,19 @@ where
 	max_transactions_total_bytes: usize,
 }
 
+/// Helper structure to encapsulate a result of [`TxMemPool::try_insert`].
+#[derive(Debug)]
+pub(super) struct InsertionInfo<Hash> {
+	pub(super) hash: Hash,
+	pub(super) source: TimedTransactionSource,
+}
+
+impl<Hash> InsertionInfo<Hash> {
+	fn new(hash: Hash, source: TimedTransactionSource) -> Self {
+		Self { hash, source }
+	}
+}
+
 impl<ChainApi, Block> TxMemPool<ChainApi, Block>
 where
 	Block: BlockT,
@@ -220,8 +245,8 @@ where
 	pub(super) fn get_by_hash(
 		&self,
 		hash: ExtrinsicHash<ChainApi>,
-	) -> Option<ExtrinsicFor<ChainApi>> {
-		self.transactions.read().get(&hash).map(|t| t.tx())
+	) -> Option<Arc<TxInMemPool<ChainApi, Block>>> {
+		self.transactions.read().get(&hash).map(Clone::clone)
 	}
 
 	/// Returns a tuple with the count of unwatched and watched transactions in the memory pool.
@@ -229,6 +254,11 @@ where
 		let transactions = self.transactions.read();
 		let watched_count = transactions.values().filter(|t| t.is_watched()).count();
 		(transactions.len() - watched_count, watched_count)
+	}
+
+	/// Returns a total number of transactions kept within mempool.
+	pub fn len(&self) -> usize {
+		self.transactions.read().len()
 	}
 
 	/// Returns the number of bytes used by all extrinsics in the the pool.
@@ -249,7 +279,7 @@ where
 		&self,
 		hash: ExtrinsicHash<ChainApi>,
 		tx: TxInMemPool<ChainApi, Block>,
-	) -> Result<ExtrinsicHash<ChainApi>, ChainApi::Error> {
+	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, ChainApi::Error> {
 		let bytes = self.transactions.bytes();
 		let mut transactions = self.transactions.write();
 		let result = match (
@@ -257,14 +287,15 @@ where
 			transactions.contains_key(&hash),
 		) {
 			(true, false) => {
+				let source = tx.source();
 				transactions.insert(hash, Arc::from(tx));
-				Ok(hash)
+				Ok(InsertionInfo::new(hash, source))
 			},
 			(_, true) =>
 				Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(hash)).into()),
 			(false, _) => Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped.into()),
 		};
-		log::trace!(target: LOG_TARGET, "[{:?}] mempool::try_insert: {:?}", hash, result);
+		log::trace!(target: LOG_TARGET, "[{:?}] mempool::try_insert: {:?}", hash, result.as_ref().map(|r| r.hash));
 
 		result
 	}
@@ -277,7 +308,7 @@ where
 		&self,
 		source: TransactionSource,
 		xts: &[ExtrinsicFor<ChainApi>],
-	) -> Vec<Result<ExtrinsicHash<ChainApi>, ChainApi::Error>> {
+	) -> Vec<Result<InsertionInfo<ExtrinsicHash<ChainApi>>, ChainApi::Error>> {
 		let result = xts
 			.iter()
 			.map(|xt| {
@@ -294,25 +325,18 @@ where
 		&self,
 		source: TransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
-	) -> Result<ExtrinsicHash<ChainApi>, ChainApi::Error> {
+	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, ChainApi::Error> {
 		let (hash, length) = self.api.hash_and_length(&xt);
 		self.try_insert(hash, TxInMemPool::new_watched(source, xt.clone(), length))
 	}
 
-	/// Removes transactions from the memory pool which are specified by the given list of hashes
-	/// and send the `Dropped` event to the listeners of these transactions.
-	pub(super) async fn remove_dropped_transactions(
+	/// Removes transaction from the memory pool which are specified by the given list of hashes.
+	pub(super) async fn remove_dropped_transaction(
 		&self,
-		to_be_removed: &[ExtrinsicHash<ChainApi>],
-	) {
-		log::debug!(target: LOG_TARGET, "remove_dropped_transactions count:{:?}", to_be_removed.len());
-		log_xt_trace!(target: LOG_TARGET, to_be_removed, "[{:?}] mempool::remove_dropped_transactions");
-		let mut transactions = self.transactions.write();
-		to_be_removed.iter().for_each(|t| {
-			transactions.remove(t);
-		});
-
-		self.listener.transactions_dropped(to_be_removed);
+		dropped: &ExtrinsicHash<ChainApi>,
+	) -> Option<Arc<TxInMemPool<ChainApi, Block>>> {
+		log::debug!(target: LOG_TARGET, "[{:?}] mempool::remove_dropped_transaction", dropped);
+		self.transactions.write().remove(dropped)
 	}
 
 	/// Clones and returns a `HashMap` of references to all unwatched transactions in the memory
@@ -369,13 +393,13 @@ where
 		};
 
 		let validations_futures = input.into_iter().map(|(xt_hash, xt)| {
-			self.api.validate_transaction(finalized_block.hash, xt.source, xt.tx()).map(
-				move |validation_result| {
+			self.api
+				.validate_transaction(finalized_block.hash, xt.source.clone().into(), xt.tx())
+				.map(move |validation_result| {
 					xt.validated_at
 						.store(finalized_block.number.into().as_u64(), atomic::Ordering::Relaxed);
 					(xt_hash, validation_result)
-				},
-			)
+				})
 		});
 		let validation_results = futures::future::join_all(validations_futures).await;
 		let input_len = validation_results.len();
@@ -403,7 +427,7 @@ where
 
 		log::debug!(
 			target: LOG_TARGET,
-			"mempool::revalidate: at {finalized_block:?} count:{input_len}/{count} purged:{} took {duration:?}", invalid_hashes.len(),
+			"mempool::revalidate: at {finalized_block:?} count:{input_len}/{count} invalid_hashes:{} took {duration:?}", invalid_hashes.len(),
 		);
 
 		invalid_hashes
@@ -445,7 +469,7 @@ mod tx_mem_pool_tests {
 	use super::*;
 	use crate::{common::tests::TestApi, graph::ChainApi};
 	use substrate_test_runtime::{AccountId, Extrinsic, ExtrinsicBuilder, Transfer, H256};
-	use substrate_test_runtime_client::AccountKeyring::*;
+	use substrate_test_runtime_client::Sr25519Keyring::*;
 	fn uxt(nonce: u64) -> Extrinsic {
 		crate::common::tests::uxt(Transfer {
 			from: Alice.into(),

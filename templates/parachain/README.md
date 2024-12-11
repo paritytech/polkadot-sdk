@@ -27,6 +27,7 @@
   - [Connect with the Polkadot-JS Apps Front-End](#connect-with-the-polkadot-js-apps-front-end)
   - [Takeaways](#takeaways)
 
+- [Runtime development](#runtime-development)
 - [Contributing](#contributing)
 - [Getting Help](#getting-help)
 
@@ -107,13 +108,11 @@ with the relay chain ID where this instantiation of parachain-template will conn
 
 #### Run Omni Node
 
-Start Omni Node with the generated chain spec. We'll start it development mode (without a relay chain config),
-with a temporary directory for configuration (given `--tmp`), and block production set to create a block with
-every second.
+Start Omni Node with the generated chain spec. We'll start it in development mode (without a relay chain config), producing
+and finalizing blocks based on manual seal, configured below to seal a block with each second.
 
 ```bash
-polkadot-omni-node --chain <path/to/chain_spec.json> --tmp --dev-block-time 1000
-
+polkadot-omni-node --chain <path/to/chain_spec.json> --dev --dev-block-time 1000
 ```
 
 However, such a setup is not close to what would run in production, and for that we need to setup a local
@@ -196,6 +195,37 @@ Development parachains:
 - 🧹 Do not persist the state.
 - 💰 Are preconfigured with a genesis state that includes several prefunded development accounts.
 - 🧑‍⚖️ Development accounts are used as validators, collators, and `sudo` accounts.
+
+## Runtime development
+
+We recommend using [`chopsticks`](https://github.com/AcalaNetwork/chopsticks) when the focus is more on the runtime
+development and `OmniNode` is enough as is.
+
+### Install chopsticks
+
+To use `chopsticks`, please install the latest version according to the installation [guide](https://github.com/AcalaNetwork/chopsticks?tab=readme-ov-file#install).
+
+### Build a raw chain spec
+
+Build the `parachain-template-runtime` as mentioned before in this guide and use `chain-spec-builder`
+again but this time by passing `--raw-storage` flag:
+
+```sh
+chain-spec-builder create --raw-storage --relay-chain "rococo-local" --para-id 1000 --runtime \
+    target/release/wbuild/parachain-template-runtime/parachain_template_runtime.wasm named-preset development
+```
+
+### Start `chopsticks` with the chain spec
+
+```sh
+npx @acala-network/chopsticks@latest --chain-spec <path/to/chain_spec.json>
+```
+
+### Alternatives
+
+`OmniNode` can be still used for runtime development if using the `--dev` flag, while `parachain-template-node` doesn't
+support it at this moment. It can still be used to test a runtime in a full setup where it is started alongside a
+relay chain network (see [Parachain Template node](#parachain-template-node) setup).
 
 ## Contributing
 

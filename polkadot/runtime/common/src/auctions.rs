@@ -339,10 +339,10 @@ impl<T: Config> Auctioneer<BlockNumberFor<T>> for Pallet<T> {
 			let sample_length = T::SampleLength::get().max(One::one());
 			let sample = after_early_end / sample_length;
 			let sub_sample = after_early_end % sample_length;
-			return AuctionStatus::EndingPeriod(sample, sub_sample)
+			return AuctionStatus::EndingPeriod(sample, sub_sample);
 		} else {
 			// This is safe because of the comparison operator above
-			return AuctionStatus::VrfDelay(after_early_end - ending_period)
+			return AuctionStatus::VrfDelay(after_early_end - ending_period);
 		}
 	}
 
@@ -559,7 +559,7 @@ impl<T: Config> Pallet<T> {
 					#[allow(deprecated)]
 					Winning::<T>::remove_all(None);
 					AuctionInfo::<T>::kill();
-					return Some((res, lease_period_index))
+					return Some((res, lease_period_index));
 				}
 			}
 		}
@@ -765,11 +765,11 @@ mod tests {
 				let (current_lease_period, _) =
 					Self::lease_period_index(now).ok_or(LeaseError::NoLeasePeriod)?;
 				if period_begin < current_lease_period {
-					return Err(LeaseError::AlreadyEnded)
+					return Err(LeaseError::AlreadyEnded);
 				}
 				for period in period_begin..(period_begin + period_count) {
 					if leases.contains_key(&(para, period)) {
-						return Err(LeaseError::AlreadyLeased)
+						return Err(LeaseError::AlreadyLeased);
 					}
 					leases.insert((para, period), LeaseData { leaser: *leaser, amount });
 				}
@@ -1718,7 +1718,7 @@ mod benchmarking {
 	use polkadot_runtime_parachains::paras;
 	use sp_runtime::{traits::Bounded, SaturatedConversion};
 
-	use frame_benchmarking::{account, benchmarks, whitelisted_caller, BenchmarkError};
+	use frame_benchmarking::v2::*;
 
 	fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 		let events = frame_system::Pallet::<T>::events();
@@ -1772,25 +1772,37 @@ mod benchmarking {
 		}
 	}
 
-	benchmarks! {
-		where_clause { where T: pallet_babe::Config + paras::Config }
+	#[benchmarks(
+		where T: pallet_babe::Config + paras::Config,
+	)]
+	mod benchmarks {
+		use super::*;
 
-		new_auction {
+		#[benchmark]
+		fn new_auction() -> Result<(), BenchmarkError> {
 			let duration = BlockNumberFor::<T>::max_value();
 			let lease_period_index = LeasePeriodOf::<T>::max_value();
-			let origin =
-				T::InitiateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		}: _<T::RuntimeOrigin>(origin, duration, lease_period_index)
-		verify {
-			assert_last_event::<T>(Event::<T>::AuctionStarted {
-				auction_index: AuctionCounter::<T>::get(),
-				lease_period: LeasePeriodOf::<T>::max_value(),
-				ending: BlockNumberFor::<T>::max_value(),
-			}.into());
+			let origin = T::InitiateOrigin::try_successful_origin()
+				.map_err(|_| BenchmarkError::Weightless)?;
+
+			#[extrinsic_call]
+			_(origin as T::RuntimeOrigin, duration, lease_period_index);
+
+			assert_last_event::<T>(
+				Event::<T>::AuctionStarted {
+					auction_index: AuctionCounter::<T>::get(),
+					lease_period: LeasePeriodOf::<T>::max_value(),
+					ending: BlockNumberFor::<T>::max_value(),
+				}
+				.into(),
+			);
+
+			Ok(())
 		}
 
 		// Worst case scenario a new bid comes in which kicks out an existing bid for the same slot.
-		bid {
+		#[benchmark]
+		fn bid() -> Result<(), BenchmarkError> {
 			// If there is an offset, we need to be on that block to be able to do lease things.
 			let (_, offset) = T::Leaser::lease_period_length();
 			frame_system::Pallet::<T>::set_block_number(offset + One::one());
@@ -1810,8 +1822,18 @@ mod benchmarking {
 			CurrencyOf::<T>::make_free_balance_be(&owner, BalanceOf::<T>::max_value());
 			let worst_head_data = T::Registrar::worst_head_data();
 			let worst_validation_code = T::Registrar::worst_validation_code();
-			T::Registrar::register(owner.clone(), para, worst_head_data.clone(), worst_validation_code.clone())?;
-			T::Registrar::register(owner, new_para, worst_head_data, worst_validation_code.clone())?;
+			T::Registrar::register(
+				owner.clone(),
+				para,
+				worst_head_data.clone(),
+				worst_validation_code.clone(),
+			)?;
+			T::Registrar::register(
+				owner,
+				new_para,
+				worst_head_data,
+				worst_validation_code.clone(),
+			)?;
 			assert_ok!(paras::Pallet::<T>::add_trusted_validation_code(
 				frame_system::Origin::<T>::Root.into(),
 				worst_validation_code,
@@ -1839,15 +1861,28 @@ mod benchmarking {
 			CurrencyOf::<T>::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 			let bigger_amount = CurrencyOf::<T>::minimum_balance().saturating_mul(10u32.into());
 			assert_eq!(CurrencyOf::<T>::reserved_balance(&first_bidder), first_amount);
-		}: _(RawOrigin::Signed(caller.clone()), new_para, auction_index, first_slot, last_slot, bigger_amount)
-		verify {
-			// Confirms that we unreserved funds from a previous bidder, which is worst case scenario.
+
+			#[extrinsic_call]
+			_(
+				RawOrigin::Signed(caller.clone()),
+				new_para,
+				auction_index,
+				first_slot,
+				last_slot,
+				bigger_amount,
+			);
+
+			// Confirms that we unreserved funds from a previous bidder, which is worst case
+			// scenario.
 			assert_eq!(CurrencyOf::<T>::reserved_balance(&caller), bigger_amount);
+
+			Ok(())
 		}
 
-		// Worst case: 10 bidders taking all wining spots, and we need to calculate the winner for auction end.
-		// Entire winner map should be full and removed at the end of the benchmark.
-		on_initialize {
+		// Worst case: 10 bidders taking all wining spots, and we need to calculate the winner for
+		// auction end. Entire winner map should be full and removed at the end of the benchmark.
+		#[benchmark]
+		fn on_initialize() -> Result<(), BenchmarkError> {
 			// If there is an offset, we need to be on that block to be able to do lease things.
 			let (lease_length, offset) = T::Leaser::lease_period_length();
 			frame_system::Pallet::<T>::set_block_number(offset + One::one());
@@ -1868,7 +1903,7 @@ mod benchmarking {
 
 			let winning_data = Winning::<T>::get(BlockNumberFor::<T>::from(0u32)).unwrap();
 			// Make winning map full
-			for i in 0u32 .. (T::EndingPeriod::get() / T::SampleLength::get()).saturated_into() {
+			for i in 0u32..(T::EndingPeriod::get() / T::SampleLength::get()).saturated_into() {
 				Winning::<T>::insert(BlockNumberFor::<T>::from(i), winning_data.clone());
 			}
 
@@ -1882,20 +1917,29 @@ mod benchmarking {
 				let authorities = pallet_babe::Pallet::<T>::authorities();
 				// Check for non empty authority set since it otherwise emits a No-OP warning.
 				if !authorities.is_empty() {
-					pallet_babe::Pallet::<T>::enact_epoch_change(authorities.clone(), authorities, None);
+					pallet_babe::Pallet::<T>::enact_epoch_change(
+						authorities.clone(),
+						authorities,
+						None,
+					);
 				}
 			}
 
-		}: {
-			Auctions::<T>::on_initialize(duration + now + T::EndingPeriod::get());
-		} verify {
+			#[block]
+			{
+				Auctions::<T>::on_initialize(duration + now + T::EndingPeriod::get());
+			}
+
 			let auction_index = AuctionCounter::<T>::get();
 			assert_last_event::<T>(Event::<T>::AuctionClosed { auction_index }.into());
 			assert!(Winning::<T>::iter().count().is_zero());
+
+			Ok(())
 		}
 
 		// Worst case: 10 bidders taking all wining spots, and winning data is full.
-		cancel_auction {
+		#[benchmark]
+		fn cancel_auction() -> Result<(), BenchmarkError> {
 			// If there is an offset, we need to be on that block to be able to do lease things.
 			let (lease_length, offset) = T::Leaser::lease_period_length();
 			frame_system::Pallet::<T>::set_block_number(offset + One::one());
@@ -1903,7 +1947,6 @@ mod benchmarking {
 			// Create a new auction
 			let duration: BlockNumberFor<T> = lease_length / 2u32.into();
 			let lease_period_index = LeasePeriodOf::<T>::zero();
-			let now = frame_system::Pallet::<T>::block_number();
 			let origin = T::InitiateOrigin::try_successful_origin()
 				.expect("InitiateOrigin has no successful origin required for the benchmark");
 			Auctions::<T>::new_auction(origin, duration, lease_period_index)?;
@@ -1916,13 +1959,16 @@ mod benchmarking {
 			}
 
 			// Make winning map full
-			for i in 0u32 .. (T::EndingPeriod::get() / T::SampleLength::get()).saturated_into() {
+			for i in 0u32..(T::EndingPeriod::get() / T::SampleLength::get()).saturated_into() {
 				Winning::<T>::insert(BlockNumberFor::<T>::from(i), winning_data.clone());
 			}
 			assert!(AuctionInfo::<T>::get().is_some());
-		}: _(RawOrigin::Root)
-		verify {
+
+			#[extrinsic_call]
+			_(RawOrigin::Root);
+
 			assert!(AuctionInfo::<T>::get().is_none());
+			Ok(())
 		}
 
 		impl_benchmark_test_suite!(

@@ -42,6 +42,7 @@ substrate-wasm-builder = { optional = true, workspace = true, default-features =
 
 [dev-dependencies]
 chain-spec-builder = { workspace = true, default-features = true }
+cmd_lib = { workspace = true }
 sc-chain-spec = { workspace = true, default-features = true }
 
 [features]

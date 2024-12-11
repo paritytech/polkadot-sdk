@@ -24,7 +24,7 @@ use sp_runtime::transaction_validity::TransactionSource;
 use std::sync::Arc;
 use substrate_test_runtime_client::{
 	runtime::{Block, Hash, Header},
-	AccountKeyring::*,
+	Sr25519Keyring::*,
 };
 use substrate_test_runtime_transaction_pool::{uxt, TestApi};
 pub const LOG_TARGET: &str = "txpool";
@@ -198,6 +198,20 @@ macro_rules! assert_ready_iterator {
 				o.hash == *e
 			})
 		);
+	}};
+}
+
+#[macro_export]
+macro_rules! assert_future_iterator {
+	($hash:expr, $pool:expr, [$( $xt:expr ),*]) => {{
+		let futures = $pool.futures_at($hash).unwrap();
+		let expected = vec![ $($pool.api().hash_and_length(&$xt).0),*];
+		log::debug!(target:LOG_TARGET, "expected: {:#?}", futures);
+		log::debug!(target:LOG_TARGET, "output: {:#?}", expected);
+		assert_eq!(expected.len(), futures.len());
+		let hsf = futures.iter().map(|a| a.hash).collect::<std::collections::HashSet<_>>();
+		let hse = expected.into_iter().collect::<std::collections::HashSet<_>>();
+		assert_eq!(hse,hsf);
 	}};
 }
 

@@ -24,7 +24,7 @@ use frame_support::traits::{fungibles::Mutate, Currency};
 use frame_system::RawOrigin;
 use pallet_revive::{
 	test_utils::{self, builder::*},
-	Code,
+	Code, DepositLimit,
 };
 use pallet_revive_fixtures::compile_module;
 use pallet_revive_uapi::ReturnErrorCode;
@@ -52,7 +52,7 @@ fn instantiate_test_contract(name: &str) -> Contract<parachain::Runtime> {
 			RawOrigin::Signed(ALICE).into(),
 			Code::Upload(wasm),
 		)
-		.storage_deposit_limit(1_000_000_000_000)
+		.storage_deposit_limit(DepositLimit::Balance(1_000_000_000_000))
 		.build_and_unwrap_contract()
 	});
 

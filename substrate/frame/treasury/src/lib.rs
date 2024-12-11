@@ -106,7 +106,7 @@ use frame_support::{
 	weights::Weight,
 	BoundedVec, PalletId,
 };
-use frame_system::pallet_prelude::BlockNumberFor;
+use frame_system::pallet_prelude::BlockNumberFor as SystemBlockNumberFor;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -122,6 +122,8 @@ pub type NegativeImbalanceOf<T, I = ()> = <<T as Config<I>>::Currency as Currenc
 >>::NegativeImbalance;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 type BeneficiaryLookupOf<T, I> = <<T as Config<I>>::BeneficiaryLookup as StaticLookup>::Source;
+pub type BlockNumberFor<T, I = ()> =
+	<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// A trait to allow the Treasury Pallet to spend it's funds for other purposes.
 /// There is an expectation that the implementer of this trait will correctly manage
@@ -202,7 +204,7 @@ pub mod pallet {
 		pallet_prelude::*,
 		traits::tokens::{ConversionFromAssetBalance, PaymentStatus},
 	};
-	use frame_system::pallet_prelude::*;
+	use frame_system::pallet_prelude::{ensure_signed, OriginFor};
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
@@ -221,7 +223,7 @@ pub mod pallet {
 
 		/// Period between successive spends.
 		#[pallet::constant]
-		type SpendPeriod: Get<BlockNumberFor<Self>>;
+		type SpendPeriod: Get<BlockNumberFor<Self, I>>;
 
 		/// Percentage of spare funds (if any) that are burnt per spend period.
 		#[pallet::constant]
@@ -277,14 +279,14 @@ pub mod pallet {
 
 		/// The period during which an approved treasury spend has to be claimed.
 		#[pallet::constant]
-		type PayoutPeriod: Get<BlockNumberFor<Self>>;
+		type PayoutPeriod: Get<BlockNumberFor<Self, I>>;
 
 		/// Helper type for benchmarks.
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: ArgumentsFactory<Self::AssetKind, Self::Beneficiary>;
 
 		/// Provider for the block number. Normally this is the `frame_system` pallet.
-		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
+		type BlockNumberProvider: BlockNumberProvider;
 	}
 
 	/// DEPRECATED: associated with `spend_local` call and will be removed in May 2025.
@@ -335,7 +337,7 @@ pub mod pallet {
 			T::AssetKind,
 			AssetBalanceOf<T, I>,
 			T::Beneficiary,
-			BlockNumberFor<T>,
+			BlockNumberFor<T, I>,
 			<T::Paymaster as Pay>::Id,
 		>,
 		OptionQuery,
@@ -343,7 +345,7 @@ pub mod pallet {
 
 	/// The blocknumber for the last triggered spend period.
 	#[pallet::storage]
-	pub(crate) type LastSpendPeriod<T, I = ()> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
+	pub(crate) type LastSpendPeriod<T, I = ()> = StorageValue<_, BlockNumberFor<T, I>, OptionQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -391,8 +393,8 @@ pub mod pallet {
 			asset_kind: T::AssetKind,
 			amount: AssetBalanceOf<T, I>,
 			beneficiary: T::Beneficiary,
-			valid_from: BlockNumberFor<T>,
-			expire_at: BlockNumberFor<T>,
+			valid_from: BlockNumberFor<T, I>,
+			expire_at: BlockNumberFor<T, I>,
 		},
 		/// An approved spend was voided.
 		AssetSpendVoided { index: SpendIndex },
@@ -434,10 +436,10 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+	impl<T: Config<I>, I: 'static> Hooks<SystemBlockNumberFor<T>> for Pallet<T, I> {
 		/// ## Complexity
 		/// - `O(A)` where `A` is the number of approvals
-		fn on_initialize(_do_not_use_local_block_number: BlockNumberFor<T>) -> Weight {
+		fn on_initialize(_do_not_use_local_block_number: SystemBlockNumberFor<T>) -> Weight {
 			let block_number = T::BlockNumberProvider::current_block_number();
 			let pot = Self::pot();
 			let deactivated = Deactivated::<T, I>::get();
@@ -458,7 +460,7 @@ pub mod pallet {
 				// empty.
 				.unwrap_or_else(|| Self::update_last_spend_period());
 			let blocks_since_last_spend_period = block_number.saturating_sub(last_spend_period);
-			let safe_spend_period = T::SpendPeriod::get().max(BlockNumberFor::<T>::one());
+			let safe_spend_period = T::SpendPeriod::get().max(BlockNumberFor::<T, I>::one());
 
 			// Safe because of `max(1)` above.
 			let (spend_periods_passed, extra_blocks) = (
@@ -466,7 +468,7 @@ pub mod pallet {
 				blocks_since_last_spend_period % safe_spend_period,
 			);
 			let new_last_spend_period = block_number.saturating_sub(extra_blocks);
-			if spend_periods_passed > BlockNumberFor::<T>::zero() {
+			if spend_periods_passed > BlockNumberFor::<T, I>::zero() {
 				Self::spend_funds(spend_periods_passed, new_last_spend_period)
 			} else {
 				Weight::zero()
@@ -474,7 +476,7 @@ pub mod pallet {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn try_state(_: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+		fn try_state(_: SystemBlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()?;
 			Ok(())
 		}
@@ -638,7 +640,7 @@ pub mod pallet {
 			asset_kind: Box<T::AssetKind>,
 			#[pallet::compact] amount: AssetBalanceOf<T, I>,
 			beneficiary: Box<BeneficiaryLookupOf<T, I>>,
-			valid_from: Option<BlockNumberFor<T>>,
+			valid_from: Option<BlockNumberFor<T, I>>,
 		) -> DispatchResult {
 			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
 			let beneficiary = T::BeneficiaryLookup::lookup(*beneficiary)?;
@@ -844,9 +846,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	// Backfill the `LastSpendPeriod` storage, assuming that no configuration has changed
 	// since introducing this code. Used specifically for a migration-less switch to populate
 	// `LastSpendPeriod`.
-	fn update_last_spend_period() -> BlockNumberFor<T> {
+	fn update_last_spend_period() -> BlockNumberFor<T, I> {
 		let block_number = T::BlockNumberProvider::current_block_number();
-		let spend_period = T::SpendPeriod::get().max(BlockNumberFor::<T>::one());
+		let spend_period = T::SpendPeriod::get().max(BlockNumberFor::<T, I>::one());
 		let time_since_last_spend = block_number % spend_period;
 		// If it happens that this logic runs directly on a spend period block, we need to backdate
 		// to the last spend period so a spend still occurs this block.
@@ -889,8 +891,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Spend some money! returns number of approvals before spend.
 	pub fn spend_funds(
-		spend_periods_passed: BlockNumberFor<T>,
-		new_last_spend_period: BlockNumberFor<T>,
+		spend_periods_passed: BlockNumberFor<T, I>,
+		new_last_spend_period: BlockNumberFor<T, I>,
 	) -> Weight {
 		LastSpendPeriod::<T, I>::put(new_last_spend_period);
 		let mut total_weight = Weight::zero();

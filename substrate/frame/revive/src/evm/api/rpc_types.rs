@@ -16,7 +16,29 @@
 // limitations under the License.
 //! Utility impl for the RPC types.
 use super::*;
-use sp_core::U256;
+use alloc::vec::Vec;
+use sp_core::{H160, U256};
+
+impl From<BlockNumberOrTag> for BlockNumberOrTagOrHash {
+	fn from(b: BlockNumberOrTag) -> Self {
+		match b {
+			BlockNumberOrTag::U256(n) => BlockNumberOrTagOrHash::U256(n),
+			BlockNumberOrTag::BlockTag(t) => BlockNumberOrTagOrHash::BlockTag(t),
+		}
+	}
+}
+
+impl From<TransactionSigned> for TransactionUnsigned {
+	fn from(tx: TransactionSigned) -> Self {
+		use TransactionSigned::*;
+		match tx {
+			Transaction4844Signed(tx) => tx.transaction_4844_unsigned.into(),
+			Transaction1559Signed(tx) => tx.transaction_1559_unsigned.into(),
+			Transaction2930Signed(tx) => tx.transaction_2930_unsigned.into(),
+			TransactionLegacySigned(tx) => tx.transaction_legacy_unsigned.into(),
+		}
+	}
+}
 
 impl TransactionInfo {
 	/// Create a new [`TransactionInfo`] from a receipt and a signed transaction.
@@ -137,4 +159,134 @@ fn logs_bloom_works() {
 	)
 	.unwrap();
 	assert_eq!(receipt.logs_bloom, ReceiptInfo::logs_bloom(&receipt.logs));
+}
+
+impl GenericTransaction {
+	/// Create a new [`GenericTransaction`] from a signed transaction.
+	pub fn from_signed(tx: TransactionSigned, from: Option<H160>) -> Self {
+		Self::from_unsigned(tx.into(), from)
+	}
+
+	/// Create a new [`GenericTransaction`] from a unsigned transaction.
+	pub fn from_unsigned(tx: TransactionUnsigned, from: Option<H160>) -> Self {
+		use TransactionUnsigned::*;
+		match tx {
+			TransactionLegacyUnsigned(tx) => GenericTransaction {
+				from,
+				r#type: Some(tx.r#type.as_byte()),
+				chain_id: tx.chain_id,
+				input: Some(tx.input),
+				nonce: Some(tx.nonce),
+				value: Some(tx.value),
+				to: tx.to,
+				gas: Some(tx.gas),
+				gas_price: Some(tx.gas_price),
+				..Default::default()
+			},
+			Transaction4844Unsigned(tx) => GenericTransaction {
+				from,
+				r#type: Some(tx.r#type.as_byte()),
+				chain_id: Some(tx.chain_id),
+				input: Some(tx.input),
+				nonce: Some(tx.nonce),
+				value: Some(tx.value),
+				to: Some(tx.to),
+				gas: Some(tx.gas),
+				gas_price: Some(tx.max_fee_per_blob_gas),
+				access_list: Some(tx.access_list),
+				blob_versioned_hashes: tx.blob_versioned_hashes,
+				max_fee_per_blob_gas: Some(tx.max_fee_per_blob_gas),
+				max_fee_per_gas: Some(tx.max_fee_per_gas),
+				max_priority_fee_per_gas: Some(tx.max_priority_fee_per_gas),
+				..Default::default()
+			},
+			Transaction1559Unsigned(tx) => GenericTransaction {
+				from,
+				r#type: Some(tx.r#type.as_byte()),
+				chain_id: Some(tx.chain_id),
+				input: Some(tx.input),
+				nonce: Some(tx.nonce),
+				value: Some(tx.value),
+				to: tx.to,
+				gas: Some(tx.gas),
+				gas_price: Some(tx.gas_price),
+				access_list: Some(tx.access_list),
+				max_fee_per_gas: Some(tx.max_fee_per_gas),
+				max_priority_fee_per_gas: Some(tx.max_priority_fee_per_gas),
+				..Default::default()
+			},
+			Transaction2930Unsigned(tx) => GenericTransaction {
+				from,
+				r#type: Some(tx.r#type.as_byte()),
+				chain_id: Some(tx.chain_id),
+				input: Some(tx.input),
+				nonce: Some(tx.nonce),
+				value: Some(tx.value),
+				to: tx.to,
+				gas: Some(tx.gas),
+				gas_price: Some(tx.gas_price),
+				access_list: Some(tx.access_list),
+				..Default::default()
+			},
+		}
+	}
+
+	/// Convert to a [`TransactionUnsigned`].
+	pub fn try_into_unsigned(self) -> Result<TransactionUnsigned, ()> {
+		match self.r#type.unwrap_or_default().0 {
+			TYPE_LEGACY => Ok(TransactionLegacyUnsigned {
+				r#type: TypeLegacy {},
+				chain_id: self.chain_id,
+				input: self.input.unwrap_or_default(),
+				nonce: self.nonce.unwrap_or_default(),
+				value: self.value.unwrap_or_default(),
+				to: self.to,
+				gas: self.gas.unwrap_or_default(),
+				gas_price: self.gas_price.unwrap_or_default(),
+			}
+			.into()),
+			TYPE_EIP1559 => Ok(Transaction1559Unsigned {
+				r#type: TypeEip1559 {},
+				chain_id: self.chain_id.unwrap_or_default(),
+				input: self.input.unwrap_or_default(),
+				nonce: self.nonce.unwrap_or_default(),
+				value: self.value.unwrap_or_default(),
+				to: self.to,
+				gas: self.gas.unwrap_or_default(),
+				gas_price: self.gas_price.unwrap_or_default(),
+				access_list: self.access_list.unwrap_or_default(),
+				max_fee_per_gas: self.max_fee_per_gas.unwrap_or_default(),
+				max_priority_fee_per_gas: self.max_priority_fee_per_gas.unwrap_or_default(),
+			}
+			.into()),
+			TYPE_EIP2930 => Ok(Transaction2930Unsigned {
+				r#type: TypeEip2930 {},
+				chain_id: self.chain_id.unwrap_or_default(),
+				input: self.input.unwrap_or_default(),
+				nonce: self.nonce.unwrap_or_default(),
+				value: self.value.unwrap_or_default(),
+				to: self.to,
+				gas: self.gas.unwrap_or_default(),
+				gas_price: self.gas_price.unwrap_or_default(),
+				access_list: self.access_list.unwrap_or_default(),
+			}
+			.into()),
+			TYPE_EIP4844 => Ok(Transaction4844Unsigned {
+				r#type: TypeEip4844 {},
+				chain_id: self.chain_id.unwrap_or_default(),
+				input: self.input.unwrap_or_default(),
+				nonce: self.nonce.unwrap_or_default(),
+				value: self.value.unwrap_or_default(),
+				to: self.to.unwrap_or_default(),
+				gas: self.gas.unwrap_or_default(),
+				max_fee_per_gas: self.max_fee_per_gas.unwrap_or_default(),
+				max_fee_per_blob_gas: self.max_fee_per_blob_gas.unwrap_or_default(),
+				max_priority_fee_per_gas: self.max_priority_fee_per_gas.unwrap_or_default(),
+				access_list: self.access_list.unwrap_or_default(),
+				blob_versioned_hashes: self.blob_versioned_hashes,
+			}
+			.into()),
+			_ => Err(()),
+		}
+	}
 }

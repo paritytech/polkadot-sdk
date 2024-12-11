@@ -88,7 +88,7 @@ async fn batch_revalidate<Api: ChainApi>(
 
 	let validation_results = futures::future::join_all(batch.into_iter().filter_map(|ext_hash| {
 		pool.validated_pool().ready_by_hash(&ext_hash).map(|ext| {
-			api.validate_transaction(at, ext.source, ext.data.clone())
+			api.validate_transaction(at, ext.source.clone().into(), ext.data.clone())
 				.map(move |validation_result| (validation_result, ext_hash, ext))
 		})
 	}))
@@ -121,7 +121,7 @@ async fn batch_revalidate<Api: ChainApi>(
 					ValidatedTransaction::valid_at(
 						block_number.saturated_into::<u64>(),
 						ext_hash,
-						ext.source,
+						ext.source.clone(),
 						ext.data.clone(),
 						api.hash_and_length(&ext.data).1,
 						validity,
@@ -375,11 +375,11 @@ mod tests {
 	use crate::{
 		common::tests::{uxt, TestApi},
 		graph::Pool,
+		TimedTransactionSource,
 	};
 	use futures::executor::block_on;
-	use sc_transaction_pool_api::TransactionSource;
 	use substrate_test_runtime::{AccountId, Transfer, H256};
-	use substrate_test_runtime_client::AccountKeyring::{Alice, Bob};
+	use substrate_test_runtime_client::Sr25519Keyring::{Alice, Bob};
 
 	#[test]
 	fn revalidation_queue_works() {
@@ -398,7 +398,7 @@ mod tests {
 
 		let uxt_hash = block_on(pool.submit_one(
 			&han_of_block0,
-			TransactionSource::External,
+			TimedTransactionSource::new_external(false),
 			uxt.clone().into(),
 		))
 		.expect("Should be valid");
@@ -433,14 +433,15 @@ mod tests {
 		let han_of_block0 = api.expect_hash_and_number(0);
 		let unknown_block = H256::repeat_byte(0x13);
 
-		let uxt_hashes = block_on(pool.submit_at(
-			&han_of_block0,
-			TransactionSource::External,
-			vec![uxt0.into(), uxt1.into()],
-		))
-		.into_iter()
-		.map(|r| r.expect("Should be valid"))
-		.collect::<Vec<_>>();
+		let source = TimedTransactionSource::new_external(false);
+		let uxt_hashes =
+			block_on(pool.submit_at(
+				&han_of_block0,
+				vec![(source.clone(), uxt0.into()), (source, uxt1.into())],
+			))
+			.into_iter()
+			.map(|r| r.expect("Should be valid"))
+			.collect::<Vec<_>>();
 
 		assert_eq!(api.validation_requests().len(), 2);
 		assert_eq!(pool.validated_pool().status().ready, 2);

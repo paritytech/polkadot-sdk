@@ -389,8 +389,7 @@ where
 impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Call>>
 	ExtrinsicMetadata for UncheckedExtrinsic<Address, Call, Signature, Extension>
 {
-	// TODO: Expose both version 4 and version 5 in metadata v16.
-	const VERSION: u8 = LEGACY_EXTRINSIC_FORMAT_VERSION;
+	const VERSIONS: &'static [u8] = &[LEGACY_EXTRINSIC_FORMAT_VERSION, EXTRINSIC_FORMAT_VERSION];
 	type TransactionExtensions = Extension;
 }
 

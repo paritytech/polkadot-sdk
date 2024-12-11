@@ -235,7 +235,8 @@ impl WasmBuilder {
 
 	/// Build the WASM binary.
 	pub fn build(mut self) {
-		let target = crate::runtime_target();
+		let target = RuntimeTarget::new();
+
 		if target == RuntimeTarget::Wasm {
 			if self.export_heap_base {
 				self.rust_flags.push("-Clink-arg=--export=__heap_base".into());

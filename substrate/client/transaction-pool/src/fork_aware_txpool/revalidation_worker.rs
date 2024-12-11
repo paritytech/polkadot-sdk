@@ -186,11 +186,11 @@ mod tests {
 	use crate::{
 		common::tests::{uxt, TestApi},
 		fork_aware_txpool::view::FinishRevalidationLocalChannels,
+		TimedTransactionSource,
 	};
 	use futures::executor::block_on;
-	use sc_transaction_pool_api::TransactionSource;
 	use substrate_test_runtime::{AccountId, Transfer, H256};
-	use substrate_test_runtime_client::AccountKeyring::Alice;
+	use substrate_test_runtime_client::Sr25519Keyring::Alice;
 	#[test]
 	fn revalidation_queue_works() {
 		let api = Arc::new(TestApi::default());
@@ -212,9 +212,10 @@ mod tests {
 			nonce: 0,
 		});
 
-		let _ = block_on(
-			view.submit_many(TransactionSource::External, std::iter::once(uxt.clone().into())),
-		);
+		let _ = block_on(view.submit_many(std::iter::once((
+			TimedTransactionSource::new_external(false),
+			uxt.clone().into(),
+		))));
 		assert_eq!(api.validation_requests().len(), 1);
 
 		let (finish_revalidation_request_tx, finish_revalidation_request_rx) =

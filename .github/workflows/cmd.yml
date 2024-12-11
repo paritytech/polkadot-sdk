@@ -19,10 +19,10 @@ jobs:
     steps:
       - name: Generate token
         id: generate_token
-        uses: tibdex/github-app-token@v2.1.0
+        uses: actions/create-github-app-token@v1
         with:
-          app_id: ${{ secrets.CMD_BOT_APP_ID }}
-          private_key: ${{ secrets.CMD_BOT_APP_KEY }}
+          app-id: ${{ secrets.CMD_BOT_APP_ID }}
+          private-key: ${{ secrets.CMD_BOT_APP_KEY }}
 
       - name: Check if user is a member of the organization
         id: is-member
@@ -227,7 +227,8 @@ jobs:
           cat .github/env >> $GITHUB_OUTPUT
 
           if [ -n "$IMAGE_OVERRIDE" ]; then
-              echo "IMAGE=$IMAGE_OVERRIDE" >> $GITHUB_OUTPUT
+              IMAGE=$IMAGE_OVERRIDE
+              echo "IMAGE=$IMAGE" >> $GITHUB_OUTPUT
           fi
 
           if [[ $BODY == "/cmd bench"* ]]; then
@@ -237,6 +238,10 @@ jobs:
           else
               echo "RUNNER=ubuntu-latest" >> $GITHUB_OUTPUT
           fi
+      - name: Print outputs
+        run: |
+          echo "RUNNER=${{ steps.set-image.outputs.RUNNER }}"
+          echo "IMAGE=${{ steps.set-image.outputs.IMAGE }}"
 
   # Get PR branch name, because the issue_comment event does not contain the PR branch name
   get-pr-branch:
@@ -283,10 +288,24 @@ jobs:
     env:
       JOB_NAME: "cmd"
     runs-on: ${{ needs.set-image.outputs.RUNNER }}
-    timeout-minutes: 4320 # 72 hours -> 3 days; as it could take a long time to run all the runtimes/pallets
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
+    timeout-minutes: 1440 # 24 hours per runtime
     steps:
+      - name: Generate token
+        uses: actions/create-github-app-token@v1
+        id: generate_token
+        with:
+          app-id: ${{ secrets.CMD_BOT_APP_ID }}
+          private-key: ${{ secrets.CMD_BOT_APP_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.generate_token.outputs.token }}
+          repository: ${{ needs.get-pr-branch.outputs.repo }}
+          ref: ${{ needs.get-pr-branch.outputs.pr-branch }}
+
       - name: Get command
         uses: actions-ecosystem/action-regex-match@v2
         id: get-pr-comment
@@ -340,13 +359,7 @@ jobs:
               repo: context.repo.repo,
               body: `Command "${{ steps.get-pr-comment.outputs.group2 }}" has started 🚀 [See logs here](${job_url})`
             })
-
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ needs.get-pr-branch.outputs.repo }}
-          ref: ${{ needs.get-pr-branch.outputs.pr-branch }}
-
+      
       - name: Install dependencies for bench
         if: startsWith(steps.get-pr-comment.outputs.group2, 'bench')
         run: |
@@ -364,6 +377,7 @@ jobs:
           # Fixes "detected dubious ownership" error in the ci
           git config --global --add safe.directory '*'
           git remote -v
+          cat /proc/cpuinfo
           python3 -m pip install -r .github/scripts/generate-prdoc.requirements.txt
           python3 .github/scripts/cmd/cmd.py $CMD $PR_ARG
           git status
@@ -389,16 +403,30 @@ jobs:
       - name: Commit changes
         run: |
           if [ -n "$(git status --porcelain)" ]; then
-            git config --local user.email "action@github.com"
-            git config --local user.name "GitHub Action"
+            git config --global user.name command-bot
+            git config --global user.email "<>"
+            git config --global pull.rebase false
+
+            # Push the results to the target branch
+            git remote add \
+              github \
+              "https://token:${{ steps.generate_token.outputs.token }}@github.com/${{ github.event.repository.owner.login }}/${{ github.event.repository.name }}.git" || :
+
+            push_changes() {
+              git push github "HEAD:${{ needs.get-pr-branch.outputs.pr-branch }}"
+            }
 
             git add .
             git restore --staged Cargo.lock # ignore changes in Cargo.lock
             git commit -m "Update from ${{ github.actor }} running command '${{ steps.get-pr-comment.outputs.group2 }}'" || true
             
-            git pull --rebase origin ${{ needs.get-pr-branch.outputs.pr-branch }}
-            
-            git push origin ${{ needs.get-pr-branch.outputs.pr-branch }}
+            # Attempt to push changes
+            if ! push_changes; then
+              echo "Push failed, trying to rebase..."
+              git pull --rebase github "${{ needs.get-pr-branch.outputs.pr-branch }}"
+              # After successful rebase, try pushing again
+              push_changes
+            fi
           else
             echo "Nothing to commit";
           fi

@@ -320,7 +320,7 @@ impl RequestResponseProtocol {
 		&mut self,
 		peer: litep2p::PeerId,
 		request_id: RequestId,
-		fallback: Option<litep2p::ProtocolName>,
+		_fallback: Option<litep2p::ProtocolName>,
 		response: Vec<u8>,
 	) {
 		match self.pending_inbound_responses.remove(&request_id) {
@@ -337,10 +337,7 @@ impl RequestResponseProtocol {
 					response.len(),
 				);
 
-				let _ = tx.send(Ok((
-					response,
-					fallback.map_or_else(|| self.protocol.clone(), Into::into),
-				)));
+				let _ = tx.send(Ok((response, self.protocol.clone())));
 				self.metrics.register_outbound_request_success(started.elapsed());
 			},
 		}

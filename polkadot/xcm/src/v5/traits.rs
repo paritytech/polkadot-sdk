@@ -428,6 +428,7 @@ pub type SendResult<T> = result::Result<(T, Assets), SendError>;
 /// let message = Xcm(vec![Instruction::Transact {
 ///     origin_kind: OriginKind::Superuser,
 ///     call: call.into(),
+///     fallback_max_weight: None,
 /// }]);
 /// let message_hash = message.using_encoded(sp_io::hashing::blake2_256);
 ///
@@ -502,13 +503,13 @@ impl SendXcm for Tuple {
 }
 
 /// Convenience function for using a `SendXcm` implementation. Just interprets the `dest` and wraps
-/// both in `Some` before passing them as as mutable references into `T::send_xcm`.
+/// both in `Some` before passing them as mutable references into `T::send_xcm`.
 pub fn validate_send<T: SendXcm>(dest: Location, msg: Xcm<()>) -> SendResult<T::Ticket> {
 	T::validate(&mut Some(dest), &mut Some(msg))
 }
 
 /// Convenience function for using a `SendXcm` implementation. Just interprets the `dest` and wraps
-/// both in `Some` before passing them as as mutable references into `T::send_xcm`.
+/// both in `Some` before passing them as mutable references into `T::send_xcm`.
 ///
 /// Returns either `Ok` with the price of the delivery, or `Err` with the reason why the message
 /// could not be sent.

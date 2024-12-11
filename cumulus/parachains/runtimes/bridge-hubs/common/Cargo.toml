@@ -5,6 +5,8 @@ authors.workspace = true
 edition.workspace = true
 description = "Bridge hub common utilities"
 license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }

@@ -115,7 +115,7 @@ pub fn system_para_to_para_sender_assertions(t: SystemParaToParaTest) {
 	assert_expected_events!(
 		AssetHubWestend,
 		vec![
-			// Transport fees are paid
+			// Delivery fees are paid
 			RuntimeEvent::PolkadotXcm(pallet_xcm::Event::FeesPaid { .. }) => {},
 		]
 	);
@@ -274,7 +274,7 @@ fn system_para_to_para_assets_sender_assertions(t: SystemParaToParaTest) {
 					t.args.dest.clone()
 				),
 			},
-			// Transport fees are paid
+			// Delivery fees are paid
 			RuntimeEvent::PolkadotXcm(
 				pallet_xcm::Event::FeesPaid { .. }
 			) => {},
@@ -305,7 +305,7 @@ fn para_to_system_para_assets_sender_assertions(t: ParaToSystemParaTest) {
 				owner: *owner == t.sender.account_id,
 				balance: *balance == t.args.amount,
 			},
-			// Transport fees are paid
+			// Delivery fees are paid
 			RuntimeEvent::PolkadotXcm(
 				pallet_xcm::Event::FeesPaid { .. }
 			) => {},

@@ -20,14 +20,14 @@ use polkadot_node_subsystem::{
 	messages::{ChainApiMessage, ProspectiveParachainsMessage, RuntimeApiMessage},
 	SubsystemSender,
 };
-use polkadot_primitives::{BlockNumber, Hash, Id as ParaId};
+use polkadot_primitives::{AsyncBackingParams, BlockNumber, Hash, Id as ParaId};
 
 use std::collections::HashMap;
 
 use crate::{
 	inclusion_emulator::RelayChainBlockInfo,
-	request_session_index_for_child,
-	runtime::{self, prospective_parachains_mode, recv_runtime, ProspectiveParachainsMode},
+	request_async_backing_params, request_session_index_for_child,
+	runtime::{self, recv_runtime},
 };
 
 // Always aim to retain 1 block before the active leaves.
@@ -396,13 +396,8 @@ where
 		+ SubsystemSender<RuntimeApiMessage>
 		+ SubsystemSender<ChainApiMessage>,
 {
-	let Ok(ProspectiveParachainsMode::Enabled { allowed_ancestry_len, .. }) =
-		prospective_parachains_mode(sender, leaf_hash).await
-	else {
-		// This should never happen, leaves that don't have prospective parachains mode enabled
-		// should not use implicit view.
-		return Ok(None)
-	};
+	let AsyncBackingParams { allowed_ancestry_len, .. } =
+		recv_runtime(request_async_backing_params(leaf_hash, sender).await).await?;
 
 	// Fetch the session of the leaf. We must make sure that we stop at the ancestor which has a
 	// different session index.
@@ -416,7 +411,7 @@ where
 	sender
 		.send_message(ChainApiMessage::Ancestors {
 			hash: leaf_hash,
-			k: allowed_ancestry_len,
+			k: allowed_ancestry_len as usize,
 			response_channel: tx,
 		})
 		.await;

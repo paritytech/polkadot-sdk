@@ -25,7 +25,7 @@ use alloc::vec;
 use frame_support::build_struct_json_patch;
 use serde_json::{json, to_string, Value};
 use sp_application_crypto::Ss58Codec;
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 /// A demo preset with strings only.
 pub const PRESET_1: &str = "preset_1";
@@ -70,7 +70,7 @@ fn preset_2() -> Value {
 			some_integer: 200,
 			some_enum: FooEnum::Data2(SomeFooData2 { values: vec![0x0c, 0x10] })
 		},
-		bar: BarConfig { initial_account: Some(AccountKeyring::Ferdie.public().into()) },
+		bar: BarConfig { initial_account: Some(Sr25519Keyring::Ferdie.public().into()) },
 	})
 }
 
@@ -80,7 +80,7 @@ fn preset_2() -> Value {
 fn preset_3() -> Value {
 	json!({
 		"bar": {
-			"initialAccount": AccountKeyring::Alice.public().to_ss58check(),
+			"initialAccount": Sr25519Keyring::Alice.public().to_ss58check(),
 		},
 		"foo": {
 			"someEnum": FooEnum::Data1(

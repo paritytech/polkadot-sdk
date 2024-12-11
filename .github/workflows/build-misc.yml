@@ -16,7 +16,6 @@ permissions:
   contents: read
 
 jobs:
-
   preflight:
     uses: ./.github/workflows/reusable-preflight.yml
 
@@ -38,11 +37,18 @@ jobs:
       - name: Build
         env:
           SUBSTRATE_RUNTIME_TARGET: riscv
+        id: required
         run: |
           forklift cargo check -p minimal-template-runtime
           forklift cargo check -p westend-runtime
           forklift cargo check -p rococo-runtime
           forklift cargo check -p polkadot-test-runtime
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
   build-subkey:
     timeout-minutes: 20
@@ -62,9 +68,16 @@ jobs:
       - name: Build
         env:
           SKIP_WASM_BUILD: 1
+        id: required
         run: |
           cd ./substrate/bin/utils/subkey
           forklift cargo build --locked --release
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
   confirm-required-build-misc-jobs-passed:
     runs-on: ubuntu-latest

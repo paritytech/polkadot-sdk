@@ -219,8 +219,8 @@ pub mod prelude {
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		Bounded, DispatchInfoOf, Dispatchable, SaturatedConversion, Saturating, StaticLookup,
-		TrailingZeroInput,
+		BlockNumberProvider, Bounded, DispatchInfoOf, Dispatchable, SaturatedConversion,
+		Saturating, StaticLookup, TrailingZeroInput,
 	};
 
 	/// Other error/result types for runtime
@@ -391,7 +391,7 @@ pub mod runtime {
 			LOCAL_TESTNET_RUNTIME_PRESET,
 		};
 		pub use sp_inherents::{CheckInherentsResult, InherentData};
-		pub use sp_keyring::AccountKeyring;
+		pub use sp_keyring::Sr25519Keyring;
 		pub use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode};
 	}
 

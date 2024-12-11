@@ -183,7 +183,7 @@ where
 	}
 
 	/// Puts the module blob into storage, and returns the deposit collected for the storage.
-	pub fn store_code(&mut self) -> Result<BalanceOf<T>, Error<T>> {
+	pub fn store_code(&mut self, skip_transfer: bool) -> Result<BalanceOf<T>, Error<T>> {
 		let code_hash = *self.code_hash();
 		<CodeInfoOf<T>>::mutate(code_hash, |stored_code_info| {
 			match stored_code_info {
@@ -195,15 +195,16 @@ where
 				// the `owner` is always the origin of the current transaction.
 				None => {
 					let deposit = self.code_info.deposit;
-					T::Currency::hold(
+
+					if !skip_transfer {
+						T::Currency::hold(
 						&HoldReason::CodeUploadDepositReserve.into(),
 						&self.code_info.owner,
 						deposit,
-					)
-					.map_err(|err| {
-						log::debug!(target: LOG_TARGET, "failed to store code for owner: {:?}: {err:?}", self.code_info.owner);
+					) .map_err(|err| { log::debug!(target: LOG_TARGET, "failed to store code for owner: {:?}: {err:?}", self.code_info.owner);
 						<Error<T>>::StorageDepositNotEnoughFunds
 					})?;
+					}
 
 					self.code_info.refcount = 0;
 					<PristineCode<T>>::insert(code_hash, &self.code);
@@ -293,8 +294,15 @@ impl<T: Config> WasmBlob<T> {
 	) -> Result<PreparedCall<E>, ExecError> {
 		let mut config = polkavm::Config::default();
 		config.set_backend(Some(polkavm::BackendKind::Interpreter));
-		let engine =
-			polkavm::Engine::new(&config).expect("interpreter is available on all plattforms; qed");
+		config.set_cache_enabled(false);
+		#[cfg(feature = "std")]
+		if std::env::var_os("REVIVE_USE_COMPILER").is_some() {
+			config.set_backend(Some(polkavm::BackendKind::Compiler));
+		}
+		let engine = polkavm::Engine::new(&config).expect(
+			"on-chain (no_std) use of interpreter is hard coded.
+				interpreter is available on all plattforms; qed",
+		);
 
 		let mut module_config = polkavm::ModuleConfig::new();
 		module_config.set_page_size(limits::PAGE_SIZE);
@@ -305,6 +313,15 @@ impl<T: Config> WasmBlob<T> {
 			log::debug!(target: LOG_TARGET, "failed to create polkavm module: {err:?}");
 			Error::<T>::CodeRejected
 		})?;
+
+		// This is checked at deploy time but we also want to reject pre-existing
+		// 32bit programs.
+		// TODO: Remove when we reset the test net.
+		// https://github.com/paritytech/contract-issues/issues/11
+		if !module.is_64_bit() {
+			log::debug!(target: LOG_TARGET, "32bit programs are not supported.");
+			Err(Error::<T>::CodeRejected)?;
+		}
 
 		let entry_program_counter = module
 			.exports()

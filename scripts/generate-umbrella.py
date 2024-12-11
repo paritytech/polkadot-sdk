@@ -120,6 +120,8 @@ def main(path, version):
 			"edition": { "workspace": True },
 			"authors": { "workspace": True },
 			"description": "Polkadot SDK umbrella crate.",
+			"homepage": { "workspace": True },
+			"repository": { "workspace": True },
 			"license": "Apache-2.0",
 			"metadata": { "docs": { "rs": {
 				"features": ["runtime-full", "node"],

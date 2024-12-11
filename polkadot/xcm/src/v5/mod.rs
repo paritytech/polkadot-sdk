@@ -196,6 +196,8 @@ pub mod prelude {
 			AssetInstance::{self, *},
 			Assets, BodyId, BodyPart, Error as XcmError, ExecuteXcm,
 			Fungibility::{self, *},
+			Hint::{self, *},
+			HintNumVariants,
 			Instruction::*,
 			InteriorLocation,
 			Junction::{self, *},
@@ -493,13 +495,21 @@ pub enum Instruction<Call> {
 	///
 	/// - `origin_kind`: The means of expressing the message origin as a dispatch origin.
 	/// - `call`: The encoded transaction to be applied.
+	/// - `fallback_max_weight`: Used for compatibility with previous versions. Corresponds to the
+	///   `require_weight_at_most` parameter in previous versions. If you don't care about
+	///   compatibility you can just put `None`. WARNING: If you do, your XCM might not work with
+	///   older versions. Make sure to dry-run and validate.
 	///
 	/// Safety: No concerns.
 	///
 	/// Kind: *Command*.
 	///
 	/// Errors:
-	Transact { origin_kind: OriginKind, call: DoubleEncoded<Call> },
+	Transact {
+		origin_kind: OriginKind,
+		fallback_max_weight: Option<Weight>,
+		call: DoubleEncoded<Call>,
+	},
 
 	/// A message to notify about a new incoming HRMP channel. This message is meant to be sent by
 	/// the relay-chain to a para.
@@ -739,15 +749,6 @@ pub enum Instruction<Call> {
 	/// Errors: None.
 	ClearError,
 
-	/// Set asset claimer for all the trapped assets during the execution.
-	///
-	/// - `location`: The claimer of any assets potentially trapped during the execution of current
-	///   XCM. It can be an arbitrary location, not necessarily the caller or origin.
-	///
-	/// Kind: *Command*
-	///
-	/// Errors: None.
-	SetAssetClaimer { location: Location },
 	/// Create some assets which are being held on behalf of the origin.
 	///
 	/// - `assets`: The assets which are to be claimed. This must match exactly with the assets
@@ -1128,6 +1129,25 @@ pub enum Instruction<Call> {
 	/// Errors:
 	/// - `BadOrigin`
 	ExecuteWithOrigin { descendant_origin: Option<InteriorLocation>, xcm: Xcm<Call> },
+
+	/// Set hints for XCM execution.
+	///
+	/// These hints change the behaviour of the XCM program they are present in.
+	///
+	/// Parameters:
+	///
+	/// - `hints`: A bounded vector of `ExecutionHint`, specifying the different hints that will
+	/// be activated.
+	SetHints { hints: BoundedVec<Hint, HintNumVariants> },
+}
+
+#[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Eq, Clone, xcm_procedural::NumVariants)]
+pub enum Hint {
+	/// Set asset claimer for all the trapped assets during the execution.
+	///
+	/// - `location`: The claimer of any assets potentially trapped during the execution of current
+	///   XCM. It can be an arbitrary location, not necessarily the caller or origin.
+	AssetClaimer { location: Location },
 }
 
 impl<Call> Xcm<Call> {
@@ -1159,7 +1179,8 @@ impl<Call> Instruction<Call> {
 			HrmpChannelAccepted { recipient } => HrmpChannelAccepted { recipient },
 			HrmpChannelClosing { initiator, sender, recipient } =>
 				HrmpChannelClosing { initiator, sender, recipient },
-			Transact { origin_kind, call } => Transact { origin_kind, call: call.into() },
+			Transact { origin_kind, call, fallback_max_weight } =>
+				Transact { origin_kind, call: call.into(), fallback_max_weight },
 			ReportError(response_info) => ReportError(response_info),
 			DepositAsset { assets, beneficiary } => DepositAsset { assets, beneficiary },
 			DepositReserveAsset { assets, dest, xcm } => DepositReserveAsset { assets, dest, xcm },
@@ -1175,7 +1196,7 @@ impl<Call> Instruction<Call> {
 			SetErrorHandler(xcm) => SetErrorHandler(xcm.into()),
 			SetAppendix(xcm) => SetAppendix(xcm.into()),
 			ClearError => ClearError,
-			SetAssetClaimer { location } => SetAssetClaimer { location },
+			SetHints { hints } => SetHints { hints },
 			ClaimAsset { assets, ticket } => ClaimAsset { assets, ticket },
 			Trap(code) => Trap(code),
 			SubscribeVersion { query_id, max_response_weight } =>
@@ -1227,7 +1248,8 @@ impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 			TransferAsset { assets, beneficiary } => W::transfer_asset(assets, beneficiary),
 			TransferReserveAsset { assets, dest, xcm } =>
 				W::transfer_reserve_asset(&assets, dest, xcm),
-			Transact { origin_kind, call } => W::transact(origin_kind, call),
+			Transact { origin_kind, fallback_max_weight, call } =>
+				W::transact(origin_kind, fallback_max_weight, call),
 			HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } =>
 				W::hrmp_new_channel_open_request(sender, max_message_size, max_capacity),
 			HrmpChannelAccepted { recipient } => W::hrmp_channel_accepted(recipient),
@@ -1249,7 +1271,7 @@ impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 			SetErrorHandler(xcm) => W::set_error_handler(xcm),
 			SetAppendix(xcm) => W::set_appendix(xcm),
 			ClearError => W::clear_error(),
-			SetAssetClaimer { location } => W::set_asset_claimer(location),
+			SetHints { hints } => W::set_hints(hints),
 			ClaimAsset { assets, ticket } => W::claim_asset(assets, ticket),
 			Trap(code) => W::trap(code),
 			SubscribeVersion { query_id, max_response_weight } =>
@@ -1343,8 +1365,11 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 			HrmpChannelAccepted { recipient } => Self::HrmpChannelAccepted { recipient },
 			HrmpChannelClosing { initiator, sender, recipient } =>
 				Self::HrmpChannelClosing { initiator, sender, recipient },
-			Transact { origin_kind, require_weight_at_most: _, call } =>
-				Self::Transact { origin_kind, call: call.into() },
+			Transact { origin_kind, require_weight_at_most, call } => Self::Transact {
+				origin_kind,
+				call: call.into(),
+				fallback_max_weight: Some(require_weight_at_most),
+			},
 			ReportError(response_info) => Self::ReportError(QueryResponseInfo {
 				query_id: response_info.query_id,
 				destination: response_info.destination.try_into().map_err(|_| ())?,
@@ -1575,6 +1600,59 @@ mod tests {
 		assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm.clone()).unwrap());
 		let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
 		assert_eq!(new_xcm, xcm);
+	}
+
+	#[test]
+	fn transact_roundtrip_works() {
+		// We can convert as long as there's a fallback.
+		let xcm = Xcm::<()>(vec![
+			WithdrawAsset((Here, 1u128).into()),
+			Transact {
+				origin_kind: OriginKind::SovereignAccount,
+				call: vec![200, 200, 200].into(),
+				fallback_max_weight: Some(Weight::from_parts(1_000_000, 1_024)),
+			},
+		]);
+		let old_xcm = OldXcm::<()>(vec![
+			OldInstruction::WithdrawAsset((OldHere, 1u128).into()),
+			OldInstruction::Transact {
+				origin_kind: OriginKind::SovereignAccount,
+				call: vec![200, 200, 200].into(),
+				require_weight_at_most: Weight::from_parts(1_000_000, 1_024),
+			},
+		]);
+		assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm.clone()).unwrap());
+		let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
+		assert_eq!(new_xcm, xcm);
+
+		// If we have no fallback the resulting message won't know the weight.
+		let xcm_without_fallback = Xcm::<()>(vec![
+			WithdrawAsset((Here, 1u128).into()),
+			Transact {
+				origin_kind: OriginKind::SovereignAccount,
+				call: vec![200, 200, 200].into(),
+				fallback_max_weight: None,
+			},
+		]);
+		let old_xcm = OldXcm::<()>(vec![
+			OldInstruction::WithdrawAsset((OldHere, 1u128).into()),
+			OldInstruction::Transact {
+				origin_kind: OriginKind::SovereignAccount,
+				call: vec![200, 200, 200].into(),
+				require_weight_at_most: Weight::MAX,
+			},
+		]);
+		assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm_without_fallback.clone()).unwrap());
+		let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
+		let xcm_with_max_weight_fallback = Xcm::<()>(vec![
+			WithdrawAsset((Here, 1u128).into()),
+			Transact {
+				origin_kind: OriginKind::SovereignAccount,
+				call: vec![200, 200, 200].into(),
+				fallback_max_weight: Some(Weight::MAX),
+			},
+		]);
+		assert_eq!(new_xcm, xcm_with_max_weight_fallback);
 	}
 
 	#[test]

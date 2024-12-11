@@ -5,6 +5,8 @@ description = "Constants used throughout the Rococo network."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [package.metadata.polkadot-sdk]
 exclude-from-umbrella = true

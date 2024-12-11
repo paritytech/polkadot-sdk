@@ -201,12 +201,12 @@
 //! required to accomplish it.
 //!
 //! ### Providing ready transactions: `ready_at`
-//! The [`ready_at`] function returns a [future][`crate::PolledIterator`] that resolves to the
-//! [ready transactions iterator][`ReadyTransactions`]. The block builder shall wait either for the
-//! future to be resolved or for timeout to be hit. To avoid building empty blocks in case of
-//! timeout, the waiting for timeout functionality was moved into the transaction pool, and new API
-//! function was added: [`ready_at_with_timeout`]. This function also provides a fall back ready
-//! iterator which is result of [light maintain](#light-maintain).
+//! The asynchronous [`ready_at`] function resolves to the [ready transactions
+//! iterator][`ReadyTransactions`]. The block builder shall wait either for the future to be
+//! resolved or for timeout to be hit. To avoid building empty blocks in case of timeout, the
+//! waiting for timeout functionality was moved into the transaction pool, and new API function was
+//! added: [`ready_at_with_timeout`]. This function also provides a fall back ready iterator which
+//! is result of [light maintain](#light-maintain).
 //!
 //! New function internally waits either for [maintain](#maintain) process triggered for requested
 //! block to be accomplished or for the timeout. If timeout hits then the result of [light
