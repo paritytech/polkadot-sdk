@@ -491,15 +491,8 @@ struct BlockEntry {
 	/// Approval entries for whole block. These also contain all approvals in the case of multiple
 	/// candidates being claimed by assignments.
 	approval_entries: HashMap<(ValidatorIndex, CandidateBitfield), ApprovalEntry>,
-<<<<<<< HEAD
-=======
-	/// The block vrf story.
-	vrf_story: RelayVRFStory,
-	/// The block slot.
-	slot: Slot,
 	/// Backing off from re-sending messages to peers.
 	last_resent_at_block_number: Option<u32>,
->>>>>>> 85dd228 (Make approval-distribution aggression a bit more robust and less spammy (#6696))
 }
 
 impl BlockEntry {
@@ -795,13 +788,7 @@ impl State {
 						candidates,
 						session: meta.session,
 						approval_entries: HashMap::new(),
-<<<<<<< HEAD
-=======
-						candidates_metadata: meta.candidates,
-						vrf_story: meta.vrf_story,
-						slot: meta.slot,
 						last_resent_at_block_number: None,
->>>>>>> 85dd228 (Make approval-distribution aggression a bit more robust and less spammy (#6696))
 					});
 
 					self.topologies.inc_session_refs(meta.session);
@@ -1184,9 +1171,6 @@ impl State {
 		self.enable_aggression(ctx, Resend::No, metrics).await;
 	}
 
-<<<<<<< HEAD
-	async fn import_and_circulate_assignment<Context, R>(
-=======
 	// When finality is lagging as a last resort nodes start sending the messages they have
 	// multiples times. This means it is safe to accept duplicate messages without punishing the
 	// peer and reduce the reputation and can end up banning the Peer, which in turn will create
@@ -1214,8 +1198,7 @@ impl State {
 			topology.map(|topology| topology.is_validator(&peer)).unwrap_or(false)
 	}
 
-	async fn import_and_circulate_assignment<A, N, RA, R>(
->>>>>>> 85dd228 (Make approval-distribution aggression a bit more robust and less spammy (#6696))
+	async fn import_and_circulate_assignment<Context, R>(
 		&mut self,
 		ctx: &mut Context,
 		metrics: &Metrics,
@@ -1286,24 +1269,11 @@ impl State {
 					if peer_knowledge.contains(&message_subject, message_kind) {
 						// wasn't included before
 						if !peer_knowledge.received.insert(message_subject.clone(), message_kind) {
-<<<<<<< HEAD
-							gum::debug!(
-								target: LOG_TARGET,
-								?peer_id,
-								?message_subject,
-								"Duplicate assignment",
-							);
-
-							modify_reputation(
-								&mut self.reputation,
-								ctx.sender(),
-=======
 							if !Self::accept_duplicates_from_validators(
 								&self.blocks_by_number,
 								&self.topologies,
 								&self.aggression_config,
 								entry,
->>>>>>> 85dd228 (Make approval-distribution aggression a bit more robust and less spammy (#6696))
 								peer_id,
 							) {
 								gum::debug!(
@@ -1315,7 +1285,7 @@ impl State {
 
 								modify_reputation(
 									&mut self.reputation,
-									network_sender,
+									ctx.sender(),
 									peer_id,
 									COST_DUPLICATE_MESSAGE,
 								)
@@ -1629,24 +1599,11 @@ impl State {
 						.received
 						.insert(approval_knowledge_key.0.clone(), approval_knowledge_key.1)
 					{
-<<<<<<< HEAD
-						gum::trace!(
-							target: LOG_TARGET,
-							?peer_id,
-							?approval_knowledge_key,
-							"Duplicate approval",
-						);
-
-						modify_reputation(
-							reputation,
-							ctx.sender(),
-=======
 						if !Self::accept_duplicates_from_validators(
 							blocks_by_number,
 							topologies,
 							aggression_config,
 							entry,
->>>>>>> 85dd228 (Make approval-distribution aggression a bit more robust and less spammy (#6696))
 							peer_id,
 						) {
 							gum::trace!(
@@ -1657,7 +1614,7 @@ impl State {
 							);
 							modify_reputation(
 								reputation,
-								network_sender,
+								ctx.sender(),
 								peer_id,
 								COST_DUPLICATE_MESSAGE,
 							)
