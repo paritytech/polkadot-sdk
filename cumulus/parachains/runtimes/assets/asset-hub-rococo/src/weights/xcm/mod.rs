@@ -22,6 +22,7 @@ use alloc::vec::Vec;
 use frame_support::weights::Weight;
 use pallet_xcm_benchmarks_fungible::WeightInfo as XcmFungibleWeight;
 use pallet_xcm_benchmarks_generic::WeightInfo as XcmGeneric;
+use sp_runtime::BoundedVec;
 use xcm::{
 	latest::{prelude::*, AssetTransferFilter},
 	DoubleEncoded,
@@ -176,8 +177,16 @@ impl<Call> XcmWeightInfo<Call> for AssetHubRococoXcmWeight<Call> {
 	fn clear_error() -> Weight {
 		XcmGeneric::<Runtime>::clear_error()
 	}
-	fn set_asset_claimer(_location: &Location) -> Weight {
-		XcmGeneric::<Runtime>::set_asset_claimer()
+	fn set_hints(hints: &BoundedVec<Hint, HintNumVariants>) -> Weight {
+		let mut weight = Weight::zero();
+		for hint in hints {
+			match hint {
+				AssetClaimer { .. } => {
+					weight = weight.saturating_add(XcmGeneric::<Runtime>::asset_claimer());
+				},
+			}
+		}
+		weight
 	}
 	fn claim_asset(_assets: &Assets, _ticket: &Location) -> Weight {
 		XcmGeneric::<Runtime>::claim_asset()

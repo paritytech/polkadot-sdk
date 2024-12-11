@@ -196,6 +196,8 @@ pub mod prelude {
 			AssetInstance::{self, *},
 			Assets, BodyId, BodyPart, Error as XcmError, ExecuteXcm,
 			Fungibility::{self, *},
+			Hint::{self, *},
+			HintNumVariants,
 			Instruction::*,
 			InteriorLocation,
 			Junction::{self, *},
@@ -747,15 +749,6 @@ pub enum Instruction<Call> {
 	/// Errors: None.
 	ClearError,
 
-	/// Set asset claimer for all the trapped assets during the execution.
-	///
-	/// - `location`: The claimer of any assets potentially trapped during the execution of current
-	///   XCM. It can be an arbitrary location, not necessarily the caller or origin.
-	///
-	/// Kind: *Command*
-	///
-	/// Errors: None.
-	SetAssetClaimer { location: Location },
 	/// Create some assets which are being held on behalf of the origin.
 	///
 	/// - `assets`: The assets which are to be claimed. This must match exactly with the assets
@@ -1136,6 +1129,25 @@ pub enum Instruction<Call> {
 	/// Errors:
 	/// - `BadOrigin`
 	ExecuteWithOrigin { descendant_origin: Option<InteriorLocation>, xcm: Xcm<Call> },
+
+	/// Set hints for XCM execution.
+	///
+	/// These hints change the behaviour of the XCM program they are present in.
+	///
+	/// Parameters:
+	///
+	/// - `hints`: A bounded vector of `ExecutionHint`, specifying the different hints that will
+	/// be activated.
+	SetHints { hints: BoundedVec<Hint, HintNumVariants> },
+}
+
+#[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Eq, Clone, xcm_procedural::NumVariants)]
+pub enum Hint {
+	/// Set asset claimer for all the trapped assets during the execution.
+	///
+	/// - `location`: The claimer of any assets potentially trapped during the execution of current
+	///   XCM. It can be an arbitrary location, not necessarily the caller or origin.
+	AssetClaimer { location: Location },
 }
 
 impl<Call> Xcm<Call> {
@@ -1184,7 +1196,7 @@ impl<Call> Instruction<Call> {
 			SetErrorHandler(xcm) => SetErrorHandler(xcm.into()),
 			SetAppendix(xcm) => SetAppendix(xcm.into()),
 			ClearError => ClearError,
-			SetAssetClaimer { location } => SetAssetClaimer { location },
+			SetHints { hints } => SetHints { hints },
 			ClaimAsset { assets, ticket } => ClaimAsset { assets, ticket },
 			Trap(code) => Trap(code),
 			SubscribeVersion { query_id, max_response_weight } =>
@@ -1259,7 +1271,7 @@ impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 			SetErrorHandler(xcm) => W::set_error_handler(xcm),
 			SetAppendix(xcm) => W::set_appendix(xcm),
 			ClearError => W::clear_error(),
-			SetAssetClaimer { location } => W::set_asset_claimer(location),
+			SetHints { hints } => W::set_hints(hints),
 			ClaimAsset { assets, ticket } => W::claim_asset(assets, ticket),
 			Trap(code) => W::trap(code),
 			SubscribeVersion { query_id, max_response_weight } =>
