@@ -13,9 +13,9 @@ doc:
 crates:
   - name: polkadot-omni-node-lib
     bump: minor
-  - name: polkadot-sdk-docs
+  - name: polkadot-sdk
     bump: minor
   - name: sc-runtime-utilities
-    bump: minor
-  - name: frame-benchmarking-cli
     bump: patch
+  - name: frame-benchmarking-cli
+    bump: major
