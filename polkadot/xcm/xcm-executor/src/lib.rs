@@ -1396,8 +1396,14 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				self.error = None;
 				Ok(())
 			},
-			SetAssetClaimer { location } => {
-				self.asset_claimer = Some(location);
+			SetHints { hints } => {
+				for hint in hints.into_iter() {
+					match hint {
+						AssetClaimer { location } => {
+							self.asset_claimer = Some(location)
+						},
+					}
+				}
 				Ok(())
 			},
 			ClaimAsset { assets, ticket } => {
