@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::pallet::Def;
+use crate::{deprecation::extract_allow_attrs, pallet::Def};
 
 struct ConstDef {
 	/// Name of the associated type.
@@ -57,11 +57,7 @@ pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 		};
 
 		// Extracts #[allow] attributes, necessary so that we don't run into compiler warnings
-		let maybe_allow_attrs = const_
-			.attrs
-			.iter()
-			.filter(|attr| attr.path().is_ident("allow"))
-			.collect::<Vec<_>>();
+		let maybe_allow_attrs = extract_allow_attrs(&const_.attrs);
 
 		config_consts.push(ConstDef {
 			ident: const_.ident.clone(),
@@ -89,11 +85,7 @@ pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 			Err(e) => return e.into_compile_error(),
 		};
 		// Extracts #[allow] attributes, necessary so that we don't run into compiler warnings
-		let maybe_allow_attrs = const_
-			.attrs
-			.iter()
-			.filter(|attr| attr.path().is_ident("allow"))
-			.collect::<Vec<_>>();
+		let maybe_allow_attrs = extract_allow_attrs(&const_.attrs);
 
 		extra_consts.push(ConstDef {
 			ident: const_.ident.clone(),

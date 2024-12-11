@@ -529,10 +529,16 @@ fn generate_runtime_info_impl(trait_: &ItemTrait, version: u32) -> TokenStream {
 		let ident = &t.ident;
 		quote! { #ident }
 	});
+	let maybe_allow_attrs = trait_
+		.attrs
+		.iter()
+		.filter(|attr| attr.path().is_ident("allow"))
+		.cloned()
+		.collect::<Vec<_>>();
 
 	quote!(
 		#crate_::std_enabled! {
-			#[allow(deprecated)]
+			#( #maybe_allow_attrs )*
 			impl < #( #impl_generics, )* > #crate_::RuntimeApiInfo
 				for dyn #trait_name < #( #ty_generics, )* >
 			{

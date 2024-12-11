@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{
+	deprecation::extract_allow_attrs,
 	pallet::{parse::event::PalletEventDepositAttr, Def},
 	COUNTER,
 };
@@ -115,12 +116,7 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 	}
 
 	// Extracts #[allow] attributes, necessary so that we don't run into compiler warnings
-	let maybe_allow_attrs = event_item
-		.attrs
-		.iter()
-		.filter(|attr| attr.path().is_ident("allow"))
-		.cloned()
-		.collect::<Vec<_>>();
+	let maybe_allow_attrs = extract_allow_attrs(&event_item.attrs);
 
 	// derive some traits because system event require Clone, FullCodec, Eq, PartialEq and Debug
 	event_item.attrs.push(syn::parse_quote!(

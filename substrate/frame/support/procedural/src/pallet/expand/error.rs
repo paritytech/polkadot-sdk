@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{
+	deprecation::extract_allow_attrs,
 	pallet::{
 		parse::error::{VariantDef, VariantField},
 		Def,
@@ -117,12 +118,7 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 	};
 
 	// Extracts #[allow] attributes, necessary so that we don't run into compiler warnings
-	let maybe_allow_attrs = error_item
-		.attrs
-		.iter()
-		.filter(|attr| attr.path().is_ident("allow"))
-		.cloned()
-		.collect::<Vec<_>>();
+	let maybe_allow_attrs = extract_allow_attrs(&error_item.attrs);
 
 	// derive TypeInfo for error metadata
 	error_item.attrs.push(syn::parse_quote! {
@@ -170,7 +166,6 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 		impl<#type_impl_gen> From<#error_ident<#type_use_gen>> for &'static str
 			#config_where_clause
 		{
-			#[allow(deprecated)]
 			fn from(err: #error_ident<#type_use_gen>) -> &'static str {
 				err.as_str()
 			}
@@ -181,7 +176,6 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 			for #frame_support::sp_runtime::DispatchError
 			#config_where_clause
 		{
-			#[allow(deprecated)]
 			fn from(err: #error_ident<#type_use_gen>) -> Self {
 				use #frame_support::__private::codec::Encode;
 				let index = <
