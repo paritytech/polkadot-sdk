@@ -53,7 +53,7 @@ where
 		let velocity = V.max(1);
 		let relay_chain_slot = state_proof.read_slot().expect("failed to read relay chain slot");
 
-		let (relay_slot, authored_in_relay) = match pallet::RelaySlotInfo::<T>::get() {
+		let (relay_chain_slot, authored_in_relay) = match pallet::RelaySlotInfo::<T>::get() {
 			Some((slot, authored)) if slot == relay_chain_slot => (slot, authored + 1),
 			Some((slot, _)) if slot < relay_chain_slot => (relay_chain_slot, 1),
 			Some(..) => {
@@ -67,7 +67,7 @@ where
 			panic!("authored blocks limit is reached for the slot")
 		}
 
-		pallet::RelaySlotInfo::<T>::put((relay_slot, authored_in_relay));
+		pallet::RelaySlotInfo::<T>::put((relay_chain_slot, authored_in_relay));
 
 		let para_slot = pallet_aura::CurrentSlot::<T>::get();
 
@@ -83,10 +83,11 @@ where
 		// during the relay chain slot, we can allow for `V` parachain slots into the future.
 		if *para_slot > *para_slot_from_relay + u64::from(velocity) {
 			panic!(
-				"Parachain slot is too far in the future: parachain_slot: {:?}, derived_from_relay_slot: {:?} velocity: {:?}",
+				"Parachain slot is too far in the future: parachain_slot: {:?}, derived_from_relay_slot: {:?} velocity: {:?}, relay_chain_slot: {:?}",
 				para_slot,
 				para_slot_from_relay,
-				velocity
+				velocity,
+				relay_chain_slot
 			);
 		}
 
