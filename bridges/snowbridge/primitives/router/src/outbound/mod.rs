@@ -20,6 +20,8 @@ use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};
 use xcm::prelude::*;
 use xcm_executor::traits::{ConvertLocation, ExportXcm};
 
+pub const ASSET_HUB_PARA_ID:u32 = 1000;
+
 pub struct EthereumBlobExporter<
 	UniversalLocation,
 	EthereumNetwork,
@@ -94,13 +96,16 @@ where
 			return Err(SendError::NotApplicable)
 		}
 
+		// Check the location here can only be AssetHub sovereign
+		ensure!(local_sub.len() == 1, SendError::NotApplicable);
 		let para_id = match local_sub.as_slice() {
 			[Parachain(para_id)] => *para_id,
 			_ => {
 				log::error!(target: "xcm::ethereum_blob_exporter", "could not get parachain id from universal source '{local_sub:?}'.");
-				return Err(SendError::NotApplicable)
+				return Err(SendError::NotApplicable);
 			},
 		};
+		ensure!(para_id == ASSET_HUB_PARA_ID, SendError::NotApplicable);
 
 		let source_location = Location::new(1, local_sub.clone());
 
