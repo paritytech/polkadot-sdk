@@ -594,8 +594,7 @@ zero-prefixed-literal = { level = "allow", priority = 2 }            # 00_1000_0
 Inflector = { version = "0.11.4" }
 aes-gcm = { version = "0.10" }
 ahash = { version = "0.8.2" }
-alloy-primitives = { version = "0.4.2", default-features = false }
-alloy-sol-types = { version = "0.4.2", default-features = false }
+alloy-core = { version = "0.8.15", default-features = false }
 always-assert = { version = "0.1" }
 anyhow = { version = "1.0.81", default-features = false }
 approx = { version = "0.5.1" }
@@ -848,7 +847,7 @@ linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
 linregress = { version = "0.5.1" }
 lite-json = { version = "0.2.0", default-features = false }
-litep2p = { version = "0.8.2", features = ["websocket"] }
+litep2p = { version = "0.8.3", features = ["websocket"] }
 log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
@@ -1090,8 +1089,8 @@ polkadot-test-client = { path = "polkadot/node/test/client" }
 polkadot-test-runtime = { path = "polkadot/runtime/test-runtime" }
 polkadot-test-service = { path = "polkadot/node/test/service" }
 polkavm = { version = "0.9.3", default-features = false }
-polkavm-derive = "0.9.1"
-polkavm-linker = "0.9.2"
+polkavm-derive = "0.17.0"
+polkavm-linker = "0.17.1"
 portpicker = { version = "0.1.1" }
 pretty_assertions = { version = "1.3.0" }
 primitive-types = { version = "0.13.1", default-features = false, features = [
