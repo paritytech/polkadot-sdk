@@ -1,0 +1,56 @@
+title: Add storage bounds for pallet `staking`
+doc:
+- audience: Runtime Dev
+  description: |-
+    This is part of #6289 and necessary for the Asset Hub migration.
+
+    Building on the observations and suggestions from #255 .
+
+    **Changes**
+
+    - Add `MaxInvulnerables` to bound `Invulnerables` Vec -> `BoundedVec`.
+        - Set to constant 20 in the pallet (must be >= 17 for backward compatibility of runtime `westend`).
+    - Add `MaxDisabledValidators` to bound `DisabledValidators` Vec -> `BoundedVec`
+        - Set to constant 100 in the pallet (it should be <= 1/3 * `MaxValidatorsCount` according to the current disabling strategy)
+    - Remove `ErasStakers` and `ErasStakersClipped` (see #433 )
+        - They were deprecated in v14 and could have been removed since staking era 1504 (now it's > 1600)
+        - Completing the task from #5986
+    - Use `MaxExposurePageSize` to bound  `ErasStakersPaged` mapping to exposure pages: each `ExposurePage.others` Vec is turned into a `WeakBoundedVec` to allow easy and quick changes to this bound
+    - Add `MaxBondedEras` to bound `BondedEras` Vec -> `BoundedVec`
+        - Set to `BondingDuration::get() + 1` everywhere to include both time interval endpoints in [`current_era - BondingDuration::get()`, `current_era`]
+    - Add `MaxRewardPagesPerValidator` to bound `ClaimedRewards` Vec of pages -> `WeakBoundedVec`
+        - Set to constant 20 in the pallet. The vector of pages is now a `WeakBoundedVec` to allow easy and quick changes to this parameter
+    - Remove `MaxValidatorsCount` optional storage item to add `MaxValidatorsCount` mandatory config parameter
+        -  Using it to to bound `EraRewardPoints.individual` BTreeMap -> `BoundedBTreeMap`;
+        -  Set to dynamic parameter in runtime westend so that changing it should not require migrations for it
+
+    **TO DO**
+    Slashing storage items will be bounded in another PR.
+
+    - `UnappliedSlashes`
+    - `SlashingSpans`
+crates:
+- name: pallet-staking
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: sp-staking
+  bump: major
+- name: polkadot-runtime-common
+  bump: major
+- name: pallet-fast-unstake
+  bump: major
+- name: pallet-babe
+  bump: major
+- name: pallet-beefy
+  bump: major
+- name: pallet-delegated-staking
+  bump: major
+- name: pallet-grandpa
+  bump: major
+- name: pallet-root-offences
+  bump: major
+- name: polkadot-runtime-parachains
+  bump: major
+- name: rococo-runtime
+  bump: major
