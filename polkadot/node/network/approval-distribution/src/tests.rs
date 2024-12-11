@@ -1040,7 +1040,7 @@ fn peer_sending_us_duplicates_while_aggression_enabled_is_ok() {
 
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Arc::new(SystemClock {}),
+		Box::new(SystemClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
