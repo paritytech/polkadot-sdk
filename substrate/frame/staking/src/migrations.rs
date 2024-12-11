@@ -21,9 +21,10 @@ use super::*;
 use frame_election_provider_support::SortedListProvider;
 use frame_support::{
 	migrations::VersionedMigration,
-	pallet_prelude::ValueQuery,
+	pallet_prelude::{NMapKey, OptionQuery, ValueQuery},
 	storage_alias,
 	traits::{GetStorageVersion, OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade},
+	WeakBoundedVec,
 };
 
 #[cfg(feature = "try-runtime")]
@@ -60,11 +61,198 @@ impl Default for ObsoleteReleases {
 #[storage_alias]
 type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, ValueQuery>;
 
+/// Migrating all unbounded storage items to bounded
+pub mod v17 {
+	use super::*;
+
+	pub struct VersionUncheckedMigrateV16ToV17<T>(core::marker::PhantomData<T>);
+	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV16ToV17<T> {
+		fn on_runtime_upgrade() -> Weight {
+			let mut migration_errors = false;
+
+			v16::MaxValidatorsCount::<T>::kill();
+
+			let old_disabled_validators = v16::DisabledValidators::<T>::get();
+			// BoundedVec with MaxDisabledValidators limit, this should always work
+			let disabled_validators_maybe = BoundedVec::try_from(old_disabled_validators);
+			match disabled_validators_maybe {
+				Ok(disabled_validators) => DisabledValidators::<T>::set(disabled_validators),
+				Err(_) => {
+					log!(warn, "Migration failed for DisabledValidators from v16 to v17.");
+					migration_errors = true;
+				},
+			}
+
+			let old_bonded_eras = v16::BondedEras::<T>::get();
+			// BoundedVec with MaxBondedEras limit, this should always work
+			let bonded_eras_maybe = BoundedVec::try_from(old_bonded_eras);
+			match bonded_eras_maybe {
+				Ok(bonded_eras) => BondedEras::<T>::set(bonded_eras),
+				Err(_) => {
+					log!(warn, "Migration failed for BondedEras from v16 to v17.");
+					migration_errors = true;
+				},
+			}
+
+			let old_invulnerables = v16::Invulnerables::<T>::get();
+			// BoundedVec with MaxInvulnerables limit, this should always work
+			let invulnerables_maybe = BoundedVec::try_from(old_invulnerables);
+			match invulnerables_maybe {
+				Ok(invulnerables) => Invulnerables::<T>::set(invulnerables),
+				Err(_) => {
+					log!(warn, "Migration failed for Invulnerables from v16 to v17.");
+					migration_errors = true;
+				},
+			}
+
+			for (era_index, era_rewards) in v16::ErasRewardPoints::<T>::iter() {
+				let individual_rewards_maybe = BoundedBTreeMap::try_from(era_rewards.individual);
+				match individual_rewards_maybe {
+					Ok(individual_rewards) => {
+						let bounded_era_rewards = EraRewardPoints::<
+							<T as frame_system::Config>::AccountId,
+							<T as Config>::MaxValidatorsCount,
+						> {
+							individual: individual_rewards,
+							total: era_rewards.total,
+						};
+						ErasRewardPoints::<T>::insert(era_index, bounded_era_rewards);
+					},
+					Err(_) => {
+						log!(warn, "Migration failed for ErasRewardPoints from v16 to v17.");
+						migration_errors = true;
+					},
+				}
+			}
+
+			for ((era, validator, page), old_exposure_page) in v16::ErasStakersPaged::<T>::iter() {
+				let individual_exposures_maybe = WeakBoundedVec::try_from(old_exposure_page.others);
+				match individual_exposures_maybe {
+					Ok(individual_exposures) => {
+						let exposure_page = ExposurePage::<
+							<T as frame_system::Config>::AccountId,
+							BalanceOf<T>,
+							<T as Config>::MaxExposurePageSize,
+						> {
+							page_total: old_exposure_page.page_total,
+							others: individual_exposures,
+						};
+						ErasStakersPaged::<T>::insert((era, validator, page), exposure_page);
+					},
+					Err(_) => {
+						log!(warn, "Migration failed for ErasStakersPaged from v16 to v17.");
+						migration_errors = true;
+					},
+				}
+			}
+
+			for (era, validator, old_reward_pages) in v16::ClaimedRewards::<T>::iter() {
+				let reward_pages_maybe = WeakBoundedVec::try_from(old_reward_pages);
+				match reward_pages_maybe {
+					Ok(reward_pages) => {
+						ClaimedRewards::<T>::insert(era, validator, reward_pages);
+					},
+					Err(_) => {
+						log!(warn, "Migration failed for ClaimedRewards from v16 to v17.");
+						migration_errors = true;
+					},
+				}
+			}
+
+			if migration_errors {
+				log!(warn, "v17 applied with some errors: state may be not coherent.");
+			} else {
+				log!(info, "v17 applied successfully.");
+			}
+			T::DbWeight::get().reads_writes(1, 1)
+		}
+	}
+
+	pub type MigrateV16ToV17<T> = VersionedMigration<
+		16,
+		17,
+		VersionUncheckedMigrateV16ToV17<T>,
+		Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+}
+
 /// Migrating `DisabledValidators` from `Vec<u32>` to `Vec<(u32, OffenceSeverity)>` to track offense
 /// severity for re-enabling purposes.
 pub mod v16 {
 	use super::*;
+	use frame_support::Twox64Concat;
 	use sp_staking::offence::OffenceSeverity;
+
+	#[frame_support::storage_alias]
+	pub(crate) type Invulnerables<T: Config> =
+		StorageValue<Pallet<T>, Vec<<T as frame_system::Config>::AccountId>, ValueQuery>;
+
+	#[frame_support::storage_alias]
+	pub(crate) type BondedEras<T: Config> =
+		StorageValue<Pallet<T>, Vec<(EraIndex, SessionIndex)>, ValueQuery>;
+
+	#[frame_support::storage_alias]
+	pub(crate) type ClaimedRewards<T: Config> = StorageDoubleMap<
+		Pallet<T>,
+		Twox64Concat,
+		EraIndex,
+		Twox64Concat,
+		<T as frame_system::Config>::AccountId,
+		Vec<Page>,
+		ValueQuery,
+	>;
+
+	#[derive(PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+	pub struct EraRewardPoints<AccountId: Ord> {
+		pub total: u32,
+		pub individual: BTreeMap<AccountId, u32>,
+	}
+
+	impl<AccountId: Ord> Default for EraRewardPoints<AccountId> {
+		fn default() -> Self {
+			EraRewardPoints { total: Default::default(), individual: BTreeMap::new() }
+		}
+	}
+
+	#[frame_support::storage_alias]
+	pub(crate) type ErasRewardPoints<T: Config> = StorageMap<
+		Pallet<T>,
+		Twox64Concat,
+		u32,
+		EraRewardPoints<<T as frame_system::Config>::AccountId>,
+		ValueQuery,
+	>;
+
+	#[frame_support::storage_alias]
+	pub(crate) type DisabledValidators<T: Config> =
+		StorageValue<Pallet<T>, Vec<(u32, OffenceSeverity)>, ValueQuery>;
+
+	#[derive(
+		PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen,
+	)]
+	pub struct ExposurePage<AccountId, Balance: HasCompact + MaxEncodedLen> {
+		/// The total balance of this chunk/page.
+		#[codec(compact)]
+		pub page_total: Balance,
+		/// The portions of nominators stashes that are exposed.
+		pub others: Vec<IndividualExposure<AccountId, Balance>>,
+	}
+
+	#[frame_support::storage_alias]
+	pub(crate) type ErasStakersPaged<T: Config> = StorageNMap<
+		Pallet<T>,
+		(
+			NMapKey<Twox64Concat, EraIndex>,
+			NMapKey<Twox64Concat, <T as frame_system::Config>::AccountId>,
+			NMapKey<Twox64Concat, Page>,
+		),
+		ExposurePage<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
+		OptionQuery,
+	>;
+
+	#[frame_support::storage_alias]
+	pub(crate) type MaxValidatorsCount<T: Config> = StorageValue<Pallet<T>, u32, OptionQuery>;
 
 	pub struct VersionUncheckedMigrateV15ToV16<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV15ToV16<T> {
@@ -86,7 +274,7 @@ pub mod v16 {
 				.map(|v| (v, max_offence))
 				.collect::<Vec<_>>();
 
-			DisabledValidators::<T>::set(migrated);
+			v16::DisabledValidators::<T>::set(migrated);
 
 			log!(info, "v16 applied successfully.");
 			T::DbWeight::get().reads_writes(1, 1)

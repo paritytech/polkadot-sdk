@@ -28,7 +28,9 @@ use frame_support::{
 	traits::{ConstU32, ConstU64, Hooks, OneSessionHandler},
 };
 use pallet_staking::StakerStatus;
-use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
+use sp_runtime::{
+	curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BoundedVec, BuildStorage,
+};
 use sp_staking::{EraIndex, SessionIndex};
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -179,7 +181,7 @@ impl Config for Test {
 pub struct ExtBuilder {
 	validator_count: u32,
 	minimum_validator_count: u32,
-	invulnerables: Vec<AccountId>,
+	invulnerables: BoundedVec<AccountId, <Test as pallet_staking::Config>::MaxInvulnerables>,
 	balance_factor: Balance,
 }
 
@@ -188,7 +190,7 @@ impl Default for ExtBuilder {
 		Self {
 			validator_count: 2,
 			minimum_validator_count: 0,
-			invulnerables: vec![],
+			invulnerables: BoundedVec::new(),
 			balance_factor: 1,
 		}
 	}

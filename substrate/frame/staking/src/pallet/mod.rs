@@ -50,10 +50,10 @@ pub use impls::*;
 
 use crate::{
 	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf,
-	DisablingStrategy, EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing,
-	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, UnappliedSlash,
-	UnlockChunk, ValidatorPrefs,
+	DisablingStrategy, EraPayout, EraRewardPoints, ExposurePage, Forcing, LedgerIntegrityState,
+	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf,
+	RewardDestination, SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk,
+	ValidatorPrefs,
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
@@ -70,7 +70,7 @@ pub mod pallet {
 	use super::*;
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(16);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(17);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -143,13 +143,18 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type NominationsQuota: NominationsQuota<BalanceOf<Self>>;
 
+		/// The maximum validator count before we stop allowing new validators to join.
+		///
+		/// This is a dynamic runtime parameters, so updates do not require storage migrations.
+		#[pallet::constant]
+		type MaxValidatorsCount: Get<u32>;
+
 		/// Number of eras to keep in history.
 		///
 		/// Following information is kept for eras in `[current_era -
-		/// HistoryDepth, current_era]`: `ErasStakers`, `ErasStakersClipped`,
-		/// `ErasValidatorPrefs`, `ErasValidatorReward`, `ErasRewardPoints`,
-		/// `ErasTotalStake`, `ErasStartSessionIndex`, `ClaimedRewards`, `ErasStakersPaged`,
-		/// `ErasStakersOverview`.
+		/// HistoryDepth, current_era]`: `ErasValidatorPrefs`, `ErasValidatorReward`,
+		/// `ErasRewardPoints`, `ErasTotalStake`, `ErasStartSessionIndex`, `ClaimedRewards`,
+		/// `ErasStakersPaged`, `ErasStakersOverview`.
 		///
 		/// Must be more than the number of eras delayed by session.
 		/// I.e. active era must always be in history. I.e. `active_era >
@@ -193,6 +198,13 @@ pub mod pallet {
 		#[pallet::constant]
 		type BondingDuration: Get<EraIndex>;
 
+		/// Maximum number of eras that staked funds could remain bonded for.
+		///
+		/// Ideally, it should be `BondingDuration::get() + 1` to include all eras in the interval
+		/// [current_era - BondingDuration::get(), current_era].
+		#[pallet::constant]
+		type MaxBondedEras: Get<u32>;
+
 		/// Number of eras that slashes are deferred by, after computation.
 		///
 		/// This should be less than the bonding duration. Set to 0 if slashes
@@ -224,14 +236,17 @@ pub mod pallet {
 		/// An `ExposurePage` is weakly bounded to a maximum of `MaxExposurePageSize`
 		/// nominators.
 		///
-		/// For older non-paged exposure, a reward payout was restricted to the top
-		/// `MaxExposurePageSize` nominators. This is to limit the i/o cost for the
-		/// nominator payout.
-		///
 		/// Note: `MaxExposurePageSize` is used to bound `ClaimedRewards` and is unsafe to reduce
 		/// without handling it in a migration.
 		#[pallet::constant]
 		type MaxExposurePageSize: Get<u32>;
+
+		/// The maximum number of nominators reward pages per nominator.
+		///
+		/// Note: `MaxRewardPagesPerValidator` is used to bound the number of pages in
+		/// `ClaimedRewards` and is unsafe to reduce without handling it in a migration.
+		#[pallet::constant]
+		type MaxRewardPagesPerValidator: Get<u32>;
 
 		/// Something that provides a best-effort sorted list of voters aka electing nominators,
 		/// used for NPoS election.
@@ -297,6 +312,14 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type DisablingStrategy: DisablingStrategy<Self>;
 
+		/// Maximum number of invulnerable validators.
+		#[pallet::constant]
+		type MaxInvulnerables: Get<u32>;
+
+		/// Maximum number of disabled validators.
+		#[pallet::constant]
+		type MaxDisabledValidators: Get<u32>;
+
 		/// Some parameters of the benchmarking.
 		#[cfg(feature = "std")]
 		type BenchmarkingConfig: BenchmarkingConfig;
@@ -321,6 +344,7 @@ pub mod pallet {
 		parameter_types! {
 			pub const SessionsPerEra: SessionIndex = 3;
 			pub const BondingDuration: EraIndex = 3;
+			pub const MaxBondedEras: u32 = (BondingDuration::get() as u32) + 1;
 		}
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]
@@ -336,6 +360,7 @@ pub mod pallet {
 			type Reward = ();
 			type SessionsPerEra = SessionsPerEra;
 			type BondingDuration = BondingDuration;
+			type MaxBondedEras = MaxBondedEras;
 			type SlashDeferDuration = ();
 			type SessionInterface = ();
 			type NextNewSession = ();
@@ -344,6 +369,10 @@ pub mod pallet {
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type EventListeners = ();
 			type DisablingStrategy = crate::UpToLimitDisablingStrategy;
+			type MaxInvulnerables = ConstU32<20>;
+			type MaxRewardPagesPerValidator = ConstU32<20>;
+			type MaxValidatorsCount = ConstU32<300>;
+			type MaxDisabledValidators = ConstU32<100>;
 			#[cfg(feature = "std")]
 			type BenchmarkingConfig = crate::TestBenchmarkingConfig;
 			type WeightInfo = ();
@@ -362,8 +391,8 @@ pub mod pallet {
 	/// easy to initialize and the performance hit is minimal (we expect no more than four
 	/// invulnerables) and restricted to testnets.
 	#[pallet::storage]
-	#[pallet::unbounded]
-	pub type Invulnerables<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
+	pub type Invulnerables<T: Config> =
+		StorageValue<_, BoundedVec<T::AccountId, T::MaxInvulnerables>, ValueQuery>;
 
 	/// Map from all locked "stash" accounts to the controller account.
 	///
@@ -409,12 +438,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Validators<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, ValidatorPrefs, ValueQuery>;
-
-	/// The maximum validator count before we stop allowing new validators to join.
-	///
-	/// When this value is not set, no limits are enforced.
-	#[pallet::storage]
-	pub type MaxValidatorsCount<T> = StorageValue<_, u32, OptionQuery>;
 
 	/// The map from nominator stash key to their nomination preferences, namely the validators that
 	/// they wish to support.
@@ -475,26 +498,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ErasStartSessionIndex<T> = StorageMap<_, Twox64Concat, EraIndex, SessionIndex>;
 
-	/// Exposure of validator at era.
-	///
-	/// This is keyed first by the era index to allow bulk deletion and then the stash account.
-	///
-	/// Is it removed after [`Config::HistoryDepth`] eras.
-	/// If stakers hasn't been set or has been removed then empty exposure is returned.
-	///
-	/// Note: Deprecated since v14. Use `EraInfo` instead to work with exposures.
-	#[pallet::storage]
-	#[pallet::unbounded]
-	pub type ErasStakers<T: Config> = StorageDoubleMap<
-		_,
-		Twox64Concat,
-		EraIndex,
-		Twox64Concat,
-		T::AccountId,
-		Exposure<T::AccountId, BalanceOf<T>>,
-		ValueQuery,
-	>;
-
 	/// Summary of validator exposure at a given era.
 	///
 	/// This contains the total stake in support of the validator and their own stake. In addition,
@@ -518,34 +521,6 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	/// Clipped Exposure of validator at era.
-	///
-	/// Note: This is deprecated, should be used as read-only and will be removed in the future.
-	/// New `Exposure`s are stored in a paged manner in `ErasStakersPaged` instead.
-	///
-	/// This is similar to [`ErasStakers`] but number of nominators exposed is reduced to the
-	/// `T::MaxExposurePageSize` biggest stakers.
-	/// (Note: the field `total` and `own` of the exposure remains unchanged).
-	/// This is used to limit the i/o cost for the nominator payout.
-	///
-	/// This is keyed fist by the era index to allow bulk deletion and then the stash account.
-	///
-	/// It is removed after [`Config::HistoryDepth`] eras.
-	/// If stakers hasn't been set or has been removed then empty exposure is returned.
-	///
-	/// Note: Deprecated since v14. Use `EraInfo` instead to work with exposures.
-	#[pallet::storage]
-	#[pallet::unbounded]
-	pub type ErasStakersClipped<T: Config> = StorageDoubleMap<
-		_,
-		Twox64Concat,
-		EraIndex,
-		Twox64Concat,
-		T::AccountId,
-		Exposure<T::AccountId, BalanceOf<T>>,
-		ValueQuery,
-	>;
-
 	/// Paginated exposure of a validator at given era.
 	///
 	/// This is keyed first by the era index to allow bulk deletion, then stash account and finally
@@ -553,7 +528,6 @@ pub mod pallet {
 	///
 	/// This is cleared after [`Config::HistoryDepth`] eras.
 	#[pallet::storage]
-	#[pallet::unbounded]
 	pub type ErasStakersPaged<T: Config> = StorageNMap<
 		_,
 		(
@@ -561,7 +535,7 @@ pub mod pallet {
 			NMapKey<Twox64Concat, T::AccountId>,
 			NMapKey<Twox64Concat, Page>,
 		),
-		ExposurePage<T::AccountId, BalanceOf<T>>,
+		ExposurePage<T::AccountId, BalanceOf<T>, T::MaxExposurePageSize>,
 		OptionQuery,
 	>;
 
@@ -572,18 +546,17 @@ pub mod pallet {
 	///
 	/// It is removed after [`Config::HistoryDepth`] eras.
 	#[pallet::storage]
-	#[pallet::unbounded]
 	pub type ClaimedRewards<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		EraIndex,
 		Twox64Concat,
 		T::AccountId,
-		Vec<Page>,
+		WeakBoundedVec<Page, T::MaxRewardPagesPerValidator>,
 		ValueQuery,
 	>;
 
-	/// Similar to `ErasStakers`, this holds the preferences of validators.
+	/// Exposure of validator at era with the preferences of validators.
 	///
 	/// This is keyed first by the era index to allow bulk deletion and then the stash account.
 	///
@@ -609,9 +582,13 @@ pub mod pallet {
 	/// Rewards for the last [`Config::HistoryDepth`] eras.
 	/// If reward hasn't been set or has been removed then 0 reward is returned.
 	#[pallet::storage]
-	#[pallet::unbounded]
-	pub type ErasRewardPoints<T: Config> =
-		StorageMap<_, Twox64Concat, EraIndex, EraRewardPoints<T::AccountId>, ValueQuery>;
+	pub type ErasRewardPoints<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		EraIndex,
+		EraRewardPoints<T::AccountId, T::MaxValidatorsCount>,
+		ValueQuery,
+	>;
 
 	/// The total amount staked for the last [`Config::HistoryDepth`] eras.
 	/// If total hasn't been set or has been removed then 0 stake is returned.
@@ -654,11 +631,10 @@ pub mod pallet {
 	/// A mapping from still-bonded eras to the first session index of that era.
 	///
 	/// Must contains information for eras for the range:
-	/// `[active_era - bounding_duration; active_era]`
+	/// `[active_era - bonding_duration; active_era]`
 	#[pallet::storage]
-	#[pallet::unbounded]
 	pub(crate) type BondedEras<T: Config> =
-		StorageValue<_, Vec<(EraIndex, SessionIndex)>, ValueQuery>;
+		StorageValue<_, BoundedVec<(EraIndex, SessionIndex), T::MaxBondedEras>, ValueQuery>;
 
 	/// All slashing events on validators, mapped by era to the highest slash proportion
 	/// and slash value of the era.
@@ -704,16 +680,15 @@ pub mod pallet {
 	/// whole era. For this reason they are kept here - only staking pallet knows about eras. The
 	/// implementor of [`DisablingStrategy`] defines if a validator should be disabled which
 	/// implicitly means that the implementor also controls the max number of disabled validators.
-	///
+
 	/// The vec is always kept sorted based on the u32 index so that we can find whether a given
 	/// validator has previously offended using binary search.
 	///
 	/// Additionally, each disabled validator is associated with an `OffenceSeverity` which
 	/// represents how severe is the offence that got the validator disabled.
 	#[pallet::storage]
-	#[pallet::unbounded]
 	pub type DisabledValidators<T: Config> =
-		StorageValue<_, Vec<(u32, OffenceSeverity)>, ValueQuery>;
+		StorageValue<_, BoundedVec<(u32, OffenceSeverity), T::MaxDisabledValidators>, ValueQuery>;
 
 	/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators
@@ -726,7 +701,7 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		pub validator_count: u32,
 		pub minimum_validator_count: u32,
-		pub invulnerables: Vec<T::AccountId>,
+		pub invulnerables: BoundedVec<T::AccountId, T::MaxInvulnerables>,
 		pub force_era: Forcing,
 		pub slash_reward_fraction: Perbill,
 		pub canceled_payout: BalanceOf<T>,
@@ -734,7 +709,6 @@ pub mod pallet {
 			Vec<(T::AccountId, T::AccountId, BalanceOf<T>, crate::StakerStatus<T::AccountId>)>,
 		pub min_nominator_bond: BalanceOf<T>,
 		pub min_validator_bond: BalanceOf<T>,
-		pub max_validator_count: Option<u32>,
 		pub max_nominator_count: Option<u32>,
 	}
 
@@ -743,15 +717,16 @@ pub mod pallet {
 		fn build(&self) {
 			ValidatorCount::<T>::put(self.validator_count);
 			MinimumValidatorCount::<T>::put(self.minimum_validator_count);
-			Invulnerables::<T>::put(&self.invulnerables);
+			assert!(
+				self.invulnerables.len() as u32 <= T::MaxInvulnerables::get(),
+				"Too many invulnerable validators at genesis."
+			);
+			<Invulnerables<T>>::put(&self.invulnerables);
 			ForceEra::<T>::put(self.force_era);
 			CanceledSlashPayout::<T>::put(self.canceled_payout);
 			SlashRewardFraction::<T>::put(self.slash_reward_fraction);
 			MinNominatorBond::<T>::put(self.min_nominator_bond);
 			MinValidatorBond::<T>::put(self.min_validator_bond);
-			if let Some(x) = self.max_validator_count {
-				MaxValidatorsCount::<T>::put(x);
-			}
 			if let Some(x) = self.max_nominator_count {
 				MaxNominatorsCount::<T>::put(x);
 			}
@@ -993,7 +968,7 @@ pub mod pallet {
 		}
 
 		/// Get the validators that may never be slashed or forcibly kicked out.
-		pub fn invulnerables() -> Vec<T::AccountId> {
+		pub fn invulnerables() -> BoundedVec<T::AccountId, T::MaxInvulnerables> {
 			Invulnerables::<T>::get()
 		}
 
@@ -1036,23 +1011,11 @@ pub mod pallet {
 			ErasStartSessionIndex::<T>::get(era_index)
 		}
 
-		/// Get the clipped exposure of a given validator at an era.
-		pub fn eras_stakers_clipped<EncodeLikeEraIndex, EncodeLikeAccountId>(
-			era_index: EncodeLikeEraIndex,
-			account_id: EncodeLikeAccountId,
-		) -> Exposure<T::AccountId, BalanceOf<T>>
-		where
-			EncodeLikeEraIndex: codec::EncodeLike<EraIndex>,
-			EncodeLikeAccountId: codec::EncodeLike<T::AccountId>,
-		{
-			ErasStakersClipped::<T>::get(era_index, account_id)
-		}
-
 		/// Get the paged history of claimed rewards by era for given validator.
 		pub fn claimed_rewards<EncodeLikeEraIndex, EncodeLikeAccountId>(
 			era_index: EncodeLikeEraIndex,
 			account_id: EncodeLikeAccountId,
-		) -> Vec<Page>
+		) -> WeakBoundedVec<Page, T::MaxRewardPagesPerValidator>
 		where
 			EncodeLikeEraIndex: codec::EncodeLike<EraIndex>,
 			EncodeLikeAccountId: codec::EncodeLike<T::AccountId>,
@@ -1085,7 +1048,7 @@ pub mod pallet {
 		/// Get the rewards for the last [`Config::HistoryDepth`] eras.
 		pub fn eras_reward_points<EncodeLikeEraIndex>(
 			era_index: EncodeLikeEraIndex,
-		) -> EraRewardPoints<T::AccountId>
+		) -> EraRewardPoints<T::AccountId, T::MaxValidatorsCount>
 		where
 			EncodeLikeEraIndex: codec::EncodeLike<EraIndex>,
 		{
@@ -1379,12 +1342,10 @@ pub mod pallet {
 				// If this error is reached, we need to adjust the `MinValidatorBond` and start
 				// calling `chill_other`. Until then, we explicitly block new validators to protect
 				// the runtime.
-				if let Some(max_validators) = MaxValidatorsCount::<T>::get() {
-					ensure!(
-						Validators::<T>::count() < max_validators,
-						Error::<T>::TooManyValidators
-					);
-				}
+				ensure!(
+					Validators::<T>::count() < T::MaxValidatorsCount::get(),
+					Error::<T>::TooManyValidators,
+				);
 			}
 
 			Self::do_remove_nominator(stash);
@@ -1681,7 +1642,11 @@ pub mod pallet {
 			invulnerables: Vec<T::AccountId>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			<Invulnerables<T>>::put(invulnerables);
+			ensure!(
+				invulnerables.len() as u32 <= T::MaxInvulnerables::get(),
+				Error::<T>::BoundNotMet
+			);
+			<Invulnerables<T>>::put(BoundedVec::truncate_from(invulnerables));
 			Ok(())
 		}
 
@@ -1939,7 +1904,6 @@ pub mod pallet {
 			min_nominator_bond: ConfigOp<BalanceOf<T>>,
 			min_validator_bond: ConfigOp<BalanceOf<T>>,
 			max_nominator_count: ConfigOp<u32>,
-			max_validator_count: ConfigOp<u32>,
 			chill_threshold: ConfigOp<Percent>,
 			min_commission: ConfigOp<Perbill>,
 			max_staked_rewards: ConfigOp<Percent>,
@@ -1959,7 +1923,6 @@ pub mod pallet {
 			config_op_exp!(MinNominatorBond<T>, min_nominator_bond);
 			config_op_exp!(MinValidatorBond<T>, min_validator_bond);
 			config_op_exp!(MaxNominatorsCount<T>, max_nominator_count);
-			config_op_exp!(MaxValidatorsCount<T>, max_validator_count);
 			config_op_exp!(ChillThreshold<T>, chill_threshold);
 			config_op_exp!(MinCommission<T>, min_commission);
 			config_op_exp!(MaxStakedRewards<T>, max_staked_rewards);
@@ -1983,8 +1946,8 @@ pub mod pallet {
 		///
 		/// * A `ChillThreshold` must be set and checked which defines how close to the max
 		///   nominators or validators we must reach before users can start chilling one-another.
-		/// * A `MaxNominatorCount` and `MaxValidatorCount` must be set which is used to determine
-		///   how close we are to the threshold.
+		/// * A `MaxNominatorCount` must be set which is used to determine how close we are to the
+		///   threshold.
 		/// * A `MinNominatorBond` and `MinValidatorBond` must be set and checked, which determines
 		///   if this is a person that should be chilled because they have not met the threshold
 		///   bond required.
@@ -2012,7 +1975,7 @@ pub mod pallet {
 			//
 			// * A `ChillThreshold` is set which defines how close to the max nominators or
 			//   validators we must reach before users can start chilling one-another.
-			// * A `MaxNominatorCount` and `MaxValidatorCount` which is used to determine how close
+			// * A `MaxNominatorCount` and `MaxValidatorsCount` which is used to determine how close
 			//   we are to the threshold.
 			// * A `MinNominatorBond` and `MinValidatorBond` which is the final condition checked to
 			//   determine this is a person that should be chilled because they have not met the
@@ -2037,8 +2000,7 @@ pub mod pallet {
 					);
 					MinNominatorBond::<T>::get()
 				} else if Validators::<T>::contains_key(&stash) {
-					let max_validator_count =
-						MaxValidatorsCount::<T>::get().ok_or(Error::<T>::CannotChillOther)?;
+					let max_validator_count = T::MaxValidatorsCount::get();
 					let current_validator_count = Validators::<T>::count();
 					ensure!(
 						threshold * max_validator_count < current_validator_count,

@@ -340,6 +340,7 @@ parameter_types! {
 	pub storage SessionsPerEra: SessionIndex = 6;
 	// 28 eras for unbonding (7 days).
 	pub storage BondingDuration: sp_staking::EraIndex = 28;
+	pub storage MaxBondedEras: u32 = (BondingDuration::get() as u32) + 1;
 	// 27 eras in which slashes can be cancelled (a bit less than 7 days).
 	pub storage SlashDeferDuration: sp_staking::EraIndex = 27;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
@@ -376,6 +377,7 @@ impl pallet_staking::Config for Runtime {
 	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
+	type MaxBondedEras = MaxBondedEras;
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = frame_system::EnsureNever<()>;
 	type SessionInterface = Self;
@@ -396,6 +398,10 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = ();
 	type WeightInfo = ();
 	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy;
+	type MaxInvulnerables = ConstU32<20>;
+	type MaxRewardPagesPerValidator = ConstU32<20>;
+	type MaxValidatorsCount = ConstU32<300>;
+	type MaxDisabledValidators = ConstU32<100>;
 }
 
 parameter_types! {
@@ -550,7 +556,6 @@ impl parachains_slashing::Config for Runtime {
 		ReportLongevity,
 	>;
 	type WeightInfo = parachains_disputes::slashing::TestWeightInfo;
-	type BenchmarkingConfig = parachains_slashing::BenchConfig<1000>;
 }
 
 impl parachains_paras_inherent::Config for Runtime {
