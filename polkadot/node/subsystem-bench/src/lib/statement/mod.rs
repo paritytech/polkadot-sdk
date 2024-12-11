@@ -68,7 +68,7 @@ use sc_network::{
 	},
 	request_responses::ProtocolConfig,
 	service::traits::{NotificationEvent, ValidationResult},
-	Multiaddr, NetworkWorker, NotificationMetrics, NotificationService,
+	Multiaddr, NetworkWorker, NotificationMetrics,
 };
 use sc_network_common::sync::message::BlockAnnouncesHandshake;
 use sc_network_types::PeerId;
@@ -96,7 +96,7 @@ pub fn make_keystore() -> KeystorePtr {
 }
 
 fn build_peer_overseer(
-	test_state: Arc<TestState>,
+	state: Arc<TestState>,
 	dependencies: &TestEnvironmentDependencies,
 	index: u16,
 ) -> (OverseerHandle, (PeerId, Multiaddr)) {
@@ -108,21 +108,20 @@ fn build_peer_overseer(
 
 	let network_bridge_metrics = NetworkBridgeMetrics::default();
 
-	let authority_discovery_service = DummyAuthotiryDiscoveryService::new(
-		test_state.test_authorities.peer_id_to_authority.clone(),
-	);
+	let authority_discovery_service =
+		DummyAuthotiryDiscoveryService::new(state.test_authorities.peer_id_to_authority.clone());
 	let notification_sinks = Arc::new(parking_lot::Mutex::new(HashMap::new()));
 	let peer_set_protocol_names = PeerSetProtocolNames::new(GENESIS_HASH, None);
 
 	let req_protocol_names = ReqProtocolNames::new(GENESIS_HASH, None);
 	let mut net_conf = NetworkConfiguration::new_local();
-	let listen_address: Multiaddr = std::iter::once(sc_network::multiaddr::Protocol::Ip4(
+
+	net_conf.listen_addresses = vec![std::iter::once(sc_network::multiaddr::Protocol::Ip4(
 		std::net::Ipv4Addr::new(127, 0, 0, 1),
 	))
 	.chain(std::iter::once(sc_network::multiaddr::Protocol::Tcp(40000 + index)))
-	.collect();
-	net_conf.listen_addresses = vec![listen_address.clone()];
-	net_conf.node_key = test_state.test_authorities.node_key_configs[index as usize].clone();
+	.collect()];
+	net_conf.node_key = state.test_authorities.node_key_configs[index as usize].clone();
 
 	let mut network_config =
 		FullNetworkConfiguration::<Block, Hash, NetworkWorker<Block, Hash>>::new(&net_conf, None);
@@ -200,6 +199,7 @@ fn build_peer_overseer(
 		<NetworkWorker<Block, Hash> as sc_network::NetworkBackend<Block, Hash>>::network_service(
 			&worker,
 		);
+	let peer_id = network_service.local_peer_id();
 	let network_bridge_tx = NetworkBridgeTxSubsystem::new(
 		Arc::clone(&network_service),
 		authority_discovery_service.clone(),
@@ -222,7 +222,8 @@ fn build_peer_overseer(
 		false,
 	);
 
-	let statement_distribution = MockStatementDistribution::new(candidate_req_receiver, test_state);
+	let statement_distribution =
+		MockStatementDistribution::new(candidate_req_receiver, state, index as usize);
 
 	let dummy = dummy_builder!(spawn_task_handle, overseer_metrics)
 		.replace_statement_distribution(|_| statement_distribution)
@@ -241,7 +242,7 @@ fn build_peer_overseer(
 		async move {
 			while let Some(event) = notification_service.next_event().await {
 				match event {
-					NotificationEvent::ValidateInboundSubstream { result_tx, peer, .. } =>
+					NotificationEvent::ValidateInboundSubstream { result_tx, .. } =>
 						result_tx.send(ValidationResult::Accept).unwrap(),
 					_ => {},
 				}
@@ -266,7 +267,7 @@ fn build_peer_overseer(
 		tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(listen_address))
 			.unwrap();
 
-	(overseer_handle, (network_service.local_peer_id(), listen_address))
+	(overseer_handle, (peer_id, listen_address))
 }
 
 fn build_overseer(
@@ -314,6 +315,8 @@ fn build_overseer(
 	))
 	.chain(std::iter::once(sc_network::multiaddr::Protocol::Tcp(40000 + NODE_UNDER_TEST as u16)))
 	.collect()];
+	net_conf.node_key = state.test_authorities.node_key_configs[NODE_UNDER_TEST as usize].clone();
+
 	let mut network_config =
 		FullNetworkConfiguration::<Block, Hash, NetworkWorker<Block, Hash>>::new(&net_conf, None);
 	let (statement_req_receiver, statement_req_cfg) = IncomingRequest::get_config_receiver::<
@@ -450,7 +453,7 @@ fn build_overseer(
 		async move {
 			while let Some(event) = notification_service.next_event().await {
 				match event {
-					NotificationEvent::ValidateInboundSubstream { result_tx, peer, .. } =>
+					NotificationEvent::ValidateInboundSubstream { result_tx, .. } =>
 						result_tx.send(ValidationResult::Accept).unwrap(),
 					_ => {},
 				}

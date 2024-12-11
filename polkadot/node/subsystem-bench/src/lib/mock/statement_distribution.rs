@@ -16,35 +16,44 @@
 
 //! A generic statement distribution subsystem mockup suitable to be used in benchmarks.
 
-use crate::statement::TestState;
+use crate::{statement::TestState, NODE_UNDER_TEST};
+use bitvec::vec::BitVec;
 use futures::FutureExt;
 use polkadot_node_network_protocol::{
 	request_response::{
 		v2::{AttestedCandidateRequest, AttestedCandidateResponse},
-		IncomingRequestReceiver,
+		IncomingRequestReceiver, OutgoingRequest, Recipient, Requests,
 	},
-	UnifiedReputationChange,
+	v3::{self, BackedCandidateAcknowledgement, StatementFilter},
+	UnifiedReputationChange, Versioned,
 };
 use polkadot_node_subsystem::{
+	messages::{NetworkBridgeEvent, NetworkBridgeTxMessage, StatementDistributionMessage},
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
-use std::sync::Arc;
+use polkadot_primitives::{CompactStatement, SignedStatement, SigningContext, ValidatorIndex};
+use sc_network::IfDisconnected;
+use sp_application_crypto::Pair;
+use std::sync::{atomic::Ordering, Arc};
 
 const COST_INVALID_REQUEST: UnifiedReputationChange =
 	UnifiedReputationChange::CostMajor("Peer sent unparsable request");
+const SESSION_INDEX: u32 = 0;
 
 pub struct MockStatementDistribution {
 	/// Receiver for attested candidate requests.
 	req_receiver: IncomingRequestReceiver<AttestedCandidateRequest>,
 	test_state: Arc<TestState>,
+	index: usize,
 }
 
 impl MockStatementDistribution {
 	pub fn new(
 		req_receiver: IncomingRequestReceiver<AttestedCandidateRequest>,
 		test_state: Arc<TestState>,
+		index: usize,
 	) -> Self {
-		Self { req_receiver, test_state }
+		Self { req_receiver, test_state, index }
 	}
 }
 
@@ -64,11 +73,145 @@ impl MockStatementDistribution {
 				msg = ctx.recv() => match msg {
 					Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) => return,
 					Ok(FromOrchestra::Communication { msg }) =>
-						println!("🚨🚨🚨 Received message: {:?}", msg),
-					err => println!("🚨🚨🚨 recv error: {:?}", err),
+						match msg {
+							StatementDistributionMessage::NetworkBridgeUpdate(
+								NetworkBridgeEvent::PeerMessage(
+									peer_id,
+									Versioned::V3(v3::StatementDistributionMessage::Statement(
+										relay_parent,
+										statement,
+									)),
+								),
+							) => {
+								let candidate_hash = *statement.unchecked_payload().candidate_hash();
+								let statements_sent_count = self
+									.test_state
+									.statements_tracker
+									.get(&candidate_hash)
+									.unwrap()
+									.get(self.index)
+									.unwrap()
+									.as_ref();
+								if statements_sent_count.load(Ordering::SeqCst) {
+									continue
+								} else {
+									statements_sent_count.store(true, Ordering::SeqCst);
+								}
+
+								let group_statements = self.test_state.statements.get(&candidate_hash).unwrap();
+								if !group_statements.iter().any(|s| s.unchecked_validator_index().0 == self.index as u32)
+								{
+									continue
+								}
+
+								let statement = CompactStatement::Valid(candidate_hash);
+								let context =
+									SigningContext { parent_hash: relay_parent, session_index: SESSION_INDEX };
+								let payload = statement.signing_payload(&context);
+								let pair = self.test_state.test_authorities.validator_pairs.get(self.index).unwrap();
+								let signature = pair.sign(&payload[..]);
+								let statement = SignedStatement::new(
+									statement,
+									ValidatorIndex(self.index as u32),
+									signature,
+									&context,
+									&pair.public(),
+								)
+								.unwrap()
+								.as_unchecked()
+								.to_owned();
+
+								ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
+									vec![peer_id],
+									Versioned::V3(v3::StatementDistributionMessage::Statement(
+										relay_parent,
+										statement,
+									))
+									.into(),
+								))
+								.await;
+							},
+							StatementDistributionMessage::NetworkBridgeUpdate(
+								NetworkBridgeEvent::PeerMessage(
+									peer_id,
+									Versioned::V3(v3::StatementDistributionMessage::BackedCandidateManifest(
+										manifest,
+									)),
+								),
+							) => {
+								let backing_group =
+									self.test_state.session_info.validator_groups.get(manifest.group_index).unwrap();
+								let group_size = backing_group.len();
+								let is_own_backing_group = backing_group.contains(&ValidatorIndex(NODE_UNDER_TEST));
+								let mut seconded_in_group =
+									BitVec::from_iter((0..group_size).map(|_| !is_own_backing_group));
+								let mut validated_in_group = BitVec::from_iter((0..group_size).map(|_| false));
+
+								if is_own_backing_group {
+									let (req, pending_response) = OutgoingRequest::new(
+										Recipient::Peer(peer_id),
+										AttestedCandidateRequest {
+											candidate_hash: manifest.candidate_hash,
+											mask: StatementFilter::blank(group_size),
+										},
+									);
+									let reqs = vec![Requests::AttestedCandidateV2(req)];
+									ctx.send_message(NetworkBridgeTxMessage::SendRequests(
+										reqs,
+										IfDisconnected::TryConnect,
+									))
+									.await;
+
+									let response = pending_response.await.unwrap();
+									for statement in response.statements {
+										let validator_index = statement.unchecked_validator_index();
+										let position_in_group =
+											backing_group.iter().position(|v| *v == validator_index).unwrap();
+										match statement.unchecked_payload() {
+											CompactStatement::Seconded(_) =>
+												seconded_in_group.set(position_in_group, true),
+											CompactStatement::Valid(_) =>
+												validated_in_group.set(position_in_group, true),
+										}
+									}
+								}
+
+								let ack = BackedCandidateAcknowledgement {
+									candidate_hash: manifest.candidate_hash,
+									statement_knowledge: StatementFilter { seconded_in_group, validated_in_group },
+								};
+
+								ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
+									vec![peer_id],
+									Versioned::V3(v3::StatementDistributionMessage::BackedCandidateKnown(ack)).into(),
+								))
+								.await;
+
+								self.test_state
+									.manifests_tracker
+									.get(&manifest.candidate_hash)
+									.unwrap()
+									.as_ref()
+									.store(true, Ordering::SeqCst);
+							},
+							StatementDistributionMessage::NetworkBridgeUpdate(
+								NetworkBridgeEvent::PeerMessage(
+									_peer_id,
+									Versioned::V3(v3::StatementDistributionMessage::BackedCandidateKnown(ack)),
+								),
+							) => {
+								self.test_state
+									.manifests_tracker
+									.get(&ack.candidate_hash)
+									.unwrap()
+									.as_ref()
+									.store(true, Ordering::SeqCst);
+							},
+							msg => println!("🚨🚨🚨 Received message: {:?}", msg),
+						},
+					err => println!("recv error: {:?}", err),
 				},
 				req = self.req_receiver.recv(|| vec![COST_INVALID_REQUEST]) => {
-					println!("🚀🚀🚀 Received candidate request: {:?}", req);
 					let req = req.expect("Receiver never fails");
 					let candidate_receipt = self
 						.test_state
@@ -86,7 +229,6 @@ impl MockStatementDistribution {
 						statements,
 					};
 					let _ = req.send_response(res);
-					println!("❤️❤️❤️ Sent candidate response");
 				}
 			}
 		}

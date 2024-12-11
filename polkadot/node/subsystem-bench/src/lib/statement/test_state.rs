@@ -17,24 +17,9 @@
 use crate::{
 	configuration::{TestAuthorities, TestConfiguration},
 	mock::runtime_api::session_info_for_peers,
-	network::{HandleNetworkMessage, NetworkMessage},
 	NODE_UNDER_TEST,
 };
-use bitvec::vec::BitVec;
-use codec::{Decode, Encode};
-use futures::channel::oneshot;
 use itertools::Itertools;
-use polkadot_node_network_protocol::{
-	request_response::{
-		v2::{AttestedCandidateRequest, AttestedCandidateResponse},
-		Requests,
-	},
-	v3::{
-		BackedCandidateAcknowledgement, StatementDistributionMessage, StatementFilter,
-		ValidationProtocol,
-	},
-	Versioned,
-};
 use polkadot_node_primitives::{AvailableData, BlockData, PoV};
 use polkadot_node_subsystem_test_helpers::{
 	derive_erasure_chunks_with_proofs_and_root, mock::new_block_import_info,
@@ -52,7 +37,6 @@ use polkadot_primitives::{
 use polkadot_primitives_test_helpers::{
 	dummy_committed_candidate_receipt_v2, dummy_hash, dummy_head_data, dummy_pvd,
 };
-use sc_network::{config::IncomingRequest, ProtocolName};
 use sp_core::{Pair, H256};
 use std::{
 	collections::HashMap,
@@ -262,185 +246,4 @@ fn generate_receipt_templates(
 			receipt
 		})
 		.collect()
-}
-
-#[async_trait::async_trait]
-impl HandleNetworkMessage for TestState {
-	async fn handle(
-		&self,
-		message: NetworkMessage,
-		node_sender: &mut futures::channel::mpsc::UnboundedSender<NetworkMessage>,
-	) -> Option<NetworkMessage> {
-		todo!("unexpected message {:?}", message);
-		match message {
-			NetworkMessage::RequestFromNode(_authority_id, Requests::AttestedCandidateV2(req)) => {
-				let payload = req.payload;
-				let candidate_receipt = self
-					.commited_candidate_receipts
-					.values()
-					.flatten()
-					.find(|v| v.hash() == payload.candidate_hash)
-					.unwrap()
-					.clone();
-				let persisted_validation_data = self.pvd.clone();
-				let statements = self.statements.get(&payload.candidate_hash).unwrap().clone();
-				let res = AttestedCandidateResponse {
-					candidate_receipt,
-					persisted_validation_data,
-					statements,
-				};
-				let _ = req.pending_response.send(Ok((res.encode(), ProtocolName::from(""))));
-				None
-			},
-			NetworkMessage::MessageFromNode(
-				authority_id,
-				Versioned::V3(ValidationProtocol::StatementDistribution(
-					StatementDistributionMessage::Statement(relay_parent, statement),
-				)),
-			) => {
-				let index = self
-					.test_authorities
-					.validator_authority_id
-					.iter()
-					.position(|v| v == &authority_id)
-					.unwrap();
-				let candidate_hash = *statement.unchecked_payload().candidate_hash();
-
-				let statements_sent_count = self
-					.statements_tracker
-					.get(&candidate_hash)
-					.unwrap()
-					.get(index)
-					.unwrap()
-					.as_ref();
-				if statements_sent_count.load(Ordering::SeqCst) {
-					return None
-				} else {
-					statements_sent_count.store(true, Ordering::SeqCst);
-				}
-
-				let group_statements = self.statements.get(&candidate_hash).unwrap();
-				if !group_statements.iter().any(|s| s.unchecked_validator_index().0 == index as u32)
-				{
-					return None
-				}
-
-				let statement = CompactStatement::Valid(candidate_hash);
-				let context =
-					SigningContext { parent_hash: relay_parent, session_index: SESSION_INDEX };
-				let payload = statement.signing_payload(&context);
-				let pair = self.test_authorities.validator_pairs.get(index).unwrap();
-				let signature = pair.sign(&payload[..]);
-				let statement = SignedStatement::new(
-					statement,
-					ValidatorIndex(index as u32),
-					signature,
-					&context,
-					&pair.public(),
-				)
-				.unwrap()
-				.as_unchecked()
-				.to_owned();
-
-				node_sender
-					.start_send(NetworkMessage::MessageFromPeer(
-						*self.test_authorities.peer_ids.get(index).unwrap(),
-						Versioned::V3(ValidationProtocol::StatementDistribution(
-							StatementDistributionMessage::Statement(relay_parent, statement),
-						)),
-					))
-					.unwrap();
-				None
-			},
-			NetworkMessage::MessageFromNode(
-				authority_id,
-				Versioned::V3(ValidationProtocol::StatementDistribution(
-					StatementDistributionMessage::BackedCandidateManifest(manifest),
-				)),
-			) => {
-				let index = self
-					.test_authorities
-					.validator_authority_id
-					.iter()
-					.position(|v| v == &authority_id)
-					.unwrap();
-				let backing_group =
-					self.session_info.validator_groups.get(manifest.group_index).unwrap();
-				let group_size = backing_group.len();
-				let is_own_backing_group = backing_group.contains(&ValidatorIndex(NODE_UNDER_TEST));
-				let mut seconded_in_group =
-					BitVec::from_iter((0..group_size).map(|_| !is_own_backing_group));
-				let mut validated_in_group = BitVec::from_iter((0..group_size).map(|_| false));
-
-				if is_own_backing_group {
-					let (pending_response, response_receiver) = oneshot::channel();
-					let peer_id = self.test_authorities.peer_ids.get(index).unwrap().to_owned();
-					node_sender
-						.start_send(NetworkMessage::RequestFromPeer(IncomingRequest {
-							peer: peer_id,
-							payload: AttestedCandidateRequest {
-								candidate_hash: manifest.candidate_hash,
-								mask: StatementFilter::blank(self.own_backing_group.len()),
-							}
-							.encode(),
-							pending_response,
-						}))
-						.unwrap();
-
-					let response = response_receiver.await.unwrap();
-					let response =
-						AttestedCandidateResponse::decode(&mut response.result.unwrap().as_ref())
-							.unwrap();
-
-					for statement in response.statements {
-						let validator_index = statement.unchecked_validator_index();
-						let position_in_group =
-							backing_group.iter().position(|v| *v == validator_index).unwrap();
-						match statement.unchecked_payload() {
-							CompactStatement::Seconded(_) =>
-								seconded_in_group.set(position_in_group, true),
-							CompactStatement::Valid(_) =>
-								validated_in_group.set(position_in_group, true),
-						}
-					}
-				}
-
-				let ack = BackedCandidateAcknowledgement {
-					candidate_hash: manifest.candidate_hash,
-					statement_knowledge: StatementFilter { seconded_in_group, validated_in_group },
-				};
-				node_sender
-					.start_send(NetworkMessage::MessageFromPeer(
-						*self.test_authorities.peer_ids.get(index).unwrap(),
-						Versioned::V3(ValidationProtocol::StatementDistribution(
-							StatementDistributionMessage::BackedCandidateKnown(ack),
-						)),
-					))
-					.unwrap();
-
-				self.manifests_tracker
-					.get(&manifest.candidate_hash)
-					.unwrap()
-					.as_ref()
-					.store(true, Ordering::SeqCst);
-
-				None
-			},
-			NetworkMessage::MessageFromNode(
-				_authority_id,
-				Versioned::V3(ValidationProtocol::StatementDistribution(
-					StatementDistributionMessage::BackedCandidateKnown(ack),
-				)),
-			) => {
-				self.manifests_tracker
-					.get(&ack.candidate_hash)
-					.unwrap()
-					.as_ref()
-					.store(true, Ordering::SeqCst);
-
-				None
-			},
-			_ => Some(message),
-		}
-	}
 }
