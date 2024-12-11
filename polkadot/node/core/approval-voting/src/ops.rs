@@ -20,12 +20,14 @@
 use polkadot_node_subsystem::{SubsystemError, SubsystemResult};
 
 use bitvec::order::Lsb0 as BitOrderLsb0;
-use polkadot_primitives::{BlockNumber, CandidateHash, CandidateReceipt, GroupIndex, Hash};
+use polkadot_primitives::{
+	vstaging::CandidateReceiptV2 as CandidateReceipt, BlockNumber, CandidateHash, GroupIndex, Hash,
+};
 
 use std::collections::{hash_map::Entry, BTreeMap, HashMap};
 
 use super::{
-	approval_db::v1::{OurAssignment, StoredBlockRange},
+	approval_db::{common::StoredBlockRange, v2::OurAssignment},
 	backend::{Backend, OverlayedBackend},
 	persisted_entries::{ApprovalEntry, BlockEntry, CandidateEntry},
 	LOG_TARGET,

@@ -17,14 +17,21 @@
 
 //! The imbalance type and its associates, which handles keeps everything adding up properly with
 //! unbalanced operations.
+//!
+//! See the [`crate::traits::fungibles`] doc for more information about fungibles traits.
 
 use super::*;
 use crate::traits::{
+	fungible,
 	misc::{SameOrOther, TryDrop},
-	tokens::{AssetId, Balance},
+	tokens::{
+		imbalance::{Imbalance as ImbalanceT, TryMerge},
+		AssetId, Balance,
+	},
 };
-use sp_runtime::{traits::Zero, RuntimeDebug};
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
+use frame_support_procedural::{EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
+use sp_runtime::traits::Zero;
 
 /// Handler for when an imbalance gets dropped. This could handle either a credit (negative) or
 /// debt (positive) imbalance.
@@ -38,7 +45,7 @@ pub trait HandleImbalanceDrop<AssetId, Balance> {
 ///
 /// Importantly, it has a special `Drop` impl, and cannot be created outside of this module.
 #[must_use]
-#[derive(RuntimeDebug, Eq, PartialEq)]
+#[derive(EqNoBound, PartialEqNoBound, RuntimeDebugNoBound)]
 pub struct Imbalance<
 	A: AssetId,
 	B: Balance,
@@ -92,9 +99,14 @@ impl<
 		Self { asset, amount, _phantom: PhantomData }
 	}
 
+	/// Forget the imbalance without invoking the on-drop handler.
+	pub(crate) fn forget(imbalance: Self) {
+		core::mem::forget(imbalance);
+	}
+
 	pub fn drop_zero(self) -> Result<(), Self> {
 		if self.amount.is_zero() {
-			sp_std::mem::forget(self);
+			core::mem::forget(self);
 			Ok(())
 		} else {
 			Err(self)
@@ -105,13 +117,22 @@ impl<
 		let first = self.amount.min(amount);
 		let second = self.amount - first;
 		let asset = self.asset.clone();
-		sp_std::mem::forget(self);
+		core::mem::forget(self);
 		(Imbalance::new(asset.clone(), first), Imbalance::new(asset, second))
 	}
+
+	/// Mutate `self` by extracting a new instance with at most `amount` value, reducing `self`
+	/// accordingly.
+	pub fn extract(&mut self, amount: B) -> Self {
+		let new = self.amount.min(amount);
+		self.amount = self.amount - new;
+		Imbalance::new(self.asset.clone(), new)
+	}
+
 	pub fn merge(mut self, other: Self) -> Result<Self, (Self, Self)> {
 		if self.asset == other.asset {
 			self.amount = self.amount.saturating_add(other.amount);
-			sp_std::mem::forget(other);
+			core::mem::forget(other);
 			Ok(self)
 		} else {
 			Err((self, other))
@@ -120,7 +141,7 @@ impl<
 	pub fn subsume(&mut self, other: Self) -> Result<(), Self> {
 		if self.asset == other.asset {
 			self.amount = self.amount.saturating_add(other.amount);
-			sp_std::mem::forget(other);
+			core::mem::forget(other);
 			Ok(())
 		} else {
 			Err(other)
@@ -136,7 +157,7 @@ impl<
 		if self.asset == other.asset {
 			let (a, b) = (self.amount, other.amount);
 			let asset = self.asset.clone();
-			sp_std::mem::forget((self, other));
+			core::mem::forget((self, other));
 
 			if a == b {
 				Ok(SameOrOther::None)
@@ -156,6 +177,64 @@ impl<
 	pub fn asset(&self) -> A {
 		self.asset.clone()
 	}
+}
+
+impl<
+		A: AssetId,
+		B: Balance,
+		OnDrop: HandleImbalanceDrop<A, B>,
+		OppositeOnDrop: HandleImbalanceDrop<A, B>,
+	> TryMerge for Imbalance<A, B, OnDrop, OppositeOnDrop>
+{
+	fn try_merge(self, other: Self) -> Result<Self, (Self, Self)> {
+		self.merge(other)
+	}
+}
+
+/// Converts a `fungible` `imbalance` instance to an instance of a `fungibles` imbalance type using
+/// a specified `asset`.
+///
+/// This function facilitates imbalance conversions within the implementations of
+/// [`frame_support::traits::fungibles::UnionOf`], [`frame_support::traits::fungible::UnionOf`], and
+/// [`frame_support::traits::fungible::ItemOf`] adapters. It is intended only for internal use
+/// within the current crate.
+pub(crate) fn from_fungible<
+	A: AssetId,
+	B: Balance,
+	OnDropIn: fungible::HandleImbalanceDrop<B>,
+	OppositeIn: fungible::HandleImbalanceDrop<B>,
+	OnDropOut: HandleImbalanceDrop<A, B>,
+	OppositeOut: HandleImbalanceDrop<A, B>,
+>(
+	imbalance: fungible::Imbalance<B, OnDropIn, OppositeIn>,
+	asset: A,
+) -> Imbalance<A, B, OnDropOut, OppositeOut> {
+	let new = Imbalance::new(asset, imbalance.peek());
+	fungible::Imbalance::forget(imbalance);
+	new
+}
+
+/// Converts a `fungibles` `imbalance` instance of one type to another using a specified `asset`.
+///
+/// This function facilitates imbalance conversions within the implementations of
+/// [`frame_support::traits::fungibles::UnionOf`], [`frame_support::traits::fungible::UnionOf`], and
+/// [`frame_support::traits::fungible::ItemOf`] adapters. It is intended only for internal use
+/// within the current crate.
+pub(crate) fn from_fungibles<
+	A: AssetId,
+	B: Balance,
+	OnDropIn: HandleImbalanceDrop<A, B>,
+	OppositeIn: HandleImbalanceDrop<A, B>,
+	AssetOut: AssetId,
+	OnDropOut: HandleImbalanceDrop<AssetOut, B>,
+	OppositeOut: HandleImbalanceDrop<AssetOut, B>,
+>(
+	imbalance: Imbalance<A, B, OnDropIn, OppositeIn>,
+	asset: AssetOut,
+) -> Imbalance<AssetOut, B, OnDropOut, OppositeOut> {
+	let new = Imbalance::new(asset, imbalance.peek());
+	Imbalance::forget(imbalance);
+	new
 }
 
 /// Imbalance implying that the total_issuance value is less than the sum of all account balances.

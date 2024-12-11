@@ -113,7 +113,7 @@ And update the overall definition for weights on frame and a few related types a
 ```diff=
 
 -const AVERAGE_ON_INITIALIZE_WEIGHT: Perbill = Perbill::from_percent(10);
-+/// We assume that ~10% of the block weight is consumed by `on_initalize` handlers.
++/// We assume that ~10% of the block weight is consumed by `on_initialize` handlers.
 +/// This is used to limit the maximal weight of a single extrinsic.
 +const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 +/// We allow `Normal` extrinsics to fill up the block up to 75%, the rest can be used
@@ -1003,7 +1003,7 @@ modified your chain you should probably try to apply these patches:
  	};
  	use sp_timestamp;
 -	use sp_finality_tracker;
- 	use sp_keyring::AccountKeyring;
+ 	use sp_keyring::Sr25519Keyring;
  	use sc_service_test::TestNetNode;
  	use crate::service::{new_full_base, new_light_base, NewFullBase};
 -	use sp_runtime::traits::IdentifyAccount;
@@ -1034,7 +1034,7 @@ modified your chain you should probably try to apply these patches:
 +		let mut slot = 1u64;
 
  		// For the extrinsics factory
- 		let bob = Arc::new(AccountKeyring::Bob.pair());
+ 		let bob = Arc::new(Sr25519Keyring::Bob.pair());
 @@ -528,14 +539,13 @@ mod tests {
  				Ok((node, (inherent_data_providers, setup_handles.unwrap())))
  			},

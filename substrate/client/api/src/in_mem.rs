@@ -419,20 +419,6 @@ impl<Block: BlockT> blockchain::Backend<Block> for Blockchain<Block> {
 		Ok(self.storage.read().leaves.hashes())
 	}
 
-	fn displaced_leaves_after_finalizing(
-		&self,
-		block_number: NumberFor<Block>,
-	) -> sp_blockchain::Result<Vec<Block::Hash>> {
-		Ok(self
-			.storage
-			.read()
-			.leaves
-			.displaced_by_finalize_height(block_number)
-			.leaves()
-			.cloned()
-			.collect::<Vec<_>>())
-	}
-
 	fn children(&self, _parent_hash: Block::Hash) -> sp_blockchain::Result<Vec<Block::Hash>> {
 		unimplemented!()
 	}
@@ -598,6 +584,8 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 	) -> sp_blockchain::Result<()> {
 		Ok(())
 	}
+
+	fn set_create_gap(&mut self, _create_gap: bool) {}
 }
 
 /// In-memory backend. Keeps all states and blocks in memory.
@@ -812,9 +800,8 @@ pub fn check_genesis_storage(storage: &Storage) -> sp_blockchain::Result<()> {
 #[cfg(test)]
 mod tests {
 	use crate::{in_mem::Blockchain, NewBlockState};
-	use sp_api::HeaderT;
 	use sp_blockchain::Backend;
-	use sp_runtime::{ConsensusEngineId, Justifications};
+	use sp_runtime::{traits::Header as HeaderT, ConsensusEngineId, Justifications};
 	use substrate_test_runtime::{Block, Header, H256};
 
 	pub const ID1: ConsensusEngineId = *b"TST1";

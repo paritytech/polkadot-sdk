@@ -16,15 +16,23 @@
 // limitations under the License.
 
 //! Adapter to use `fungibles::*` implementations as `fungible::*`.
-
-use sp_core::Get;
-use sp_runtime::{DispatchError, DispatchResult};
+//!
+//! This allows for a `fungibles` asset, e.g. from the `pallet_assets` pallet, to be used when a
+//! `fungible` asset is expected.
+//!
+//! See the [`crate::traits::fungible`] doc for more information about fungible traits.
 
 use super::*;
-use crate::traits::tokens::{
-	fungibles, DepositConsequence, Fortitude, Imbalance as ImbalanceT, Precision, Preservation,
-	Provenance, Restriction, WithdrawConsequence,
+use crate::traits::{
+	fungible::imbalance,
+	tokens::{
+		fungibles, DepositConsequence, Fortitude, Precision, Preservation, Provenance, Restriction,
+		WithdrawConsequence,
+	},
 };
+use frame_support::traits::fungible::hold::DoneSlash;
+use sp_core::Get;
+use sp_runtime::{DispatchError, DispatchResult};
 
 /// Convert a `fungibles` trait implementation into a `fungible` trait implementation by identifying
 /// a single item.
@@ -32,7 +40,7 @@ pub struct ItemOf<
 	F: fungibles::Inspect<AccountId>,
 	A: Get<<F as fungibles::Inspect<AccountId>>::AssetId>,
 	AccountId,
->(sp_std::marker::PhantomData<(F, A, AccountId)>);
+>(core::marker::PhantomData<(F, A, AccountId)>);
 
 impl<
 		F: fungibles::Inspect<AccountId>,
@@ -219,7 +227,7 @@ impl<
 impl<
 		F: fungibles::Mutate<AccountId>,
 		A: Get<<F as fungibles::Inspect<AccountId>>::AssetId>,
-		AccountId,
+		AccountId: Eq,
 	> Mutate<AccountId> for ItemOf<F, A, AccountId>
 {
 	fn mint_into(who: &AccountId, amount: Self::Balance) -> Result<Self::Balance, DispatchError> {
@@ -228,10 +236,18 @@ impl<
 	fn burn_from(
 		who: &AccountId,
 		amount: Self::Balance,
+		preservation: Preservation,
 		precision: Precision,
 		force: Fortitude,
 	) -> Result<Self::Balance, DispatchError> {
-		<F as fungibles::Mutate<AccountId>>::burn_from(A::get(), who, amount, precision, force)
+		<F as fungibles::Mutate<AccountId>>::burn_from(
+			A::get(),
+			who,
+			amount,
+			preservation,
+			precision,
+			force,
+		)
 	}
 	fn shelve(who: &AccountId, amount: Self::Balance) -> Result<Self::Balance, DispatchError> {
 		<F as fungibles::Mutate<AccountId>>::shelve(A::get(), who, amount)
@@ -346,7 +362,7 @@ impl<
 }
 
 pub struct ConvertImbalanceDropHandler<AccountId, Balance, AssetIdType, AssetId, Handler>(
-	sp_std::marker::PhantomData<(AccountId, Balance, AssetIdType, AssetId, Handler)>,
+	core::marker::PhantomData<(AccountId, Balance, AssetIdType, AssetId, Handler)>,
 );
 
 impl<
@@ -354,7 +370,7 @@ impl<
 		Balance,
 		AssetIdType,
 		AssetId: Get<AssetIdType>,
-		Handler: crate::traits::tokens::fungibles::HandleImbalanceDrop<AssetIdType, Balance>,
+		Handler: crate::traits::fungibles::HandleImbalanceDrop<AssetIdType, Balance>,
 	> HandleImbalanceDrop<Balance>
 	for ConvertImbalanceDropHandler<AccountId, Balance, AssetIdType, AssetId, Handler>
 {
@@ -381,35 +397,40 @@ impl<
 		precision: Precision,
 	) -> Result<Debt<AccountId, Self>, DispatchError> {
 		<F as fungibles::Balanced<AccountId>>::deposit(A::get(), who, value, precision)
-			.map(|debt| Imbalance::new(debt.peek()))
+			.map(imbalance::from_fungibles)
 	}
 	fn issue(amount: Self::Balance) -> Credit<AccountId, Self> {
-		Imbalance::new(<F as fungibles::Balanced<AccountId>>::issue(A::get(), amount).peek())
+		let credit = <F as fungibles::Balanced<AccountId>>::issue(A::get(), amount);
+		imbalance::from_fungibles(credit)
 	}
-	fn pair(amount: Self::Balance) -> (Debt<AccountId, Self>, Credit<AccountId, Self>) {
-		let (a, b) = <F as fungibles::Balanced<AccountId>>::pair(A::get(), amount);
-		(Imbalance::new(a.peek()), Imbalance::new(b.peek()))
+	fn pair(
+		amount: Self::Balance,
+	) -> Result<(Debt<AccountId, Self>, Credit<AccountId, Self>), DispatchError> {
+		let (a, b) = <F as fungibles::Balanced<AccountId>>::pair(A::get(), amount)?;
+		Ok((imbalance::from_fungibles(a), imbalance::from_fungibles(b)))
 	}
 	fn rescind(amount: Self::Balance) -> Debt<AccountId, Self> {
-		Imbalance::new(<F as fungibles::Balanced<AccountId>>::rescind(A::get(), amount).peek())
+		let debt = <F as fungibles::Balanced<AccountId>>::rescind(A::get(), amount);
+		imbalance::from_fungibles(debt)
 	}
 	fn resolve(
 		who: &AccountId,
 		credit: Credit<AccountId, Self>,
 	) -> Result<(), Credit<AccountId, Self>> {
-		let credit = fungibles::Imbalance::new(A::get(), credit.peek());
+		let credit = fungibles::imbalance::from_fungible(credit, A::get());
 		<F as fungibles::Balanced<AccountId>>::resolve(who, credit)
-			.map_err(|credit| Imbalance::new(credit.peek()))
+			.map_err(imbalance::from_fungibles)
 	}
 	fn settle(
 		who: &AccountId,
 		debt: Debt<AccountId, Self>,
 		preservation: Preservation,
 	) -> Result<Credit<AccountId, Self>, Debt<AccountId, Self>> {
-		let debt = fungibles::Imbalance::new(A::get(), debt.peek());
-		<F as fungibles::Balanced<AccountId>>::settle(who, debt, preservation)
-			.map(|credit| Imbalance::new(credit.peek()))
-			.map_err(|debt| Imbalance::new(debt.peek()))
+		let debt = fungibles::imbalance::from_fungible(debt, A::get());
+		<F as fungibles::Balanced<AccountId>>::settle(who, debt, preservation).map_or_else(
+			|d| Err(imbalance::from_fungibles(d)),
+			|c| Ok(imbalance::from_fungibles(c)),
+		)
 	}
 	fn withdraw(
 		who: &AccountId,
@@ -426,7 +447,7 @@ impl<
 			preservation,
 			force,
 		)
-		.map(|credit| Imbalance::new(credit.peek()))
+		.map(imbalance::from_fungibles)
 	}
 }
 
@@ -443,7 +464,23 @@ impl<
 	) -> (Credit<AccountId, Self>, Self::Balance) {
 		let (credit, amount) =
 			<F as fungibles::BalancedHold<AccountId>>::slash(A::get(), reason, who, amount);
-		(Imbalance::new(credit.peek()), amount)
+		(imbalance::from_fungibles(credit), amount)
+	}
+}
+
+impl<
+		F: fungibles::BalancedHold<AccountId>,
+		A: Get<<F as fungibles::Inspect<AccountId>>::AssetId>,
+		AccountId,
+	> DoneSlash<F::Reason, AccountId, F::Balance> for ItemOf<F, A, AccountId>
+{
+	fn done_slash(reason: &F::Reason, who: &AccountId, amount: F::Balance) {
+		<F as fungibles::hold::DoneSlash<F::AssetId, F::Reason, AccountId, F::Balance>>::done_slash(
+			A::get(),
+			reason,
+			who,
+			amount,
+		)
 	}
 }
 

@@ -1,0 +1,15 @@
+TestConfiguration:
+# Test 1kV, 200 cores, max Pov
+- objective: DataAvailabilityWrite
+  n_validators: 1000
+  n_cores: 200
+  max_validators_per_core: 5
+  min_pov_size: 5120
+  max_pov_size: 5120
+  peer_bandwidth: 52428800
+  bandwidth: 52428800
+  latency:
+    mean_latency_ms: 30
+    std_dev: 2.0
+  connectivity: 75
+  num_blocks: 3

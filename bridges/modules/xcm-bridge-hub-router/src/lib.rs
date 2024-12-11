@@ -30,15 +30,14 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use bp_xcm_bridge_hub_router::{
-	BridgeState, XcmChannelStatusProvider, MINIMAL_DELIVERY_FEE_FACTOR,
-};
+pub use bp_xcm_bridge_hub_router::{BridgeState, XcmChannelStatusProvider};
 use codec::Encode;
 use frame_support::traits::Get;
 use sp_core::H256;
 use sp_runtime::{FixedPointNumber, FixedU128, Saturating};
+use sp_std::vec::Vec;
 use xcm::prelude::*;
-use xcm_builder::{ExporterFor, SovereignPaidRemoteExporter};
+use xcm_builder::{ExporterFor, InspectMessageQueues, SovereignPaidRemoteExporter};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -47,6 +46,9 @@ pub mod benchmarking;
 pub mod weights;
 
 mod mock;
+
+/// Minimal delivery fee factor.
+pub const MINIMAL_DELIVERY_FEE_FACTOR: FixedU128 = FixedU128::from_u32(1);
 
 /// The factor that is used to increase current message fee factor when bridge experiencing
 /// some lags.
@@ -76,11 +78,16 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
+		/// The overarching event type.
+		type RuntimeEvent: From<Event<Self, I>>
+			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Benchmarks results from runtime we're plugged into.
 		type WeightInfo: WeightInfo;
 
 		/// Universal location of this runtime.
-		type UniversalLocation: Get<InteriorMultiLocation>;
+		type UniversalLocation: Get<InteriorLocation>;
+		/// Relative location of the supported sibling bridge hub.
+		type SiblingBridgeHubLocation: Get<Location>;
 		/// The bridged network that this config is for if specified.
 		/// Also used for filtering `Bridges` by `BridgedNetworkId`.
 		/// If not specified, allows all networks pass through.
@@ -89,14 +96,15 @@ pub mod pallet {
 		/// **possible fee**. Allows to externalize better control over allowed **bridged
 		/// networks/locations**.
 		type Bridges: ExporterFor;
+		/// Checks the XCM version for the destination.
+		type DestinationVersion: GetVersion;
 
 		/// Origin of the sibling bridge hub that is allowed to report bridge status.
 		type BridgeHubOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		/// Actual message sender (`HRMP` or `DMP`) to the sibling bridge hub location.
 		type ToBridgeHubSender: SendXcm;
-		/// Underlying channel with the sibling bridge hub. It must match the channel, used
-		/// by the `Self::ToBridgeHubSender`.
-		type WithBridgeHubChannel: XcmChannelStatusProvider;
+		/// Local XCM channel manager.
+		type LocalXcmChannelManager: XcmChannelStatusProvider;
 
 		/// Additional fee that is paid for every byte of the outbound message.
 		type ByteFee: Get<u128>;
@@ -110,14 +118,8 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
-			// TODO: make sure that `WithBridgeHubChannel::is_congested` returns true if either
-			// of XCM channels (outbound/inbound) is suspended. Because if outbound is suspended
-			// that is definitely congestion. If inbound is suspended, then we are not able to
-			// receive the "report_bridge_status" signal (that maybe sent by the bridge hub).
-
-			// if the channel with sibling/child bridge hub is suspended, we don't change
-			// anything
-			if T::WithBridgeHubChannel::is_congested() {
+			// if XCM channel is still congested, we don't change anything
+			if T::LocalXcmChannelManager::is_congested(&T::SiblingBridgeHubLocation::get()) {
 				return T::WeightInfo::on_initialize_when_congested()
 			}
 
@@ -127,7 +129,7 @@ pub mod pallet {
 				return T::WeightInfo::on_initialize_when_congested()
 			}
 
-			// if fee factor is already minimal, we don't change anything
+			// if we can't decrease the delivery fee factor anymore, we don't change anything
 			if bridge.delivery_fee_factor == MINIMAL_DELIVERY_FEE_FACTOR {
 				return T::WeightInfo::on_initialize_when_congested()
 			}
@@ -135,14 +137,19 @@ pub mod pallet {
 			let previous_factor = bridge.delivery_fee_factor;
 			bridge.delivery_fee_factor =
 				MINIMAL_DELIVERY_FEE_FACTOR.max(bridge.delivery_fee_factor / EXPONENTIAL_FEE_BASE);
+
 			log::info!(
 				target: LOG_TARGET,
-				"Bridge queue is uncongested. Decreased fee factor from {} to {}",
+				"Bridge channel is uncongested. Decreased fee factor from {} to {}",
 				previous_factor,
 				bridge.delivery_fee_factor,
 			);
+			Self::deposit_event(Event::DeliveryFeeFactorDecreased {
+				new_value: bridge.delivery_fee_factor,
+			});
 
 			Bridge::<T, I>::put(bridge);
+
 			T::WeightInfo::on_initialize_when_non_congested()
 		}
 	}
@@ -189,8 +196,13 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Called when new message is sent (queued to local outbound XCM queue) over the bridge.
 		pub(crate) fn on_message_sent_to_bridge(message_size: u32) {
+			log::trace!(
+				target: LOG_TARGET,
+				"on_message_sent_to_bridge - message_size: {message_size:?}",
+			);
 			let _ = Bridge::<T, I>::try_mutate(|bridge| {
-				let is_channel_with_bridge_hub_congested = T::WithBridgeHubChannel::is_congested();
+				let is_channel_with_bridge_hub_congested =
+					T::LocalXcmChannelManager::is_congested(&T::SiblingBridgeHubLocation::get());
 				let is_bridge_congested = bridge.is_congested;
 
 				// if outbound queue is not congested AND bridge has not reported congestion, do
@@ -213,10 +225,27 @@ pub mod pallet {
 					previous_factor,
 					bridge.delivery_fee_factor,
 				);
-
+				Self::deposit_event(Event::DeliveryFeeFactorIncreased {
+					new_value: bridge.delivery_fee_factor,
+				});
 				Ok(())
 			});
 		}
+	}
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config<I>, I: 'static = ()> {
+		/// Delivery fee factor has been decreased.
+		DeliveryFeeFactorDecreased {
+			/// New value of the `DeliveryFeeFactor`.
+			new_value: FixedU128,
+		},
+		/// Delivery fee factor has been increased.
+		DeliveryFeeFactorIncreased {
+			/// New value of the `DeliveryFeeFactor`.
+			new_value: FixedU128,
+		},
 	}
 }
 
@@ -233,45 +262,55 @@ type ViaBridgeHubExporter<T, I> = SovereignPaidRemoteExporter<
 impl<T: Config<I>, I: 'static> ExporterFor for Pallet<T, I> {
 	fn exporter_for(
 		network: &NetworkId,
-		remote_location: &InteriorMultiLocation,
+		remote_location: &InteriorLocation,
 		message: &Xcm<()>,
-	) -> Option<(MultiLocation, Option<MultiAsset>)> {
+	) -> Option<(Location, Option<Asset>)> {
+		log::trace!(
+			target: LOG_TARGET,
+			"exporter_for - network: {network:?}, remote_location: {remote_location:?}, msg: {message:?}",
+		);
 		// ensure that the message is sent to the expected bridged network (if specified).
 		if let Some(bridged_network) = T::BridgedNetworkId::get() {
 			if *network != bridged_network {
 				log::trace!(
 					target: LOG_TARGET,
-					"Router with bridged_network_id {:?} does not support bridging to network {:?}!",
-					bridged_network,
-					network,
+					"Router with bridged_network_id {bridged_network:?} does not support bridging to network {network:?}!",
 				);
 				return None
 			}
 		}
 
 		// ensure that the message is sent to the expected bridged network and location.
-		let Some((bridge_hub_location, maybe_payment)) =
-			T::Bridges::exporter_for(network, remote_location, message)
-		else {
-			log::trace!(
-				target: LOG_TARGET,
-				"Router with bridged_network_id {:?} does not support bridging to network {:?} and remote_location {:?}!",
-				T::BridgedNetworkId::get(),
-				network,
-				remote_location,
-			);
-			return None
+		let (bridge_hub_location, maybe_payment) = match T::Bridges::exporter_for(
+			network,
+			remote_location,
+			message,
+		) {
+			Some((bridge_hub_location, maybe_payment))
+				if bridge_hub_location.eq(&T::SiblingBridgeHubLocation::get()) =>
+				(bridge_hub_location, maybe_payment),
+			_ => {
+				log::trace!(
+					target: LOG_TARGET,
+					"Router configured with bridged_network_id {:?} and sibling_bridge_hub_location: {:?} does not support bridging to network {:?} and remote_location {:?}!",
+					T::BridgedNetworkId::get(),
+					T::SiblingBridgeHubLocation::get(),
+					network,
+					remote_location,
+				);
+				return None
+			},
 		};
 
 		// take `base_fee` from `T::Brides`, but it has to be the same `T::FeeAsset`
 		let base_fee = match maybe_payment {
 			Some(payment) => match payment {
-				MultiAsset { fun: Fungible(amount), id } if id.eq(&T::FeeAsset::get()) => amount,
+				Asset { fun: Fungible(amount), id } if id.eq(&T::FeeAsset::get()) => amount,
 				invalid_asset => {
 					log::error!(
 						target: LOG_TARGET,
-						"Router with bridged_network_id {:?} is configured for `T::FeeAsset` {:?} which is not \
-						compatible with {:?} for bridge_hub_location: {:?} for bridging to {:?}/{:?}!",
+						"Router with bridged_network_id {:?} is configured for `T::FeeAsset` {:?} \
+						which is not compatible with {:?} for bridge_hub_location: {:?} for bridging to {:?}/{:?}!",
 						T::BridgedNetworkId::get(),
 						T::FeeAsset::get(),
 						invalid_asset,
@@ -302,7 +341,7 @@ impl<T: Config<I>, I: 'static> ExporterFor for Pallet<T, I> {
 			(network, remote_location),
 			message_size,
 			fee,
-			fee_factor
+			fee_factor,
 		);
 
 		Some((bridge_hub_location, fee))
@@ -316,30 +355,62 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 	type Ticket = (u32, <T::ToBridgeHubSender as SendXcm>::Ticket);
 
 	fn validate(
-		dest: &mut Option<MultiLocation>,
+		dest: &mut Option<Location>,
 		xcm: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
-		// we won't have an access to `dest` and `xcm` in the `delvier` method, so precompute
-		// everything required here
-		let message_size = xcm
-			.as_ref()
-			.map(|xcm| xcm.encoded_size() as _)
-			.ok_or(SendError::MissingArgument)?;
+		log::trace!(target: LOG_TARGET, "validate - msg: {xcm:?}, destination: {dest:?}");
 
-		// bridge doesn't support oversized/overweight messages now. So it is better to drop such
-		// messages here than at the bridge hub. Let's check the message size.
-		if message_size > HARD_MESSAGE_SIZE_LIMIT {
-			return Err(SendError::ExceedsMaxMessageSize)
+		// In case of success, the `ViaBridgeHubExporter` can modify XCM instructions and consume
+		// `dest` / `xcm`, so we retain the clone of original message and the destination for later
+		// `DestinationVersion` validation.
+		let xcm_to_dest_clone = xcm.clone();
+		let dest_clone = dest.clone();
+
+		// First, use the inner exporter to validate the destination to determine if it is even
+		// routable. If it is not, return an error. If it is, then the XCM is extended with
+		// instructions to pay the message fee at the sibling/child bridge hub. The cost will
+		// include both the cost of (1) delivery to the sibling bridge hub (returned by
+		// `Config::ToBridgeHubSender`) and (2) delivery to the bridged bridge hub (returned by
+		// `Self::exporter_for`).
+		match ViaBridgeHubExporter::<T, I>::validate(dest, xcm) {
+			Ok((ticket, cost)) => {
+				// If the ticket is ok, it means we are routing with this router, so we need to
+				// apply more validations to the cloned `dest` and `xcm`, which are required here.
+				let xcm_to_dest_clone = xcm_to_dest_clone.ok_or(SendError::MissingArgument)?;
+				let dest_clone = dest_clone.ok_or(SendError::MissingArgument)?;
+
+				// We won't have access to `dest` and `xcm` in the `deliver` method, so we need to
+				// precompute everything required here. However, `dest` and `xcm` were consumed by
+				// `ViaBridgeHubExporter`, so we need to use their clones.
+				let message_size = xcm_to_dest_clone.encoded_size() as _;
+
+				// The bridge doesn't support oversized or overweight messages. Therefore, it's
+				// better to drop such messages here rather than at the bridge hub. Let's check the
+				// message size."
+				if message_size > HARD_MESSAGE_SIZE_LIMIT {
+					return Err(SendError::ExceedsMaxMessageSize)
+				}
+
+				// We need to ensure that the known `dest`'s XCM version can comprehend the current
+				// `xcm` program. This may seem like an additional, unnecessary check, but it is
+				// not. A similar check is probably performed by the `ViaBridgeHubExporter`, which
+				// attempts to send a versioned message to the sibling bridge hub. However, the
+				// local bridge hub may have a higher XCM version than the remote `dest`. Once
+				// again, it is better to discard such messages here than at the bridge hub (e.g.,
+				// to avoid losing funds).
+				let destination_version = T::DestinationVersion::get_version_for(&dest_clone)
+					.ok_or(SendError::DestinationUnsupported)?;
+				let _ = VersionedXcm::from(xcm_to_dest_clone)
+					.into_version(destination_version)
+					.map_err(|()| SendError::DestinationUnsupported)?;
+
+				Ok(((message_size, ticket), cost))
+			},
+			Err(e) => {
+				log::trace!(target: LOG_TARGET, "validate - ViaBridgeHubExporter - error: {e:?}");
+				Err(e)
+			},
 		}
-
-		// just use exporter to validate destination and insert instructions to pay message fee
-		// at the sibling/child bridge hub
-		//
-		// the cost will include both cost of: (1) to-sibling bridg hub delivery (returned by
-		// the `Config::ToBridgeHubSender`) and (2) to-bridged bridge hub delivery (returned by
-		// `Self::exporter_for`)
-		ViaBridgeHubExporter::<T, I>::validate(dest, xcm)
-			.map(|(ticket, cost)| ((message_size, ticket), cost))
 	}
 
 	fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
@@ -351,16 +422,29 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 		// increase delivery fee factor if required
 		Self::on_message_sent_to_bridge(message_size);
 
+		log::trace!(target: LOG_TARGET, "deliver - message sent, xcm_hash: {xcm_hash:?}");
 		Ok(xcm_hash)
+	}
+}
+
+impl<T: Config<I>, I: 'static> InspectMessageQueues for Pallet<T, I> {
+	fn clear_messages() {}
+
+	/// This router needs to implement `InspectMessageQueues` but doesn't have to
+	/// return any messages, since it just reuses the `XcmpQueue` router.
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		Vec::new()
 	}
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use frame_support::assert_ok;
 	use mock::*;
 
 	use frame_support::traits::Hooks;
+	use frame_system::{EventRecord, Phase};
 	use sp_runtime::traits::One;
 
 	fn congested_bridge(delivery_fee_factor: FixedU128) -> BridgeState {
@@ -385,12 +469,13 @@ mod tests {
 	fn fee_factor_is_not_decreased_from_on_initialize_when_xcm_channel_is_congested() {
 		run_test(|| {
 			Bridge::<TestRuntime, ()>::put(uncongested_bridge(FixedU128::from_rational(125, 100)));
-			TestWithBridgeHubChannel::make_congested();
+			TestLocalXcmChannelManager::make_congested(&SiblingBridgeHubLocation::get());
 
-			// it should not decrease, because xcm channel is congested
-			let old_bridge = XcmBridgeHubRouter::bridge();
+			// it should not decrease, because queue is congested
+			let old_delivery = XcmBridgeHubRouter::bridge();
 			XcmBridgeHubRouter::on_initialize(One::one());
-			assert_eq!(XcmBridgeHubRouter::bridge(), old_bridge);
+			assert_eq!(XcmBridgeHubRouter::bridge(), old_delivery);
+			assert_eq!(System::events(), vec![]);
 		})
 	}
 
@@ -403,24 +488,39 @@ mod tests {
 			let old_bridge = XcmBridgeHubRouter::bridge();
 			XcmBridgeHubRouter::on_initialize(One::one());
 			assert_eq!(XcmBridgeHubRouter::bridge(), old_bridge);
+			assert_eq!(System::events(), vec![]);
 		})
 	}
 
 	#[test]
 	fn fee_factor_is_decreased_from_on_initialize_when_xcm_channel_is_uncongested() {
 		run_test(|| {
-			Bridge::<TestRuntime, ()>::put(uncongested_bridge(FixedU128::from_rational(125, 100)));
+			let initial_fee_factor = FixedU128::from_rational(125, 100);
+			Bridge::<TestRuntime, ()>::put(uncongested_bridge(initial_fee_factor));
 
-			// it shold eventually decreased to one
+			// it should eventually decrease to one
 			while XcmBridgeHubRouter::bridge().delivery_fee_factor > MINIMAL_DELIVERY_FEE_FACTOR {
 				XcmBridgeHubRouter::on_initialize(One::one());
 			}
 
-			// verify that it doesn't decreases anymore
+			// verify that it doesn't decrease anymore
 			XcmBridgeHubRouter::on_initialize(One::one());
 			assert_eq!(
 				XcmBridgeHubRouter::bridge(),
 				uncongested_bridge(MINIMAL_DELIVERY_FEE_FACTOR)
+			);
+
+			// check emitted event
+			let first_system_event = System::events().first().cloned();
+			assert_eq!(
+				first_system_event,
+				Some(EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::XcmBridgeHubRouter(Event::DeliveryFeeFactorDecreased {
+						new_value: initial_fee_factor / EXPONENTIAL_FEE_BASE,
+					}),
+					topics: vec![],
+				})
 			);
 		})
 	}
@@ -428,25 +528,82 @@ mod tests {
 	#[test]
 	fn not_applicable_if_destination_is_within_other_network() {
 		run_test(|| {
+			// unroutable dest
+			let dest = Location::new(2, [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)]);
+			let xcm: Xcm<()> = vec![ClearOrigin].into();
+
+			// check that router does not consume when `NotApplicable`
+			let mut xcm_wrapper = Some(xcm.clone());
 			assert_eq!(
-				send_xcm::<XcmBridgeHubRouter>(
-					MultiLocation::new(2, X2(GlobalConsensus(Rococo), Parachain(1000))),
-					vec![].into(),
-				),
+				XcmBridgeHubRouter::validate(&mut Some(dest.clone()), &mut xcm_wrapper),
 				Err(SendError::NotApplicable),
 			);
+			// XCM is NOT consumed and untouched
+			assert_eq!(Some(xcm.clone()), xcm_wrapper);
+
+			// check the full `send_xcm`
+			assert_eq!(send_xcm::<XcmBridgeHubRouter>(dest, xcm,), Err(SendError::NotApplicable),);
 		});
 	}
 
 	#[test]
 	fn exceeds_max_message_size_if_size_is_above_hard_limit() {
 		run_test(|| {
+			// routable dest with XCM version
+			let dest =
+				Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]);
+			// oversized XCM
+			let xcm: Xcm<()> = vec![ClearOrigin; HARD_MESSAGE_SIZE_LIMIT as usize].into();
+
+			// dest is routable with the inner router
+			assert_ok!(ViaBridgeHubExporter::<TestRuntime, ()>::validate(
+				&mut Some(dest.clone()),
+				&mut Some(xcm.clone())
+			));
+
+			// check for oversized message
+			let mut xcm_wrapper = Some(xcm.clone());
 			assert_eq!(
-				send_xcm::<XcmBridgeHubRouter>(
-					MultiLocation::new(2, X2(GlobalConsensus(Rococo), Parachain(1000))),
-					vec![ClearOrigin; HARD_MESSAGE_SIZE_LIMIT as usize].into(),
-				),
+				XcmBridgeHubRouter::validate(&mut Some(dest.clone()), &mut xcm_wrapper),
 				Err(SendError::ExceedsMaxMessageSize),
+			);
+			// XCM is consumed by the inner router
+			assert!(xcm_wrapper.is_none());
+
+			// check the full `send_xcm`
+			assert_eq!(
+				send_xcm::<XcmBridgeHubRouter>(dest, xcm,),
+				Err(SendError::ExceedsMaxMessageSize),
+			);
+		});
+	}
+
+	#[test]
+	fn destination_unsupported_if_wrap_version_fails() {
+		run_test(|| {
+			// routable dest but we don't know XCM version
+			let dest = UnknownXcmVersionForRoutableLocation::get();
+			let xcm: Xcm<()> = vec![ClearOrigin].into();
+
+			// dest is routable with the inner router
+			assert_ok!(ViaBridgeHubExporter::<TestRuntime, ()>::validate(
+				&mut Some(dest.clone()),
+				&mut Some(xcm.clone())
+			));
+
+			// check that it does not pass XCM version check
+			let mut xcm_wrapper = Some(xcm.clone());
+			assert_eq!(
+				XcmBridgeHubRouter::validate(&mut Some(dest.clone()), &mut xcm_wrapper),
+				Err(SendError::DestinationUnsupported),
+			);
+			// XCM is consumed by the inner router
+			assert!(xcm_wrapper.is_none());
+
+			// check the full `send_xcm`
+			assert_eq!(
+				send_xcm::<XcmBridgeHubRouter>(dest, xcm,),
+				Err(SendError::DestinationUnsupported),
 			);
 		});
 	}
@@ -454,14 +611,14 @@ mod tests {
 	#[test]
 	fn returns_proper_delivery_price() {
 		run_test(|| {
-			let dest = MultiLocation::new(2, X1(GlobalConsensus(BridgedNetworkId::get())));
+			let dest = Location::new(2, [GlobalConsensus(BridgedNetworkId::get())]);
 			let xcm: Xcm<()> = vec![ClearOrigin].into();
 			let msg_size = xcm.encoded_size();
 
 			// initially the base fee is used: `BASE_FEE + BYTE_FEE * msg_size + HRMP_FEE`
 			let expected_fee = BASE_FEE + BYTE_FEE * (msg_size as u128) + HRMP_FEE;
 			assert_eq!(
-				XcmBridgeHubRouter::validate(&mut Some(dest), &mut Some(xcm.clone()))
+				XcmBridgeHubRouter::validate(&mut Some(dest.clone()), &mut Some(xcm.clone()))
 					.unwrap()
 					.1
 					.get(0),
@@ -485,15 +642,12 @@ mod tests {
 	}
 
 	#[test]
-	fn sent_message_doesnt_increase_factor_if_xcm_channel_is_uncongested() {
+	fn sent_message_doesnt_increase_factor_if_queue_is_uncongested() {
 		run_test(|| {
 			let old_bridge = XcmBridgeHubRouter::bridge();
 			assert_eq!(
 				send_xcm::<XcmBridgeHubRouter>(
-					MultiLocation::new(
-						2,
-						X2(GlobalConsensus(BridgedNetworkId::get()), Parachain(1000))
-					),
+					Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]),
 					vec![ClearOrigin].into(),
 				)
 				.map(drop),
@@ -502,31 +656,40 @@ mod tests {
 
 			assert!(TestToBridgeHubSender::is_message_sent());
 			assert_eq!(old_bridge, XcmBridgeHubRouter::bridge());
+
+			assert_eq!(System::events(), vec![]);
 		});
 	}
 
 	#[test]
 	fn sent_message_increases_factor_if_xcm_channel_is_congested() {
 		run_test(|| {
-			TestWithBridgeHubChannel::make_congested();
+			TestLocalXcmChannelManager::make_congested(&SiblingBridgeHubLocation::get());
 
 			let old_bridge = XcmBridgeHubRouter::bridge();
-			assert_eq!(
-				send_xcm::<XcmBridgeHubRouter>(
-					MultiLocation::new(
-						2,
-						X2(GlobalConsensus(BridgedNetworkId::get()), Parachain(1000))
-					),
-					vec![ClearOrigin].into(),
-				)
-				.map(drop),
-				Ok(()),
-			);
+			assert_ok!(send_xcm::<XcmBridgeHubRouter>(
+				Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]),
+				vec![ClearOrigin].into(),
+			)
+			.map(drop));
 
 			assert!(TestToBridgeHubSender::is_message_sent());
 			assert!(
 				old_bridge.delivery_fee_factor < XcmBridgeHubRouter::bridge().delivery_fee_factor
 			);
+
+			// check emitted event
+			let first_system_event = System::events().first().cloned();
+			assert!(matches!(
+				first_system_event,
+				Some(EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::XcmBridgeHubRouter(
+						Event::DeliveryFeeFactorIncreased { .. }
+					),
+					..
+				})
+			));
 		});
 	}
 
@@ -536,22 +699,40 @@ mod tests {
 			Bridge::<TestRuntime, ()>::put(congested_bridge(MINIMAL_DELIVERY_FEE_FACTOR));
 
 			let old_bridge = XcmBridgeHubRouter::bridge();
-			assert_eq!(
-				send_xcm::<XcmBridgeHubRouter>(
-					MultiLocation::new(
-						2,
-						X2(GlobalConsensus(BridgedNetworkId::get()), Parachain(1000))
-					),
-					vec![ClearOrigin].into(),
-				)
-				.map(drop),
-				Ok(()),
-			);
+			assert_ok!(send_xcm::<XcmBridgeHubRouter>(
+				Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]),
+				vec![ClearOrigin].into(),
+			)
+			.map(drop));
 
 			assert!(TestToBridgeHubSender::is_message_sent());
 			assert!(
 				old_bridge.delivery_fee_factor < XcmBridgeHubRouter::bridge().delivery_fee_factor
 			);
+
+			// check emitted event
+			let first_system_event = System::events().first().cloned();
+			assert!(matches!(
+				first_system_event,
+				Some(EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::XcmBridgeHubRouter(
+						Event::DeliveryFeeFactorIncreased { .. }
+					),
+					..
+				})
+			));
+		});
+	}
+
+	#[test]
+	fn get_messages_does_not_return_anything() {
+		run_test(|| {
+			assert_ok!(send_xcm::<XcmBridgeHubRouter>(
+				(Parent, Parent, GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)).into(),
+				vec![ClearOrigin].into()
+			));
+			assert_eq!(XcmBridgeHubRouter::get_messages(), vec![]);
 		});
 	}
 }

@@ -16,6 +16,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+// file-level lint whitelist to avoid problem with bitflags macro below
+// TODO: can be dropped after an update to bitflags 2.4
+#![allow(clippy::bad_bit_mask)]
+
 use codec::{self, Encode, EncodeLike, Input, Output};
 
 /// Role that the peer sent to us during the handshake, with the addition of what our local node
@@ -24,7 +28,7 @@ use codec::{self, Encode, EncodeLike, Input, Output};
 /// > **Note**: This enum is different from the `Role` enum. The `Role` enum indicates what a
 /// >			node says about itself, while `ObservedRole` is a `Role` merged with the
 /// >			information known locally about that node.
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ObservedRole {
 	/// Full node.
 	Full,
@@ -41,8 +45,20 @@ impl ObservedRole {
 	}
 }
 
+impl From<Roles> for ObservedRole {
+	fn from(roles: Roles) -> Self {
+		if roles.is_authority() {
+			ObservedRole::Authority
+		} else if roles.is_full() {
+			ObservedRole::Full
+		} else {
+			ObservedRole::Light
+		}
+	}
+}
+
 /// Role of the local node.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum Role {
 	/// Regular full node.
 	Full,

@@ -16,6 +16,7 @@
 
 //! Primitives that may be used at (bridges) runtime level.
 
+#![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
@@ -23,7 +24,6 @@ use frame_support::{
 	pallet_prelude::DispatchResult, weights::Weight, PalletError, StorageHasher, StorageValue,
 };
 use frame_system::RawOrigin;
-use log;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_core::storage::StorageKey;
@@ -31,23 +31,26 @@ use sp_runtime::{
 	traits::{BadOrigin, Header as HeaderT, UniqueSaturatedInto},
 	RuntimeDebug,
 };
-use sp_std::{convert::TryFrom, fmt::Debug, ops::RangeInclusive, vec, vec::Vec};
+use sp_std::{fmt::Debug, ops::RangeInclusive, vec, vec::Vec};
 
 pub use chain::{
 	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, Chain, EncodedOrDecodedCall, HashOf,
 	HasherOf, HeaderOf, NonceOf, Parachain, ParachainIdOf, SignatureOf, TransactionEraOf,
-	UnderlyingChainOf, UnderlyingChainProvider,
+	UnderlyingChainOf, UnderlyingChainProvider, __private,
 };
 pub use frame_support::storage::storage_prefix as storage_value_final_key;
 use num_traits::{CheckedAdd, CheckedSub, One, SaturatingAdd, Zero};
-pub use storage_proof::{
-	record_all_keys as record_all_trie_keys, Error as StorageProofError,
-	ProofSize as StorageProofSize, RawStorageProof, StorageProofChecker,
-};
-pub use storage_types::BoundedStorageValue;
-
 #[cfg(feature = "std")]
 pub use storage_proof::craft_valid_storage_proof;
+#[cfg(feature = "test-helpers")]
+pub use storage_proof::{
+	grow_storage_proof, grow_storage_value, record_all_keys as record_all_trie_keys,
+	UnverifiedStorageProofParams,
+};
+pub use storage_proof::{
+	raw_storage_proof_size, RawStorageProof, StorageProofChecker, StorageProofError,
+};
+pub use storage_types::BoundedStorageValue;
 
 pub mod extensions;
 pub mod messages;
@@ -56,50 +59,11 @@ mod chain;
 mod storage_proof;
 mod storage_types;
 
-// Re-export macro to aviod include paste dependency everywhere
+// Re-export macro to avoid include paste dependency everywhere
 pub use sp_runtime::paste;
 
 /// Use this when something must be shared among all instances.
 pub const NO_INSTANCE_ID: ChainId = [0, 0, 0, 0];
-
-/// Rialto chain id.
-pub const RIALTO_CHAIN_ID: ChainId = *b"rlto";
-
-/// RialtoParachain chain id.
-pub const RIALTO_PARACHAIN_CHAIN_ID: ChainId = *b"rlpa";
-
-/// Millau chain id.
-pub const MILLAU_CHAIN_ID: ChainId = *b"mlau";
-
-/// Polkadot chain id.
-pub const POLKADOT_CHAIN_ID: ChainId = *b"pdot";
-
-/// Kusama chain id.
-pub const KUSAMA_CHAIN_ID: ChainId = *b"ksma";
-
-/// Westend chain id.
-pub const WESTEND_CHAIN_ID: ChainId = *b"wend";
-
-/// `AssetHubWestmint` chain id.
-pub const ASSET_HUB_WESTEND_CHAIN_ID: ChainId = *b"ahwe";
-
-/// Rococo chain id.
-pub const ROCOCO_CHAIN_ID: ChainId = *b"roco";
-
-/// Wococo chain id.
-pub const WOCOCO_CHAIN_ID: ChainId = *b"woco";
-
-/// BridgeHubRococo chain id.
-pub const BRIDGE_HUB_ROCOCO_CHAIN_ID: ChainId = *b"bhro";
-
-/// BridgeHubWococo chain id.
-pub const BRIDGE_HUB_WOCOCO_CHAIN_ID: ChainId = *b"bhwo";
-
-/// BridgeHubKusama chain id.
-pub const BRIDGE_HUB_KUSAMA_CHAIN_ID: ChainId = *b"bhks";
-
-/// BridgeHubPolkadot chain id.
-pub const BRIDGE_HUB_POLKADOT_CHAIN_ID: ChainId = *b"bhpd";
 
 /// Generic header Id.
 #[derive(
@@ -136,10 +100,10 @@ pub type HeaderIdOf<C> = HeaderId<HashOf<C>, BlockNumberOf<C>>;
 
 /// Generic header id provider.
 pub trait HeaderIdProvider<Header: HeaderT> {
-	// Get the header id.
+	/// Get the header id.
 	fn id(&self) -> HeaderId<Header::Hash, Header::Number>;
 
-	// Get the header id for the parent block.
+	/// Get the header id for the parent block.
 	fn parent_id(&self) -> Option<HeaderId<Header::Hash, Header::Number>>;
 }
 
@@ -272,18 +236,6 @@ pub fn storage_map_final_key<H: StorageHasher>(
 	StorageKey(final_key)
 }
 
-/// This is how a storage key of storage parameter (`parameter_types! { storage Param: bool = false;
-/// }`) is computed.
-///
-/// Copied from `frame_support::parameter_types` macro.
-pub fn storage_parameter_key(parameter_name: &str) -> StorageKey {
-	let mut buffer = Vec::with_capacity(1 + parameter_name.len() + 1);
-	buffer.push(b':');
-	buffer.extend_from_slice(parameter_name.as_bytes());
-	buffer.push(b':');
-	StorageKey(sp_io::hashing::twox_128(&buffer).to_vec())
-}
-
 /// This is how a storage key of storage value is computed.
 ///
 /// Copied from `frame_support::storage::storage_prefix`.
@@ -306,9 +258,9 @@ pub trait StorageMapKeyProvider {
 	/// The same as `StorageMap::Hasher1`.
 	type Hasher: StorageHasher;
 	/// The same as `StorageMap::Key1`.
-	type Key: FullCodec;
+	type Key: FullCodec + Send + Sync;
 	/// The same as `StorageMap::Value`.
-	type Value: FullCodec;
+	type Value: 'static + FullCodec;
 
 	/// This is a copy of the
 	/// `frame_support::storage::generator::StorageMap::storage_map_final_key`.
@@ -320,7 +272,7 @@ pub trait StorageMapKeyProvider {
 	}
 }
 
-/// Can be use to access the runtime storage key of a `StorageDoubleMap`.
+/// Can be used to access the runtime storage key of a `StorageDoubleMap`.
 pub trait StorageDoubleMapKeyProvider {
 	/// The name of the variable that holds the `StorageDoubleMap`.
 	const MAP_NAME: &'static str;
@@ -328,13 +280,13 @@ pub trait StorageDoubleMapKeyProvider {
 	/// The same as `StorageDoubleMap::Hasher1`.
 	type Hasher1: StorageHasher;
 	/// The same as `StorageDoubleMap::Key1`.
-	type Key1: FullCodec;
+	type Key1: FullCodec + Send + Sync;
 	/// The same as `StorageDoubleMap::Hasher2`.
 	type Hasher2: StorageHasher;
 	/// The same as `StorageDoubleMap::Key2`.
-	type Key2: FullCodec;
+	type Key2: FullCodec + Send + Sync;
 	/// The same as `StorageDoubleMap::Value`.
-	type Value: FullCodec;
+	type Value: 'static + FullCodec;
 
 	/// This is a copy of the
 	/// `frame_support::storage::generator::StorageDoubleMap::storage_double_map_final_key`.
@@ -364,7 +316,7 @@ pub trait StorageDoubleMapKeyProvider {
 }
 
 /// Error generated by the `OwnedBridgeModule` trait.
-#[derive(Encode, Decode, TypeInfo, PalletError)]
+#[derive(Encode, Decode, PartialEq, Eq, TypeInfo, PalletError)]
 pub enum OwnedBridgeModuleError {
 	/// All pallet operations are halted.
 	Halted,
@@ -372,7 +324,7 @@ pub enum OwnedBridgeModuleError {
 
 /// Operating mode for a bridge module.
 pub trait OperatingMode: Send + Copy + Debug + FullCodec {
-	// Returns true if the bridge module is halted.
+	/// Returns true if the bridge module is halted.
 	fn is_halted(&self) -> bool;
 }
 
@@ -414,8 +366,11 @@ pub trait OwnedBridgeModule<T: frame_system::Config> {
 	/// The target that will be used when publishing logs related to this module.
 	const LOG_TARGET: &'static str;
 
+	/// A storage entry that holds the module `Owner` account.
 	type OwnerStorage: StorageValue<T::AccountId, Query = Option<T::AccountId>>;
+	/// Operating mode type of the pallet.
 	type OperatingMode: OperatingMode;
+	/// A storage value that holds the pallet operating mode.
 	type OperatingModeStorage: StorageValue<Self::OperatingMode, Query = Self::OperatingMode>;
 
 	/// Check if the module is halted.
@@ -491,9 +446,11 @@ impl WeightExtraOps for Weight {
 
 /// Trait that provides a static `str`.
 pub trait StaticStrProvider {
+	/// Static string.
 	const STR: &'static str;
 }
 
+/// A macro that generates `StaticStrProvider` with the string set to its stringified argument.
 #[macro_export]
 macro_rules! generate_static_str_provider {
 	($str:expr) => {
@@ -505,37 +462,6 @@ macro_rules! generate_static_str_provider {
 			}
 		}
 	};
-}
-
-#[derive(Encode, Decode, Clone, Eq, PartialEq, PalletError, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub struct StrippableError<T> {
-	_phantom_data: sp_std::marker::PhantomData<T>,
-	#[codec(skip)]
-	#[cfg(feature = "std")]
-	message: String,
-}
-
-impl<T: Debug> From<T> for StrippableError<T> {
-	fn from(_err: T) -> Self {
-		Self {
-			_phantom_data: Default::default(),
-			#[cfg(feature = "std")]
-			message: format!("{:?}", _err),
-		}
-	}
-}
-
-impl<T> Debug for StrippableError<T> {
-	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
-		f.write_str(&self.message)
-	}
-
-	#[cfg(not(feature = "std"))]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
-		f.write_str("Stripped error")
-	}
 }
 
 /// A trait defining helper methods for `RangeInclusive` (start..=end)
@@ -568,14 +494,6 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-
-	#[test]
-	fn storage_parameter_key_works() {
-		assert_eq!(
-			storage_parameter_key("MillauToRialtoConversionRate"),
-			StorageKey(hex_literal::hex!("58942375551bb0af1682f72786b59d04").to_vec()),
-		);
-	}
 
 	#[test]
 	fn storage_value_key_works() {

@@ -48,10 +48,13 @@ has exactly one downward message queue.
 - **Proof-of-Validity (PoV):** A stateless-client proof that a parachain candidate is valid, with respect to some
   validation function.
 - **PVF:** Parachain Validation Function. The validation code that is run by validators on parachains.
-- **PVF Prechecking:** This is the process of initially checking the PVF when it is first added. We attempt preparation
-  of the PVF and make sure it succeeds within a given timeout, plus some additional checks.
+- **PVF Prechecking:** This is the process of checking a PVF when it appears
+  on-chain, either when the parachain is onboarded or when it signalled an
+  upgrade of its validation code. We attempt preparation of the PVF and make
+  sure it that succeeds within a given timeout, plus some additional checks.
 - **PVF Preparation:** This is the process of preparing the WASM blob and includes both prevalidation and compilation.
-  As there is no prevalidation right now, preparation just consists of compilation.
+- **PVF Prevalidation:** Some basic checks for correctness of the PVF blob. The
+  first step of PVF preparation, before compilation.
 - **Relay Parent:** A block in the relay chain, referred to in a context where work is being done in the context of the
   state at this block.
 - **Runtime:** The relay-chain state machine.

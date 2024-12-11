@@ -1,0 +1,35 @@
+title: Storage bound the XCMP queue pallet
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Enforce upper limits for the number of active XCMP channels, the number of outgoing XCMP
+      messages per channel and the number of signals per channel.
+
+      ## Integration
+
+      If you see this error in your try-runtime-cli:  
+      ```pre
+      Max message size for channel is too large. This means that the V5 migration can be front-run and an
+      attacker could place a large message just right before the migration to make other messages un-decodable.
+      Please either increase `MaxPageSize` or decrease the `max_message_size` for this channel. Channel max:
+      102400, MaxPageSize: 65535
+      ```
+
+      Then increase the `MaxPageSize` of the `cumulus_pallet_xcmp_queue` to something like this:
+      ```rust
+      type MaxPageSize = ConstU32<{ 103 * 1024 }>;
+      ```
+
+migrations:
+  db: []
+
+  runtime:
+    - reference: cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5
+      description: A No-OP migration is deployed to ensure that all `BoundedVec`s` still decode as expected.
+
+crates:
+  - name: cumulus-pallet-xcmp-queue
+    bump: major
+
+host_functions: []

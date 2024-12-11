@@ -18,12 +18,14 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
 use cumulus_pallet_xcm::{ensure_sibling_para, Origin as CumulusOrigin};
 use cumulus_primitives_core::ParaId;
 use frame_support::{parameter_types, BoundedVec};
 use frame_system::Config as SystemConfig;
 use sp_runtime::traits::Saturating;
-use sp_std::prelude::*;
 use xcm::latest::prelude::*;
 
 pub use pallet::*;
@@ -77,9 +79,9 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		PingSent(ParaId, u32, Vec<u8>, XcmHash, MultiAssets),
+		PingSent(ParaId, u32, Vec<u8>, XcmHash, Assets),
 		Pinged(ParaId, u32, Vec<u8>),
-		PongSent(ParaId, u32, Vec<u8>, XcmHash, MultiAssets),
+		PongSent(ParaId, u32, Vec<u8>, XcmHash, Assets),
 		Ponged(ParaId, u32, Vec<u8>, BlockNumberFor<T>),
 		ErrorSendingPing(SendError, ParaId, u32, Vec<u8>),
 		ErrorSendingPong(SendError, ParaId, u32, Vec<u8>),
@@ -106,13 +108,13 @@ pub mod pallet {
 					(Parent, Junction::Parachain(para.into())).into(),
 					Xcm(vec![Transact {
 						origin_kind: OriginKind::Native,
-						require_weight_at_most: Weight::from_parts(1_000, 1_000),
 						call: <T as Config>::RuntimeCall::from(Call::<T>::ping {
 							seq,
 							payload: payload.clone().to_vec(),
 						})
 						.encode()
 						.into(),
+						fallback_max_weight: None,
 					}]),
 				) {
 					Ok((hash, cost)) => {
@@ -207,13 +209,13 @@ pub mod pallet {
 				(Parent, Junction::Parachain(para.into())).into(),
 				Xcm(vec![Transact {
 					origin_kind: OriginKind::Native,
-					require_weight_at_most: Weight::from_parts(1_000, 1_000),
 					call: <T as Config>::RuntimeCall::from(Call::<T>::pong {
 						seq,
 						payload: payload.clone(),
 					})
 					.encode()
 					.into(),
+					fallback_max_weight: None,
 				}]),
 			) {
 				Ok((hash, cost)) =>

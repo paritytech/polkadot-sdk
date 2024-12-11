@@ -1,0 +1,17 @@
+title: Use the `Message Queue` Pallet for DMP and XCMP dispatch queueing
+
+doc:
+  - audience: Runtime Dev
+    description: Replaces the queueing capabilities of the `DMP and `XCMP-Queue` pallet for incoming messages with the `MessageQueue` pallet. This simplifies the code and improves security.
+
+migrations:
+  runtime:
+    -
+      reference: cumulus_pallet_dmp_queue
+      description: "Messages from the DMP dispatch queue will be moved over to the MQ pallet via `on_initialize`. This happens over multiple blocks and emits a `Completed` event at the end. The pallet can be un-deployed and deleted afterwards. Note that the migration reverses the order of messages, which should be acceptable as a one-off."
+
+crates:
+  - name: cumulus-pallet-xcmp-queue
+    note: Pallet config must be altered according to the MR description.
+
+host_functions: []

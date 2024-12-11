@@ -45,13 +45,16 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::traits::Get;
 use frame_system::{
 	self as system,
 	offchain::{
-		AppCrypto, CreateSignedTransaction, SendSignedTransaction, SendUnsignedTransaction,
-		SignedPayload, Signer, SigningTypes, SubmitTransaction,
+		AppCrypto, CreateInherent, CreateSignedTransaction, SendSignedTransaction,
+		SendUnsignedTransaction, SignedPayload, Signer, SigningTypes, SubmitTransaction,
 	},
 	pallet_prelude::BlockNumberFor,
 };
@@ -67,7 +70,6 @@ use sp_runtime::{
 	transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
 	RuntimeDebug,
 };
-use sp_std::vec::Vec;
 
 #[cfg(test)]
 mod tests;
@@ -122,7 +124,9 @@ pub mod pallet {
 
 	/// This pallet's configuration trait
 	#[pallet::config]
-	pub trait Config: CreateSignedTransaction<Call<Self>> + frame_system::Config {
+	pub trait Config:
+		CreateSignedTransaction<Call<Self>> + CreateInherent<Call<Self>> + frame_system::Config
+	{
 		/// The identifier type for an offchain worker.
 		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 
@@ -332,7 +336,6 @@ pub mod pallet {
 	///
 	/// This is used to calculate average price, should have bounded size.
 	#[pallet::storage]
-	#[pallet::getter(fn prices)]
 	pub(super) type Prices<T: Config> = StorageValue<_, BoundedVec<u32, T::MaxPrices>, ValueQuery>;
 
 	/// Defines the block when next unsigned transaction will be accepted.
@@ -341,7 +344,6 @@ pub mod pallet {
 	/// we only allow one transaction every `T::UnsignedInterval` blocks.
 	/// This storage entry defines when new transaction is going to be accepted.
 	#[pallet::storage]
-	#[pallet::getter(fn next_unsigned_at)]
 	pub(super) type NextUnsignedAt<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 }
 
@@ -479,7 +481,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), &'static str> {
 		// Make sure we don't fetch the price if unsigned transaction is going to be rejected
 		// anyway.
-		let next_unsigned_at = <NextUnsignedAt<T>>::get();
+		let next_unsigned_at = NextUnsignedAt::<T>::get();
 		if next_unsigned_at > block_number {
 			return Err("Too early to send unsigned transaction")
 		}
@@ -497,11 +499,12 @@ impl<T: Config> Pallet<T> {
 		// Here we showcase two ways to send an unsigned transaction / unsigned payload (raw)
 		//
 		// By default unsigned transactions are disallowed, so we need to whitelist this case
-		// by writing `UnsignedValidator`. Note that it's EXTREMELY important to carefuly
+		// by writing `UnsignedValidator`. Note that it's EXTREMELY important to carefully
 		// implement unsigned validation logic, as any mistakes can lead to opening DoS or spam
 		// attack vectors. See validation logic docs for more details.
 		//
-		SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+		let xt = T::create_inherent(call.into());
+		SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
 			.map_err(|()| "Unable to submit unsigned transaction.")?;
 
 		Ok(())
@@ -513,7 +516,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), &'static str> {
 		// Make sure we don't fetch the price if unsigned transaction is going to be rejected
 		// anyway.
-		let next_unsigned_at = <NextUnsignedAt<T>>::get();
+		let next_unsigned_at = NextUnsignedAt::<T>::get();
 		if next_unsigned_at > block_number {
 			return Err("Too early to send unsigned transaction")
 		}
@@ -543,7 +546,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), &'static str> {
 		// Make sure we don't fetch the price if unsigned transaction is going to be rejected
 		// anyway.
-		let next_unsigned_at = <NextUnsignedAt<T>>::get();
+		let next_unsigned_at = NextUnsignedAt::<T>::get();
 		if next_unsigned_at > block_number {
 			return Err("Too early to send unsigned transaction")
 		}
@@ -608,7 +611,7 @@ impl<T: Config> Pallet<T> {
 		let body = response.body().collect::<Vec<u8>>();
 
 		// Create a str slice from the body.
-		let body_str = sp_std::str::from_utf8(&body).map_err(|_| {
+		let body_str = alloc::str::from_utf8(&body).map_err(|_| {
 			log::warn!("No UTF8 body");
 			http::Error::Unknown
 		})?;
@@ -664,7 +667,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Calculate current average price.
 	fn average_price() -> Option<u32> {
-		let prices = <Prices<T>>::get();
+		let prices = Prices::<T>::get();
 		if prices.is_empty() {
 			None
 		} else {
@@ -677,7 +680,7 @@ impl<T: Config> Pallet<T> {
 		new_price: &u32,
 	) -> TransactionValidity {
 		// Now let's check if the transaction has any chance to succeed.
-		let next_unsigned_at = <NextUnsignedAt<T>>::get();
+		let next_unsigned_at = NextUnsignedAt::<T>::get();
 		if &next_unsigned_at > block_number {
 			return InvalidTransaction::Stale.into()
 		}

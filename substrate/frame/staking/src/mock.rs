@@ -23,30 +23,26 @@ use frame_election_provider_support::{
 	onchain, SequentialPhragmen, VoteWeight,
 };
 use frame_support::{
-	assert_ok, ord_parameter_types, parameter_types,
+	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		ConstU32, ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance,
-		OnUnbalanced, OneSessionHandler,
+		ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, LockableCurrency,
+		OnUnbalanced, OneSessionHandler, WithdrawReasons,
 	},
 	weights::constants::RocksDbWeight,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use sp_core::H256;
 use sp_io;
-use sp_runtime::{
-	curve::PiecewiseLinear,
-	testing::UintAuthorityId,
-	traits::{IdentityLookup, Zero},
-	BuildStorage,
+use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
+use sp_staking::{
+	offence::{OffenceDetails, OnOffenceHandler},
+	OnStakingUpdate,
 };
-use sp_staking::offence::{DisableStrategy, OffenceDetails, OnOffenceHandler};
 
 pub const INIT_TIMESTAMP: u64 = 30_000;
 pub const BLOCK_TIME: u64 = 1000;
 
 /// The AccountId alias in this test module.
 pub(crate) type AccountId = u64;
-pub(crate) type Nonce = u64;
 pub(crate) type BlockNumber = u64;
 pub(crate) type Balance = u128;
 
@@ -77,7 +73,7 @@ impl sp_runtime::BoundToRuntimeAppPublic for OtherSessionHandler {
 }
 
 pub fn is_disabled(controller: AccountId) -> bool {
-	let stash = Staking::ledger(&controller).unwrap().stash;
+	let stash = Ledger::<Test>::get(&controller).unwrap().stash;
 	let validator_index = match Session::validators().iter().position(|v| *v == stash) {
 		Some(index) => index as u32,
 		None => return false,
@@ -119,47 +115,21 @@ parameter_types! {
 	pub static SlashDeferDuration: EraIndex = 0;
 	pub static Period: BlockNumber = 5;
 	pub static Offset: BlockNumber = 0;
+	pub static MaxControllersInDeprecationBatch: u32 = 5900;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
 	type DbWeight = RocksDbWeight;
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = Nonce;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = ::sp_runtime::traits::BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = frame_support::traits::ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type MaxLocks = frame_support::traits::ConstU32<1024>;
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type MaxHolds = ();
 }
 
 sp_runtime::impl_opaque_keys! {
@@ -208,7 +178,6 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
 	pub const BondingDuration: EraIndex = 3;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
-	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(75);
 }
 
 parameter_types! {
@@ -232,6 +201,7 @@ const THRESHOLDS: [sp_npos_elections::VoteWeight; 9] =
 parameter_types! {
 	pub static BagThresholds: &'static [sp_npos_elections::VoteWeight] = &THRESHOLDS;
 	pub static HistoryDepth: u32 = 80;
+	pub static MaxExposurePageSize: u32 = 64;
 	pub static MaxUnlockingChunks: u32 = 32;
 	pub static RewardOnUnbalanceWasCalled: bool = false;
 	pub static MaxWinners: u32 = 100;
@@ -270,37 +240,41 @@ parameter_types! {
 	pub static LedgerSlashPerEra:
 		(BalanceOf<Test>, BTreeMap<EraIndex, BalanceOf<Test>>) =
 		(Zero::zero(), BTreeMap::new());
+	pub static SlashObserver: BTreeMap<AccountId, BalanceOf<Test>> = BTreeMap::new();
 }
 
 pub struct EventListenerMock;
 impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 	fn on_slash(
-		_pool_account: &AccountId,
+		pool_account: &AccountId,
 		slashed_bonded: Balance,
 		slashed_chunks: &BTreeMap<EraIndex, Balance>,
+		total_slashed: Balance,
 	) {
 		LedgerSlashPerEra::set((slashed_bonded, slashed_chunks.clone()));
+		SlashObserver::mutate(|map| {
+			map.insert(*pool_account, map.get(pool_account).unwrap_or(&0) + total_slashed)
+		});
 	}
 }
 
+// Disabling threshold for `UpToLimitDisablingStrategy` and
+// `UpToLimitWithReEnablingDisablingStrategy``
+pub(crate) const DISABLING_LIMIT_FACTOR: usize = 3;
+
+#[derive_impl(crate::config_preludes::TestDefaultConfig)]
 impl crate::pallet::pallet::Config for Test {
 	type Currency = Balances;
-	type CurrencyBalance = <Self as pallet_balances::Config>::Balance;
 	type UnixTime = Timestamp;
-	type CurrencyToVote = ();
 	type RewardRemainder = RewardRemainderMock;
-	type RuntimeEvent = RuntimeEvent;
-	type Slash = ();
 	type Reward = MockReward;
 	type SessionsPerEra = SessionsPerEra;
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EnsureOneOrRoot;
-	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
 	type EraPayout = ConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
-	type MaxNominatorRewardedPerValidator = ConstU32<64>;
-	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
+	type MaxExposurePageSize = MaxExposurePageSize;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	// NOTE: consider a macro and use `UseNominatorsAndValidatorsMap<Self>` as well.
@@ -309,9 +283,10 @@ impl crate::pallet::pallet::Config for Test {
 	type NominationsQuota = WeightedNominationsQuota<16>;
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type HistoryDepth = HistoryDepth;
+	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
-	type BenchmarkingConfig = TestBenchmarkingConfig;
-	type WeightInfo = ();
+	type DisablingStrategy =
+		pallet_staking::UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>;
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;
@@ -335,6 +310,11 @@ where
 
 pub(crate) type StakingCall = crate::Call<Test>;
 pub(crate) type TestCall = <Test as frame_system::Config>::RuntimeCall;
+
+parameter_types! {
+	// if true, skips the try-state for the test running.
+	pub static SkipTryStateCheck: bool = false;
+}
 
 pub struct ExtBuilder {
 	nominate: bool,
@@ -445,6 +425,10 @@ impl ExtBuilder {
 		self.balance_factor = factor;
 		self
 	}
+	pub fn try_state(self, enable: bool) -> Self {
+		SkipTryStateCheck::set(!enable);
+		self
+	}
 	fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
 		let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
@@ -467,6 +451,8 @@ impl ExtBuilder {
 				(31, self.balance_factor * 2000),
 				(41, self.balance_factor * 2000),
 				(51, self.balance_factor * 2000),
+				(201, self.balance_factor * 2000),
+				(202, self.balance_factor * 2000),
 				// optional nominator
 				(100, self.balance_factor * 2000),
 				(101, self.balance_factor * 2000),
@@ -494,8 +480,10 @@ impl ExtBuilder {
 				(31, 31, self.balance_factor * 500, StakerStatus::<AccountId>::Validator),
 				// an idle validator
 				(41, 41, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
-			];
-			// optionally add a nominator
+				(51, 51, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
+				(201, 201, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
+				(202, 202, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
+			]; // optionally add a nominator
 			if self.nominate {
 				stakers.push((
 					101,
@@ -549,6 +537,7 @@ impl ExtBuilder {
 					.map(|id| (id, id, SessionKeys { other: id.into() }))
 					.collect()
 			},
+			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
 
@@ -573,22 +562,24 @@ impl ExtBuilder {
 		let mut ext = self.build();
 		ext.execute_with(test);
 		ext.execute_with(|| {
-			Staking::do_try_state(System::block_number()).unwrap();
+			if !SkipTryStateCheck::get() {
+				Staking::do_try_state(System::block_number()).unwrap();
+			}
 		});
 	}
 }
 
 pub(crate) fn active_era() -> EraIndex {
-	Staking::active_era().unwrap().index
+	pallet_staking::ActiveEra::<Test>::get().unwrap().index
 }
 
 pub(crate) fn current_era() -> EraIndex {
-	Staking::current_era().unwrap()
+	pallet_staking::CurrentEra::<Test>::get().unwrap()
 }
 
 pub(crate) fn bond(who: AccountId, val: Balance) {
 	let _ = Balances::make_free_balance_be(&who, val);
-	assert_ok!(Staking::bond(RuntimeOrigin::signed(who), val, RewardDestination::Controller));
+	assert_ok!(Staking::bond(RuntimeOrigin::signed(who), val, RewardDestination::Stash));
 }
 
 pub(crate) fn bond_validator(who: AccountId, val: Balance) {
@@ -603,6 +594,21 @@ pub(crate) fn bond_validator(who: AccountId, val: Balance) {
 
 pub(crate) fn bond_nominator(who: AccountId, val: Balance, target: Vec<AccountId>) {
 	bond(who, val);
+	assert_ok!(Staking::nominate(RuntimeOrigin::signed(who), target));
+}
+
+pub(crate) fn bond_virtual_nominator(
+	who: AccountId,
+	payee: AccountId,
+	val: Balance,
+	target: Vec<AccountId>,
+) {
+	// In a real scenario, `who` is a keyless account managed by another pallet which provides for
+	// it.
+	System::inc_providers(&who);
+
+	// Bond who virtually.
+	assert_ok!(<Staking as sp_staking::StakingUnchecked>::virtual_bond(&who, val, &payee));
 	assert_ok!(Staking::nominate(RuntimeOrigin::signed(who), target));
 }
 
@@ -659,8 +665,8 @@ pub(crate) fn start_active_era(era_index: EraIndex) {
 
 pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
 	let (payout, _rest) = <Test as Config>::EraPayout::era_payout(
-		Staking::eras_total_stake(active_era()),
-		Balances::total_issuance(),
+		pallet_staking::ErasTotalStake::<Test>::get(active_era()),
+		pallet_balances::TotalIssuance::<Test>::get(),
 		duration,
 	);
 	assert!(payout > 0);
@@ -669,8 +675,8 @@ pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
 
 pub(crate) fn maximum_payout_for_duration(duration: u64) -> Balance {
 	let (payout, rest) = <Test as Config>::EraPayout::era_payout(
-		Staking::eras_total_stake(active_era()),
-		Balances::total_issuance(),
+		pallet_staking::ErasTotalStake::<Test>::get(active_era()),
+		pallet_balances::TotalIssuance::<Test>::get(),
 		duration,
 	);
 	payout + rest
@@ -717,24 +723,22 @@ pub(crate) fn on_offence_in_era(
 	>],
 	slash_fraction: &[Perbill],
 	era: EraIndex,
-	disable_strategy: DisableStrategy,
 ) {
 	let bonded_eras = crate::BondedEras::<Test>::get();
 	for &(bonded_era, start_session) in bonded_eras.iter() {
 		if bonded_era == era {
-			let _ = Staking::on_offence(offenders, slash_fraction, start_session, disable_strategy);
+			let _ = Staking::on_offence(offenders, slash_fraction, start_session);
 			return
 		} else if bonded_era > era {
 			break
 		}
 	}
 
-	if Staking::active_era().unwrap().index == era {
+	if pallet_staking::ActiveEra::<Test>::get().unwrap().index == era {
 		let _ = Staking::on_offence(
 			offenders,
 			slash_fraction,
-			Staking::eras_start_session_index(era).unwrap(),
-			disable_strategy,
+			pallet_staking::ErasStartSessionIndex::<Test>::get(era).unwrap(),
 		);
 	} else {
 		panic!("cannot slash in era {}", era);
@@ -748,14 +752,14 @@ pub(crate) fn on_offence_now(
 	>],
 	slash_fraction: &[Perbill],
 ) {
-	let now = Staking::active_era().unwrap().index;
-	on_offence_in_era(offenders, slash_fraction, now, DisableStrategy::WhenSlashed)
+	let now = pallet_staking::ActiveEra::<Test>::get().unwrap().index;
+	on_offence_in_era(offenders, slash_fraction, now)
 }
 
 pub(crate) fn add_slash(who: &AccountId) {
 	on_offence_now(
 		&[OffenceDetails {
-			offender: (*who, Staking::eras_stakers(active_era(), *who)),
+			offender: (*who, Staking::eras_stakers(active_era(), who)),
 			reporters: vec![],
 		}],
 		&[Perbill::from_percent(10)],
@@ -773,8 +777,107 @@ pub(crate) fn make_all_reward_payment(era: EraIndex) {
 	// reward validators
 	for validator_controller in validators_with_reward.iter().filter_map(Staking::bonded) {
 		let ledger = <Ledger<Test>>::get(&validator_controller).unwrap();
-		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), ledger.stash, era));
+		for page in 0..EraInfo::<Test>::get_page_count(era, &ledger.stash) {
+			assert_ok!(Staking::payout_stakers_by_page(
+				RuntimeOrigin::signed(1337),
+				ledger.stash,
+				era,
+				page
+			));
+		}
 	}
+}
+
+pub(crate) fn bond_controller_stash(controller: AccountId, stash: AccountId) -> Result<(), String> {
+	<Bonded<Test>>::get(&stash).map_or(Ok(()), |_| Err("stash already bonded"))?;
+	<Ledger<Test>>::get(&controller).map_or(Ok(()), |_| Err("controller already bonded"))?;
+
+	<Bonded<Test>>::insert(stash, controller);
+	<Ledger<Test>>::insert(controller, StakingLedger::<Test>::default_from(stash));
+
+	Ok(())
+}
+
+// simulates `set_controller` without corrupted ledger checks for testing purposes.
+pub(crate) fn set_controller_no_checks(stash: &AccountId) {
+	let controller = Bonded::<Test>::get(stash).expect("testing stash should be bonded");
+	let ledger = Ledger::<Test>::get(&controller).expect("testing ledger should exist");
+
+	Ledger::<Test>::remove(&controller);
+	Ledger::<Test>::insert(stash, ledger);
+	Bonded::<Test>::insert(stash, stash);
+}
+
+// simulates `bond_extra` without corrupted ledger checks for testing purposes.
+pub(crate) fn bond_extra_no_checks(stash: &AccountId, amount: Balance) {
+	let controller = Bonded::<Test>::get(stash).expect("bond must exist to bond_extra");
+	let mut ledger = Ledger::<Test>::get(&controller).expect("ledger must exist to bond_extra");
+
+	let new_total = ledger.total + amount;
+	Balances::set_lock(crate::STAKING_ID, stash, new_total, WithdrawReasons::all());
+	ledger.total = new_total;
+	ledger.active = new_total;
+	Ledger::<Test>::insert(controller, ledger);
+}
+
+pub(crate) fn setup_double_bonded_ledgers() {
+	let init_ledgers = Ledger::<Test>::iter().count();
+
+	let _ = Balances::make_free_balance_be(&333, 2000);
+	let _ = Balances::make_free_balance_be(&444, 2000);
+	let _ = Balances::make_free_balance_be(&555, 2000);
+	let _ = Balances::make_free_balance_be(&777, 2000);
+
+	assert_ok!(Staking::bond(RuntimeOrigin::signed(333), 10, RewardDestination::Staked));
+	assert_ok!(Staking::bond(RuntimeOrigin::signed(444), 20, RewardDestination::Staked));
+	assert_ok!(Staking::bond(RuntimeOrigin::signed(555), 20, RewardDestination::Staked));
+	// not relevant to the test case, but ensures try-runtime checks pass.
+	[333, 444, 555]
+		.iter()
+		.for_each(|s| Payee::<Test>::insert(s, RewardDestination::Staked));
+
+	// we want to test the case where a controller can also be a stash of another ledger.
+	// for that, we change the controller/stash bonding so that:
+	// * 444 becomes controller of 333.
+	// * 555 becomes controller of 444.
+	// * 777 becomes controller of 555.
+	let ledger_333 = Ledger::<Test>::get(333).unwrap();
+	let ledger_444 = Ledger::<Test>::get(444).unwrap();
+	let ledger_555 = Ledger::<Test>::get(555).unwrap();
+
+	// 777 becomes controller of 555.
+	Bonded::<Test>::mutate(555, |controller| *controller = Some(777));
+	Ledger::<Test>::insert(777, ledger_555);
+
+	// 555 becomes controller of 444.
+	Bonded::<Test>::mutate(444, |controller| *controller = Some(555));
+	Ledger::<Test>::insert(555, ledger_444);
+
+	// 444 becomes controller of 333.
+	Bonded::<Test>::mutate(333, |controller| *controller = Some(444));
+	Ledger::<Test>::insert(444, ledger_333);
+
+	// 333 is not controller anymore.
+	Ledger::<Test>::remove(333);
+
+	// checks. now we have:
+	// * +3 ledgers
+	assert_eq!(Ledger::<Test>::iter().count(), 3 + init_ledgers);
+
+	// * stash 333 has controller 444.
+	assert_eq!(Bonded::<Test>::get(333), Some(444));
+	assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(333)), Some(444));
+	assert_eq!(Ledger::<Test>::get(444).unwrap().stash, 333);
+
+	// * stash 444 has controller 555.
+	assert_eq!(Bonded::<Test>::get(444), Some(555));
+	assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(444)), Some(555));
+	assert_eq!(Ledger::<Test>::get(555).unwrap().stash, 444);
+
+	// * stash 555 has controller 777.
+	assert_eq!(Bonded::<Test>::get(555), Some(777));
+	assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(555)), Some(777));
+	assert_eq!(Ledger::<Test>::get(777).unwrap().stash, 555);
 }
 
 #[macro_export]
@@ -788,10 +891,10 @@ macro_rules! assert_session_era {
 			$session,
 		);
 		assert_eq!(
-			Staking::current_era().unwrap(),
+			CurrentEra::<T>::get().unwrap(),
 			$era,
 			"wrong current era {} != {}",
-			Staking::current_era().unwrap(),
+			CurrentEra::<T>::get().unwrap(),
 			$era,
 		);
 	};

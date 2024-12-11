@@ -27,7 +27,7 @@ use sp_core::{
 	storage::{well_known_keys, StateVersion, Storage},
 	Pair,
 };
-use sp_keyring::{AccountKeyring, Sr25519Keyring};
+use sp_keyring::Sr25519Keyring;
 use sp_runtime::{
 	traits::{Block as BlockT, Hash as HashT, Header as HeaderT},
 	BuildStorage,
@@ -60,11 +60,11 @@ impl Default for GenesisStorageBuilder {
 			],
 			(0..16_usize)
 				.into_iter()
-				.map(|i| AccountKeyring::numeric(i).public())
+				.map(|i| Sr25519Keyring::numeric(i).public())
 				.chain(vec![
-					AccountKeyring::Alice.into(),
-					AccountKeyring::Bob.into(),
-					AccountKeyring::Charlie.into(),
+					Sr25519Keyring::Alice.into(),
+					Sr25519Keyring::Bob.into(),
+					Sr25519Keyring::Charlie.into(),
 				])
 				.collect(),
 			1000 * currency::DOLLARS,
@@ -117,17 +117,13 @@ impl GenesisStorageBuilder {
 			.collect();
 
 		RuntimeGenesisConfig {
-			system: frame_system::GenesisConfig {
-				code: self.wasm_code.clone().unwrap_or(wasm_binary_unwrap().to_vec()),
-				..Default::default()
-			},
+			system: Default::default(),
 			babe: pallet_babe::GenesisConfig {
 				authorities: authorities_sr25519
 					.clone()
 					.into_iter()
 					.map(|x| (x.into(), 1))
 					.collect(),
-				epoch_config: Some(crate::TEST_RUNTIME_BABE_EPOCH_CONFIGURATION),
 				..Default::default()
 			},
 			substrate_test: substrate_test_pallet::GenesisConfig {
@@ -148,6 +144,11 @@ impl GenesisStorageBuilder {
 		if let Some(heap_pages) = self.heap_pages_override {
 			storage.top.insert(well_known_keys::HEAP_PAGES.into(), heap_pages.encode());
 		}
+
+		storage.top.insert(
+			well_known_keys::CODE.into(),
+			self.wasm_code.clone().unwrap_or(wasm_binary_unwrap().to_vec()),
+		);
 
 		storage.top.extend(self.extra_storage.top.clone());
 		storage.children_default.extend(self.extra_storage.children_default.clone());

@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add page information to staking::PayoutStarted event
+
+doc:
+  - audience: Runtime User
+    description: |
+      Adds page index that is claimed, and optional next page that can be claimed. If next is none, then the page is the
+      last one.
+
+crates:
+  - name: pallet-staking
+    bump: major

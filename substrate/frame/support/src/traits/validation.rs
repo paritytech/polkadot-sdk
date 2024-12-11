@@ -18,13 +18,13 @@
 //! Traits for dealing with validation and validators.
 
 use crate::{dispatch::Parameter, weights::Weight};
+use alloc::{vec, vec::Vec};
 use codec::{Codec, Decode, MaxEncodedLen};
 use sp_runtime::{
 	traits::{Convert, Zero},
 	BoundToRuntimeAppPublic, ConsensusEngineId, Permill, RuntimeAppPublic,
 };
 use sp_staking::SessionIndex;
-use sp_std::prelude::*;
 
 /// A trait for online node inspection in a session.
 ///
@@ -251,10 +251,17 @@ pub trait ValidatorRegistration<ValidatorId> {
 pub trait DisabledValidators {
 	/// Returns true if the given validator is disabled.
 	fn is_disabled(index: u32) -> bool;
+
+	/// Returns all disabled validators
+	fn disabled_validators() -> Vec<u32>;
 }
 
 impl DisabledValidators for () {
 	fn is_disabled(_index: u32) -> bool {
 		false
+	}
+
+	fn disabled_validators() -> Vec<u32> {
+		vec![]
 	}
 }

@@ -52,7 +52,7 @@ pub const MAX_DISPUTE_VOTES_FORWARDED_TO_RUNTIME: usize = 200;
 /// `dispute-coordinator`.
 ///
 /// This value should be less than `MAX_DISPUTE_VOTES_FORWARDED_TO_RUNTIME`. Increase it in case
-/// `provisioner` sends too many `QueryCandidateVotes` messages to `dispite-coordinator`.
+/// `provisioner` sends too many `QueryCandidateVotes` messages to `dispute-coordinator`.
 #[cfg(not(test))]
 const VOTES_SELECTION_BATCH_SIZE: usize = 1_100;
 #[cfg(test)]
@@ -221,7 +221,7 @@ where
 				votes.valid.retain(|validator_idx, (statement_kind, _)| {
 					is_vote_worth_to_keep(
 						validator_idx,
-						DisputeStatement::Valid(*statement_kind),
+						DisputeStatement::Valid(statement_kind.clone()),
 						&onchain_state,
 					)
 				});

@@ -73,14 +73,42 @@ pub struct SessionGridTopology {
 	shuffled_indices: Vec<usize>,
 	/// The canonical shuffling of validators for the session.
 	canonical_shuffling: Vec<TopologyPeerInfo>,
+	/// The list of peer-ids in an efficient way to search.
+	peer_ids: HashSet<PeerId>,
 }
 
 impl SessionGridTopology {
 	/// Create a new session grid topology.
 	pub fn new(shuffled_indices: Vec<usize>, canonical_shuffling: Vec<TopologyPeerInfo>) -> Self {
-		SessionGridTopology { shuffled_indices, canonical_shuffling }
+		let mut peer_ids = HashSet::new();
+		for peer_info in canonical_shuffling.iter() {
+			for peer_id in peer_info.peer_ids.iter() {
+				peer_ids.insert(*peer_id);
+			}
+		}
+		SessionGridTopology { shuffled_indices, canonical_shuffling, peer_ids }
 	}
 
+	/// Updates the known peer ids for the passed authorities ids.
+	pub fn update_authority_ids(
+		&mut self,
+		peer_id: PeerId,
+		ids: &HashSet<AuthorityDiscoveryId>,
+	) -> bool {
+		let mut updated = false;
+		if !self.peer_ids.contains(&peer_id) {
+			for peer in self
+				.canonical_shuffling
+				.iter_mut()
+				.filter(|peer| ids.contains(&peer.discovery_id))
+			{
+				peer.peer_ids.push(peer_id);
+				self.peer_ids.insert(peer_id);
+				updated = true;
+			}
+		}
+		updated
+	}
 	/// Produces the outgoing routing logic for a particular peer.
 	///
 	/// Returns `None` if the validator index is out of bounds.
@@ -110,6 +138,11 @@ impl SessionGridTopology {
 		}
 
 		Some(grid_subset)
+	}
+
+	/// Tells if a given peer id is validator in a session
+	pub fn is_validator(&self, peer: &PeerId) -> bool {
+		self.peer_ids.contains(peer)
 	}
 }
 
@@ -256,6 +289,7 @@ impl GridNeighbors {
 pub struct SessionGridTopologyEntry {
 	topology: SessionGridTopology,
 	local_neighbors: GridNeighbors,
+	local_index: Option<ValidatorIndex>,
 }
 
 impl SessionGridTopologyEntry {
@@ -273,6 +307,47 @@ impl SessionGridTopologyEntry {
 	pub fn get(&self) -> &SessionGridTopology {
 		&self.topology
 	}
+
+	/// Tells if a given peer id is validator in a session
+	pub fn is_validator(&self, peer: &PeerId) -> bool {
+		self.topology.is_validator(peer)
+	}
+
+	/// Returns the list of peers to route based on the required routing.
+	pub fn peers_to_route(&self, required_routing: RequiredRouting) -> Vec<PeerId> {
+		match required_routing {
+			RequiredRouting::All => self.topology.peer_ids.iter().copied().collect(),
+			RequiredRouting::GridX => self.local_neighbors.peers_x.iter().copied().collect(),
+			RequiredRouting::GridY => self.local_neighbors.peers_y.iter().copied().collect(),
+			RequiredRouting::GridXY => self
+				.local_neighbors
+				.peers_x
+				.iter()
+				.chain(self.local_neighbors.peers_y.iter())
+				.copied()
+				.collect(),
+			RequiredRouting::None | RequiredRouting::PendingTopology => Vec::new(),
+		}
+	}
+
+	/// Updates the known peer ids for the passed authorities ids.
+	pub fn update_authority_ids(
+		&mut self,
+		peer_id: PeerId,
+		ids: &HashSet<AuthorityDiscoveryId>,
+	) -> bool {
+		let peer_id_updated = self.topology.update_authority_ids(peer_id, ids);
+		// If we added a new peer id we need to recompute the grid neighbors, so that
+		// neighbors_x and neighbors_y reflect the right peer ids.
+		if peer_id_updated {
+			if let Some(local_index) = self.local_index.as_ref() {
+				if let Some(new_grid) = self.topology.compute_grid_neighbors_for(*local_index) {
+					self.local_neighbors = new_grid;
+				}
+			}
+		}
+		peer_id_updated
+	}
 }
 
 /// A set of topologies indexed by session
@@ -285,6 +360,20 @@ impl SessionGridTopologies {
 	/// Returns a topology for the specific session index
 	pub fn get_topology(&self, session: SessionIndex) -> Option<&SessionGridTopologyEntry> {
 		self.inner.get(&session).and_then(|val| val.0.as_ref())
+	}
+
+	/// Updates the known peer ids for the passed authorities ids.
+	pub fn update_authority_ids(
+		&mut self,
+		peer_id: PeerId,
+		ids: &HashSet<AuthorityDiscoveryId>,
+	) -> bool {
+		self.inner
+			.iter_mut()
+			.map(|(_, topology)| {
+				topology.0.as_mut().map(|topology| topology.update_authority_ids(peer_id, ids))
+			})
+			.any(|updated| updated.unwrap_or_default())
 	}
 
 	/// Increase references counter for a specific topology
@@ -315,7 +404,7 @@ impl SessionGridTopologies {
 				.and_then(|l| topology.compute_grid_neighbors_for(l))
 				.unwrap_or_else(GridNeighbors::empty);
 
-			entry.0 = Some(SessionGridTopologyEntry { topology, local_neighbors });
+			entry.0 = Some(SessionGridTopologyEntry { topology, local_neighbors, local_index });
 		}
 	}
 }
@@ -347,8 +436,10 @@ impl Default for SessionBoundGridTopologyStorage {
 					topology: SessionGridTopology {
 						shuffled_indices: Vec::new(),
 						canonical_shuffling: Vec::new(),
+						peer_ids: Default::default(),
 					},
 					local_neighbors: GridNeighbors::empty(),
+					local_index: None,
 				},
 			},
 			prev_topology: None,
@@ -393,7 +484,7 @@ impl SessionBoundGridTopologyStorage {
 		let old_current = std::mem::replace(
 			&mut self.current_topology,
 			GridTopologySessionBound {
-				entry: SessionGridTopologyEntry { topology, local_neighbors },
+				entry: SessionGridTopologyEntry { topology, local_neighbors, local_index },
 				session_index,
 			},
 		);
@@ -450,6 +541,11 @@ impl RandomRouting {
 	pub fn inc_sent(&mut self) {
 		self.sent += 1
 	}
+
+	/// Returns `true` if we already took all the necessary samples.
+	pub fn is_complete(&self) -> bool {
+		self.sent >= self.target
+	}
 }
 
 /// Routing mode
@@ -479,6 +575,22 @@ impl RequiredRouting {
 			_ => false,
 		}
 	}
+
+	/// Combine two required routing sets into one that would cover both routing modes.
+	pub fn combine(self, other: Self) -> Self {
+		match (self, other) {
+			(RequiredRouting::All, _) | (_, RequiredRouting::All) => RequiredRouting::All,
+			(RequiredRouting::GridXY, _) | (_, RequiredRouting::GridXY) => RequiredRouting::GridXY,
+			(RequiredRouting::GridX, RequiredRouting::GridY) |
+			(RequiredRouting::GridY, RequiredRouting::GridX) => RequiredRouting::GridXY,
+			(RequiredRouting::GridX, RequiredRouting::GridX) => RequiredRouting::GridX,
+			(RequiredRouting::GridY, RequiredRouting::GridY) => RequiredRouting::GridY,
+			(RequiredRouting::None, RequiredRouting::PendingTopology) |
+			(RequiredRouting::PendingTopology, RequiredRouting::None) => RequiredRouting::PendingTopology,
+			(RequiredRouting::None, _) | (RequiredRouting::PendingTopology, _) => other,
+			(_, RequiredRouting::None) | (_, RequiredRouting::PendingTopology) => self,
+		}
+	}
 }
 
 #[cfg(test)]
@@ -489,6 +601,50 @@ mod tests {
 
 	fn dummy_rng() -> ChaCha12Rng {
 		rand_chacha::ChaCha12Rng::seed_from_u64(12345)
+	}
+
+	#[test]
+	fn test_required_routing_combine() {
+		assert_eq!(RequiredRouting::All.combine(RequiredRouting::None), RequiredRouting::All);
+		assert_eq!(RequiredRouting::All.combine(RequiredRouting::GridXY), RequiredRouting::All);
+		assert_eq!(RequiredRouting::GridXY.combine(RequiredRouting::All), RequiredRouting::All);
+		assert_eq!(RequiredRouting::None.combine(RequiredRouting::All), RequiredRouting::All);
+		assert_eq!(RequiredRouting::None.combine(RequiredRouting::None), RequiredRouting::None);
+		assert_eq!(
+			RequiredRouting::PendingTopology.combine(RequiredRouting::GridX),
+			RequiredRouting::GridX
+		);
+
+		assert_eq!(
+			RequiredRouting::GridX.combine(RequiredRouting::PendingTopology),
+			RequiredRouting::GridX
+		);
+		assert_eq!(RequiredRouting::GridX.combine(RequiredRouting::GridY), RequiredRouting::GridXY);
+		assert_eq!(RequiredRouting::GridY.combine(RequiredRouting::GridX), RequiredRouting::GridXY);
+		assert_eq!(
+			RequiredRouting::GridXY.combine(RequiredRouting::GridXY),
+			RequiredRouting::GridXY
+		);
+		assert_eq!(RequiredRouting::GridX.combine(RequiredRouting::GridX), RequiredRouting::GridX);
+		assert_eq!(RequiredRouting::GridY.combine(RequiredRouting::GridY), RequiredRouting::GridY);
+
+		assert_eq!(RequiredRouting::None.combine(RequiredRouting::GridY), RequiredRouting::GridY);
+		assert_eq!(RequiredRouting::None.combine(RequiredRouting::GridX), RequiredRouting::GridX);
+		assert_eq!(RequiredRouting::None.combine(RequiredRouting::GridXY), RequiredRouting::GridXY);
+
+		assert_eq!(RequiredRouting::GridY.combine(RequiredRouting::None), RequiredRouting::GridY);
+		assert_eq!(RequiredRouting::GridX.combine(RequiredRouting::None), RequiredRouting::GridX);
+		assert_eq!(RequiredRouting::GridXY.combine(RequiredRouting::None), RequiredRouting::GridXY);
+
+		assert_eq!(
+			RequiredRouting::PendingTopology.combine(RequiredRouting::None),
+			RequiredRouting::PendingTopology
+		);
+
+		assert_eq!(
+			RequiredRouting::None.combine(RequiredRouting::PendingTopology),
+			RequiredRouting::PendingTopology
+		);
 	}
 
 	#[test]

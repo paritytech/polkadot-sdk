@@ -76,7 +76,7 @@ pub trait ProposerInterface<Block: BlockT> {
 		inherent_digests: Digest,
 		max_duration: Duration,
 		block_size_limit: Option<usize>,
-	) -> Result<Proposal<Block, StorageProof>, Error>;
+	) -> Result<Option<Proposal<Block, StorageProof>>, Error>;
 }
 
 /// A simple wrapper around a Substrate proposer for creating collations.
@@ -109,7 +109,7 @@ where
 		inherent_digests: Digest,
 		max_duration: Duration,
 		block_size_limit: Option<usize>,
-	) -> Result<Proposal<B, StorageProof>, Error> {
+	) -> Result<Option<Proposal<B, StorageProof>>, Error> {
 		let proposer = self
 			.inner
 			.init(parent_header)
@@ -127,6 +127,7 @@ where
 		proposer
 			.propose(inherent_data, inherent_digests, max_duration, block_size_limit)
 			.await
+			.map(Some)
 			.map_err(|e| Error::proposing(anyhow::Error::new(e)).into())
 	}
 }

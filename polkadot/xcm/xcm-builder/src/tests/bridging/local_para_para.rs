@@ -21,13 +21,18 @@
 use super::*;
 
 parameter_types! {
-	pub UniversalLocation: Junctions = X2(GlobalConsensus(Local::get()), Parachain(1));
-	pub RemoteUniversalLocation: Junctions = X2(GlobalConsensus(Remote::get()), Parachain(1));
+	pub UniversalLocation: Junctions = [GlobalConsensus(Local::get()), Parachain(1)].into();
+	pub RemoteUniversalLocation: Junctions = [GlobalConsensus(Remote::get()), Parachain(1)].into();
+	pub RemoteNetwork: Location = AncestorThen(2, GlobalConsensus(Remote::get())).into();
 }
 type TheBridge =
 	TestBridge<BridgeBlobDispatcher<TestRemoteIncomingRouter, RemoteUniversalLocation, ()>>;
-type Router =
-	TestTopic<UnpaidLocalExporter<HaulBlobExporter<TheBridge, Remote, Price>, UniversalLocation>>;
+type Router = TestTopic<
+	UnpaidLocalExporter<
+		HaulBlobExporter<TheBridge, RemoteNetwork, AlwaysLatest, Price>,
+		UniversalLocation,
+	>,
+>;
 
 /// ```nocompile
 ///  local                                  |                                      remote
@@ -44,7 +49,7 @@ fn sending_to_bridged_chain_works() {
 	maybe_with_topic(|| {
 		let msg = Xcm(vec![Trap(1)]);
 		let dest = (Parent, Parent, Remote::get(), Parachain(1)).into();
-		assert_eq!(send_xcm::<Router>(dest, msg).unwrap().1, (Here, 100).into());
+		assert_eq!(send_xcm::<Router>(dest, msg).unwrap().1, Price::get());
 		assert_eq!(TheBridge::service(), 1);
 		assert_eq!(
 			take_received_remote_messages(),
@@ -78,7 +83,7 @@ fn sending_to_parachain_of_bridged_chain_works() {
 	maybe_with_topic(|| {
 		let msg = Xcm(vec![Trap(1)]);
 		let dest = (Parent, Parent, Remote::get(), Parachain(1000)).into();
-		assert_eq!(send_xcm::<Router>(dest, msg).unwrap().1, (Here, 100).into());
+		assert_eq!(send_xcm::<Router>(dest, msg).unwrap().1, Price::get());
 		assert_eq!(TheBridge::service(), 1);
 		let expected = vec![(
 			(Parent, Parachain(1000)).into(),
@@ -110,7 +115,7 @@ fn sending_to_relay_chain_of_bridged_chain_works() {
 	maybe_with_topic(|| {
 		let msg = Xcm(vec![Trap(1)]);
 		let dest = (Parent, Parent, Remote::get()).into();
-		assert_eq!(send_xcm::<Router>(dest, msg).unwrap().1, (Here, 100).into());
+		assert_eq!(send_xcm::<Router>(dest, msg).unwrap().1, Price::get());
 		assert_eq!(TheBridge::service(), 1);
 		let expected = vec![(
 			Parent.into(),

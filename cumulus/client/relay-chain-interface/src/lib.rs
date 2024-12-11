@@ -14,23 +14,28 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{collections::BTreeMap, pin::Pin, sync::Arc};
-
-use polkadot_overseer::prometheus::PrometheusError;
-use sc_client_api::StorageProof;
+use std::{
+	collections::{BTreeMap, VecDeque},
+	pin::Pin,
+	sync::Arc,
+};
 
 use futures::Stream;
+use polkadot_overseer::prometheus::PrometheusError;
+use sc_client_api::StorageProof;
+use sp_version::RuntimeVersion;
 
 use async_trait::async_trait;
-use jsonrpsee_core::Error as JsonRpcError;
-use parity_scale_codec::Error as CodecError;
+use codec::{Decode, Encode, Error as CodecError};
+use jsonrpsee_core::ClientError as JsonRpcError;
 use sp_api::ApiError;
 
-use cumulus_primitives_core::relay_chain::BlockId;
+use cumulus_primitives_core::relay_chain::{BlockId, Hash as RelayHash};
 pub use cumulus_primitives_core::{
 	relay_chain::{
-		CommittedCandidateReceipt, Hash as PHash, Header as PHeader, InboundHrmpMessage,
-		OccupiedCoreAssumption, SessionIndex, ValidatorId,
+		vstaging::{CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState},
+		BlockNumber, CoreIndex, Hash as PHash, Header as PHeader, InboundHrmpMessage,
+		OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -41,7 +46,7 @@ pub type RelayChainResult<T> = Result<T, RelayChainError>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum RelayChainError {
-	#[error("Error occured while calling relay chain runtime: {0}")]
+	#[error("Error occurred while calling relay chain runtime: {0}")]
 	ApiError(#[from] ApiError),
 	#[error("Timeout while waiting for relay-chain block `{0}` to be imported.")]
 	WaitTimeout(PHash),
@@ -53,7 +58,7 @@ pub enum RelayChainError {
 	WaitBlockchainError(PHash, sp_blockchain::Error),
 	#[error("Blockchain returned an error: {0}")]
 	BlockchainError(#[from] sp_blockchain::Error),
-	#[error("State machine error occured: {0}")]
+	#[error("State machine error occurred: {0}")]
 	StateMachineError(Box<dyn sp_state_machine::Error>),
 	#[error("Unable to call RPC method '{0}'")]
 	RpcCallError(String),
@@ -67,7 +72,7 @@ pub enum RelayChainError {
 	Application(#[from] Box<dyn std::error::Error + Send + Sync + 'static>),
 	#[error("Prometheus error: {0}")]
 	PrometheusError(#[from] PrometheusError),
-	#[error("Unspecified error occured: {0}")]
+	#[error("Unspecified error occurred: {0}")]
 	GenericError(String),
 }
 
@@ -117,6 +122,14 @@ pub trait RelayChainInterface: Send + Sync {
 	/// Get the hash of the finalized block.
 	async fn finalized_block_hash(&self) -> RelayChainResult<PHash>;
 
+	/// Call an arbitrary runtime api. The input and output are SCALE-encoded.
+	async fn call_runtime_api(
+		&self,
+		method_name: &'static str,
+		hash: RelayHash,
+		payload: &[u8],
+	) -> RelayChainResult<Vec<u8>>;
+
 	/// Returns the whole contents of the downward message queue for the parachain we are collating
 	/// for.
 	///
@@ -149,8 +162,12 @@ pub trait RelayChainInterface: Send + Sync {
 		_: OccupiedCoreAssumption,
 	) -> RelayChainResult<Option<PersistedValidationData>>;
 
-	/// Get the receipt of a candidate pending availability. This returns `Some` for any paras
-	/// assigned to occupied cores in `availability_cores` and `None` otherwise.
+	/// Get the receipt of the first candidate pending availability of this para_id. This returns
+	/// `Some` for any paras assigned to occupied cores in `availability_cores` and `None`
+	/// otherwise.
+	#[deprecated(
+		note = "`candidate_pending_availability` only returns one candidate and is deprecated. Use `candidates_pending_availability` instead."
+	)]
 	async fn candidate_pending_availability(
 		&self,
 		block_id: PHash,
@@ -194,6 +211,39 @@ pub trait RelayChainInterface: Send + Sync {
 		relay_parent: PHash,
 		relevant_keys: &Vec<Vec<u8>>,
 	) -> RelayChainResult<StorageProof>;
+
+	/// Returns the validation code hash for the given `para_id` using the given
+	/// `occupied_core_assumption`.
+	async fn validation_code_hash(
+		&self,
+		relay_parent: PHash,
+		para_id: ParaId,
+		occupied_core_assumption: OccupiedCoreAssumption,
+	) -> RelayChainResult<Option<ValidationCodeHash>>;
+
+	/// Get the receipts of all candidates pending availability for this para_id.
+	async fn candidates_pending_availability(
+		&self,
+		block_id: PHash,
+		para_id: ParaId,
+	) -> RelayChainResult<Vec<CommittedCandidateReceipt>>;
+
+	/// Get the runtime version of the relay chain.
+	async fn version(&self, relay_parent: PHash) -> RelayChainResult<RuntimeVersion>;
+
+	/// Yields information on all availability cores as relevant to the child block.
+	///
+	/// Cores are either free, scheduled or occupied. Free cores can have paras assigned to them.
+	async fn availability_cores(
+		&self,
+		relay_parent: PHash,
+	) -> RelayChainResult<Vec<CoreState<PHash, BlockNumber>>>;
+
+	/// Fetch the claim queue.
+	async fn claim_queue(
+		&self,
+		relay_parent: PHash,
+	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>>;
 }
 
 #[async_trait]
@@ -228,6 +278,7 @@ where
 			.await
 	}
 
+	#[allow(deprecated)]
 	async fn candidate_pending_availability(
 		&self,
 		block_id: PHash,
@@ -262,6 +313,15 @@ where
 
 	async fn finalized_block_hash(&self) -> RelayChainResult<PHash> {
 		(**self).finalized_block_hash().await
+	}
+
+	async fn call_runtime_api(
+		&self,
+		method_name: &'static str,
+		hash: RelayHash,
+		payload: &[u8],
+	) -> RelayChainResult<Vec<u8>> {
+		(**self).call_runtime_api(method_name, hash, payload).await
 	}
 
 	async fn is_major_syncing(&self) -> RelayChainResult<bool> {
@@ -301,4 +361,57 @@ where
 	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
 		(**self).header(block_id).await
 	}
+
+	async fn validation_code_hash(
+		&self,
+		relay_parent: PHash,
+		para_id: ParaId,
+		occupied_core_assumption: OccupiedCoreAssumption,
+	) -> RelayChainResult<Option<ValidationCodeHash>> {
+		(**self)
+			.validation_code_hash(relay_parent, para_id, occupied_core_assumption)
+			.await
+	}
+
+	async fn availability_cores(
+		&self,
+		relay_parent: PHash,
+	) -> RelayChainResult<Vec<CoreState<PHash, BlockNumber>>> {
+		(**self).availability_cores(relay_parent).await
+	}
+
+	async fn candidates_pending_availability(
+		&self,
+		block_id: PHash,
+		para_id: ParaId,
+	) -> RelayChainResult<Vec<CommittedCandidateReceipt>> {
+		(**self).candidates_pending_availability(block_id, para_id).await
+	}
+
+	async fn version(&self, relay_parent: PHash) -> RelayChainResult<RuntimeVersion> {
+		(**self).version(relay_parent).await
+	}
+
+	async fn claim_queue(
+		&self,
+		relay_parent: PHash,
+	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>> {
+		(**self).claim_queue(relay_parent).await
+	}
+}
+
+/// Helper function to call an arbitrary runtime API using a `RelayChainInterface` client.
+/// Unlike the trait method, this function can be generic, so it handles the encoding of input and
+/// output params.
+pub async fn call_runtime_api<R>(
+	client: &(impl RelayChainInterface + ?Sized),
+	method_name: &'static str,
+	hash: RelayHash,
+	payload: impl Encode,
+) -> RelayChainResult<R>
+where
+	R: Decode,
+{
+	let res = client.call_runtime_api(method_name, hash, &payload.encode()).await?;
+	Decode::decode(&mut &*res).map_err(Into::into)
 }

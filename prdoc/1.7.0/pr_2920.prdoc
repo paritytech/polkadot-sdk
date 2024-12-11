@@ -1,0 +1,12 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Contracts: Stabilize sr25519_verify host function"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Removed the `#[unstable]` attrribute on `sr25519_verify` host function.
+
+crates:
+  - name: "pallet-contracts"

@@ -48,6 +48,7 @@ pub struct ImportParams {
 	pub wasm_method: WasmExecutionMethod,
 
 	/// The WASM instantiation method to use.
+	///
 	/// Only has an effect when `wasm-execution` is set to `compiled`.
 	/// The copy-on-write strategies are only supported on Linux.
 	/// If the copy-on-write variant of a strategy is unsupported
@@ -79,6 +80,7 @@ pub struct ImportParams {
 	pub wasmtime_precompiled: Option<PathBuf>,
 
 	/// Specify the path where local WASM runtimes are stored.
+	///
 	/// These runtimes will override on-chain runtimes when the version matches.
 	#[arg(
         long,
@@ -92,23 +94,15 @@ pub struct ImportParams {
 	pub execution_strategies: ExecutionStrategiesParams,
 
 	/// Specify the state cache size.
+	///
 	/// Providing `0` will disable the cache.
-	#[arg(long, value_name = "Bytes", default_value_t = 67108864)]
+	#[arg(long, value_name = "Bytes", default_value_t = 1024 * 1024 * 1024)]
 	pub trie_cache_size: usize,
-
-	/// DEPRECATED
-	/// Switch to `--trie-cache-size`.
-	#[arg(long)]
-	state_cache_size: Option<usize>,
 }
 
 impl ImportParams {
 	/// Specify the trie cache maximum size.
 	pub fn trie_cache_maximum_size(&self) -> Option<usize> {
-		if self.state_cache_size.is_some() {
-			eprintln!("`--state-cache-size` was deprecated. Please switch to `--trie-cache-size`.");
-		}
-
 		if self.trie_cache_size == 0 {
 			None
 		} else {
@@ -149,26 +143,23 @@ impl ImportParams {
 /// Execution strategies parameters.
 #[derive(Debug, Clone, Args)]
 pub struct ExecutionStrategiesParams {
-	/// The means of execution used when calling into the runtime for importing blocks as
-	/// part of an initial sync.
+	/// Runtime execution strategy for importing blocks during initial sync.
 	#[arg(long, value_name = "STRATEGY", value_enum, ignore_case = true)]
 	pub execution_syncing: Option<ExecutionStrategy>,
 
-	/// The means of execution used when calling into the runtime for general block import
-	/// (including locally authored blocks).
+	/// Runtime execution strategy for general block import (including locally authored blocks).
 	#[arg(long, value_name = "STRATEGY", value_enum, ignore_case = true)]
 	pub execution_import_block: Option<ExecutionStrategy>,
 
-	/// The means of execution used when calling into the runtime while constructing blocks.
+	/// Runtime execution strategy for constructing blocks.
 	#[arg(long, value_name = "STRATEGY", value_enum, ignore_case = true)]
 	pub execution_block_construction: Option<ExecutionStrategy>,
 
-	/// The means of execution used when calling into the runtime while using an off-chain worker.
+	/// Runtime execution strategy for offchain workers.
 	#[arg(long, value_name = "STRATEGY", value_enum, ignore_case = true)]
 	pub execution_offchain_worker: Option<ExecutionStrategy>,
 
-	/// The means of execution used when calling into the runtime while not syncing, importing or
-	/// constructing blocks.
+	/// Runtime execution strategy when not syncing, importing or constructing blocks.
 	#[arg(long, value_name = "STRATEGY", value_enum, ignore_case = true)]
 	pub execution_other: Option<ExecutionStrategy>,
 

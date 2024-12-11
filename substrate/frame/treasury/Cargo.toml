@@ -1,54 +1,60 @@
 [package]
 name = "pallet-treasury"
-version = "4.0.0-dev"
+version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME pallet to manage treasury"
 readme = "README.md"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
+codec = { features = [
 	"derive",
 	"max-encoded-len",
-] }
-impl-trait-for-tuples = "0.2.2"
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.188", features = ["derive"], optional = true }
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true}
-frame-support = { path = "../support", default-features = false}
-frame-system = { path = "../system", default-features = false}
-pallet-balances = { path = "../balances", default-features = false}
-sp-runtime = { path = "../../primitives/runtime", default-features = false}
-sp-std = { path = "../../primitives/std", default-features = false}
+], workspace = true }
+docify = { workspace = true }
+impl-trait-for-tuples = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+serde = { features = ["derive"], optional = true, workspace = true, default-features = true }
+frame-benchmarking = { optional = true, workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-balances = { workspace = true }
+sp-runtime = { workspace = true }
+sp-core = { optional = true, workspace = true }
+log = { workspace = true }
 
 [dev-dependencies]
-sp-core = { path = "../../primitives/core" }
-sp-io = { path = "../../primitives/io" }
-pallet-utility = { path = "../utility" }
+sp-io = { workspace = true, default-features = true }
+pallet-utility = { workspace = true, default-features = true }
+sp-core = { workspace = true }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
+	"log/std",
 	"pallet-balances/std",
 	"pallet-utility/std",
 	"scale-info/std",
 	"serde",
-	"sp-core/std",
+	"sp-core?/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
+	"dep:sp-core",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",

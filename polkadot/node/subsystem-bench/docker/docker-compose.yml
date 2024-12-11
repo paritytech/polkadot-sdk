@@ -1,0 +1,35 @@
+services:
+  grafana:
+    image: grafana/grafana-enterprise:latest
+    container_name: grafana
+    restart: always
+    networks:
+      - subsystem-bench
+    ports:
+      - "3000:3000"
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: always
+    networks:
+      - subsystem-bench
+    volumes:
+      - ./prometheus:/etc/prometheus
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "9090:9090"
+      - "9999:9999"
+
+  pyroscope:
+    container_name: pyroscope
+    image: grafana/pyroscope:latest
+    restart: always
+    networks:
+      - subsystem-bench
+    ports:
+      - "4040:4040"
+
+networks:
+  subsystem-bench:

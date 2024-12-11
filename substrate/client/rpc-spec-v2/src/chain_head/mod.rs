@@ -23,7 +23,7 @@
 //! Methods are prefixed by `chainHead`.
 
 #[cfg(test)]
-mod test_utils;
+pub mod test_utils;
 #[cfg(test)]
 mod tests;
 
@@ -43,9 +43,9 @@ pub use event::{
 	RuntimeVersionEvent,
 };
 
-use sp_core::hexdisplay::{AsBytesRef, HexDisplay};
-
-/// Util function to print the results of `chianHead` as hex string
-pub(crate) fn hex_string<Data: AsBytesRef>(data: &Data) -> String {
-	format!("0x{:?}", HexDisplay::from(data))
-}
+/// Follow event sender.
+pub(crate) type FollowEventSender<Hash> = futures::channel::mpsc::Sender<FollowEvent<Hash>>;
+/// Follow event receiver.
+pub(crate) type FollowEventReceiver<Hash> = futures::channel::mpsc::Receiver<FollowEvent<Hash>>;
+/// Follow event send error.
+pub(crate) type FollowEventSendError = futures::channel::mpsc::SendError;

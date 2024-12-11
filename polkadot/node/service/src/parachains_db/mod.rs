@@ -41,7 +41,12 @@ pub(crate) mod columns {
 		pub const COL_SESSION_WINDOW_DATA: u32 = 5;
 	}
 
+	// Version 4 only changed structures in approval voting, so we can re-export the v4 definitions.
 	pub mod v3 {
+		pub use super::v4::{NUM_COLUMNS, ORDERED_COL};
+	}
+
+	pub mod v4 {
 		pub const NUM_COLUMNS: u32 = 5;
 		pub const COL_AVAILABILITY_DATA: u32 = 0;
 		pub const COL_AVAILABILITY_META: u32 = 1;
@@ -73,14 +78,14 @@ pub struct ColumnsConfig {
 /// The real columns used by the parachains DB.
 #[cfg(any(test, feature = "full-node"))]
 pub const REAL_COLUMNS: ColumnsConfig = ColumnsConfig {
-	col_availability_data: columns::v3::COL_AVAILABILITY_DATA,
-	col_availability_meta: columns::v3::COL_AVAILABILITY_META,
-	col_approval_data: columns::v3::COL_APPROVAL_DATA,
-	col_chain_selection_data: columns::v3::COL_CHAIN_SELECTION_DATA,
-	col_dispute_coordinator_data: columns::v3::COL_DISPUTE_COORDINATOR_DATA,
+	col_availability_data: columns::v4::COL_AVAILABILITY_DATA,
+	col_availability_meta: columns::v4::COL_AVAILABILITY_META,
+	col_approval_data: columns::v4::COL_APPROVAL_DATA,
+	col_chain_selection_data: columns::v4::COL_CHAIN_SELECTION_DATA,
+	col_dispute_coordinator_data: columns::v4::COL_DISPUTE_COORDINATOR_DATA,
 };
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Copy, Clone)]
 pub(crate) enum DatabaseKind {
 	ParityDB,
 	RocksDB,
@@ -95,18 +100,11 @@ pub struct CacheSizes {
 	pub availability_meta: usize,
 	/// Cache used by approval data.
 	pub approval_data: usize,
-	/// Cache used by session window data
-	pub session_data: usize,
 }
 
 impl Default for CacheSizes {
 	fn default() -> Self {
-		CacheSizes {
-			availability_data: 25,
-			availability_meta: 1,
-			approval_data: 5,
-			session_data: 1,
-		}
+		CacheSizes { availability_data: 25, availability_meta: 1, approval_data: 5 }
 	}
 }
 
@@ -125,28 +123,28 @@ pub fn open_creating_rocksdb(
 
 	let path = root.join("parachains").join("db");
 
-	let mut db_config = DatabaseConfig::with_columns(columns::v3::NUM_COLUMNS);
+	let mut db_config = DatabaseConfig::with_columns(columns::v4::NUM_COLUMNS);
 
 	let _ = db_config
 		.memory_budget
-		.insert(columns::v3::COL_AVAILABILITY_DATA, cache_sizes.availability_data);
+		.insert(columns::v4::COL_AVAILABILITY_DATA, cache_sizes.availability_data);
 	let _ = db_config
 		.memory_budget
-		.insert(columns::v3::COL_AVAILABILITY_META, cache_sizes.availability_meta);
+		.insert(columns::v4::COL_AVAILABILITY_META, cache_sizes.availability_meta);
 	let _ = db_config
 		.memory_budget
-		.insert(columns::v3::COL_APPROVAL_DATA, cache_sizes.approval_data);
+		.insert(columns::v4::COL_APPROVAL_DATA, cache_sizes.approval_data);
 
 	let path_str = path
 		.to_str()
 		.ok_or_else(|| other_io_error(format!("Bad database path: {:?}", path)))?;
 
 	std::fs::create_dir_all(&path_str)?;
-	upgrade::try_upgrade_db(&path, DatabaseKind::RocksDB)?;
+	upgrade::try_upgrade_db(&path, DatabaseKind::RocksDB, upgrade::CURRENT_VERSION)?;
 	let db = Database::open(&db_config, &path_str)?;
 	let db = polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter::new(
 		db,
-		columns::v3::ORDERED_COL,
+		columns::v4::ORDERED_COL,
 	);
 
 	Ok(Arc::new(db))
@@ -164,14 +162,14 @@ pub fn open_creating_paritydb(
 		.ok_or_else(|| other_io_error(format!("Bad database path: {:?}", path)))?;
 
 	std::fs::create_dir_all(&path_str)?;
-	upgrade::try_upgrade_db(&path, DatabaseKind::ParityDB)?;
+	upgrade::try_upgrade_db(&path, DatabaseKind::ParityDB, upgrade::CURRENT_VERSION)?;
 
 	let db = parity_db::Db::open_or_create(&upgrade::paritydb_version_3_config(&path))
 		.map_err(|err| io::Error::new(io::ErrorKind::Other, format!("{:?}", err)))?;
 
 	let db = polkadot_node_subsystem_util::database::paritydb_impl::DbAdapter::new(
 		db,
-		columns::v3::ORDERED_COL,
+		columns::v4::ORDERED_COL,
 	);
 	Ok(Arc::new(db))
 }

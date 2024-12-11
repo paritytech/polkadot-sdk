@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "xcm-builder: `HaulBlobExporter` with improved XCM version check."
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Version check in `HaulBlobExporter` uses new trait `CheckVersion` to check known/configured destination versions,
+      ensuring compatibility. `HaulBlobExporter` will attempt to downgrade the message to destination's known version
+      instead of using the latest version.
+
+crates: [ ]

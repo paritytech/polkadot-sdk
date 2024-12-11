@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -16,12 +16,16 @@
 
 //! Cross-Consensus Message format data structures.
 
-use crate::v2::Error as OldError;
+use crate::v5::Error as NewError;
 use core::result;
-use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 pub use sp_weights::Weight;
+
+// A simple trait to get the weight of some object.
+pub trait GetWeight<W> {
+	fn weight(&self) -> sp_weights::Weight;
+}
 
 use super::*;
 
@@ -29,6 +33,8 @@ use super::*;
 /// format. Those trailing are merely part of the XCM implementation; there is no expectation that
 /// they will retain the same index over time.
 #[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum Error {
 	// Errors that happen due to instructions being executed. These alone are defined in the
 	// XCM specification.
@@ -159,25 +165,17 @@ pub enum Error {
 	ExceedsStackLimit,
 }
 
-impl MaxEncodedLen for Error {
-	fn max_encoded_len() -> usize {
-		// TODO: max_encoded_len doesn't quite work here as it tries to take notice of the fields
-		// marked `codec(skip)`. We can hard-code it with the right answer for now.
-		1
-	}
-}
-
-impl TryFrom<OldError> for Error {
+impl TryFrom<NewError> for Error {
 	type Error = ();
-	fn try_from(old_error: OldError) -> result::Result<Error, ()> {
-		use OldError::*;
-		Ok(match old_error {
+	fn try_from(new_error: NewError) -> result::Result<Error, ()> {
+		use NewError::*;
+		Ok(match new_error {
 			Overflow => Self::Overflow,
 			Unimplemented => Self::Unimplemented,
 			UntrustedReserveLocation => Self::UntrustedReserveLocation,
 			UntrustedTeleportLocation => Self::UntrustedTeleportLocation,
-			MultiLocationFull => Self::LocationFull,
-			MultiLocationNotInvertible => Self::LocationNotInvertible,
+			LocationFull => Self::LocationFull,
+			LocationNotInvertible => Self::LocationNotInvertible,
 			BadOrigin => Self::BadOrigin,
 			InvalidLocation => Self::InvalidLocation,
 			AssetNotFound => Self::AssetNotFound,
@@ -194,8 +192,29 @@ impl TryFrom<OldError> for Error {
 			NotHoldingFees => Self::NotHoldingFees,
 			TooExpensive => Self::TooExpensive,
 			Trap(i) => Self::Trap(i),
+			ExpectationFalse => Self::ExpectationFalse,
+			PalletNotFound => Self::PalletNotFound,
+			NameMismatch => Self::NameMismatch,
+			VersionIncompatible => Self::VersionIncompatible,
+			HoldingWouldOverflow => Self::HoldingWouldOverflow,
+			ExportError => Self::ExportError,
+			ReanchorFailed => Self::ReanchorFailed,
+			NoDeal => Self::NoDeal,
+			FeesNotMet => Self::FeesNotMet,
+			LockError => Self::LockError,
+			NoPermission => Self::NoPermission,
+			Unanchored => Self::Unanchored,
+			NotDepositable => Self::NotDepositable,
 			_ => return Err(()),
 		})
+	}
+}
+
+impl MaxEncodedLen for Error {
+	fn max_encoded_len() -> usize {
+		// TODO: max_encoded_len doesn't quite work here as it tries to take notice of the fields
+		// marked `codec(skip)`. We can hard-code it with the right answer for now.
+		1
 	}
 }
 
@@ -214,54 +233,9 @@ impl From<SendError> for Error {
 
 pub type Result = result::Result<(), Error>;
 
-/*
-TODO: XCMv4
 /// Outcome of an XCM execution.
 #[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
-pub enum Outcome {
-	/// Execution completed successfully; given weight was used.
-	Complete { used: Weight },
-	/// Execution started, but did not complete successfully due to the given error; given weight
-	/// was used.
-	Incomplete { used: Weight, error: Error },
-	/// Execution did not start due to the given error.
-	Error { error: Error },
-}
-
-impl Outcome {
-	pub fn ensure_complete(self) -> Result {
-		match self {
-			Outcome::Complete { .. } => Ok(()),
-			Outcome::Incomplete { error, .. } => Err(error),
-			Outcome::Error { error, .. } => Err(error),
-		}
-	}
-	pub fn ensure_execution(self) -> result::Result<Weight, Error> {
-		match self {
-			Outcome::Complete { used, .. } => Ok(used),
-			Outcome::Incomplete { used, .. } => Ok(used),
-			Outcome::Error { error, .. } => Err(error),
-		}
-	}
-	/// How much weight was used by the XCM execution attempt.
-	pub fn weight_used(&self) -> Weight {
-		match self {
-			Outcome::Complete { used, .. } => *used,
-			Outcome::Incomplete { used, .. } => *used,
-			Outcome::Error { .. } => Weight::zero(),
-		}
-	}
-}
-
-impl From<Error> for Outcome {
-	fn from(error: Error) -> Self {
-		Self::Error { error, maybe_id: None }
-	}
-}
-*/
-
-/// Outcome of an XCM execution.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum Outcome {
 	/// Execution completed successfully; given weight was used.
 	Complete(Weight),
@@ -273,9 +247,9 @@ pub enum Outcome {
 }
 
 impl Outcome {
-	pub fn ensure_complete(self) -> Result {
+	pub fn ensure_complete(self) -> result::Result<Weight, Error> {
 		match self {
-			Outcome::Complete(_) => Ok(()),
+			Outcome::Complete(weight) => Ok(weight),
 			Outcome::Incomplete(_, e) => Err(e),
 			Outcome::Error(e) => Err(e),
 		}
@@ -334,8 +308,6 @@ pub trait ExecuteXcm<Call> {
 	///
 	/// The weight limit is a basic hard-limit and the implementation may place further
 	/// restrictions or requirements on weight and other aspects.
-	//	TODO: XCMv4
-	//	#[deprecated = "Use `prepare_and_execute` instead"]
 	fn execute_xcm(
 		origin: impl Into<MultiLocation>,
 		message: Xcm<Call>,
@@ -358,8 +330,6 @@ pub trait ExecuteXcm<Call> {
 	///
 	/// Some amount of `weight_credit` may be provided which, depending on the implementation, may
 	/// allow execution without associated payment.
-	//	TODO: XCMv4
-	//	#[deprecated = "Use `prepare_and_execute` instead"]
 	fn execute_xcm_in_credit(
 		origin: impl Into<MultiLocation>,
 		message: Xcm<Call>,
@@ -410,6 +380,7 @@ impl<C> ExecuteXcm<C> for () {
 
 /// Error result value when attempting to send an XCM message.
 #[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, scale_info::TypeInfo)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum SendError {
 	/// The message and destination combination was not recognized as being reachable.
 	///
@@ -448,7 +419,7 @@ pub type SendResult<T> = result::Result<(T, MultiAssets), SendError>;
 ///
 /// # Example
 /// ```rust
-/// # use parity_scale_codec::Encode;
+/// # use codec::Encode;
 /// # use staging_xcm::v3::{prelude::*, Weight};
 /// # use staging_xcm::VersionedXcm;
 /// # use std::convert::Infallible;
@@ -516,7 +487,7 @@ pub trait SendXcm {
 	/// Intermediate value which connects the two phases of the send operation.
 	type Ticket;
 
-	/// Check whether the given `_message` is deliverable to the given `_destination` and if so
+	/// Check whether the given `message` is deliverable to the given `destination` and if so
 	/// determine the cost which will be paid by this chain to do so, returning a `Validated` token
 	/// which can be used to enact delivery.
 	///
@@ -576,13 +547,13 @@ impl SendXcm for Tuple {
 }
 
 /// Convenience function for using a `SendXcm` implementation. Just interprets the `dest` and wraps
-/// both in `Some` before passing them as as mutable references into `T::send_xcm`.
+/// both in `Some` before passing them as mutable references into `T::send_xcm`.
 pub fn validate_send<T: SendXcm>(dest: MultiLocation, msg: Xcm<()>) -> SendResult<T::Ticket> {
 	T::validate(&mut Some(dest), &mut Some(msg))
 }
 
 /// Convenience function for using a `SendXcm` implementation. Just interprets the `dest` and wraps
-/// both in `Some` before passing them as as mutable references into `T::send_xcm`.
+/// both in `Some` before passing them as mutable references into `T::send_xcm`.
 ///
 /// Returns either `Ok` with the price of the delivery, or `Err` with the reason why the message
 /// could not be sent.

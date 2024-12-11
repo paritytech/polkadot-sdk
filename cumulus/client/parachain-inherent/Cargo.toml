@@ -1,0 +1,30 @@
+[package]
+name = "cumulus-client-parachain-inherent"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+description = "Inherent that needs to be present in every parachain block. Contains messages and a relay chain storage-proof."
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+
+[dependencies]
+async-trait = { workspace = true }
+codec = { features = ["derive"], workspace = true, default-features = true }
+tracing = { workspace = true, default-features = true }
+
+# Substrate
+sc-client-api = { workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
+sp-inherents = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
+sp-storage = { workspace = true, default-features = true }
+sp-trie = { workspace = true, default-features = true }
+
+# Cumulus
+cumulus-primitives-core = { workspace = true, default-features = true }
+cumulus-primitives-parachain-inherent = { workspace = true, default-features = true }
+cumulus-relay-chain-interface = { workspace = true, default-features = true }
+cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }

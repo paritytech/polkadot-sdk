@@ -21,11 +21,12 @@
 
 use thiserror::Error;
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 
 use super::{InvalidDisputeVote, SignedDisputeStatement, ValidDisputeVote};
 use polkadot_primitives::{
-	CandidateReceipt, DisputeStatement, SessionIndex, SessionInfo, ValidatorIndex,
+	vstaging::CandidateReceiptV2 as CandidateReceipt, DisputeStatement, SessionIndex, SessionInfo,
+	ValidatorIndex,
 };
 
 /// A dispute initiating/participating message that have been built from signed
@@ -170,7 +171,7 @@ impl DisputeMessage {
 		let valid_vote = ValidDisputeVote {
 			validator_index: valid_index,
 			signature: valid_statement.validator_signature().clone(),
-			kind: *valid_kind,
+			kind: valid_kind.clone(),
 		};
 
 		let invalid_vote = InvalidDisputeVote {

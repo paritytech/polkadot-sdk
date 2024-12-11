@@ -1,14 +1,17 @@
 [package]
-name = "chain-spec-builder"
-version = "2.0.0"
+name = "staging-chain-spec-builder"
+version = "1.6.1"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
-readme = "README.md"
-publish = false
+publish = true
+description = "Utility for building chain-specification files for Substrate-based runtimes based on `sp-genesis-builder`"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -18,14 +21,28 @@ path = "bin/main.rs"
 name = "chain-spec-builder"
 
 [lib]
-crate-type = ["rlib"]
+# Docs tests are not needed since the code samples that would be executed
+# are exercised already in the context of unit/integration tests, by virtue
+# of using a combination of encapsulation in functions + `docify::export`.
+# This is a practice we should use for new code samples if any.
+doctest = false
 
 [dependencies]
-ansi_term = "0.12.1"
-clap = { version = "4.4.4", features = ["derive"] }
-rand = "0.8"
-node-cli = { path = "../../node/cli" }
-sc-chain-spec = { path = "../../../client/chain-spec" }
-sc-keystore = { path = "../../../client/keystore" }
-sp-core = { path = "../../../primitives/core" }
-sp-keystore = { path = "../../../primitives/keystore" }
+clap = { features = ["derive"], workspace = true }
+docify = { workspace = true }
+log = { workspace = true, default-features = true }
+sc-chain-spec = { features = [
+	"clap",
+], workspace = true, default-features = true }
+serde_json = { workspace = true, default-features = true }
+serde = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+
+[dev-dependencies]
+substrate-test-runtime = { workspace = true }
+cmd_lib = { workspace = true }
+docify = { workspace = true }
+
+[features]
+# `cargo build --feature=generate-readme` updates the `README.md` file.
+generate-readme = []

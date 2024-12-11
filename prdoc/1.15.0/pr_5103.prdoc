@@ -1,0 +1,18 @@
+title: Skip genesis leaf to unblock syncing
+
+doc:
+  - audience:
+    - Node Operator
+    - Node Dev
+    description: |
+      This PR skips over the genesis block reported as leaf when calculating displaced branches.
+      In those cases, when the genesis block is reported as leaf, the node would compute the path
+      from the current finalized block to the genesis block. This operation is time consuming and
+      is enough to block syncing. In the current state, the genesis block is assumed to always be
+      part of the finalized chain.
+
+crates:
+- name: sc-client-db
+  bump: none
+- name: sp-blockchain
+  bump: patch

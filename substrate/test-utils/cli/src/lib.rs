@@ -130,12 +130,12 @@ pub fn start_node() -> Child {
 /// build_substrate(&["--features=try-runtime"]);
 /// ```
 pub fn build_substrate(args: &[&str]) {
-	let is_release_build = !cfg!(build_type = "debug");
+	let is_release_build = !cfg!(build_profile = "debug");
 
 	// Get the root workspace directory from the CARGO_MANIFEST_DIR environment variable
 	let mut cmd = Command::new("cargo");
 
-	cmd.arg("build").arg("-p=node-cli");
+	cmd.arg("build").arg("-p=staging-node-cli");
 
 	if is_release_build {
 		cmd.arg("--release");

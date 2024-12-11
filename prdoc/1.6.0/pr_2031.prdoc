@@ -1,0 +1,29 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "pallet-asset-conversion: Decoupling Native Currency Dependancy"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Decoupling Pallet from the Concept of Native Currency
+
+      Currently, the pallet used to intrinsically linked with the concept of native currency, requiring users to provide implementations of the `fungible::*` and `fungibles::*` traits to interact with native and non native assets. This incapsulates some non-related to the pallet complexity and makes it less adaptable in contexts where the native currency concept is absent.
+
+      With this PR, the dependence on `fungible::*` for liquidity-supplying assets has been removed. Instead, the native and non-native currencies' handling is now overseen by a single type that implements the `fungibles::*` traits. To simplify this integration, types have been introduced to facilitate the creation of a union between `fungible::*` and `fungibles::*` implementations, producing a unified `fungibles::*` type.
+
+      One of the reasons driving these changes is the ambition to create a more user-friendly API for the `SwapCredit` implementation. Given that it interacts with two distinct credit types from `fungible` and `fungibles`, a unified type was introduced. Clients now manage potential conversion failures for those credit types. In certain contexts, it's vital to guarantee that operations are fail-safe, like in this impl - [PR](https://github.com/paritytech/polkadot-sdk/pull/1845), place in [code](https://github.com/paritytech/polkadot-sdk/blob/20b85a5fada8f55c98ba831964f5866ffeadf4da/cumulus/primitives/utility/src/lib.rs#L429).
+
+      Additional Updates:
+      - abstracted the pool ID and its account derivation logic via trait bounds, along with common implementation offerings;
+      - removed `inc_providers` on a pool creation for the pool account;
+      - benchmarks:
+      -- swap complexity is N, not const;
+      -- removed `From<u128> + Into<u128>` bound from `T::Balance`;
+      -- removed swap/liquidity/.. amount constants, resolve them dynamically based on pallet configuration;
+      -- migrated to v2 API;
+      - `OnUnbalanced` handler for the pool creation fee, replacing direct transfers to a specified account ID;
+      - renamed `MultiAssetId` to `AssetKind` aligning with naming across frame crates;
+
+crates:
+  - name: pallet-asset-conversion

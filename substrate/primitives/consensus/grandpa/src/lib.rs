@@ -19,21 +19,20 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(not(feature = "std"))]
 extern crate alloc;
 
 #[cfg(feature = "serde")]
 use serde::Serialize;
 
-use codec::{Codec, Decode, Encode, Input};
+use alloc::vec::Vec;
+use codec::{Codec, Decode, Encode};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
 	traits::{Header as HeaderT, NumberFor},
-	ConsensusEngineId, RuntimeDebug,
+	ConsensusEngineId, OpaqueValue, RuntimeDebug,
 };
-use sp_std::{borrow::Cow, vec::Vec};
 
 /// The log target to be used by client code.
 pub const CLIENT_LOG_TARGET: &str = "grandpa";
@@ -62,10 +61,6 @@ pub type AuthoritySignature = app::Signature;
 /// The `ConsensusEngineId` of GRANDPA.
 pub const GRANDPA_ENGINE_ID: ConsensusEngineId = *b"FRNK";
 
-/// The storage key for the current set of weighted Grandpa authorities.
-/// The value stored is an encoded VersionedAuthorityList.
-pub const GRANDPA_AUTHORITIES_KEY: &[u8] = b":grandpa_authorities";
-
 /// The weight of an authority.
 pub type AuthorityWeight = u64;
 
@@ -82,10 +77,11 @@ pub type RoundNumber = u64;
 pub type AuthorityList = Vec<(AuthorityId, AuthorityWeight)>;
 
 /// A GRANDPA message for a substrate chain.
-pub type Message<Header> = grandpa::Message<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
+pub type Message<Header> =
+	finality_grandpa::Message<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
 
 /// A signed message.
-pub type SignedMessage<Header> = grandpa::SignedMessage<
+pub type SignedMessage<Header> = finality_grandpa::SignedMessage<
 	<Header as HeaderT>::Hash,
 	<Header as HeaderT>::Number,
 	AuthoritySignature,
@@ -94,21 +90,22 @@ pub type SignedMessage<Header> = grandpa::SignedMessage<
 
 /// A primary propose message for this chain's block type.
 pub type PrimaryPropose<Header> =
-	grandpa::PrimaryPropose<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
+	finality_grandpa::PrimaryPropose<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
 /// A prevote message for this chain's block type.
-pub type Prevote<Header> = grandpa::Prevote<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
+pub type Prevote<Header> =
+	finality_grandpa::Prevote<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
 /// A precommit message for this chain's block type.
 pub type Precommit<Header> =
-	grandpa::Precommit<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
+	finality_grandpa::Precommit<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
 /// A catch up message for this chain's block type.
-pub type CatchUp<Header> = grandpa::CatchUp<
+pub type CatchUp<Header> = finality_grandpa::CatchUp<
 	<Header as HeaderT>::Hash,
 	<Header as HeaderT>::Number,
 	AuthoritySignature,
 	AuthorityId,
 >;
 /// A commit message for this chain's block type.
-pub type Commit<Header> = grandpa::Commit<
+pub type Commit<Header> = finality_grandpa::Commit<
 	<Header as HeaderT>::Hash,
 	<Header as HeaderT>::Number,
 	AuthoritySignature,
@@ -116,7 +113,7 @@ pub type Commit<Header> = grandpa::Commit<
 >;
 
 /// A compact commit message for this chain's block type.
-pub type CompactCommit<Header> = grandpa::CompactCommit<
+pub type CompactCommit<Header> = finality_grandpa::CompactCommit<
 	<Header as HeaderT>::Hash,
 	<Header as HeaderT>::Number,
 	AuthoritySignature,
@@ -271,18 +268,36 @@ impl<H, N> EquivocationProof<H, N> {
 #[derive(Clone, Debug, Decode, Encode, PartialEq, Eq, TypeInfo)]
 pub enum Equivocation<H, N> {
 	/// Proof of equivocation at prevote stage.
-	Prevote(grandpa::Equivocation<AuthorityId, grandpa::Prevote<H, N>, AuthoritySignature>),
+	Prevote(
+		finality_grandpa::Equivocation<
+			AuthorityId,
+			finality_grandpa::Prevote<H, N>,
+			AuthoritySignature,
+		>,
+	),
 	/// Proof of equivocation at precommit stage.
-	Precommit(grandpa::Equivocation<AuthorityId, grandpa::Precommit<H, N>, AuthoritySignature>),
+	Precommit(
+		finality_grandpa::Equivocation<
+			AuthorityId,
+			finality_grandpa::Precommit<H, N>,
+			AuthoritySignature,
+		>,
+	),
 }
 
-impl<H, N> From<grandpa::Equivocation<AuthorityId, grandpa::Prevote<H, N>, AuthoritySignature>>
-	for Equivocation<H, N>
+impl<H, N>
+	From<
+		finality_grandpa::Equivocation<
+			AuthorityId,
+			finality_grandpa::Prevote<H, N>,
+			AuthoritySignature,
+		>,
+	> for Equivocation<H, N>
 {
 	fn from(
-		equivocation: grandpa::Equivocation<
+		equivocation: finality_grandpa::Equivocation<
 			AuthorityId,
-			grandpa::Prevote<H, N>,
+			finality_grandpa::Prevote<H, N>,
 			AuthoritySignature,
 		>,
 	) -> Self {
@@ -290,13 +305,19 @@ impl<H, N> From<grandpa::Equivocation<AuthorityId, grandpa::Prevote<H, N>, Autho
 	}
 }
 
-impl<H, N> From<grandpa::Equivocation<AuthorityId, grandpa::Precommit<H, N>, AuthoritySignature>>
-	for Equivocation<H, N>
+impl<H, N>
+	From<
+		finality_grandpa::Equivocation<
+			AuthorityId,
+			finality_grandpa::Precommit<H, N>,
+			AuthoritySignature,
+		>,
+	> for Equivocation<H, N>
 {
 	fn from(
-		equivocation: grandpa::Equivocation<
+		equivocation: finality_grandpa::Equivocation<
 			AuthorityId,
-			grandpa::Precommit<H, N>,
+			finality_grandpa::Precommit<H, N>,
 			AuthoritySignature,
 		>,
 	) -> Self {
@@ -363,10 +384,10 @@ where
 
 	match report.equivocation {
 		Equivocation::Prevote(equivocation) => {
-			check!(equivocation, grandpa::Message::Prevote);
+			check!(equivocation, finality_grandpa::Message::Prevote);
 		},
 		Equivocation::Precommit(equivocation) => {
-			check!(equivocation, grandpa::Message::Precommit);
+			check!(equivocation, finality_grandpa::Message::Precommit);
 		},
 	}
 }
@@ -394,7 +415,7 @@ pub fn localized_payload_with_buffer<E: Encode>(
 /// Check a message signature by encoding the message as a localized payload and
 /// verifying the provided signature using the expected authority id.
 pub fn check_message_signature<H, N>(
-	message: &grandpa::Message<H, N>,
+	message: &finality_grandpa::Message<H, N>,
 	id: &AuthorityId,
 	signature: &AuthoritySignature,
 	round: RoundNumber,
@@ -412,7 +433,7 @@ where
 /// The encoding necessary to verify the signature will be done using the given
 /// buffer, the original content of the buffer will be cleared.
 pub fn check_message_signature_with_buffer<H, N>(
-	message: &grandpa::Message<H, N>,
+	message: &finality_grandpa::Message<H, N>,
 	id: &AuthorityId,
 	signature: &AuthoritySignature,
 	round: RoundNumber,
@@ -442,11 +463,11 @@ where
 #[cfg(feature = "std")]
 pub fn sign_message<H, N>(
 	keystore: KeystorePtr,
-	message: grandpa::Message<H, N>,
+	message: finality_grandpa::Message<H, N>,
 	public: AuthorityId,
 	round: RoundNumber,
 	set_id: SetId,
-) -> Option<grandpa::SignedMessage<H, N, AuthoritySignature, AuthorityId>>
+) -> Option<finality_grandpa::SignedMessage<H, N, AuthoritySignature, AuthorityId>>
 where
 	H: Encode,
 	N: Encode,
@@ -461,61 +482,7 @@ where
 		.try_into()
 		.ok()?;
 
-	Some(grandpa::SignedMessage { message, signature, id: public })
-}
-
-/// WASM function call to check for pending changes.
-pub const PENDING_CHANGE_CALL: &str = "grandpa_pending_change";
-/// WASM function call to get current GRANDPA authorities.
-pub const AUTHORITIES_CALL: &str = "grandpa_authorities";
-
-/// The current version of the stored AuthorityList type. The encoding version MUST be updated any
-/// time the AuthorityList type changes.
-const AUTHORITIES_VERSION: u8 = 1;
-
-/// An AuthorityList that is encoded with a version specifier. The encoding version is updated any
-/// time the AuthorityList type changes. This ensures that encodings of different versions of an
-/// AuthorityList are differentiable. Attempting to decode an authority list with an unknown
-/// version will fail.
-#[derive(Default)]
-pub struct VersionedAuthorityList<'a>(Cow<'a, AuthorityList>);
-
-impl<'a> From<AuthorityList> for VersionedAuthorityList<'a> {
-	fn from(authorities: AuthorityList) -> Self {
-		VersionedAuthorityList(Cow::Owned(authorities))
-	}
-}
-
-impl<'a> From<&'a AuthorityList> for VersionedAuthorityList<'a> {
-	fn from(authorities: &'a AuthorityList) -> Self {
-		VersionedAuthorityList(Cow::Borrowed(authorities))
-	}
-}
-
-impl<'a> Into<AuthorityList> for VersionedAuthorityList<'a> {
-	fn into(self) -> AuthorityList {
-		self.0.into_owned()
-	}
-}
-
-impl<'a> Encode for VersionedAuthorityList<'a> {
-	fn size_hint(&self) -> usize {
-		(AUTHORITIES_VERSION, self.0.as_ref()).size_hint()
-	}
-
-	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		(AUTHORITIES_VERSION, self.0.as_ref()).using_encoded(f)
-	}
-}
-
-impl<'a> Decode for VersionedAuthorityList<'a> {
-	fn decode<I: Input>(value: &mut I) -> Result<Self, codec::Error> {
-		let (version, authorities): (u8, AuthorityList) = Decode::decode(value)?;
-		if version != AUTHORITIES_VERSION {
-			return Err("unknown Grandpa authorities version".into())
-		}
-		Ok(authorities.into())
-	}
+	Some(finality_grandpa::SignedMessage { message, signature, id: public })
 }
 
 /// An opaque type used to represent the key ownership proof at the runtime API
@@ -524,22 +491,7 @@ impl<'a> Decode for VersionedAuthorityList<'a> {
 /// the runtime API boundary this type is unknown and as such we keep this
 /// opaque representation, implementors of the runtime API will have to make
 /// sure that all usages of `OpaqueKeyOwnershipProof` refer to the same type.
-#[derive(Decode, Encode, PartialEq, TypeInfo)]
-pub struct OpaqueKeyOwnershipProof(Vec<u8>);
-
-impl OpaqueKeyOwnershipProof {
-	/// Create a new `OpaqueKeyOwnershipProof` using the given encoded
-	/// representation.
-	pub fn new(inner: Vec<u8>) -> OpaqueKeyOwnershipProof {
-		OpaqueKeyOwnershipProof(inner)
-	}
-
-	/// Try to decode this `OpaqueKeyOwnershipProof` into the given concrete key
-	/// ownership proof type.
-	pub fn decode<T: Decode>(self) -> Option<T> {
-		codec::Decode::decode(&mut &self.0[..]).ok()
-	}
-}
+pub type OpaqueKeyOwnershipProof = OpaqueValue;
 
 sp_api::decl_runtime_apis! {
 	/// APIs for integrating the GRANDPA finality gadget into runtimes.

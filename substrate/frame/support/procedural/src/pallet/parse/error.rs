@@ -16,7 +16,6 @@
 // limitations under the License.
 
 use super::helper;
-use frame_support_procedural_tools::get_doc_literals;
 use quote::ToTokens;
 use syn::{spanned::Spanned, Fields};
 
@@ -25,10 +24,20 @@ mod keyword {
 	syn::custom_keyword!(Error);
 }
 
-/// Records information about the error enum variants.
+/// Records information about the error enum variant field.
 pub struct VariantField {
 	/// Whether or not the field is named, i.e. whether it is a tuple variant or struct variant.
 	pub is_named: bool,
+}
+
+/// Records information about the error enum variants.
+pub struct VariantDef {
+	/// The variant ident.
+	pub ident: syn::Ident,
+	/// The variant field, if any.
+	pub field: Option<VariantField>,
+	/// The `cfg` attributes.
+	pub cfg_attrs: Vec<syn::Attribute>,
 }
 
 /// This checks error declaration as a enum declaration with only variants without fields nor
@@ -36,14 +45,16 @@ pub struct VariantField {
 pub struct ErrorDef {
 	/// The index of error item in pallet module.
 	pub index: usize,
-	/// Variants ident, optional field and doc literals (ordered as declaration order)
-	pub variants: Vec<(syn::Ident, Option<VariantField>, Vec<syn::Expr>)>,
+	/// Variant definitions.
+	pub variants: Vec<VariantDef>,
 	/// A set of usage of instance, must be check for consistency with trait.
 	pub instances: Vec<helper::InstanceUsage>,
 	/// The keyword error used (contains span).
 	pub error: keyword::Error,
 	/// The span of the pallet::error attribute.
 	pub attr_span: proc_macro2::Span,
+	/// Attributes
+	pub attrs: Vec<syn::Attribute>,
 }
 
 impl ErrorDef {
@@ -87,11 +98,12 @@ impl ErrorDef {
 					let span = variant.discriminant.as_ref().unwrap().0.span();
 					return Err(syn::Error::new(span, msg))
 				}
+				let cfg_attrs: Vec<syn::Attribute> = helper::get_item_cfg_attrs(&variant.attrs);
 
-				Ok((variant.ident.clone(), field_ty, get_doc_literals(&variant.attrs)))
+				Ok(VariantDef { ident: variant.ident.clone(), field: field_ty, cfg_attrs })
 			})
 			.collect::<Result<_, _>>()?;
 
-		Ok(ErrorDef { attr_span, index, variants, instances, error })
+		Ok(ErrorDef { attr_span, index, variants, instances, error, attrs: item.attrs.clone() })
 	}
 }

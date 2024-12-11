@@ -19,11 +19,16 @@
 //! To avoid cyclic dependencies, it is important that this pallet is not
 //! dependent on any of the other pallets.
 
-use frame_support::pallet_prelude::*;
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
+	vec::Vec,
+};
+use frame_support::{pallet_prelude::*, traits::DisabledValidators};
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::{SessionIndex, ValidatorId, ValidatorIndex};
+use polkadot_primitives::{
+	vstaging::transpose_claim_queue, CoreIndex, Id, SessionIndex, ValidatorId, ValidatorIndex,
+};
 use sp_runtime::traits::AtLeast32BitUnsigned;
-use sp_std::{collections::vec_deque::VecDeque, vec::Vec};
 
 use rand::{seq::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha20Rng;
@@ -40,16 +45,28 @@ pub(crate) const SESSION_DELAY: SessionIndex = 2;
 #[cfg(test)]
 mod tests;
 
-/// Information about past relay-parents.
+pub mod migration;
+
+/// Information about a relay parent.
+#[derive(Encode, Decode, Default, TypeInfo, Debug)]
+pub struct RelayParentInfo<Hash> {
+	// Relay parent hash
+	pub relay_parent: Hash,
+	// The state root at this block
+	pub state_root: Hash,
+	// Claim queue snapshot, optimized for accessing the assignments by `ParaId`.
+	// For each para we store the cores assigned per depth.
+	pub claim_queue: BTreeMap<Id, BTreeMap<u8, BTreeSet<CoreIndex>>>,
+}
+
+/// Keeps tracks of information about all viable relay parents.
 #[derive(Encode, Decode, Default, TypeInfo)]
 pub struct AllowedRelayParentsTracker<Hash, BlockNumber> {
-	// The past relay parents, paired with state roots, that are viable to build upon.
+	// Information about past relay parents that are viable to build upon.
 	//
 	// They are in ascending chronologic order, so the newest relay parents are at
 	// the back of the deque.
-	//
-	// (relay_parent, state_root)
-	buffer: VecDeque<(Hash, Hash)>,
+	buffer: VecDeque<RelayParentInfo<Hash>>,
 
 	// The number of the most recent relay-parent, if any.
 	// If the buffer is empty, this value has no meaning and may
@@ -63,17 +80,27 @@ impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
 	/// Add a new relay-parent to the allowed relay parents, along with info about the header.
 	/// Provide a maximum ancestry length for the buffer, which will cause old relay-parents to be
 	/// pruned.
+	/// If the relay parent hash is already present, do nothing.
 	pub(crate) fn update(
 		&mut self,
 		relay_parent: Hash,
 		state_root: Hash,
+		claim_queue: BTreeMap<CoreIndex, VecDeque<Id>>,
 		number: BlockNumber,
 		max_ancestry_len: u32,
 	) {
+		if self.buffer.iter().any(|info| info.relay_parent == relay_parent) {
+			// Already present.
+			return
+		}
+
+		let claim_queue = transpose_claim_queue(claim_queue);
+
 		// + 1 for the most recent block, which is always allowed.
 		let buffer_size_limit = max_ancestry_len as usize + 1;
 
-		self.buffer.push_back((relay_parent, state_root));
+		self.buffer.push_back(RelayParentInfo { relay_parent, state_root, claim_queue });
+
 		self.latest_number = number;
 		while self.buffer.len() > buffer_size_limit {
 			let _ = self.buffer.pop_front();
@@ -93,8 +120,8 @@ impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
 		&self,
 		relay_parent: Hash,
 		prev: Option<BlockNumber>,
-	) -> Option<(Hash, BlockNumber)> {
-		let pos = self.buffer.iter().position(|(rp, _)| rp == &relay_parent)?;
+	) -> Option<(&RelayParentInfo<Hash>, BlockNumber)> {
+		let pos = self.buffer.iter().position(|info| info.relay_parent == relay_parent)?;
 		let age = (self.buffer.len() - 1) - pos;
 		let number = self.latest_number - BlockNumber::from(age as u32);
 
@@ -104,7 +131,7 @@ impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
 			}
 		}
 
-		Some((self.buffer[pos].1, number))
+		Some((&self.buffer[pos], number))
 	}
 
 	/// Returns block number of the earliest block the buffer would contain if
@@ -124,34 +151,34 @@ impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
 pub mod pallet {
 	use super::*;
 
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {}
+	pub trait Config: frame_system::Config {
+		type DisabledValidators: frame_support::traits::DisabledValidators;
+	}
 
 	/// The current session index.
 	#[pallet::storage]
-	#[pallet::getter(fn session_index)]
-	pub(super) type CurrentSessionIndex<T: Config> = StorageValue<_, SessionIndex, ValueQuery>;
+	pub type CurrentSessionIndex<T: Config> = StorageValue<_, SessionIndex, ValueQuery>;
 
 	/// All the validators actively participating in parachain consensus.
 	/// Indices are into the broader validator set.
 	#[pallet::storage]
-	#[pallet::getter(fn active_validator_indices)]
-	pub(super) type ActiveValidatorIndices<T: Config> =
-		StorageValue<_, Vec<ValidatorIndex>, ValueQuery>;
+	pub type ActiveValidatorIndices<T: Config> = StorageValue<_, Vec<ValidatorIndex>, ValueQuery>;
 
 	/// The parachain attestation keys of the validators actively participating in parachain
 	/// consensus. This should be the same length as `ActiveValidatorIndices`.
 	#[pallet::storage]
-	#[pallet::getter(fn active_validator_keys)]
-	pub(super) type ActiveValidatorKeys<T: Config> = StorageValue<_, Vec<ValidatorId>, ValueQuery>;
+	pub type ActiveValidatorKeys<T: Config> = StorageValue<_, Vec<ValidatorId>, ValueQuery>;
 
 	/// All allowed relay-parents.
 	#[pallet::storage]
-	#[pallet::getter(fn allowed_relay_parents)]
 	pub(crate) type AllowedRelayParents<T: Config> =
 		StorageValue<_, AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>, ValueQuery>;
 
@@ -213,7 +240,26 @@ impl<T: Config> Pallet<T> {
 
 	/// Return the session index that should be used for any future scheduled changes.
 	pub fn scheduled_session() -> SessionIndex {
-		Self::session_index().saturating_add(SESSION_DELAY)
+		CurrentSessionIndex::<T>::get().saturating_add(SESSION_DELAY)
+	}
+
+	/// Fetches disabled validators list from session pallet.
+	/// CAVEAT: this might produce incorrect results on session boundaries
+	pub fn disabled_validators() -> Vec<ValidatorIndex> {
+		let shuffled_indices = ActiveValidatorIndices::<T>::get();
+		// mapping from raw validator index to `ValidatorIndex`
+		// this computation is the same within a session, but should be cheap
+		let reverse_index = shuffled_indices
+			.iter()
+			.enumerate()
+			.map(|(i, v)| (v.0, ValidatorIndex(i as u32)))
+			.collect::<BTreeMap<u32, ValidatorIndex>>();
+
+		// we might have disabled validators who are not parachain validators
+		T::DisabledValidators::disabled_validators()
+			.iter()
+			.filter_map(|v| reverse_index.get(v).cloned())
+			.collect()
 	}
 
 	/// Test function for setting the current session index.
@@ -238,5 +284,18 @@ impl<T: Config> Pallet<T> {
 		assert_eq!(indices.len(), keys.len());
 		ActiveValidatorIndices::<T>::set(indices);
 		ActiveValidatorKeys::<T>::set(keys);
+	}
+
+	#[cfg(test)]
+	pub(crate) fn add_allowed_relay_parent(
+		relay_parent: T::Hash,
+		state_root: T::Hash,
+		claim_queue: BTreeMap<CoreIndex, VecDeque<Id>>,
+		number: BlockNumberFor<T>,
+		max_ancestry_len: u32,
+	) {
+		AllowedRelayParents::<T>::mutate(|tracker| {
+			tracker.update(relay_parent, state_root, claim_queue, number, max_ancestry_len)
+		})
 	}
 }

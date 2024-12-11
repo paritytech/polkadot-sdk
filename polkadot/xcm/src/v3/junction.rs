@@ -18,15 +18,11 @@
 
 use super::{Junctions, MultiLocation};
 use crate::{
-	v2::{
-		BodyId as OldBodyId, BodyPart as OldBodyPart, Junction as OldJunction,
-		NetworkId as OldNetworkId,
-	},
-	VersionedMultiLocation,
+	v4::{Junction as NewJunction, NetworkId as NewNetworkId},
+	VersionedLocation,
 };
 use bounded_collections::{BoundedSlice, BoundedVec, ConstU32};
-use core::convert::{TryFrom, TryInto};
-use parity_scale_codec::{self, Decode, Encode, MaxEncodedLen};
+use codec::{self, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 
@@ -49,6 +45,8 @@ use serde::{Deserialize, Serialize};
 	Serialize,
 	Deserialize,
 )]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum NetworkId {
 	/// Network specified by the first 32 bytes of its genesis block.
 	ByGenesis([u8; 32]),
@@ -74,28 +72,31 @@ pub enum NetworkId {
 	BitcoinCore,
 	/// The Bitcoin network, including hard-forks supported by Bitcoin Cash developers.
 	BitcoinCash,
+	/// The Polkadot Bulletin chain.
+	PolkadotBulletin,
 }
 
-impl From<OldNetworkId> for Option<NetworkId> {
-	fn from(old: OldNetworkId) -> Option<NetworkId> {
-		use OldNetworkId::*;
-		match old {
-			Any => None,
-			Named(_) => None,
-			Polkadot => Some(NetworkId::Polkadot),
-			Kusama => Some(NetworkId::Kusama),
-		}
+impl From<NewNetworkId> for Option<NetworkId> {
+	fn from(new: NewNetworkId) -> Self {
+		Some(NetworkId::from(new))
 	}
 }
 
-impl TryFrom<OldNetworkId> for NetworkId {
-	type Error = ();
-	fn try_from(old: OldNetworkId) -> Result<Self, Self::Error> {
-		use OldNetworkId::*;
-		match old {
-			Any | Named(_) => Err(()),
-			Polkadot => Ok(NetworkId::Polkadot),
-			Kusama => Ok(NetworkId::Kusama),
+impl From<NewNetworkId> for NetworkId {
+	fn from(new: NewNetworkId) -> Self {
+		use NewNetworkId::*;
+		match new {
+			ByGenesis(hash) => Self::ByGenesis(hash),
+			ByFork { block_number, block_hash } => Self::ByFork { block_number, block_hash },
+			Polkadot => Self::Polkadot,
+			Kusama => Self::Kusama,
+			Westend => Self::Westend,
+			Rococo => Self::Rococo,
+			Wococo => Self::Wococo,
+			Ethereum { chain_id } => Self::Ethereum { chain_id },
+			BitcoinCore => Self::BitcoinCore,
+			BitcoinCash => Self::BitcoinCash,
+			PolkadotBulletin => Self::PolkadotBulletin,
 		}
 	}
 }
@@ -116,6 +117,8 @@ impl TryFrom<OldNetworkId> for NetworkId {
 	Serialize,
 	Deserialize,
 )]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum BodyId {
 	/// The only body in its context.
 	Unit,
@@ -144,32 +147,6 @@ pub enum BodyId {
 	Treasury,
 }
 
-impl TryFrom<OldBodyId> for BodyId {
-	type Error = ();
-	fn try_from(value: OldBodyId) -> Result<Self, ()> {
-		use OldBodyId::*;
-		Ok(match value {
-			Unit => Self::Unit,
-			Named(n) =>
-				if n.len() == 4 {
-					let mut r = [0u8; 4];
-					r.copy_from_slice(&n[..]);
-					Self::Moniker(r)
-				} else {
-					return Err(())
-				},
-			Index(n) => Self::Index(n),
-			Executive => Self::Executive,
-			Technical => Self::Technical,
-			Legislative => Self::Legislative,
-			Judicial => Self::Judicial,
-			Defense => Self::Defense,
-			Administration => Self::Administration,
-			Treasury => Self::Treasury,
-		})
-	}
-}
-
 /// A part of a pluralistic body.
 #[derive(
 	Copy,
@@ -186,6 +163,8 @@ impl TryFrom<OldBodyId> for BodyId {
 	Serialize,
 	Deserialize,
 )]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum BodyPart {
 	/// The body's declaration, under whatever means it decides.
 	Voice,
@@ -208,7 +187,7 @@ pub enum BodyPart {
 		#[codec(compact)]
 		denom: u32,
 	},
-	/// More than than the given proportion of members of the body.
+	/// More than the given proportion of members of the body.
 	MoreThanProportion {
 		#[codec(compact)]
 		nom: u32,
@@ -226,20 +205,6 @@ impl BodyPart {
 			BodyPart::MoreThanProportion { nom, denom } if *nom * 2 >= *denom => true,
 			_ => false,
 		}
-	}
-}
-
-impl TryFrom<OldBodyPart> for BodyPart {
-	type Error = ();
-	fn try_from(value: OldBodyPart) -> Result<Self, ()> {
-		use OldBodyPart::*;
-		Ok(match value {
-			Voice => Self::Voice,
-			Members { count } => Self::Members { count },
-			Fraction { nom, denom } => Self::Fraction { nom, denom },
-			AtLeastProportion { nom, denom } => Self::AtLeastProportion { nom, denom },
-			MoreThanProportion { nom, denom } => Self::MoreThanProportion { nom, denom },
-		})
 	}
 }
 
@@ -261,6 +226,8 @@ impl TryFrom<OldBodyPart> for BodyPart {
 	Serialize,
 	Deserialize,
 )]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum Junction {
 	/// An indexed parachain belonging to and operated by the context.
 	///
@@ -374,32 +341,25 @@ impl From<u128> for Junction {
 	}
 }
 
-impl TryFrom<OldJunction> for Junction {
+impl TryFrom<NewJunction> for Junction {
 	type Error = ();
-	fn try_from(value: OldJunction) -> Result<Self, ()> {
-		use OldJunction::*;
+
+	fn try_from(value: NewJunction) -> Result<Self, Self::Error> {
+		use NewJunction::*;
 		Ok(match value {
 			Parachain(id) => Self::Parachain(id),
-			AccountId32 { network, id } => Self::AccountId32 { network: network.into(), id },
-			AccountIndex64 { network, index } =>
-				Self::AccountIndex64 { network: network.into(), index },
-			AccountKey20 { network, key } => Self::AccountKey20 { network: network.into(), key },
+			AccountId32 { network: maybe_network, id } =>
+				Self::AccountId32 { network: maybe_network.map(|network| network.into()), id },
+			AccountIndex64 { network: maybe_network, index } =>
+				Self::AccountIndex64 { network: maybe_network.map(|network| network.into()), index },
+			AccountKey20 { network: maybe_network, key } =>
+				Self::AccountKey20 { network: maybe_network.map(|network| network.into()), key },
 			PalletInstance(index) => Self::PalletInstance(index),
 			GeneralIndex(id) => Self::GeneralIndex(id),
-			GeneralKey(key) => match key.len() {
-				len @ 0..=32 => Self::GeneralKey {
-					length: len as u8,
-					data: {
-						let mut data = [0u8; 32];
-						data[..len].copy_from_slice(&key[..]);
-						data
-					},
-				},
-				_ => return Err(()),
-			},
+			GeneralKey { length, data } => Self::GeneralKey { length, data },
 			OnlyChild => Self::OnlyChild,
-			Plurality { id, part } =>
-				Self::Plurality { id: id.try_into()?, part: part.try_into()? },
+			Plurality { id, part } => Self::Plurality { id, part },
+			GlobalConsensus(network) => Self::GlobalConsensus(network.into()),
 		})
 	}
 }
@@ -420,10 +380,10 @@ impl Junction {
 		MultiLocation { parents: n, interior: Junctions::X1(self) }
 	}
 
-	/// Convert `self` into a `VersionedMultiLocation` containing 0 parents.
+	/// Convert `self` into a `VersionedLocation` containing 0 parents.
 	///
 	/// Similar to `Into::into`, except that this method can be used in a const evaluation context.
-	pub const fn into_versioned(self) -> VersionedMultiLocation {
+	pub const fn into_versioned(self) -> VersionedLocation {
 		self.into_location().into_versioned()
 	}
 
@@ -436,32 +396,5 @@ impl Junction {
 			AccountKey20 { ref mut network, .. } => *network = None,
 			_ => {},
 		}
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use alloc::vec;
-
-	#[test]
-	fn junction_round_trip_works() {
-		let j = Junction::GeneralKey { length: 32, data: [1u8; 32] };
-		let k = Junction::try_from(OldJunction::try_from(j).unwrap()).unwrap();
-		assert_eq!(j, k);
-
-		let j = OldJunction::GeneralKey(vec![1u8; 32].try_into().unwrap());
-		let k = OldJunction::try_from(Junction::try_from(j.clone()).unwrap()).unwrap();
-		assert_eq!(j, k);
-
-		let j = Junction::from(BoundedVec::try_from(vec![1u8, 2, 3, 4]).unwrap());
-		let k = Junction::try_from(OldJunction::try_from(j).unwrap()).unwrap();
-		assert_eq!(j, k);
-		let s: BoundedSlice<_, _> = (&k).try_into().unwrap();
-		assert_eq!(s, &[1u8, 2, 3, 4][..]);
-
-		let j = OldJunction::GeneralKey(vec![1u8, 2, 3, 4].try_into().unwrap());
-		let k = OldJunction::try_from(Junction::try_from(j.clone()).unwrap()).unwrap();
-		assert_eq!(j, k);
 	}
 }

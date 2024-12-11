@@ -22,32 +22,8 @@
 use super::*;
 use crate::mock::{RuntimeCall, *};
 
-use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
-use sp_runtime::{traits::Dispatchable, TransactionOutcome};
-
-/// Do something hypothetically by rolling back any changes afterwards.
-///
-/// Returns the original result of the closure.
-macro_rules! hypothetically {
-	( $e:expr ) => {
-		frame_support::storage::transactional::with_transaction(
-			|| -> TransactionOutcome<Result<_, sp_runtime::DispatchError>> {
-				sp_runtime::TransactionOutcome::Rollback(Ok($e))
-			},
-		)
-		.expect("Always returning Ok; qed")
-	};
-}
-
-/// Assert something to be [*hypothetically*] `Ok` without actually committing it.
-///
-/// Reverts any storage changes made by the closure.
-macro_rules! hypothetically_ok {
-	($e:expr $(, $args:expr)* $(,)?) => {
-		let result = hypothetically!($e);
-		assert_ok!(result $(, $args)*);
-	};
-}
+use frame_support::{assert_err, assert_noop, assert_ok, hypothetically_ok, traits::Currency};
+use sp_runtime::traits::Dispatchable;
 
 #[test]
 fn fails_to_filter_calls_to_safe_mode_pallet() {
@@ -213,6 +189,7 @@ fn can_filter_balance_in_proxy_when_activated() {
 	});
 }
 
+#[docify::export]
 #[test]
 fn can_activate() {
 	new_test_ext().execute_with(|| {
@@ -295,6 +272,7 @@ fn fails_force_deactivate_if_not_activated() {
 	});
 }
 
+#[docify::export]
 #[test]
 fn can_force_activate_with_config_origin() {
 	new_test_ext().execute_with(|| {
@@ -312,6 +290,7 @@ fn can_force_activate_with_config_origin() {
 	});
 }
 
+#[docify::export]
 #[test]
 fn can_force_deactivate_with_config_origin() {
 	new_test_ext().execute_with(|| {

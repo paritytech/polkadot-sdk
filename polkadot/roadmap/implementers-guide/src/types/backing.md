@@ -30,7 +30,7 @@ work, we extract a signed wrapper.
 ```rust,ignore
 /// A signed type which encapsulates the common desire to sign some data and validate a signature.
 ///
-/// Note that the internal fields are not public; they are all accessable by immutable getters.
+/// Note that the internal fields are not public; they are all accessible by immutable getters.
 /// This reduces the chance that they are accidentally mutated, invalidating the signature.
 struct Signed<Payload, RealPayload=Payload> {
     /// The payload is part of the signed data. The rest is the signing context,

@@ -1,0 +1,14 @@
+title: "Introduces `TypeWithDefault<T, D: Get<T>>`"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR introduces a new type `TypeWithDefault<T, D: Get<T>>` to be able to provide a 
+      custom default for any type. This can, then, be used to provide the nonce type that returns 
+      the current block number as the default, to avoid replay of immortal transactions.
+
+crates:
+- name: sp-runtime
+  bump: minor
+- name: frame-system
+  bump: patch

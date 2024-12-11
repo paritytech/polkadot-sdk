@@ -15,8 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License
 
-use crate::construct_runtime::{parse::PalletPath, Pallet};
-use proc_macro2::{Ident, TokenStream};
+use super::composite_helper;
+use crate::construct_runtime::Pallet;
+use proc_macro2::TokenStream;
 use quote::quote;
 
 pub fn expand_outer_lock_id(pallet_decls: &[Pallet], scrate: &TokenStream) -> TokenStream {
@@ -27,17 +28,29 @@ pub fn expand_outer_lock_id(pallet_decls: &[Pallet], scrate: &TokenStream) -> To
 			let variant_name = &decl.name;
 			let path = &decl.path;
 			let index = decl.index;
+			let instance = decl.instance.as_ref();
 
-			conversion_fns.push(expand_conversion_fn(path, variant_name));
+			conversion_fns.push(composite_helper::expand_conversion_fn(
+				"LockId",
+				path,
+				instance,
+				variant_name,
+			));
 
-			lock_id_variants.push(expand_variant(index, path, variant_name));
+			lock_id_variants.push(composite_helper::expand_variant(
+				"LockId",
+				index,
+				path,
+				instance,
+				variant_name,
+			));
 		}
 	}
 
 	quote! {
 		/// An identifier for each lock placed on funds.
 		#[derive(
-			Copy, Clone, Eq, PartialEq, Ord, PartialOrd,
+			Copy, Clone, Eq, PartialEq,
 			#scrate::__private::codec::Encode, #scrate::__private::codec::Decode, #scrate::__private::codec::MaxEncodedLen,
 			#scrate::__private::scale_info::TypeInfo,
 			#scrate::__private::RuntimeDebug,
@@ -47,22 +60,5 @@ pub fn expand_outer_lock_id(pallet_decls: &[Pallet], scrate: &TokenStream) -> To
 		}
 
 		#( #conversion_fns )*
-	}
-}
-
-fn expand_conversion_fn(path: &PalletPath, variant_name: &Ident) -> TokenStream {
-	quote! {
-		impl From<#path::LockId> for RuntimeLockId {
-			fn from(hr: #path::LockId) -> Self {
-				RuntimeLockId::#variant_name(hr)
-			}
-		}
-	}
-}
-
-fn expand_variant(index: u8, path: &PalletPath, variant_name: &Ident) -> TokenStream {
-	quote! {
-		#[codec(index = #index)]
-		#variant_name(#path::LockId),
 	}
 }

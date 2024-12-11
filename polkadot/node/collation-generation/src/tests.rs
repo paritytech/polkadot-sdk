@@ -17,23 +17,26 @@
 use super::*;
 use assert_matches::assert_matches;
 use futures::{
-	lock::Mutex,
 	task::{Context as FuturesContext, Poll},
-	Future,
+	Future, StreamExt,
 };
 use polkadot_node_primitives::{BlockData, Collation, CollationResult, MaybeCompressedPoV, PoV};
 use polkadot_node_subsystem::{
-	errors::RuntimeApiError,
 	messages::{AllMessages, RuntimeApiMessage, RuntimeApiRequest},
+	ActivatedLeaf,
 };
-use polkadot_node_subsystem_test_helpers::{subsystem_test_harness, TestSubsystemContextHandle};
+use polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	CollatorPair, HeadData, Id as ParaId, PersistedValidationData, ScheduledCore, ValidationCode,
+	node_features, vstaging::CandidateDescriptorVersion, CollatorPair, PersistedValidationData,
 };
+use polkadot_primitives_test_helpers::dummy_head_data;
+use rstest::rstest;
 use sp_keyring::sr25519::Keyring as Sr25519Keyring;
-use std::pin::Pin;
-use test_helpers::{dummy_hash, dummy_head_data, dummy_validator};
+use std::{
+	collections::{BTreeMap, VecDeque},
+	pin::Pin,
+};
 
 type VirtualOverseer = TestSubsystemContextHandle<CollationGenerationMessage>;
 
@@ -54,7 +57,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(test: impl FnOnce(VirtualOv
 		async move {
 			let mut virtual_overseer = test_fut.await;
 			// Ensure we have handled all responses.
-			if let Ok(Some(msg)) = virtual_overseer.rx.try_next() {
+			if let Some(msg) = virtual_overseer.rx.next().timeout(TIMEOUT).await {
 				panic!("Did not handle all responses: {:?}", msg);
 			}
 			// Conclude.
@@ -76,20 +79,6 @@ fn test_collation() -> Collation {
 	}
 }
 
-fn test_collation_compressed() -> Collation {
-	let mut collation = test_collation();
-	let compressed = collation.proof_of_validity.clone().into_compressed();
-	collation.proof_of_validity = MaybeCompressedPoV::Compressed(compressed);
-	collation
-}
-
-fn test_validation_data() -> PersistedValidationData {
-	let mut persisted_validation_data = PersistedValidationData::default();
-	persisted_validation_data.max_pov_size = 1024;
-	persisted_validation_data
-}
-
-// Box<dyn Future<Output = Collation> + Unpin + Send
 struct TestCollator;
 
 impl Future for TestCollator {
@@ -102,9 +91,9 @@ impl Future for TestCollator {
 
 impl Unpin for TestCollator {}
 
-async fn overseer_recv(overseer: &mut VirtualOverseer) -> AllMessages {
-	const TIMEOUT: std::time::Duration = std::time::Duration::from_millis(2000);
+const TIMEOUT: std::time::Duration = std::time::Duration::from_millis(2000);
 
+async fn overseer_recv(overseer: &mut VirtualOverseer) -> AllMessages {
 	overseer
 		.recv()
 		.timeout(TIMEOUT)
@@ -128,416 +117,11 @@ fn test_config_no_collator<Id: Into<ParaId>>(para_id: Id) -> CollationGeneration
 	}
 }
 
-fn scheduled_core_for<Id: Into<ParaId>>(para_id: Id) -> ScheduledCore {
-	ScheduledCore { para_id: para_id.into(), collator: None }
-}
-
-#[test]
-fn requests_availability_per_relay_parent() {
-	let activated_hashes: Vec<Hash> =
-		vec![[1; 32].into(), [4; 32].into(), [9; 32].into(), [16; 32].into()];
-
-	let requested_availability_cores = Arc::new(Mutex::new(Vec::new()));
-
-	let overseer_requested_availability_cores = requested_availability_cores.clone();
-	let overseer = |mut handle: TestSubsystemContextHandle<CollationGenerationMessage>| async move {
-		loop {
-			match handle.try_recv().await {
-				None => break,
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(hash, RuntimeApiRequest::AvailabilityCores(tx)))) => {
-					overseer_requested_availability_cores.lock().await.push(hash);
-					tx.send(Ok(vec![])).unwrap();
-				}
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(_hash, RuntimeApiRequest::Validators(tx)))) => {
-					tx.send(Ok(vec![dummy_validator(); 3])).unwrap();
-				}
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_hash,
-					RuntimeApiRequest::AsyncBackingParams(
-						tx,
-					),
-				))) => {
-					tx.send(Err(RuntimeApiError::NotSupported { runtime_api_name: "doesnt_matter" })).unwrap();
-				},
-				Some(msg) => panic!("didn't expect any other overseer requests given no availability cores; got {:?}", msg),
-			}
-		}
-	};
-
-	let subsystem_activated_hashes = activated_hashes.clone();
-	subsystem_test_harness(overseer, |mut ctx| async move {
-		handle_new_activations(
-			Arc::new(test_config(123u32)),
-			subsystem_activated_hashes,
-			&mut ctx,
-			Metrics(None),
-		)
-		.await
-		.unwrap();
-	});
-
-	let mut requested_availability_cores = Arc::try_unwrap(requested_availability_cores)
-		.expect("overseer should have shut down by now")
-		.into_inner();
-	requested_availability_cores.sort();
-
-	assert_eq!(requested_availability_cores, activated_hashes);
-}
-
-#[test]
-fn requests_validation_data_for_scheduled_matches() {
-	let activated_hashes: Vec<Hash> = vec![
-		Hash::repeat_byte(1),
-		Hash::repeat_byte(4),
-		Hash::repeat_byte(9),
-		Hash::repeat_byte(16),
-	];
-
-	let requested_validation_data = Arc::new(Mutex::new(Vec::new()));
-
-	let overseer_requested_validation_data = requested_validation_data.clone();
-	let overseer = |mut handle: TestSubsystemContextHandle<CollationGenerationMessage>| async move {
-		loop {
-			match handle.try_recv().await {
-				None => break,
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					hash,
-					RuntimeApiRequest::AvailabilityCores(tx),
-				))) => {
-					tx.send(Ok(vec![
-						CoreState::Free,
-						// this is weird, see explanation below
-						CoreState::Scheduled(scheduled_core_for(
-							(hash.as_fixed_bytes()[0] * 4) as u32,
-						)),
-						CoreState::Scheduled(scheduled_core_for(
-							(hash.as_fixed_bytes()[0] * 5) as u32,
-						)),
-					]))
-					.unwrap();
-				},
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					hash,
-					RuntimeApiRequest::PersistedValidationData(
-						_para_id,
-						_occupied_core_assumption,
-						tx,
-					),
-				))) => {
-					overseer_requested_validation_data.lock().await.push(hash);
-					tx.send(Ok(None)).unwrap();
-				},
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_hash,
-					RuntimeApiRequest::Validators(tx),
-				))) => {
-					tx.send(Ok(vec![dummy_validator(); 3])).unwrap();
-				},
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_hash,
-					RuntimeApiRequest::AsyncBackingParams(tx),
-				))) => {
-					tx.send(Err(RuntimeApiError::NotSupported {
-						runtime_api_name: "doesnt_matter",
-					}))
-					.unwrap();
-				},
-				Some(msg) => {
-					panic!("didn't expect any other overseer requests; got {:?}", msg)
-				},
-			}
-		}
-	};
-
-	subsystem_test_harness(overseer, |mut ctx| async move {
-		handle_new_activations(
-			Arc::new(test_config(16)),
-			activated_hashes,
-			&mut ctx,
-			Metrics(None),
-		)
-		.await
-		.unwrap();
-	});
-
-	let requested_validation_data = Arc::try_unwrap(requested_validation_data)
-		.expect("overseer should have shut down by now")
-		.into_inner();
-
-	// the only activated hash should be from the 4 hash:
-	// each activated hash generates two scheduled cores: one with its value * 4, one with its value
-	// * 5 given that the test configuration has a `para_id` of 16, there's only one way to get that
-	// value: with the 4 hash.
-	assert_eq!(requested_validation_data, vec![[4; 32].into()]);
-}
-
-#[test]
-fn sends_distribute_collation_message() {
-	let activated_hashes: Vec<Hash> = vec![
-		Hash::repeat_byte(1),
-		Hash::repeat_byte(4),
-		Hash::repeat_byte(9),
-		Hash::repeat_byte(16),
-	];
-
-	// empty vec doesn't allocate on the heap, so it's ok we throw it away
-	let to_collator_protocol = Arc::new(Mutex::new(Vec::new()));
-	let inner_to_collator_protocol = to_collator_protocol.clone();
-
-	let overseer = |mut handle: TestSubsystemContextHandle<CollationGenerationMessage>| async move {
-		loop {
-			match handle.try_recv().await {
-				None => break,
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					hash,
-					RuntimeApiRequest::AvailabilityCores(tx),
-				))) => {
-					tx.send(Ok(vec![
-						CoreState::Free,
-						// this is weird, see explanation below
-						CoreState::Scheduled(scheduled_core_for(
-							(hash.as_fixed_bytes()[0] * 4) as u32,
-						)),
-						CoreState::Scheduled(scheduled_core_for(
-							(hash.as_fixed_bytes()[0] * 5) as u32,
-						)),
-					]))
-					.unwrap();
-				},
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_hash,
-					RuntimeApiRequest::PersistedValidationData(
-						_para_id,
-						_occupied_core_assumption,
-						tx,
-					),
-				))) => {
-					tx.send(Ok(Some(test_validation_data()))).unwrap();
-				},
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_hash,
-					RuntimeApiRequest::Validators(tx),
-				))) => {
-					tx.send(Ok(vec![dummy_validator(); 3])).unwrap();
-				},
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_hash,
-					RuntimeApiRequest::ValidationCodeHash(
-						_para_id,
-						OccupiedCoreAssumption::Free,
-						tx,
-					),
-				))) => {
-					tx.send(Ok(Some(ValidationCode(vec![1, 2, 3]).hash()))).unwrap();
-				},
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_hash,
-					RuntimeApiRequest::AsyncBackingParams(tx),
-				))) => {
-					tx.send(Err(RuntimeApiError::NotSupported {
-						runtime_api_name: "doesnt_matter",
-					}))
-					.unwrap();
-				},
-				Some(msg @ AllMessages::CollatorProtocol(_)) => {
-					inner_to_collator_protocol.lock().await.push(msg);
-				},
-				Some(msg) => {
-					panic!("didn't expect any other overseer requests; got {:?}", msg)
-				},
-			}
-		}
-	};
-
-	let config = Arc::new(test_config(16));
-	let subsystem_config = config.clone();
-
-	subsystem_test_harness(overseer, |mut ctx| async move {
-		handle_new_activations(subsystem_config, activated_hashes, &mut ctx, Metrics(None))
-			.await
-			.unwrap();
-	});
-
-	let mut to_collator_protocol = Arc::try_unwrap(to_collator_protocol)
-		.expect("subsystem should have shut down by now")
-		.into_inner();
-
-	// we expect a single message to be sent, containing a candidate receipt.
-	// we don't care too much about the `commitments_hash` right now, but let's ensure that we've
-	// calculated the correct descriptor
-	let expect_pov_hash = test_collation_compressed().proof_of_validity.into_compressed().hash();
-	let expect_validation_data_hash = test_validation_data().hash();
-	let expect_relay_parent = Hash::repeat_byte(4);
-	let expect_validation_code_hash = ValidationCode(vec![1, 2, 3]).hash();
-	let expect_payload = collator_signature_payload(
-		&expect_relay_parent,
-		&config.para_id,
-		&expect_validation_data_hash,
-		&expect_pov_hash,
-		&expect_validation_code_hash,
-	);
-	let expect_descriptor = CandidateDescriptor {
-		signature: config.key.sign(&expect_payload),
-		para_id: config.para_id,
-		relay_parent: expect_relay_parent,
-		collator: config.key.public(),
-		persisted_validation_data_hash: expect_validation_data_hash,
-		pov_hash: expect_pov_hash,
-		erasure_root: dummy_hash(), // this isn't something we're checking right now
-		para_head: test_collation().head_data.hash(),
-		validation_code_hash: expect_validation_code_hash,
-	};
-
-	assert_eq!(to_collator_protocol.len(), 1);
-	match AllMessages::from(to_collator_protocol.pop().unwrap()) {
-		AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeCollation(
-			CandidateReceipt { descriptor, .. },
-			_pov,
-			..,
-		)) => {
-			// signature generation is non-deterministic, so we can't just assert that the
-			// expected descriptor is correct. What we can do is validate that the produced
-			// descriptor has a valid signature, then just copy in the generated signature
-			// and check the rest of the fields for equality.
-			assert!(CollatorPair::verify(
-				&descriptor.signature,
-				&collator_signature_payload(
-					&descriptor.relay_parent,
-					&descriptor.para_id,
-					&descriptor.persisted_validation_data_hash,
-					&descriptor.pov_hash,
-					&descriptor.validation_code_hash,
-				)
-				.as_ref(),
-				&descriptor.collator,
-			));
-			let expect_descriptor = {
-				let mut expect_descriptor = expect_descriptor;
-				expect_descriptor.signature = descriptor.signature.clone();
-				expect_descriptor.erasure_root = descriptor.erasure_root;
-				expect_descriptor
-			};
-			assert_eq!(descriptor, expect_descriptor);
-		},
-		_ => panic!("received wrong message type"),
-	}
-}
-
-#[test]
-fn fallback_when_no_validation_code_hash_api() {
-	// This is a variant of the above test, but with the validation code hash API disabled.
-
-	let activated_hashes: Vec<Hash> = vec![
-		Hash::repeat_byte(1),
-		Hash::repeat_byte(4),
-		Hash::repeat_byte(9),
-		Hash::repeat_byte(16),
-	];
-
-	// empty vec doesn't allocate on the heap, so it's ok we throw it away
-	let to_collator_protocol = Arc::new(Mutex::new(Vec::new()));
-	let inner_to_collator_protocol = to_collator_protocol.clone();
-
-	let overseer = |mut handle: TestSubsystemContextHandle<CollationGenerationMessage>| async move {
-		loop {
-			match handle.try_recv().await {
-				None => break,
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					hash,
-					RuntimeApiRequest::AvailabilityCores(tx),
-				))) => {
-					tx.send(Ok(vec![
-						CoreState::Free,
-						CoreState::Scheduled(scheduled_core_for(
-							(hash.as_fixed_bytes()[0] * 4) as u32,
-						)),
-						CoreState::Scheduled(scheduled_core_for(
-							(hash.as_fixed_bytes()[0] * 5) as u32,
-						)),
-					]))
-					.unwrap();
-				},
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_hash,
-					RuntimeApiRequest::PersistedValidationData(
-						_para_id,
-						_occupied_core_assumption,
-						tx,
-					),
-				))) => {
-					tx.send(Ok(Some(test_validation_data()))).unwrap();
-				},
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_hash,
-					RuntimeApiRequest::Validators(tx),
-				))) => {
-					tx.send(Ok(vec![dummy_validator(); 3])).unwrap();
-				},
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_hash,
-					RuntimeApiRequest::ValidationCodeHash(
-						_para_id,
-						OccupiedCoreAssumption::Free,
-						tx,
-					),
-				))) => {
-					tx.send(Err(RuntimeApiError::NotSupported {
-						runtime_api_name: "validation_code_hash",
-					}))
-					.unwrap();
-				},
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_hash,
-					RuntimeApiRequest::ValidationCode(_para_id, OccupiedCoreAssumption::Free, tx),
-				))) => {
-					tx.send(Ok(Some(ValidationCode(vec![1, 2, 3])))).unwrap();
-				},
-				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_hash,
-					RuntimeApiRequest::AsyncBackingParams(tx),
-				))) => {
-					tx.send(Err(RuntimeApiError::NotSupported {
-						runtime_api_name: "doesnt_matter",
-					}))
-					.unwrap();
-				},
-				Some(msg @ AllMessages::CollatorProtocol(_)) => {
-					inner_to_collator_protocol.lock().await.push(msg);
-				},
-				Some(msg) => {
-					panic!("didn't expect any other overseer requests; got {:?}", msg)
-				},
-			}
-		}
-	};
-
-	let config = Arc::new(test_config(16u32));
-	let subsystem_config = config.clone();
-
-	// empty vec doesn't allocate on the heap, so it's ok we throw it away
-	subsystem_test_harness(overseer, |mut ctx| async move {
-		handle_new_activations(subsystem_config, activated_hashes, &mut ctx, Metrics(None))
-			.await
-			.unwrap();
-	});
-
-	let to_collator_protocol = Arc::try_unwrap(to_collator_protocol)
-		.expect("subsystem should have shut down by now")
-		.into_inner();
-
-	let expect_validation_code_hash = ValidationCode(vec![1, 2, 3]).hash();
-
-	assert_eq!(to_collator_protocol.len(), 1);
-	match &to_collator_protocol[0] {
-		AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeCollation(
-			CandidateReceipt { descriptor, .. },
-			_pov,
-			..,
-		)) => {
-			assert_eq!(expect_validation_code_hash, descriptor.validation_code_hash);
-		},
-		_ => panic!("received wrong message type"),
-	}
+fn node_features_with_v2_enabled() -> NodeFeatures {
+	let mut node_features = NodeFeatures::new();
+	node_features.resize(node_features::FeatureIndex::CandidateReceiptV2 as usize + 1, false);
+	node_features.set(node_features::FeatureIndex::CandidateReceiptV2 as u8 as usize, true);
+	node_features
 }
 
 #[test]
@@ -551,6 +135,7 @@ fn submit_collation_is_no_op_before_initialization() {
 					parent_head: vec![1, 2, 3].into(),
 					validation_code_hash: Hash::repeat_byte(1).into(),
 					result_sender: None,
+					core_index: CoreIndex(0),
 				}),
 			})
 			.await;
@@ -563,7 +148,7 @@ fn submit_collation_is_no_op_before_initialization() {
 fn submit_collation_leads_to_distribution() {
 	let relay_parent = Hash::repeat_byte(0);
 	let validation_code_hash = ValidationCodeHash::from(Hash::repeat_byte(42));
-	let parent_head = HeadData::from(vec![1, 2, 3]);
+	let parent_head = dummy_head_data();
 	let para_id = ParaId::from(5);
 	let expected_pvd = PersistedValidationData {
 		parent_head: parent_head.clone(),
@@ -584,53 +169,448 @@ fn submit_collation_leads_to_distribution() {
 				msg: CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
 					relay_parent,
 					collation: test_collation(),
-					parent_head: vec![1, 2, 3].into(),
+					parent_head: dummy_head_data(),
 					validation_code_hash,
 					result_sender: None,
+					core_index: CoreIndex(0),
 				}),
 			})
 			.await;
 
-		assert_matches!(
-			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(rp, RuntimeApiRequest::Validators(tx))) => {
-				assert_eq!(rp, relay_parent);
-				let _ = tx.send(Ok(vec![
-					Sr25519Keyring::Alice.public().into(),
-					Sr25519Keyring::Bob.public().into(),
-					Sr25519Keyring::Charlie.public().into(),
-				]));
-			}
-		);
+		helpers::handle_runtime_calls_on_submit_collation(
+			&mut virtual_overseer,
+			relay_parent,
+			para_id,
+			expected_pvd.clone(),
+			NodeFeatures::EMPTY,
+			Default::default(),
+		)
+		.await;
 
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(rp, RuntimeApiRequest::PersistedValidationData(id, a, tx))) => {
-				assert_eq!(rp, relay_parent);
-				assert_eq!(id, para_id);
-				assert_eq!(a, OccupiedCoreAssumption::TimedOut);
-
-				// Candidate receipt should be constructed with the real parent head.
-				let mut pvd = expected_pvd.clone();
-				pvd.parent_head = vec![4, 5, 6].into();
-				let _ = tx.send(Ok(Some(pvd)));
-			}
-		);
-
-		assert_matches!(
-			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeCollation(
-				ccr,
+			AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeCollation {
+				candidate_receipt,
 				parent_head_data_hash,
 				..
-			)) => {
+			}) => {
+				let CandidateReceipt { descriptor, .. } = candidate_receipt;
 				assert_eq!(parent_head_data_hash, parent_head.hash());
-				assert_eq!(ccr.descriptor().persisted_validation_data_hash, expected_pvd.hash());
-				assert_eq!(ccr.descriptor().para_head, dummy_head_data().hash());
-				assert_eq!(ccr.descriptor().validation_code_hash, validation_code_hash);
+				assert_eq!(descriptor.persisted_validation_data_hash(), expected_pvd.hash());
+				assert_eq!(descriptor.para_head(), dummy_head_data().hash());
+				assert_eq!(descriptor.validation_code_hash(), validation_code_hash);
 			}
 		);
 
 		virtual_overseer
 	});
+}
+
+#[test]
+fn distribute_collation_only_for_assigned_para_id_at_offset_0() {
+	let activated_hash: Hash = [1; 32].into();
+	let para_id = ParaId::from(5);
+
+	let claim_queue = (0..=5)
+		.into_iter()
+		// Set all cores assigned to para_id 5 at the second and third depths. This shouldn't
+		// matter.
+		.map(|idx| (CoreIndex(idx), VecDeque::from([ParaId::from(idx), para_id, para_id])))
+		.collect::<BTreeMap<_, _>>();
+
+	test_harness(|mut virtual_overseer| async move {
+		helpers::initialize_collator(&mut virtual_overseer, para_id).await;
+		helpers::activate_new_head(&mut virtual_overseer, activated_hash).await;
+		helpers::handle_runtime_calls_on_new_head_activation(
+			&mut virtual_overseer,
+			activated_hash,
+			claim_queue,
+			NodeFeatures::EMPTY,
+		)
+		.await;
+
+		helpers::handle_cores_processing_for_a_leaf(
+			&mut virtual_overseer,
+			activated_hash,
+			para_id,
+			vec![5], // Only core 5 is assigned to paraid 5.
+		)
+		.await;
+
+		virtual_overseer
+	});
+}
+
+// There are variable number of cores assigned to the paraid.
+// On new head activation `CollationGeneration` should produce and distribute the right number of
+// new collations with proper assumption about the para candidate chain availability at next block.
+#[rstest]
+#[case(0)]
+#[case(1)]
+#[case(2)]
+#[case(3)]
+fn distribute_collation_with_elastic_scaling(#[case] total_cores: u32) {
+	let activated_hash: Hash = [1; 32].into();
+	let para_id = ParaId::from(5);
+
+	let claim_queue = (0..total_cores)
+		.into_iter()
+		.map(|idx| (CoreIndex(idx), VecDeque::from([para_id])))
+		.collect::<BTreeMap<_, _>>();
+
+	test_harness(|mut virtual_overseer| async move {
+		helpers::initialize_collator(&mut virtual_overseer, para_id).await;
+		helpers::activate_new_head(&mut virtual_overseer, activated_hash).await;
+		helpers::handle_runtime_calls_on_new_head_activation(
+			&mut virtual_overseer,
+			activated_hash,
+			claim_queue,
+			NodeFeatures::EMPTY,
+		)
+		.await;
+
+		helpers::handle_cores_processing_for_a_leaf(
+			&mut virtual_overseer,
+			activated_hash,
+			para_id,
+			(0..total_cores).collect(),
+		)
+		.await;
+
+		virtual_overseer
+	});
+}
+
+#[rstest]
+#[case(true)]
+#[case(false)]
+fn test_candidate_receipt_versioning(#[case] v2_receipts: bool) {
+	let relay_parent = Hash::repeat_byte(0);
+	let validation_code_hash = ValidationCodeHash::from(Hash::repeat_byte(42));
+	let parent_head = dummy_head_data();
+	let para_id = ParaId::from(5);
+	let expected_pvd = PersistedValidationData {
+		parent_head: parent_head.clone(),
+		relay_parent_number: 10,
+		relay_parent_storage_root: Hash::repeat_byte(1),
+		max_pov_size: 1024,
+	};
+	let node_features =
+		if v2_receipts { node_features_with_v2_enabled() } else { NodeFeatures::EMPTY };
+	let expected_descriptor_version =
+		if v2_receipts { CandidateDescriptorVersion::V2 } else { CandidateDescriptorVersion::V1 };
+
+	test_harness(|mut virtual_overseer| async move {
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CollationGenerationMessage::Initialize(test_config_no_collator(para_id)),
+			})
+			.await;
+
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
+					relay_parent,
+					collation: test_collation(),
+					parent_head: dummy_head_data(),
+					validation_code_hash,
+					result_sender: None,
+					core_index: CoreIndex(0),
+				}),
+			})
+			.await;
+
+		helpers::handle_runtime_calls_on_submit_collation(
+			&mut virtual_overseer,
+			relay_parent,
+			para_id,
+			expected_pvd.clone(),
+			node_features,
+			[(CoreIndex(0), [para_id].into_iter().collect())].into_iter().collect(),
+		)
+		.await;
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeCollation {
+				candidate_receipt,
+				parent_head_data_hash,
+				..
+			}) => {
+				let CandidateReceipt { descriptor, .. } = candidate_receipt;
+				assert_eq!(parent_head_data_hash, parent_head.hash());
+				assert_eq!(descriptor.persisted_validation_data_hash(), expected_pvd.hash());
+				assert_eq!(descriptor.para_head(), dummy_head_data().hash());
+				assert_eq!(descriptor.validation_code_hash(), validation_code_hash);
+				// Check that the right version was indeed used.
+				assert_eq!(descriptor.version(), expected_descriptor_version);
+			}
+		);
+
+		virtual_overseer
+	});
+}
+
+#[test]
+fn v2_receipts_failed_core_index_check() {
+	let relay_parent = Hash::repeat_byte(0);
+	let validation_code_hash = ValidationCodeHash::from(Hash::repeat_byte(42));
+	let parent_head = dummy_head_data();
+	let para_id = ParaId::from(5);
+	let expected_pvd = PersistedValidationData {
+		parent_head: parent_head.clone(),
+		relay_parent_number: 10,
+		relay_parent_storage_root: Hash::repeat_byte(1),
+		max_pov_size: 1024,
+	};
+
+	test_harness(|mut virtual_overseer| async move {
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CollationGenerationMessage::Initialize(test_config_no_collator(para_id)),
+			})
+			.await;
+
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
+					relay_parent,
+					collation: test_collation(),
+					parent_head: dummy_head_data(),
+					validation_code_hash,
+					result_sender: None,
+					core_index: CoreIndex(0),
+				}),
+			})
+			.await;
+
+		helpers::handle_runtime_calls_on_submit_collation(
+			&mut virtual_overseer,
+			relay_parent,
+			para_id,
+			expected_pvd.clone(),
+			node_features_with_v2_enabled(),
+			// Core index commitment is on core 0 but don't add any assignment for core 0.
+			[(CoreIndex(1), [para_id].into_iter().collect())].into_iter().collect(),
+		)
+		.await;
+
+		// No collation is distributed.
+
+		virtual_overseer
+	});
+}
+mod helpers {
+	use super::*;
+	use std::collections::{BTreeMap, VecDeque};
+
+	// Sends `Initialize` with a collator config
+	pub async fn initialize_collator(virtual_overseer: &mut VirtualOverseer, para_id: ParaId) {
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CollationGenerationMessage::Initialize(test_config(para_id)),
+			})
+			.await;
+	}
+
+	// Sends `ActiveLeaves` for a single leaf with the specified hash. Block number is hardcoded.
+	pub async fn activate_new_head(virtual_overseer: &mut VirtualOverseer, activated_hash: Hash) {
+		virtual_overseer
+			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate {
+				activated: Some(ActivatedLeaf {
+					hash: activated_hash,
+					number: 10,
+					unpin_handle: polkadot_node_subsystem_test_helpers::mock::dummy_unpin_handle(
+						activated_hash,
+					),
+				}),
+				..Default::default()
+			})))
+			.await;
+	}
+
+	// Handle all runtime calls performed in `handle_new_activation`.
+	pub async fn handle_runtime_calls_on_new_head_activation(
+		virtual_overseer: &mut VirtualOverseer,
+		activated_hash: Hash,
+		claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
+		node_features: NodeFeatures,
+	) {
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(hash, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				assert_eq!(hash, activated_hash);
+				tx.send(Ok(1)).unwrap();
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(hash, RuntimeApiRequest::Validators(tx))) => {
+				assert_eq!(hash, activated_hash);
+				tx.send(Ok(vec![
+					Sr25519Keyring::Alice.public().into(),
+					Sr25519Keyring::Bob.public().into(),
+					Sr25519Keyring::Charlie.public().into(),
+				])).unwrap();
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				hash,
+				RuntimeApiRequest::NodeFeatures(session_index, tx),
+			)) => {
+				assert_eq!(1, session_index);
+				assert_eq!(hash, activated_hash);
+
+				tx.send(Ok(node_features)).unwrap();
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(hash, RuntimeApiRequest::ClaimQueue(tx))) => {
+				assert_eq!(hash, activated_hash);
+				tx.send(Ok(claim_queue)).unwrap();
+			}
+		);
+	}
+
+	// Handles all runtime requests performed in `handle_new_activation` for the case when a
+	// collation should be prepared for the new leaf
+	pub async fn handle_cores_processing_for_a_leaf(
+		virtual_overseer: &mut VirtualOverseer,
+		activated_hash: Hash,
+		para_id: ParaId,
+		cores_assigned: Vec<u32>,
+	) {
+		// Expect no messages if no cores is assigned to the para
+		if cores_assigned.is_empty() {
+			return
+		}
+
+		// Some hardcoded data - if needed, extract to parameters
+		let validation_code_hash = ValidationCodeHash::from(Hash::repeat_byte(42));
+		let parent_head = dummy_head_data();
+		let pvd = PersistedValidationData {
+			parent_head: parent_head.clone(),
+			relay_parent_number: 10,
+			relay_parent_storage_root: Hash::repeat_byte(1),
+			max_pov_size: 1024,
+		};
+
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(hash, RuntimeApiRequest::PersistedValidationData(id, a, tx))) => {
+				assert_eq!(hash, activated_hash);
+				assert_eq!(id, para_id);
+				assert_eq!(a, OccupiedCoreAssumption::Included);
+
+				let _ = tx.send(Ok(Some(pvd.clone())));
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				hash,
+				RuntimeApiRequest::ValidationCodeHash(
+					id,
+					assumption,
+					tx,
+				),
+			)) => {
+				assert_eq!(hash, activated_hash);
+				assert_eq!(id, para_id);
+				assert_eq!(assumption, OccupiedCoreAssumption::Included);
+
+				let _ = tx.send(Ok(Some(validation_code_hash)));
+			}
+		);
+
+		for core in cores_assigned {
+			assert_matches!(
+				overseer_recv(virtual_overseer).await,
+				AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeCollation{
+					candidate_receipt,
+					parent_head_data_hash,
+					core_index,
+					..
+				}) => {
+					assert_eq!(CoreIndex(core), core_index);
+					assert_eq!(parent_head_data_hash, parent_head.hash());
+					assert_eq!(candidate_receipt.descriptor().persisted_validation_data_hash(), pvd.hash());
+					assert_eq!(candidate_receipt.descriptor().para_head(), dummy_head_data().hash());
+					assert_eq!(candidate_receipt.descriptor().validation_code_hash(), validation_code_hash);
+				}
+			);
+		}
+	}
+
+	// Handles all runtime requests performed in `handle_submit_collation`
+	pub async fn handle_runtime_calls_on_submit_collation(
+		virtual_overseer: &mut VirtualOverseer,
+		relay_parent: Hash,
+		para_id: ParaId,
+		expected_pvd: PersistedValidationData,
+		node_features: NodeFeatures,
+		claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
+	) {
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(rp, RuntimeApiRequest::PersistedValidationData(id, a, tx))) => {
+				assert_eq!(rp, relay_parent);
+				assert_eq!(id, para_id);
+				assert_eq!(a, OccupiedCoreAssumption::TimedOut);
+
+				tx.send(Ok(Some(expected_pvd))).unwrap();
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				rp,
+				RuntimeApiRequest::ClaimQueue(tx),
+			)) => {
+				assert_eq!(rp, relay_parent);
+				tx.send(Ok(claim_queue)).unwrap();
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(rp, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				assert_eq!(rp, relay_parent);
+				tx.send(Ok(1)).unwrap();
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(rp, RuntimeApiRequest::Validators(tx))) => {
+				assert_eq!(rp, relay_parent);
+				tx.send(Ok(vec![
+					Sr25519Keyring::Alice.public().into(),
+					Sr25519Keyring::Bob.public().into(),
+					Sr25519Keyring::Charlie.public().into(),
+				])).unwrap();
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				rp,
+				RuntimeApiRequest::NodeFeatures(session_index, tx),
+			)) => {
+				assert_eq!(1, session_index);
+				assert_eq!(rp, relay_parent);
+
+				tx.send(Ok(node_features.clone())).unwrap();
+			}
+		);
+	}
 }

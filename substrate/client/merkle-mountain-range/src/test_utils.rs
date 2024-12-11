@@ -18,7 +18,7 @@
 
 use crate::MmrGadget;
 use parking_lot::Mutex;
-use sc_block_builder::BlockBuilderProvider;
+use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::{
 	Backend as BackendT, BlockchainEvents, FinalityNotifications, ImportNotifications,
 	StorageEventStream, StorageKey,
@@ -122,10 +122,15 @@ impl MockClient {
 		name: &[u8],
 		maybe_leaf_idx: Option<LeafIndex>,
 	) -> MmrBlock {
-		let mut client = self.client.lock();
+		let client = self.client.lock();
 
 		let hash = client.expect_block_hash_from_id(&at).unwrap();
-		let mut block_builder = client.new_block_at(hash, Default::default(), false).unwrap();
+		let mut block_builder = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(hash)
+			.fetch_parent_block_number(&*client)
+			.unwrap()
+			.build()
+			.unwrap();
 		// Make sure the block has a different hash than its siblings
 		block_builder
 			.push_storage_change(b"name".to_vec(), Some(name.to_vec()))
@@ -304,11 +309,11 @@ sp_api::mock_impl_runtime_apis! {
 			&self,
 			_block_numbers: Vec<u64>,
 			_best_known_block_number: Option<u64>,
-		) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::Proof<MmrHash>), mmr::Error> {
+		) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::LeafProof<MmrHash>), mmr::Error> {
 			Err(mmr::Error::PalletNotIncluded)
 		}
 
-		fn verify_proof(_leaves: Vec<mmr::EncodableOpaqueLeaf>, _proof: mmr::Proof<MmrHash>)
+		fn verify_proof(_leaves: Vec<mmr::EncodableOpaqueLeaf>, _proof: mmr::LeafProof<MmrHash>)
 			-> Result<(), mmr::Error>
 		{
 			Err(mmr::Error::PalletNotIncluded)
@@ -317,7 +322,7 @@ sp_api::mock_impl_runtime_apis! {
 		fn verify_proof_stateless(
 			_root: MmrHash,
 			_leaves: Vec<mmr::EncodableOpaqueLeaf>,
-			_proof: mmr::Proof<MmrHash>
+			_proof: mmr::LeafProof<MmrHash>
 		) -> Result<(), mmr::Error> {
 			Err(mmr::Error::PalletNotIncluded)
 		}

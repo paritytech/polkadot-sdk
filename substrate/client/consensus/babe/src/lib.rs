@@ -61,7 +61,7 @@
 //! blocks) and will go with the longest one in case of a tie.
 //!
 //! An in-depth description and analysis of the protocol can be found here:
-//! <https://research.web3.foundation/en/latest/polkadot/block-production/Babe.html>
+//! <https://research.web3.foundation/Polkadot/protocols/block-production/Babe>
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -562,9 +562,10 @@ fn aux_storage_cleanup<C: HeaderMetadata<Block> + HeaderBackend<Block>, Block: B
 	// Cleans data for stale forks.
 	let stale_forks = match client.expand_forks(&notification.stale_heads) {
 		Ok(stale_forks) => stale_forks,
-		Err((stale_forks, e)) => {
+		Err(e) => {
 			warn!(target: LOG_TARGET, "{:?}", e);
-			stale_forks
+
+			Default::default()
 		},
 	};
 	hashes.extend(stale_forks.iter());
@@ -1127,7 +1128,7 @@ where
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
 	async fn verify(
-		&mut self,
+		&self,
 		mut block: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
 		trace!(
@@ -1145,7 +1146,9 @@ where
 		let info = self.client.info();
 		let number = *block.header.number();
 
-		if info.block_gap.map_or(false, |(s, e)| s <= number && number <= e) || block.with_state() {
+		if info.block_gap.map_or(false, |gap| gap.start <= number && number <= gap.end) ||
+			block.with_state()
+		{
 			// Verification for imported blocks is skipped in two cases:
 			// 1. When importing blocks below the last finalized block during network initial
 			//    synchronization.
@@ -1341,7 +1344,7 @@ where
 	// This function makes multiple transactions to the DB. If one of them fails we may
 	// end up in an inconsistent state and have to resync.
 	async fn import_state(
-		&mut self,
+		&self,
 		mut block: BlockImportParams<Block>,
 	) -> Result<ImportResult, ConsensusError> {
 		let hash = block.post_hash();
@@ -1404,7 +1407,7 @@ where
 	type Error = ConsensusError;
 
 	async fn import_block(
-		&mut self,
+		&self,
 		mut block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		let hash = block.post_hash();
@@ -1418,8 +1421,8 @@ where
 
 		// Skip babe logic if block already in chain or importing blocks during initial sync,
 		// otherwise the check for epoch changes will error because trying to re-import an
-		// epoch change or because of missing epoch data in the tree, respectivelly.
-		if info.block_gap.map_or(false, |(s, e)| s <= number && number <= e) ||
+		// epoch change or because of missing epoch data in the tree, respectively.
+		if info.block_gap.map_or(false, |gap| gap.start <= number && number <= gap.end) ||
 			block_status == BlockStatus::InChain
 		{
 			// When re-importing existing block strip away intermediates.
@@ -1680,7 +1683,7 @@ where
 	}
 
 	async fn check_block(
-		&mut self,
+		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.inner.check_block(block).await.map_err(Into::into)
