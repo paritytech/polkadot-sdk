@@ -19,10 +19,10 @@ use crate::{ValidatorIndex, ValidityAttestation};
 
 // Put any primitives used by staging APIs functions here
 use super::{
-	async_backing::Constraints, BlakeTwo256, BlockNumber, CandidateCommitments,
+	async_backing::{InboundHrmpLimitations, OutboundHrmpChannelLimitations}, BlakeTwo256, BlockNumber, CandidateCommitments,
 	CandidateDescriptor, CandidateHash, CollatorId, CollatorSignature, CoreIndex, GroupIndex, Hash,
 	HashT, HeadData, Header, Id, Id as ParaId, MultiDisputeStatementSet, ScheduledCore,
-	UncheckedSignedAvailabilityBitfields, ValidationCodeHash,
+	UncheckedSignedAvailabilityBitfields, ValidationCodeHash, UpgradeRestriction
 };
 use alloc::{
 	collections::{BTreeMap, BTreeSet, VecDeque},
