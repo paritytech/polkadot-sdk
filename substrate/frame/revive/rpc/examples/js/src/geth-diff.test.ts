@@ -1,7 +1,9 @@
 import { jsonRpcErrors, procs, createEnv, getByteCode } from './geth-diff-setup.ts'
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test'
 import { encodeFunctionData, Hex, parseEther } from 'viem'
-import { abi } from '../abi/errorTester'
+import { ErrorTesterAbi } from '../abi/ErrorTester'
+import { FlipperCallerAbi } from '../abi/FlipperCaller'
+import { FlipperAbi } from '../abi/Flipper'
 
 afterEach(() => {
 	jsonRpcErrors.length = 0
@@ -16,14 +18,42 @@ const envs = await Promise.all([createEnv('geth'), createEnv('kitchensink')])
 for (const env of envs) {
 	describe(env.serverWallet.chain.name, () => {
 		let errorTesterAddr: Hex = '0x'
+		let flipperAddr: Hex = '0x'
+		let flipperCallerAddr: Hex = '0x'
 		beforeAll(async () => {
-			const hash = await env.serverWallet.deployContract({
-				abi,
-				bytecode: getByteCode('errorTester', env.evm),
-			})
-			const deployReceipt = await env.serverWallet.waitForTransactionReceipt({ hash })
-			if (!deployReceipt.contractAddress) throw new Error('Contract address should be set')
-			errorTesterAddr = deployReceipt.contractAddress
+			{
+				const hash = await env.serverWallet.deployContract({
+					abi: ErrorTesterAbi,
+					bytecode: getByteCode('errorTester', env.evm),
+				})
+				const deployReceipt = await env.serverWallet.waitForTransactionReceipt({ hash })
+				if (!deployReceipt.contractAddress)
+					throw new Error('Contract address should be set')
+				errorTesterAddr = deployReceipt.contractAddress
+			}
+
+			{
+				const hash = await env.serverWallet.deployContract({
+					abi: FlipperAbi,
+					bytecode: getByteCode('flipper', env.evm),
+				})
+				const deployReceipt = await env.serverWallet.waitForTransactionReceipt({ hash })
+				if (!deployReceipt.contractAddress)
+					throw new Error('Contract address should be set')
+				flipperAddr = deployReceipt.contractAddress
+			}
+
+			{
+				const hash = await env.serverWallet.deployContract({
+					abi: FlipperCallerAbi,
+					args: [flipperAddr],
+					bytecode: getByteCode('flipperCaller', env.evm),
+				})
+				const deployReceipt = await env.serverWallet.waitForTransactionReceipt({ hash })
+				if (!deployReceipt.contractAddress)
+					throw new Error('Contract address should be set')
+				flipperCallerAddr = deployReceipt.contractAddress
+			}
 		})
 
 		test('triggerAssertError', async () => {
@@ -31,7 +61,7 @@ for (const env of envs) {
 			try {
 				await env.accountWallet.readContract({
 					address: errorTesterAddr,
-					abi,
+					abi: ErrorTesterAbi,
 					functionName: 'triggerAssertError',
 				})
 			} catch (err) {
@@ -49,7 +79,7 @@ for (const env of envs) {
 			try {
 				await env.accountWallet.readContract({
 					address: errorTesterAddr,
-					abi,
+					abi: ErrorTesterAbi,
 					functionName: 'triggerRevertError',
 				})
 			} catch (err) {
@@ -67,7 +97,7 @@ for (const env of envs) {
 			try {
 				await env.accountWallet.readContract({
 					address: errorTesterAddr,
-					abi,
+					abi: ErrorTesterAbi,
 					functionName: 'triggerDivisionByZero',
 				})
 			} catch (err) {
@@ -87,7 +117,7 @@ for (const env of envs) {
 			try {
 				await env.accountWallet.readContract({
 					address: errorTesterAddr,
-					abi,
+					abi: ErrorTesterAbi,
 					functionName: 'triggerOutOfBoundsError',
 				})
 			} catch (err) {
@@ -107,7 +137,7 @@ for (const env of envs) {
 			try {
 				await env.accountWallet.readContract({
 					address: errorTesterAddr,
-					abi,
+					abi: ErrorTesterAbi,
 					functionName: 'triggerCustomError',
 				})
 			} catch (err) {
@@ -125,7 +155,7 @@ for (const env of envs) {
 			try {
 				await env.accountWallet.simulateContract({
 					address: errorTesterAddr,
-					abi,
+					abi: ErrorTesterAbi,
 					functionName: 'valueMatch',
 					value: parseEther('10'),
 					args: [parseEther('10')],
@@ -158,7 +188,25 @@ for (const env of envs) {
 			try {
 				await env.accountWallet.estimateContractGas({
 					address: errorTesterAddr,
-					abi,
+					abi: ErrorTesterAbi,
+					functionName: 'valueMatch',
+					value: parseEther('10'),
+					args: [parseEther('10')],
+				})
+			} catch (err) {
+				const lastJsonRpcError = jsonRpcErrors.pop()
+				expect(lastJsonRpcError?.code).toBe(-32000)
+				expect(lastJsonRpcError?.message).toInclude('insufficient funds')
+				expect(lastJsonRpcError?.data).toBeUndefined()
+			}
+		})
+
+		test('eth_estimate call caller (not enough funds)', async () => {
+			expect.assertions(3)
+			try {
+				await env.accountWallet.estimateContractGas({
+					address: errorTesterAddr,
+					abi: ErrorTesterAbi,
 					functionName: 'valueMatch',
 					value: parseEther('10'),
 					args: [parseEther('10')],
@@ -176,7 +224,7 @@ for (const env of envs) {
 			try {
 				await env.serverWallet.estimateContractGas({
 					address: errorTesterAddr,
-					abi,
+					abi: ErrorTesterAbi,
 					functionName: 'valueMatch',
 					value: parseEther('11'),
 					args: [parseEther('10')],
@@ -208,7 +256,7 @@ for (const env of envs) {
 
 				await env.accountWallet.estimateContractGas({
 					address: errorTesterAddr,
-					abi,
+					abi: ErrorTesterAbi,
 					functionName: 'setState',
 					args: [true],
 				})
@@ -225,7 +273,7 @@ for (const env of envs) {
 			expect(balance).toBe(0n)
 
 			const data = encodeFunctionData({
-				abi,
+				abi: ErrorTesterAbi,
 				functionName: 'setState',
 				args: [true],
 			})
@@ -237,6 +285,28 @@ for (const env of envs) {
 						data,
 						from: env.accountWallet.account.address,
 						to: errorTesterAddr,
+					},
+				],
+			})
+		})
+
+		test.only('eth_estimate (no gas specified) child_call', async () => {
+			let balance = await env.serverWallet.getBalance(env.accountWallet.account)
+			expect(balance).toBe(0n)
+
+			const data = encodeFunctionData({
+				abi: FlipperCallerAbi,
+				functionName: 'callFlip',
+			})
+
+			await env.accountWallet.request({
+				method: 'eth_estimateGas',
+				params: [
+					{
+						data,
+						from: env.accountWallet.account.address,
+						to: flipperCallerAddr,
+						gas: `0x${Number(1000000).toString(16)}`,
 					},
 				],
 			})
