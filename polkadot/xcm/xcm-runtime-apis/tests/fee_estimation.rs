@@ -353,3 +353,26 @@ fn dry_run_xcm() {
 		);
 	});
 }
+
+#[test]
+fn calling_payment_api_with_a_lower_version_works() {
+	let transfer_amount = 100u128;
+	let xcm_to_weigh = Xcm::<RuntimeCall>::builder_unsafe()
+		.withdraw_asset((Here, transfer_amount))
+		.buy_execution((Here, transfer_amount), Unlimited)
+		.deposit_asset(AllCounted(1), [1u8; 32])
+		.build();
+	let versioned_xcm_to_weigh = VersionedXcm::from(xcm_to_weigh.clone().into());
+	let lower_version_xcm_to_weigh = versioned_xcm_to_weigh.into_version(XCM_VERSION - 1).unwrap();
+	let client = TestClient;
+	let runtime_api = client.runtime_api();
+	let xcm_weight =
+		runtime_api.query_xcm_weight(H256::zero(), lower_version_xcm_to_weigh).unwrap();
+	assert!(xcm_weight.is_ok());
+	let native_token = VersionedAssetId::from(AssetId(Here.into()));
+	let lower_version_native_token = native_token.into_version(XCM_VERSION - 1).unwrap();
+	let execution_fees = runtime_api
+		.query_weight_to_asset_fee(H256::zero(), xcm_weight.unwrap(), lower_version_native_token)
+		.unwrap();
+	assert!(execution_fees.is_ok());
+}

@@ -25,7 +25,7 @@ use asset_hub_westend_runtime::{
 		LocationToAccountId, StakingPot, TrustBackedAssetsPalletLocation, WestendLocation,
 		XcmConfig,
 	},
-	AllPalletsWithoutSystem, Assets, Balances, ExistentialDeposit, ForeignAssets,
+	AllPalletsWithoutSystem, Assets, Balances, Block, ExistentialDeposit, ForeignAssets,
 	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem,
 	PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
 	ToRococoXcmRouterInstance, TrustBackedAssetsInstance, XcmpQueue,
@@ -1378,4 +1378,20 @@ fn reserve_transfer_native_asset_to_non_teleport_para_works() {
 		}),
 		WeightLimit::Unlimited,
 	);
+}
+
+#[test]
+fn xcm_payment_api_works() {
+	parachains_runtimes_test_utils::test_cases::xcm_payment_api_with_native_token_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		Block,
+	>();
+	asset_test_utils::test_cases::xcm_payment_api_with_pools_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		Block,
+	>();
 }

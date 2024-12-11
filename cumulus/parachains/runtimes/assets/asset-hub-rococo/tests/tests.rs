@@ -24,10 +24,10 @@ use asset_hub_rococo_runtime::{
 		ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger, ForeignCreatorsSovereignAccountOf,
 		LocationToAccountId, StakingPot, TokenLocation, TrustBackedAssetsPalletLocation, XcmConfig,
 	},
-	AllPalletsWithoutSystem, AssetConversion, AssetDeposit, Assets, Balances, CollatorSelection,
-	ExistentialDeposit, ForeignAssets, ForeignAssetsInstance, MetadataDepositBase,
-	MetadataDepositPerByte, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	SessionKeys, ToWestendXcmRouterInstance, TrustBackedAssetsInstance, XcmpQueue,
+	AllPalletsWithoutSystem, AssetConversion, AssetDeposit, Assets, Balances, Block,
+	CollatorSelection, ExistentialDeposit, ForeignAssets, ForeignAssetsInstance,
+	MetadataDepositBase, MetadataDepositPerByte, ParachainSystem, Runtime, RuntimeCall,
+	RuntimeEvent, RuntimeOrigin, SessionKeys, ToWestendXcmRouterInstance, TrustBackedAssetsInstance, XcmpQueue,
 };
 use asset_test_utils::{
 	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
@@ -1406,4 +1406,20 @@ fn change_xcm_bridge_hub_ethereum_base_fee_by_governance_works() {
 			}
 		},
 	)
+}
+
+#[test]
+fn xcm_payment_api_works() {
+	parachains_runtimes_test_utils::test_cases::xcm_payment_api_with_native_token_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		Block,
+	>();
+	asset_test_utils::test_cases::xcm_payment_api_with_pools_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		Block,
+	>();
 }
