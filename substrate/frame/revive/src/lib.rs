@@ -1260,10 +1260,7 @@ where
 	{
 		log::debug!(target: LOG_TARGET, "bare_eth_transact: tx: {tx:?} gas_limit: {gas_limit:?}");
 
-		let Some(from) = tx.from else {
-			return Err(EthTransactError::Message("Missing from address".into()));
-		};
-
+		let from = tx.from.unwrap_or_default();
 		let origin = T::AddressMapper::to_account_id(&from);
 
 		let storage_deposit_limit = if tx.gas.is_some() {
@@ -1301,7 +1298,7 @@ where
 			{
 				let balance = Self::evm_balance(&from);
 				return Err(EthTransactError::Message(
-						format!("insufficient funds for gas * price + value: address {from:?} have {balance} want {evm_value} (supplied gas {})",
+						format!("insufficient funds for gas * price + value: address {from:?} have {balance} (supplied gas {})",
 							tx.gas.unwrap_or_default()))
 					);
 			}

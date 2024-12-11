@@ -326,6 +326,7 @@ mod tests {
 		let j0 = tokio::spawn(runnable);
 
 		let stream = ctrl.event_stream();
+		let stream2 = ctrl.event_stream();
 
 		let mut v1 = View::new(vec![(10, 1), (10, 2), (10, 3)]);
 		let mut v2 = View::new(vec![(20, 1), (20, 2), (20, 6)]);
@@ -342,20 +343,16 @@ mod tests {
 		ctrl.add_view(1000, o1);
 		ctrl.add_view(2000, o2);
 
-		let j4 = {
-			let ctrl = ctrl.clone();
-			tokio::spawn(async move {
-				tokio::time::sleep(Duration::from_millis(70)).await;
-				ctrl.clean_notified_items(&vec![1, 3]);
-				ctrl.add_view(3000, o3.boxed());
-			})
-		};
+		let out = stream.take(4).collect::<Vec<_>>().await;
+		assert_eq!(out, vec![1, 2, 3, 6]);
 
-		let out = stream.take(6).collect::<Vec<_>>().await;
+		ctrl.clean_notified_items(&vec![1, 3]);
+		ctrl.add_view(3000, o3.boxed());
+		let out = stream2.take(6).collect::<Vec<_>>().await;
 		assert_eq!(out, vec![1, 2, 3, 6, 1, 3]);
-		drop(ctrl);
 
-		futures::future::join_all(vec![j0, j1, j2, j3, j4]).await;
+		drop(ctrl);
+		futures::future::join_all(vec![j0, j1, j2, j3]).await;
 	}
 
 	#[tokio::test]

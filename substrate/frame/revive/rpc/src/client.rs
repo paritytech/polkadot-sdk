@@ -116,9 +116,9 @@ fn unwrap_call_err(err: &subxt::error::RpcError) -> Option<ErrorObjectOwned> {
 
 /// Extract the revert message from a revert("msg") solidity statement.
 fn extract_revert_message(exec_data: &[u8]) -> Option<String> {
-	let function_selector = exec_data.get(0..4)?;
+	let error_selector = exec_data.get(0..4)?;
 
-	match function_selector {
+	match error_selector {
 		// assert(false)
 		[0x4E, 0x48, 0x7B, 0x71] => {
 			let panic_code: u32 = U256::from_big_endian(exec_data.get(4..36)?).try_into().ok()?;
@@ -149,7 +149,7 @@ fn extract_revert_message(exec_data: &[u8]) -> Option<String> {
 			Some("execution reverted".to_string())
 		},
 		_ => {
-			log::debug!(target: LOG_TARGET, "Unknown revert function selector: {function_selector:?}");
+			log::debug!(target: LOG_TARGET, "Unknown revert function selector: {error_selector:?}");
 			Some("execution reverted".to_string())
 		},
 	}
@@ -188,7 +188,6 @@ pub enum ClientError {
 }
 
 const REVERT_CODE: i32 = 3;
-// TODO convert error code to https://eips.ethereum.org/EIPS/eip-1474#error-codes
 impl From<ClientError> for ErrorObjectOwned {
 	fn from(err: ClientError) -> Self {
 		match err {

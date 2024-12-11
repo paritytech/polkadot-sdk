@@ -2,13 +2,12 @@
 pragma solidity ^0.8.0;
 
 contract ErrorTester {
+	bool public state;
 
-	// Payable function that can be used to test unsifficient funds errors
-    function valueMatch(uint value) public payable {
+	// Payable function that can be used to test insufficient funds errors
+    function valueMatch(uint256 value) public payable {
 		require(msg.value == value , "msg.value does not match value");
     }
-
-	bool public state;
 
     function setState(bool newState) public {
         state = newState;

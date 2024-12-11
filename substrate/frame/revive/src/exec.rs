@@ -563,6 +563,7 @@ pub struct Stack<'a, T: Config, E> {
 	/// Transient storage used to store data, which is kept for the duration of a transaction.
 	transient_storage: TransientStorage<T>,
 	/// Whether or not actual transfer of funds should be performed.
+	/// This is set to `true` exclusively when we simulate a call through eth_transact.
 	skip_transfer: bool,
 	/// No executable is held by the struct but influences its behaviour.
 	_phantom: PhantomData<E>,
@@ -1067,7 +1068,7 @@ where
 
 		self.transient_storage.start_transaction();
 
-		let do_transaction = || {
+		let do_transaction = || -> ExecResult {
 			let caller = self.caller();
 			let frame = top_frame_mut!(self);
 
@@ -1106,11 +1107,8 @@ where
 			let call_span = T::Debug::new_call_span(&contract_address, entry_point, &input_data);
 
 			let output = T::Debug::intercept_call(&contract_address, entry_point, &input_data)
-				.unwrap_or_else(|| {
-					executable
-						.execute(self, entry_point, input_data)
-						.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })
-				})?;
+				.unwrap_or_else(|| executable.execute(self, entry_point, input_data))
+				.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })?;
 
 			call_span.after_call(&output);
 
@@ -1135,7 +1133,10 @@ where
 			// If a special limit was set for the sub-call, we enforce it here.
 			// The sub-call will be rolled back in case the limit is exhausted.
 			let contract = frame.contract_info.as_contract();
-			frame.nested_storage.enforce_subcall_limit(contract)?;
+			frame
+				.nested_storage
+				.enforce_subcall_limit(contract)
+				.map_err(|e| ExecError { error: e, origin: ErrorOrigin::Callee })?;
 
 			let account_id = T::AddressMapper::to_address(&frame.account_id);
 			match (entry_point, delegated_code_hash) {
@@ -3411,7 +3412,7 @@ mod tests {
 					true,
 					false
 				),
-				<Error<Test>>::TransferFailed
+				<Error<Test>>::TransferFailed,
 			);
 			exec_success()
 		});

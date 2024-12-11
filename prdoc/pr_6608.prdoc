@@ -3,14 +3,7 @@ doc:
 - audience: Runtime Dev
   description: |-
     * Add a bunch of differential tests to ensure that responses from eth-rpc matches the one from `geth`
-      - These [tests](https://github.com/paritytech/polkadot-sdk/blob/pg/fix-geth-diff/substrate/frame/revive/rpc/examples/js/src/geth-diff.test.ts) are not run in CI for now but can be run locally with
-    ```bash
-    cd revive/rpc/examples/js
-    bun test
-    ```
-
     * EVM RPC server will not fail gas_estimation if no gas is specified, I updated pallet-revive to add an extra `skip_transfer` boolean check to replicate this behavior in our pallet
-
     * `eth_transact` and `bare_eth_transact` api have been updated to use `GenericTransaction` directly as this is what is used by `eth_estimateGas` and `eth_call`
 crates:
 - name: pallet-revive-eth-rpc
