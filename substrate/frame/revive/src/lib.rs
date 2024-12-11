@@ -41,7 +41,7 @@ pub mod test_utils;
 pub mod weights;
 
 use crate::{
-	evm::{runtime::GAS_PRICE, EthGasEncoder, GenericTransaction},
+	evm::{runtime::GAS_PRICE, GenericTransaction},
 	exec::{AccountIdOf, ExecError, Executable, Ext, Key, Origin, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
@@ -81,6 +81,7 @@ use sp_runtime::{
 pub use crate::{
 	address::{create1, create2, AccountId32Mapper, AddressMapper},
 	debug::Tracing,
+	evm::EthGasEncoder,
 	exec::MomentOf,
 	pallet::*,
 };

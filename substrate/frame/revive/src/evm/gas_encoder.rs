@@ -1,5 +1,4 @@
-use std::ops::{Div, Rem};
-
+use core::ops::{Div, Rem};
 use frame_support::ensure;
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, One, Zero};
 use sp_core::U256;
@@ -14,6 +13,7 @@ use sp_weights::Weight;
 /// - `g...g`: Gas limit, encoded in the highest digits.
 ///
 /// Each component is scaled using the `SCALE` factor.
+#[derive(Debug, Clone)]
 pub struct EthGasEncoder<Balance> {
 	/// Encodes the raw gas limit. Rounded to the nearest non-zero multiple of this value.
 	raw_gas_mask: u128,

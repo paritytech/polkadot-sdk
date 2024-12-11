@@ -410,6 +410,7 @@ mod test {
 		evm::*,
 		test_utils::*,
 		tests::{ExtBuilder, RuntimeCall, RuntimeOrigin, Test},
+		Weight,
 	};
 	use frame_support::{error::LookupError, traits::fungible::Mutate};
 	use pallet_revive_fixtures::compile_module;
@@ -521,12 +522,7 @@ mod test {
 		/// Call `check` on the unchecked extrinsic, and `pre_dispatch` on the signed extension.
 		fn check(&self) -> Result<(RuntimeCall, SignedExtra), TransactionValidityError> {
 			ExtBuilder::default().build().execute_with(|| {
-				let UncheckedExtrinsicBuilder {
-					tx,
-					gas_limit,
-					storage_deposit_limit,
-					before_validate,
-				} = self.clone();
+				let UncheckedExtrinsicBuilder { tx, before_validate, .. } = self.clone();
 
 				// Fund the account.
 				let account = Account::default();
@@ -537,11 +533,7 @@ mod test {
 
 				let payload =
 					account.sign_transaction(tx.try_into_unsigned().unwrap()).signed_payload();
-				let call = RuntimeCall::Contracts(crate::Call::eth_transact {
-					payload,
-					gas_limit,
-					storage_deposit_limit,
-				});
+				let call = RuntimeCall::Contracts(crate::Call::eth_transact { payload });
 
 				let encoded_len = call.encoded_size();
 				let uxt: Ex = generic::UncheckedExtrinsic::new_bare(call).into();

@@ -84,7 +84,7 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nfts::PalletFeatures;
 use pallet_nis::WithMaximumOf;
 use pallet_nomination_pools::PoolId;
-use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
+use pallet_revive::{evm::runtime::EthExtra, AddressMapper, EthGasEncoder};
 use pallet_session::historical as pallet_session_historical;
 use sp_core::U256;
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
@@ -1445,6 +1445,13 @@ impl pallet_contracts::Config for Runtime {
 	type Xcm = ();
 }
 
+parameter_types! {
+	pub GasEncoder: EthGasEncoder<Balance> = EthGasEncoder::<Balance>::new(
+		RuntimeBlockWeights::get().max_block,
+		deposit(0, 5 * 1024 * 1024)
+	);
+}
+
 impl pallet_revive::Config for Runtime {
 	type Time = Timestamp;
 	type Currency = Balances;
@@ -1468,6 +1475,7 @@ impl pallet_revive::Config for Runtime {
 	type Xcm = ();
 	type ChainId = ConstU64<420_420_420>;
 	type NativeToEthRatio = ConstU32<1_000_000>; // 10^(18 - 12) Eth is 10^18, Native is 10^12.
+	type EthGasEncoder = GasEncoder;
 }
 
 impl pallet_sudo::Config for Runtime {
