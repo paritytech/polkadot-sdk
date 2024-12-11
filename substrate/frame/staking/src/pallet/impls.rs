@@ -885,12 +885,19 @@ impl<T: Config> Pallet<T> {
 		stashes_iter: impl Iterator<Item = T::AccountId> + Clone,
 	) -> Result<(), Vec<T::AccountId>> {
 		ElectableStashes::<T>::mutate(|electable| {
-			for stash in stashes_iter.clone() {
+			let mut not_included = vec![];
+
+			for stash in stashes_iter {
 				if electable.try_insert(stash.clone()).is_err() {
-					return Err(stashes_iter.skip_while(|s| *s != stash).collect::<Vec<_>>());
+					not_included.push(stash);
 				}
 			}
-			Ok(())
+
+			if not_included.len() != 0 {
+				Err(not_included)
+			} else {
+				Ok(())
+			}
 		})
 	}
 
