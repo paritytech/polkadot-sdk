@@ -184,7 +184,7 @@
 //! The checks are best effort and will generate warning level logs in the Omni Node log file on
 //! failure.
 //!
-//! The list of checks may evolve of future, for now only few rules are implemented:
+//! The list of checks may evolve in the future and for now only few rules are implemented:
 //! * runtimes must define a type for [`cumulus-pallet-parachain-system`], which is recommended to
 //!   be named as `ParachainSystem`.
 //! * runtimes must define a type for [`frame-system`] pallet, which is recommended to be named as
