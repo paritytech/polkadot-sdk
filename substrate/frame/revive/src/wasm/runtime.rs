@@ -1150,7 +1150,6 @@ pub mod env {
 
 	/// Clear the value at the given key in the contract storage.
 	/// See [`pallet_revive_uapi::HostFn::clear_storage`]
-	#[api_version(0)]
 	#[mutating]
 	fn clear_storage(
 		&mut self,
@@ -1179,7 +1178,6 @@ pub mod env {
 
 	/// Checks whether there is a value stored under the given key.
 	/// See [`pallet_revive_uapi::HostFn::contains_storage`]
-	#[api_version(0)]
 	fn contains_storage(
 		&mut self,
 		memory: &mut M,
@@ -1192,7 +1190,6 @@ pub mod env {
 
 	/// Retrieve and remove the value under the given key from storage.
 	/// See [`pallet_revive_uapi::HostFn::take_storage`]
-	#[api_version(0)]
 	#[mutating]
 	fn take_storage(
 		&mut self,
@@ -1303,7 +1300,6 @@ pub mod env {
 
 	/// Remove the calling account and transfer remaining **free** balance.
 	/// See [`pallet_revive_uapi::HostFn::terminate`].
-	#[api_version(0)]
 	#[mutating]
 	fn terminate(&mut self, memory: &mut M, beneficiary_ptr: u32) -> Result<(), TrapReason> {
 		self.terminate(memory, beneficiary_ptr)
@@ -1370,7 +1366,6 @@ pub mod env {
 
 	/// Checks whether a specified address belongs to a contract.
 	/// See [`pallet_revive_uapi::HostFn::is_contract`].
-	#[api_version(0)]
 	fn is_contract(&mut self, memory: &mut M, account_ptr: u32) -> Result<u32, TrapReason> {
 		self.charge_gas(RuntimeCosts::IsContract)?;
 		let address = memory.read_h160(account_ptr)?;
@@ -1409,7 +1404,6 @@ pub mod env {
 
 	/// Retrieve the code hash of the currently executing contract.
 	/// See [`pallet_revive_uapi::HostFn::own_code_hash`].
-	#[api_version(0)]
 	fn own_code_hash(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::OwnCodeHash)?;
 		let code_hash = *self.ext.own_code_hash();
@@ -1424,7 +1418,6 @@ pub mod env {
 
 	/// Checks whether the caller of the current contract is the origin of the whole call stack.
 	/// See [`pallet_revive_uapi::HostFn::caller_is_origin`].
-	#[api_version(0)]
 	fn caller_is_origin(&mut self, _memory: &mut M) -> Result<u32, TrapReason> {
 		self.charge_gas(RuntimeCosts::CallerIsOrigin)?;
 		Ok(self.ext.caller_is_origin() as u32)
@@ -1432,7 +1425,6 @@ pub mod env {
 
 	/// Checks whether the caller of the current contract is root.
 	/// See [`pallet_revive_uapi::HostFn::caller_is_root`].
-	#[api_version(0)]
 	fn caller_is_root(&mut self, _memory: &mut M) -> Result<u32, TrapReason> {
 		self.charge_gas(RuntimeCosts::CallerIsRoot)?;
 		Ok(self.ext.caller_is_root() as u32)
@@ -1476,7 +1468,6 @@ pub mod env {
 
 	/// Stores the amount of weight left into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::weight_left`].
-	#[api_version(0)]
 	fn weight_left(
 		&mut self,
 		memory: &mut M,
@@ -1602,7 +1593,6 @@ pub mod env {
 
 	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::minimum_balance`].
-	#[api_version(0)]
 	fn minimum_balance(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::MinimumBalance)?;
 		Ok(self.write_fixed_sandbox_output(
@@ -1691,7 +1681,6 @@ pub mod env {
 
 	/// Computes the SHA2 256-bit hash on the given input buffer.
 	/// See [`pallet_revive_uapi::HostFn::hash_sha2_256`].
-	#[api_version(0)]
 	fn hash_sha2_256(
 		&mut self,
 		memory: &mut M,
@@ -1723,7 +1712,6 @@ pub mod env {
 
 	/// Computes the BLAKE2 256-bit hash on the given input buffer.
 	/// See [`pallet_revive_uapi::HostFn::hash_blake2_256`].
-	#[api_version(0)]
 	fn hash_blake2_256(
 		&mut self,
 		memory: &mut M,
@@ -1739,7 +1727,6 @@ pub mod env {
 
 	/// Computes the BLAKE2 128-bit hash on the given input buffer.
 	/// See [`pallet_revive_uapi::HostFn::hash_blake2_128`].
-	#[api_version(0)]
 	fn hash_blake2_128(
 		&mut self,
 		memory: &mut M,
@@ -1785,7 +1772,6 @@ pub mod env {
 
 	/// Emit a custom debug message.
 	/// See [`pallet_revive_uapi::HostFn::debug_message`].
-	#[api_version(0)]
 	fn debug_message(
 		&mut self,
 		memory: &mut M,
@@ -1903,7 +1889,6 @@ pub mod env {
 
 	/// Recovers the ECDSA public key from the given message hash and signature.
 	/// See [`pallet_revive_uapi::HostFn::ecdsa_recover`].
-	#[api_version(0)]
 	fn ecdsa_recover(
 		&mut self,
 		memory: &mut M,
@@ -1934,7 +1919,6 @@ pub mod env {
 
 	/// Verify a sr25519 signature
 	/// See [`pallet_revive_uapi::HostFn::sr25519_verify`].
-	#[api_version(0)]
 	fn sr25519_verify(
 		&mut self,
 		memory: &mut M,
@@ -1975,7 +1959,6 @@ pub mod env {
 
 	/// Calculates Ethereum address from the ECDSA compressed public key and stores
 	/// See [`pallet_revive_uapi::HostFn::ecdsa_to_eth_address`].
-	#[api_version(0)]
 	fn ecdsa_to_eth_address(
 		&mut self,
 		memory: &mut M,
@@ -1997,7 +1980,6 @@ pub mod env {
 
 	/// Adds a new delegate dependency to the contract.
 	/// See [`pallet_revive_uapi::HostFn::lock_delegate_dependency`].
-	#[api_version(0)]
 	#[mutating]
 	fn lock_delegate_dependency(
 		&mut self,
@@ -2012,7 +1994,6 @@ pub mod env {
 
 	/// Removes the delegate dependency from the contract.
 	/// see [`pallet_revive_uapi::HostFn::unlock_delegate_dependency`].
-	#[api_version(0)]
 	#[mutating]
 	fn unlock_delegate_dependency(
 		&mut self,
