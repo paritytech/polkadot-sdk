@@ -1154,6 +1154,7 @@ pub mod env {
 
 	/// Set the value at the given key in the contract storage.
 	/// See [`pallet_contracts_uapi::HostFn::set_storage_v1`]
+	#[version(1)]
 	#[prefixed_alias]
 	#[mutating]
 	fn set_storage(
@@ -1168,6 +1169,7 @@ pub mod env {
 
 	/// Set the value at the given key in the contract storage.
 	/// See [`pallet_contracts_uapi::HostFn::set_storage_v2`]
+	#[version(2)]
 	#[prefixed_alias]
 	#[mutating]
 	fn set_storage(
@@ -1191,6 +1193,7 @@ pub mod env {
 
 	/// Clear the value at the given key in the contract storage.
 	/// See [`pallet_contracts_uapi::HostFn::clear_storage_v1`]
+	#[version(1)]
 	#[prefixed_alias]
 	#[mutating]
 	fn clear_storage(ctx: _, memory: _, key_ptr: u32, key_len: u32) -> Result<u32, TrapReason> {
@@ -1212,6 +1215,7 @@ pub mod env {
 
 	/// Retrieve the value under the given key from storage.
 	/// See [`pallet_contracts_uapi::HostFn::get_storage_v1`]
+	#[version(1)]
 	#[prefixed_alias]
 	fn get_storage(
 		ctx: _,
@@ -1233,6 +1237,7 @@ pub mod env {
 
 	/// Checks whether there is a value stored under the given key.
 	/// See [`pallet_contracts_uapi::HostFn::contains_storage_v1`]
+	#[version(1)]
 	#[prefixed_alias]
 	fn contains_storage(ctx: _, memory: _, key_ptr: u32, key_len: u32) -> Result<u32, TrapReason> {
 		ctx.contains_storage(memory, KeyType::Var(key_len), key_ptr)
@@ -1396,6 +1401,7 @@ pub mod env {
 
 	/// Make a call to another contract.
 	/// See [`pallet_contracts_uapi::HostFn::call_v1`].
+	#[version(1)]
 	#[prefixed_alias]
 	fn call(
 		ctx: _,
@@ -1427,6 +1433,7 @@ pub mod env {
 
 	/// Make a call to another contract.
 	/// See [`pallet_contracts_uapi::HostFn::call_v2`].
+	#[version(2)]
 	fn call(
 		ctx: _,
 		memory: _,
@@ -1527,6 +1534,7 @@ pub mod env {
 
 	/// Instantiate a contract with the specified code hash.
 	/// See [`pallet_contracts_uapi::HostFn::instantiate_v1`].
+	#[version(1)]
 	#[prefixed_alias]
 	#[mutating]
 	fn instantiate(
@@ -1563,6 +1571,7 @@ pub mod env {
 
 	/// Instantiate a contract with the specified code hash.
 	/// See [`pallet_contracts_uapi::HostFn::instantiate_v2`].
+	#[version(2)]
 	#[mutating]
 	fn instantiate(
 		ctx: _,
@@ -1619,6 +1628,7 @@ pub mod env {
 
 	/// Remove the calling account and transfer remaining **free** balance.
 	/// See [`pallet_contracts_uapi::HostFn::terminate_v1`].
+	#[version(1)]
 	#[prefixed_alias]
 	#[mutating]
 	fn terminate(ctx: _, memory: _, beneficiary_ptr: u32) -> Result<(), TrapReason> {
@@ -1781,6 +1791,7 @@ pub mod env {
 
 	/// Stores the price for the specified amount of weight into the supplied buffer.
 	/// See [`pallet_contracts_uapi::HostFn::weight_to_fee_v1`].
+	#[version(1)]
 	#[unstable]
 	fn weight_to_fee(
 		ctx: _,
@@ -1820,6 +1831,7 @@ pub mod env {
 
 	/// Stores the amount of weight left into the supplied buffer.
 	/// See [`pallet_contracts_uapi::HostFn::gas_left_v1`].
+	#[version(1)]
 	#[unstable]
 	fn gas_left(ctx: _, memory: _, out_ptr: u32, out_len_ptr: u32) -> Result<(), TrapReason> {
 		ctx.charge_gas(RuntimeCosts::GasLeft)?;
