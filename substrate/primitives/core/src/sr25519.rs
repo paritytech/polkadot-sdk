@@ -23,8 +23,11 @@
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::crypto::{
-	CryptoBytes, DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError,
+	CryptoBytes, DeriveError, DeriveJunction, Pair as TraitPair, ProofOfPossessionGenerator,
+	ProofOfPossessionVerifier, SecretStringError,
 };
+use sp_crypto_pubkeycrypto_proc_macro::ProofOfPossession;
+
 use alloc::vec::Vec;
 #[cfg(feature = "full_crypto")]
 use schnorrkel::signing_context;
@@ -145,6 +148,7 @@ impl From<schnorrkel::Signature> for Signature {
 }
 
 /// An Schnorrkel/Ristretto x25519 ("sr25519") key pair.
+#[derive(ProofOfPossession)]
 pub struct Pair(Keypair);
 
 impl Clone for Pair {
@@ -916,5 +920,14 @@ mod tests {
 
 		assert!(public.vrf_verify(&data, &signature2));
 		assert_eq!(signature.pre_output, signature2.pre_output);
+	}
+
+	#[test]
+	fn good_proof_of_possession_should_work_bad_pop_should_fail() {
+		let mut pair = Pair::from_seed(b"12345678901234567890123456789012");
+		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
+		let pop = pair.generate_proof_of_possession();
+		assert!(Pair::verify_proof_of_possession(&pop, &pair.public()));
+		assert_eq!(Pair::verify_proof_of_possession(&pop, &other_pair.public()), false);
 	}
 }
