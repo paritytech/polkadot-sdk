@@ -47,16 +47,11 @@ where
 
 	let balance_factor = 1000;
 	// create validators and set random session keys
-	for (m, who) in create_validators::<T>(n, balance_factor)
-		.expect("Could not create validators")
-		.into_iter()
-		.enumerate()
-	{
+	for (n, who) in create_validators::<T>(n, balance_factor).unwrap().into_iter().enumerate() {
 		use rand::{RngCore, SeedableRng};
 
-		let validator = T::Lookup::lookup(who).expect("Could not find validator");
-		let controller =
-			pallet_staking::Pallet::<T>::bonded(&validator).expect("Could not find controller");
+		let validator = T::Lookup::lookup(who).unwrap();
+		let controller = pallet_staking::Pallet::<T>::bonded(&validator).unwrap();
 
 		let keys = {
 			const SESSION_KEY_LEN: usize = 32;
@@ -67,7 +62,7 @@ where
 				keys_len += 1;
 			}
 			let mut keys = vec![0u8; keys_len];
-			let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(m as u64);
+			let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(n as u64);
 			rng.fill_bytes(&mut keys);
 			keys
 		};
@@ -90,15 +85,10 @@ where
 
 	let session_index = crate::shared::CurrentSessionIndex::<T>::get();
 	let session_info = crate::session_info::Sessions::<T>::get(session_index);
-	let session_info = session_info.expect("Session info not found");
-	let validator_id = session_info
-		.validators
-		.get(ValidatorIndex::from(0))
-		.expect("Validator not found")
-		.clone();
+	let session_info = session_info.unwrap();
+	let validator_id = session_info.validators.get(ValidatorIndex::from(0)).unwrap().clone();
 	let key = (PARACHAIN_KEY_TYPE_ID, validator_id.clone());
-	let key_owner_proof =
-		pallet_session::historical::Pallet::<T>::prove(key).expect("Key owner proof not found");
+	let key_owner_proof = pallet_session::historical::Pallet::<T>::prove(key).unwrap();
 
 	// rotate a session to make sure `key_owner_proof` is historical
 	initializer::Pallet::<T>::on_initialize(BlockNumberFor::<T>::one());
