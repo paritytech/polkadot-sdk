@@ -136,6 +136,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 
 # A feature that should be enabled when the runtime should be built for on-chain

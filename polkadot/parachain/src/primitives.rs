@@ -57,6 +57,8 @@ impl HeadData {
 	}
 }
 
+impl codec::EncodeLike<HeadData> for alloc::vec::Vec<u8> {}
+
 /// Parachain validation code.
 #[derive(
 	PartialEq,

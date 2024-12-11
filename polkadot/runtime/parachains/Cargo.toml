@@ -140,6 +140,7 @@ runtime-benchmarks = [
 	"sp-std",
 	"static_assertions",
 	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support-test/try-runtime",
