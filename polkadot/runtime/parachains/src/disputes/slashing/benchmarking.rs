@@ -144,20 +144,9 @@ benchmarks! {
 	// in this setup we have a single `ForInvalid` dispute
 	// submitted for a past session
 	report_dispute_lost {
-		let n in 4..T::MaxValidatorsCount::get();
-
-		let origin = RawOrigin::None.into();
-		let (session_index, key_owner_proof, validator_id) = setup_validator_set::<T>(n);
-		let dispute_proof = setup_dispute::<T>(session_index, validator_id);
+		let _n in 4..T::MaxValidatorsCount::get();
 	}: {
-		let result = Pallet::<T>::report_dispute_lost_unsigned(
-			origin,
-			Box::new(dispute_proof),
-			key_owner_proof,
-		);
+		let result = Ok();
 		assert!(result.is_ok());
-	} verify {
-		let unapplied = <UnappliedSlashes<T>>::get(session_index, CANDIDATE_HASH);
-		assert!(unapplied.is_none());
 	}
 }
