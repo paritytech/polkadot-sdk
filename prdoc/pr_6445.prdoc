@@ -33,24 +33,24 @@ crates:
 - name: pallet-staking
   bump: major
 - name: westend-runtime
-  bump: major
+  bump: minor
 - name: sp-staking
   bump: major
 - name: polkadot-runtime-common
-  bump: major
+  bump: minor
 - name: pallet-fast-unstake
-  bump: major
+  bump: patch
 - name: pallet-babe
-  bump: major
+  bump: patch
 - name: pallet-beefy
-  bump: major
+  bump: patch
 - name: pallet-delegated-staking
-  bump: major
+  bump: patch
 - name: pallet-grandpa
-  bump: major
+  bump: patch
 - name: pallet-root-offences
-  bump: major
+  bump: patch
 - name: polkadot-runtime-parachains
-  bump: major
+  bump: minor
 - name: rococo-runtime
-  bump: major
+  bump: minor
