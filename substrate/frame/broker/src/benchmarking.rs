@@ -808,7 +808,7 @@ mod benches {
 				.try_into()
 				.expect("Upper limit of n is a u16."),
 		)
-		.map_err(|_| BenchmarkError::Weightless)?;
+		.expect("Configuration was initialized before; qed");
 
 		// Advance to the fixed price period.
 		advance_to::<T>(2);
