@@ -1343,15 +1343,11 @@ pub mod env {
 		};
 
 		let mut data = [0; 32];
-		let len = input.len();
 		let start = offset as usize;
-		let data = if start > len {
+		let data = if start >= input.len() {
 			data // Any index is valid to request; OOB offsets return zero.
 		} else {
-			let mut end = start.saturating_add(32);
-			if end > len {
-				end = len;
-			}
+			let end = start.saturating_add(32).min(input.len());
 			data[..end - start].copy_from_slice(&input[start..end]);
 			data.reverse();
 			data // Solidity expects right-padded data
