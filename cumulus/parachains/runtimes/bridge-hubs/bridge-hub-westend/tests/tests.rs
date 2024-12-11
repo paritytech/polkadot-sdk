@@ -29,7 +29,7 @@ use bridge_hub_westend_runtime::{
 	xcm_config::{LocationToAccountId, RelayNetwork, WestendLocation, XcmConfig},
 	AllPalletsWithoutSystem, Block, BridgeRejectObsoleteHeadersAndMessages, Executive,
 	ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeOrigin, SessionKeys, SignedExtra, TransactionPayment, TxExtension, UncheckedExtrinsic,
+	RuntimeOrigin, SessionKeys, SignedExtra, TransactionPayment, UncheckedExtrinsic,
 };
 use bridge_to_rococo_config::{
 	BridgeGrandpaRococoInstance, BridgeHubRococoLocation, BridgeParachainRococoInstance,
