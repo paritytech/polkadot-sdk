@@ -165,7 +165,7 @@ impl MetadataInspector {
 				.build(),
 			sp_runtime::Cow::Borrowed(code_bytes.as_slice()),
 		)
-		.map_err(|err| <String as Into<String>>::into(err.to_string()))?;
+		.map_err(|err| err.to_string())?;
 
 		Metadata::decode(&mut (*opaque_metadata).as_slice()).map_err(Into::into)
 	}
