@@ -190,7 +190,7 @@ pub mod prelude {
 	/// `frame_system`'s parent crate, which is mandatory in all pallets build with this crate.
 	///
 	/// Conveniently, the keyword `frame_system` is in scope as one uses `use
-	/// polkadot_sdk_frame::prelude::*`
+	/// polkadot_sdk_frame::prelude::*`.
 	#[doc(inline)]
 	pub use frame_system;
 
@@ -200,30 +200,35 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::pallet_prelude::*;
 
-	/// Dispatch types from `frame-support`, other fundamental traits
+	/// Dispatch types from `frame-support`, other fundamental traits.
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{Contains, IsSubType, OnRuntimeUpgrade};
+	pub use frame_support::traits::{
+		Contains, Defensive, DefensiveSaturating, IsSubType, OnRuntimeUpgrade, OnUnbalanced,
+	};
 
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
 	pub use frame_system::pallet_prelude::*;
 
+	/// All arithmetic types and traits.
+	pub use super::arithmetic::*;
+
 	/// All FRAME-relevant derive macros.
 	#[doc(no_inline)]
 	pub use super::derive::*;
 
-	/// All hashing related things
+	/// All hashing related things.
 	pub use super::hashing::*;
 
-	/// Runtime traits
+	/// Runtime traits.
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, DispatchInfoOf, Dispatchable, SaturatedConversion,
-		Saturating, StaticLookup, TrailingZeroInput,
+		AccountIdConversion, BlockNumberProvider, Bounded, Convert, ConvertBack, DispatchInfoOf,
+		Dispatchable, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
 	};
 
-	/// Other error/result types for runtime
+	/// Other error/result types for runtime.
 	#[doc(no_inline)]
 	pub use sp_runtime::{DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError};
 }
