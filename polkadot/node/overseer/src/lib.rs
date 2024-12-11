@@ -566,7 +566,7 @@ pub struct Overseer<SupportsParachains> {
 	#[subsystem(blocking, ChainApiMessage, sends: [])]
 	chain_api: ChainApi,
 
-	#[subsystem(blocking, CollationGenerationMessage, sends: [
+	#[subsystem(CollationGenerationMessage, sends: [
 		RuntimeApiMessage,
 		CollatorProtocolMessage,
 	])]
