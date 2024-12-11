@@ -1869,6 +1869,8 @@ dependencies = [
  "frame-support",
  "parity-scale-codec",
  "scale-info",
+ "sp-core 28.0.0",
+ "staging-xcm",
 ]
 
 [[package]]
@@ -1879,6 +1881,8 @@ dependencies = [
  "frame-support",
  "parity-scale-codec",
  "scale-info",
+ "sp-core 28.0.0",
+ "staging-xcm",
 ]
 
 [[package]]
@@ -2273,6 +2277,7 @@ dependencies = [
  "bp-rococo",
  "bp-runtime",
  "bp-westend",
+ "bp-xcm-bridge-hub-router",
  "bridge-hub-common",
  "bridge-hub-test-utils",
  "bridge-runtime-common",
@@ -2466,6 +2471,7 @@ dependencies = [
  "bp-rococo",
  "bp-runtime",
  "bp-westend",
+ "bp-xcm-bridge-hub-router",
  "bridge-hub-common",
  "bridge-hub-test-utils",
  "bridge-runtime-common",
@@ -13268,6 +13274,7 @@ dependencies = [
  "bp-messages",
  "bp-runtime",
  "bp-xcm-bridge-hub",
+ "bp-xcm-bridge-hub-router",
  "frame-support",
  "frame-system",
  "log",
