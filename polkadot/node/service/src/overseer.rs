@@ -237,7 +237,7 @@ where
 	let network_bridge_metrics: NetworkBridgeMetrics = Metrics::register(registry)?;
 	let approval_voting_parallel_metrics: ApprovalVotingParallelMetrics =
 		Metrics::register(registry)?;
-		
+
 	let builder = Overseer::builder()
 		.network_bridge_tx(NetworkBridgeTxSubsystem::new(
 			network_service.clone(),
