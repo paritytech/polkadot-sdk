@@ -359,6 +359,21 @@ impl<T: Config> FindAuthor<u32> for Pallet<T> {
 
 		None
 	}
+
+	fn has_authorities_change<'a, I>(digests: I) -> bool
+	where
+		I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])> + Clone,
+	{
+		for (id, mut data) in digests {
+			if id == AURA_ENGINE_ID {
+				if let Ok(ConsensusLog::AuthoritiesChange(_)) = ConsensusLog::decode(&mut data) {
+					return true;
+				}
+			}
+		}
+
+		false
+	}
 }
 
 /// We can not implement `FindAuthor` twice, because the compiler does not know if
