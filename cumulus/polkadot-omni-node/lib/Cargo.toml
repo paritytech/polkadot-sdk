@@ -96,6 +96,9 @@ wait-timeout = { workspace = true }
 
 [features]
 default = []
+full-pov-size = [
+	"cumulus-client-consensus-aura/full-pov-size",
+]
 rococo-native = [
 	"polkadot-cli/rococo-native",
 ]
