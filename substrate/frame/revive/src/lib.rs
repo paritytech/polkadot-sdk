@@ -41,7 +41,10 @@ pub mod test_utils;
 pub mod weights;
 
 use crate::{
-	evm::{runtime::GAS_PRICE, GenericTransaction},
+	evm::{
+		runtime::{gas_from_fee, GAS_PRICE},
+		GenericTransaction,
+	},
 	exec::{AccountIdOf, ExecError, Executable, Ext, Key, Origin, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
@@ -1439,7 +1442,7 @@ where
 				0u32.into(),
 			)
 			.into();
-			let eth_gas: U256 = (fee / GAS_PRICE.into()).into();
+			let eth_gas = gas_from_fee(fee);
 			let eth_gas = gas_encoder
 				.encode(eth_gas, result.gas_required, result.storage_deposit)
 				.map_err(|_| EthTransactError::Message("Failed to encode gas".into()))?;

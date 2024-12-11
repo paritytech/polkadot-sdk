@@ -19,6 +19,7 @@ use crate::{
 	evm::api::{GenericTransaction, TransactionSigned},
 	AccountIdOf, AddressMapper, BalanceOf, MomentOf, LOG_TARGET,
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo},
@@ -31,14 +32,12 @@ use sp_core::{Get, H256, U256};
 use sp_runtime::{
 	generic::{self, CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
-		self, Checkable, Dispatchable, ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount, Member,
-		TransactionExtension,
+		self, AtLeast32BitUnsigned, Checkable, Dispatchable, ExtrinsicLike, ExtrinsicMetadata,
+		IdentifyAccount, Member, TransactionExtension,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic, RuntimeDebug, Saturating,
 };
-
-use alloc::vec::Vec;
 
 type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
@@ -48,7 +47,23 @@ type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 /// We use a fixed value for the gas price.
 /// This let us calculate the gas estimate for a transaction with the formula:
 /// `estimate_gas = substrate_fee / gas_price`.
-pub const GAS_PRICE: u32 = 1u32;
+pub const GAS_PRICE: u32 = 1_000_000_000u32;
+
+/// Convert a `Balance` into a gas value, using the fixed `GAS_PRICE`.
+/// The gas is calculated as `balance / GAS_PRICE`, rounded up to the nearest integer.
+pub fn gas_from_fee<Balance>(fee: Balance) -> U256
+where
+	u32: Into<Balance>,
+	Balance: Into<U256> + AtLeast32BitUnsigned + Copy,
+{
+	let gas_price = GAS_PRICE.into();
+	let remainder = fee % gas_price;
+	if remainder.is_zero() {
+		(fee / gas_price).into()
+	} else {
+		(fee.saturating_add(gas_price) / gas_price).into()
+	}
+}
 
 /// Wraps [`generic::UncheckedExtrinsic`] to support checking unsigned
 /// [`crate::Call::eth_transact`] extrinsic.
