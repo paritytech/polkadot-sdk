@@ -833,7 +833,8 @@ mod benches {
 			let region = Broker::<T>::do_purchase(caller.clone(), 10_000_000u32.into())
 				.expect("Offer not high enough for configuration.");
 
-			Broker::<T>::do_assign(region, None, task, Final).expect("assign in loop");
+			Broker::<T>::do_assign(region, None, task, Final)
+				.map_err(|_| BenchmarkError::Weightless)?;
 
 			Broker::<T>::do_enable_auto_renew(caller, region.core, task, Some(sale.region_end))?;
 
@@ -1054,7 +1055,7 @@ mod benches {
 			);
 
 			let region = Broker::<T>::do_purchase(caller.clone(), 10_000_000u32.into())
-				.expect("Offer not high enough for configuration.1");
+				.expect("Offer not high enough for configuration.");
 
 			Broker::<T>::do_assign(region, None, task, Final)
 				.map_err(|_| BenchmarkError::Weightless)?;
