@@ -14,7 +14,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#![allow(useless_deprecated, clippy::deprecated_semver)]
+#![allow(useless_deprecated)]
 
 use frame_support::{derive_impl, traits::ConstU32};
 use scale_info::{form::MetaForm, meta_type};
@@ -74,7 +74,7 @@ sp_api::decl_runtime_apis! {
 		fn something_with_block(block: Block) -> Block;
 		#[deprecated = "example"]
 		fn function_with_two_args(data: u64, block: Block);
-		#[deprecated(note = "example", since = "example")]
+		#[deprecated(note = "example", since = "2.0.5")]
 		fn same_name();
 		#[deprecated(note = "example")]
 		fn wild_card(_: u32);
@@ -179,7 +179,7 @@ fn runtime_metadata() {
 					docs: vec![],
 					deprecation_info: DeprecationStatusIR::Deprecated {
 						note: "example",
-						since: Some("example"),
+						since: Some("2.0.5"),
 					}
 			},
 				RuntimeApiMethodMetadataIR {
