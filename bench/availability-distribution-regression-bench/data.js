@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733886751105,
+  "lastUpdate": 1733910236318,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -41875,6 +41875,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.17739612746666658,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "85dd228d9a7d3d736e0dab7c0b084e3fc2c1b003",
+          "message": "Make approval-distribution aggression a bit more robust and less spammy (#6696)\n\nAfter finality started lagging on kusama around `2025-11-25 15:55:40`\nnodes started being overloaded with messages and some restarted with\n```\nSubsystem approval-distribution-subsystem appears unresponsive when sending a message of type polkadot_node_subsystem_types::messages::ApprovalDistributionMessage. origin=polkadot_service::relay_chain_selection::SelectRelayChainInner<sc_client_db::Backend<sp_runtime::generic::block::Block<sp_runtime::generic::header::Header<u32, sp_runtime::traits::BlakeTwo256>, sp_runtime::OpaqueExtrinsic>>, polkadot_overseer::Handle>\n```\n\nI think this happened because our aggression in the current form is way\ntoo spammy and create problems in situation where we already constructed\nblocks with a load of candidates to check which what happened around\n`#25933682` before and after. However aggression, does help in the\nnightmare scenario where the network is segmented and sparsely\nconnected, so I tend to think we shouldn't completely remove it.\n\nThe current configuration is:\n```\nl1_threshold: Some(16),\nl2_threshold: Some(28),\nresend_unfinalized_period: Some(8),\n```\nThe way aggression works right now :\n1. After L1 is triggered all nodes send all messages they created to all\nthe other nodes and all messages they would have they already send\naccording to the topology.\n2. Because of resend_unfinalized_period for each block all messages at\nstep 1) are sent every 8 blocks, so for example let's say we have blocks\n1 to 24 unfinalized, then at block 25, all messages for block 1, 9 will\nbe resent, and consequently at block 26, all messages for block 2, 10\nwill be resent, this becomes worse as more blocks are created if backing\nbackpressure did not kick in yet. In total this logic makes that each\nnode receive 3 * total_number_of messages_per_block\n3. L2 aggression is way too spammy, when L2 aggression is enabled all\nnodes sends all messages of a block on GridXY, that means that all\nmessages are received and sent by node at least 2*sqrt(num_validators),\nso on kusama would be 66 * NUM_MESSAGES_AT_FIRST_UNFINALIZED_BLOCK, so\neven with a reasonable number of messages like 10K, which you can have\nif you escalated because of no shows, you end-up sending and receiving\n~660k messages at once, I think that's what makes the\napproval-distribution to appear unresponsive on some nodes.\n4. Duplicate messages are received by the nodes which turn, mark the\nnode as banned, which may create more no-shows.\n\n## Proposed improvements:\n1. Make L2 trigger way later 28 blocks, instead of 64, this should\nliterally the last resort, until then we should try to let the\napproval-voting escalation mechanism to do its things and cover the\nno-shows.\n2. On L1 aggression don't send messages for blocks too far from the\nfirst_unfinalized there is no point in sending the messages for block\n20, if block 1 is still unfinalized.\n3. On L1 aggression, send messages then back-off for 3 *\nresend_unfinalized_period to give time for everyone to clear up their\nqueues.\n4. If aggression is enabled accept duplicate messages from validators\nand don't punish them by reducting their reputation which, which may\ncreate no-shows.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: Andrei Sandu <54316454+sandreim@users.noreply.github.com>",
+          "timestamp": "2024-12-11T08:21:05Z",
+          "tree_id": "1044af3ccb22913798a60b67bda8191b564f34a1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/85dd228d9a7d3d736e0dab7c0b084e3fc2c1b003"
+        },
+        "date": 1733910217068,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1774037961333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024665963993333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00908534530666675,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.016611128826666665,
             "unit": "seconds"
           }
         ]
