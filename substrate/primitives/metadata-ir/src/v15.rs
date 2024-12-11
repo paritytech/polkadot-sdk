@@ -17,30 +17,43 @@
 
 //! Convert the IR to V15 metadata.
 
-use crate::OuterEnumsIR;
+use crate::{OuterEnumsIR, TrasactionExtensionsByVersion};
 
 use super::types::{
 	ExtrinsicMetadataIR, MetadataIR, PalletMetadataIR, RuntimeApiMetadataIR,
 	RuntimeApiMethodMetadataIR, RuntimeApiMethodParamMetadataIR, TransactionExtensionMetadataIR,
 };
 
+use codec::Encode;
 use frame_metadata::v15::{
-	CustomMetadata, ExtrinsicMetadata, OuterEnums, PalletMetadata, RuntimeApiMetadata,
-	RuntimeApiMethodMetadata, RuntimeApiMethodParamMetadata, RuntimeMetadataV15,
-	SignedExtensionMetadata,
+	CustomMetadata, CustomValueMetadata, ExtrinsicMetadata, OuterEnums, PalletMetadata,
+	RuntimeApiMetadata, RuntimeApiMethodMetadata, RuntimeApiMethodParamMetadata,
+	RuntimeMetadataV15, SignedExtensionMetadata,
 };
+use scale_info::meta_type;
 
 impl From<MetadataIR> for RuntimeMetadataV15 {
 	fn from(ir: MetadataIR) -> Self {
+		const TRANSACTION_EXTENSIONS_BY_VERSION: &str = "transaction_extensions_by_version";
+		let transaction_extensions_by_version = ir.extrinsic.transaction_extensions_by_version();
+
 		RuntimeMetadataV15::new(
 			ir.pallets.into_iter().map(Into::into).collect(),
 			ir.extrinsic.into(),
 			ir.ty,
 			ir.apis.into_iter().map(Into::into).collect(),
 			ir.outer_enums.into(),
-			// Substrate does not collect yet the custom metadata fields.
-			// This allows us to extend the V15 easily.
-			CustomMetadata { map: Default::default() },
+			CustomMetadata {
+				map: [(
+					TRANSACTION_EXTENSIONS_BY_VERSION.into(),
+					CustomValueMetadata {
+						ty: meta_type::<TrasactionExtensionsByVersion>(),
+						value: transaction_extensions_by_version.encode(),
+					},
+				)]
+				.into_iter()
+				.collect(),
+			},
 		)
 	}
 }
