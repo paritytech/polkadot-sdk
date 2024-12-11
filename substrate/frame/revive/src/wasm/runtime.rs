@@ -1336,33 +1336,30 @@ pub mod env {
 		out_ptr: u32,
 		offset: u32,
 	) -> Result<(), TrapReason> {
-		if let Some(input) = self.input_data.take() {
-			self.charge_gas(RuntimeCosts::CallDataLoad)?;
+		self.charge_gas(RuntimeCosts::CallDataLoad)?;
 
-			let mut data = [0; 32];
-			let len = input.len();
-			let start = offset as usize;
-			let data = &if start > len {
-				data // Any index is valid to request; OOB offsets return zero.
-			} else {
-				let mut end = start.saturating_add(32);
-				if end > len {
-					end = len;
-				}
-				data[..end - start].copy_from_slice(&input[start..end]);
-				data.reverse();
-				data // Solidity expects right-padded data
-			};
+		let Some(input) = self.input_data.as_ref() else {
+			return Err(Error::<E::T>::InputForwarded.into());
+		};
 
-			let write_outcome =
-				self.write_fixed_sandbox_output(memory, out_ptr, data, false, already_charged);
-
-			self.input_data = Some(input);
-
-			Ok(write_outcome?)
+		let mut data = [0; 32];
+		let len = input.len();
+		let start = offset as usize;
+		let data = if start > len {
+			data // Any index is valid to request; OOB offsets return zero.
 		} else {
-			Err(Error::<E::T>::InputForwarded.into())
-		}
+			let mut end = start.saturating_add(32);
+			if end > len {
+				end = len;
+			}
+			data[..end - start].copy_from_slice(&input[start..end]);
+			data.reverse();
+			data // Solidity expects right-padded data
+		};
+
+		self.write_fixed_sandbox_output(memory, out_ptr, &data, false, already_charged)?;
+
+		Ok(())
 	}
 
 	/// Cease contract execution and save a data buffer as a result of the execution.
