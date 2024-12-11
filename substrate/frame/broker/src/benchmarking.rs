@@ -842,8 +842,8 @@ mod benches {
 		})?;
 
 		// Advance to the block before the rotate_sale in which the auto-renewals will take place.
-		let rotate_block = timeslice_period.saturating_mul(config.region_length).saturating_mul(2);
-		advance_to::<T>(rotate_block);
+		let rotate_block = timeslice_period.saturating_mul(config.region_length) - 2;
+		advance_to::<T>(rotate_block - 1);
 
 		// Advance one block and manually tick so we can isolate the `rotate_sale` call.
 		System::<T>::set_block_number(rotate_block.into());
@@ -852,7 +852,7 @@ mod benches {
 		let sale = SaleInfo::<T>::get().expect("Sale has started.");
 		Broker::<T>::process_core_count(&mut status);
 		Broker::<T>::process_revenue();
-		status.last_committed_timeslice = config.region_length.saturating_mul(2);
+		status.last_committed_timeslice = config.region_length;
 
 		#[block]
 		{
@@ -863,10 +863,11 @@ mod benches {
 		let new_prices = T::PriceAdapter::adapt_price(SalePerformance::from_sale(&sale));
 		let new_sale = SaleInfo::<T>::get().expect("Sale has started.");
 		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
+		let sale_start = config.interlude_length.saturating_add(rotate_block.into());
 
 		assert_has_event::<T>(
 			Event::SaleInitialized {
-				sale_start: (rotate_block + 1).into(), // sale starts after interlude
+				sale_start,
 				leadin_length: 1u32.into(),
 				start_price: Broker::<T>::sale_price(&new_sale, now),
 				end_price: new_prices.end_price,
@@ -892,8 +893,8 @@ mod benches {
 					who,
 					old_core: n_reservations as u16 + n_leases as u16 + indx as u16,
 					core: n_reservations as u16 + n_leases as u16 + indx as u16,
-					price: 11_000_000u32.into(), // Renewal bump from config.
-					begin: sale.region_begin,
+					price: 10_000_000u32.into(),
+					begin: new_sale.region_begin,
 					duration: config.region_length,
 					workload: Schedule::truncate_from(vec![ScheduleItem {
 						assignment: Task(task),
