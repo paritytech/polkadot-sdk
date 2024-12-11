@@ -26,24 +26,21 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn set_config_with_block_number() -> Result<(), BenchmarkError> {
+	fn set_config_with_block_number() {
 		#[extrinsic_call]
 		set_code_retention_period(RawOrigin::Root, One::one());
-		Ok(())
 	}
 
 	#[benchmark]
-	fn set_config_with_u32() -> Result<(), BenchmarkError> {
+	fn set_config_with_u32() {
 		#[extrinsic_call]
 		set_max_code_size(RawOrigin::Root, 100);
-		Ok(())
 	}
 
 	#[benchmark]
-	fn set_config_with_option_u32() -> Result<(), BenchmarkError> {
+	fn set_config_with_option_u32() {
 		#[extrinsic_call]
 		set_max_validators(RawOrigin::Root, Some(10));
-		Ok(())
 	}
 
 	#[benchmark]
@@ -58,14 +55,13 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn set_config_with_balance() -> Result<(), BenchmarkError> {
+	fn set_config_with_balance() {
 		#[extrinsic_call]
 		set_hrmp_sender_deposit(RawOrigin::Root, 100_000_000_000);
-		Ok(())
 	}
 
 	#[benchmark]
-	fn set_config_with_executor_params() -> Result<(), BenchmarkError> {
+	fn set_config_with_executor_params() {
 		#[extrinsic_call]
 		set_executor_params(
 			RawOrigin::Root,
@@ -83,28 +79,24 @@ mod benchmarks {
 				][..],
 			),
 		);
-		Ok(())
 	}
 
 	#[benchmark]
-	fn set_config_with_perbill() -> Result<(), BenchmarkError> {
+	fn set_config_with_perbill() {
 		#[extrinsic_call]
 		set_on_demand_fee_variability(RawOrigin::Root, Perbill::from_percent(100));
-		Ok(())
 	}
 
 	#[benchmark]
-	fn set_node_feature() -> Result<(), BenchmarkError> {
+	fn set_node_feature() {
 		#[extrinsic_call]
 		set_node_feature(RawOrigin::Root, 255, true);
-		Ok(())
 	}
 
 	#[benchmark]
-	fn set_config_with_scheduler_params() -> Result<(), BenchmarkError> {
+	fn set_config_with_scheduler_params() {
 		#[extrinsic_call]
 		set_scheduler_params(RawOrigin::Root, SchedulerParams::default());
-		Ok(())
 	}
 
 	impl_benchmark_test_suite!(
