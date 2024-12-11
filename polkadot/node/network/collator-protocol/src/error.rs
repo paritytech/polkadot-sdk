@@ -100,9 +100,7 @@ impl SecondingError {
 		use SecondingError::*;
 		matches!(
 			self,
-			PersistedValidationDataMismatch |
-				CandidateHashMismatch |
-				Duplicate | ParentHeadDataMismatch
+			PersistedValidationDataMismatch | CandidateHashMismatch | ParentHeadDataMismatch
 		)
 	}
 }
