@@ -303,6 +303,7 @@ impl pallet_identity::Config for Test {
 	type MaxSuffixLength = ConstU32<7>;
 	type MaxUsernameLength = ConstU32<32>;
 	type WeightInfo = ();
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 impl identity_migrator::Config for Test {
