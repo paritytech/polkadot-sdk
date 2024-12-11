@@ -907,7 +907,10 @@ fn impl_runtime_apis_impl_inner(
 	let c = generate_crate_access();
 
 	let impl_ = quote!(
-		#(#uses)*
+		#(
+			#[allow(unused_imports)]
+			#uses
+		)*
 
 		#base_runtime_api
 
