@@ -90,10 +90,15 @@ where
 
 	let session_index = crate::shared::CurrentSessionIndex::<T>::get();
 	let session_info = crate::session_info::Sessions::<T>::get(session_index);
-	let session_info = session_info.unwrap();
-	let validator_id = session_info.validators.get(ValidatorIndex::from(0)).unwrap().clone();
+	let session_info = session_info.expect("Session info not found");
+	let validator_id = session_info
+		.validators
+		.get(ValidatorIndex::from(0))
+		.expect("Validator not found")
+		.clone();
 	let key = (PARACHAIN_KEY_TYPE_ID, validator_id.clone());
-	let key_owner_proof = pallet_session::historical::Pallet::<T>::prove(key).unwrap();
+	let key_owner_proof =
+		pallet_session::historical::Pallet::<T>::prove(key).expect("Key owner proof not found");
 
 	// rotate a session to make sure `key_owner_proof` is historical
 	initializer::Pallet::<T>::on_initialize(BlockNumberFor::<T>::one());
