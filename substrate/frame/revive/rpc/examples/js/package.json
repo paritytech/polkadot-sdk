@@ -9,10 +9,10 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
+		"@parity/revive": "^0.0.5",
 		"ethers": "^6.13.4",
 		"solc": "^0.8.28",
-		"viem": "^2.21.47",
-		"@parity/revive": "^0.0.5"
+		"viem": "^2.21.47"
 	},
 	"devDependencies": {
 		"prettier": "^3.3.3",
