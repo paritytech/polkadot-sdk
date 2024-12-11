@@ -140,7 +140,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn set_asset_claimer() -> Result<(), BenchmarkError> {
+	fn asset_claimer() -> Result<(), BenchmarkError> {
 		let mut executor = new_executor::<T>(Default::default());
 		let (_, sender_location) = account_and_location::<T>(1);
 
