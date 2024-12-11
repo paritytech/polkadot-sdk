@@ -24,7 +24,7 @@ use sp_runtime::transaction_validity::TransactionSource;
 use std::sync::Arc;
 use substrate_test_runtime_client::{
 	runtime::{Block, Hash, Header},
-	AccountKeyring::*,
+	Sr25519Keyring::*,
 };
 use substrate_test_runtime_transaction_pool::{uxt, TestApi};
 pub const LOG_TARGET: &str = "txpool";

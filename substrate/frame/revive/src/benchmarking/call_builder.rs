@@ -45,7 +45,7 @@ pub struct CallSetup<T: Config> {
 
 impl<T> Default for CallSetup<T>
 where
-	T: Config + pallet_balances::Config,
+	T: Config,
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
 	T::Hash: frame_support::traits::IsType<H256>,
@@ -57,7 +57,7 @@ where
 
 impl<T> CallSetup<T>
 where
-	T: Config + pallet_balances::Config,
+	T: Config,
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
 	T::Hash: frame_support::traits::IsType<H256>,
