@@ -35,9 +35,9 @@ crates:
 - name: westend-runtime
   bump: minor
 - name: sp-staking
-  bump: major
-- name: polkadot-runtime-common
   bump: minor
+- name: polkadot-runtime-common
+  bump: patch
 - name: pallet-fast-unstake
   bump: patch
 - name: pallet-babe
@@ -51,6 +51,6 @@ crates:
 - name: pallet-root-offences
   bump: patch
 - name: polkadot-runtime-parachains
-  bump: minor
+  bump: major
 - name: rococo-runtime
-  bump: minor
+  bump: patch
