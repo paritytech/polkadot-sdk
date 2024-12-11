@@ -129,22 +129,18 @@ impl RuntimeResolver for DefaultRuntimeResolver {
 	}
 }
 
-/// Inspect runtime metadata.
-pub struct MetadataInspector(Metadata);
+struct MetadataInspector(Metadata);
 
 impl MetadataInspector {
-	/// Creates an instance of `MetadataInspector`.
-	pub fn new(chain_spec: &dyn ChainSpec) -> Result<MetadataInspector, sc_cli::Error> {
+	fn new(chain_spec: &dyn ChainSpec) -> Result<MetadataInspector, sc_cli::Error> {
 		MetadataInspector::fetch_metadata(chain_spec).map(MetadataInspector)
 	}
 
-	/// Checks if pallet exists in runtime's metadata based on pallet name.
-	pub fn pallet_exists(&self, name: &str) -> bool {
+	fn pallet_exists(&self, name: &str) -> bool {
 		self.0.pallet_by_name(name).is_some()
 	}
 
-	/// Get the configured runtime's block number type from `frame-system` pallet storage.
-	pub fn block_number(&self) -> Option<BlockNumber> {
+	fn block_number(&self) -> Option<BlockNumber> {
 		let pallet_metadata = self.0.pallet_by_name(DEFAULT_FRAME_SYSTEM_PALLET_NAME);
 		pallet_metadata
 			.and_then(|inner| inner.storage())
@@ -157,8 +153,7 @@ impl MetadataInspector {
 			.and_then(|portable_type| BlockNumber::from_type_def(&portable_type.type_def))
 	}
 
-	/// Get the runtime metadata from a wasm blob existing in a chain spec.
-	pub fn fetch_metadata(chain_spec: &dyn ChainSpec) -> Result<Metadata, sc_cli::Error> {
+	fn fetch_metadata(chain_spec: &dyn ChainSpec) -> Result<Metadata, sc_cli::Error> {
 		let mut storage = chain_spec.build_storage()?;
 		let code_bytes = storage
 			.top
