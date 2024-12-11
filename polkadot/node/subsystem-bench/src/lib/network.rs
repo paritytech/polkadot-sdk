@@ -152,7 +152,6 @@ impl RateLimit {
 
 /// A wrapper for both gossip and request/response protocols along with the destination
 /// peer(`AuthorityDiscoveryId``).
-#[derive(Debug)]
 pub enum NetworkMessage {
 	/// A gossip message from peer to node.
 	MessageFromPeer(PeerId, VersionedValidationProtocol),
@@ -441,7 +440,7 @@ pub struct EmulatedPeerHandle {
 	messages_tx: UnboundedSender<NetworkMessage>,
 	/// Send actions to be performed by the peer.
 	actions_tx: UnboundedSender<NetworkMessage>,
-	pub peer_id: PeerId,
+	peer_id: PeerId,
 	authority_id: AuthorityDiscoveryId,
 }
 
@@ -700,7 +699,7 @@ impl PeerEmulatorStats {
 
 /// The state of a peer on the emulated network.
 #[derive(Clone)]
-pub enum Peer {
+enum Peer {
 	Connected(EmulatedPeerHandle),
 	Disconnected(EmulatedPeerHandle),
 }
@@ -725,13 +724,6 @@ impl Peer {
 		}
 	}
 
-	pub fn handle_mut(&mut self) -> &mut EmulatedPeerHandle {
-		match self {
-			Peer::Connected(ref mut emulator) => emulator,
-			Peer::Disconnected(ref mut emulator) => emulator,
-		}
-	}
-
 	pub fn authority_id(&self) -> AuthorityDiscoveryId {
 		match self {
 			Peer::Connected(handle) | Peer::Disconnected(handle) => handle.authority_id.clone(),
@@ -749,7 +741,7 @@ impl Peer {
 #[derive(Clone)]
 pub struct NetworkEmulatorHandle {
 	// Per peer network emulation.
-	pub peers: Vec<Peer>,
+	peers: Vec<Peer>,
 	/// Per peer stats.
 	stats: Vec<Arc<PeerEmulatorStats>>,
 	/// Each emulated peer is a validator.

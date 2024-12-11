@@ -45,7 +45,7 @@ mod validator_discovery;
 ///
 /// Defines the `Network` trait with an implementation for an `Arc<NetworkService>`.
 mod network;
-pub use self::network::Network;
+use self::network::Network;
 
 mod metrics;
 pub use self::metrics::Metrics;

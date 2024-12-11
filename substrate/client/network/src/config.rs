@@ -780,7 +780,7 @@ pub struct FullNetworkConfiguration<B: BlockT + 'static, H: ExHashT, N: NetworkB
 	pub(crate) notification_protocols: Vec<N::NotificationProtocolConfig>,
 
 	/// List of request-response protocols that the node supports.
-	pub request_response_protocols: Vec<N::RequestResponseProtocolConfig>,
+	pub(crate) request_response_protocols: Vec<N::RequestResponseProtocolConfig>,
 
 	/// Network configuration.
 	pub network_config: NetworkConfiguration,
