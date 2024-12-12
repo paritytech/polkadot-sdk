@@ -168,11 +168,7 @@ impl<T: Config> GasMeter<T> {
 		}
 	}
 
-	/// Create a new gas meter by removing gas from the current meter.
-	///
-	/// # Note
-	///
-	/// Passing `0` as amount is interpreted as "all remaining gas".
+	/// Create a new gas meter for a nested call by removing gas from the current meter.
 	pub fn nested(&mut self, amount: Weight) -> Self {
 		let amount = Weight::from_parts(
 			if amount.ref_time().is_zero() {
@@ -390,6 +386,47 @@ mod tests {
 	fn refuse_to_execute_anything_if_zero() {
 		let mut gas_meter = GasMeter::<Test>::new(Weight::zero());
 		assert!(gas_meter.charge(SimpleToken(1)).is_err());
+	}
+
+	#[test]
+	/// Currently, passing a `Weight` of 0 to `nested` will consume all of the meter's current gas.
+	fn nested_zero_gas_requested() {
+		let test_weight = 50000.into();
+		let mut gas_meter = GasMeter::<Test>::new(test_weight);
+		let gas_for_nested_call = gas_meter.nested(0.into());
+
+		assert_eq!(gas_meter.gas_left(), 0.into());
+		assert_eq!(gas_for_nested_call.gas_left(), test_weight)
+	}
+
+	#[test]
+	fn nested_some_gas_requested() {
+		let test_weight = 50000.into();
+		let mut gas_meter = GasMeter::<Test>::new(test_weight);
+		let gas_for_nested_call = gas_meter.nested(10000.into());
+
+		assert_eq!(gas_meter.gas_left(), 40000.into());
+		assert_eq!(gas_for_nested_call.gas_left(), 10000.into())
+	}
+
+	#[test]
+	fn nested_all_gas_requested() {
+		let test_weight = Weight::from_parts(50000, 50000);
+		let mut gas_meter = GasMeter::<Test>::new(test_weight);
+		let gas_for_nested_call = gas_meter.nested(test_weight);
+
+		assert_eq!(gas_meter.gas_left(), Weight::from_parts(0, 0));
+		assert_eq!(gas_for_nested_call.gas_left(), test_weight)
+	}
+
+	#[test]
+	fn nested_excess_gas_requested() {
+		let test_weight = Weight::from_parts(50000, 50000);
+		let mut gas_meter = GasMeter::<Test>::new(test_weight);
+		let gas_for_nested_call = gas_meter.nested(test_weight + 10000.into());
+
+		assert_eq!(gas_meter.gas_left(), Weight::from_parts(0, 0));
+		assert_eq!(gas_for_nested_call.gas_left(), test_weight)
 	}
 
 	// Make sure that the gas meter does not charge in case of overcharge
