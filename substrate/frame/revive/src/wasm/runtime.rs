@@ -269,6 +269,8 @@ pub enum RuntimeCosts {
 	CopyToContract(u32),
 	/// Weight of calling `seal_caller`.
 	Caller,
+	/// Weight of calling `seal_call_data_size`.
+	CallDataSize,
 	/// Weight of calling `seal_origin`.
 	Origin,
 	/// Weight of calling `seal_is_contract`.
@@ -429,6 +431,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			HostFn => cost_args!(noop_host_fn, 1),
 			CopyToContract(len) => T::WeightInfo::seal_input(len),
 			CopyFromContract(len) => T::WeightInfo::seal_return(len),
+			CallDataSize => T::WeightInfo::seal_call_data_size(),
 			Caller => T::WeightInfo::seal_caller(),
 			Origin => T::WeightInfo::seal_origin(),
 			IsContract => T::WeightInfo::seal_is_contract(),
@@ -1294,6 +1297,22 @@ pub mod env {
 			output_len_ptr,
 			salt_ptr,
 		)
+	}
+
+	/// Returns the total size of the contract call input data.
+	/// See [`pallet_revive_uapi::HostFn::terminate`].
+	#[stable]
+	fn call_data_size(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::CallDataSize)?;
+		let value =
+			U256::from(self.input_data.as_ref().map(|input| input.len()).unwrap_or_default());
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&value.to_little_endian(),
+			false,
+			already_charged,
+		)?)
 	}
 
 	/// Remove the calling account and transfer remaining **free** balance.

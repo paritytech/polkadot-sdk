@@ -82,6 +82,7 @@ pub trait WeightInfo {
 	fn seal_minimum_balance() -> Weight;
 	fn seal_block_number() -> Weight;
 	fn seal_block_hash() -> Weight;
+	fn seal_call_data_size() -> Weight;
 	fn seal_now() -> Weight;
 	fn seal_weight_to_fee() -> Weight;
 	fn seal_input(n: u32, ) -> Weight;
@@ -495,6 +496,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `System::BlockHash` (r:1 w:0)
 	/// Proof: `System::BlockHash` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `Measured`)
 	fn seal_block_hash() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `30`
+		//  Estimated: `3495`
+		// Minimum execution time: 3_502_000 picoseconds.
+		Weight::from_parts(3_777_000, 3495)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+	}
+	/// Storage: `System::BlockHash` (r:1 w:0)
+	/// Proof: `System::BlockHash` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `Measured`)
+	fn seal_call_data_size() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `30`
 		//  Estimated: `3495`
@@ -1322,6 +1333,16 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 213_000 picoseconds.
 		Weight::from_parts(270_000, 0)
+	}
+	/// Storage: `System::BlockHash` (r:1 w:0)
+	/// Proof: `System::BlockHash` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `Measured`)
+	fn seal_call_data_size() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `30`
+		//  Estimated: `3495`
+		// Minimum execution time: 3_502_000 picoseconds.
+		Weight::from_parts(3_777_000, 3495)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
 	}
 	/// Storage: `System::BlockHash` (r:1 w:0)
 	/// Proof: `System::BlockHash` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `Measured`)

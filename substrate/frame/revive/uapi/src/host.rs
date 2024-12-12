@@ -98,6 +98,13 @@ pub trait HostFn: private::Sealed {
 	/// Returns the [EIP-155](https://eips.ethereum.org/EIPS/eip-155) chain ID.
 	fn chain_id(output: &mut [u8; 32]);
 
+	/// Stores the call data size as little endian U256 value into the supplied buffer.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the output data buffer to write the call data size.
+	fn call_data_size(output: &mut [u8; 32]);
+
 	/// Stores the current block number of the current contract into the supplied buffer.
 	///
 	/// # Parameters
