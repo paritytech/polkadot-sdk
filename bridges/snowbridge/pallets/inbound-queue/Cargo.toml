@@ -20,8 +20,7 @@ codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 hex-literal = { optional = true, workspace = true, default-features = true }
 log = { workspace = true }
-alloy-primitives = { features = ["rlp"], workspace = true }
-alloy-sol-types = { workspace = true }
+alloy-core = { workspace = true, features = ["sol-types"] }
 
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
@@ -49,8 +48,7 @@ hex-literal = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
-	"alloy-primitives/std",
-	"alloy-sol-types/std",
+	"alloy-core/std",
 	"codec/std",
 	"frame-benchmarking/std",
 	"frame-support/std",
