@@ -60,6 +60,11 @@ impl<Inner: SendXcm> SendXcm for WithUniqueTopic<Inner> {
 		Inner::deliver(ticket)?;
 		Ok(unique_id)
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery(location: Option<Location>) {
+		Inner::ensure_successful_delivery(location);
+	}
 }
 impl<Inner: InspectMessageQueues> InspectMessageQueues for WithUniqueTopic<Inner> {
 	fn clear_messages() {
@@ -113,6 +118,11 @@ impl<Inner: SendXcm, TopicSource: SourceTopic> SendXcm for WithTopicSource<Inner
 		let (ticket, unique_id) = ticket;
 		Inner::deliver(ticket)?;
 		Ok(unique_id)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery(location: Option<Location>) {
+		Inner::ensure_successful_delivery(location);
 	}
 }
 
@@ -210,5 +220,10 @@ impl<Inner: SendXcm> SendXcm for EnsureDecodableXcm<Inner> {
 
 	fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
 		Inner::deliver(ticket)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery(location: Option<Location>) {
+		Inner::ensure_successful_delivery(location);
 	}
 }
