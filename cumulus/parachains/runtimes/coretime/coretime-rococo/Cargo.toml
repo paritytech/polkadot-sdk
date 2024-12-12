@@ -5,6 +5,8 @@ authors.workspace = true
 edition.workspace = true
 description = "Rococo's Coretime parachain runtime"
 license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -80,6 +82,9 @@ parachain-info = { workspace = true }
 parachains-common = { workspace = true }
 testnet-parachains-constants = { features = ["rococo"], workspace = true }
 
+[dev-dependencies]
+parachains-runtimes-test-utils = { workspace = true }
+
 [features]
 default = ["std"]
 std = [
@@ -120,6 +125,7 @@ std = [
 	"pallet-xcm/std",
 	"parachain-info/std",
 	"parachains-common/std",
+	"parachains-runtimes-test-utils/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-common/std",
 	"rococo-runtime-constants/std",
@@ -174,6 +180,7 @@ runtime-benchmarks = [
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 
 try-runtime = [

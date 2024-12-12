@@ -170,8 +170,8 @@ pub struct ExtrinsicMetadataIR<T: Form = MetaForm> {
 	///
 	/// Note: Field used for metadata V14 only.
 	pub ty: T::Type,
-	/// Extrinsic version.
-	pub version: u8,
+	/// Extrinsic versions.
+	pub versions: Vec<u8>,
 	/// The type of the address that signs the extrinsic
 	pub address_ty: T::Type,
 	/// The type of the outermost Call enum.
@@ -191,7 +191,7 @@ impl IntoPortable for ExtrinsicMetadataIR {
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
 		ExtrinsicMetadataIR {
 			ty: registry.register_type(&self.ty),
-			version: self.version,
+			versions: self.versions,
 			address_ty: registry.register_type(&self.address_ty),
 			call_ty: registry.register_type(&self.call_ty),
 			signature_ty: registry.register_type(&self.signature_ty),
