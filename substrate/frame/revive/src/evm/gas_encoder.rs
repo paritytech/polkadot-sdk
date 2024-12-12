@@ -56,7 +56,7 @@ where
 
 impl<Balance> EthGasEncoder<Balance>
 where
-	Balance: Copy + AtLeast32BitUnsigned + TryFrom<U256> + Into<U256>,
+	Balance: Copy + AtLeast32BitUnsigned + TryFrom<U256> + Into<U256> + Debug,
 {
 	/// Returns the maximum reference time that can be encoded.
 	fn max_ref_time(&self) -> u64 {
@@ -79,6 +79,10 @@ where
 		let proof_size_mask = max_weight.proof_size() / SCALE;
 		let deposit_mask = max_deposit_limit / (SCALE as u32).into();
 		let raw_gas_mask = SCALE.pow(3) as _;
+
+		log::debug!(
+			target: LOG_TARGET,
+			"Creating gas encoder: ref_time_mask={ref_time_mask:?}, proof_size_mask={proof_size_mask:?}, deposit_mask={deposit_mask:?}");
 
 		Self { raw_gas_mask, ref_time_mask, proof_size_mask, deposit_mask }
 	}
@@ -110,10 +114,13 @@ where
 		let ref_time_component = round_up(ref_time, self.ref_time_mask);
 		let proof_size_component = round_up(proof_size, self.proof_size_mask);
 
-		Ok(U256::from(raw_gas_component)
+		let encoded = U256::from(raw_gas_component)
 			.saturating_add(deposit_component.into())
 			.saturating_add(U256::from(SCALE) * U256::from(proof_size_component))
-			.saturating_add(U256::from(SCALE.pow(2)) * U256::from(ref_time_component)))
+			.saturating_add(U256::from(SCALE.pow(2)) * U256::from(ref_time_component));
+
+		log::debug!(target: LOG_TARGET, "Encoding: gas_limit={gas_limit:?}, weight={weight:?}, deposit={deposit:?} in {encoded:?}");
+		Ok(encoded)
 	}
 
 	/// Decodes the weight and deposit from the encoded gas value.
@@ -126,13 +133,14 @@ where
 		let proof_time: u64 = ((gas_without_deposit / SCALE) % SCALE).as_u64();
 		let ref_time: u64 = ((gas_without_deposit / SCALE.pow(2)) % SCALE).as_u64();
 
-		(
-			Weight::from_parts(
-				ref_time.saturating_mul(self.proof_size_mask),
-				proof_time.saturating_mul(self.ref_time_mask),
-			),
-			deposit.saturating_mul(self.deposit_mask),
-		)
+		let weight = Weight::from_parts(
+			ref_time.saturating_mul(self.proof_size_mask),
+			proof_time.saturating_mul(self.ref_time_mask),
+		);
+		let deposit = deposit.saturating_mul(self.deposit_mask);
+
+		log::debug!(target: LOG_TARGET, "Decoding: gas: {gas:?} into weight={weight:?}, deposit={deposit:?}");
+		(weight, deposit)
 	}
 }
 
