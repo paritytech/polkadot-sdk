@@ -15,6 +15,7 @@ use crate::{
 	chain_spec,
 	cli::{Cli, RelayChainCli, Subcommand},
 	service::new_partial,
+	sc_service::PartialComponents,
 };
 
 fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
@@ -213,6 +214,14 @@ pub fn run() -> Result<()> {
 				#[allow(unreachable_patterns)]
 				_ => Err("Benchmarking sub-command unsupported".into()),
 			}
+		},
+		Some(Subcommand::PrecompileWasm(cmd)) => {
+			let runner = cli.create_runner(cmd)?;
+			runner.async_run(|config| {
+				let PartialComponents { task_manager, backend, .. } =
+					new_partial(&config)?;
+				Ok((cmd.run(backend, config.chain_spec), task_manager))
+			})
 		},
 		None => {
 			let runner = cli.create_runner(&cli.run.normalize())?;

@@ -89,7 +89,7 @@ pub fn new_partial(config: &Configuration) -> Result<Service, sc_service::Error>
 		.with_offchain_heap_alloc_strategy(heap_pages)
 		.with_max_runtime_instances(config.executor.max_runtime_instances)
 		.with_runtime_cache_size(config.executor.runtime_cache_size)
-		.with_optional_wasmtime_precompiled_path(config.wasmtime_precompiled.as_ref())
+		.with_optional_wasmtime_precompiled_path(config.executor.wasmtime_precompiled.as_ref())
 		.build();
 
 	let (client, backend, keystore_container, task_manager) =
