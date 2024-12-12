@@ -21,12 +21,11 @@
 
 extern crate alloc;
 use super::*;
-use frame::benchmarking::prelude::*;
+use frame::benchmarking::prelude::{*, frame_system::Call as SystemCall};
 
 #[allow(unused)]
 use crate::{extension::VerifySignature, Config, Pallet as VerifySignaturePallet};
 use alloc::vec;
-use frame_system::Call as SystemCall;
 
 pub trait BenchmarkHelper<Signature, Signer> {
 	fn create_signature(entropy: &[u8], msg: &[u8]) -> (Signature, Signer);
