@@ -1,7 +1,7 @@
-use alloy_primitives::FixedBytes;
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use crate::{mock::*, *};
+use alloy_core::primitives::FixedBytes;
 
 use frame_support::{
 	assert_err, assert_noop, assert_ok,
@@ -257,7 +257,7 @@ fn encode_mock_message() {
 		.map(|command| CommandWrapper {
 			kind: command.index(),
 			gas: <Test as Config>::GasMeter::maximum_dispatch_gas_used_at_most(&command),
-			payload: command.abi_encode(),
+			payload: Bytes::from(command.abi_encode()),
 		})
 		.collect();
 
