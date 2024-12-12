@@ -516,6 +516,7 @@ impl OverheadCmd {
 				no_genesis: false,
 				wasm_runtime_substitutes: Default::default(),
 				enable_import_proof_recording: chain_type.requires_proof_recording(),
+				wasmtime_precompiled: None,
 			},
 		)?);
 

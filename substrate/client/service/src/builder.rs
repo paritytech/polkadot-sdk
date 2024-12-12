@@ -256,7 +256,7 @@ where
 			ClientConfig {
 				offchain_worker_enabled: config.offchain_worker.enabled,
 				offchain_indexing_api: config.offchain_worker.indexing_enabled,
-				wasmtime_precompiled: config.wasmtime_precompiled.clone(),
+				wasmtime_precompiled: config.executor.wasmtime_precompiled.clone(),
 				wasm_runtime_overrides: config.wasm_runtime_overrides.clone(),
 				no_genesis: config.no_genesis(),
 				wasm_runtime_substitutes,

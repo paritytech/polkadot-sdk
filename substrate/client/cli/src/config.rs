@@ -542,6 +542,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 				default_heap_pages: self.default_heap_pages()?,
 				max_runtime_instances,
 				runtime_cache_size,
+				wasmtime_precompiled: self.wasmtime_precompiled(),
 			},
 			wasm_runtime_overrides: self.wasm_runtime_overrides(),
 			rpc: RpcConfiguration {

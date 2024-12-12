@@ -349,6 +349,7 @@ impl Default for ExecutorConfiguration {
 			max_runtime_instances: 8,
 			default_heap_pages: None,
 			runtime_cache_size: 2,
+			wasmtime_precompiled: None,
 		}
 	}
 }
