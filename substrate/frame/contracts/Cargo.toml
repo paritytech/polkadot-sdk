@@ -111,6 +111,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"wasm-instrument",
 	"xcm-builder/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

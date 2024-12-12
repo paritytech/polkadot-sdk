@@ -41,4 +41,16 @@ std = [
 	"serde/std",
 	"sp-weights/std",
 ]
+<<<<<<< HEAD
 json-schema = ["bounded-collections/json-schema", "dep:schemars", "sp-weights/json-schema"]
+=======
+json-schema = [
+	"bounded-collections/json-schema",
+	"dep:schemars",
+	"sp-weights/json-schema",
+]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
+>>>>>>> c10e25aa (dmp: Check that the para exist before delivering a message (#6604))
