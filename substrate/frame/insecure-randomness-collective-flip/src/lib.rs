@@ -86,7 +86,6 @@ pub use pallet::*;
 #[frame::pallet]
 pub mod pallet {
 	use super::*;
-	//use frame_support::pallet_prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -164,17 +163,6 @@ mod tests {
 	use super::*;
 	use crate as pallet_insecure_randomness_collective_flip;
 	use frame::testing_prelude::*;
-
-	/*
-	use sp_core::H256;
-	use sp_runtime::{traits::Header as _, BuildStorage};
-
-	use frame_support::{
-		derive_impl, parameter_types,
-		traits::{OnInitialize, Randomness},
-	};
-	use frame_system::limits;
-	*/
 
 	type Block = frame_system::mocking::MockBlock<Test>;
 
