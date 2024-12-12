@@ -6,10 +6,7 @@ use crate::{Config, MessageLeaves};
 use frame_support::storage::StorageStreamIter;
 use snowbridge_merkle_tree::{merkle_proof, MerkleProof};
 use snowbridge_outbound_primitives::{
-	v2::{
-		abi::{CommandWrapper, InboundMessage},
-		GasMeter, Message,
-	},
+	v2::{GasMeter, InboundCommandWrapper, InboundMessage, Message},
 	DryRunError,
 };
 use snowbridge_outbound_router_primitives::v2::convert::XcmConverter;
@@ -40,21 +37,21 @@ where
 
 	let fee = crate::Pallet::<T>::calculate_local_fee();
 
-	let commands: Vec<CommandWrapper> = message
+	let commands: Vec<InboundCommandWrapper> = message
 		.commands
 		.into_iter()
-		.map(|command| CommandWrapper {
+		.map(|command| InboundCommandWrapper {
 			kind: command.index(),
 			gas: T::GasMeter::maximum_dispatch_gas_used_at_most(&command),
 			payload: command.abi_encode(),
 		})
 		.collect();
 
-	let committed_message = InboundMessage {
+	let message = InboundMessage {
 		origin: message.origin,
 		nonce: Default::default(),
 		commands: commands.try_into().map_err(|_| DryRunError::ConvertXcmFailed)?,
 	};
 
-	Ok((committed_message, fee))
+	Ok((message, fee))
 }

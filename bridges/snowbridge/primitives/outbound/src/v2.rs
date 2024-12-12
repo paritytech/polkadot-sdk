@@ -15,18 +15,14 @@ use abi::{
 	CallContractParams, MintForeignTokenParams, RegisterForeignTokenParams, SetOperatingModeParams,
 	UnlockNativeTokenParams, UpgradeParams,
 };
-use alloy_primitives::{Address, FixedBytes, U256};
-use alloy_sol_types::SolValue;
+use alloy_core::{
+	primitives::{Address, Bytes, FixedBytes, U256},
+	sol_types::SolValue,
+};
 use xcm::prelude::Location;
 
 pub mod abi {
-	use super::MAX_COMMANDS;
-	use alloy_sol_types::sol;
-	use codec::{Decode, Encode};
-	use frame_support::BoundedVec;
-	use scale_info::TypeInfo;
-	use sp_core::{ConstU32, RuntimeDebug, H256};
-	use sp_std::vec::Vec;
+	use alloy_core::sol;
 
 	sol! {
 		struct InboundMessageWrapper {
@@ -38,7 +34,6 @@ pub mod abi {
 			CommandWrapper[] commands;
 		}
 
-		#[derive(Encode, Decode, RuntimeDebug, PartialEq,TypeInfo)]
 		struct CommandWrapper {
 			uint8 kind;
 			uint64 gas;
@@ -103,16 +98,23 @@ pub mod abi {
 			uint256 value;
 		}
 	}
+}
 
-	#[derive(Encode, Decode, TypeInfo, PartialEq, Clone, RuntimeDebug)]
-	pub struct InboundMessage {
-		/// Origin
-		pub origin: H256,
-		/// Nonce
-		pub nonce: u64,
-		/// Commands
-		pub commands: BoundedVec<CommandWrapper, ConstU32<MAX_COMMANDS>>,
-	}
+#[derive(Encode, Decode, TypeInfo, PartialEq, Clone, RuntimeDebug)]
+pub struct InboundCommandWrapper {
+	pub kind: u8,
+	pub gas: u64,
+	pub payload: Vec<u8>,
+}
+
+#[derive(Encode, Decode, TypeInfo, PartialEq, Clone, RuntimeDebug)]
+pub struct InboundMessage {
+	/// Origin
+	pub origin: H256,
+	/// Nonce
+	pub nonce: u64,
+	/// Commands
+	pub commands: BoundedVec<InboundCommandWrapper, ConstU32<MAX_COMMANDS>>,
 }
 
 pub const MAX_COMMANDS: u32 = 8;
@@ -213,7 +215,9 @@ impl Command {
 			Command::Upgrade { impl_address, impl_code_hash, initializer, .. } => UpgradeParams {
 				implAddress: Address::from(impl_address.as_fixed_bytes()),
 				implCodeHash: FixedBytes::from(impl_code_hash.as_fixed_bytes()),
-				initParams: initializer.clone().map_or(vec![], |i| i.params),
+				initParams: initializer
+					.clone()
+					.map_or(Bytes::from(vec![]), |i| Bytes::from(i.params)),
 			}
 			.abi_encode(),
 			Command::CreateAgent {} => vec![],
@@ -229,8 +233,8 @@ impl Command {
 			Command::RegisterForeignToken { token_id, name, symbol, decimals } =>
 				RegisterForeignTokenParams {
 					foreignTokenID: FixedBytes::from(token_id.as_fixed_bytes()),
-					name: name.to_vec(),
-					symbol: symbol.to_vec(),
+					name: Bytes::from(name.to_vec()),
+					symbol: Bytes::from(symbol.to_vec()),
 					decimals: *decimals,
 				}
 				.abi_encode(),
@@ -242,7 +246,7 @@ impl Command {
 			.abi_encode(),
 			Command::CallContract { target, data, value, .. } => CallContractParams {
 				target: Address::from(target.as_fixed_bytes()),
-				data: data.to_vec(),
+				data: Bytes::from(data.to_vec()),
 				value: U256::try_from(*value).unwrap(),
 			}
 			.abi_encode(),

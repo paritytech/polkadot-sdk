@@ -25057,8 +25057,7 @@ dependencies = [
 name = "snowbridge-outbound-primitives"
 version = "0.2.0"
 dependencies = [
- "alloy-primitives",
- "alloy-sol-types",
+ "alloy-core",
  "ethabi-decode 2.0.0",
  "frame-support 28.0.0",
  "frame-system 28.0.0",
@@ -25357,8 +25356,7 @@ dependencies = [
 name = "snowbridge-pallet-outbound-queue-v2"
 version = "0.2.0"
 dependencies = [
- "alloy-primitives",
- "alloy-sol-types",
+ "alloy-core",
  "bridge-hub-common 0.1.0",
  "ethabi-decode 2.0.0",
  "frame-benchmarking 28.0.0",

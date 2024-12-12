@@ -27,8 +27,7 @@ sp-core = { workspace = true }
 sp-arithmetic = { workspace = true }
 
 ethabi = { workspace = true }
-alloy-primitives = { features = ["rlp"], workspace = true }
-alloy-sol-types = { workspace = true }
+alloy-core = { workspace = true, features = ["sol-types"] }
 
 snowbridge-core = { workspace = true }
 
@@ -39,8 +38,7 @@ xcm-executor = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
-	"alloy-primitives/std",
-	"alloy-sol-types/std",
+	"alloy-core/std",
 	"codec/std",
 	"ethabi/std",
 	"frame-support/std",
