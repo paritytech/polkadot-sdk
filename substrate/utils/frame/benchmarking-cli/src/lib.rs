@@ -28,7 +28,14 @@ mod storage;
 pub use block::BlockCmd;
 pub use extrinsic::{ExtrinsicBuilder, ExtrinsicCmd, ExtrinsicFactory};
 pub use machine::{MachineCmd, SUBSTRATE_REFERENCE_HARDWARE};
+<<<<<<< HEAD
 pub use overhead::OverheadCmd;
+=======
+pub use overhead::{
+	remark_builder::{DynamicRemarkBuilder, SubstrateRemarkBuilder},
+	OpaqueBlock, OverheadCmd,
+};
+>>>>>>> 7cc5cdd0 (omni-node: add metadata checks for runtime/parachain compatibility (#6450))
 pub use pallet::PalletCmd;
 pub use sc_service::BasePath;
 pub use storage::StorageCmd;

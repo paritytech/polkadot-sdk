@@ -202,11 +202,16 @@ pub(crate) trait NodeSpec {
 	where
 		Net: NetworkBackend<Self::Block, Hash>,
 	{
+<<<<<<< HEAD:cumulus/polkadot-parachain/polkadot-parachain-lib/src/common/spec.rs
 		Box::pin(async move {
+=======
+		let fut = async move {
+>>>>>>> 7cc5cdd0 (omni-node: add metadata checks for runtime/parachain compatibility (#6450)):cumulus/polkadot-omni-node/lib/src/common/spec.rs
 			let parachain_config = prepare_node_config(parachain_config);
 
 			let params = Self::new_partial(&parachain_config)?;
 			let (block_import, mut telemetry, telemetry_worker_handle) = params.other;
+<<<<<<< HEAD:cumulus/polkadot-parachain/polkadot-parachain-lib/src/common/spec.rs
 
 			let client = params.client.clone();
 			let backend = params.backend.clone();
@@ -233,6 +238,32 @@ pub(crate) trait NodeSpec {
 			);
 
 			let (network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
+=======
+			let client = params.client.clone();
+			let backend = params.backend.clone();
+			let mut task_manager = params.task_manager;
+			let (relay_chain_interface, collator_key) = build_relay_chain_interface(
+				polkadot_config,
+				&parachain_config,
+				telemetry_worker_handle,
+				&mut task_manager,
+				collator_options.clone(),
+				hwbench.clone(),
+			)
+			.await
+			.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+
+			let validator = parachain_config.role.is_authority();
+			let prometheus_registry = parachain_config.prometheus_registry().cloned();
+			let transaction_pool = params.transaction_pool.clone();
+			let import_queue_service = params.import_queue.service();
+			let net_config = FullNetworkConfiguration::<_, _, Net>::new(
+				&parachain_config.network,
+				prometheus_registry.clone(),
+			);
+
+			let (network, system_rpc_tx, tx_handler_controller, sync_service) =
+>>>>>>> 7cc5cdd0 (omni-node: add metadata checks for runtime/parachain compatibility (#6450)):cumulus/polkadot-omni-node/lib/src/common/spec.rs
 				build_network(BuildNetworkParams {
 					parachain_config: &parachain_config,
 					net_config,
@@ -339,10 +370,23 @@ pub(crate) trait NodeSpec {
 				)?;
 			}
 
+<<<<<<< HEAD:cumulus/polkadot-parachain/polkadot-parachain-lib/src/common/spec.rs
 			start_network.start_network();
 
 			Ok(task_manager)
 		})
+=======
+			Ok(task_manager)
+		};
+
+		Box::pin(Instrument::instrument(
+			fut,
+			sc_tracing::tracing::info_span!(
+				sc_tracing::logging::PREFIX_LOG_SPAN,
+				name = "Parachain"
+			),
+		))
+>>>>>>> 7cc5cdd0 (omni-node: add metadata checks for runtime/parachain compatibility (#6450)):cumulus/polkadot-omni-node/lib/src/common/spec.rs
 	}
 }
 
