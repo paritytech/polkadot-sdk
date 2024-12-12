@@ -170,7 +170,7 @@ pub fn ethereum_outbound_queue_processes_messages_before_message_queue_works() {
 }
 
 fn construct_extrinsic(
-	sender: sp_keyring::AccountKeyring,
+	sender: sp_keyring::Sr25519Keyring,
 	call: RuntimeCall,
 ) -> UncheckedExtrinsic {
 	let account_id = AccountId32::from(sender.public());
@@ -196,7 +196,7 @@ fn construct_extrinsic(
 }
 
 fn construct_and_apply_extrinsic(
-	origin: sp_keyring::AccountKeyring,
+	origin: sp_keyring::Sr25519Keyring,
 	call: RuntimeCall,
 ) -> sp_runtime::DispatchOutcome {
 	let xt = construct_extrinsic(origin, call);
