@@ -1324,7 +1324,7 @@ pub mod env {
 
 	/// Stores the U256 value at given call input `offset` into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::call_data_load`].
-	#[api_version(0)]
+	#[stable]
 	fn call_data_load(
 		&mut self,
 		memory: &mut M,
