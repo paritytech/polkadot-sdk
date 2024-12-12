@@ -71,15 +71,8 @@
 use safe_mix::TripletMix;
 
 use codec::Encode;
-/*
-use frame_support::{pallet_prelude::Weight, traits::Randomness};
-use frame_system::pallet_prelude::BlockNumberFor;
-use sp_runtime::traits::{Hash, Saturating};
-*/
-use frame::{
-	prelude::*,
-	traits::{Hash, Randomness, Saturating},
-};
+use frame::prelude::*;
+
 const RANDOM_MATERIAL_LEN: u32 = 81;
 
 fn block_number_to_index<T: Config>(block_number: BlockNumberFor<T>) -> usize {
@@ -170,14 +163,7 @@ impl<T: Config> Randomness<T::Hash, BlockNumberFor<T>> for Pallet<T> {
 mod tests {
 	use super::*;
 	use crate as pallet_insecure_randomness_collective_flip;
-	use frame::{
-		runtime::{
-			prelude::{construct_runtime, derive_impl, parameter_types},
-			testing_prelude::BuildStorage,
-		},
-		testing_prelude::frame_system::limits,
-		traits::{Header, Randomness},
-	};
+	use frame::testing_prelude::*;
 
 	/*
 	use sp_core::H256;
