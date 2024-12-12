@@ -294,13 +294,13 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 		#crate_::std_enabled! {
 			/// Implements all runtime apis for the client side.
 			pub struct RuntimeApiImpl<Block: #crate_::BlockT, C: #crate_::CallApiAt<Block> + 'static> {
-				call: &'static C,
-				transaction_depth: std::cell::RefCell<u16>,
-				changes: std::cell::RefCell<#crate_::OverlayedChanges<#crate_::HashingFor<Block>>>,
-				recorder: std::option::Option<#crate_::ProofRecorder<Block>>,
-				call_context: #crate_::CallContext,
-				extensions: std::cell::RefCell<#crate_::Extensions>,
-				extensions_generated_for: std::cell::RefCell<std::option::Option<Block::Hash>>,
+				pub(crate) call: &'static C,
+				pub(crate) transaction_depth: std::cell::RefCell<u16>,
+				pub(crate) changes: std::cell::RefCell<#crate_::OverlayedChanges<#crate_::HashingFor<Block>>>,
+				pub(crate) recorder: std::option::Option<#crate_::ProofRecorder<Block>>,
+				pub(crate) call_context: #crate_::CallContext,
+				pub(crate) extensions: std::cell::RefCell<#crate_::Extensions>,
+				pub(crate) extensions_generated_for: std::cell::RefCell<std::option::Option<Block::Hash>>,
 			}
 
 			#[automatically_derived]
@@ -404,7 +404,7 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 			{
 				type RuntimeApi = RuntimeApiImpl<Block, C>;
 
-				fn construct_runtime_api<'a>(
+			fn construct_runtime_api<'a>(
 					call: &'a C,
 				) -> #crate_::ApiRef<'a, Self::RuntimeApi> {
 					RuntimeApiImpl {
@@ -421,7 +421,7 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 
 			#[automatically_derived]
 			impl<Block: #crate_::BlockT, C: #crate_::CallApiAt<Block>> RuntimeApiImpl<Block, C> {
-				fn commit_or_rollback_transaction(&self, commit: bool) {
+				pub(crate) fn commit_or_rollback_transaction(&self, commit: bool) {
 					let proof = "\
                     We only close a transaction when we opened one ourself.
                     Other parts of the runtime that make use of transactions (state-machine)
@@ -461,7 +461,7 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 					std::result::Result::expect(res, proof);
 				}
 
-				fn start_transaction(&self) {
+				pub(crate) fn start_transaction(&self) {
 					#crate_::OverlayedChanges::start_transaction(
 						&mut std::cell::RefCell::borrow_mut(&self.changes)
 					);
