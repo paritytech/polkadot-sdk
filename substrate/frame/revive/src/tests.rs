@@ -4354,7 +4354,7 @@ fn call_data_size_api_works() {
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 		// Call the contract: It echoes back the value returned by the call data size API.
-		let received = builder::bare_call(addr).build().result.unwrap();
+		let received = builder::bare_call(addr).build_and_unwrap_result();
 		assert_eq!(received.flags, ReturnFlags::empty());
 		assert_eq!(U256::from_little_endian(&received.data), U256::zero());
 
