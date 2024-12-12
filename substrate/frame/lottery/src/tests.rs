@@ -18,14 +18,10 @@
 //! Tests for the module.
 
 use super::*;
+use frame::testing_prelude::*;
 use mock::{
 	new_test_ext, run_to_block, Balances, BalancesCall, Lottery, RuntimeCall, RuntimeOrigin,
 	SystemCall, Test,
-};
-use frame::{
-	prelude::TokenError,
-	testing_prelude::{assert_noop, assert_ok, assert_storage_noop},
-	traits::BadOrigin,
 };
 
 #[test]

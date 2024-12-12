@@ -20,14 +20,7 @@
 use super::*;
 use crate as pallet_lottery;
 
-use frame::{
-	arithmetic::Perbill,
-	runtime::{
-		prelude::{construct_runtime, derive_impl, parameter_types, EnsureRoot},
-		testing_prelude::BuildStorage,
-	},
-	traits::ConstU32,
-};
+use frame::testing_prelude::*;
 use frame_support_test::TestRandomness;
 
 type Block = frame_system::mocking::MockBlock<Test>;

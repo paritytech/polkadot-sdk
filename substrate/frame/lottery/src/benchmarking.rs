@@ -23,11 +23,7 @@ use super::*;
 
 use crate::Pallet as Lottery;
 use alloc::{boxed::Box, vec};
-use frame::{
-	prelude::Bounded,
-	benchmarking::prelude::*,
-	traits::{EnsureOrigin, Zero},
-};
+use frame::benchmarking::prelude::*;
 // Set up and start a lottery
 fn setup_lottery<T: Config>(repeat: bool) -> Result<(), &'static str> {
 	let price = T::Currency::minimum_balance();

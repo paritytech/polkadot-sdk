@@ -59,20 +59,8 @@ extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode};
 use frame::{
-	deps::{
-		frame_support::{
-			dispatch::{DispatchResult, GetDispatchInfo},
-			ensure,
-			storage::bounded_vec::BoundedVec,
-			PalletId,
-		},
-		sp_runtime::{ArithmeticError, DispatchError, RuntimeDebug},
-	},
-	prelude::*,
-	traits::{
-		AccountIdConversion, Currency, Dispatchable, ExistenceRequirement::KeepAlive, Get,
-		Randomness, ReservableCurrency, Saturating, Zero,
-	},
+	runtime::prelude::*,
+	traits::{AccountIdConversion, Randomness},
 };
 pub use pallet::*;
 pub use weights::WeightInfo;
