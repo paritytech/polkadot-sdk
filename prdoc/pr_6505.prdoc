@@ -7,4 +7,4 @@ doc:
     Upon further investigation it turned out that the auto-renew contribution to `rotate_sale` was always failing but the error was mapped. This is also fixed at the cost of a bit of setup overhead.
 crates:
 - name: pallet-broker
-  bump: minor
+  bump: patch
