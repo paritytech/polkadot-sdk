@@ -7,6 +7,7 @@ license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
 description = "An Ethereum JSON-RPC server for pallet-revive."
+default-run = "eth-rpc"
 
 [[bin]]
 name = "eth-rpc"
@@ -45,7 +46,9 @@ jsonrpsee = { workspace = true, features = ["full"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 sp-crypto-hashing = { workspace = true }
-subxt = { workspace = true, default-features = true, features = ["reconnecting-rpc-client"] }
+subxt = { workspace = true, default-features = true, features = [
+	"reconnecting-rpc-client",
+] }
 tokio = { workspace = true, features = ["full"] }
 codec = { workspace = true, features = ["derive"] }
 log.workspace = true
@@ -68,6 +71,7 @@ hex-literal = { workspace = true, optional = true }
 scale-info = { workspace = true }
 secp256k1 = { workspace = true, optional = true, features = ["recovery"] }
 ethabi = { version = "18.0.0" }
+sqlx = { version = "0.8.2", features = ["macros", "runtime-tokio", "sqlite"] }
 
 [features]
 example = ["hex-literal", "rlp", "secp256k1", "subxt-signer"]
