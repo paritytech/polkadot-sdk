@@ -247,6 +247,11 @@ impl<T: Config> Pallet<T> {
 		} else {
 			None
 		};
+		let sale_index = if let Some(sale) = SaleInfo::<T>::get() {
+			sale.sale_index.saturating_add(1)
+		} else {
+			old_sale.sale_index
+		};
 
 		// Update SaleInfo
 		let new_sale = SaleInfoRecord {
@@ -260,6 +265,7 @@ impl<T: Config> Pallet<T> {
 			ideal_cores_sold,
 			cores_offered,
 			cores_sold: 0,
+			sale_index,
 		};
 
 		SaleInfo::<T>::put(&new_sale);
@@ -275,6 +281,7 @@ impl<T: Config> Pallet<T> {
 			region_end,
 			ideal_cores_sold,
 			cores_offered,
+			sale_index,
 		});
 
 		Some(())

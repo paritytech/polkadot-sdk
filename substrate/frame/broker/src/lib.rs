@@ -323,6 +323,8 @@ pub mod pallet {
 			ideal_cores_sold: CoreIndex,
 			/// Number of cores which are/have been offered for sale.
 			cores_offered: CoreIndex,
+			/// Identifier for the current sale
+			sale_index: u32,
 		},
 		/// A new lease has been created.
 		Leased {
