@@ -117,11 +117,11 @@ where
 				let address = Address::decode(input)?;
 				let signature = Signature::decode(input)?;
 				let ext = Extension::decode(input)?;
-				Self::Signed(address, signature, ext)
+				Self::Signed(address, signature, ext) // TODO TODO: decode using version
 			},
 			(EXTRINSIC_FORMAT_VERSION, GENERAL_EXTRINSIC) => {
 				let ext_version = ExtensionVersion::decode(input)?;
-				let ext = Extension::decode(input)?;
+				let ext = Extension::decode(input)?; // TODO TODO: decode using version
 				Self::General(ext_version, ext)
 			},
 			(_, _) => return Err("Invalid transaction version".into()),
