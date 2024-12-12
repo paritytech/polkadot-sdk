@@ -115,7 +115,7 @@ benchmarks! {
 		executor.bench_process(xcm)?;
 	} verify {}
 
-	set_asset_claimer {
+	asset_claimer {
 		let mut executor = new_executor::<T>(Default::default());
 		let (_, sender_location) = account_and_location::<T>(1);
 
