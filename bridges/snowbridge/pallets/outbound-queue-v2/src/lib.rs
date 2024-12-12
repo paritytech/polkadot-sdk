@@ -60,8 +60,10 @@ mod mock;
 #[cfg(test)]
 mod test;
 
-use alloy_primitives::FixedBytes;
-use alloy_sol_types::SolValue;
+use alloy_core::{
+	primitives::{Bytes, FixedBytes},
+	sol_types::SolValue,
+};
 use bridge_hub_common::{AggregateMessageOrigin, CustomDigestItem};
 use codec::Decode;
 use envelope::Envelope;
@@ -77,8 +79,8 @@ use snowbridge_core::{
 };
 use snowbridge_merkle_tree::merkle_root;
 use snowbridge_outbound_primitives::v2::{
-	abi::{CommandWrapper, InboundMessage, InboundMessageWrapper},
-	GasMeter, Message,
+	abi::{CommandWrapper, InboundMessageWrapper},
+	GasMeter, InboundCommandWrapper, InboundMessage, Message,
 };
 use sp_core::{H160, H256};
 use sp_runtime::{
@@ -326,41 +328,48 @@ pub mod pallet {
 				Yield
 			);
 
-			// Decode bytes into versioned message
-			let message: Message = Message::decode(&mut message).map_err(|_| Corrupt)?;
-
 			let nonce = Nonce::<T>::get();
 
-			let commands: Vec<CommandWrapper> = message
+			// Decode bytes into Message and
+			// a. Convert to InboundMessage and save into Messages
+			// b. Convert to committed hash and save into MessageLeaves
+			// c. Save nonce&fee into PendingOrders
+			let message: Message = Message::decode(&mut message).map_err(|_| Corrupt)?;
+			let commands: Vec<InboundCommandWrapper> = message
 				.commands
 				.clone()
 				.into_iter()
-				.map(|command| CommandWrapper {
+				.map(|command| InboundCommandWrapper {
 					kind: command.index(),
 					gas: T::GasMeter::maximum_dispatch_gas_used_at_most(&command),
 					payload: command.abi_encode(),
 				})
 				.collect();
 
-			// Construct the final committed message
-			let inbound_message = InboundMessage {
-				origin: message.origin,
-				nonce,
-				commands: commands.clone().try_into().map_err(|_| Corrupt)?,
-			};
-
+			let abi_commands: Vec<CommandWrapper> = commands
+				.clone()
+				.into_iter()
+				.map(|command| CommandWrapper {
+					kind: command.kind,
+					gas: command.gas,
+					payload: Bytes::from(command.payload),
+				})
+				.collect();
 			let committed_message = InboundMessageWrapper {
 				origin: FixedBytes::from(message.origin.as_fixed_bytes()),
 				nonce,
-				commands,
+				commands: abi_commands,
 			};
-
-			// ABI-encode and hash the prepared message
-			let message_abi_encoded = committed_message.abi_encode();
-			let message_abi_encoded_hash = <T as Config>::Hashing::hash(&message_abi_encoded);
-
-			Messages::<T>::append(Box::new(inbound_message));
+			let message_abi_encoded_hash =
+				<T as Config>::Hashing::hash(&committed_message.abi_encode());
 			MessageLeaves::<T>::append(message_abi_encoded_hash);
+
+			let inbound_message = InboundMessage {
+				origin: message.origin,
+				nonce,
+				commands: commands.try_into().map_err(|_| Corrupt)?,
+			};
+			Messages::<T>::append(Box::new(inbound_message));
 
 			let order = PendingOrder {
 				nonce,

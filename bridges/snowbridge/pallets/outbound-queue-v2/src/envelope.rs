@@ -6,8 +6,7 @@ use sp_core::{RuntimeDebug, H160};
 use sp_std::prelude::*;
 
 use crate::Config;
-use alloy_primitives::B256;
-use alloy_sol_types::{sol, SolEvent};
+use alloy_core::{primitives::B256, sol, sol_types::SolEvent};
 use codec::Decode;
 use frame_support::pallet_prelude::{Encode, TypeInfo};
 
@@ -40,7 +39,7 @@ impl<T: Config> TryFrom<&Log> for Envelope<T> {
 	fn try_from(log: &Log) -> Result<Self, Self::Error> {
 		let topics: Vec<B256> = log.topics.iter().map(|x| B256::from_slice(x.as_ref())).collect();
 
-		let event = InboundMessageDispatched::decode_log(topics, &log.data, true)
+		let event = InboundMessageDispatched::decode_raw_log(topics, &log.data, true)
 			.map_err(|_| EnvelopeDecodeError::DecodeLogFailed)?;
 
 		let account = T::AccountId::decode(&mut &event.reward_address[..])

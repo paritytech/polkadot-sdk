@@ -101,7 +101,7 @@ use parachains_common::{
 use snowbridge_core::{AgentId, PricingParameters};
 use snowbridge_outbound_primitives::{
 	v1::{Command, Fee},
-	v2::abi::InboundMessage,
+	v2::InboundMessage,
 	DryRunError,
 };
 use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee, time::*};
