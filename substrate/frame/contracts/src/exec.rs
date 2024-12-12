@@ -1007,7 +1007,6 @@ where
 			}
 
 			let frame = self.top_frame();
-			let account_id = &frame.account_id.clone();
 			match (entry_point, delegated_code_hash) {
 				(ExportedFunction::Constructor, _) => {
 					// It is not allowed to terminate a contract inside its constructor.
@@ -1021,33 +1020,13 @@ where
 					let frame = self.top_frame_mut();
 					let contract = frame.contract_info.as_contract();
 					frame.nested_storage.enforce_subcall_limit(contract)?;
-
-					let caller = self.caller().account_id()?.clone();
-
-					// Deposit an instantiation event.
-					Contracts::<T>::deposit_event(Event::Instantiated {
-						deployer: caller,
-						contract: account_id.clone(),
-					});
 				},
-				(ExportedFunction::Call, Some(code_hash)) => {
-					Contracts::<T>::deposit_event(Event::DelegateCalled {
-						contract: account_id.clone(),
-						code_hash,
-					});
-				},
-				(ExportedFunction::Call, None) => {
+				(ExportedFunction::Call, Some(_)) | (ExportedFunction::Call, None) => {
 					// If a special limit was set for the sub-call, we enforce it here.
 					// The sub-call will be rolled back in case the limit is exhausted.
 					let frame = self.top_frame_mut();
 					let contract = frame.contract_info.as_contract();
 					frame.nested_storage.enforce_subcall_limit(contract)?;
-
-					let caller = self.caller();
-					Contracts::<T>::deposit_event(Event::Called {
-						caller: caller.clone(),
-						contract: account_id.clone(),
-					});
 				},
 			}
 
@@ -1377,11 +1356,6 @@ where
 				.nested_storage
 				.charge_deposit(frame.account_id.clone(), StorageDeposit::Refund(*deposit));
 		}
-
-		Contracts::<T>::deposit_event(Event::Terminated {
-			contract: frame.account_id.clone(),
-			beneficiary: beneficiary.clone(),
-		});
 		Ok(())
 	}
 
@@ -1601,11 +1575,6 @@ where
 
 		Self::increment_refcount(hash)?;
 		Self::decrement_refcount(prev_hash);
-		Contracts::<Self::T>::deposit_event(Event::ContractCodeUpdated {
-			contract: frame.account_id.clone(),
-			new_code_hash: hash,
-			old_code_hash: prev_hash,
-		});
 		Ok(())
 	}
 
@@ -2662,13 +2631,6 @@ mod tests {
 					ContractInfo::<Test>::load_code_hash(&instantiated_contract_address).unwrap(),
 					dummy_ch
 				);
-				assert_eq!(
-					&events(),
-					&[Event::Instantiated {
-						deployer: ALICE,
-						contract: instantiated_contract_address
-					}]
-				);
 			});
 	}
 
@@ -2785,16 +2747,6 @@ mod tests {
 					ContractInfo::<Test>::load_code_hash(&instantiated_contract_address).unwrap(),
 					dummy_ch
 				);
-				assert_eq!(
-					&events(),
-					&[
-						Event::Instantiated {
-							deployer: BOB,
-							contract: instantiated_contract_address
-						},
-						Event::Called { caller: Origin::from_account_id(ALICE), contract: BOB },
-					]
-				);
 			});
 	}
 
@@ -2849,13 +2801,6 @@ mod tests {
 						Determinism::Enforced,
 					),
 					Ok(_)
-				);
-
-				// The contract wasn't instantiated so we don't expect to see an instantiation
-				// event here.
-				assert_eq!(
-					&events(),
-					&[Event::Called { caller: Origin::from_account_id(ALICE), contract: BOB },]
 				);
 			});
 	}
@@ -3250,24 +3195,14 @@ mod tests {
 			let remark_hash = <Test as frame_system::Config>::Hashing::hash(b"Hello World");
 			assert_eq!(
 				System::events(),
-				vec![
-					EventRecord {
-						phase: Phase::Initialization,
-						event: MetaEvent::System(frame_system::Event::Remarked {
-							sender: BOB,
-							hash: remark_hash
-						}),
-						topics: vec![],
-					},
-					EventRecord {
-						phase: Phase::Initialization,
-						event: MetaEvent::Contracts(crate::Event::Called {
-							caller: Origin::from_account_id(ALICE),
-							contract: BOB,
-						}),
-						topics: vec![],
-					},
-				]
+				vec![EventRecord {
+					phase: Phase::Initialization,
+					event: MetaEvent::System(frame_system::Event::Remarked {
+						sender: BOB,
+						hash: remark_hash
+					}),
+					topics: vec![],
+				},]
 			);
 		});
 	}
@@ -3357,14 +3292,6 @@ mod tests {
 							index: 1,
 							error: frame_system::Error::<Test>::CallFiltered.into()
 						},),
-						topics: vec![],
-					},
-					EventRecord {
-						phase: Phase::Initialization,
-						event: MetaEvent::Contracts(crate::Event::Called {
-							caller: Origin::from_account_id(ALICE),
-							contract: BOB,
-						}),
 						topics: vec![],
 					},
 				]
