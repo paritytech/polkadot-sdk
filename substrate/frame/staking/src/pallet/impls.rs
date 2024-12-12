@@ -749,7 +749,7 @@ impl<T: Config> Pallet<T> {
 			defensive!(
 				"electable stashes exceeded limit, unexpected but election proceeds.\
                 {} stashes from election result discarded",
-				not_included.len()
+				not_included
 			);
 		};
 
@@ -763,7 +763,7 @@ impl<T: Config> Pallet<T> {
 	/// electable stashes storage due to bounds contraints.
 	pub(crate) fn do_elect_paged_inner(
 		mut supports: BoundedSupportsOf<T::ElectionProvider>,
-	) -> Result<(), Vec<T::AccountId>> {
+	) -> Result<(), usize> {
 		// preparing the next era. Note: we expect `do_elect_paged` to be called *only* during a
 		// non-genesis era, thus current era should be set by now.
 		let planning_era = CurrentEra::<T>::get().defensive_unwrap_or_default().saturating_add(1);
@@ -773,18 +773,20 @@ impl<T: Config> Pallet<T> {
 				let _ = Self::store_stakers_info(Self::collect_exposures(supports), planning_era);
 				Ok(())
 			},
-			Err(not_included) => {
+			Err(not_included_idx) => {
+				let not_included = supports.len().saturating_sub(not_included_idx);
+
 				log!(
 					warn,
-					"not all winners fit within the electable stashes, excluding tail: {:?}.",
-					not_included
+					"not all winners fit within the electable stashes, excluding {:?} accounts from solution.",
+					not_included,
 				);
 
 				// filter out supports of stashes that do not fit within the electable stashes
 				// storage bounds to prevent collecting their exposures.
-				supports.retain(|(s, _)| !not_included.contains(s));
-
+				supports.truncate(not_included_idx);
 				let _ = Self::store_stakers_info(Self::collect_exposures(supports), planning_era);
+
 				Err(not_included)
 			},
 		}
@@ -880,24 +882,17 @@ impl<T: Config> Pallet<T> {
 	/// Adds a new set of stashes to the electable stashes.
 	///
 	/// Deduplicates stashes in place and returns an error if the bounds are exceeded. In case of
-	/// error, it returns the stashes that were not added to the storage.
+	/// error, it returns the iter index of the element that failed to add.
 	pub(crate) fn add_electables(
-		stashes_iter: impl Iterator<Item = T::AccountId> + Clone,
-	) -> Result<(), Vec<T::AccountId>> {
+		stashes_iter: impl Iterator<Item = T::AccountId>,
+	) -> Result<(), usize> {
 		ElectableStashes::<T>::mutate(|electable| {
-			let mut not_included = vec![];
-
-			for stash in stashes_iter {
-				if electable.try_insert(stash.clone()).is_err() {
-					not_included.push(stash);
+			for (idx, stash) in stashes_iter.enumerate() {
+				if electable.try_insert(stash).is_err() {
+					return Err(idx);
 				}
 			}
-
-			if not_included.len() != 0 {
-				Err(not_included)
-			} else {
-				Ok(())
-			}
+			Ok(())
 		})
 	}
 

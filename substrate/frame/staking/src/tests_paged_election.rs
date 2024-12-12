@@ -58,11 +58,12 @@ mod electable_stashes {
 			assert!(ElectableStashes::<Test>::get().is_empty());
 
 			// adds stashes so that bounds are overflown, fails and internal state changes so that
-			// all slots are filled.
-			let expected_not_included = vec![6, 7, 8];
+			// all slots are filled. error will return the idx of the first account that was not
+			// included.
+			let expected_idx_not_included = 5; // stash 6.
 			assert_eq!(
 				Staking::add_electables(vec![1u64, 2, 3, 4, 5, 6, 7, 8].into_iter()),
-				Err(expected_not_included)
+				Err(expected_idx_not_included)
 			);
 			// the included were added to the electable stashes, despite the error.
 			assert_eq!(
@@ -92,7 +93,7 @@ mod electable_stashes {
 			]);
 
 			// error due to bounds.
-			let expected_not_included = vec![3u64, 4];
+			let expected_not_included = 2;
 			assert_eq!(Staking::do_elect_paged_inner(supports), Err(expected_not_included));
 
 			// electable stashes have been collected to the max bounds despite the error.
