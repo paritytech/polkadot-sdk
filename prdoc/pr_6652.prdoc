@@ -6,7 +6,7 @@ title: "rpc server: re-use server builder per rpc interface"
 doc:
   - audience: Node Dev
     description: |
-      This changes that the RPC server builder is re-used for RPC interface which is more efficient than to build it for every connection.
+      This changes that the RPC server builder is re-used for each RPC interface which is more efficient than to build it for every connection.
 
 crates:
   - name: sc-rpc-server
