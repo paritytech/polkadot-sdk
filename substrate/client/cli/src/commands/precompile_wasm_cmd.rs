@@ -56,7 +56,7 @@ pub struct PrecompileWasmCmd {
 	pub default_heap_pages: Option<u32>,
 
 	/// Path to the directory where precompiled artifact will be written.
-	#[arg()]
+	#[arg(value_parser = PrecompileWasmCmd::validate_existing_directory)]
 	pub output_dir: PathBuf,
 
 	#[allow(missing_docs)]
@@ -133,11 +133,21 @@ impl PrecompileWasmCmd {
 				)
 				.map_err(|e| Error::Application(Box::new(e)))?;
 			} else {
-				return Err(Error::Input(format!("The chain spec used does not contain a wasm bytecode in the `:code` storage key")));
+				return Err(Error::Input(format!("The chain spec used does not contain a wasm bytecode in the {} storage key", String::from_utf8(sp_storage::well_known_keys::CODE.to_vec()).expect("Well known key should be a valid UTF8 string."))));
 			}
 		}
 
 		Ok(())
+	}
+
+	/// Validate that the path is a valid directory.
+	fn validate_existing_directory(path: &str) -> Result<PathBuf, String> {
+		let path_buf = PathBuf::from(path);
+		if path_buf.is_dir() {
+			Ok(path_buf)
+		} else {
+			Err(format!("The path '{}' is not a valid directory", path))
+		}
 	}
 }
 
