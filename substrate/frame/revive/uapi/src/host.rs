@@ -443,6 +443,21 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the input data.
 	fn input(output: &mut &mut [u8]);
 
+	/// Stores the U256 value at given `offset` from the input passed by the caller
+	/// into the supplied buffer.
+	///
+	/// # Note
+	/// - If `offset` is out of bounds, a value of zero will be returned.
+	/// - If `offset` is in bounds but there is not enough call data, the available data
+	/// is right-padded in order to fill a whole U256 value.
+	/// - The data written to `output` is a little endian U256 integer value.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the fixed output data buffer to write the value.
+	/// - `offset`: The offset (index) into the call data.
+	fn call_data_load(output: &mut [u8; 32], offset: u32);
+
 	/// Instantiate a contract with the specified code hash.
 	///
 	/// This function creates an account and executes the constructor defined in the code specified

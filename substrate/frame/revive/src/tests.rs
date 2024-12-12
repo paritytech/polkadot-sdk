@@ -4430,6 +4430,48 @@ fn chain_id_works() {
 }
 
 #[test]
+fn call_data_load_api_works() {
+	let (code, _) = compile_module("call_data_load").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create fixture: Constructor does nothing
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// Call the contract: It reads a byte for the offset and then returns
+		// what call data load returned using this byte as the offset.
+		let input = (3u8, U256::max_value(), U256::max_value()).encode();
+		let received = builder::bare_call(addr).data(input).build().result.unwrap();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		assert_eq!(U256::from_little_endian(&received.data), U256::max_value());
+
+		// Edge case
+		let input = (2u8, U256::from(255).to_big_endian()).encode();
+		let received = builder::bare_call(addr).data(input).build().result.unwrap();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		assert_eq!(U256::from_little_endian(&received.data), U256::from(65280));
+
+		// Edge case
+		let received = builder::bare_call(addr).data(vec![1]).build().result.unwrap();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		assert_eq!(U256::from_little_endian(&received.data), U256::zero());
+
+		// OOB case
+		let input = (42u8).encode();
+		let received = builder::bare_call(addr).data(input).build().result.unwrap();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		assert_eq!(U256::from_little_endian(&received.data), U256::zero());
+
+		// No calldata should return the zero value
+		let received = builder::bare_call(addr).build().result.unwrap();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		assert_eq!(U256::from_little_endian(&received.data), U256::zero());
+	});
+}
+
+#[test]
 fn return_data_api_works() {
 	let (code_return_data_api, _) = compile_module("return_data_api").unwrap();
 	let (code_return_with_data, hash_return_with_data) =
