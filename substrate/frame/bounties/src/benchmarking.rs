@@ -25,7 +25,7 @@ use alloc::{vec, vec::Vec};
 use frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelisted_caller, BenchmarkError,
 };
-use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
+use frame_system::{pallet_prelude::BlockNumberFor as SystemBlockNumberFor, RawOrigin};
 use sp_runtime::traits::{BlockNumberProvider, Bounded};
 
 use crate::Pallet as Bounties;
@@ -33,7 +33,7 @@ use pallet_treasury::Pallet as Treasury;
 
 const SEED: u32 = 0;
 
-fn set_block_number<T: Config<I>, I: 'static>(n: BlockNumberFor<T>) {
+fn set_block_number<T: Config<I>, I: 'static>(n: BlockNumberFor<T, I>) {
 	<T as pallet_treasury::Config<I>>::BlockNumberProvider::set_block_number(n);
 }
 
@@ -132,7 +132,7 @@ benchmarks_instance_pallet! {
 		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason)?;
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let approve_origin = T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		Treasury::<T, I>::on_initialize(BlockNumberFor::<T>::zero());
+		Treasury::<T, I>::on_initialize(SystemBlockNumberFor::<T>::zero());
 	}: _<T::RuntimeOrigin>(approve_origin, bounty_id, curator_lookup, fee)
 	verify {
 		assert_last_event::<T, I>(

@@ -6,6 +6,8 @@ description = "Rococo testnet Relay Chain runtime."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -275,6 +277,7 @@ runtime-benchmarks = [
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-executive/try-runtime",

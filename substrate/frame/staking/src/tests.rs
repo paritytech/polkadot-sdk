@@ -3402,6 +3402,7 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
 						fraction: Perbill::from_percent(10),
 						slash_era: 1
 					},
+					Event::ValidatorDisabled { stash: 11 },
 					Event::Slashed { staker: 11, amount: 100 },
 					Event::Slashed { staker: 101, amount: 12 },
 				]
@@ -3474,11 +3475,13 @@ fn non_slashable_offence_disables_validator() {
 						fraction: Perbill::from_percent(0),
 						slash_era: 1
 					},
+					Event::ValidatorDisabled { stash: 11 },
 					Event::SlashReported {
 						validator: 21,
 						fraction: Perbill::from_percent(25),
 						slash_era: 1
 					},
+					Event::ValidatorDisabled { stash: 21 },
 					Event::Slashed { staker: 21, amount: 250 },
 					Event::Slashed { staker: 101, amount: 94 }
 				]
@@ -3506,6 +3509,7 @@ fn slashing_independent_of_disabling_validator() {
 
 			let now = ActiveEra::<Test>::get().unwrap().index;
 
+			// --- Disable without a slash ---
 			// offence with no slash associated
 			on_offence_in_era(
 				&[OffenceDetails { offender: (11, exposure_11.clone()), reporters: vec![] }],
@@ -3516,7 +3520,18 @@ fn slashing_independent_of_disabling_validator() {
 			// nomination remains untouched.
 			assert_eq!(Nominators::<Test>::get(101).unwrap().targets, vec![11, 21]);
 
-			// offence that slashes 25% of the bond
+			// first validator is disabled but not slashed
+			assert!(is_disabled(11));
+
+			// --- Slash without disabling ---
+			// offence that slashes 50% of the bond (setup for next slash)
+			on_offence_in_era(
+				&[OffenceDetails { offender: (11, exposure_11.clone()), reporters: vec![] }],
+				&[Perbill::from_percent(50)],
+				now,
+			);
+
+			// offence that slashes 25% of the bond but does not disable
 			on_offence_in_era(
 				&[OffenceDetails { offender: (21, exposure_21.clone()), reporters: vec![] }],
 				&[Perbill::from_percent(25)],
@@ -3525,6 +3540,10 @@ fn slashing_independent_of_disabling_validator() {
 
 			// nomination remains untouched.
 			assert_eq!(Nominators::<Test>::get(101).unwrap().targets, vec![11, 21]);
+
+			// second validator is slashed but not disabled
+			assert!(!is_disabled(21));
+			assert!(is_disabled(11));
 
 			assert_eq!(
 				staking_events_since_last_call(),
@@ -3536,6 +3555,14 @@ fn slashing_independent_of_disabling_validator() {
 						fraction: Perbill::from_percent(0),
 						slash_era: 1
 					},
+					Event::ValidatorDisabled { stash: 11 },
+					Event::SlashReported {
+						validator: 11,
+						fraction: Perbill::from_percent(50),
+						slash_era: 1
+					},
+					Event::Slashed { staker: 11, amount: 500 },
+					Event::Slashed { staker: 101, amount: 62 },
 					Event::SlashReported {
 						validator: 21,
 						fraction: Perbill::from_percent(25),
@@ -3545,11 +3572,6 @@ fn slashing_independent_of_disabling_validator() {
 					Event::Slashed { staker: 101, amount: 94 }
 				]
 			);
-
-			// first validator is disabled but not slashed
-			assert!(is_disabled(11));
-			// second validator is slashed but not disabled
-			assert!(!is_disabled(21));
 		});
 }
 
@@ -3563,7 +3585,7 @@ fn offence_threshold_doesnt_trigger_new_era() {
 			assert_eq_uvec!(Session::validators(), vec![11, 21, 31, 41]);
 
 			assert_eq!(
-				UpToLimitDisablingStrategy::<DISABLING_LIMIT_FACTOR>::disable_limit(
+				UpToLimitWithReEnablingDisablingStrategy::<DISABLING_LIMIT_FACTOR>::disable_limit(
 					Session::validators().len()
 				),
 				1
@@ -3578,7 +3600,7 @@ fn offence_threshold_doesnt_trigger_new_era() {
 
 			on_offence_now(
 				&[OffenceDetails { offender: (11, exposure_11.clone()), reporters: vec![] }],
-				&[Perbill::zero()],
+				&[Perbill::from_percent(50)],
 			);
 
 			// 11 should be disabled because the byzantine threshold is 1
@@ -8277,11 +8299,14 @@ mod byzantine_threshold_disabling_strategy {
 	use crate::{
 		tests::Test, ActiveEra, ActiveEraInfo, DisablingStrategy, UpToLimitDisablingStrategy,
 	};
-	use sp_staking::EraIndex;
+	use sp_runtime::Perbill;
+	use sp_staking::{offence::OffenceSeverity, EraIndex};
 
 	// Common test data - the stash of the offending validator, the era of the offence and the
 	// active set
 	const OFFENDER_ID: <Test as frame_system::Config>::AccountId = 7;
+	const MAX_OFFENDER_SEVERITY: OffenceSeverity = OffenceSeverity(Perbill::from_percent(100));
+	const MIN_OFFENDER_SEVERITY: OffenceSeverity = OffenceSeverity(Perbill::from_percent(0));
 	const SLASH_ERA: EraIndex = 1;
 	const ACTIVE_SET: [<Test as pallet_session::Config>::ValidatorId; 7] = [1, 2, 3, 4, 5, 6, 7];
 	const OFFENDER_VALIDATOR_IDX: u32 = 6; // the offender is with index 6 in the active set
@@ -8293,48 +8318,431 @@ mod byzantine_threshold_disabling_strategy {
 			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
 			ActiveEra::<Test>::put(ActiveEraInfo { index: 2, start: None });
 
-			let disable_offender =
+			let disabling_decision =
 				<UpToLimitDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
+					MAX_OFFENDER_SEVERITY,
 					SLASH_ERA,
 					&initially_disabled,
 				);
 
-			assert!(disable_offender.is_none());
+			assert!(disabling_decision.disable.is_none() && disabling_decision.reenable.is_none());
 		});
 	}
 
 	#[test]
 	fn dont_disable_beyond_byzantine_threshold() {
 		sp_io::TestExternalities::default().execute_with(|| {
-			let initially_disabled = vec![1, 2];
+			let initially_disabled = vec![(1, MIN_OFFENDER_SEVERITY), (2, MAX_OFFENDER_SEVERITY)];
 			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
 
-			let disable_offender =
+			let disabling_decision =
 				<UpToLimitDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
+					MAX_OFFENDER_SEVERITY,
 					SLASH_ERA,
 					&initially_disabled,
 				);
 
-			assert!(disable_offender.is_none());
+			assert!(disabling_decision.disable.is_none() && disabling_decision.reenable.is_none());
 		});
 	}
 
 	#[test]
 	fn disable_when_below_byzantine_threshold() {
 		sp_io::TestExternalities::default().execute_with(|| {
-			let initially_disabled = vec![1];
+			let initially_disabled = vec![(1, MAX_OFFENDER_SEVERITY)];
 			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
 
-			let disable_offender =
+			let disabling_decision =
 				<UpToLimitDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
+					MAX_OFFENDER_SEVERITY,
 					SLASH_ERA,
 					&initially_disabled,
 				);
 
-			assert_eq!(disable_offender, Some(OFFENDER_VALIDATOR_IDX));
+			assert_eq!(disabling_decision.disable, Some(OFFENDER_VALIDATOR_IDX));
+		});
+	}
+}
+
+mod disabling_strategy_with_reenabling {
+	use crate::{
+		tests::Test, ActiveEra, ActiveEraInfo, DisablingStrategy,
+		UpToLimitWithReEnablingDisablingStrategy,
+	};
+	use sp_runtime::Perbill;
+	use sp_staking::{offence::OffenceSeverity, EraIndex};
+
+	// Common test data - the stash of the offending validator, the era of the offence and the
+	// active set
+	const OFFENDER_ID: <Test as frame_system::Config>::AccountId = 7;
+	const MAX_OFFENDER_SEVERITY: OffenceSeverity = OffenceSeverity(Perbill::from_percent(100));
+	const LOW_OFFENDER_SEVERITY: OffenceSeverity = OffenceSeverity(Perbill::from_percent(0));
+	const SLASH_ERA: EraIndex = 1;
+	const ACTIVE_SET: [<Test as pallet_session::Config>::ValidatorId; 7] = [1, 2, 3, 4, 5, 6, 7];
+	const OFFENDER_VALIDATOR_IDX: u32 = 6; // the offender is with index 6 in the active set
+
+	#[test]
+	fn dont_disable_for_ancient_offence() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initially_disabled = vec![];
+			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
+			ActiveEra::<Test>::put(ActiveEraInfo { index: 2, start: None });
+
+			let disabling_decision =
+				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					MAX_OFFENDER_SEVERITY,
+					SLASH_ERA,
+					&initially_disabled,
+				);
+
+			assert!(disabling_decision.disable.is_none() && disabling_decision.reenable.is_none());
+		});
+	}
+
+	#[test]
+	fn disable_when_below_byzantine_threshold() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initially_disabled = vec![(0, MAX_OFFENDER_SEVERITY)];
+			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
+
+			let disabling_decision =
+				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					MAX_OFFENDER_SEVERITY,
+					SLASH_ERA,
+					&initially_disabled,
+				);
+
+			// Disable Offender and do not re-enable anyone
+			assert_eq!(disabling_decision.disable, Some(OFFENDER_VALIDATOR_IDX));
+			assert_eq!(disabling_decision.reenable, None);
+		});
+	}
+
+	#[test]
+	fn reenable_arbitrary_on_equal_severity() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initially_disabled = vec![(0, MAX_OFFENDER_SEVERITY), (1, MAX_OFFENDER_SEVERITY)];
+			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
+
+			let disabling_decision =
+				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					MAX_OFFENDER_SEVERITY,
+					SLASH_ERA,
+					&initially_disabled,
+				);
+
+			assert!(disabling_decision.disable.is_some() && disabling_decision.reenable.is_some());
+			// Disable 7 and enable 1
+			assert_eq!(disabling_decision.disable.unwrap(), OFFENDER_VALIDATOR_IDX);
+			assert_eq!(disabling_decision.reenable.unwrap(), 0);
+		});
+	}
+
+	#[test]
+	fn do_not_reenable_higher_offenders() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initially_disabled = vec![(0, MAX_OFFENDER_SEVERITY), (1, MAX_OFFENDER_SEVERITY)];
+			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
+
+			let disabling_decision =
+				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					LOW_OFFENDER_SEVERITY,
+					SLASH_ERA,
+					&initially_disabled,
+				);
+
+			assert!(disabling_decision.disable.is_none() && disabling_decision.reenable.is_none());
+		});
+	}
+
+	#[test]
+	fn reenable_lower_offenders() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initially_disabled = vec![(0, LOW_OFFENDER_SEVERITY), (1, LOW_OFFENDER_SEVERITY)];
+			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
+
+			let disabling_decision =
+				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					MAX_OFFENDER_SEVERITY,
+					SLASH_ERA,
+					&initially_disabled,
+				);
+
+			assert!(disabling_decision.disable.is_some() && disabling_decision.reenable.is_some());
+			// Disable 7 and enable 1
+			assert_eq!(disabling_decision.disable.unwrap(), OFFENDER_VALIDATOR_IDX);
+			assert_eq!(disabling_decision.reenable.unwrap(), 0);
+		});
+	}
+
+	#[test]
+	fn reenable_lower_offenders_unordered() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initially_disabled = vec![(0, MAX_OFFENDER_SEVERITY), (1, LOW_OFFENDER_SEVERITY)];
+			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
+
+			let disabling_decision =
+				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					MAX_OFFENDER_SEVERITY,
+					SLASH_ERA,
+					&initially_disabled,
+				);
+
+			assert!(disabling_decision.disable.is_some() && disabling_decision.reenable.is_some());
+			// Disable 7 and enable 1
+			assert_eq!(disabling_decision.disable.unwrap(), OFFENDER_VALIDATOR_IDX);
+			assert_eq!(disabling_decision.reenable.unwrap(), 1);
+		});
+	}
+
+	#[test]
+	fn update_severity() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initially_disabled =
+				vec![(OFFENDER_VALIDATOR_IDX, LOW_OFFENDER_SEVERITY), (0, MAX_OFFENDER_SEVERITY)];
+			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
+
+			let disabling_decision =
+				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					MAX_OFFENDER_SEVERITY,
+					SLASH_ERA,
+					&initially_disabled,
+				);
+
+			assert!(disabling_decision.disable.is_some() && disabling_decision.reenable.is_none());
+			// Disable 7 "again" AKA update their severity
+			assert_eq!(disabling_decision.disable.unwrap(), OFFENDER_VALIDATOR_IDX);
+		});
+	}
+
+	#[test]
+	fn update_cannot_lower_severity() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initially_disabled =
+				vec![(OFFENDER_VALIDATOR_IDX, MAX_OFFENDER_SEVERITY), (0, MAX_OFFENDER_SEVERITY)];
+			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
+
+			let disabling_decision =
+				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					LOW_OFFENDER_SEVERITY,
+					SLASH_ERA,
+					&initially_disabled,
+				);
+
+			assert!(disabling_decision.disable.is_none() && disabling_decision.reenable.is_none());
+		});
+	}
+
+	#[test]
+	fn no_accidental_reenablement_on_repeated_offence() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initially_disabled =
+				vec![(OFFENDER_VALIDATOR_IDX, MAX_OFFENDER_SEVERITY), (0, LOW_OFFENDER_SEVERITY)];
+			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
+
+			let disabling_decision =
+				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
+					&OFFENDER_ID,
+					MAX_OFFENDER_SEVERITY,
+					SLASH_ERA,
+					&initially_disabled,
+				);
+
+			assert!(disabling_decision.disable.is_none() && disabling_decision.reenable.is_none());
+		});
+	}
+}
+
+#[test]
+fn reenable_lower_offenders_mock() {
+	ExtBuilder::default()
+		.validator_count(7)
+		.set_status(41, StakerStatus::Validator)
+		.set_status(51, StakerStatus::Validator)
+		.set_status(201, StakerStatus::Validator)
+		.set_status(202, StakerStatus::Validator)
+		.build_and_execute(|| {
+			mock::start_active_era(1);
+			assert_eq_uvec!(Session::validators(), vec![11, 21, 31, 41, 51, 201, 202]);
+
+			let exposure_11 = Staking::eras_stakers(Staking::active_era().unwrap().index, &11);
+			let exposure_21 = Staking::eras_stakers(Staking::active_era().unwrap().index, &21);
+			let exposure_31 = Staking::eras_stakers(Staking::active_era().unwrap().index, &31);
+
+			// offence with a low slash
+			on_offence_now(
+				&[OffenceDetails { offender: (11, exposure_11.clone()), reporters: vec![] }],
+				&[Perbill::from_percent(10)],
+			);
+			on_offence_now(
+				&[OffenceDetails { offender: (21, exposure_21.clone()), reporters: vec![] }],
+				&[Perbill::from_percent(20)],
+			);
+
+			// it does NOT affect the nominator.
+			assert_eq!(Staking::nominators(101).unwrap().targets, vec![11, 21]);
+
+			// both validators should be disabled
+			assert!(is_disabled(11));
+			assert!(is_disabled(21));
+
+			// offence with a higher slash
+			on_offence_now(
+				&[OffenceDetails { offender: (31, exposure_31.clone()), reporters: vec![] }],
+				&[Perbill::from_percent(50)],
+			);
+
+			// First offender is no longer disabled
+			assert!(!is_disabled(11));
+			// Mid offender is still disabled
+			assert!(is_disabled(21));
+			// New offender is disabled
+			assert!(is_disabled(31));
+
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					Event::StakersElected,
+					Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
+					Event::SlashReported {
+						validator: 11,
+						fraction: Perbill::from_percent(10),
+						slash_era: 1
+					},
+					Event::ValidatorDisabled { stash: 11 },
+					Event::Slashed { staker: 11, amount: 100 },
+					Event::Slashed { staker: 101, amount: 12 },
+					Event::SlashReported {
+						validator: 21,
+						fraction: Perbill::from_percent(20),
+						slash_era: 1
+					},
+					Event::ValidatorDisabled { stash: 21 },
+					Event::Slashed { staker: 21, amount: 200 },
+					Event::Slashed { staker: 101, amount: 75 },
+					Event::SlashReported {
+						validator: 31,
+						fraction: Perbill::from_percent(50),
+						slash_era: 1
+					},
+					Event::ValidatorDisabled { stash: 31 },
+					Event::ValidatorReenabled { stash: 11 },
+					Event::Slashed { staker: 31, amount: 250 },
+				]
+			);
+		});
+}
+
+#[test]
+fn do_not_reenable_higher_offenders_mock() {
+	ExtBuilder::default()
+		.validator_count(7)
+		.set_status(41, StakerStatus::Validator)
+		.set_status(51, StakerStatus::Validator)
+		.set_status(201, StakerStatus::Validator)
+		.set_status(202, StakerStatus::Validator)
+		.build_and_execute(|| {
+			mock::start_active_era(1);
+			assert_eq_uvec!(Session::validators(), vec![11, 21, 31, 41, 51, 201, 202]);
+
+			let exposure_11 = Staking::eras_stakers(Staking::active_era().unwrap().index, &11);
+			let exposure_21 = Staking::eras_stakers(Staking::active_era().unwrap().index, &21);
+			let exposure_31 = Staking::eras_stakers(Staking::active_era().unwrap().index, &31);
+
+			// offence with a major slash
+			on_offence_now(
+				&[OffenceDetails { offender: (11, exposure_11.clone()), reporters: vec![] }],
+				&[Perbill::from_percent(50)],
+			);
+			on_offence_now(
+				&[OffenceDetails { offender: (21, exposure_21.clone()), reporters: vec![] }],
+				&[Perbill::from_percent(50)],
+			);
+
+			// both validators should be disabled
+			assert!(is_disabled(11));
+			assert!(is_disabled(21));
+
+			// offence with a minor slash
+			on_offence_now(
+				&[OffenceDetails { offender: (31, exposure_31.clone()), reporters: vec![] }],
+				&[Perbill::from_percent(10)],
+			);
+
+			// First and second offenders are still disabled
+			assert!(is_disabled(11));
+			assert!(is_disabled(21));
+			// New offender is not disabled as limit is reached and his prio is lower
+			assert!(!is_disabled(31));
+
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					Event::StakersElected,
+					Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
+					Event::SlashReported {
+						validator: 11,
+						fraction: Perbill::from_percent(50),
+						slash_era: 1
+					},
+					Event::ValidatorDisabled { stash: 11 },
+					Event::Slashed { staker: 11, amount: 500 },
+					Event::Slashed { staker: 101, amount: 62 },
+					Event::SlashReported {
+						validator: 21,
+						fraction: Perbill::from_percent(50),
+						slash_era: 1
+					},
+					Event::ValidatorDisabled { stash: 21 },
+					Event::Slashed { staker: 21, amount: 500 },
+					Event::Slashed { staker: 101, amount: 187 },
+					Event::SlashReported {
+						validator: 31,
+						fraction: Perbill::from_percent(10),
+						slash_era: 1
+					},
+					Event::Slashed { staker: 31, amount: 50 },
+				]
+			);
+		});
+}
+
+#[cfg(all(feature = "try-runtime", test))]
+mod migration_tests {
+	use super::*;
+	use frame_support::traits::UncheckedOnRuntimeUpgrade;
+	use migrations::{v15, v16};
+
+	#[test]
+	fn migrate_v15_to_v16_with_try_runtime() {
+		ExtBuilder::default().validator_count(7).build_and_execute(|| {
+			// Initial setup: Create old `DisabledValidators` in the form of `Vec<u32>`
+			let old_disabled_validators = vec![1u32, 2u32];
+			v15::DisabledValidators::<Test>::put(old_disabled_validators.clone());
+
+			// Run pre-upgrade checks
+			let pre_upgrade_result = v16::VersionUncheckedMigrateV15ToV16::<Test>::pre_upgrade();
+			assert!(pre_upgrade_result.is_ok());
+			let pre_upgrade_state = pre_upgrade_result.unwrap();
+
+			// Run the migration
+			v16::VersionUncheckedMigrateV15ToV16::<Test>::on_runtime_upgrade();
+
+			// Run post-upgrade checks
+			let post_upgrade_result =
+				v16::VersionUncheckedMigrateV15ToV16::<Test>::post_upgrade(pre_upgrade_state);
+			assert!(post_upgrade_result.is_ok());
 		});
 	}
 }

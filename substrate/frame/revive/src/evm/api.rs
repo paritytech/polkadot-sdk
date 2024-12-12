@@ -25,9 +25,7 @@ pub use rlp;
 mod type_id;
 pub use type_id::*;
 
-#[cfg(feature = "std")]
 mod rpc_types;
-
 mod rpc_types_gen;
 pub use rpc_types_gen::*;
 
