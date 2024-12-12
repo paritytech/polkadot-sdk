@@ -85,6 +85,7 @@ pub trait WeightInfo {
 	fn seal_now() -> Weight;
 	fn seal_weight_to_fee() -> Weight;
 	fn seal_call_data_load() -> Weight;
+	fn seal_call_data_size() -> Weight;
 	fn seal_input(n: u32, ) -> Weight;
 	fn seal_return(n: u32, ) -> Weight;
 	fn seal_terminate(n: u32, ) -> Weight;
@@ -516,6 +517,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `0`
 		// Minimum execution time: 1_320_000 picoseconds.
 		Weight::from_parts(1_406_000, 0)
+	}
+	fn seal_call_data_size() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 250_000 picoseconds.
+		Weight::from_parts(285_000, 0)
 	}
 	fn seal_call_data_load() -> Weight {
 		// Proof Size summary in bytes:
@@ -1356,6 +1364,13 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 1_320_000 picoseconds.
 		Weight::from_parts(1_406_000, 0)
+	}
+	fn seal_call_data_size() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 250_000 picoseconds.
+		Weight::from_parts(285_000, 0)
 	}
 	fn seal_call_data_load() -> Weight {
 		// Proof Size summary in bytes:
