@@ -80,6 +80,10 @@ pub mod pallet {
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self::RuntimeOrigin>;
 
+		type WETH: Get<Location>;
+
+		type DeliveryFee: Get<Asset>;
+
 		type WeightInfo: WeightInfo;
 	}
 
@@ -113,7 +117,7 @@ pub mod pallet {
 		pub fn create_agent(origin: OriginFor<T>, fee: u128) -> DispatchResult {
 			let origin_location = T::CreateAgentOrigin::ensure_origin(origin)?;
 
-			Self::burn_weth(origin_location.clone(), fee)?;
+			Self::burn_fees(origin_location.clone(), fee)?;
 
 			let call = SnowbridgeControl::Control(ControlCall::CreateAgent {
 				location: Box::new(VersionedLocation::from(origin_location.clone())),
@@ -121,7 +125,8 @@ pub mod pallet {
 			});
 
 			let xcm: Xcm<()> = vec![
-				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+				ReceiveTeleportedAsset(T::DeliveryFee::get().into()),
+				PayFees { asset: T::DeliveryFee::get() },
 				Transact {
 					origin_kind: OriginKind::Xcm,
 					call: call.encode().into(),
@@ -159,7 +164,7 @@ pub mod pallet {
 			}
 			ensure!(checked, <Error<T>>::OwnerCheck);
 
-			Self::burn_weth(origin_location.clone(), fee)?;
+			Self::burn_fees(origin_location.clone(), fee)?;
 
 			let call = SnowbridgeControl::Control(ControlCall::RegisterToken {
 				asset_id: Box::new(VersionedLocation::from(asset_location.clone())),
@@ -168,7 +173,8 @@ pub mod pallet {
 			});
 
 			let xcm: Xcm<()> = vec![
-				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+				ReceiveTeleportedAsset(T::DeliveryFee::get().into()),
+				PayFees { asset: T::DeliveryFee::get() },
 				Transact {
 					origin_kind: OriginKind::Xcm,
 					call: call.encode().into(),
@@ -191,10 +197,11 @@ pub mod pallet {
 			send_xcm::<T::XcmSender>(bridgehub, xcm).map_err(|_| Error::<T>::Send)?;
 			Ok(())
 		}
-		pub fn burn_weth(origin_location: Location, fee: u128) -> DispatchResult {
-			let fee_asset =
-				(Location::new(2, [GlobalConsensus(Ethereum { chain_id: 1 })]), fee).into();
-			T::AssetTransactor::withdraw_asset(&fee_asset, &origin_location, None)
+		pub fn burn_fees(origin_location: Location, fee: u128) -> DispatchResult {
+			let ethereum_fee_asset = (T::WETH::get(), fee).into();
+			T::AssetTransactor::withdraw_asset(&ethereum_fee_asset, &origin_location, None)
+				.map_err(|_| Error::<T>::FundsUnavailable)?;
+			T::AssetTransactor::withdraw_asset(&T::DeliveryFee::get(), &origin_location, None)
 				.map_err(|_| Error::<T>::FundsUnavailable)?;
 			Ok(())
 		}

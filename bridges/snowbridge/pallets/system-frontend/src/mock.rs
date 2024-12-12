@@ -3,7 +3,8 @@
 use crate as snowbridge_system_frontend;
 use crate::mock::pallet_xcm_origin::EnsureXcm;
 use codec::Encode;
-use frame_support::{derive_impl, traits::Everything};
+use frame_support::{derive_impl, parameter_types, traits::Everything};
+use hex_literal::hex;
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
@@ -167,6 +168,20 @@ impl TransactAsset for SuccessfulTransactor {
 	}
 }
 
+parameter_types! {
+	pub storage WETH: Location = Location::new(
+				2,
+				[
+					GlobalConsensus(Ethereum { chain_id: 11155111 }),
+					AccountKey20 {
+						network: None,
+						key: hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"),
+					},
+				],
+	);
+	pub storage DeliveryFee: Asset = (Location::parent(), 80_000_000_000u128).into();
+}
+
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
@@ -176,6 +191,8 @@ impl crate::Config for Test {
 	type RegisterTokenOrigin = EnsureXcm<Everything>;
 	type XcmSender = MockXcmSender;
 	type AssetTransactor = SuccessfulTransactor;
+	type WETH = WETH;
+	type DeliveryFee = DeliveryFee;
 }
 
 // Build genesis storage according to the mock runtime.

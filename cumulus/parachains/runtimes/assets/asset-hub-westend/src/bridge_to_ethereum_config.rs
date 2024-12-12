@@ -13,19 +13,22 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
-#[cfg(not(feature = "runtime-benchmarks"))]
-use crate::XcmRouter;
-use crate::{xcm_config::AssetTransactors, Runtime, RuntimeEvent};
-use frame_support::traits::Everything;
-use pallet_xcm::EnsureXcm;
 
+use crate::{xcm_config::AssetTransactors, Runtime, RuntimeEvent};
+use frame_support::{parameter_types, traits::Everything};
+use hex_literal::hex;
+use pallet_xcm::EnsureXcm;
+use xcm::prelude::{AccountKey20, Asset, Ethereum, GlobalConsensus, Location, SendXcm};
+
+#[cfg(not(feature = "runtime-benchmarks"))]
+use crate::xcm_config::XcmRouter;
 #[cfg(feature = "runtime-benchmarks")]
 use benchmark_helpers::DoNothingRouter;
+
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmark_helpers {
 	use crate::RuntimeOrigin;
 	use codec::Encode;
-	use xcm::latest::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
 
 	pub struct DoNothingRouter;
 	impl SendXcm for DoNothingRouter {
@@ -50,6 +53,20 @@ pub mod benchmark_helpers {
 	}
 }
 
+parameter_types! {
+	pub storage WETH: Location = Location::new(
+			2,
+			[
+				GlobalConsensus(Ethereum { chain_id: 11155111 }),
+				AccountKey20 {
+					network: None,
+					key: hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"),
+				},
+			],
+	);
+	pub storage DeliveryFee: Asset = (Location::parent(), 80_000_000_000u128).into();
+}
+
 impl snowbridge_system_frontend::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
@@ -62,4 +79,6 @@ impl snowbridge_system_frontend::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type XcmSender = DoNothingRouter;
 	type AssetTransactor = AssetTransactors;
+	type WETH = WETH;
+	type DeliveryFee = DeliveryFee;
 }

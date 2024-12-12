@@ -153,7 +153,14 @@ pub mod pallet {
 			let origin_location: Location =
 				(*location).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
 
-			let agent_id = agent_id_of::<T>(&origin_location)?;
+			let ethereum_location = T::EthereumLocation::get();
+			// reanchor to Ethereum context
+			let location = origin_location
+				.clone()
+				.reanchored(&ethereum_location, &T::UniversalLocation::get())
+				.map_err(|_| Error::<T>::LocationConversionFailed)?;
+
+			let agent_id = agent_id_of::<T>(&location)?;
 
 			// Record the agent id or fail if it has already been created
 			ensure!(!Agents::<T>::contains_key(agent_id), Error::<T>::AgentAlreadyCreated);

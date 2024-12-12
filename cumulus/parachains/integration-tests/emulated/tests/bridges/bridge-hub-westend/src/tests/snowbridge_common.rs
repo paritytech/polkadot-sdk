@@ -18,6 +18,7 @@ use crate::{
 	imports::*,
 	tests::snowbridge::{CHAIN_ID, WETH},
 };
+use asset_hub_westend_runtime::xcm_config::LocationToAccountId;
 use emulated_integration_tests_common::PenpalBTeleportableAssetLocation;
 use frame_support::traits::fungibles::Mutate;
 use hex_literal::hex;
@@ -254,11 +255,27 @@ pub fn fund_on_ah() {
 	let penpal_sovereign = AssetHubWestend::sovereign_account_id_of(
 		AssetHubWestend::sibling_location_of(PenpalB::para_id()),
 	);
+	let penpal_user_sovereign = LocationToAccountId::convert_location(&Location::new(
+		1,
+		[
+			Parachain(PenpalB::para_id().into()),
+			AccountId32 {
+				network: Some(ByGenesis(WESTEND_GENESIS_HASH)),
+				id: PenpalBSender::get().into(),
+			},
+		],
+	))
+	.unwrap();
 
 	AssetHubWestend::execute_with(|| {
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint_into(
 			weth_location().try_into().unwrap(),
 			&penpal_sovereign,
+			INITIAL_FUND,
+		));
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint_into(
+			weth_location().try_into().unwrap(),
+			&penpal_user_sovereign,
 			INITIAL_FUND,
 		));
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint_into(
@@ -281,6 +298,8 @@ pub fn fund_on_ah() {
 		.unwrap()
 		.into();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
+	AssetHubWestend::fund_accounts(vec![(penpal_sovereign.clone(), INITIAL_FUND)]);
+	AssetHubWestend::fund_accounts(vec![(penpal_user_sovereign.clone(), INITIAL_FUND)]);
 }
 
 pub fn create_pools_on_ah() {
