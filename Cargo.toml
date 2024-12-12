@@ -297,6 +297,7 @@ members = [
 	"substrate/client/rpc-api",
 	"substrate/client/rpc-servers",
 	"substrate/client/rpc-spec-v2",
+	"substrate/client/runtime-utilities",
 	"substrate/client/service",
 	"substrate/client/service/test",
 	"substrate/client/state-db",
@@ -1187,6 +1188,7 @@ sc-rpc-api = { path = "substrate/client/rpc-api", default-features = false }
 sc-rpc-server = { path = "substrate/client/rpc-servers", default-features = false }
 sc-rpc-spec-v2 = { path = "substrate/client/rpc-spec-v2", default-features = false }
 sc-runtime-test = { path = "substrate/client/executor/runtime-test" }
+sc-runtime-utilities = { path = "substrate/client/runtime-utilities", default-features = true }
 sc-service = { path = "substrate/client/service", default-features = false }
 sc-service-test = { path = "substrate/client/service/test" }
 sc-state-db = { path = "substrate/client/state-db", default-features = false }
@@ -1325,6 +1327,7 @@ substrate-test-runtime-transaction-pool = { path = "substrate/test-utils/runtime
 substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
 subxt = { version = "0.38", default-features = false }
+subxt-metadata = { version = "0.38.0", default-features = false }
 subxt-signer = { version = "0.38" }
 syn = { version = "2.0.87" }
 sysinfo = { version = "0.30" }
