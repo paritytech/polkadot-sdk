@@ -1300,7 +1300,7 @@ pub mod env {
 	}
 
 	/// Returns the total size of the contract call input data.
-	/// See [`pallet_revive_uapi::HostFn::terminate`].
+	/// See [`pallet_revive_uapi::HostFn:: call_data_size `].
 	#[stable]
 	fn call_data_size(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::CallDataSize)?;
