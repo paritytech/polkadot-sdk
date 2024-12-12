@@ -1445,7 +1445,10 @@ where
 			let eth_gas = gas_from_fee(fee);
 			let eth_gas = gas_encoder
 				.encode(eth_gas, result.gas_required, result.storage_deposit)
-				.map_err(|_| EthTransactError::Message("Failed to encode gas".into()))?;
+				.map_err(|err| {
+					log::debug!(target: LOG_TARGET, "Failed to encode gas {err:?}");
+					EthTransactError::Message("Failed to encode gas".into())
+				})?;
 
 			if eth_gas == result.eth_gas {
 				log::trace!(target: LOG_TARGET, "bare_eth_call: encoded_len: {encoded_len:?} eth_gas: {eth_gas:?}");

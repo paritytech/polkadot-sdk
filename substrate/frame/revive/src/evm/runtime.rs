@@ -27,7 +27,6 @@ use frame_support::{
 };
 use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::{StaticTypeInfo, TypeInfo};
-use sp_arithmetic::Percent;
 use sp_core::{Get, H256, U256};
 use sp_runtime::{
 	generic::{self, CheckedExtrinsic, ExtrinsicFormat},
@@ -390,23 +389,13 @@ pub trait EthExtra {
 				Default::default(),
 			)
 			.into();
-		log::trace!(target: LOG_TARGET, "try_into_checked_extrinsic: encoded_len: {encoded_len:?} actual_fee: {actual_fee:?} eth_fee: {eth_fee:?}");
+		log::debug!(target: LOG_TARGET, "try_into_checked_extrinsic: encoded_len: {encoded_len:?} actual_fee: {actual_fee:?} eth_fee: {eth_fee:?}");
 
 		// The fees from the Ethereum transaction should be greater or equal to the actual fees paid
 		// by the account.
 		if eth_fee < actual_fee {
 			log::debug!(target: LOG_TARGET, "fees {eth_fee:?} too low for the extrinsic {actual_fee:?}");
 			return Err(InvalidTransaction::Payment.into())
-		}
-
-		let min = actual_fee.min(eth_fee_no_tip);
-		let max = actual_fee.max(eth_fee_no_tip);
-		let diff = Percent::from_rational(max - min, min);
-		if diff > Percent::from_percent(10) {
-			log::trace!(target: LOG_TARGET, "Difference between the extrinsic fees {actual_fee:?} and the Ethereum gas fees {eth_fee_no_tip:?} should be no more than 10% got {diff:?}");
-			return Err(InvalidTransaction::Call.into())
-		} else {
-			log::trace!(target: LOG_TARGET, "Difference between the extrinsic fees {actual_fee:?} and the Ethereum gas fees {eth_fee_no_tip:?}:  {diff:?}");
 		}
 
 		let tip = eth_fee.saturating_sub(eth_fee_no_tip);
