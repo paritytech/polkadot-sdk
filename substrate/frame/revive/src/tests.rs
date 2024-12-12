@@ -4358,7 +4358,7 @@ fn call_data_size_api_works() {
 		assert_eq!(received.flags, ReturnFlags::empty());
 		assert_eq!(U256::from_little_endian(&received.data), U256::zero());
 
-		let received = builder::bare_call(addr).data(vec![1; 256]).build().result.unwrap();
+		let received = builder::bare_call(addr).data(vec![1; 256]).build_and_unwrap_result();
 		assert_eq!(received.flags, ReturnFlags::empty());
 		assert_eq!(U256::from_little_endian(&received.data), U256::from(256));
 	});
