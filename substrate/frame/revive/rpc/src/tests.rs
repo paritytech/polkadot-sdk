@@ -222,21 +222,22 @@ async fn deploy_and_call() -> anyhow::Result<()> {
 async fn revert_call() -> anyhow::Result<()> {
 	let _lock = SHARED_RESOURCES.write();
 	let client = SharedResources::client().await;
-	let (bytecode, contract) = get_contract("revert")?;
+	let (bytecode, contract) = get_contract("ErrorTester")?;
 	let receipt = TransactionBuilder::default()
-		.input(contract.constructor.clone().unwrap().encode_input(bytecode, &[]).unwrap())
+		.input(bytecode)
 		.send_and_wait_for_receipt(&client)
 		.await?;
 
 	let err = TransactionBuilder::default()
 		.to(receipt.contract_address.unwrap())
-		.input(contract.function("doRevert")?.encode_input(&[])?.to_vec())
+		.input(contract.function("triggerRequireError")?.encode_input(&[])?.to_vec())
 		.send(&client)
 		.await
 		.unwrap_err();
 
 	let call_err = unwrap_call_err!(err.source().unwrap());
-	assert_eq!(call_err.message(), "Execution reverted: revert message");
+	assert_eq!(call_err.message(), "execution reverted: This is a require error");
+	assert_eq!(call_err.code(), 3);
 	Ok(())
 }
 
@@ -244,7 +245,7 @@ async fn revert_call() -> anyhow::Result<()> {
 async fn event_logs() -> anyhow::Result<()> {
 	let _lock = SHARED_RESOURCES.write();
 	let client = SharedResources::client().await;
-	let (bytecode, contract) = get_contract("event")?;
+	let (bytecode, contract) = get_contract("EventExample")?;
 	let receipt = TransactionBuilder::default()
 		.input(bytecode)
 		.send_and_wait_for_receipt(&client)
@@ -283,7 +284,7 @@ async fn invalid_transaction() -> anyhow::Result<()> {
 async fn native_evm_ratio_works() -> anyhow::Result<()> {
 	let _lock = SHARED_RESOURCES.write();
 	let client = SharedResources::client().await;
-	let (bytecode, contract) = get_contract("piggyBank")?;
+	let (bytecode, contract) = get_contract("PiggyBank")?;
 	let contract_address = TransactionBuilder::default()
 		.input(bytecode)
 		.send_and_wait_for_receipt(&client)

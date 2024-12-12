@@ -1326,6 +1326,7 @@ impl parachains_scheduler::Config for Runtime {
 parameter_types! {
 	pub const BrokerId: u32 = BROKER_ID;
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
+	pub MaxXcmTransactWeight: Weight = Weight::from_parts(200_000_000, 20_000);
 }
 
 pub struct BrokerPot;
@@ -1349,6 +1350,7 @@ impl coretime::Config for Runtime {
 		xcm_config::ThisNetwork,
 		<Runtime as frame_system::Config>::AccountId,
 	>;
+	type MaxXcmTransactWeight = MaxXcmTransactWeight;
 }
 
 parameter_types! {
@@ -2799,8 +2801,9 @@ sp_api::impl_runtime_apis! {
 				}
 
 				fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
-					// The XCM executor of Westend doesn't have a configured `Aliasers`
-					Err(BenchmarkError::Skip)
+					let origin = Location::new(0, [Parachain(1000)]);
+					let target = Location::new(0, [Parachain(1000), AccountId32 { id: [128u8; 32], network: None }]);
+					Ok((origin, target))
 				}
 			}
 
