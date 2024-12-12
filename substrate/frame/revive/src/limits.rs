@@ -116,7 +116,10 @@ pub mod code {
 	const BASIC_BLOCK_SIZE: u32 = 1000;
 
 	/// Make sure that the various program parts are within the defined limits.
-	pub fn enforce<T: Config>(blob: Vec<u8>) -> Result<CodeVec, DispatchError> {
+	pub fn enforce<T: Config>(
+		blob: Vec<u8>,
+		available_syscalls: &[&[u8]],
+	) -> Result<CodeVec, DispatchError> {
 		fn round_page(n: u32) -> u64 {
 			// performing the rounding in u64 in order to prevent overflow
 			u64::from(n).next_multiple_of(PAGE_SIZE.into())
@@ -132,6 +135,26 @@ pub mod code {
 		if !program.is_64_bit() {
 			log::debug!(target: LOG_TARGET, "32bit programs are not supported.");
 			Err(Error::<T>::CodeRejected)?;
+		}
+
+		// Need to check that no non-existent syscalls are used. This allows us to add
+		// new syscalls later without affecting already deployed code.
+		for (idx, import) in program.imports().iter().enumerate() {
+			// We are being defensive in case an attacker is able to somehow include
+			// a lot of imports. This is important because we search the array of host
+			// functions for every import.
+			if idx == available_syscalls.len() {
+				log::debug!(target: LOG_TARGET, "Program contains too many imports.");
+				Err(Error::<T>::CodeRejected)?;
+			}
+			let Some(import) = import else {
+				log::debug!(target: LOG_TARGET, "Program contains malformed import.");
+				return Err(Error::<T>::CodeRejected.into());
+			};
+			if !available_syscalls.contains(&import.as_bytes()) {
+				log::debug!(target: LOG_TARGET, "Program references unknown syscall: {}", import);
+				Err(Error::<T>::CodeRejected)?;
+			}
 		}
 
 		// This scans the whole program but we only do it once on code deployment.
