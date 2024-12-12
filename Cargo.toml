@@ -285,6 +285,7 @@ members = [
 	"substrate/client/rpc-api",
 	"substrate/client/rpc-servers",
 	"substrate/client/rpc-spec-v2",
+	"substrate/client/runtime-utilities",
 	"substrate/client/service",
 	"substrate/client/service/test",
 	"substrate/client/state-db",
@@ -1140,7 +1141,12 @@ sc-rpc-api = { path = "substrate/client/rpc-api", default-features = false, vers
 sc-rpc-server = { path = "substrate/client/rpc-servers", default-features = false, version = "16.0.2" }
 sc-rpc-spec-v2 = { path = "substrate/client/rpc-spec-v2", default-features = false, version = "0.44.0" }
 sc-runtime-test = { path = "substrate/client/executor/runtime-test" }
+<<<<<<< HEAD
 sc-service = { path = "substrate/client/service", default-features = false, version = "0.45.0" }
+=======
+sc-runtime-utilities = { path = "substrate/client/runtime-utilities", default-features = true }
+sc-service = { path = "substrate/client/service", default-features = false }
+>>>>>>> 7cc5cdd0 (omni-node: add metadata checks for runtime/parachain compatibility (#6450))
 sc-service-test = { path = "substrate/client/service/test" }
 sc-state-db = { path = "substrate/client/state-db", default-features = false, version = "0.36.0" }
 sc-statement-store = { default-features = false, path = "substrate/client/statement-store" }
@@ -1273,8 +1279,16 @@ substrate-test-runtime = { path = "substrate/test-utils/runtime", version = "2.0
 substrate-test-runtime-client = { path = "substrate/test-utils/runtime/client", version = "2.0.0" }
 substrate-test-runtime-transaction-pool = { path = "substrate/test-utils/runtime/transaction-pool" }
 substrate-test-utils = { path = "substrate/test-utils" }
+<<<<<<< HEAD
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false, version = "24.0.0" }
 syn = { version = "2.0.53" }
+=======
+substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
+subxt = { version = "0.38", default-features = false }
+subxt-metadata = { version = "0.38.0", default-features = false }
+subxt-signer = { version = "0.38" }
+syn = { version = "2.0.87" }
+>>>>>>> 7cc5cdd0 (omni-node: add metadata checks for runtime/parachain compatibility (#6450))
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
 tempfile = { version = "3.8.1" }
