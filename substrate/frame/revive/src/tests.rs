@@ -4408,6 +4408,48 @@ fn chain_id_works() {
 }
 
 #[test]
+fn call_data_load_api_works() {
+	let (code, _) = compile_module("call_data_load").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create fixture: Constructor does nothing
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// Call the contract: It reads a byte for the offset and then returns
+		// what call data load returned using this byte as the offset.
+		let input = (3u8, U256::max_value(), U256::max_value()).encode();
+		let received = builder::bare_call(addr).data(input).build().result.unwrap();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		assert_eq!(U256::from_little_endian(&received.data), U256::max_value());
+
+		// Edge case
+		let input = (2u8, U256::from(255).to_big_endian()).encode();
+		let received = builder::bare_call(addr).data(input).build().result.unwrap();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		assert_eq!(U256::from_little_endian(&received.data), U256::from(65280));
+
+		// Edge case
+		let received = builder::bare_call(addr).data(vec![1]).build().result.unwrap();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		assert_eq!(U256::from_little_endian(&received.data), U256::zero());
+
+		// OOB case
+		let input = (42u8).encode();
+		let received = builder::bare_call(addr).data(input).build().result.unwrap();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		assert_eq!(U256::from_little_endian(&received.data), U256::zero());
+
+		// No calldata should return the zero value
+		let received = builder::bare_call(addr).build().result.unwrap();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		assert_eq!(U256::from_little_endian(&received.data), U256::zero());
+	});
+}
+
+#[test]
 fn return_data_api_works() {
 	let (code_return_data_api, _) = compile_module("return_data_api").unwrap();
 	let (code_return_with_data, hash_return_with_data) =
@@ -4751,5 +4793,37 @@ fn skip_transfer_works() {
 			Weight::MAX,
 			|_| 0u32
 		));
+	});
+}
+
+#[test]
+fn unknown_syscall_rejected() {
+	let (code, _) = compile_module("unknown_syscall").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		assert_err!(
+			builder::bare_instantiate(Code::Upload(code)).build().result,
+			<Error<Test>>::CodeRejected,
+		)
+	});
+}
+
+#[test]
+fn unstable_interface_rejected() {
+	let (code, _) = compile_module("unstable_interface").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		Test::set_unstable_interface(false);
+		assert_err!(
+			builder::bare_instantiate(Code::Upload(code.clone())).build().result,
+			<Error<Test>>::CodeRejected,
+		);
+
+		Test::set_unstable_interface(true);
+		assert_ok!(builder::bare_instantiate(Code::Upload(code)).build().result);
 	});
 }
