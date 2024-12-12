@@ -51,7 +51,6 @@ fn main() -> Result<(), String> {
 			let (mut env, _cfgs) = prepare_test(
 				&state,
 				polkadot_subsystem_bench::availability::TestDataAvailability::Write,
-				false,
 			);
 			env.runtime().block_on(benchmark_availability_write(&mut env, &state))
 		})
