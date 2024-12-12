@@ -62,8 +62,8 @@ where
 			None => (relay_chain_slot, 1),
 		};
 
-		// We need to allow authoring multiple blocks in the same slot.
-		if authored_in_relay > velocity {
+		// We need to allow one additional block to be built to fill the unincluded segment.
+		if authored_in_relay > velocity + 1 {
 			panic!("authored blocks limit is reached for the slot")
 		}
 
@@ -134,10 +134,10 @@ impl<
 			return false
 		}
 
-		// Check that we have not authored more than `V` parachain blocks in the current relay
+		// Check that we have not authored more than `V + 1` parachain blocks in the current relay
 		// chain slot.
 		if last_slot == new_slot {
-			authored_so_far < velocity
+			authored_so_far < velocity + 1
 		} else {
 			// disallow slot from moving backwards.
 			last_slot < new_slot

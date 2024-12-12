@@ -163,7 +163,7 @@ mod test {
 
 		new_test_ext(1).execute_with(|| {
 			let state_proof = relay_chain_state_proof(10);
-			for authored in 0..=VELOCITY {
+			for authored in 0..=VELOCITY + 1 {
 				Hook::on_state_proof(&state_proof);
 				assert_slot_info(10, authored + 1);
 			}
@@ -218,13 +218,13 @@ mod test {
 
 		new_test_ext(1).execute_with(|| {
 			let state_proof = relay_chain_state_proof(10);
-			for authored in 0..VELOCITY {
+			for authored in 0..=VELOCITY {
 				Hook::on_state_proof(&state_proof);
 				assert_slot_info(10, authored + 1);
 			}
 
 			let state_proof = relay_chain_state_proof(11);
-			for authored in 0..VELOCITY {
+			for authored in 0..=VELOCITY {
 				Hook::on_state_proof(&state_proof);
 				assert_slot_info(11, authored + 1);
 			}
@@ -293,7 +293,7 @@ mod test {
 			assert!(Hook::can_build_upon(hash, relay_slot));
 
 			set_relay_slot(10, VELOCITY);
-			assert!(!Hook::can_build_upon(hash, relay_slot));
+			assert!(Hook::can_build_upon(hash, relay_slot));
 
 			set_relay_slot(10, VELOCITY + 1);
 			// Velocity too high
@@ -323,7 +323,7 @@ mod test {
 		new_test_ext(1).execute_with(|| {
 			let relay_slot = Slot::from(10);
 
-			set_relay_slot(10, 1);
+			set_relay_slot(10, VELOCITY);
 			// Size after included is two, we can not build
 			let hash = H256::repeat_byte(0x1);
 			assert!(!Hook::can_build_upon(hash, relay_slot));
