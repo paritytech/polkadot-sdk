@@ -26,7 +26,7 @@ use futures::{Stream, StreamExt};
 use polkadot_core_primitives::{Block, BlockNumber, Hash, Header};
 use polkadot_overseer::{ChainApiBackend, RuntimeApiSubsystemClient};
 use polkadot_primitives::{
-	async_backing::AsyncBackingParams, slashing, vstaging::async_backing::BackingState,
+	async_backing::AsyncBackingParams, slashing, vstaging::async_backing::{BackingState, Constraints},
 	ApprovalVotingParams, CoreIndex, NodeFeatures,
 };
 use sc_authority_discovery::{AuthorityDiscovery, Error as AuthorityDiscoveryError};
@@ -453,6 +453,14 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 			.rpc_client
 			.parachain_host_candidates_pending_availability(at, para_id)
 			.await?)
+	}
+
+	async fn constraints(
+		&self,
+		at: Hash,
+		para_id: ParaId,
+	) -> Result<Option<Constraints>, ApiError> {
+		Ok(self.rpc_client.parachain_host_constraints(at, para_id).await?)
 	}
 }
 

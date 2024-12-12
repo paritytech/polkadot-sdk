@@ -27,8 +27,8 @@ use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
 	async_backing::{AsyncBackingParams, Constraints, InboundHrmpLimitations},
 	vstaging::{
-		async_backing::BackingState, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
-		MutateDescriptorV2,
+		async_backing::{BackingState, CandidatePendingAvailability, Constraints as ConstraintsV2},
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, MutateDescriptorV2,
 	},
 	CoreIndex, HeadData, Header, PersistedValidationData, ScheduledCore, ValidationCodeHash,
 };
@@ -44,7 +44,7 @@ const ALLOWED_ANCESTRY_LEN: u32 = 3;
 const ASYNC_BACKING_PARAMETERS: AsyncBackingParams =
 	AsyncBackingParams { max_candidate_depth: 4, allowed_ancestry_len: ALLOWED_ANCESTRY_LEN };
 
-const ASYNC_BACKING_DISABLED_ERROR: RuntimeApiError =
+const RUNTIME_API_NOT_SUPPORTED: RuntimeApiError =
 	RuntimeApiError::NotSupported { runtime_api_name: "test-runtime" };
 
 const MAX_POV_SIZE: u32 = 1_000_000;
@@ -61,6 +61,31 @@ fn dummy_constraints(
 	Constraints {
 		min_relay_parent_number,
 		max_pov_size: MAX_POV_SIZE,
+		max_code_size: 1_000_000,
+		ump_remaining: 10,
+		ump_remaining_bytes: 1_000,
+		max_ump_num_per_candidate: 10,
+		dmp_remaining_messages: vec![],
+		hrmp_inbound: InboundHrmpLimitations { valid_watermarks },
+		hrmp_channels_out: vec![],
+		max_hrmp_num_per_candidate: 0,
+		required_parent,
+		validation_code_hash,
+		upgrade_restriction: None,
+		future_validation_code: None,
+	}
+}
+
+fn dummy_constraints_v2(
+	min_relay_parent_number: BlockNumber,
+	valid_watermarks: Vec<BlockNumber>,
+	required_parent: HeadData,
+	validation_code_hash: ValidationCodeHash,
+) -> ConstraintsV2 {
+	ConstraintsV2 {
+		min_relay_parent_number,
+		max_pov_size: MAX_POV_SIZE,
+		max_head_data_size: 20480,
 		max_code_size: 1_000_000,
 		ump_remaining: 10,
 		ump_remaining_bytes: 1_000,
@@ -364,47 +389,94 @@ async fn handle_leaf_activation(
 
 	let paras: HashSet<_> = test_state.claim_queue.values().flatten().collect();
 
-	for _ in 0..paras.len() {
+	// We expect two messages per parachain block.
+	for _ in 0..paras.len() * 2 {
 		let message = virtual_overseer.recv().await;
-		// Get the para we are working with since the order is not deterministic.
-		let para_id = match &message {
+		println!("Mesage {:?}", message);
+		let para_id = match message {
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				_,
-				RuntimeApiRequest::ParaBackingState(p_id, _),
-			)) => *p_id,
+				parent,
+				RuntimeApiRequest::ParaBackingState(p_id, tx),
+			)) if parent == *hash => {
+				let PerParaData { min_relay_parent, head_data, pending_availability } =
+					leaf.para_data(p_id);
+
+				let constraints = dummy_constraints(
+					*min_relay_parent,
+					vec![*number],
+					head_data.clone(),
+					test_state.validation_code_hash,
+				);
+
+				tx.send(Ok(Some(BackingState {
+					constraints,
+					pending_availability: pending_availability.clone(),
+				})))
+				.unwrap();
+				Some(p_id)
+			},
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				parent,
+				RuntimeApiRequest::Constraints(p_id, tx),
+			)) if parent == *hash &&
+				test_state.runtime_api_version >=
+					RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT =>
+			{
+				let PerParaData { min_relay_parent, head_data, pending_availability: _ } =
+					leaf.para_data(p_id);
+				let constraints = dummy_constraints_v2(
+					*min_relay_parent,
+					vec![*number],
+					head_data.clone(),
+					test_state.validation_code_hash,
+				);
+
+				tx.send(Ok(Some(constraints))).unwrap();
+				None
+			},
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				parent,
+				RuntimeApiRequest::Constraints(_p_id, tx),
+			)) if parent == *hash &&
+				test_state.runtime_api_version <
+					RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT =>
+			{
+				tx.send(Err(RUNTIME_API_NOT_SUPPORTED)).unwrap();
+				None
+			},
+
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				parent,
+				RuntimeApiRequest::CandidatesPendingAvailability(p_id, tx),
+			)) if parent == *hash => {
+				tx.send(Ok(leaf
+					.para_data(p_id)
+					.pending_availability
+					.clone()
+					.into_iter()
+					.map(|c| CommittedCandidateReceipt {
+						descriptor: c.descriptor,
+						commitments: c.commitments,
+					})
+					.collect()))
+					.unwrap();
+				Some(p_id)
+			},
 			_ => panic!("received unexpected message {:?}", message),
 		};
 
-		let PerParaData { min_relay_parent, head_data, pending_availability } =
-			leaf.para_data(para_id);
-		let constraints = dummy_constraints(
-			*min_relay_parent,
-			vec![*number],
-			head_data.clone(),
-			test_state.validation_code_hash,
-		);
-		let backing_state =
-			BackingState { constraints, pending_availability: pending_availability.clone() };
+		if let Some(para_id) = para_id {
+			for pending in leaf.para_data(para_id).pending_availability.clone() {
+				if !used_relay_parents.contains(&pending.descriptor.relay_parent()) {
+					send_block_header(
+						virtual_overseer,
+						pending.descriptor.relay_parent(),
+						pending.relay_parent_number,
+					)
+					.await;
 
-		assert_matches!(
-			message,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(parent, RuntimeApiRequest::ParaBackingState(p_id, tx))
-			) if parent == *hash && p_id == para_id => {
-				tx.send(Ok(Some(backing_state))).unwrap();
-			}
-		);
-
-		for pending in pending_availability {
-			if !used_relay_parents.contains(&pending.descriptor.relay_parent()) {
-				send_block_header(
-					virtual_overseer,
-					pending.descriptor.relay_parent(),
-					pending.relay_parent_number,
-				)
-				.await;
-
-				used_relay_parents.insert(pending.descriptor.relay_parent());
+					used_relay_parents.insert(pending.descriptor.relay_parent());
+				}
 			}
 		}
 	}
@@ -416,7 +488,9 @@ async fn handle_leaf_activation(
 			msg: ProspectiveParachainsMessage::GetMinimumRelayParents(*hash, tx),
 		})
 		.await;
+
 	let mut resp = rx.await.unwrap();
+
 	resp.sort();
 	let mrp_response: Vec<(ParaId, BlockNumber)> = para_data
 		.iter()
@@ -597,7 +671,7 @@ fn should_do_no_work_if_async_backing_disabled_for_leaf() {
 			AllMessages::RuntimeApi(
 				RuntimeApiMessage::Request(parent, RuntimeApiRequest::AsyncBackingParams(tx))
 			) if parent == hash => {
-				tx.send(Err(ASYNC_BACKING_DISABLED_ERROR)).unwrap();
+				tx.send(Err(RUNTIME_API_NOT_SUPPORTED)).unwrap();
 			}
 		);
 	}
@@ -1755,9 +1829,13 @@ fn check_backable_query_multiple_candidates() {
 }
 
 // Test hypothetical membership query.
-#[test]
-fn check_hypothetical_membership_query() {
-	let test_state = TestState::default();
+#[rstest]
+#[case(RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT)]
+#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
+fn check_hypothetical_membership_query(#[case] runtime_api_version: u32) {
+	let mut test_state = TestState::default();
+	test_state.set_runtime_api_version(runtime_api_version);
+
 	let view = test_harness(|mut virtual_overseer| async move {
 		// Leaf B
 		let leaf_b = TestLeaf {
@@ -1893,6 +1971,17 @@ fn check_hypothetical_membership_query() {
 			test_state.validation_code_hash,
 		);
 		introduce_seconded_candidate_failed(&mut virtual_overseer, candidate_d, pvd_d).await;
+
+		// Candidate E has invalid head data.
+		let (candidate_e, pvd_e) = make_candidate(
+			leaf_a.hash,
+			leaf_a.number,
+			1.into(),
+			HeadData(vec![2]),
+			HeadData(vec![0; 20481]),
+			test_state.validation_code_hash,
+		);
+		introduce_seconded_candidate_failed(&mut virtual_overseer, candidate_e, pvd_e).await;
 
 		// Add candidate B and back it.
 		introduce_seconded_candidate(&mut virtual_overseer, candidate_b.clone(), pvd_b.clone())
@@ -2061,6 +2150,7 @@ fn check_pvd_query() {
 // This test is parametrised with the runtime api version. For versions that don't support the claim
 // queue API, we check that av-cores are used.
 #[rstest]
+#[case(RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT)]
 #[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
 #[case(8)]
 fn correctly_updates_leaves(#[case] runtime_api_version: u32) {
@@ -2098,6 +2188,7 @@ fn correctly_updates_leaves(#[case] runtime_api_version: u32) {
 
 		// Activate leaves.
 		activate_leaf(&mut virtual_overseer, &leaf_a, &test_state).await;
+
 		activate_leaf(&mut virtual_overseer, &leaf_b, &test_state).await;
 
 		// Try activating a duplicate leaf.

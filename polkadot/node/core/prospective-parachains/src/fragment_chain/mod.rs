@@ -132,8 +132,7 @@ use std::{
 use super::LOG_TARGET;
 use polkadot_node_subsystem::messages::Ancestors;
 use polkadot_node_subsystem_util::inclusion_emulator::{
-	self, ConstraintModifications, Constraints, Fragment, HypotheticalOrConcreteCandidate,
-	ProspectiveCandidate, RelayChainBlockInfo,
+	self, validate_commitments, ConstraintModifications, Constraints, Fragment, HypotheticalOrConcreteCandidate, ProspectiveCandidate, RelayChainBlockInfo
 };
 use polkadot_primitives::{
 	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, BlockNumber,
@@ -1052,7 +1051,7 @@ impl FragmentChain {
 
 		// Try seeing if the parent candidate is in the current chain or if it is the latest
 		// included candidate. If so, get the constraints the candidate must satisfy.
-		let (constraints, maybe_min_relay_parent_number) =
+		let (is_unconnected, constraints, maybe_min_relay_parent_number) =
 			if let Some(parent_candidate) = self.best_chain.by_output_head.get(&parent_head_hash) {
 				let Some(parent_candidate) =
 					self.best_chain.chain.iter().find(|c| &c.candidate_hash == parent_candidate)
@@ -1062,6 +1061,7 @@ impl FragmentChain {
 				};
 
 				(
+					false,
 					self.scope
 						.base_constraints
 						.apply_modifications(&parent_candidate.cumulative_modifications)
@@ -1070,12 +1070,12 @@ impl FragmentChain {
 				)
 			} else if self.scope.base_constraints.required_parent.hash() == parent_head_hash {
 				// It builds on the latest included candidate.
-				(self.scope.base_constraints.clone(), None)
+				(false, self.scope.base_constraints.clone(), None)
 			} else {
-				// If the parent is not yet part of the chain, there's nothing else we can check for
-				// now.
-				return Ok(())
+				// The parent is not yet part of the chain
+				(true, self.scope.base_constraints.clone(), None)
 			};
+
 
 		// Check for cycles or invalid tree transitions.
 		if let Some(ref output_head_hash) = candidate.output_head_data_hash() {
@@ -1088,6 +1088,16 @@ impl FragmentChain {
 			candidate.persisted_validation_data(),
 			candidate.validation_code_hash(),
 		) {
+			if is_unconnected {
+				// If the parent is not yet part of the chain, we can check the commitments only
+				// if we have the full candidate.
+				return validate_commitments(
+					&self.scope.base_constraints,
+					&relay_parent,
+					commitments,
+					&validation_code_hash)
+					.map_err(Error::CheckAgainstConstraints)
+			}
 			Fragment::check_against_constraints(
 				&relay_parent,
 				&constraints,
