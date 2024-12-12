@@ -21,7 +21,6 @@
 use super::*;
 use crate::{self as pallet_tips, Event as TipEvent};
 use frame::{
-	arithmetic::{Perbill, Permill},
 	testing_prelude::*,
 	traits::{
 		tokens::{PayFromAccount, UnityAssetBalanceConversion},

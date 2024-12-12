@@ -64,7 +64,6 @@ extern crate alloc;
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame::{
-	arithmetic::Percent,
 	runtime::prelude::*,
 	traits::{
 		AccountIdConversion, BadOrigin, ContainsLengthBound, Currency,
