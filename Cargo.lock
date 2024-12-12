@@ -4955,7 +4955,6 @@ dependencies = [
  "pallet-message-queue 31.0.0",
  "parity-scale-codec",
  "polkadot-parachain-primitives 6.0.0",
- "polkadot-runtime-common 7.0.0",
  "polkadot-runtime-parachains 7.0.0",
  "rand",
  "sc-client-api",
@@ -31882,10 +31881,13 @@ name = "xcm-executor-integration-tests"
 version = "1.0.0"
 dependencies = [
  "frame-support 28.0.0",
+ "frame-system 28.0.0",
  "futures",
+ "pallet-sudo 28.0.0",
  "pallet-transaction-payment 28.0.0",
  "pallet-xcm 7.0.0",
  "parity-scale-codec",
+ "polkadot-runtime-parachains 7.0.0",
  "polkadot-test-client",
  "polkadot-test-runtime",
  "polkadot-test-service",
