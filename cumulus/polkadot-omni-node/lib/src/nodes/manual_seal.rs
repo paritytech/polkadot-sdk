@@ -25,10 +25,9 @@ use cumulus_primitives_core::ParaId;
 use sc_consensus::{DefaultImportQueue, LongestChain};
 use sc_consensus_manual_seal::rpc::{ManualSeal, ManualSealApiServer};
 use sc_network::NetworkBackend;
-use sc_service::{build_polkadot_syncing_strategy, Configuration, PartialComponents, TaskManager};
+use sc_service::{Configuration, PartialComponents, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sp_runtime::traits::Header;
-use sp_timestamp::Timestamp;
 use std::{marker::PhantomData, sync::Arc};
 
 pub struct ManualSealNode<NodeSpec>(PhantomData<NodeSpec>);
@@ -86,7 +85,7 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 		// Since this is a dev node, prevent it from connecting to peers.
 		config.network.default_peers_set.in_peers = 0;
 		config.network.default_peers_set.out_peers = 0;
-		let mut net_config = sc_network::config::FullNetworkConfiguration::<_, _, Net>::new(
+		let net_config = sc_network::config::FullNetworkConfiguration::<_, _, Net>::new(
 			&config.network,
 			config.prometheus_config.as_ref().map(|cfg| cfg.registry.clone()),
 		);
@@ -94,17 +93,7 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 			config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
 		);
 
-		let syncing_strategy = build_polkadot_syncing_strategy(
-			config.protocol_id(),
-			config.chain_spec.fork_id(),
-			&mut net_config,
-			None,
-			client.clone(),
-			&task_manager.spawn_handle(),
-			config.prometheus_config.as_ref().map(|config| &config.registry),
-		)?;
-
-		let (network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
+		let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 			sc_service::build_network(sc_service::BuildNetworkParams {
 				config: &config,
 				client: client.clone(),
@@ -113,7 +102,7 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 				import_queue,
 				net_config,
 				block_announce_validator_builder: None,
-				syncing_strategy,
+				warp_sync_config: None,
 				block_relay: None,
 				metrics,
 			})?;
@@ -182,7 +171,10 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 						additional_key_values: None,
 					};
 					Ok((
-						sp_timestamp::InherentDataProvider::new(Timestamp::new(0)),
+						// This is intentional, as the runtime that we expect to run against this
+						// will never receive the aura-related inherents/digests, and providing
+						// real timestamps would cause aura <> timestamp checking to fail.
+						sp_timestamp::InherentDataProvider::new(sp_timestamp::Timestamp::new(0)),
 						mocked_parachain,
 					))
 				}
@@ -227,7 +219,6 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 			telemetry: telemetry.as_mut(),
 		})?;
 
-		start_network.start_network();
 		Ok(task_manager)
 	}
 }

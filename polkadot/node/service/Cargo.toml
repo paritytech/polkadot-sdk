@@ -6,6 +6,8 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Utils to tie different Polkadot components together and allow instantiation of a node."
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -140,7 +142,6 @@ polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
 sp-tracing = { workspace = true }
 assert_matches = { workspace = true }
-serial_test = { workspace = true }
 tempfile = { workspace = true }
 
 [features]
@@ -200,6 +201,7 @@ runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"polkadot-test-client/runtime-benchmarks",
@@ -217,7 +219,10 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 	"westend-runtime?/try-runtime",
 ]
-fast-runtime = ["rococo-runtime?/fast-runtime", "westend-runtime?/fast-runtime"]
+fast-runtime = [
+	"rococo-runtime?/fast-runtime",
+	"westend-runtime?/fast-runtime",
+]
 
 malus = ["full-node"]
 runtime-metrics = [

@@ -21,7 +21,7 @@
 use common::input;
 use uapi::{HostFn, HostFnImpl as api};
 
-const ETH_DJANGO: [u8; 20] = [4u8; 20];
+const DJANGO_FALLBACK: [u8; 20] = [4u8; 20];
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -52,6 +52,6 @@ pub extern "C" fn call() {
 		.unwrap();
 	} else {
 		// Try to terminate and give balance to django.
-		api::terminate(&ETH_DJANGO);
+		api::terminate(&DJANGO_FALLBACK);
 	}
 }

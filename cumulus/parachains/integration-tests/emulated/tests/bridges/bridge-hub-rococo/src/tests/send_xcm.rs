@@ -29,7 +29,7 @@ fn send_xcm_from_rococo_relay_to_westend_asset_hub_should_fail_on_not_applicable
 	let xcm = VersionedXcm::from(Xcm(vec![
 		UnpaidExecution { weight_limit, check_origin },
 		ExportMessage {
-			network: WestendId,
+			network: ByGenesis(WESTEND_GENESIS_HASH),
 			destination: [Parachain(AssetHubWestend::para_id().into())].into(),
 			xcm: remote_xcm,
 		},
@@ -60,27 +60,26 @@ fn send_xcm_from_rococo_relay_to_westend_asset_hub_should_fail_on_not_applicable
 
 #[test]
 fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
-	// Initially set only default version on all runtimes
-	let newer_xcm_version = xcm::prelude::XCM_VERSION;
-	let older_xcm_version = newer_xcm_version - 1;
-
-	AssetHubRococo::force_default_xcm_version(Some(older_xcm_version));
-	BridgeHubRococo::force_default_xcm_version(Some(older_xcm_version));
-	BridgeHubWestend::force_default_xcm_version(Some(older_xcm_version));
-	AssetHubWestend::force_default_xcm_version(Some(older_xcm_version));
-
 	// prepare data
 	let destination = asset_hub_westend_location();
 	let native_token = Location::parent();
 	let amount = ASSET_HUB_ROCOCO_ED * 1_000;
 
-	// fund the AHR's SA on BHR for paying bridge transport fees
+	// fund the AHR's SA on BHR for paying bridge delivery fees
 	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id(), 10_000_000_000_000u128);
 	// fund sender
 	AssetHubRococo::fund_accounts(vec![(AssetHubRococoSender::get().into(), amount * 10)]);
 
 	// open bridge
 	open_bridge_between_asset_hub_rococo_and_asset_hub_westend();
+
+	// Initially set only default version on all runtimes
+	let newer_xcm_version = xcm::prelude::XCM_VERSION;
+	let older_xcm_version = newer_xcm_version - 1;
+	AssetHubRococo::force_default_xcm_version(Some(older_xcm_version));
+	BridgeHubRococo::force_default_xcm_version(Some(older_xcm_version));
+	BridgeHubWestend::force_default_xcm_version(Some(older_xcm_version));
+	AssetHubWestend::force_default_xcm_version(Some(older_xcm_version));
 
 	// send XCM from AssetHubRococo - fails - destination version not known
 	assert_err!(

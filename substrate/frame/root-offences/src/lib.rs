@@ -106,7 +106,7 @@ pub mod pallet {
 		fn get_offence_details(
 			offenders: Vec<(T::AccountId, Perbill)>,
 		) -> Result<Vec<OffenceDetails<T>>, DispatchError> {
-			let now = Staking::<T>::active_era()
+			let now = pallet_staking::ActiveEra::<T>::get()
 				.map(|e| e.index)
 				.ok_or(Error::<T>::FailedToGetActiveEra)?;
 

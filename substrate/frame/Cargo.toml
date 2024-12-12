@@ -44,8 +44,10 @@ sp-offchain = { optional = true, workspace = true }
 sp-session = { optional = true, workspace = true }
 sp-consensus-aura = { optional = true, workspace = true }
 sp-consensus-grandpa = { optional = true, workspace = true }
+sp-genesis-builder = { optional = true, workspace = true }
 sp-inherents = { optional = true, workspace = true }
 sp-storage = { optional = true, workspace = true }
+sp-keyring = { optional = true, workspace = true }
 
 frame-executive = { optional = true, workspace = true }
 frame-system-rpc-runtime-api = { optional = true, workspace = true }
@@ -67,19 +69,20 @@ pallet-examples = { workspace = true }
 default = ["runtime", "std"]
 experimental = ["frame-support/experimental"]
 runtime = [
+	"frame-executive",
+	"frame-system-rpc-runtime-api",
 	"sp-api",
 	"sp-block-builder",
 	"sp-consensus-aura",
 	"sp-consensus-grandpa",
+	"sp-genesis-builder",
 	"sp-inherents",
+	"sp-keyring",
 	"sp-offchain",
 	"sp-session",
 	"sp-storage",
 	"sp-transaction-pool",
 	"sp-version",
-
-	"frame-executive",
-	"frame-system-rpc-runtime-api",
 ]
 std = [
 	"codec/std",
@@ -98,8 +101,10 @@ std = [
 	"sp-consensus-aura?/std",
 	"sp-consensus-grandpa?/std",
 	"sp-core/std",
+	"sp-genesis-builder?/std",
 	"sp-inherents?/std",
 	"sp-io/std",
+	"sp-keyring?/std",
 	"sp-offchain?/std",
 	"sp-runtime/std",
 	"sp-session?/std",

@@ -34,7 +34,7 @@ use sp_core::{
 	H256, U256,
 };
 use sp_runtime::{
-	testing::{Digest, DigestItem, Header, TestXt},
+	testing::{Digest, DigestItem, Header},
 	BuildStorage,
 };
 
@@ -48,12 +48,21 @@ impl frame_system::Config for Test {
 	type Block = frame_system::mocking::MockBlock<Test>;
 }
 
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+impl<C> frame_system::offchain::CreateTransactionBase<C> for Test
 where
 	RuntimeCall: From<C>,
 {
-	type OverarchingCall = RuntimeCall;
-	type Extrinsic = TestXt<RuntimeCall, ()>;
+	type RuntimeCall = RuntimeCall;
+	type Extrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+}
+
+impl<C> frame_system::offchain::CreateInherent<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		frame_system::mocking::MockUncheckedExtrinsic::<Test>::new_bare(call)
+	}
 }
 
 impl pallet_sassafras::Config for Test {

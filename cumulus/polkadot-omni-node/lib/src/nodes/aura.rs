@@ -52,8 +52,9 @@ use sc_consensus::{
 };
 use sc_service::{Configuration, Error, TaskManager};
 use sc_telemetry::TelemetryHandle;
-use sc_transaction_pool::FullPool;
+use sc_transaction_pool::TransactionPoolHandle;
 use sp_api::ProvideRuntimeApi;
+use sp_core::traits::SpawnNamed;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
@@ -242,7 +243,7 @@ where
 	AuraId: AuraIdT + Sync,
 {
 	#[docify::export_content]
-	fn launch_slot_based_collator<CIDP, CHP, Proposer, CS>(
+	fn launch_slot_based_collator<CIDP, CHP, Proposer, CS, Spawner>(
 		params: SlotBasedParams<
 			ParachainBlockImport<Block, RuntimeApi>,
 			CIDP,
@@ -252,28 +253,17 @@ where
 			CHP,
 			Proposer,
 			CS,
+			Spawner,
 		>,
-		task_manager: &TaskManager,
 	) where
 		CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 		CIDP::InherentDataProviders: Send,
 		CHP: cumulus_client_consensus_common::ValidationCodeHashProvider<Hash> + Send + 'static,
 		Proposer: ProposerInterface<Block> + Send + Sync + 'static,
 		CS: CollatorServiceInterface<Block> + Send + Sync + Clone + 'static,
+		Spawner: SpawnNamed,
 	{
-		let (collation_future, block_builder_future) =
-			slot_based::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _>(params);
-
-		task_manager.spawn_essential_handle().spawn(
-			"collation-task",
-			Some("parachain-block-authoring"),
-			collation_future,
-		);
-		task_manager.spawn_essential_handle().spawn(
-			"block-builder-task",
-			Some("parachain-block-authoring"),
-			block_builder_future,
-		);
+		slot_based::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(params);
 	}
 }
 
@@ -291,7 +281,7 @@ where
 		telemetry: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
-		transaction_pool: Arc<FullPool<Block, ParachainClient<Block, RuntimeApi>>>,
+		transaction_pool: Arc<TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>>,
 		keystore: KeystorePtr,
 		_relay_chain_slot_duration: Duration,
 		para_id: ParaId,
@@ -335,11 +325,12 @@ where
 			authoring_duration: Duration::from_millis(2000),
 			reinitialize: false,
 			slot_drift: Duration::from_secs(1),
+			spawner: task_manager.spawn_handle(),
 		};
 
 		// We have a separate function only to be able to use `docify::export` on this piece of
 		// code.
-		Self::launch_slot_based_collator(params, task_manager);
+		Self::launch_slot_based_collator(params);
 
 		Ok(())
 	}
@@ -387,7 +378,7 @@ where
 		telemetry: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
-		transaction_pool: Arc<FullPool<Block, ParachainClient<Block, RuntimeApi>>>,
+		transaction_pool: Arc<TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>>,
 		keystore: KeystorePtr,
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,

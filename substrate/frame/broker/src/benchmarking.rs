@@ -217,9 +217,11 @@ mod benches {
 		_(origin as T::RuntimeOrigin, initial_price, extra_cores.try_into().unwrap());
 
 		assert!(SaleInfo::<T>::get().is_some());
+		let sale_start = RCBlockNumberProviderOf::<T::Coretime>::current_block_number() +
+			config.interlude_length;
 		assert_last_event::<T>(
 			Event::SaleInitialized {
-				sale_start: 2u32.into(),
+				sale_start,
 				leadin_length: 1u32.into(),
 				start_price: 1_000_000_000u32.into(),
 				end_price: 10_000_000u32.into(),
@@ -787,7 +789,7 @@ mod benches {
 		let core_count = n.try_into().unwrap();
 		let config = new_config_record::<T>();
 
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 		let end_price = 10_000_000u32.into();
 		let commit_timeslice = Broker::<T>::latest_timeslice_ready_to_commit(&config);
 		let sale = SaleInfoRecordOf::<T> {
@@ -844,9 +846,11 @@ mod benches {
 		}
 
 		assert!(SaleInfo::<T>::get().is_some());
+		let sale_start = RCBlockNumberProviderOf::<T::Coretime>::current_block_number() +
+			config.interlude_length;
 		assert_last_event::<T>(
 			Event::SaleInitialized {
-				sale_start: 2u32.into(),
+				sale_start,
 				leadin_length: 1u32.into(),
 				start_price: 1_000_000_000u32.into(),
 				end_price: 10_000_000u32.into(),

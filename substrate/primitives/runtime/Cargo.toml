@@ -39,6 +39,7 @@ tracing = { workspace = true, features = ["log"], default-features = false }
 binary-merkle-tree = { workspace = true }
 
 simple-mermaid = { version = "0.1.1", optional = true }
+tuplex = { version = "0.1.2", default-features = false }
 
 [dev-dependencies]
 rand = { workspace = true, default-features = true }
@@ -75,6 +76,7 @@ std = [
 	"sp-trie/std",
 	"sp-weights/std",
 	"tracing/std",
+	"tuplex/std",
 ]
 
 # Serde support without relying on std features.

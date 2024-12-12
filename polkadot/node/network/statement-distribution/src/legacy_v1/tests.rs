@@ -47,7 +47,8 @@ use polkadot_primitives::{
 	SessionInfo, ValidationCode,
 };
 use polkadot_primitives_test_helpers::{
-	dummy_committed_candidate_receipt, dummy_hash, AlwaysZeroRng,
+	dummy_committed_candidate_receipt, dummy_committed_candidate_receipt_v2, dummy_hash,
+	AlwaysZeroRng,
 };
 use sc_keystore::LocalKeystore;
 use sc_network::ProtocolName;
@@ -140,7 +141,7 @@ fn active_head_accepts_only_2_seconded_per_validator() {
 	// note A
 	let a_seconded_val_0 = SignedFullStatement::sign(
 		&keystore,
-		Statement::Seconded(candidate_a.clone()),
+		Statement::Seconded(candidate_a.into()),
 		&signing_context,
 		ValidatorIndex(0),
 		&alice_public.into(),
@@ -167,7 +168,7 @@ fn active_head_accepts_only_2_seconded_per_validator() {
 	// note B
 	let statement = SignedFullStatement::sign(
 		&keystore,
-		Statement::Seconded(candidate_b.clone()),
+		Statement::Seconded(candidate_b.clone().into()),
 		&signing_context,
 		ValidatorIndex(0),
 		&alice_public.into(),
@@ -184,7 +185,7 @@ fn active_head_accepts_only_2_seconded_per_validator() {
 	// note C (beyond 2 - ignored)
 	let statement = SignedFullStatement::sign(
 		&keystore,
-		Statement::Seconded(candidate_c.clone()),
+		Statement::Seconded(candidate_c.clone().into()),
 		&signing_context,
 		ValidatorIndex(0),
 		&alice_public.into(),
@@ -202,7 +203,7 @@ fn active_head_accepts_only_2_seconded_per_validator() {
 	// note B (new validator)
 	let statement = SignedFullStatement::sign(
 		&keystore,
-		Statement::Seconded(candidate_b.clone()),
+		Statement::Seconded(candidate_b.into()),
 		&signing_context,
 		ValidatorIndex(1),
 		&bob_public.into(),
@@ -219,7 +220,7 @@ fn active_head_accepts_only_2_seconded_per_validator() {
 	// note C (new validator)
 	let statement = SignedFullStatement::sign(
 		&keystore,
-		Statement::Seconded(candidate_c.clone()),
+		Statement::Seconded(candidate_c.into()),
 		&signing_context,
 		ValidatorIndex(1),
 		&bob_public.into(),
@@ -470,7 +471,7 @@ fn peer_view_update_sends_messages() {
 
 		let statement = SignedFullStatement::sign(
 			&keystore,
-			Statement::Seconded(candidate.clone()),
+			Statement::Seconded(candidate.clone().into()),
 			&signing_context,
 			ValidatorIndex(0),
 			&alice_public.into(),
@@ -612,7 +613,7 @@ fn circulated_statement_goes_to_all_peers_with_view() {
 		let mut c = dummy_committed_candidate_receipt(dummy_hash());
 		c.descriptor.relay_parent = hash_b;
 		c.descriptor.para_id = ParaId::from(1_u32);
-		c
+		c.into()
 	};
 
 	let peer_a = PeerId::random();
@@ -746,7 +747,7 @@ fn receiving_from_one_sends_to_another_and_to_candidate_backing() {
 		let mut c = dummy_committed_candidate_receipt(dummy_hash());
 		c.descriptor.relay_parent = hash_a;
 		c.descriptor.para_id = PARA_ID;
-		c
+		c.into()
 	};
 
 	let peer_a = PeerId::random();
@@ -1199,7 +1200,7 @@ fn receiving_large_statement_from_one_sends_to_another_and_to_candidate_backing(
 
 			SignedFullStatement::sign(
 				&keystore,
-				Statement::Seconded(candidate.clone()),
+				Statement::Seconded(candidate.clone().into()),
 				&signing_context,
 				ValidatorIndex(0),
 				&alice_public.into(),
@@ -1337,7 +1338,7 @@ fn receiving_large_statement_from_one_sends_to_another_and_to_candidate_backing(
 				let bad_candidate = {
 					let mut bad = candidate.clone();
 					bad.descriptor.para_id = 0xeadbeaf.into();
-					bad
+					bad.into()
 				};
 				let response = StatementFetchingResponse::Statement(bad_candidate);
 				outgoing.pending_response.send(Ok((response.encode(), ProtocolName::from("")))).unwrap();
@@ -1391,7 +1392,7 @@ fn receiving_large_statement_from_one_sends_to_another_and_to_candidate_backing(
 				assert_eq!(req.candidate_hash, metadata.candidate_hash);
 				// On retry, we should have reverse order:
 				assert_eq!(outgoing.peer, Recipient::Peer(peer_c));
-				let response = StatementFetchingResponse::Statement(candidate.clone());
+				let response = StatementFetchingResponse::Statement(candidate.clone().into());
 				outgoing.pending_response.send(Ok((response.encode(), ProtocolName::from("")))).unwrap();
 			}
 		);
@@ -1517,7 +1518,7 @@ fn receiving_large_statement_from_one_sends_to_another_and_to_candidate_backing(
 		req_cfg.inbound_queue.as_mut().unwrap().send(req).await.unwrap();
 		let StatementFetchingResponse::Statement(committed) =
 			Decode::decode(&mut response_rx.await.unwrap().result.unwrap().as_ref()).unwrap();
-		assert_eq!(committed, candidate);
+		assert_eq!(committed, candidate.into());
 
 		handle.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
 	};
@@ -1744,7 +1745,7 @@ fn delay_reputation_changes() {
 
 			SignedFullStatement::sign(
 				&keystore,
-				Statement::Seconded(candidate.clone()),
+				Statement::Seconded(candidate.clone().into()),
 				&signing_context,
 				ValidatorIndex(0),
 				&alice_public.into(),
@@ -1884,7 +1885,7 @@ fn delay_reputation_changes() {
 					bad.descriptor.para_id = 0xeadbeaf.into();
 					bad
 				};
-				let response = StatementFetchingResponse::Statement(bad_candidate);
+				let response = StatementFetchingResponse::Statement(bad_candidate.into());
 				outgoing.pending_response.send(Ok((response.encode(), ProtocolName::from("")))).unwrap();
 			}
 		);
@@ -1928,7 +1929,7 @@ fn delay_reputation_changes() {
 				assert_eq!(req.candidate_hash, metadata.candidate_hash);
 				// On retry, we should have reverse order:
 				assert_eq!(outgoing.peer, Recipient::Peer(peer_c));
-				let response = StatementFetchingResponse::Statement(candidate.clone());
+				let response = StatementFetchingResponse::Statement(candidate.clone().into());
 				outgoing.pending_response.send(Ok((response.encode(), ProtocolName::from("")))).unwrap();
 			}
 		);
@@ -2288,7 +2289,7 @@ fn share_prioritizes_backing_group() {
 
 			SignedFullStatementWithPVD::sign(
 				&keystore,
-				Statement::Seconded(candidate.clone()).supply_pvd(pvd),
+				Statement::Seconded(candidate.clone().into()).supply_pvd(pvd),
 				&signing_context,
 				ValidatorIndex(4),
 				&ferdie_public.into(),
@@ -2352,7 +2353,7 @@ fn share_prioritizes_backing_group() {
 		req_cfg.inbound_queue.as_mut().unwrap().send(req).await.unwrap();
 		let StatementFetchingResponse::Statement(committed) =
 			Decode::decode(&mut response_rx.await.unwrap().result.unwrap().as_ref()).unwrap();
-		assert_eq!(committed, candidate);
+		assert_eq!(committed, candidate.into());
 
 		handle.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
 	};
@@ -2514,7 +2515,7 @@ fn peer_cant_flood_with_large_statements() {
 
 			SignedFullStatement::sign(
 				&keystore,
-				Statement::Seconded(candidate.clone()),
+				Statement::Seconded(candidate.clone().into()),
 				&signing_context,
 				ValidatorIndex(0),
 				&alice_public.into(),
@@ -2595,7 +2596,7 @@ fn handle_multiple_seconded_statements() {
 	let relay_parent_hash = Hash::repeat_byte(1);
 	let pvd = dummy_pvd();
 
-	let candidate = dummy_committed_candidate_receipt(relay_parent_hash);
+	let candidate = dummy_committed_candidate_receipt_v2(relay_parent_hash);
 	let candidate_hash = candidate.hash();
 
 	// We want to ensure that our peers are not lucky
