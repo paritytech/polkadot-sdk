@@ -14,8 +14,8 @@ use sc_service::config::{BasePath, PrometheusConfig};
 use crate::{
 	chain_spec,
 	cli::{Cli, RelayChainCli, Subcommand},
-	service::new_partial,
 	sc_service::PartialComponents,
+	service::new_partial,
 };
 
 fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
@@ -218,8 +218,7 @@ pub fn run() -> Result<()> {
 		Some(Subcommand::PrecompileWasm(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let PartialComponents { task_manager, backend, .. } =
-					new_partial(&config)?;
+				let PartialComponents { task_manager, backend, .. } = new_partial(&config)?;
 				Ok((cmd.run(backend, config.chain_spec), task_manager))
 			})
 		},

@@ -133,7 +133,11 @@ impl PrecompileWasmCmd {
 				)
 				.map_err(|e| Error::Application(Box::new(e)))?;
 			} else {
-				return Err(Error::Input(format!("The chain spec used does not contain a wasm bytecode in the {} storage key", String::from_utf8(sp_storage::well_known_keys::CODE.to_vec()).expect("Well known key should be a valid UTF8 string."))));
+				return Err(Error::Input(format!(
+					"The chain spec used does not contain a wasm bytecode in the {} storage key",
+					String::from_utf8(sp_storage::well_known_keys::CODE.to_vec())
+						.expect("Well known key should be a valid UTF8 string.")
+				)));
 			}
 		}
 
