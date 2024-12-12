@@ -8,3 +8,7 @@ doc:
 crates:
 - name: pallet-broker
   bump: patch
+- name: coretime-rococo-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
