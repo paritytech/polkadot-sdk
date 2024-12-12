@@ -17,6 +17,7 @@
 
 #![no_std]
 #![no_main]
+#![cfg(feature = "unstable-api")]
 
 use common::{input, u256_bytes};
 use uapi::{HostFn, HostFnImpl as api};

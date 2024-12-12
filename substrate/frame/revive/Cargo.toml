@@ -75,6 +75,10 @@ xcm-builder = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
+unstable-api = [
+	"pallet-revive-uapi/unstable-api",
+	"pallet-revive-fixtures/unstable-api",
+]
 std = [
 	"codec/std",
 	"environmental/std",

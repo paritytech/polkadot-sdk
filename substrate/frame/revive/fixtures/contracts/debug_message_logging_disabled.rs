@@ -28,6 +28,7 @@ pub extern "C" fn deploy() {}
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
+#[cfg(feature = "unstable-api")]
 pub extern "C" fn call() {
 	assert_eq!(api::debug_message(b"Hello World!"), Err(ReturnErrorCode::LoggingDisabled));
 }

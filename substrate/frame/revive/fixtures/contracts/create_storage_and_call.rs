@@ -18,6 +18,7 @@
 //! This calls another contract as passed as its account id. It also creates some storage.
 #![no_std]
 #![no_main]
+#![cfg(feature = "unstable-api")]
 
 use common::input;
 use uapi::{HostFn, HostFnImpl as api, StorageFlags};

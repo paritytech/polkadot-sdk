@@ -18,6 +18,7 @@
 //! Call chain extension by passing through input and output of this contract.
 #![no_std]
 #![no_main]
+#![cfg(feature = "unstable-api")]
 
 use common::input;
 use uapi::{HostFn, HostFnImpl as api};

@@ -17,6 +17,7 @@
 
 #![no_std]
 #![no_main]
+#![cfg(feature = "unstable-api")]
 
 use common::input;
 use uapi::{HostFn, HostFnImpl as api, StorageFlags};
@@ -40,6 +41,7 @@ pub extern "C" fn call() {
 
 	// Burn some PoV, clear_storage consumes some PoV as in order to clear the storage we need to we
 	// need to read its size first.
+	#[cfg(feature = "unstable-api")]
 	api::clear_storage(StorageFlags::empty(), b"");
 
 	let exit_status = uapi::ReturnFlags::from_bits(exit_status[0] as u32).unwrap();

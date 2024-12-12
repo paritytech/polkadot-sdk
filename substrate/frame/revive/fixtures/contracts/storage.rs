@@ -19,6 +19,7 @@
 //! versions of the storage APIs.
 #![no_std]
 #![no_main]
+#![cfg(feature = "unstable-api")]
 
 use common::unwrap_output;
 use uapi::{HostFn, HostFnImpl as api, StorageFlags};
