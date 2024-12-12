@@ -184,7 +184,7 @@ pub mod weights;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type BlockNumberFromProvider<T> =
+type BlockNumberFromProviderOf<T> =
 	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 type FriendsOf<T> = BoundedVec<<T as frame_system::Config>::AccountId, <T as Config>::MaxFriends>;
 
@@ -346,7 +346,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		T::AccountId,
-		RecoveryConfig<BlockNumberFromProvider<T>, BalanceOf<T>, FriendsOf<T>>,
+		RecoveryConfig<BlockNumberFromProviderOf<T>, BalanceOf<T>, FriendsOf<T>>,
 	>;
 
 	/// Active recovery attempts.
@@ -361,7 +361,7 @@ pub mod pallet {
 		T::AccountId,
 		Twox64Concat,
 		T::AccountId,
-		ActiveRecovery<BlockNumberFromProvider<T>, BalanceOf<T>, FriendsOf<T>>,
+		ActiveRecovery<BlockNumberFromProviderOf<T>, BalanceOf<T>, FriendsOf<T>>,
 	>;
 
 	/// The list of allowed proxy accounts.
@@ -452,7 +452,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			friends: Vec<T::AccountId>,
 			threshold: u16,
-			delay_period: BlockNumberFromProvider<T>,
+			delay_period: BlockNumberFromProviderOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			// Check account is not already set up for recovery
