@@ -169,6 +169,11 @@ impl<T: Config> Memory<T> for [u8] {
 		bound_checked.copy_from_slice(buf);
 		Ok(())
 	}
+
+
+	fn zero(&mut self, ptr: u32, len: u32) -> Result<(), DispatchError> {
+		<[u8] as Memory<T>>::write(self, ptr, &vec![0; len as usize])
+	}
 }
 
 impl<T: Config> Memory<T> for polkavm::RawInstance {
@@ -280,6 +285,8 @@ pub enum RuntimeCosts {
 	CopyToContract(u32),
 	/// Weight of calling `seal_call_data_load``.
 	CallDataLoad,
+	/// Weight of calling `seal_call_data_copy`.
+	CallDataCopy(u32),
 	/// Weight of calling `seal_caller`.
 	Caller,
 	/// Weight of calling `seal_call_data_size`.
@@ -442,10 +449,11 @@ impl<T: Config> Token<T> for RuntimeCosts {
 		use self::RuntimeCosts::*;
 		match *self {
 			HostFn => cost_args!(noop_host_fn, 1),
-			CopyToContract(len) => T::WeightInfo::seal_input(len),
+			CopyToContract(len) => T::WeightInfo::seal_copy_to_contract(len),
 			CopyFromContract(len) => T::WeightInfo::seal_return(len),
 			CallDataSize => T::WeightInfo::seal_call_data_size(),
 			CallDataLoad => T::WeightInfo::seal_call_data_load(),
+			CallDataCopy(len) => T::WeightInfo::seal_call_data_copy(len),
 			Caller => T::WeightInfo::seal_caller(),
 			Origin => T::WeightInfo::seal_origin(),
 			IsContract => T::WeightInfo::seal_is_contract(),
@@ -1343,6 +1351,8 @@ pub mod env {
 		out_len: u32,
 		offset: u32,
 	) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::CallDataCopy(out_len))?;
+
 		let Some(input) = self.input_data.as_ref() else {
 			return Err(Error::<E::T>::InputForwarded.into());
 		};
