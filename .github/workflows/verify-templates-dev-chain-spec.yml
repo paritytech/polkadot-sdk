@@ -79,7 +79,7 @@ jobs:
       - name: Create chain spec
         run: |
           chain-spec-builder  -c ${{ matrix.template.chain_spec_output }}  create \
-            --relay-chain ${{ matrix.template.relay_chain }} \
+            --relay-chain "${{ matrix.template.relay_chain }}" \
             --para-id 1000 \
             --runtime "${{ matrix.template.runtime_path }}/target/srtool/release/wbuild/${{ matrix.template.runtime_wasm_path }}" \
             named-preset development
