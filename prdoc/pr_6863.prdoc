@@ -6,3 +6,4 @@ doc:
 crates: 
   - name: substrate-wasm-builder
     bump: patch
+    validate: false
