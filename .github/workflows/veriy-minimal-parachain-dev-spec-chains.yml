@@ -1,4 +1,4 @@
-name: veriy-minimal-parachain-dev-spec-chains.yml
+name: Verify Templates Dev Chain Spec
 on:
   push:
     branches:
