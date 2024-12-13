@@ -62,7 +62,7 @@ mod sys {
 		pub fn delegate_call(ptr: *const u8) -> ReturnCode;
 		pub fn instantiate(ptr: *const u8) -> ReturnCode;
 		pub fn terminate(beneficiary_ptr: *const u8);
-		pub fn input(out_ptr: *mut u8, out_len_ptr: *mut u32);
+		pub fn call_data_copy(out_ptr: *mut u8, out_len: u32, offset: u32);
 		pub fn seal_return(flags: u32, data_ptr: *const u8, data_len: u32);
 		pub fn caller(out_ptr: *mut u8);
 		pub fn origin(out_ptr: *mut u8);
@@ -442,11 +442,12 @@ impl HostFn for HostFnImpl {
 	}
 
 	fn input(output: &mut &mut [u8]) {
-		let mut output_len = output.len() as u32;
-		{
-			unsafe { sys::input(output.as_mut_ptr(), &mut output_len) };
-		}
-		extract_from_slice(output, output_len as usize);
+		HostFnImpl::call_data_copy(output, 0);
+	}
+
+	fn call_data_copy(output: &mut &mut [u8], offset: u32) {
+		let len = output.len() as u32;
+		unsafe { sys::call_data_copy(output.as_mut_ptr(), len, 0) };
 	}
 
 	fn return_value(flags: ReturnFlags, return_value: &[u8]) -> ! {

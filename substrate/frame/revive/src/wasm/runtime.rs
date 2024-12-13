@@ -73,6 +73,13 @@ pub trait Memory<T: Config> {
 	/// - designated area is not within the bounds of the sandbox memory.
 	fn write(&mut self, ptr: u32, buf: &[u8]) -> Result<(), DispatchError>;
 
+	/// Zero the designated location in the sandbox memory.
+	///
+	/// Returns `Err` if one of the following conditions occurs:
+	///
+	/// - designated area is not within the bounds of the sandbox memory.
+	fn zero(&mut self, ptr: u32, len: u32) -> Result<(), DispatchError>;
+
 	/// Read designated chunk from the sandbox memory.
 	///
 	/// Returns `Err` if one of the following conditions occurs:
@@ -181,6 +188,10 @@ impl<T: Config> Memory<T> for polkavm::RawInstance {
 
 	fn write(&mut self, ptr: u32, buf: &[u8]) -> Result<(), DispatchError> {
 		self.write_memory(ptr, buf).map_err(|_| Error::<T>::OutOfBounds.into())
+	}
+
+	fn zero(&mut self, ptr: u32, len: u32) -> Result<(), DispatchError> {
+		self.zero_memory(ptr, len).map_err(|_| Error::<T>::OutOfBounds.into())
 	}
 }
 
@@ -561,8 +572,9 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 				log::error!(target: LOG_TARGET, "polkavm execution error: {error}");
 				Some(Err(Error::<E::T>::ExecutionFailed.into()))
 			},
-			Ok(Finished) =>
-				Some(Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })),
+			Ok(Finished) => {
+				Some(Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() }))
+			},
 			Ok(Trap) => Some(Err(Error::<E::T>::ContractTrapped.into())),
 			Ok(Segfault(_)) => Some(Err(Error::<E::T>::ExecutionFailed.into())),
 			Ok(NotEnoughGas) => Some(Err(Error::<E::T>::OutOfGas.into())),
@@ -577,11 +589,12 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 						instance.write_output(return_value);
 						None
 					},
-					Err(TrapReason::Return(ReturnData { flags, data })) =>
+					Err(TrapReason::Return(ReturnData { flags, data })) => {
 						match ReturnFlags::from_bits(flags) {
 							None => Some(Err(Error::<E::T>::InvalidCallFlags.into())),
 							Some(flags) => Some(Ok(ExecReturnValue { flags, data })),
-						},
+						}
+					},
 					Err(TrapReason::Termination) => Some(Ok(Default::default())),
 					Err(TrapReason::SupervisorError(error)) => Some(Err(error.into())),
 				}
@@ -1310,18 +1323,32 @@ pub mod env {
 	}
 
 	/// Stores the input passed by the caller into the supplied buffer.
-	/// See [`pallet_revive_uapi::HostFn::input`].
+	/// See [`pallet_revive_uapi::HostFn::call_data_copy`].
 	#[api_version(0)]
-	fn input(&mut self, memory: &mut M, out_ptr: u32, out_len_ptr: u32) -> Result<(), TrapReason> {
-		if let Some(input) = self.input_data.take() {
-			self.write_sandbox_output(memory, out_ptr, out_len_ptr, &input, false, |len| {
-				Some(RuntimeCosts::CopyToContract(len))
-			})?;
-			self.input_data = Some(input);
-			Ok(())
-		} else {
-			Err(Error::<E::T>::InputForwarded.into())
+	fn call_data_copy(
+		&mut self,
+		memory: &mut M,
+		out_ptr: u32,
+		out_len: u32,
+		offset: u32,
+	) -> Result<(), TrapReason> {
+		let Some(input) = self.input_data.as_ref() else {
+			return Err(Error::<E::T>::InputForwarded.into());
+		};
+
+		let start = offset as usize;
+		if start >= input.len() {
+			memory.zero(out_ptr, out_len)?;
+			return Ok(());
 		}
+
+		let end = start.saturating_add(out_len as usize).min(input.len());
+		memory.write(out_ptr, &input[start..end])?;
+
+		let bytes_written = (end - start) as u32;
+		memory.zero(out_ptr.saturating_add(bytes_written), out_len - bytes_written)?;
+
+		Ok(())
 	}
 
 	/// Cease contract execution and save a data buffer as a result of the execution.
@@ -1776,8 +1803,9 @@ pub mod env {
 			Environment::new(self, memory, id, input_ptr, input_len, output_ptr, output_len_ptr);
 		let ret = match chain_extension.call(env)? {
 			RetVal::Converging(val) => Ok(val),
-			RetVal::Diverging { flags, data } =>
-				Err(TrapReason::Return(ReturnData { flags: flags.bits(), data })),
+			RetVal::Diverging { flags, data } => {
+				Err(TrapReason::Return(ReturnData { flags: flags.bits(), data }))
+			},
 		};
 		self.chain_extension = Some(chain_extension);
 		ret

@@ -162,8 +162,8 @@ pub mod test_utils {
 		let code_info_len = CodeInfo::<Test>::max_encoded_len() as u64;
 		// Calculate deposit to be reserved.
 		// We add 2 storage items: one for code, other for code_info
-		DepositPerByte::get().saturating_mul(code_len as u64 + code_info_len) +
-			DepositPerItem::get().saturating_mul(2)
+		DepositPerByte::get().saturating_mul(code_len as u64 + code_info_len)
+			+ DepositPerItem::get().saturating_mul(2)
 	}
 	pub fn ensure_stored(code_hash: sp_core::H256) -> usize {
 		// Assert that code_info is stored
@@ -3260,7 +3260,7 @@ fn contract_reverted() {
 			.data(input.clone())
 			.build_and_unwrap_result();
 		assert_eq!(result.result.flags, flags);
-		assert_eq!(result.result.data, buffer);
+		assert_eq!(result.result.data[..buffer.len()], buffer);
 		assert!(!<ContractInfoOf<Test>>::contains_key(result.addr));
 
 		// Pass empty flags and therefore successfully instantiate the contract for later use.
@@ -3277,7 +3277,7 @@ fn contract_reverted() {
 		// Calling directly: revert leads to success but the flags indicate the error
 		let result = builder::bare_call(addr).data(input).build_and_unwrap_result();
 		assert_eq!(result.flags, flags);
-		assert_eq!(result.data, buffer);
+		assert_eq!(result.data[..buffer.len()], buffer);
 	});
 }
 

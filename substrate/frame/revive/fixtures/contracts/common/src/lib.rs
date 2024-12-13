@@ -122,7 +122,7 @@ macro_rules! input {
 	($buffer:ident, $size:expr, $($rest:tt)*) => {
 		let mut $buffer = [0u8; $size];
 		let $buffer = &mut &mut $buffer[..];
-		$crate::api::input($buffer);
+		$crate::api::call_data_copy($buffer, 0);
 		input!(@inner $buffer, 0, $($rest)*);
 	};
 
