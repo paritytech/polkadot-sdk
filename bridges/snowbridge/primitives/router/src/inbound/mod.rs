@@ -168,7 +168,8 @@ impl<
 		ConvertAssetId,
 		EthereumUniversalLocation,
 		GlobalAssetHubLocation,
-	> where
+	>
+where
 	CreateAssetCall: Get<CallIndex>,
 	CreateAssetDeposit: Get<u128>,
 	InboundQueuePalletInstance: Get<u8>,
@@ -226,7 +227,8 @@ impl<
 		ConvertAssetId,
 		EthereumUniversalLocation,
 		GlobalAssetHubLocation,
-	> where
+	>
+where
 	CreateAssetCall: Get<CallIndex>,
 	CreateAssetDeposit: Get<u128>,
 	InboundQueuePalletInstance: Get<u8>,

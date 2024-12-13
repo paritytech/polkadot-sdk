@@ -459,12 +459,12 @@ pub mod pallet {
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
 
-				let slash_curator = |curator: &T::AccountId,
-				                     curator_deposit: &mut BalanceOf<T, I>| {
-					let imbalance = T::Currency::slash_reserved(curator, *curator_deposit).0;
-					T::OnSlash::on_unbalanced(imbalance);
-					*curator_deposit = Zero::zero();
-				};
+				let slash_curator =
+					|curator: &T::AccountId, curator_deposit: &mut BalanceOf<T, I>| {
+						let imbalance = T::Currency::slash_reserved(curator, *curator_deposit).0;
+						T::OnSlash::on_unbalanced(imbalance);
+						*curator_deposit = Zero::zero();
+					};
 
 				match bounty.status {
 					BountyStatus::Proposed | BountyStatus::Approved | BountyStatus::Funded => {
