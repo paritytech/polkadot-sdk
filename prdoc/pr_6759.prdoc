@@ -1,0 +1,16 @@
+title: 'pallet-revive: Statically verify imports on code deployment'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Previously, we failed at runtime if an unknown or unstable host function was called. This requires us to keep track of when a host function was added and when a code was deployed. We used the `api_version` to track at which API version each code was deployed. This made sure that when a new host function was added that old code won't have access to it. This is necessary as otherwise the behavior of a contract that made calls to this previously non existent host function would change from "trap" to "do something".
+
+    In this PR we remove the API version. Instead, we statically verify on upload that no non-existent host function is ever used in the code. This will allow us to add new host function later without needing to keep track when they were added.
+
+    This simplifies the code and also gives an immediate feedback if unknown host functions are used.
+crates:
+- name: pallet-revive-proc-macro
+  bump: major
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-fixtures
+  bump: major
