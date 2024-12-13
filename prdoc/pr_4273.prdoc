@@ -12,4 +12,8 @@ doc:
 
 crates:
   - name: pallet-broker
-    bump: minor
+    bump: major
+  - name: coretime-rococo-runtime
+    bump: patch
+  - name: coretime-westend-runtime
+    bump: patch
