@@ -343,8 +343,7 @@ where
 	fn number(
 		&self,
 		hash: Block::Hash,
-	) -> sc_client_api::blockchain::Result<Option<<<Block as BlockT>::Header as HeaderT>::Number>>
-	{
+	) -> sc_client_api::blockchain::Result<Option<<<Block as BlockT>::Header as HeaderT>::Number>> {
 		self.client.number(hash)
 	}
 
