@@ -445,7 +445,7 @@ impl HostFn for HostFnImpl {
 
 	fn call_data_copy(output: &mut &mut [u8], offset: u32) {
 		let len = output.len() as u32;
-		unsafe { sys::call_data_copy(output.as_mut_ptr(), len, 0) };
+		unsafe { sys::call_data_copy(output.as_mut_ptr(), len, offset) };
 	}
 
 	fn call_data_load(out_ptr: &mut [u8; 32], offset: u32) {
