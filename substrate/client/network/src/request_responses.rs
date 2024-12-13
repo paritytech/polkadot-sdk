@@ -1115,7 +1115,7 @@ mod tests {
 			SwarmConfig::with_executor(TokioExecutor(runtime))
 				// This is taken care of by notification protocols in non-test environment
 				// It is very slow in test environment for some reason, hence larger timeout
-				.with_idle_connection_timeout(Duration::from_secs(300)),
+				.with_idle_connection_timeout(Duration::from_secs(10)),
 		);
 
 		let listen_addr: Multiaddr = format!("/memory/{}", rand::random::<u64>()).parse().unwrap();
@@ -1285,7 +1285,9 @@ mod tests {
 						match swarm.select_next_some().await {
 							SwarmEvent::Behaviour(Event::InboundRequest { result, .. }) => {
 								assert!(result.is_ok());
-								break
+							},
+							SwarmEvent::ConnectionClosed { .. } => {
+								break;
 							},
 							_ => {},
 						}
