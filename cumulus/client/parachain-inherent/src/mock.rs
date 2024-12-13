@@ -29,9 +29,6 @@ use std::collections::BTreeMap;
 
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 
-/// Relay chain slot duration, in milliseconds.
-pub const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
-
 /// Inherent data provider that supplies mocked validation data.
 ///
 /// This is useful when running a node that is not actually backed by any relay chain.
