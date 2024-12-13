@@ -21,11 +21,6 @@ use super::*;
 use alloc::vec::Vec;
 use frame::{testing_prelude::*, traits::WrapperOpaque};
 
-#[cfg(feature = "try-runtime")]
-use frame::deps::frame_support::ensure;
-#[cfg(feature = "try-runtime")]
-use frame::deps::sp_runtime::TryRuntimeError;
-
 /// The log target.
 const TARGET: &str = "runtime::im-online::migration::v1";
 
@@ -60,7 +55,7 @@ pub mod v1 {
 
 	impl<T: Config> OnRuntimeUpgrade for Migration<T> {
 		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+		fn pre_upgrade() -> Result<Vec<u8>, frame::try_runtime::TryRuntimeError> {
 			let count = v0::ReceivedHeartbeats::<T>::iter().count();
 			log::info!(target: TARGET, "Migrating {} received heartbeats", count);
 
