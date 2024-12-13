@@ -64,8 +64,15 @@ jobs:
           name: ${{ matrix.template.artifact_name }}
           path: ${{ matrix.template.runtime_path }}/target/srtool/release/wbuild/${{ matrix.template.runtime_wasm_path }}
 
-      - name: Install staging-chain-spec-builder
+      - name: Install staging-chain-spec-builder and deps
         run: |
+          # Install protobuf compiler
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+          
+          # Verify protoc installation
+          protoc --version
+          
           cargo install --path substrate/bin/utils/chain-spec-builder
 
       - name: Create chain spec
