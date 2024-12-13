@@ -22,21 +22,30 @@ jobs:
             artifact_name: 'wasm-parachain-template-runtime'
             chain_spec_output: 'parachain_test_chain_spec'
             runtime_wasm_path: 'parachain-template-runtime/parachain_template_runtime.compact.compressed.wasm'
+            relay_chain: 'rococo-local'
           - package_name: 'minimal-template-runtime'
             runtime_path: './templates/minimal/runtime'
             artifact_name: 'wasm-minimal-template-runtime'
             chain_spec_output: 'minimal_test_chain_spec'
             runtime_wasm_path: 'minimal-template-runtime/minimal_template_runtime.compact.compressed.wasm'
+            relay_chain: 'dev'
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set rust version from env file
+        run: |
+          RUST_VERSION=$(cat .github/env | sed -E 's/.*ci-unified:([^-]+)-([^-]+).*/\2/')
+          echo $RUST_VERSION
+          echo "RUST_VERSION=${RUST_VERSION}" >> $GITHUB_ENV
+
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@11df97af8e8102fd60b60a77dfbf58d40cd843b8 # v1.10.1
         with:
-          profile: minimal
-          toolchain: stable
+          cache: false
+          toolchain: ${{ env.RUST_VERSION }}
+          components: cargo, clippy, rust-docs, rust-src, rustfmt, rustc, rust-std
 
       - name: Install srtool-cli
         run: |
@@ -57,12 +66,6 @@ jobs:
         run: |
           srtool build --package ${{ matrix.template.package_name }} --runtime-dir ${{ matrix.template.runtime_path }} --root
 
-      - name: Upload runtime artifact
-        uses: actions/upload-artifact@v4.3.1
-        with:
-          name: ${{ matrix.template.artifact_name }}
-          path: ${{ matrix.template.runtime_path }}/target/srtool/release/wbuild/${{ matrix.template.runtime_wasm_path }}
-
       - name: Install staging-chain-spec-builder and deps
         run: |
           # Install protobuf compiler
@@ -77,10 +80,10 @@ jobs:
       - name: Create chain spec
         run: |
           chain-spec-builder  -c ${{ matrix.template.chain_spec_output }}  create \
-            --relay-chain "dev" \
+            --relay-chain ${{ matrix.template.relay_chain }} \
             --para-id 1000 \
             --runtime "${{ matrix.template.runtime_path }}/target/srtool/release/wbuild/${{ matrix.template.runtime_wasm_path }}" \
-            named-preset development > ${{ matrix.template.chain_spec_output }}
+            named-preset development
 
       - name: Upload chain spec artifact
         uses: actions/upload-artifact@v4.3.1
