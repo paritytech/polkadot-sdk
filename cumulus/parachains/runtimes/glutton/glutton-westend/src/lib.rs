@@ -50,13 +50,15 @@ pub mod xcm_config;
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
+use codec::Encode;
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
+use frame_support::pallet_prelude::{TransactionLongevity, ValidTransaction};
 use sp_api::impl_runtime_apis;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	generic, impl_opaque_keys,
-	traits::{BlakeTwo256, Block as BlockT},
+	traits::{BlakeTwo256, Block as BlockT, ValidateUnsigned},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
@@ -83,7 +85,7 @@ pub use frame_support::{
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	EnsureRoot,
+	EnsureNone,
 };
 use parachains_common::{AccountId, Signature};
 #[cfg(any(feature = "std", test))]
@@ -126,7 +128,7 @@ parameter_types! {
 	pub const BlockHashCount: BlockNumber = 4096;
 	pub const Version: RuntimeVersion = VERSION;
 	pub RuntimeBlockLength: BlockLength =
-		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+		BlockLength::max_with_normal_ratio(10 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
 		.base_block(BlockExecutionWeight::get())
 		.for_class(DispatchClass::all(), |weights| {
@@ -241,7 +243,7 @@ impl pallet_aura::Config for Runtime {
 impl pallet_glutton::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_glutton::WeightInfo<Runtime>;
-	type AdminOrigin = EnsureRoot<AccountId>;
+	type AdminOrigin = EnsureNone<AccountId>;
 }
 
 impl pallet_sudo::Config for Runtime {
@@ -304,12 +306,41 @@ pub type TxExtension = (
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
+
+pub struct EveryoneIsWelcome;
+
+impl ValidateUnsigned for EveryoneIsWelcome {
+	type Call = <Runtime as ValidateUnsigned>::Call;
+
+	fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+		match call {
+			RuntimeCall::Glutton(c) => Ok(ValidTransaction {
+				priority: 0,
+				requires: vec![],
+				provides: vec![Encode::encode(&(
+					frame_system::Pallet::<Runtime>::block_number(),
+					c,
+				))],
+				longevity: TransactionLongevity::max_value(),
+				propagate: true,
+			}),
+			_ => <Runtime as ValidateUnsigned>::validate_unsigned(source, call),
+		}
+	}
+
+	fn pre_dispatch(
+		_call: &Self::Call,
+	) -> Result<(), frame_support::pallet_prelude::TransactionValidityError> {
+		Ok(())
+	}
+}
+
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
 	Runtime,
 	Block,
 	frame_system::ChainContext<Runtime>,
-	Runtime,
+	EveryoneIsWelcome,
 	AllPalletsWithSystem,
 >;
 
