@@ -379,15 +379,16 @@ mod tests {
 	}
 
 	#[test]
-	/// Currently, passing a `Weight` of 0 to `nested` will consume all of the meter's current gas,
-	/// which with EIP-150 is limited to 63/64ths of the total.
+	/// Previously, passing a `Weight` of 0 to `nested` would consume all of the meter's current gas.
+	///
+	/// Now, a `Weight` of 0 means no gas for the nested call.
 	fn nested_zero_gas_requested() {
 		let test_weight = 50000.into();
 		let mut gas_meter = GasMeter::<Test>::new(test_weight);
 		let gas_for_nested_call = gas_meter.nested(0.into());
 
-		assert_eq!(gas_meter.gas_left(), 781.into());
-		assert_eq!(gas_for_nested_call.gas_left(), 49219.into())
+		assert_eq!(gas_meter.gas_left(), 50000.into());
+		assert_eq!(gas_for_nested_call.gas_left(), 0.into())
 	}
 
 	#[test]
