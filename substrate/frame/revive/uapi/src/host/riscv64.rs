@@ -63,6 +63,7 @@ mod sys {
 		pub fn instantiate(ptr: *const u8) -> ReturnCode;
 		pub fn terminate(beneficiary_ptr: *const u8);
 		pub fn input(out_ptr: *mut u8, out_len_ptr: *mut u32);
+		pub fn call_data_load(out_ptr: *mut u8, offset: u32);
 		pub fn seal_return(flags: u32, data_ptr: *const u8, data_len: u32);
 		pub fn caller(out_ptr: *mut u8);
 		pub fn origin(out_ptr: *mut u8);
@@ -115,7 +116,7 @@ mod sys {
 			message_len: u32,
 			message_ptr: *const u8,
 		) -> ReturnCode;
-		pub fn set_code_hash(code_hash_ptr: *const u8) -> ReturnCode;
+		pub fn set_code_hash(code_hash_ptr: *const u8);
 		pub fn ecdsa_to_eth_address(key_ptr: *const u8, out_ptr: *mut u8) -> ReturnCode;
 		pub fn instantiation_nonce() -> u64;
 		pub fn lock_delegate_dependency(code_hash_ptr: *const u8);
@@ -449,6 +450,10 @@ impl HostFn for HostFnImpl {
 		extract_from_slice(output, output_len as usize);
 	}
 
+	fn call_data_load(out_ptr: &mut [u8; 32], offset: u32) {
+		unsafe { sys::call_data_load(out_ptr.as_mut_ptr(), offset) };
+	}
+
 	fn return_value(flags: ReturnFlags, return_value: &[u8]) -> ! {
 		unsafe { sys::seal_return(flags.bits(), return_value.as_ptr(), return_value.len() as u32) }
 		panic!("seal_return does not return");
@@ -531,9 +536,8 @@ impl HostFn for HostFnImpl {
 		ret_val.into_bool()
 	}
 
-	fn set_code_hash(code_hash: &[u8; 32]) -> Result {
-		let ret_val = unsafe { sys::set_code_hash(code_hash.as_ptr()) };
-		ret_val.into()
+	fn set_code_hash(code_hash: &[u8; 32]) {
+		unsafe { sys::set_code_hash(code_hash.as_ptr()) }
 	}
 
 	fn code_hash(address: &[u8; 20], output: &mut [u8; 32]) {
