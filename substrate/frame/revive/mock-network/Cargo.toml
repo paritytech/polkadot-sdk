@@ -19,7 +19,7 @@ frame-system = { workspace = true }
 pallet-assets = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-revive = { workspace = true, default-features = true }
-pallet-revive-uapi = { workspace = true }
+pallet-revive-uapi = { features = ["unstable-api"], workspace = true }
 pallet-revive-proc-macro = { workspace = true, default-features = true }
 pallet-message-queue = { workspace = true, default-features = true }
 pallet-proxy = { workspace = true, default-features = true }

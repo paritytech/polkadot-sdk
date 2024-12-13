@@ -1275,13 +1275,6 @@ pub mod env {
 		)?)
 	}
 
-	/// Remove the calling account and transfer remaining **free** balance.
-	/// See [`pallet_revive_uapi::HostFn::terminate`].
-	#[mutating]
-	fn terminate(&mut self, memory: &mut M, beneficiary_ptr: u32) -> Result<(), TrapReason> {
-		self.terminate(memory, beneficiary_ptr)
-	}
-
 	/// Stores the input passed by the caller into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::input`].
 	#[stable]
