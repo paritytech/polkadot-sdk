@@ -1,0 +1,18 @@
+title: remove redundant dep
+doc:
+- audience: Node Dev
+  description: |-
+    # Description
+
+    Redundant dep that made its way in #6450 . :sweat_smile:. It can be brought up when using `cargo udeps`. Added a github action that runs `cargo udeps` on the repo too.
+
+    ## Integration
+
+    N/A
+
+    ## Review Notes
+
+    N/A
+crates:
+- name: polkadot-omni-node-lib
+  bump: patch
