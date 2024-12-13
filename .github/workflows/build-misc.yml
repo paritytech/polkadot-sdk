@@ -20,7 +20,7 @@ jobs:
     uses: ./.github/workflows/reusable-preflight.yml
 
   build-runtimes-polkavm:
-    timeout-minutes: 20
+    timeout-minutes: 60
     needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
