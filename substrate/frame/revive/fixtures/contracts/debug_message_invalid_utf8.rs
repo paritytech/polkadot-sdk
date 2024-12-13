@@ -18,7 +18,6 @@
 //! Emit a debug message with an invalid utf-8 code.
 #![no_std]
 #![no_main]
-#![cfg(feature = "unstable-api")]
 
 extern crate common;
 use uapi::{HostFn, HostFnImpl as api};

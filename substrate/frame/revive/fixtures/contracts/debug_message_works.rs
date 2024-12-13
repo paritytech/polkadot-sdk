@@ -18,7 +18,6 @@
 //! Emit a "Hello World!" debug message.
 #![no_std]
 #![no_main]
-#![cfg(feature = "unstable-api")]
 
 extern crate common;
 use uapi::{HostFn, HostFnImpl as api};

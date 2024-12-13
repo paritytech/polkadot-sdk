@@ -40,6 +40,5 @@ pub extern "C" fn call() {
 	let mut buf = [0; 32];
 	api::call_data_load(&mut buf, offset);
 
-	#[cfg(feature = "unstable-api")]
 	api::return_value(ReturnFlags::empty(), &buf);
 }

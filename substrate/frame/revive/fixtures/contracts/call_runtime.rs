@@ -18,7 +18,6 @@
 //! This passes its input to `call_runtime` and returns the return value to its caller.
 #![no_std]
 #![no_main]
-#![cfg(feature = "unstable-api")]
 
 use common::input;
 use uapi::{HostFn, HostFnImpl as api};

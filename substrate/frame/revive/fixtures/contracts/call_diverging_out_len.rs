@@ -25,7 +25,6 @@
 
 #![no_std]
 #![no_main]
-#![cfg(feature = "unstable-api")]
 
 extern crate common;
 

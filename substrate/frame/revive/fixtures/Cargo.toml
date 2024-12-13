@@ -29,6 +29,5 @@ anyhow = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
-unstable-api = []
 # only when std is enabled all fixtures are available
 std = ["anyhow", "frame-system", "log/std", "sp-core", "sp-io", "sp-runtime"]

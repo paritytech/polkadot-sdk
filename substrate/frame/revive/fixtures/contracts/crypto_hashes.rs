@@ -61,9 +61,7 @@ pub extern "C" fn call() {
 	match chosen_hash_fn {
 		1 => {
 			let mut output = [0u8; 32];
-			#[cfg(feature = "unstable-api")]
 			api::hash_sha2_256(input, &mut output);
-			#[cfg(feature = "unstable-api")]
 			api::return_value(uapi::ReturnFlags::empty(), &output);
 		},
 		2 => {
@@ -73,16 +71,12 @@ pub extern "C" fn call() {
 		},
 		3 => {
 			let mut output = [0u8; 32];
-			#[cfg(feature = "unstable-api")]
 			api::hash_blake2_256(input, &mut output);
-			#[cfg(feature = "unstable-api")]
 			api::return_value(uapi::ReturnFlags::empty(), &output);
 		},
 		4 => {
 			let mut output = [0u8; 16];
-			#[cfg(feature = "unstable-api")]
 			api::hash_blake2_128(input, &mut output);
-			#[cfg(feature = "unstable-api")]
 			api::return_value(uapi::ReturnFlags::empty(), &output);
 		},
 		_ => panic!("unknown crypto hash function identifier"),

@@ -17,7 +17,6 @@
 
 #![no_std]
 #![no_main]
-#![cfg(feature = "unstable-api")]
 
 use common::{u256_bytes, u64_output};
 use uapi::{HostFn, HostFnImpl as api};

@@ -16,9 +16,6 @@ uapi = { package = 'pallet-revive-uapi', path = "", default-features = false }
 common = { package = 'pallet-revive-fixtures-common', path = "" }
 polkavm-derive = { version = "0.17.0" }
 
-[features]
-unstable-api = []
-
 [profile.release]
 opt-level = 3
 lto = true
