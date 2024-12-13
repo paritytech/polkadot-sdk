@@ -1,12 +1,14 @@
 [settings]
 timeout = 1000
 
-[relaychain.genesis.runtimeGenesis.patch.configuration.config.scheduler_params]
-  max_validators_per_core = 2
-  lookahead = 2
-  num_cores = 4
-  group_rotation_frequency = 4
+[relaychain.genesis.runtimeGenesis.patch.configuration.config.async_backing_params]
+  max_candidate_depth = 3
+  allowed_ancestry_len = 2
 
+[relaychain.genesis.runtimeGenesis.patch.configuration.config.scheduler_params]
+  max_validators_per_core = 4
+  num_cores = 1
+  lookahead = 2
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config.approval_voting_params]
   needed_approvals = 3
@@ -18,7 +20,7 @@ command = "polkadot"
 
   [[relaychain.node_groups]]
   name = "validator"
-  args = ["-lruntime=debug,parachain=debug"]
+  args = ["-lparachain=debug,parachain::collator-protocol=trace" ]
   count = 4
 
 [[parachains]]
@@ -36,4 +38,21 @@ chain = "glutton-westend-local-2000"
     name = "collator-2000"
     image = "{{CUMULUS_IMAGE}}"
     command = "polkadot-parachain"
-    args = ["-lparachain=debug", "--experimental-use-slot-based"]
+    args = ["-lparachain=debug,parachain::collator-protocol=trace", "--experimental-use-slot-based"]
+
+[[parachains]]
+id = 2001
+register_para = false
+onboard_as_parachain = false
+add_to_genesis = false
+chain = "glutton-westend-local-2001"
+    [parachains.genesis.runtimeGenesis.patch.glutton]
+    compute = "50000000"
+    storage = "2500000000"
+    trashDataCount = 5120
+
+    [parachains.collator]
+    name = "collator-2001"
+    image = "{{CUMULUS_IMAGE}}"
+    command = "polkadot-parachain"
+    args = ["-lparachain=debug"]
