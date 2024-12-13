@@ -14,7 +14,10 @@
 
 #![allow(unused_variables)]
 
-use crate::{ReturnFlags, host::{CallFlags, HostFn, HostFnImpl, Result, StorageFlags}};
+use crate::{
+	host::{CallFlags, HostFn, HostFnImpl, Result, StorageFlags},
+	ReturnFlags,
+};
 
 mod sys {
 	use crate::ReturnCode;
