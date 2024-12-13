@@ -430,11 +430,6 @@ pub trait HostFn: private::Sealed {
 	hash_fn!(blake2_256, 32);
 	hash_fn!(blake2_128, 16);
 
-	/// Copy the contract call input data into `output`.
-	/// This equivalent to calling [call_data_copy] with an `offset` of 0.
-	/// See [call_data_copy] for more details.
-	fn input(output: &mut &mut [u8]);
-
 	/// Stores the input data passed by the caller into the supplied `output` buffer.
 	///
 	/// Call data will be copied into the `output` buffer, starting from the given `offset`.
