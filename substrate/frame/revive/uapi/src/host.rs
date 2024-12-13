@@ -11,11 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use crate::{CallFlags, Result, StorageFlags};
+use crate::{CallFlags, Result, ReturnFlags, StorageFlags};
 use paste::paste;
-
-#[cfg(feature = "unstable-api")]
-use crate::ReturnFlags;
 
 #[cfg(target_arch = "riscv64")]
 mod riscv64;
@@ -328,6 +325,24 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the timestamp.
 	fn now(output: &mut [u8; 32]);
 
+	/// Cease contract execution and save a data buffer as a result of the execution.
+	///
+	/// This function never returns as it stops execution of the caller.
+	/// This is the only way to return a data buffer to the caller. Returning from
+	/// execution without calling this function is equivalent to calling:
+	/// ```nocompile
+	/// return_value(ReturnFlags::empty(), &[])
+	/// ```
+	///
+	/// Using an unnamed non empty `ReturnFlags` triggers a trap.
+	///
+	/// # Parameters
+	///
+	/// - `flags`: Flag used to signal special return conditions to the supervisor. See
+	///   [`ReturnFlags`] for a documentation of the supported flags.
+	/// - `return_value`: The return value buffer.
+	fn return_value(flags: ReturnFlags, return_value: &[u8]) -> !;
+
 	/// Set the value at the given key in the contract storage.
 	///
 	/// The key and value lengths must not exceed the maximums defined by the contracts module
@@ -591,25 +606,6 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the code hash.
 	#[cfg(feature = "unstable-api")]
 	fn own_code_hash(output: &mut [u8; 32]);
-
-	/// Cease contract execution and save a data buffer as a result of the execution.
-	///
-	/// This function never returns as it stops execution of the caller.
-	/// This is the only way to return a data buffer to the caller. Returning from
-	/// execution without calling this function is equivalent to calling:
-	/// ```nocompile
-	/// return_value(ReturnFlags::empty(), &[])
-	/// ```
-	///
-	/// Using an unnamed non empty `ReturnFlags` triggers a trap.
-	///
-	/// # Parameters
-	///
-	/// - `flags`: Flag used to signal special return conditions to the supervisor. See
-	///   [`ReturnFlags`] for a documentation of the supported flags.
-	/// - `return_value`: The return value buffer.
-	#[cfg(feature = "unstable-api")]
-	fn return_value(flags: ReturnFlags, return_value: &[u8]) -> !;
 
 	/// Replace the contract code at the specified address with new code.
 	///

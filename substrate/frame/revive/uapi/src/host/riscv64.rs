@@ -14,10 +14,7 @@
 
 #![allow(unused_variables)]
 
-use crate::host::{CallFlags, HostFn, HostFnImpl, Result, StorageFlags};
-
-#[cfg(feature = "unstable-api")]
-use crate::ReturnFlags;
+use crate::{ReturnFlags, host::{CallFlags, HostFn, HostFnImpl, Result, StorageFlags}};
 
 mod sys {
 	use crate::ReturnCode;
@@ -295,11 +292,6 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
-	#[cfg(feature = "unstable-api")]
-	fn caller_is_root() -> u32 {
-		unsafe { sys::caller_is_root() }.into_u32()
-	}
-
 	fn delegate_call(
 		flags: CallFlags,
 		address: &[u8; 20],
@@ -369,19 +361,6 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
-	#[cfg(feature = "unstable-api")]
-	fn clear_storage(flags: StorageFlags, key: &[u8]) -> Option<u32> {
-		let ret_code = unsafe { sys::clear_storage(flags.bits(), key.as_ptr(), key.len() as u32) };
-		ret_code.into()
-	}
-
-	#[cfg(feature = "unstable-api")]
-	fn contains_storage(flags: StorageFlags, key: &[u8]) -> Option<u32> {
-		let ret_code =
-			unsafe { sys::contains_storage(flags.bits(), key.as_ptr(), key.len() as u32) };
-		ret_code.into()
-	}
-
 	fn get_storage(flags: StorageFlags, key: &[u8], output: &mut &mut [u8]) -> Result {
 		let mut output_len = output.len() as u32;
 		let ret_code = {
@@ -399,57 +378,6 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
-	#[cfg(feature = "unstable-api")]
-	fn take_storage(flags: StorageFlags, key: &[u8], output: &mut &mut [u8]) -> Result {
-		let mut output_len = output.len() as u32;
-		let ret_code = {
-			unsafe {
-				sys::take_storage(
-					flags.bits(),
-					key.as_ptr(),
-					key.len() as u32,
-					output.as_mut_ptr(),
-					&mut output_len,
-				)
-			}
-		};
-		extract_from_slice(output, output_len as usize);
-		ret_code.into()
-	}
-
-	#[cfg(feature = "unstable-api")]
-	fn debug_message(str: &[u8]) -> Result {
-		let ret_code = unsafe { sys::debug_message(str.as_ptr(), str.len() as u32) };
-		ret_code.into()
-	}
-
-	#[cfg(feature = "unstable-api")]
-	fn terminate(beneficiary: &[u8; 20]) -> ! {
-		unsafe { sys::terminate(beneficiary.as_ptr()) }
-		panic!("terminate does not return");
-	}
-
-	#[cfg(feature = "unstable-api")]
-	fn call_chain_extension(func_id: u32, input: &[u8], mut output: Option<&mut &mut [u8]>) -> u32 {
-		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
-		let ret_code = {
-			unsafe {
-				sys::call_chain_extension(
-					func_id,
-					input.as_ptr(),
-					input.len() as u32,
-					output_ptr,
-					&mut output_len,
-				)
-			}
-		};
-
-		if let Some(ref mut output) = output {
-			extract_from_slice(output, output_len as usize);
-		}
-		ret_code.into_u32()
-	}
-
 	fn input(output: &mut &mut [u8]) {
 		let mut output_len = output.len() as u32;
 		{
@@ -462,16 +390,9 @@ impl HostFn for HostFnImpl {
 		unsafe { sys::call_data_load(out_ptr.as_mut_ptr(), offset) };
 	}
 
-	#[cfg(feature = "unstable-api")]
 	fn return_value(flags: ReturnFlags, return_value: &[u8]) -> ! {
 		unsafe { sys::seal_return(flags.bits(), return_value.as_ptr(), return_value.len() as u32) }
 		panic!("seal_return does not return");
-	}
-
-	#[cfg(feature = "unstable-api")]
-	fn call_runtime(call: &[u8]) -> Result {
-		let ret_code = unsafe { sys::call_runtime(call.as_ptr(), call.len() as u32) };
-		ret_code.into()
 	}
 
 	impl_wrapper_for! {
@@ -482,13 +403,6 @@ impl HostFn for HostFnImpl {
 	#[cfg(feature = "unstable-api")]
 	impl_wrapper_for! {
 		[u8; 32] => block_number, minimum_balance;
-	}
-
-	#[cfg(feature = "unstable-api")]
-	fn weight_left(output: &mut &mut [u8]) {
-		let mut output_len = output.len() as u32;
-		unsafe { sys::weight_left(output.as_mut_ptr(), &mut output_len) }
-		extract_from_slice(output, output_len as usize)
 	}
 
 	fn weight_to_fee(ref_time_limit: u64, proof_size_limit: u64, output: &mut [u8; 32]) {
@@ -537,9 +451,60 @@ impl HostFn for HostFnImpl {
 	}
 
 	#[cfg(feature = "unstable-api")]
+	fn call_chain_extension(func_id: u32, input: &[u8], mut output: Option<&mut &mut [u8]>) -> u32 {
+		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
+		let ret_code = {
+			unsafe {
+				sys::call_chain_extension(
+					func_id,
+					input.as_ptr(),
+					input.len() as u32,
+					output_ptr,
+					&mut output_len,
+				)
+			}
+		};
+
+		if let Some(ref mut output) = output {
+			extract_from_slice(output, output_len as usize);
+		}
+		ret_code.into_u32()
+	}
+
+	#[cfg(feature = "unstable-api")]
+	fn call_runtime(call: &[u8]) -> Result {
+		let ret_code = unsafe { sys::call_runtime(call.as_ptr(), call.len() as u32) };
+		ret_code.into()
+	}
+
+	#[cfg(feature = "unstable-api")]
 	fn caller_is_origin() -> bool {
 		let ret_val = unsafe { sys::caller_is_origin() };
 		ret_val.into_bool()
+	}
+
+	#[cfg(feature = "unstable-api")]
+	fn caller_is_root() -> u32 {
+		unsafe { sys::caller_is_root() }.into_u32()
+	}
+
+	#[cfg(feature = "unstable-api")]
+	fn clear_storage(flags: StorageFlags, key: &[u8]) -> Option<u32> {
+		let ret_code = unsafe { sys::clear_storage(flags.bits(), key.as_ptr(), key.len() as u32) };
+		ret_code.into()
+	}
+
+	#[cfg(feature = "unstable-api")]
+	fn contains_storage(flags: StorageFlags, key: &[u8]) -> Option<u32> {
+		let ret_code =
+			unsafe { sys::contains_storage(flags.bits(), key.as_ptr(), key.len() as u32) };
+		ret_code.into()
+	}
+
+	#[cfg(feature = "unstable-api")]
+	fn debug_message(str: &[u8]) -> Result {
+		let ret_code = unsafe { sys::debug_message(str.as_ptr(), str.len() as u32) };
+		ret_code.into()
 	}
 
 	#[cfg(feature = "unstable-api")]
@@ -602,8 +567,39 @@ impl HostFn for HostFnImpl {
 	}
 
 	#[cfg(feature = "unstable-api")]
+	fn take_storage(flags: StorageFlags, key: &[u8], output: &mut &mut [u8]) -> Result {
+		let mut output_len = output.len() as u32;
+		let ret_code = {
+			unsafe {
+				sys::take_storage(
+					flags.bits(),
+					key.as_ptr(),
+					key.len() as u32,
+					output.as_mut_ptr(),
+					&mut output_len,
+				)
+			}
+		};
+		extract_from_slice(output, output_len as usize);
+		ret_code.into()
+	}
+
+	#[cfg(feature = "unstable-api")]
+	fn terminate(beneficiary: &[u8; 20]) -> ! {
+		unsafe { sys::terminate(beneficiary.as_ptr()) }
+		panic!("terminate does not return");
+	}
+
+	#[cfg(feature = "unstable-api")]
 	fn unlock_delegate_dependency(code_hash: &[u8; 32]) {
 		unsafe { sys::unlock_delegate_dependency(code_hash.as_ptr()) }
+	}
+
+	#[cfg(feature = "unstable-api")]
+	fn weight_left(output: &mut &mut [u8]) {
+		let mut output_len = output.len() as u32;
+		unsafe { sys::weight_left(output.as_mut_ptr(), &mut output_len) }
+		extract_from_slice(output, output_len as usize)
 	}
 
 	#[cfg(feature = "unstable-api")]
