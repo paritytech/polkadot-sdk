@@ -259,7 +259,7 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, T::AccountIndex, (T::AccountId, BalanceOf<T>, bool)>;
 
 	#[pallet::genesis_config]
-	#[derive(frame::deps::frame_support::DefaultNoBound)]
+	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		pub indices: Vec<(T::AccountIndex, T::AccountId)>,
 	}
