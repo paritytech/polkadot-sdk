@@ -20,14 +20,8 @@
 #![cfg(test)]
 
 use crate::{self as pallet_indices, Config};
-use frame::{
-	runtime::{
-		prelude::{construct_runtime, derive_impl},
-		testing_prelude::BuildStorage,
-	},
-	testing_prelude::frame_system,
-	traits::ConstU64,
-};
+use frame::testing_prelude::*;
+
 type Block = frame_system::mocking::MockBlock<Test>;
 
 construct_runtime!(

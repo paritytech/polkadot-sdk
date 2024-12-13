@@ -29,14 +29,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use codec::Codec;
-use frame::{
-	deps::sp_runtime::MultiAddress,
-	prelude::*,
-	traits::{
-		AtLeast32Bit, BalanceStatus::Reserved, Currency, LookupError, ReservableCurrency,
-		Saturating, StaticLookup, Zero,
-	},
-};
+use frame::prelude::*;
 pub use weights::WeightInfo;
 
 type BalanceOf<T> =
@@ -48,8 +41,6 @@ pub use pallet::*;
 #[frame::pallet]
 pub mod pallet {
 	use super::*;
-	//use frame_support::pallet_prelude::*;
-	//use frame_system::pallet_prelude::*;
 
 	/// The module's config trait.
 	#[pallet::config]

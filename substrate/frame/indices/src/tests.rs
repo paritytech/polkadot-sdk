@@ -20,10 +20,7 @@
 #![cfg(test)]
 
 use super::{mock::*, *};
-use frame::{
-	deps::sp_runtime::MultiAddress::Id,
-	testing_prelude::{assert_noop, assert_ok},
-};
+use frame::testing_prelude::*;
 use pallet_balances::Error as BalancesError;
 
 #[test]

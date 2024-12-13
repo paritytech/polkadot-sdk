@@ -20,7 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::*;
-use frame::{benchmarking::prelude::*, prelude::Bounded};
+use frame::benchmarking::prelude::*;
 const SEED: u32 = 0;
 
 #[benchmarks]
