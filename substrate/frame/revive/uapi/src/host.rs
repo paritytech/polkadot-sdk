@@ -430,24 +430,26 @@ pub trait HostFn: private::Sealed {
 	hash_fn!(blake2_256, 32);
 	hash_fn!(blake2_128, 16);
 
-	/// Stores the input data passed by the caller into the supplied `output` buffer.
+	/// Stores the input data passed by the caller into the supplied `output` buffer,
+	/// starting from the given input data `offset`.
 	///
-	/// Call data will be copied into the `output` buffer, starting from the given `offset`.
-	///
-	/// The `output` buffer will always be filled exactly:
-	/// - If the call data is larger than the `output` buffer, it is truncated.
-	/// - If the `output` buffer size exceeds the call data size, remainding bytes are zeroed.
+	/// The `output` buffer is guaranteed to always be fully populated:
+	/// - If the call data (starting from the given `offset`) is larger than the `output`
+	///   buffer, only what fits into the `output` buffer is written.
+	/// - If the `output` buffer size exceeds the call data size (starting from `offset`),
+	///   remaining bytes in the `output` buffer are zeroed out.
+	/// - If the provided call data `offset` is out-of-bounds, the whole `output` buffer is
+	///   zeroed out.
 	///
 	/// # Note
 	///
 	/// This function traps if:
-	/// - the input is larger than the available space.
 	/// - the input was previously forwarded by a [`call()`][`Self::call()`].
-	/// - the `output` buffer
+	/// - the `output` buffer is located in an PolkaVM invalid memory range.
 	///
 	/// # Parameters
 	///
-	/// - `output`: A reference to the output data buffer to write the input data.
+	/// - `output`: A reference to the output data buffer to write the call data.
 	/// - `offset`: The offset index into the call data from where to start copying.
 	fn call_data_copy(output: &mut &mut [u8], offset: u32);
 
