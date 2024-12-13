@@ -100,7 +100,7 @@ where
 		let para_id = match local_sub.as_slice() {
 			[Parachain(para_id)] if *para_id == ASSET_HUB_PARA_ID => *para_id,
 			_ => {
-				log::error!(target: "xcm::ethereum_blob_exporter", "could not get parachain id from universal source '{local_sub:?}'.");
+				log::debug!(target: "xcm::ethereum_blob_exporter", "only supports Asset Hub root location as the universal source '{local_sub:?}'.");
 				return Err(SendError::NotApplicable);
 			},
 		};
