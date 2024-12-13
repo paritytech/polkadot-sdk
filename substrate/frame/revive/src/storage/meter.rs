@@ -725,6 +725,46 @@ mod tests {
 	}
 
 	#[test]
+	fn nested_zero_limit_requested() {
+		clear_ext();
+
+		let meter = TestMeter::new(&Origin::from_account_id(ALICE), 1_000, 0).unwrap();
+		assert_eq!(meter.available(), 1_000);
+		let nested0 = meter.nested(BalanceOf::<Test>::zero());
+		assert_eq!(nested0.available(), 1_000);
+	}
+
+	#[test]
+	fn nested_some_limit_requested() {
+		clear_ext();
+
+		let meter = TestMeter::new(&Origin::from_account_id(ALICE), 1_000, 0).unwrap();
+		assert_eq!(meter.available(), 1_000);
+		let nested0 = meter.nested(500);
+		assert_eq!(nested0.available(), 500);
+	}
+
+	#[test]
+	fn nested_all_limit_requested() {
+		clear_ext();
+
+		let meter = TestMeter::new(&Origin::from_account_id(ALICE), 1_000, 0).unwrap();
+		assert_eq!(meter.available(), 1_000);
+		let nested0 = meter.nested(1_000);
+		assert_eq!(nested0.available(), 1_000);
+	}
+
+	#[test]
+	fn nested_over_limit_requested() {
+		clear_ext();
+
+		let meter = TestMeter::new(&Origin::from_account_id(ALICE), 1_000, 0).unwrap();
+		assert_eq!(meter.available(), 1_000);
+		let nested0 = meter.nested(2_000);
+		assert_eq!(nested0.available(), 1_000);
+	}
+
+	#[test]
 	fn empty_charge_works() {
 		clear_ext();
 
