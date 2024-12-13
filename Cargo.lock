@@ -15328,19 +15328,14 @@ dependencies = [
 name = "pallet-state-trie-migration"
 version = "29.0.0"
 dependencies = [
- "frame-benchmarking 28.0.0",
  "frame-remote-externalities",
- "frame-support 28.0.0",
- "frame-system 28.0.0",
  "log",
  "pallet-balances 28.0.0",
  "parity-scale-codec",
  "parking_lot 0.12.3",
+ "polkadot-sdk-frame 0.1.0",
  "scale-info",
  "serde",
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
  "substrate-state-trie-migration-rpc",
  "thousands",

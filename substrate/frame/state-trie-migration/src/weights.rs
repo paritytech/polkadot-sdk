@@ -46,7 +46,11 @@
 #![allow(unused_imports)]
 #![allow(missing_docs)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
+use frame::runtime::prelude::*;
+use frame::runtime::prelude::weights::constants::RocksDbWeight;
+//use frame::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
+
+//use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
 use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_state_trie_migration`.

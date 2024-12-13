@@ -72,30 +72,24 @@ macro_rules! log {
 	};
 }
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 
 	pub use crate::weights::WeightInfo;
 
 	use alloc::{vec, vec::Vec};
 	use core::ops::Deref;
-	use frame_support::{
-		dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
-		ensure,
-		pallet_prelude::*,
-		traits::{
-			fungible::{hold::Balanced, Inspect, InspectHold, Mutate, MutateHold},
-			tokens::{Fortitude, Precision},
-			Get,
-		},
-	};
-	use frame_system::{self, pallet_prelude::*};
-	use sp_core::{
+
+
+	use frame::prelude::*;
+	use frame::traits::{
+				fungible::{hold::Balanced, Inspect, InspectHold, Mutate, MutateHold},
+				tokens::{Fortitude, Precision},
+				Get,
+			};
+
+			use frame::deps::sp_core::{
 		hexdisplay::HexDisplay, storage::well_known_keys::DEFAULT_CHILD_STORAGE_KEY_PREFIX,
-	};
-	use sp_runtime::{
-		self,
-		traits::{Saturating, Zero},
 	};
 
 	pub(crate) type BalanceOf<T> =
@@ -310,7 +304,7 @@ pub mod pallet {
 		///
 		/// It updates the dynamic counters.
 		fn migrate_child(&mut self) -> Result<(), Error<T>> {
-			use sp_io::default_child_storage as child_io;
+			use frame::deps::sp_io::default_child_storage as child_io;
 			let (maybe_current_child, child_root) = match (&self.progress_child, &self.progress_top)
 			{
 				(Progress::LastKey(last_child), Progress::LastKey(last_top)) => {
@@ -331,7 +325,7 @@ pub mod pallet {
 				},
 				_ => {
 					// defensive: there must be an ongoing top migration.
-					frame_support::defensive!("cannot migrate child key.");
+					defensive!("cannot migrate child key.");
 					return Ok(())
 				},
 			};
@@ -362,7 +356,7 @@ pub mod pallet {
 			let maybe_current_top = match &self.progress_top {
 				Progress::LastKey(last_top) => {
 					let maybe_top: Option<BoundedVec<u8, T::MaxKeyLen>> =
-						if let Some(next) = sp_io::storage::next_key(last_top) {
+						if let Some(next) = frame::deps::sp_io::storage::next_key(last_top) {
 							Some(next.try_into().map_err(|_| Error::<T>::KeyTooLong)?)
 						} else {
 							None
@@ -373,14 +367,14 @@ pub mod pallet {
 				Progress::ToStart => Some(Default::default()),
 				Progress::Complete => {
 					// defensive: there must be an ongoing top migration.
-					frame_support::defensive!("cannot migrate top key.");
+					defensive!("cannot migrate top key.");
 					return Ok(())
 				},
 			};
 
 			if let Some(current_top) = maybe_current_top.as_ref() {
-				let added_size = if let Some(data) = sp_io::storage::get(current_top) {
-					sp_io::storage::set(current_top, &data);
+				let added_size = if let Some(data) = frame::deps::sp_io::storage::get(current_top) {
+					frame::deps::sp_io::storage::set(current_top, &data);
 					data.len() as u32
 				} else {
 					Zero::zero()
@@ -449,14 +443,14 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::*;
-		use frame_support::derive_impl;
+		use frame::runtime::prelude::derive_impl;
 
 		pub struct TestDefaultConfig;
 
 		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for TestDefaultConfig {}
 
-		#[frame_support::register_default_impl(TestDefaultConfig)]
+		#[register_default_impl(TestDefaultConfig)]
 		impl DefaultConfig for TestDefaultConfig {
 			#[inject_runtime_type]
 			type RuntimeEvent = ();
@@ -720,9 +714,9 @@ pub mod pallet {
 
 			let mut dyn_size = 0u32;
 			for key in &keys {
-				if let Some(data) = sp_io::storage::get(key) {
+				if let Some(data) = frame::deps::sp_io::storage::get(key) {
 					dyn_size = dyn_size.saturating_add(data.len() as u32);
-					sp_io::storage::set(key, &data);
+					frame::deps::sp_io::storage::set(key, &data);
 				}
 			}
 
@@ -766,7 +760,7 @@ pub mod pallet {
 			child_keys: Vec<Vec<u8>>,
 			total_size: u32,
 		) -> DispatchResultWithPostInfo {
-			use sp_io::default_child_storage as child_io;
+			use frame::deps::sp_io::default_child_storage as child_io;
 			let who = T::SignedFilter::ensure_origin(origin)?;
 
 			// ensure they can pay more than the fee.
@@ -885,7 +879,7 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// The real weight of a migration of the given number of `items` with total `size`.
-		fn dynamic_weight(items: u32, size: u32) -> frame_support::pallet_prelude::Weight {
+		fn dynamic_weight(items: u32, size: u32) -> Weight {
 			let items = items as u64;
 			<T as frame_system::Config>::DbWeight::get()
 				.reads_writes(1, 1)
@@ -903,7 +897,7 @@ pub mod pallet {
 
 		/// Convert a child root key, aka. "Child-bearing top key" into the proper format.
 		fn transform_child_key(root: &Vec<u8>) -> Option<&[u8]> {
-			use sp_core::storage::{ChildType, PrefixedStorageKey};
+			use frame::deps::sp_core::storage::{ChildType, PrefixedStorageKey};
 			match ChildType::from_prefixed_key(PrefixedStorageKey::new_ref(root)) {
 				Some((ChildType::ParentKeyId, root)) => Some(root),
 				_ => None,
@@ -956,8 +950,9 @@ pub mod pallet {
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarks {
 	use super::{pallet::Pallet as StateTrieMigration, *};
-	use alloc::vec;
-	use frame_support::traits::fungible::{Inspect, Mutate};
+	//use frame::benchmarking::prelude::*;
+	use frame::benchmarking::prelude::{v1::benchmarks, *};
+	use frame::traits::fungible::{Inspect, Mutate};
 
 	// The size of the key seemingly makes no difference in the read/write time, so we make it
 	// constant.
@@ -970,13 +965,13 @@ mod benchmarks {
 		stash
 	}
 
-	frame_benchmarking::benchmarks! {
+	benchmarks! {
 		continue_migrate {
 			// note that this benchmark should migrate nothing, as we only want the overhead weight
 			// of the bookkeeping, and the migration cost itself is noted via the `dynamic_weight`
 			// function.
 			let null = MigrationLimits::default();
-			let caller = frame_benchmarking::whitelisted_caller();
+			let caller = whitelisted_caller();
 			let stash = set_balance_for_deposit::<T>(&caller, null.item);
 			// Allow signed migrations.
 			SignedMigrationMaxLimits::<T>::put(MigrationLimits { size: 1024, item: 5 });
@@ -988,7 +983,7 @@ mod benchmarks {
 
 		continue_migrate_wrong_witness {
 			let null = MigrationLimits::default();
-			let caller = frame_benchmarking::whitelisted_caller();
+			let caller = whitelisted_caller();
 			let bad_witness = MigrationTask { progress_top: Progress::LastKey(vec![1u8].try_into().unwrap()), ..Default::default() };
 		}: {
 			assert!(
@@ -1007,7 +1002,7 @@ mod benchmarks {
 
 		migrate_custom_top_success {
 			let null = MigrationLimits::default();
-			let caller: T::AccountId = frame_benchmarking::whitelisted_caller();
+			let caller: T::AccountId = whitelisted_caller();
 			let stash = set_balance_for_deposit::<T>(&caller, null.item);
 		}: migrate_custom_top(frame_system::RawOrigin::Signed(caller.clone()), Default::default(), 0)
 		verify {
@@ -1017,11 +1012,11 @@ mod benchmarks {
 
 		migrate_custom_top_fail {
 			let null = MigrationLimits::default();
-			let caller: T::AccountId = frame_benchmarking::whitelisted_caller();
+			let caller: T::AccountId = whitelisted_caller();
 			let stash = set_balance_for_deposit::<T>(&caller, null.item);
 			// for tests, we need to make sure there is _something_ in storage that is being
 			// migrated.
-			sp_io::storage::set(b"foo", vec![1u8;33].as_ref());
+			frame::deps::sp_io::storage::set(b"foo", vec![1u8;33].as_ref());
 		}: {
 			assert!(
 				StateTrieMigration::<T>::migrate_custom_top(
@@ -1045,7 +1040,7 @@ mod benchmarks {
 		}
 
 		migrate_custom_child_success {
-			let caller: T::AccountId = frame_benchmarking::whitelisted_caller();
+			let caller: T::AccountId = whitelisted_caller();
 			let stash = set_balance_for_deposit::<T>(&caller, 0);
 		}: migrate_custom_child(
 			frame_system::RawOrigin::Signed(caller.clone()),
@@ -1059,11 +1054,11 @@ mod benchmarks {
 		}
 
 		migrate_custom_child_fail {
-			let caller: T::AccountId = frame_benchmarking::whitelisted_caller();
+			let caller: T::AccountId = whitelisted_caller();
 			let stash = set_balance_for_deposit::<T>(&caller, 1);
 			// for tests, we need to make sure there is _something_ in storage that is being
 			// migrated.
-			sp_io::default_child_storage::set(b"top", b"foo", vec![1u8;33].as_ref());
+			frame::deps::sp_io::default_child_storage::set(b"top", b"foo", vec![1u8;33].as_ref());
 		}: {
 			assert!(
 				StateTrieMigration::<T>::migrate_custom_child(
@@ -1084,11 +1079,11 @@ mod benchmarks {
 			let v in 1 .. (4 * 1024 * 1024);
 
 			let value = alloc::vec![1u8; v as usize];
-			sp_io::storage::set(KEY, &value);
+			frame::deps::sp_io::storage::set(KEY, &value);
 		}: {
-			let data = sp_io::storage::get(KEY).unwrap();
-			sp_io::storage::set(KEY, &data);
-			let _next = sp_io::storage::next_key(KEY);
+			let data = frame::deps::sp_io::storage::get(KEY).unwrap();
+			frame::deps::sp_io::storage::set(KEY, &data);
+			let _next = frame::deps::sp_io::storage::next_key(KEY);
 			assert_eq!(data, value);
 		}
 
@@ -1105,13 +1100,8 @@ mod mock {
 	use super::*;
 	use crate as pallet_state_trie_migration;
 	use alloc::{vec, vec::Vec};
-	use frame_support::{derive_impl, parameter_types, traits::Hooks, weights::Weight};
-	use frame_system::{EnsureRoot, EnsureSigned};
-	use sp_core::{
-		storage::{ChildInfo, StateVersion},
-		H256,
-	};
-	use sp_runtime::{traits::Header as _, BuildStorage, StorageChild};
+
+	use frame::benchmarking::prelude::*;
 
 	type Block = frame_system::mocking::MockBlockU32<Test>;
 
@@ -1190,9 +1180,9 @@ mod mock {
 		with_pallets: bool,
 		custom_keys: Option<Vec<(Vec<u8>, Vec<u8>)>>,
 		custom_child: Option<Vec<(Vec<u8>, Vec<u8>, Vec<u8>)>>,
-	) -> sp_io::TestExternalities {
-		let minimum_size = sp_core::storage::TRIE_VALUE_NODE_THRESHOLD as usize + 1;
-		let mut custom_storage = sp_core::storage::Storage {
+	) -> frame::deps::sp_io::TestExternalities {
+		let minimum_size = frame::deps::sp_core::storage::TRIE_VALUE_NODE_THRESHOLD as usize + 1;
+		let mut custom_storage = frame::deps::sp_core::storage::Storage {
 			top: vec![
 				(b"key1".to_vec(), vec![1u8; minimum_size + 1]), // 6b657931
 				(b"key2".to_vec(), vec![1u8; minimum_size + 2]), // 6b657931
@@ -1286,8 +1276,9 @@ mod mock {
 #[cfg(test)]
 mod test {
 	use super::{mock::*, *};
-	use frame_support::assert_ok;
-	use sp_runtime::{bounded_vec, traits::Bounded, StateVersion};
+	use frame::benchmarking::prelude::*;
+	// use frame_support::assert_ok;
+	// use sp_runtime::{bounded_vec, traits::Bounded, StateVersion};
 
 	#[test]
 	fn fails_if_no_migration() {
@@ -1314,7 +1305,7 @@ mod test {
 			SignedMigrationMaxLimits::<Test>::put(MigrationLimits { size: 1 << 20, item: 50 });
 
 			// fails if the top key is too long.
-			frame_support::assert_ok!(StateTrieMigration::continue_migrate(
+			assert_ok!(StateTrieMigration::continue_migrate(
 				RuntimeOrigin::signed(1),
 				MigrationLimits { item: 50, size: 1 << 20 },
 				Bounded::max_value(),
@@ -1349,7 +1340,7 @@ mod test {
 			SignedMigrationMaxLimits::<Test>::put(MigrationLimits { size: 1 << 20, item: 50 });
 
 			// fails if the top key is too long.
-			frame_support::assert_ok!(StateTrieMigration::continue_migrate(
+			assert_ok!(StateTrieMigration::continue_migrate(
 				RuntimeOrigin::signed(1),
 				MigrationLimits { item: 50, size: 1 << 20 },
 				Bounded::max_value(),
@@ -1477,7 +1468,7 @@ mod test {
 			SignedMigrationMaxLimits::<Test>::put(MigrationLimits { size: 1024, item: 5 });
 
 			// can't submit if limit is too high.
-			frame_support::assert_err!(
+			assert_err!(
 				StateTrieMigration::continue_migrate(
 					RuntimeOrigin::signed(1),
 					MigrationLimits { item: 5, size: sp_runtime::traits::Bounded::max_value() },
@@ -1488,7 +1479,7 @@ mod test {
 			);
 
 			// can't submit if poor.
-			frame_support::assert_err!(
+			assert_err!(
 				StateTrieMigration::continue_migrate(
 					RuntimeOrigin::signed(2),
 					MigrationLimits { item: 5, size: 100 },
@@ -1499,7 +1490,7 @@ mod test {
 			);
 
 			// can't submit with bad witness.
-			frame_support::assert_err_ignore_postinfo!(
+			assert_err_ignore_postinfo!(
 				StateTrieMigration::continue_migrate(
 					RuntimeOrigin::signed(1),
 					MigrationLimits { item: 5, size: 100 },
@@ -1520,7 +1511,7 @@ mod test {
 					StateTrieMigration::signed_migration_max_limits().unwrap(),
 				));
 
-				frame_support::assert_ok!(StateTrieMigration::continue_migrate(
+				assert_ok!(StateTrieMigration::continue_migrate(
 					RuntimeOrigin::signed(1),
 					StateTrieMigration::signed_migration_max_limits().unwrap(),
 					task.dyn_size,
@@ -1555,7 +1546,7 @@ mod test {
 			));
 
 			// can't submit with `real_size_upper` < `task.dyn_size` expect slashing
-			frame_support::assert_ok!(StateTrieMigration::continue_migrate(
+			assert_ok!(StateTrieMigration::continue_migrate(
 				RuntimeOrigin::signed(1),
 				StateTrieMigration::signed_migration_max_limits().unwrap(),
 				task.dyn_size - 1,
@@ -1573,9 +1564,9 @@ mod test {
 
 	#[test]
 	fn custom_migrate_top_works() {
-		let correct_witness = 3 + sp_core::storage::TRIE_VALUE_NODE_THRESHOLD * 3 + 1 + 2 + 3;
+		let correct_witness = 3 + frame::deps::sp_core::storage::TRIE_VALUE_NODE_THRESHOLD * 3 + 1 + 2 + 3;
 		new_test_ext(StateVersion::V0, true, None, None).execute_with(|| {
-			frame_support::assert_ok!(StateTrieMigration::migrate_custom_top(
+			assert_ok!(StateTrieMigration::migrate_custom_top(
 				RuntimeOrigin::signed(1),
 				vec![b"key1".to_vec(), b"key2".to_vec(), b"key3".to_vec()],
 				correct_witness,
@@ -1588,7 +1579,7 @@ mod test {
 
 		new_test_ext(StateVersion::V0, true, None, None).execute_with(|| {
 			// works if the witness is an overestimate
-			frame_support::assert_ok!(StateTrieMigration::migrate_custom_top(
+			assert_ok!(StateTrieMigration::migrate_custom_top(
 				RuntimeOrigin::signed(1),
 				vec![b"key1".to_vec(), b"key2".to_vec(), b"key3".to_vec()],
 				correct_witness + 99,
@@ -1603,7 +1594,7 @@ mod test {
 			assert_eq!(Balances::free_balance(&1), 1000);
 
 			// note that we don't expect this to be a noop -- we do slash.
-			frame_support::assert_ok!(StateTrieMigration::migrate_custom_top(
+			assert_ok!(StateTrieMigration::migrate_custom_top(
 				RuntimeOrigin::signed(1),
 				vec![b"key1".to_vec(), b"key2".to_vec(), b"key3".to_vec()],
 				correct_witness - 1,
@@ -1621,7 +1612,7 @@ mod test {
 	#[test]
 	fn custom_migrate_child_works() {
 		new_test_ext(StateVersion::V0, true, None, None).execute_with(|| {
-			frame_support::assert_ok!(StateTrieMigration::migrate_custom_child(
+			assert_ok!(StateTrieMigration::migrate_custom_child(
 				RuntimeOrigin::signed(1),
 				StateTrieMigration::childify("chk1"),
 				vec![b"key1".to_vec(), b"key2".to_vec()],
@@ -1637,7 +1628,7 @@ mod test {
 			assert_eq!(Balances::free_balance(&1), 1000);
 
 			// note that we don't expect this to be a noop -- we do slash.
-			frame_support::assert_ok!(StateTrieMigration::migrate_custom_child(
+			assert_ok!(StateTrieMigration::migrate_custom_child(
 				RuntimeOrigin::signed(1),
 				StateTrieMigration::childify("chk1"),
 				vec![b"key1".to_vec(), b"key2".to_vec()],
@@ -1659,17 +1650,18 @@ mod test {
 pub(crate) mod remote_tests {
 	use crate::{AutoLimits, MigrationLimits, Pallet as StateTrieMigration, LOG_TARGET};
 	use codec::Encode;
-	use frame_support::{
-		traits::{Get, Hooks},
-		weights::Weight,
-	};
-	use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System};
+	use frame::benchmarking::prelude::*;
+	// use frame_support::{
+	// 	traits::{Get, Hooks},
+	// 	weights::Weight,
+	// };
+	// use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System};
 	use remote_externalities::Mode;
-	use sp_core::H256;
-	use sp_runtime::{
-		traits::{Block as BlockT, HashingFor, Header as _, One, Zero},
-		DeserializeOwned,
-	};
+	// use frame::deps::sp_core::H256;
+	// use sp_runtime::{
+	// 	traits::{Block as BlockT, HashingFor, Header as _, One, Zero},
+	// 	DeserializeOwned,
+	// };
 	use thousands::Separable;
 
 	#[allow(dead_code)]
@@ -1705,7 +1697,7 @@ pub(crate) mod remote_tests {
 	{
 		let mut ext = remote_externalities::Builder::<Block>::new()
 			.mode(mode)
-			.overwrite_state_version(sp_core::storage::StateVersion::V0)
+			.overwrite_state_version(frame::deps::sp_core::storage::StateVersion::V0)
 			.build()
 			.await
 			.unwrap();
@@ -1718,7 +1710,7 @@ pub(crate) mod remote_tests {
 
 		let mut duration: BlockNumberFor<Runtime> = Zero::zero();
 		// set the version to 1, as if the upgrade happened.
-		ext.state_version = sp_core::storage::StateVersion::V1;
+		ext.state_version = frame::deps::sp_core::storage::StateVersion::V1;
 
 		let status =
 			substrate_state_trie_migration_rpc::migration_status(&ext.as_backend()).unwrap();
