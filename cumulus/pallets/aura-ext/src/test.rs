@@ -199,7 +199,7 @@ mod test {
 
 	#[test]
 	#[should_panic(
-		expected = "Parachain slot is too far in the future: parachain_slot: Slot(8), derived_from_relay_slot: Slot(5) velocity: 2"
+		expected = "Parachain slot is too far in the future: parachain_slot=Slot(8), derived_from_relay_slot=Slot(5) velocity=2"
 	)]
 	fn test_para_slot_calculated_from_slot_duration_2() {
 		const VELOCITY: u32 = 2;
@@ -248,7 +248,7 @@ mod test {
 
 	#[test]
 	#[should_panic(
-		expected = "Parachain slot is too far in the future: parachain_slot: Slot(13), derived_from_relay_slot: Slot(10) velocity: 2"
+		expected = "Parachain slot is too far in the future: parachain_slot=Slot(13), derived_from_relay_slot=Slot(10) velocity=2"
 	)]
 	fn test_future_parachain_slot_errors() {
 		type Hook = FixedVelocityConsensusHook<Test, 6000, 2, 1>;
