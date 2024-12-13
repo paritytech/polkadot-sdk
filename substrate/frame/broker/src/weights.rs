@@ -351,7 +351,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// The range of component `n` is `[0, 1000]`.
-	fn request_core_count(n: u32, ) -> Weight {
+	fn request_core_count(_n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -406,7 +406,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Broker::Workplan` (r:0 w:1000)
 	/// Proof: `Broker::Workplan` (`max_values`: None, `max_size`: Some(1216), added: 3691, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[0, 1000]`.
-	fn rotate_sale(_n: u32, ) -> Weight {
+	fn rotate_sale(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `8548`
 		//  Estimated: `38070`
@@ -825,7 +825,7 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// The range of component `n` is `[0, 1000]`.
-	fn request_core_count(n: u32, ) -> Weight {
+	fn request_core_count(_n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -880,7 +880,7 @@ impl WeightInfo for () {
 	/// Storage: `Broker::Workplan` (r:0 w:1000)
 	/// Proof: `Broker::Workplan` (`max_values`: None, `max_size`: Some(1216), added: 3691, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[0, 1000]`.
-	fn rotate_sale(_n: u32, ) -> Weight {
+	fn rotate_sale(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `8548`
 		//  Estimated: `38070`
