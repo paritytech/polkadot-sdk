@@ -53,7 +53,7 @@ use sp_core::{
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
-	traits::{BadOrigin, Convert, Dispatchable, Saturating, Zero},
+	traits::{BadOrigin, Bounded, Convert, Dispatchable, Saturating, Zero},
 	DispatchError, SaturatedConversion,
 };
 
@@ -885,7 +885,7 @@ where
 			args,
 			value,
 			gas_meter,
-			Weight::zero(),
+			Weight::max_value(),
 			storage_meter,
 			BalanceOf::<T>::zero(),
 			false,

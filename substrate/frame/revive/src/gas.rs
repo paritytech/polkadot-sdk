@@ -170,21 +170,11 @@ impl<T: Config> GasMeter<T> {
 
 	/// Create a new gas meter for a nested call by removing gas from the current meter.
 	pub fn nested(&mut self, amount: Weight) -> Self {
-		let amount = Weight::from_parts(
-			if amount.ref_time().is_zero() {
-				self.gas_left().ref_time()
-			} else {
-				amount.ref_time()
-			},
-			if amount.proof_size().is_zero() {
-				self.gas_left().proof_size()
-			} else {
-				amount.proof_size()
-			},
-		)
-		.min(self.gas_left);
-		self.gas_left -= amount;
-		GasMeter::new(amount)
+		// The reduction to 63/64 is to emulate EIP-150
+		// https://github.com/ethereum/EIPs/blob/master/EIPS/eip-150.md
+		let amt = amount.min(self.gas_left - self.gas_left / 64);
+		self.gas_left -= amt;
+		GasMeter::new(amt)
 	}
 
 	/// Absorb the remaining gas of a nested meter after we are done using it.
