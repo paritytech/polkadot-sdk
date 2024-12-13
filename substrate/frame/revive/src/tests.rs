@@ -3260,7 +3260,7 @@ fn contract_reverted() {
 			.data(input.clone())
 			.build_and_unwrap_result();
 		assert_eq!(result.result.flags, flags);
-		assert_eq!(result.result.data[..buffer.len()], buffer);
+		assert_eq!(result.result.data, buffer);
 		assert!(!<ContractInfoOf<Test>>::contains_key(result.addr));
 
 		// Pass empty flags and therefore successfully instantiate the contract for later use.
@@ -3277,7 +3277,7 @@ fn contract_reverted() {
 		// Calling directly: revert leads to success but the flags indicate the error
 		let result = builder::bare_call(addr).data(input).build_and_unwrap_result();
 		assert_eq!(result.flags, flags);
-		assert_eq!(result.data[..buffer.len()], buffer);
+		assert_eq!(result.data, buffer);
 	});
 }
 

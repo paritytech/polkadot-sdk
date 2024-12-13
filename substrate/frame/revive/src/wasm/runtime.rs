@@ -1337,7 +1337,7 @@ pub mod env {
 
 	/// Stores the input passed by the caller into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::call_data_copy`].
-	#[api_version(0)]
+	#[stable]
 	fn call_data_copy(
 		&mut self,
 		memory: &mut M,
