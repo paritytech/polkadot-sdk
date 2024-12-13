@@ -170,7 +170,6 @@ impl<T: Config> Memory<T> for [u8] {
 		Ok(())
 	}
 
-
 	fn zero(&mut self, ptr: u32, len: u32) -> Result<(), DispatchError> {
 		<[u8] as Memory<T>>::write(self, ptr, &vec![0; len as usize])
 	}

@@ -434,12 +434,12 @@ pub trait HostFn: private::Sealed {
 	/// starting from the given input data `offset`.
 	///
 	/// The `output` buffer is guaranteed to always be fully populated:
-	/// - If the call data (starting from the given `offset`) is larger than the `output`
-	///   buffer, only what fits into the `output` buffer is written.
-	/// - If the `output` buffer size exceeds the call data size (starting from `offset`),
-	///   remaining bytes in the `output` buffer are zeroed out.
-	/// - If the provided call data `offset` is out-of-bounds, the whole `output` buffer is
-	///   zeroed out.
+	/// - If the call data (starting from the given `offset`) is larger than the `output` buffer,
+	///   only what fits into the `output` buffer is written.
+	/// - If the `output` buffer size exceeds the call data size (starting from `offset`), remaining
+	///   bytes in the `output` buffer are zeroed out.
+	/// - If the provided call data `offset` is out-of-bounds, the whole `output` buffer is zeroed
+	///   out.
 	///
 	/// # Note
 	///
