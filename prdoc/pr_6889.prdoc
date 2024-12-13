@@ -4,7 +4,7 @@
 title: Remove polkadot-omni-node-lib unusued dependency 
 
 doc:
-  - audience: [ Node Dev ]
+  - audience: Node Dev
     description: 
       Removed an unused dependency for `polkadot-omni-node-lib`.
 
