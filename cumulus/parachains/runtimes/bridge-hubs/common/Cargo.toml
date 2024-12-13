@@ -41,4 +41,5 @@ runtime-benchmarks = [
 	"pallet-message-queue/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]

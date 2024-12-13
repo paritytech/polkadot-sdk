@@ -772,6 +772,21 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn seal_call_data_size() {
+		let mut setup = CallSetup::<T>::default();
+		let (mut ext, _) = setup.ext();
+		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![42u8; 128 as usize]);
+		let mut memory = memory!(vec![0u8; 32 as usize],);
+		let result;
+		#[block]
+		{
+			result = runtime.bench_call_data_size(memory.as_mut_slice(), 0);
+		}
+		assert_ok!(result);
+		assert_eq!(U256::from_little_endian(&memory[..]), U256::from(128));
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_block_number() {
 		build_runtime!(runtime, memory: [[0u8;32], ]);
 		let result;
@@ -836,6 +851,21 @@ mod benchmarks {
 		}
 		assert_ok!(result);
 		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().get_weight_price(weight));
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_call_data_load() {
+		let mut setup = CallSetup::<T>::default();
+		let (mut ext, _) = setup.ext();
+		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![42u8; 32]);
+		let mut memory = memory!(vec![0u8; 32],);
+		let result;
+		#[block]
+		{
+			result = runtime.bench_call_data_load(memory.as_mut_slice(), 0, 0);
+		}
+		assert_ok!(result);
+		assert_eq!(&memory[..], &vec![42u8; 32]);
 	}
 
 	#[benchmark(pov_mode = Measured)]
