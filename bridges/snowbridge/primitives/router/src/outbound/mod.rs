@@ -104,7 +104,6 @@ where
 				return Err(SendError::NotApplicable);
 			},
 		};
-		ensure!(para_id == ASSET_HUB_PARA_ID, SendError::NotApplicable);
 
 		let source_location = Location::new(1, local_sub.clone());
 
