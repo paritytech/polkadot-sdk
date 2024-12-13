@@ -16,7 +16,7 @@
 
 use crate::common::{
 	rpc::BuildRpcExtensions as BuildRpcExtensionsT,
-	spec::{BaseNodeSpec, BuildImportQueue, NodeSpec as NodeSpecT},
+	spec::{BaseNodeSpec, BuildImportQueue, ClientBlockImport, NodeSpec as NodeSpecT},
 	types::{Hash, ParachainBlockImport, ParachainClient},
 };
 use codec::Encode;
@@ -32,12 +32,19 @@ use std::{marker::PhantomData, sync::Arc};
 
 pub struct ManualSealNode<NodeSpec>(PhantomData<NodeSpec>);
 
-impl<NodeSpec: NodeSpecT> BuildImportQueue<NodeSpec::Block, NodeSpec::RuntimeApi>
-	for ManualSealNode<NodeSpec>
+impl<NodeSpec: NodeSpecT>
+	BuildImportQueue<
+		NodeSpec::Block,
+		NodeSpec::RuntimeApi,
+		Arc<ParachainClient<NodeSpec::Block, NodeSpec::RuntimeApi>>,
+	> for ManualSealNode<NodeSpec>
 {
 	fn build_import_queue(
 		client: Arc<ParachainClient<NodeSpec::Block, NodeSpec::RuntimeApi>>,
-		_block_import: ParachainBlockImport<NodeSpec::Block, NodeSpec::RuntimeApi>,
+		_block_import: ParachainBlockImport<
+			NodeSpec::Block,
+			Arc<ParachainClient<NodeSpec::Block, NodeSpec::RuntimeApi>>,
+		>,
 		config: &Configuration,
 		_telemetry_handle: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
@@ -54,6 +61,7 @@ impl<NodeSpec: NodeSpecT> BaseNodeSpec for ManualSealNode<NodeSpec> {
 	type Block = NodeSpec::Block;
 	type RuntimeApi = NodeSpec::RuntimeApi;
 	type BuildImportQueue = Self;
+	type InitBlockImport = ClientBlockImport;
 }
 
 impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
@@ -78,7 +86,7 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 			keystore_container,
 			select_chain: _,
 			transaction_pool,
-			other: (_, mut telemetry, _),
+			other: (_, mut telemetry, _, _),
 		} = Self::new_partial(&config)?;
 		let select_chain = LongestChain::new(backend.clone());
 
