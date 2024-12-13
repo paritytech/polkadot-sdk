@@ -836,7 +836,11 @@ macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
 memmap2 = { version = "0.9.3" }
 memory-db = { version = "0.32.0", default-features = false }
+<<<<<<< HEAD
 merkleized-metadata = { version = "0.1.0" }
+=======
+merkleized-metadata = { version = "0.2.0" }
+>>>>>>> 6d92ded5 (Update merkleized-metadata to 0.2.0 (#6863))
 merlin = { version = "3.0", default-features = false }
 messages-relay = { path = "bridges/relays/messages", version = "0.1.0" }
 metered = { version = "0.6.1", default-features = false, package = "prioritized-metered-channel" }
