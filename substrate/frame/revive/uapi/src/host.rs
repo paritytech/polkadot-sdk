@@ -98,6 +98,13 @@ pub trait HostFn: private::Sealed {
 	/// Returns the [EIP-155](https://eips.ethereum.org/EIPS/eip-155) chain ID.
 	fn chain_id(output: &mut [u8; 32]);
 
+	/// Stores the call data size as little endian U256 value into the supplied buffer.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the output data buffer to write the call data size.
+	fn call_data_size(output: &mut [u8; 32]);
+
 	/// Stores the current block number of the current contract into the supplied buffer.
 	///
 	/// # Parameters
@@ -448,6 +455,21 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the input data.
 	/// - `offset`: The offset index into the call data from where to start copying.
 	fn call_data_copy(output: &mut &mut [u8], offset: u32);
+
+	/// Stores the U256 value at given `offset` from the input passed by the caller
+	/// into the supplied buffer.
+	///
+	/// # Note
+	/// - If `offset` is out of bounds, a value of zero will be returned.
+	/// - If `offset` is in bounds but there is not enough call data, the available data
+	/// is right-padded in order to fill a whole U256 value.
+	/// - The data written to `output` is a little endian U256 integer value.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the fixed output data buffer to write the value.
+	/// - `offset`: The offset (index) into the call data.
+	fn call_data_load(output: &mut [u8; 32], offset: u32);
 
 	/// Instantiate a contract with the specified code hash.
 	///
