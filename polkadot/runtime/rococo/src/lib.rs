@@ -1100,6 +1100,7 @@ impl parachains_scheduler::Config for Runtime {
 parameter_types! {
 	pub const BrokerId: u32 = BROKER_ID;
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
+	pub MaxXcmTransactWeight: Weight = Weight::from_parts(200_000_000, 20_000);
 }
 
 pub struct BrokerPot;
@@ -1123,6 +1124,7 @@ impl coretime::Config for Runtime {
 		xcm_config::ThisNetwork,
 		<Runtime as frame_system::Config>::AccountId,
 	>;
+	type MaxXcmTransactWeight = MaxXcmTransactWeight;
 }
 
 parameter_types! {
@@ -2469,14 +2471,14 @@ sp_api::impl_runtime_apis! {
 						ExistentialDepositAsset,
 						xcm_config::PriceForChildParachainDelivery,
 						AssetHubParaId,
-						(),
+						Dmp,
 					>,
 					polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
 						XcmConfig,
 						ExistentialDepositAsset,
 						xcm_config::PriceForChildParachainDelivery,
 						RandomParaId,
-						(),
+						Dmp,
 					>
 				);
 
@@ -2535,7 +2537,7 @@ sp_api::impl_runtime_apis! {
 					ExistentialDepositAsset,
 					xcm_config::PriceForChildParachainDelivery,
 					AssetHubParaId,
-					(),
+					Dmp,
 				>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
 					Ok(AssetHub::get())

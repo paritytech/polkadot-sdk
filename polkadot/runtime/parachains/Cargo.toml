@@ -5,6 +5,8 @@ description = "Relay Chain runtime code responsible for Parachains."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -138,6 +140,7 @@ runtime-benchmarks = [
 	"sp-std",
 	"static_assertions",
 	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support-test/try-runtime",

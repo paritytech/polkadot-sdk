@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use rococo_system_emulated_network::rococo_emulated_chain::rococo_runtime::Dmp;
+
 use crate::tests::*;
 
 #[test]
@@ -38,6 +40,8 @@ fn send_xcm_from_rococo_relay_to_westend_asset_hub_should_fail_on_not_applicable
 	// Rococo Global Consensus
 	// Send XCM message from Relay Chain to Bridge Hub source Parachain
 	Rococo::execute_with(|| {
+		Dmp::make_parachain_reachable(BridgeHubRococo::para_id());
+
 		assert_ok!(<Rococo as RococoPallet>::XcmPallet::send(
 			sudo_origin,
 			bx!(destination),
@@ -65,7 +69,7 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 	let native_token = Location::parent();
 	let amount = ASSET_HUB_ROCOCO_ED * 1_000;
 
-	// fund the AHR's SA on BHR for paying bridge transport fees
+	// fund the AHR's SA on BHR for paying bridge delivery fees
 	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id(), 10_000_000_000_000u128);
 	// fund sender
 	AssetHubRococo::fund_accounts(vec![(AssetHubRococoSender::get().into(), amount * 10)]);

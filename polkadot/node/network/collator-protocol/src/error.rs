@@ -125,7 +125,7 @@ impl SecondingError {
 			PersistedValidationDataMismatch |
 				CandidateHashMismatch |
 				RelayParentMismatch |
-				Duplicate | ParentHeadDataMismatch |
+				ParentHeadDataMismatch |
 				InvalidCoreIndex(_, _) |
 				InvalidSessionIndex(_, _) |
 				InvalidReceiptVersion(_)
