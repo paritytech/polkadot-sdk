@@ -64,7 +64,7 @@ where
 
 		// We need to allow one additional block to be built to fill the unincluded segment.
 		if authored_in_relay > velocity + 1 {
-			panic!("authored blocks limit is reached for the slot")
+			panic!("authored blocks limit is reached for the slot: relay_chain_slot={relay_chain_slot:?}, authored={authored_in_relay:?}, velocity={velocity:?}");
 		}
 
 		pallet::RelaySlotInfo::<T>::put((relay_chain_slot, authored_in_relay));
@@ -83,7 +83,7 @@ where
 		// during the relay chain slot, we can allow for `V` parachain slots into the future.
 		if *para_slot > *para_slot_from_relay + u64::from(velocity) {
 			panic!(
-				"Parachain slot is too far in the future: parachain_slot: {:?}, derived_from_relay_slot: {:?} velocity: {:?}, relay_chain_slot: {:?}",
+				"Parachain slot is too far in the future: parachain_slot={:?}, derived_from_relay_slot={:?} velocity={:?}, relay_chain_slot={:?}",
 				para_slot,
 				para_slot_from_relay,
 				velocity,

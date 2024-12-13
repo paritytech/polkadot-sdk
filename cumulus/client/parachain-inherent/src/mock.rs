@@ -17,7 +17,8 @@
 use crate::{ParachainInherentData, INHERENT_IDENTIFIER};
 use codec::Decode;
 use cumulus_primitives_core::{
-	relay_chain, InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
+	relay_chain, relay_chain::Slot, InboundDownwardMessage, InboundHrmpMessage, ParaId,
+	PersistedValidationData,
 };
 use cumulus_primitives_parachain_inherent::MessageQueueChain;
 use sc_client_api::{Backend, StorageProvider};
@@ -173,8 +174,7 @@ impl<R: Send + Sync + GenerateRandomness<u64>> InherentDataProvider
 		// Calculate the mocked relay block based on the current para block
 		let relay_parent_number =
 			self.relay_offset + self.relay_blocks_per_para_block * self.current_para_block;
-		sproof_builder.current_slot =
-			((relay_parent_number / RELAY_CHAIN_SLOT_DURATION_MILLIS) as u64).into();
+		sproof_builder.current_slot = Slot::from(relay_parent_number as u64);
 
 		// Process the downward messages and set up the correct head
 		let mut downward_messages = Vec::new();
