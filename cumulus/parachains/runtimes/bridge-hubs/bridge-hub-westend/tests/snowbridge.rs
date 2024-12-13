@@ -33,7 +33,6 @@ use frame_support::parameter_types;
 use parachains_common::{AccountId, AuraId, Balance};
 use snowbridge_pallet_ethereum_client::WeightInfo;
 use sp_core::{bytes::to_hex, H160};
-use sp_keyring::AccountKeyring::Alice;
 use sp_runtime::{
 	generic::{Era, SignedPayload},
 	AccountId32,
@@ -44,6 +43,7 @@ parameter_types! {
 }
 
 fn collator_session_keys() -> bridge_hub_test_utils::CollatorSessionKeys<Runtime> {
+	use sp_keyring::Sr25519Keyring::Alice;
 	bridge_hub_test_utils::CollatorSessionKeys::new(
 		AccountId::from(Alice),
 		AccountId::from(Alice),
