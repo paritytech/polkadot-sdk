@@ -132,7 +132,8 @@ use std::{
 use super::LOG_TARGET;
 use polkadot_node_subsystem::messages::Ancestors;
 use polkadot_node_subsystem_util::inclusion_emulator::{
-	self, validate_commitments, ConstraintModifications, Constraints, Fragment, HypotheticalOrConcreteCandidate, ProspectiveCandidate, RelayChainBlockInfo
+	self, validate_commitments, ConstraintModifications, Constraints, Fragment,
+	HypotheticalOrConcreteCandidate, ProspectiveCandidate, RelayChainBlockInfo,
 };
 use polkadot_primitives::{
 	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, BlockNumber,
@@ -1076,7 +1077,6 @@ impl FragmentChain {
 				(true, self.scope.base_constraints.clone(), None)
 			};
 
-
 		// Check for cycles or invalid tree transitions.
 		if let Some(ref output_head_hash) = candidate.output_head_data_hash() {
 			self.check_cycles_or_invalid_tree(output_head_hash)?;
@@ -1095,8 +1095,9 @@ impl FragmentChain {
 					&self.scope.base_constraints,
 					&relay_parent,
 					commitments,
-					&validation_code_hash)
-					.map_err(Error::CheckAgainstConstraints)
+					&validation_code_hash,
+				)
+				.map_err(Error::CheckAgainstConstraints)
 			}
 			Fragment::check_against_constraints(
 				&relay_parent,

@@ -860,6 +860,123 @@ fn introduce_candidates_basic() {
 	assert_eq!(view.active_leaves.len(), 3);
 }
 
+// Check if candidates are not backed if they fail constraint checks
+#[rstest]
+#[case(RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT)]
+#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
+fn introduce_candidates_error(#[case] runtime_api_version: u32) {
+	let mut test_state = TestState::default();
+	test_state.set_runtime_api_version(runtime_api_version);
+
+	let view = test_harness(|mut virtual_overseer| async move {
+		// Leaf A
+		let leaf_a = TestLeaf {
+			number: 100,
+			hash: Default::default(),
+			para_data: vec![
+				(1.into(), PerParaData::new(98, HeadData(vec![1, 2, 3]))),
+				(2.into(), PerParaData::new(100, HeadData(vec![2, 3, 4]))),
+			],
+		};
+
+		// Activate leaves.
+		activate_leaf_with_params(
+			&mut virtual_overseer,
+			&leaf_a,
+			&test_state,
+			AsyncBackingParams { allowed_ancestry_len: 3, max_candidate_depth: 1 },
+		)
+		.await;
+
+		// Candidate A.
+		let (candidate_a, pvd_a) = make_candidate(
+			leaf_a.hash,
+			leaf_a.number,
+			1.into(),
+			HeadData(vec![1, 2, 3]),
+			HeadData(vec![1]),
+			test_state.validation_code_hash,
+		);
+
+		// Candidate B.
+		let (candidate_b, pvd_b) = make_candidate(
+			leaf_a.hash,
+			leaf_a.number,
+			1.into(),
+			HeadData(vec![1]),
+			HeadData(vec![1; 20480]),
+			test_state.validation_code_hash,
+		);
+
+		// Candidate C.
+		let (candidate_c, pvd_c) = make_candidate(
+			leaf_a.hash,
+			leaf_a.number,
+			1.into(),
+			HeadData(vec![1; 20480]),
+			HeadData(vec![0; 20485]),
+			test_state.validation_code_hash,
+		);
+
+		// Get hypothetical membership of candidates before adding candidate A.
+		// Candidate A can be added directly, candidates B and C are potential candidates.
+		for (candidate, pvd) in
+			[(candidate_a.clone(), pvd_a.clone()), (candidate_b.clone(), pvd_b.clone())]
+		{
+			get_hypothetical_membership(
+				&mut virtual_overseer,
+				candidate.hash(),
+				candidate,
+				pvd,
+				vec![leaf_a.hash],
+			)
+			.await;
+		}
+
+		// Fails constraints check
+		get_hypothetical_membership(
+			&mut virtual_overseer,
+			candidate_c.hash(),
+			candidate_c.clone(),
+			pvd_c.clone(),
+			Vec::new(),
+		)
+		.await;
+
+		// Add candidates
+		introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a.clone())
+			.await;
+		introduce_seconded_candidate(&mut virtual_overseer, candidate_b.clone(), pvd_b.clone())
+			.await;
+		// Fails constraints check
+		introduce_seconded_candidate_failed(
+			&mut virtual_overseer,
+			candidate_c.clone(),
+			pvd_c.clone(),
+		)
+		.await;
+
+		back_candidate(&mut virtual_overseer, &candidate_a, candidate_a.hash()).await;
+		back_candidate(&mut virtual_overseer, &candidate_b, candidate_b.hash()).await;
+		// This one will not be backed.
+		back_candidate(&mut virtual_overseer, &candidate_c, candidate_c.hash()).await;
+
+		// Expect onlt A and B to be backable
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_a,
+			1.into(),
+			Ancestors::default(),
+			5,
+			vec![(candidate_a.hash(), leaf_a.hash), (candidate_b.hash(), leaf_a.hash)],
+		)
+		.await;
+		virtual_overseer
+	});
+
+	assert_eq!(view.active_leaves.len(), 1);
+}
+
 #[test]
 fn introduce_candidate_multiple_times() {
 	let test_state = TestState::default();
