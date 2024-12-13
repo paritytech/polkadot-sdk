@@ -46,8 +46,9 @@
 #![allow(unused_imports)]
 #![allow(missing_docs)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
+use frame::prelude::*;
 use core::marker::PhantomData;
+use frame::runtime::prelude::weights::constants::RocksDbWeight;
 
 /// Weight functions needed for `pallet_recovery`.
 pub trait WeightInfo {

@@ -20,11 +20,7 @@
 use super::*;
 
 use crate as recovery;
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{OnFinalize, OnInitialize},
-};
-use sp_runtime::BuildStorage;
+use frame::testing_prelude::*;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
