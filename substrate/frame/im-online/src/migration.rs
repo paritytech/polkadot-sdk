@@ -19,10 +19,7 @@
 
 use super::*;
 use alloc::vec::Vec;
-use frame::{
-	testing_prelude::storage_alias,
-	traits::{OnRuntimeUpgrade, WrapperOpaque},
-};
+use frame::{testing_prelude::*, traits::WrapperOpaque};
 
 #[cfg(feature = "try-runtime")]
 use frame::deps::frame_support::ensure;

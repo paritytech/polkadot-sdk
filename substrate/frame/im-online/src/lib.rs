@@ -86,27 +86,11 @@ extern crate alloc;
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame::{
-	arithmetic::{PerThing, Perbill, Permill},
-	deps::{
-		frame_support::{BoundedSlice, WeakBoundedVec},
-		frame_system::offchain::{CreateInherent, SubmitTransaction},
-		sp_io,
-		sp_runtime::{
-			offchain::storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
-			print, BoundToRuntimeAppPublic,
-		},
-	},
-	derive::RuntimeDebug,
 	prelude::*,
-	traits::{
-		AtLeast32BitUnsigned, Convert, EstimateNextSessionRotation, OneSessionHandler,
-		SaturatedConversion, Saturating, TrailingZeroInput, ValidatorSet,
-		ValidatorSetWithIdentification,
-	},
+	traits::{ValidatorSet, ValidatorSetWithIdentification},
 };
 pub use pallet::*;
 use scale_info::TypeInfo;
-use sp_application_crypto::RuntimeAppPublic;
 use sp_staking::{
 	offence::{Kind, Offence, ReportOffence},
 	SessionIndex,
@@ -115,11 +99,11 @@ pub use weights::WeightInfo;
 
 pub mod sr25519 {
 	mod app_sr25519 {
-		use sp_application_crypto::{app_crypto, key_types::IM_ONLINE, sr25519};
+		use frame::deps::sp_application_crypto::{app_crypto, key_types::IM_ONLINE, sr25519};
 		app_crypto!(sr25519, IM_ONLINE);
 	}
 
-	sp_application_crypto::with_pair! {
+	frame::deps::sp_application_crypto::with_pair! {
 		/// An i'm online keypair using sr25519 as its crypto.
 		pub type AuthorityPair = app_sr25519::Pair;
 	}
@@ -133,11 +117,11 @@ pub mod sr25519 {
 
 pub mod ed25519 {
 	mod app_ed25519 {
-		use sp_application_crypto::{app_crypto, ed25519, key_types::IM_ONLINE};
+		use frame::deps::sp_application_crypto::{app_crypto, ed25519, key_types::IM_ONLINE};
 		app_crypto!(ed25519, IM_ONLINE);
 	}
 
-	sp_application_crypto::with_pair! {
+	frame::deps::sp_application_crypto::with_pair! {
 		/// An i'm online keypair using ed25519 as its crypto.
 		pub type AuthorityPair = app_ed25519::Pair;
 	}
@@ -422,7 +406,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn offchain_worker(now: BlockNumberFor<T>) {
 			// Only send messages if we are a potential validator.
-			if sp_io::offchain::is_validator() {
+			if offchain::is_validator() {
 				for res in Self::send_heartbeats(now).into_iter().flatten() {
 					if let Err(e) = res {
 						log::debug!(
@@ -565,7 +549,7 @@ impl<T: Config> Pallet<T> {
 			let residual = Permill::from_rational(1u32, session_length.saturated_into());
 			let threshold: Permill = progress.saturating_pow(6).saturating_add(residual);
 
-			let seed = sp_io::offchain::random_seed();
+			let seed = offchain::random_seed();
 			let random = <u32>::decode(&mut TrailingZeroInput::new(seed.as_ref()))
 				.expect("input is padded with zeroes; qed");
 			let random = Permill::from_parts(random % Permill::ACCURACY);
@@ -806,7 +790,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 			let validator_set_count = keys.len() as u32;
 			let offence = UnresponsivenessOffence { session_index, validator_set_count, offenders };
 			if let Err(e) = T::ReportUnresponsiveness::report_offence(vec![], offence) {
-				print(e);
+				frame::deps::sp_runtime::print(e);
 			}
 		}
 	}

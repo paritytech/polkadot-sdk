@@ -19,18 +19,7 @@
 
 #![cfg(test)]
 
-use frame::{
-	arithmetic::Permill,
-	deps::{
-		frame_system, sp_io,
-		sp_runtime::{self, testing::UintAuthorityId},
-	},
-	runtime::{
-		prelude::{construct_runtime, derive_impl, parameter_types, weights::Weight},
-		testing_prelude::BuildStorage,
-	},
-	traits::{ConstU32, ConstU64, ConvertInto, EstimateNextSessionRotation},
-};
+use frame::testing_prelude::*;
 use pallet_session::historical as pallet_session_historical;
 use sp_staking::{
 	offence::{OffenceError, ReportOffence},
@@ -79,7 +68,7 @@ impl pallet_session::historical::SessionManager<u64, u64> for TestSessionManager
 }
 
 /// An extrinsic type used for tests.
-pub type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, ()>;
+pub type Extrinsic = TestXt<RuntimeCall, ()>;
 type IdentificationTuple = (u64, u64);
 type Offence = crate::UnresponsivenessOffence<IdentificationTuple>;
 
@@ -100,9 +89,9 @@ impl ReportOffence<u64, IdentificationTuple, Offence> for OffenceHandler {
 	}
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestExternalities {
 	let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
-	let mut result: sp_io::TestExternalities = t.into();
+	let mut result: TestExternalities = t.into();
 	// Set the default keys, otherwise session will discard the validator.
 	result.execute_with(|| {
 		for i in 1..=6 {

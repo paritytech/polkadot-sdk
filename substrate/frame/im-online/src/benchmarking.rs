@@ -20,7 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::*;
-use frame::{benchmarking::prelude::*, traits::UnfilteredDispatchable};
+use frame::benchmarking::prelude::*;
 
 const MAX_KEYS: u32 = 1000;
 

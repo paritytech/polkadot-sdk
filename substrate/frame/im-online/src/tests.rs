@@ -21,17 +21,8 @@
 
 use super::*;
 use crate::mock::*;
-use frame::{
-	deps::{
-		frame_support::dispatch,
-		sp_core::offchain::{
-			testing::{TestOffchainExt, TestTransactionPoolExt},
-			OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
-		},
-		sp_runtime::testing::UintAuthorityId,
-	},
-	testing_prelude::*,
-};
+use frame::testing_prelude::*;
+
 #[test]
 fn test_unresponsiveness_slash_fraction() {
 	let dummy_offence =
@@ -115,7 +106,7 @@ fn heartbeat(
 	authority_index: u32,
 	id: UintAuthorityId,
 	validators: Vec<u64>,
-) -> dispatch::DispatchResult {
+) -> DispatchResult {
 	let heartbeat = Heartbeat {
 		block_number,
 		session_index,
