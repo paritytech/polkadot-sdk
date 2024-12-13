@@ -2,11 +2,10 @@ title: 'Omni-node: Detect pending code in storage and send go ahead signal in de
 doc:
 - audience: Runtime Dev
   description: |-
-    We check if there is a pending validation code in storage. If there is, add the go-ahead signal in the relay chain storage proof.
-
-    Not super elegant, but should get the job done for development.
+    When using the polkadot-omni-node with manual seal (`--dev-block-time`), it is now possible to perform runtime
+    upgrades. The node will detect the pending validation code and send a go-ahead signal to the parachain.
 crates:
 - name: cumulus-client-parachain-inherent
-  bump: patch
+  bump: major
 - name: polkadot-omni-node-lib
   bump: patch
