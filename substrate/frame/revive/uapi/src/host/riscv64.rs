@@ -90,6 +90,7 @@ mod sys {
 			data_ptr: *const u8,
 			data_len: u32,
 		);
+		pub fn call_data_size(out_ptr: *mut u8);
 		pub fn block_number(out_ptr: *mut u8);
 		pub fn block_hash(block_number_ptr: *const u8, out_ptr: *mut u8);
 		pub fn hash_sha2_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
@@ -465,7 +466,7 @@ impl HostFn for HostFnImpl {
 	}
 
 	impl_wrapper_for! {
-		[u8; 32] => block_number, balance, value_transferred, now, minimum_balance, chain_id;
+		[u8; 32] => call_data_size, block_number, balance, value_transferred, now, minimum_balance, chain_id;
 		[u8; 20] => address, caller, origin;
 	}
 
