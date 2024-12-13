@@ -22,6 +22,8 @@ use crate::common::{
 use codec::Encode;
 use cumulus_client_parachain_inherent::{MockValidationDataInherentDataProvider, MockXcmConfig};
 use cumulus_primitives_core::ParaId;
+use polkadot_primitives::UpgradeGoAhead;
+use sc_client_api::{StorageKey, StorageProvider};
 use sc_consensus::{DefaultImportQueue, LongestChain};
 use sc_consensus_manual_seal::rpc::{ManualSeal, ManualSealApiServer};
 use sc_network::NetworkBackend;
@@ -29,6 +31,13 @@ use sc_service::{Configuration, PartialComponents, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sp_runtime::traits::Header;
 use std::{marker::PhantomData, sync::Arc};
+
+// Storage key to check for pending validation code.
+// If this storage item is present, we will simulate a go-ahead signal from the relay chain.
+pub const PENDING_VALIDATION_CODE_KEY: &[u8] = &[
+	69, 50, 61, 247, 204, 71, 21, 11, 57, 48, 226, 102, 107, 10, 163, 19, 144, 209, 113, 248, 64,
+	24, 135, 207, 6, 251, 67, 167, 50, 153, 76, 50,
+];
 
 pub struct ManualSealNode<NodeSpec>(PhantomData<NodeSpec>);
 
@@ -147,6 +156,17 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 					.header(block)
 					.expect("Header lookup should succeed")
 					.expect("Header passed in as parent should be present in backend.");
+
+				// If there is a pending validation code in storage, send the go-ahead signal.
+				let should_send_go_ahead = client_for_cidp
+					.storage(block, &StorageKey(PENDING_VALIDATION_CODE_KEY.to_vec()))
+					.ok()
+					.flatten()
+					.inspect(|_| {
+						log::info!("Detected pending validation code, sending go-ahead signal.")
+					})
+					.is_some();
+
 				let current_para_block_head =
 					Some(polkadot_primitives::HeadData(current_para_head.encode()));
 				let client_for_xcm = client_for_cidp.clone();
@@ -169,6 +189,7 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 						raw_downward_messages: vec![],
 						raw_horizontal_messages: vec![],
 						additional_key_values: None,
+						upgrade_go_ahead: should_send_go_ahead.then(|| UpgradeGoAhead::GoAhead),
 					};
 					Ok((
 						// This is intentional, as the runtime that we expect to run against this
