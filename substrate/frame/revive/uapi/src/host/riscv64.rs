@@ -14,9 +14,7 @@
 
 #![allow(unused_variables)]
 
-use crate::{
-	host::{CallFlags, HostFn, HostFnImpl, Result, StorageFlags},
-};
+use crate::host::{CallFlags, HostFn, HostFnImpl, Result, StorageFlags};
 
 #[cfg(feature = "unstable-api")]
 use crate::ReturnFlags;
@@ -626,6 +624,4 @@ impl HostFn for HostFnImpl {
 		};
 		ret_code.into()
 	}
-
-
 }
