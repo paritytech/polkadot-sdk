@@ -286,16 +286,16 @@ where
 	/// This is called whenever a new subcall is initiated in order to track the storage
 	/// usage for this sub call separately. This is necessary because we want to exchange balance
 	/// with the current contract we are interacting with.
-	pub fn nested(&self, limit: BalanceOf<T>) -> RawMeter<T, E, Nested> {
+	pub fn nested(&self, lim: BalanceOf<T>) -> RawMeter<T, E, Nested> {
 		debug_assert!(matches!(self.contract_state(), ContractState::Alive));
+
+		// Limit gas for nested call, per EIP-150.
+		let available = self.available() - self.available() / (BalanceOf::<T>::from(64u32));
+
 		// If a special limit is specified higher than it is available,
 		// we want to enforce the lesser limit to the nested meter, to fail in the sub-call.
-		let limit = self.available().min(limit);
-		if limit.is_zero() {
-			RawMeter { limit: self.available(), ..Default::default() }
-		} else {
-			RawMeter { limit, nested: Nested::OwnLimit, ..Default::default() }
-		}
+		let limit = available.min(lim);
+		RawMeter { limit, nested: Nested::OwnLimit, ..Default::default() }
 	}
 
 	/// Absorb a child that was spawned to handle a sub call.
