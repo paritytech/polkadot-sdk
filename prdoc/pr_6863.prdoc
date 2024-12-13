@@ -3,4 +3,6 @@ doc:
 - audience: Node Dev
   description: |-
     0.1.2 was yanked as it was breaking semver.
-crates: []
+crates: 
+  - name: substrate-wasm-builder
+    bump: patch
