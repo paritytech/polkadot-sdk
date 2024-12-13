@@ -28,6 +28,7 @@ use frame_support::{
 use mock::{new_test_ext, ParachainSystem, RuntimeOrigin as Origin, Test, XcmpQueue};
 use sp_runtime::traits::{BadOrigin, Zero};
 use std::iter::{once, repeat};
+use xcm_builder::InspectMessageQueues;
 
 #[test]
 fn empty_concatenated_works() {
@@ -455,7 +456,7 @@ fn send_xcm_nested_works() {
 			XcmpQueue::take_outbound_messages(usize::MAX),
 			vec![(
 				HRMP_PARA_ID.into(),
-				(XcmpMessageFormat::ConcatenatedVersionedXcm, VersionedXcm::V4(good.clone()))
+				(XcmpMessageFormat::ConcatenatedVersionedXcm, VersionedXcm::from(good.clone()))
 					.encode(),
 			)]
 		);
@@ -511,7 +512,7 @@ fn hrmp_signals_are_prioritized() {
 		// Without a signal we get the messages in order:
 		let mut expected_msg = XcmpMessageFormat::ConcatenatedVersionedXcm.encode();
 		for _ in 0..31 {
-			expected_msg.extend(VersionedXcm::V4(message.clone()).encode());
+			expected_msg.extend(VersionedXcm::from(message.clone()).encode());
 		}
 
 		hypothetically!({
@@ -538,6 +539,7 @@ fn maybe_double_encoded_versioned_xcm_works() {
 	// pre conditions
 	assert_eq!(VersionedXcm::<()>::V3(Default::default()).encode(), &[3, 0]);
 	assert_eq!(VersionedXcm::<()>::V4(Default::default()).encode(), &[4, 0]);
+	assert_eq!(VersionedXcm::<()>::V5(Default::default()).encode(), &[5, 0]);
 }
 
 // Now also testing a page instead of just concat messages.
@@ -596,7 +598,7 @@ fn take_first_concatenated_xcm_good_recursion_depth_works() {
 	for _ in 0..MAX_XCM_DECODE_DEPTH - 1 {
 		good = Xcm(vec![SetAppendix(good)]);
 	}
-	let good = VersionedXcm::V4(good);
+	let good = VersionedXcm::from(good);
 
 	let page = good.encode();
 	assert_ok!(XcmpQueue::take_first_concatenated_xcm(&mut &page[..], &mut WeightMeter::new()));
@@ -609,7 +611,7 @@ fn take_first_concatenated_xcm_good_bad_depth_errors() {
 	for _ in 0..MAX_XCM_DECODE_DEPTH {
 		bad = Xcm(vec![SetAppendix(bad)]);
 	}
-	let bad = VersionedXcm::V4(bad);
+	let bad = VersionedXcm::from(bad);
 
 	let page = bad.encode();
 	assert_err!(
@@ -854,7 +856,6 @@ fn verify_fee_factor_increase_and_decrease() {
 #[test]
 fn get_messages_works() {
 	new_test_ext().execute_with(|| {
-		use xcm_builder::InspectMessageQueues;
 		let sibling_para_id = ParaId::from(2001);
 		ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(sibling_para_id);
 		let destination: Location = (Parent, Parachain(sibling_para_id.into())).into();
@@ -872,21 +873,50 @@ fn get_messages_works() {
 			queued_messages,
 			vec![
 				(
-					VersionedLocation::V4(other_destination),
+					VersionedLocation::from(other_destination),
 					vec![
-						VersionedXcm::V4(Xcm(vec![ClearOrigin])),
-						VersionedXcm::V4(Xcm(vec![ClearOrigin])),
+						VersionedXcm::from(Xcm(vec![ClearOrigin])),
+						VersionedXcm::from(Xcm(vec![ClearOrigin])),
 					],
 				),
 				(
-					VersionedLocation::V4(destination),
+					VersionedLocation::from(destination),
 					vec![
-						VersionedXcm::V4(Xcm(vec![ClearOrigin])),
-						VersionedXcm::V4(Xcm(vec![ClearOrigin])),
-						VersionedXcm::V4(Xcm(vec![ClearOrigin])),
+						VersionedXcm::from(Xcm(vec![ClearOrigin])),
+						VersionedXcm::from(Xcm(vec![ClearOrigin])),
+						VersionedXcm::from(Xcm(vec![ClearOrigin])),
 					],
 				),
 			],
 		);
+	});
+}
+
+/// We try to send a fragment that will not fit into the currently active page. This should
+/// therefore not modify the current page but instead create a new one.
+#[test]
+fn page_not_modified_when_fragment_does_not_fit() {
+	new_test_ext().execute_with(|| {
+		let sibling = ParaId::from(2001);
+		ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(sibling);
+
+		let destination: Location = (Parent, Parachain(sibling.into())).into();
+		let message = Xcm(vec![ClearOrigin; 600]);
+
+		loop {
+			let old_page_zero = OutboundXcmpMessages::<Test>::get(sibling, 0);
+			assert_ok!(send_xcm::<XcmpQueue>(destination.clone(), message.clone()));
+
+			// If a new page was created by this send_xcm call, then page_zero was not also
+			// modified:
+			let num_pages = OutboundXcmpMessages::<Test>::iter_prefix(sibling).count();
+			if num_pages == 2 {
+				let new_page_zero = OutboundXcmpMessages::<Test>::get(sibling, 0);
+				assert_eq!(old_page_zero, new_page_zero);
+				break
+			} else if num_pages > 2 {
+				panic!("Too many pages created");
+			}
+		}
 	});
 }

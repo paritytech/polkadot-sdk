@@ -4,7 +4,7 @@ version = "10.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME pallet for statement store"
 
@@ -15,20 +15,19 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
-sp-statement-store = { path = "../../primitives/statement-store", default-features = false }
-sp-api = { path = "../../primitives/api", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
-sp-io = { path = "../../primitives/io", default-features = false }
-sp-core = { path = "../../primitives/core", default-features = false }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-statement-store = { workspace = true }
+sp-api = { workspace = true }
+sp-runtime = { workspace = true }
+sp-io = { workspace = true }
+sp-core = { workspace = true }
 log = { workspace = true }
 
 [dev-dependencies]
-pallet-balances = { path = "../balances" }
+pallet-balances = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -44,7 +43,6 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-statement-store/std",
-	"sp-std/std",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

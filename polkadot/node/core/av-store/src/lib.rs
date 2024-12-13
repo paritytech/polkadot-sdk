@@ -26,6 +26,7 @@ use std::{
 	time::{Duration, SystemTime, SystemTimeError, UNIX_EPOCH},
 };
 
+use codec::{Decode, Encode, Error as CodecError, Input};
 use futures::{
 	channel::{
 		mpsc::{channel, Receiver as MpscReceiver, Sender as MpscSender},
@@ -34,12 +35,10 @@ use futures::{
 	future, select, FutureExt, SinkExt, StreamExt,
 };
 use futures_timer::Delay;
-use parity_scale_codec::{Decode, Encode, Error as CodecError, Input};
 use polkadot_node_subsystem_util::database::{DBTransaction, Database};
 use sp_consensus::SyncOracle;
 
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
-use polkadot_node_jaeger as jaeger;
 use polkadot_node_primitives::{AvailableData, ErasureChunk};
 use polkadot_node_subsystem::{
 	errors::{ChainApiError, RuntimeApiError},
@@ -48,8 +47,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util as util;
 use polkadot_primitives::{
-	BlockNumber, CandidateEvent, CandidateHash, CandidateReceipt, ChunkIndex, CoreIndex, Hash,
-	Header, NodeFeatures, ValidatorIndex,
+	vstaging::{CandidateEvent, CandidateReceiptV2 as CandidateReceipt},
+	BlockNumber, CandidateHash, ChunkIndex, CoreIndex, Hash, Header, NodeFeatures, ValidatorIndex,
 };
 use util::availability_chunks::availability_chunk_indices;
 
@@ -354,7 +353,7 @@ pub enum Error {
 	ChainApi(#[from] ChainApiError),
 
 	#[error(transparent)]
-	Erasure(#[from] erasure::Error),
+	Erasure(#[from] polkadot_erasure_coding::Error),
 
 	#[error(transparent)]
 	Io(#[from] io::Error),
@@ -1315,20 +1314,14 @@ fn store_available_data(
 		},
 	};
 
-	let erasure_span = jaeger::Span::new(candidate_hash, "erasure-coding")
-		.with_candidate(candidate_hash)
-		.with_pov(&available_data.pov);
-
 	// Important note: This check below is critical for consensus and the `backing` subsystem relies
 	// on it to ensure candidate validity.
-	let chunks = erasure::obtain_chunks_v1(n_validators, &available_data)?;
-	let branches = erasure::branches(chunks.as_ref());
+	let chunks = polkadot_erasure_coding::obtain_chunks_v1(n_validators, &available_data)?;
+	let branches = polkadot_erasure_coding::branches(chunks.as_ref());
 
 	if branches.root() != expected_erasure_root {
 		return Err(Error::InvalidErasureRoot)
 	}
-
-	drop(erasure_span);
 
 	let erasure_chunks: Vec<_> = chunks
 		.iter()

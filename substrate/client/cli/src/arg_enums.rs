@@ -168,6 +168,19 @@ pub enum RpcMethods {
 	Unsafe,
 }
 
+impl FromStr for RpcMethods {
+	type Err = String;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		match s {
+			"safe" => Ok(RpcMethods::Safe),
+			"unsafe" => Ok(RpcMethods::Unsafe),
+			"auto" => Ok(RpcMethods::Auto),
+			invalid => Err(format!("Invalid rpc methods {invalid}")),
+		}
+	}
+}
+
 impl Into<sc_service::config::RpcMethods> for RpcMethods {
 	fn into(self) -> sc_service::config::RpcMethods {
 		match self {

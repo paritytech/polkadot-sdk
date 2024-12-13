@@ -11,29 +11,29 @@ publish = false
 workspace = true
 
 [dependencies]
-ansi_term = "0.12"
-anyhow = "1.0"
-async-std = "1.9.0"
-async-trait = "0.1.79"
-backoff = "0.4"
-isahc = "1.2"
-env_logger = "0.11.3"
-futures = "0.3.30"
-jsonpath_lib = "0.3"
+anyhow = { workspace = true, default-features = true }
+async-std = { workspace = true }
+async-trait = { workspace = true }
+backoff = { workspace = true }
+console = { workspace = true }
+isahc = { workspace = true }
+sp-tracing = { workspace = true, default-features = true }
+futures = { workspace = true }
+jsonpath_lib = { workspace = true }
 log = { workspace = true }
-num-traits = "0.2"
-parking_lot = "0.12.1"
+num-traits = { workspace = true, default-features = true }
+parking_lot = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-sysinfo = "0.30"
-time = { version = "0.3", features = ["formatting", "local-offset", "std"] }
-tokio = { version = "1.37", features = ["rt"] }
+sysinfo = { workspace = true }
+time = { features = ["formatting", "local-offset", "std"], workspace = true }
+tokio = { features = ["rt"], workspace = true, default-features = true }
 thiserror = { workspace = true }
 
 # Bridge dependencies
 
-bp-runtime = { path = "../../primitives/runtime" }
+bp-runtime = { workspace = true, default-features = true }
 
 # Substrate dependencies
 
-sp-runtime = { path = "../../../substrate/primitives/runtime" }
-substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
+sp-runtime = { workspace = true, default-features = true }
+prometheus-endpoint = { workspace = true, default-features = true }

@@ -1,0 +1,20 @@
+Description: Block building
+Network: ./0008-parachain_extrinsic_gets_finalized.toml
+Creds: config
+
+alice: reports node_roles is 4
+bob: reports node_roles is 4
+charlie: reports node_roles is 4
+
+alice: reports peers count is at least 1
+bob: reports peers count is at least 1
+
+alice: reports block height is at least 5 within 60 seconds
+bob: reports block height is at least 5 within 60 seconds
+charlie: reports block height is at least 2 within 120 seconds
+
+alice: count of log lines containing "error" is 0 within 2 seconds
+bob: count of log lines containing "error" is 0 within 2 seconds
+charlie: count of log lines containing "error" is 0 within 2 seconds
+
+charlie: js-script ./0008-transaction_gets_finalized.js within 600 seconds

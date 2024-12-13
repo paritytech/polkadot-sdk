@@ -36,6 +36,9 @@ use sp_runtime::{
 };
 use std::{fmt::Debug, time::Duration};
 
+/// Signed block type of given chain.
+pub type SignedBlockOf<C> = <C as Chain>::SignedBlock;
+
 /// Substrate-based chain from minimal relay-client point of view.
 pub trait Chain: ChainBase + Clone {
 	/// Chain name.
@@ -110,9 +113,6 @@ impl<T> Parachain for T where T: UnderlyingChainProvider + Chain + ParachainBase
 
 /// Substrate-based chain with messaging support from minimal relay-client point of view.
 pub trait ChainWithMessages: Chain + ChainWithMessagesBase {
-	// TODO (https://github.com/paritytech/parity-bridges-common/issues/1692): check all the names
-	// after the issue is fixed - all names must be changed
-
 	/// Name of the bridge relayers pallet (used in `construct_runtime` macro call) that is deployed
 	/// at some other chain to bridge with this `ChainWithMessages`.
 	///

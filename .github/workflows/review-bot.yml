@@ -15,7 +15,6 @@ on:
 jobs:
   review-approvals:
     runs-on: ubuntu-latest
-    environment: master
     steps:
       - name: Generate token
         id: app_token
@@ -30,7 +29,7 @@ jobs:
         with:
           artifact-name: pr_number
       - name: "Evaluates PR reviews and assigns reviewers"
-        uses: paritytech/review-bot@v2.4.0
+        uses: paritytech/review-bot@v2.6.0
         with:
           repo-token: ${{ steps.app_token.outputs.token }}
           team-token: ${{ steps.app_token.outputs.token }}

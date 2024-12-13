@@ -20,7 +20,7 @@
 
 use super::{client_err, ChainBackend, Error};
 use crate::{
-	utils::{pipe_from_stream, spawn_subscription_task},
+	utils::{spawn_subscription_task, BoundedVecDeque, PendingSubscription},
 	SubscriptionTaskExecutor,
 };
 use std::{marker::PhantomData, sync::Arc};
@@ -142,6 +142,8 @@ fn subscribe_headers<Block, Client, F, G, S>(
 	// we set up the stream and chain it to the stream. Consuming code would need to handle
 	// duplicates at the beginning of the stream though.
 	let stream = stream::iter(maybe_header).chain(stream());
-
-	spawn_subscription_task(executor, pipe_from_stream(pending, stream));
+	spawn_subscription_task(
+		executor,
+		PendingSubscription::from(pending).pipe_from_stream(stream, BoundedVecDeque::default()),
+	);
 }

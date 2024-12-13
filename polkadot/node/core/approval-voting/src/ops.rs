@@ -20,7 +20,9 @@
 use polkadot_node_subsystem::{SubsystemError, SubsystemResult};
 
 use bitvec::order::Lsb0 as BitOrderLsb0;
-use polkadot_primitives::{BlockNumber, CandidateHash, CandidateReceipt, GroupIndex, Hash};
+use polkadot_primitives::{
+	vstaging::CandidateReceiptV2 as CandidateReceipt, BlockNumber, CandidateHash, GroupIndex, Hash,
+};
 
 use std::collections::{hash_map::Entry, BTreeMap, HashMap};
 
@@ -88,7 +90,7 @@ pub fn canonicalize(
 ) -> SubsystemResult<()> {
 	let range = match overlay_db.load_stored_blocks()? {
 		None => return Ok(()),
-		Some(range) if range.0 >= canon_number => return Ok(()),
+		Some(range) if range.0 > canon_number => return Ok(()),
 		Some(range) => range,
 	};
 

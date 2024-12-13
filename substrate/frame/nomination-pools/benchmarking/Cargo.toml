@@ -4,7 +4,7 @@ version = "26.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME nomination pools pallet benchmarking"
 readme = "README.md"
@@ -17,31 +17,30 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 # parity
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
 # FRAME
-frame-benchmarking = { path = "../../benchmarking", default-features = false }
-frame-election-provider-support = { path = "../../election-provider-support", default-features = false }
-frame-support = { path = "../../support", default-features = false }
-frame-system = { path = "../../system", default-features = false }
-pallet-bags-list = { path = "../../bags-list", default-features = false }
-pallet-staking = { path = "../../staking", default-features = false }
-pallet-delegated-staking = { path = "../../delegated-staking", default-features = false }
-pallet-nomination-pools = { path = "..", default-features = false }
+frame-benchmarking = { workspace = true }
+frame-election-provider-support = { workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-bags-list = { workspace = true }
+pallet-staking = { workspace = true }
+pallet-delegated-staking = { workspace = true }
+pallet-nomination-pools = { workspace = true }
 
 # Substrate Primitives
-sp-runtime = { path = "../../../primitives/runtime", default-features = false }
-sp-runtime-interface = { path = "../../../primitives/runtime-interface", default-features = false }
-sp-staking = { path = "../../../primitives/staking", default-features = false }
-sp-std = { path = "../../../primitives/std", default-features = false }
+sp-runtime = { workspace = true }
+sp-runtime-interface = { workspace = true }
+sp-staking = { workspace = true }
 
 [dev-dependencies]
-pallet-balances = { path = "../../balances", default-features = false }
-pallet-timestamp = { path = "../../timestamp" }
-pallet-staking-reward-curve = { path = "../../staking/reward-curve" }
-sp-core = { path = "../../../primitives/core" }
-sp-io = { path = "../../../primitives/io" }
+pallet-balances = { workspace = true }
+pallet-timestamp = { workspace = true, default-features = true }
+pallet-staking-reward-curve = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -64,7 +63,6 @@ std = [
 	"sp-runtime-interface/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"sp-std/std",
 ]
 
 runtime-benchmarks = [

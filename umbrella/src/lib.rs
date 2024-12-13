@@ -23,41 +23,9 @@ pub use assets_common;
 #[cfg(feature = "binary-merkle-tree")]
 pub use binary_merkle_tree;
 
-/// Primitives of AssetHubRococo parachain runtime.
-#[cfg(feature = "bp-asset-hub-rococo")]
-pub use bp_asset_hub_rococo;
-
-/// Primitives of AssetHubWestend parachain runtime.
-#[cfg(feature = "bp-asset-hub-westend")]
-pub use bp_asset_hub_westend;
-
-/// Primitives for BridgeHub parachain runtimes.
-#[cfg(feature = "bp-bridge-hub-cumulus")]
-pub use bp_bridge_hub_cumulus;
-
-/// Primitives of BridgeHubKusama parachain runtime.
-#[cfg(feature = "bp-bridge-hub-kusama")]
-pub use bp_bridge_hub_kusama;
-
-/// Primitives of BridgeHubPolkadot parachain runtime.
-#[cfg(feature = "bp-bridge-hub-polkadot")]
-pub use bp_bridge_hub_polkadot;
-
-/// Primitives of BridgeHubRococo parachain runtime.
-#[cfg(feature = "bp-bridge-hub-rococo")]
-pub use bp_bridge_hub_rococo;
-
-/// Primitives of BridgeHubWestend parachain runtime.
-#[cfg(feature = "bp-bridge-hub-westend")]
-pub use bp_bridge_hub_westend;
-
 /// A common interface for describing what a bridge pallet should be able to do.
 #[cfg(feature = "bp-header-chain")]
 pub use bp_header_chain;
-
-/// Primitives of Kusama runtime.
-#[cfg(feature = "bp-kusama")]
-pub use bp_kusama;
 
 /// Primitives of messages module.
 #[cfg(feature = "bp-messages")]
@@ -71,10 +39,6 @@ pub use bp_parachains;
 #[cfg(feature = "bp-polkadot")]
 pub use bp_polkadot;
 
-/// Primitives of Polkadot Bulletin chain runtime.
-#[cfg(feature = "bp-polkadot-bulletin")]
-pub use bp_polkadot_bulletin;
-
 /// Primitives of Polkadot-like runtime.
 #[cfg(feature = "bp-polkadot-core")]
 pub use bp_polkadot_core;
@@ -83,10 +47,6 @@ pub use bp_polkadot_core;
 #[cfg(feature = "bp-relayers")]
 pub use bp_relayers;
 
-/// Primitives of Rococo runtime.
-#[cfg(feature = "bp-rococo")]
-pub use bp_rococo;
-
 /// Primitives that may be used at (bridges) runtime level.
 #[cfg(feature = "bp-runtime")]
 pub use bp_runtime;
@@ -94,10 +54,6 @@ pub use bp_runtime;
 /// Utilities for testing substrate-based runtime bridge code.
 #[cfg(feature = "bp-test-utils")]
 pub use bp_test_utils;
-
-/// Primitives of Westend runtime.
-#[cfg(feature = "bp-westend")]
-pub use bp_westend;
 
 /// Primitives of the xcm-bridge-hub pallet.
 #[cfg(feature = "bp-xcm-bridge-hub")]
@@ -153,7 +109,7 @@ pub use cumulus_client_network;
 #[cfg(feature = "cumulus-client-parachain-inherent")]
 pub use cumulus_client_parachain_inherent;
 
-/// Cumulus-specific networking protocol.
+/// Parachain PoV recovery.
 #[cfg(feature = "cumulus-client-pov-recovery")]
 pub use cumulus_client_pov_recovery;
 
@@ -316,7 +272,7 @@ pub use frame_system_benchmarking;
 #[cfg(feature = "frame-system-rpc-runtime-api")]
 pub use frame_system_rpc_runtime_api;
 
-/// FRAME pallet for democracy.
+/// Supporting types for try-runtime, testing and dry-running commands.
 #[cfg(feature = "frame-try-runtime")]
 pub use frame_try_runtime;
 
@@ -359,6 +315,10 @@ pub use pallet_asset_tx_payment;
 /// FRAME asset management pallet.
 #[cfg(feature = "pallet-assets")]
 pub use pallet_assets;
+
+/// Provides freezing features to `pallet-assets`.
+#[cfg(feature = "pallet-assets-freezer")]
+pub use pallet_assets_freezer;
 
 /// FRAME atomic swap pallet.
 #[cfg(feature = "pallet-atomic-swap")]
@@ -616,6 +576,26 @@ pub use pallet_referenda;
 #[cfg(feature = "pallet-remark")]
 pub use pallet_remark;
 
+/// FRAME pallet for PolkaVM contracts.
+#[cfg(feature = "pallet-revive")]
+pub use pallet_revive;
+
+/// An Ethereum JSON-RPC server for pallet-revive.
+#[cfg(feature = "pallet-revive-eth-rpc")]
+pub use pallet_revive_eth_rpc;
+
+/// A mock network for testing pallet-revive.
+#[cfg(feature = "pallet-revive-mock-network")]
+pub use pallet_revive_mock_network;
+
+/// Procedural macros used in pallet_revive.
+#[cfg(feature = "pallet-revive-proc-macro")]
+pub use pallet_revive_proc_macro;
+
+/// Exposes all the host functions that a contract can import.
+#[cfg(feature = "pallet-revive-uapi")]
+pub use pallet_revive_uapi;
+
 /// FRAME root offences pallet.
 #[cfg(feature = "pallet-root-offences")]
 pub use pallet_root_offences;
@@ -725,11 +705,15 @@ pub use pallet_uniques;
 #[cfg(feature = "pallet-utility")]
 pub use pallet_utility;
 
+/// FRAME verify signature pallet.
+#[cfg(feature = "pallet-verify-signature")]
+pub use pallet_verify_signature;
+
 /// FRAME pallet for manage vesting.
 #[cfg(feature = "pallet-vesting")]
 pub use pallet_vesting;
 
-/// FRAME pallet for whitelisting call, and dispatch from specific origin.
+/// FRAME pallet for whitelisting calls, and dispatching from a specific origin.
 #[cfg(feature = "pallet-whitelist")]
 pub use pallet_whitelist;
 
@@ -816,6 +800,10 @@ pub use polkadot_node_collation_generation;
 #[cfg(feature = "polkadot-node-core-approval-voting")]
 pub use polkadot_node_core_approval_voting;
 
+/// Approval Voting Subsystem running approval work in parallel.
+#[cfg(feature = "polkadot-node-core-approval-voting-parallel")]
+pub use polkadot_node_core_approval_voting_parallel;
+
 /// The Availability Store subsystem. Wrapper over the DB that stores availability data and
 /// chunks.
 #[cfg(feature = "polkadot-node-core-av-store")]
@@ -890,10 +878,6 @@ pub use polkadot_node_core_pvf_prepare_worker;
 #[cfg(feature = "polkadot-node-core-runtime-api")]
 pub use polkadot_node_core_runtime_api;
 
-/// Polkadot Jaeger primitives, but equally useful for Grafana/Tempo.
-#[cfg(feature = "polkadot-node-jaeger")]
-pub use polkadot_node_jaeger;
-
 /// Subsystem metric helpers.
 #[cfg(feature = "polkadot-node-metrics")]
 pub use polkadot_node_metrics;
@@ -917,6 +901,10 @@ pub use polkadot_node_subsystem_types;
 /// Subsystem traits and message definitions.
 #[cfg(feature = "polkadot-node-subsystem-util")]
 pub use polkadot_node_subsystem_util;
+
+/// Helper library that can be used to build a parachain node.
+#[cfg(feature = "polkadot-omni-node-lib")]
+pub use polkadot_omni_node_lib;
 
 /// System overseer of the Polkadot node.
 #[cfg(feature = "polkadot-overseer")]
@@ -962,10 +950,6 @@ pub use polkadot_statement_distribution;
 /// Stores messages other authorities issue about candidates in Polkadot.
 #[cfg(feature = "polkadot-statement-table")]
 pub use polkadot_statement_table;
-
-/// Constants used throughout the Rococo network.
-#[cfg(feature = "rococo-runtime-constants")]
-pub use rococo_runtime_constants;
 
 /// Collection of allocator implementations.
 #[cfg(feature = "sc-allocator")]
@@ -1134,6 +1118,10 @@ pub use sc_rpc_server;
 /// Substrate RPC interface v2.
 #[cfg(feature = "sc-rpc-spec-v2")]
 pub use sc_rpc_spec_v2;
+
+/// Substrate client utilities for frame runtime functions calls.
+#[cfg(feature = "sc-runtime-utilities")]
+pub use sc_runtime_utilities;
 
 /// Substrate service. Starts a thread that spins up the network, client, and extrinsic pool.
 /// Manages communication between them.
@@ -1469,6 +1457,11 @@ pub use sp_wasm_interface;
 #[cfg(feature = "sp-weights")]
 pub use sp_weights;
 
+/// Utility for building chain-specification files for Substrate-based runtimes based on
+/// `sp-genesis-builder`.
+#[cfg(feature = "staging-chain-spec-builder")]
+pub use staging_chain_spec_builder;
+
 /// Substrate node block inspection tool.
 #[cfg(feature = "staging-node-inspect")]
 pub use staging_node_inspect;
@@ -1543,21 +1536,17 @@ pub use tracing_gum;
 #[cfg(feature = "tracing-gum-proc-macro")]
 pub use tracing_gum_proc_macro;
 
-/// Constants used throughout the Westend network.
-#[cfg(feature = "westend-runtime-constants")]
-pub use westend_runtime_constants;
-
 /// Test kit to emulate XCM program execution.
 #[cfg(feature = "xcm-emulator")]
 pub use xcm_emulator;
 
-/// XCM fee payment runtime API.
-#[cfg(feature = "xcm-fee-payment-runtime-api")]
-pub use xcm_fee_payment_runtime_api;
-
 /// Procedural macros for XCM.
 #[cfg(feature = "xcm-procedural")]
 pub use xcm_procedural;
+
+/// XCM runtime APIs.
+#[cfg(feature = "xcm-runtime-apis")]
+pub use xcm_runtime_apis;
 
 /// Test kit to simulate cross-chain message passing and XCM execution.
 #[cfg(feature = "xcm-simulator")]

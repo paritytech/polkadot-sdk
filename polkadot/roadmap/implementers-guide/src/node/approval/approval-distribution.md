@@ -66,8 +66,8 @@ Input:
   * `OverseerSignal::BlockFinalized`
 
 Output:
-  * `ApprovalVotingMessage::CheckAndImportAssignment`
-  * `ApprovalVotingMessage::CheckAndImportApproval`
+  * `ApprovalVotingMessage::ImportAssignment`
+  * `ApprovalVotingMessage::ImportApproval`
   * `NetworkBridgeMessage::SendValidationMessage::ApprovalDistribution`
 
 ## Functionality
@@ -253,8 +253,30 @@ The algorithm is the following:
     boost, add the fingerprint to the peer's knowledge only if it knows about the block and return. Note that we must do
     this after checking for out-of-view and if the peers knows about the block to avoid being spammed. If we did this
     check earlier, a peer could provide data out-of-view repeatedly and be rewarded for it.
-    * Dispatch `ApprovalVotingMessage::CheckAndImportAssignment(assignment)` and wait for the response.
+    * Check the assignment certificate is valid.
+      * If the cert kind is `RelayVRFModulo`, then the certificate is valid as long as `sample <
+        session_info.relay_vrf_samples` and the VRF is valid for the validator's key with the input
+        `block_entry.relay_vrf_story ++ sample.encode()` as described with
+        [the approvals protocol section](../../protocol-approval.md#assignment-criteria). We set
+        `core_index = vrf.make_bytes().to_u32() % session_info.n_cores`. If the `BlockEntry` causes
+        inclusion of a candidate at `core_index`, then this is a valid assignment for the candidate
+        at `core_index` and has delay tranche 0. Otherwise, it can be ignored.
+      * If the cert kind is `RelayVRFModuloCompact`, then the certificate is valid as long as the VRF
+        is valid for the validator's key with the input `block_entry.relay_vrf_story ++ relay_vrf_samples.encode()`
+        as described with [the approvals protocol section](../../protocol-approval.md#assignment-criteria).
+        We enforce that all `core_bitfield` indices are included in the set of the core indices sampled from the
+        VRF Output. The assignment is considered a valid tranche0 assignment for all claimed candidates if all
+        `core_bitfield` indices match the core indices where the claimed candidates were included at.
+      * If the cert kind is `RelayVRFDelay`, then we check if the VRF is valid for the validator's key with the
+        input `block_entry.relay_vrf_story ++ cert.core_index.encode()` as described in [the approvals protocol
+        section](../../protocol-approval.md#assignment-criteria). The cert can be ignored if the block did not
+        cause inclusion of a candidate on that core index. Otherwise, this is a valid assignment for the included
+        candidate. The delay tranche for the assignment is determined by reducing
+        `(vrf.make_bytes().to_u64() % (session_info.n_delay_tranches + session_info.zeroth_delay_tranche_width)).saturating_sub(session_info.zeroth_delay_tranche_width)`.
+      * We also check that the core index derived by the output is covered by the `VRFProof` by means of an auxiliary signature.
+      * If the delay tranche is too far in the future, return `AssignmentCheckResult::TooFarInFuture`.
     * If the result is `AssignmentCheckResult::Accepted`
+      * Dispatch `ApprovalVotingMessage::ImportAssignment(assignment)` to approval-voting to import the assignment.
       * If the vote was accepted but not duplicate, give the peer a positive reputation boost
       * add the fingerprint to both our and the peer's knowledge in the `BlockEntry`. Note that we only doing this after
         making sure we have the right fingerprint.
@@ -293,10 +315,12 @@ Imports an approval signature referenced by block hash and candidate index:
     boost, add the fingerprint to the peer's knowledge only if it knows about the block and return. Note that we must do
     this after checking for out-of-view to avoid being spammed. If we did this check earlier, a peer could provide data
     out-of-view repeatedly and be rewarded for it.
-    * Dispatch `ApprovalVotingMessage::CheckAndImportApproval(approval)` and wait for the response.
-    * If the result is `VoteCheckResult::Accepted(())`:
+    * Construct a `SignedApprovalVote` using the candidates hashes and check against the validator's approval key,
+      based on the session info of the block. If invalid or no such validator, return `Err(InvalidVoteError)`.
+    * If the result of checking the signature is `Ok(CheckedIndirectSignedApprovalVote)`:
+      * Dispatch `ApprovalVotingMessage::ImportApproval(approval)` .
       * Give the peer a positive reputation boost and add the fingerprint to both our and the peer's knowledge.
-    * If the result is `VoteCheckResult::Bad`:
+    * If the result is `Err(InvalidVoteError)`:
       * Report the peer and return.
   * Load the candidate entry for the given candidate index. It should exist unless there is a logic error in the
     approval voting subsystem.

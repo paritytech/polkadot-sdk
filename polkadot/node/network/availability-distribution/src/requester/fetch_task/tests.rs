@@ -16,7 +16,7 @@
 
 use std::collections::HashMap;
 
-use parity_scale_codec::Encode;
+use codec::Encode;
 
 use futures::{
 	channel::{mpsc, oneshot},
@@ -365,7 +365,6 @@ fn get_test_running_task(
 			relay_parent: Hash::repeat_byte(71),
 			sender: tx,
 			metrics: Metrics::new_dummy(),
-			span: jaeger::Span::Disabled,
 			req_v1_protocol_name: req_protocol_names.get_name(Protocol::ChunkFetchingV1),
 			req_v2_protocol_name: req_protocol_names.get_name(Protocol::ChunkFetchingV2),
 			chunk_index,

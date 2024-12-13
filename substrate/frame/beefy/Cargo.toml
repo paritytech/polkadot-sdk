@@ -6,37 +6,36 @@ edition.workspace = true
 license = "Apache-2.0"
 repository.workspace = true
 description = "BEEFY FRAME pallet"
-homepage = "https://substrate.io"
+homepage.workspace = true
 
 [lints]
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
+codec = { features = ["derive"], workspace = true }
 log = { workspace = true }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive", "serde"] }
+scale-info = { features = ["derive", "serde"], workspace = true }
 serde = { optional = true, workspace = true, default-features = true }
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
-pallet-authorship = { path = "../authorship", default-features = false }
-pallet-session = { path = "../session", default-features = false }
-sp-consensus-beefy = { path = "../../primitives/consensus/beefy", default-features = false, features = ["serde"] }
-sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"] }
-sp-session = { path = "../../primitives/session", default-features = false }
-sp-staking = { path = "../../primitives/staking", default-features = false, features = ["serde"] }
-sp-std = { path = "../../primitives/std", default-features = false }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-authorship = { workspace = true }
+pallet-session = { workspace = true }
+sp-consensus-beefy = { features = ["serde"], workspace = true }
+sp-runtime = { features = ["serde"], workspace = true }
+sp-session = { workspace = true }
+sp-staking = { features = ["serde"], workspace = true }
 
 [dev-dependencies]
-frame-election-provider-support = { path = "../election-provider-support" }
-pallet-balances = { path = "../balances" }
-pallet-offences = { path = "../offences" }
-pallet-staking = { path = "../staking" }
-pallet-staking-reward-curve = { path = "../staking/reward-curve" }
-pallet-timestamp = { path = "../timestamp" }
-sp-core = { path = "../../primitives/core" }
-sp-io = { path = "../../primitives/io" }
-sp-staking = { path = "../../primitives/staking" }
-sp-state-machine = { path = "../../primitives/state-machine", default-features = false }
+frame-election-provider-support = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+pallet-offences = { workspace = true, default-features = true }
+pallet-staking = { workspace = true, default-features = true }
+pallet-staking-reward-curve = { workspace = true, default-features = true }
+pallet-timestamp = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-staking = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true }
 
 [features]
 default = ["std"]
@@ -61,7 +60,6 @@ std = [
 	"sp-session/std",
 	"sp-staking/std",
 	"sp-state-machine/std",
-	"sp-std/std",
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",

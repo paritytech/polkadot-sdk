@@ -4,7 +4,7 @@ version = "31.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Keyring support code for the runtime. A set of test accounts."
 documentation = "https://docs.rs/sp-keyring"
@@ -17,9 +17,9 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-strum = { version = "0.26.2", features = ["derive"], default-features = false }
-sp-core = { path = "../core", default-features = false }
-sp-runtime = { path = "../runtime", default-features = false }
+strum = { features = ["derive"], workspace = true }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
 
 [features]
 default = ["std"]

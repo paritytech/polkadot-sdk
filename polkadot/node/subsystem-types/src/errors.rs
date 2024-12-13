@@ -16,7 +16,6 @@
 
 //! Error types for the subsystem requests.
 
-use crate::JaegerError;
 use ::orchestra::OrchestraError as OverseerError;
 use fatality::fatality;
 
@@ -107,10 +106,7 @@ pub enum SubsystemError {
 	Infallible(#[from] std::convert::Infallible),
 
 	#[error(transparent)]
-	Prometheus(#[from] substrate_prometheus_endpoint::PrometheusError),
-
-	#[error(transparent)]
-	Jaeger(#[from] JaegerError),
+	Prometheus(#[from] prometheus_endpoint::PrometheusError),
 
 	#[error("Failed to {0}")]
 	Context(String),

@@ -5,7 +5,7 @@ version = "0.4.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition.workspace = true
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository = "https://github.com/paritytech/substrate/"
 readme = "README.md"
 
@@ -16,25 +16,25 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-array-bytes = "6.2.2"
-arrayvec = "0.7.2"
-blake2 = "0.10.4"
-bytes = "1"
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-futures = "0.3.30"
-futures-timer = "3.0.2"
+array-bytes = { workspace = true, default-features = true }
+arrayvec = { workspace = true }
+blake2 = { workspace = true, default-features = true }
+bytes = { workspace = true, default-features = true }
+codec = { features = ["derive"], workspace = true }
+futures = { workspace = true }
+futures-timer = { workspace = true }
 log = { workspace = true, default-features = true }
-mixnet = "0.7.0"
-multiaddr = "0.17.1"
-parking_lot = "0.12.1"
-sc-client-api = { path = "../api" }
-sc-network = { path = "../network" }
-sc-network-types = { path = "../network/types" }
-sc-transaction-pool-api = { path = "../transaction-pool/api" }
-sp-api = { path = "../../primitives/api" }
-sp-consensus = { path = "../../primitives/consensus/common" }
-sp-core = { path = "../../primitives/core" }
-sp-keystore = { path = "../../primitives/keystore" }
-sp-mixnet = { path = "../../primitives/mixnet" }
-sp-runtime = { path = "../../primitives/runtime" }
+mixnet = { workspace = true }
+multiaddr = { workspace = true }
+parking_lot = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sc-network-types = { workspace = true, default-features = true }
+sc-transaction-pool-api = { workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-mixnet = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
 thiserror = { workspace = true }

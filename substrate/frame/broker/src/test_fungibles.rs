@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use alloc::collections::btree_map::BTreeMap;
 use codec::{Decode, Encode};
 use frame_support::{
 	parameter_types,
@@ -29,7 +30,6 @@ use scale_info::TypeInfo;
 use sp_arithmetic::traits::Zero;
 use sp_core::{Get, TypedGet};
 use sp_runtime::{DispatchError, DispatchResult};
-use sp_std::collections::btree_map::BTreeMap;
 
 parameter_types! {
 	static TestAssetOf: BTreeMap<(u32, Vec<u8>), Vec<u8>> = Default::default();
@@ -263,6 +263,20 @@ impl<
 		MinimumBalance: TypedGet,
 		HoldReason: Encode + Decode + TypeInfo + 'static,
 	> fungibles::MutateHold<AccountId>
+	for TestFungibles<Instance, AccountId, AssetId, MinimumBalance, HoldReason>
+where
+	MinimumBalance::Type: tokens::Balance,
+{
+}
+
+impl<
+		Instance: Get<u32>,
+		AccountId: Encode,
+		AssetId: tokens::AssetId + Copy,
+		MinimumBalance: TypedGet,
+		HoldReason: Encode + Decode + TypeInfo + 'static,
+		Balance: tokens::Balance,
+	> fungibles::hold::DoneSlash<AssetId, HoldReason, AccountId, Balance>
 	for TestFungibles<Instance, AccountId, AssetId, MinimumBalance, HoldReason>
 where
 	MinimumBalance::Type: tokens::Balance,

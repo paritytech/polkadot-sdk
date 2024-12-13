@@ -325,7 +325,7 @@ impl<E, EHF> ChainSpecBuilder<E, EHF> {
 			name: "Development".to_string(),
 			id: "dev".to_string(),
 			chain_type: ChainType::Local,
-			genesis_build_action: GenesisBuildAction::Patch(Default::default()),
+			genesis_build_action: GenesisBuildAction::Patch(json::json!({})),
 			boot_nodes: None,
 			telemetry_endpoints: None,
 			protocol_id: None,
@@ -766,13 +766,23 @@ pub fn update_code_in_json_chain_spec(chain_spec: &mut json::Value, code: &[u8])
 	}
 }
 
+/// This function sets a codeSubstitute in the chain spec.
+pub fn set_code_substitute_in_json_chain_spec(
+	chain_spec: &mut json::Value,
+	code: &[u8],
+	block_height: u64,
+) {
+	let substitutes = json::json!({"codeSubstitutes":{ &block_height.to_string(): sp_core::bytes::to_hex(code, false) }});
+	crate::json_patch::merge(chain_spec, substitutes);
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use serde_json::{from_str, json, Value};
 	use sp_application_crypto::Ss58Codec;
 	use sp_core::storage::well_known_keys;
-	use sp_keyring::AccountKeyring;
+	use sp_keyring::Sr25519Keyring;
 
 	type TestSpec = ChainSpec;
 
@@ -914,8 +924,8 @@ mod tests {
 			},
 			"substrateTest": {
 				"authorities": [
-					AccountKeyring::Ferdie.public().to_ss58check(),
-					AccountKeyring::Alice.public().to_ss58check()
+					Sr25519Keyring::Ferdie.public().to_ss58check(),
+					Sr25519Keyring::Alice.public().to_ss58check()
 				],
 			}
 		}))
@@ -970,8 +980,8 @@ mod tests {
 			},
 			"substrateTest": {
 				"authorities": [
-					AccountKeyring::Ferdie.public().to_ss58check(),
-					AccountKeyring::Alice.public().to_ss58check()
+					Sr25519Keyring::Ferdie.public().to_ss58check(),
+					Sr25519Keyring::Alice.public().to_ss58check()
 				],
 			}
 		}))
@@ -1073,8 +1083,8 @@ mod tests {
 			"invalid_pallet": {},
 			"substrateTest": {
 				"authorities": [
-					AccountKeyring::Ferdie.public().to_ss58check(),
-					AccountKeyring::Alice.public().to_ss58check()
+					Sr25519Keyring::Ferdie.public().to_ss58check(),
+					Sr25519Keyring::Alice.public().to_ss58check()
 				],
 			}
 		}))

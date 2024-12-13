@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::error::InternalValidationError;
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use polkadot_primitives::ExecutorParams;
 use std::time::Duration;
@@ -35,6 +35,8 @@ pub struct WorkerResponse {
 	pub job_response: JobResponse,
 	/// The amount of CPU time taken by the job.
 	pub duration: Duration,
+	/// The uncompressed PoV size.
+	pub pov_size: u32,
 }
 
 /// An error occurred in the worker process.
@@ -77,6 +79,8 @@ pub enum JobResponse {
 	RuntimeConstruction(String),
 	/// The candidate is invalid.
 	InvalidCandidate(String),
+	/// PoV decompression failed
+	PoVDecompressionFailure,
 }
 
 impl JobResponse {

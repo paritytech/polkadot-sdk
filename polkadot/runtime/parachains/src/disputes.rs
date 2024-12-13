@@ -19,24 +19,25 @@
 use crate::{
 	configuration, initializer::SessionChangeNotification, metrics::METRICS, session_info,
 };
+use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use bitvec::{bitvec, order::Lsb0 as BitOrderLsb0};
+use codec::{Decode, Encode};
+use core::cmp::Ordering;
 use frame_support::{ensure, weights::Weight};
 use frame_system::pallet_prelude::*;
-use parity_scale_codec::{Decode, Encode};
-use polkadot_runtime_metrics::get_current_time;
-use primitives::{
+use polkadot_primitives::{
 	byzantine_threshold, supermajority_threshold, ApprovalVote, ApprovalVoteMultipleCandidates,
 	CandidateHash, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CompactStatement,
 	ConsensusLog, DisputeState, DisputeStatement, DisputeStatementSet, ExplicitDisputeStatement,
 	InvalidDisputeStatementKind, MultiDisputeStatementSet, SessionIndex, SigningContext,
 	ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
+use polkadot_runtime_metrics::get_current_time;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AppVerify, One, Saturating, Zero},
 	DispatchError, RuntimeDebug, SaturatedConversion,
 };
-use sp_std::{cmp::Ordering, collections::btree_set::BTreeSet, prelude::*};
 
 #[cfg(test)]
 #[allow(unused_imports)]
@@ -1307,4 +1308,12 @@ fn check_signature(
 	METRICS.on_signature_check_complete(end.saturating_sub(start)); // ns
 
 	res
+}
+
+#[cfg(all(not(feature = "runtime-benchmarks"), test))]
+// Test helper for clearing the on-chain dispute data.
+pub(crate) fn clear_dispute_storage<T: Config>() {
+	let _ = Disputes::<T>::clear(u32::MAX, None);
+	let _ = BackersOnDisputes::<T>::clear(u32::MAX, None);
+	let _ = Included::<T>::clear(u32::MAX, None);
 }

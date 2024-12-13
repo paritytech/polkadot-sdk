@@ -139,7 +139,7 @@ mod module {
 		pub enable_storage_role: bool,
 		pub request_life_time: u64,
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]

@@ -19,15 +19,15 @@
 
 use super::storage::Footprint;
 use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
+use core::{fmt::Debug, marker::PhantomData};
 use scale_info::TypeInfo;
 use sp_core::{ConstU32, Get, TypedGet};
 use sp_runtime::{traits::Convert, BoundedSlice, RuntimeDebug};
-use sp_std::{fmt::Debug, marker::PhantomData, prelude::*};
 use sp_weights::{Weight, WeightMeter};
 
 /// Errors that can happen when attempting to process a message with
 /// [`ProcessMessage::process_message()`].
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, TypeInfo, Debug)]
 pub enum ProcessMessageError {
 	/// The message data format is unknown (e.g. unrecognised header)
 	BadFormat,

@@ -4,7 +4,7 @@ version = "0.30.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "State database maintenance. Handles canonicalization and pruning in the database."
 readme = "README.md"
@@ -16,7 +16,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", features = ["derive"] }
+codec = { features = ["derive"], workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
-parking_lot = "0.12.1"
-sp-core = { path = "../../primitives/core" }
+parking_lot = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }

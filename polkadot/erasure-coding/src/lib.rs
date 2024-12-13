@@ -24,7 +24,7 @@
 //! f is the maximum number of faulty validators in the system.
 //! The data is coded so any f+1 chunks can be used to reconstruct the full data.
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_node_primitives::{AvailableData, Proof};
 use polkadot_primitives::{BlakeTwo256, Hash as H256, HashT};
 use sp_core::Blake2Hasher;
@@ -71,7 +71,7 @@ pub enum Error {
 	BadPayload,
 	/// Unable to decode reconstructed bytes.
 	#[error("Unable to decode reconstructed payload: {0}")]
-	Decode(#[source] parity_scale_codec::Error),
+	Decode(#[source] codec::Error),
 	/// Invalid branch proof.
 	#[error("Invalid branch proof")]
 	InvalidBranchProof,

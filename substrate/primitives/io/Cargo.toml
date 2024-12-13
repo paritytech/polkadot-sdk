@@ -4,7 +4,7 @@ version = "30.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "I/O for Substrate runtimes"
 documentation = "https://docs.rs/sp-io"
@@ -18,31 +18,37 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-bytes = { version = "1.1.0", default-features = false }
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["bytes"] }
-sp-core = { path = "../core", default-features = false }
-sp-crypto-hashing = { path = "../crypto/hashing", default-features = false }
-sp-keystore = { path = "../keystore", default-features = false, optional = true }
-sp-std = { path = "../std", default-features = false }
-libsecp256k1 = { version = "0.7", optional = true }
-sp-state-machine = { path = "../state-machine", default-features = false, optional = true }
-sp-runtime-interface = { path = "../runtime-interface", default-features = false }
-sp-trie = { path = "../trie", default-features = false, optional = true }
-sp-externalities = { path = "../externalities", default-features = false }
-sp-tracing = { path = "../tracing", default-features = false }
+bytes = { workspace = true }
+codec = { features = [
+	"bytes",
+], workspace = true }
+sp-core = { workspace = true }
+sp-crypto-hashing = { workspace = true }
+sp-keystore = { optional = true, workspace = true }
+libsecp256k1 = { optional = true, workspace = true, default-features = true }
+sp-state-machine = { optional = true, workspace = true }
+sp-runtime-interface = { workspace = true }
+sp-trie = { optional = true, workspace = true }
+sp-externalities = { workspace = true }
+sp-tracing = { workspace = true }
 log = { optional = true, workspace = true, default-features = true }
-secp256k1 = { version = "0.28.0", features = ["global-context", "recovery"], optional = true }
-tracing = { version = "0.1.29", default-features = false }
-tracing-core = { version = "0.1.32", default-features = false }
+secp256k1 = { features = [
+	"global-context",
+	"recovery",
+], optional = true, workspace = true, default-features = true }
+tracing = { workspace = true }
+tracing-core = { workspace = true }
 
 # Required for backwards compatibility reason, but only used for verifying when `UseDalekExt` is set.
-ed25519-dalek = { version = "2.1", default-features = false, optional = true }
+ed25519-dalek = { optional = true, workspace = true }
+
+docify = { workspace = true }
 
 [target.'cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), substrate_runtime))'.dependencies]
 polkavm-derive = { workspace = true }
 
 [build-dependencies]
-rustversion = "1.0.6"
+rustversion = { workspace = true }
 
 [features]
 default = ["std"]
@@ -60,7 +66,6 @@ std = [
 	"sp-keystore/std",
 	"sp-runtime-interface/std",
 	"sp-state-machine/std",
-	"sp-std/std",
 	"sp-tracing/std",
 	"sp-trie/std",
 	"tracing-core/std",

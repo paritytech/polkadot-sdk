@@ -16,7 +16,6 @@
 // limitations under the License.
 
 use super::helper;
-use frame_support_procedural_tools::get_doc_literals;
 use quote::ToTokens;
 use syn::{spanned::Spanned, Fields};
 
@@ -37,8 +36,6 @@ pub struct VariantDef {
 	pub ident: syn::Ident,
 	/// The variant field, if any.
 	pub field: Option<VariantField>,
-	/// The variant doc literals.
-	pub docs: Vec<syn::Expr>,
 	/// The `cfg` attributes.
 	pub cfg_attrs: Vec<syn::Attribute>,
 }
@@ -56,6 +53,8 @@ pub struct ErrorDef {
 	pub error: keyword::Error,
 	/// The span of the pallet::error attribute.
 	pub attr_span: proc_macro2::Span,
+	/// Attributes
+	pub attrs: Vec<syn::Attribute>,
 }
 
 impl ErrorDef {
@@ -101,15 +100,10 @@ impl ErrorDef {
 				}
 				let cfg_attrs: Vec<syn::Attribute> = helper::get_item_cfg_attrs(&variant.attrs);
 
-				Ok(VariantDef {
-					ident: variant.ident.clone(),
-					field: field_ty,
-					docs: get_doc_literals(&variant.attrs),
-					cfg_attrs,
-				})
+				Ok(VariantDef { ident: variant.ident.clone(), field: field_ty, cfg_attrs })
 			})
 			.collect::<Result<_, _>>()?;
 
-		Ok(ErrorDef { attr_span, index, variants, instances, error })
+		Ok(ErrorDef { attr_span, index, variants, instances, error, attrs: item.attrs.clone() })
 	}
 }

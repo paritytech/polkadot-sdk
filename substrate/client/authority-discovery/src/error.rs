@@ -75,4 +75,10 @@ pub enum Error {
 
 	#[error("Unable to fetch best block.")]
 	BestBlockFetchingError,
+
+	#[error("Publisher not present.")]
+	MissingPublisher,
+
+	#[error("Unknown authority.")]
+	UnknownAuthority,
 }

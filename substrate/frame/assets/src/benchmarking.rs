@@ -20,17 +20,18 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
+use alloc::vec;
 use frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelist_account, whitelisted_caller, BenchmarkError,
 };
 use frame_support::traits::{EnsureOrigin, Get, UnfilteredDispatchable};
 use frame_system::RawOrigin as SystemOrigin;
 use sp_runtime::traits::Bounded;
-use sp_std::prelude::*;
 
 use crate::Pallet as Assets;
 
 const SEED: u32 = 0;
+const MIN_BALANCE: u32 = 1;
 
 fn default_asset_id<T: Config<I>, I: 'static>() -> T::AssetIdParameter {
 	T::BenchmarkHelper::create_asset_id_parameter(0)
@@ -48,7 +49,7 @@ fn create_default_asset<T: Config<I>, I: 'static>(
 		asset_id.clone(),
 		caller_lookup.clone(),
 		is_sufficient,
-		1u32.into(),
+		MIN_BALANCE.into(),
 	)
 	.is_ok());
 	(asset_id, caller, caller_lookup)
@@ -76,7 +77,7 @@ fn swap_is_sufficient<T: Config<I>, I: 'static>(s: &mut bool) {
 	let asset_id = default_asset_id::<T, I>();
 	Asset::<T, I>::mutate(&asset_id.into(), |maybe_a| {
 		if let Some(ref mut a) = maybe_a {
-			sp_std::mem::swap(s, &mut a.is_sufficient)
+			core::mem::swap(s, &mut a.is_sufficient)
 		}
 	});
 }
@@ -551,6 +552,16 @@ benchmarks_instance_pallet! {
 	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), caller_lookup)
 	verify {
 		assert_last_event::<T, I>(Event::Blocked { asset_id: asset_id.into(), who: caller }.into());
+	}
+
+	transfer_all {
+		let amount = T::Balance::from(2 * MIN_BALANCE);
+		let (asset_id, caller, caller_lookup) = create_default_minted_asset::<T, I>(true, amount);
+		let target: T::AccountId = account("target", 0, SEED);
+		let target_lookup = T::Lookup::unlookup(target.clone());
+	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), target_lookup, false)
+	verify {
+		assert_last_event::<T, I>(Event::Transferred { asset_id: asset_id.into(), from: caller, to: target, amount }.into());
 	}
 
 	impl_benchmark_test_suite!(Assets, crate::mock::new_test_ext(), crate::mock::Test)

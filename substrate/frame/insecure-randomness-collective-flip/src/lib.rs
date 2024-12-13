@@ -60,7 +60,7 @@
 //!     impl<T: Config> Pallet<T> {
 //!         #[pallet::weight(0)]
 //!         pub fn random_module_example(origin: OriginFor<T>) -> DispatchResult {
-//!             let _random_value = <pallet_insecure_randomness_collective_flip::Pallet<T>>::random(&b"my context"[..]);
+//!             let _random_value = pallet_insecure_randomness_collective_flip::Pallet::<T>::random(&b"my context"[..]);
 //!             Ok(())
 //!         }
 //!     }
@@ -101,9 +101,9 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(block_number: BlockNumberFor<T>) -> Weight {
-			let parent_hash = <frame_system::Pallet<T>>::parent_hash();
+			let parent_hash = frame_system::Pallet::<T>::parent_hash();
 
-			<RandomMaterial<T>>::mutate(|ref mut values| {
+			RandomMaterial::<T>::mutate(|ref mut values| {
 				if values.try_push(parent_hash).is_err() {
 					let index = block_number_to_index::<T>(block_number);
 					values[index] = parent_hash;
@@ -118,9 +118,15 @@ pub mod pallet {
 	/// is arranged as a ring buffer with `block_number % 81` being the index into the `Vec` of
 	/// the oldest hash.
 	#[pallet::storage]
-	#[pallet::getter(fn random_material)]
-	pub(super) type RandomMaterial<T: Config> =
+	pub type RandomMaterial<T: Config> =
 		StorageValue<_, BoundedVec<T::Hash, ConstU32<RANDOM_MATERIAL_LEN>>, ValueQuery>;
+
+	impl<T: Config> Pallet<T> {
+		/// Gets the random material storage value
+		pub fn random_material() -> BoundedVec<T::Hash, ConstU32<RANDOM_MATERIAL_LEN>> {
+			RandomMaterial::<T>::get()
+		}
+	}
 }
 
 impl<T: Config> Randomness<T::Hash, BlockNumberFor<T>> for Pallet<T> {
@@ -135,10 +141,10 @@ impl<T: Config> Randomness<T::Hash, BlockNumberFor<T>> for Pallet<T> {
 	/// and mean that all bits of the resulting value are entirely manipulatable by the author of
 	/// the parent block, who can determine the value of `parent_hash`.
 	fn random(subject: &[u8]) -> (T::Hash, BlockNumberFor<T>) {
-		let block_number = <frame_system::Pallet<T>>::block_number();
+		let block_number = frame_system::Pallet::<T>::block_number();
 		let index = block_number_to_index::<T>(block_number);
 
-		let hash_series = <RandomMaterial<T>>::get();
+		let hash_series = RandomMaterial::<T>::get();
 		let seed = if !hash_series.is_empty() {
 			// Always the case after block 1 is initialized.
 			hash_series
@@ -226,7 +232,7 @@ mod tests {
 
 			setup_blocks(38);
 
-			let random_material = CollectiveFlip::random_material();
+			let random_material = RandomMaterial::<Test>::get();
 
 			assert_eq!(random_material.len(), 38);
 			assert_eq!(random_material[0], genesis_hash);
@@ -240,7 +246,7 @@ mod tests {
 
 			setup_blocks(81);
 
-			let random_material = CollectiveFlip::random_material();
+			let random_material = RandomMaterial::<Test>::get();
 
 			assert_eq!(random_material.len(), 81);
 			assert_ne!(random_material[0], random_material[1]);
@@ -255,7 +261,7 @@ mod tests {
 
 			setup_blocks(162);
 
-			let random_material = CollectiveFlip::random_material();
+			let random_material = RandomMaterial::<Test>::get();
 
 			assert_eq!(random_material.len(), 81);
 			assert_ne!(random_material[0], random_material[1]);
@@ -276,7 +282,7 @@ mod tests {
 
 			assert_eq!(known_since, 162 - RANDOM_MATERIAL_LEN as u64);
 			assert_ne!(random, H256::zero());
-			assert!(!CollectiveFlip::random_material().contains(&random));
+			assert!(!RandomMaterial::<Test>::get().contains(&random));
 		});
 	}
 }

@@ -16,17 +16,17 @@
 
 //! A simple wrapper allowing `Sudo` to call into `paras` routines.
 
+use alloc::boxed::Box;
+use codec::Encode;
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
-use parity_scale_codec::Encode;
-use primitives::Id as ParaId;
-use runtime_parachains::{
+use polkadot_primitives::Id as ParaId;
+use polkadot_runtime_parachains::{
 	configuration, dmp, hrmp,
-	paras::{self, AssignCoretime, ParaGenesisArgs},
+	paras::{self, AssignCoretime, ParaGenesisArgs, ParaKind},
 	ParaLifecycle,
 };
-use sp_std::boxed::Box;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -48,6 +48,8 @@ pub mod pallet {
 		/// A DMP message couldn't be sent because it exceeds the maximum size allowed for a
 		/// downward message.
 		ExceedsMaxMessageSize,
+		/// A DMP message couldn't be sent because the destination is unreachable.
+		Unroutable,
 		/// Could not schedule para cleanup.
 		CouldntCleanup,
 		/// Not a parathread (on-demand parachain).
@@ -80,10 +82,15 @@ pub mod pallet {
 			genesis: ParaGenesisArgs,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			runtime_parachains::schedule_para_initialize::<T>(id, genesis)
+
+			let assign_coretime = genesis.para_kind == ParaKind::Parachain;
+
+			polkadot_runtime_parachains::schedule_para_initialize::<T>(id, genesis)
 				.map_err(|_| Error::<T>::ParaAlreadyExists)?;
 
-			T::AssignCoretime::assign_coretime(id)?;
+			if assign_coretime {
+				T::AssignCoretime::assign_coretime(id)?;
+			}
 
 			Ok(())
 		}
@@ -93,7 +100,7 @@ pub mod pallet {
 		#[pallet::weight((1_000, DispatchClass::Operational))]
 		pub fn sudo_schedule_para_cleanup(origin: OriginFor<T>, id: ParaId) -> DispatchResult {
 			ensure_root(origin)?;
-			runtime_parachains::schedule_para_cleanup::<T>(id)
+			polkadot_runtime_parachains::schedule_para_cleanup::<T>(id)
 				.map_err(|_| Error::<T>::CouldntCleanup)?;
 			Ok(())
 		}
@@ -111,7 +118,7 @@ pub mod pallet {
 				paras::Pallet::<T>::lifecycle(id) == Some(ParaLifecycle::Parathread),
 				Error::<T>::NotParathread,
 			);
-			runtime_parachains::schedule_parathread_upgrade::<T>(id)
+			polkadot_runtime_parachains::schedule_parathread_upgrade::<T>(id)
 				.map_err(|_| Error::<T>::CannotUpgrade)?;
 			Ok(())
 		}
@@ -129,7 +136,7 @@ pub mod pallet {
 				paras::Pallet::<T>::lifecycle(id) == Some(ParaLifecycle::Parachain),
 				Error::<T>::NotParachain,
 			);
-			runtime_parachains::schedule_parachain_downgrade::<T>(id)
+			polkadot_runtime_parachains::schedule_parachain_downgrade::<T>(id)
 				.map_err(|_| Error::<T>::CannotDowngrade)?;
 			Ok(())
 		}
@@ -152,6 +159,7 @@ pub mod pallet {
 			{
 				dmp::QueueDownwardMessageError::ExceedsMaxMessageSize =>
 					Error::<T>::ExceedsMaxMessageSize.into(),
+				dmp::QueueDownwardMessageError::Unroutable => Error::<T>::Unroutable.into(),
 			})
 		}
 

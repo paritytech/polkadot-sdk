@@ -19,10 +19,6 @@
 //!
 //! Trigger for stopping all extrinsics outside of a specific whitelist.
 //!
-//! ## WARNING
-//!
-//! NOT YET AUDITED. DO NOT USE IN PRODUCTION.
-//!
 //! ## Pallet API
 //!
 //! See the [`pallet`] module for more information about the interfaces this pallet exposes,

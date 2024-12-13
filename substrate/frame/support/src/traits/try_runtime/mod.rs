@@ -22,13 +22,13 @@ pub use decode_entire_state::{TryDecodeEntireStorage, TryDecodeEntireStorageErro
 
 use super::StorageInstance;
 
+use alloc::vec::Vec;
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_arithmetic::traits::AtLeast32BitUnsigned;
 use sp_runtime::TryRuntimeError;
-use sp_std::prelude::*;
 
 /// Which state tests to execute.
-#[derive(codec::Encode, codec::Decode, Clone, scale_info::TypeInfo)]
+#[derive(codec::Encode, codec::Decode, Clone, scale_info::TypeInfo, PartialEq)]
 pub enum Select {
 	/// None of them.
 	None,
@@ -55,15 +55,15 @@ impl Default for Select {
 	}
 }
 
-impl sp_std::fmt::Debug for Select {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl core::fmt::Debug for Select {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		match self {
 			Select::RoundRobin(x) => write!(f, "RoundRobin({})", x),
 			Select::Only(x) => write!(
 				f,
 				"Only({:?})",
 				x.iter()
-					.map(|x| sp_std::str::from_utf8(x).unwrap_or("<invalid?>"))
+					.map(|x| alloc::str::from_utf8(x).unwrap_or("<invalid?>"))
 					.collect::<Vec<_>>(),
 			),
 			Select::All => write!(f, "All"),
@@ -73,7 +73,7 @@ impl sp_std::fmt::Debug for Select {
 }
 
 #[cfg(feature = "std")]
-impl sp_std::str::FromStr for Select {
+impl std::str::FromStr for Select {
 	type Err = &'static str;
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		match s {
@@ -95,7 +95,7 @@ impl sp_std::str::FromStr for Select {
 }
 
 /// Select which checks should be run when trying a runtime upgrade upgrade.
-#[derive(codec::Encode, codec::Decode, Clone, Debug, Copy, scale_info::TypeInfo)]
+#[derive(codec::Encode, codec::Decode, Clone, Debug, Copy, scale_info::TypeInfo, PartialEq)]
 pub enum UpgradeCheckSelect {
 	/// Run no checks.
 	None,
@@ -153,9 +153,7 @@ pub trait TryState<BlockNumber> {
 #[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
 #[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
 #[cfg_attr(all(feature = "tuples-128"), impl_for_tuples(128))]
-impl<BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned> TryState<BlockNumber>
-	for Tuple
-{
+impl<BlockNumber: Clone + core::fmt::Debug + AtLeast32BitUnsigned> TryState<BlockNumber> for Tuple {
 	for_tuples!( where #( Tuple: crate::traits::PalletInfoAccess )* );
 	fn try_state(n: BlockNumber, targets: Select) -> Result<(), TryRuntimeError> {
 		match targets {
@@ -221,7 +219,7 @@ impl<BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned> TryState<Bl
 					} else {
 						log::warn!(
 							"Pallet {:?} not found",
-							sp_std::str::from_utf8(pallet_name).unwrap_or_default()
+							alloc::str::from_utf8(pallet_name).unwrap_or_default()
 						);
 					}
 				});

@@ -16,30 +16,29 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-array-bytes = { version = "6.2.2", optional = true }
+array-bytes = { optional = true, workspace = true, default-features = true }
 log = { workspace = true }
 
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
-sp-std = { path = "../../primitives/std", default-features = false }
-sp-core = { path = "../../primitives/core", default-features = false }
-sp-crypto-hashing = { path = "../../primitives/crypto/hashing", default-features = false, optional = true }
-sp-io = { path = "../../primitives/io", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
+sp-core = { workspace = true }
+sp-crypto-hashing = { optional = true, workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
 
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
+frame-benchmarking = { optional = true, workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
 
-pallet-identity = { path = "../identity", default-features = false }
-pallet-collective = { path = "../collective", default-features = false, optional = true }
+pallet-identity = { workspace = true }
+pallet-collective = { optional = true, workspace = true }
 
 [dev-dependencies]
-array-bytes = "6.2.2"
-sp-crypto-hashing = { path = "../../primitives/crypto/hashing", default-features = false }
-pallet-balances = { path = "../balances" }
-pallet-collective = { path = "../collective" }
+array-bytes = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true }
+pallet-balances = { workspace = true, default-features = true }
+pallet-collective = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -57,7 +56,6 @@ std = [
 	"sp-crypto-hashing?/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"array-bytes",

@@ -11,12 +11,12 @@ chain_spec_path = "chain-spec.json"
   [[relaychain.nodes]]
   name = "alice"
   validator = true
-  args = ["--sync warp"]
+  args = ["--log=beefy=debug", "--sync warp"]
 
   [[relaychain.nodes]]
   name = "bob"
   validator = true
-  args = ["--sync warp"]
+  args = ["--log=beefy=debug", "--sync warp"]
 
   # we need at least 3 nodes for warp sync
   [[relaychain.nodes]]

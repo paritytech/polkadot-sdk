@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Compile contracts to wasm and RISC-V binaries.
+//! Compile contracts to wasm.
 use anyhow::{bail, Context, Result};
 use parity_wasm::elements::{deserialize_file, serialize_to_file, Internal};
 use std::{
@@ -88,12 +88,6 @@ impl Entry {
 	/// Return the name of the output wasm file.
 	fn out_wasm_filename(&self) -> String {
 		format!("{}.wasm", self.name())
-	}
-
-	/// Return the name of the RISC-V polkavm file.
-	#[cfg(feature = "riscv")]
-	fn out_riscv_filename(&self) -> String {
-		format!("{}.polkavm", self.name())
 	}
 }
 
@@ -236,53 +230,6 @@ fn post_process_wasm(input_path: &Path, output_path: &Path) -> Result<()> {
 	serialize_to_file(output_path, module).map_err(Into::into)
 }
 
-/// Build contracts for RISC-V.
-#[cfg(feature = "riscv")]
-fn invoke_riscv_build(current_dir: &Path) -> Result<()> {
-	let encoded_rustflags = [
-		"-Crelocation-model=pie",
-		"-Clink-arg=--emit-relocs",
-		"-Clink-arg=--export-dynamic-symbol=__polkavm_symbol_export_hack__*",
-	]
-	.join("\x1f");
-
-	let build_res = Command::new(env::var("CARGO")?)
-		.current_dir(current_dir)
-		.env_clear()
-		.env("PATH", env::var("PATH").unwrap_or_default())
-		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
-		.env("RUSTUP_TOOLCHAIN", "rve-nightly")
-		.env("RUSTUP_HOME", env::var("RUSTUP_HOME").unwrap_or_default())
-		.args(["build", "--release", "--target=riscv32ema-unknown-none-elf"])
-		.output()
-		.expect("failed to execute process");
-
-	if build_res.status.success() {
-		return Ok(())
-	}
-
-	let stderr = String::from_utf8_lossy(&build_res.stderr);
-
-	if stderr.contains("'rve-nightly' is not installed") {
-		eprintln!("RISC-V toolchain is not installed.\nDownload and install toolchain from https://github.com/paritytech/rustc-rv32e-toolchain.");
-		eprintln!("{}", stderr);
-	} else {
-		eprintln!("{}", stderr);
-	}
-
-	bail!("Failed to build contracts");
-}
-/// Post-process the compiled wasm contracts.
-#[cfg(feature = "riscv")]
-fn post_process_riscv(input_path: &Path, output_path: &Path) -> Result<()> {
-	let mut config = polkavm_linker::Config::default();
-	config.set_strip(true);
-	let orig = fs::read(input_path).with_context(|| format!("Failed to read {:?}", input_path))?;
-	let linked = polkavm_linker::program_from_elf(config, orig.as_ref())
-		.map_err(|err| anyhow::format_err!("Failed to link polkavm program: {}", err))?;
-	fs::write(output_path, linked.as_bytes()).map_err(Into::into)
-}
-
 /// Write the compiled contracts to the given output directory.
 fn write_output(build_dir: &Path, out_dir: &Path, entries: Vec<Entry>) -> Result<()> {
 	for entry in entries {
@@ -290,12 +237,6 @@ fn write_output(build_dir: &Path, out_dir: &Path, entries: Vec<Entry>) -> Result
 		post_process_wasm(
 			&build_dir.join("target/wasm32-unknown-unknown/release").join(&wasm_output),
 			&out_dir.join(&wasm_output),
-		)?;
-
-		#[cfg(feature = "riscv")]
-		post_process_riscv(
-			&build_dir.join("target/riscv32ema-unknown-none-elf/release").join(entry.name()),
-			&out_dir.join(entry.out_riscv_filename()),
 		)?;
 
 		entry.update_cache(out_dir)?;
@@ -346,9 +287,6 @@ fn main() -> Result<()> {
 	)?;
 
 	invoke_wasm_build(tmp_dir_path)?;
-
-	#[cfg(feature = "riscv")]
-	invoke_riscv_build(tmp_dir_path)?;
 
 	write_output(tmp_dir_path, &out_dir, entries)?;
 	Ok(())

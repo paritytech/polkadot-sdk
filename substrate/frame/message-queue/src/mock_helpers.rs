@@ -22,6 +22,7 @@
 //! Cannot be put into mock.rs since benchmarks require no-std and mock.rs is std.
 
 use crate::*;
+use alloc::vec::Vec;
 use frame_support::traits::Defensive;
 
 /// Converts `Self` into a `Weight` by using `Self` for all components.

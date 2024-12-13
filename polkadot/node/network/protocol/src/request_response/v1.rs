@@ -16,14 +16,17 @@
 
 //! Requests and responses as sent over the wire for the individual protocols.
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 
 use polkadot_node_primitives::{
 	AvailableData, DisputeMessage, ErasureChunk, PoV, Proof, UncheckedDisputeMessage,
 };
 use polkadot_primitives::{
-	CandidateHash, CandidateReceipt, CommittedCandidateReceipt, Hash, HeadData, Id as ParaId,
-	ValidatorIndex,
+	vstaging::{
+		CandidateReceiptV2 as CandidateReceipt,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	},
+	CandidateHash, Hash, HeadData, Id as ParaId, ValidatorIndex,
 };
 
 use super::{IsRequest, Protocol};

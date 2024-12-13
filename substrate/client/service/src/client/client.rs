@@ -18,7 +18,10 @@
 
 //! Substrate Client
 
-use super::block_rules::{BlockRules, LookupResult as BlockLookupResult};
+use super::{
+	block_rules::{BlockRules, LookupResult as BlockLookupResult},
+	CodeProvider,
+};
 use crate::client::notification_pinning::NotificationPinningWorker;
 use log::{debug, info, trace, warn};
 use parking_lot::{Mutex, RwLock};
@@ -57,10 +60,7 @@ use sp_consensus::{BlockOrigin, BlockStatus, Error as ConsensusError};
 
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
 use sp_core::{
-	storage::{
-		well_known_keys, ChildInfo, ChildType, PrefixedStorageKey, StorageChild, StorageData,
-		StorageKey,
-	},
+	storage::{ChildInfo, ChildType, PrefixedStorageKey, StorageChild, StorageData, StorageKey},
 	traits::{CallContext, SpawnNamed},
 };
 use sp_runtime::{
@@ -85,10 +85,8 @@ use std::{
 	sync::Arc,
 };
 
-#[cfg(feature = "test-helpers")]
-use {
-	super::call_executor::LocalCallExecutor, sc_client_api::in_mem, sp_core::traits::CodeExecutor,
-};
+use super::call_executor::LocalCallExecutor;
+use sp_core::traits::CodeExecutor;
 
 type NotificationSinks<T> = Mutex<Vec<TracingUnboundedSender<T>>>;
 
@@ -115,6 +113,7 @@ where
 	config: ClientConfig<Block>,
 	telemetry: Option<TelemetryHandle>,
 	unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
+	code_provider: CodeProvider<Block, B, E>,
 	_phantom: PhantomData<RA>,
 }
 
@@ -151,39 +150,6 @@ enum PrepareStorageChangesResult<Block: BlockT> {
 	Discard(ImportResult),
 	Import(Option<sc_consensus::StorageChanges<Block>>),
 }
-
-/// Create an instance of in-memory client.
-#[cfg(feature = "test-helpers")]
-pub fn new_in_mem<E, Block, G, RA>(
-	backend: Arc<in_mem::Backend<Block>>,
-	executor: E,
-	genesis_block_builder: G,
-	prometheus_registry: Option<Registry>,
-	telemetry: Option<TelemetryHandle>,
-	spawn_handle: Box<dyn SpawnNamed>,
-	config: ClientConfig<Block>,
-) -> sp_blockchain::Result<
-	Client<in_mem::Backend<Block>, LocalCallExecutor<Block, in_mem::Backend<Block>, E>, Block, RA>,
->
-where
-	E: CodeExecutor + sc_executor::RuntimeVersionOf,
-	Block: BlockT,
-	G: BuildGenesisBlock<
-			Block,
-			BlockImportOperation = <in_mem::Backend<Block> as backend::Backend<Block>>::BlockImportOperation,
-		>,
-{
-	new_with_backend(
-		backend,
-		executor,
-		genesis_block_builder,
-		spawn_handle,
-		prometheus_registry,
-		telemetry,
-		config,
-	)
-}
-
 /// Client configuration items.
 #[derive(Debug, Clone)]
 pub struct ClientConfig<Block: BlockT> {
@@ -217,7 +183,6 @@ impl<Block: BlockT> Default for ClientConfig<Block> {
 
 /// Create a client with the explicitly provided backend.
 /// This is useful for testing backend implementations.
-#[cfg(feature = "test-helpers")]
 pub fn new_with_backend<B, E, Block, G, RA>(
 	backend: Arc<B>,
 	executor: E,
@@ -410,6 +375,7 @@ where
 			Block,
 			BlockImportOperation = <B as backend::Backend<Block>>::BlockImportOperation,
 		>,
+		E: Clone,
 		B: 'static,
 	{
 		let info = backend.blockchain().info();
@@ -438,6 +404,7 @@ where
 		);
 		let unpin_worker = NotificationPinningWorker::new(rx, backend.clone());
 		spawn_handle.spawn("notification-pinning-worker", None, Box::pin(unpin_worker.run()));
+		let code_provider = CodeProvider::new(&config, executor.clone(), backend.clone())?;
 
 		Ok(Client {
 			backend,
@@ -453,6 +420,7 @@ where
 			config,
 			telemetry,
 			unpin_worker_sender,
+			code_provider,
 			_phantom: Default::default(),
 		})
 	}
@@ -475,13 +443,10 @@ where
 	}
 
 	/// Get the code at a given block.
+	///
+	/// This takes any potential substitutes into account, but ignores overrides.
 	pub fn code_at(&self, hash: Block::Hash) -> sp_blockchain::Result<Vec<u8>> {
-		Ok(StorageProvider::storage(self, hash, &StorageKey(well_known_keys::CODE.to_vec()))?
-			.expect(
-				"None is returned if there's no value stored for the given key;\
-				':code' key is always defined; qed",
-			)
-			.0)
+		self.code_provider.code_at_ignoring_overrides(hash)
 	}
 
 	/// Get the RuntimeVersion at a given block.
@@ -512,6 +477,7 @@ where
 			fork_choice,
 			intermediates,
 			import_existing,
+			create_gap,
 			..
 		} = import_block;
 
@@ -535,6 +501,8 @@ where
 		let height = (*import_headers.post().number()).saturated_into::<u64>();
 
 		*self.importing_block.write() = Some(hash);
+
+		operation.op.set_create_gap(create_gap);
 
 		let result = self.execute_and_import_block(
 			operation,
@@ -603,9 +571,8 @@ where
 		}
 
 		let info = self.backend.blockchain().info();
-		let gap_block = info
-			.block_gap
-			.map_or(false, |(start, _)| *import_headers.post().number() == start);
+		let gap_block =
+			info.block_gap.map_or(false, |gap| *import_headers.post().number() == gap.start);
 
 		// the block is lower than our last finalized block so it must revert
 		// finality, refusing import.
@@ -1753,7 +1720,7 @@ where
 	/// If you are not sure that there are no BlockImport objects provided by the consensus
 	/// algorithm, don't use this function.
 	async fn import_block(
-		&mut self,
+		&self,
 		mut import_block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		let span = tracing::span!(tracing::Level::DEBUG, "import_block");
@@ -1779,7 +1746,7 @@ where
 
 	/// Check block preconditions.
 	async fn check_block(
-		&mut self,
+		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		let BlockCheckParams {
@@ -1853,18 +1820,18 @@ where
 {
 	type Error = ConsensusError;
 
-	async fn import_block(
-		&mut self,
-		import_block: BlockImportParams<Block>,
-	) -> Result<ImportResult, Self::Error> {
-		(&*self).import_block(import_block).await
-	}
-
 	async fn check_block(
-		&mut self,
+		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
-		(&*self).check_block(block).await
+		(&self).check_block(block).await
+	}
+
+	async fn import_block(
+		&self,
+		import_block: BlockImportParams<Block>,
+	) -> Result<ImportResult, Self::Error> {
+		(&self).import_block(import_block).await
 	}
 }
 

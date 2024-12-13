@@ -217,7 +217,8 @@ pub trait BlockImportOperation<Block: BlockT> {
 	where
 		I: IntoIterator<Item = (Vec<u8>, Option<Vec<u8>>)>;
 
-	/// Mark a block as finalized.
+	/// Mark a block as finalized, if multiple blocks are finalized in the same operation then they
+	/// must be marked in ascending order.
 	fn mark_finalized(
 		&mut self,
 		hash: Block::Hash,
@@ -231,6 +232,9 @@ pub trait BlockImportOperation<Block: BlockT> {
 	/// Add a transaction index operation.
 	fn update_transaction_index(&mut self, index: Vec<IndexOperation>)
 		-> sp_blockchain::Result<()>;
+
+	/// Configure whether to create a block gap if newly imported block is missing parent
+	fn set_create_gap(&mut self, create_gap: bool);
 }
 
 /// Interface for performing operations on the backend.

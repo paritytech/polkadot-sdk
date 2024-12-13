@@ -27,8 +27,9 @@ use crate::{
 	},
 	shared,
 };
-use frame_support::{assert_noop, assert_ok, error::BadOrigin};
-use primitives::{BlockNumber, InboundDownwardMessage};
+use frame_support::{assert_noop, assert_ok};
+use polkadot_primitives::{BlockNumber, InboundDownwardMessage};
+use sp_runtime::traits::BadOrigin;
 use std::collections::BTreeMap;
 
 pub(crate) fn run_to_block(to: BlockNumber, new_session: Option<Vec<BlockNumber>>) {
@@ -660,7 +661,7 @@ fn check_sent_messages() {
 
 #[test]
 fn verify_externally_accessible() {
-	use primitives::{well_known_keys, AbridgedHrmpChannel};
+	use polkadot_primitives::{well_known_keys, AbridgedHrmpChannel};
 
 	let para_a = 2020.into();
 	let para_b = 2021.into();

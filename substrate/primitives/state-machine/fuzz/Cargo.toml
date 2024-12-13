@@ -1,0 +1,30 @@
+[package]
+name = "sp-state-machine-fuzz"
+version = "0.0.0"
+publish = false
+license = "Apache-2.0"
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+sp-runtime = { path = "../../runtime" }
+
+[dependencies.sp-state-machine]
+path = ".."
+features = ["fuzzing"]
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "fuzz_append"
+path = "fuzz_targets/fuzz_append.rs"
+test = false
+doc = false
