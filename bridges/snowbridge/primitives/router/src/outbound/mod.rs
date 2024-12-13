@@ -97,9 +97,8 @@ where
 		}
 
 		// Check the location here can only be AssetHub sovereign
-		ensure!(local_sub.len() == 1, SendError::NotApplicable);
 		let para_id = match local_sub.as_slice() {
-			[Parachain(para_id)] => *para_id,
+			[Parachain(para_id)] if *para_id == ASSET_HUB_PARA_ID => *para_id,
 			_ => {
 				log::error!(target: "xcm::ethereum_blob_exporter", "could not get parachain id from universal source '{local_sub:?}'.");
 				return Err(SendError::NotApplicable);
