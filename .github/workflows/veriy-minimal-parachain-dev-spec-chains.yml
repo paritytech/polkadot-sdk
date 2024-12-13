@@ -1,0 +1,130 @@
+name: veriy-minimal-parachain-dev-spec-chains.yml
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  setup:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        template:
+          - package_name: 'parachain-template-runtime'
+            runtime_path: './templates/parachain/runtime'
+            artifact_name: 'wasm-parachain-template-runtime'
+            chain_spec_output: 'parachain_test_chain_spec'
+            runtime_wasm_path: 'parachain-template-runtime/parachain_template_runtime.compact.compressed.wasm'
+          - package_name: 'minimal-template-runtime'
+            runtime_path: './templates/minimal/runtime'
+            artifact_name: 'wasm-minimal-template-runtime'
+            chain_spec_output: 'minimal_test_chain_spec'
+            runtime_wasm_path: 'minimal-template-runtime/minimal_template_runtime.compact.compressed.wasm'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+
+      - name: Install srtool-cli
+        run: |
+          cargo install --git https://github.com/chevdor/srtool-cli
+          echo "Using srtool-cli Version:"
+          srtool --version
+
+      - name: Pull srtool docker image
+        run: |
+          srtool pull
+
+      - name: Prepare build directories
+        run: |
+          sudo mkdir -p ${{ matrix.template.runtime_path }}/target
+          sudo chmod -R 777 ${{ matrix.template.runtime_path }}/target
+
+      - name: Build runtime binary
+        run: |
+          srtool build --package ${{ matrix.template.package_name }} --runtime-dir ${{ matrix.template.runtime_path }} --root
+
+      - name: Upload runtime artifact
+        uses: actions/upload-artifact@v4.3.1
+        with:
+          name: ${{ matrix.template.artifact_name }}
+          path: ${{ matrix.template.runtime_path }}/target/srtool/release/wbuild/${{ matrix.template.runtime_wasm_path }}
+
+      - name: Install staging-chain-spec-builder
+        run: |
+          cargo install --path substrate/bin/utils/chain-spec-builder
+
+      - name: Create chain spec
+        run: |
+          chain-spec-builder create \
+            --relay-chain "dev" \
+            --para-id 1000 \
+            --runtime "${{ matrix.template.runtime_path }}/target/srtool/release/wbuild/${{ matrix.template.runtime_wasm_path }}" \
+            named-preset development > ${{ matrix.template.chain_spec_output }}
+
+      - name: Upload chain spec artifact
+        uses: actions/upload-artifact@v4.3.1
+        with:
+          name: ${{ matrix.template.chain_spec_output }}
+          path: ${{ matrix.template.chain_spec_output }}
+
+  verify-template-chain-specs:
+    if: success()
+    needs: setup
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        template:
+          - runtime_path: './templates/parachain'
+            chain_spec_output: 'parachain_test_chain_spec'
+          - runtime_path: './templates/minimal'
+            chain_spec_output: 'minimal_test_chain_spec'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download generated spec
+        uses: actions/download-artifact@v4.3.1
+        with:
+          name: ${{ matrix.template.chain_spec_output }}
+          path: ./downloaded_spec
+
+      - name: Compare chain specs
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq
+          # Check if files exist
+          if [ ! -f "${{ matrix.template.runtime_path }}/dev_chain_spec.json" ]; then
+            echo "❌ Reference spec not found at ${{ matrix.template.runtime_path }}/dev_chain_spec.json"
+            exit 1
+          fi
+          
+          if [ ! -f "./downloaded_spec/${{ matrix.template.chain_spec_output }}" ]; then
+            echo "❌ Generated spec not found at ./downloaded_spec/${{ matrix.template.chain_spec_output }}"
+            exit 1
+          fi
+          
+          jq -S . ${{ matrix.template.runtime_path }}/dev_chain_spec.json > existing_spec_sorted.json
+          jq -S . ./downloaded_spec/${{ matrix.template.chain_spec_output }} > generated_spec_sorted.json
+          
+          if diff existing_spec_sorted.json generated_spec_sorted.json; then
+            echo "✅ Spec files match perfectly"
+          else
+            echo "❌ Spec files differ:"
+            diff existing_spec_sorted.json generated_spec_sorted.json
+            exit 1
+          fi
