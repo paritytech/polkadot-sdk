@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Use relay chain slot for velocity measurement on parachains
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The AuraExt pallets `ConsensusHook` is performing checks based on a parachains velocity. It was previously
+      checking how many blocks where produced in a given parachain slot. This only works well when the parachain
+      and relay chain slot length is the same. After this PR, we are checking against the relay chain slot.
+
+      A migration is included that cleans up a renamed storage  item.
+
+crates: [ ]
