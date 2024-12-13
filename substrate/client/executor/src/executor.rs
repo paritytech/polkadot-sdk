@@ -92,6 +92,7 @@ pub struct WasmExecutorBuilder<H = sp_io::SubstrateHostFunctions> {
 	max_runtime_instances: usize,
 	cache_path: Option<PathBuf>,
 	allow_missing_host_functions: bool,
+	wasmtime_precompiled_path: Option<PathBuf>,
 	runtime_cache_size: u8,
 }
 
@@ -110,6 +111,7 @@ impl<H> WasmExecutorBuilder<H> {
 			runtime_cache_size: 4,
 			allow_missing_host_functions: false,
 			cache_path: None,
+			wasmtime_precompiled_path: None,
 		}
 	}
 
@@ -193,6 +195,23 @@ impl<H> WasmExecutorBuilder<H> {
 		self
 	}
 
+	/// Create the wasm executor with the given `maybe_wasmtime_precompiled_path`, provided that it
+	/// is `Some`.
+	///
+	/// The `maybe_wasmtime_precompiled_path` is an optional which (if `Some`) its inner value is a
+	/// path to a directory where the executor loads precompiled wasmtime modules.
+	///
+	/// If `None`, calling this function will have no impact on the wasm executor being built.
+	pub fn with_optional_wasmtime_precompiled_path(
+		mut self,
+		maybe_wasmtime_precompiled_path: Option<impl Into<PathBuf>>,
+	) -> Self {
+		if let Some(wasmtime_precompiled_path) = maybe_wasmtime_precompiled_path {
+			self.wasmtime_precompiled_path = Some(wasmtime_precompiled_path.into());
+		}
+		self
+	}
+
 	/// Build the configured [`WasmExecutor`].
 	pub fn build(self) -> WasmExecutor<H> {
 		WasmExecutor {
@@ -211,6 +230,7 @@ impl<H> WasmExecutorBuilder<H> {
 			)),
 			cache_path: self.cache_path,
 			allow_missing_host_functions: self.allow_missing_host_functions,
+			wasmtime_precompiled_path: self.wasmtime_precompiled_path,
 			phantom: PhantomData,
 		}
 	}
@@ -234,6 +254,8 @@ pub struct WasmExecutor<H = sp_io::SubstrateHostFunctions> {
 	cache_path: Option<PathBuf>,
 	/// Ignore missing function imports.
 	allow_missing_host_functions: bool,
+	/// Optional path to a directory where the executor can find precompiled wasmtime modules.
+	wasmtime_precompiled_path: Option<PathBuf>,
 	phantom: PhantomData<H>,
 }
 
@@ -247,6 +269,7 @@ impl<H> Clone for WasmExecutor<H> {
 			cache: self.cache.clone(),
 			cache_path: self.cache_path.clone(),
 			allow_missing_host_functions: self.allow_missing_host_functions,
+			wasmtime_precompiled_path: self.wasmtime_precompiled_path.clone(),
 			phantom: self.phantom,
 		}
 	}
@@ -301,6 +324,7 @@ impl<H> WasmExecutor<H> {
 			)),
 			cache_path,
 			allow_missing_host_functions: false,
+			wasmtime_precompiled_path: None,
 			phantom: PhantomData,
 		}
 	}
@@ -353,6 +377,7 @@ where
 			runtime_code,
 			ext,
 			self.method,
+			self.wasmtime_precompiled_path.as_deref(),
 			heap_alloc_strategy,
 			self.allow_missing_host_functions,
 			|module, instance, version, ext| {
@@ -430,6 +455,8 @@ where
 			runtime_blob,
 			allow_missing_host_functions,
 			self.cache_path.as_deref(),
+			None,
+			&[],
 		)
 		.map_err(|e| format!("Failed to create module: {}", e))?;
 

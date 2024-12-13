@@ -64,7 +64,7 @@ where
 		if allow_missing_func_imports {
 			for (name, (import_ty, func_ty)) in registry.pending_func_imports {
 				let error = format!("call to a missing function {}:{}", import_ty.module(), name);
-				log::debug!("Missing import: '{}' {:?}", name, func_ty);
+				tracing::debug!("Missing import: '{}' {:?}", name, func_ty);
 				linker
 					.func_new("env", &name, func_ty.clone(), move |_, _, _| {
 					    Err(anyhow::Error::msg(error.clone()))

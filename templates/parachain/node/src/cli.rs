@@ -39,6 +39,9 @@ pub enum Subcommand {
 	/// The pallet benchmarking moved to the `pallet` sub-command.
 	#[command(subcommand)]
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
+
+	/// Precompile the WASM runtime into native code
+	PrecompileWasm(sc_cli::PrecompileWasmCmd),
 }
 
 const AFTER_HELP_EXAMPLE: &str = color_print::cstr!(

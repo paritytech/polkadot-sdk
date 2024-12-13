@@ -37,6 +37,7 @@ bip39 = { package = "parity-bip39", version = "2.0.1", features = ["rand"] }
 tokio = { features = ["parking_lot", "rt-multi-thread", "signal"], workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-client-db = { workspace = true }
+sc-executor = { workspace = true, default-features = true }
 sc-keystore = { workspace = true, default-features = true }
 sc-mixnet = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
@@ -51,6 +52,8 @@ sp-keyring = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-panic-handler = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
+sp-storage = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
 
 [dev-dependencies]
