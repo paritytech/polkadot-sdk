@@ -146,9 +146,9 @@ struct ConnectionContext {
 /// Kademlia query we are tracking.
 #[derive(Debug)]
 enum KadQuery {
-	/// `GET_VALUE` query for key and wnen it was initiated.
+	/// `GET_VALUE` query for key and when it was initiated.
 	GetValue(RecordKey, Instant),
-	/// `PUT_VALUE` query for key and wnen it was initiated.
+	/// `PUT_VALUE` query for key and when it was initiated.
 	PutValue(RecordKey, Instant),
 	/// `GET_PROVIDERS` query for key and when it was initiated.
 	GetProviders(RecordKey, Instant),
