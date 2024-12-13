@@ -690,9 +690,12 @@ fn should_do_no_work_if_async_backing_disabled_for_leaf() {
 // - One for leaf B on parachain 1
 // - One for leaf C on parachain 2
 // Also tests a claim queue size larger than 1.
-#[test]
-fn introduce_candidates_basic() {
+#[rstest]
+#[case(RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT)]
+#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
+fn introduce_candidates_basic(#[case] runtime_api_version: u32) {
 	let mut test_state = TestState::default();
+	test_state.set_runtime_api_version(runtime_api_version);
 
 	let chain_a = ParaId::from(1);
 	let chain_b = ParaId::from(2);
@@ -977,9 +980,12 @@ fn introduce_candidates_error(#[case] runtime_api_version: u32) {
 	assert_eq!(view.active_leaves.len(), 1);
 }
 
-#[test]
-fn introduce_candidate_multiple_times() {
-	let test_state = TestState::default();
+#[rstest]
+#[case(RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT)]
+#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
+fn introduce_candidate_multiple_times(#[case] runtime_api_version: u32) {
+	let mut test_state = TestState::default();
+	test_state.set_runtime_api_version(runtime_api_version);
 	let view = test_harness(|mut virtual_overseer| async move {
 		// Leaf A
 		let leaf_a = TestLeaf {
@@ -1363,9 +1369,12 @@ fn introduce_candidate_parent_leaving_view() {
 }
 
 // Introduce a candidate to multiple forks, see how the membership is returned.
-#[test]
-fn introduce_candidate_on_multiple_forks() {
-	let test_state = TestState::default();
+#[rstest]
+#[case(RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT)]
+#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
+fn introduce_candidate_on_multiple_forks(#[case] runtime_api_version: u32) {
+	let mut test_state = TestState::default();
+	test_state.set_runtime_api_version(runtime_api_version);
 	let view = test_harness(|mut virtual_overseer| async move {
 		// Leaf B
 		let leaf_b = TestLeaf {
@@ -1432,11 +1441,14 @@ fn introduce_candidate_on_multiple_forks() {
 	assert_eq!(view.active_leaves.len(), 2);
 }
 
-#[test]
-fn unconnected_candidates_become_connected() {
+#[rstest]
+#[case(RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT)]
+#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
+fn unconnected_candidates_become_connected(#[case] runtime_api_version: u32) {
 	// This doesn't test all the complicated cases with many unconnected candidates, as it's more
 	// extensively tested in the `fragment_chain::tests` module.
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
+	test_state.set_runtime_api_version(runtime_api_version);
 	let view = test_harness(|mut virtual_overseer| async move {
 		// Leaf A
 		let leaf_a = TestLeaf {
@@ -1674,9 +1686,14 @@ fn check_backable_query_single_candidate() {
 }
 
 // Backs some candidates and tests `GetBackableCandidates` when requesting a multiple candidates.
-#[test]
-fn check_backable_query_multiple_candidates() {
-	let test_state = TestState::default();
+#[rstest]
+#[case(RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT)]
+#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
+fn check_backable_query_multiple_candidates(#[case] runtime_api_version: u32) {
+	// This doesn't test all the complicated cases with many unconnected candidates, as it's more
+	// extensively tested in the `fragment_chain::tests` module.
+	let mut test_state = TestState::default();
+	test_state.set_runtime_api_version(runtime_api_version);
 	let view = test_harness(|mut virtual_overseer| async move {
 		// Leaf A
 		let leaf_a = TestLeaf {
@@ -2127,9 +2144,14 @@ fn check_hypothetical_membership_query(#[case] runtime_api_version: u32) {
 	assert_eq!(view.active_leaves.len(), 2);
 }
 
-#[test]
-fn check_pvd_query() {
-	let test_state = TestState::default();
+#[rstest]
+#[case(RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT)]
+#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
+fn check_pvd_query(#[case] runtime_api_version: u32) {
+	// This doesn't test all the complicated cases with many unconnected candidates, as it's more
+	// extensively tested in the `fragment_chain::tests` module.
+	let mut test_state = TestState::default();
+	test_state.set_runtime_api_version(runtime_api_version);
 	let view = test_harness(|mut virtual_overseer| async move {
 		// Leaf A
 		let leaf_a = TestLeaf {
@@ -2369,10 +2391,15 @@ fn correctly_updates_leaves(#[case] runtime_api_version: u32) {
 	assert_eq!(view.active_leaves.len(), 0);
 }
 
-#[test]
-fn handle_active_leaves_update_gets_candidates_from_parent() {
-	let para_id = ParaId::from(1);
+#[rstest]
+#[case(RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT)]
+#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
+fn handle_active_leaves_update_gets_candidates_from_parent(#[case] runtime_api_version: u32) {
+	// This doesn't test all the complicated cases with many unconnected candidates, as it's more
+	// extensively tested in the `fragment_chain::tests` module.
 	let mut test_state = TestState::default();
+	test_state.set_runtime_api_version(runtime_api_version);
+	let para_id = ParaId::from(1);
 	test_state.claim_queue = test_state
 		.claim_queue
 		.into_iter()
@@ -2685,9 +2712,14 @@ fn handle_active_leaves_update_bounded_implicit_view() {
 	);
 }
 
-#[test]
-fn persists_pending_availability_candidate() {
+#[rstest]
+#[case(RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT)]
+#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
+fn persists_pending_availability_candidate(#[case] runtime_api_version: u32) {
+	// This doesn't test all the complicated cases with many unconnected candidates, as it's more
+	// extensively tested in the `fragment_chain::tests` module.
 	let mut test_state = TestState::default();
+	test_state.set_runtime_api_version(runtime_api_version);
 	let para_id = ParaId::from(1);
 	test_state.claim_queue = test_state
 		.claim_queue
