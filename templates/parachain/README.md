@@ -36,7 +36,10 @@
 - ⏫ This template provides a starting point to build a [parachain](https://wiki.polkadot.network/docs/learn-parachains).
 
 
-- 🔧 To simplify the process of using Zombienet with Omni Node, we’ve added a pre-configured development chain spec (dev_chain_spec.json) to the parachain template. Additionally, the zombienet-omni-node.toml file has been updated to include a valid chain spec path pointing to dev_chain_spec.json
+- 🔧 To simplify the process of using Zombienet with Omni Node, we’ve added a pre-configured
+development chain spec (dev_chain_spec.json) to the parachain template. Additionally,
+the zombienet-omni-node.toml file has been updated to include a valid chain spec path
+pointing to dev_chain_spec.json
 
 
 - ☁️ It is based on the
@@ -50,11 +53,15 @@ such as a [Balances pallet](https://paritytech.github.io/polkadot-sdk/master/pal
 - 👉 Learn more about parachains [here](https://wiki.polkadot.network/docs/learn-parachains)
 
 
-- ⚠️ The README files for the templates in this repository are currently speculative. A stable release addressing this is expected in December.
+- ⚠️ The README files for the templates in this repository are currently speculative. 
+A stable release addressing this is expected in December.
 
 
--  Follow solely the templates' READMEs and templates themselves from polkadot-sdk master branch, but ignore the references to the dedicated templates directory. 
-For the most accurate chain spec generation,  `staging-chain-spec-builder` or other mentioned binaries and runtimes, please try to build them based on the polkadot-sdk most updated master branch an example:
+-  Follow solely the templates' READMEs and templates themselves from Polkadot-sdk master branch,
+but ignore the references to the dedicated templates directory.
+For the most accurate chain spec generation,  `staging-chain-spec-builder` or other mentioned
+binaries and runtimes,please try to build them based on the Polkadot-sdk most updated master branch 
+an example:
   ```bash
   cargo install --path substrate/bin/utils/chain-spec-builder
 ```
