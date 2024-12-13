@@ -37,6 +37,161 @@ pub(crate) fn host_filtering(enabled: bool, addr: Option<SocketAddr>) -> Option<
 	// If the local_addr failed, fallback to wildcard.
 	let port = addr.map_or("*".to_string(), |p| p.port().to_string());
 
+<<<<<<< HEAD
+=======
+impl std::error::Error for ListenAddrError {}
+
+impl std::fmt::Display for ListenAddrError {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		write!(f, "No listen address was successfully bound")
+	}
+}
+
+/// Available RPC methods.
+#[derive(Debug, Copy, Clone)]
+pub enum RpcMethods {
+	/// Allow only a safe subset of RPC methods.
+	Safe,
+	/// Expose every RPC method (even potentially unsafe ones).
+	Unsafe,
+	/// Automatically determine the RPC methods based on the connection.
+	Auto,
+}
+
+impl Default for RpcMethods {
+	fn default() -> Self {
+		RpcMethods::Auto
+	}
+}
+
+impl FromStr for RpcMethods {
+	type Err = String;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		match s {
+			"safe" => Ok(RpcMethods::Safe),
+			"unsafe" => Ok(RpcMethods::Unsafe),
+			"auto" => Ok(RpcMethods::Auto),
+			invalid => Err(format!("Invalid rpc methods {invalid}")),
+		}
+	}
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct RpcSettings {
+	pub(crate) batch_config: BatchRequestConfig,
+	pub(crate) max_connections: u32,
+	pub(crate) max_payload_in_mb: u32,
+	pub(crate) max_payload_out_mb: u32,
+	pub(crate) max_subscriptions_per_connection: u32,
+	pub(crate) max_buffer_capacity_per_connection: u32,
+	pub(crate) rpc_methods: RpcMethods,
+	pub(crate) rate_limit: Option<NonZeroU32>,
+	pub(crate) rate_limit_trust_proxy_headers: bool,
+	pub(crate) rate_limit_whitelisted_ips: Vec<IpNetwork>,
+	pub(crate) cors: CorsLayer,
+	pub(crate) host_filter: Option<HostFilterLayer>,
+}
+
+/// Represent a single RPC endpoint with its configuration.
+#[derive(Debug, Clone)]
+pub struct RpcEndpoint {
+	/// Listen address.
+	pub listen_addr: SocketAddr,
+	/// Batch request configuration.
+	pub batch_config: BatchRequestConfig,
+	/// Maximum number of connections.
+	pub max_connections: u32,
+	/// Maximum inbound payload size in MB.
+	pub max_payload_in_mb: u32,
+	/// Maximum outbound payload size in MB.
+	pub max_payload_out_mb: u32,
+	/// Maximum number of subscriptions per connection.
+	pub max_subscriptions_per_connection: u32,
+	/// Maximum buffer capacity per connection.
+	pub max_buffer_capacity_per_connection: u32,
+	/// Rate limit per minute.
+	pub rate_limit: Option<NonZeroU32>,
+	/// Whether to trust proxy headers for rate limiting.
+	pub rate_limit_trust_proxy_headers: bool,
+	/// Whitelisted IPs for rate limiting.
+	pub rate_limit_whitelisted_ips: Vec<IpNetwork>,
+	/// CORS.
+	pub cors: Option<Vec<String>>,
+	/// RPC methods to expose.
+	pub rpc_methods: RpcMethods,
+	/// Whether it's an optional listening address i.e, it's ignored if it fails to bind.
+	/// For example substrate tries to bind both ipv4 and ipv6 addresses but some platforms
+	/// may not support ipv6.
+	pub is_optional: bool,
+	/// Whether to retry with a random port if the provided port is already in use.
+	pub retry_random_port: bool,
+}
+
+impl RpcEndpoint {
+	/// Binds to the listen address.
+	pub(crate) async fn bind(self) -> Result<Listener, Box<dyn StdError + Send + Sync>> {
+		let listener = match tokio::net::TcpListener::bind(self.listen_addr).await {
+			Ok(listener) => listener,
+			Err(_) if self.retry_random_port => {
+				let mut addr = self.listen_addr;
+				addr.set_port(0);
+
+				tokio::net::TcpListener::bind(addr).await?
+			},
+			Err(e) => return Err(e.into()),
+		};
+		let local_addr = listener.local_addr()?;
+		let host_filter = host_filtering(self.cors.is_some(), local_addr);
+		let cors = try_into_cors(self.cors)?;
+
+		Ok(Listener {
+			listener,
+			local_addr,
+			cfg: RpcSettings {
+				batch_config: self.batch_config,
+				max_connections: self.max_connections,
+				max_payload_in_mb: self.max_payload_in_mb,
+				max_payload_out_mb: self.max_payload_out_mb,
+				max_subscriptions_per_connection: self.max_subscriptions_per_connection,
+				max_buffer_capacity_per_connection: self.max_buffer_capacity_per_connection,
+				rpc_methods: self.rpc_methods,
+				rate_limit: self.rate_limit,
+				rate_limit_trust_proxy_headers: self.rate_limit_trust_proxy_headers,
+				rate_limit_whitelisted_ips: self.rate_limit_whitelisted_ips,
+				host_filter,
+				cors,
+			},
+		})
+	}
+}
+
+/// TCP socket server with RPC settings.
+pub(crate) struct Listener {
+	listener: tokio::net::TcpListener,
+	local_addr: SocketAddr,
+	cfg: RpcSettings,
+}
+
+impl Listener {
+	/// Accepts a new connection.
+	pub(crate) async fn accept(&mut self) -> std::io::Result<(tokio::net::TcpStream, SocketAddr)> {
+		let (sock, remote_addr) = self.listener.accept().await?;
+		Ok((sock, remote_addr))
+	}
+
+	/// Returns the local address the listener is bound to.
+	pub fn local_addr(&self) -> SocketAddr {
+		self.local_addr
+	}
+
+	pub fn rpc_settings(&self) -> RpcSettings {
+		self.cfg.clone()
+	}
+}
+
+pub(crate) fn host_filtering(enabled: bool, addr: SocketAddr) -> Option<HostFilterLayer> {
+>>>>>>> e1add3e (rpc: re-use server builder per rpc interface (#6652))
 	if enabled {
 		// NOTE: The listening addresses are whitelisted by default.
 		let hosts =
