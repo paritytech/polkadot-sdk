@@ -29,6 +29,7 @@ use crate::{
 		ChainExtension, Environment, Ext, RegisteredChainExtension, Result as ExtensionResult,
 		RetVal, ReturnFlags,
 	},
+	evm::GenericTransaction,
 	exec::Key,
 	limits,
 	primitives::CodeUploadReturnValue,
@@ -38,8 +39,8 @@ use crate::{
 	wasm::Memory,
 	weights::WeightInfo,
 	AccountId32Mapper, BalanceOf, Code, CodeInfoOf, CollectEvents, Config, ContractInfo,
-	ContractInfoOf, DebugInfo, DeletionQueueCounter, DepositLimit, Error, HoldReason, Origin,
-	Pallet, PristineCode, H160,
+	ContractInfoOf, DebugInfo, DeletionQueueCounter, DepositLimit, Error, EthTransactError,
+	HoldReason, Origin, Pallet, PristineCode, H160,
 };
 
 use crate::test_utils::builder::Contract;
@@ -4342,6 +4343,28 @@ fn create1_with_value_works() {
 }
 
 #[test]
+fn call_data_size_api_works() {
+	let (code, _) = compile_module("call_data_size").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create fixture: Constructor does nothing
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// Call the contract: It echoes back the value returned by the call data size API.
+		let received = builder::bare_call(addr).build_and_unwrap_result();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		assert_eq!(U256::from_little_endian(&received.data), U256::zero());
+
+		let received = builder::bare_call(addr).data(vec![1; 256]).build_and_unwrap_result();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		assert_eq!(U256::from_little_endian(&received.data), U256::from(256));
+	});
+}
+
+#[test]
 fn static_data_limit_is_enforced() {
 	let (oom_rw_trailing, _) = compile_module("oom_rw_trailing").unwrap();
 	let (oom_rw_included, _) = compile_module("oom_rw_included").unwrap();
@@ -4403,6 +4426,48 @@ fn chain_id_works() {
 		let chain_id = U256::from(<Test as Config>::ChainId::get());
 		let received = builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_result();
 		assert_eq!(received.result.data, chain_id.encode());
+	});
+}
+
+#[test]
+fn call_data_load_api_works() {
+	let (code, _) = compile_module("call_data_load").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create fixture: Constructor does nothing
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// Call the contract: It reads a byte for the offset and then returns
+		// what call data load returned using this byte as the offset.
+		let input = (3u8, U256::max_value(), U256::max_value()).encode();
+		let received = builder::bare_call(addr).data(input).build().result.unwrap();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		assert_eq!(U256::from_little_endian(&received.data), U256::max_value());
+
+		// Edge case
+		let input = (2u8, U256::from(255).to_big_endian()).encode();
+		let received = builder::bare_call(addr).data(input).build().result.unwrap();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		assert_eq!(U256::from_little_endian(&received.data), U256::from(65280));
+
+		// Edge case
+		let received = builder::bare_call(addr).data(vec![1]).build().result.unwrap();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		assert_eq!(U256::from_little_endian(&received.data), U256::zero());
+
+		// OOB case
+		let input = (42u8).encode();
+		let received = builder::bare_call(addr).data(input).build().result.unwrap();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		assert_eq!(U256::from_little_endian(&received.data), U256::zero());
+
+		// No calldata should return the zero value
+		let received = builder::bare_call(addr).build().result.unwrap();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		assert_eq!(U256::from_little_endian(&received.data), U256::zero());
 	});
 }
 
@@ -4653,5 +4718,134 @@ fn mapped_address_works() {
 		builder::bare_call(addr).build_and_unwrap_result();
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 100);
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 1_100);
+	});
+}
+
+#[test]
+fn skip_transfer_works() {
+	let (code_caller, _) = compile_module("call").unwrap();
+	let (code, _) = compile_module("set_empty_storage").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		<Test as Config>::Currency::set_balance(&BOB, 0);
+
+		// fails to instantiate when gas is specified.
+		assert_err!(
+			Pallet::<Test>::bare_eth_transact(
+				GenericTransaction {
+					from: Some(BOB_ADDR),
+					input: Some(code.clone().into()),
+					gas: Some(1u32.into()),
+					..Default::default()
+				},
+				Weight::MAX,
+				|_| 0u32
+			),
+			EthTransactError::Message(format!(
+				"insufficient funds for gas * price + value: address {BOB_ADDR:?} have 0 (supplied gas 1)"
+			))
+		);
+
+		// works when no gas is specified.
+		assert_ok!(Pallet::<Test>::bare_eth_transact(
+			GenericTransaction {
+				from: Some(ALICE_ADDR),
+				input: Some(code.clone().into()),
+				..Default::default()
+			},
+			Weight::MAX,
+			|_| 0u32
+		));
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(code_caller)).build_and_unwrap_contract();
+
+		// fails to call when gas is specified.
+		assert_err!(
+			Pallet::<Test>::bare_eth_transact(
+				GenericTransaction {
+					from: Some(BOB_ADDR),
+					to: Some(addr),
+					gas: Some(1u32.into()),
+					..Default::default()
+				},
+				Weight::MAX,
+				|_| 0u32
+			),
+			EthTransactError::Message(format!(
+				"insufficient funds for gas * price + value: address {BOB_ADDR:?} have 0 (supplied gas 1)"
+			))
+		);
+
+		// fails when calling from a contract when gas is specified.
+		assert_err!(
+			Pallet::<Test>::bare_eth_transact(
+				GenericTransaction {
+					from: Some(BOB_ADDR),
+					to: Some(caller_addr),
+					input: Some((0u32, &addr).encode().into()),
+					gas: Some(1u32.into()),
+					..Default::default()
+				},
+				Weight::MAX,
+				|_| 0u32
+			),
+			EthTransactError::Message(format!("insufficient funds for gas * price + value: address {BOB_ADDR:?} have 0 (supplied gas 1)"))
+		);
+
+		// works when no gas is specified.
+		assert_ok!(Pallet::<Test>::bare_eth_transact(
+			GenericTransaction { from: Some(BOB_ADDR), to: Some(addr), ..Default::default() },
+			Weight::MAX,
+			|_| 0u32
+		));
+
+		// works when calling from a contract when no gas is specified.
+		assert_ok!(Pallet::<Test>::bare_eth_transact(
+			GenericTransaction {
+				from: Some(BOB_ADDR),
+				to: Some(caller_addr),
+				input: Some((0u32, &addr).encode().into()),
+				..Default::default()
+			},
+			Weight::MAX,
+			|_| 0u32
+		));
+	});
+}
+
+#[test]
+fn unknown_syscall_rejected() {
+	let (code, _) = compile_module("unknown_syscall").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		assert_err!(
+			builder::bare_instantiate(Code::Upload(code)).build().result,
+			<Error<Test>>::CodeRejected,
+		)
+	});
+}
+
+#[test]
+fn unstable_interface_rejected() {
+	let (code, _) = compile_module("unstable_interface").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		Test::set_unstable_interface(false);
+		assert_err!(
+			builder::bare_instantiate(Code::Upload(code.clone())).build().result,
+			<Error<Test>>::CodeRejected,
+		);
+
+		Test::set_unstable_interface(true);
+		assert_ok!(builder::bare_instantiate(Code::Upload(code)).build().result);
 	});
 }

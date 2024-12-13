@@ -2471,14 +2471,14 @@ sp_api::impl_runtime_apis! {
 						ExistentialDepositAsset,
 						xcm_config::PriceForChildParachainDelivery,
 						AssetHubParaId,
-						(),
+						Dmp,
 					>,
 					polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
 						XcmConfig,
 						ExistentialDepositAsset,
 						xcm_config::PriceForChildParachainDelivery,
 						RandomParaId,
-						(),
+						Dmp,
 					>
 				);
 
@@ -2537,7 +2537,7 @@ sp_api::impl_runtime_apis! {
 					ExistentialDepositAsset,
 					xcm_config::PriceForChildParachainDelivery,
 					AssetHubParaId,
-					(),
+					Dmp,
 				>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
 					Ok(AssetHub::get())
