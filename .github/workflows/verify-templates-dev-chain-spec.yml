@@ -99,9 +99,9 @@ jobs:
       matrix:
         template:
           - runtime_path: './templates/parachain'
-            chain_spec_output: 'parachain_test_chain_spec'
+            chain_spec_output: 'parachain_test_chain_spec.json'
           - runtime_path: './templates/minimal'
-            chain_spec_output: 'minimal_test_chain_spec'
+            chain_spec_output: 'minimal_test_chain_spec.json'
 
     steps:
       - name: Checkout code
