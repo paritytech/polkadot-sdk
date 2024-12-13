@@ -4656,6 +4656,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
  "sp-timestamp 26.0.0",
+ "sp-trie 29.0.0",
  "substrate-prometheus-endpoint",
  "tokio",
  "tracing",
@@ -4960,7 +4961,6 @@ dependencies = [
  "pallet-message-queue 31.0.0",
  "parity-scale-codec",
  "polkadot-parachain-primitives 6.0.0",
- "polkadot-runtime-common 7.0.0",
  "polkadot-runtime-parachains 7.0.0",
  "rand",
  "sc-client-api",
@@ -7177,6 +7177,7 @@ dependencies = [
  "sc-client-db",
  "sc-executor 0.32.0",
  "sc-executor-common 0.29.0",
+ "sc-runtime-utilities",
  "sc-service",
  "sc-sysinfo",
  "serde",
@@ -8492,9 +8493,9 @@ dependencies = [
 
 [[package]]
 name = "hickory-resolver"
-version = "0.24.1"
+version = "0.24.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28757f23aa75c98f254cf0405e6d8c25b831b32921b050a66692427679b1f243"
+checksum = "0a2e2aba9c389ce5267d31cf1e4dace82390ae276b0b364ea55630b1fa1b44b4"
 dependencies = [
  "cfg-if",
  "futures-util",
@@ -10410,9 +10411,9 @@ dependencies = [
 
 [[package]]
 name = "litep2p"
-version = "0.8.3"
+version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14e490b5a6d486711fd0284bd30e607a287343f2935a59a9192bd7109e85f443"
+checksum = "2b0fef34af8847e816003bf7fdeac5ea50b9a7a88441ac927a6166b5e812ab79"
 dependencies = [
  "async-trait",
  "bs58",
@@ -10726,9 +10727,9 @@ dependencies = [
 
 [[package]]
 name = "merkleized-metadata"
-version = "0.1.2"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "943f6d92804ed0100803d51fa9b21fd9432b5d122ba4c713dc26fe6d2f619cf6"
+checksum = "38c592efaf1b3250df14c8f3c2d952233f0302bb81d3586db2f303666c1cd607"
 dependencies = [
  "array-bytes",
  "blake3",
@@ -18100,6 +18101,7 @@ dependencies = [
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
  "cumulus-relay-chain-interface",
+ "cumulus-test-runtime",
  "docify",
  "frame-benchmarking 28.0.0",
  "frame-benchmarking-cli",
@@ -18128,29 +18130,37 @@ dependencies = [
  "sc-executor 0.32.0",
  "sc-network",
  "sc-rpc",
+ "sc-runtime-utilities",
  "sc-service",
  "sc-sysinfo",
  "sc-telemetry",
  "sc-tracing",
  "sc-transaction-pool",
+ "scale-info",
  "serde",
  "serde_json",
  "sp-api 26.0.0",
  "sp-block-builder 26.0.0",
+ "sp-consensus",
  "sp-consensus-aura 0.32.0",
  "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
  "sp-genesis-builder 0.8.0",
  "sp-inherents 26.0.0",
+ "sp-io 30.0.0",
  "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
  "sp-session 27.0.0",
+ "sp-storage 19.0.0",
  "sp-timestamp 26.0.0",
  "sp-transaction-pool 26.0.0",
  "sp-version 29.0.0",
+ "sp-wasm-interface 20.0.0",
  "sp-weights 27.0.0",
  "substrate-frame-rpc-system",
  "substrate-prometheus-endpoint",
  "substrate-state-trie-migration-rpc",
+ "subxt-metadata",
  "tokio",
  "wait-timeout",
 ]
@@ -18888,6 +18898,7 @@ dependencies = [
  "sc-rpc-api",
  "sc-rpc-server",
  "sc-rpc-spec-v2",
+ "sc-runtime-utilities",
  "sc-service",
  "sc-state-db",
  "sc-statement-store",
@@ -23508,6 +23519,25 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-runtime-interface 24.0.0",
  "substrate-wasm-builder 17.0.0",
+]
+
+[[package]]
+name = "sc-runtime-utilities"
+version = "0.1.0"
+dependencies = [
+ "cumulus-primitives-proof-size-hostfunction 0.2.0",
+ "cumulus-test-runtime",
+ "parity-scale-codec",
+ "sc-executor 0.32.0",
+ "sc-executor-common 0.29.0",
+ "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
+ "sp-io 30.0.0",
+ "sp-state-machine 0.35.0",
+ "sp-version 29.0.0",
+ "sp-wasm-interface 20.0.0",
+ "subxt",
+ "thiserror",
 ]
 
 [[package]]
@@ -31858,10 +31888,13 @@ name = "xcm-executor-integration-tests"
 version = "1.0.0"
 dependencies = [
  "frame-support 28.0.0",
+ "frame-system 28.0.0",
  "futures",
+ "pallet-sudo 28.0.0",
  "pallet-transaction-payment 28.0.0",
  "pallet-xcm 7.0.0",
  "parity-scale-codec",
+ "polkadot-runtime-parachains 7.0.0",
  "polkadot-test-client",
  "polkadot-test-runtime",
  "polkadot-test-service",
