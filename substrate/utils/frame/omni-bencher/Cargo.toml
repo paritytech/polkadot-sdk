@@ -20,3 +20,11 @@ sp-runtime = { workspace = true, default-features = true }
 sp-statement-store = { workspace = true, default-features = true }
 tracing-subscriber = { workspace = true }
 log = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+assert_cmd = { workspace = true }
+cumulus-test-runtime = { workspace = true }
+sp-tracing = { workspace = true, default-features = true }
+sp-genesis-builder = { workspace = true, default-features = true }
+sc-chain-spec = { workspace = true }

@@ -21,6 +21,7 @@ codec = { features = [
 ], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, workspace = true, default-features = true }
+frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-core = { workspace = true }
@@ -35,6 +36,7 @@ pallet-balances = { workspace = true, default-features = true }
 default = ["std"]
 std = [
 	"codec/std",
+	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-balances/std",
@@ -43,6 +45,13 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

@@ -29,7 +29,7 @@ use frame_system as system;
 use pallet_session::historical as pallet_session_historical;
 use sp_runtime::{
 	testing::{Header, UintAuthorityId},
-	BuildStorage, Perbill,
+	BuildStorage, KeyTypeId, Perbill,
 };
 
 type AccountId = u64;
@@ -66,7 +66,8 @@ sp_runtime::impl_opaque_keys! {
 
 pub struct TestSessionHandler;
 impl pallet_session::SessionHandler<AccountId> for TestSessionHandler {
-	const KEY_TYPE_IDS: &'static [sp_runtime::KeyTypeId] = &[];
+	// corresponds to the opaque key id above
+	const KEY_TYPE_IDS: &'static [KeyTypeId] = &[KeyTypeId([100u8, 117u8, 109u8, 121u8])];
 
 	fn on_genesis_session<Ks: sp_runtime::traits::OpaqueKeys>(_validators: &[(AccountId, Ks)]) {}
 
@@ -112,8 +113,6 @@ parameter_types! {
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 }
 
-pub type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, ()>;
-
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
 	type System = Test;
@@ -157,12 +156,21 @@ impl pallet_offences::Config for Test {
 	type OnOffenceHandler = Staking;
 }
 
-impl<T> frame_system::offchain::SendTransactionTypes<T> for Test
+impl<T> frame_system::offchain::CreateTransactionBase<T> for Test
 where
 	RuntimeCall: From<T>,
 {
-	type Extrinsic = Extrinsic;
-	type OverarchingCall = RuntimeCall;
+	type Extrinsic = UncheckedExtrinsic;
+	type RuntimeCall = RuntimeCall;
+}
+
+impl<T> frame_system::offchain::CreateInherent<T> for Test
+where
+	RuntimeCall: From<T>,
+{
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		UncheckedExtrinsic::new_bare(call)
+	}
 }
 
 impl crate::Config for Test {}

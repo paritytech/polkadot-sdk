@@ -40,7 +40,7 @@ use sc_consensus::{
 use sc_network::{config::SyncMode, service::traits::NetworkService, NetworkBackend};
 use sc_network_sync::SyncingService;
 use sc_network_transactions::TransactionsHandlerController;
-use sc_service::{Configuration, NetworkStarter, SpawnTaskHandle, TaskManager, WarpSyncConfig};
+use sc_service::{Configuration, SpawnTaskHandle, TaskManager, WarpSyncConfig};
 use sc_telemetry::{log, TelemetryWorkerHandle};
 use sc_utils::mpsc::TracingUnboundedSender;
 use sp_api::ProvideRuntimeApi;
@@ -370,6 +370,7 @@ pub async fn build_relay_chain_interface(
 		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) =>
 			build_minimal_relay_chain_node_with_rpc(
 				relay_chain_config,
+				parachain_config.prometheus_registry(),
 				task_manager,
 				rpc_target_urls,
 			)
@@ -413,7 +414,7 @@ pub struct BuildNetworkParams<
 	pub net_config:
 		sc_network::config::FullNetworkConfiguration<Block, <Block as BlockT>::Hash, Network>,
 	pub client: Arc<Client>,
-	pub transaction_pool: Arc<sc_transaction_pool::FullPool<Block, Client>>,
+	pub transaction_pool: Arc<sc_transaction_pool::TransactionPoolHandle<Block, Client>>,
 	pub para_id: ParaId,
 	pub relay_chain_interface: RCInterface,
 	pub spawn_handle: SpawnTaskHandle,
@@ -438,7 +439,6 @@ pub async fn build_network<'a, Block, Client, RCInterface, IQ, Network>(
 	Arc<dyn NetworkService>,
 	TracingUnboundedSender<sc_rpc::system::Request<Block>>,
 	TransactionsHandlerController<Block::Hash>,
-	NetworkStarter,
 	Arc<SyncingService<Block>>,
 )>
 where
@@ -462,7 +462,7 @@ where
 	IQ: ImportQueue<Block> + 'static,
 	Network: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
-	let warp_sync_params = match parachain_config.network.sync_mode {
+	let warp_sync_config = match parachain_config.network.sync_mode {
 		SyncMode::Warp => {
 			log::debug!(target: LOG_TARGET_SYNC, "waiting for announce block...");
 
@@ -493,7 +493,7 @@ where
 		},
 	};
 	let metrics = Network::register_notification_metrics(
-		parachain_config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
+		parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
 	);
 
 	sc_service::build_network(sc_service::BuildNetworkParams {
@@ -504,7 +504,7 @@ where
 		spawn_handle,
 		import_queue,
 		block_announce_validator_builder: Some(Box::new(move |_| block_announce_validator)),
-		warp_sync_config: warp_sync_params,
+		warp_sync_config,
 		block_relay: None,
 		metrics,
 	})

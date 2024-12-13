@@ -16,7 +16,6 @@ workspace = true
 async-channel = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-lazy_static = { workspace = true }
 log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 prometheus = { workspace = true }

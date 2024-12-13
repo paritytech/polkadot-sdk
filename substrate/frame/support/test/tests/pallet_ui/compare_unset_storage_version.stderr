@@ -5,3 +5,9 @@ error[E0369]: binary operation `!=` cannot be applied to type `NoStorageVersionS
    |                ------------------------------- ^^ -------------------------------- StorageVersion
    |                |
    |                NoStorageVersionSet
+   |
+note: the foreign item type `NoStorageVersionSet` doesn't implement `PartialEq<StorageVersion>`
+  --> $WORKSPACE/substrate/frame/support/src/traits/metadata.rs
+   |
+   | pub struct NoStorageVersionSet;
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not implement `PartialEq<StorageVersion>`

@@ -311,9 +311,8 @@ impl<K: FullEncode, V: FullCodec, G: StorageMap<K, V>> storage::StorageMap<K, V>
 
 			final_key
 		};
-		unhashed::take(old_key.as_ref()).map(|value| {
+		unhashed::take(old_key.as_ref()).inspect(|value| {
 			unhashed::put(Self::storage_map_final_key(key).as_ref(), &value);
-			value
 		})
 	}
 }

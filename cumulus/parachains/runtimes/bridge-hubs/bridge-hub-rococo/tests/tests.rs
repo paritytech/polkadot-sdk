@@ -18,13 +18,11 @@
 
 use bp_polkadot_core::Signature;
 use bridge_hub_rococo_runtime::{
-	bridge_common_config, bridge_to_bulletin_config,
-	bridge_to_ethereum_config::EthereumGatewayAddress,
-	bridge_to_westend_config,
-	xcm_config::{LocationToAccountId, RelayNetwork, TokenLocation, XcmConfig},
-	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, Executive, ExistentialDeposit,
-	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
-	SignedExtra, TransactionPayment, UncheckedExtrinsic,
+	bridge_common_config, bridge_to_bulletin_config, bridge_to_westend_config,
+	xcm_config::{RelayNetwork, TokenLocation, XcmConfig},
+	AllPalletsWithoutSystem, Block, BridgeRejectObsoleteHeadersAndMessages, Executive,
+	ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
+	RuntimeOrigin, SessionKeys, TransactionPayment, TxExtension, UncheckedExtrinsic,
 };
 use bridge_hub_test_utils::SlotDurations;
 use codec::{Decode, Encode};
@@ -32,25 +30,26 @@ use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8}
 use parachains_common::{AccountId, AuraId, Balance};
 use snowbridge_core::ChannelId;
 use sp_consensus_aura::SlotDuration;
-use sp_core::H160;
-use sp_keyring::AccountKeyring::Alice;
+use sp_core::{crypto::Ss58Codec, H160};
+use sp_keyring::Sr25519Keyring::Alice;
 use sp_runtime::{
 	generic::{Era, SignedPayload},
 	AccountId32, Perbill,
 };
 use testnet_parachains_constants::rococo::{consensus::*, fee::WeightToFee};
-use xcm::latest::prelude::*;
+use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH};
+use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 parameter_types! {
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 }
 
 fn construct_extrinsic(
-	sender: sp_keyring::AccountKeyring,
+	sender: sp_keyring::Sr25519Keyring,
 	call: RuntimeCall,
 ) -> UncheckedExtrinsic {
 	let account_id = AccountId32::from(sender.public());
-	let extra: SignedExtra = (
+	let tx_ext: TxExtension = (
 		frame_system::CheckNonZeroSender::<Runtime>::new(),
 		frame_system::CheckSpecVersion::<Runtime>::new(),
 		frame_system::CheckTxVersion::<Runtime>::new(),
@@ -62,20 +61,18 @@ fn construct_extrinsic(
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
 		BridgeRejectObsoleteHeadersAndMessages::default(),
-		(
-			bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
-			bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages::default(),
-		),
-		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
+		(bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),),
 		frame_metadata_hash_extension::CheckMetadataHash::new(false),
-	);
-	let payload = SignedPayload::new(call.clone(), extra.clone()).unwrap();
+		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
+	)
+		.into();
+	let payload = SignedPayload::new(call.clone(), tx_ext.clone()).unwrap();
 	let signature = payload.using_encoded(|e| sender.sign(e));
-	UncheckedExtrinsic::new_signed(call, account_id.into(), Signature::Sr25519(signature), extra)
+	UncheckedExtrinsic::new_signed(call, account_id.into(), Signature::Sr25519(signature), tx_ext)
 }
 
 fn construct_and_apply_extrinsic(
-	relayer_at_target: sp_keyring::AccountKeyring,
+	relayer_at_target: sp_keyring::Sr25519Keyring,
 	call: RuntimeCall,
 ) -> sp_runtime::DispatchOutcome {
 	let xt = construct_extrinsic(relayer_at_target, call);
@@ -123,30 +120,15 @@ bridge_hub_test_utils::test_cases::include_teleports_for_native_asset_works!(
 	bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID
 );
 
-#[test]
-fn change_required_stake_by_governance_works() {
-	bridge_hub_test_utils::test_cases::change_storage_constant_by_governance_works::<
-		Runtime,
-		bridge_common_config::RequiredStakeForStakeAndSlash,
-		Balance,
-	>(
-		collator_session_keys(),
-		bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
-		Box::new(|call| RuntimeCall::System(call).encode()),
-		|| {
-			(
-				bridge_common_config::RequiredStakeForStakeAndSlash::key().to_vec(),
-				bridge_common_config::RequiredStakeForStakeAndSlash::get(),
-			)
-		},
-		|old_value| old_value.checked_mul(2).unwrap(),
-	)
-}
-
 mod bridge_hub_westend_tests {
 	use super::*;
+	use bp_messages::LegacyLaneId;
 	use bridge_common_config::{
 		BridgeGrandpaWestendInstance, BridgeParachainWestendInstance, DeliveryRewardInBalance,
+		RelayersForLegacyLaneIdsMessagesInstance,
+	};
+	use bridge_hub_rococo_runtime::{
+		bridge_to_ethereum_config::EthereumGatewayAddress, xcm_config::LocationToAccountId,
 	};
 	use bridge_hub_test_utils::test_cases::from_parachain;
 	use bridge_to_westend_config::{
@@ -174,6 +156,7 @@ mod bridge_hub_westend_tests {
 		BridgeGrandpaWestendInstance,
 		BridgeParachainWestendInstance,
 		WithBridgeHubWestendMessagesInstance,
+		RelayersForLegacyLaneIdsMessagesInstance,
 	>;
 
 	#[test]
@@ -338,7 +321,17 @@ mod bridge_hub_westend_tests {
 					XcmOverBridgeHubWestendInstance,
 					LocationToAccountId,
 					TokenLocation,
-				>(SiblingParachainLocation::get(), BridgedUniversalLocation::get()).1
+				>(
+					SiblingParachainLocation::get(),
+					BridgedUniversalLocation::get(),
+					false,
+					|locations, _fee| {
+						bridge_hub_test_utils::open_bridge_with_storage::<
+							Runtime,
+							XcmOverBridgeHubWestendInstance
+						>(locations, LegacyLaneId([0, 0, 0, 1]))
+					}
+				).1
 			},
 		)
 	}
@@ -385,7 +378,7 @@ mod bridge_hub_westend_tests {
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 			SIBLING_PARACHAIN_ID,
-			Rococo,
+			ByGenesis(ROCOCO_GENESIS_HASH),
 			|| {
 				// we need to create lane between sibling parachain and remote destination
 				bridge_hub_test_utils::ensure_opened_bridge::<
@@ -393,10 +386,21 @@ mod bridge_hub_westend_tests {
 					XcmOverBridgeHubWestendInstance,
 					LocationToAccountId,
 					TokenLocation,
-				>(SiblingParachainLocation::get(), BridgedUniversalLocation::get())
+				>(
+					SiblingParachainLocation::get(),
+					BridgedUniversalLocation::get(),
+					false,
+					|locations, _fee| {
+						bridge_hub_test_utils::open_bridge_with_storage::<
+							Runtime,
+							XcmOverBridgeHubWestendInstance,
+						>(locations, LegacyLaneId([0, 0, 0, 1]))
+					},
+				)
 				.1
 			},
 			construct_and_apply_extrinsic,
+			true,
 		)
 	}
 
@@ -409,7 +413,7 @@ mod bridge_hub_westend_tests {
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 			SIBLING_PARACHAIN_ID,
-			Rococo,
+			ByGenesis(ROCOCO_GENESIS_HASH),
 			|| {
 				// we need to create lane between sibling parachain and remote destination
 				bridge_hub_test_utils::ensure_opened_bridge::<
@@ -417,10 +421,21 @@ mod bridge_hub_westend_tests {
 					XcmOverBridgeHubWestendInstance,
 					LocationToAccountId,
 					TokenLocation,
-				>(SiblingParachainLocation::get(), BridgedUniversalLocation::get())
+				>(
+					SiblingParachainLocation::get(),
+					BridgedUniversalLocation::get(),
+					false,
+					|locations, _fee| {
+						bridge_hub_test_utils::open_bridge_with_storage::<
+							Runtime,
+							XcmOverBridgeHubWestendInstance,
+						>(locations, LegacyLaneId([0, 0, 0, 1]))
+					},
+				)
 				.1
 			},
 			construct_and_apply_extrinsic,
+			false,
 		)
 	}
 
@@ -482,30 +497,16 @@ mod bridge_hub_westend_tests {
 			),
 		)
 	}
-
-	#[test]
-	fn open_and_close_bridge_works() {
-		let origins = [SiblingParachainLocation::get(), SiblingSystemParachainLocation::get()];
-
-		for origin in origins {
-			bridge_hub_test_utils::test_cases::open_and_close_bridge_works::<
-				Runtime,
-				XcmOverBridgeHubWestendInstance,
-				LocationToAccountId,
-				TokenLocation,
-			>(
-				collator_session_keys(),
-				bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
-				origin,
-				BridgedUniversalLocation::get(),
-			)
-		}
-	}
 }
 
 mod bridge_hub_bulletin_tests {
 	use super::*;
+	use bp_messages::LegacyLaneId;
 	use bridge_common_config::BridgeGrandpaRococoBulletinInstance;
+	use bridge_hub_rococo_runtime::{
+		bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance,
+		xcm_config::LocationToAccountId,
+	};
 	use bridge_hub_test_utils::test_cases::from_grandpa_chain;
 	use bridge_to_bulletin_config::{
 		RococoBulletinGlobalConsensusNetwork, RococoBulletinGlobalConsensusNetworkLocation,
@@ -517,8 +518,8 @@ mod bridge_hub_bulletin_tests {
 		rococo_runtime_constants::system_parachain::PEOPLE_ID;
 
 	parameter_types! {
-		pub SiblingPeopleParachainLocation: Location = Location::new(1, [Parachain(SIBLING_PEOPLE_PARACHAIN_ID)]);
-		pub BridgedBulletinLocation: InteriorLocation = [GlobalConsensus(RococoBulletinGlobalConsensusNetwork::get())].into();
+																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																					pub SiblingPeopleParachainLocation: Location = Location::new(1, [Parachain(SIBLING_PEOPLE_PARACHAIN_ID)]);
+																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																					pub BridgedBulletinLocation: InteriorLocation = [GlobalConsensus(RococoBulletinGlobalConsensusNetwork::get())].into();
 	}
 
 	// Runtime from tests PoV
@@ -527,6 +528,7 @@ mod bridge_hub_bulletin_tests {
 		AllPalletsWithoutSystem,
 		BridgeGrandpaRococoBulletinInstance,
 		WithRococoBulletinMessagesInstance,
+		RelayersForLegacyLaneIdsMessagesInstance,
 	>;
 
 	#[test]
@@ -589,7 +591,17 @@ mod bridge_hub_bulletin_tests {
 					XcmOverPolkadotBulletinInstance,
 					LocationToAccountId,
 					TokenLocation,
-				>(SiblingPeopleParachainLocation::get(), BridgedBulletinLocation::get()).1
+				>(
+					SiblingPeopleParachainLocation::get(),
+					BridgedBulletinLocation::get(),
+					false,
+					|locations, _fee| {
+						bridge_hub_test_utils::open_bridge_with_storage::<
+							Runtime,
+							XcmOverPolkadotBulletinInstance
+						>(locations, LegacyLaneId([0, 0, 0, 0]))
+					}
+				).1
 			},
 		)
 	}
@@ -635,7 +647,7 @@ mod bridge_hub_bulletin_tests {
 			slot_durations(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			SIBLING_PEOPLE_PARACHAIN_ID,
-			Rococo,
+			ByGenesis(ROCOCO_GENESIS_HASH),
 			|| {
 				// we need to create lane between RococoPeople and RococoBulletin
 				bridge_hub_test_utils::ensure_opened_bridge::<
@@ -643,10 +655,21 @@ mod bridge_hub_bulletin_tests {
 					XcmOverPolkadotBulletinInstance,
 					LocationToAccountId,
 					TokenLocation,
-				>(SiblingPeopleParachainLocation::get(), BridgedBulletinLocation::get())
+				>(
+					SiblingPeopleParachainLocation::get(),
+					BridgedBulletinLocation::get(),
+					false,
+					|locations, _fee| {
+						bridge_hub_test_utils::open_bridge_with_storage::<
+							Runtime,
+							XcmOverPolkadotBulletinInstance,
+						>(locations, LegacyLaneId([0, 0, 0, 0]))
+					},
+				)
 				.1
 			},
 			construct_and_apply_extrinsic,
+			false,
 		)
 	}
 
@@ -658,7 +681,7 @@ mod bridge_hub_bulletin_tests {
 			slot_durations(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			SIBLING_PEOPLE_PARACHAIN_ID,
-			Rococo,
+			ByGenesis(ROCOCO_GENESIS_HASH),
 			|| {
 				// we need to create lane between RococoPeople and RococoBulletin
 				bridge_hub_test_utils::ensure_opened_bridge::<
@@ -666,29 +689,162 @@ mod bridge_hub_bulletin_tests {
 					XcmOverPolkadotBulletinInstance,
 					LocationToAccountId,
 					TokenLocation,
-				>(SiblingPeopleParachainLocation::get(), BridgedBulletinLocation::get())
+				>(
+					SiblingPeopleParachainLocation::get(),
+					BridgedBulletinLocation::get(),
+					false,
+					|locations, _fee| {
+						bridge_hub_test_utils::open_bridge_with_storage::<
+							Runtime,
+							XcmOverPolkadotBulletinInstance,
+						>(locations, LegacyLaneId([0, 0, 0, 0]))
+					},
+				)
 				.1
 			},
 			construct_and_apply_extrinsic,
+			false,
 		)
 	}
+}
 
-	#[test]
-	fn open_and_close_bridge_works() {
-		let origins = [SiblingPeopleParachainLocation::get()];
-
-		for origin in origins {
-			bridge_hub_test_utils::test_cases::open_and_close_bridge_works::<
-				Runtime,
-				XcmOverPolkadotBulletinInstance,
-				LocationToAccountId,
-				TokenLocation,
-			>(
-				collator_session_keys(),
-				bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
-				origin,
-				BridgedBulletinLocation::get(),
+#[test]
+fn change_required_stake_by_governance_works() {
+	bridge_hub_test_utils::test_cases::change_storage_constant_by_governance_works::<
+		Runtime,
+		bridge_common_config::RequiredStakeForStakeAndSlash,
+		Balance,
+	>(
+		collator_session_keys(),
+		bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
+		Box::new(|call| RuntimeCall::System(call).encode()),
+		|| {
+			(
+				bridge_common_config::RequiredStakeForStakeAndSlash::key().to_vec(),
+				bridge_common_config::RequiredStakeForStakeAndSlash::get(),
 			)
-		}
+		},
+		|old_value| old_value.checked_mul(2).unwrap(),
+	)
+}
+
+#[test]
+fn location_conversion_works() {
+	// the purpose of hardcoded values is to catch an unintended location conversion logic
+	// change.
+	struct TestCase {
+		description: &'static str,
+		location: Location,
+		expected_account_id_str: &'static str,
 	}
+
+	let test_cases = vec![
+		// DescribeTerminus
+		TestCase {
+			description: "DescribeTerminus Parent",
+			location: Location::new(1, Here),
+			expected_account_id_str: "5Dt6dpkWPwLaH4BBCKJwjiWrFVAGyYk3tLUabvyn4v7KtESG",
+		},
+		TestCase {
+			description: "DescribeTerminus Sibling",
+			location: Location::new(1, [Parachain(1111)]),
+			expected_account_id_str: "5Eg2fnssmmJnF3z1iZ1NouAuzciDaaDQH7qURAy3w15jULDk",
+		},
+		// DescribePalletTerminal
+		TestCase {
+			description: "DescribePalletTerminal Parent",
+			location: Location::new(1, [PalletInstance(50)]),
+			expected_account_id_str: "5CnwemvaAXkWFVwibiCvf2EjqwiqBi29S5cLLydZLEaEw6jZ",
+		},
+		TestCase {
+			description: "DescribePalletTerminal Sibling",
+			location: Location::new(1, [Parachain(1111), PalletInstance(50)]),
+			expected_account_id_str: "5GFBgPjpEQPdaxEnFirUoa51u5erVx84twYxJVuBRAT2UP2g",
+		},
+		// DescribeAccountId32Terminal
+		TestCase {
+			description: "DescribeAccountId32Terminal Parent",
+			location: Location::new(
+				1,
+				[Junction::AccountId32 { network: None, id: AccountId::from(Alice).into() }],
+			),
+			expected_account_id_str: "5EueAXd4h8u75nSbFdDJbC29cmi4Uo1YJssqEL9idvindxFL",
+		},
+		TestCase {
+			description: "DescribeAccountId32Terminal Sibling",
+			location: Location::new(
+				1,
+				[
+					Parachain(1111),
+					Junction::AccountId32 { network: None, id: AccountId::from(Alice).into() },
+				],
+			),
+			expected_account_id_str: "5Dmbuiq48fU4iW58FKYqoGbbfxFHjbAeGLMtjFg6NNCw3ssr",
+		},
+		// DescribeAccountKey20Terminal
+		TestCase {
+			description: "DescribeAccountKey20Terminal Parent",
+			location: Location::new(1, [AccountKey20 { network: None, key: [0u8; 20] }]),
+			expected_account_id_str: "5F5Ec11567pa919wJkX6VHtv2ZXS5W698YCW35EdEbrg14cg",
+		},
+		TestCase {
+			description: "DescribeAccountKey20Terminal Sibling",
+			location: Location::new(
+				1,
+				[Parachain(1111), AccountKey20 { network: None, key: [0u8; 20] }],
+			),
+			expected_account_id_str: "5CB2FbUds2qvcJNhDiTbRZwiS3trAy6ydFGMSVutmYijpPAg",
+		},
+		// DescribeTreasuryVoiceTerminal
+		TestCase {
+			description: "DescribeTreasuryVoiceTerminal Parent",
+			location: Location::new(1, [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]),
+			expected_account_id_str: "5CUjnE2vgcUCuhxPwFoQ5r7p1DkhujgvMNDHaF2bLqRp4D5F",
+		},
+		TestCase {
+			description: "DescribeTreasuryVoiceTerminal Sibling",
+			location: Location::new(
+				1,
+				[Parachain(1111), Plurality { id: BodyId::Treasury, part: BodyPart::Voice }],
+			),
+			expected_account_id_str: "5G6TDwaVgbWmhqRUKjBhRRnH4ry9L9cjRymUEmiRsLbSE4gB",
+		},
+		// DescribeBodyTerminal
+		TestCase {
+			description: "DescribeBodyTerminal Parent",
+			location: Location::new(1, [Plurality { id: BodyId::Unit, part: BodyPart::Voice }]),
+			expected_account_id_str: "5EBRMTBkDisEXsaN283SRbzx9Xf2PXwUxxFCJohSGo4jYe6B",
+		},
+		TestCase {
+			description: "DescribeBodyTerminal Sibling",
+			location: Location::new(
+				1,
+				[Parachain(1111), Plurality { id: BodyId::Unit, part: BodyPart::Voice }],
+			),
+			expected_account_id_str: "5DBoExvojy8tYnHgLL97phNH975CyT45PWTZEeGoBZfAyRMH",
+		},
+	];
+
+	for tc in test_cases {
+		let expected =
+			AccountId::from_string(tc.expected_account_id_str).expect("Invalid AccountId string");
+
+		let got = LocationToAccountHelper::<
+			AccountId,
+			bridge_hub_rococo_runtime::xcm_config::LocationToAccountId,
+		>::convert_location(tc.location.into())
+		.unwrap();
+
+		assert_eq!(got, expected, "{}", tc.description);
+	}
+}
+
+#[test]
+fn xcm_payment_api_works() {
+	parachains_runtimes_test_utils::test_cases::xcm_payment_api_with_native_token_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		Block,
+	>();
 }

@@ -68,7 +68,6 @@ use libp2p::{
 	core::{upgrade, ConnectedPoint, Endpoint},
 	identify::Info as IdentifyInfo,
 	identity::ed25519,
-	kad::{record::Key as KademliaKey, Record},
 	multiaddr::{self, Multiaddr},
 	swarm::{
 		Config as SwarmConfig, ConnectionError, ConnectionId, DialError, Executor, ListenError,
@@ -80,6 +79,7 @@ use log::{debug, error, info, trace, warn};
 use metrics::{Histogram, MetricSources, Metrics};
 use parking_lot::Mutex;
 use prometheus_endpoint::Registry;
+use sc_network_types::kad::{Key as KademliaKey, Record};
 
 use sc_client_api::BlockBackend;
 use sc_network_common::{
@@ -973,6 +973,18 @@ where
 			expires,
 		));
 	}
+
+	fn start_providing(&self, key: KademliaKey) {
+		let _ = self.to_worker.unbounded_send(ServiceToWorkerMsg::StartProviding(key));
+	}
+
+	fn stop_providing(&self, key: KademliaKey) {
+		let _ = self.to_worker.unbounded_send(ServiceToWorkerMsg::StopProviding(key));
+	}
+
+	fn get_providers(&self, key: KademliaKey) {
+		let _ = self.to_worker.unbounded_send(ServiceToWorkerMsg::GetProviders(key));
+	}
 }
 
 #[async_trait::async_trait]
@@ -1333,6 +1345,9 @@ enum ServiceToWorkerMsg {
 		update_local_storage: bool,
 	},
 	StoreRecord(KademliaKey, Vec<u8>, Option<PeerId>, Option<Instant>),
+	StartProviding(KademliaKey),
+	StopProviding(KademliaKey),
+	GetProviders(KademliaKey),
 	AddKnownAddress(PeerId, Multiaddr),
 	EventStream(out_events::Sender),
 	Request {
@@ -1455,17 +1470,23 @@ where
 	fn handle_worker_message(&mut self, msg: ServiceToWorkerMsg) {
 		match msg {
 			ServiceToWorkerMsg::GetValue(key) =>
-				self.network_service.behaviour_mut().get_value(key),
+				self.network_service.behaviour_mut().get_value(key.into()),
 			ServiceToWorkerMsg::PutValue(key, value) =>
-				self.network_service.behaviour_mut().put_value(key, value),
+				self.network_service.behaviour_mut().put_value(key.into(), value),
 			ServiceToWorkerMsg::PutRecordTo { record, peers, update_local_storage } => self
 				.network_service
 				.behaviour_mut()
-				.put_record_to(record, peers, update_local_storage),
+				.put_record_to(record.into(), peers, update_local_storage),
 			ServiceToWorkerMsg::StoreRecord(key, value, publisher, expires) => self
 				.network_service
 				.behaviour_mut()
-				.store_record(key, value, publisher, expires),
+				.store_record(key.into(), value, publisher, expires),
+			ServiceToWorkerMsg::StartProviding(key) =>
+				self.network_service.behaviour_mut().start_providing(key.into()),
+			ServiceToWorkerMsg::StopProviding(key) =>
+				self.network_service.behaviour_mut().stop_providing(&key.into()),
+			ServiceToWorkerMsg::GetProviders(key) =>
+				self.network_service.behaviour_mut().get_providers(key.into()),
 			ServiceToWorkerMsg::AddKnownAddress(peer_id, addr) =>
 				self.network_service.behaviour_mut().add_known_address(peer_id, addr),
 			ServiceToWorkerMsg::EventStream(sender) => self.event_streams.push(sender),
@@ -1678,6 +1699,9 @@ where
 							DhtEvent::ValuePut(_) => "value-put",
 							DhtEvent::ValuePutFailed(_) => "value-put-failed",
 							DhtEvent::PutRecordRequest(_, _, _, _) => "put-record-request",
+							DhtEvent::StartProvidingFailed(_) => "start-providing-failed",
+							DhtEvent::ProvidersFound(_, _) => "providers-found",
+							DhtEvent::ProvidersNotFound(_) => "providers-not-found",
 						};
 						metrics
 							.kademlia_query_duration

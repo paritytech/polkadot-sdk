@@ -5,6 +5,8 @@ authors.workspace = true
 edition.workspace = true
 description = "Logic which is common to all parachain runtimes"
 license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -90,4 +92,5 @@ runtime-benchmarks = [
 	"polkadot-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]

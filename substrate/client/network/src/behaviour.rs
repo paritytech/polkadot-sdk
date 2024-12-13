@@ -76,8 +76,6 @@ pub enum BehaviourOut {
 	///
 	/// This event is generated for statistics purposes.
 	InboundRequest {
-		/// Peer which sent us a request.
-		peer: PeerId,
 		/// Protocol name of the request.
 		protocol: ProtocolName,
 		/// If `Ok`, contains the time elapsed between when we received the request and when we
@@ -89,8 +87,6 @@ pub enum BehaviourOut {
 	///
 	/// This event is generated for statistics purposes.
 	RequestFinished {
-		/// Peer that we send a request to.
-		peer: PeerId,
 		/// Name of the protocol in question.
 		protocol: ProtocolName,
 		/// Duration the request took.
@@ -314,6 +310,22 @@ impl<B: BlockT> Behaviour<B> {
 	) {
 		self.discovery.store_record(record_key, record_value, publisher, expires);
 	}
+
+	/// Start providing `key` on the DHT.
+	pub fn start_providing(&mut self, key: RecordKey) {
+		self.discovery.start_providing(key)
+	}
+
+	/// Stop providing `key` on the DHT.
+	pub fn stop_providing(&mut self, key: &RecordKey) {
+		self.discovery.stop_providing(key)
+	}
+
+	/// Start searching for providers on the DHT. Will later produce either a `ProvidersFound`
+	/// or `ProvidersNotFound` event.
+	pub fn get_providers(&mut self, key: RecordKey) {
+		self.discovery.get_providers(key)
+	}
 }
 
 impl From<CustomMessageOutcome> for BehaviourOut {
@@ -350,10 +362,10 @@ impl From<CustomMessageOutcome> for BehaviourOut {
 impl From<request_responses::Event> for BehaviourOut {
 	fn from(event: request_responses::Event) -> Self {
 		match event {
-			request_responses::Event::InboundRequest { peer, protocol, result } =>
-				BehaviourOut::InboundRequest { peer, protocol, result },
-			request_responses::Event::RequestFinished { peer, protocol, duration, result } =>
-				BehaviourOut::RequestFinished { peer, protocol, duration, result },
+			request_responses::Event::InboundRequest { protocol, result, .. } =>
+				BehaviourOut::InboundRequest { protocol, result },
+			request_responses::Event::RequestFinished { protocol, duration, result, .. } =>
+				BehaviourOut::RequestFinished { protocol, duration, result },
 			request_responses::Event::ReputationChanges { peer, changes } =>
 				BehaviourOut::ReputationChanges { peer, changes },
 		}
@@ -379,18 +391,29 @@ impl From<DiscoveryOut> for BehaviourOut {
 			},
 			DiscoveryOut::Discovered(peer_id) => BehaviourOut::Discovered(peer_id),
 			DiscoveryOut::ValueFound(results, duration) =>
-				BehaviourOut::Dht(DhtEvent::ValueFound(results), Some(duration)),
+				BehaviourOut::Dht(DhtEvent::ValueFound(results.into()), Some(duration)),
 			DiscoveryOut::ValueNotFound(key, duration) =>
-				BehaviourOut::Dht(DhtEvent::ValueNotFound(key), Some(duration)),
+				BehaviourOut::Dht(DhtEvent::ValueNotFound(key.into()), Some(duration)),
 			DiscoveryOut::ValuePut(key, duration) =>
-				BehaviourOut::Dht(DhtEvent::ValuePut(key), Some(duration)),
+				BehaviourOut::Dht(DhtEvent::ValuePut(key.into()), Some(duration)),
 			DiscoveryOut::PutRecordRequest(record_key, record_value, publisher, expires) =>
 				BehaviourOut::Dht(
-					DhtEvent::PutRecordRequest(record_key, record_value, publisher, expires),
+					DhtEvent::PutRecordRequest(record_key.into(), record_value, publisher, expires),
 					None,
 				),
 			DiscoveryOut::ValuePutFailed(key, duration) =>
-				BehaviourOut::Dht(DhtEvent::ValuePutFailed(key), Some(duration)),
+				BehaviourOut::Dht(DhtEvent::ValuePutFailed(key.into()), Some(duration)),
+			DiscoveryOut::StartProvidingFailed(key) =>
+				BehaviourOut::Dht(DhtEvent::StartProvidingFailed(key.into()), None),
+			DiscoveryOut::ProvidersFound(key, providers, duration) => BehaviourOut::Dht(
+				DhtEvent::ProvidersFound(
+					key.into(),
+					providers.into_iter().map(Into::into).collect(),
+				),
+				Some(duration),
+			),
+			DiscoveryOut::ProvidersNotFound(key, duration) =>
+				BehaviourOut::Dht(DhtEvent::ProvidersNotFound(key.into()), Some(duration)),
 			DiscoveryOut::RandomKademliaStarted => BehaviourOut::RandomKademliaStarted,
 		}
 	}

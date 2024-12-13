@@ -33,6 +33,31 @@ fn benchmark_pallet_works() {
 	benchmark_pallet(20, 50, true);
 }
 
+#[test]
+fn benchmark_pallet_args_work() {
+	benchmark_pallet_args(&["--list", "--pallet=pallet_balances"], true);
+	benchmark_pallet_args(&["--list", "--pallet=pallet_balances"], true);
+	benchmark_pallet_args(
+		&["--list", "--pallet=pallet_balances", "--genesis-builder=spec-genesis"],
+		true,
+	);
+	benchmark_pallet_args(
+		&["--list", "--pallet=pallet_balances", "--chain=dev", "--genesis-builder=spec-genesis"],
+		true,
+	);
+
+	// Error because the genesis runtime does not have any presets in it:
+	benchmark_pallet_args(
+		&["--list", "--pallet=pallet_balances", "--chain=dev", "--genesis-builder=spec-runtime"],
+		false,
+	);
+	// Error because no runtime is provided:
+	benchmark_pallet_args(
+		&["--list", "--pallet=pallet_balances", "--chain=dev", "--genesis-builder=runtime"],
+		false,
+	);
+}
+
 fn benchmark_pallet(steps: u32, repeat: u32, should_work: bool) {
 	let status = Command::new(cargo_bin("substrate-node"))
 		.args(["benchmark", "pallet", "--dev"])
@@ -46,6 +71,16 @@ fn benchmark_pallet(steps: u32, repeat: u32, should_work: bool) {
 			"--no-min-squares",
 			"--heap-pages=4096",
 		])
+		.status()
+		.unwrap();
+
+	assert_eq!(status.success(), should_work);
+}
+
+fn benchmark_pallet_args(args: &[&str], should_work: bool) {
+	let status = Command::new(cargo_bin("substrate-node"))
+		.args(["benchmark", "pallet"])
+		.args(args)
 		.status()
 		.unwrap();
 

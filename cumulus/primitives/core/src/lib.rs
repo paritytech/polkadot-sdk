@@ -32,6 +32,7 @@ pub use polkadot_parachain_primitives::primitives::{
 	XcmpMessageHandler,
 };
 pub use polkadot_primitives::{
+	vstaging::{ClaimQueueOffset, CoreSelector},
 	AbridgedHostConfiguration, AbridgedHrmpChannel, PersistedValidationData,
 };
 
@@ -394,5 +395,11 @@ sp_api::decl_runtime_apis! {
 		/// The given `header` is the header of the built block for that
 		/// we are collecting the collation info for.
 		fn collect_collation_info(header: &Block::Header) -> CollationInfo;
+	}
+
+	/// Runtime api used to select the core for which the next block will be built.
+	pub trait GetCoreSelectorApi {
+		/// Retrieve core selector and claim queue offset for the next block.
+		fn core_selector() -> (CoreSelector, ClaimQueueOffset);
 	}
 }

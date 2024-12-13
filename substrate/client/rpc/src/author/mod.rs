@@ -29,7 +29,6 @@ use crate::{
 };
 
 use codec::{Decode, Encode};
-use futures::TryFutureExt;
 use jsonrpsee::{core::async_trait, types::ErrorObject, Extensions, PendingSubscriptionSink};
 use sc_rpc_api::check_if_safe;
 use sc_transaction_pool_api::{
@@ -191,14 +190,16 @@ where
 			},
 		};
 
-		let submit = self.pool.submit_and_watch(best_block_hash, TX_SOURCE, dxt).map_err(|e| {
-			e.into_pool_error()
-				.map(error::Error::from)
-				.unwrap_or_else(|e| error::Error::Verification(Box::new(e)))
-		});
-
+		let pool = self.pool.clone();
 		let fut = async move {
-			let stream = match submit.await {
+			let submit =
+				pool.submit_and_watch(best_block_hash, TX_SOURCE, dxt).await.map_err(|e| {
+					e.into_pool_error()
+						.map(error::Error::from)
+						.unwrap_or_else(|e| error::Error::Verification(Box::new(e)))
+				});
+
+			let stream = match submit {
 				Ok(stream) => stream,
 				Err(err) => {
 					let _ = pending.reject(ErrorObject::from(err)).await;

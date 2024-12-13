@@ -14,8 +14,8 @@
 use crate::{CallFlags, Result, ReturnFlags, StorageFlags};
 use paste::paste;
 
-#[cfg(target_arch = "riscv32")]
-mod riscv32;
+#[cfg(target_arch = "riscv64")]
+mod riscv64;
 
 macro_rules! hash_fn {
 	( $name:ident, $bytes:literal ) => {
@@ -56,6 +56,30 @@ pub trait HostFn: private::Sealed {
 	///   otherwise.
 	fn lock_delegate_dependency(code_hash: &[u8; 32]);
 
+	/// Get the contract immutable data.
+	///
+	/// Traps if:
+	/// - Called from within the deploy export.
+	/// - Called by contracts that didn't set immutable data by calling `set_immutable_data` during
+	///   their constructor execution.
+	///
+	/// # Parameters
+	/// - `output`: A reference to the output buffer to write the immutable bytes.
+	fn get_immutable_data(output: &mut &mut [u8]);
+
+	/// Set the contract immutable data.
+	///
+	/// It is only valid to set non-empty immutable data in the constructor once.
+	///
+	/// Traps if:
+	/// - Called from within the call export.
+	/// - Called more than once.
+	/// - The provided data was empty.
+	///
+	/// # Parameters
+	/// - `data`: A reference to the data to be stored as immutable bytes.
+	fn set_immutable_data(data: &[u8]);
+
 	/// Stores the **reducible** balance of the current account into the supplied buffer.
 	///
 	/// # Parameters
@@ -71,12 +95,30 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the balance.
 	fn balance_of(addr: &[u8; 20], output: &mut [u8; 32]);
 
+	/// Returns the [EIP-155](https://eips.ethereum.org/EIPS/eip-155) chain ID.
+	fn chain_id(output: &mut [u8; 32]);
+
+	/// Stores the call data size as little endian U256 value into the supplied buffer.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the output data buffer to write the call data size.
+	fn call_data_size(output: &mut [u8; 32]);
+
 	/// Stores the current block number of the current contract into the supplied buffer.
 	///
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the block number.
 	fn block_number(output: &mut [u8; 32]);
+
+	/// Stores the block hash of the given block number into the supplied buffer.
+	///
+	/// # Parameters
+	///
+	/// - `block_number`: A reference to the block number buffer.
+	/// - `output`: A reference to the output data buffer to write the block number.
+	fn block_hash(block_number: &[u8; 32], output: &mut [u8; 32]);
 
 	/// Call (possibly transferring some amount of funds) into the specified account.
 	///
@@ -103,7 +145,7 @@ pub trait HostFn: private::Sealed {
 	/// - [CalleeReverted][`crate::ReturnErrorCode::CalleeReverted]: Output buffer is returned.
 	/// - [CalleeTrapped][`crate::ReturnErrorCode::CalleeTrapped]
 	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
-	/// - [NotCallable][`crate::ReturnErrorCode::NotCallable]
+	/// - [OutOfResources][`crate::ReturnErrorCode::OutOfResources]
 	fn call(
 		flags: CallFlags,
 		callee: &[u8; 20],
@@ -179,6 +221,17 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the caller address.
 	fn caller(output: &mut [u8; 20]);
 
+	/// Stores the origin address (initator of the call stack) into the supplied buffer.
+	///
+	/// If there is no address associated with the origin (e.g. because the origin is root) then
+	/// it traps with `BadOrigin`. This can only happen through on-chain governance actions or
+	/// customized runtimes.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the output data buffer to write the origin's address.
+	fn origin(output: &mut [u8; 20]);
+
 	/// Checks whether the caller of the current contract is the origin of the whole call stack.
 	///
 	/// Prefer this over [`is_contract()`][`Self::is_contract`] when checking whether your contract
@@ -218,10 +271,24 @@ pub trait HostFn: private::Sealed {
 	/// - `addr`: The address of the contract.
 	/// - `output`: A reference to the output data buffer to write the code hash.
 	///
-	/// # Errors
+	/// # Note
 	///
-	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
-	fn code_hash(addr: &[u8; 20], output: &mut [u8; 32]) -> Result;
+	/// If `addr` is not a contract but the account exists then the hash of empty data
+	/// `0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470` is written,
+	/// otherwise `zero`.
+	fn code_hash(addr: &[u8; 20], output: &mut [u8; 32]);
+
+	/// Retrieve the code size for a specified contract address.
+	///
+	/// # Parameters
+	///
+	/// - `addr`: The address of the contract.
+	/// - `output`: A reference to the output data buffer to write the code size.
+	///
+	/// # Note
+	///
+	/// If `addr` is not a contract the `output` will be zero.
+	fn code_size(addr: &[u8; 20], output: &mut [u8; 32]);
 
 	/// Checks whether there is a value stored under the given key.
 	///
@@ -263,7 +330,13 @@ pub trait HostFn: private::Sealed {
 	/// # Parameters
 	///
 	/// - `flags`: See [`CallFlags`] for a documentation of the supported flags.
-	/// - `code_hash`: The hash of the code to be executed.
+	/// - `address`: The address of the code to be executed. Should be decodable as an
+	///   `T::AccountId`. Traps otherwise.
+	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution.
+	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution.
+	/// - `deposit_limit`: The storage deposit limit for delegate call. Passing `None` means setting
+	///   no specific limit for the call, which implies storage usage up to the limit of the parent
+	///   call.
 	/// - `input`: The input data buffer used to call the contract.
 	/// - `output`: A reference to the output data buffer to write the call output buffer. If `None`
 	///   is provided then the output buffer is not copied.
@@ -275,10 +348,13 @@ pub trait HostFn: private::Sealed {
 	///
 	/// - [CalleeReverted][`crate::ReturnErrorCode::CalleeReverted]: Output buffer is returned.
 	/// - [CalleeTrapped][`crate::ReturnErrorCode::CalleeTrapped]
-	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
+	/// - [OutOfResources][`crate::ReturnErrorCode::OutOfResources]
 	fn delegate_call(
 		flags: CallFlags,
-		code_hash: &[u8; 32],
+		address: &[u8; 20],
+		ref_time_limit: u64,
+		proof_size_limit: u64,
+		deposit_limit: Option<&[u8; 32]>,
 		input_data: &[u8],
 		output: Option<&mut &mut [u8]>,
 	) -> Result;
@@ -367,6 +443,21 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the input data.
 	fn input(output: &mut &mut [u8]);
 
+	/// Stores the U256 value at given `offset` from the input passed by the caller
+	/// into the supplied buffer.
+	///
+	/// # Note
+	/// - If `offset` is out of bounds, a value of zero will be returned.
+	/// - If `offset` is in bounds but there is not enough call data, the available data
+	/// is right-padded in order to fill a whole U256 value.
+	/// - The data written to `output` is a little endian U256 integer value.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the fixed output data buffer to write the value.
+	/// - `offset`: The offset (index) into the call data.
+	fn call_data_load(output: &mut [u8; 32], offset: u32);
+
 	/// Instantiate a contract with the specified code hash.
 	///
 	/// This function creates an account and executes the constructor defined in the code specified
@@ -399,7 +490,7 @@ pub trait HostFn: private::Sealed {
 	/// - [CalleeReverted][`crate::ReturnErrorCode::CalleeReverted]: Output buffer is returned.
 	/// - [CalleeTrapped][`crate::ReturnErrorCode::CalleeTrapped]
 	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
-	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
+	/// - [OutOfResources][`crate::ReturnErrorCode::OutOfResources]
 	fn instantiate(
 		code_hash: &[u8; 32],
 		ref_time_limit: u64,
@@ -497,10 +588,10 @@ pub trait HostFn: private::Sealed {
 	/// - `code_hash`: The hash of the new code. Should be decodable as an `T::Hash`. Traps
 	///   otherwise.
 	///
-	/// # Errors
+	/// # Panics
 	///
-	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
-	fn set_code_hash(code_hash: &[u8; 32]) -> Result;
+	/// Panics if there is no code on-chain with the specified hash.
+	fn set_code_hash(code_hash: &[u8; 32]);
 
 	/// Set the value at the given key in the contract storage.
 	///
@@ -539,18 +630,6 @@ pub trait HostFn: private::Sealed {
 	///
 	/// [KeyNotFound][`crate::ReturnErrorCode::KeyNotFound]
 	fn take_storage(flags: StorageFlags, key: &[u8], output: &mut &mut [u8]) -> Result;
-
-	/// Transfer some amount of funds into the specified account.
-	///
-	/// # Parameters
-	///
-	/// - `address`: The address of the account to transfer funds to.
-	/// - `value`: The U256 value to transfer.
-	///
-	/// # Errors
-	///
-	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
-	fn transfer(address: &[u8; 20], value: &[u8; 32]) -> Result;
 
 	/// Remove the calling account and transfer remaining **free** balance.
 	///
@@ -617,6 +696,20 @@ pub trait HostFn: private::Sealed {
 	/// Returns `ReturnCode::Success` when the message was successfully sent. When the XCM
 	/// execution fails, `ReturnErrorCode::XcmSendFailed` is returned.
 	fn xcm_send(dest: &[u8], msg: &[u8], output: &mut [u8; 32]) -> Result;
+
+	/// Stores the size of the returned data of the last contract call or instantiation.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the output buffer to write the size.
+	fn return_data_size(output: &mut [u8; 32]);
+
+	/// Stores the returned data of the last contract call or contract instantiation.
+	///
+	/// # Parameters
+	/// - `output`: A reference to the output buffer to write the data.
+	/// - `offset`: Byte offset into the returned data
+	fn return_data_copy(output: &mut &mut [u8], offset: u32);
 }
 
 mod private {

@@ -17,19 +17,17 @@
 
 //! Contains types to define hardware requirements.
 
-use lazy_static::lazy_static;
 use sc_sysinfo::Requirements;
+use std::sync::LazyLock;
 
-lazy_static! {
-	/// The hardware requirements as measured on reference hardware.
-	///
-	/// These values are provided by Parity, however it is possible
-	/// to use your own requirements if you are running a custom chain.
-	pub static ref SUBSTRATE_REFERENCE_HARDWARE: Requirements = {
-		let raw = include_bytes!("reference_hardware.json").as_slice();
-		serde_json::from_slice(raw).expect("Hardcoded data is known good; qed")
-	};
-}
+/// The hardware requirements as measured on reference hardware.
+///
+/// These values are provided by Parity, however it is possible
+/// to use your own requirements if you are running a custom chain.
+pub static SUBSTRATE_REFERENCE_HARDWARE: LazyLock<Requirements> = LazyLock::new(|| {
+	let raw = include_bytes!("reference_hardware.json").as_slice();
+	serde_json::from_slice(raw).expect("Hardcoded data is known good; qed")
+});
 
 #[cfg(test)]
 mod tests {

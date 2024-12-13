@@ -522,7 +522,7 @@ fn expand_docs(def: &EnvDef) -> TokenStream2 {
 ///    `expand_impls()`).
 fn expand_env(def: &EnvDef, docs: bool) -> TokenStream2 {
 	let impls = expand_impls(def);
-	let docs = docs.then_some(expand_docs(def)).unwrap_or(TokenStream2::new());
+	let docs = docs.then(|| expand_docs(def)).unwrap_or(TokenStream2::new());
 	let stable_api_count = def.host_funcs.iter().filter(|f| f.is_stable).count();
 
 	quote! {

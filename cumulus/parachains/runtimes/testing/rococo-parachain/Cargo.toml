@@ -5,6 +5,8 @@ authors.workspace = true
 edition.workspace = true
 description = "Simple runtime used by the rococo parachain(s)"
 license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -49,7 +51,7 @@ polkadot-runtime-common = { workspace = true }
 # Cumulus
 cumulus-pallet-aura-ext = { workspace = true }
 pallet-message-queue = { workspace = true }
-cumulus-pallet-parachain-system = { workspace = true }
+cumulus-pallet-parachain-system = { workspace = true, features = ["experimental-ump-signals"] }
 cumulus-pallet-xcm = { workspace = true }
 cumulus-pallet-xcmp-queue = { workspace = true }
 cumulus-ping = { workspace = true }
@@ -126,6 +128,7 @@ runtime-benchmarks = [
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
@@ -133,6 +136,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 
 # A feature that should be enabled when the runtime should be built for on-chain

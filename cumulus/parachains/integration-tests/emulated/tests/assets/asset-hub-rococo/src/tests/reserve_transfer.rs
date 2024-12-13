@@ -14,6 +14,8 @@
 // limitations under the License.
 
 use crate::imports::*;
+use rococo_system_emulated_network::rococo_emulated_chain::rococo_runtime::Dmp;
+use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 
 fn relay_to_para_sender_assertions(t: RelayToParaTest) {
 	type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
@@ -114,7 +116,7 @@ pub fn system_para_to_para_sender_assertions(t: SystemParaToParaTest) {
 	assert_expected_events!(
 		AssetHubRococo,
 		vec![
-			// Transport fees are paid
+			// Delivery fees are paid
 			RuntimeEvent::PolkadotXcm(pallet_xcm::Event::FeesPaid { .. }) => {},
 		]
 	);
@@ -273,7 +275,7 @@ fn system_para_to_para_assets_sender_assertions(t: SystemParaToParaTest) {
 					t.args.dest.clone()
 				),
 			},
-			// Transport fees are paid
+			// Delivery fees are paid
 			RuntimeEvent::PolkadotXcm(
 				pallet_xcm::Event::FeesPaid { .. }
 			) => {},
@@ -304,7 +306,7 @@ fn para_to_system_para_assets_sender_assertions(t: ParaToSystemParaTest) {
 				owner: *owner == t.sender.account_id,
 				balance: *balance == t.args.amount,
 			},
-			// Transport fees are paid
+			// Delivery fees are paid
 			RuntimeEvent::PolkadotXcm(
 				pallet_xcm::Event::FeesPaid { .. }
 			) => {},
@@ -486,6 +488,11 @@ pub fn para_to_para_through_hop_receiver_assertions<Hop: Clone>(t: Test<PenpalA,
 }
 
 fn relay_to_para_reserve_transfer_assets(t: RelayToParaTest) -> DispatchResult {
+	let Junction::Parachain(para_id) = *t.args.dest.chain_location().last().unwrap() else {
+		unimplemented!("Destination is not a parachain?")
+	};
+
+	Dmp::make_parachain_reachable(para_id);
 	<Rococo as RococoPallet>::XcmPallet::limited_reserve_transfer_assets(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
@@ -545,6 +552,13 @@ fn para_to_system_para_reserve_transfer_assets(t: ParaToSystemParaTest) -> Dispa
 fn para_to_para_through_relay_limited_reserve_transfer_assets(
 	t: ParaToParaThroughRelayTest,
 ) -> DispatchResult {
+	let Junction::Parachain(para_id) = *t.args.dest.chain_location().last().unwrap() else {
+		unimplemented!("Destination is not a parachain?")
+	};
+
+	Rococo::ext_wrapper(|| {
+		Dmp::make_parachain_reachable(para_id);
+	});
 	<PenpalA as PenpalAPallet>::PolkadotXcm::limited_reserve_transfer_assets(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
@@ -1042,7 +1056,8 @@ fn reserve_transfer_multiple_assets_from_para_to_asset_hub() {
 	);
 
 	// Beneficiary is a new (empty) account
-	let receiver = get_account_id_from_seed::<sp_runtime::testing::sr25519::Public>(DUMMY_EMPTY);
+	let receiver: sp_runtime::AccountId32 =
+		get_public_from_string_or_panic::<sr25519::Public>(DUMMY_EMPTY).into();
 	// Init values for Asset Hub
 	let penpal_location_as_seen_by_ahr = AssetHubRococo::sibling_location_of(PenpalA::para_id());
 	let sov_penpal_on_ahr = AssetHubRococo::sovereign_account_id_of(penpal_location_as_seen_by_ahr);
@@ -1547,4 +1562,59 @@ fn reserve_transfer_usdt_from_para_to_para_through_asset_hub() {
 	assert!(sender_assets_after < sender_assets_before - asset_amount_to_send);
 	// Receiver's balance is increased
 	assert!(receiver_assets_after > receiver_assets_before);
+}
+
+/// Reserve Withdraw Native Asset from AssetHub to Parachain fails.
+#[test]
+fn reserve_withdraw_from_untrusted_reserve_fails() {
+	// Init values for Parachain Origin
+	let destination = AssetHubRococo::sibling_location_of(PenpalA::para_id());
+	let signed_origin =
+		<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get().into());
+	let roc_to_send: Balance = ROCOCO_ED * 10000;
+	let roc_location = RelayLocation::get();
+
+	// Assets to send
+	let assets: Vec<Asset> = vec![(roc_location.clone(), roc_to_send).into()];
+	let fee_id: AssetId = roc_location.into();
+
+	// this should fail
+	AssetHubRococo::execute_with(|| {
+		let result = <AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
+			signed_origin.clone(),
+			bx!(destination.clone().into()),
+			bx!(assets.clone().into()),
+			bx!(TransferType::DestinationReserve),
+			bx!(fee_id.into()),
+			bx!(TransferType::DestinationReserve),
+			bx!(VersionedXcm::from(Xcm::<()>::new())),
+			Unlimited,
+		);
+		assert_err!(
+			result,
+			DispatchError::Module(sp_runtime::ModuleError {
+				index: 31,
+				error: [22, 0, 0, 0],
+				message: Some("InvalidAssetUnsupportedReserve")
+			})
+		);
+	});
+
+	// this should also fail
+	AssetHubRococo::execute_with(|| {
+		let xcm: Xcm<asset_hub_rococo_runtime::RuntimeCall> = Xcm(vec![
+			WithdrawAsset(assets.into()),
+			InitiateReserveWithdraw {
+				assets: Wild(All),
+				reserve: destination,
+				xcm: Xcm::<()>::new(),
+			},
+		]);
+		let result = <AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::execute(
+			signed_origin,
+			bx!(xcm::VersionedXcm::from(xcm)),
+			Weight::MAX,
+		);
+		assert!(result.is_err());
+	});
 }

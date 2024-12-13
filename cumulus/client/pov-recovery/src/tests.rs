@@ -18,7 +18,7 @@ use super::*;
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::relay_chain::{
-	BlockId, CandidateCommitments, CandidateDescriptor, CoreState,
+	vstaging::CoreState, BlockId, CandidateCommitments, CandidateDescriptor, CoreIndex,
 };
 use cumulus_relay_chain_interface::{
 	InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption, PHash, PHeader,
@@ -43,7 +43,7 @@ use sp_runtime::{generic::SignedBlock, Justifications};
 use sp_version::RuntimeVersion;
 use std::{
 	borrow::Cow,
-	collections::BTreeMap,
+	collections::{BTreeMap, VecDeque},
 	ops::Range,
 	sync::{Arc, Mutex},
 };
@@ -322,8 +322,8 @@ impl RelayChainInterface for Relaychain {
 		.to_vec();
 
 		Ok(RuntimeVersion {
-			spec_name: sp_version::create_runtime_str!("test"),
-			impl_name: sp_version::create_runtime_str!("test"),
+			spec_name: Cow::Borrowed("test"),
+			impl_name: Cow::Borrowed("test"),
 			authoring_version: 1,
 			spec_version: 1,
 			impl_version: 0,
@@ -487,6 +487,22 @@ impl RelayChainInterface for Relaychain {
 	) -> RelayChainResult<Vec<CoreState<PHash, NumberFor<Block>>>> {
 		unimplemented!("Not needed for test");
 	}
+
+	async fn claim_queue(
+		&self,
+		_: PHash,
+	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>> {
+		unimplemented!("Not needed for test");
+	}
+
+	async fn call_runtime_api(
+		&self,
+		_method_name: &'static str,
+		_hash: PHash,
+		_payload: &[u8],
+	) -> RelayChainResult<Vec<u8>> {
+		unimplemented!("Not needed for test")
+	}
 }
 
 fn make_candidate_chain(candidate_number_range: Range<u32>) -> Vec<CommittedCandidateReceipt> {
@@ -516,7 +532,8 @@ fn make_candidate_chain(candidate_number_range: Range<u32>) -> Vec<CommittedCand
 				signature: collator.sign(&[0u8; 132]).into(),
 				para_head: PHash::zero(),
 				validation_code_hash: PHash::zero().into(),
-			},
+			}
+			.into(),
 			commitments: CandidateCommitments {
 				head_data: head_data.encode().into(),
 				upward_messages: vec![].try_into().expect("empty vec fits within bounds"),

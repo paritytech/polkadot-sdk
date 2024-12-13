@@ -4,7 +4,7 @@
 title: "[pallet-revive]"
 
 doc:
-  - audience: Runtime Devs
+  - audience: Runtime Dev
     description: |
       Update xcm runtime api, and fix pallet-revive xcm tests
 

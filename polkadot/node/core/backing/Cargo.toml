@@ -5,6 +5,8 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "The Candidate Backing Subsystem. Tracks parachain candidates that can be backed, as well as the issuance of statements about candidates."
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -14,6 +16,7 @@ futures = { workspace = true }
 sp-keystore = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
+polkadot-parachain-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-erasure-coding = { workspace = true, default-features = true }
@@ -35,3 +38,4 @@ assert_matches = { workspace = true }
 rstest = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
+polkadot-primitives = { workspace = true, features = ["test"] }
