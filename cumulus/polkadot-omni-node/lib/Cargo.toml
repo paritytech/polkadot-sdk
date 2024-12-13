@@ -69,7 +69,6 @@ sp-inherents = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
 sp-consensus-aura = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
-sp-wasm-interface = { workspace = true, default-features = true }
 sc-consensus-manual-seal = { workspace = true, default-features = true }
 sc-sysinfo = { workspace = true, default-features = true }
 prometheus-endpoint = { workspace = true, default-features = true }
