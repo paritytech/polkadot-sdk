@@ -188,7 +188,7 @@ fn user_exploit_with_arbitrary_message_will_fail() {
 
 		let exploited_weth = Asset {
 			id: AssetId(Location::new(0, [AccountKey20 { network: None, key: WETH.into() }])),
-			// A big mount without burning
+			// A big amount without burning
 			fun: Fungible(TOKEN_AMOUNT * 1_000_000_000),
 		};
 
@@ -200,6 +200,10 @@ fn user_exploit_with_arbitrary_message_will_fail() {
 			bx!(VersionedAssetId::from(remote_fee_asset_location.clone())),
 			bx!(TransferType::DestinationReserve),
 			bx!(VersionedXcm::from(Xcm(vec![
+			// Instructions inner are user provided and untrustworthy/dangerous!
+			// Currently it depends on EthereumBlobExporter on BH to check the message is legal
+			// and convert to Ethereum command, should be very careful to handle that.
+			// Or we may move the security check ahead to AH to fail earlier if possible.
 				WithdrawAsset(exploited_weth.clone().into()),
 				DepositAsset { assets: Wild(All), beneficiary: beneficiary() },
 				SetTopic([0; 32]),
