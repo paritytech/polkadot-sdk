@@ -16,14 +16,12 @@
 
 //! The Rococo runtime for v1 parachains.
 
-#![feature(asm_const)]
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit.
 #![recursion_limit = "512"]
 
 #[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), target_feature = "e"))]
-
-polkavm_derive::min_stack_size!(0x200000);
+polkavm_derive::min_stack_size!(2147483648);
 
 extern crate alloc;
 
