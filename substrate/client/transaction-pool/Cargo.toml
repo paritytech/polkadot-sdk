@@ -40,6 +40,7 @@ sp-tracing = { workspace = true, default-features = true }
 sp-transaction-pool = { workspace = true, default-features = true }
 tokio-stream = { workspace = true }
 tokio = { workspace = true, default-features = true, features = ["macros", "time"] }
+tracing = { workspace = true, default-features = true }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
