@@ -725,13 +725,16 @@ mod tests {
 	}
 
 	#[test]
+	/// Previously, passing a limit of 0 meant unlimited storage for a nested call.
+	///
+	/// Now, a limit of 0 means the subcall will not be able to use any storage.
 	fn nested_zero_limit_requested() {
 		clear_ext();
 
 		let meter = TestMeter::new(&Origin::from_account_id(ALICE), 1_000, 0).unwrap();
 		assert_eq!(meter.available(), 1_000);
 		let nested0 = meter.nested(BalanceOf::<Test>::zero());
-		assert_eq!(nested0.available(), 1_000);
+		assert_eq!(nested0.available(), 0);
 	}
 
 	#[test]
@@ -751,7 +754,7 @@ mod tests {
 		let meter = TestMeter::new(&Origin::from_account_id(ALICE), 1_000, 0).unwrap();
 		assert_eq!(meter.available(), 1_000);
 		let nested0 = meter.nested(1_000);
-		assert_eq!(nested0.available(), 1_000);
+		assert_eq!(nested0.available(), 985);
 	}
 
 	#[test]
@@ -761,7 +764,7 @@ mod tests {
 		let meter = TestMeter::new(&Origin::from_account_id(ALICE), 1_000, 0).unwrap();
 		assert_eq!(meter.available(), 1_000);
 		let nested0 = meter.nested(2_000);
-		assert_eq!(nested0.available(), 1_000);
+		assert_eq!(nested0.available(), 985);
 	}
 
 	#[test]
