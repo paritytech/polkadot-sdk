@@ -103,6 +103,7 @@ frame-try-runtime = { optional = true, workspace = true }
 frame-system-benchmarking = { optional = true, workspace = true }
 hex-literal = { workspace = true, default-features = true }
 
+polkavm-derive = { workspace = true }
 polkadot-runtime-common = { workspace = true }
 polkadot-runtime-parachains = { workspace = true }
 polkadot-primitives = { workspace = true }

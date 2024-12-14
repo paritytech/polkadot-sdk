@@ -21511,6 +21511,7 @@ dependencies = [
  "polkadot-primitives 7.0.0",
  "polkadot-runtime-common 7.0.0",
  "polkadot-runtime-parachains 7.0.0",
+ "polkavm-derive 0.18.0",
  "rococo-runtime-constants 7.0.0",
  "scale-info",
  "separator",
