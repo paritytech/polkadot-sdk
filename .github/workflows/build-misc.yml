@@ -37,6 +37,7 @@ jobs:
       - name: Build
         env:
           SUBSTRATE_RUNTIME_TARGET: riscv
+          SUBSTRATE_ENABLE_POLKAVM: 1
         id: required
         run: |
           forklift cargo check -p minimal-template-runtime
