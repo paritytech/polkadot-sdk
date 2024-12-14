@@ -195,10 +195,22 @@ pub mod pallet {
 
 		/// Number of eras that slashes are deferred by, after computation.
 		///
-		/// This should be less than the bonding duration. Set to 0 if slashes
+		/// This should be strictly less than the [`Config::BondingDuration`]. Set to 0 if slashes
 		/// should be applied immediately, without opportunity for intervention.
 		#[pallet::constant]
 		type SlashDeferDuration: Get<EraIndex>;
+
+		/// Number of eras preceding an unapplied slash where governance could cancel the slash.
+		///
+		/// Any offence reported for an era in the last `SlashCancellationDuration` eras will be
+		/// rejected. This ensures governance always have `SlashCancellationDuration` eras to cancel
+		/// a slash.
+		///
+		/// This should strictly be less than [`Config::SlashDeferDuration`]. If set to 0, then
+		/// governance has no opportunity to cancel the slash. If set to `SlashDeferDuration`, then
+		/// an offence can never be reported.
+		#[pallet::constant]
+		type SlashCancellationDuration: Get<EraIndex>;
 
 		/// The origin which can manage less critical staking parameters that does not require root.
 		///
@@ -337,6 +349,7 @@ pub mod pallet {
 			type SessionsPerEra = SessionsPerEra;
 			type BondingDuration = BondingDuration;
 			type SlashDeferDuration = ();
+			type SlashCancellationDuration = ();
 			type SessionInterface = ();
 			type NextNewSession = ();
 			type MaxExposurePageSize = ConstU32<64>;
