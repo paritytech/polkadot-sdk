@@ -19,11 +19,11 @@
 
 use super::*;
 
-use frame::testing_prelude::*;
-use mock::{
+use crate::mock::{
 	new_test_ext, run_to_block, Balances, BalancesCall, MaxFriends, Recovery, RecoveryCall,
 	RuntimeCall, RuntimeOrigin, Test,
 };
+use frame::{testing_prelude::*, traits::BadOrigin};
 
 #[test]
 fn basic_setup_works() {

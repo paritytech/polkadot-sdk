@@ -18,13 +18,12 @@
 //! Test utilities
 
 use super::*;
-
 use crate as recovery;
-use frame::testing_prelude::*;
+use frame::{deps::sp_io, testing_prelude::*};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,

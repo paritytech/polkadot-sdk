@@ -21,7 +21,7 @@ use super::*;
 
 use crate::Pallet;
 use alloc::{boxed::Box, vec, vec::Vec};
-use frame::{traits::Currency, benchmarking::prelude::*};
+use frame::{benchmarking::prelude::*, traits::Currency};
 
 const SEED: u32 = 0;
 const DEFAULT_DELAY: u32 = 0;

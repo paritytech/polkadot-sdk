@@ -156,7 +156,11 @@ use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
-use frame::{prelude::*, arithmetic::ArithmeticError,traits::{ReservableCurrency,Currency,BalanceStatus}};
+use frame::{
+	arithmetic::ArithmeticError,
+	prelude::*,
+	traits::{BalanceStatus, Currency, ReservableCurrency},
+};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
