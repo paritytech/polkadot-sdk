@@ -19,7 +19,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit.
 #![recursion_limit = "512"]
-#![min_stack_size = "16384"]
 
 extern crate alloc;
 
