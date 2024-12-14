@@ -21,7 +21,15 @@
 #![recursion_limit = "512"]
 
 #[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), target_feature = "e"))]
-polkavm_derive::min_stack_size!(2097152);
+// Allocate 2 MiB stack.
+//
+// TODO: A workaround. Invoke polkavm_derive::min_stack_size!() instead
+// later on.
+::core::arch::global_asm!(
+	".pushsection .polkavm_min_stack_size,\"R\",@note\n",
+	".4byte 2097152",
+	".popsection\n",
+);
 
 extern crate alloc;
 
@@ -933,19 +941,19 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			),
 			ProxyType::IdentityJudgement => matches!(
 				c,
-				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. }) |
-					RuntimeCall::Utility(..)
+				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. })
+					| RuntimeCall::Utility(..)
 			),
 			ProxyType::CancelProxy => {
 				matches!(c, RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. }))
 			},
 			ProxyType::Auction => matches!(
 				c,
-				RuntimeCall::Auctions { .. } |
-					RuntimeCall::Crowdloan { .. } |
-					RuntimeCall::Registrar { .. } |
-					RuntimeCall::Multisig(..) |
-					RuntimeCall::Slots { .. }
+				RuntimeCall::Auctions { .. }
+					| RuntimeCall::Crowdloan { .. }
+					| RuntimeCall::Registrar { .. }
+					| RuntimeCall::Multisig(..)
+					| RuntimeCall::Slots { .. }
 			),
 			ProxyType::Society => matches!(c, RuntimeCall::Society(..)),
 			ProxyType::OnDemandOrdering => matches!(c, RuntimeCall::OnDemandAssignmentProvider(..)),
