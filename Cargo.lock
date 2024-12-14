@@ -15047,6 +15047,7 @@ name = "pallet-revive-uapi"
 version = "0.1.0"
 dependencies = [
  "bitflags 1.3.2",
+ "pallet-revive-proc-macro 0.1.0",
  "parity-scale-codec",
  "paste",
  "polkavm-derive 0.17.0",

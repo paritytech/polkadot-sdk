@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{CallFlags, Result, ReturnFlags, StorageFlags};
+use pallet_revive_proc_macro::unstable_hostfn;
 
 #[cfg(target_arch = "riscv64")]
 mod riscv64;
@@ -226,16 +227,15 @@ pub trait HostFn: private::Sealed {
 	/// [KeyNotFound][`crate::ReturnErrorCode::KeyNotFound]
 	fn get_storage(flags: StorageFlags, key: &[u8], output: &mut &mut [u8]) -> Result;
 
-	///Computes the keccak_256 32-bit hash on the given input buffer.
-	/**
-								# Notes
-								*/
-	///- The `input` and `output` buffer may overlap.
-	///- The output buffer is expected to hold at least 32 bits.
-	///- It is the callers responsibility to provide an output buffer that is large enough to hold the expected amount of bytes returned by the hash function.
-	/**
-								# Parameters
-								*/
+	/// Computes the keccak_256 32-bit hash on the given input buffer.
+	///
+	/// - The `input` and `output` buffer may overlap.
+	/// - The output buffer is expected to hold at least 32 bits.
+	/// - It is the callers responsibility to provide an output buffer that is large enough to hold
+	///   the expected amount of bytes returned by the hash function.
+	///
+	/// # Parameters
+	///
 	/// - `input`: The input data buffer.
 	/// - `output`: The output buffer to write the hash result to.
 	fn hash_keccak_256(input: &[u8], output: &mut [u8; 32]);
@@ -388,7 +388,7 @@ pub trait HostFn: private::Sealed {
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the block number.
-	#[cfg(feature = "unstable-api")]
+	#[unstable_hostfn]
 	fn block_number(output: &mut [u8; 32]);
 
 	/// Stores the block hash of the given block number into the supplied buffer.
@@ -397,7 +397,7 @@ pub trait HostFn: private::Sealed {
 	///
 	/// - `block_number`: A reference to the block number buffer.
 	/// - `output`: A reference to the output data buffer to write the block number.
-	#[cfg(feature = "unstable-api")]
+	#[unstable_hostfn]
 	fn block_hash(block_number: &[u8; 32], output: &mut [u8; 32]);
 
 	/// Call into the chain extension provided by the chain if any.
@@ -422,7 +422,7 @@ pub trait HostFn: private::Sealed {
 	/// # Return
 	///
 	/// The chain extension returned value, if executed successfully.
-	#[cfg(feature = "unstable-api")]
+	#[unstable_hostfn]
 	fn call_chain_extension(func_id: u32, input: &[u8], output: Option<&mut &mut [u8]>) -> u32;
 
 	/// Call some dispatchable of the runtime.
@@ -449,7 +449,7 @@ pub trait HostFn: private::Sealed {
 	/// - Provide functionality **exclusively** to contracts.
 	/// - Provide custom weights.
 	/// - Avoid the need to keep the `Call` data structure stable.
-	#[cfg(feature = "unstable-api")]
+	#[unstable_hostfn]
 	fn call_runtime(call: &[u8]) -> Result;
 
 	/// Checks whether the caller of the current contract is the origin of the whole call stack.
@@ -462,7 +462,7 @@ pub trait HostFn: private::Sealed {
 	///
 	/// A return value of `true` indicates that this contract is being called by a plain account
 	/// and `false` indicates that the caller is another contract.
-	#[cfg(feature = "unstable-api")]
+	#[unstable_hostfn]
 	fn caller_is_origin() -> bool;
 
 	/// Checks whether the caller of the current contract is root.
@@ -472,7 +472,7 @@ pub trait HostFn: private::Sealed {
 	///
 	/// A return value of `true` indicates that this contract is being called by a root origin,
 	/// and `false` indicates that the caller is a signed origin.
-	#[cfg(feature = "unstable-api")]
+	#[unstable_hostfn]
 	fn caller_is_root() -> u32;
 
 	/// Clear the value at the given key in the contract storage.
@@ -484,7 +484,7 @@ pub trait HostFn: private::Sealed {
 	/// # Return
 	///
 	/// Returns the size of the pre-existing value at the specified key if any.
-	#[cfg(feature = "unstable-api")]
+	#[unstable_hostfn]
 	fn clear_storage(flags: StorageFlags, key: &[u8]) -> Option<u32>;
 
 	/// Checks whether there is a value stored under the given key.
@@ -497,7 +497,7 @@ pub trait HostFn: private::Sealed {
 	/// # Return
 	///
 	/// Returns the size of the pre-existing value at the specified key if any.
-	#[cfg(feature = "unstable-api")]
+	#[unstable_hostfn]
 	fn contains_storage(flags: StorageFlags, key: &[u8]) -> Option<u32>;
 
 	/// Emit a custom debug message.
@@ -517,7 +517,7 @@ pub trait HostFn: private::Sealed {
 	/// not being executed as an RPC. For example, they could allow users to disable logging
 	/// through compile time flags (cargo features) for on-chain deployment. Additionally, the
 	/// return value of this function can be cached in order to prevent further calls at runtime.
-	#[cfg(feature = "unstable-api")]
+	#[unstable_hostfn]
 	fn debug_message(str: &[u8]) -> Result;
 
 	/// Recovers the ECDSA public key from the given message hash and signature.
@@ -534,7 +534,7 @@ pub trait HostFn: private::Sealed {
 	/// # Errors
 	///
 	/// - [EcdsaRecoveryFailed][`crate::ReturnErrorCode::EcdsaRecoveryFailed]
-	#[cfg(feature = "unstable-api")]
+	#[unstable_hostfn]
 	fn ecdsa_recover(
 		signature: &[u8; 65],
 		message_hash: &[u8; 32],
@@ -552,50 +552,48 @@ pub trait HostFn: private::Sealed {
 	/// # Errors
 	///
 	/// - [EcdsaRecoveryFailed][`crate::ReturnErrorCode::EcdsaRecoveryFailed]
-	#[cfg(feature = "unstable-api")]
+	#[unstable_hostfn]
 	fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result;
 
-	///Computes the sha2_256 32-bit hash on the given input buffer.
-	/**
-							# Notes
-							*/
-	///- The `input` and `output` buffer may overlap.
-	///- The output buffer is expected to hold at least 32 bits.
-	///- It is the callers responsibility to provide an output buffer that is large enough to hold the expected amount of bytes returned by the hash function.
-	/**
-							# Parameters
-							*/
+	/// Computes the sha2_256 32-bit hash on the given input buffer.
+	///
+	/// - The `input` and `output` buffer may overlap.
+	/// - The output buffer is expected to hold at least 32 bits.
+	/// - It is the callers responsibility to provide an output buffer that is large enough to hold
+	///   the expected amount of bytes returned by the hash function.
+	///
+	/// # Parameters
+	///
 	/// - `input`: The input data buffer.
 	/// - `output`: The output buffer to write the hash result to.
-	#[cfg(feature = "unstable-api")]
+	#[unstable_hostfn]
 	fn hash_sha2_256(input: &[u8], output: &mut [u8; 32]);
-	///Computes the blake2_256 32-bit hash on the given input buffer.
-	/**
-							# Notes
-							*/
-	///- The `input` and `output` buffer may overlap.
-	///- The output buffer is expected to hold at least 32 bits.
-	///- It is the callers responsibility to provide an output buffer that is large enough to hold the expected amount of bytes returned by the hash function.
-	/**
-							# Parameters
-							*/
+
+	/// Computes the blake2_256 32-bit hash on the given input buffer.
+	///
+	/// - The `input` and `output` buffer may overlap.
+	/// - The output buffer is expected to hold at least 32 bits.
+	/// - It is the callers responsibility to provide an output buffer that is large enough to hold
+	///   the expected amount of bytes returned by the hash function.
+	///
+	/// # Parameters
+	///											*/
 	/// - `input`: The input data buffer.
 	/// - `output`: The output buffer to write the hash result to.
-	#[cfg(feature = "unstable-api")]
+	#[unstable_hostfn]
 	fn hash_blake2_256(input: &[u8], output: &mut [u8; 32]);
-	///Computes the blake2_128 16-bit hash on the given input buffer.
-	/**
-							# Notes
-							*/
-	///- The `input` and `output` buffer may overlap.
-	///- The output buffer is expected to hold at least 16 bits.
-	///- It is the callers responsibility to provide an output buffer that is large enough to hold the expected amount of bytes returned by the hash function.
-	/**
-							# Parameters
-							*/
+
+	/// Computes the blake2_128 16-bit hash on the given input buffer.
+	///
+	/// - The `input` and `output` buffer may overlap.
+	/// - The output buffer is expected to hold at least 16 bits.
+	/// - It is the callers responsibility to provide an output buffer that is large enough to hold
+	///   the expected amount of bytes returned by the hash function.
+	/// # Parameters
+	///
 	/// - `input`: The input data buffer.
 	/// - `output`: The output buffer to write the hash result to.
-	#[cfg(feature = "unstable-api")]
+	#[unstable_hostfn]
 	fn hash_blake2_128(input: &[u8], output: &mut [u8; 16]);
 
 	/// Checks whether a specified address belongs to a contract.
@@ -607,7 +605,7 @@ pub trait HostFn: private::Sealed {
 	/// # Return
 	///
 	/// Returns `true` if the address belongs to a contract.
-	#[cfg(feature = "unstable-api")]
+	#[unstable_hostfn]
 	fn is_contract(address: &[u8; 20]) -> bool;
 
 	/// Lock a new delegate dependency to the contract.
@@ -619,7 +617,7 @@ pub trait HostFn: private::Sealed {
 	///
 	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps
 	///   otherwise.
-	#[cfg(feature = "unstable-api")]
+	#[unstable_hostfn]
 	fn lock_delegate_dependency(code_hash: &[u8; 32]);
 
 	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
@@ -627,7 +625,7 @@ pub trait HostFn: private::Sealed {
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the minimum balance.
-	#[cfg(feature = "unstable-api")]
+	#[unstable_hostfn]
 	fn minimum_balance(output: &mut [u8; 32]);
 
 	/// Retrieve the code hash of the currently executing contract.
@@ -635,7 +633,7 @@ pub trait HostFn: private::Sealed {
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the code hash.
-	#[cfg(feature = "unstable-api")]
+	#[unstable_hostfn]
 	fn own_code_hash(output: &mut [u8; 32]);
 
 	/// Replace the contract code at the specified address with new code.
@@ -666,7 +664,7 @@ pub trait HostFn: private::Sealed {
 	/// # Panics
 	///
 	/// Panics if there is no code on-chain with the specified hash.
-	#[cfg(feature = "unstable-api")]
+	#[unstable_hostfn]
 	fn set_code_hash(code_hash: &[u8; 32]);
 
 	/// Verify a sr25519 signature
@@ -679,7 +677,7 @@ pub trait HostFn: private::Sealed {
 	/// # Errors
 	///
 	/// - [Sr25519VerifyFailed][`crate::ReturnErrorCode::Sr25519VerifyFailed]
-	#[cfg(feature = "unstable-api")]
+	#[unstable_hostfn]
 	fn sr25519_verify(signature: &[u8; 64], message: &[u8], pub_key: &[u8; 32]) -> Result;
 
 	/// Retrieve and remove the value under the given key from storage.
@@ -691,7 +689,7 @@ pub trait HostFn: private::Sealed {
 	/// # Errors
 	///
 	/// [KeyNotFound][`crate::ReturnErrorCode::KeyNotFound]
-	#[cfg(feature = "unstable-api")]
+	#[unstable_hostfn]
 	fn take_storage(flags: StorageFlags, key: &[u8], output: &mut &mut [u8]) -> Result;
 
 	/// Remove the calling account and transfer remaining **free** balance.
@@ -709,7 +707,7 @@ pub trait HostFn: private::Sealed {
 	/// - The contract is live i.e is already on the call stack.
 	/// - Failed to send the balance to the beneficiary.
 	/// - The deletion queue is full.
-	#[cfg(feature = "unstable-api")]
+	#[unstable_hostfn]
 	fn terminate(beneficiary: &[u8; 20]) -> !;
 
 	/// Removes the delegate dependency from the contract.
@@ -720,7 +718,7 @@ pub trait HostFn: private::Sealed {
 	///
 	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps
 	///   otherwise.
-	#[cfg(feature = "unstable-api")]
+	#[unstable_hostfn]
 	fn unlock_delegate_dependency(code_hash: &[u8; 32]);
 
 	/// Stores the amount of weight left into the supplied buffer.
@@ -731,7 +729,7 @@ pub trait HostFn: private::Sealed {
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the weight left.
-	#[cfg(feature = "unstable-api")]
+	#[unstable_hostfn]
 	fn weight_left(output: &mut &mut [u8]);
 
 	/// Execute an XCM program locally, using the contract's address as the origin.
@@ -748,7 +746,7 @@ pub trait HostFn: private::Sealed {
 	///
 	/// Returns `Error::Success` when the XCM execution attempt is successful. When the XCM
 	/// execution fails, `ReturnCode::XcmExecutionFailed` is returned
-	#[cfg(feature = "unstable-api")]
+	#[unstable_hostfn]
 	fn xcm_execute(msg: &[u8]) -> Result;
 
 	/// Send an XCM program from the contract to the specified destination.
@@ -766,7 +764,7 @@ pub trait HostFn: private::Sealed {
 	///
 	/// Returns `ReturnCode::Success` when the message was successfully sent. When the XCM
 	/// execution fails, `ReturnErrorCode::XcmSendFailed` is returned.
-	#[cfg(feature = "unstable-api")]
+	#[unstable_hostfn]
 	fn xcm_send(dest: &[u8], msg: &[u8], output: &mut [u8; 32]) -> Result;
 }
 
