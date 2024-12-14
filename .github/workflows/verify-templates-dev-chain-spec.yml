@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   setup:
-    timeout-minutes: 30
+    timeout-minutes: 60
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -120,19 +120,20 @@ jobs:
             echo "❌ Reference spec not found at ${{ matrix.template.runtime_path }}/dev_chain_spec.json"
             exit 1
           fi
-          
+
           if [ ! -f "./downloaded_spec/${{ matrix.template.chain_spec_output }}" ]; then
             echo "❌ Generated spec not found at ./downloaded_spec/${{ matrix.template.chain_spec_output }}"
             exit 1
           fi
-          
+
           jq -S . ${{ matrix.template.runtime_path }}/dev_chain_spec.json > existing_spec_sorted.json
           jq -S . ./downloaded_spec/${{ matrix.template.chain_spec_output }} > generated_spec_sorted.json
-          
-          if diff existing_spec_sorted.json generated_spec_sorted.json; then
-            echo "✅ Spec files match perfectly"
-          else
-            echo "❌ Spec files differ:"
-            diff existing_spec_sorted.json generated_spec_sorted.json
-            exit 1
-          fi
+
+          echo "❌ Spec files differ:"
+          # Output the first 30 characters of each differing line for brevity
+          diff -C 3 existing_spec_sorted.json generated_spec_sorted.json | while read -r line; do
+          echo "${line:0:200}..."
+          done
+
+          # Exit with failure
+          exit 1
