@@ -135,38 +135,6 @@ mod sys {
 	}
 }
 
-/// A macro to implement all Host functions with a signature of `fn(&mut [u8; n])`.
-macro_rules! impl_wrapper_for {
-	(@impl_fn $name:ident, $n: literal) => {
-		fn $name(output: &mut [u8; $n]) {
-			unsafe { sys::$name(output.as_mut_ptr()) }
-		}
-	};
-
-	() => {};
-
-	([u8; $n: literal] => $($name:ident),*; $($tail:tt)*) => {
-		$(impl_wrapper_for!(@impl_fn $name, $n);)*
-		impl_wrapper_for!($($tail)*);
-	};
-}
-
-macro_rules! impl_hash_fn {
-	( $name:ident, $bytes_result:literal ) => {
-		paste::item! {
-			fn [<hash_ $name>](input: &[u8], output: &mut [u8; $bytes_result]) {
-				unsafe {
-					sys::[<hash_ $name>](
-						input.as_ptr(),
-						input.len() as u32,
-						output.as_mut_ptr(),
-					)
-				}
-			}
-		}
-	};
-}
-
 #[inline(always)]
 fn extract_from_slice(output: &mut &mut [u8], new_len: usize) {
 	debug_assert!(new_len <= output.len());
@@ -398,21 +366,49 @@ impl HostFn for HostFnImpl {
 		panic!("seal_return does not return");
 	}
 
-	impl_wrapper_for! {
-		[u8; 32] => call_data_size, balance, value_transferred, now, chain_id;
-		[u8; 20] => address, caller, origin;
+	fn call_data_size(output: &mut [u8; 32]) {
+		unsafe { sys::call_data_size(output.as_mut_ptr()) }
 	}
 
-	#[cfg(feature = "unstable-api")]
-	impl_wrapper_for! {
-		[u8; 32] => block_number, minimum_balance;
+	fn balance(output: &mut [u8; 32]) {
+		unsafe { sys::balance(output.as_mut_ptr()) }
+	}
+
+	fn value_transferred(output: &mut [u8; 32]) {
+		unsafe { sys::value_transferred(output.as_mut_ptr()) }
+	}
+
+	fn now(output: &mut [u8; 32]) {
+		unsafe { sys::now(output.as_mut_ptr()) }
+	}
+
+	fn chain_id(output: &mut [u8; 32]) {
+		unsafe { sys::chain_id(output.as_mut_ptr()) }
+	}
+
+	fn address(output: &mut [u8; 20]) {
+		unsafe { sys::address(output.as_mut_ptr()) }
+	}
+
+	fn caller(output: &mut [u8; 20]) {
+		unsafe { sys::caller(output.as_mut_ptr()) }
+	}
+
+	fn origin(output: &mut [u8; 20]) {
+		unsafe { sys::origin(output.as_mut_ptr()) }
+	}
+
+	fn block_number(output: &mut [u8; 32]) {
+		unsafe { sys::block_number(output.as_mut_ptr()) }
 	}
 
 	fn weight_to_fee(ref_time_limit: u64, proof_size_limit: u64, output: &mut [u8; 32]) {
 		unsafe { sys::weight_to_fee(ref_time_limit, proof_size_limit, output.as_mut_ptr()) };
 	}
 
-	impl_hash_fn!(keccak_256, 32);
+	fn hash_keccak_256(input: &[u8], output: &mut [u8; 32]) {
+		unsafe { sys::hash_keccak_256(input.as_ptr(), input.len() as u32, output.as_mut_ptr()) }
+	}
 
 	fn get_immutable_data(output: &mut &mut [u8]) {
 		let mut output_len = output.len() as u32;
@@ -529,11 +525,19 @@ impl HostFn for HostFnImpl {
 	}
 
 	#[cfg(feature = "unstable-api")]
-	impl_hash_fn!(sha2_256, 32);
+	fn hash_sha2_256(input: &[u8], output: &mut [u8; 32]) {
+		unsafe { sys::hash_sha2_256(input.as_ptr(), input.len() as u32, output.as_mut_ptr()) }
+	}
+
 	#[cfg(feature = "unstable-api")]
-	impl_hash_fn!(blake2_256, 32);
+	fn hash_blake2_256(input: &[u8], output: &mut [u8; 32]) {
+		unsafe { sys::hash_blake2_256(input.as_ptr(), input.len() as u32, output.as_mut_ptr()) }
+	}
+
 	#[cfg(feature = "unstable-api")]
-	impl_hash_fn!(blake2_128, 16);
+	fn hash_blake2_128(input: &[u8], output: &mut [u8; 16]) {
+		unsafe { sys::hash_blake2_128(input.as_ptr(), input.len() as u32, output.as_mut_ptr()) }
+	}
 
 	#[cfg(feature = "unstable-api")]
 	fn is_contract(address: &[u8; 20]) -> bool {
@@ -544,6 +548,11 @@ impl HostFn for HostFnImpl {
 	#[cfg(feature = "unstable-api")]
 	fn lock_delegate_dependency(code_hash: &[u8; 32]) {
 		unsafe { sys::lock_delegate_dependency(code_hash.as_ptr()) }
+	}
+
+	#[cfg(feature = "unstable-api")]
+	fn minimum_balance(output: &mut [u8; 32]) {
+		unsafe { sys::minimum_balance(output.as_mut_ptr()) }
 	}
 
 	#[cfg(feature = "unstable-api")]

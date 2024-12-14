@@ -12,26 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{CallFlags, Result, ReturnFlags, StorageFlags};
-use paste::paste;
 
 #[cfg(target_arch = "riscv64")]
 mod riscv64;
-
-macro_rules! hash_fn {
-	( $name:ident, $bytes:literal ) => {
-		paste! {
-			#[doc = "Computes the " $name " " $bytes "-bit hash on the given input buffer."]
-			#[doc = "\n# Notes\n"]
-			#[doc = "- The `input` and `output` buffer may overlap."]
-			#[doc = "- The output buffer is expected to hold at least " $bytes " bits."]
-			#[doc = "- It is the callers responsibility to provide an output buffer that is large enough to hold the expected amount of bytes returned by the hash function."]
-			#[doc = "\n# Parameters\n"]
-			#[doc = "- `input`: The input data buffer."]
-			#[doc = "- `output`: The output buffer to write the hash result to."]
-			fn [<hash_ $name>](input: &[u8], output: &mut [u8; $bytes]);
-		}
-	};
-}
 
 /// Implements [`HostFn`] when compiled on supported architectures (RISC-V).
 pub enum HostFnImpl {}
@@ -243,7 +226,19 @@ pub trait HostFn: private::Sealed {
 	/// [KeyNotFound][`crate::ReturnErrorCode::KeyNotFound]
 	fn get_storage(flags: StorageFlags, key: &[u8], output: &mut &mut [u8]) -> Result;
 
-	hash_fn!(keccak_256, 32);
+	///Computes the keccak_256 32-bit hash on the given input buffer.
+	/**
+								# Notes
+								*/
+	///- The `input` and `output` buffer may overlap.
+	///- The output buffer is expected to hold at least 32 bits.
+	///- It is the callers responsibility to provide an output buffer that is large enough to hold the expected amount of bytes returned by the hash function.
+	/**
+								# Parameters
+								*/
+	/// - `input`: The input data buffer.
+	/// - `output`: The output buffer to write the hash result to.
+	fn hash_keccak_256(input: &[u8], output: &mut [u8; 32]);
 
 	/// Stores the input passed by the caller into the supplied buffer.
 	///
@@ -560,12 +555,48 @@ pub trait HostFn: private::Sealed {
 	#[cfg(feature = "unstable-api")]
 	fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result;
 
+	///Computes the sha2_256 32-bit hash on the given input buffer.
+	/**
+							# Notes
+							*/
+	///- The `input` and `output` buffer may overlap.
+	///- The output buffer is expected to hold at least 32 bits.
+	///- It is the callers responsibility to provide an output buffer that is large enough to hold the expected amount of bytes returned by the hash function.
+	/**
+							# Parameters
+							*/
+	/// - `input`: The input data buffer.
+	/// - `output`: The output buffer to write the hash result to.
 	#[cfg(feature = "unstable-api")]
-	hash_fn!(sha2_256, 32);
+	fn hash_sha2_256(input: &[u8], output: &mut [u8; 32]);
+	///Computes the blake2_256 32-bit hash on the given input buffer.
+	/**
+							# Notes
+							*/
+	///- The `input` and `output` buffer may overlap.
+	///- The output buffer is expected to hold at least 32 bits.
+	///- It is the callers responsibility to provide an output buffer that is large enough to hold the expected amount of bytes returned by the hash function.
+	/**
+							# Parameters
+							*/
+	/// - `input`: The input data buffer.
+	/// - `output`: The output buffer to write the hash result to.
 	#[cfg(feature = "unstable-api")]
-	hash_fn!(blake2_256, 32);
+	fn hash_blake2_256(input: &[u8], output: &mut [u8; 32]);
+	///Computes the blake2_128 16-bit hash on the given input buffer.
+	/**
+							# Notes
+							*/
+	///- The `input` and `output` buffer may overlap.
+	///- The output buffer is expected to hold at least 16 bits.
+	///- It is the callers responsibility to provide an output buffer that is large enough to hold the expected amount of bytes returned by the hash function.
+	/**
+							# Parameters
+							*/
+	/// - `input`: The input data buffer.
+	/// - `output`: The output buffer to write the hash result to.
 	#[cfg(feature = "unstable-api")]
-	hash_fn!(blake2_128, 16);
+	fn hash_blake2_128(input: &[u8], output: &mut [u8; 16]);
 
 	/// Checks whether a specified address belongs to a contract.
 	///
