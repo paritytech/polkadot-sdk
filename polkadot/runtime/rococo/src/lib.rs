@@ -21,7 +21,7 @@
 #![recursion_limit = "512"]
 
 #[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), target_feature = "e"))]
-polkavm_derive::min_stack_size!(32768);
+polkavm_derive::min_stack_size!(0x200000);
 
 extern crate alloc;
 
