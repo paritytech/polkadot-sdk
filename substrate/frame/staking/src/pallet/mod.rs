@@ -367,7 +367,7 @@ pub mod pallet {
 			type MaxDisabledValidatorCount = ConstU32<333>;
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type EventListeners = ();
-			type DisablingStrategy = crate::UpToLimitDisablingStrategy;
+			type DisablingStrategy = crate::UpToLimitWithReEnablingDisablingStrategy;
 			#[cfg(feature = "std")]
 			type BenchmarkingConfig = crate::TestBenchmarkingConfig;
 			type WeightInfo = ();

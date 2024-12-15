@@ -114,6 +114,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 pub mod weights;
+mod disabling;
 
 extern crate alloc;
 
@@ -142,6 +143,19 @@ use sp_staking::SessionIndex;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
+
+pub(crate) const LOG_TARGET: &str = "runtime::session";
+
+// syntactic sugar for logging.
+#[macro_export]
+macro_rules! log {
+	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
+		log::$level!(
+			target: crate::LOG_TARGET,
+			concat!("[{:?}] 💸 ", $patter), <frame_system::Pallet<T>>::block_number() $(, $values)*
+		)
+	};
+}
 
 /// Decides whether the session should be ended.
 pub trait ShouldEndSession<BlockNumber> {
@@ -639,7 +653,7 @@ impl<T: Config> Pallet<T> {
 	/// punishment after a fork.
 	pub fn rotate_session() {
 		let session_index = CurrentIndex::<T>::get();
-		log::trace!(target: "runtime::session", "rotating session {:?}", session_index);
+		log!(trace, "rotating session {:?}", session_index);
 
 		let changed = QueuedChanged::<T>::get();
 
