@@ -73,7 +73,7 @@ impl<Address: TypeInfo, Signature: TypeInfo, Extension: TypeInfo> SignaturePaylo
 /// A "header" for extrinsics leading up to the call itself. Determines the type of extrinsic and
 /// holds any necessary specialized data.
 #[derive(Eq, PartialEq, Clone)]
-pub enum Preamble<Address, Signature, Extension> {
+pub enum Preamble<Address, Signature, ExtensionV0, Extension = ExtensionV0> {
 	/// An extrinsic without a signature or any extension. This means it's either an inherent or
 	/// an old-school "Unsigned" (we don't use that terminology any more since it's confusable with
 	/// the general transaction which is without a signature but does have an extension).
@@ -83,7 +83,7 @@ pub enum Preamble<Address, Signature, Extension> {
 	Bare(ExtrinsicVersion),
 	/// An old-school transaction extrinsic which includes a signature of some hard-coded crypto.
 	/// Available only on extrinsic version 4.
-	Signed(Address, Signature, Extension),
+	Signed(Address, Signature, ExtensionV0),
 	/// A new-school transaction extrinsic which does not include a signature by default. The
 	/// origin authorization, through signatures or other means, is performed by the transaction
 	/// extension in this extrinsic. Available starting with extrinsic version 5.
@@ -96,10 +96,11 @@ const BARE_EXTRINSIC: u8 = 0b0000_0000;
 const SIGNED_EXTRINSIC: u8 = 0b1000_0000;
 const GENERAL_EXTRINSIC: u8 = 0b0100_0000;
 
-impl<Address, Signature, Extension> Decode for Preamble<Address, Signature, Extension>
+impl<Address, Signature, ExtensionV0, Extension> Decode for Preamble<Address, Signature, ExtensionV0, Extension>
 where
 	Address: Decode,
 	Signature: Decode,
+	ExtensionV0: Decode,
 	Extension: Decode,
 {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
@@ -116,8 +117,8 @@ where
 			(LEGACY_EXTRINSIC_FORMAT_VERSION, SIGNED_EXTRINSIC) => {
 				let address = Address::decode(input)?;
 				let signature = Signature::decode(input)?;
-				let ext = Extension::decode(input)?;
-				Self::Signed(address, signature, ext) // TODO TODO: decode using version
+				let ext = ExtensionV0::decode(input)?;
+				Self::Signed(address, signature, ext)
 			},
 			(EXTRINSIC_FORMAT_VERSION, GENERAL_EXTRINSIC) => {
 				let ext_version = ExtensionVersion::decode(input)?;
@@ -131,10 +132,11 @@ where
 	}
 }
 
-impl<Address, Signature, Extension> Encode for Preamble<Address, Signature, Extension>
+impl<Address, Signature, ExtensionV0, Extension> Encode for Preamble<Address, Signature, ExtensionV0, Extension>
 where
 	Address: Encode,
 	Signature: Encode,
+	ExtensionV0: Encode,
 	Extension: Encode,
 {
 	fn size_hint(&self) -> usize {
@@ -172,9 +174,9 @@ where
 	}
 }
 
-impl<Address, Signature, Extension> Preamble<Address, Signature, Extension> {
+impl<Address, Signature, ExtensionV0, Extension> Preamble<Address, Signature, ExtensionV0, Extension> {
 	/// Returns `Some` if this is a signed extrinsic, together with the relevant inner fields.
-	pub fn to_signed(self) -> Option<(Address, Signature, Extension)> {
+	pub fn to_signed(self) -> Option<(Address, Signature, ExtensionV0)> {
 		match self {
 			Self::Signed(a, s, e) => Some((a, s, e)),
 			_ => None,
@@ -182,9 +184,10 @@ impl<Address, Signature, Extension> Preamble<Address, Signature, Extension> {
 	}
 }
 
-impl<Address, Signature, Extension> fmt::Debug for Preamble<Address, Signature, Extension>
+impl<Address, Signature, ExtensionV0, Extension> fmt::Debug for Preamble<Address, Signature, ExtensionV0, Extension>
 where
 	Address: fmt::Debug,
+	ExtensionV0: fmt::Debug,
 	Extension: fmt::Debug,
 {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -228,6 +231,9 @@ pub struct UncheckedExtrinsic<Address, Call, Signature, Extension> {
 	pub function: Call,
 }
 
+// TODO TODO: 2 possible implementation:
+// 1. a new generic for the multi version extension.
+// 2. no new generic, the multi version extension defines what is ExtensionV0.
 /// Manual [`TypeInfo`] implementation because of custom encoding. The data is a valid encoded
 /// `Vec<u8>`, but requires some logic to extract the signature and payload.
 ///
@@ -306,14 +312,18 @@ impl<Address, Call, Signature, Extension> UncheckedExtrinsic<Address, Call, Sign
 	) -> Self {
 		Self { preamble: Preamble::Signed(signed, signature, tx_ext), function }
 	}
+}
 
+impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Call>> UncheckedExtrinsic<Address, Call, Signature, Extension> {
 	/// New instance of an new-school unsigned transaction.
+	///
+	/// This function is only available for `UncheckedExtrinsic` without multi version extension.
 	pub fn new_transaction(function: Call, tx_ext: Extension) -> Self {
 		Self { preamble: Preamble::General(EXTENSION_VERSION, tx_ext), function }
 	}
 }
 
-impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo> ExtrinsicLike
+impl<Address, Call, Signature, Extension> ExtrinsicLike
 	for UncheckedExtrinsic<Address, Call, Signature, Extension>
 {
 	fn is_bare(&self) -> bool {
@@ -406,6 +416,52 @@ impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Cal
 	}
 }
 
+pub struct MultiVersionExtension;
+
+// // usage prop 1
+// type TxExtV1 = VersionedExtension<1, (CheckNonce, CheckNonce)>;
+// type TxExt = MultiVersionExtension<(
+// 	ExtensionV1,
+// 	ExtensionV2,
+// )>;
+
+// // usage prop 2
+// type TxExtV1 = (CheckNonce, CheckNonce);
+// type TxExt = MultiVersionExtension<(
+// 	VersionedExtension<1, TxExtV1>,
+// 	VersionedExtension<2, TxExtV2>,
+// )>;
+//
+// OR
+//
+// type TxExtV1 = (1, (CheckNonce, CheckNonce));
+// type TxExt = MultiVersionExtension<(
+// 	ExtensionV1,
+// 	ExtensionV2,
+// )>;
+
+// // usage prop 2
+// type TxExtV1 = (CheckNonce, CheckNonce);
+// type TxExt = MultiVersionExtension<(
+// 	(1, TxExtV1),
+// 	(2, TxExtV2),
+// )>;
+
+
+impl<Address, Call, Signature> Decode
+	for UncheckedExtrinsic<Address, Call, Signature, MultiVersionExtension>
+where
+	Address: Decode,
+	Signature: Decode,
+	Call: Decode,
+{
+	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+		todo!();
+	}
+}
+
+// TODO TODO: here we want to decode differently based on the type `Extension`.
+// If extension is MultiVersionExtension then we want to decode with a specific trait impl.
 impl<Address, Call, Signature, Extension> Decode
 	for UncheckedExtrinsic<Address, Call, Signature, Extension>
 where
