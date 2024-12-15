@@ -254,13 +254,7 @@ pub mod pallet {
 			let mut status = Status::<T, I>::get().ok_or(Error::<T, I>::NotStarted)?;
 			status.cycle_start.saturating_accrue(cycle_period);
 			ensure!(now >= status.cycle_start, Error::<T, I>::NotYet);
-			status.cycle_index.saturating_inc();
-			status.budget = T::Budget::get();
-			status.total_registrations = Zero::zero();
-			status.total_unregistered_paid = Zero::zero();
-			Status::<T, I>::put(&status);
-
-			Self::deposit_event(Event::<T, I>::CycleStarted { index: status.cycle_index });
+			Self::do_bump_unchecked(&mut status);
 			Ok(Pays::No.into())
 		}
 
@@ -394,18 +388,7 @@ pub mod pallet {
 	#[pallet::tasks_experimental]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		#[pallet::task_list({
-			if let Some(status) = Status::<T, I>::get() {
-				let now = frame_system::Pallet::<T>::block_number();
-				let cycle_period = Pallet::<T, I>::cycle_period();
-				let result = if now >= status.cycle_start + cycle_period {
-					vec![()] // Success one task available: `()`.
-				} else {
-					vec![] // Failure no task available.
-				};
-				result.into_iter()
-			} else {
-				vec![].into_iter() // No task available.
-			}
+			Pallet::<T, I>::salary_task_list()
 		})]
 		#[pallet::task_condition(|| {
 			let now = frame_system::Pallet::<T>::block_number();
@@ -418,14 +401,8 @@ pub mod pallet {
 		#[pallet::task_index(0)]
 		pub fn bump_offchain() -> DispatchResult {
 			let mut status = Status::<T, I>::get().ok_or(Error::<T, I>::NotStarted)?;
-			status.cycle_index.saturating_inc();
 			status.cycle_start = frame_system::Pallet::<T>::block_number();
-			status.budget = T::Budget::get();
-			status.total_registrations = Zero::zero();
-			status.total_unregistered_paid = Zero::zero();
-			Status::<T, I>::put(&status);
-
-			Pallet::deposit_event(Event::<T, I>::CycleStarted { index: status.cycle_index });
+			Pallet::<T, I>::do_bump_unchecked(&mut status);
 			Ok(())
 		}
 	}
@@ -515,6 +492,33 @@ pub mod pallet {
 
 			Self::deposit_event(Event::<T, I>::Paid { who, beneficiary, amount: payout, id });
 			Ok(())
+		}
+
+		fn do_bump_unchecked(status: &mut StatusOf<T, I>) {
+			status.cycle_index.saturating_inc();
+			status.budget = T::Budget::get();
+			status.total_registrations = Zero::zero();
+			status.total_unregistered_paid = Zero::zero();
+			Status::<T, I>::put(status.clone());
+
+			Self::deposit_event(Event::<T, I>::CycleStarted { index: status.cycle_index });
+		}
+
+		fn salary_task_list() -> impl Iterator<Item = ()> {
+			if let Some(status) = Status::<T, I>::get() {
+				let now = frame_system::Pallet::<T>::block_number();
+				let cycle_period = Pallet::<T, I>::cycle_period();
+
+				// Check if the current block number is greater than or equal to the cycle start +
+				// period
+				if now >= status.cycle_start + cycle_period {
+					vec![()].into_iter() // Success: one task available, represented by `()`
+				} else {
+					vec![].into_iter() // Failure: no task available
+				}
+			} else {
+				vec![].into_iter() // No task available, as there is no status
+			}
 		}
 	}
 }
