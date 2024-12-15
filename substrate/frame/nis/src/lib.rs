@@ -91,11 +91,15 @@ use sp_runtime::{
 };
 
 mod benchmarking;
+pub mod migration;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
 pub mod weights;
+
+/// The log target of this pallet.
+pub const LOG_TARGET: &'static str = "runtime::nis";
 
 pub struct WithMaximumOf<A: TypedGet>(core::marker::PhantomData<A>);
 impl<A: TypedGet> Convert<Perquintill, A::Type> for WithMaximumOf<A>
@@ -200,13 +204,13 @@ pub mod pallet {
 		Rounding, TokenError,
 	};
 
-	type BlockNumberFor<T> =
+	pub type BlockNumberFor<T> =
 		<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
-	type BalanceOf<T> =
+	pub type BalanceOf<T> =
 		<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
 	type DebtOf<T> =
 		fungible::Debt<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
-	type ReceiptRecordOf<T> =
+	pub type ReceiptRecordOf<T> =
 		ReceiptRecord<<T as frame_system::Config>::AccountId, BlockNumberFor<T>, BalanceOf<T>>;
 	type IssuanceInfoOf<T> = IssuanceInfo<BalanceOf<T>>;
 	type SummaryRecordOf<T> = SummaryRecord<BlockNumberFor<T>, BalanceOf<T>>;
@@ -324,7 +328,12 @@ pub mod pallet {
 		type BenchmarkSetup: crate::BenchmarkSetup;
 	}
 
+	/// The in-code storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
+
 	pub struct Pallet<T>(_);
 
 	/// A single bid, an item of a *queue* in `Queues`.

@@ -148,25 +148,13 @@ pub fn new_test_ext_empty() -> sp_io::TestExternalities {
 }
 
 pub fn run_to_block(n: u64) {
-	while <Test as pallet_nis::Config>::BlockNumberProvider::current_block_number() < n {
-		Nis::on_finalize(<Test as pallet_nis::Config>::BlockNumberProvider::current_block_number());
-		Balances::on_finalize(
-			<Test as pallet_nis::Config>::BlockNumberProvider::current_block_number(),
-		);
-		System::on_finalize(
-			<Test as pallet_nis::Config>::BlockNumberProvider::current_block_number(),
-		);
-		System::set_block_number(
-			<Test as pallet_nis::Config>::BlockNumberProvider::current_block_number() + 1,
-		);
-		System::on_initialize(
-			<Test as pallet_nis::Config>::BlockNumberProvider::current_block_number(),
-		);
-		Balances::on_initialize(
-			<Test as pallet_nis::Config>::BlockNumberProvider::current_block_number(),
-		);
-		Nis::on_initialize(
-			<Test as pallet_nis::Config>::BlockNumberProvider::current_block_number(),
-		);
+	while System::block_number() < n {
+		Nis::on_finalize(System::block_number());
+		Balances::on_finalize(System::block_number());
+		System::on_finalize(System::block_number());
+		System::set_block_number(System::block_number() + 1);
+		System::on_initialize(System::block_number());
+		Balances::on_initialize(System::block_number());
+		Nis::on_initialize(System::block_number());
 	}
 }
