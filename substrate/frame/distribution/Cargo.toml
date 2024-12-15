@@ -2,7 +2,7 @@
 authors.workspace = true
 description = "FRAME pallet to distribute funds to whitelisted projects"
 edition.workspace = true
-homepage = "https://substrate.io"
+homepage.workspace = true
 license = "Apache-2.0"
 name = "pallet-distribution"
 readme = "README.md"
