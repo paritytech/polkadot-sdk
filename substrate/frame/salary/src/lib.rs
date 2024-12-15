@@ -95,7 +95,7 @@ pub struct ClaimantStatus<CycleIndex, Balance, Id> {
 pub mod pallet {
 	use super::*;
 	use frame_support::{dispatch::Pays, pallet_prelude::*};
-	use frame_system::pallet_prelude::{BlockNumberFor, *};
+	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
