@@ -21,16 +21,18 @@
 use codec::Encode;
 use sp_weights::Weight;
 
+use super::unchecked_extrinsic::ExtensionVersion;
 use crate::{
 	traits::{
-		self, transaction_extension::TransactionExtension, AsTransactionAuthorizedOrigin,
-		DispatchInfoOf, DispatchTransaction, Dispatchable, MaybeDisplay, Member,
-		PostDispatchInfoOf, ValidateUnsigned,
+		self,
+		transaction_extension::{
+			NotVersionedExtension, TransactionExtension, VersionedTransactionExtensionPipeline,
+		},
+		AsTransactionAuthorizedOrigin, DispatchInfoOf, DispatchTransaction, Dispatchable,
+		MaybeDisplay, Member, PostDispatchInfoOf, ValidateUnsigned,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 };
-
-use super::unchecked_extrinsic::ExtensionVersion;
 
 /// Default version of the [Extension](TransactionExtension) used to construct the inherited
 /// implication for legacy transactions.
@@ -39,13 +41,13 @@ const DEFAULT_EXTENSION_VERSION: ExtensionVersion = 0;
 /// The kind of extrinsic this is, including any fields required of that kind. This is basically
 /// the full extrinsic except the `Call`.
 #[derive(PartialEq, Eq, Clone, sp_core::RuntimeDebug)]
-pub enum ExtrinsicFormat<AccountId, Extension> {
+pub enum ExtrinsicFormat<AccountId, ExtensionV0, Extension> {
 	/// Extrinsic is bare; it must pass either the bare forms of `TransactionExtension` or
 	/// `ValidateUnsigned`, both deprecated, or alternatively a `ProvideInherent`.
 	Bare,
 	/// Extrinsic has a default `Origin` of `Signed(AccountId)` and must pass all
 	/// `TransactionExtension`s regular checks and includes all extension data.
-	Signed(AccountId, Extension),
+	Signed(AccountId, ExtensionV0),
 	/// Extrinsic has a default `Origin` of `None` and must pass all `TransactionExtension`s.
 	/// regular checks and includes all extension data.
 	General(ExtensionVersion, Extension),
@@ -57,21 +59,27 @@ pub enum ExtrinsicFormat<AccountId, Extension> {
 /// This is typically passed into [`traits::Applyable::apply`], which should execute
 /// [`CheckedExtrinsic::function`], alongside all other bits and bobs.
 #[derive(PartialEq, Eq, Clone, sp_core::RuntimeDebug)]
-pub struct CheckedExtrinsic<AccountId, Call, Extension> {
+pub struct CheckedExtrinsic<
+	AccountId,
+	Call,
+	ExtensionV0,
+	Extension = NotVersionedExtension<ExtensionV0>,
+> {
 	/// Who this purports to be from and the number of extrinsics have come before
 	/// from the same signer, if anyone (note this is not a signature).
-	pub format: ExtrinsicFormat<AccountId, Extension>,
+	pub format: ExtrinsicFormat<AccountId, ExtensionV0, Extension>,
 
 	/// The function that should be called.
 	pub function: Call,
 }
 
-impl<AccountId, Call, Extension, RuntimeOrigin> traits::Applyable
-	for CheckedExtrinsic<AccountId, Call, Extension>
+impl<AccountId, Call, ExtensionV0, Extension, RuntimeOrigin> traits::Applyable
+	for CheckedExtrinsic<AccountId, Call, ExtensionV0, Extension>
 where
 	AccountId: Member + MaybeDisplay,
 	Call: Member + Dispatchable<RuntimeOrigin = RuntimeOrigin> + Encode,
-	Extension: TransactionExtension<Call>,
+	ExtensionV0: TransactionExtension<Call>,
+	Extension: VersionedTransactionExtensionPipeline<Call>,
 	RuntimeOrigin: From<Option<AccountId>> + AsTransactionAuthorizedOrigin,
 {
 	type Call = Call;
@@ -86,7 +94,7 @@ where
 			ExtrinsicFormat::Bare => {
 				let inherent_validation = I::validate_unsigned(source, &self.function)?;
 				#[allow(deprecated)]
-				let legacy_validation = Extension::bare_validate(&self.function, info, len)?;
+				let legacy_validation = ExtensionV0::bare_validate(&self.function, info, len)?;
 				Ok(legacy_validation.combine_with(inherent_validation))
 			},
 			ExtrinsicFormat::Signed(ref signer, ref extension) => {
@@ -102,9 +110,9 @@ where
 					)
 					.map(|x| x.0)
 			},
-			ExtrinsicFormat::General(extension_version, ref extension) => extension
-				.validate_only(None.into(), &self.function, info, len, source, extension_version)
-				.map(|x| x.0),
+			ExtrinsicFormat::General(_extension_version, ref extension) => extension
+				.validate_only(None.into(), &self.function, info, len, source) // TODO TODO: needs validate
+				,
 		}
 	}
 
@@ -118,13 +126,13 @@ where
 				I::pre_dispatch(&self.function)?;
 				// TODO: Separate logic from `TransactionExtension` into a new `InherentExtension`
 				// interface.
-				Extension::bare_validate_and_prepare(&self.function, info, len)?;
+				ExtensionV0::bare_validate_and_prepare(&self.function, info, len)?;
 				let res = self.function.dispatch(None.into());
 				let mut post_info = res.unwrap_or_else(|err| err.post_info);
 				let pd_res = res.map(|_| ()).map_err(|e| e.error);
 				// TODO: Separate logic from `TransactionExtension` into a new `InherentExtension`
 				// interface.
-				Extension::bare_post_dispatch(info, &mut post_info, len, &pd_res)?;
+				ExtensionV0::bare_post_dispatch(info, &mut post_info, len, &pd_res)?;
 				Ok(res)
 			},
 			ExtrinsicFormat::Signed(signer, extension) => extension.dispatch_transaction(
@@ -134,22 +142,28 @@ where
 				len,
 				DEFAULT_EXTENSION_VERSION,
 			),
-			ExtrinsicFormat::General(extension_version, extension) => extension
-				.dispatch_transaction(None.into(), self.function, info, len, extension_version),
+			ExtrinsicFormat::General(_extension_version, extension) =>
+				extension.dispatch_transaction(None.into(), self.function, info, len), /* TODO TODO:
+			                                                                         * needs dispatch */
 		}
 	}
 }
 
-impl<AccountId, Call: Dispatchable, Extension: TransactionExtension<Call>>
-	CheckedExtrinsic<AccountId, Call, Extension>
+impl<
+		AccountId,
+		Call: Dispatchable,
+		ExtensionV0: TransactionExtension<Call>,
+		Extension: VersionedTransactionExtensionPipeline<Call>,
+	> CheckedExtrinsic<AccountId, Call, ExtensionV0, Extension>
 {
 	/// Returns the weight of the extension of this transaction, if present. If the transaction
 	/// doesn't use any extension, the weight returned is equal to zero.
 	pub fn extension_weight(&self) -> Weight {
 		match &self.format {
 			ExtrinsicFormat::Bare => Weight::zero(),
-			ExtrinsicFormat::Signed(_, ext) | ExtrinsicFormat::General(_, ext) =>
-				ext.weight(&self.function),
+			ExtrinsicFormat::Signed(_, ext) => ext.weight(&self.function),
+			ExtrinsicFormat::General(_, ext) => ext.weight(&self.function), /* TODO TODO: needs
+			                                                                 * weight */
 		}
 	}
 }

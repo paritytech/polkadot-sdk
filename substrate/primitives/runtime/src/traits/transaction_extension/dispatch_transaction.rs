@@ -29,6 +29,7 @@ use super::*;
 /// provide transaction dispatching functionality. We avoid implementing this directly on the trait
 /// since we never want it to be overriden by the trait implementation.
 pub trait DispatchTransaction<Call: Dispatchable> {
+	// TODO TODO: remove some redundant types here
 	/// The origin type of the transaction.
 	type Origin;
 	/// The info type.

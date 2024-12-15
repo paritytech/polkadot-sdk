@@ -17,8 +17,13 @@
 
 //! The transaction extension trait.
 
+use super::{
+	DispatchInfoOf, DispatchOriginOf, Dispatchable, ExtensionPostDispatchWeightHandler,
+	PostDispatchInfoOf, RefundWeight,
+};
 use crate::{
 	scale_info::{MetaType, StaticTypeInfo},
+	traits::AsTransactionAuthorizedOrigin,
 	transaction_validity::{
 		TransactionSource, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
@@ -26,22 +31,93 @@ use crate::{
 };
 use codec::{Codec, Decode, Encode};
 use impl_trait_for_tuples::impl_for_tuples;
+use scale_info::TypeInfo;
 #[doc(hidden)]
 pub use sp_std::marker::PhantomData;
 use sp_std::{self, fmt::Debug, prelude::*};
 use sp_weights::Weight;
 use tuplex::{PopFront, PushBack};
 
-use super::{
-	DispatchInfoOf, DispatchOriginOf, Dispatchable, ExtensionPostDispatchWeightHandler,
-	PostDispatchInfoOf, RefundWeight,
-};
-
 mod as_transaction_extension;
 mod dispatch_transaction;
 #[allow(deprecated)]
 pub use as_transaction_extension::AsTransactionExtension;
 pub use dispatch_transaction::DispatchTransaction;
+
+/// TODO TODO: doc
+pub trait DecodeWithVersion: Sized {
+	/// TODO TODO: doc
+	fn decode_with_version<I: codec::Input>(
+		extension_version: u8,
+		input: &mut I,
+	) -> Result<Self, codec::Error>;
+}
+
+/// TODO TODO: doc
+// TODO TODO: or maybe name it DispatchTransactionWithExtensionVersion
+pub trait VersionedTransactionExtensionPipeline<Call: Dispatchable>:
+	Encode + DecodeWithVersion + Debug + StaticTypeInfo + Send + Sync + Clone
+{
+	/// TODO TODO: doc
+	fn validate_only(
+		&self,
+		origin: DispatchOriginOf<Call>,
+		call: &Call,
+		info: &DispatchInfoOf<Call>,
+		len: usize,
+		source: TransactionSource,
+	) -> Result<ValidTransaction, TransactionValidityError>;
+
+	/// TODO TODO: doc
+	fn dispatch_transaction(
+		self,
+		origin: DispatchOriginOf<Call>,
+		call: Call,
+		info: &DispatchInfoOf<Call>,
+		len: usize,
+	) -> crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Call>>;
+	/// TODO TODO: doc
+	fn weight(&self, call: &Call) -> Weight;
+}
+
+/// TODO TODO: doc
+#[derive(Encode, Decode, Clone, Debug, TypeInfo)]
+pub struct NotVersionedExtension<Extension>(pub Extension);
+
+impl<
+		Call: Dispatchable<RuntimeOrigin: AsTransactionAuthorizedOrigin> + Encode,
+		Extension: TransactionExtension<Call>,
+	> VersionedTransactionExtensionPipeline<Call> for NotVersionedExtension<Extension>
+{
+	fn weight(&self, call: &Call) -> Weight {
+		self.0.weight(call)
+	}
+	fn validate_only(
+		&self,
+		origin: DispatchOriginOf<Call>,
+		call: &Call,
+		info: &DispatchInfoOf<Call>,
+		len: usize,
+		source: TransactionSource,
+	) -> Result<ValidTransaction, TransactionValidityError> {
+		self.0.validate_only(origin, call, info, len, source, 0).map(|x| x.0)
+	}
+	fn dispatch_transaction(
+		self,
+		origin: DispatchOriginOf<Call>,
+		call: Call,
+		info: &DispatchInfoOf<Call>,
+		len: usize,
+	) -> crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Call>> {
+		self.0.dispatch_transaction(origin, call, info, len, 0)
+	}
+}
+
+impl<Extension: Decode> DecodeWithVersion for NotVersionedExtension<Extension> {
+	fn decode_with_version<I: codec::Input>(_: u8, input: &mut I) -> Result<Self, codec::Error> {
+		Self::decode(input)
+	}
+}
 
 /// Shortcut for the result value of the `validate` function.
 pub type ValidateResult<Val, Call> =
