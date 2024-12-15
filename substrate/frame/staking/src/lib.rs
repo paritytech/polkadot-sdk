@@ -908,8 +908,8 @@ where
 	}
 
 	fn prune_historical_up_to(up_to: SessionIndex) {
-		// todo(ank4n): Prune historical upto (current era - bonding_duration + slash_cancel_duration).
-		// This would mean offence report gets rejected for older reports.
+		// todo(ank4n): Prune historical upto (current era - bonding_duration +
+		// slash_cancel_duration). This would mean offence report gets rejected for older reports.
 		<pallet_session::historical::Pallet<T>>::prune_up_to(up_to);
 	}
 }

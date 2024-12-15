@@ -51,9 +51,10 @@ use sp_staking::{
 
 use crate::{
 	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
-	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
-	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
+	BalanceOf, DeferredSlash, EraInfo, EraPayout, Exposure, ExposureOf, Forcing,
+	IndividualExposure, LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations,
+	NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger,
+	ValidatorPrefs,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 
@@ -1576,6 +1577,123 @@ where
 		slash_session: SessionIndex,
 	) -> Weight {
 		let mut consumed_weight = Weight::zero();
+		// todo(ank4n): This should be benchmarked for proper storage proof weight.
+		let mut add_db_reads_writes = |reads, writes| {
+			consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
+		};
+
+		// get the active era
+		let active_era = {
+			let active_era = ActiveEra::<T>::get();
+			add_db_reads_writes(1, 0);
+			if active_era.is_none() {
+				// This offence need not be re-submitted.
+				return consumed_weight
+			}
+			active_era.expect("value checked not to be `None`; qed").index
+		};
+
+		// get the start session index of the active era
+		let active_era_start_session_index = ErasStartSessionIndex::<T>::get(active_era)
+			.unwrap_or_else(|| {
+				frame_support::print("Error: start_session_index must be set for current_era");
+				0
+			});
+		add_db_reads_writes(1, 0);
+
+		// get the era in which offence occurred
+		let slash_era = if slash_session >= active_era_start_session_index {
+			active_era
+		} else {
+			let eras = BondedEras::<T>::get();
+			add_db_reads_writes(1, 0);
+
+			// Reverse because it's more likely to find reports from recent eras.
+			match eras.iter().rev().find(|&(_, sesh)| sesh <= &slash_session) {
+				Some((slash_era, _)) => *slash_era,
+				// Before bonding period. defensive - should be filtered out.
+				None => return consumed_weight,
+			}
+		};
+		add_db_reads_writes(1, 1);
+
+		// compute the era at which slash will be applied
+		let slash_defer_duration = T::SlashDeferDuration::get();
+		// Note: If slash_defer_duration is zero, then the slash will be applied at the start of the
+		// next era.
+		let slash_apply_era =
+			slash_era.saturating_add(slash_defer_duration).saturating_add(One::one());
+
+		// check if the era is too recent to allow a minimum time for slash to be reverted
+		if slash_apply_era < active_era.saturating_add(T::SlashCancellationDuration::get()) {
+			return consumed_weight
+		}
+
+		// Get the invulnerable validators. They are never slashed.
+		let invulnerables = Invulnerables::<T>::get();
+		add_db_reads_writes(1, 0);
+
+		// generate slash report.
+		for (details, slash_fraction) in offenders.iter().zip(slash_fraction) {
+			let (stash, exposure) = &details.offender;
+
+			// Skip if the validator is invulnerable.
+			if invulnerables.contains(stash) {
+				continue
+			}
+
+			// get the exposure metadata for the validator
+			let slash_page_count = EraInfo::<T>::get_page_count(slash_era, stash);
+			add_db_reads_writes(1, 0);
+
+			// Get reporter. If there are multiple reporters, we only consider the first one.
+			let unapplied = DeferredSlash {
+				validator: stash.clone(),
+				slash_fraction: *slash_fraction,
+				reporter: details.reporters.first().cloned(),
+				offence_era: slash_era,
+				current_page: 0,
+				total_pages: slash_page_count,
+			};
+
+			log!(
+				debug,
+				"deferring slash of {:?}% happened in {:?} (reported in {:?}) to {:?}",
+				slash_fraction,
+				slash_era,
+				active_era,
+				slash_apply_era,
+			);
+
+			// push to the deferred slashes list for the slashing era.
+			add_db_reads_writes(1, 1);
+			let defer_result =
+				DeferredSlashes::<T>::try_mutate(slash_apply_era, |for_later| -> Result<(), ()> {
+					if for_later.try_push(unapplied).is_err() {
+						log::warn!(
+            		"Failed to defer slash for validator {:?} to era {:?}. Max capacity reached.",
+            		stash.clone(),
+            		slash_apply_era
+        			);
+						return Err(());
+					}
+
+					Ok(())
+				});
+
+			if defer_result.is_err() {
+				// Break out early since we have reached max capacity for slash_apply_era and
+				// further processing is futile.
+				break
+			}
+
+			Self::deposit_event(Event::<T>::SlashReported {
+				validator: stash.clone(),
+				fraction: *slash_fraction,
+				slash_era,
+			});
+		}
+
 		return consumed_weight;
 	}
 }
