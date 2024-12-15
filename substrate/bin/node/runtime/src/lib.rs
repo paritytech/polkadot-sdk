@@ -2329,7 +2329,7 @@ impl pallet_distribution::Config for Runtime {
 	type WeightInfo = pallet_distribution::weights::SubstrateWeight<Runtime>;
 }
 
-parameter_types!{	
+parameter_types! {
 	pub const MaxWhitelistedProjects: u32 = 64;
 	pub const TemporaryRewards: Balance = 100000 * DOLLARS;
 	pub const TotalPeriod:BlockNumber = 30 * DAYS;
