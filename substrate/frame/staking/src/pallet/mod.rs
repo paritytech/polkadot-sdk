@@ -50,7 +50,7 @@ pub use impls::*;
 
 use crate::{
 	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf,
-	DisablingStrategy, EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing,
+	DeferredSlash, DisablingStrategy, EraPayout, EraRewardPoints, Exposure, ExposurePage, Forcing,
 	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
 	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, UnappliedSlash,
 	UnlockChunk, ValidatorPrefs,
@@ -212,6 +212,15 @@ pub mod pallet {
 		#[pallet::constant]
 		type SlashCancellationDuration: Get<EraIndex>;
 
+		// todo(ank4n): add doc
+		#[pallet::constant]
+		type ActiveValidatorCount: Get<u32>;
+
+		// todo(ank4n): add doc
+		/// this is generally 1/3rd of ActiveValidatorCount
+		#[pallet::constant]
+		type MaxDisabledValidatorCount: Get<u32>;
+
 		/// The origin which can manage less critical staking parameters that does not require root.
 		///
 		/// Supported actions: (1) cancel deferred slash, (2) set minimum commission.
@@ -354,6 +363,8 @@ pub mod pallet {
 			type NextNewSession = ();
 			type MaxExposurePageSize = ConstU32<64>;
 			type MaxUnlockingChunks = ConstU32<32>;
+			type ActiveValidatorCount = ConstU32<1000>;
+			type MaxDisabledValidatorCount = ConstU32<333>;
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type EventListeners = ();
 			type DisablingStrategy = crate::UpToLimitDisablingStrategy;
@@ -364,6 +375,7 @@ pub mod pallet {
 	}
 
 	/// The ideal number of active validators.
+	// todo(ank4n): Make this a configuration.
 	#[pallet::storage]
 	pub type ValidatorCount<T> = StorageValue<_, u32, ValueQuery>;
 
@@ -661,6 +673,16 @@ pub mod pallet {
 		Twox64Concat,
 		EraIndex,
 		Vec<UnappliedSlash<T::AccountId, BalanceOf<T>>>,
+		ValueQuery,
+	>;
+
+	/// All unapplied slashes that are queued for later.
+	#[pallet::storage]
+	pub type DeferredSlashes<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		EraIndex,
+		BoundedVec<DeferredSlash<T::AccountId>, T::MaxDisabledValidatorCount>,
 		ValueQuery,
 	>;
 

@@ -1434,7 +1434,7 @@ where
 		Option<<T as frame_system::Config>::AccountId>,
 	>,
 {
-	fn on_offence(
+	/*fn on_offence(
 		offenders: &[OffenceDetails<
 			T::AccountId,
 			pallet_session::historical::IdentificationTuple<T>,
@@ -1474,16 +1474,8 @@ where
 			let eras = BondedEras::<T>::get();
 			add_db_reads_writes(1, 0);
 
-			// oldest era that can be reported
-			let oldest_era = active_era.saturating_sub(T::SlashDeferDuration::get()).saturating_add(T::SlashCancellationDuration::get());
-
-			match eras
-				.iter()
-				// .filter(|(era, _)| era > &oldest_era)
-				// Reverse because it's more likely to find reports from recent eras.
-				.rev()
-				.find(|&(_, sesh)| sesh <= &slash_session)
-			{
+			// Reverse because it's more likely to find reports from recent eras.
+			match eras.iter().rev().find(|&(_, sesh)| sesh <= &slash_session) {
 				Some((slash_era, _)) => *slash_era,
 				// Before bonding period. defensive - should be filtered out.
 				None => return consumed_weight,
@@ -1493,6 +1485,15 @@ where
 		add_db_reads_writes(1, 1);
 
 		let slash_defer_duration = T::SlashDeferDuration::get();
+		// era at the start of which slash will be applied.
+		let slash_apply_era = slash_era.saturating_add(slash_defer_duration).saturating_add(One::one());
+
+		if slash_apply_era < active_era.saturating_add(T::SlashCancellationDuration::get()) {
+			// this era cannot be too recent to allow a minimum time for slash to be reverted.
+			// just ignore the report.
+			// Note: the caller would ideally filter this already.
+			return consumed_weight
+		}
 
 		let invulnerables = Invulnerables::<T>::get();
 		add_db_reads_writes(1, 0);
@@ -1553,7 +1554,7 @@ where
 						slash_era + slash_defer_duration + 1,
 					);
 					UnappliedSlashes::<T>::mutate(
-						slash_era.saturating_add(slash_defer_duration).saturating_add(One::one()),
+						slash_apply_era,
 						move |for_later| for_later.push(unapplied),
 					);
 					add_db_reads_writes(1, 1);
@@ -1564,6 +1565,18 @@ where
 		}
 
 		consumed_weight
+	}*/
+
+	fn on_offence(
+		offenders: &[OffenceDetails<
+			T::AccountId,
+			pallet_session::historical::IdentificationTuple<T>,
+		>],
+		slash_fraction: &[Perbill],
+		slash_session: SessionIndex,
+	) -> Weight {
+		let mut consumed_weight = Weight::zero();
+		return consumed_weight;
 	}
 }
 

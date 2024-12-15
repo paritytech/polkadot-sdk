@@ -812,6 +812,29 @@ impl<AccountId, Balance: HasCompact + Zero> UnappliedSlash<AccountId, Balance> {
 	}
 }
 
+/// Represents a deferred slash to be applied in a future era.
+///
+/// This struct holds minimal metadata required for recording and processing a slash. Slash amounts
+/// for nominators and the validator are computed dynamically when the slash is applied, reducing
+/// upfront computation and storage overhead.
+#[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub struct DeferredSlash<AccountId> {
+	/// The stash account ID of the offending validator.
+	validator: AccountId,
+	/// The fraction of the validator's total exposure to be slashed.
+	slash_fraction: Perbill,
+	/// Reporter of the offence; bounty payout recipient.
+	reporter: Option<AccountId>,
+	/// The era in which the offence occurred.
+	offence_era: EraIndex,
+	/// The current page being processed in the slash application. Each page represents a portion
+	/// of nominators being slashed.
+	current_page: u32,
+	/// The total number of pages to process for this slash. This is derived based on the number of
+	/// nominators.
+	total_pages: u32,
+}
+
 /// Something that defines the maximum number of nominations per nominator based on a curve.
 ///
 /// The method `curve` implements the nomination quota curve and should not be used directly.
@@ -885,6 +908,8 @@ where
 	}
 
 	fn prune_historical_up_to(up_to: SessionIndex) {
+		// todo(ank4n): Prune historical upto (current era - bonding_duration + slash_cancel_duration).
+		// This would mean offence report gets rejected for older reports.
 		<pallet_session::historical::Pallet<T>>::prune_up_to(up_to);
 	}
 }
