@@ -293,6 +293,7 @@ members = [
 	"substrate/client/rpc-api",
 	"substrate/client/rpc-servers",
 	"substrate/client/rpc-spec-v2",
+	"substrate/client/runtime-utilities",
 	"substrate/client/service",
 	"substrate/client/service/test",
 	"substrate/client/state-db",
@@ -849,13 +850,13 @@ linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
 linregress = { version = "0.5.1" }
 lite-json = { version = "0.2.0", default-features = false }
-litep2p = { version = "0.8.3", features = ["websocket"] }
+litep2p = { version = "0.8.4", features = ["websocket"] }
 log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
 memmap2 = { version = "0.9.3" }
 memory-db = { version = "0.32.0", default-features = false }
-merkleized-metadata = { version = "0.1.2" }
+merkleized-metadata = { version = "0.2.0" }
 merlin = { version = "3.0", default-features = false }
 messages-relay = { path = "bridges/relays/messages" }
 metered = { version = "0.6.1", default-features = false, package = "prioritized-metered-channel" }
@@ -1092,9 +1093,9 @@ polkadot-subsystem-bench = { path = "polkadot/node/subsystem-bench" }
 polkadot-test-client = { path = "polkadot/node/test/client" }
 polkadot-test-runtime = { path = "polkadot/runtime/test-runtime" }
 polkadot-test-service = { path = "polkadot/node/test/service" }
-polkavm = { version = "0.9.3", default-features = false }
-polkavm-derive = "0.17.0"
-polkavm-linker = "0.17.1"
+polkavm = { version = "0.18.0", default-features = false }
+polkavm-derive = "0.18.0"
+polkavm-linker = "0.18.0"
 portpicker = { version = "0.1.1" }
 pretty_assertions = { version = "1.3.0" }
 primitive-types = { version = "0.13.1", default-features = false, features = [
@@ -1187,6 +1188,7 @@ sc-rpc-api = { path = "substrate/client/rpc-api", default-features = false }
 sc-rpc-server = { path = "substrate/client/rpc-servers", default-features = false }
 sc-rpc-spec-v2 = { path = "substrate/client/rpc-spec-v2", default-features = false }
 sc-runtime-test = { path = "substrate/client/executor/runtime-test" }
+sc-runtime-utilities = { path = "substrate/client/runtime-utilities", default-features = true }
 sc-service = { path = "substrate/client/service", default-features = false }
 sc-service-test = { path = "substrate/client/service/test" }
 sc-state-db = { path = "substrate/client/state-db", default-features = false }
@@ -1320,6 +1322,7 @@ substrate-test-runtime-transaction-pool = { path = "substrate/test-utils/runtime
 substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
 subxt = { version = "0.38", default-features = false }
+subxt-metadata = { version = "0.38.0", default-features = false }
 subxt-signer = { version = "0.38" }
 syn = { version = "2.0.87" }
 sysinfo = { version = "0.30" }
