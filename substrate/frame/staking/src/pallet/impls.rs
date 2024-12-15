@@ -561,7 +561,10 @@ impl<T: Config> Pallet<T> {
 					slashing::clear_era_metadata::<T>(pruned_era);
 				}
 
-				if let Some(&(_, first_session)) = bonded.first() {
+				// Session prunes upto `active_era - bonding_duration + SlashCancellationDuration`.
+				if let Some(&(_, first_session)) =
+					bonded.get(T::SlashCancellationDuration::get() as usize)
+				{
 					T::SessionInterface::prune_historical_up_to(first_session);
 				}
 			}
