@@ -869,8 +869,12 @@ impl<Balance, const MAX: u32> NominationsQuota<Balance> for FixedNominationsQuot
 ///
 /// This is needed because `Staking` sets the `ValidatorIdOf` of the `pallet_session::Config`
 pub trait SessionInterface<AccountId> {
+	/// Report an offending validator.
+	fn offending_validator(validator: AccountId, severity: OffenceSeverity);
 	/// Disable the validator at the given index, returns `false` if the validator was already
 	/// disabled or the index is out of bounds.
+
+	//todo(ank4n): remove the next two methods.
 	fn disable_validator(validator_index: u32) -> bool;
 	/// Re-enable a validator that was previously disabled. Returns `false` if the validator was
 	/// already enabled or the index is out of bounds.
@@ -895,6 +899,10 @@ where
 		Option<<T as frame_system::Config>::AccountId>,
 	>,
 {
+	fn offending_validator(validator: <T as frame_system::Config>::AccountId, severity: OffenceSeverity) {
+		<pallet_session::Pallet<T>>::offending_validator(validator, severity)
+	}
+
 	fn disable_validator(validator_index: u32) -> bool {
 		<pallet_session::Pallet<T>>::disable_index(validator_index)
 	}
@@ -915,6 +923,10 @@ where
 }
 
 impl<AccountId> SessionInterface<AccountId> for () {
+	fn offending_validator(validator: AccountId, severity: OffenceSeverity) {
+		()
+	}
+
 	fn disable_validator(_: u32) -> bool {
 		true
 	}

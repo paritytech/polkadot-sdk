@@ -17,7 +17,6 @@
 
 use crate::*;
 use frame_support::defensive;
-use sp_staking::offence::OffenceSeverity;
 /// Controls validator disabling
 pub trait DisablingStrategy<T: Config> {
 	/// Make a disabling decision. Returning a [`DisablingDecision`]

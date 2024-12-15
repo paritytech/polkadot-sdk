@@ -106,6 +106,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+mod disabling;
 #[cfg(feature = "historical")]
 pub mod historical;
 pub mod migrations;
@@ -114,7 +115,6 @@ mod mock;
 #[cfg(test)]
 mod tests;
 pub mod weights;
-mod disabling;
 
 extern crate alloc;
 
@@ -139,7 +139,7 @@ use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Convert, Member, One, OpaqueKeys, Zero},
 	ConsensusEngineId, DispatchError, KeyTypeId, Permill, RuntimeAppPublic,
 };
-use sp_staking::SessionIndex;
+use sp_staking::{offence::OffenceSeverity, SessionIndex};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -730,6 +730,10 @@ impl<T: Config> Pallet<T> {
 
 		// Tell everyone about the new session keys.
 		T::SessionHandler::on_new_session::<T::Keys>(changed, &session_keys, &queued_amalgamated);
+	}
+
+	pub fn offending_validator(validator: T::ValidatorId, severity: OffenceSeverity) {
+		// todo(ank4n)
 	}
 
 	/// Disable the validator of index `i`, returns `false` if the validator was already disabled.
