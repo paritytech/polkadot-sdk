@@ -18160,7 +18160,6 @@ dependencies = [
  "sp-timestamp 26.0.0",
  "sp-transaction-pool 26.0.0",
  "sp-version 29.0.0",
- "sp-wasm-interface 20.0.0",
  "sp-weights 27.0.0",
  "substrate-frame-rpc-system",
  "substrate-prometheus-endpoint",
