@@ -12,8 +12,8 @@ doc:
 
 crates:
   - name: polkadot-sdk-frame
-    bump: minor
-  - name: pallet-babe
     bump: patch
-  - name: pallet-staking-reward-curve
+  - name: pallet-babe
     bump: minor
+  - name: pallet-staking-reward-curve
+    bump: patch
