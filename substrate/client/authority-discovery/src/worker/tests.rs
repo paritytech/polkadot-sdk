@@ -30,7 +30,7 @@ use futures::{
 	sink::SinkExt,
 	task::LocalSpawn,
 };
-use libp2p::{identity::SigningError, kad::record::Key as KademliaKey};
+use libp2p::{identity::SigningError, kad::RecordKey as KademliaKey};
 use prometheus_endpoint::prometheus::default_registry;
 
 use sc_client_api::HeaderBackend;
