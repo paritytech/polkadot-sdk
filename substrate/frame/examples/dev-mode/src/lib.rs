@@ -31,8 +31,7 @@
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
-use frame_support::dispatch::DispatchResult;
-use frame_system::ensure_signed;
+use frame::prelude::*;
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
@@ -44,11 +43,9 @@ mod tests;
 type BalanceOf<T> = <T as pallet_balances::Config>::Balance;
 
 /// Enable `dev_mode` for this pallet.
-#[frame_support::pallet(dev_mode)]
+#[frame::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
 	pub trait Config: pallet_balances::Config + frame_system::Config {
