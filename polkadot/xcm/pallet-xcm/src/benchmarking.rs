@@ -100,7 +100,8 @@ mod benchmarks {
 			.into();
 		let versioned_msg = VersionedXcm::from(msg);
 
-		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
+		// Ensure that origin can send to destination
+		// (e.g. setup delivery fees, ensure router setup, ...)
 		T::DeliveryHelper::ensure_successful_delivery(
 			&Default::default(),
 			&versioned_dest.clone().try_into().unwrap(),
@@ -129,8 +130,8 @@ mod benchmarks {
 			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
 		}
 
-		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router
-		// setup, ...)
+		// Ensure that origin can send to destination
+		// (e.g. setup delivery fees, ensure router setup, ...)
 		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
 			&origin_location,
 			&destination,
@@ -199,8 +200,8 @@ mod benchmarks {
 			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
 		}
 
-		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router
-		// setup, ...)
+		// Ensure that origin can send to destination
+		// (e.g. setup delivery fees, ensure router setup, ...)
 		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
 			&origin_location,
 			&destination,
@@ -280,7 +281,8 @@ mod benchmarks {
 			AccountId32 { network: None, id: recipient.into() }.into();
 		let versioned_assets: VersionedAssets = assets.into();
 
-		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
+		// Ensure that origin can send to destination
+		// (e.g. setup delivery fees, ensure router setup, ...)
 		T::DeliveryHelper::ensure_successful_delivery(
 			&Default::default(),
 			&versioned_dest.clone().try_into().unwrap(),
@@ -344,12 +346,13 @@ mod benchmarks {
 			.ok_or(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?
 			.into();
 
-        // Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
-        T::DeliveryHelper::ensure_successful_delivery(
-            &Default::default(),
-            &versioned_loc.clone().try_into().unwrap(),
-            FeeReason::ChargeFees,
-        );
+		// Ensure that origin can send to destination
+		// (e.g. setup delivery fees, ensure router setup, ...)
+		T::DeliveryHelper::ensure_successful_delivery(
+			&Default::default(),
+			&versioned_loc.clone().try_into().unwrap(),
+			FeeReason::ChargeFees,
+		);
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, Box::new(versioned_loc));
@@ -363,7 +366,8 @@ mod benchmarks {
 			.ok_or(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		let versioned_loc: VersionedLocation = loc.clone().into();
 
-		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
+		// Ensure that origin can send to destination
+		// (e.g. setup delivery fees, ensure router setup, ...)
 		T::DeliveryHelper::ensure_successful_delivery(
 			&Default::default(),
 			&versioned_loc.clone().try_into().unwrap(),
