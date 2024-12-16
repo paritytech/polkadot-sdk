@@ -81,6 +81,8 @@ pub trait VersionedTransactionExtensionPipeline<Call: Dispatchable>:
 }
 
 /// TODO TODO: doc
+// TODO TODO: maybe rename to version0 or something
+// TODO TODO: maybe replace with type alias for VersionedExtension<0, Extension>
 #[derive(Encode, Decode, Clone, Debug, TypeInfo)]
 pub struct NotVersionedExtension<Extension>(pub Extension);
 
@@ -116,6 +118,55 @@ impl<
 impl<Extension: Decode> DecodeWithVersion for NotVersionedExtension<Extension> {
 	fn decode_with_version<I: codec::Input>(_: u8, input: &mut I) -> Result<Self, codec::Error> {
 		Self::decode(input)
+	}
+}
+
+/// TODO TODO: doc
+#[derive(Encode, Clone, Debug, TypeInfo)]
+pub struct VersionedExtension<const VERSION: u8, Extension> {
+	extension: Extension,
+}
+
+impl<const VERSION: u8, Extension: Decode> DecodeWithVersion for VersionedExtension<VERSION, Extension> {
+	fn decode_with_version<I: codec::Input>(
+		extension_version: u8,
+		input: &mut I,
+	) -> Result<Self, codec::Error> {
+		if extension_version == VERSION {
+			Ok(VersionedExtension {
+				extension: Extension::decode(input)?,
+			})
+		} else {
+			Err(codec::Error::from("Invalid extension version"))
+		}
+	}
+}
+
+impl<const VERSION: u8, Call: Dispatchable<RuntimeOrigin: AsTransactionAuthorizedOrigin> + Encode,
+		Extension: TransactionExtension<Call>,
+	> VersionedTransactionExtensionPipeline<Call> for VersionedExtension<VERSION, Extension>
+{
+	fn weight(&self, call: &Call) -> Weight {
+		self.extension.weight(call)
+	}
+	fn validate_only(
+		&self,
+		origin: DispatchOriginOf<Call>,
+		call: &Call,
+		info: &DispatchInfoOf<Call>,
+		len: usize,
+		source: TransactionSource,
+	) -> Result<ValidTransaction, TransactionValidityError> {
+		self.extension.validate_only(origin, call, info, len, source, VERSION).map(|x| x.0)
+	}
+	fn dispatch_transaction(
+		self,
+		origin: DispatchOriginOf<Call>,
+		call: Call,
+		info: &DispatchInfoOf<Call>,
+		len: usize,
+	) -> crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Call>> {
+		self.extension.dispatch_transaction(origin, call, info, len, VERSION)
 	}
 }
 
