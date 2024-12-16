@@ -144,11 +144,56 @@ where
 		local_addrs.push(local_addr);
 		let cfg = cfg.clone();
 
-		let id_provider2 = id_provider.clone();
+		let RpcSettings {
+			batch_config,
+			max_connections,
+			max_payload_in_mb,
+			max_payload_out_mb,
+			max_buffer_capacity_per_connection,
+			max_subscriptions_per_connection,
+			rpc_methods,
+			rate_limit_trust_proxy_headers,
+			rate_limit_whitelisted_ips,
+			host_filter,
+			cors,
+			rate_limit,
+		} = listener.rpc_settings();
+
+		let http_middleware = tower::ServiceBuilder::new()
+			.option_layer(host_filter)
+			// Proxy `GET /health, /health/readiness` requests to the internal
+			// `system_health` method.
+			.layer(NodeHealthProxyLayer::default())
+			.layer(cors);
+
+		let mut builder = jsonrpsee::server::Server::builder()
+			.max_request_body_size(max_payload_in_mb.saturating_mul(MEGABYTE))
+			.max_response_body_size(max_payload_out_mb.saturating_mul(MEGABYTE))
+			.max_connections(max_connections)
+			.max_subscriptions_per_connection(max_subscriptions_per_connection)
+			.enable_ws_ping(
+				PingConfig::new()
+					.ping_interval(Duration::from_secs(30))
+					.inactive_limit(Duration::from_secs(60))
+					.max_failures(3),
+			)
+			.set_http_middleware(http_middleware)
+			.set_message_buffer_capacity(max_buffer_capacity_per_connection)
+			.set_batch_request_config(batch_config)
+			.custom_tokio_runtime(cfg.tokio_handle.clone());
+
+		if let Some(provider) = id_provider.clone() {
+			builder = builder.set_id_provider(provider);
+		} else {
+			builder = builder.set_id_provider(RandomStringIdProvider::new(16));
+		};
+
+		let service_builder = builder.to_service_builder();
+		let deny_unsafe = deny_unsafe(&local_addr, &rpc_methods);
 
 		tokio_handle.spawn(async move {
 			loop {
-				let (sock, remote_addr, rpc_cfg) = tokio::select! {
+				let (sock, remote_addr) = tokio::select! {
 					res = listener.accept() => {
 						match res {
 							Ok(s) => s,
@@ -161,56 +206,10 @@ where
 					_ = cfg.stop_handle.clone().shutdown() => break,
 				};
 
-				let RpcSettings {
-					batch_config,
-					max_connections,
-					max_payload_in_mb,
-					max_payload_out_mb,
-					max_buffer_capacity_per_connection,
-					max_subscriptions_per_connection,
-					rpc_methods,
-					rate_limit_trust_proxy_headers,
-					rate_limit_whitelisted_ips,
-					host_filter,
-					cors,
-					rate_limit,
-				} = rpc_cfg;
-
-				let http_middleware = tower::ServiceBuilder::new()
-					.option_layer(host_filter)
-					// Proxy `GET /health, /health/readiness` requests to the internal
-					// `system_health` method.
-					.layer(NodeHealthProxyLayer::default())
-					.layer(cors);
-
-				let mut builder = jsonrpsee::server::Server::builder()
-					.max_request_body_size(max_payload_in_mb.saturating_mul(MEGABYTE))
-					.max_response_body_size(max_payload_out_mb.saturating_mul(MEGABYTE))
-					.max_connections(max_connections)
-					.max_subscriptions_per_connection(max_subscriptions_per_connection)
-					.enable_ws_ping(
-						PingConfig::new()
-							.ping_interval(Duration::from_secs(30))
-							.inactive_limit(Duration::from_secs(60))
-							.max_failures(3),
-					)
-					.set_http_middleware(http_middleware)
-					.set_message_buffer_capacity(max_buffer_capacity_per_connection)
-					.set_batch_request_config(batch_config)
-					.custom_tokio_runtime(cfg.tokio_handle.clone());
-
-				if let Some(provider) = id_provider2.clone() {
-					builder = builder.set_id_provider(provider);
-				} else {
-					builder = builder.set_id_provider(RandomStringIdProvider::new(16));
-				};
-
-				let service_builder = builder.to_service_builder();
-				let deny_unsafe = deny_unsafe(&local_addr, &rpc_methods);
-
 				let ip = remote_addr.ip();
 				let cfg2 = cfg.clone();
 				let service_builder2 = service_builder.clone();
+				let rate_limit_whitelisted_ips2 = rate_limit_whitelisted_ips.clone();
 
 				let svc =
 					tower::service_fn(move |mut req: http::Request<hyper::body::Incoming>| {
@@ -223,14 +222,14 @@ where
 						let proxy_ip =
 							if rate_limit_trust_proxy_headers { get_proxy_ip(&req) } else { None };
 
-						let rate_limit_cfg = if rate_limit_whitelisted_ips
+						let rate_limit_cfg = if rate_limit_whitelisted_ips2
 							.iter()
 							.any(|ips| ips.contains(proxy_ip.unwrap_or(ip)))
 						{
 							log::debug!(target: "rpc", "ip={ip}, proxy_ip={:?} is trusted, disabling rate-limit", proxy_ip);
 							None
 						} else {
-							if !rate_limit_whitelisted_ips.is_empty() {
+							if !rate_limit_whitelisted_ips2.is_empty() {
 								log::debug!(target: "rpc", "ip={ip}, proxy_ip={:?} is not trusted, rate-limit enabled", proxy_ip);
 							}
 							rate_limit
