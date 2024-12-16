@@ -97,10 +97,8 @@ pub enum CandidateBackingMessage {
 	/// The rule is to only fetch collations that can either be directly chained to any
 	/// FragmentChain in the view or there is at least one FragmentChain where this candidate is a
 	/// potentially unconnected candidate (we predict that it may become connected to a
-	/// FragmentChain in the future).
-	///
-	/// Always responds with `false` if async backing is disabled for candidate's relay
-	/// parent.
+	/// FragmentChain in the future). If the result is positive a claim for the candidate is made.
+	/// This claim needs to be dropped explicitly in a event of a failure.
 	CanSecond(CanSecondRequest, oneshot::Sender<bool>),
 	/// Note that the Candidate Backing subsystem should second the given candidate in the context
 	/// of the given relay-parent (ref. by hash). This candidate must be validated.
@@ -110,6 +108,8 @@ pub enum CandidateBackingMessage {
 	/// Disputes Subsystem, though that escalation is deferred until the approval voting stage to
 	/// guarantee availability. Agreements are simply tallied until a quorum is reached.
 	Statement(Hash, SignedFullStatementWithPVD),
+	/// Drops all claims for a candidate hash
+	DropClaims(HashSet<CandidateHash>),
 }
 
 /// Blanket error for validation failing for internal reasons.

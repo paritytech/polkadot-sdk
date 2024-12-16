@@ -108,6 +108,9 @@ pub enum Error {
 
 	#[error("Runtime API returned None for executor params")]
 	MissingExecutorParams,
+
+	#[error("No free slot in claim queue for candidate")]
+	NoFreeSlotInClaimQueue,
 }
 
 /// Utility for eating top level errors and log them.
