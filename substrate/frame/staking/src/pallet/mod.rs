@@ -1031,7 +1031,7 @@ pub mod pallet {
 				if now == (next_election.saturating_sub(pages)) {
 					crate::log!(
 						trace,
-						"elect(): start fetching solution pages. expected pages: {}",
+						"elect(): start fetching solution pages. expected pages: {:?}",
 						pages
 					);
 

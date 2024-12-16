@@ -619,7 +619,8 @@ impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
     as
     frame_election_provider_support::ElectionDataProvider
     >::MaxVotesPerVoter;
-	type MaxWinnersPerPage = MaxWinnersPerPage;
+	// type MaxWinnersPerPage = MaxWinnersPerPage;
+	type MaxWinners = MaxWinnersPerPage;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 
 	// The unsigned submissions have to respect the weight of the submit_unsigned call, thus their
@@ -654,8 +655,7 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type BetterSignedThreshold = ();
 	type OffchainRepeat = OffchainRepeat;
 	type MinerTxPriority = NposSolutionPriority;
-	type Pages = ConstU32<1>;
-	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type MaxWinners = MaxWinnersPerPage;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type DataProvider = Staking;
 	#[cfg(any(feature = "fast-runtime", feature = "runtime-benchmarks"))]
@@ -1149,8 +1149,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				matches!(
 					c,
 					RuntimeCall::Staking(..) |
-						RuntimeCall::Session(..) |
-						RuntimeCall::Utility(..) |
+						RuntimeCall::Session(..) | RuntimeCall::Utility(..) |
 						RuntimeCall::FastUnstake(..) |
 						RuntimeCall::VoterList(..) |
 						RuntimeCall::NominationPools(..)
