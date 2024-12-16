@@ -429,13 +429,20 @@ where
 	}
 }
 
-// TODO TODO
+// TODO TODO: metadata
 impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Call>>
 	ExtrinsicMetadata for UncheckedExtrinsic<Address, Call, Signature, Extension>
 {
 	const VERSIONS: &'static [u8] = &[LEGACY_EXTRINSIC_FORMAT_VERSION, EXTRINSIC_FORMAT_VERSION];
 	type TransactionExtensions = Extension;
+	// TODO TODO: maybe a new type TransactionExtension and BaseTransactionExtension
 }
+
+// TODO TODO:
+	// /// For each supported version number, list the indexes, in order, of the extensions used.
+	// pub transaction_extensions_by_version: BTreeMap<u8, Vec<u32>>,
+	// /// The transaction extensions in the order they appear in the extrinsic.
+	// pub transaction_extensions: Vec<TransactionExtensionMetadata<T>>,
 
 impl<
 		Address,
@@ -451,70 +458,10 @@ impl<
 		match &self.preamble {
 			Preamble::Bare(_) => Weight::zero(),
 			Preamble::Signed(_, _, ext) => ext.weight(&self.function),
-			Preamble::General(_, ext) => ext.weight(&self.function), /* TODO TODO: needs weight
-			                                                          * function */
+			Preamble::General(_, ext) => ext.weight(&self.function),
 		}
 	}
 }
-
-// // usage prop 1
-// type TxExtV1 = VersionedExtension<1, (CheckNonce, CheckNonce)>;
-// type TxExt = MultiVersionExtension<(
-// 	ExtensionV1,
-// 	ExtensionV2,
-// )>;
-
-// usage prop 2
-// type TxExtV1 = (CheckNonce, CheckNonce);
-// type TxExt = MultiVersionExtension<
-// 	1,
-// 	(
-// 		VersionedExtension<1, TxExtV1>,
-// 		VersionedExtension<2, TxExtV2>,
-// 	)
-// >;
-//
-// OR
-//
-// type TxExtV1 = (1, (CheckNonce, CheckNonce));
-// type TxExt = MultiVersionExtension<(
-// 	ExtensionV1,
-// 	ExtensionV2,
-// )>;
-
-// // usage prop 2
-// type TxExtV1 = (CheckNonce, CheckNonce);
-// type TxExt = MultiVersionExtension<
-// 	(
-// 		(1, TxExtV1),
-// 		(2, TxExtV2),
-// 	)
-// >;
-// type UncheckedExtrinsic = UncheckedExtrinsic<Address, Call, Signature, TxExtV1,
-// MultiVersionExtension>;
-//
-// // usage prop 2
-// type TxExtV1 = (CheckNonce, CheckNonce);
-// type TxExt = MultiVersionExtension<
-// 	(
-// 		(1, TxExtV1),
-// 		(2, TxExtV2),
-// 	)
-// >;
-// type UncheckedExtrinsic = UncheckedExtrinsic<Address, Call, Signature, TxExtV1,
-// MultiVersionExtension>;
-
-// impl<Address, Call, Signature> Decode
-// 	for UncheckedExtrinsic<Address, Call, Signature, MultiVersionExtension>
-// where
-// 	Address: Decode,
-// 	Signature: Decode,
-// 	Call: Decode,
-// {
-// 	fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
-// 		todo!();
-// 	}
-// }
 
 impl<Address, Call, Signature, BaseExtension, Extension> Decode
 	for UncheckedExtrinsic<Address, Call, Signature, BaseExtension, Extension>

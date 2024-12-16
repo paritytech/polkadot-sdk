@@ -111,8 +111,7 @@ where
 					.map(|x| x.0)
 			},
 			ExtrinsicFormat::General(_extension_version, ref extension) => extension
-				.validate_only(None.into(), &self.function, info, len, source) // TODO TODO: needs validate
-				,
+				.validate_only(None.into(), &self.function, info, len, source),
 		}
 	}
 
@@ -143,8 +142,7 @@ where
 				DEFAULT_EXTENSION_VERSION,
 			),
 			ExtrinsicFormat::General(_extension_version, extension) =>
-				extension.dispatch_transaction(None.into(), self.function, info, len), /* TODO TODO:
-			                                                                         * needs dispatch */
+				extension.dispatch_transaction(None.into(), self.function, info, len),
 		}
 	}
 }
@@ -162,8 +160,7 @@ impl<
 		match &self.format {
 			ExtrinsicFormat::Bare => Weight::zero(),
 			ExtrinsicFormat::Signed(_, ext) => ext.weight(&self.function),
-			ExtrinsicFormat::General(_, ext) => ext.weight(&self.function), /* TODO TODO: needs
-			                                                                 * weight */
+			ExtrinsicFormat::General(_, ext) => ext.weight(&self.function),
 		}
 	}
 }
