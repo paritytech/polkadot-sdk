@@ -22,7 +22,7 @@ use alloc::vec::Vec;
 pub use sp_core::bandersnatch::*;
 
 use sp_core::{
-	crypto::{ProofOfPossessionVerifier, POP_CONTEXT_TAG},
+	crypto::{ProofOfPossessionVerifier, POP_CONTEXT_TAG, CryptoType},
 	Pair as TraitPair,
 };
 
@@ -65,7 +65,7 @@ impl RuntimePublic for Public {
 	fn verify_pop(&self, pop: &Self::Signature) -> bool {
 		let pop = AppSignature::from(pop.clone());
 		let pub_key = AppPublic::from(self.clone());
-		AppPair::verify_proof_of_possession(&pop, &pub_key)
+		<AppPublic as CryptoType>::Pair::verify_proof_of_possession(&pop, &pub_key)
 	}
 
 	fn to_raw_vec(&self) -> Vec<u8> {

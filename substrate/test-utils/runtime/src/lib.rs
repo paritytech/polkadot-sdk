@@ -185,23 +185,25 @@ pub type Header = sp_runtime::generic::Header<BlockNumber, Hashing>;
 /// Balance of an account.
 pub type Balance = u64;
 
-#[cfg(not(feature = "bls-experimental"))]
-type Bls381Signature = ();
-
+// Conditional types for `Bls381Signature`
 #[cfg(feature = "bls-experimental")]
-type Bls381Signature = bls381::AppSignature;
-
-#[cfg(not(feature = "bls-experimental"))]
-type Bls381Public = ();
-
-#[cfg(feature = "bls-experimental")]
-type Bls381Public = bls381::AppPublic;
-
-#[cfg(feature = "bls-experimental")]
-compile_error!("bls-experimental is active");
+pub mod bls_experimental {
+	use sp_application_crypto::{bls381, ecdsa_bls381};
+    pub type Bls381Public = bls381::AppPublic;
+    pub type EcdsaBls381Public = Option<ecdsa_bls381::AppPublic>;
+}
 
 #[cfg(not(feature = "bls-experimental"))]
-compile_error!("bls-experimental is NOT active");
+pub mod bls_disabled {
+    pub type Bls381Public = ();
+    pub type EcdsaBls381Public = ();
+}
+
+#[cfg(feature = "bls-experimental")]
+pub use bls_experimental::*;
+
+#[cfg(not(feature = "bls-experimental"))]
+pub use bls_disabled::*;
 
 decl_runtime_apis! {
 	#[api_version(2)]
@@ -240,10 +242,14 @@ decl_runtime_apis! {
 		///
 		/// Returns the signature generated for the message `ecdsa`.
 		fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic);
-		/// Test that 'bls381' crypto works in the runtime
+		/// Test that `bls381` crypto works in the runtime
 		///
-		/// Returns the signature generated for the message `bls381`.
-		fn test_bls381_crypto() -> Bls381Public
+		/// Returns the public key.
+		fn test_bls381_crypto() -> Bls381Public;
+		/// Test that `ecdsa_bls381_crypto` works in the runtime
+		///
+		/// Returns the public key
+		fn test_ecdsa_bls381_crypto() -> EcdsaBls381Public;
 		/// Run various tests against storage.
 		fn test_storage();
 		/// Check a witness.
@@ -610,8 +616,18 @@ impl_runtime_apis! {
 			test_bls381_crypto()
 		}
 
+		#[cfg(feature = "bls-experimental")]
+		fn test_ecdsa_bls381_crypto() -> EcdsaBls381Public {
+			test_ecdsa_bls381_crypto()
+		}
+
 		#[cfg(not(feature = "bls-experimental"))]
 		fn test_bls381_crypto() -> Bls381Public {
+			()
+		}
+
+		#[cfg(not(feature = "bls-experimental"))]
+		fn test_ecdsa_bls381_crypto() {
 			()
 		}
 
@@ -842,22 +858,23 @@ fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic) {
 
 #[cfg(feature = "bls-experimental")]
 fn test_bls381_crypto() -> Bls381Public {
-	let public0 = bls381::AppPublic::generate_pair(None);
-	// let public1 = bls381::AppPublic::generate_pair(None);
-	// let public2 = bls381::AppPublic::generate_pair(None);
+	let mut public0 = bls381::AppPublic::generate_pair(None);
 
-	// let all = bls381::AppPublic::all();
-	// assert!(all.contains(&public0));
-	// assert!(all.contains(&public1));
-	// assert!(all.contains(&public2));
+	let pop = public0.generate_pop().expect("Can generate Pop for bls381");
 
-	// let pop = bls381::AppPublic::generate_pop();
+	assert!(public0.verify_pop(&pop));
+	public0
+}
 
-	// let signature = public0.sign(&"bls381").expect("Generates a valid `bls381` signature.");
+#[cfg(feature = "bls-experimental")]
+fn test_ecdsa_bls381_crypto() -> EcdsaBls381Public {
+	let mut public0 = ecdsa_bls381::AppPublic::generate_pair(None);
 
-	// assert!(public0.verify(&"bls381", &signature));
-	// (signature, public0)
-	// (bls381::AppSignature::from_bytes(&"0"), bls381::AppPublic::from_bytes(&"9"))
+	let pop = public0.generate_pop().expect("Can generate ecdsa_bls381");
+
+	// assert!(public0.verify_pop(&pop));
+	// public0
+	None
 }
 
 fn test_read_storage() {

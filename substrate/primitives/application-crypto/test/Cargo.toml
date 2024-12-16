@@ -20,13 +20,9 @@ sp-api = { workspace = true, default-features = true }
 sp-application-crypto = { workspace = true, default-features = true }
 sp-core = { workspace = true, features = ["full_crypto"] }
 sp-keystore = { workspace = true }
-substrate-test-runtime-client = { workspace = true }
+substrate-test-runtime-client = { workspace = true, features = ["bls-experimental"] }
 
 [features]
-default = ["std"]
-std = [
-	"full_crypto",
-]
+std = []
 
-full_crypto = ["sp-core/full_crypto"]
-bls-experimental = []
+bls-experimental = ["substrate-test-runtime-client/bls-experimental"]
