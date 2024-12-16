@@ -26,7 +26,7 @@ extern crate alloc;
 use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame::{
-	deps::sp_runtime::generic::DigestItem,
+	deps::sp_runtime::{generic::DigestItem, ConsensusEngineId},
 	prelude::*,
 	traits::{
 		DisabledValidators, EstimateNextSessionRotation, Lateness as LatenessT, OneSessionHandler,
