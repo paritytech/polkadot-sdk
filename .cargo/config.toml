@@ -12,4 +12,4 @@ CARGO_WORKSPACE_ROOT_DIR = { value = "", relative = true }
 
 [net]
 retry = 5
-git-fetch-with-cli = true
+# git-fetch-with-cli = true # commented because there is a risk that a runner can be banned by github
