@@ -25,7 +25,8 @@ use crate::{
 	scale_info::{MetaType, StaticTypeInfo},
 	traits::AsTransactionAuthorizedOrigin,
 	transaction_validity::{
-		TransactionSource, TransactionValidity, TransactionValidityError, ValidTransaction,
+		InvalidTransaction, TransactionSource, TransactionValidity, TransactionValidityError,
+		ValidTransaction,
 	},
 	DispatchResult,
 };
@@ -81,18 +82,155 @@ pub trait VersionedTransactionExtensionPipeline<Call: Dispatchable>:
 }
 
 /// TODO TODO: doc
-// TODO TODO: maybe rename to version0 or something
-// TODO TODO: maybe replace with type alias for VersionedExtension<0, Extension>
-#[derive(Encode, Decode, Clone, Debug, TypeInfo)]
-pub struct NotVersionedExtension<Extension>(pub Extension);
+#[derive(Encode, Clone, Debug, TypeInfo)]
+pub struct VersionedExtension<const VERSION: u8, Extension> {
+	extension: Extension,
+}
 
-impl<
-		Call: Dispatchable<RuntimeOrigin: AsTransactionAuthorizedOrigin> + Encode,
-		Extension: TransactionExtension<Call>,
-	> VersionedTransactionExtensionPipeline<Call> for NotVersionedExtension<Extension>
+impl<const VERSION: u8, Extension> VersionedExtension<VERSION, Extension> {
+	/// Create a new versioned extension.
+	pub fn new(extension: Extension) -> Self {
+		Self { extension }
+	}
+}
+
+impl<const VERSION: u8, Extension: Decode> DecodeWithVersion
+	for VersionedExtension<VERSION, Extension>
+{
+	fn decode_with_version<I: codec::Input>(
+		extension_version: u8,
+		input: &mut I,
+	) -> Result<Self, codec::Error> {
+		if extension_version == VERSION {
+			Ok(VersionedExtension { extension: Extension::decode(input)? })
+		} else {
+			Err(codec::Error::from("Invalid extension version"))
+		}
+	}
+}
+
+impl<A: Encode, B: Encode> Encode for MultiVersion<A, B> {
+	fn size_hint(&self) -> usize {
+		match self {
+			MultiVersion::A(a) => a.size_hint(),
+			MultiVersion::B(b) => b.size_hint(),
+		}
+	}
+	fn encode(&self) -> Vec<u8> {
+		match self {
+			MultiVersion::A(a) => a.encode(),
+			MultiVersion::B(b) => b.encode(),
+		}
+	}
+	fn encode_to<T: codec::Output + ?Sized>(&self, dest: &mut T) {
+		match self {
+			MultiVersion::A(a) => a.encode_to(dest),
+			MultiVersion::B(b) => b.encode_to(dest),
+		}
+	}
+	fn encoded_size(&self) -> usize {
+		match self {
+			MultiVersion::A(a) => a.encoded_size(),
+			MultiVersion::B(b) => b.encoded_size(),
+		}
+	}
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		match self {
+			MultiVersion::A(a) => a.using_encoded(f),
+			MultiVersion::B(b) => b.using_encoded(f),
+		}
+	}
+}
+
+/// TODO TODO: doc
+#[derive(Encode, Debug, Clone, Eq, PartialEq, TypeInfo)]
+struct InvalidVersion;
+
+/// TODO TODO: doc
+#[allow(private_interfaces)]
+#[derive(Clone, Debug, TypeInfo)]
+pub enum MultiVersion<A, B = InvalidVersion> {
+	/// TODO TODO: doc
+	A(A),
+	/// TODO TODO: doc
+	B(B),
+}
+
+impl DecodeWithVersion for InvalidVersion {
+	fn decode_with_version<I: codec::Input>(
+		_extension_version: u8,
+		_input: &mut I,
+	) -> Result<Self, codec::Error> {
+		Err(codec::Error::from("Invalid extension version"))
+	}
+}
+
+impl<Call: Dispatchable> VersionedTransactionExtensionPipeline<Call> for InvalidVersion {
+	fn weight(&self, _call: &Call) -> Weight {
+		Weight::zero()
+	}
+	fn validate_only(
+		&self,
+		_origin: DispatchOriginOf<Call>,
+		_call: &Call,
+		_info: &DispatchInfoOf<Call>,
+		_len: usize,
+		_source: TransactionSource,
+	) -> Result<ValidTransaction, TransactionValidityError> {
+		Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(0)))
+	}
+	fn dispatch_transaction(
+		self,
+		_origin: DispatchOriginOf<Call>,
+		_call: Call,
+		_info: &DispatchInfoOf<Call>,
+		_len: usize,
+	) -> crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Call>> {
+		Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(0)).into())
+	}
+}
+
+/// TODO TODO: doc
+pub trait MultiVersionItem {
+	/// TODO TODO: doc
+	const VERSION: Option<u8>;
+}
+
+impl<const VERSION: u8, Extension> MultiVersionItem for VersionedExtension<VERSION, Extension> {
+	const VERSION: Option<u8> = Some(VERSION);
+}
+
+impl MultiVersionItem for InvalidVersion {
+	const VERSION: Option<u8> = None;
+}
+
+impl<A: DecodeWithVersion + MultiVersionItem, B: DecodeWithVersion + MultiVersionItem>
+	DecodeWithVersion for MultiVersion<A, B>
+{
+	fn decode_with_version<I: codec::Input>(
+		extension_version: u8,
+		input: &mut I,
+	) -> Result<Self, codec::Error> {
+		if A::VERSION == Some(extension_version) {
+			Ok(MultiVersion::A(A::decode_with_version(extension_version, input)?))
+		} else if B::VERSION == Some(extension_version) {
+			Ok(MultiVersion::B(B::decode_with_version(extension_version, input)?))
+		} else {
+			Err(codec::Error::from("Invalid extension version"))
+		}
+	}
+}
+
+impl<A, B, Call: Dispatchable> VersionedTransactionExtensionPipeline<Call> for MultiVersion<A, B>
+where
+	A: VersionedTransactionExtensionPipeline<Call> + MultiVersionItem,
+	B: VersionedTransactionExtensionPipeline<Call> + MultiVersionItem,
 {
 	fn weight(&self, call: &Call) -> Weight {
-		self.0.weight(call)
+		match self {
+			MultiVersion::A(a) => a.weight(call),
+			MultiVersion::B(b) => b.weight(call),
+		}
 	}
 	fn validate_only(
 		&self,
@@ -102,7 +240,10 @@ impl<
 		len: usize,
 		source: TransactionSource,
 	) -> Result<ValidTransaction, TransactionValidityError> {
-		self.0.validate_only(origin, call, info, len, source, 0).map(|x| x.0)
+		match self {
+			MultiVersion::A(a) => a.validate_only(origin, call, info, len, source),
+			MultiVersion::B(b) => b.validate_only(origin, call, info, len, source),
+		}
 	}
 	fn dispatch_transaction(
 		self,
@@ -111,38 +252,16 @@ impl<
 		info: &DispatchInfoOf<Call>,
 		len: usize,
 	) -> crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Call>> {
-		self.0.dispatch_transaction(origin, call, info, len, 0)
-	}
-}
-
-impl<Extension: Decode> DecodeWithVersion for NotVersionedExtension<Extension> {
-	fn decode_with_version<I: codec::Input>(_: u8, input: &mut I) -> Result<Self, codec::Error> {
-		Self::decode(input)
-	}
-}
-
-/// TODO TODO: doc
-#[derive(Encode, Clone, Debug, TypeInfo)]
-pub struct VersionedExtension<const VERSION: u8, Extension> {
-	extension: Extension,
-}
-
-impl<const VERSION: u8, Extension: Decode> DecodeWithVersion for VersionedExtension<VERSION, Extension> {
-	fn decode_with_version<I: codec::Input>(
-		extension_version: u8,
-		input: &mut I,
-	) -> Result<Self, codec::Error> {
-		if extension_version == VERSION {
-			Ok(VersionedExtension {
-				extension: Extension::decode(input)?,
-			})
-		} else {
-			Err(codec::Error::from("Invalid extension version"))
+		match self {
+			MultiVersion::A(a) => a.dispatch_transaction(origin, call, info, len),
+			MultiVersion::B(b) => b.dispatch_transaction(origin, call, info, len),
 		}
 	}
 }
 
-impl<const VERSION: u8, Call: Dispatchable<RuntimeOrigin: AsTransactionAuthorizedOrigin> + Encode,
+impl<
+		const VERSION: u8,
+		Call: Dispatchable<RuntimeOrigin: AsTransactionAuthorizedOrigin> + Encode,
 		Extension: TransactionExtension<Call>,
 	> VersionedTransactionExtensionPipeline<Call> for VersionedExtension<VERSION, Extension>
 {
@@ -157,7 +276,9 @@ impl<const VERSION: u8, Call: Dispatchable<RuntimeOrigin: AsTransactionAuthorize
 		len: usize,
 		source: TransactionSource,
 	) -> Result<ValidTransaction, TransactionValidityError> {
-		self.extension.validate_only(origin, call, info, len, source, VERSION).map(|x| x.0)
+		self.extension
+			.validate_only(origin, call, info, len, source, VERSION)
+			.map(|x| x.0)
 	}
 	fn dispatch_transaction(
 		self,

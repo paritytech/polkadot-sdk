@@ -26,7 +26,7 @@ use crate::{
 	traits::{
 		self,
 		transaction_extension::{
-			NotVersionedExtension, TransactionExtension, VersionedTransactionExtensionPipeline,
+			TransactionExtension, VersionedExtension, VersionedTransactionExtensionPipeline,
 		},
 		AsTransactionAuthorizedOrigin, DispatchInfoOf, DispatchTransaction, Dispatchable,
 		MaybeDisplay, Member, PostDispatchInfoOf, ValidateUnsigned,
@@ -41,13 +41,13 @@ const DEFAULT_EXTENSION_VERSION: ExtensionVersion = 0;
 /// The kind of extrinsic this is, including any fields required of that kind. This is basically
 /// the full extrinsic except the `Call`.
 #[derive(PartialEq, Eq, Clone, sp_core::RuntimeDebug)]
-pub enum ExtrinsicFormat<AccountId, ExtensionV0, Extension> {
+pub enum ExtrinsicFormat<AccountId, BaseExtension, Extension> {
 	/// Extrinsic is bare; it must pass either the bare forms of `TransactionExtension` or
 	/// `ValidateUnsigned`, both deprecated, or alternatively a `ProvideInherent`.
 	Bare,
 	/// Extrinsic has a default `Origin` of `Signed(AccountId)` and must pass all
 	/// `TransactionExtension`s regular checks and includes all extension data.
-	Signed(AccountId, ExtensionV0),
+	Signed(AccountId, BaseExtension),
 	/// Extrinsic has a default `Origin` of `None` and must pass all `TransactionExtension`s.
 	/// regular checks and includes all extension data.
 	General(ExtensionVersion, Extension),
@@ -62,23 +62,23 @@ pub enum ExtrinsicFormat<AccountId, ExtensionV0, Extension> {
 pub struct CheckedExtrinsic<
 	AccountId,
 	Call,
-	ExtensionV0,
-	Extension = NotVersionedExtension<ExtensionV0>,
+	BaseExtension,
+	Extension = VersionedExtension<0, BaseExtension>,
 > {
 	/// Who this purports to be from and the number of extrinsics have come before
 	/// from the same signer, if anyone (note this is not a signature).
-	pub format: ExtrinsicFormat<AccountId, ExtensionV0, Extension>,
+	pub format: ExtrinsicFormat<AccountId, BaseExtension, Extension>,
 
 	/// The function that should be called.
 	pub function: Call,
 }
 
-impl<AccountId, Call, ExtensionV0, Extension, RuntimeOrigin> traits::Applyable
-	for CheckedExtrinsic<AccountId, Call, ExtensionV0, Extension>
+impl<AccountId, Call, BaseExtension, Extension, RuntimeOrigin> traits::Applyable
+	for CheckedExtrinsic<AccountId, Call, BaseExtension, Extension>
 where
 	AccountId: Member + MaybeDisplay,
 	Call: Member + Dispatchable<RuntimeOrigin = RuntimeOrigin> + Encode,
-	ExtensionV0: TransactionExtension<Call>,
+	BaseExtension: TransactionExtension<Call>,
 	Extension: VersionedTransactionExtensionPipeline<Call>,
 	RuntimeOrigin: From<Option<AccountId>> + AsTransactionAuthorizedOrigin,
 {
@@ -94,7 +94,7 @@ where
 			ExtrinsicFormat::Bare => {
 				let inherent_validation = I::validate_unsigned(source, &self.function)?;
 				#[allow(deprecated)]
-				let legacy_validation = ExtensionV0::bare_validate(&self.function, info, len)?;
+				let legacy_validation = BaseExtension::bare_validate(&self.function, info, len)?;
 				Ok(legacy_validation.combine_with(inherent_validation))
 			},
 			ExtrinsicFormat::Signed(ref signer, ref extension) => {
@@ -126,13 +126,13 @@ where
 				I::pre_dispatch(&self.function)?;
 				// TODO: Separate logic from `TransactionExtension` into a new `InherentExtension`
 				// interface.
-				ExtensionV0::bare_validate_and_prepare(&self.function, info, len)?;
+				BaseExtension::bare_validate_and_prepare(&self.function, info, len)?;
 				let res = self.function.dispatch(None.into());
 				let mut post_info = res.unwrap_or_else(|err| err.post_info);
 				let pd_res = res.map(|_| ()).map_err(|e| e.error);
 				// TODO: Separate logic from `TransactionExtension` into a new `InherentExtension`
 				// interface.
-				ExtensionV0::bare_post_dispatch(info, &mut post_info, len, &pd_res)?;
+				BaseExtension::bare_post_dispatch(info, &mut post_info, len, &pd_res)?;
 				Ok(res)
 			},
 			ExtrinsicFormat::Signed(signer, extension) => extension.dispatch_transaction(
@@ -152,9 +152,9 @@ where
 impl<
 		AccountId,
 		Call: Dispatchable,
-		ExtensionV0: TransactionExtension<Call>,
+		BaseExtension: TransactionExtension<Call>,
 		Extension: VersionedTransactionExtensionPipeline<Call>,
-	> CheckedExtrinsic<AccountId, Call, ExtensionV0, Extension>
+	> CheckedExtrinsic<AccountId, Call, BaseExtension, Extension>
 {
 	/// Returns the weight of the extension of this transaction, if present. If the transaction
 	/// doesn't use any extension, the weight returned is equal to zero.
