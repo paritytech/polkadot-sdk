@@ -671,7 +671,6 @@ mod benchmarks {
 		);
 	}
 
-
 	#[benchmark(pov_mode = Measured)]
 	fn seal_ref_time_left() {
 		build_runtime!(runtime, memory: [vec![], ]);
