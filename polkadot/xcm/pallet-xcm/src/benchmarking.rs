@@ -100,6 +100,13 @@ mod benchmarks {
 			.into();
 		let versioned_msg = VersionedXcm::from(msg);
 
+		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
+		T::DeliveryHelper::ensure_successful_delivery(
+			&Default::default(),
+			&versioned_dest.clone().try_into().unwrap(),
+			FeeReason::ChargeFees,
+		);
+
 		#[extrinsic_call]
 		_(send_origin as RuntimeOrigin<T>, Box::new(versioned_dest), Box::new(versioned_msg));
 
@@ -273,6 +280,13 @@ mod benchmarks {
 			AccountId32 { network: None, id: recipient.into() }.into();
 		let versioned_assets: VersionedAssets = assets.into();
 
+		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
+		T::DeliveryHelper::ensure_successful_delivery(
+			&Default::default(),
+			&versioned_dest.clone().try_into().unwrap(),
+			FeeReason::ChargeFees,
+		);
+
 		#[extrinsic_call]
 		_(
 			send_origin,
@@ -330,6 +344,13 @@ mod benchmarks {
 			.ok_or(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?
 			.into();
 
+        // Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
+        T::DeliveryHelper::ensure_successful_delivery(
+            &Default::default(),
+            &versioned_loc.clone().try_into().unwrap(),
+            FeeReason::ChargeFees,
+        );
+
 		#[extrinsic_call]
 		_(RawOrigin::Root, Box::new(versioned_loc));
 
@@ -341,6 +362,14 @@ mod benchmarks {
 		let loc = T::reachable_dest()
 			.ok_or(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		let versioned_loc: VersionedLocation = loc.clone().into();
+
+		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
+		T::DeliveryHelper::ensure_successful_delivery(
+			&Default::default(),
+			&versioned_loc.clone().try_into().unwrap(),
+			FeeReason::ChargeFees,
+		);
+
 		let _ = crate::Pallet::<T>::request_version_notify(loc);
 
 		#[extrinsic_call]
