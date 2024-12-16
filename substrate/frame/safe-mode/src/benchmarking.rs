@@ -19,10 +19,8 @@
 
 use super::{Pallet as SafeMode, *};
 
-use frame_benchmarking::v2::*;
-use frame_support::traits::{fungible, UnfilteredDispatchable};
-use frame_system::{Pallet as System, RawOrigin};
-use sp_runtime::traits::{Bounded, One, Zero};
+use frame::{benchmarking::prelude::*, traits::UnfilteredDispatchable};
+use frame::deps::frame_system::{Pallet as System, RawOrigin};
 
 #[benchmarks(where T::Currency: fungible::Mutate<T::AccountId>)]
 mod benchmarks {
