@@ -388,6 +388,9 @@ pub trait HostFn: private::Sealed {
 	/// - `offset`: Byte offset into the returned data
 	fn return_data_copy(output: &mut &mut [u8], offset: u32);
 
+	/// Returns the amount of ref_time left.
+	fn ref_time_left() -> u64;
+
 	/// Stores the current block number of the current contract into the supplied buffer.
 	///
 	/// # Parameters

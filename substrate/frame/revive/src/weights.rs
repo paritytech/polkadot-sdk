@@ -74,6 +74,7 @@ pub trait WeightInfo {
 	fn seal_caller_is_root() -> Weight;
 	fn seal_address() -> Weight;
 	fn seal_weight_left() -> Weight;
+	fn seal_ref_time_left() -> Weight;
 	fn seal_balance() -> Weight;
 	fn seal_balance_of() -> Weight;
 	fn seal_get_immutable_data(n: u32, ) -> Weight;
@@ -421,6 +422,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(315_000, 0)
 	}
 	fn seal_weight_left() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 637_000 picoseconds.
+		Weight::from_parts(726_000, 0)
+	}
+	fn seal_ref_time_left() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -1268,6 +1276,13 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 283_000 picoseconds.
 		Weight::from_parts(315_000, 0)
+	}
+	fn seal_ref_time_left() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 637_000 picoseconds.
+		Weight::from_parts(726_000, 0)
 	}
 	fn seal_weight_left() -> Weight {
 		// Proof Size summary in bytes:

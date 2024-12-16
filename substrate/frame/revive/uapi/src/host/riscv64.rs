@@ -76,6 +76,7 @@ mod sys {
 		pub fn address(out_ptr: *mut u8);
 		pub fn weight_to_fee(ref_time: u64, proof_size: u64, out_ptr: *mut u8);
 		pub fn weight_left(out_ptr: *mut u8, out_len_ptr: *mut u32);
+		pub fn ref_time_left() -> u64;
 		pub fn get_immutable_data(out_ptr: *mut u8, out_len_ptr: *mut u32);
 		pub fn set_immutable_data(ptr: *const u8, len: u32);
 		pub fn balance(out_ptr: *mut u8);
@@ -446,6 +447,10 @@ impl HostFn for HostFnImpl {
 			unsafe { sys::return_data_copy(output.as_mut_ptr(), &mut output_len, offset) };
 		}
 		extract_from_slice(output, output_len as usize);
+	}
+
+	fn ref_time_left() -> u64 {
+		unsafe { sys::ref_time_left() }
 	}
 
 	#[cfg(feature = "unstable-api")]

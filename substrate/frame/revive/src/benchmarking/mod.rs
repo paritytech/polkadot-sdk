@@ -671,6 +671,19 @@ mod benchmarks {
 		);
 	}
 
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_ref_time_left() {
+		build_runtime!(runtime, memory: [vec![], ]);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_ref_time_left(memory.as_mut_slice());
+		}
+		assert_eq!(result.unwrap(), runtime.ext().gas_meter().gas_left().ref_time());
+	}
+
 	#[benchmark(pov_mode = Measured)]
 	fn seal_balance() {
 		build_runtime!(runtime, memory: [[0u8;32], ]);
