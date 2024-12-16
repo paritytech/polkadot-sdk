@@ -20,7 +20,10 @@
 use crate::{self as pallet_babe, Config, CurrentSlot};
 use codec::Encode;
 use frame::{
-	deps::sp_runtime::{curve::PiecewiseLinear, testing::Header},
+	deps::sp_runtime::{
+		curve::PiecewiseLinear,
+		testing::{DigestItem, Header},
+	},
 	testing_prelude::*,
 	traits::Header as _,
 };

@@ -17,8 +17,9 @@
 
 //! Consensus extension module tests for BABE consensus.
 
-use super::{Call, DigestItem, *};
+use super::{Call, *};
 use frame::{
+	deps::sp_runtime::testing::DigestItem,
 	testing_prelude::*,
 	traits::{Currency, EstimateNextSessionRotation, KeyOwnerProofSystem},
 };
