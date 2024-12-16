@@ -59,23 +59,9 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
-use frame_support::{
-	dispatch::{ClassifyDispatch, DispatchClass, DispatchResult, Pays, PaysFee, WeighData},
-	pallet_prelude::TransactionSource,
-	traits::IsSubType,
-	weights::Weight,
-};
-use frame_system::ensure_signed;
+use frame::runtime::prelude::*;
 use log::info;
 use scale_info::TypeInfo;
-use sp_runtime::{
-	impl_tx_ext_default,
-	traits::{
-		Bounded, DispatchInfoOf, DispatchOriginOf, SaturatedConversion, Saturating,
-		TransactionExtension, ValidateResult,
-	},
-	transaction_validity::{InvalidTransaction, ValidTransaction},
-};
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
@@ -140,12 +126,10 @@ impl<T: pallet_balances::Config> PaysFee<(&BalanceOf<T>,)> for WeightForSetDummy
 
 // Definition of the pallet logic, to be aggregated at runtime definition through
 // `construct_runtime`.
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	// Import various types used to declare pallet in scope.
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	/// Our pallet's configuration trait. All our types and constants go in here. If the
 	/// pallet is dependent on specific other pallets, then their configuration traits
@@ -400,7 +384,7 @@ pub mod pallet {
 
 	// The genesis config type.
 	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
+	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		pub dummy: T::Balance,
 		pub bar: Vec<(T::AccountId, T::Balance)>,
@@ -519,7 +503,7 @@ where
 		// check for `set_dummy`
 		let validity = match call.is_sub_type() {
 			Some(Call::set_dummy { .. }) => {
-				sp_runtime::print("set_dummy was received.");
+				print("set_dummy was received.");
 
 				let valid_tx =
 					ValidTransaction { priority: Bounded::max_value(), ..Default::default() };
