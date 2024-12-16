@@ -759,10 +759,7 @@ pub mod pallet {
 					),
 					_ => Ok(()),
 				});
-				assert!(
-					ValidatorCount::<T>::get() <=
-						<T::ElectionProvider as ElectionProviderBase>::MaxWinners::get()
-				);
+				assert!(ValidatorCount::<T>::get() <= T::MaxValidatorsCount::get());
 			}
 
 			// all voters are reported to the `VoterList`.
@@ -1537,8 +1534,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Increments the ideal number of validators up to maximum of
-		/// `ElectionProviderBase::MaxWinners`.
+		/// Increments the ideal number of validators up to maximum of `T::MaxValidatorsCount`.
 		///
 		/// The dispatch origin must be Root.
 		///
@@ -1560,7 +1556,7 @@ pub mod pallet {
 		}
 
 		/// Scale up the ideal number of validators by a factor up to maximum of
-		/// `ElectionProviderBase::MaxWinners`.
+		/// `T::MaxValidatorsCount`.
 		///
 		/// The dispatch origin must be Root.
 		///

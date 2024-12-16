@@ -2069,7 +2069,7 @@ impl<T: Config> Pallet<T> {
 	/// * Number of voters in `VoterList` match that of the number of Nominators and Validators in
 	/// the system (validator is both voter and target).
 	/// * Number of targets in `TargetList` matches the number of validators in the system.
-	/// * Current validator count is bounded by the election provider's max winners.
+	/// * Current validator count is bounded by `MaxValidatorsCount`.
 	fn check_count() -> Result<(), TryRuntimeError> {
 		ensure!(
 			<T as Config>::VoterList::count() ==
@@ -2081,7 +2081,7 @@ impl<T: Config> Pallet<T> {
 			"wrong external count"
 		);
 		ensure!(
-			ValidatorCount::<T>::get() <= <T::ElectionProvider as frame_election_provider_support::ElectionProviderBase>::MaxWinners::get(),
+			ValidatorCount::<T>::get() <= T::MaxValidatorsCount::get(),
 			Error::<T>::TooManyValidators
 		);
 		Ok(())
