@@ -1670,6 +1670,14 @@ pub mod env {
 		Ok(result?)
 	}
 
+	/// Returns the amount of ref_time left.
+	/// See [`pallet_revive_uapi::HostFn::ref_time_left`].
+	#[stable]
+	fn ref_time_left(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
+		self.charge_gas(RuntimeCosts::RefTimeLeft)?;
+		Ok(self.ext.gas_meter().gas_left().ref_time())
+	}
+
 	/// Call into the chain extension provided by the chain if any.
 	/// See [`pallet_revive_uapi::HostFn::call_chain_extension`].
 	fn call_chain_extension(
@@ -1998,13 +2006,6 @@ pub mod env {
 	#[mutating]
 	fn terminate(&mut self, memory: &mut M, beneficiary_ptr: u32) -> Result<(), TrapReason> {
 		self.terminate(memory, beneficiary_ptr)
-	}
-
-	/// Returns the amount of ref_time left.
-	/// See [`pallet_revive_uapi::HostFn::ref_time_left`].
-	fn ref_time_left(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
-		self.charge_gas(RuntimeCosts::RefTimeLeft)?;
-		Ok(self.ext.gas_meter().gas_left().ref_time())
 	}
 
 	/// Stores the amount of weight left into the supplied buffer.
