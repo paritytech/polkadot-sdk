@@ -34,11 +34,10 @@ use frame_benchmarking::v2::*;
 use frame_support::{
 	self, assert_ok,
 	storage::child,
-	traits::{fungible::InspectHold, Currency},
+	traits::fungible::InspectHold,
 	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
-use pallet_balances;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, StorageFlags};
 use sp_runtime::traits::{Bounded, Hash};
 
@@ -68,7 +67,7 @@ struct Contract<T: Config> {
 
 impl<T> Contract<T>
 where
-	T: Config + pallet_balances::Config,
+	T: Config,
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
 	T::Hash: frame_support::traits::IsType<H256>,
@@ -103,7 +102,7 @@ where
 			origin,
 			0u32.into(),
 			Weight::MAX,
-			default_deposit_limit::<T>(),
+			DepositLimit::Balance(default_deposit_limit::<T>()),
 			Code::Upload(module.code),
 			data,
 			salt,
@@ -220,11 +219,10 @@ fn default_deposit_limit<T: Config>() -> BalanceOf<T> {
 #[benchmarks(
 	where
 		BalanceOf<T>: Into<U256> + TryFrom<U256>,
-		T: Config + pallet_balances::Config,
+		T: Config,
 		MomentOf<T>: Into<U256>,
 		<T as frame_system::Config>::RuntimeEvent: From<pallet::Event<T>>,
 		<T as Config>::RuntimeCall: From<frame_system::Call<T>>,
-		<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance: From<BalanceOf<T>>,
 		<T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 )]
 mod benchmarks {
@@ -774,6 +772,21 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn seal_call_data_size() {
+		let mut setup = CallSetup::<T>::default();
+		let (mut ext, _) = setup.ext();
+		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![42u8; 128 as usize]);
+		let mut memory = memory!(vec![0u8; 32 as usize],);
+		let result;
+		#[block]
+		{
+			result = runtime.bench_call_data_size(memory.as_mut_slice(), 0);
+		}
+		assert_ok!(result);
+		assert_eq!(U256::from_little_endian(&memory[..]), U256::from(128));
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_block_number() {
 		build_runtime!(runtime, memory: [[0u8;32], ]);
 		let result;
@@ -838,6 +851,21 @@ mod benchmarks {
 		}
 		assert_ok!(result);
 		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().get_weight_price(weight));
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_call_data_load() {
+		let mut setup = CallSetup::<T>::default();
+		let (mut ext, _) = setup.ext();
+		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![42u8; 32]);
+		let mut memory = memory!(vec![0u8; 32],);
+		let result;
+		#[block]
+		{
+			result = runtime.bench_call_data_load(memory.as_mut_slice(), 0, 0);
+		}
+		assert_ok!(result);
+		assert_eq!(&memory[..], &vec![42u8; 32]);
 	}
 
 	#[benchmark(pov_mode = Measured)]

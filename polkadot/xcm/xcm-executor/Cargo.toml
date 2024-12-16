@@ -5,6 +5,8 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 version = "7.0.0"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -30,6 +32,7 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 std = [
 	"codec/std",
