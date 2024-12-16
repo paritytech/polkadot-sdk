@@ -15,13 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use frame_support::{
-	storage_alias,
-	traits::{Get, UncheckedOnRuntimeUpgrade},
-};
+use frame::testing_prelude::*;
 
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
+
+#[cfg(feature = "try-runtime")]
+use frame::try_runtime::TryRuntimeError;
 
 /// Collection of storage item formats from the previous storage version.
 ///
@@ -47,7 +47,7 @@ impl<T: crate::Config> UncheckedOnRuntimeUpgrade for InnerMigrateV0ToV1<T> {
 	/// Return the existing [`crate::Value`] so we can check that it was correctly set in
 	/// `InnerMigrateV0ToV1::post_upgrade`.
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 		use codec::Encode;
 
 		// Access the old value using the `storage_alias` type
@@ -61,7 +61,7 @@ impl<T: crate::Config> UncheckedOnRuntimeUpgrade for InnerMigrateV0ToV1<T> {
 	/// - If the value doesn't exist, there is nothing to do.
 	/// - If the value exists, it is read and then written back to storage inside a
 	///   [`crate::CurrentAndPreviousValue`].
-	fn on_runtime_upgrade() -> frame_support::weights::Weight {
+	fn on_runtime_upgrade() -> weights::Weight {
 		// Read the old value from storage
 		if let Some(old_value) = v0::Value::<T>::take() {
 			// Write the new value to storage
@@ -80,13 +80,11 @@ impl<T: crate::Config> UncheckedOnRuntimeUpgrade for InnerMigrateV0ToV1<T> {
 	/// - If there was no old value, the new value should not be set.
 	/// - If there was an old value, the new value should be a [`crate::CurrentAndPreviousValue`].
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+	fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
 		use codec::Decode;
-		use frame_support::ensure;
 
-		let maybe_old_value = Option::<u32>::decode(&mut &state[..]).map_err(|_| {
-			sp_runtime::TryRuntimeError::Other("Failed to decode old value from storage")
-		})?;
+		let maybe_old_value = Option::<u32>::decode(&mut &state[..])
+			.map_err(|_| TryRuntimeError::Other("Failed to decode old value from storage"))?;
 
 		match maybe_old_value {
 			Some(old_value) => {
@@ -113,7 +111,7 @@ impl<T: crate::Config> UncheckedOnRuntimeUpgrade for InnerMigrateV0ToV1<T> {
 /// - The migration only runs once when the on-chain storage version is 0
 /// - The on-chain storage version is updated to `1` after the migration executes
 /// - Reads/Writes from checking/settings the on-chain storage version are accounted for
-pub type MigrateV0ToV1<T> = frame_support::migrations::VersionedMigration<
+pub type MigrateV0ToV1<T> = VersionedMigration<
 	0, // The migration will only execute when the on-chain storage version is 0
 	1, // The on-chain storage version will be set to 1 after the migration is complete
 	InnerMigrateV0ToV1<T>,
@@ -132,7 +130,7 @@ mod test {
 	use self::InnerMigrateV0ToV1;
 	use super::*;
 	use crate::mock::{new_test_ext, MockRuntime};
-	use frame_support::assert_ok;
+	//use frame_support::assert_ok;
 
 	#[test]
 	fn handles_no_existing_value() {

@@ -24,18 +24,12 @@
 //! [`pallet_migrations::Config`] implementation, where you define the migrations you want to run
 //! using the [`Migrations`] type.
 
-use frame_support::{
-	construct_runtime, derive_impl,
-	migrations::MultiStepMigrator,
-	pallet_prelude::Weight,
-	traits::{OnFinalize, OnInitialize},
-};
-
+use frame::testing_prelude::*;
 type Block = frame_system::mocking::MockBlock<Runtime>;
 
 impl crate::Config for Runtime {}
 
-frame_support::parameter_types! {
+parameter_types! {
 	pub storage MigratorServiceWeight: Weight = Weight::from_parts(100, 100); // do not use in prod
 }
 
@@ -75,8 +69,8 @@ construct_runtime! {
 	}
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	sp_io::TestExternalities::new(Default::default())
+pub fn new_test_ext() -> TestExternalities {
+	TestExternalities::new(Default::default())
 }
 
 #[allow(dead_code)]

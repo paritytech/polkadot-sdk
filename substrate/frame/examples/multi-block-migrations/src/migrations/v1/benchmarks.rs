@@ -26,8 +26,7 @@ use crate::{
 	},
 	Config, Pallet,
 };
-use frame_benchmarking::v2::*;
-use frame_support::{migrations::SteppedMigration, weights::WeightMeter};
+use frame::{benchmarking::prelude::*, runtime::prelude::*};
 
 #[benchmarks]
 mod benches {

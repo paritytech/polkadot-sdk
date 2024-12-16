@@ -334,6 +334,8 @@ pub mod runtime {
 	pub mod prelude {
 		pub use crate::prelude::*;
 
+		pub use crate::migration::*;
+
 		/// All of the types related to the FRAME runtime executive.
 		pub use frame_executive::*;
 
@@ -364,7 +366,7 @@ pub mod runtime {
 		};
 
 		/// Used for simple fee calculation.
-		pub use frame_support::weights::{self, FixedFee, NoFee};
+		pub use frame_support::weights::{self, FixedFee, NoFee, WeightMeter};
 
 		/// Primary types used to parameterize `EnsureOrigin` and `EnsureRootWithArg`.
 		pub use frame_system::{
@@ -530,6 +532,12 @@ pub mod derive {
 pub mod hashing {
 	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
+}
+
+pub mod migration {
+	pub use frame_support::migrations::{MigrationId, SteppedMigration, SteppedMigrationError, MultiStepMigrator, VersionedMigration};
+
+	pub use frame_support::traits::{OnFinalize, OnInitialize, UncheckedOnRuntimeUpgrade};
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
