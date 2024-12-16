@@ -21,6 +21,7 @@
 use crate::error::Error;
 
 pub use sc_allocator::AllocationStats;
+use sp_core::traits::CallContext;
 
 /// Default heap allocation strategy.
 pub const DEFAULT_HEAP_ALLOC_STRATEGY: HeapAllocStrategy =
@@ -46,8 +47,8 @@ pub trait WasmInstance: Send {
 	/// Before execution, instance is reset.
 	///
 	/// Returns the encoded result on success.
-	fn call(&mut self, method: &str, data: &[u8]) -> Result<Vec<u8>, Error> {
-		self.call_with_allocation_stats(method, data).0
+	fn call(&mut self, method: &str, data: &[u8], context: CallContext) -> Result<Vec<u8>, Error> {
+		self.call_with_allocation_stats(method, data, context).0
 	}
 
 	/// Call a method on this WASM instance.
@@ -59,6 +60,7 @@ pub trait WasmInstance: Send {
 		&mut self,
 		method: &str,
 		data: &[u8],
+		context: CallContext,
 	) -> (Result<Vec<u8>, Error>, Option<AllocationStats>);
 
 	/// Call an exported method on this WASM instance.
@@ -66,8 +68,13 @@ pub trait WasmInstance: Send {
 	/// Before execution, instance is reset.
 	///
 	/// Returns the encoded result on success.
-	fn call_export(&mut self, method: &str, data: &[u8]) -> Result<Vec<u8>, Error> {
-		self.call(method.into(), data)
+	fn call_export(
+		&mut self,
+		method: &str,
+		data: &[u8],
+		context: CallContext,
+	) -> Result<Vec<u8>, Error> {
+		self.call(method.into(), data, context)
 	}
 }
 

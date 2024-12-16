@@ -31,6 +31,7 @@ wasmtime = { features = [
 	"pooling-allocator",
 ], workspace = true }
 anyhow = { workspace = true }
+sp-core = { workspace = true, default-features = true }
 sc-allocator = { workspace = true, default-features = true }
 sc-executor-common = { workspace = true, default-features = true }
 sp-runtime-interface = { workspace = true, default-features = true }
