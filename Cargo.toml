@@ -841,20 +841,20 @@ kvdb-shared-tests = { version = "0.11.0" }
 landlock = { version = "0.3.0" }
 libc = { version = "0.2.155" }
 libfuzzer-sys = { version = "0.4" }
-libp2p = { version = "0.52.4" }
+libp2p = { version = "0.54.1" }
 libp2p-identity = { version = "0.2.9" }
 libsecp256k1 = { version = "0.7.0", default-features = false }
 linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
 linregress = { version = "0.5.1" }
 lite-json = { version = "0.2.0", default-features = false }
-litep2p = { version = "0.8.3", features = ["websocket"] }
+litep2p = { version = "0.8.4", features = ["websocket"] }
 log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
 memmap2 = { version = "0.9.3" }
 memory-db = { version = "0.32.0", default-features = false }
-merkleized-metadata = { version = "0.1.2" }
+merkleized-metadata = { version = "0.2.0" }
 merlin = { version = "3.0", default-features = false }
 messages-relay = { path = "bridges/relays/messages" }
 metered = { version = "0.6.1", default-features = false, package = "prioritized-metered-channel" }
@@ -1089,9 +1089,9 @@ polkadot-subsystem-bench = { path = "polkadot/node/subsystem-bench" }
 polkadot-test-client = { path = "polkadot/node/test/client" }
 polkadot-test-runtime = { path = "polkadot/runtime/test-runtime" }
 polkadot-test-service = { path = "polkadot/node/test/service" }
-polkavm = { version = "0.9.3", default-features = false }
-polkavm-derive = "0.17.0"
-polkavm-linker = "0.17.1"
+polkavm = { version = "0.18.0", default-features = false }
+polkavm-derive = "0.18.0"
+polkavm-linker = "0.18.0"
 portpicker = { version = "0.1.1" }
 pretty_assertions = { version = "1.3.0" }
 primitive-types = { version = "0.13.1", default-features = false, features = [
