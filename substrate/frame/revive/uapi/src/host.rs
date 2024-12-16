@@ -266,7 +266,7 @@ pub trait HostFn: private::Sealed {
 	///
 	/// - `output`: A reference to the output data buffer to write the call data.
 	/// - `offset`: The offset index into the call data from where to start copying.
-	fn call_data_copy(output: &mut &mut [u8], offset: u32);
+	fn call_data_copy(output: &mut [u8], offset: u32);
 
 	/// Stores the U256 value at given `offset` from the input passed by the caller
 	/// into the supplied buffer.

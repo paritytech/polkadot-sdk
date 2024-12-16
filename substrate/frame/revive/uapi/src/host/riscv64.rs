@@ -466,7 +466,7 @@ impl HostFn for HostFnImpl {
 		ret_code.into_u32()
 	}
 
-	fn call_data_copy(output: &mut &mut [u8], offset: u32) {
+	fn call_data_copy(output: &mut [u8], offset: u32) {
 		let len = output.len() as u32;
 		unsafe { sys::call_data_copy(output.as_mut_ptr(), len, offset) };
 	}
