@@ -860,12 +860,12 @@ mod benches {
 		// Get prices from the actual price adapter.
 		let new_prices = T::PriceAdapter::adapt_price(SalePerformance::from_sale(&sale));
 		let new_sale = SaleInfo::<T>::get().expect("Sale has started.");
-		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
+		let now = System::<T>::block_number();
 		let sale_start = config.interlude_length.saturating_add(rotate_block.into());
 
 		assert_has_event::<T>(
 			Event::SaleInitialized {
-				sale_start: 2u32.into(),
+				sale_start,
 				leadin_length: 1u32.into(),
 				start_price: Broker::<T>::sale_price(&new_sale, now),
 				end_price: new_prices.end_price,
