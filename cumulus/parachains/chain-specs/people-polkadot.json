@@ -9,6 +9,8 @@
     "/dns/polkadot-people-connect-1.polkadot.io/tcp/443/wss/p2p/12D3KooWSSfWY3fTGJvGkuNUNBSNVCdLLNJnwkZSNQt7GCRYXu4o",
     "/dns/people-polkadot-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWKMYu1L28TkDf1ooMW8D8PHcztLnjV3bausH9eiVTRUYN",
     "/dns/people-polkadot-boot-ng.dwellir.com/tcp/30346/p2p/12D3KooWKMYu1L28TkDf1ooMW8D8PHcztLnjV3bausH9eiVTRUYN"
+    "/dns/people-polkadot.boot.rotko.net/tcp/31041/p2p/12D3KooWLg9NPeDFoL54A7WfuHSM3YNxPBGVRAd9ZY6rmVfdT6GJ",
+    "/dns/people-polkadot.boot.rotko.net/tcp/30435/wss/p2p/12D3KooWLg9NPeDFoL54A7WfuHSM3YNxPBGVRAd9ZY6rmVfdT6GJ"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
