@@ -22,10 +22,14 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use crate::LOG_TARGET;
 use polkadot_primitives::{Hash, Id as ParaId};
 
-#[derive(Debug, PartialEq, Clone)]
+/// Represents the state of a claim.
+#[derive(Debug, PartialEq)]
 enum ClaimState {
+	/// Unclaimed
 	Free,
+	/// The candidate is pending fetching or validation.
 	Pending(Option<Hash>),
+	/// The candidate is seconded.
 	Seconded(Hash),
 }
 
@@ -92,19 +96,24 @@ struct ClaimInfo {
 pub struct ClaimQueueState {
 	block_state: VecDeque<ClaimInfo>,
 	future_blocks: VecDeque<ClaimInfo>,
-	/// Candidates with claimed slots and their corresponding para id per relay parent. We need
-	/// this information in order to undo claims. The key is the relay parent of the candidate and
-	/// the value - the actual set of candidates.
+	/// Candidates with claimed slots per relay parent. We need this information in order to remove
+	/// claims. The key is the relay parent of the candidate and the value - the set of candidates
+	/// at it.
 	///
 	/// Note 1: We can't map the candidates to an exact slot since we need to keep track on their
-	/// ordering which will be an overkill in the context of `ClaimQueueState`. That's why we only
-	/// keep information if a candidate has claimed a slot or not. We keep its relay parent so that
-	/// we can prune this information when a relay parent goes out of scope.
+	/// ordering which will be an overkill in the context of `ClaimQueueState`. That's why we keep
+	/// the claims on first came first claimed basis.
+	///
+	/// Let's say there are three candidates built on top of each other A->B->C. We claim slots for
+	/// them in the order we receive them. If we receive them out of order the claims will be out
+	/// of order too, but this is fine since we only care about the count. If we fetch B and C
+	/// successfully and can't fetch A the user of `ClaimQueueState` must make sure that B and C
+	/// are removed.
 	///
 	/// Note 2: During pruning we remove all the candidates for the pruned relay parent because we
 	/// no longer need to know about them. If the claim was not undone so far - it will be
 	/// permanent.
-	candidates: HashMap<Hash, HashMap<Hash, ParaId>>,
+	candidates: HashMap<Hash, HashSet<Hash>>,
 }
 
 impl ClaimQueueState {
@@ -185,19 +194,6 @@ impl ClaimQueueState {
 		self.block_state.push_back(claim_info);
 	}
 
-	fn get_window<'a>(
-		&'a mut self,
-		relay_parent: &'a Hash,
-	) -> impl Iterator<Item = &mut ClaimInfo> + 'a {
-		let mut window = self
-			.block_state
-			.iter_mut()
-			.skip_while(|b| b.hash != Some(*relay_parent))
-			.peekable();
-		let cq_len = window.peek().map_or(0, |b| b.claim_queue_len);
-		window.chain(self.future_blocks.iter_mut()).take(cq_len)
-	}
-
 	/// Claims the first available slot for `para_id` at `relay_parent`. Returns `true` if the claim
 	/// was successful.
 	pub fn claim_pending_at(
@@ -212,7 +208,8 @@ impl ClaimQueueState {
 			?relay_parent,
 			"claim_at"
 		);
-		self.find_a_claim(
+
+		self.find_a_free_claim(
 			relay_parent,
 			para_id,
 			maybe_candidate_hash,
@@ -260,11 +257,7 @@ impl ClaimQueueState {
 			"second_at"
 		);
 
-		if self
-			.candidates
-			.get(relay_parent)
-			.map_or(false, |c| c.contains_key(&candidate_hash))
-		{
+		if self.candidates.get(relay_parent).map_or(false, |c| c.contains(&candidate_hash)) {
 			let window = self.get_window(relay_parent);
 
 			for w in window {
@@ -285,7 +278,7 @@ impl ClaimQueueState {
 			return false
 		} else {
 			// this is a new claim
-			self.find_a_claim(
+			self.find_a_free_claim(
 				relay_parent,
 				para_id,
 				Some(candidate_hash),
@@ -309,69 +302,7 @@ impl ClaimQueueState {
 			"can_claim_at"
 		);
 
-		self.find_a_claim(relay_parent, para_id, maybe_candidate_hash, ClaimState::Free)
-	}
-
-	// Returns `true` if there is a claim within `relay_parent`'s view of the claim queue for
-	// `para_id`. If `claim_it` is set to `true` the slot is claimed. Otherwise the function just
-	// reports the availability of the slot.
-	fn find_a_claim(
-		&mut self,
-		relay_parent: &Hash,
-		para_id: &ParaId,
-		maybe_candidate_hash: Option<Hash>,
-		claim_it: ClaimState,
-	) -> bool {
-		if let Some(candidate_hash) = maybe_candidate_hash {
-			if self
-				.candidates
-				.get(relay_parent)
-				.map_or(false, |c| c.contains_key(&candidate_hash))
-			{
-				// there is already a claim for this candidate - return now
-				gum::trace!(
-					target: LOG_TARGET,
-					?para_id,
-					?relay_parent,
-					?candidate_hash,
-					"Claim already exists"
-				);
-				return true
-			}
-		}
-
-		let window = self.get_window(relay_parent);
-
-		let mut claim_found = false;
-		for w in window {
-			gum::trace!(
-				target: LOG_TARGET,
-				?para_id,
-				?relay_parent,
-				claim_info=?w,
-				?claim_it,
-				"Checking claim"
-			);
-
-			if w.claimed == ClaimState::Free && w.claim == Some(*para_id) {
-				w.claimed = claim_it.clone(); //todo
-
-				claim_found = true;
-				break
-			}
-		}
-
-		// Save the candidate hash
-		if let Some(candidate_hash) = maybe_candidate_hash {
-			if claim_found && claim_it != ClaimState::Free {
-				self.candidates
-					.entry(*relay_parent)
-					.or_insert_with(HashMap::new)
-					.insert(candidate_hash, *para_id);
-			}
-		}
-
-		claim_found
+		self.find_a_free_claim(relay_parent, para_id, maybe_candidate_hash, ClaimState::Free)
 	}
 
 	/// Returns a `Vec` of `ParaId`s with all pending claims `relay_parent`.
@@ -382,11 +313,6 @@ impl ClaimQueueState {
 			.filter(|b| matches!(b.claimed, ClaimState::Pending(_)))
 			.filter_map(|b| b.claim)
 			.collect()
-	}
-
-	/// Returns the leaf for the path
-	pub fn get_leaf(&self) -> Option<Hash> {
-		self.block_state.back().and_then(|b| b.hash)
 	}
 
 	/// Removes pruned blocks from all paths. `targets` is a set of hashes which were pruned.
@@ -422,15 +348,15 @@ impl ClaimQueueState {
 	/// Removes a claim for a candidate
 	pub fn remove_claim(&mut self, candidate_hash: &Hash) -> bool {
 		// Get information about the claim (relay parent and para id) from candidates.
-		let mut maybe_claim = None;
+		let mut maybe_relay_parent = None;
 		for (rp, candidates) in &mut self.candidates {
-			if let Some(para_id) = candidates.remove(candidate_hash) {
-				maybe_claim = Some((*rp, para_id));
+			if candidates.remove(candidate_hash) {
+				maybe_relay_parent = Some(*rp);
 				break
 			}
 		}
 
-		let (relay_parent, _) = if let Some(claim) = maybe_claim { claim } else { return false };
+		let relay_parent = if let Some(rp) = maybe_relay_parent { rp } else { return false };
 
 		// Release the last possible claim
 		// Collect the iterator first because peekable iters can't be reversed
@@ -445,6 +371,79 @@ impl ClaimQueueState {
 		}
 
 		false
+	}
+
+	/// Returns a iterator over the claim queue of `relay_parent`
+	fn get_window<'a>(
+		&'a mut self,
+		relay_parent: &'a Hash,
+	) -> impl Iterator<Item = &mut ClaimInfo> + 'a {
+		let mut window = self
+			.block_state
+			.iter_mut()
+			.skip_while(|b| b.hash != Some(*relay_parent))
+			.peekable();
+		let cq_len = window.peek().map_or(0, |b| b.claim_queue_len);
+		window.chain(self.future_blocks.iter_mut()).take(cq_len)
+	}
+
+	// Returns `true` if there is a claim within `relay_parent`'s view of the claim queue for
+	// `para_id`. If `claim_it` is set to `true` the slot is claimed. Otherwise the function just
+	// reports the availability of the slot.
+	fn find_a_free_claim(
+		&mut self,
+		relay_parent: &Hash,
+		para_id: &ParaId,
+		maybe_candidate_hash: Option<Hash>,
+		new_state: ClaimState,
+	) -> bool {
+		if let Some(candidate_hash) = maybe_candidate_hash {
+			if self.candidates.get(relay_parent).map_or(false, |c| c.contains(&candidate_hash)) {
+				// there is already a claim for this candidate - return now
+				gum::trace!(
+					target: LOG_TARGET,
+					?para_id,
+					?relay_parent,
+					?candidate_hash,
+					"Claim already exists"
+				);
+				return true
+			}
+		}
+
+		let window = self.get_window(relay_parent);
+		let make_a_claim = new_state != ClaimState::Free;
+
+		let mut claim_found = false;
+		for w in window {
+			gum::trace!(
+				target: LOG_TARGET,
+				?para_id,
+				?relay_parent,
+				claim_info=?w,
+				?new_state,
+				"Checking claim"
+			);
+
+			if w.claimed == ClaimState::Free && w.claim == Some(*para_id) {
+				w.claimed = new_state;
+
+				claim_found = true;
+				break
+			}
+		}
+
+		// Save the candidate hash
+		if let Some(candidate_hash) = maybe_candidate_hash {
+			if claim_found && make_a_claim {
+				self.candidates
+					.entry(*relay_parent)
+					.or_insert_with(HashSet::new)
+					.insert(candidate_hash);
+			}
+		}
+
+		claim_found
 	}
 }
 
@@ -566,7 +565,7 @@ impl PerLeafClaimQueueState {
 		result
 	}
 
-	// Upgrade the pending claims for `candidate_hash` at each leaf to seconded
+	/// Upgrade the pending claims for `candidate_hash` at each leaf to seconded
 	pub fn upgrade_pending_claims_to_seconded(
 		&mut self,
 		candidate_hash: &Hash,
