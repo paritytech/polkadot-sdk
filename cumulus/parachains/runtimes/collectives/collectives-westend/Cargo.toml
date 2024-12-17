@@ -5,6 +5,8 @@ authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 description = "Westend Collectives Parachain Runtime"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -94,6 +96,7 @@ substrate-wasm-builder = { optional = true, workspace = true, default-features =
 
 [dev-dependencies]
 sp-io = { features = ["std"], workspace = true, default-features = true }
+parachains-runtimes-test-utils = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -135,6 +138,7 @@ runtime-benchmarks = [
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
 	"cumulus-pallet-aura-ext/try-runtime",

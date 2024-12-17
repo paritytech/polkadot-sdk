@@ -293,6 +293,7 @@ members = [
 	"substrate/client/rpc-api",
 	"substrate/client/rpc-servers",
 	"substrate/client/rpc-spec-v2",
+	"substrate/client/runtime-utilities",
 	"substrate/client/service",
 	"substrate/client/service/test",
 	"substrate/client/state-db",
@@ -594,8 +595,7 @@ zero-prefixed-literal = { level = "allow", priority = 2 }            # 00_1000_0
 Inflector = { version = "0.11.4" }
 aes-gcm = { version = "0.10" }
 ahash = { version = "0.8.2" }
-alloy-primitives = { version = "0.4.2", default-features = false }
-alloy-sol-types = { version = "0.4.2", default-features = false }
+alloy-core = { version = "0.8.15", default-features = false }
 always-assert = { version = "0.1" }
 anyhow = { version = "1.0.81", default-features = false }
 approx = { version = "0.5.1" }
@@ -779,7 +779,7 @@ frame-benchmarking-pallet-pov = { default-features = false, path = "substrate/fr
 frame-election-provider-solution-type = { path = "substrate/frame/election-provider-support/solution-type", default-features = false }
 frame-election-provider-support = { path = "substrate/frame/election-provider-support", default-features = false }
 frame-executive = { path = "substrate/frame/executive", default-features = false }
-frame-metadata = { version = "16.0.0", default-features = false }
+frame-metadata = { version = "18.0.0", default-features = false }
 frame-metadata-hash-extension = { path = "substrate/frame/metadata-hash-extension", default-features = false }
 frame-support = { path = "substrate/frame/support", default-features = false }
 frame-support-procedural = { path = "substrate/frame/support/procedural", default-features = false }
@@ -841,20 +841,20 @@ kvdb-shared-tests = { version = "0.11.0" }
 landlock = { version = "0.3.0" }
 libc = { version = "0.2.155" }
 libfuzzer-sys = { version = "0.4" }
-libp2p = { version = "0.52.4" }
+libp2p = { version = "0.54.1" }
 libp2p-identity = { version = "0.2.9" }
 libsecp256k1 = { version = "0.7.0", default-features = false }
 linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
 linregress = { version = "0.5.1" }
 lite-json = { version = "0.2.0", default-features = false }
-litep2p = { version = "0.8.1", features = ["websocket"] }
+litep2p = { version = "0.8.4", features = ["websocket"] }
 log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
 memmap2 = { version = "0.9.3" }
 memory-db = { version = "0.32.0", default-features = false }
-merkleized-metadata = { version = "0.1.0" }
+merkleized-metadata = { version = "0.2.0" }
 merlin = { version = "3.0", default-features = false }
 messages-relay = { path = "bridges/relays/messages" }
 metered = { version = "0.6.1", default-features = false, package = "prioritized-metered-channel" }
@@ -871,7 +871,7 @@ multihash = { version = "0.19.1", default-features = false }
 multihash-codetable = { version = "0.1.1" }
 multistream-select = { version = "0.13.0" }
 names = { version = "0.14.0", default-features = false }
-nix = { version = "0.28.0" }
+nix = { version = "0.29.0" }
 node-cli = { path = "substrate/bin/node/cli", package = "staging-node-cli" }
 node-inspect = { path = "substrate/bin/node/inspect", default-features = false, package = "staging-node-inspect" }
 node-primitives = { path = "substrate/bin/node/primitives", default-features = false }
@@ -1089,9 +1089,9 @@ polkadot-subsystem-bench = { path = "polkadot/node/subsystem-bench" }
 polkadot-test-client = { path = "polkadot/node/test/client" }
 polkadot-test-runtime = { path = "polkadot/runtime/test-runtime" }
 polkadot-test-service = { path = "polkadot/node/test/service" }
-polkavm = { version = "0.9.3", default-features = false }
-polkavm-derive = "0.9.1"
-polkavm-linker = "0.9.2"
+polkavm = { version = "0.18.0", default-features = false }
+polkavm-derive = "0.18.0"
+polkavm-linker = "0.18.0"
 portpicker = { version = "0.1.1" }
 pretty_assertions = { version = "1.3.0" }
 primitive-types = { version = "0.13.1", default-features = false, features = [
@@ -1123,7 +1123,7 @@ regex = { version = "1.10.2" }
 relay-substrate-client = { path = "bridges/relays/client-substrate" }
 relay-utils = { path = "bridges/relays/utils" }
 remote-externalities = { path = "substrate/utils/frame/remote-externalities", default-features = false, package = "frame-remote-externalities" }
-reqwest = { version = "0.11", default-features = false }
+reqwest = { version = "0.12.9", default-features = false }
 rlp = { version = "0.6.1", default-features = false }
 rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/relays/rococo" }
 rococo-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/rococo-parachain" }
@@ -1136,7 +1136,7 @@ rstest = { version = "0.18.2" }
 rustc-hash = { version = "1.1.0" }
 rustc-hex = { version = "2.1.0", default-features = false }
 rustix = { version = "0.36.7", default-features = false }
-rustls = { version = "0.23.14", default-features = false, features = ["logging", "ring", "std", "tls12"] }
+rustls = { version = "0.23.18", default-features = false, features = ["logging", "ring", "std", "tls12"] }
 rustversion = { version = "1.0.17" }
 rusty-fork = { version = "0.3.0", default-features = false }
 safe-mix = { version = "1.0", default-features = false }
@@ -1184,6 +1184,7 @@ sc-rpc-api = { path = "substrate/client/rpc-api", default-features = false }
 sc-rpc-server = { path = "substrate/client/rpc-servers", default-features = false }
 sc-rpc-spec-v2 = { path = "substrate/client/rpc-spec-v2", default-features = false }
 sc-runtime-test = { path = "substrate/client/executor/runtime-test" }
+sc-runtime-utilities = { path = "substrate/client/runtime-utilities", default-features = true }
 sc-service = { path = "substrate/client/service", default-features = false }
 sc-service-test = { path = "substrate/client/service/test" }
 sc-state-db = { path = "substrate/client/state-db", default-features = false }
@@ -1197,7 +1198,7 @@ sc-tracing-proc-macro = { path = "substrate/client/tracing/proc-macro", default-
 sc-transaction-pool = { path = "substrate/client/transaction-pool", default-features = false }
 sc-transaction-pool-api = { path = "substrate/client/transaction-pool/api", default-features = false }
 sc-utils = { path = "substrate/client/utils", default-features = false }
-scale-info = { version = "2.11.1", default-features = false }
+scale-info = { version = "2.11.6", default-features = false }
 schemars = { version = "0.8.13", default-features = false }
 schnellru = { version = "0.2.3" }
 schnorrkel = { version = "0.11.4", default-features = false }
@@ -1317,6 +1318,7 @@ substrate-test-runtime-transaction-pool = { path = "substrate/test-utils/runtime
 substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
 subxt = { version = "0.38", default-features = false }
+subxt-metadata = { version = "0.38.0", default-features = false }
 subxt-signer = { version = "0.38" }
 syn = { version = "2.0.87" }
 sysinfo = { version = "0.30" }
@@ -1387,7 +1389,7 @@ xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false }
 xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = false }
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 zeroize = { version = "1.7.0", default-features = false }
-zombienet-sdk = { version = "0.2.15" }
+zombienet-sdk = { version = "0.2.16" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]
