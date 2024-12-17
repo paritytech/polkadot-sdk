@@ -16,7 +16,10 @@
 // limitations under the License.
 //! Runtime types for integrating `pallet-revive` with the EVM.
 use crate::{
-	evm::api::{GenericTransaction, TransactionSigned},
+	evm::{
+		api::{GenericTransaction, TransactionSigned},
+		gas_encoder,
+	},
 	AccountIdOf, AddressMapper, BalanceOf, MomentOf, LOG_TARGET,
 };
 use alloc::vec::Vec;
@@ -46,7 +49,7 @@ type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 /// We use a fixed value for the gas price.
 /// This let us calculate the gas estimate for a transaction with the formula:
 /// `estimate_gas = substrate_fee / gas_price`.
-pub const GAS_PRICE: u32 = 1_000_000_000u32;
+pub const GAS_PRICE: u32 = 1_000u32;
 
 /// Convert a `Balance` into a gas value, using the fixed `GAS_PRICE`.
 /// The gas is calculated as `balance / GAS_PRICE`, rounded up to the nearest integer.
@@ -330,8 +333,11 @@ pub trait EthExtra {
 
 		let data = input.unwrap_or_default().0;
 
-		let gas_encoder = <Self::Config as crate::Config>::EthGasEncoder::get();
-		let (gas_limit, storage_deposit_limit) = gas_encoder.decode(gas.unwrap_or_default());
+		let (gas_limit, storage_deposit_limit) =
+			gas_encoder::decode::<Self::Config>(gas.unwrap_or_default()).ok_or_else(|| {
+				log::debug!(target: LOG_TARGET, "Failed to decode gas: {gas:?}");
+				InvalidTransaction::Call
+			})?;
 
 		let call = if let Some(dest) = to {
 			crate::Call::call::<Self::Config> {

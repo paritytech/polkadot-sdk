@@ -42,6 +42,7 @@ pub mod weights;
 
 use crate::{
 	evm::{
+		gas_encoder,
 		runtime::{gas_from_fee, GAS_PRICE},
 		GenericTransaction,
 	},
@@ -84,7 +85,6 @@ use sp_runtime::{
 pub use crate::{
 	address::{create1, create2, AccountId32Mapper, AddressMapper},
 	debug::Tracing,
-	evm::EthGasEncoder,
 	exec::MomentOf,
 	pallet::*,
 };
@@ -312,9 +312,6 @@ pub mod pallet {
 		/// The ratio between the decimal representation of the native token and the ETH token.
 		#[pallet::constant]
 		type NativeToEthRatio: Get<u32>;
-
-		#[pallet::no_default]
-		type EthGasEncoder: Get<EthGasEncoder<BalanceOf<Self>>>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -1425,8 +1422,6 @@ where
 		// the encoded length of the gas limit specified in the transaction (tx.gas).
 		// We iteratively compute the fee by adjusting tx.gas until the fee stabilizes.
 		// with a maximum of 3 iterations to avoid an infinite loop.
-		let gas_encoder = T::EthGasEncoder::get();
-
 		for _ in 0..3 {
 			let Ok(unsigned_tx) = tx.clone().try_into_unsigned() else {
 				log::debug!(target: LOG_TARGET, "Failed to convert to unsigned");
@@ -1443,12 +1438,12 @@ where
 			)
 			.into();
 			let eth_gas = gas_from_fee(fee);
-			let eth_gas = gas_encoder
-				.encode(eth_gas, result.gas_required, result.storage_deposit)
-				.map_err(|err| {
-					log::debug!(target: LOG_TARGET, "Failed to encode gas {err:?}");
-					EthTransactError::Message("Failed to encode gas".into())
-				})?;
+			let eth_gas =
+				gas_encoder::encode::<T>(eth_gas, result.gas_required, result.storage_deposit)
+					.ok_or_else(|| {
+						log::debug!(target: LOG_TARGET, "Failed to encode gas {eth_gas:?} {result:?}");
+						EthTransactError::Message("Failed to encode gas".into())
+					})?;
 
 			if eth_gas == result.eth_gas {
 				log::trace!(target: LOG_TARGET, "bare_eth_call: encoded_len: {encoded_len:?} eth_gas: {eth_gas:?}");

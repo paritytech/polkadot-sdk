@@ -39,8 +39,8 @@ use crate::{
 	wasm::Memory,
 	weights::WeightInfo,
 	AccountId32Mapper, BalanceOf, Code, CodeInfoOf, CollectEvents, Config, ContractInfo,
-	ContractInfoOf, DebugInfo, DeletionQueueCounter, DepositLimit, Error, EthGasEncoder,
-	EthTransactError, HoldReason, Origin, Pallet, PristineCode, H160,
+	ContractInfoOf, DebugInfo, DeletionQueueCounter, DepositLimit, Error, EthTransactError,
+	HoldReason, Origin, Pallet, PristineCode, H160,
 };
 
 use crate::test_utils::builder::Contract;
@@ -506,10 +506,6 @@ where
 }
 parameter_types! {
 	pub static UnstableInterface: bool = true;
-	pub static GasEncoder: EthGasEncoder<u64> = EthGasEncoder::new(
-		Weight::from_parts(1_000_000_000, 1_000_000_000),
-		1_000_000_000u64
-	);
 }
 
 #[derive_impl(crate::config_preludes::TestDefaultConfig)]
@@ -528,7 +524,6 @@ impl Config for Test {
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type Debug = TestDebug;
 	type ChainId = ChainId;
-	type EthGasEncoder = GasEncoder;
 }
 
 impl TryFrom<RuntimeCall> for crate::Call<Test> {
