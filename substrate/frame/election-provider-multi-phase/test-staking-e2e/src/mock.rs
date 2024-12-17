@@ -227,6 +227,7 @@ parameter_types! {
 	pub static BagThresholds: &'static [sp_npos_elections::VoteWeight] = &THRESHOLDS;
 	pub const SessionsPerEra: sp_staking::SessionIndex = 2;
 	pub static BondingDuration: sp_staking::EraIndex = 28;
+	pub static MaxBondedEras: u32 = (BondingDuration::get() as u32) + 1;
 	pub const SlashDeferDuration: sp_staking::EraIndex = 7; // 1/4 the bonding duration.
 }
 
@@ -290,6 +291,7 @@ impl pallet_staking::Config for Runtime {
 	type UnixTime = Timestamp;
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
+	type MaxBondedEras = MaxBondedEras;
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EnsureRoot<AccountId>; // root can cancel slashes
 	type SessionInterface = Self;
@@ -437,6 +439,7 @@ impl StakingExtBuilder {
 	}
 	pub fn bonding_duration(self, eras: EraIndex) -> Self {
 		<BondingDuration>::set(eras);
+		<MaxBondedEras>::set(eras + 1);
 		self
 	}
 }

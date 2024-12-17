@@ -141,6 +141,7 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
 	pub const SessionsPerEra: SessionIndex = 3;
 	pub const BondingDuration: EraIndex = 3;
+	pub const MaxBondedEras: u32 = (BondingDuration::get() as u32) + 1;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 }
@@ -160,6 +161,7 @@ impl pallet_staking::Config for Test {
 	type Currency = Balances;
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
+	type MaxBondedEras = MaxBondedEras;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type SessionInterface = Self;
 	type UnixTime = pallet_timestamp::Pallet<Test>;

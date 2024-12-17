@@ -80,6 +80,7 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
 	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
 	pub static BondingDuration: u32 = 3;
+	pub static MaxBondedEras: u32 = BondingDuration::get() + 1;
 	pub static CurrentEra: u32 = 0;
 	pub static Ongoing: bool = false;
 	pub static MaxWinners: u32 = 100;
@@ -109,6 +110,7 @@ impl pallet_staking::Config for Runtime {
 	type UnixTime = pallet_timestamp::Pallet<Self>;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type BondingDuration = BondingDuration;
+	type MaxBondedEras = MaxBondedEras;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type ElectionProvider = MockElection;
 	type GenesisElectionProvider = Self::ElectionProvider;
