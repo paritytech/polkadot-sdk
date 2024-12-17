@@ -1093,12 +1093,20 @@ fn ensure_seconding_limit_is_respected(
 					.current,
 			);
 			for _ in 0..seconded_and_pending {
-				cq_state.claim_at(&ancestor, &para_id, None);
+				cq_state.claim_pending_at(&ancestor, &para_id, None);
 			}
 		}
 
-		if !cq_state.can_claim_at(relay_parent, &para_id, None) {
-			return Err(AdvertisementError::SecondedLimitReached)
+		if cq_state.can_claim_at(relay_parent, &para_id, None) {
+			gum::trace!(
+				target: LOG_TARGET,
+				?relay_parent,
+				?para_id,
+				?path,
+				"Seconding limit respected at path",
+			);
+			has_claim_at_some_path = true;
+			break
 		}
 	}
 
@@ -1359,6 +1367,7 @@ where
 		}
 	}
 
+	let mut removed_collation_reqs = HashSet::new();
 	for (removed, _) in removed {
 		gum::trace!(
 			target: LOG_TARGET,
@@ -1378,7 +1387,6 @@ where
 				remove_outgoing(&mut state.current_assignments, per_relay_parent);
 			}
 
-			let mut removed_collation_reqs = HashSet::new();
 			state.collation_requests_cancel_handles.retain(|pc, handle| {
 				let keep = pc.relay_parent != removed;
 				if !keep {
@@ -1394,17 +1402,12 @@ where
 				keep
 			});
 
-			sender
-				.send_message(CandidateBackingMessage::DropClaims(removed_collation_reqs))
-				.await;
-
 			// These collations are pending validation. Their claims will be handled in backing.
 			state.fetched_candidates.retain(|k, _| k.relay_parent != removed);
 		}
 	}
 
 	// Remove blocked seconding requests that left the view.
-	let mut removed_collation_reqs = HashSet::new();
 	state.blocked_from_seconding.retain(|_, collations| {
 		collations.retain(|collation| {
 			let keep = state
@@ -1422,10 +1425,6 @@ where
 
 		!collations.is_empty()
 	});
-
-	sender
-		.send_message(CandidateBackingMessage::DropClaims(removed_collation_reqs))
-		.await;
 
 	for (peer_id, peer_data) in state.peer_data.iter_mut() {
 		peer_data.prune_old_advertisements(&state.implicit_view, &state.active_leaves);
@@ -1446,6 +1445,11 @@ where
 			}
 		}
 	}
+
+	// Drop claims for all unneeded candidates
+	sender
+		.send_message(CandidateBackingMessage::DropClaims(removed_collation_reqs))
+		.await;
 
 	Ok(())
 }
