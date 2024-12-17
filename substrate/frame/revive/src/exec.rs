@@ -3098,8 +3098,8 @@ mod tests {
 				let (address, output) = ctx
 					.ext
 					.instantiate(
-						Weight::zero(),
-						U256::zero(),
+						Weight::MAX,
+						U256::from(u64::MAX),
 						dummy_ch,
 						<Test as Config>::Currency::minimum_balance().into(),
 						vec![],
@@ -3802,8 +3802,8 @@ mod tests {
 		let succ_fail_code = MockLoader::insert(Constructor, move |ctx, _| {
 			ctx.ext
 				.instantiate(
-					Weight::zero(),
-					U256::zero(),
+					Weight::MAX,
+					U256::from(u64::MAX),
 					fail_code,
 					ctx.ext.minimum_balance() * 100,
 					vec![],
@@ -3819,8 +3819,8 @@ mod tests {
 			let addr = ctx
 				.ext
 				.instantiate(
-					Weight::zero(),
-					U256::zero(),
+					Weight::MAX,
+					U256::from(u64::MAX),
 					success_code,
 					ctx.ext.minimum_balance() * 100,
 					vec![],
@@ -4597,7 +4597,7 @@ mod tests {
 				// Successful instantiation should set the output
 				let address = ctx
 					.ext
-					.instantiate(Weight::zero(), U256::zero(), ok_ch, value, vec![], None)
+					.instantiate(Weight::MAX, U256::from(u64::MAX), ok_ch, value, vec![], None)
 					.unwrap();
 				assert_eq!(
 					ctx.ext.last_frame_output(),
@@ -4607,8 +4607,8 @@ mod tests {
 				// Balance transfers should reset the output
 				ctx.ext
 					.call(
-						Weight::zero(),
-						U256::zero(),
+						Weight::MAX,
+						U256::from(u64::MAX),
 						&address,
 						U256::from(1),
 						vec![],
@@ -4827,7 +4827,7 @@ mod tests {
 
 				// Constructors can not access the immutable data
 				ctx.ext
-					.instantiate(Weight::zero(), U256::zero(), dummy_ch, value, vec![], None)
+					.instantiate(Weight::MAX, U256::from(u64::MAX), dummy_ch, value, vec![], None)
 					.unwrap();
 
 				exec_success()
@@ -4944,7 +4944,7 @@ mod tests {
 			move |ctx, _| {
 				let value = <Test as Config>::Currency::minimum_balance().into();
 				ctx.ext
-					.instantiate(Weight::zero(), U256::zero(), dummy_ch, value, vec![], None)
+					.instantiate(Weight::MAX, U256::from(u64::MAX), dummy_ch, value, vec![], None)
 					.unwrap();
 
 				exec_success()
@@ -4989,7 +4989,7 @@ mod tests {
 			move |ctx, _| {
 				let value = <Test as Config>::Currency::minimum_balance().into();
 				ctx.ext
-					.instantiate(Weight::zero(), U256::zero(), dummy_ch, value, vec![], None)
+					.instantiate(Weight::MAX, U256::from(u64::MAX), dummy_ch, value, vec![], None)
 					.unwrap();
 
 				exec_success()
