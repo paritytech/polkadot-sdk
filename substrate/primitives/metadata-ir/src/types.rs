@@ -182,7 +182,10 @@ pub struct ExtrinsicMetadataIR<T: Form = MetaForm> {
 	// TODO: metadata-v16: remove this, the `implicit` type can be found in `extensions::implicit`.
 	pub extra_ty: T::Type,
 	/// The transaction extensions in the order they appear in the extrinsic.
-	pub extensions: Vec<TransactionExtensionMetadataIR<T>>,
+	pub extensions: Vec<TransactionExtensionMetadataIR<T>>, /* TODO TODO: renme extension_v0
+	                                                         * TODO TODO:
+	                                                         * transaction_extensions_by_version
+	                                                         * and transaction_extensions */
 }
 
 impl IntoPortable for ExtrinsicMetadataIR {

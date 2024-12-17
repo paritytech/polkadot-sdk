@@ -22,6 +22,7 @@ use super::{
 	PostDispatchInfoOf, RefundWeight,
 };
 use crate::{
+	generic::ExtensionVersion,
 	scale_info::{MetaType, StaticTypeInfo},
 	traits::AsTransactionAuthorizedOrigin,
 	transaction_validity::{
@@ -33,6 +34,7 @@ use crate::{
 use codec::{Codec, Decode, Encode};
 use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::TypeInfo;
+use sp_core::RuntimeDebug;
 #[doc(hidden)]
 pub use sp_std::marker::PhantomData;
 use sp_std::{self, fmt::Debug, prelude::*};
@@ -45,6 +47,118 @@ mod dispatch_transaction;
 pub use as_transaction_extension::AsTransactionExtension;
 pub use dispatch_transaction::DispatchTransaction;
 
+// TODO TODO: rewrite the bounds to bounds usage instead of expectation of bounds.
+// TODO TODO: implement metadata for Versioned tx ext pipeline
+
+/// Version 0 of the transaction extension version used to construct the inherited
+/// implication for legacy transactions.
+const EXTENSION_V0_VERSION: ExtensionVersion = 0;
+
+#[derive(PartialEq, Eq, Clone, RuntimeDebug, TypeInfo)]
+pub enum ExtensionVariant<ExtensionV0, ExtensionOtherVersions> {
+	V0(ExtensionV0),
+	Other(ExtensionOtherVersions),
+}
+
+impl<ExtensionV0: Encode, ExtensionOtherVersions: Encode> Encode
+	for ExtensionVariant<ExtensionV0, ExtensionOtherVersions>
+{
+	fn encode(&self) -> Vec<u8> {
+		match self {
+			ExtensionVariant::V0(ext) => ext.encode(),
+			ExtensionVariant::Other(ext) => ext.encode(),
+		}
+	}
+	fn size_hint(&self) -> usize {
+		match self {
+			ExtensionVariant::V0(ext) => ext.size_hint(),
+			ExtensionVariant::Other(ext) => ext.size_hint(),
+		}
+	}
+	fn encode_to<T: codec::Output + ?Sized>(&self, dest: &mut T) {
+		match self {
+			ExtensionVariant::V0(ext) => ext.encode_to(dest),
+			ExtensionVariant::Other(ext) => ext.encode_to(dest),
+		}
+	}
+	fn encoded_size(&self) -> usize {
+		match self {
+			ExtensionVariant::V0(ext) => ext.encoded_size(),
+			ExtensionVariant::Other(ext) => ext.encoded_size(),
+		}
+	}
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		match self {
+			ExtensionVariant::V0(ext) => ext.using_encoded(f),
+			ExtensionVariant::Other(ext) => ext.using_encoded(f),
+		}
+	}
+}
+
+impl<ExtensionV0: Decode, ExtensionOtherVersions: DecodeWithVersion> DecodeWithVersion
+	for ExtensionVariant<ExtensionV0, ExtensionOtherVersions>
+{
+	fn decode_with_version<I: codec::Input>(
+		extension_version: u8,
+		input: &mut I,
+	) -> Result<Self, codec::Error> {
+		match extension_version {
+			EXTENSION_V0_VERSION => Ok(ExtensionVariant::V0(Decode::decode(input)?)),
+			_ => Ok(ExtensionVariant::Other(DecodeWithVersion::decode_with_version(
+				extension_version,
+				input,
+			)?)),
+		}
+	}
+}
+
+impl<
+		Call: Dispatchable + Encode,
+		ExtensionV0: TransactionExtension<Call>,
+		ExtensionOtherVersions: VersionedTransactionExtensionPipeline<Call>,
+	> VersionedTransactionExtensionPipeline<Call>
+	for ExtensionVariant<ExtensionV0, ExtensionOtherVersions>
+where
+	<Call as Dispatchable>::RuntimeOrigin: AsTransactionAuthorizedOrigin,
+{
+	fn weight(&self, call: &Call) -> Weight {
+		match self {
+			ExtensionVariant::V0(ext) => ext.weight(call),
+			ExtensionVariant::Other(ext) => ext.weight(call),
+		}
+	}
+	fn validate_only(
+		&self,
+		origin: super::DispatchOriginOf<Call>,
+		call: &Call,
+		info: &DispatchInfoOf<Call>,
+		len: usize,
+		source: TransactionSource,
+	) -> Result<
+		crate::transaction_validity::ValidTransaction,
+		crate::transaction_validity::TransactionValidityError,
+	> {
+		match self {
+			ExtensionVariant::V0(ext) => ext
+				.validate_only(origin, call, info, len, source, EXTENSION_V0_VERSION)
+				.map(|x| x.0),
+			ExtensionVariant::Other(ext) => ext.validate_only(origin, call, info, len, source),
+		}
+	}
+	fn dispatch_transaction(
+		self,
+		origin: super::DispatchOriginOf<Call>,
+		call: Call,
+		info: &DispatchInfoOf<Call>,
+		len: usize,
+	) -> crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Call>> {
+		match self {
+			ExtensionVariant::V0(ext) =>
+				ext.dispatch_transaction(origin, call, info, len, EXTENSION_V0_VERSION),
+			ExtensionVariant::Other(ext) => ext.dispatch_transaction(origin, call, info, len),
+		}
+	}
+}
 /// TODO TODO: doc
 pub trait DecodeWithVersion: Sized {
 	/// TODO TODO: doc
@@ -144,7 +258,7 @@ impl<A: Encode, B: Encode> Encode for MultiVersion<A, B> {
 
 /// TODO TODO: doc
 #[derive(Encode, Debug, Clone, Eq, PartialEq, TypeInfo)]
-struct InvalidVersion;
+pub struct InvalidVersion;
 
 /// TODO TODO: doc
 #[allow(private_interfaces)]
@@ -200,6 +314,8 @@ impl<const VERSION: u8, Extension> MultiVersionItem for VersionedExtension<VERSI
 	const VERSION: Option<u8> = Some(VERSION);
 }
 
+// TODO TODO: think about how to define the bare extrinsic transaction extension, and how to define
+// the signed extrinsic transaction extension.
 impl MultiVersionItem for InvalidVersion {
 	const VERSION: Option<u8> = None;
 }
