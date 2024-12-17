@@ -22,7 +22,7 @@ use crate as pallet_assets;
 
 use codec::Encode;
 use frame_support::{
-	construct_runtime, derive_impl, parameter_types,
+	assert_ok, construct_runtime, derive_impl, parameter_types,
 	traits::{AsEnsureOriginWithArg, ConstU32},
 };
 use sp_io::storage;
@@ -103,6 +103,7 @@ impl Config for Test {
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type Freezer = TestFreezer;
+	type Holder = TestHolder;
 	type CallbackHandle = (AssetsCallbackHandle, AutoIncAssetId<Test>);
 }
 
@@ -114,9 +115,50 @@ pub enum Hook {
 }
 parameter_types! {
 	static Frozen: HashMap<(u32, u64), u64> = Default::default();
+	static OnHold: HashMap<(u32, u64), u64> = Default::default();
 	static Hooks: Vec<Hook> = Default::default();
 }
 
+pub struct TestHolder;
+impl BalanceOnHold<u32, u64, u64> for TestHolder {
+	fn balance_on_hold(asset: u32, who: &u64) -> Option<u64> {
+		OnHold::get().get(&(asset, *who)).cloned()
+	}
+
+	fn died(asset: u32, who: &u64) {
+		Hooks::mutate(|v| v.push(Hook::Died(asset, *who)))
+	}
+
+	fn contains_holds(asset: AssetId) -> bool {
+		OnHold::get().iter().any(|((k, _), _)| &asset == k)
+	}
+}
+
+pub(crate) fn set_balance_on_hold(asset: u32, who: u64, amount: u64) {
+	OnHold::mutate(|v| {
+		let amount_on_hold = v.get(&(asset, who)).unwrap_or(&0);
+
+		if &amount > amount_on_hold {
+			// Hold more funds
+			let amount = amount - amount_on_hold;
+			let f = DebitFlags { keep_alive: true, best_effort: false };
+			assert_ok!(Assets::decrease_balance(asset, &who, amount, f, |_, _| Ok(())));
+		} else {
+			// Release funds on hold
+			let amount = amount_on_hold - amount;
+			assert_ok!(Assets::increase_balance(asset, &who, amount, |_| Ok(())));
+		}
+
+		// Asset amount still "exists", we just store it here
+		v.insert((asset, who), amount);
+	});
+}
+
+pub(crate) fn clear_balance_on_hold(asset: u32, who: u64) {
+	OnHold::mutate(|v| {
+		v.remove(&(asset, who));
+	});
+}
 pub struct TestFreezer;
 impl FrozenBalance<u32, u64, u64> for TestFreezer {
 	fn frozen_balance(asset: u32, who: &u64) -> Option<u64> {
@@ -128,6 +170,11 @@ impl FrozenBalance<u32, u64, u64> for TestFreezer {
 
 		// Sanity check: dead accounts have no balance.
 		assert!(Assets::balance(asset, *who).is_zero());
+	}
+
+	/// Return a value that indicates if there are registered freezes for a given asset.
+	fn contains_freezes(asset: AssetId) -> bool {
+		Frozen::get().iter().any(|((k, _), _)| &asset == k)
 	}
 }
 
