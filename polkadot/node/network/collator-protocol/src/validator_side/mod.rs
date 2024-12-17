@@ -1522,7 +1522,7 @@ async fn process_msg<Context>(
 				)
 				.await;
 
-				// If async backing is enabled, make an attempt to fetch next collation.
+				// try to fetch next collation.
 				let maybe_candidate_hash =
 					prospective_candidate.as_ref().map(ProspectiveCandidate::candidate_hash);
 				dequeue_next_collation_and_fetch(
