@@ -211,6 +211,7 @@ impl ExtBuilder {
 				(31, self.balance_factor * 500),
 				(41, self.balance_factor * 1000),
 			],
+			..Default::default()
 		}
 		.assimilate_storage(&mut storage)
 		.unwrap();
