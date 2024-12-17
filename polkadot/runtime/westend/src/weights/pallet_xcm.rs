@@ -129,6 +129,7 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 	/// Storage: `Benchmark::Override` (r:0 w:0)
 	/// Proof: `Benchmark::Override` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn execute() -> Weight {
+		// TODO: fresh for https://github.com/paritytech/polkadot-sdk/issues/6918
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
