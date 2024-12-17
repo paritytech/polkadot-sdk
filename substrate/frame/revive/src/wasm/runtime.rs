@@ -1262,17 +1262,13 @@ pub mod env {
 	/// Returns the total size of the contract call input data.
 	/// See [`pallet_revive_uapi::HostFn::call_data_size `].
 	#[stable]
-	fn call_data_size(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
+	fn call_data_size(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
 		self.charge_gas(RuntimeCosts::CallDataSize)?;
-		let value =
-			U256::from(self.input_data.as_ref().map(|input| input.len()).unwrap_or_default());
-		Ok(self.write_fixed_sandbox_output(
-			memory,
-			out_ptr,
-			&value.to_little_endian(),
-			false,
-			already_charged,
-		)?)
+		Ok(self
+			.input_data
+			.as_ref()
+			.map(|input| input.len().try_into().expect("usize fits into u64; qed"))
+			.unwrap_or_default())
 	}
 
 	/// Stores the input passed by the caller into the supplied buffer.
@@ -1383,16 +1379,10 @@ pub mod env {
 	/// Retrieve the code size for a given contract address.
 	/// See [`pallet_revive_uapi::HostFn::code_size`].
 	#[stable]
-	fn code_size(&mut self, memory: &mut M, addr_ptr: u32, out_ptr: u32) -> Result<(), TrapReason> {
+	fn code_size(&mut self, memory: &mut M, addr_ptr: u32) -> Result<u64, TrapReason> {
 		self.charge_gas(RuntimeCosts::CodeSize)?;
 		let address = memory.read_h160(addr_ptr)?;
-		Ok(self.write_fixed_sandbox_output(
-			memory,
-			out_ptr,
-			&self.ext.code_size(&address).to_little_endian(),
-			false,
-			already_charged,
-		)?)
+		Ok(self.ext.code_size(&address))
 	}
 
 	/// Stores the address of the current contract into the supplied buffer.
@@ -1630,14 +1620,14 @@ pub mod env {
 	/// Stores the length of the data returned by the last call into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::return_data_size`].
 	#[stable]
-	fn return_data_size(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
-		Ok(self.write_fixed_sandbox_output(
-			memory,
-			out_ptr,
-			&U256::from(self.ext.last_frame_output().data.len()).to_little_endian(),
-			false,
-			|len| Some(RuntimeCosts::CopyToContract(len)),
-		)?)
+	fn return_data_size(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
+		Ok(self
+			.ext
+			.last_frame_output()
+			.data
+			.len()
+			.try_into()
+			.expect("usize fits into u64; qed"))
 	}
 
 	/// Stores data returned by the last call, starting from `offset`, into the supplied buffer.

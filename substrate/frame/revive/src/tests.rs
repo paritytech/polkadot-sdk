@@ -4356,11 +4356,11 @@ fn call_data_size_api_works() {
 		// Call the contract: It echoes back the value returned by the call data size API.
 		let received = builder::bare_call(addr).build_and_unwrap_result();
 		assert_eq!(received.flags, ReturnFlags::empty());
-		assert_eq!(U256::from_little_endian(&received.data), U256::zero());
+		assert_eq!(u64::from_le_bytes(received.data.try_into().unwrap()), 0);
 
 		let received = builder::bare_call(addr).data(vec![1; 256]).build_and_unwrap_result();
 		assert_eq!(received.flags, ReturnFlags::empty());
-		assert_eq!(U256::from_little_endian(&received.data), U256::from(256));
+		assert_eq!(u64::from_le_bytes(received.data.try_into().unwrap()), 256);
 	});
 }
 

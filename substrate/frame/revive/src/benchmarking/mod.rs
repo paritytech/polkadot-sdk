@@ -596,19 +596,15 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_code_size() {
 		let contract = Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
-		build_runtime!(runtime, memory: [contract.address.encode(), vec![0u8; 32], ]);
+		build_runtime!(runtime, memory: [contract.address.encode(), vec![0u8; 20], ]);
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_code_size(memory.as_mut_slice(), 0, 20);
+			result = runtime.bench_code_size(memory.as_mut_slice(), 0);
 		}
 
-		assert_ok!(result);
-		assert_eq!(
-			U256::from_little_endian(&memory[20..]),
-			U256::from(WasmModule::dummy().code.len())
-		);
+		assert_eq!(result.unwrap(), WasmModule::dummy().code.len() as u64);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -776,14 +772,13 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![42u8; 128 as usize]);
-		let mut memory = memory!(vec![0u8; 32 as usize],);
+		let mut memory = memory!(vec![0u8; 4],);
 		let result;
 		#[block]
 		{
-			result = runtime.bench_call_data_size(memory.as_mut_slice(), 0);
+			result = runtime.bench_call_data_size(memory.as_mut_slice());
 		}
-		assert_ok!(result);
-		assert_eq!(U256::from_little_endian(&memory[..]), U256::from(128));
+		assert_eq!(result.unwrap(), 128);
 	}
 
 	#[benchmark(pov_mode = Measured)]

@@ -18,7 +18,7 @@
 #![no_std]
 #![no_main]
 
-use common::{input, u64_output};
+use common::input;
 use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
@@ -30,7 +30,7 @@ pub extern "C" fn deploy() {}
 pub extern "C" fn call() {
 	input!(address: &[u8; 20], expected: u64,);
 
-	let received = u64_output!(api::code_size, address);
+	let received = api::code_size(address);
 
 	assert_eq!(expected, received);
 }
