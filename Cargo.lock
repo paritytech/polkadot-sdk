@@ -3251,6 +3251,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd16c4719339c4530435d38e511904438d07cce7950afa3718a84ac36c10e89e"
 
 [[package]]
+name = "cfg_aliases"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
+
+[[package]]
 name = "chacha"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9037,7 +9043,7 @@ dependencies = [
  "socket2 0.5.7",
  "widestring",
  "windows-sys 0.48.0",
- "winreg 0.50.0",
+ "winreg",
 ]
 
 [[package]]
@@ -11267,14 +11273,13 @@ dependencies = [
 
 [[package]]
 name = "nix"
-version = "0.26.2"
+version = "0.26.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfdda3d196821d6af13126e40375cdf7da646a96114af134d5f417a9a1dc8e1a"
+checksum = "598beaf3cc6fdd9a5dfb1630c2800c7acd31df7aaf0f565796fba2b53ca1af1b"
 dependencies = [
  "bitflags 1.3.2",
  "cfg-if",
  "libc",
- "static_assertions",
 ]
 
 [[package]]
@@ -11290,13 +11295,13 @@ dependencies = [
 
 [[package]]
 name = "nix"
-version = "0.28.0"
+version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab2156c4fce2f8df6c499cc1c763e4394b7482525bf2a9701c9d79d215f519e4"
+checksum = "71e2746dc3a24dd78b3cfcb7be93368c6de9963d30f43a6a73998a9cf4b17b46"
 dependencies = [
  "bitflags 2.6.0",
  "cfg-if",
- "cfg_aliases",
+ "cfg_aliases 0.2.1",
  "libc",
 ]
 
@@ -17072,7 +17077,7 @@ version = "6.0.0"
 dependencies = [
  "assert_cmd",
  "color-eyre",
- "nix 0.28.0",
+ "nix 0.29.0",
  "polkadot-cli",
  "polkadot-core-primitives 7.0.0",
  "polkadot-node-core-pvf",
@@ -17821,7 +17826,7 @@ dependencies = [
  "futures",
  "landlock",
  "libc",
- "nix 0.28.0",
+ "nix 0.29.0",
  "parity-scale-codec",
  "polkadot-parachain-primitives 6.0.0",
  "polkadot-primitives 7.0.0",
@@ -17846,7 +17851,7 @@ dependencies = [
  "cfg-if",
  "cpu-time",
  "libc",
- "nix 0.28.0",
+ "nix 0.29.0",
  "parity-scale-codec",
  "polkadot-node-core-pvf-common",
  "polkadot-node-primitives",
@@ -17864,7 +17869,7 @@ dependencies = [
  "cfg-if",
  "criterion",
  "libc",
- "nix 0.28.0",
+ "nix 0.29.0",
  "parity-scale-codec",
  "polkadot-node-core-pvf-common",
  "polkadot-node-primitives",
@@ -18117,7 +18122,7 @@ dependencies = [
  "futures-timer",
  "jsonrpsee",
  "log",
- "nix 0.28.0",
+ "nix 0.29.0",
  "pallet-transaction-payment 28.0.0",
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api 28.0.0",
@@ -20336,7 +20341,7 @@ dependencies = [
  "findshlibs",
  "libc",
  "log",
- "nix 0.26.2",
+ "nix 0.26.4",
  "once_cell",
  "parking_lot 0.12.3",
  "smallvec",
@@ -20787,7 +20792,7 @@ dependencies = [
  "log",
  "names",
  "prost 0.11.9",
- "reqwest 0.11.20",
+ "reqwest 0.11.27",
  "thiserror",
  "url",
  "winapi",
@@ -21331,9 +21336,9 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.11.20"
+version = "0.11.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e9ad3fe7488d7e34558a2033d45a0c90b72d97b4f80705666fea71472e2e6a1"
+checksum = "dd67538700a17451e7cba03ac727fb961abb7607553461627b97de0b89cf4a62"
 dependencies = [
  "base64 0.21.7",
  "bytes",
@@ -21359,6 +21364,8 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_urlencoded",
+ "sync_wrapper 0.1.2",
+ "system-configuration",
  "tokio",
  "tokio-native-tls",
  "tokio-rustls 0.24.1",
@@ -21368,14 +21375,14 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "webpki-roots 0.25.2",
- "winreg 0.50.0",
+ "winreg",
 ]
 
 [[package]]
 name = "reqwest"
-version = "0.12.5"
+version = "0.12.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7d6d2a27d57148378eb5e111173f4276ad26340ecc5c49a4a2152167a2d6a37"
+checksum = "a77c62af46e79de0a562e1a9849205ffcb7fc1238876e9bd743357570e04046f"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -21402,7 +21409,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_urlencoded",
- "sync_wrapper",
+ "sync_wrapper 1.0.1",
  "tokio",
  "tokio-rustls 0.26.0",
  "tower-service",
@@ -21411,7 +21418,7 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "webpki-roots 0.26.3",
- "winreg 0.52.0",
+ "windows-registry",
 ]
 
 [[package]]
@@ -28149,7 +28156,7 @@ dependencies = [
  "jsonrpsee",
  "kitchensink-runtime",
  "log",
- "nix 0.28.0",
+ "nix 0.29.0",
  "node-primitives",
  "node-rpc",
  "node-testing",
@@ -28372,7 +28379,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a2a1c578e98c1c16fc3b8ec1328f7659a500737d7a0c6d625e73e830ff9c1f6"
 dependencies = [
  "bitflags 1.3.2",
- "cfg_aliases",
+ "cfg_aliases 0.1.1",
  "libc",
  "parking_lot 0.11.2",
  "parking_lot_core 0.8.6",
@@ -28386,7 +28393,7 @@ version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "70a2595fc3aa78f2d0e45dd425b22282dd863273761cc77780914b2cf3003acf"
 dependencies = [
- "cfg_aliases",
+ "cfg_aliases 0.1.1",
  "memchr",
  "proc-macro2 1.0.86",
  "quote 1.0.37",
@@ -28577,7 +28584,7 @@ version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "futures",
- "nix 0.28.0",
+ "nix 0.29.0",
  "node-primitives",
  "regex",
  "sc-cli",
@@ -28950,7 +28957,7 @@ dependencies = [
  "log",
  "num-format",
  "rand",
- "reqwest 0.12.5",
+ "reqwest 0.12.9",
  "scale-info",
  "semver 1.0.18",
  "serde",
@@ -29285,9 +29292,18 @@ dependencies = [
 
 [[package]]
 name = "sync_wrapper"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2047c6ded9c721764247e62cd3b03c09ffc529b2ba5b10ec482ae507a4a70160"
+
+[[package]]
+name = "sync_wrapper"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7065abeca94b6a8a577f9bd45aa0867a2238b74e8eb67cf10d492bc39351394"
+dependencies = [
+ "futures-core",
+]
 
 [[package]]
 name = "synstructure"
@@ -31476,6 +31492,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "windows-registry"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e400001bb720a623c1c69032f8e3e4cf09984deec740f007dd2b03ec864804b0"
+dependencies = [
+ "windows-result",
+ "windows-strings",
+ "windows-targets 0.52.6",
+]
+
+[[package]]
+name = "windows-result"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d1043d8214f791817bab27572aaa8af63732e11bf84aa21a45a78d6c317ae0e"
+dependencies = [
+ "windows-targets 0.52.6",
+]
+
+[[package]]
+name = "windows-strings"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4cd9b125c486025df0eabcb585e62173c6c9eddcec5d117d3b6e8c30e2ee4d10"
+dependencies = [
+ "windows-result",
+ "windows-targets 0.52.6",
+]
+
+[[package]]
 name = "windows-sys"
 version = "0.45.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -31712,16 +31758,6 @@ name = "winreg"
 version = "0.50.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "524e57b2c537c0f9b1e69f1965311ec12182b4122e45035b1508cd24d2adadb1"
-dependencies = [
- "cfg-if",
- "windows-sys 0.48.0",
-]
-
-[[package]]
-name = "winreg"
-version = "0.52.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a277a57398d4bfa075df44f501a17cfdf8542d224f0d36095a2adc7aee4ef0a5"
 dependencies = [
  "cfg-if",
  "windows-sys 0.48.0",
@@ -32132,7 +32168,7 @@ version = "1.0.0"
 dependencies = [
  "futures-util",
  "parity-scale-codec",
- "reqwest 0.11.20",
+ "reqwest 0.12.9",
  "serde",
  "serde_json",
  "thiserror",
@@ -32152,7 +32188,7 @@ dependencies = [
  "lazy_static",
  "multiaddr 0.18.1",
  "regex",
- "reqwest 0.11.20",
+ "reqwest 0.11.27",
  "serde",
  "serde_json",
  "thiserror",
@@ -32178,7 +32214,7 @@ dependencies = [
  "multiaddr 0.18.1",
  "rand",
  "regex",
- "reqwest 0.11.20",
+ "reqwest 0.11.27",
  "serde",
  "serde_json",
  "sha2 0.10.8",
@@ -32221,7 +32257,7 @@ dependencies = [
  "kube",
  "nix 0.27.1",
  "regex",
- "reqwest 0.11.20",
+ "reqwest 0.11.27",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -32266,7 +32302,7 @@ dependencies = [
  "nix 0.27.1",
  "rand",
  "regex",
- "reqwest 0.11.20",
+ "reqwest 0.11.27",
  "thiserror",
  "tokio",
  "tracing",
