@@ -63,6 +63,7 @@ mod sys {
 		pub fn instantiate(ptr: *const u8) -> ReturnCode;
 		pub fn terminate(beneficiary_ptr: *const u8);
 		pub fn input(out_ptr: *mut u8, out_len_ptr: *mut u32);
+		pub fn call_data_load(out_ptr: *mut u8, offset: u32);
 		pub fn seal_return(flags: u32, data_ptr: *const u8, data_len: u32);
 		pub fn caller(out_ptr: *mut u8);
 		pub fn origin(out_ptr: *mut u8);
@@ -89,6 +90,7 @@ mod sys {
 			data_ptr: *const u8,
 			data_len: u32,
 		);
+		pub fn call_data_size(out_ptr: *mut u8);
 		pub fn block_number(out_ptr: *mut u8);
 		pub fn block_hash(block_number_ptr: *const u8, out_ptr: *mut u8);
 		pub fn hash_sha2_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
@@ -293,10 +295,6 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
-	fn caller_is_root() -> u32 {
-		unsafe { sys::caller_is_root() }.into_u32()
-	}
-
 	fn delegate_call(
 		flags: CallFlags,
 		address: &[u8; 20],
@@ -366,17 +364,6 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
-	fn clear_storage(flags: StorageFlags, key: &[u8]) -> Option<u32> {
-		let ret_code = unsafe { sys::clear_storage(flags.bits(), key.as_ptr(), key.len() as u32) };
-		ret_code.into()
-	}
-
-	fn contains_storage(flags: StorageFlags, key: &[u8]) -> Option<u32> {
-		let ret_code =
-			unsafe { sys::contains_storage(flags.bits(), key.as_ptr(), key.len() as u32) };
-		ret_code.into()
-	}
-
 	fn get_storage(flags: StorageFlags, key: &[u8], output: &mut &mut [u8]) -> Result {
 		let mut output_len = output.len() as u32;
 		let ret_code = {
@@ -394,33 +381,79 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
-	fn take_storage(flags: StorageFlags, key: &[u8], output: &mut &mut [u8]) -> Result {
+	fn input(output: &mut &mut [u8]) {
 		let mut output_len = output.len() as u32;
-		let ret_code = {
-			unsafe {
-				sys::take_storage(
-					flags.bits(),
-					key.as_ptr(),
-					key.len() as u32,
-					output.as_mut_ptr(),
-					&mut output_len,
-				)
-			}
-		};
+		{
+			unsafe { sys::input(output.as_mut_ptr(), &mut output_len) };
+		}
 		extract_from_slice(output, output_len as usize);
-		ret_code.into()
 	}
 
-	fn debug_message(str: &[u8]) -> Result {
-		let ret_code = unsafe { sys::debug_message(str.as_ptr(), str.len() as u32) };
-		ret_code.into()
+	fn call_data_load(out_ptr: &mut [u8; 32], offset: u32) {
+		unsafe { sys::call_data_load(out_ptr.as_mut_ptr(), offset) };
 	}
 
-	fn terminate(beneficiary: &[u8; 20]) -> ! {
-		unsafe { sys::terminate(beneficiary.as_ptr()) }
-		panic!("terminate does not return");
+	fn return_value(flags: ReturnFlags, return_value: &[u8]) -> ! {
+		unsafe { sys::seal_return(flags.bits(), return_value.as_ptr(), return_value.len() as u32) }
+		panic!("seal_return does not return");
 	}
 
+	impl_wrapper_for! {
+		[u8; 32] => call_data_size, balance, value_transferred, now, chain_id;
+		[u8; 20] => address, caller, origin;
+	}
+
+	#[cfg(feature = "unstable-api")]
+	impl_wrapper_for! {
+		[u8; 32] => block_number, minimum_balance;
+	}
+
+	fn weight_to_fee(ref_time_limit: u64, proof_size_limit: u64, output: &mut [u8; 32]) {
+		unsafe { sys::weight_to_fee(ref_time_limit, proof_size_limit, output.as_mut_ptr()) };
+	}
+
+	impl_hash_fn!(keccak_256, 32);
+
+	fn get_immutable_data(output: &mut &mut [u8]) {
+		let mut output_len = output.len() as u32;
+		unsafe { sys::get_immutable_data(output.as_mut_ptr(), &mut output_len) };
+		extract_from_slice(output, output_len as usize);
+	}
+
+	fn set_immutable_data(data: &[u8]) {
+		unsafe { sys::set_immutable_data(data.as_ptr(), data.len() as u32) }
+	}
+
+	fn balance_of(address: &[u8; 20], output: &mut [u8; 32]) {
+		unsafe { sys::balance_of(address.as_ptr(), output.as_mut_ptr()) };
+	}
+
+	fn code_hash(address: &[u8; 20], output: &mut [u8; 32]) {
+		unsafe { sys::code_hash(address.as_ptr(), output.as_mut_ptr()) }
+	}
+
+	fn code_size(address: &[u8; 20], output: &mut [u8; 32]) {
+		unsafe { sys::code_size(address.as_ptr(), output.as_mut_ptr()) }
+	}
+
+	fn return_data_size(output: &mut [u8; 32]) {
+		unsafe { sys::return_data_size(output.as_mut_ptr()) };
+	}
+
+	fn return_data_copy(output: &mut &mut [u8], offset: u32) {
+		let mut output_len = output.len() as u32;
+		{
+			unsafe { sys::return_data_copy(output.as_mut_ptr(), &mut output_len, offset) };
+		}
+		extract_from_slice(output, output_len as usize);
+	}
+
+	#[cfg(feature = "unstable-api")]
+	fn block_hash(block_number_ptr: &[u8; 32], output: &mut [u8; 32]) {
+		unsafe { sys::block_hash(block_number_ptr.as_ptr(), output.as_mut_ptr()) };
+	}
+
+	#[cfg(feature = "unstable-api")]
 	fn call_chain_extension(func_id: u32, input: &[u8], mut output: Option<&mut &mut [u8]>) -> u32 {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let ret_code = {
@@ -441,44 +474,43 @@ impl HostFn for HostFnImpl {
 		ret_code.into_u32()
 	}
 
-	fn input(output: &mut &mut [u8]) {
-		let mut output_len = output.len() as u32;
-		{
-			unsafe { sys::input(output.as_mut_ptr(), &mut output_len) };
-		}
-		extract_from_slice(output, output_len as usize);
-	}
-
-	fn return_value(flags: ReturnFlags, return_value: &[u8]) -> ! {
-		unsafe { sys::seal_return(flags.bits(), return_value.as_ptr(), return_value.len() as u32) }
-		panic!("seal_return does not return");
-	}
-
+	#[cfg(feature = "unstable-api")]
 	fn call_runtime(call: &[u8]) -> Result {
 		let ret_code = unsafe { sys::call_runtime(call.as_ptr(), call.len() as u32) };
 		ret_code.into()
 	}
 
-	impl_wrapper_for! {
-		[u8; 32] => block_number, balance, value_transferred, now, minimum_balance, chain_id;
-		[u8; 20] => address, caller, origin;
+	#[cfg(feature = "unstable-api")]
+	fn caller_is_origin() -> bool {
+		let ret_val = unsafe { sys::caller_is_origin() };
+		ret_val.into_bool()
 	}
 
-	fn weight_left(output: &mut &mut [u8]) {
-		let mut output_len = output.len() as u32;
-		unsafe { sys::weight_left(output.as_mut_ptr(), &mut output_len) }
-		extract_from_slice(output, output_len as usize)
+	#[cfg(feature = "unstable-api")]
+	fn caller_is_root() -> u32 {
+		unsafe { sys::caller_is_root() }.into_u32()
 	}
 
-	fn weight_to_fee(ref_time_limit: u64, proof_size_limit: u64, output: &mut [u8; 32]) {
-		unsafe { sys::weight_to_fee(ref_time_limit, proof_size_limit, output.as_mut_ptr()) };
+	#[cfg(feature = "unstable-api")]
+	fn clear_storage(flags: StorageFlags, key: &[u8]) -> Option<u32> {
+		let ret_code = unsafe { sys::clear_storage(flags.bits(), key.as_ptr(), key.len() as u32) };
+		ret_code.into()
 	}
 
-	impl_hash_fn!(sha2_256, 32);
-	impl_hash_fn!(keccak_256, 32);
-	impl_hash_fn!(blake2_256, 32);
-	impl_hash_fn!(blake2_128, 16);
+	#[cfg(feature = "unstable-api")]
+	fn contains_storage(flags: StorageFlags, key: &[u8]) -> Option<u32> {
+		let ret_code =
+			unsafe { sys::contains_storage(flags.bits(), key.as_ptr(), key.len() as u32) };
+		ret_code.into()
+	}
 
+	#[cfg(feature = "unstable-api")]
+	fn debug_message(str: &[u8]) -> Result {
+		let ret_code = unsafe { sys::debug_message(str.as_ptr(), str.len() as u32) };
+		ret_code.into()
+	}
+
+	#[cfg(feature = "unstable-api")]
 	fn ecdsa_recover(
 		signature: &[u8; 65],
 		message_hash: &[u8; 32],
@@ -490,11 +522,41 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
+	#[cfg(feature = "unstable-api")]
 	fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result {
 		let ret_code = unsafe { sys::ecdsa_to_eth_address(pubkey.as_ptr(), output.as_mut_ptr()) };
 		ret_code.into()
 	}
 
+	#[cfg(feature = "unstable-api")]
+	impl_hash_fn!(sha2_256, 32);
+	#[cfg(feature = "unstable-api")]
+	impl_hash_fn!(blake2_256, 32);
+	#[cfg(feature = "unstable-api")]
+	impl_hash_fn!(blake2_128, 16);
+
+	#[cfg(feature = "unstable-api")]
+	fn is_contract(address: &[u8; 20]) -> bool {
+		let ret_val = unsafe { sys::is_contract(address.as_ptr()) };
+		ret_val.into_bool()
+	}
+
+	#[cfg(feature = "unstable-api")]
+	fn lock_delegate_dependency(code_hash: &[u8; 32]) {
+		unsafe { sys::lock_delegate_dependency(code_hash.as_ptr()) }
+	}
+
+	#[cfg(feature = "unstable-api")]
+	fn own_code_hash(output: &mut [u8; 32]) {
+		unsafe { sys::own_code_hash(output.as_mut_ptr()) }
+	}
+
+	#[cfg(feature = "unstable-api")]
+	fn set_code_hash(code_hash: &[u8; 32]) {
+		unsafe { sys::set_code_hash(code_hash.as_ptr()) }
+	}
+
+	#[cfg(feature = "unstable-api")]
 	fn sr25519_verify(signature: &[u8; 64], message: &[u8], pub_key: &[u8; 32]) -> Result {
 		let ret_code = unsafe {
 			sys::sr25519_verify(
@@ -507,59 +569,49 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
-	fn is_contract(address: &[u8; 20]) -> bool {
-		let ret_val = unsafe { sys::is_contract(address.as_ptr()) };
-		ret_val.into_bool()
-	}
-
-	fn get_immutable_data(output: &mut &mut [u8]) {
+	#[cfg(feature = "unstable-api")]
+	fn take_storage(flags: StorageFlags, key: &[u8], output: &mut &mut [u8]) -> Result {
 		let mut output_len = output.len() as u32;
-		unsafe { sys::get_immutable_data(output.as_mut_ptr(), &mut output_len) };
+		let ret_code = {
+			unsafe {
+				sys::take_storage(
+					flags.bits(),
+					key.as_ptr(),
+					key.len() as u32,
+					output.as_mut_ptr(),
+					&mut output_len,
+				)
+			}
+		};
 		extract_from_slice(output, output_len as usize);
+		ret_code.into()
 	}
 
-	fn set_immutable_data(data: &[u8]) {
-		unsafe { sys::set_immutable_data(data.as_ptr(), data.len() as u32) }
+	#[cfg(feature = "unstable-api")]
+	fn terminate(beneficiary: &[u8; 20]) -> ! {
+		unsafe { sys::terminate(beneficiary.as_ptr()) }
+		panic!("terminate does not return");
 	}
 
-	fn balance_of(address: &[u8; 20], output: &mut [u8; 32]) {
-		unsafe { sys::balance_of(address.as_ptr(), output.as_mut_ptr()) };
-	}
-
-	fn caller_is_origin() -> bool {
-		let ret_val = unsafe { sys::caller_is_origin() };
-		ret_val.into_bool()
-	}
-
-	fn set_code_hash(code_hash: &[u8; 32]) {
-		unsafe { sys::set_code_hash(code_hash.as_ptr()) }
-	}
-
-	fn code_hash(address: &[u8; 20], output: &mut [u8; 32]) {
-		unsafe { sys::code_hash(address.as_ptr(), output.as_mut_ptr()) }
-	}
-
-	fn code_size(address: &[u8; 20], output: &mut [u8; 32]) {
-		unsafe { sys::code_size(address.as_ptr(), output.as_mut_ptr()) }
-	}
-
-	fn own_code_hash(output: &mut [u8; 32]) {
-		unsafe { sys::own_code_hash(output.as_mut_ptr()) }
-	}
-
-	fn lock_delegate_dependency(code_hash: &[u8; 32]) {
-		unsafe { sys::lock_delegate_dependency(code_hash.as_ptr()) }
-	}
-
+	#[cfg(feature = "unstable-api")]
 	fn unlock_delegate_dependency(code_hash: &[u8; 32]) {
 		unsafe { sys::unlock_delegate_dependency(code_hash.as_ptr()) }
 	}
 
+	#[cfg(feature = "unstable-api")]
+	fn weight_left(output: &mut &mut [u8]) {
+		let mut output_len = output.len() as u32;
+		unsafe { sys::weight_left(output.as_mut_ptr(), &mut output_len) }
+		extract_from_slice(output, output_len as usize)
+	}
+
+	#[cfg(feature = "unstable-api")]
 	fn xcm_execute(msg: &[u8]) -> Result {
 		let ret_code = unsafe { sys::xcm_execute(msg.as_ptr(), msg.len() as _) };
 		ret_code.into()
 	}
 
+	#[cfg(feature = "unstable-api")]
 	fn xcm_send(dest: &[u8], msg: &[u8], output: &mut [u8; 32]) -> Result {
 		let ret_code = unsafe {
 			sys::xcm_send(
@@ -571,21 +623,5 @@ impl HostFn for HostFnImpl {
 			)
 		};
 		ret_code.into()
-	}
-
-	fn return_data_size(output: &mut [u8; 32]) {
-		unsafe { sys::return_data_size(output.as_mut_ptr()) };
-	}
-
-	fn return_data_copy(output: &mut &mut [u8], offset: u32) {
-		let mut output_len = output.len() as u32;
-		{
-			unsafe { sys::return_data_copy(output.as_mut_ptr(), &mut output_len, offset) };
-		}
-		extract_from_slice(output, output_len as usize);
-	}
-
-	fn block_hash(block_number_ptr: &[u8; 32], output: &mut [u8; 32]) {
-		unsafe { sys::block_hash(block_number_ptr.as_ptr(), output.as_mut_ptr()) };
 	}
 }

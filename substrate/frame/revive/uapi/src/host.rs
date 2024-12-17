@@ -45,17 +45,6 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the address.
 	fn address(output: &mut [u8; 20]);
 
-	/// Lock a new delegate dependency to the contract.
-	///
-	/// Traps if the maximum number of delegate_dependencies is reached or if
-	/// the delegate dependency already exists.
-	///
-	/// # Parameters
-	///
-	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps
-	///   otherwise.
-	fn lock_delegate_dependency(code_hash: &[u8; 32]);
-
 	/// Get the contract immutable data.
 	///
 	/// Traps if:
@@ -98,20 +87,12 @@ pub trait HostFn: private::Sealed {
 	/// Returns the [EIP-155](https://eips.ethereum.org/EIPS/eip-155) chain ID.
 	fn chain_id(output: &mut [u8; 32]);
 
-	/// Stores the current block number of the current contract into the supplied buffer.
+	/// Stores the call data size as little endian U256 value into the supplied buffer.
 	///
 	/// # Parameters
 	///
-	/// - `output`: A reference to the output data buffer to write the block number.
-	fn block_number(output: &mut [u8; 32]);
-
-	/// Stores the block hash of the given block number into the supplied buffer.
-	///
-	/// # Parameters
-	///
-	/// - `block_number`: A reference to the block number buffer.
-	/// - `output`: A reference to the output data buffer to write the block number.
-	fn block_hash(block_number: &[u8; 32], output: &mut [u8; 32]);
+	/// - `output`: A reference to the output data buffer to write the call data size.
+	fn call_data_size(output: &mut [u8; 32]);
 
 	/// Call (possibly transferring some amount of funds) into the specified account.
 	///
@@ -150,56 +131,6 @@ pub trait HostFn: private::Sealed {
 		output: Option<&mut &mut [u8]>,
 	) -> Result;
 
-	/// Call into the chain extension provided by the chain if any.
-	///
-	/// Handling of the input values is up to the specific chain extension and so is the
-	/// return value. The extension can decide to use the inputs as primitive inputs or as
-	/// in/out arguments by interpreting them as pointers. Any caller of this function
-	/// must therefore coordinate with the chain that it targets.
-	///
-	/// # Note
-	///
-	/// If no chain extension exists the contract will trap with the `NoChainExtension`
-	/// module error.
-	///
-	/// # Parameters
-	///
-	/// - `func_id`: The function id of the chain extension.
-	/// - `input`: The input data buffer.
-	/// - `output`: A reference to the output data buffer to write the call output buffer. If `None`
-	///   is provided then the output buffer is not copied.
-	///
-	/// # Return
-	///
-	/// The chain extension returned value, if executed successfully.
-	fn call_chain_extension(func_id: u32, input: &[u8], output: Option<&mut &mut [u8]>) -> u32;
-
-	/// Call some dispatchable of the runtime.
-	///
-	/// # Parameters
-	///
-	/// - `call`: The call data.
-	///
-	/// # Return
-	///
-	/// Returns `Error::Success` when the dispatchable was successfully executed and
-	/// returned `Ok`. When the dispatchable was executed but returned an error
-	/// `Error::CallRuntimeFailed` is returned. The full error is not
-	/// provided because it is not guaranteed to be stable.
-	///
-	/// # Comparison with `ChainExtension`
-	///
-	/// Just as a chain extension this API allows the runtime to extend the functionality
-	/// of contracts. While making use of this function is generally easier it cannot be
-	/// used in all cases. Consider writing a chain extension if you need to do perform
-	/// one of the following tasks:
-	///
-	/// - Return data.
-	/// - Provide functionality **exclusively** to contracts.
-	/// - Provide custom weights.
-	/// - Avoid the need to keep the `Call` data structure stable.
-	fn call_runtime(call: &[u8]) -> Result;
-
 	/// Stores the address of the caller into the supplied buffer.
 	///
 	/// If this is a top-level call (i.e. initiated by an extrinsic) the origin address of the
@@ -224,38 +155,6 @@ pub trait HostFn: private::Sealed {
 	///
 	/// - `output`: A reference to the output data buffer to write the origin's address.
 	fn origin(output: &mut [u8; 20]);
-
-	/// Checks whether the caller of the current contract is the origin of the whole call stack.
-	///
-	/// Prefer this over [`is_contract()`][`Self::is_contract`] when checking whether your contract
-	/// is being called by a contract or a plain account. The reason is that it performs better
-	/// since it does not need to do any storage lookups.
-	///
-	/// # Return
-	///
-	/// A return value of `true` indicates that this contract is being called by a plain account
-	/// and `false` indicates that the caller is another contract.
-	fn caller_is_origin() -> bool;
-
-	/// Checks whether the caller of the current contract is root.
-	///
-	/// Note that only the origin of the call stack can be root. Hence this function returning
-	/// `true` implies that the contract is being called by the origin.
-	///
-	/// A return value of `true` indicates that this contract is being called by a root origin,
-	/// and `false` indicates that the caller is a signed origin.
-	fn caller_is_root() -> u32;
-
-	/// Clear the value at the given key in the contract storage.
-	///
-	/// # Parameters
-	///
-	/// - `key`: The storage key.
-	///
-	/// # Return
-	///
-	/// Returns the size of the pre-existing value at the specified key if any.
-	fn clear_storage(flags: StorageFlags, key: &[u8]) -> Option<u32>;
 
 	/// Retrieve the code hash for a specified contract address.
 	///
@@ -282,37 +181,6 @@ pub trait HostFn: private::Sealed {
 	///
 	/// If `addr` is not a contract the `output` will be zero.
 	fn code_size(addr: &[u8; 20], output: &mut [u8; 32]);
-
-	/// Checks whether there is a value stored under the given key.
-	///
-	/// The key length must not exceed the maximum defined by the contracts module parameter.
-	///
-	/// # Parameters
-	/// - `key`: The storage key.
-	///
-	/// # Return
-	///
-	/// Returns the size of the pre-existing value at the specified key if any.
-	fn contains_storage(flags: StorageFlags, key: &[u8]) -> Option<u32>;
-
-	/// Emit a custom debug message.
-	///
-	/// No newlines are added to the supplied message.
-	/// Specifying invalid UTF-8 just drops the message with no trap.
-	///
-	/// This is a no-op if debug message recording is disabled which is always the case
-	/// when the code is executing on-chain. The message is interpreted as UTF-8 and
-	/// appended to the debug buffer which is then supplied to the calling RPC client.
-	///
-	/// # Note
-	///
-	/// Even though no action is taken when debug message recording is disabled there is still
-	/// a non trivial overhead (and weight cost) associated with calling this function. Contract
-	/// languages should remove calls to this function (either at runtime or compile time) when
-	/// not being executed as an RPC. For example, they could allow users to disable logging
-	/// through compile time flags (cargo features) for on-chain deployment. Additionally, the
-	/// return value of this function can be cached in order to prevent further calls at runtime.
-	fn debug_message(str: &[u8]) -> Result;
 
 	/// Execute code in the context (storage, caller, value) of the current contract.
 	///
@@ -362,49 +230,6 @@ pub trait HostFn: private::Sealed {
 	/// - `topics`: The topics list. It can't contain duplicates.
 	fn deposit_event(topics: &[[u8; 32]], data: &[u8]);
 
-	/// Recovers the ECDSA public key from the given message hash and signature.
-	///
-	/// Writes the public key into the given output buffer.
-	/// Assumes the secp256k1 curve.
-	///
-	/// # Parameters
-	///
-	/// - `signature`: The signature bytes.
-	/// - `message_hash`: The message hash bytes.
-	/// - `output`: A reference to the output data buffer to write the public key.
-	///
-	/// # Errors
-	///
-	/// - [EcdsaRecoveryFailed][`crate::ReturnErrorCode::EcdsaRecoveryFailed]
-	fn ecdsa_recover(
-		signature: &[u8; 65],
-		message_hash: &[u8; 32],
-		output: &mut [u8; 33],
-	) -> Result;
-
-	/// Calculates Ethereum address from the ECDSA compressed public key and stores
-	/// it into the supplied buffer.
-	///
-	/// # Parameters
-	///
-	/// - `pubkey`: The public key bytes.
-	/// - `output`: A reference to the output data buffer to write the address.
-	///
-	/// # Errors
-	///
-	/// - [EcdsaRecoveryFailed][`crate::ReturnErrorCode::EcdsaRecoveryFailed]
-	fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result;
-
-	/// Stores the amount of weight left into the supplied buffer.
-	/// The data is encoded as Weight.
-	///
-	/// If the available space in `output` is less than the size of the value a trap is triggered.
-	///
-	/// # Parameters
-	///
-	/// - `output`: A reference to the output data buffer to write the weight left.
-	fn weight_left(output: &mut &mut [u8]);
-
 	/// Retrieve the value under the given key from storage.
 	///
 	/// The key length must not exceed the maximum defined by the contracts module parameter.
@@ -418,10 +243,7 @@ pub trait HostFn: private::Sealed {
 	/// [KeyNotFound][`crate::ReturnErrorCode::KeyNotFound]
 	fn get_storage(flags: StorageFlags, key: &[u8], output: &mut &mut [u8]) -> Result;
 
-	hash_fn!(sha2_256, 32);
 	hash_fn!(keccak_256, 32);
-	hash_fn!(blake2_256, 32);
-	hash_fn!(blake2_128, 16);
 
 	/// Stores the input passed by the caller into the supplied buffer.
 	///
@@ -435,6 +257,21 @@ pub trait HostFn: private::Sealed {
 	///
 	/// - `output`: A reference to the output data buffer to write the input data.
 	fn input(output: &mut &mut [u8]);
+
+	/// Stores the U256 value at given `offset` from the input passed by the caller
+	/// into the supplied buffer.
+	///
+	/// # Note
+	/// - If `offset` is out of bounds, a value of zero will be returned.
+	/// - If `offset` is in bounds but there is not enough call data, the available data
+	/// is right-padded in order to fill a whole U256 value.
+	/// - The data written to `output` is a little endian U256 integer value.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the fixed output data buffer to write the value.
+	/// - `offset`: The offset (index) into the call data.
+	fn call_data_load(output: &mut [u8; 32], offset: u32);
 
 	/// Instantiate a contract with the specified code hash.
 	///
@@ -481,47 +318,12 @@ pub trait HostFn: private::Sealed {
 		salt: Option<&[u8; 32]>,
 	) -> Result;
 
-	/// Checks whether a specified address belongs to a contract.
-	///
-	/// # Parameters
-	///
-	/// - `address`: The address to check
-	///
-	/// # Return
-	///
-	/// Returns `true` if the address belongs to a contract.
-	fn is_contract(address: &[u8; 20]) -> bool;
-
-	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
-	///
-	/// # Parameters
-	///
-	/// - `output`: A reference to the output data buffer to write the minimum balance.
-	fn minimum_balance(output: &mut [u8; 32]);
-
-	/// Retrieve the code hash of the currently executing contract.
-	///
-	/// # Parameters
-	///
-	/// - `output`: A reference to the output data buffer to write the code hash.
-	fn own_code_hash(output: &mut [u8; 32]);
-
 	/// Load the latest block timestamp into the supplied buffer
 	///
 	/// # Parameters
 	///
 	/// - `output`: A reference to the output data buffer to write the timestamp.
 	fn now(output: &mut [u8; 32]);
-
-	/// Removes the delegate dependency from the contract.
-	///
-	/// Traps if the delegate dependency does not exist.
-	///
-	/// # Parameters
-	///
-	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps
-	///   otherwise.
-	fn unlock_delegate_dependency(code_hash: &[u8; 32]);
 
 	/// Cease contract execution and save a data buffer as a result of the execution.
 	///
@@ -540,6 +342,270 @@ pub trait HostFn: private::Sealed {
 	///   [`ReturnFlags`] for a documentation of the supported flags.
 	/// - `return_value`: The return value buffer.
 	fn return_value(flags: ReturnFlags, return_value: &[u8]) -> !;
+
+	/// Set the value at the given key in the contract storage.
+	///
+	/// The key and value lengths must not exceed the maximums defined by the contracts module
+	/// parameters.
+	///
+	/// # Parameters
+	///
+	/// - `key`: The storage key.
+	/// - `encoded_value`: The storage value.
+	///
+	/// # Return
+	///
+	/// Returns the size of the pre-existing value at the specified key if any.
+	fn set_storage(flags: StorageFlags, key: &[u8], value: &[u8]) -> Option<u32>;
+
+	/// Stores the value transferred along with this call/instantiate into the supplied buffer.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the output data buffer to write the transferred value.
+	fn value_transferred(output: &mut [u8; 32]);
+
+	/// Stores the price for the specified amount of gas into the supplied buffer.
+	///
+	/// # Parameters
+	///
+	/// - `ref_time_limit`: The *ref_time* Weight limit to query the price for.
+	/// - `proof_size_limit`: The *proof_size* Weight limit to query the price for.
+	/// - `output`: A reference to the output data buffer to write the price.
+	fn weight_to_fee(ref_time_limit: u64, proof_size_limit: u64, output: &mut [u8; 32]);
+
+	/// Stores the size of the returned data of the last contract call or instantiation.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the output buffer to write the size.
+	fn return_data_size(output: &mut [u8; 32]);
+
+	/// Stores the returned data of the last contract call or contract instantiation.
+	///
+	/// # Parameters
+	/// - `output`: A reference to the output buffer to write the data.
+	/// - `offset`: Byte offset into the returned data
+	fn return_data_copy(output: &mut &mut [u8], offset: u32);
+
+	/// Stores the current block number of the current contract into the supplied buffer.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the output data buffer to write the block number.
+	#[cfg(feature = "unstable-api")]
+	fn block_number(output: &mut [u8; 32]);
+
+	/// Stores the block hash of the given block number into the supplied buffer.
+	///
+	/// # Parameters
+	///
+	/// - `block_number`: A reference to the block number buffer.
+	/// - `output`: A reference to the output data buffer to write the block number.
+	#[cfg(feature = "unstable-api")]
+	fn block_hash(block_number: &[u8; 32], output: &mut [u8; 32]);
+
+	/// Call into the chain extension provided by the chain if any.
+	///
+	/// Handling of the input values is up to the specific chain extension and so is the
+	/// return value. The extension can decide to use the inputs as primitive inputs or as
+	/// in/out arguments by interpreting them as pointers. Any caller of this function
+	/// must therefore coordinate with the chain that it targets.
+	///
+	/// # Note
+	///
+	/// If no chain extension exists the contract will trap with the `NoChainExtension`
+	/// module error.
+	///
+	/// # Parameters
+	///
+	/// - `func_id`: The function id of the chain extension.
+	/// - `input`: The input data buffer.
+	/// - `output`: A reference to the output data buffer to write the call output buffer. If `None`
+	///   is provided then the output buffer is not copied.
+	///
+	/// # Return
+	///
+	/// The chain extension returned value, if executed successfully.
+	#[cfg(feature = "unstable-api")]
+	fn call_chain_extension(func_id: u32, input: &[u8], output: Option<&mut &mut [u8]>) -> u32;
+
+	/// Call some dispatchable of the runtime.
+	///
+	/// # Parameters
+	///
+	/// - `call`: The call data.
+	///
+	/// # Return
+	///
+	/// Returns `Error::Success` when the dispatchable was successfully executed and
+	/// returned `Ok`. When the dispatchable was executed but returned an error
+	/// `Error::CallRuntimeFailed` is returned. The full error is not
+	/// provided because it is not guaranteed to be stable.
+	///
+	/// # Comparison with `ChainExtension`
+	///
+	/// Just as a chain extension this API allows the runtime to extend the functionality
+	/// of contracts. While making use of this function is generally easier it cannot be
+	/// used in all cases. Consider writing a chain extension if you need to do perform
+	/// one of the following tasks:
+	///
+	/// - Return data.
+	/// - Provide functionality **exclusively** to contracts.
+	/// - Provide custom weights.
+	/// - Avoid the need to keep the `Call` data structure stable.
+	#[cfg(feature = "unstable-api")]
+	fn call_runtime(call: &[u8]) -> Result;
+
+	/// Checks whether the caller of the current contract is the origin of the whole call stack.
+	///
+	/// Prefer this over [`is_contract()`][`Self::is_contract`] when checking whether your contract
+	/// is being called by a contract or a plain account. The reason is that it performs better
+	/// since it does not need to do any storage lookups.
+	///
+	/// # Return
+	///
+	/// A return value of `true` indicates that this contract is being called by a plain account
+	/// and `false` indicates that the caller is another contract.
+	#[cfg(feature = "unstable-api")]
+	fn caller_is_origin() -> bool;
+
+	/// Checks whether the caller of the current contract is root.
+	///
+	/// Note that only the origin of the call stack can be root. Hence this function returning
+	/// `true` implies that the contract is being called by the origin.
+	///
+	/// A return value of `true` indicates that this contract is being called by a root origin,
+	/// and `false` indicates that the caller is a signed origin.
+	#[cfg(feature = "unstable-api")]
+	fn caller_is_root() -> u32;
+
+	/// Clear the value at the given key in the contract storage.
+	///
+	/// # Parameters
+	///
+	/// - `key`: The storage key.
+	///
+	/// # Return
+	///
+	/// Returns the size of the pre-existing value at the specified key if any.
+	#[cfg(feature = "unstable-api")]
+	fn clear_storage(flags: StorageFlags, key: &[u8]) -> Option<u32>;
+
+	/// Checks whether there is a value stored under the given key.
+	///
+	/// The key length must not exceed the maximum defined by the contracts module parameter.
+	///
+	/// # Parameters
+	/// - `key`: The storage key.
+	///
+	/// # Return
+	///
+	/// Returns the size of the pre-existing value at the specified key if any.
+	#[cfg(feature = "unstable-api")]
+	fn contains_storage(flags: StorageFlags, key: &[u8]) -> Option<u32>;
+
+	/// Emit a custom debug message.
+	///
+	/// No newlines are added to the supplied message.
+	/// Specifying invalid UTF-8 just drops the message with no trap.
+	///
+	/// This is a no-op if debug message recording is disabled which is always the case
+	/// when the code is executing on-chain. The message is interpreted as UTF-8 and
+	/// appended to the debug buffer which is then supplied to the calling RPC client.
+	///
+	/// # Note
+	///
+	/// Even though no action is taken when debug message recording is disabled there is still
+	/// a non trivial overhead (and weight cost) associated with calling this function. Contract
+	/// languages should remove calls to this function (either at runtime or compile time) when
+	/// not being executed as an RPC. For example, they could allow users to disable logging
+	/// through compile time flags (cargo features) for on-chain deployment. Additionally, the
+	/// return value of this function can be cached in order to prevent further calls at runtime.
+	#[cfg(feature = "unstable-api")]
+	fn debug_message(str: &[u8]) -> Result;
+
+	/// Recovers the ECDSA public key from the given message hash and signature.
+	///
+	/// Writes the public key into the given output buffer.
+	/// Assumes the secp256k1 curve.
+	///
+	/// # Parameters
+	///
+	/// - `signature`: The signature bytes.
+	/// - `message_hash`: The message hash bytes.
+	/// - `output`: A reference to the output data buffer to write the public key.
+	///
+	/// # Errors
+	///
+	/// - [EcdsaRecoveryFailed][`crate::ReturnErrorCode::EcdsaRecoveryFailed]
+	#[cfg(feature = "unstable-api")]
+	fn ecdsa_recover(
+		signature: &[u8; 65],
+		message_hash: &[u8; 32],
+		output: &mut [u8; 33],
+	) -> Result;
+
+	/// Calculates Ethereum address from the ECDSA compressed public key and stores
+	/// it into the supplied buffer.
+	///
+	/// # Parameters
+	///
+	/// - `pubkey`: The public key bytes.
+	/// - `output`: A reference to the output data buffer to write the address.
+	///
+	/// # Errors
+	///
+	/// - [EcdsaRecoveryFailed][`crate::ReturnErrorCode::EcdsaRecoveryFailed]
+	#[cfg(feature = "unstable-api")]
+	fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result;
+
+	#[cfg(feature = "unstable-api")]
+	hash_fn!(sha2_256, 32);
+	#[cfg(feature = "unstable-api")]
+	hash_fn!(blake2_256, 32);
+	#[cfg(feature = "unstable-api")]
+	hash_fn!(blake2_128, 16);
+
+	/// Checks whether a specified address belongs to a contract.
+	///
+	/// # Parameters
+	///
+	/// - `address`: The address to check
+	///
+	/// # Return
+	///
+	/// Returns `true` if the address belongs to a contract.
+	#[cfg(feature = "unstable-api")]
+	fn is_contract(address: &[u8; 20]) -> bool;
+
+	/// Lock a new delegate dependency to the contract.
+	///
+	/// Traps if the maximum number of delegate_dependencies is reached or if
+	/// the delegate dependency already exists.
+	///
+	/// # Parameters
+	///
+	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps
+	///   otherwise.
+	#[cfg(feature = "unstable-api")]
+	fn lock_delegate_dependency(code_hash: &[u8; 32]);
+
+	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the output data buffer to write the minimum balance.
+	#[cfg(feature = "unstable-api")]
+	fn minimum_balance(output: &mut [u8; 32]);
+
+	/// Retrieve the code hash of the currently executing contract.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the output data buffer to write the code hash.
+	#[cfg(feature = "unstable-api")]
+	fn own_code_hash(output: &mut [u8; 32]);
 
 	/// Replace the contract code at the specified address with new code.
 	///
@@ -569,22 +635,8 @@ pub trait HostFn: private::Sealed {
 	/// # Panics
 	///
 	/// Panics if there is no code on-chain with the specified hash.
+	#[cfg(feature = "unstable-api")]
 	fn set_code_hash(code_hash: &[u8; 32]);
-
-	/// Set the value at the given key in the contract storage.
-	///
-	/// The key and value lengths must not exceed the maximums defined by the contracts module
-	/// parameters.
-	///
-	/// # Parameters
-	///
-	/// - `key`: The storage key.
-	/// - `encoded_value`: The storage value.
-	///
-	/// # Return
-	///
-	/// Returns the size of the pre-existing value at the specified key if any.
-	fn set_storage(flags: StorageFlags, key: &[u8], value: &[u8]) -> Option<u32>;
 
 	/// Verify a sr25519 signature
 	///
@@ -596,6 +648,7 @@ pub trait HostFn: private::Sealed {
 	/// # Errors
 	///
 	/// - [Sr25519VerifyFailed][`crate::ReturnErrorCode::Sr25519VerifyFailed]
+	#[cfg(feature = "unstable-api")]
 	fn sr25519_verify(signature: &[u8; 64], message: &[u8], pub_key: &[u8; 32]) -> Result;
 
 	/// Retrieve and remove the value under the given key from storage.
@@ -607,6 +660,7 @@ pub trait HostFn: private::Sealed {
 	/// # Errors
 	///
 	/// [KeyNotFound][`crate::ReturnErrorCode::KeyNotFound]
+	#[cfg(feature = "unstable-api")]
 	fn take_storage(flags: StorageFlags, key: &[u8], output: &mut &mut [u8]) -> Result;
 
 	/// Remove the calling account and transfer remaining **free** balance.
@@ -624,23 +678,30 @@ pub trait HostFn: private::Sealed {
 	/// - The contract is live i.e is already on the call stack.
 	/// - Failed to send the balance to the beneficiary.
 	/// - The deletion queue is full.
+	#[cfg(feature = "unstable-api")]
 	fn terminate(beneficiary: &[u8; 20]) -> !;
 
-	/// Stores the value transferred along with this call/instantiate into the supplied buffer.
+	/// Removes the delegate dependency from the contract.
+	///
+	/// Traps if the delegate dependency does not exist.
 	///
 	/// # Parameters
 	///
-	/// - `output`: A reference to the output data buffer to write the transferred value.
-	fn value_transferred(output: &mut [u8; 32]);
+	/// - `code_hash`: The code hash of the dependency. Should be decodable as an `T::Hash`. Traps
+	///   otherwise.
+	#[cfg(feature = "unstable-api")]
+	fn unlock_delegate_dependency(code_hash: &[u8; 32]);
 
-	/// Stores the price for the specified amount of gas into the supplied buffer.
+	/// Stores the amount of weight left into the supplied buffer.
+	/// The data is encoded as Weight.
+	///
+	/// If the available space in `output` is less than the size of the value a trap is triggered.
 	///
 	/// # Parameters
 	///
-	/// - `ref_time_limit`: The *ref_time* Weight limit to query the price for.
-	/// - `proof_size_limit`: The *proof_size* Weight limit to query the price for.
-	/// - `output`: A reference to the output data buffer to write the price.
-	fn weight_to_fee(ref_time_limit: u64, proof_size_limit: u64, output: &mut [u8; 32]);
+	/// - `output`: A reference to the output data buffer to write the weight left.
+	#[cfg(feature = "unstable-api")]
+	fn weight_left(output: &mut &mut [u8]);
 
 	/// Execute an XCM program locally, using the contract's address as the origin.
 	/// This is equivalent to dispatching `pallet_xcm::execute` through call_runtime, except that
@@ -656,6 +717,7 @@ pub trait HostFn: private::Sealed {
 	///
 	/// Returns `Error::Success` when the XCM execution attempt is successful. When the XCM
 	/// execution fails, `ReturnCode::XcmExecutionFailed` is returned
+	#[cfg(feature = "unstable-api")]
 	fn xcm_execute(msg: &[u8]) -> Result;
 
 	/// Send an XCM program from the contract to the specified destination.
@@ -673,21 +735,8 @@ pub trait HostFn: private::Sealed {
 	///
 	/// Returns `ReturnCode::Success` when the message was successfully sent. When the XCM
 	/// execution fails, `ReturnErrorCode::XcmSendFailed` is returned.
+	#[cfg(feature = "unstable-api")]
 	fn xcm_send(dest: &[u8], msg: &[u8], output: &mut [u8; 32]) -> Result;
-
-	/// Stores the size of the returned data of the last contract call or instantiation.
-	///
-	/// # Parameters
-	///
-	/// - `output`: A reference to the output buffer to write the size.
-	fn return_data_size(output: &mut [u8; 32]);
-
-	/// Stores the returned data of the last contract call or contract instantiation.
-	///
-	/// # Parameters
-	/// - `output`: A reference to the output buffer to write the data.
-	/// - `offset`: Byte offset into the returned data
-	fn return_data_copy(output: &mut &mut [u8], offset: u32);
 }
 
 mod private {
