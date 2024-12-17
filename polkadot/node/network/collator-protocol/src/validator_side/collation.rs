@@ -198,7 +198,7 @@ pub enum CollationStatus {
 	/// We are waiting for a collation to be advertised to us.
 	Waiting,
 	/// We are currently fetching a collation for the specified `ParaId`.
-	Fetching(ParaId),
+	Fetching,
 	/// We are waiting that a collation is being validated.
 	WaitingOnValidation,
 }
@@ -310,13 +310,6 @@ impl Collations {
 		}
 
 		None
-	}
-
-	pub(super) fn seconded_for_para(&self, para_id: &ParaId) -> usize {
-		self.candidates_state
-			.get(&para_id)
-			.map(|state| state.seconded_per_para)
-			.unwrap_or_default()
 	}
 }
 

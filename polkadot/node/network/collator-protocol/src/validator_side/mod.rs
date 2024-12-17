@@ -48,7 +48,6 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
-	claim_queue_state::ClaimQueueState,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
 	request_async_backing_params, request_claim_queue, request_session_index_for_child,
 	runtime::{recv_runtime, request_node_features},
@@ -409,57 +408,6 @@ struct State {
 	reputation: ReputationAggregator,
 }
 
-impl State {
-	// Returns the number of seconded and pending collations for a specific `ParaId`. Pending
-	// collations are:
-	// 1. Collations being fetched from a collator.
-	// 2. Collations waiting for validation from backing subsystem.
-	// 3. Collations blocked from seconding due to parent not being known by backing subsystem.
-	fn seconded_and_pending_for_para(&self, relay_parent: &Hash, para_id: &ParaId) -> usize {
-		let seconded = self
-			.per_relay_parent
-			.get(relay_parent)
-			.map_or(0, |per_relay_parent| per_relay_parent.collations.seconded_for_para(para_id));
-
-		let pending_fetch = self.per_relay_parent.get(relay_parent).map_or(0, |rp_state| {
-			match rp_state.collations.status {
-				CollationStatus::Fetching(pending_para_id) if pending_para_id == *para_id => 1,
-				_ => 0,
-			}
-		});
-
-		let waiting_for_validation = self
-			.fetched_candidates
-			.keys()
-			.filter(|fc| fc.relay_parent == *relay_parent && fc.para_id == *para_id)
-			.count();
-
-		let blocked_from_seconding =
-			self.blocked_from_seconding.values().fold(0, |acc, blocked_collations| {
-				acc + blocked_collations
-					.iter()
-					.filter(|pc| {
-						pc.candidate_receipt.descriptor.para_id() == *para_id &&
-							pc.candidate_receipt.descriptor.relay_parent() == *relay_parent
-					})
-					.count()
-			});
-
-		gum::trace!(
-			target: LOG_TARGET,
-			?relay_parent,
-			?para_id,
-			seconded,
-			pending_fetch,
-			waiting_for_validation,
-			blocked_from_seconding,
-			"Seconded and pending collations for para",
-		);
-
-		seconded + pending_fetch + waiting_for_validation + blocked_from_seconding
-	}
-}
-
 fn is_relay_parent_in_implicit_view(
 	relay_parent: &Hash,
 	implicit_view: &ImplicitView,
@@ -752,7 +700,7 @@ async fn request_collation(
 
 	let maybe_candidate_hash =
 		prospective_candidate.as_ref().map(ProspectiveCandidate::candidate_hash);
-	per_relay_parent.collations.status = CollationStatus::Fetching(para_id);
+	per_relay_parent.collations.status = CollationStatus::Fetching;
 	per_relay_parent
 		.collations
 		.fetching_from
@@ -1063,60 +1011,35 @@ async fn second_unblocked_collations<Context>(
 	}
 }
 
-fn ensure_seconding_limit_is_respected(
+// Fallback for checking that the seconding limit is respected for candidates advertised over
+// collator protocol V1. Since we don't know the hash of the candidate we can't claim a slot for it
+// at the claim queue. The best we can do is to check if there is a free slot for the para id of the
+// candidate. This is not ideal since it creates a possibility for a race condition but worst case
+// we can accept one extra candidate per relay parent.
+async fn ensure_seconding_limit_is_respected<Sender>(
+	sender: &mut Sender,
 	relay_parent: &Hash,
 	para_id: ParaId,
-	state: &State,
-) -> std::result::Result<(), AdvertisementError> {
-	let paths = state.implicit_view.paths_via_relay_parent(relay_parent);
-
+) -> std::result::Result<(), AdvertisementError>
+where
+	Sender: CollatorProtocolSenderTrait,
+{
 	gum::trace!(
 		target: LOG_TARGET,
 		?relay_parent,
 		?para_id,
-		?paths,
 		"Checking seconding limit",
 	);
 
-	let mut has_claim_at_some_path = false;
-	for path in paths {
-		let mut cq_state = ClaimQueueState::new();
-		for ancestor in &path {
-			let seconded_and_pending = state.seconded_and_pending_for_para(&ancestor, &para_id);
-			cq_state.add_leaf(
-				&ancestor,
-				&state
-					.per_relay_parent
-					.get(ancestor)
-					.ok_or(AdvertisementError::RelayParentUnknown)?
-					.assignment
-					.current,
-			);
-			for _ in 0..seconded_and_pending {
-				cq_state.claim_pending_at(&ancestor, &para_id, None);
-			}
-		}
-
-		if cq_state.can_claim_at(relay_parent, &para_id, None) {
-			gum::trace!(
-				target: LOG_TARGET,
-				?relay_parent,
-				?para_id,
-				?path,
-				"Seconding limit respected at path",
-			);
-			has_claim_at_some_path = true;
-			break
-		}
+	let (tx, rx) = oneshot::channel();
+	sender
+		.send_message(CandidateBackingMessage::CanClaim(*relay_parent, para_id, tx))
+		.await;
+	let can_claim_slot = rx.await.map_err(|_| AdvertisementError::SecondedLimitReached)?;
+	if !can_claim_slot {
+		return Err(AdvertisementError::SecondedLimitReached)
 	}
-
-	// If there is a place in the claim queue for the candidate at at least one path we will accept
-	// it.
-	if has_claim_at_some_path {
-		Ok(())
-	} else {
-		Err(AdvertisementError::SecondedLimitReached)
-	}
+	return Ok(())
 }
 
 async fn handle_advertisement<Sender>(
@@ -1184,8 +1107,7 @@ where
 		// This check is here only to provide some spam protection against candidates sent via
 		// protocol version 1. For 2 and above `can_second` ensures there is a free slot in the
 		// claim queue for the candidate.
-		// todo: use generic claim here?
-		ensure_seconding_limit_is_respected(&relay_parent, para_id, state)?;
+		ensure_seconding_limit_is_respected(sender, &relay_parent, para_id).await?;
 	}
 
 	// For V1 no claim was made which is fine because the backing system will try to make one when
@@ -1269,7 +1191,7 @@ where
 		PendingCollation::new(relay_parent, para_id, &peer_id, prospective_candidate);
 
 	match collations.status {
-		CollationStatus::Fetching(_) | CollationStatus::WaitingOnValidation => {
+		CollationStatus::Fetching | CollationStatus::WaitingOnValidation => {
 			gum::trace!(
 				target: LOG_TARGET,
 				peer_id = ?peer_id,

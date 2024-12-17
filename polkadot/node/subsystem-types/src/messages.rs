@@ -112,6 +112,8 @@ pub enum CandidateBackingMessage {
 	DropClaims(HashSet<CandidateHash>),
 	/// Returns `ParaId`s with claimed slots that are not yet seconded.
 	ClaimedSlots(Hash, oneshot::Sender<VecDeque<ParaId>>),
+	/// Returns true if there is unclaimed slot for the given para id at the specified relay parent
+	CanClaim(Hash, ParaId, oneshot::Sender<bool>),
 }
 
 /// Blanket error for validation failing for internal reasons.

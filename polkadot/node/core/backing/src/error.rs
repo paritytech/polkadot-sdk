@@ -114,6 +114,9 @@ pub enum Error {
 
 	#[error("Failed to send claimed slots")]
 	SendClaimedSlots,
+
+	#[error("Falied to send `CanClaim` response")]
+	SendCanClaim,
 }
 
 /// Utility for eating top level errors and log them.

@@ -985,6 +985,10 @@ async fn handle_communication<Context>(
 			let res = state.claim_queue_state.get_claimed_slots_at(&relay_parent);
 			tx.send(res).map_err(|_| Error::SendClaimedSlots)?
 		},
+		CandidateBackingMessage::CanClaim(relay_parent, para_id, tx) => {
+			let res = state.claim_queue_state.has_free_slot_for_para_id(&relay_parent, &para_id);
+			tx.send(res).map_err(|_| Error::SendCanClaim)?
+		},
 	}
 
 	Ok(())

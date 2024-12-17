@@ -505,6 +505,17 @@ impl PerLeafClaimQueueState {
 		})
 	}
 
+	/// Returns `true` if there is a free claim for `para_id` at `relay_parent` in at least one
+	/// leaf.
+	pub fn has_free_slot_for_para_id(&mut self, relay_parent: &Hash, para_id: &ParaId) -> bool {
+		for (_, state) in &mut self.state {
+			if state.can_claim_at(relay_parent, para_id, None) {
+				return true
+			}
+		}
+		false
+	}
+
 	/// Releases a claim for a candidate.
 	pub fn release_claims_for_candidate(&mut self, candidate_hash: &Hash) -> bool {
 		let mut result = false;
