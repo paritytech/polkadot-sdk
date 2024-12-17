@@ -160,6 +160,8 @@ impl MaybeEquivalence<Location, AssetIdForAssets>
 	}
 }
 
+/// Converts a local signed origin into an XCM location. Forms the basis for local origins
+/// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, AnyNetwork>;
 pub type LocalAssetsTransactor = FungiblesAdapter<
 	Assets,
