@@ -26,3 +26,7 @@ import-storage:
         - providers: 1
           data:
             free: 1000000000000000
+  Assets:
+    Account:
+      - [[1984, 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY], { balance: 1000000000 }]
+    Asset: [[[1984], { supply: 1000000000 }]]
