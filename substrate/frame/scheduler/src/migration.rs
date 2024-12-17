@@ -28,7 +28,6 @@ const TARGET: &'static str = "runtime::scheduler::migration";
 
 pub mod v1 {
 	use super::*;
-	use frame::testing_prelude::*;
 
 	#[storage_alias]
 	pub(crate) type Agenda<T: Config> = StorageMap<
@@ -46,7 +45,6 @@ pub mod v1 {
 
 pub mod v2 {
 	use super::*;
-	use frame::testing_prelude::*;
 
 	#[storage_alias]
 	pub(crate) type Agenda<T: Config> = StorageMap<
@@ -64,7 +62,6 @@ pub mod v2 {
 
 pub mod v3 {
 	use super::*;
-	use frame::testing_prelude::*;
 
 	#[storage_alias]
 	pub(crate) type Agenda<T: Config> = StorageMap<
@@ -187,7 +184,6 @@ pub mod v3 {
 
 pub mod v4 {
 	use super::*;
-	use frame::testing_prelude::*;
 
 	/// This migration cleans up empty agendas of the V4 scheduler.
 	///

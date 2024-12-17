@@ -21,6 +21,11 @@ use super::*;
 
 use crate as scheduler;
 use frame::testing_prelude::*;
+use frame::arithmetic::Perbill;
+use frame::traits::EitherOfDiverse;
+use frame::traits::EqualPrivilegeOnly;
+use crate::frame_system::GenesisConfig;
+use frame::benchmarking::prelude::RawOrigin;
 // use frame_support::{
 // 	derive_impl, ord_parameter_types, parameter_types,
 // 	traits::{ConstU32, Contains, EitherOfDiverse, EqualPrivilegeOnly, OnFinalize, OnInitialize},
@@ -231,8 +236,8 @@ impl Config for Test {
 
 pub type LoggerCall = logger::Call<Test>;
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	let t = system::GenesisConfig::<Test>::default().build_storage().unwrap();
+pub fn new_test_ext() -> TestExternalities {
+	let t = GenesisConfig::<Test>::default().build_storage().unwrap();
 	t.into()
 }
 
@@ -245,5 +250,5 @@ pub fn run_to_block(n: u64) {
 }
 
 pub fn root() -> OriginCaller {
-	system::RawOrigin::Root.into()
+	RawOrigin::Root.into()
 }

@@ -89,7 +89,7 @@ extern crate alloc;
 
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
-use core::{borrow::Borrow, cmp::Ordering, marker::PhantomData};
+use core::{cmp::Ordering, marker::PhantomData};
 use frame::{
 	prelude::*,
 	benchmarking::prelude::RawOrigin,
@@ -97,12 +97,15 @@ use frame::{
 	traits::schedule::MaybeHashed,
 	traits::schedule::DispatchTime,
 	traits::schedule,
-	traits::schedule::v2,
-	traits::schedule::v3,
 	traits::QueryPreimage,
 	traits::PrivilegeCmp,
 	traits::StorePreimage,
+	traits::OriginTrait,
+	traits::CallerTrait,
+	traits::BadOrigin,
 };
+
+use frame::runtime::prelude::storage::migration::remove_storage_prefix;
 use scale_info::TypeInfo;
 
 pub use pallet::*;
