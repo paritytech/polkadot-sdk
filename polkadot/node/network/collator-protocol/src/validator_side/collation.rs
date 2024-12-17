@@ -289,7 +289,7 @@ impl Collations {
 	/// fulfilled.
 	pub(super) fn pick_a_collation_to_fetch(
 		&mut self,
-		unfulfilled_claim_queue_entries: VecDeque<ParaId>,
+		unfulfilled_claim_queue_entries: &VecDeque<ParaId>,
 	) -> Option<(PendingCollation, CollatorId)> {
 		gum::trace!(
 			target: LOG_TARGET,

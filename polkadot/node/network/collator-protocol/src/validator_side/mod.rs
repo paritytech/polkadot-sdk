@@ -1155,15 +1155,9 @@ where
 		)
 		.map_err(AdvertisementError::Invalid)?;
 
-	// This check is here only to provide some spam protection against candidates sent via protocol
-	// version 1. For 2 and above `can_second` ensures there is a free slot in the claim queue for
-	// the candidate.
-	ensure_seconding_limit_is_respected(&relay_parent, para_id, state)?;
-
 	if let Some((candidate_hash, parent_head_data_hash)) = prospective_candidate {
-		// Check if backing subsystem allows to second this candidate.
-		//
-		// This is also only important when async backing or elastic scaling is enabled.
+		// Check if backing subsystem allows to second this candidate. If `CanSecond` returns true a
+		// slot has been claimed for the candidate in backing subsystem.
 		let can_second = can_second(
 			sender,
 			collator_para_id,
@@ -1178,6 +1172,12 @@ where
 			// rejects the candidate
 			return Err(AdvertisementError::BlockedByBacking)
 		}
+	} else {
+		// This check is here only to provide some spam protection against candidates sent via
+		// protocol version 1. For 2 and above `can_second` ensures there is a free slot in the
+		// claim queue for the candidate.
+		// todo: use generic claim here?
+		ensure_seconding_limit_is_respected(&relay_parent, para_id, state)?;
 	}
 
 	// For V1 no claim was made which is fine because the backing system will try to make one when
@@ -1832,6 +1832,26 @@ async fn run_inner<Context>(
 	Ok(())
 }
 
+async fn get_claimed_slots<Sender>(sender: &mut Sender, relay_parent: Hash) -> VecDeque<ParaId>
+where
+	Sender: CollatorProtocolSenderTrait,
+{
+	let (tx, rx) = oneshot::channel();
+	sender
+		.send_message(CandidateBackingMessage::ClaimedSlots(relay_parent, tx))
+		.await;
+
+	rx.await.unwrap_or_else(|err| {
+		gum::warn!(
+			target: LOG_TARGET,
+			?err,
+			"GetClaimedSlots-request responder was dropped",
+		);
+
+		VecDeque::new()
+	})
+}
+
 /// Dequeue another collation and fetch.
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
 async fn dequeue_next_collation_and_fetch<Context>(
@@ -1841,7 +1861,11 @@ async fn dequeue_next_collation_and_fetch<Context>(
 	// The collator we tried to fetch from last, optionally which candidate.
 	previous_fetch: (CollatorId, Option<CandidateHash>),
 ) {
-	while let Some((next, id)) = get_next_collation_to_fetch(&previous_fetch, relay_parent, state) {
+	let claimed_slots = get_claimed_slots(ctx.sender(), relay_parent).await;
+
+	while let Some((next, id)) =
+		get_next_collation_to_fetch(&previous_fetch, relay_parent, state, &claimed_slots)
+	{
 		gum::debug!(
 			target: LOG_TARGET,
 			?relay_parent,
@@ -2217,74 +2241,14 @@ async fn handle_collation_fetch_response(
 	result
 }
 
-// Returns the claim queue without fetched or pending advertisement. The resulting `Vec` keeps the
-// order in the claim queue so the earlier an element is located in the `Vec` the higher its
-// priority is.
-fn unfulfilled_claim_queue_entries(relay_parent: &Hash, state: &State) -> Result<VecDeque<ParaId>> {
-	let relay_parent_state = state
-		.per_relay_parent
-		.get(relay_parent)
-		.ok_or(Error::RelayParentStateNotFound)?;
-	let scheduled_paras = relay_parent_state.assignment.current.iter().collect::<HashSet<_>>();
-	let paths = state.implicit_view.paths_via_relay_parent(relay_parent);
-
-	let mut claim_queue_states = Vec::new();
-	for path in paths {
-		let mut cq_state = ClaimQueueState::new();
-		for ancestor in &path {
-			cq_state.add_leaf(
-				&ancestor,
-				&state
-					.per_relay_parent
-					.get(&ancestor)
-					.ok_or(Error::RelayParentStateNotFound)?
-					.assignment
-					.current,
-			);
-
-			for para_id in &scheduled_paras {
-				let seconded_and_pending = state.seconded_and_pending_for_para(&ancestor, &para_id);
-				for _ in 0..seconded_and_pending {
-					cq_state.claim_at(&ancestor, &para_id, None);
-				}
-			}
-		}
-		claim_queue_states.push(cq_state);
-	}
-
-	// From the claim queue state for each leaf we have to return a combined single one. Go for a
-	// simple solution and return the longest one. In theory we always prefer the earliest entries
-	// in the claim queue so there is a good chance that the longest path is the one with
-	// unsatisfied entries in the beginning. This is not guaranteed as we might have fetched 2nd or
-	// 3rd spot from the claim queue but it should be good enough.
-	let unfulfilled_entries = claim_queue_states
-		.iter_mut()
-		.map(|cq| cq.unclaimed_at(relay_parent))
-		.max_by(|a, b| a.len().cmp(&b.len()))
-		.unwrap_or_default();
-
-	Ok(unfulfilled_entries)
-}
-
 /// Returns the next collation to fetch from the `waiting_queue` and reset the status back to
 /// `Waiting`.
 fn get_next_collation_to_fetch(
 	finished_one: &(CollatorId, Option<CandidateHash>),
 	relay_parent: Hash,
 	state: &mut State,
+	unfulfilled_entries: &VecDeque<ParaId>,
 ) -> Option<(PendingCollation, CollatorId)> {
-	let unfulfilled_entries = match unfulfilled_claim_queue_entries(&relay_parent, &state) {
-		Ok(entries) => entries,
-		Err(err) => {
-			gum::error!(
-				target: LOG_TARGET,
-				?relay_parent,
-				?err,
-				"Failed to get unfulfilled claim queue entries"
-			);
-			return None
-		},
-	};
 	let rp_state = match state.per_relay_parent.get_mut(&relay_parent) {
 		Some(rp_state) => rp_state,
 		None => {
