@@ -21,7 +21,6 @@
 use codec::Encode;
 use sp_core::RuntimeDebug;
 use sp_weights::Weight;
-
 use super::unchecked_extrinsic::ExtensionVersion;
 use crate::{
 	traits::{
@@ -43,7 +42,7 @@ const EXTENSION_V0_VERSION: ExtensionVersion = 0;
 /// The kind of extrinsic this is, including any fields required of that kind. This is basically
 /// the full extrinsic except the `Call`.
 #[derive(PartialEq, Eq, Clone, RuntimeDebug)]
-pub enum ExtrinsicFormat<AccountId, ExtensionV0, ExtensionOtherVersions> {
+pub enum ExtrinsicFormat<AccountId, ExtensionV0, ExtensionOtherVersions = InvalidVersion> {
 	/// Extrinsic is bare; it must pass either the bare forms of `TransactionExtension` or
 	/// `ValidateUnsigned`, both deprecated, or alternatively a `ProvideInherent`.
 	Bare,
@@ -60,7 +59,7 @@ pub enum ExtrinsicFormat<AccountId, ExtensionV0, ExtensionOtherVersions> {
 ///
 /// This is typically passed into [`traits::Applyable::apply`], which should execute
 /// [`CheckedExtrinsic::function`], alongside all other bits and bobs.
-#[derive(PartialEq, Eq, Clone, sp_core::RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, RuntimeDebug)]
 pub struct CheckedExtrinsic<AccountId, Call, ExtensionV0, ExtensionOtherVersions = InvalidVersion> {
 	/// Who this purports to be from and the number of extrinsics have come before
 	/// from the same signer, if anyone (note this is not a signature).
@@ -137,12 +136,12 @@ where
 	}
 }
 
-impl<
-		AccountId,
-		Call: Dispatchable<RuntimeOrigin: AsTransactionAuthorizedOrigin> + Encode,
-		ExtensionV0: TransactionExtension<Call>,
-		ExtensionOtherVersions: VersionedTransactionExtensionPipeline<Call>,
-	> CheckedExtrinsic<AccountId, Call, ExtensionV0, ExtensionOtherVersions>
+impl<AccountId, Call, ExtensionV0, ExtensionOtherVersions>
+	CheckedExtrinsic<AccountId, Call, ExtensionV0, ExtensionOtherVersions>
+where
+	Call: Dispatchable,
+	ExtensionV0: TransactionExtension<Call>,
+	ExtensionVariant<ExtensionV0, ExtensionOtherVersions>: VersionedTransactionExtensionPipeline<Call>,
 {
 	/// Returns the weight of the extension of this transaction, if present. If the transaction
 	/// doesn't use any extension, the weight returned is equal to zero.

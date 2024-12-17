@@ -114,6 +114,8 @@ mod test {
 				signature_ty: meta_type::<()>(),
 				extra_ty: meta_type::<()>(),
 				extensions: vec![],
+				extensions_by_version: vec![],
+				extensions_in_versions: vec![],
 			},
 			ty: meta_type::<()>(),
 			apis: vec![],

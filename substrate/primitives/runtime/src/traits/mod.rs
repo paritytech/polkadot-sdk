@@ -1415,11 +1415,11 @@ pub trait ExtrinsicMetadata {
 	/// By format we mean the encoded representation of the `Extrinsic`.
 	const VERSIONS: &'static [u8];
 
-	/// The transaction extension version 0 attached to this `Extrinsic`.
-	type TransactionExtensionV0;
-
-	/// All transaction extension versions attached to this `Extrinsic`.
+	/// The transaction extensions version 0 attached to this `Extrinsic`.
 	type TransactionExtensions;
+
+	/// All version of transaction extensions attached to this `Extrinsic`.
+	type TransactionExtensionsVersions;
 }
 
 /// Extract the hashing type for a block.

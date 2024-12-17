@@ -134,8 +134,8 @@ pub fn sign(
 			function: xt.function,
 		}
 		.into(),
-		ExtrinsicFormat::General(ext_version, tx_ext) => generic::UncheckedExtrinsic {
-			preamble: sp_runtime::generic::Preamble::General(ext_version, tx_ext),
+		ExtrinsicFormat::General(tx_ext) => generic::UncheckedExtrinsic {
+			preamble: sp_runtime::generic::Preamble::General(todo!(), tx_ext),
 			function: xt.function,
 		}
 		.into(),

@@ -54,9 +54,12 @@ pub use dispatch_transaction::DispatchTransaction;
 /// implication for legacy transactions.
 const EXTENSION_V0_VERSION: ExtensionVersion = 0;
 
+/// TODO TODO: doc
 #[derive(PartialEq, Eq, Clone, RuntimeDebug, TypeInfo)]
 pub enum ExtensionVariant<ExtensionV0, ExtensionOtherVersions> {
+	/// TODO TODO: doc
 	V0(ExtensionV0),
+	/// TODO TODO: doc
 	Other(ExtensionOtherVersions),
 }
 
@@ -119,8 +122,14 @@ impl<
 	> VersionedTransactionExtensionPipeline<Call>
 	for ExtensionVariant<ExtensionV0, ExtensionOtherVersions>
 where
-	<Call as Dispatchable>::RuntimeOrigin: AsTransactionAuthorizedOrigin,
+	// TODO TODO: remove this bound: maybe remove the function dispatch transaction from the trait
+	// and just implement the DispatchTransaction trait for all types
+	// <Call as Dispatchable>::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 {
+	// TODO TODO: maybe this can be const.
+	fn build_metadata(builder: &mut VersionedTransactionExtensionsMetadataBuilder) {
+		ExtensionOtherVersions::build_metadata(builder);
+	}
 	fn weight(&self, call: &Call) -> Weight {
 		match self {
 			ExtensionVariant::V0(ext) => ext.weight(call),
@@ -138,12 +147,13 @@ where
 		crate::transaction_validity::ValidTransaction,
 		crate::transaction_validity::TransactionValidityError,
 	> {
-		match self {
-			ExtensionVariant::V0(ext) => ext
-				.validate_only(origin, call, info, len, source, EXTENSION_V0_VERSION)
-				.map(|x| x.0),
-			ExtensionVariant::Other(ext) => ext.validate_only(origin, call, info, len, source),
-		}
+		todo!();
+		// match self {
+		// 	ExtensionVariant::V0(ext) => ext
+		// 		.validate_only(origin, call, info, len, source, EXTENSION_V0_VERSION)
+		// 		.map(|x| x.0),
+		// 	ExtensionVariant::Other(ext) => ext.validate_only(origin, call, info, len, source),
+		// }
 	}
 	fn dispatch_transaction(
 		self,
@@ -152,11 +162,12 @@ where
 		info: &DispatchInfoOf<Call>,
 		len: usize,
 	) -> crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Call>> {
-		match self {
-			ExtensionVariant::V0(ext) =>
-				ext.dispatch_transaction(origin, call, info, len, EXTENSION_V0_VERSION),
-			ExtensionVariant::Other(ext) => ext.dispatch_transaction(origin, call, info, len),
-		}
+		todo!();
+		// match self {
+		// 	ExtensionVariant::V0(ext) =>
+		// 		ext.dispatch_transaction(origin, call, info, len, EXTENSION_V0_VERSION),
+		// 	ExtensionVariant::Other(ext) => ext.dispatch_transaction(origin, call, info, len),
+		// }
 	}
 }
 /// TODO TODO: doc
@@ -168,11 +179,56 @@ pub trait DecodeWithVersion: Sized {
 	) -> Result<Self, codec::Error>;
 }
 
+/// A type to build the metadata for the transaction extensions.
+pub struct VersionedTransactionExtensionsMetadataBuilder {
+	/// The transaction extensions by version and its list of items as vec of index into the vec
+	/// below.
+	pub by_version: Vec<(u8, Vec<u32>)>,
+	/// The list of all transaction extension item used.
+	pub in_versions: Vec<TransactionExtensionMetadata>,
+}
+
+impl VersionedTransactionExtensionsMetadataBuilder {
+	/// Create a new empty metadata builder.
+	pub fn new() -> Self {
+		Self { by_version: Vec::new(), in_versions: Vec::new() }
+	}
+
+	/// A function to add a versioned transaction extension to the metadata builder.
+	pub fn push_versioned_extension(
+		&mut self,
+		ext_version: u8,
+		ext_items: Vec<TransactionExtensionMetadata>,
+	) {
+		debug_assert!(
+			self.by_version.iter().all(|(v, _)| *v != ext_version),
+			"Duplicate definition for transaction extension version: {}", ext_version
+		);
+
+		let mut ext_item_indices = Vec::with_capacity(ext_items.len());
+		for ext_item in ext_items {
+			let ext_item_index = match self.in_versions.iter().position(|ext| ext.identifier == ext_item.identifier) {
+				Some(index) => index,
+				None => {
+					self.in_versions.push(ext_item);
+					self.in_versions.len() - 1
+				}
+			};
+			ext_item_indices.push(ext_item_index as u32);
+		}
+		self.by_version.push((ext_version, ext_item_indices));
+	}
+
+}
+
 /// TODO TODO: doc
 // TODO TODO: or maybe name it DispatchTransactionWithExtensionVersion
 pub trait VersionedTransactionExtensionPipeline<Call: Dispatchable>:
 	Encode + DecodeWithVersion + Debug + StaticTypeInfo + Send + Sync + Clone
 {
+	/// TODO TODO: doc
+	fn build_metadata(builder: &mut VersionedTransactionExtensionsMetadataBuilder);
+
 	/// TODO TODO: doc
 	fn validate_only(
 		&self,
@@ -280,6 +336,9 @@ impl DecodeWithVersion for InvalidVersion {
 }
 
 impl<Call: Dispatchable> VersionedTransactionExtensionPipeline<Call> for InvalidVersion {
+	fn build_metadata(_builder: &mut VersionedTransactionExtensionsMetadataBuilder) {
+		// Do nothing.
+	}
 	fn weight(&self, _call: &Call) -> Weight {
 		Weight::zero()
 	}
@@ -342,6 +401,10 @@ where
 	A: VersionedTransactionExtensionPipeline<Call> + MultiVersionItem,
 	B: VersionedTransactionExtensionPipeline<Call> + MultiVersionItem,
 {
+	fn build_metadata(builder: &mut VersionedTransactionExtensionsMetadataBuilder) {
+		A::build_metadata(builder);
+		B::build_metadata(builder);
+	}
 	fn weight(&self, call: &Call) -> Weight {
 		match self {
 			MultiVersion::A(a) => a.weight(call),
@@ -381,6 +444,9 @@ impl<
 		Extension: TransactionExtension<Call>,
 	> VersionedTransactionExtensionPipeline<Call> for VersionedExtension<VERSION, Extension>
 {
+	fn build_metadata(builder: &mut VersionedTransactionExtensionsMetadataBuilder) {
+		builder.push_versioned_extension(VERSION, Extension::metadata());
+	}
 	fn weight(&self, call: &Call) -> Weight {
 		self.extension.weight(call)
 	}

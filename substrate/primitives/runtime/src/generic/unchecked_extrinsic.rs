@@ -23,9 +23,9 @@ use crate::{
 		self,
 		transaction_extension::{
 			DecodeWithVersion, ExtensionVariant, InvalidVersion, TransactionExtension,
-			VersionedExtension, VersionedTransactionExtensionPipeline,
+			VersionedTransactionExtensionPipeline,
 		},
-		AsTransactionAuthorizedOrigin, Checkable, Dispatchable, ExtrinsicLike, ExtrinsicMetadata,
+		Checkable, Dispatchable, ExtrinsicLike, ExtrinsicMetadata,
 		IdentifyAccount, MaybeDisplay, Member, SignaturePayload,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
@@ -239,7 +239,7 @@ pub struct UncheckedExtrinsic<
 	Call,
 	Signature,
 	ExtensionV0,
-	ExtensionOtherVersions = VersionedExtension<0, ExtensionV0>,
+	ExtensionOtherVersions = InvalidVersion,
 > {
 	/// Information regarding the type of extrinsic this is (inherent or transaction) as well as
 	/// associated extension (`Extension`) data if it's a transaction and a possible signature.
@@ -339,11 +339,7 @@ impl<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions>
 	) -> Self {
 		Self { preamble: Preamble::Signed(signed, signature, tx_ext), function }
 	}
-}
 
-impl<Address, Call: Dispatchable, Signature, ExtensionV0, ExtensionOtherVersions>
-	UncheckedExtrinsic<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions>
-{
 	/// New instance of an new-school unsigned transaction.
 	///
 	/// This function is only available for `UncheckedExtrinsic` without multi version extension.
@@ -419,7 +415,7 @@ where
 					function: self.function,
 				}
 			},
-			Preamble::General(tx_ext) => CheckedExtrinsic {
+			Preamble::General(_, tx_ext) => CheckedExtrinsic {
 				format: ExtrinsicFormat::General(tx_ext),
 				function: self.function,
 			},
@@ -434,17 +430,16 @@ impl<Address, Call: Dispatchable, Signature, ExtensionV0, ExtensionOtherVersions
 	for UncheckedExtrinsic<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions>
 {
 	const VERSIONS: &'static [u8] = &[LEGACY_EXTRINSIC_FORMAT_VERSION, EXTRINSIC_FORMAT_VERSION];
-	type TransactionExtensionV0 = ExtensionV0;
-	type TransactionExtensions = ExtensionVariant<ExtensionV0, ExtensionOtherVersions>;
+	type TransactionExtensions = ExtensionV0;
+	type TransactionExtensionsVersions = ExtensionVariant<ExtensionV0, ExtensionOtherVersions>;
 }
 
-impl<
-		Address,
-		Call: Dispatchable<RuntimeOrigin: AsTransactionAuthorizedOrigin> + Encode,
-		Signature,
-		ExtensionV0: TransactionExtension<Call>,
-		ExtensionOtherVersions: VersionedTransactionExtensionPipeline<Call>,
-	> UncheckedExtrinsic<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions>
+impl<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions>
+	UncheckedExtrinsic<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions>
+where
+	Call: Dispatchable,
+	ExtensionV0: TransactionExtension<Call>,
+	ExtensionVariant<ExtensionV0, ExtensionOtherVersions>: VersionedTransactionExtensionPipeline<Call>,
 {
 	/// Returns the weight of the extension of this transaction, if present. If the transaction
 	/// doesn't use any extension, the weight returned is equal to zero.
