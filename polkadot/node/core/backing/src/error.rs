@@ -111,6 +111,9 @@ pub enum Error {
 
 	#[error("No free slot in claim queue for candidate")]
 	NoFreeSlotInClaimQueue,
+
+	#[error("Failed to send claimed slots")]
+	SendClaimedSlots,
 }
 
 /// Utility for eating top level errors and log them.

@@ -110,6 +110,8 @@ pub enum CandidateBackingMessage {
 	Statement(Hash, SignedFullStatementWithPVD),
 	/// Drops all claims for a candidate hash
 	DropClaims(HashSet<CandidateHash>),
+	/// Returns all claimed slots
+	ClaimedSlots(Hash, oneshot::Sender<VecDeque<ParaId>>),
 }
 
 /// Blanket error for validation failing for internal reasons.

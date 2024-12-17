@@ -975,6 +975,10 @@ async fn handle_communication<Context>(
 			for candidate_hash in claims {
 				state.claim_queue_state.release_claims_for_candidate(&candidate_hash);
 			},
+		CandidateBackingMessage::ClaimedSlots(relay_parent, tx) => {
+			let res = state.claim_queue_state.get_claimed_slots_at(&relay_parent);
+			tx.send(res).map_err(|_| Error::SendClaimedSlots)?
+		},
 	}
 
 	Ok(())
@@ -1536,6 +1540,12 @@ async fn handle_validated_candidate_command<Context>(
 
 							rp_state.issued_statements.insert(candidate_hash);
 
+							state.claim_queue_state.second_slot(
+								&candidate_hash,
+								&candidate.descriptor().relay_parent(),
+								&candidate.descriptor().para_id(),
+							);
+
 							metrics.on_candidate_seconded();
 							ctx.send_message(CollatorProtocolMessage::Seconded(
 								rp_state.parent,
@@ -1677,7 +1687,7 @@ async fn import_statement<Context>(
 	// our active leaves.
 	if let StatementWithPVD::Seconded(candidate, pvd) = statement.payload() {
 		if !per_candidate.contains_key(&candidate_hash) {
-			if !claim_queue_state.claim_slot(
+			if !claim_queue_state.second_slot(
 				&candidate_hash,
 				&candidate.descriptor.relay_parent(),
 				&candidate.descriptor.para_id(),
