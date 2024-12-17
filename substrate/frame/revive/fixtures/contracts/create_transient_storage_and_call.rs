@@ -49,8 +49,8 @@ pub extern "C" fn call() {
 	api::call(
 		uapi::CallFlags::empty(),
 		callee,
-		0u64, // How much ref_time weight to devote for the execution. 0 = all.
-		0u64, // How much proof_size weight to devote for the execution. 0 = all.
+		u64::MAX, // How much ref_time weight to devote for the execution. u64::MAX = all.
+		u64::MAX, // How much proof_size weight to devote for the execution. u64::MAX = all.
 		None,
 		&[0u8; 32], // Value transferred to the contract.
 		input,

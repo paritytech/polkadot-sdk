@@ -1567,8 +1567,8 @@ mod benchmarks {
 				memory.as_mut_slice(),
 				CallFlags::CLONE_INPUT.bits(), // flags
 				0,                             // callee_ptr
-				0,                             // ref_time_limit
-				0,                             // proof_size_limit
+				u64::MAX,                      // ref_time_limit
+				u64::MAX,                      // proof_size_limit
 				callee_len,                    // deposit_ptr
 				callee_len + deposit_len,      // value_ptr
 				0,                             // input_data_ptr
@@ -1607,8 +1607,8 @@ mod benchmarks {
 				memory.as_mut_slice(),
 				0,           // flags
 				0,           // address_ptr
-				0,           // ref_time_limit
-				0,           // proof_size_limit
+				u64::MAX,    // ref_time_limit
+				u64::MAX,    // proof_size_limit
 				address_len, // deposit_ptr
 				0,           // input_data_ptr
 				0,           // input_data_len
@@ -1669,8 +1669,8 @@ mod benchmarks {
 			result = runtime.bench_instantiate(
 				memory.as_mut_slice(),
 				0,                   // code_hash_ptr
-				0,                   // ref_time_limit
-				0,                   // proof_size_limit
+				u64::MAX,            // ref_time_limit
+				u64::MAX,            // proof_size_limit
 				offset(hash_len),    // deposit_ptr
 				offset(deposit_len), // value_ptr
 				offset(value_len),   // input_data_ptr

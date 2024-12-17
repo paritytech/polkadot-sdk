@@ -49,8 +49,8 @@ pub extern "C" fn call() {
 	api::call(
 		uapi::CallFlags::ALLOW_REENTRY,
 		&addr,
-		0u64,
-		0u64,
+		u64::MAX,
+		u64::MAX,
 		None,
 		&[0; 32],
 		&[],
