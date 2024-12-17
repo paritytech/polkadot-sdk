@@ -29,10 +29,8 @@
 
 use arbitrary::Arbitrary;
 use honggfuzz::fuzz;
-
-use frame_support::{storage::StorageList, StorageNoopGuard};
+use frame::prelude::*;
 use pallet_paged_list::mock::{PagedList as List, *};
-use sp_io::TestExternalities;
 type Meta = MetaOf<Test, ()>;
 
 fn main() {
