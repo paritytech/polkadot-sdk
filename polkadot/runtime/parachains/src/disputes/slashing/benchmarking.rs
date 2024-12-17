@@ -141,8 +141,7 @@ benchmarks! {
 		where T: Config<KeyOwnerProof = MembershipProof>,
 	}
 
-	// in this setup we have a single `ForInvalid` dispute
-	// submitted for a past session
+	// in this setup we have a single `ForInvalid` dispute submitted for a past session
 	report_dispute_lost {
 		let n in 4..<T as pallet_staking::Config>::MaxValidatorsCount::get() - 1;
 
