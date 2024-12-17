@@ -234,6 +234,15 @@ pub trait NetworkDHTProvider {
 		publisher: Option<PeerId>,
 		expires: Option<Instant>,
 	);
+
+	/// Register this node as a provider for `key` on the DHT.
+	fn start_providing(&self, key: KademliaKey);
+
+	/// Deregister this node as a provider for `key` on the DHT.
+	fn stop_providing(&self, key: KademliaKey);
+
+	/// Start getting the list of providers for `key` on the DHT.
+	fn get_providers(&self, key: KademliaKey);
 }
 
 impl<T> NetworkDHTProvider for Arc<T>
@@ -261,6 +270,18 @@ where
 		expires: Option<Instant>,
 	) {
 		T::store_record(self, key, value, publisher, expires)
+	}
+
+	fn start_providing(&self, key: KademliaKey) {
+		T::start_providing(self, key)
+	}
+
+	fn stop_providing(&self, key: KademliaKey) {
+		T::stop_providing(self, key)
+	}
+
+	fn get_providers(&self, key: KademliaKey) {
+		T::get_providers(self, key)
 	}
 }
 
