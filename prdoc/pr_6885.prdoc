@@ -1,0 +1,11 @@
+title: 'Omni-node: Detect pending code in storage and send go ahead signal in dev-mode.'
+doc:
+- audience: Runtime Dev
+  description: |-
+    When using the polkadot-omni-node with manual seal (`--dev-block-time`), it is now possible to perform runtime
+    upgrades. The node will detect the pending validation code and send a go-ahead signal to the parachain.
+crates:
+- name: cumulus-client-parachain-inherent
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: patch
