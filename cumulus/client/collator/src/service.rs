@@ -18,7 +18,10 @@
 //! operations used in parachain consensus/authoring.
 
 use cumulus_client_network::WaitToAnnounce;
-use cumulus_primitives_core::{CollationInfo, CollectCollationInfo, ParachainBlockData};
+use cumulus_primitives_core::{
+	relay_chain::vstaging::UMP_SEPARATOR, CollationInfo, CollectCollationInfo, GetCoreSelectorApi,
+	ParachainBlockData,
+};
 
 use sc_client_api::BlockBackend;
 use sp_api::{ApiExt, ProvideRuntimeApi};
@@ -232,8 +235,27 @@ where
 			},
 		};
 
+		let runtime_api = self.runtime_api.runtime_api();
+
+		// Don't allow sending ump signals until the GetCoreSelectorApi is implemented and at
+		// version 2.
+		let allow_ump_signal = match runtime_api
+			.api_version::<dyn GetCoreSelectorApi<Block>>(block_hash)
+			.ok()
+			.flatten()
+		{
+			Some(version) => version >= 2,
+			None => {
+				tracing::error!(
+					target: LOG_TARGET,
+					"Could not fetch `GetCoreSelectorApi` runtime api version."
+				);
+				return None
+			},
+		};
+
 		// Create the parachain block data for the validators.
-		let collation_info = self
+		let mut collation_info = self
 			.fetch_collation_info(block_hash, &header)
 			.map_err(|e| {
 				tracing::error!(
@@ -251,6 +273,14 @@ where
 			block_data: BlockData(block_data.encode()),
 		});
 
+		if !allow_ump_signal {
+			collation_info.upward_messages = collation_info
+				.upward_messages
+				.into_iter()
+				.take_while(|message| *message != UMP_SEPARATOR)
+				.collect();
+		}
+
 		let upward_messages = collation_info
 			.upward_messages
 			.try_into()
@@ -262,6 +292,7 @@ where
 				)
 			})
 			.ok()?;
+
 		let horizontal_messages = collation_info
 			.horizontal_messages
 			.try_into()

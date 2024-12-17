@@ -505,6 +505,13 @@ pub enum CommittedCandidateReceiptError {
 	/// Currenly only one such message is allowed.
 	#[cfg_attr(feature = "std", error("Too many UMP signals"))]
 	TooManyUMPSignals,
+	// If the parachain runtime started sending core selectors, v1 descriptors are no longer
+	// allowed.
+	#[cfg_attr(
+		feature = "std",
+		error("Candidate contains core selector but descriptor version is v1")
+	)]
+	CoreSelectorWithV1Decriptor,
 }
 
 macro_rules! impl_getter {
@@ -603,15 +610,25 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 		&self,
 		cores_per_para: &TransposedClaimQueue,
 	) -> Result<(), CommittedCandidateReceiptError> {
+		let maybe_core_selector = self.commitments.core_selector()?;
+
 		match self.descriptor.version() {
-			// Don't check v1 descriptors.
-			CandidateDescriptorVersion::V1 => return Ok(()),
+			CandidateDescriptorVersion::V1 => {
+				// If the parachain runtime started sending core selectors, v1 descriptors are no
+				// longer allowed.
+				if maybe_core_selector.is_some() {
+					return Err(CommittedCandidateReceiptError::CoreSelectorWithV1Decriptor)
+				} else {
+					// Nothing else to check for v1 descriptors.
+					return Ok(())
+				}
+			},
 			CandidateDescriptorVersion::V2 => {},
 			CandidateDescriptorVersion::Unknown =>
 				return Err(CommittedCandidateReceiptError::UnknownVersion(self.descriptor.version)),
 		}
 
-		let (maybe_core_index_selector, cq_offset) = self.commitments.core_selector()?.map_or_else(
+		let (maybe_core_index_selector, cq_offset) = maybe_core_selector.map_or_else(
 			|| (None, ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)),
 			|(sel, off)| (Some(sel), off),
 		);

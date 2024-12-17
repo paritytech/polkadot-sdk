@@ -398,8 +398,12 @@ sp_api::decl_runtime_apis! {
 	}
 
 	/// Runtime api used to select the core for which the next block will be built.
+	#[api_version(2)]
 	pub trait GetCoreSelectorApi {
 		/// Retrieve core selector and claim queue offset for the next block.
+		#[changed_in(2)]
 		fn core_selector() -> (CoreSelector, ClaimQueueOffset);
+
+		fn core_selector() -> Option<(CoreSelector, ClaimQueueOffset)>;
 	}
 }

@@ -859,7 +859,7 @@ impl_runtime_apis! {
 	}
 
 	impl cumulus_primitives_core::GetCoreSelectorApi<Block> for Runtime {
-		fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
+		fn core_selector() -> Option<(CoreSelector, ClaimQueueOffset)> {
 			ParachainSystem::core_selector()
 		}
 	}

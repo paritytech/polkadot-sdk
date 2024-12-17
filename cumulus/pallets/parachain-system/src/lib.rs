@@ -194,25 +194,34 @@ pub mod ump_constants {
 /// Trait for selecting the next core to build the candidate for.
 pub trait SelectCore {
 	/// Core selector information for the current block.
-	fn selected_core() -> (CoreSelector, ClaimQueueOffset);
+	fn selected_core() -> Option<(CoreSelector, ClaimQueueOffset)>;
 	/// Core selector information for the next block.
-	fn select_next_core() -> (CoreSelector, ClaimQueueOffset);
+	fn select_next_core() -> Option<(CoreSelector, ClaimQueueOffset)>;
+}
+
+impl SelectCore for () {
+	fn selected_core() -> Option<(CoreSelector, ClaimQueueOffset)> {
+		None
+	}
+	fn select_next_core() -> Option<(CoreSelector, ClaimQueueOffset)> {
+		None
+	}
 }
 
 /// The default core selection policy.
 pub struct DefaultCoreSelector<T>(PhantomData<T>);
 
 impl<T: frame_system::Config> SelectCore for DefaultCoreSelector<T> {
-	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
+	fn selected_core() -> Option<(CoreSelector, ClaimQueueOffset)> {
 		let core_selector: U256 = frame_system::Pallet::<T>::block_number().into();
 
-		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
+		Some((CoreSelector(core_selector.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)))
 	}
 
-	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
+	fn select_next_core() -> Option<(CoreSelector, ClaimQueueOffset)> {
 		let core_selector: U256 = (frame_system::Pallet::<T>::block_number() + One::one()).into();
 
-		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
+		Some((CoreSelector(core_selector.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)))
 	}
 }
 
@@ -220,16 +229,16 @@ impl<T: frame_system::Config> SelectCore for DefaultCoreSelector<T> {
 pub struct LookaheadCoreSelector<T>(PhantomData<T>);
 
 impl<T: frame_system::Config> SelectCore for LookaheadCoreSelector<T> {
-	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
+	fn selected_core() -> Option<(CoreSelector, ClaimQueueOffset)> {
 		let core_selector: U256 = frame_system::Pallet::<T>::block_number().into();
 
-		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(1))
+		Some((CoreSelector(core_selector.byte(0)), ClaimQueueOffset(1)))
 	}
 
-	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
+	fn select_next_core() -> Option<(CoreSelector, ClaimQueueOffset)> {
 		let core_selector: U256 = (frame_system::Pallet::<T>::block_number() + One::one()).into();
 
-		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(1))
+		Some((CoreSelector(core_selector.byte(0)), ClaimQueueOffset(1)))
 	}
 }
 
@@ -391,9 +400,7 @@ pub mod pallet {
 				UpwardMessages::<T>::put(&up[..num as usize]);
 				*up = up.split_off(num as usize);
 
-				// Send the core selector UMP signal. This is experimental until relay chain
-				// validators are upgraded to handle ump signals.
-				#[cfg(feature = "experimental-ump-signals")]
+				// Send the core selector UMP signal.
 				Self::send_ump_signal();
 
 				// If the total size of the pending messages is less than the threshold,
@@ -1429,7 +1436,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Returns the core selector for the next block.
-	pub fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
+	pub fn core_selector() -> Option<(CoreSelector, ClaimQueueOffset)> {
 		T::SelectCore::select_next_core()
 	}
 
@@ -1450,17 +1457,18 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Send the ump signals
-	#[cfg(feature = "experimental-ump-signals")]
 	fn send_ump_signal() {
 		use cumulus_primitives_core::relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
 
-		UpwardMessages::<T>::mutate(|up| {
-			up.push(UMP_SEPARATOR);
+		// If the runtime is configured with a core selection policy, send the core selector signal.
+		let maybe_core_selector = T::SelectCore::selected_core();
 
-			// Send the core selector signal.
-			let core_selector = T::SelectCore::selected_core();
-			up.push(UMPSignal::SelectCore(core_selector.0, core_selector.1).encode());
-		});
+		if let Some(core_selector) = maybe_core_selector {
+			UpwardMessages::<T>::mutate(|up| {
+				up.push(UMP_SEPARATOR);
+				up.push(UMPSignal::SelectCore(core_selector.0, core_selector.1).encode());
+			});
+		}
 	}
 
 	/// Open HRMP channel for using it in benchmarks or tests.
