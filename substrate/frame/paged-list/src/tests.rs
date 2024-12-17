@@ -21,7 +21,9 @@
 #![cfg(test)]
 
 use crate::{mock::*, *};
-use frame_support::storage::{StorageList, StoragePrefixedContainer};
+use frame::testing_prelude::*;
+use frame::prelude::storage::StorageAppender;
+use frame::prelude::storage::StoragePrefixedContainer;
 
 #[docify::export]
 #[test]
@@ -46,7 +48,6 @@ fn append_many_works() {
 #[docify::export]
 #[test]
 fn appender_works() {
-	use frame_support::storage::StorageAppender;
 	test_closure(|| {
 		let mut appender = PagedList::appender();
 
