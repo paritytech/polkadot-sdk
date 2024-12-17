@@ -16,22 +16,29 @@
 
 //! Collator for the `Undying` test parachain.
 
-use polkadot_cli::{Error, Result};
-use polkadot_node_primitives::CollationGenerationConfig;
+use polkadot_cli::{Error, ProvideRuntimeApi, Result};
+use polkadot_node_primitives::{CollationGenerationConfig, SubmitCollationParams};
 use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProtocolMessage};
-use polkadot_primitives::Id as ParaId;
+use polkadot_primitives::{
+	vstaging::{ClaimQueueOffset, DEFAULT_CLAIM_QUEUE_OFFSET},
+	CoreIndex, Id as ParaId, OccupiedCoreAssumption,
+};
+use polkadot_service::{Backend, HeaderBackend, ParachainHost};
 use sc_cli::{Error as SubstrateCliError, SubstrateCli};
 use sp_core::hexdisplay::HexDisplay;
 use std::{
 	fs,
 	io::{self, Write},
+	time::Duration,
 };
-use test_parachain_undying_collator::Collator;
+use test_parachain_undying_collator::{Collator, LOG_TARGET};
+use tokio::time::sleep;
 
 mod cli;
 use cli::Cli;
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
 	let cli = Cli::from_args();
 
 	match cli.subcommand {
@@ -120,9 +127,16 @@ fn main() -> Result<()> {
 
 				let config = CollationGenerationConfig {
 					key: collator.collator_key(),
-					collator: Some(
-						collator.create_collation_function(full_node.task_manager.spawn_handle()),
-					),
+					// Set collation function to None if it is a malicious collator
+					// and submit collations manually later.
+					collator: if cli.run.malus {
+						None
+					} else {
+						Some(
+							collator
+								.create_collation_function(full_node.task_manager.spawn_handle()),
+						)
+					},
 					para_id,
 				};
 				overseer_handle
@@ -132,6 +146,145 @@ fn main() -> Result<()> {
 				overseer_handle
 					.send_msg(CollatorProtocolMessage::CollateOn(para_id), "Collator")
 					.await;
+
+				// Check if it is a malicious collator.
+				if cli.run.malus {
+					let client = full_node.client.clone();
+					let backend = full_node.backend.clone();
+
+					let collation_function =
+						collator.create_collation_function(full_node.task_manager.spawn_handle());
+
+					tokio::spawn(async move {
+						loop {
+							let relay_parent = backend.blockchain().info().best_hash;
+
+							// Get all assigned cores for the given parachain.
+							let claim_queue = match client.runtime_api().claim_queue(relay_parent) {
+								Ok(claim_queue) =>
+									if claim_queue.is_empty() {
+										log::info!(target: LOG_TARGET, "Claim queue is empty.");
+										continue;
+									} else {
+										claim_queue
+									},
+								Err(error) => {
+									log::error!(
+										target: LOG_TARGET,
+										"Failed to query claim queue runtime API: {error:?}"
+									);
+									continue;
+								},
+							};
+
+							let claim_queue_offset = ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET);
+
+							let scheduled_cores: Vec<CoreIndex> = claim_queue
+								.iter()
+								.filter_map(move |(core_index, paras)| {
+									Some((*core_index, *paras.get(claim_queue_offset.0 as usize)?))
+								})
+								.filter_map(|(core_index, core_para_id)| {
+									(core_para_id == para_id).then_some(core_index)
+								})
+								.collect();
+
+							if scheduled_cores.is_empty() {
+								println!("Scheduled cores is empty.");
+								continue;
+							}
+
+							// The time interval between collation submissions.
+							let submit_collation_interval =
+								Duration::from_secs(6 / scheduled_cores.len() as u64);
+
+							// Get the collation.
+							let validation_data =
+								match client.runtime_api().persisted_validation_data(
+									relay_parent,
+									para_id,
+									OccupiedCoreAssumption::Included,
+								) {
+									Ok(Some(validation_data)) => validation_data,
+									Ok(None) => {
+										log::warn!(
+											target: LOG_TARGET,
+											"Persisted validation data is None."
+										);
+										continue;
+									},
+									Err(error) => {
+										log::error!(
+											target: LOG_TARGET,
+											"Failed to query persisted validation data runtime API: {error:?}"
+										);
+										continue;
+									},
+								};
+
+							let collation =
+								match collation_function(relay_parent, &validation_data).await {
+									Some(collation) => collation,
+									None => {
+										log::warn!(
+											target: LOG_TARGET,
+											"Collation result is None."
+										);
+										continue;
+									},
+								}
+								.collation;
+
+							// Get validation code hash.
+							let validation_code_hash =
+								match client.runtime_api().validation_code_hash(
+									relay_parent,
+									para_id,
+									OccupiedCoreAssumption::Included,
+								) {
+									Ok(Some(validation_code_hash)) => validation_code_hash,
+									Ok(None) => {
+										log::warn!(
+											target: LOG_TARGET,
+											"Validation code hash is None."
+										);
+										continue;
+									},
+									Err(error) => {
+										log::error!(
+											target: LOG_TARGET,
+											"Failed to query validation code hash runtime API: {error:?}"
+										);
+										continue;
+									},
+								};
+
+							// Submit the same collation for each assigned core.
+							for core_index in &scheduled_cores {
+								let submit_collation_params = SubmitCollationParams {
+									relay_parent,
+									collation: collation.clone(),
+									parent_head: validation_data.parent_head.clone(),
+									validation_code_hash,
+									result_sender: None,
+									core_index: *core_index,
+								};
+
+								overseer_handle
+									.send_msg(
+										CollationGenerationMessage::SubmitCollation(
+											submit_collation_params,
+										),
+										"Collator",
+									)
+									.await;
+
+								// Wait before submitting the next collation.
+								sleep(submit_collation_interval).await;
+							}
+						}
+					});
+				}
 
 				Ok(full_node.task_manager)
 			})

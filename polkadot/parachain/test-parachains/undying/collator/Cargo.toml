@@ -20,6 +20,7 @@ clap = { features = ["derive"], workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
 log = { workspace = true, default-features = true }
+tokio = { features = ["sync"], workspace = true, default-features = true }
 
 test-parachain-undying = { workspace = true }
 polkadot-primitives = { workspace = true, default-features = true }

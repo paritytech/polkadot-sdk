@@ -81,6 +81,11 @@ pub struct RunCmd {
 	/// we compute per block.
 	#[arg(long, default_value_t = 1)]
 	pub pvf_complexity: u32,
+
+	/// If true, the collator will behave maliciously by submitting
+	/// the same collations to all assigned backing groups.
+	#[arg(long, default_value_t = false)]
+	pub malus: bool,
 }
 
 #[allow(missing_docs)]

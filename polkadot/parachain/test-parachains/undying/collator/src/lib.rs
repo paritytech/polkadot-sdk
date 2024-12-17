@@ -37,6 +37,8 @@ use test_parachain_undying::{
 	execute, hash_state, BlockData, GraveyardState, HeadData, StateMismatch,
 };
 
+pub const LOG_TARGET: &str = "parachain::undying-collator";
+
 /// Default PoV size which also drives state size.
 const DEFAULT_POV_SIZE: usize = 1000;
 /// Default PVF time complexity - 1 signature per block.
