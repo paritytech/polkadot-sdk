@@ -878,7 +878,7 @@ mod tests {
 			let mut meter = TestMeter::new(&test_case.origin, Some(1_000), 0).unwrap();
 			assert_eq!(meter.available(), 1_000);
 
-			let mut nested0 = meter.nested(BalanceOf::<Test>::zero());
+			let mut nested0 = meter.nested(BalanceOf::<Test>::max_value());
 			nested0.charge(&Diff {
 				bytes_added: 5,
 				bytes_removed: 1,
@@ -893,7 +893,7 @@ mod tests {
 				bytes_deposit: 100,
 				items_deposit: 20,
 			});
-			let mut nested1 = nested0.nested(BalanceOf::<Test>::zero());
+			let mut nested1 = nested0.nested(BalanceOf::<Test>::max_value());
 			nested1.charge(&Diff { items_removed: 5, ..Default::default() });
 			nested1.charge(&Diff { bytes_added: 20, ..Default::default() });
 			nested1.terminate(&nested1_info, CHARLIE);
