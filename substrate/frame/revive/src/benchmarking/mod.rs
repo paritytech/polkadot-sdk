@@ -767,7 +767,6 @@ mod benchmarks {
 		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().minimum_balance());
 	}
 
-
 	#[benchmark(pov_mode = Measured)]
 	fn seal_return_data_size() {
 		let mut setup = CallSetup::<T>::default();
@@ -783,7 +782,6 @@ mod benchmarks {
 		}
 		assert_eq!(result.unwrap(), 256);
 	}
-
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_call_data_size() {
