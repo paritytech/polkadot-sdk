@@ -18,8 +18,7 @@
 //! Migrations for the scheduler pallet.
 
 use super::*;
-use frame_support::traits::OnRuntimeUpgrade;
-use frame_system::pallet_prelude::BlockNumberFor;
+use frame::testing_prelude::*;
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
@@ -29,9 +28,9 @@ const TARGET: &'static str = "runtime::scheduler::migration";
 
 pub mod v1 {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame::testing_prelude::*;
 
-	#[frame_support::storage_alias]
+	#[storage_alias]
 	pub(crate) type Agenda<T: Config> = StorageMap<
 		Pallet<T>,
 		Twox64Concat,
@@ -40,16 +39,16 @@ pub mod v1 {
 		ValueQuery,
 	>;
 
-	#[frame_support::storage_alias]
+	#[storage_alias]
 	pub(crate) type Lookup<T: Config> =
 		StorageMap<Pallet<T>, Twox64Concat, Vec<u8>, TaskAddress<BlockNumberFor<T>>>;
 }
 
 pub mod v2 {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame::testing_prelude::*;
 
-	#[frame_support::storage_alias]
+	#[storage_alias]
 	pub(crate) type Agenda<T: Config> = StorageMap<
 		Pallet<T>,
 		Twox64Concat,
@@ -58,16 +57,16 @@ pub mod v2 {
 		ValueQuery,
 	>;
 
-	#[frame_support::storage_alias]
+	#[storage_alias]
 	pub(crate) type Lookup<T: Config> =
 		StorageMap<Pallet<T>, Twox64Concat, Vec<u8>, TaskAddress<BlockNumberFor<T>>>;
 }
 
 pub mod v3 {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame::testing_prelude::*;
 
-	#[frame_support::storage_alias]
+	#[storage_alias]
 	pub(crate) type Agenda<T: Config> = StorageMap<
 		Pallet<T>,
 		Twox64Concat,
@@ -76,7 +75,7 @@ pub mod v3 {
 		ValueQuery,
 	>;
 
-	#[frame_support::storage_alias]
+	#[storage_alias]
 	pub(crate) type Lookup<T: Config> =
 		StorageMap<Pallet<T>, Twox64Concat, Vec<u8>, TaskAddress<BlockNumberFor<T>>>;
 
@@ -121,7 +120,7 @@ pub mod v3 {
 			for (block_number, agenda) in Agenda::<T>::iter() {
 				for schedule in agenda.iter().cloned().flatten() {
 					match schedule.call {
-						frame_support::traits::schedule::MaybeHashed::Value(call) => {
+						MaybeHashed::Value(call) => {
 							let l = call.using_encoded(|c| c.len());
 							if l > max_length {
 								log::error!(
@@ -188,7 +187,7 @@ pub mod v3 {
 
 pub mod v4 {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame::testing_prelude::*;
 
 	/// This migration cleans up empty agendas of the V4 scheduler.
 	///
@@ -256,7 +255,7 @@ pub mod v4 {
 						writes.saturating_inc();
 					},
 					Some(_) => {
-						frame_support::defensive!(
+						defensive!(
 							// Bad but let's not panic.
 							"Cannot have more None suffix schedules that schedules in total"
 						);
@@ -306,7 +305,7 @@ mod test {
 	use super::*;
 	use crate::mock::*;
 	use alloc::borrow::Cow;
-	use frame_support::Hashable;
+	use frame::testing_prelude::*;
 	use substrate_test_utils::assert_eq_uvec;
 
 	#[test]
@@ -368,7 +367,7 @@ mod test {
 						_phantom: PhantomData::<u64>::default(),
 					}),
 				];
-				frame_support::migration::put_storage_value(b"Scheduler", b"Agenda", &k, old);
+				put_storage_value(b"Scheduler", b"Agenda", &k, old);
 			}
 
 			let state = v3::MigrateToV4::<Test>::pre_upgrade().unwrap();
@@ -480,7 +479,7 @@ mod test {
 				origin: root(),
 				_phantom: PhantomData::<u64>::default(),
 			})];
-			frame_support::migration::put_storage_value(b"Scheduler", b"Agenda", &k, old);
+			put_storage_value(b"Scheduler", b"Agenda", &k, old);
 
 			// The pre_upgrade hook fails:
 			let err = v3::MigrateToV4::<Test>::pre_upgrade().unwrap_err();

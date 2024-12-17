@@ -20,19 +20,19 @@
 use super::*;
 
 use crate as scheduler;
-use frame_support::{
-	derive_impl, ord_parameter_types, parameter_types,
-	traits::{ConstU32, Contains, EitherOfDiverse, EqualPrivilegeOnly, OnFinalize, OnInitialize},
-};
-use frame_system::{EnsureRoot, EnsureSignedBy};
-use sp_runtime::{BuildStorage, Perbill};
+use frame::testing_prelude::*;
+// use frame_support::{
+// 	derive_impl, ord_parameter_types, parameter_types,
+// 	traits::{ConstU32, Contains, EitherOfDiverse, EqualPrivilegeOnly, OnFinalize, OnInitialize},
+// };
+// use frame_system::{EnsureRoot, EnsureSignedBy};
+// use sp_runtime::{BuildStorage, Perbill};
 
 // Logger module to track execution.
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod logger {
 	use super::{OriginCaller, OriginTrait};
-	use frame_support::{pallet_prelude::*, parameter_types};
-	use frame_system::pallet_prelude::*;
+	use frame::testing_prelude::*;
 
 	parameter_types! {
 		static Log: Vec<(OriginCaller, u32)> = Vec::new();
@@ -112,7 +112,7 @@ pub mod logger {
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,

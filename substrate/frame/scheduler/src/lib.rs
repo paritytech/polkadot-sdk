@@ -90,26 +90,20 @@ extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::{borrow::Borrow, cmp::Ordering, marker::PhantomData};
-use frame_support::{
-	dispatch::{DispatchResult, GetDispatchInfo, Parameter, RawOrigin},
-	ensure,
-	traits::{
-		schedule::{self, DispatchTime, MaybeHashed},
-		Bounded, CallerTrait, EnsureOrigin, Get, IsType, OriginTrait, PalletInfoAccess,
-		PrivilegeCmp, QueryPreimage, StorageVersion, StorePreimage,
-	},
-	weights::{Weight, WeightMeter},
-};
-use frame_system::{
-	pallet_prelude::BlockNumberFor,
-	{self as system},
+use frame::{
+	prelude::*,
+	benchmarking::prelude::RawOrigin,
+	runtime::prelude::weights::WeightMeter,
+	traits::schedule::MaybeHashed,
+	traits::schedule::DispatchTime,
+	traits::schedule,
+	traits::schedule::v2,
+	traits::schedule::v3,
+	traits::QueryPreimage,
+	traits::PrivilegeCmp,
+	traits::StorePreimage,
 };
 use scale_info::TypeInfo;
-use sp_io::hashing::blake2_256;
-use sp_runtime::{
-	traits::{BadOrigin, Dispatchable, One, Saturating, Zero},
-	BoundedVec, DispatchError, RuntimeDebug,
-};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -226,11 +220,9 @@ pub(crate) trait MarginalWeightInfo: WeightInfo {
 }
 impl<T: WeightInfo> MarginalWeightInfo for T {}
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{dispatch::PostDispatchInfo, pallet_prelude::*};
-	use frame_system::pallet_prelude::*;
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
@@ -241,7 +233,7 @@ pub mod pallet {
 
 	/// `system::Config` should always be included in our implied traits.
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame::deps::frame_system::Config {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -654,7 +646,7 @@ impl<T: Config> Pallet<T> {
 								priority: schedule.priority,
 								call,
 								maybe_periodic: schedule.maybe_periodic,
-								origin: system::RawOrigin::Root.into(),
+								origin: RawOrigin::Root.into(),
 								_phantom: Default::default(),
 							})
 						})
@@ -664,7 +656,7 @@ impl<T: Config> Pallet<T> {
 		});
 
 		#[allow(deprecated)]
-		frame_support::storage::migration::remove_storage_prefix(
+		remove_storage_prefix(
 			Self::name().as_bytes(),
 			b"StorageVersion",
 			&[],
@@ -729,7 +721,7 @@ impl<T: Config> Pallet<T> {
 		});
 
 		#[allow(deprecated)]
-		frame_support::storage::migration::remove_storage_prefix(
+		remove_storage_prefix(
 			Self::name().as_bytes(),
 			b"StorageVersion",
 			&[],
@@ -839,7 +831,7 @@ impl<T: Config> Pallet<T> {
 		});
 
 		#[allow(deprecated)]
-		frame_support::storage::migration::remove_storage_prefix(
+		remove_storage_prefix(
 			Self::name().as_bytes(),
 			b"StorageVersion",
 			&[],

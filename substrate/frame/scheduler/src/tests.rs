@@ -20,14 +20,18 @@
 use super::*;
 use crate::mock::{
 	logger::{self, Threshold},
-	new_test_ext, root, run_to_block, LoggerCall, RuntimeCall, Scheduler, Test, *,
+	new_test_ext, root, run_to_block, LoggerCall,RuntimeCall, Scheduler, Test, *,
 };
-use frame_support::{
-	assert_err, assert_noop, assert_ok,
-	traits::{Contains, GetStorageVersion, OnInitialize, QueryPreimage, StorePreimage},
-	Hashable,
-};
-use sp_runtime::traits::Hash;
+use frame::testing_prelude::*;
+use frame::traits::{Hash, Contains, GetStorageVersion, OnInitialize, QueryPreimage, StorePreimage, BadOrigin};
+use frame::benchmarking::prelude::RawOrigin;
+use crate::Config;
+// use frame_support::{
+// 	assert_err, assert_noop, assert_ok,
+// 	traits::{Contains, GetStorageVersion, OnInitialize, QueryPreimage, StorePreimage},
+// 	Hashable,
+// };
+// use sp_runtime::traits::Hash;
 use substrate_test_utils::assert_eq_uvec;
 
 #[test]
@@ -40,7 +44,7 @@ fn basic_scheduling_works() {
 
 		// BaseCallFilter should be implemented to accept `Logger::log` runtime call which is
 		// implemented for `BaseFilter` in the mock runtime
-		assert!(!<Test as frame_system::Config>::BaseCallFilter::contains(&call));
+		assert!(!<Test as Config>::BaseCallFilter::contains(&call));
 
 		// Schedule call to be executed at the 4th block
 		assert_ok!(Scheduler::do_schedule(
@@ -72,7 +76,7 @@ fn scheduling_with_preimages_works() {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 
-		let hash = <Test as frame_system::Config>::Hashing::hash_of(&call);
+		let hash = <Test as Config>::Hashing::hash_of(&call);
 		let len = call.using_encoded(|x| x.len()) as u32;
 
 		// Important to use here `Bounded::Lookup` to ensure that that the Scheduler can request the
@@ -108,7 +112,7 @@ fn schedule_after_works() {
 		run_to_block(2);
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
-		assert!(!<Test as frame_system::Config>::BaseCallFilter::contains(&call));
+		assert!(!<Test as Config>::BaseCallFilter::contains(&call));
 		// This will schedule the call 3 blocks after the next block... so block 3 + 3 = 6
 		assert_ok!(Scheduler::do_schedule(
 			DispatchTime::After(3),
@@ -132,7 +136,7 @@ fn schedule_after_zero_works() {
 		run_to_block(2);
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
-		assert!(!<Test as frame_system::Config>::BaseCallFilter::contains(&call));
+		assert!(!<Test as Config>::BaseCallFilter::contains(&call));
 		assert_ok!(Scheduler::do_schedule(
 			DispatchTime::After(0),
 			None,
@@ -1044,7 +1048,7 @@ fn reschedule_works() {
 	new_test_ext().execute_with(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
-		assert!(!<Test as frame_system::Config>::BaseCallFilter::contains(&call));
+		assert!(!<Test as Config>::BaseCallFilter::contains(&call));
 		assert_eq!(
 			Scheduler::do_schedule(
 				DispatchTime::At(4),
@@ -1083,7 +1087,7 @@ fn reschedule_named_works() {
 	new_test_ext().execute_with(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
-		assert!(!<Test as frame_system::Config>::BaseCallFilter::contains(&call));
+		assert!(!<Test as Config>::BaseCallFilter::contains(&call));
 		assert_eq!(
 			Scheduler::do_schedule_named(
 				[1u8; 32],
@@ -1123,7 +1127,7 @@ fn reschedule_named_periodic_works() {
 	new_test_ext().execute_with(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
-		assert!(!<Test as frame_system::Config>::BaseCallFilter::contains(&call));
+		assert!(!<Test as Config>::BaseCallFilter::contains(&call));
 		assert_eq!(
 			Scheduler::do_schedule_named(
 				[1u8; 32],
@@ -1392,11 +1396,11 @@ fn try_schedule_retry_respects_weight_limits() {
 		assert_eq!(Retries::<Test>::iter().count(), 0);
 		assert_eq!(logger::log(), vec![]);
 		// check the `RetryFailed` event happened
-		let events = frame_system::Pallet::<Test>::events();
-		let system_event: <Test as frame_system::Config>::RuntimeEvent =
+		let events = frame::Pallet::<Test>::events();
+		let system_event: <Test as Config>::RuntimeEvent =
 			Event::RetryFailed { task: (4, 0), id: None }.into();
 		// compare to the last event record
-		let frame_system::EventRecord { event, .. } = &events[events.len() - 1];
+		let frame::EventRecord { event, .. } = &events[events.len() - 1];
 		assert_eq!(event, &system_event);
 	});
 }
@@ -1476,7 +1480,7 @@ fn scheduler_handles_periodic_unavailable_preimage() {
 
 	new_test_ext().execute_with(|| {
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: (max_weight / 3) * 2 });
-		let hash = <Test as frame_system::Config>::Hashing::hash_of(&call);
+		let hash = <Test as Config>::Hashing::hash_of(&call);
 		let len = call.using_encoded(|x| x.len()) as u32;
 		// Important to use here `Bounded::Lookup` to ensure that we request the hash.
 		let bound = Bounded::Lookup { hash, len };
@@ -1760,20 +1764,20 @@ fn should_use_origin() {
 			weight: Weight::from_parts(10, 0),
 		}));
 		assert_ok!(Scheduler::schedule_named(
-			system::RawOrigin::Signed(1).into(),
+			RawOrigin::Signed(1).into(),
 			[1u8; 32],
 			4,
 			None,
 			127,
 			call,
 		));
-		assert_ok!(Scheduler::schedule(system::RawOrigin::Signed(1).into(), 4, None, 127, call2,));
+		assert_ok!(Scheduler::schedule(RawOrigin::Signed(1).into(), 4, None, 127, call2,));
 		run_to_block(3);
 		// Scheduled calls are in the agenda.
 		assert_eq!(Agenda::<Test>::get(4).len(), 2);
 		assert!(logger::log().is_empty());
-		assert_ok!(Scheduler::cancel_named(system::RawOrigin::Signed(1).into(), [1u8; 32]));
-		assert_ok!(Scheduler::cancel(system::RawOrigin::Signed(1).into(), 4, 1));
+		assert_ok!(Scheduler::cancel_named(RawOrigin::Signed(1).into(), [1u8; 32]));
+		assert_ok!(Scheduler::cancel(RawOrigin::Signed(1).into(), 4, 1));
 		// Scheduled calls are made NONE, so should not effect state
 		run_to_block(100);
 		assert!(logger::log().is_empty());
@@ -1793,7 +1797,7 @@ fn should_check_origin() {
 		}));
 		assert_noop!(
 			Scheduler::schedule_named(
-				system::RawOrigin::Signed(2).into(),
+				RawOrigin::Signed(2).into(),
 				[1u8; 32],
 				4,
 				None,
@@ -1803,7 +1807,7 @@ fn should_check_origin() {
 			BadOrigin
 		);
 		assert_noop!(
-			Scheduler::schedule(system::RawOrigin::Signed(2).into(), 4, None, 127, call2),
+			Scheduler::schedule(RawOrigin::Signed(2).into(), 4, None, 127, call2),
 			BadOrigin
 		);
 	});
@@ -1821,31 +1825,31 @@ fn should_check_origin_for_cancel() {
 			weight: Weight::from_parts(10, 0),
 		}));
 		assert_ok!(Scheduler::schedule_named(
-			system::RawOrigin::Signed(1).into(),
+			RawOrigin::Signed(1).into(),
 			[1u8; 32],
 			4,
 			None,
 			127,
 			call,
 		));
-		assert_ok!(Scheduler::schedule(system::RawOrigin::Signed(1).into(), 4, None, 127, call2,));
+		assert_ok!(Scheduler::schedule(RawOrigin::Signed(1).into(), 4, None, 127, call2,));
 		run_to_block(3);
 		// Scheduled calls are in the agenda.
 		assert_eq!(Agenda::<Test>::get(4).len(), 2);
 		assert!(logger::log().is_empty());
 		assert_noop!(
-			Scheduler::cancel_named(system::RawOrigin::Signed(2).into(), [1u8; 32]),
+			Scheduler::cancel_named(RawOrigin::Signed(2).into(), [1u8; 32]),
 			BadOrigin
 		);
-		assert_noop!(Scheduler::cancel(system::RawOrigin::Signed(2).into(), 4, 1), BadOrigin);
-		assert_noop!(Scheduler::cancel_named(system::RawOrigin::Root.into(), [1u8; 32]), BadOrigin);
-		assert_noop!(Scheduler::cancel(system::RawOrigin::Root.into(), 4, 1), BadOrigin);
+		assert_noop!(Scheduler::cancel(RawOrigin::Signed(2).into(), 4, 1), BadOrigin);
+		assert_noop!(Scheduler::cancel_named(RawOrigin::Root.into(), [1u8; 32]), BadOrigin);
+		assert_noop!(Scheduler::cancel(RawOrigin::Root.into(), 4, 1), BadOrigin);
 		run_to_block(5);
 		assert_eq!(
 			logger::log(),
 			vec![
-				(system::RawOrigin::Signed(1).into(), 69u32),
-				(system::RawOrigin::Signed(1).into(), 42u32)
+				(RawOrigin::Signed(1).into(), 69u32),
+				(RawOrigin::Signed(1).into(), 42u32)
 			]
 		);
 	});
@@ -2005,7 +2009,7 @@ fn migration_to_v4_works() {
 					maybe_periodic: Some((456u64, 10)),
 				}),
 			];
-			frame_support::migration::put_storage_value(b"Scheduler", b"Agenda", &k, old);
+			put_storage_value(b"Scheduler", b"Agenda", &k, old);
 		}
 
 		Scheduler::migrate_v1_to_v4();
@@ -2148,16 +2152,16 @@ fn test_migrate_origin() {
 					_phantom: Default::default(),
 				}),
 			];
-			frame_support::migration::put_storage_value(b"Scheduler", b"Agenda", &k, old);
+			put_storage_value(b"Scheduler", b"Agenda", &k, old);
 		}
 
 		impl Into<OriginCaller> for u32 {
 			fn into(self) -> OriginCaller {
 				match self {
-					3u32 => system::RawOrigin::Root.into(),
-					2u32 => system::RawOrigin::None.into(),
-					101u32 => system::RawOrigin::Signed(101).into(),
-					102u32 => system::RawOrigin::Signed(102).into(),
+					3u32 => RawOrigin::Root.into(),
+					2u32 => RawOrigin::None.into(),
+					101u32 => RawOrigin::Signed(101).into(),
+					102u32 => RawOrigin::Signed(102).into(),
 					_ => unreachable!("test make no use of it"),
 				}
 			}
@@ -2180,7 +2184,7 @@ fn test_migrate_origin() {
 							}))
 							.unwrap(),
 							maybe_periodic: None,
-							origin: system::RawOrigin::Root.into(),
+							origin: RawOrigin::Root.into(),
 							_phantom: PhantomData::<u64>::default(),
 						}),
 						None,
@@ -2193,7 +2197,7 @@ fn test_migrate_origin() {
 							}))
 							.unwrap(),
 							maybe_periodic: Some((456u64, 10)),
-							origin: system::RawOrigin::None.into(),
+							origin: RawOrigin::None.into(),
 							_phantom: PhantomData::<u64>::default(),
 						}),
 					]
@@ -2210,7 +2214,7 @@ fn test_migrate_origin() {
 							}))
 							.unwrap(),
 							maybe_periodic: None,
-							origin: system::RawOrigin::Root.into(),
+							origin: RawOrigin::Root.into(),
 							_phantom: PhantomData::<u64>::default(),
 						}),
 						None,
@@ -2223,7 +2227,7 @@ fn test_migrate_origin() {
 							}))
 							.unwrap(),
 							maybe_periodic: Some((456u64, 10)),
-							origin: system::RawOrigin::None.into(),
+							origin: RawOrigin::None.into(),
 							_phantom: PhantomData::<u64>::default(),
 						}),
 					]
@@ -2240,7 +2244,7 @@ fn test_migrate_origin() {
 							}))
 							.unwrap(),
 							maybe_periodic: None,
-							origin: system::RawOrigin::Root.into(),
+							origin: RawOrigin::Root.into(),
 							_phantom: PhantomData::<u64>::default(),
 						}),
 						None,
@@ -2253,7 +2257,7 @@ fn test_migrate_origin() {
 							}))
 							.unwrap(),
 							maybe_periodic: Some((456u64, 10)),
-							origin: system::RawOrigin::None.into(),
+							origin: RawOrigin::None.into(),
 							_phantom: PhantomData::<u64>::default(),
 						}),
 					]
@@ -2268,7 +2272,7 @@ fn postponed_named_task_cannot_be_rescheduled() {
 	new_test_ext().execute_with(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(1000, 0) });
-		let hash = <Test as frame_system::Config>::Hashing::hash_of(&call);
+		let hash = <Test as Config>::Hashing::hash_of(&call);
 		let len = call.using_encoded(|x| x.len()) as u32;
 		// Important to use here `Bounded::Lookup` to ensure that we request the hash.
 		let hashed = Bounded::Lookup { hash, len };
@@ -2342,7 +2346,7 @@ fn postponed_named_task_cannot_be_rescheduled() {
 /// Using the scheduler as `v3::Anon` works.
 #[test]
 fn scheduler_v3_anon_basic_works() {
-	use frame_support::traits::schedule::v3::Anon;
+	use frame::traits::schedule::v3::Anon;
 	new_test_ext().execute_with(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
@@ -2371,7 +2375,7 @@ fn scheduler_v3_anon_basic_works() {
 
 #[test]
 fn scheduler_v3_anon_cancel_works() {
-	use frame_support::traits::schedule::v3::Anon;
+	use frame::traits::schedule::v3::Anon;
 	new_test_ext().execute_with(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
@@ -2398,7 +2402,7 @@ fn scheduler_v3_anon_cancel_works() {
 
 #[test]
 fn scheduler_v3_anon_reschedule_works() {
-	use frame_support::traits::schedule::v3::Anon;
+	use frame::traits::schedule::v3::Anon;
 	new_test_ext().execute_with(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
@@ -2445,7 +2449,7 @@ fn scheduler_v3_anon_reschedule_works() {
 
 #[test]
 fn scheduler_v3_anon_next_schedule_time_works() {
-	use frame_support::traits::schedule::v3::Anon;
+	use frame::traits::schedule::v3::Anon;
 	new_test_ext().execute_with(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
@@ -2482,7 +2486,7 @@ fn scheduler_v3_anon_next_schedule_time_works() {
 /// Re-scheduling a task changes its next dispatch time.
 #[test]
 fn scheduler_v3_anon_reschedule_and_next_schedule_time_work() {
-	use frame_support::traits::schedule::v3::Anon;
+	use frame::traits::schedule::v3::Anon;
 	new_test_ext().execute_with(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
@@ -2522,7 +2526,7 @@ fn scheduler_v3_anon_reschedule_and_next_schedule_time_work() {
 
 #[test]
 fn scheduler_v3_anon_schedule_agenda_overflows() {
-	use frame_support::traits::schedule::v3::Anon;
+	use frame::traits::schedule::v3::Anon;
 	let max: u32 = <Test as Config>::MaxScheduledPerBlock::get();
 
 	new_test_ext().execute_with(|| {
@@ -2557,7 +2561,7 @@ fn scheduler_v3_anon_schedule_agenda_overflows() {
 /// Cancelling and scheduling does not overflow the agenda but fills holes.
 #[test]
 fn scheduler_v3_anon_cancel_and_schedule_fills_holes() {
-	use frame_support::traits::schedule::v3::Anon;
+	use frame::traits::schedule::v3::Anon;
 	let max: u32 = <Test as Config>::MaxScheduledPerBlock::get();
 	assert!(max > 3, "This test only makes sense for MaxScheduledPerBlock > 3");
 
@@ -2606,7 +2610,7 @@ fn scheduler_v3_anon_cancel_and_schedule_fills_holes() {
 /// Re-scheduling does not overflow the agenda but fills holes.
 #[test]
 fn scheduler_v3_anon_reschedule_fills_holes() {
-	use frame_support::traits::schedule::v3::Anon;
+	use frame::traits::schedule::v3::Anon;
 	let max: u32 = <Test as Config>::MaxScheduledPerBlock::get();
 	assert!(max > 3, "pre-condition: This test only makes sense for MaxScheduledPerBlock > 3");
 
@@ -2652,7 +2656,7 @@ fn scheduler_v3_anon_reschedule_fills_holes() {
 /// The scheduler can be used as `v3::Named` trait.
 #[test]
 fn scheduler_v3_named_basic_works() {
-	use frame_support::traits::schedule::v3::Named;
+	use frame::traits::schedule::v3::Named;
 
 	new_test_ext().execute_with(|| {
 		let call =
@@ -2685,7 +2689,7 @@ fn scheduler_v3_named_basic_works() {
 /// A named task can be cancelled by its name.
 #[test]
 fn scheduler_v3_named_cancel_named_works() {
-	use frame_support::traits::schedule::v3::Named;
+	use frame::traits::schedule::v3::Named;
 	new_test_ext().execute_with(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
@@ -2715,7 +2719,7 @@ fn scheduler_v3_named_cancel_named_works() {
 /// A named task can also be cancelled by its address.
 #[test]
 fn scheduler_v3_named_cancel_without_name_works() {
-	use frame_support::traits::schedule::v3::{Anon, Named};
+	use frame::traits::schedule::v3::{Anon, Named};
 	new_test_ext().execute_with(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
@@ -2745,7 +2749,7 @@ fn scheduler_v3_named_cancel_without_name_works() {
 /// A named task can be re-scheduled by its name but not by its address.
 #[test]
 fn scheduler_v3_named_reschedule_named_works() {
-	use frame_support::traits::schedule::v3::{Anon, Named};
+	use frame::traits::schedule::v3::{Anon, Named};
 	new_test_ext().execute_with(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
@@ -2804,7 +2808,7 @@ fn scheduler_v3_named_reschedule_named_works() {
 
 #[test]
 fn scheduler_v3_named_next_schedule_time_works() {
-	use frame_support::traits::schedule::v3::{Anon, Named};
+	use frame::traits::schedule::v3::{Anon, Named};
 	new_test_ext().execute_with(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
@@ -2996,12 +3000,12 @@ fn reschedule_named_last_task_removes_agenda() {
 /// Ensures that an unavailable call sends an event.
 #[test]
 fn unavailable_call_is_detected() {
-	use frame_support::traits::schedule::v3::Named;
+	use frame::traits::schedule::v3::Named;
 
 	new_test_ext().execute_with(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
-		let hash = <Test as frame_system::Config>::Hashing::hash_of(&call);
+		let hash = <Test as Config>::Hashing::hash_of(&call);
 		let len = call.using_encoded(|x| x.len()) as u32;
 		// Important to use here `Bounded::Lookup` to ensure that we request the hash.
 		let bound = Bounded::Lookup { hash, len };
