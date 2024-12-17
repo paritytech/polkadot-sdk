@@ -51,6 +51,9 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_staking`.
 pub trait WeightInfo {
+	fn on_initialize_noop() -> Weight;
+	fn do_elect_paged(v: u32,) -> Weight;
+	fn clear_election_metadata() -> Weight;
 	fn bond() -> Weight;
 	fn bond_extra() -> Weight;
 	fn unbond() -> Weight;
@@ -88,6 +91,17 @@ pub trait WeightInfo {
 /// Weights for `pallet_staking` using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+	// TODO: run CI bench bot
+	fn on_initialize_noop() -> Weight {
+	    RocksDbWeight::get().reads(1)
+	}
+	fn do_elect_paged(_v: u32,) -> Weight {
+	    RocksDbWeight::get().reads(1)
+	}
+	fn clear_election_metadata() -> Weight {
+	    RocksDbWeight::get().reads(1)
+	}
+
 	/// Storage: `Staking::Bonded` (r:1 w:1)
 	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::Ledger` (r:1 w:1)
@@ -838,6 +852,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 
 // For backwards compatibility and tests.
 impl WeightInfo for () {
+	// TODO: run CI bench bot
+	fn on_initialize_noop() -> Weight {
+	    RocksDbWeight::get().reads(1)
+	}
+	fn do_elect_paged(_v: u32,) -> Weight {
+	    RocksDbWeight::get().reads(1)
+	}
+	fn clear_election_metadata() -> Weight {
+	    RocksDbWeight::get().reads(1)
+	}
+
 	/// Storage: `Staking::Bonded` (r:1 w:1)
 	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::Ledger` (r:1 w:1)
