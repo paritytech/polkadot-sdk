@@ -1340,7 +1340,7 @@ pub mod pallet {
 				// calling `chill_other`. Until then, we explicitly block new validators to protect
 				// the runtime.
 				ensure!(
-					Validators::<T>::count() <= T::MaxValidatorsCount::get(),
+					Validators::<T>::count() < T::MaxValidatorsCount::get(),
 					Error::<T>::TooManyValidators,
 				);
 			}

@@ -4411,7 +4411,7 @@ fn test_page_count_and_size() {
 		assert_eq!(EraInfo::<Test>::get_paged_exposure(2, &11, 3).unwrap().others().len(), 4);
 
 		// now lets decrease page size even more
-		MaxExposurePageSize::set(20);
+		MaxExposurePageSize::set(5);
 		mock::start_active_era(3);
 
 		// now we expect the max 20 pages (100/5).
@@ -5722,11 +5722,13 @@ fn chill_other_works() {
 			);
 
 			// Add limits, but no threshold
+			let max = 10;
+			MaxValidatorsCount::set(max);
 			assert_ok!(Staking::set_staking_configs(
 				RuntimeOrigin::root(),
 				ConfigOp::Noop,
 				ConfigOp::Noop,
-				ConfigOp::Set(10),
+				ConfigOp::Set(max),
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
@@ -5809,6 +5811,7 @@ fn capped_stakers_works() {
 
 		// Change the maximums
 		let max = 10;
+		MaxValidatorsCount::set(max);
 		assert_ok!(Staking::set_staking_configs(
 			RuntimeOrigin::root(),
 			ConfigOp::Set(10),
@@ -5878,7 +5881,8 @@ fn capped_stakers_works() {
 			ValidatorPrefs::default()
 		));
 
-		// No problem when we set to `None` again
+		// No problem when we set to `None` again and increase MaxValidatorsCount
+		MaxValidatorsCount::set(2 * MaxValidatorsCount::get());
 		assert_ok!(Staking::set_staking_configs(
 			RuntimeOrigin::root(),
 			ConfigOp::Noop,
@@ -6682,66 +6686,33 @@ fn test_runtime_api_pending_rewards() {
 		// add exposure for validators
 		EraInfo::<Test>::set_exposure(0, &validator_one, exposure.clone());
 		EraInfo::<Test>::set_exposure(0, &validator_two, exposure.clone());
-		EraInfo::<Test>::set_exposure(0, &validator_three, exposure.clone());
 
 		// add some reward to be distributed
 		ErasValidatorReward::<Test>::insert(0, 1000);
 
-		// mark rewards claimed for validator_one in legacy claimed rewards
-		<Ledger<Test>>::insert(
-			validator_one,
-			StakingLedgerInspect {
-				stash: validator_one,
-				total: stake,
-				active: stake,
-				unlocking: Default::default(),
-				legacy_claimed_rewards: bounded_vec![0],
-			},
-		);
-
-		// SCENARIO ONE: rewards already marked claimed in legacy storage.
-		// runtime api should return false for pending rewards for validator_one.
+		// SCENARIO: Validator with paged exposure (two pages).
+		// validators have not claimed rewards, so pending rewards is true.
+		assert!(EraInfo::<Test>::pending_rewards(0, &validator_one));
+		assert!(EraInfo::<Test>::pending_rewards(0, &validator_two));
+		// and payout works
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_one, 0));
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_two, 0));
+		// validators have two pages of exposure, so pending rewards is still true.
+		assert!(EraInfo::<Test>::pending_rewards(0, &validator_one));
+		assert!(EraInfo::<Test>::pending_rewards(0, &validator_two));
+		// payout again only for validator one
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_one, 0));
+		// now pending rewards is false for validator one
 		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_one));
-		// and if we try to pay, we get an error.
+		// and payout fails for validator one
 		assert_noop!(
 			Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_one, 0),
 			Error::<Test>::AlreadyClaimed.with_weight(err_weight)
 		);
-
-		// SCENARIO TWO: non-paged exposure
-		// validator two has not claimed rewards, so pending rewards is true.
+		// while pending reward is true for validator two
 		assert!(EraInfo::<Test>::pending_rewards(0, &validator_two));
-		// and payout works
+		// and payout works again for validator two.
 		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_two, 0));
-		// now pending rewards is false.
-		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_two));
-		// and payout fails
-		assert_noop!(
-			Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_two, 0),
-			Error::<Test>::AlreadyClaimed.with_weight(err_weight)
-		);
-
-		// SCENARIO THREE: validator with paged exposure (two pages).
-		// validator three has not claimed rewards, so pending rewards is true.
-		assert!(EraInfo::<Test>::pending_rewards(0, &validator_three));
-		// and payout works
-		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_three, 0));
-		// validator three has two pages of exposure, so pending rewards is still true.
-		assert!(EraInfo::<Test>::pending_rewards(0, &validator_three));
-		// payout again
-		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_three, 0));
-		// now pending rewards is false.
-		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_three));
-		// and payout fails
-		assert_noop!(
-			Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_three, 0),
-			Error::<Test>::AlreadyClaimed.with_weight(err_weight)
-		);
-
-		// for eras with no exposure, pending rewards is false.
-		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_one));
-		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_two));
-		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_three));
 	});
 }
 
