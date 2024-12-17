@@ -767,6 +767,24 @@ mod benchmarks {
 		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().minimum_balance());
 	}
 
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_return_data_size() {
+		let mut setup = CallSetup::<T>::default();
+		let (mut ext, _) = setup.ext();
+		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
+		let mut memory = memory!(vec![],);
+		*runtime.ext().last_frame_output_mut() =
+			ExecReturnValue { data: vec![42; 256], ..Default::default() };
+		let result;
+		#[block]
+		{
+			result = runtime.bench_return_data_size(memory.as_mut_slice());
+		}
+		assert_eq!(result.unwrap(), 256);
+	}
+
+
 	#[benchmark(pov_mode = Measured)]
 	fn seal_call_data_size() {
 		let mut setup = CallSetup::<T>::default();

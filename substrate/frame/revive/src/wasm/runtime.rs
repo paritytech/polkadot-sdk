@@ -273,6 +273,8 @@ pub enum RuntimeCosts {
 	Caller,
 	/// Weight of calling `seal_call_data_size`.
 	CallDataSize,
+	/// Weight of calling `seal_return_data_size`.
+	ReturnDataSize,
 	/// Weight of calling `seal_origin`.
 	Origin,
 	/// Weight of calling `seal_is_contract`.
@@ -434,6 +436,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			CopyToContract(len) => T::WeightInfo::seal_input(len),
 			CopyFromContract(len) => T::WeightInfo::seal_return(len),
 			CallDataSize => T::WeightInfo::seal_call_data_size(),
+			ReturnDataSize => T::WeightInfo::seal_return_data_size(),
 			CallDataLoad => T::WeightInfo::seal_call_data_load(),
 			Caller => T::WeightInfo::seal_caller(),
 			Origin => T::WeightInfo::seal_origin(),
@@ -1621,6 +1624,7 @@ pub mod env {
 	/// See [`pallet_revive_uapi::HostFn::return_data_size`].
 	#[stable]
 	fn return_data_size(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
+		self.charge_gas(RuntimeCosts::ReturnDataSize)?;
 		Ok(self
 			.ext
 			.last_frame_output()
