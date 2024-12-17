@@ -22,7 +22,7 @@
 use common::input;
 use uapi::{HostFn, HostFnImpl as api, StorageFlags};
 
-static BUFFER: [u8; 512] = [0u8; 512];
+static BUFFER: [u8; 384] = [0u8; 384];
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]

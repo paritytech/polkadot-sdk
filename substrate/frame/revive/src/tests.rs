@@ -374,7 +374,7 @@ impl RegisteredChainExtension<Test> for TempStorageExtension {
 parameter_types! {
 	pub BlockWeights: frame_system::limits::BlockWeights =
 		frame_system::limits::BlockWeights::simple_max(
-			Weight::from_parts(2u64 * WEIGHT_REF_TIME_PER_SECOND, u64::MAX),
+			Weight::from_parts(2 * WEIGHT_REF_TIME_PER_SECOND, u64::MAX),
 		);
 	pub static ExistentialDeposit: u64 = 1;
 }
@@ -382,6 +382,7 @@ parameter_types! {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
+	type BlockWeights = BlockWeights;
 	type AccountId = AccountId32;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type AccountData = pallet_balances::AccountData<u64>;
@@ -3483,7 +3484,7 @@ fn deposit_limit_in_nested_calls() {
 		// Require more than the sender's balance.
 		// Limit the sub call to little balance so it should fail in there
 		let ret = builder::bare_call(addr_caller)
-			.data((512u32, &addr_callee, U256::from(1u64)).encode())
+			.data((384u32, &addr_callee, U256::from(1u64)).encode())
 			.build_and_unwrap_result();
 		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
 
@@ -4815,6 +4816,27 @@ fn skip_transfer_works() {
 			Weight::MAX,
 			|_| 0u32
 		));
+	});
+}
+
+#[test]
+fn gas_limit_api_works() {
+	let (code, _) = compile_module("gas_limit").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create fixture: Constructor does nothing
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// Call the contract: It echoes back the value returned by the gas limit API.
+		let received = builder::bare_call(addr).build_and_unwrap_result();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		assert_eq!(
+			u64::from_le_bytes(received.data[..].try_into().unwrap()),
+			<Test as frame_system::Config>::BlockWeights::get().max_block.ref_time()
+		);
 	});
 }
 

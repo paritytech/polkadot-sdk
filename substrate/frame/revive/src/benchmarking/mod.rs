@@ -787,6 +787,17 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn seal_gas_limit() {
+		build_runtime!(runtime, memory: []);
+		let result;
+		#[block]
+		{
+			result = runtime.bench_gas_limit(&mut memory);
+		}
+		assert_eq!(result.unwrap(), T::BlockWeights::get().max_block.ref_time());
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_block_number() {
 		build_runtime!(runtime, memory: [[0u8;32], ]);
 		let result;

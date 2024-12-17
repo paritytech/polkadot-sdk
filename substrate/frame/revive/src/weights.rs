@@ -84,6 +84,7 @@ pub trait WeightInfo {
 	fn seal_block_number() -> Weight;
 	fn seal_block_hash() -> Weight;
 	fn seal_now() -> Weight;
+	fn seal_gas_limit() -> Weight;
 	fn seal_weight_to_fee() -> Weight;
 	fn seal_call_data_load() -> Weight;
 	fn seal_input(n: u32, ) -> Weight;
@@ -512,6 +513,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 	}
 	fn seal_now() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 244_000 picoseconds.
+		Weight::from_parts(298_000, 0)
+	}
+	fn seal_gas_limit() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -1361,6 +1369,13 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 	}
 	fn seal_now() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 244_000 picoseconds.
+		Weight::from_parts(298_000, 0)
+	}
+	fn seal_gas_limit() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

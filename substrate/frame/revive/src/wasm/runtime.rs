@@ -305,6 +305,8 @@ pub enum RuntimeCosts {
 	BlockHash,
 	/// Weight of calling `seal_now`.
 	Now,
+	/// Weight of calling `seal_gas_limit`.
+	GasLimit,
 	/// Weight of calling `seal_weight_to_fee`.
 	WeightToFee,
 	/// Weight of calling `seal_terminate`, passing the number of locked dependencies.
@@ -452,6 +454,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			BlockNumber => T::WeightInfo::seal_block_number(),
 			BlockHash => T::WeightInfo::seal_block_hash(),
 			Now => T::WeightInfo::seal_now(),
+			GasLimit => T::WeightInfo::seal_gas_limit(),
 			WeightToFee => T::WeightInfo::seal_weight_to_fee(),
 			Terminate(locked_dependencies) => T::WeightInfo::seal_terminate(locked_dependencies),
 			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len),
@@ -1506,6 +1509,14 @@ pub mod env {
 			false,
 			|_| Some(RuntimeCosts::CopyToContract(32)),
 		)?)
+	}
+
+	/// Returns the block ref_time limit.
+	/// See [`pallet_revive_uapi::HostFn::gas_limit`].
+	#[stable]
+	fn gas_limit(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
+		self.charge_gas(RuntimeCosts::GasLimit)?;
+		Ok(<E::T as frame_system::Config>::BlockWeights::get().max_block.ref_time())
 	}
 
 	/// Stores the value transferred along with this call/instantiate into the supplied buffer.
