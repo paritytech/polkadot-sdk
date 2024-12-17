@@ -25,7 +25,7 @@ use polkadot_primitives::{Hash, Id as ParaId};
 #[derive(Debug, PartialEq, Clone)]
 enum ClaimState {
 	Free,
-	Claimed(Option<Hash>),
+	Pending(Option<Hash>),
 	Seconded(Hash),
 }
 
@@ -216,8 +216,33 @@ impl ClaimQueueState {
 			relay_parent,
 			para_id,
 			maybe_candidate_hash,
-			ClaimState::Claimed(maybe_candidate_hash),
+			ClaimState::Pending(maybe_candidate_hash),
 		)
+	}
+
+	/// Looks for a pending claim for `candidate_hash` at `relay_parent` and upgrades it to
+	/// seconded.
+	pub fn upgrade_pending_claims(&mut self, relay_parent: &Hash, candidate_hash: &Hash) -> bool {
+		gum::trace!(
+			target: LOG_TARGET,
+			?relay_parent,
+			?candidate_hash,
+			"upgrade_pending_claims"
+		);
+
+		if !self.candidates.contains_key(candidate_hash) {
+			// Unknown candidate, no need to look in state.
+			return false;
+		}
+
+		for w in self.get_window(relay_parent) {
+			if w.claimed == ClaimState::Pending(Some(*candidate_hash)) {
+				w.claimed = ClaimState::Seconded(*candidate_hash);
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/// If there is a pending claim for the candidate at `relay_parent` it is upgraded to seconded.
@@ -243,7 +268,7 @@ impl ClaimQueueState {
 			let window = self.get_window(relay_parent);
 
 			for w in window {
-				if w.claimed == ClaimState::Claimed(Some(candidate_hash)) {
+				if w.claimed == ClaimState::Pending(Some(candidate_hash)) {
 					w.claimed = ClaimState::Seconded(candidate_hash);
 					return true;
 				}
@@ -354,7 +379,7 @@ impl ClaimQueueState {
 		let window = self.get_window(relay_parent);
 
 		window
-			.filter(|b| matches!(b.claimed, ClaimState::Claimed(_)))
+			.filter(|b| matches!(b.claimed, ClaimState::Pending(_)))
 			.filter_map(|b| b.claim)
 			.collect()
 	}
@@ -411,7 +436,7 @@ impl ClaimQueueState {
 		// Collect the iterator first because peekable iters can't be reversed
 		let window = self.get_window(&relay_parent);
 		for w in window {
-			if w.claimed == ClaimState::Claimed(Some(*candidate_hash)) ||
+			if w.claimed == ClaimState::Pending(Some(*candidate_hash)) ||
 				w.claimed == ClaimState::Seconded(*candidate_hash)
 			{
 				w.claimed = ClaimState::Free;
@@ -469,7 +494,7 @@ impl PerLeafClaimQueueState {
 
 	/// Returns `true` if there is a free claim within `relay_parent`'s view of the claim queue for
 	/// `leaf` or if there already is a claimed slot for the candidate.
-	pub fn has_slot_at_leaf_for(
+	pub fn has_free_slot_at_leaf_for(
 		&mut self,
 		leaf: &Hash,
 		relay_parent: &Hash,
@@ -492,9 +517,9 @@ impl PerLeafClaimQueueState {
 		result
 	}
 
-	/// Claims a slot for a candidate at each leaf. Returns true if the claim was successful for at
-	/// least one leaf.
-	pub fn claim_slot(
+	/// Claims a slot in pending state for a candidate at each leaf. Returns true if the claim was
+	/// successful for at least one leaf or there already is a claim for the candidate.
+	pub fn claim_pending_slot(
 		&mut self,
 		candidate_hash: &Hash,
 		relay_parent: &Hash,
@@ -507,11 +532,26 @@ impl PerLeafClaimQueueState {
 			}
 		}
 		result
+	}
+
+	/// Claims a slot in pending state for a candidate at a concrete leaf
+	pub fn claim_pending_slot_at_leaf(
+		&mut self,
+		leaf: &Hash,
+		candidate_hash: &Hash,
+		relay_parent: &Hash,
+		para_id: &ParaId,
+	) -> bool {
+		if let Some(leaf_state) = self.state.get_mut(leaf) {
+			leaf_state.claim_at(relay_parent, para_id, Some(*candidate_hash));
+			return true
+		}
+		return false
 	}
 
 	/// Seconds a slot for a candidate at each leaf. Returns true if the claim was successful for at
 	/// least one leaf.
-	pub fn second_slot(
+	pub fn claim_seconded_slot(
 		&mut self,
 		candidate_hash: &Hash,
 		relay_parent: &Hash,
@@ -519,13 +559,27 @@ impl PerLeafClaimQueueState {
 	) -> bool {
 		let mut result = false;
 		for (_, state) in &mut self.state {
-			if state.claim_at(relay_parent, para_id, Some(*candidate_hash)) {
+			if state.second_at(relay_parent, para_id, *candidate_hash) {
 				result = true;
 			}
 		}
 		result
 	}
 
+	// Upgrade the pending claims for `candidate_hash` at each leaf to seconded
+	pub fn upgrade_pending_claims_to_seconded(
+		&mut self,
+		candidate_hash: &Hash,
+		relay_parent: &Hash,
+	) -> bool {
+		let mut result = false;
+		for (_, state) in &mut self.state {
+			if state.upgrade_pending_claims(relay_parent, candidate_hash) {
+				result = true;
+			}
+		}
+		result
+	}
 	/// Returns claimed slots at a relay parent. As there can be multiple forks per relay parent,
 	/// the longest one is returned.
 	pub fn get_claimed_slots_at(&mut self, relay_parent: &Hash) -> VecDeque<ParaId> {
@@ -1888,21 +1942,21 @@ mod test {
 
 			state.add_leaf(&relay_parent_a, &claim_queue, &Hash::from_low_u64_be(0));
 
-			assert!(state.has_slot_at_leaf_for(
+			assert!(state.has_free_slot_at_leaf_for(
 				&relay_parent_a,
 				&relay_parent_a,
 				&para_id,
 				&candidate_a
 			));
 
-			assert!(state.has_slot_at_leaf_for(
+			assert!(state.has_free_slot_at_leaf_for(
 				&relay_parent_a,
 				&relay_parent_a,
 				&para_id,
 				&candidate_b
 			));
 
-			assert!(state.has_slot_at_leaf_for(
+			assert!(state.has_free_slot_at_leaf_for(
 				&relay_parent_a,
 				&relay_parent_a,
 				&para_id,
@@ -1913,7 +1967,7 @@ mod test {
 			assert!(state.claim_slot(&candidate_b, &relay_parent_a, &para_id,));
 
 			// Because `candidate_a` already has got a slot
-			assert!(state.has_slot_at_leaf_for(
+			assert!(state.has_free_slot_at_leaf_for(
 				&relay_parent_a,
 				&relay_parent_a,
 				&para_id,
@@ -1921,7 +1975,7 @@ mod test {
 			));
 
 			// Because `candidate_b` already has got a slot
-			assert!(state.has_slot_at_leaf_for(
+			assert!(state.has_free_slot_at_leaf_for(
 				&relay_parent_a,
 				&relay_parent_a,
 				&para_id,
@@ -1929,7 +1983,7 @@ mod test {
 			));
 
 			// Because there are no free slots
-			assert!(!state.has_slot_at_leaf_for(
+			assert!(!state.has_free_slot_at_leaf_for(
 				&relay_parent_a,
 				&relay_parent_a,
 				&para_id,

@@ -110,7 +110,7 @@ pub enum CandidateBackingMessage {
 	Statement(Hash, SignedFullStatementWithPVD),
 	/// Drops all claims for a candidate hash
 	DropClaims(HashSet<CandidateHash>),
-	/// Returns all claimed slots
+	/// Returns `ParaId`s with claimed slots that are not yet seconded.
 	ClaimedSlots(Hash, oneshot::Sender<VecDeque<ParaId>>),
 }
 

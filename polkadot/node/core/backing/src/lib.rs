@@ -513,7 +513,10 @@ async fn run_iteration<Context>(
 						Ok(false) => {
 							state.claim_queue_state.release_claims_for_candidate(&candidate_hash);
 						}
-						Err(e) => return Err(e),
+						Err(e) => {
+							state.claim_queue_state.release_claims_for_candidate(&candidate_hash);
+							return Err(e)
+						},
 					}
 				} else {
 					panic!("background_validation_tx always alive at this point; qed");
@@ -961,7 +964,10 @@ async fn handle_communication<Context>(
 				Ok(false) => {
 					state.claim_queue_state.release_claims_for_candidate(&candidate_hash);
 				},
-				Err(e) => return Err(e),
+				Err(e) => {
+					state.claim_queue_state.release_claims_for_candidate(&candidate_hash);
+					return Err(e)
+				},
 			}
 		},
 		CandidateBackingMessage::Statement(relay_parent, statement) => {
@@ -1081,7 +1087,6 @@ async fn handle_active_leaves_update<Context>(
 			.unwrap_or(&empty_cq);
 
 			state.claim_queue_state.add_leaf(&maybe_new, maybe_claim_queue, &per.parent);
-
 			state.per_relay_parent.insert(maybe_new, per);
 		}
 	}
@@ -1317,7 +1322,7 @@ async fn seconding_sanity_check<Context>(
 		}
 
 		// Check if there is a slot in the claim queue
-		if !claim_queue_state.has_slot_at_leaf_for(
+		if !claim_queue_state.has_free_slot_at_leaf_for(
 			head,
 			&candidate_relay_parent,
 			&candidate_para,
@@ -1403,6 +1408,9 @@ async fn handle_can_second_request<Context>(
 			candidate_relay_parent: relay_parent,
 		};
 
+		let candidate_hash = hypothetical_candidate.candidate_hash();
+		let candidate_relay_parent = hypothetical_candidate.relay_parent();
+		let candidate_para_id = hypothetical_candidate.candidate_para();
 		let result = seconding_sanity_check(
 			ctx,
 			&state.implicit_view,
@@ -1414,20 +1422,28 @@ async fn handle_can_second_request<Context>(
 		match result {
 			SecondingAllowed::No => false,
 			SecondingAllowed::Yes(leaves) => {
-				if !state.claim_queue_state.claim_slot(
-					&request.candidate_hash,
-					&request.candidate_relay_parent,
-					&request.candidate_para_id,
-				) {
-					// This should never happen since `seconding_sanity_check` checks if there
-					// is a free slot for the candidate
-					gum::warn!(
-						target: LOG_TARGET,
-						?request.candidate_hash,
-						?request.candidate_relay_parent,
-						?request.candidate_para_id,
-						"Failed to claim slot for candidate. This should never happen.",
+				// Make a pending claim for the leaves in the result.`seconding_sanity_check` makes
+				// an explicit check for each leaf so this claim should always succeed. Note that we
+				// only make claims at the leaves at which we can second the candidate. Calling
+				// `claim_pending_slot` here might make unnecessary claims.
+				for leaf in leaves.iter() {
+					let res = state.claim_queue_state.claim_pending_slot_at_leaf(
+						&leaf,
+						&candidate_hash,
+						&candidate_relay_parent,
+						&candidate_para_id,
 					);
+
+					if !res {
+						gum::warn!(
+							target: LOG_TARGET,
+							?candidate_hash,
+							?candidate_relay_parent,
+							?candidate_para_id,
+							?leaf,
+							"Failed to claim slot for candidate at leaf during can_second check. This should never happen.",
+						);
+					}
 				}
 				!leaves.is_empty()
 			},
@@ -1540,11 +1556,18 @@ async fn handle_validated_candidate_command<Context>(
 
 							rp_state.issued_statements.insert(candidate_hash);
 
-							state.claim_queue_state.second_slot(
+							// A claim should have been made with `CanSecond` if collator protocol
+							// V2+ was used
+							if !state.claim_queue_state.upgrade_pending_claims_to_seconded(
 								&candidate_hash,
-								&candidate.descriptor().relay_parent(),
-								&candidate.descriptor().para_id(),
-							);
+								&candidate.descriptor.relay_parent(),
+							) {
+								gum::warn!(
+									target: LOG_TARGET,
+									?candidate_hash,
+									"Can't find pending claims for a just validated candidate. This should never happen.",
+								);
+							}
 
 							metrics.on_candidate_seconded();
 							ctx.send_message(CollatorProtocolMessage::Seconded(
@@ -1687,7 +1710,8 @@ async fn import_statement<Context>(
 	// our active leaves.
 	if let StatementWithPVD::Seconded(candidate, pvd) = statement.payload() {
 		if !per_candidate.contains_key(&candidate_hash) {
-			if !claim_queue_state.second_slot(
+			// claim a seconded slot at all possible paths
+			if !claim_queue_state.claim_seconded_slot(
 				&candidate_hash,
 				&candidate.descriptor.relay_parent(),
 				&candidate.descriptor.para_id(),
@@ -2134,9 +2158,9 @@ async fn handle_second_message<Context>(
 
 	let relay_parent = candidate.descriptor().relay_parent();
 
-	// A claim should have been mande with `CanSecond` but in case collator protocol V1 was used we
-	// ensure there is a slot for the candidate before seconding it.
-	if !state.claim_queue_state.claim_slot(
+	// A claim should have been mande with `CanSecond` if collator protocol V2+ was used. To handle
+	// V1 too we redo the claim here (which will be a no-op if there already is a pending claim).
+	if !state.claim_queue_state.claim_pending_slot(
 		&candidate_hash,
 		&candidate.descriptor.relay_parent(),
 		&candidate.descriptor.para_id(),
