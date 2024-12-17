@@ -13607,6 +13607,99 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
+=======
+name = "polkadot-omni-node"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "polkadot-omni-node-lib",
+ "substrate-build-script-utils",
+]
+
+[[package]]
+name = "polkadot-omni-node-lib"
+version = "0.1.0"
+dependencies = [
+ "assert_cmd",
+ "async-trait",
+ "clap 4.5.13",
+ "color-print",
+ "cumulus-client-cli",
+ "cumulus-client-collator",
+ "cumulus-client-consensus-aura",
+ "cumulus-client-consensus-common",
+ "cumulus-client-consensus-proposer",
+ "cumulus-client-consensus-relay-chain",
+ "cumulus-client-parachain-inherent",
+ "cumulus-client-service",
+ "cumulus-primitives-aura 0.7.0",
+ "cumulus-primitives-core 0.7.0",
+ "cumulus-relay-chain-interface",
+ "cumulus-test-runtime",
+ "docify",
+ "frame-benchmarking 28.0.0",
+ "frame-benchmarking-cli",
+ "frame-support 28.0.0",
+ "frame-system-rpc-runtime-api 26.0.0",
+ "frame-try-runtime 0.34.0",
+ "futures",
+ "futures-timer",
+ "jsonrpsee",
+ "log",
+ "nix 0.29.0",
+ "pallet-transaction-payment 28.0.0",
+ "pallet-transaction-payment-rpc",
+ "pallet-transaction-payment-rpc-runtime-api 28.0.0",
+ "parachains-common 7.0.0",
+ "parity-scale-codec",
+ "polkadot-cli",
+ "polkadot-primitives 7.0.0",
+ "sc-basic-authorship",
+ "sc-chain-spec",
+ "sc-cli",
+ "sc-client-api",
+ "sc-client-db",
+ "sc-consensus",
+ "sc-consensus-manual-seal",
+ "sc-executor 0.32.0",
+ "sc-network",
+ "sc-rpc",
+ "sc-runtime-utilities",
+ "sc-service",
+ "sc-sysinfo",
+ "sc-telemetry",
+ "sc-tracing",
+ "sc-transaction-pool",
+ "scale-info",
+ "serde",
+ "serde_json",
+ "sp-api 26.0.0",
+ "sp-block-builder 26.0.0",
+ "sp-consensus",
+ "sp-consensus-aura 0.32.0",
+ "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
+ "sp-genesis-builder 0.8.0",
+ "sp-inherents 26.0.0",
+ "sp-keystore 0.34.0",
+ "sp-runtime 31.0.1",
+ "sp-session 27.0.0",
+ "sp-storage 19.0.0",
+ "sp-timestamp 26.0.0",
+ "sp-transaction-pool 26.0.0",
+ "sp-version 29.0.0",
+ "sp-weights 27.0.0",
+ "substrate-frame-rpc-system",
+ "substrate-prometheus-endpoint",
+ "substrate-state-trie-migration-rpc",
+ "subxt-metadata",
+ "tokio",
+ "wait-timeout",
+]
+
+[[package]]
+>>>>>>> e6ddd39 (omni-node: Tolerate failing metadata check (#6923))
 name = "polkadot-overseer"
 version = "17.0.0"
 dependencies = [
