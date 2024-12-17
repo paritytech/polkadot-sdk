@@ -33,8 +33,7 @@ mod bag_thresholds;
 pub mod governance;
 mod staking;
 use governance::{
-	pallet_custom_origins, AuctionAdmin, FellowshipAdmin, GeneralAdmin, LeaseAdmin, StakingAdmin,
-	Treasurer, TreasurySpender,
+	pallet_custom_origins, FellowshipAdmin, GeneralAdmin, LeaseAdmin, StakingAdmin, Treasurer,
 };
 
 extern crate alloc;
@@ -56,7 +55,7 @@ use frame_support::{
 		fungible, fungibles,
 		tokens::{imbalance::ResolveAssetTo, nonfungibles_v2::Inspect},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, InstanceFilter,
-		TransformOrigin, VariantCountOf,
+		TransformOrigin, VariantCountOf, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, Weight, WeightToFee as _},
 	BoundedVec, PalletId,
@@ -76,7 +75,7 @@ use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, Verify},
+	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Verify},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Perbill, Permill, RuntimeDebug,
 };
@@ -86,6 +85,7 @@ use sp_version::RuntimeVersion;
 use testnet_parachains_constants::westend::{
 	consensus::*, currency::*, fee::WeightToFee, snowbridge::EthereumNetwork, time::*,
 };
+use xcm::latest::prelude::*;
 use xcm_config::{
 	ForeignAssetsConvertedConcreteId, ForeignCreatorsSovereignAccountOf,
 	PoolAssetsConvertedConcreteId, TrustBackedAssetsConvertedConcreteId,
@@ -100,9 +100,8 @@ use assets_common::{
 	matching::{FromNetwork, FromSiblingParachain},
 };
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
-use xcm::{
-	latest::prelude::AssetId,
-	prelude::{VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
+use xcm::prelude::{
+	VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
 };
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -237,6 +236,23 @@ impl pallet_transaction_payment::Config for Runtime {
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightInfo = weights::pallet_transaction_payment::WeightInfo<Runtime>;
+}
+
+parameter_types! {
+	pub const MinVestedTransfer: Balance = 100 * CENTS;
+	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
+		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
+}
+
+impl pallet_vesting::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type BlockNumberToBalance = ConvertInto;
+	type MinVestedTransfer = MinVestedTransfer;
+	type WeightInfo = weights::pallet_vesting::WeightInfo<Runtime>;
+	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+	type BlockNumberProvider = System;
+	const MAX_VESTING_SCHEDULES: u32 = 28;
 }
 
 parameter_types! {
@@ -1006,6 +1022,7 @@ construct_runtime!(
 		Origins: pallet_custom_origins = 94,
 		Whitelist: pallet_whitelist = 95,
 		Treasury: pallet_treasury = 96,
+		AssetRate: pallet_asset_rate = 97,
 
 		// Balances.
 		Vesting: pallet_vesting = 100,
@@ -1130,8 +1147,12 @@ impl
 #[cfg(feature = "runtime-benchmarks")]
 mod benches {
 	frame_benchmarking::define_benchmarks!(
+		[cumulus_pallet_parachain_system, ParachainSystem]
+		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[frame_system, SystemBench::<Runtime>]
 		[frame_system_extensions, SystemExtensionsBench::<Runtime>]
+		[pallet_asset_conversion_ops, AssetConversionMigration]
+		[pallet_asset_rate, AssetRate]
 		[pallet_assets, Local]
 		[pallet_assets, Foreign]
 		[pallet_assets, Pool]
@@ -1139,24 +1160,28 @@ mod benches {
 		[pallet_asset_conversion_tx_payment, AssetTxPayment]
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
+		[pallet_collator_selection, CollatorSelection]
+		[pallet_conviction_voting, ConvictionVoting]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
 		[pallet_fast_unstake, FastUnstake]
 		[pallet_message_queue, MessageQueue]
 		[pallet_multisig, Multisig]
 		[pallet_nft_fractionalization, NftFractionalization]
 		[pallet_nfts, Nfts]
+		[pallet_preimage, Preimage]
 		[pallet_proxy, Proxy]
+		[pallet_referenda, Referenda]
+		[pallet_scheduler, Scheduler]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_staking, Staking]
 		[pallet_uniques, Uniques]
 		[pallet_utility, Utility]
 		[pallet_timestamp, Timestamp]
 		[pallet_transaction_payment, TransactionPayment]
-		[pallet_collator_selection, CollatorSelection]
-		[cumulus_pallet_parachain_system, ParachainSystem]
-		[cumulus_pallet_xcmp_queue, XcmpQueue]
+		[pallet_treasury, Treasury]
+		[pallet_vesting, Vesting]
+		[pallet_whitelist, Whitelist]
 		[pallet_xcm_bridge_hub_router, ToRococo]
-		[pallet_asset_conversion_ops, AssetConversionMigration]
 		// XCM
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
 		// NOTE: Make sure you point to the individual modules below.

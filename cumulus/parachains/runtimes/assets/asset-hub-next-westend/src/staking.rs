@@ -18,7 +18,7 @@
 use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{bounds::ElectionBoundsBuilder, onchain, SequentialPhragmen};
-use frame_support::traits::ConstU128;
+use frame_support::traits::{ConstU128, EitherOf};
 // use frame_support::traits::EitherOf;
 // use governance::{
 // 	StakingAdmin,
@@ -264,8 +264,7 @@ impl pallet_staking::Config for Runtime {
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
-	// type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
-	type AdminOrigin = EnsureRoot<AccountId>;
+	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type SessionInterface = Self;
 	type EraPayout = EraPayout;
 	type MaxExposurePageSize = MaxExposurePageSize;
@@ -316,8 +315,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxUnbonding = <Self as pallet_staking::Config>::MaxUnlockingChunks;
 	type PalletId = PoolsPalletId;
 	type MaxPointsToBalance = MaxPointsToBalance;
-	// type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
-	type AdminOrigin = EnsureRoot<AccountId>;
+	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 }
 
 parameter_types! {
