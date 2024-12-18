@@ -97,6 +97,7 @@ bp-relayers = { workspace = true }
 bp-runtime = { workspace = true }
 bp-rococo = { workspace = true }
 bp-westend = { workspace = true }
+bp-xcm-bridge-hub-router = { workspace = true }
 pallet-bridge-grandpa = { workspace = true }
 pallet-bridge-messages = { workspace = true }
 pallet-bridge-parachains = { workspace = true }
@@ -140,6 +141,7 @@ std = [
 	"bp-rococo/std",
 	"bp-runtime/std",
 	"bp-westend/std",
+	"bp-xcm-bridge-hub-router/std",
 	"bridge-hub-common/std",
 	"bridge-runtime-common/std",
 	"codec/std",
@@ -261,6 +263,7 @@ runtime-benchmarks = [
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 
 try-runtime = [

@@ -34,11 +34,10 @@ use frame_benchmarking::v2::*;
 use frame_support::{
 	self, assert_ok,
 	storage::child,
-	traits::{fungible::InspectHold, Currency},
+	traits::fungible::InspectHold,
 	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
-use pallet_balances;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, StorageFlags};
 use sp_runtime::traits::{Bounded, Hash};
 
@@ -68,7 +67,7 @@ struct Contract<T: Config> {
 
 impl<T> Contract<T>
 where
-	T: Config + pallet_balances::Config,
+	T: Config,
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
 	T::Hash: frame_support::traits::IsType<H256>,
@@ -220,11 +219,10 @@ fn default_deposit_limit<T: Config>() -> BalanceOf<T> {
 #[benchmarks(
 	where
 		BalanceOf<T>: Into<U256> + TryFrom<U256>,
-		T: Config + pallet_balances::Config,
+		T: Config,
 		MomentOf<T>: Into<U256>,
 		<T as frame_system::Config>::RuntimeEvent: From<pallet::Event<T>>,
 		<T as Config>::RuntimeCall: From<frame_system::Call<T>>,
-		<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance: From<BalanceOf<T>>,
 		<T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 )]
 mod benchmarks {
@@ -364,10 +362,10 @@ mod benchmarks {
 
 	// We just call a dummy contract to measure the overhead of the call extrinsic.
 	// The size of the data has no influence on the costs of this extrinsic as long as the contract
-	// won't call `seal_input` in its constructor to copy the data to contract memory.
+	// won't call `seal_call_data_copy` in its constructor to copy the data to contract memory.
 	// The dummy contract used here does not do this. The costs for the data copy is billed as
-	// part of `seal_input`. The costs for invoking a contract of a specific size are not part
-	// of this benchmark because we cannot know the size of the contract when issuing a call
+	// part of `seal_call_data_copy`. The costs for invoking a contract of a specific size are not
+	// part of this benchmark because we cannot know the size of the contract when issuing a call
 	// transaction. See `call_with_code_per_byte` for this.
 	#[benchmark(pov_mode = Measured)]
 	fn call() -> Result<(), BenchmarkError> {
@@ -674,6 +672,18 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn seal_ref_time_left() {
+		build_runtime!(runtime, memory: [vec![], ]);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_ref_time_left(memory.as_mut_slice());
+		}
+		assert_eq!(result.unwrap(), runtime.ext().gas_meter().gas_left().ref_time());
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_balance() {
 		build_runtime!(runtime, memory: [[0u8;32], ]);
 		let result;
@@ -774,6 +784,21 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn seal_call_data_size() {
+		let mut setup = CallSetup::<T>::default();
+		let (mut ext, _) = setup.ext();
+		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![42u8; 128 as usize]);
+		let mut memory = memory!(vec![0u8; 32 as usize],);
+		let result;
+		#[block]
+		{
+			result = runtime.bench_call_data_size(memory.as_mut_slice(), 0);
+		}
+		assert_ok!(result);
+		assert_eq!(U256::from_little_endian(&memory[..]), U256::from(128));
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_block_number() {
 		build_runtime!(runtime, memory: [[0u8;32], ]);
 		let result;
@@ -841,18 +866,56 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_input(n: Linear<0, { limits::code::BLOB_BYTES - 4 }>) {
+	fn seal_copy_to_contract(n: Linear<0, { limits::code::BLOB_BYTES - 4 }>) {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![42u8; n as usize]);
-		let mut memory = memory!(n.to_le_bytes(), vec![0u8; n as usize],);
+		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
+		let mut memory = memory!(n.encode(), vec![0u8; n as usize],);
 		let result;
 		#[block]
 		{
-			result = runtime.bench_input(memory.as_mut_slice(), 4, 0);
+			result = runtime.write_sandbox_output(
+				memory.as_mut_slice(),
+				4,
+				0,
+				&vec![42u8; n as usize],
+				false,
+				|_| None,
+			);
 		}
 		assert_ok!(result);
+		assert_eq!(&memory[..4], &n.encode());
 		assert_eq!(&memory[4..], &vec![42u8; n as usize]);
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_call_data_load() {
+		let mut setup = CallSetup::<T>::default();
+		let (mut ext, _) = setup.ext();
+		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![42u8; 32]);
+		let mut memory = memory!(vec![0u8; 32],);
+		let result;
+		#[block]
+		{
+			result = runtime.bench_call_data_load(memory.as_mut_slice(), 0, 0);
+		}
+		assert_ok!(result);
+		assert_eq!(&memory[..], &vec![42u8; 32]);
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_call_data_copy(n: Linear<0, { limits::code::BLOB_BYTES }>) {
+		let mut setup = CallSetup::<T>::default();
+		let (mut ext, _) = setup.ext();
+		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![42u8; n as usize]);
+		let mut memory = memory!(vec![0u8; n as usize],);
+		let result;
+		#[block]
+		{
+			result = runtime.bench_call_data_copy(memory.as_mut_slice(), 0, n, 0);
+		}
+		assert_ok!(result);
+		assert_eq!(&memory[..], &vec![42u8; n as usize]);
 	}
 
 	#[benchmark(pov_mode = Measured)]

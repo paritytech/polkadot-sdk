@@ -17,16 +17,16 @@
 use crate::{ParachainInherentData, INHERENT_IDENTIFIER};
 use codec::Decode;
 use cumulus_primitives_core::{
-	relay_chain, InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
+	relay_chain, relay_chain::UpgradeGoAhead, InboundDownwardMessage, InboundHrmpMessage, ParaId,
+	PersistedValidationData,
 };
 use cumulus_primitives_parachain_inherent::MessageQueueChain;
+use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use sc_client_api::{Backend, StorageProvider};
 use sp_crypto_hashing::twox_128;
 use sp_inherents::{InherentData, InherentDataProvider};
 use sp_runtime::traits::Block;
 use std::collections::BTreeMap;
-
-use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 
 /// Relay chain slot duration, in milliseconds.
 pub const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
@@ -68,10 +68,12 @@ pub struct MockValidationDataInherentDataProvider<R = ()> {
 	pub xcm_config: MockXcmConfig,
 	/// Inbound downward XCM messages to be injected into the block.
 	pub raw_downward_messages: Vec<Vec<u8>>,
-	// Inbound Horizontal messages sorted by channel.
+	/// Inbound Horizontal messages sorted by channel.
 	pub raw_horizontal_messages: Vec<(ParaId, Vec<u8>)>,
-	// Additional key-value pairs that should be injected.
+	/// Additional key-value pairs that should be injected.
 	pub additional_key_values: Option<Vec<(Vec<u8>, Vec<u8>)>>,
+	/// Whether upgrade go ahead should be set.
+	pub upgrade_go_ahead: Option<UpgradeGoAhead>,
 }
 
 /// Something that can generate randomness.
@@ -176,6 +178,7 @@ impl<R: Send + Sync + GenerateRandomness<u64>> InherentDataProvider
 		sproof_builder.current_slot =
 			((relay_parent_number / RELAY_CHAIN_SLOT_DURATION_MILLIS) as u64).into();
 
+		sproof_builder.upgrade_go_ahead = self.upgrade_go_ahead;
 		// Process the downward messages and set up the correct head
 		let mut downward_messages = Vec::new();
 		let mut dmq_mqc = MessageQueueChain::new(self.xcm_config.starting_dmq_mqc_head);
