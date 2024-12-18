@@ -14828,7 +14828,6 @@ dependencies = [
  "array-bytes",
  "assert_matches",
  "derive_more 0.99.17",
- "env_logger 0.11.3",
  "environmental",
  "ethereum-types 0.15.1",
  "frame-benchmarking 28.0.0",
