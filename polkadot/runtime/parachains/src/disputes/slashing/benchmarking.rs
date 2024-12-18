@@ -111,6 +111,7 @@ where
 	(session_index, key_owner_proof, validator_id)
 }
 
+/// Submits a single `ForInvalid` dispute.
 fn setup_dispute<T>(session_index: SessionIndex, validator_id: ValidatorId) -> DisputeProof
 where
 	T: Config,
@@ -130,6 +131,7 @@ where
 	dispute_proof(session_index, validator_id, validator_index)
 }
 
+/// Creates a `ForInvalid` dispute proof.
 fn dispute_proof(
 	session_index: SessionIndex,
 	validator_id: ValidatorId,
@@ -145,11 +147,11 @@ fn dispute_proof(
 mod benchmarks {
 	use super::*;
 
-	// in this setup we have a single `ForInvalid` dispute
-	// submitted for a past session
 	#[benchmark]
 	fn report_dispute_lost_unsigned(n: Linear<4, { max_validators_for::<T>() }>) {
 		let (session_index, key_owner_proof, validator_id) = setup_validator_set::<T>(n);
+
+		// submit a single `ForInvalid` dispute for a past session.
 		let dispute_proof = setup_dispute::<T>(session_index, validator_id);
 
 		#[extrinsic_call]
