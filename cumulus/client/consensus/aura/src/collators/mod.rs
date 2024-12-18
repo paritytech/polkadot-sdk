@@ -182,17 +182,13 @@ where
 	let Ok(Some(api_version)) =
 		runtime_api.api_version::<dyn AuraUnincludedSegmentApi<Block>>(parent_hash)
 	else {
-		return Some(SlotClaim::unchecked::<P>(author_pub, para_slot, timestamp))
+		return (parent_hash == included_block)
+			.then(|| SlotClaim::unchecked::<P>(author_pub, para_slot, timestamp));
 	};
 
 	let slot = if api_version > 1 { relay_slot } else { para_slot };
 
-	// Here we lean on the property that building on an empty unincluded segment must always
-	// be legal. Skipping the runtime API query here allows us to seamlessly run this
-	// collator against chains which have not yet upgraded their runtime.
-	if parent_hash == included_block ||
-		runtime_api.can_build_upon(parent_hash, included_block, slot).ok()?
-	{
+	if runtime_api.can_build_upon(parent_hash, included_block, slot).ok()? {
 		Some(SlotClaim::unchecked::<P>(author_pub, para_slot, timestamp))
 	} else {
 		None

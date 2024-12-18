@@ -242,7 +242,9 @@ mod test {
 	}
 
 	#[test]
-	#[should_panic(expected = "slot moved backwards")]
+	#[should_panic(
+		expected = "Slot moved backwards: stored_slot=Slot(10), relay_chain_slot=Slot(9)"
+	)]
 	fn test_backward_relay_slot_not_tolerated() {
 		type Hook = FixedVelocityConsensusHook<Test, 6000, 2, 1>;
 
