@@ -20,8 +20,7 @@
 #![cfg(feature = "std")]
 
 use crate::{paged_list::StoragePagedListMeta, Config, ListPrefix};
-use frame::{traits::IdentityLookup};
-use frame::testing_prelude::*;
+use frame::{testing_prelude::*, traits::IdentityLookup};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

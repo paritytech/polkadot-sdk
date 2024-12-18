@@ -21,9 +21,10 @@
 #![cfg(test)]
 
 use crate::{mock::*, *};
-use frame::testing_prelude::*;
-use frame::prelude::storage::StorageAppender;
-use frame::prelude::storage::StoragePrefixedContainer;
+use frame::{
+	prelude::storage::{StorageAppender, StoragePrefixedContainer},
+	testing_prelude::*,
+};
 
 #[docify::export]
 #[test]

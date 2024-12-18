@@ -27,11 +27,12 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode, EncodeLike, FullCodec};
 use core::marker::PhantomData;
 
-use frame::testing_prelude::*;
-use frame::deps::{sp_io, frame_support};
-use frame::traits::{Get, StorageInstance, Saturating};
-use frame::runtime::prelude::storage::{storage_noop_guard::StorageNoopGuard, StoragePrefixedContainer};
-
+use frame::{
+	deps::{frame_support, sp_io},
+	runtime::prelude::storage::{storage_noop_guard::StorageNoopGuard, StoragePrefixedContainer},
+	testing_prelude::*,
+	traits::{Get, Saturating, StorageInstance},
+};
 
 pub type PageIndex = u32;
 pub type ValueIndex = u32;
