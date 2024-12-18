@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{
+	deprecation::extract_allow_attrs,
 	pallet::{parse::event::PalletEventDepositAttr, Def},
 	COUNTER,
 };
@@ -114,6 +115,9 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 			.push(syn::parse_quote!(#[doc = "The `Event` enum of this pallet"]));
 	}
 
+	// Extracts #[allow] attributes, necessary so that we don't run into compiler warnings
+	let maybe_allow_attrs = extract_allow_attrs(&event_item.attrs);
+
 	// derive some traits because system event require Clone, FullCodec, Eq, PartialEq and Debug
 	event_item.attrs.push(syn::parse_quote!(
 		#[derive(
@@ -145,6 +149,7 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 
 		quote::quote_spanned!(*fn_span =>
 			impl<#type_impl_gen> #pallet_ident<#type_use_gen> #completed_where_clause {
+				#(#maybe_allow_attrs)*
 				#fn_vis fn deposit_event(event: Event<#event_use_gen>) {
 					let event = <
 						<T as Config #trait_use_gen>::RuntimeEvent as
@@ -179,10 +184,12 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 
 		#deposit_event
 
+		#(#maybe_allow_attrs)*
 		impl<#event_impl_gen> From<#event_ident<#event_use_gen>> for () #event_where_clause {
 			fn from(_: #event_ident<#event_use_gen>) {}
 		}
 
+		#(#maybe_allow_attrs)*
 		impl<#event_impl_gen> #event_ident<#event_use_gen> #event_where_clause {
 			#[allow(dead_code)]
 			#[doc(hidden)]
