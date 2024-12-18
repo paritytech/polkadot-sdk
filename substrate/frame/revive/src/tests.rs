@@ -4363,7 +4363,6 @@ fn create1_with_value_works() {
 	});
 }
 
-
 #[test]
 fn gas_price_api_works() {
 	let (code, _) = compile_module("gas_price").unwrap();
