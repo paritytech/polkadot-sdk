@@ -306,6 +306,8 @@ pub enum RuntimeCosts {
 	CallerIsRoot,
 	/// Weight of calling `seal_address`.
 	Address,
+	/// Weight of calling `seal_ref_time_left`.
+	RefTimeLeft,
 	/// Weight of calling `seal_weight_left`.
 	WeightLeft,
 	/// Weight of calling `seal_balance`.
@@ -462,6 +464,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			CallerIsOrigin => T::WeightInfo::seal_caller_is_origin(),
 			CallerIsRoot => T::WeightInfo::seal_caller_is_root(),
 			Address => T::WeightInfo::seal_address(),
+			RefTimeLeft => T::WeightInfo::seal_ref_time_left(),
 			WeightLeft => T::WeightInfo::seal_weight_left(),
 			Balance => T::WeightInfo::seal_balance(),
 			BalanceOf => T::WeightInfo::seal_balance_of(),
@@ -1699,6 +1702,14 @@ pub mod env {
 		};
 		*self.ext.last_frame_output_mut() = output;
 		Ok(result?)
+	}
+
+	/// Returns the amount of ref_time left.
+	/// See [`pallet_revive_uapi::HostFn::ref_time_left`].
+	#[stable]
+	fn ref_time_left(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
+		self.charge_gas(RuntimeCosts::RefTimeLeft)?;
+		Ok(self.ext.gas_meter().gas_left().ref_time())
 	}
 
 	/// Call into the chain extension provided by the chain if any.
