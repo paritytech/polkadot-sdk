@@ -505,8 +505,8 @@ pub enum CommittedCandidateReceiptError {
 	/// Currenly only one such message is allowed.
 	#[cfg_attr(feature = "std", error("Too many UMP signals"))]
 	TooManyUMPSignals,
-	// If the parachain runtime started sending core selectors, v1 descriptors are no longer
-	// allowed.
+	/// If the parachain runtime started sending core selectors, v1 descriptors are no longer
+	/// allowed.
 	#[cfg_attr(
 		feature = "std",
 		error("Candidate contains core selector but descriptor version is v1")
@@ -1224,8 +1224,7 @@ mod tests {
 		assert_eq!(new_ccr.hash(), v2_ccr.hash());
 	}
 
-	// Only check descriptor `core_index` field of v2 descriptors. If it is v1, that field
-	// will be garbage.
+	// V1 descriptors are forbidden once the parachain runtime started sending UMP signals.
 	#[test]
 	fn test_v1_descriptors_with_ump_signal() {
 		let mut ccr = dummy_old_committed_candidate_receipt();
@@ -1251,9 +1250,12 @@ mod tests {
 		cq.insert(CoreIndex(0), vec![v1_ccr.descriptor.para_id()].into());
 		cq.insert(CoreIndex(1), vec![v1_ccr.descriptor.para_id()].into());
 
-		assert!(v1_ccr.check_core_index(&transpose_claim_queue(cq)).is_ok());
-
 		assert_eq!(v1_ccr.descriptor.core_index(), None);
+
+		assert_eq!(
+			v1_ccr.check_core_index(&transpose_claim_queue(cq)),
+			Err(CommittedCandidateReceiptError::CoreSelectorWithV1Decriptor)
+		);
 	}
 
 	#[test]
