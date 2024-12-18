@@ -330,6 +330,9 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the timestamp.
 	fn now(output: &mut [u8; 32]);
 
+	/// Returns the block ref_time limit.
+	fn gas_limit() -> u64;
+
 	/// Cease contract execution and save a data buffer as a result of the execution.
 	///
 	/// This function never returns as it stops execution of the caller.
