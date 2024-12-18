@@ -116,7 +116,10 @@ pub mod code {
 	const BASIC_BLOCK_SIZE: u32 = 1000;
 
 	/// Make sure that the various program parts are within the defined limits.
-	pub fn enforce<T: Config>(blob: Vec<u8>) -> Result<CodeVec, DispatchError> {
+	pub fn enforce<T: Config>(
+		blob: Vec<u8>,
+		available_syscalls: &[&[u8]],
+	) -> Result<CodeVec, DispatchError> {
 		fn round_page(n: u32) -> u64 {
 			// performing the rounding in u64 in order to prevent overflow
 			u64::from(n).next_multiple_of(PAGE_SIZE.into())
@@ -129,23 +132,56 @@ pub mod code {
 			Error::<T>::CodeRejected
 		})?;
 
+		if !program.is_64_bit() {
+			log::debug!(target: LOG_TARGET, "32bit programs are not supported.");
+			Err(Error::<T>::CodeRejected)?;
+		}
+
+		// Need to check that no non-existent syscalls are used. This allows us to add
+		// new syscalls later without affecting already deployed code.
+		for (idx, import) in program.imports().iter().enumerate() {
+			// We are being defensive in case an attacker is able to somehow include
+			// a lot of imports. This is important because we search the array of host
+			// functions for every import.
+			if idx == available_syscalls.len() {
+				log::debug!(target: LOG_TARGET, "Program contains too many imports.");
+				Err(Error::<T>::CodeRejected)?;
+			}
+			let Some(import) = import else {
+				log::debug!(target: LOG_TARGET, "Program contains malformed import.");
+				return Err(Error::<T>::CodeRejected.into());
+			};
+			if !available_syscalls.contains(&import.as_bytes()) {
+				log::debug!(target: LOG_TARGET, "Program references unknown syscall: {}", import);
+				Err(Error::<T>::CodeRejected)?;
+			}
+		}
+
 		// This scans the whole program but we only do it once on code deployment.
 		// It is safe to do unchecked math in u32 because the size of the program
 		// was already checked above.
-		use polkavm::program::ISA32_V1_NoSbrk as ISA;
+		use polkavm::program::ISA64_V1 as ISA;
 		let mut num_instructions: u32 = 0;
 		let mut max_basic_block_size: u32 = 0;
 		let mut basic_block_size: u32 = 0;
 		for inst in program.instructions(ISA) {
+			use polkavm::program::Instruction;
 			num_instructions += 1;
 			basic_block_size += 1;
 			if inst.kind.opcode().starts_new_basic_block() {
 				max_basic_block_size = max_basic_block_size.max(basic_block_size);
 				basic_block_size = 0;
 			}
-			if matches!(inst.kind, polkavm::program::Instruction::invalid) {
-				log::debug!(target: LOG_TARGET, "invalid instruction at offset {}", inst.offset);
-				return Err(<Error<T>>::InvalidInstruction.into())
+			match inst.kind {
+				Instruction::invalid => {
+					log::debug!(target: LOG_TARGET, "invalid instruction at offset {}", inst.offset);
+					return Err(<Error<T>>::InvalidInstruction.into())
+				},
+				Instruction::sbrk(_, _) => {
+					log::debug!(target: LOG_TARGET, "sbrk instruction is not allowed. offset {}", inst.offset);
+					return Err(<Error<T>>::InvalidInstruction.into())
+				},
+				_ => (),
 			}
 		}
 
