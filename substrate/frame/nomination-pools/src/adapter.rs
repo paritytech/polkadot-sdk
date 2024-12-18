@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::*;
+use frame_support::traits::tokens::{Fortitude::Polite, Preservation::Expendable};
 use sp_staking::{Agent, DelegationInterface, DelegationMigrator, Delegator};
 
 /// Types of stake strategies.
@@ -265,7 +266,7 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 		_: Member<Self::AccountId>,
 	) -> BalanceOf<T> {
 		// free/liquid balance of the pool account.
-		T::Currency::balance(&pool_account.0)
+		T::Currency::reducible_balance(&pool_account.get(), Expendable, Polite)
 	}
 
 	fn total_balance(pool_account: Pool<Self::AccountId>) -> Option<BalanceOf<T>> {

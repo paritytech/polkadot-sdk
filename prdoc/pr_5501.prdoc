@@ -10,6 +10,10 @@ doc:
       `staking::migrate_currency` removes the old lock along with other housekeeping. Additionally, any ledger mutation
       creates hold if it does not exist.
 
+      The pallet-staking configuration item `Currency` is updated to use `fungible::hold::Mutate` type while still
+      requiring `LockableCurrency` type to be passed as `OldCurrency` for migration purposes.
+
+
 crates:
   - name: westend-runtime
     bump: major

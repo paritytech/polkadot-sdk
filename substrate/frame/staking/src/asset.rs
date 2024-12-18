@@ -67,7 +67,7 @@ pub fn free_to_stake<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
 
 /// Set balance that can be staked for `who`.
 ///
-/// `Value` must be greater than already staked plus existential deposit for free balance.
+/// If `Value` is lower than the current staked balance, the difference is unlocked.
 ///
 /// Should only be used with test.
 #[cfg(any(test, feature = "runtime-benchmarks"))]

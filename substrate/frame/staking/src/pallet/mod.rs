@@ -884,13 +884,13 @@ pub mod pallet {
 		ForceEra { mode: Forcing },
 		/// Report of a controller batch deprecation.
 		ControllerBatchDeprecated { failures: u32 },
-		/// Staking balance migrated from locks to holds, with any balance that could not be held
-		/// is force withdrawn.
-		CurrencyMigrated { stash: T::AccountId, force_withdraw: BalanceOf<T> },
 		/// Validator has been disabled.
 		ValidatorDisabled { stash: T::AccountId },
 		/// Validator has been re-enabled.
 		ValidatorReenabled { stash: T::AccountId },
+		/// Staking balance migrated from locks to holds, with any balance that could not be held
+		/// is force withdrawn.
+		CurrencyMigrated { stash: T::AccountId, force_withdraw: BalanceOf<T> },
 	}
 
 	#[pallet::error]
