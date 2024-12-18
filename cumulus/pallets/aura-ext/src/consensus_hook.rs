@@ -56,8 +56,8 @@ where
 		let (relay_chain_slot, authored_in_relay) = match pallet::RelaySlotInfo::<T>::get() {
 			Some((slot, authored)) if slot == relay_chain_slot => (slot, authored + 1),
 			Some((slot, _)) if slot < relay_chain_slot => (relay_chain_slot, 1),
-			Some(..) => {
-				panic!("slot moved backwards")
+			Some((slot, _)) => {
+				panic!("Slot moved backwards: stored_slot={slot:?}, relay_chain_slot={relay_chain_slot:?}")
 			},
 			None => (relay_chain_slot, 1),
 		};

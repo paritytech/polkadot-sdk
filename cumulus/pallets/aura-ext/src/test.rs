@@ -106,6 +106,16 @@ mod test {
 	};
 	use sp_core::H256;
 
+	fn set_ancestors() {
+		let mut ancestors = Vec::new();
+		for i in 0..3 {
+			let mut ancestor = Ancestor::new_unchecked(UsedBandwidth::default(), None);
+			ancestor.replace_para_head_hash(H256::repeat_byte(i + 1));
+			ancestors.push(ancestor);
+		}
+		cumulus_pallet_parachain_system::UnincludedSegment::<Test>::put(ancestors);
+	}
+
 	pub fn new_test_ext(para_slot: u64) -> sp_io::TestExternalities {
 		let mut ext = TestExternalities::new_empty();
 		ext.execute_with(|| {
@@ -257,16 +267,6 @@ mod test {
 			let state_proof = relay_chain_state_proof(10);
 			Hook::on_state_proof(&state_proof);
 		});
-	}
-
-	fn set_ancestors() {
-		let mut ancestors = Vec::new();
-		for i in 0..3 {
-			let mut ancestor = Ancestor::new_unchecked(UsedBandwidth::default(), None);
-			ancestor.replace_para_head_hash(H256::repeat_byte(i + 1));
-			ancestors.push(ancestor);
-		}
-		cumulus_pallet_parachain_system::UnincludedSegment::<Test>::put(ancestors);
 	}
 
 	#[test]
