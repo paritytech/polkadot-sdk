@@ -63,6 +63,15 @@ pub enum ExtensionVariant<ExtensionV0, ExtensionOtherVersions> {
 	Other(ExtensionOtherVersions),
 }
 
+impl<ExtensionV0, ExtensionOtherVersions: VersionedTransactionExtensionPipelineVersion> VersionedTransactionExtensionPipelineVersion for ExtensionVariant<ExtensionV0, ExtensionOtherVersions> {
+	fn version(&self) -> u8 {
+		match self {
+			ExtensionVariant::V0(_) => EXTENSION_V0_VERSION,
+			ExtensionVariant::Other(ext) => ext.version(),
+		}
+	}
+}
+
 impl<ExtensionV0: Encode, ExtensionOtherVersions: Encode> Encode
 	for ExtensionVariant<ExtensionV0, ExtensionOtherVersions>
 {
@@ -115,6 +124,10 @@ impl<ExtensionV0: Decode, ExtensionOtherVersions: DecodeWithVersion> DecodeWithV
 	}
 }
 
+pub trait VersionedTransactionExtensionPipelineWeight<Call: Dispatchable> {
+	fn weight(&self, call: &Call) -> Weight;
+}
+
 impl<
 		Call: Dispatchable + Encode,
 		ExtensionV0: TransactionExtension<Call>,
@@ -124,7 +137,7 @@ impl<
 where
 	// TODO TODO: remove this bound: maybe remove the function dispatch transaction from the trait
 	// and just implement the DispatchTransaction trait for all types
-	// <Call as Dispatchable>::RuntimeOrigin: AsTransactionAuthorizedOrigin,
+	<Call as Dispatchable>::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 {
 	// TODO TODO: maybe this can be const.
 	fn build_metadata(builder: &mut VersionedTransactionExtensionsMetadataBuilder) {
@@ -147,13 +160,12 @@ where
 		crate::transaction_validity::ValidTransaction,
 		crate::transaction_validity::TransactionValidityError,
 	> {
-		todo!();
-		// match self {
-		// 	ExtensionVariant::V0(ext) => ext
-		// 		.validate_only(origin, call, info, len, source, EXTENSION_V0_VERSION)
-		// 		.map(|x| x.0),
-		// 	ExtensionVariant::Other(ext) => ext.validate_only(origin, call, info, len, source),
-		// }
+		match self {
+			ExtensionVariant::V0(ext) => ext
+				.validate_only(origin, call, info, len, source, EXTENSION_V0_VERSION)
+				.map(|x| x.0),
+			ExtensionVariant::Other(ext) => ext.validate_only(origin, call, info, len, source),
+		}
 	}
 	fn dispatch_transaction(
 		self,
@@ -162,14 +174,29 @@ where
 		info: &DispatchInfoOf<Call>,
 		len: usize,
 	) -> crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Call>> {
-		todo!();
-		// match self {
-		// 	ExtensionVariant::V0(ext) =>
-		// 		ext.dispatch_transaction(origin, call, info, len, EXTENSION_V0_VERSION),
-		// 	ExtensionVariant::Other(ext) => ext.dispatch_transaction(origin, call, info, len),
-		// }
+		match self {
+			ExtensionVariant::V0(ext) =>
+				ext.dispatch_transaction(origin, call, info, len, EXTENSION_V0_VERSION),
+			ExtensionVariant::Other(ext) => ext.dispatch_transaction(origin, call, info, len),
+		}
 	}
 }
+
+impl<
+		Call: Dispatchable + Encode,
+		ExtensionV0: TransactionExtension<Call>,
+		ExtensionOtherVersions: VersionedTransactionExtensionPipelineWeight<Call>,
+	> VersionedTransactionExtensionPipelineWeight<Call>
+	for ExtensionVariant<ExtensionV0, ExtensionOtherVersions>
+{
+	fn weight(&self, call: &Call) -> Weight {
+		match self {
+			ExtensionVariant::V0(ext) => ext.weight(call),
+			ExtensionVariant::Other(ext) => ext.weight(call),
+		}
+	}
+}
+
 /// TODO TODO: doc
 pub trait DecodeWithVersion: Sized {
 	/// TODO TODO: doc
@@ -279,6 +306,17 @@ impl<const VERSION: u8, Extension: Decode> DecodeWithVersion
 	}
 }
 
+impl<A: VersionedTransactionExtensionPipelineVersion, B: VersionedTransactionExtensionPipelineVersion> VersionedTransactionExtensionPipelineVersion
+	for MultiVersion<A, B>
+{
+	fn version(&self) -> u8 {
+		match self {
+			MultiVersion::A(a) => a.version(),
+			MultiVersion::B(b) => b.version(),
+		}
+	}
+}
+
 impl<A: Encode, B: Encode> Encode for MultiVersion<A, B> {
 	fn size_hint(&self) -> usize {
 		match self {
@@ -363,6 +401,28 @@ impl<Call: Dispatchable> VersionedTransactionExtensionPipeline<Call> for Invalid
 	}
 }
 
+pub trait VersionedTransactionExtensionPipelineVersion {
+	fn version(&self) -> u8;
+}
+
+impl VersionedTransactionExtensionPipelineVersion for InvalidVersion {
+	fn version(&self) -> u8 {
+		0
+	}
+}
+
+impl<const VERSION: u8, Extension> VersionedTransactionExtensionPipelineVersion for VersionedExtension<VERSION, Extension> {
+	fn version(&self) -> u8 {
+		VERSION
+	}
+}
+
+impl<Call: Dispatchable> VersionedTransactionExtensionPipelineWeight<Call> for InvalidVersion {
+	fn weight(&self, call: &Call) -> Weight {
+		Weight::zero()
+	}
+}
+
 /// TODO TODO: doc
 pub trait MultiVersionItem {
 	/// TODO TODO: doc
@@ -392,6 +452,19 @@ impl<A: DecodeWithVersion + MultiVersionItem, B: DecodeWithVersion + MultiVersio
 			Ok(MultiVersion::B(B::decode_with_version(extension_version, input)?))
 		} else {
 			Err(codec::Error::from("Invalid extension version"))
+		}
+	}
+}
+
+impl<A, B, Call: Dispatchable> VersionedTransactionExtensionPipelineWeight<Call> for MultiVersion<A, B>
+where
+	A: VersionedTransactionExtensionPipelineWeight<Call> + MultiVersionItem,
+	B: VersionedTransactionExtensionPipelineWeight<Call> + MultiVersionItem,
+{
+	fn weight(&self, call: &Call) -> Weight {
+		match self {
+			MultiVersion::A(a) => a.weight(call),
+			MultiVersion::B(b) => b.weight(call),
 		}
 	}
 }
@@ -472,6 +545,18 @@ impl<
 		self.extension.dispatch_transaction(origin, call, info, len, VERSION)
 	}
 }
+
+impl<
+		const VERSION: u8,
+		Call: Dispatchable,
+		Extension: TransactionExtension<Call>,
+	> VersionedTransactionExtensionPipelineWeight<Call> for VersionedExtension<VERSION, Extension>
+{
+	fn weight(&self, call: &Call) -> Weight {
+		self.extension.weight(call)
+	}
+}
+
 
 /// Shortcut for the result value of the `validate` function.
 pub type ValidateResult<Val, Call> =

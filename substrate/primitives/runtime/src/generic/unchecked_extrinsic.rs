@@ -24,6 +24,8 @@ use crate::{
 		transaction_extension::{
 			DecodeWithVersion, ExtensionVariant, InvalidVersion, TransactionExtension,
 			VersionedTransactionExtensionPipeline,
+			VersionedTransactionExtensionPipelineWeight,
+			VersionedTransactionExtensionPipelineVersion,
 		},
 		Checkable, Dispatchable, ExtrinsicLike, ExtrinsicMetadata,
 		IdentifyAccount, MaybeDisplay, Member, SignaturePayload,
@@ -75,7 +77,7 @@ impl<Address: TypeInfo, Signature: TypeInfo, Extension: TypeInfo> SignaturePaylo
 /// A "header" for extrinsics leading up to the call itself. Determines the type of extrinsic and
 /// holds any necessary specialized data.
 #[derive(Eq, PartialEq, Clone)]
-pub enum Preamble<Address, Signature, ExtensionV0, ExtensionOtherVersions = InvalidVersion> {
+pub enum Preamble<Address, Signature, ExtensionV0, ExtensionOtherVersions = InvalidVersion> { // TODO TODO: if we bounds version trait then we can get rid of the ExtensionVersion field
 	/// An extrinsic without a signature or any extension. This means it's either an inherent or
 	/// an old-school "Unsigned" (we don't use that terminology any more since it's confusable with
 	/// the general transaction which is without a signature but does have an extension).
@@ -89,7 +91,7 @@ pub enum Preamble<Address, Signature, ExtensionV0, ExtensionOtherVersions = Inva
 	/// A new-school transaction extrinsic which does not include a signature by default. The
 	/// origin authorization, through signatures or other means, is performed by the transaction
 	/// extension in this extrinsic. Available starting with extrinsic version 5.
-	General(ExtensionVersion, ExtensionVariant<ExtensionV0, ExtensionOtherVersions>),
+	General(ExtensionVariant<ExtensionV0, ExtensionOtherVersions>),
 }
 
 const VERSION_MASK: u8 = 0b0011_1111;
@@ -130,7 +132,7 @@ where
 						ext_version,
 						input,
 					)?;
-				Self::General(ext_version, ext)
+				Self::General(ext)
 			},
 			(_, _) => return Err("Invalid transaction version".into()),
 		};
@@ -145,7 +147,7 @@ where
 	Address: Encode,
 	Signature: Encode,
 	ExtensionV0: Encode,
-	ExtensionOtherVersions: Encode,
+	ExtensionOtherVersions: Encode + VersionedTransactionExtensionPipelineVersion,
 {
 	fn size_hint(&self) -> usize {
 		match &self {
@@ -155,9 +157,8 @@ where
 				.saturating_add(address.size_hint())
 				.saturating_add(signature.size_hint())
 				.saturating_add(ext.size_hint()),
-			Preamble::General(ext_version, ext) => EXTRINSIC_FORMAT_VERSION
+			Preamble::General(ext) => EXTRINSIC_FORMAT_VERSION
 				.size_hint()
-				.saturating_add(ext_version.size_hint())
 				.saturating_add(ext.size_hint()),
 		}
 	}
@@ -173,9 +174,9 @@ where
 				signature.encode_to(dest);
 				ext.encode_to(dest);
 			},
-			Preamble::General(ext_version, ext) => {
+			Preamble::General(ext) => {
 				(EXTRINSIC_FORMAT_VERSION | GENERAL_EXTRINSIC).encode_to(dest);
-				ext_version.encode_to(dest);
+				ext.version().encode_to(dest);
 				ext.encode_to(dest);
 			},
 		}
@@ -205,8 +206,8 @@ where
 		match self {
 			Self::Bare(_) => write!(f, "Bare"),
 			Self::Signed(address, _, tx_ext) => write!(f, "Signed({:?}, {:?})", address, tx_ext),
-			Self::General(ext_version, tx_ext) =>
-				write!(f, "General({:?}, {:?})", ext_version, tx_ext),
+			Self::General(tx_ext) =>
+				write!(f, "General({:?})", tx_ext),
 		}
 	}
 }
@@ -345,7 +346,7 @@ impl<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions>
 	/// This function is only available for `UncheckedExtrinsic` without multi version extension.
 	pub fn new_transaction(function: Call, tx_ext: ExtensionV0) -> Self {
 		Self {
-			preamble: Preamble::General(EXTENSION_V0_VERSION, ExtensionVariant::V0(tx_ext)),
+			preamble: Preamble::General(ExtensionVariant::V0(tx_ext)),
 			function,
 		}
 	}
@@ -393,7 +394,7 @@ where
 				let (function, tx_ext, _) = raw_payload.deconstruct();
 				CheckedExtrinsic { format: ExtrinsicFormat::Signed(signed, tx_ext), function }
 			},
-			Preamble::General(_ext_version, tx_ext) => CheckedExtrinsic {
+			Preamble::General(tx_ext) => CheckedExtrinsic {
 				format: ExtrinsicFormat::General(tx_ext),
 				function: self.function,
 			},
@@ -415,7 +416,7 @@ where
 					function: self.function,
 				}
 			},
-			Preamble::General(_, tx_ext) => CheckedExtrinsic {
+			Preamble::General(tx_ext) => CheckedExtrinsic {
 				format: ExtrinsicFormat::General(tx_ext),
 				function: self.function,
 			},
@@ -439,7 +440,9 @@ impl<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions>
 where
 	Call: Dispatchable,
 	ExtensionV0: TransactionExtension<Call>,
-	ExtensionVariant<ExtensionV0, ExtensionOtherVersions>: VersionedTransactionExtensionPipeline<Call>,
+	// TODO TODO: redo the bound directly on the generic used to make it clearer that it is
+	// implemented on AlwaysInvalid
+	ExtensionVariant<ExtensionV0, ExtensionOtherVersions>: VersionedTransactionExtensionPipelineWeight<Call>,
 {
 	/// Returns the weight of the extension of this transaction, if present. If the transaction
 	/// doesn't use any extension, the weight returned is equal to zero.
@@ -447,7 +450,7 @@ where
 		match &self.preamble {
 			Preamble::Bare(_) => Weight::zero(),
 			Preamble::Signed(_, _, ext) => ext.weight(&self.function),
-			Preamble::General(_, ext) => ext.weight(&self.function),
+			Preamble::General(ext) => ext.weight(&self.function),
 		}
 	}
 }
@@ -523,7 +526,7 @@ impl<
 		Signature: Encode,
 		Call: Encode,
 		ExtensionV0: Encode,
-		ExtensionOtherVersions: Encode,
+		ExtensionOtherVersions: Encode + VersionedTransactionExtensionPipelineVersion,
 	> serde::Serialize
 	for UncheckedExtrinsic<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions>
 {
@@ -622,7 +625,7 @@ where
 	Signature: Encode,
 	Call: Encode,
 	ExtensionV0: Encode,
-	ExtensionOtherVersions: Encode,
+	ExtensionOtherVersions: Encode + VersionedTransactionExtensionPipelineVersion,
 {
 	fn from(
 		extrinsic: UncheckedExtrinsic<

@@ -602,7 +602,7 @@ impl BenchKeyring {
 			}
 			.into(),
 			ExtrinsicFormat::General(tx_ext) => generic::UncheckedExtrinsic {
-				preamble: sp_runtime::generic::Preamble::General(todo!(), tx_ext),
+				preamble: sp_runtime::generic::Preamble::General(tx_ext),
 				function: xt.function,
 			}
 			.into(),
