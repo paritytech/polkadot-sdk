@@ -87,12 +87,8 @@ pub trait HostFn: private::Sealed {
 	/// Returns the [EIP-155](https://eips.ethereum.org/EIPS/eip-155) chain ID.
 	fn chain_id(output: &mut [u8; 32]);
 
-	/// Stores the call data size as little endian U256 value into the supplied buffer.
-	///
-	/// # Parameters
-	///
-	/// - `output`: A reference to the output data buffer to write the call data size.
-	fn call_data_size(output: &mut [u8; 32]);
+	/// Returns the call data size.
+	fn call_data_size() -> u64;
 
 	/// Call (possibly transferring some amount of funds) into the specified account.
 	///
@@ -170,17 +166,16 @@ pub trait HostFn: private::Sealed {
 	/// otherwise `zero`.
 	fn code_hash(addr: &[u8; 20], output: &mut [u8; 32]);
 
-	/// Retrieve the code size for a specified contract address.
+	/// Returns the code size for a specified contract address.
 	///
 	/// # Parameters
 	///
 	/// - `addr`: The address of the contract.
-	/// - `output`: A reference to the output data buffer to write the code size.
 	///
 	/// # Note
 	///
 	/// If `addr` is not a contract the `output` will be zero.
-	fn code_size(addr: &[u8; 20], output: &mut [u8; 32]);
+	fn code_size(addr: &[u8; 20]) -> u64;
 
 	/// Execute code in the context (storage, caller, value) of the current contract.
 	///
@@ -245,18 +240,28 @@ pub trait HostFn: private::Sealed {
 
 	hash_fn!(keccak_256, 32);
 
-	/// Stores the input passed by the caller into the supplied buffer.
+	/// Stores the input data passed by the caller into the supplied `output` buffer,
+	/// starting from the given input data `offset`.
+	///
+	/// The `output` buffer is guaranteed to always be fully populated:
+	/// - If the call data (starting from the given `offset`) is larger than the `output` buffer,
+	///   only what fits into the `output` buffer is written.
+	/// - If the `output` buffer size exceeds the call data size (starting from `offset`), remaining
+	///   bytes in the `output` buffer are zeroed out.
+	/// - If the provided call data `offset` is out-of-bounds, the whole `output` buffer is zeroed
+	///   out.
 	///
 	/// # Note
 	///
 	/// This function traps if:
-	/// - the input is larger than the available space.
 	/// - the input was previously forwarded by a [`call()`][`Self::call()`].
+	/// - the `output` buffer is located in an PolkaVM invalid memory range.
 	///
 	/// # Parameters
 	///
-	/// - `output`: A reference to the output data buffer to write the input data.
-	fn input(output: &mut &mut [u8]);
+	/// - `output`: A reference to the output data buffer to write the call data.
+	/// - `offset`: The offset index into the call data from where to start copying.
+	fn call_data_copy(output: &mut [u8], offset: u32);
 
 	/// Stores the U256 value at given `offset` from the input passed by the caller
 	/// into the supplied buffer.
@@ -374,12 +379,8 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the price.
 	fn weight_to_fee(ref_time_limit: u64, proof_size_limit: u64, output: &mut [u8; 32]);
 
-	/// Stores the size of the returned data of the last contract call or instantiation.
-	///
-	/// # Parameters
-	///
-	/// - `output`: A reference to the output buffer to write the size.
-	fn return_data_size(output: &mut [u8; 32]);
+	/// Returns the size of the returned data of the last contract call or instantiation.
+	fn return_data_size() -> u64;
 
 	/// Stores the returned data of the last contract call or contract instantiation.
 	///
@@ -387,6 +388,9 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output buffer to write the data.
 	/// - `offset`: Byte offset into the returned data
 	fn return_data_copy(output: &mut &mut [u8], offset: u32);
+
+	/// Returns the amount of ref_time left.
+	fn ref_time_left() -> u64;
 
 	/// Stores the current block number of the current contract into the supplied buffer.
 	///
