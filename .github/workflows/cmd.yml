@@ -418,7 +418,7 @@ jobs:
             # Push the results to the target branch
             git remote add \
               github \
-              "https://token:${{ steps.generate_token_commit.outputs.token }}@github.com/${{ github.event.repository.owner.login }}/${{ github.event.repository.name }}.git" || :
+              "https://x-access-token:${{ steps.generate_token_commit.outputs.token }}@github.com/${{ needs.get-pr-branch.outputs.repo }}.git" || :
 
             push_changes() {
               git push github "HEAD:${{ needs.get-pr-branch.outputs.pr-branch }}"
