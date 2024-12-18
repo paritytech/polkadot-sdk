@@ -1875,6 +1875,27 @@ fn lazy_batch_removal_works() {
 }
 
 #[test]
+fn ref_time_left_api_works() {
+	let (code, _) = compile_module("ref_time_left").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create fixture: Constructor calls ref_time_left twice and asserts it to decrease
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// Call the contract: It echoes back the ref_time returned by the ref_time_left API.
+		let received = builder::bare_call(addr).build_and_unwrap_result();
+		assert_eq!(received.flags, ReturnFlags::empty());
+
+		let returned_value = u64::from_le_bytes(received.data[..8].try_into().unwrap());
+		assert!(returned_value > 0);
+		assert!(returned_value < GAS_LIMIT.ref_time());
+	});
+}
+
+#[test]
 fn lazy_removal_partial_remove_works() {
 	let (code, _hash) = compile_module("self_destruct").unwrap();
 
