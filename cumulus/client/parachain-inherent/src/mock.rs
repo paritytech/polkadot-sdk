@@ -17,8 +17,9 @@
 use crate::{ParachainInherentData, INHERENT_IDENTIFIER};
 use codec::Decode;
 use cumulus_primitives_core::{
-	relay_chain, relay_chain::{UpgradeGoAhead, Slot}, InboundDownwardMessage, InboundHrmpMessage, ParaId,
-	PersistedValidationData,
+	relay_chain,
+	relay_chain::{Slot, UpgradeGoAhead},
+	InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
 };
 use cumulus_primitives_parachain_inherent::MessageQueueChain;
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
