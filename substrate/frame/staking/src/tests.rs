@@ -8523,7 +8523,9 @@ mod getters {
 		sp_io::TestExternalities::default().execute_with(|| {
 			// given
 			let v: Vec<mock::AccountId> = vec![1, 2, 3];
-			Invulnerables::<Test>::put(BoundedVec::try_from(v.clone()).unwrap());
+			Invulnerables::<Test>::put(
+				BoundedVec::try_from(v.clone()).expect("Too many invulnerable validators!"),
+			);
 
 			// when
 			let result = Staking::invulnerables();
