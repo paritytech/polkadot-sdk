@@ -35,6 +35,7 @@ mod tasks;
 mod tt_default_parts;
 mod type_value;
 mod validate_unsigned;
+mod view_functions;
 mod warnings;
 
 use crate::pallet::Def;
@@ -66,6 +67,7 @@ pub fn expand(mut def: Def) -> proc_macro2::TokenStream {
 	let error = error::expand_error(&mut def);
 	let event = event::expand_event(&mut def);
 	let storages = storage::expand_storages(&mut def);
+	let view_functions = view_functions::expand_view_functions(&def);
 	let inherents = inherent::expand_inherents(&mut def);
 	let instances = instances::expand_instances(&mut def);
 	let hooks = hooks::expand_hooks(&mut def);
@@ -108,6 +110,7 @@ storage item. Otherwise, all storage items are listed among [*Type Definitions*]
 		#error
 		#event
 		#storages
+		#view_functions
 		#inherents
 		#instances
 		#hooks
