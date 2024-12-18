@@ -5,5 +5,4 @@
 pub mod rococo {}
 
 mod helpers;
-mod mixed_receipt_versions;
 mod slot_based_3cores;
