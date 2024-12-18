@@ -20,9 +20,11 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use alloc::vec;
+/*
 use frame_benchmarking::{benchmarking::add_to_whitelist, v2::*};
 use frame_system::RawOrigin;
-
+*/
+use frame::benchmarking::prelude::*;
 use crate::*;
 
 const SEED: u32 = 0;
