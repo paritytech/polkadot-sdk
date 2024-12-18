@@ -344,16 +344,33 @@ benchmarks! {
 		let mut executor = new_executor::<T>(origin.clone());
 		let instruction = Instruction::SubscribeVersion { query_id, max_response_weight };
 		let xcm = Xcm(vec![instruction]);
+<<<<<<< HEAD
 	} : {
 		executor.bench_process(xcm)?;
 	} verify {
 		assert!(<T::XcmConfig as xcm_executor::Config>::SubscriptionService::is_subscribed(&origin));
+=======
+
+		T::DeliveryHelper::ensure_successful_delivery(&origin, &origin, FeeReason::QueryPallet);
+
+		#[block]
+		{
+			executor.bench_process(xcm)?;
+		}
+		assert!(<T::XcmConfig as xcm_executor::Config>::SubscriptionService::is_subscribed(
+			&origin
+		));
+		Ok(())
+>>>>>>> c10e25aa (dmp: Check that the para exist before delivering a message (#6604))
 	}
 
 	unsubscribe_version {
 		use xcm_executor::traits::VersionChangeNotifier;
 		// First we need to subscribe to notifications.
 		let (origin, _) = T::transact_origin_and_runtime_call()?;
+
+		T::DeliveryHelper::ensure_successful_delivery(&origin, &origin, FeeReason::QueryPallet);
+
 		let query_id = Default::default();
 		let max_response_weight = Default::default();
 		<T::XcmConfig as xcm_executor::Config>::SubscriptionService::start(

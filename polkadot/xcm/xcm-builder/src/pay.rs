@@ -70,8 +70,8 @@ impl<
 		Router: SendXcm,
 		Querier: QueryHandler,
 		Timeout: Get<Querier::BlockNumber>,
-		Beneficiary: Clone,
-		AssetKind,
+		Beneficiary: Clone + core::fmt::Debug,
+		AssetKind: core::fmt::Debug,
 		AssetKindToLocatableAsset: TryConvert<AssetKind, LocatableAssetId>,
 		BeneficiaryRefToLocation: for<'a> TryConvert<&'a Beneficiary, Location>,
 	> Pay
@@ -144,10 +144,9 @@ impl<
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_successful(_: &Self::Beneficiary, _: Self::AssetKind, _: Self::Balance) {
-		// We cannot generally guarantee this will go through successfully since we don't have any
-		// control over the XCM transport layers. We just assume that the benchmark environment
-		// will be sending it somewhere sensible.
+	fn ensure_successful(_: &Self::Beneficiary, asset_kind: Self::AssetKind, _: Self::Balance) {
+		let locatable = AssetKindToLocatableAsset::try_convert(asset_kind).unwrap();
+		Router::ensure_successful_delivery(Some(locatable.location));
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

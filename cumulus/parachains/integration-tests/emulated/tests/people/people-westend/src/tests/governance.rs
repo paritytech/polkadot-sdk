@@ -20,7 +20,9 @@ use codec::Encode;
 use frame_support::sp_runtime::traits::Dispatchable;
 use parachains_common::AccountId;
 use people_westend_runtime::people::IdentityInfo;
-use westend_runtime::governance::pallet_custom_origins::Origin::GeneralAdmin as GeneralAdminOrigin;
+use westend_runtime::{
+	governance::pallet_custom_origins::Origin::GeneralAdmin as GeneralAdminOrigin, Dmp,
+};
 use westend_system_emulated_network::people_westend_emulated_chain::people_westend_runtime;
 
 use pallet_identity::Data;
@@ -38,6 +40,8 @@ fn relay_commands_add_registrar() {
 		type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
 		type PeopleCall = <PeopleWestend as Chain>::RuntimeCall;
 		type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
+
+		Dmp::make_parachain_reachable(1004);
 
 		let add_registrar_call =
 			PeopleCall::Identity(pallet_identity::Call::<PeopleRuntime>::add_registrar {
@@ -101,6 +105,8 @@ fn relay_commands_add_registrar_wrong_origin() {
 			type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
 			type PeopleCall = <PeopleWestend as Chain>::RuntimeCall;
 			type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
+
+			Dmp::make_parachain_reachable(1004);
 
 			let add_registrar_call =
 				PeopleCall::Identity(pallet_identity::Call::<PeopleRuntime>::add_registrar {
@@ -191,6 +197,8 @@ fn relay_commands_kill_identity() {
 		type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
 		type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
 
+		Dmp::make_parachain_reachable(1004);
+
 		let kill_identity_call =
 			PeopleCall::Identity(pallet_identity::Call::<PeopleRuntime>::kill_identity {
 				target: people_westend_runtime::MultiAddress::Id(PeopleWestend::account_id_of(
@@ -253,6 +261,8 @@ fn relay_commands_kill_identity_wrong_origin() {
 			type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
 			type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
 
+			Dmp::make_parachain_reachable(1004);
+
 			let kill_identity_call =
 				PeopleCall::Identity(pallet_identity::Call::<PeopleRuntime>::kill_identity {
 					target: people_westend_runtime::MultiAddress::Id(PeopleWestend::account_id_of(
@@ -302,6 +312,8 @@ fn relay_commands_add_remove_username_authority() {
 		type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
 		type PeopleCall = <PeopleWestend as Chain>::RuntimeCall;
 		type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
+
+		Dmp::make_parachain_reachable(1004);
 
 		let add_username_authority =
 			PeopleCall::Identity(pallet_identity::Call::<PeopleRuntime>::add_username_authority {
@@ -392,6 +404,8 @@ fn relay_commands_add_remove_username_authority() {
 		type PeopleCall = <PeopleWestend as Chain>::RuntimeCall;
 		type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
 
+		Dmp::make_parachain_reachable(1004);
+
 		let remove_username_authority = PeopleCall::Identity(pallet_identity::Call::<
 			PeopleRuntime,
 		>::remove_username_authority {
@@ -455,6 +469,8 @@ fn relay_commands_add_remove_username_authority_wrong_origin() {
 			type PeopleCall = <PeopleWestend as Chain>::RuntimeCall;
 			type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
 
+			Dmp::make_parachain_reachable(1004);
+
 			let add_username_authority = PeopleCall::Identity(pallet_identity::Call::<
 				PeopleRuntime,
 			>::add_username_authority {
@@ -502,6 +518,8 @@ fn relay_commands_add_remove_username_authority_wrong_origin() {
 				authority: people_westend_runtime::MultiAddress::Id(people_westend_alice.clone()),
 				suffix: b"suffix1".into(),
 			});
+
+			Dmp::make_parachain_reachable(1004);
 
 			let remove_authority_xcm_msg =
 				RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::send {
