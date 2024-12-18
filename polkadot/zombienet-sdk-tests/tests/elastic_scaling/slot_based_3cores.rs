@@ -156,7 +156,8 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 		&relay_client,
 		15,
 		[(2100, 39..46), (2200, 39..46)].into_iter().collect(),
-	);
+	)
+	.await?;
 
 	log::info!("Test finished successfully");
 	Ok(())
