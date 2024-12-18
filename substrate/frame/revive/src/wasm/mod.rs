@@ -242,7 +242,7 @@ impl<T: Config> CodeInfo<T> {
 	}
 
 	/// Returns the code length.
-	pub fn code_len(&self) -> U256 {
+	pub fn code_len(&self) -> u64 {
 		self.code_len.into()
 	}
 }

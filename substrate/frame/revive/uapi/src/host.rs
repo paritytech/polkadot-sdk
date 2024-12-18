@@ -91,12 +91,8 @@ pub trait HostFn: private::Sealed {
 	/// [GASPRICE](https://www.evm.codes/?fork=cancun#3a) opcode.
 	fn gas_price() -> u64;
 
-	/// Stores the call data size as little endian U256 value into the supplied buffer.
-	///
-	/// # Parameters
-	///
-	/// - `output`: A reference to the output data buffer to write the call data size.
-	fn call_data_size(output: &mut [u8; 32]);
+	/// Returns the call data size.
+	fn call_data_size() -> u64;
 
 	/// Call (possibly transferring some amount of funds) into the specified account.
 	///
@@ -174,17 +170,16 @@ pub trait HostFn: private::Sealed {
 	/// otherwise `zero`.
 	fn code_hash(addr: &[u8; 20], output: &mut [u8; 32]);
 
-	/// Retrieve the code size for a specified contract address.
+	/// Returns the code size for a specified contract address.
 	///
 	/// # Parameters
 	///
 	/// - `addr`: The address of the contract.
-	/// - `output`: A reference to the output data buffer to write the code size.
 	///
 	/// # Note
 	///
 	/// If `addr` is not a contract the `output` will be zero.
-	fn code_size(addr: &[u8; 20], output: &mut [u8; 32]);
+	fn code_size(addr: &[u8; 20]) -> u64;
 
 	/// Execute code in the context (storage, caller, value) of the current contract.
 	///
@@ -339,6 +334,9 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the timestamp.
 	fn now(output: &mut [u8; 32]);
 
+	/// Returns the block ref_time limit.
+	fn gas_limit() -> u64;
+
 	/// Cease contract execution and save a data buffer as a result of the execution.
 	///
 	/// This function never returns as it stops execution of the caller.
@@ -388,12 +386,8 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the price.
 	fn weight_to_fee(ref_time_limit: u64, proof_size_limit: u64, output: &mut [u8; 32]);
 
-	/// Stores the size of the returned data of the last contract call or instantiation.
-	///
-	/// # Parameters
-	///
-	/// - `output`: A reference to the output buffer to write the size.
-	fn return_data_size(output: &mut [u8; 32]);
+	/// Returns the size of the returned data of the last contract call or instantiation.
+	fn return_data_size() -> u64;
 
 	/// Stores the returned data of the last contract call or contract instantiation.
 	///
