@@ -19,20 +19,11 @@
 #[cfg(test)]
 use super::*;
 
-use sp_core::{crypto::AccountId32, H256};
-use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
+use sp_core::crypto::AccountId32;
 // The testing primitives are very useful for avoiding having to work with signatures
 // or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
-use crate::purchase;
-use frame_support::{
-	assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
-	traits::{Currency, WithdrawReasons},
-};
-use sp_runtime::{
-	traits::{BlakeTwo256, Dispatchable, Identity, IdentityLookup},
-	ArithmeticError, BuildStorage,
-	DispatchError::BadOrigin,
-};
+use frame_support::{assert_noop, assert_ok, traits::Currency};
+use sp_runtime::{traits::Dispatchable, ArithmeticError, DispatchError::BadOrigin};
 
 use crate::purchase::mock::*;
 
