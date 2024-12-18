@@ -91,18 +91,14 @@ use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::{cmp::Ordering, marker::PhantomData};
 use frame::{
-	prelude::*,
 	benchmarking::prelude::RawOrigin,
+	prelude::*,
 	runtime::prelude::weights::WeightMeter,
-	traits::schedule::MaybeHashed,
-	traits::schedule::DispatchTime,
-	traits::schedule,
-	traits::QueryPreimage,
-	traits::PrivilegeCmp,
-	traits::StorePreimage,
-	traits::OriginTrait,
-	traits::CallerTrait,
-	traits::BadOrigin,
+	traits::{
+		schedule,
+		schedule::{DispatchTime, MaybeHashed},
+		BadOrigin, CallerTrait, OriginTrait, PrivilegeCmp, QueryPreimage, StorePreimage,
+	},
 };
 
 use frame::runtime::prelude::storage::migration::remove_storage_prefix;
@@ -659,11 +655,7 @@ impl<T: Config> Pallet<T> {
 		});
 
 		#[allow(deprecated)]
-		remove_storage_prefix(
-			Self::name().as_bytes(),
-			b"StorageVersion",
-			&[],
-		);
+		remove_storage_prefix(Self::name().as_bytes(), b"StorageVersion", &[]);
 
 		StorageVersion::new(4).put::<Self>();
 
@@ -724,11 +716,7 @@ impl<T: Config> Pallet<T> {
 		});
 
 		#[allow(deprecated)]
-		remove_storage_prefix(
-			Self::name().as_bytes(),
-			b"StorageVersion",
-			&[],
-		);
+		remove_storage_prefix(Self::name().as_bytes(), b"StorageVersion", &[]);
 
 		StorageVersion::new(4).put::<Self>();
 
@@ -834,11 +822,7 @@ impl<T: Config> Pallet<T> {
 		});
 
 		#[allow(deprecated)]
-		remove_storage_prefix(
-			Self::name().as_bytes(),
-			b"StorageVersion",
-			&[],
-		);
+		remove_storage_prefix(Self::name().as_bytes(), b"StorageVersion", &[]);
 
 		StorageVersion::new(4).put::<Self>();
 

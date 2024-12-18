@@ -20,12 +20,16 @@
 use super::*;
 use crate::mock::{
 	logger::{self, Threshold},
-	new_test_ext, root, run_to_block, LoggerCall,RuntimeCall, Scheduler, Test, *,
+	new_test_ext, root, run_to_block, LoggerCall, RuntimeCall, Scheduler, Test, *,
 };
-use frame::testing_prelude::*;
-use frame::traits::{Hash, Contains, GetStorageVersion, OnInitialize, QueryPreimage, StorePreimage, BadOrigin};
-use frame::benchmarking::prelude::RawOrigin;
-use frame::runtime::prelude::storage::migration;
+use frame::{
+	benchmarking::prelude::RawOrigin,
+	runtime::prelude::storage::migration,
+	testing_prelude::*,
+	traits::{
+		BadOrigin, Contains, GetStorageVersion, Hash, OnInitialize, QueryPreimage, StorePreimage,
+	},
+};
 // use frame_support::{
 // 	assert_err, assert_noop, assert_ok,
 // 	traits::{Contains, GetStorageVersion, OnInitialize, QueryPreimage, StorePreimage},
@@ -1351,28 +1355,22 @@ fn try_schedule_retry_respects_weight_limits() {
 	let max_weight: Weight = Test::MaximumWeight::get();
 	new_test_ext().execute_with(|| {
 		let service_agendas_weight = Test::WeightInfo::service_agendas_base();
-		let service_agenda_weight = Test::WeightInfo::service_agenda_base(
-			Test::MaxScheduledPerBlock::get(),
-		);
+		let service_agenda_weight =
+			Test::WeightInfo::service_agenda_base(Test::MaxScheduledPerBlock::get());
 		let actual_service_agenda_weight = Test::WeightInfo::service_agenda_base(1);
 		// Some weight for `service_agenda` will be refunded, so we need to make sure the weight
 		// `try_schedule_retry` is going to ask for is greater than this difference, and we take a
 		// safety factor of 10 to make sure we're over that limit.
 		let meter = WeightMeter::with_limit(
-			Test::WeightInfo::schedule_retry(
-				Test::MaxScheduledPerBlock::get(),
-			) / 10,
+			Test::WeightInfo::schedule_retry(Test::MaxScheduledPerBlock::get()) / 10,
 		);
 		assert!(meter.can_consume(service_agenda_weight - actual_service_agenda_weight));
 
 		let reference_call =
 			RuntimeCall::Logger(LoggerCall::timed_log { i: 20, weight: max_weight / 3 * 2 });
 		let bounded = Test::Preimages::bound(reference_call).unwrap();
-		let base_weight = Test::WeightInfo::service_task(
-			bounded.lookup_len().map(|x| x as usize),
-			false,
-			false,
-		);
+		let base_weight =
+			Test::WeightInfo::service_task(bounded.lookup_len().map(|x| x as usize), false, false);
 		// we make the call cost enough so that all checks have enough weight to run aside from
 		// `try_schedule_retry`
 		let call_weight = max_weight - service_agendas_weight - service_agenda_weight - base_weight;
@@ -1397,8 +1395,7 @@ fn try_schedule_retry_respects_weight_limits() {
 		assert_eq!(logger::log(), vec![]);
 		// check the `RetryFailed` event happened
 		let events = frame_system::Pallet::<Test>::events();
-		let system_event: Test::RuntimeEvent =
-			Event::RetryFailed { task: (4, 0), id: None }.into();
+		let system_event: Test::RuntimeEvent = Event::RetryFailed { task: (4, 0), id: None }.into();
 		// compare to the last event record
 		let frame_system::EventRecord { event, .. } = &events[events.len() - 1];
 		assert_eq!(event, &system_event);
@@ -1796,14 +1793,7 @@ fn should_check_origin() {
 			weight: Weight::from_parts(10, 0),
 		}));
 		assert_noop!(
-			Scheduler::schedule_named(
-				RawOrigin::Signed(2).into(),
-				[1u8; 32],
-				4,
-				None,
-				127,
-				call
-			),
+			Scheduler::schedule_named(RawOrigin::Signed(2).into(), [1u8; 32], 4, None, 127, call),
 			BadOrigin
 		);
 		assert_noop!(
@@ -1837,20 +1827,14 @@ fn should_check_origin_for_cancel() {
 		// Scheduled calls are in the agenda.
 		assert_eq!(Agenda::<Test>::get(4).len(), 2);
 		assert!(logger::log().is_empty());
-		assert_noop!(
-			Scheduler::cancel_named(RawOrigin::Signed(2).into(), [1u8; 32]),
-			BadOrigin
-		);
+		assert_noop!(Scheduler::cancel_named(RawOrigin::Signed(2).into(), [1u8; 32]), BadOrigin);
 		assert_noop!(Scheduler::cancel(RawOrigin::Signed(2).into(), 4, 1), BadOrigin);
 		assert_noop!(Scheduler::cancel_named(RawOrigin::Root.into(), [1u8; 32]), BadOrigin);
 		assert_noop!(Scheduler::cancel(RawOrigin::Root.into(), 4, 1), BadOrigin);
 		run_to_block(5);
 		assert_eq!(
 			logger::log(),
-			vec![
-				(RawOrigin::Signed(1).into(), 69u32),
-				(RawOrigin::Signed(1).into(), 42u32)
-			]
+			vec![(RawOrigin::Signed(1).into(), 69u32), (RawOrigin::Signed(1).into(), 42u32)]
 		);
 	});
 }

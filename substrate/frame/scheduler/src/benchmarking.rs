@@ -20,11 +20,11 @@
 use super::*;
 use alloc::vec;
 
-use frame::benchmarking::prelude::*;
-use frame::benchmarking::prelude::v1::benchmarks;
-use frame::traits::schedule::Priority;
-use frame::traits::BoundedInline;
 use crate::frame_system::EventRecord;
+use frame::{
+	benchmarking::prelude::{v1::benchmarks, *},
+	traits::{schedule::Priority, BoundedInline},
+};
 
 // use frame_benchmarking::v1::{account, benchmarks, BenchmarkError};
 // use frame_support::{
@@ -35,7 +35,6 @@ use crate::frame_system::EventRecord;
 // use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 // use frame_system::{Call as SystemCall, EventRecord};
 use crate::Pallet as Scheduler;
-
 
 const SEED: u32 = 0;
 

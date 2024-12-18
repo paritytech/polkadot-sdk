@@ -20,12 +20,13 @@
 use super::*;
 
 use crate as scheduler;
-use frame::testing_prelude::*;
-use frame::arithmetic::Perbill;
-use frame::traits::EitherOfDiverse;
-use frame::traits::EqualPrivilegeOnly;
 use crate::frame_system::GenesisConfig;
-use frame::benchmarking::prelude::RawOrigin;
+use frame::{
+	arithmetic::Perbill,
+	benchmarking::prelude::RawOrigin,
+	testing_prelude::*,
+	traits::{EitherOfDiverse, EqualPrivilegeOnly},
+};
 // use frame_support::{
 // 	derive_impl, ord_parameter_types, parameter_types,
 // 	traits::{ConstU32, Contains, EitherOfDiverse, EqualPrivilegeOnly, OnFinalize, OnInitialize},
