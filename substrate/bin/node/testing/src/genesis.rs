@@ -65,7 +65,8 @@ pub fn config_endowed(extra_endowed: Vec<AccountId>) -> RuntimeGenesisConfig {
 			validator_count: 3,
 			minimum_validator_count: 0,
 			slash_reward_fraction: Perbill::from_percent(10),
-			invulnerables: BoundedVec::try_from(vec![alice(), bob(), charlie()]).unwrap(),
+			invulnerables: BoundedVec::try_from(vec![alice(), bob(), charlie()])
+				.expect("Too many invulnerable validators!"),
 			..Default::default()
 		},
 		society: SocietyConfig { pot: 0 },
