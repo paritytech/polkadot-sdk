@@ -87,6 +87,10 @@ pub trait HostFn: private::Sealed {
 	/// Returns the [EIP-155](https://eips.ethereum.org/EIPS/eip-155) chain ID.
 	fn chain_id(output: &mut [u8; 32]);
 
+	/// Returns the price per ref_time, akin to the EVM
+	/// [GASPRICE](https://www.evm.codes/?fork=cancun#3a) opcode.
+	fn gas_price() -> u64;
+
 	/// Stores the call data size as little endian U256 value into the supplied buffer.
 	///
 	/// # Parameters
