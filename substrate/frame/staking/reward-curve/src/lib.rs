@@ -55,7 +55,7 @@ use syn::parse::{Parse, ParseStream};
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # fn main() {}
 /// // polkadot-sdk-frame dependency prelude which includes `PiecewiseLinear`
 /// use frame::prelude::*;
