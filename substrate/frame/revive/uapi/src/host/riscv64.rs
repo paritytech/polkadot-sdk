@@ -62,7 +62,7 @@ mod sys {
 		pub fn delegate_call(ptr: *const u8) -> ReturnCode;
 		pub fn instantiate(ptr: *const u8) -> ReturnCode;
 		pub fn terminate(beneficiary_ptr: *const u8);
-		pub fn input(out_ptr: *mut u8, out_len_ptr: *mut u32);
+		pub fn call_data_copy(out_ptr: *mut u8, out_len: u32, offset: u32);
 		pub fn call_data_load(out_ptr: *mut u8, offset: u32);
 		pub fn seal_return(flags: u32, data_ptr: *const u8, data_len: u32);
 		pub fn caller(out_ptr: *mut u8);
@@ -76,6 +76,7 @@ mod sys {
 		pub fn address(out_ptr: *mut u8);
 		pub fn weight_to_fee(ref_time: u64, proof_size: u64, out_ptr: *mut u8);
 		pub fn weight_left(out_ptr: *mut u8, out_len_ptr: *mut u32);
+		pub fn ref_time_left() -> u64;
 		pub fn get_immutable_data(out_ptr: *mut u8, out_len_ptr: *mut u32);
 		pub fn set_immutable_data(ptr: *const u8, len: u32);
 		pub fn balance(out_ptr: *mut u8);
@@ -381,14 +382,6 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
-	fn input(output: &mut &mut [u8]) {
-		let mut output_len = output.len() as u32;
-		{
-			unsafe { sys::input(output.as_mut_ptr(), &mut output_len) };
-		}
-		extract_from_slice(output, output_len as usize);
-	}
-
 	fn call_data_load(out_ptr: &mut [u8; 32], offset: u32) {
 		unsafe { sys::call_data_load(out_ptr.as_mut_ptr(), offset) };
 	}
@@ -448,6 +441,10 @@ impl HostFn for HostFnImpl {
 		extract_from_slice(output, output_len as usize);
 	}
 
+	fn ref_time_left() -> u64 {
+		unsafe { sys::ref_time_left() }
+	}
+
 	#[cfg(feature = "unstable-api")]
 	fn block_hash(block_number_ptr: &[u8; 32], output: &mut [u8; 32]) {
 		unsafe { sys::block_hash(block_number_ptr.as_ptr(), output.as_mut_ptr()) };
@@ -472,6 +469,11 @@ impl HostFn for HostFnImpl {
 			extract_from_slice(output, output_len as usize);
 		}
 		ret_code.into_u32()
+	}
+
+	fn call_data_copy(output: &mut [u8], offset: u32) {
+		let len = output.len() as u32;
+		unsafe { sys::call_data_copy(output.as_mut_ptr(), len, offset) };
 	}
 
 	#[cfg(feature = "unstable-api")]

@@ -245,18 +245,28 @@ pub trait HostFn: private::Sealed {
 
 	hash_fn!(keccak_256, 32);
 
-	/// Stores the input passed by the caller into the supplied buffer.
+	/// Stores the input data passed by the caller into the supplied `output` buffer,
+	/// starting from the given input data `offset`.
+	///
+	/// The `output` buffer is guaranteed to always be fully populated:
+	/// - If the call data (starting from the given `offset`) is larger than the `output` buffer,
+	///   only what fits into the `output` buffer is written.
+	/// - If the `output` buffer size exceeds the call data size (starting from `offset`), remaining
+	///   bytes in the `output` buffer are zeroed out.
+	/// - If the provided call data `offset` is out-of-bounds, the whole `output` buffer is zeroed
+	///   out.
 	///
 	/// # Note
 	///
 	/// This function traps if:
-	/// - the input is larger than the available space.
 	/// - the input was previously forwarded by a [`call()`][`Self::call()`].
+	/// - the `output` buffer is located in an PolkaVM invalid memory range.
 	///
 	/// # Parameters
 	///
-	/// - `output`: A reference to the output data buffer to write the input data.
-	fn input(output: &mut &mut [u8]);
+	/// - `output`: A reference to the output data buffer to write the call data.
+	/// - `offset`: The offset index into the call data from where to start copying.
+	fn call_data_copy(output: &mut [u8], offset: u32);
 
 	/// Stores the U256 value at given `offset` from the input passed by the caller
 	/// into the supplied buffer.
@@ -387,6 +397,9 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output buffer to write the data.
 	/// - `offset`: Byte offset into the returned data
 	fn return_data_copy(output: &mut &mut [u8], offset: u32);
+
+	/// Returns the amount of ref_time left.
+	fn ref_time_left() -> u64;
 
 	/// Stores the current block number of the current contract into the supplied buffer.
 	///
