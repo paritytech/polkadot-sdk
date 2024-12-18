@@ -236,15 +236,15 @@ pub mod pallet {
 		/// An `ExposurePage` is weakly bounded to a maximum of `MaxExposurePageSize`
 		/// nominators.
 		///
-		/// Note: `MaxExposurePageSize` is used to bound `ClaimedRewards` and is unsafe to reduce
-		/// without handling it in a migration.
+		/// Note: `MaxExposurePageSize` is used to (weakly) bound the size of an `ExposurePage` and
+		/// it may be unsafe to reduce without handling it in a migration.
 		#[pallet::constant]
 		type MaxExposurePageSize: Get<u32>;
 
 		/// The maximum number of nominators reward pages per nominator.
 		///
-		/// Note: `MaxRewardPagesPerValidator` is used to bound the number of pages in
-		/// `ClaimedRewards` and is unsafe to reduce without handling it in a migration.
+		/// Note: `MaxRewardPagesPerValidator` is used to (weakly) bound the number of pages in
+		/// `ClaimedRewards` and it may be unsafe to reduce without handling it in a migration.
 		#[pallet::constant]
 		type MaxRewardPagesPerValidator: Get<u32>;
 

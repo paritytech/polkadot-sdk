@@ -602,7 +602,6 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	// Worst case scenario according to the invulnerables limit.
 	fn set_invulnerables(v: Linear<0, { T::MaxInvulnerables::get() }>) {
 		let mut invulnerables = Vec::new();
 		for i in 0..v {

@@ -759,12 +759,12 @@ impl<
 		MaxExposurePageSize: Get<u32>,
 	> PagedExposure<AccountId, Balance, MaxExposurePageSize>
 {
-	/// Create a new instance of `PagedExposure` from legacy clipped exposures.
-	pub fn from_clipped(exposure: Exposure<AccountId, Balance>) -> Self {
+	/// Create a new instance of `PagedExposure` from legacy clipped exposures (now removed).
+	pub fn from_clipped(exposure: Exposure<AccountId, Balance>) -> Result<Self, ()> {
 		let old_exposures = exposure.others.len();
 		let others = WeakBoundedVec::try_from(exposure.others).unwrap_or_default();
 		defensive_assert!(old_exposures == others.len(), "Too many exposures for a page");
-		Self {
+		Ok(Self {
 			exposure_metadata: PagedExposureMetadata {
 				total: exposure.total,
 				own: exposure.own,
@@ -772,7 +772,7 @@ impl<
 				page_count: 1,
 			},
 			exposure_page: ExposurePage { page_total: exposure.total, others },
-		}
+		})
 	}
 
 	/// Returns total exposure of this validator across pages
@@ -1119,11 +1119,11 @@ impl<T: Config> EraInfo<T> {
 
 		let mut others = Vec::with_capacity(overview.nominator_count as usize);
 		for page in 0..overview.page_count {
-			let nominators =
-				<ErasStakersPaged<T>>::get((era, validator, page)).defensive_unwrap_or_default();
-			for nominator_exposure in nominators.others {
-				others.push(nominator_exposure);
-			}
+			let mut nominators_exposures = <ErasStakersPaged<T>>::get((era, validator, page))
+				.defensive_unwrap_or_default()
+				.others
+				.into_inner();
+			others.append(&mut nominators_exposures);
 		}
 
 		Exposure { total: overview.total, own: overview.own, others }
