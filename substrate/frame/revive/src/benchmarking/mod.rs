@@ -596,7 +596,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_code_size() {
 		let contract = Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
-		build_runtime!(runtime, memory: [contract.address.encode(), vec![0u8; 20], ]);
+		build_runtime!(runtime, memory: [contract.address.encode(),]);
 
 		let result;
 		#[block]
