@@ -388,8 +388,6 @@ mod benchmarks {
 		_(RawOrigin::Root, true)
 	}
 
-	// todo check below more thoroughly
-
 	#[benchmark]
 	fn migrate_supported_version() {
 		let old_version = XCM_VERSION - 1;
