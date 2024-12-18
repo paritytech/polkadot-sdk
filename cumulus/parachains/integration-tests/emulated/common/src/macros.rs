@@ -23,6 +23,7 @@ pub use pallet_message_queue;
 pub use pallet_xcm;
 
 // Polkadot
+pub use polkadot_runtime_parachains::dmp::Pallet as Dmp;
 pub use xcm::{
 	prelude::{
 		AccountId32, All, Asset, AssetId, BuyExecution, DepositAsset, ExpectTransactStatus,
@@ -156,6 +157,8 @@ macro_rules! test_relay_is_trusted_teleporter {
 
 					// Send XCM message from Relay
 					<$sender_relay>::execute_with(|| {
+						$crate::macros::Dmp::<<$sender_relay as $crate::macros::Chain>::Runtime>::make_parachain_reachable(<$receiver_para>::para_id());
+
 						assert_ok!(<$sender_relay as [<$sender_relay Pallet>]>::XcmPallet::limited_teleport_assets(
 							origin.clone(),
 							bx!(para_destination.clone().into()),

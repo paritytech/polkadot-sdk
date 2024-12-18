@@ -231,6 +231,13 @@ benchmarks_instance_pallet! {
 		let dest_account = T::AccountIdConverter::convert_location(&dest_location).unwrap();
 		assert!(T::TransactAsset::balance(&dest_account).is_zero());
 
+		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
+		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
+			&Default::default(),
+			&dest_location,
+			FeeReason::ChargeFees,
+		);
+
 		let mut executor = new_executor::<T>(Default::default());
 		executor.set_holding(holding.into());
 		let instruction = Instruction::<XcmCallOf<T>>::DepositAsset {
@@ -257,6 +264,13 @@ benchmarks_instance_pallet! {
 		let dest_account = T::AccountIdConverter::convert_location(&dest_location).unwrap();
 		assert!(T::TransactAsset::balance(&dest_account).is_zero());
 
+		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
+		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
+			&Default::default(),
+			&dest_location,
+			FeeReason::ChargeFees,
+		);
+
 		let mut executor = new_executor::<T>(Default::default());
 		executor.set_holding(holding.into());
 		let instruction = Instruction::<XcmCallOf<T>>::DepositReserveAsset {
@@ -281,12 +295,20 @@ benchmarks_instance_pallet! {
 
 		// Checked account starts at zero
 		assert!(T::CheckedAccount::get().map_or(true, |(c, _)| T::TransactAsset::balance(&c).is_zero()));
+		let dest_location =  T::valid_destination()?;
+
+		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
+		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
+			&Default::default(),
+			&dest_location,
+			FeeReason::ChargeFees,
+		);
 
 		let mut executor = new_executor::<T>(Default::default());
 		executor.set_holding(holding.into());
 		let instruction = Instruction::<XcmCallOf<T>>::InitiateTeleport {
 			assets: asset.into(),
-			dest: T::valid_destination()?,
+			dest: dest_location,
 			xcm: Xcm::new(),
 		};
 		let xcm = Xcm(vec![instruction]);
@@ -299,6 +321,45 @@ benchmarks_instance_pallet! {
 		}
 	}
 
+<<<<<<< HEAD
+=======
+	initiate_transfer {
+		let (sender_account, sender_location) = account_and_location::<T>(1);
+		let asset = T::get_asset();
+		let mut holding = T::worst_case_holding(1);
+		let dest_location =  T::valid_destination()?;
+
+		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
+		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
+			&sender_location,
+			&dest_location,
+			FeeReason::ChargeFees,
+		);
+
+		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
+
+		// Add our asset to the holding.
+		holding.push(asset.clone());
+
+		let mut executor = new_executor::<T>(sender_location);
+		executor.set_holding(holding.into());
+		let instruction = Instruction::<XcmCallOf<T>>::InitiateTransfer {
+			destination: dest_location,
+			// ReserveDeposit is the most expensive filter.
+			remote_fees: Some(AssetTransferFilter::ReserveDeposit(asset.clone().into())),
+			// It's more expensive if we reanchor the origin.
+			preserve_origin: true,
+			assets: vec![AssetTransferFilter::ReserveDeposit(asset.into())],
+			remote_xcm: Xcm::new(),
+		};
+		let xcm = Xcm(vec![instruction]);
+	}: {
+		executor.bench_process(xcm)?;
+	} verify {
+		assert!(T::TransactAsset::balance(&sender_account) <= sender_account_balance_before);
+	}
+
+>>>>>>> c10e25aa (dmp: Check that the para exist before delivering a message (#6604))
 	impl_benchmark_test_suite!(
 		Pallet,
 		crate::fungible::mock::new_test_ext(),
