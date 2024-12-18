@@ -492,7 +492,7 @@ mod tests {
 	use sp_runtime::transaction_validity::TransactionSource;
 	use std::{collections::HashMap, time::Instant};
 	use substrate_test_runtime::{AccountId, ExtrinsicBuilder, Transfer, H256};
-	use substrate_test_runtime_client::AccountKeyring::{Alice, Bob};
+	use substrate_test_runtime_client::Sr25519Keyring::{Alice, Bob};
 
 	const SOURCE: TimedTransactionSource =
 		TimedTransactionSource { source: TransactionSource::External, timestamp: None };

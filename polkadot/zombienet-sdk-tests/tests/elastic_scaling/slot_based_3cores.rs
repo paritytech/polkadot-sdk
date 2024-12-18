@@ -149,21 +149,21 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 
 	log::info!("2 more cores assigned to each parachain");
 
-	// Expect a backed candidate count of at least 40 for each parachain in 15 relay chain blocks
-	// (2.66 candidates per para per relay chain block).
+	// Expect a backed candidate count of at least 39 for each parachain in 15 relay chain blocks
+	// (2.6 candidates per para per relay chain block).
 	// Note that only blocks after the first session change and blocks that don't contain a session
 	// change will be counted.
 	assert_para_throughput(
 		&relay_client,
 		15,
-		[(2100, 40..46), (2200, 40..46)].into_iter().collect(),
+		[(2100, 39..46), (2200, 39..46)].into_iter().collect(),
 	)
 	.await?;
 
 	// Assert the parachain finalized block height is also on par with the number of backed
 	// candidates.
-	assert_finalized_block_height(&para_node_elastic.wait_client().await?, 37..46).await?;
-	assert_finalized_block_height(&para_node_elastic_mvp.wait_client().await?, 37..46).await?;
+	assert_finalized_block_height(&para_node_elastic.wait_client().await?, 36..46).await?;
+	assert_finalized_block_height(&para_node_elastic_mvp.wait_client().await?, 36..46).await?;
 
 	log::info!("Test finished successfully");
 

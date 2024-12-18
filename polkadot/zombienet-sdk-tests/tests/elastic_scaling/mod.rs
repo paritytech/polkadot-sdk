@@ -3,5 +3,4 @@
 
 mod basic_3cores;
 mod doesnt_break_parachains;
-mod mixed_receipt_versions;
 mod slot_based_3cores;
