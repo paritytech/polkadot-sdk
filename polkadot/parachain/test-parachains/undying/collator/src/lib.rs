@@ -23,7 +23,12 @@ use polkadot_node_primitives::{
 	maybe_compress_pov, Collation, CollationResult, CollationSecondedSignal, CollatorFn,
 	MaybeCompressedPoV, PoV, Statement,
 };
-use polkadot_primitives::{CollatorId, CollatorPair, Hash};
+use polkadot_primitives::{
+	vstaging::{
+		ClaimQueueOffset, CoreSelector, UMPSignal, DEFAULT_CLAIM_QUEUE_OFFSET, UMP_SEPARATOR,
+	},
+	CollatorId, CollatorPair, Hash,
+};
 use sp_core::Pair;
 use std::{
 	collections::HashMap,
@@ -257,7 +262,7 @@ impl Collator {
 			// The pov is the actually the initial state and the transactions.
 			let pov = PoV { block_data: block_data.encode().into() };
 
-			let collation = Collation {
+			let mut collation = Collation {
 				upward_messages: Default::default(),
 				horizontal_messages: Default::default(),
 				new_validation_code: None,
@@ -266,6 +271,15 @@ impl Collator {
 				processed_downward_messages: 0,
 				hrmp_watermark: validation_data.relay_parent_number,
 			};
+
+			collation.upward_messages.force_push(UMP_SEPARATOR);
+			collation.upward_messages.force_push(
+				UMPSignal::SelectCore(
+					CoreSelector(0),
+					ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET),
+				)
+				.encode(),
+			);
 
 			log::info!("Raw PoV size for collation: {} bytes", pov.block_data.0.len(),);
 			let compressed_pov = maybe_compress_pov(pov);
