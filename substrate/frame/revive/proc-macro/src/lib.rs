@@ -79,6 +79,7 @@ use syn::{parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma, F
 /// - `Result<(), TrapReason>`,
 /// - `Result<ReturnErrorCode, TrapReason>`,
 /// - `Result<u32, TrapReason>`.
+/// - `Result<u64, TrapReason>`.
 ///
 /// The macro expands to `pub struct Env` declaration, with the following traits implementations:
 /// - `pallet_revive::wasm::Environment<Runtime<E>> where E: Ext`
@@ -118,7 +119,7 @@ struct EnvDef {
 /// Parsed host function definition.
 struct HostFn {
 	item: syn::ItemFn,
-	api_version: Option<u16>,
+	is_stable: bool,
 	name: String,
 	returns: HostFnReturn,
 	cfg: Option<syn::Attribute>,
@@ -127,6 +128,7 @@ struct HostFn {
 enum HostFnReturn {
 	Unit,
 	U32,
+	U64,
 	ReturnCode,
 }
 
@@ -134,8 +136,7 @@ impl HostFnReturn {
 	fn map_output(&self) -> TokenStream2 {
 		match self {
 			Self::Unit => quote! { |_| None },
-			Self::U32 => quote! { |ret_val| Some(ret_val) },
-			Self::ReturnCode => quote! { |ret_code| Some(ret_code.into())  },
+			_ => quote! { |ret_val| Some(ret_val.into()) },
 		}
 	}
 
@@ -143,6 +144,7 @@ impl HostFnReturn {
 		match self {
 			Self::Unit => syn::ReturnType::Default,
 			Self::U32 => parse_quote! { -> u32 },
+			Self::U64 => parse_quote! { -> u64 },
 			Self::ReturnCode => parse_quote! { -> ReturnErrorCode },
 		}
 	}
@@ -181,22 +183,21 @@ impl HostFn {
 		};
 
 		// process attributes
-		let msg = "Only #[api_version(<u16>)], #[cfg] and #[mutating] attributes are allowed.";
+		let msg = "Only #[stable], #[cfg] and #[mutating] attributes are allowed.";
 		let span = item.span();
 		let mut attrs = item.attrs.clone();
 		attrs.retain(|a| !a.path().is_ident("doc"));
-		let mut api_version = None;
+		let mut is_stable = false;
 		let mut mutating = false;
 		let mut cfg = None;
 		while let Some(attr) = attrs.pop() {
 			let ident = attr.path().get_ident().ok_or(err(span, msg))?.to_string();
 			match ident.as_str() {
-				"api_version" => {
-					if api_version.is_some() {
-						return Err(err(span, "#[api_version] can only be specified once"))
+				"stable" => {
+					if is_stable {
+						return Err(err(span, "#[stable] can only be specified once"))
 					}
-					api_version =
-						Some(attr.parse_args::<syn::LitInt>().and_then(|lit| lit.base10_parse())?);
+					is_stable = true;
 				},
 				"mutating" => {
 					if mutating {
@@ -243,7 +244,8 @@ impl HostFn {
 		let msg = r#"Should return one of the following:
 				- Result<(), TrapReason>,
 				- Result<ReturnErrorCode, TrapReason>,
-				- Result<u32, TrapReason>"#;
+				- Result<u32, TrapReason>,
+				- Result<u64, TrapReason>"#;
 		let ret_ty = match item.clone().sig.output {
 			syn::ReturnType::Type(_, ty) => Ok(ty.clone()),
 			_ => Err(err(span, &msg)),
@@ -305,11 +307,12 @@ impl HostFn {
 						let returns = match ok_ty_str.as_str() {
 							"()" => Ok(HostFnReturn::Unit),
 							"u32" => Ok(HostFnReturn::U32),
+							"u64" => Ok(HostFnReturn::U64),
 							"ReturnErrorCode" => Ok(HostFnReturn::ReturnCode),
 							_ => Err(err(arg1.span(), &msg)),
 						}?;
 
-						Ok(Self { item, api_version, name, returns, cfg })
+						Ok(Self { item, is_stable, name, returns, cfg })
 					},
 					_ => Err(err(span, &msg)),
 				}
@@ -339,48 +342,61 @@ where
 	P: Iterator<Item = &'a std::boxed::Box<syn::Pat>> + Clone,
 	I: Iterator<Item = &'a std::boxed::Box<syn::Type>> + Clone,
 {
-	const ALLOWED_REGISTERS: u32 = 6;
-	let mut registers_used = 0;
-	let mut bindings = vec![];
-	for (idx, (name, ty)) in param_names.clone().zip(param_types.clone()).enumerate() {
+	const ALLOWED_REGISTERS: usize = 6;
+
+	// all of them take one register but we truncate them before passing into the function
+	// it is important to not allow any type which has illegal bit patterns like 'bool'
+	if !param_types.clone().all(|ty| {
 		let syn::Type::Path(path) = &**ty else {
 			panic!("Type needs to be path");
 		};
 		let Some(ident) = path.path.get_ident() else {
 			panic!("Type needs to be ident");
 		};
-		let size = if ident == "i8" ||
-			ident == "i16" ||
-			ident == "i32" ||
-			ident == "u8" ||
-			ident == "u16" ||
-			ident == "u32"
-		{
-			1
-		} else if ident == "i64" || ident == "u64" {
-			2
-		} else {
-			panic!("Pass by value only supports primitives");
-		};
-		registers_used += size;
-		if registers_used > ALLOWED_REGISTERS {
-			return quote! {
-				let (#( #param_names, )*): (#( #param_types, )*) = memory.read_as(__a0__)?;
-			}
-		}
-		let this_reg = quote::format_ident!("__a{}__", idx);
-		let next_reg = quote::format_ident!("__a{}__", idx + 1);
-		let binding = if size == 1 {
-			quote! {
-				let #name = #this_reg as #ty;
-			}
-		} else {
-			quote! {
-				let #name = (#this_reg as #ty) | ((#next_reg as #ty) << 32);
-			}
-		};
-		bindings.push(binding);
+		matches!(ident.to_string().as_ref(), "u8" | "u16" | "u32" | "u64")
+	}) {
+		panic!("Only primitive unsigned integers are allowed as arguments to syscalls");
 	}
+
+	// too many arguments: pass as pointer to a struct in memory
+	if param_names.clone().count() > ALLOWED_REGISTERS {
+		let fields = param_names.clone().zip(param_types.clone()).map(|(name, ty)| {
+			quote! {
+				#name: #ty,
+			}
+		});
+		return quote! {
+			#[derive(Default)]
+			#[repr(C)]
+			struct Args {
+				#(#fields)*
+			}
+			let Args { #(#param_names,)* } = {
+				let len = ::core::mem::size_of::<Args>();
+				let mut args = Args::default();
+				let ptr = &mut args as *mut Args as *mut u8;
+				// Safety
+				// 1. The struct is initialized at all times.
+				// 2. We only allow primitive integers (no bools) as arguments so every bit pattern is safe.
+				// 3. The reference doesn't outlive the args field.
+				// 4. There is only the single reference to the args field.
+				// 5. The length of the generated slice is the same as the struct.
+				let reference = unsafe {
+					::core::slice::from_raw_parts_mut(ptr, len)
+				};
+				memory.read_into_buf(__a0__ as _, reference)?;
+				args
+			};
+		}
+	}
+
+	// otherwise: one argument per register
+	let bindings = param_names.zip(param_types).enumerate().map(|(idx, (name, ty))| {
+		let reg = quote::format_ident!("__a{}__", idx);
+		quote! {
+			let #name = #reg as #ty;
+		}
+	});
 	quote! {
 		#( #bindings )*
 	}
@@ -394,20 +410,24 @@ fn expand_env(def: &EnvDef) -> TokenStream2 {
 	let impls = expand_functions(def);
 	let bench_impls = expand_bench_functions(def);
 	let docs = expand_func_doc(def);
-	let highest_api_version =
-		def.host_funcs.iter().filter_map(|f| f.api_version).max().unwrap_or_default();
+	let stable_syscalls = expand_func_list(def, false);
+	let all_syscalls = expand_func_list(def, true);
 
 	quote! {
-		#[cfg(test)]
-		pub const HIGHEST_API_VERSION: u16 = #highest_api_version;
+		pub fn list_syscalls(include_unstable: bool) -> &'static [&'static [u8]] {
+			if include_unstable {
+				#all_syscalls
+			} else {
+				#stable_syscalls
+			}
+		}
 
 		impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 			fn handle_ecall(
 				&mut self,
 				memory: &mut M,
 				__syscall_symbol__: &[u8],
-				__available_api_version__: ApiVersion,
-			) -> Result<Option<u32>, TrapReason>
+			) -> Result<Option<u64>, TrapReason>
 			{
 				#impls
 			}
@@ -457,10 +477,6 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 		let body = &f.item.block;
 		let map_output = f.returns.map_output();
 		let output = &f.item.sig.output;
-		let api_version = match f.api_version {
-			Some(version) => quote! { Some(#version) },
-			None => quote! { None },
-		};
 
 		// wrapped host function body call with host function traces
 		// see https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/contracts#host-function-tracing
@@ -496,7 +512,7 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 
 		quote! {
 			#cfg
-			#syscall_symbol if __is_available__(#api_version) => {
+			#syscall_symbol => {
 				// closure is needed so that "?" can infere the correct type
 				(|| #output {
 					#arg_decoder
@@ -516,18 +532,6 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 
 		// This is the overhead to call an empty syscall that always needs to be charged.
 		self.charge_gas(crate::wasm::RuntimeCosts::HostFn).map_err(TrapReason::from)?;
-
-		// Not all APIs are available depending on configuration or when the code was deployed.
-		// This closure will be used by syscall specific code to perform this check.
-		let __is_available__ = |syscall_version: Option<u16>| {
-			match __available_api_version__ {
-				ApiVersion::UnsafeNewest => true,
-				ApiVersion::Versioned(max_available_version) =>
-					syscall_version
-						.map(|required_version| max_available_version >= required_version)
-						.unwrap_or(false),
-			}
-		};
 
 		// They will be mapped to variable names by the syscall specific code.
 		let (__a0__, __a1__, __a2__, __a3__, __a4__, __a5__) = memory.read_input_regs();
@@ -590,10 +594,8 @@ fn expand_func_doc(def: &EnvDef) -> TokenStream2 {
 				});
 				quote! { #( #docs )* }
 			};
-			let availability = if let Some(version) = func.api_version {
-				let info = format!(
-					"\n# Required API version\nThis API was added in version **{version}**.",
-				);
+			let availability = if func.is_stable {
+				let info = "\n# Stable API\nThis API is stable and will never change.";
 				quote! { #[doc = #info] }
 			} else {
 				let info =
@@ -613,5 +615,22 @@ fn expand_func_doc(def: &EnvDef) -> TokenStream2 {
 
 	quote! {
 		#( #docs )*
+	}
+}
+
+fn expand_func_list(def: &EnvDef, include_unstable: bool) -> TokenStream2 {
+	let docs = def.host_funcs.iter().filter(|f| include_unstable || f.is_stable).map(|f| {
+		let name = Literal::byte_string(f.name.as_bytes());
+		quote! {
+			#name.as_slice()
+		}
+	});
+	let len = docs.clone().count();
+
+	quote! {
+		{
+			static FUNCS: [&[u8]; #len] = [#(#docs),*];
+			FUNCS.as_slice()
+		}
 	}
 }

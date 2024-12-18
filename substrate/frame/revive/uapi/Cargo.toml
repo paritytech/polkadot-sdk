@@ -20,12 +20,13 @@ codec = { features = [
 	"max-encoded-len",
 ], optional = true, workspace = true }
 
-[target.'cfg(target_arch = "riscv32")'.dependencies]
-polkavm-derive = { version = "0.14.0" }
+[target.'cfg(target_arch = "riscv64")'.dependencies]
+polkavm-derive = { version = "0.17.0" }
 
 [package.metadata.docs.rs]
-default-target = ["wasm32-unknown-unknown"]
+default-target = ["riscv64imac-unknown-none-elf"]
 
 [features]
 default = ["scale"]
 scale = ["dep:codec", "scale-info"]
+unstable-api = []

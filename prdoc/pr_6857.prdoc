@@ -1,0 +1,14 @@
+title: '[pallet-revive] implement the call data size API'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR adds an API method to query the contract call data input size.
+
+    Part of #6770
+crates:
+- name: pallet-revive-fixtures
+  bump: minor
+- name: pallet-revive
+  bump: minor
+- name: pallet-revive-uapi
+  bump: minor

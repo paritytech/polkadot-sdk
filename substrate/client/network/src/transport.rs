@@ -29,6 +29,8 @@ use libp2p::{
 };
 use std::{sync::Arc, time::Duration};
 
+// TODO: Create a wrapper similar to upstream `BandwidthTransport` that tracks sent/received bytes
+#[allow(deprecated)]
 pub use libp2p::bandwidth::BandwidthSinks;
 
 /// Builds the transport that serves as a common ground for all connections.
@@ -36,21 +38,12 @@ pub use libp2p::bandwidth::BandwidthSinks;
 /// If `memory_only` is true, then only communication within the same process are allowed. Only
 /// addresses with the format `/memory/...` are allowed.
 ///
-/// `yamux_window_size` is the maximum size of the Yamux receive windows. `None` to leave the
-/// default (256kiB).
-///
-/// `yamux_maximum_buffer_size` is the maximum allowed size of the Yamux buffer. This should be
-/// set either to the maximum of all the maximum allowed sizes of messages frames of all
-/// high-level protocols combined, or to some generously high value if you are sure that a maximum
-/// size is enforced on all high-level protocols.
-///
 /// Returns a `BandwidthSinks` object that allows querying the average bandwidth produced by all
 /// the connections spawned with this transport.
+#[allow(deprecated)]
 pub fn build_transport(
 	keypair: identity::Keypair,
 	memory_only: bool,
-	yamux_window_size: Option<u32>,
-	yamux_maximum_buffer_size: usize,
 ) -> (Boxed<(PeerId, StreamMuxerBox)>, Arc<BandwidthSinks>) {
 	// Build the base layer of the transport.
 	let transport = if !memory_only {
@@ -81,19 +74,7 @@ pub fn build_transport(
 	};
 
 	let authentication_config = noise::Config::new(&keypair).expect("Can create noise config. qed");
-	let multiplexing_config = {
-		let mut yamux_config = libp2p::yamux::Config::default();
-		// Enable proper flow-control: window updates are only sent when
-		// buffered data has been consumed.
-		yamux_config.set_window_update_mode(libp2p::yamux::WindowUpdateMode::on_read());
-		yamux_config.set_max_buffer_size(yamux_maximum_buffer_size);
-
-		if let Some(yamux_window_size) = yamux_window_size {
-			yamux_config.set_receive_window_size(yamux_window_size);
-		}
-
-		yamux_config
-	};
+	let multiplexing_config = libp2p::yamux::Config::default();
 
 	let transport = transport
 		.upgrade(upgrade::Version::V1Lazy)
