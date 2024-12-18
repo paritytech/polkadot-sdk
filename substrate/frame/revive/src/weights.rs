@@ -87,7 +87,8 @@ pub trait WeightInfo {
 	fn seal_now() -> Weight;
 	fn seal_weight_to_fee() -> Weight;
 	fn seal_call_data_load() -> Weight;
-	fn seal_input(n: u32, ) -> Weight;
+	fn seal_copy_to_contract(n: u32, ) -> Weight;
+	fn seal_call_data_copy(n: u32, ) -> Weight;
 	fn seal_return(n: u32, ) -> Weight;
 	fn seal_terminate(n: u32, ) -> Weight;
 	fn seal_deposit_event(t: u32, n: u32, ) -> Weight;
@@ -541,12 +542,22 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(270_000, 0)
 	}
 	/// The range of component `n` is `[0, 262140]`.
-	fn seal_input(n: u32, ) -> Weight {
+	fn seal_copy_to_contract(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 434_000 picoseconds.
-		Weight::from_parts(571_982, 0)
+		// Minimum execution time: 369_000 picoseconds.
+		Weight::from_parts(544_048, 0)
+			// Standard Error: 0
+			.saturating_add(Weight::from_parts(200, 0).saturating_mul(n.into()))
+	}
+	/// The range of component `n` is `[0, 262144]`.
+	fn seal_call_data_copy(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 244_000 picoseconds.
+		Weight::from_parts(123_748, 0)
 			// Standard Error: 0
 			.saturating_add(Weight::from_parts(147, 0).saturating_mul(n.into()))
 	}
@@ -1395,12 +1406,22 @@ impl WeightInfo for () {
 		Weight::from_parts(270_000, 0)
 	}
 	/// The range of component `n` is `[0, 262140]`.
-	fn seal_input(n: u32, ) -> Weight {
+	fn seal_copy_to_contract(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 434_000 picoseconds.
-		Weight::from_parts(571_982, 0)
+		// Minimum execution time: 369_000 picoseconds.
+		Weight::from_parts(544_048, 0)
+			// Standard Error: 0
+			.saturating_add(Weight::from_parts(200, 0).saturating_mul(n.into()))
+	}
+	/// The range of component `n` is `[0, 262144]`.
+	fn seal_call_data_copy(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 244_000 picoseconds.
+		Weight::from_parts(123_748, 0)
 			// Standard Error: 0
 			.saturating_add(Weight::from_parts(147, 0).saturating_mul(n.into()))
 	}
