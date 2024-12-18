@@ -84,6 +84,7 @@ mod sys {
 		pub fn chain_id(out_ptr: *mut u8);
 		pub fn value_transferred(out_ptr: *mut u8);
 		pub fn now(out_ptr: *mut u8);
+		pub fn gas_limit() -> u64;
 		pub fn minimum_balance(out_ptr: *mut u8);
 		pub fn deposit_event(
 			topics_ptr: *const [u8; 32],
@@ -384,6 +385,10 @@ impl HostFn for HostFnImpl {
 
 	fn call_data_load(out_ptr: &mut [u8; 32], offset: u32) {
 		unsafe { sys::call_data_load(out_ptr.as_mut_ptr(), offset) };
+	}
+
+	fn gas_limit() -> u64 {
+		unsafe { sys::gas_limit() }
 	}
 
 	fn call_data_size() -> u64 {
