@@ -18,8 +18,9 @@
 //! Various pieces of common functionality.
 use super::*;
 use core::marker::PhantomData;
-use frame_support::traits::{Get, UncheckedOnRuntimeUpgrade};
 
+// use frame_support::traits::{Get, UncheckedOnRuntimeUpgrade};
+use frame::{prelude::*, traits::UncheckedOnRuntimeUpgrade, weights_prelude::Weight, migration};
 mod v1 {
 	use super::*;
 
@@ -27,7 +28,7 @@ mod v1 {
 	pub struct UncheckedMigrateToV1Impl<T, I>(PhantomData<(T, I)>);
 
 	impl<T: Config<I>, I: 'static> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV1Impl<T, I> {
-		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+		fn on_runtime_upgrade() -> Weight {
 			let mut count = 0;
 			for (collection, detail) in Collection::<T, I>::iter() {
 				CollectionAccount::<T, I>::insert(&detail.owner, &collection, ());
@@ -46,7 +47,7 @@ mod v1 {
 }
 
 /// Migrate the pallet storage from `0` to `1`.
-pub type MigrateV0ToV1<T, I> = frame_support::migrations::VersionedMigration<
+pub type MigrateV0ToV1<T, I> = migrations::VersionedMigration<
 	0,
 	1,
 	v1::UncheckedMigrateToV1Impl<T, I>,

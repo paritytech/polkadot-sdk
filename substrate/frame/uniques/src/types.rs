@@ -18,11 +18,15 @@
 //! Various basic types for use in the Uniques pallet.
 
 use super::*;
+/*
 use frame_support::{
 	pallet_prelude::{BoundedVec, MaxEncodedLen},
 	traits::Get,
 };
 use scale_info::TypeInfo;
+*/
+
+use frame::{prelude::*, traits::Currency};
 
 /// A type alias for handling balance deposits.
 pub(super) type DepositBalanceOf<T, I = ()> =

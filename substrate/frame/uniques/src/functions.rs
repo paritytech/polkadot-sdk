@@ -18,11 +18,14 @@
 //! Various pieces of common functionality.
 
 use super::*;
+/*
 use frame_support::{
 	ensure,
 	traits::{ExistenceRequirement, Get},
 };
 use sp_runtime::{DispatchError, DispatchResult};
+*/
+use frame::{prelude::*, arithmetic::ArithmeticError, traits::{ExistenceRequirement, Currency}};
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Perform a transfer of an item from one account to another within a collection.
