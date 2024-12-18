@@ -113,6 +113,8 @@ impl<T: Config> OnChainExecution<T> {
 
 		let desired_targets = T::DataProvider::desired_targets().map_err(Error::DataProvider)?;
 
+		frame_support::debug(&desired_targets);
+		frame_support::debug(&T::MaxWinnersPerPage::get());
 		if desired_targets > T::MaxWinnersPerPage::get() {
 			// early exit
 			return Err(Error::TooManyWinners)
@@ -147,6 +149,7 @@ impl<T: Config> OnChainExecution<T> {
 
 		// defensive: Since npos solver returns a result always bounded by `desired_targets`, this
 		// is never expected to happen as long as npos solver does what is expected for it to do.
+		// TODO: this guy is not capable of trimming if need be.
 		let supports: BoundedSupportsOf<Self> =
 			to_supports(&staked).try_into().map_err(|_| Error::TooManyWinners)?;
 

@@ -313,7 +313,7 @@ fn configure_accounts(
 		.chain(initial_nominators.iter().map(|x| {
 			use rand::{seq::SliceRandom, Rng};
 			let limit = (MaxNominations::get() as usize).min(initial_authorities.len());
-			let count = rng.gen::<usize>() % limit;
+			let count = (rng.gen::<usize>() % limit).max(1);
 			let nominations = initial_authorities
 				.as_slice()
 				.choose_multiple(&mut rng, count)
@@ -372,8 +372,8 @@ pub fn testnet_genesis(
 				.collect::<Vec<_>>(),
 		},
 		"staking": {
-			"validatorCount": initial_authorities.len() as u32,
-			"minimumValidatorCount": initial_authorities.len() as u32,
+			"validatorCount": (initial_authorities.len()/2usize) as u32,
+			"minimumValidatorCount": 4,
 			"invulnerables": initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
 			"slashRewardFraction": Perbill::from_percent(10),
 			"stakers": stakers.clone(),
@@ -410,9 +410,18 @@ pub fn testnet_genesis(
 }
 
 fn development_config_genesis_json() -> serde_json::Value {
+	let random_authorities_count = 100;
+	let random_nominators_count = 3000;
+	let random_authorities = (0..random_authorities_count)
+		.map(|i| authority_keys_from_seed(&format!("Random{}", i)))
+		.collect::<Vec<_>>();
+	let random_nominators = (0..random_nominators_count)
+		.map(|i| get_public_from_string_or_panic::<sr25519::Public>(&format!("Random{}", i)).into())
+		.collect::<Vec<_>>();
+
 	testnet_genesis(
-		vec![authority_keys_from_seed("Alice")],
-		vec![],
+		random_authorities,
+		random_nominators,
 		Sr25519Keyring::Alice.to_account_id(),
 		None,
 	)

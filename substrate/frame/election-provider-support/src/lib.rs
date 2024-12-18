@@ -878,6 +878,24 @@ impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>> TryFrom<sp_npos_elections::S
 	}
 }
 
+impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>> BoundedSupports<AccountId, BOuter, BInner> {
+	fn from_truncating_unsafe_unreasonable(
+		supports: sp_npos_elections::Supports<AccountId>,
+	) -> Self {
+		let mut outer_bounded_supports =
+			BoundedVec::<(AccountId, BoundedSupport<AccountId, BInner>), BOuter>::new();
+
+		supports
+			.into_iter()
+			.map(|(account, support)| (account, support.try_into().unwrap()))
+			.try_for_each(|(account, bounded_support)| {
+				outer_bounded_supports.push((account, bounded_support))
+			});
+
+		outer_bounded_supports.into()
+	}
+}
+
 /// Same as `BoundedSupports` but parameterized by an `ElectionProvider`.
 pub type BoundedSupportsOf<E> = BoundedSupports<
 	<E as ElectionProvider>::AccountId,

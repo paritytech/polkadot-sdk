@@ -669,7 +669,8 @@ impl pallet_session::Config for Runtime {
 	type ValidatorIdOf = pallet_staking::StashOf<Self>;
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
-	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
+	type SessionManager = AliceAsOnlyValidator;
+	// type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
 	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;
@@ -720,6 +721,7 @@ impl pallet_staking::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Slash = Treasury; // send the slashed funds to the treasury.
 	type Reward = (); // rewards are minted from the void
+	type MaxValidatorSet = ConstU32<1000>;
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
@@ -846,8 +848,47 @@ impl Get<Option<BalancingConfig>> for OffchainRandomBalancing {
 	}
 }
 
+/// An adapter to make the chain work with --dev only, even though it is running a large staking
+/// election.
+///
+/// It will ignore the staking election and just set the validator set to alice.
+///
+/// Needs to be fed into `type SessionManager`.
+pub struct AliceAsOnlyValidator;
+impl pallet_session::SessionManager<AccountId> for AliceAsOnlyValidator {
+	fn end_session(end_index: sp_staking::SessionIndex) {
+		<Staking as pallet_session::SessionManager<AccountId>>::end_session(end_index)
+	}
+
+	fn new_session(new_index: sp_staking::SessionIndex) -> Option<Vec<AccountId>> {
+		<Staking as pallet_session::SessionManager<AccountId>>::new_session(new_index).map(
+			|_ignored_validators| {
+				vec![sp_keyring::AccountKeyring::AliceStash.to_account_id().into()]
+			},
+		)
+	}
+
+	fn new_session_genesis(new_index: sp_staking::SessionIndex) -> Option<Vec<AccountId>> {
+		<Staking as pallet_session::SessionManager<AccountId>>::new_session_genesis(new_index).map(
+			|_ignored_validators| {
+				vec![sp_keyring::AccountKeyring::AliceStash.to_account_id().into()]
+			},
+		)
+	}
+
+	fn start_session(start_index: sp_staking::SessionIndex) {
+		<Staking as pallet_session::SessionManager<AccountId>>::start_session(start_index)
+	}
+}
+
+type MaxBackersPerWinner = <Runtime as pallet_staking::Config>::MaxExposurePageSize;
+type MaxWinnersPerPage = MaxActiveValidators;
+
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	// Entire validator set should be computed in a single page.
+	type MaxWinnersPerPage = MaxActiveValidators;
 	type System = Runtime;
 	type Solver = SequentialPhragmen<
 		AccountId,
@@ -855,7 +896,6 @@ impl onchain::Config for OnChainSeqPhragmen {
 	>;
 	type DataProvider = <Runtime as pallet_election_provider_multi_phase::Config>::DataProvider;
 	type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
-	type MaxWinners = <Runtime as pallet_election_provider_multi_phase::Config>::MaxWinners;
 	type Bounds = ElectionBoundsOnChain;
 }
 
@@ -864,9 +904,10 @@ impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
 	type MaxLength = MinerMaxLength;
 	type MaxWeight = MinerMaxWeight;
 	type Solution = NposSolution16;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxVotesPerVoter =
 	<<Self as pallet_election_provider_multi_phase::Config>::DataProvider as ElectionDataProvider>::MaxVotesPerVoter;
-	type MaxWinners = MaxActiveValidators;
+	type MaxWinners = MaxWinnersPerPage;
 
 	// The unsigned submissions have to respect the weight of the submit_unsigned call, thus their
 	// weight estimate function is wired to this call's weight.
@@ -880,6 +921,7 @@ impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
 }
 
 impl pallet_election_provider_multi_phase::Config for Runtime {
+	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type EstimateCallFee = TransactionPayment;
@@ -1480,7 +1522,7 @@ parameter_types! {
 	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
 	/// We prioritize im-online heartbeats over election solution submission.
 	pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
-	pub const MaxAuthorities: u32 = 100;
+	pub const MaxAuthorities: u32 = 10000;
 	pub const MaxKeys: u32 = 10_000;
 	pub const MaxPeerInHeartbeats: u32 = 10_000;
 }

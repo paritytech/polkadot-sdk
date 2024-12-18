@@ -359,6 +359,7 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
+			log::debug!(target: "runtime", "Building genesis for grandpa: {:?}", self.authorities);
 			CurrentSetId::<T>::put(SetId::default());
 			Pallet::<T>::initialize(self.authorities.clone())
 		}

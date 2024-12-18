@@ -783,7 +783,6 @@ pub mod pallet {
 			if let Some(x) = self.max_nominator_count {
 				MaxNominatorsCount::<T>::put(x);
 			}
-
 			for &(ref stash, _, balance, ref status) in &self.stakers {
 				crate::log!(
 					trace,
@@ -1009,6 +1008,8 @@ pub mod pallet {
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
 			let pages: BlockNumberFor<T> = Self::election_pages().into();
 
+			crate::log!(debug, "ElectionStartedAt: {:?}", ElectingStartedAt::<T>::get());
+
 			// election ongoing, fetch the next page.
 			if let Some(started_at) = ElectingStartedAt::<T>::get() {
 				let next_page =
@@ -1027,6 +1028,13 @@ pub mod pallet {
 			} else {
 				// election isn't ongoing yet, check if it should start.
 				let next_election = <Self as ElectionDataProvider>::next_election_prediction(now);
+				crate::log!(debug, "next_election: {:?}", next_election);
+				crate::log!(debug, "now: {:?}", now);
+				crate::log!(
+					debug,
+					"time to next election: {:?}",
+					next_election.saturating_sub(now)
+				);
 
 				if now == (next_election.saturating_sub(pages)) {
 					crate::log!(
