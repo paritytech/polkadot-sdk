@@ -22,7 +22,6 @@ use sc_service::{PartialComponents, TFullBackend, TFullClient};
 use sc_telemetry::{Telemetry, TelemetryWorkerHandle};
 use sc_transaction_pool::TransactionPoolHandle;
 use sp_runtime::{generic, traits::BlakeTwo256};
-use std::sync::Arc;
 
 pub use parachains_common::{AccountId, Balance, Hash, Nonce};
 
@@ -42,15 +41,20 @@ pub type ParachainClient<Block, RuntimeApi> =
 
 pub type ParachainBackend<Block> = TFullBackend<Block>;
 
-pub type ParachainBlockImport<Block, RuntimeApi> =
-	TParachainBlockImport<Block, Arc<ParachainClient<Block, RuntimeApi>>, ParachainBackend<Block>>;
+pub type ParachainBlockImport<Block, BI> =
+	TParachainBlockImport<Block, BI, ParachainBackend<Block>>;
 
 /// Assembly of PartialComponents (enough to run chain ops subcommands)
-pub type ParachainService<Block, RuntimeApi> = PartialComponents<
+pub type ParachainService<Block, RuntimeApi, BI, BIExtraReturnValue> = PartialComponents<
 	ParachainClient<Block, RuntimeApi>,
 	ParachainBackend<Block>,
 	(),
 	DefaultImportQueue<Block>,
 	TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
-	(ParachainBlockImport<Block, RuntimeApi>, Option<Telemetry>, Option<TelemetryWorkerHandle>),
+	(
+		ParachainBlockImport<Block, BI>,
+		Option<Telemetry>,
+		Option<TelemetryWorkerHandle>,
+		BIExtraReturnValue,
+	),
 >;

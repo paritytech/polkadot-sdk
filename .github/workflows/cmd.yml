@@ -400,6 +400,14 @@ jobs:
           name: command-output
           path: /tmp/cmd/command_output.log
 
+      # Generate token for commit, as the earlier token expires after 1 hour, while cmd can take longer
+      - name: Generate token for commit
+        uses: actions/create-github-app-token@v1
+        id: generate_token_commit
+        with:
+          app-id: ${{ secrets.CMD_BOT_APP_ID }}
+          private-key: ${{ secrets.CMD_BOT_APP_KEY }}
+
       - name: Commit changes
         run: |
           if [ -n "$(git status --porcelain)" ]; then
@@ -410,7 +418,7 @@ jobs:
             # Push the results to the target branch
             git remote add \
               github \
-              "https://token:${{ steps.generate_token.outputs.token }}@github.com/${{ github.event.repository.owner.login }}/${{ github.event.repository.name }}.git" || :
+              "https://x-access-token:${{ steps.generate_token_commit.outputs.token }}@github.com/${{ needs.get-pr-branch.outputs.repo }}.git" || :
 
             push_changes() {
               git push github "HEAD:${{ needs.get-pr-branch.outputs.pr-branch }}"

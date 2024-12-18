@@ -19,8 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 environmental = { workspace = true }
 paste = { workspace = true }
-polkavm = { version = "0.17.0", default-features = false }
-bitflags = { workspace = true }
+polkavm = { version = "0.18.0", default-features = false }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 log = { workspace = true }
@@ -48,7 +47,6 @@ sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
-sp-weights = { workspace = true }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
 subxt-signer = { workspace = true, optional = true, features = [
@@ -102,7 +100,6 @@ std = [
 	"sp-keystore/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"sp-weights/std",
 	"subxt-signer",
 	"xcm-builder/std",
 	"xcm/std",
@@ -119,6 +116,7 @@ runtime-benchmarks = [
 	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
