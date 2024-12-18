@@ -65,6 +65,13 @@ pub trait Memory<T: Config> {
 	/// - designated area is not within the bounds of the sandbox memory.
 	fn write(&mut self, ptr: u32, buf: &[u8]) -> Result<(), DispatchError>;
 
+	/// Zero the designated location in the sandbox memory.
+	///
+	/// Returns `Err` if one of the following conditions occurs:
+	///
+	/// - designated area is not within the bounds of the sandbox memory.
+	fn zero(&mut self, ptr: u32, len: u32) -> Result<(), DispatchError>;
+
 	/// Read designated chunk from the sandbox memory.
 	///
 	/// Returns `Err` if one of the following conditions occurs:
@@ -162,6 +169,10 @@ impl<T: Config> Memory<T> for [u8] {
 		bound_checked.copy_from_slice(buf);
 		Ok(())
 	}
+
+	fn zero(&mut self, ptr: u32, len: u32) -> Result<(), DispatchError> {
+		<[u8] as Memory<T>>::write(self, ptr, &vec![0; len as usize])
+	}
 }
 
 impl<T: Config> Memory<T> for polkavm::RawInstance {
@@ -173,6 +184,10 @@ impl<T: Config> Memory<T> for polkavm::RawInstance {
 
 	fn write(&mut self, ptr: u32, buf: &[u8]) -> Result<(), DispatchError> {
 		self.write_memory(ptr, buf).map_err(|_| Error::<T>::OutOfBounds.into())
+	}
+
+	fn zero(&mut self, ptr: u32, len: u32) -> Result<(), DispatchError> {
+		self.zero_memory(ptr, len).map_err(|_| Error::<T>::OutOfBounds.into())
 	}
 }
 
@@ -269,6 +284,8 @@ pub enum RuntimeCosts {
 	CopyToContract(u32),
 	/// Weight of calling `seal_call_data_load``.
 	CallDataLoad,
+	/// Weight of calling `seal_call_data_copy`.
+	CallDataCopy(u32),
 	/// Weight of calling `seal_caller`.
 	Caller,
 	/// Weight of calling `seal_call_data_size`.
@@ -433,11 +450,12 @@ impl<T: Config> Token<T> for RuntimeCosts {
 		use self::RuntimeCosts::*;
 		match *self {
 			HostFn => cost_args!(noop_host_fn, 1),
-			CopyToContract(len) => T::WeightInfo::seal_input(len),
+			CopyToContract(len) => T::WeightInfo::seal_copy_to_contract(len),
 			CopyFromContract(len) => T::WeightInfo::seal_return(len),
 			CallDataSize => T::WeightInfo::seal_call_data_size(),
 			ReturnDataSize => T::WeightInfo::seal_return_data_size(),
 			CallDataLoad => T::WeightInfo::seal_call_data_load(),
+			CallDataCopy(len) => T::WeightInfo::seal_call_data_copy(len),
 			Caller => T::WeightInfo::seal_caller(),
 			Origin => T::WeightInfo::seal_origin(),
 			IsContract => T::WeightInfo::seal_is_contract(),
@@ -1275,18 +1293,34 @@ pub mod env {
 	}
 
 	/// Stores the input passed by the caller into the supplied buffer.
-	/// See [`pallet_revive_uapi::HostFn::input`].
+	/// See [`pallet_revive_uapi::HostFn::call_data_copy`].
 	#[stable]
-	fn input(&mut self, memory: &mut M, out_ptr: u32, out_len_ptr: u32) -> Result<(), TrapReason> {
-		if let Some(input) = self.input_data.take() {
-			self.write_sandbox_output(memory, out_ptr, out_len_ptr, &input, false, |len| {
-				Some(RuntimeCosts::CopyToContract(len))
-			})?;
-			self.input_data = Some(input);
-			Ok(())
-		} else {
-			Err(Error::<E::T>::InputForwarded.into())
+	fn call_data_copy(
+		&mut self,
+		memory: &mut M,
+		out_ptr: u32,
+		out_len: u32,
+		offset: u32,
+	) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::CallDataCopy(out_len))?;
+
+		let Some(input) = self.input_data.as_ref() else {
+			return Err(Error::<E::T>::InputForwarded.into());
+		};
+
+		let start = offset as usize;
+		if start >= input.len() {
+			memory.zero(out_ptr, out_len)?;
+			return Ok(());
 		}
+
+		let end = start.saturating_add(out_len as usize).min(input.len());
+		memory.write(out_ptr, &input[start..end])?;
+
+		let bytes_written = (end - start) as u32;
+		memory.zero(out_ptr.saturating_add(bytes_written), out_len - bytes_written)?;
+
+		Ok(())
 	}
 
 	/// Stores the U256 value at given call input `offset` into the supplied buffer.
