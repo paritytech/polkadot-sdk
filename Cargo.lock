@@ -4940,7 +4940,6 @@ dependencies = [
  "rand",
  "sc-client-api",
  "scale-info",
- "sp-consensus-slots 0.32.0",
  "sp-core 28.0.0",
  "sp-crypto-hashing 0.1.0",
  "sp-externalities 0.25.0",
@@ -5239,6 +5238,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-trie 29.0.0",
  "staging-xcm 7.0.0",
+ "tracing",
 ]
 
 [[package]]
