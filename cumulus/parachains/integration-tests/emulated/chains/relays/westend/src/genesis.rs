@@ -92,7 +92,7 @@ pub fn genesis() -> Storage {
 					.map(|x| x.0.clone())
 					.collect::<Vec<_>>(),
 			)
-			.unwrap(),
+			.expect("Limit for staking invulnerables must be less than initial authorities."),
 			force_era: pallet_staking::Forcing::ForceNone,
 			slash_reward_fraction: Perbill::from_percent(10),
 			..Default::default()
