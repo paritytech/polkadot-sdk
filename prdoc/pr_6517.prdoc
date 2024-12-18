@@ -1,0 +1,69 @@
+title: 'feat: add hooks for utility batch'
+doc:
+- audience: Runtime Dev
+  description: "# Description\n\nIn the Hydration parachain, we want to inject custom\
+    \ functionalities into all utility batch calls, both before and after their execution.\
+    \ We believe this feature could be useful for other parachains as well, where,\
+    \ by default, no behavior exists for custom functionalities.\n\n## Integration\n\
+    \nThis PR introduces custom hooks to the Polkadot SDK, allowing parachains to\
+    \ configure and extend the SDK\u2019s behavior according to their specific requirements.\
+    \ The changes include:\n\n### Custom Hook Integration:\n\nDownstream projects\
+    \ can now define custom hooks for specific functionality within the SDK.\nThese\
+    \ hooks can be registered during the initialization phase of the parachain.\n\n\
+    ### Configuration Details:\n\nHooks should be defined in a configuration object\
+    \ and passed to the relevant utlity pallet config setup implementation.\n\nExample\
+    \ usage:\n```\nimpl pallet_utility::Config for Runtime {\n\ttype RuntimeEvent\
+    \ = RuntimeEvent;\n\ttype RuntimeCall = RuntimeCall;\n\ttype PalletsOrigin = OriginCaller;\n\
+    \ttype BatchPreHook = PushBatchExecutionTypeForUnifiedEvent;\n\ttype BatchPostHook\
+    \ = PopBatchExecutionTypeForUnifiedEvent;\n\ttype WeightInfo = weights::pallet_utility::HydraWeight<Runtime>;\n\
+    }\n```\n### Backward Compatibility:\n\nThese changes are fully backward compatible.\
+    \ Parachains that do not implement the new hooks will continue to operate as before\
+    \ without any modifications.\n\n\n### Testing Recommendations:\n\nProjects should\
+    \ test their custom hooks thoroughly to ensure the expected behavior when integrated\
+    \ with the Polkadot SDK.\nBy providing these hooks, parachains can gain finer\
+    \ control over SDK functionalities while maintaining flexibility for future updates.\n\
+    \n\n## Review Notes\n\nThe `BatchPreHook` is invoked before every batch call (batch,\
+    \ batch_all, and force_batch). It is triggered immediately after ensuring the\
+    \ origin.\n\nThe `BatchPostHook` is invoked after every batch call (batch, batch_all,\
+    \ and force_batch). It is triggered right before collecting the weights to be\
+    \ returned.\n\nTo establish a default behavior, one can set the unit type in the\
+    \ configuration, which simply returns an Ok result, so doing nothing:\n\n```\n\
+    impl pallet_utility::Config for Runtime {\n\ttype RuntimeEvent = RuntimeEvent;\n\
+    \ttype RuntimeCall = RuntimeCall;\n\ttype PalletsOrigin = OriginCaller;\n\ttype\
+    \ BatchPreHook = ();\n\ttype BatchPostHook = ();\n\ttype WeightInfo = weights::pallet_utility::HydraWeight<Runtime>;\n\
+    }\n```\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined\
+    \ in the \"Description\" and its two subsections above.\n* [x] My PR follows the\
+    \ [labeling requirements](\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n\
+    ) of this project (at minimum one label for `T` required)\n    * External contributors:\
+    \ ask maintainers to put the right label on your PR.\n* [x] I have made corresponding\
+    \ changes to the documentation (if applicable)\n* [x] I have added tests that\
+    \ prove my fix is effective or that my feature works (if applicable)\n\nYou can\
+    \ remove the \"Checklist\" section once all have been checked. Thank you for your\
+    \ contribution!\n\n\u2704 -----------------------------------------------------------------------------"
+crates:
+- name: pallet-utility
+  bump: major
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: bridge-hub-rococo-runtime
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: coretime-rococo-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: people-rococo-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: contracts-rococo-runtime
+  bump: major
