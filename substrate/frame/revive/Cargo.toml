@@ -62,7 +62,6 @@ pretty_assertions = { workspace = true }
 secp256k1 = { workspace = true, features = ["recovery"] }
 serde_json = { workspace = true }
 hex-literal = { workspace = true }
-env_logger = { workspace = true }
 
 # Polkadot SDK Dependencies
 pallet-balances = { workspace = true, default-features = true }

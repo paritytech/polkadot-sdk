@@ -65,11 +65,11 @@ pub fn encode<T: Config>(gas_limit: U256, weight: Weight, deposit: BalanceOf<T>)
 	let deposit: u128 = deposit.try_into().ok()?;
 	let deposit_component = log2_round_up(deposit);
 
-	let ref_time = weight.ref_time();
-	let ref_time_component = SCALE.pow(2) * log2_round_up(ref_time);
-
 	let proof_size = weight.proof_size();
 	let proof_size_component = SCALE * log2_round_up(proof_size);
+
+	let ref_time = weight.ref_time();
+	let ref_time_component = SCALE.pow(2) * log2_round_up(ref_time);
 
 	let components = U256::from(deposit_component + proof_size_component + ref_time_component);
 
