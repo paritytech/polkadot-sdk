@@ -19,15 +19,20 @@
 
 use super::*;
 use crate::Pallet as AssetConversionOps;
+use frame::{benchmarking::prelude::*, traits::{fungibles::{Create, Inspect, Mutate}, One}, deps::sp_core::Get};
+/*
 use frame_benchmarking::{v2::*, whitelisted_caller};
 use frame_support::{
 	assert_ok,
 	traits::fungibles::{Create, Inspect, Mutate},
 };
 use frame_system::RawOrigin as SystemOrigin;
+*/
 use pallet_asset_conversion::{BenchmarkHelper, Pallet as AssetConversion};
+/*
 use sp_core::Get;
 use sp_runtime::traits::One;
+*/
 
 /// Provides a pair of amounts expected to serve as sufficient initial liquidity for a pool.
 fn valid_liquidity_amount<T: Config>(ed1: T::Balance, ed2: T::Balance) -> (T::Balance, T::Balance)
@@ -113,7 +118,7 @@ where
 	mint_setup_fee_asset::<T>(caller, asset1, asset2, &lp_token);
 
 	assert_ok!(AssetConversion::<T>::create_pool(
-		SystemOrigin::Signed(caller.clone()).into(),
+		RawOrigin::Signed(caller.clone()).into(),
 		Box::new(asset1.clone()),
 		Box::new(asset2.clone())
 	));
@@ -142,7 +147,7 @@ mod benchmarks {
 		let (_, liquidity1, liquidity2) = create_asset_and_pool::<T>(&caller, &asset1, &asset2);
 
 		assert_ok!(AssetConversion::<T>::add_liquidity(
-			SystemOrigin::Signed(caller.clone()).into(),
+			RawOrigin::Signed(caller.clone()).into(),
 			Box::new(asset1.clone()),
 			Box::new(asset2.clone()),
 			liquidity1,
@@ -153,7 +158,7 @@ mod benchmarks {
 		));
 
 		#[extrinsic_call]
-		_(SystemOrigin::Signed(caller.clone()), Box::new(asset1.clone()), Box::new(asset2.clone()));
+		_(RawOrigin::Signed(caller.clone()), Box::new(asset1.clone()), Box::new(asset2.clone()));
 
 		let pool_id = T::PoolLocator::pool_id(&asset1, &asset2).unwrap();
 		let (prior_account, new_account) = AssetConversionOps::<T>::addresses(&pool_id).unwrap();
