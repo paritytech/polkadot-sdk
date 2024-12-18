@@ -71,8 +71,8 @@ pub mod v17 {
 			let mut migration_errors = false;
 
 			v16::MaxValidatorsCount::<T>::kill();
-			v16::ErasStakers::<T>::kill();
-			v16::ErasStakersClipped::<T>::kill();
+			v16::ErasStakers::<T>::remove_all(None);
+			v16::ErasStakersClipped::<T>::remove_all(None);
 
 			let old_disabled_validators = v16::DisabledValidators::<T>::get();
 			// BoundedVec with MaxDisabledValidators limit, this should always work
