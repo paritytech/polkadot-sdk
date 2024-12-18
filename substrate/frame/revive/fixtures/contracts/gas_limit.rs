@@ -15,11 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Returns the block ref_time limit back to the caller.
+
 #![no_std]
 #![no_main]
 
-use common::input;
-use uapi::{HostFn, HostFnImpl as api};
+extern crate common;
+use uapi::{HostFn, HostFnImpl as api, ReturnFlags};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -28,9 +30,5 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	input!(address: &[u8; 20], expected: u64,);
-
-	let received = api::code_size(address);
-
-	assert_eq!(expected, received);
+	api::return_value(ReturnFlags::empty(), &api::gas_limit().to_le_bytes());
 }
