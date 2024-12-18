@@ -20,13 +20,13 @@ use crate::{
 	assigner_coretime::{mock_helpers::GenesisConfigBuilder, pallet::Error, Schedule},
 	initializer::SessionChangeNotification,
 	mock::{
-		new_test_ext, Balances, CoretimeAssigner, OnDemand, Paras, ParasShared, RuntimeOrigin,
-		Scheduler, System, Test,
+		new_test_ext, CoretimeAssigner, OnDemand, Paras, ParasShared, RuntimeOrigin, Scheduler,
+		System, Test,
 	},
 	paras::{ParaGenesisArgs, ParaKind},
 	scheduler::common::Assignment,
 };
-use frame_support::{assert_noop, assert_ok, pallet_prelude::*, traits::Currency};
+use frame_support::{assert_noop, assert_ok, pallet_prelude::*};
 use pallet_broker::TaskId;
 use polkadot_primitives::{BlockNumber, Id as ParaId, SessionIndex, ValidationCode};
 
@@ -494,9 +494,9 @@ fn pop_assignment_for_core_works() {
 		// Initialize the parathread, wait for it to be ready, then add an
 		// on demand order to later pop with our Coretime assigner.
 		schedule_blank_para(para_id, ParaKind::Parathread);
-		Balances::make_free_balance_be(&alice, amt);
+		on_demand::Credits::<Test>::insert(&alice, amt);
 		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
-		assert_ok!(OnDemand::place_order_allow_death(RuntimeOrigin::signed(alice), amt, para_id));
+		assert_ok!(OnDemand::place_order_with_credits(RuntimeOrigin::signed(alice), amt, para_id));
 
 		// Case 1: Assignment idle
 		assert_ok!(CoretimeAssigner::assign_core(
