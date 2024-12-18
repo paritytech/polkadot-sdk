@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove feature `test-helpers` from sc-service
+
+doc:
+  - audience: Node Dev
+    description: |
+      Removes feature `test-helpers` from sc-service.
+
+crates:
+  - name: sc-service
+    bump: major
+  - name: sc-rpc-spec-v2
+    bump: major
