@@ -1,0 +1,12 @@
+title: '[pallet-revive] implement the ref_time_left API'
+doc:
+- audience: Runtime Dev
+  description: This PR implements the ref_time_left API method. Solidity knows only
+    a single "gas" dimension; Solidity contracts will use this to query the gas left.
+crates:
+- name: pallet-revive-fixtures
+  bump: minor
+- name: pallet-revive
+  bump: minor
+- name: pallet-revive-uapi
+  bump: minor
