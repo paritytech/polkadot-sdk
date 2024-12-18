@@ -26,6 +26,7 @@ frame-system = { workspace = true }
 frame-system-benchmarking = { optional = true, workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
 frame-try-runtime = { optional = true, workspace = true }
+frame-metadata-hash-extension = { workspace = true }
 pallet-asset-rate = { workspace = true }
 pallet-alliance = { workspace = true }
 pallet-aura = { workspace = true }
@@ -46,7 +47,7 @@ pallet-utility = { workspace = true }
 pallet-referenda = { workspace = true }
 pallet-ranked-collective = { workspace = true }
 pallet-core-fellowship = { workspace = true }
-pallet-salary = { workspace = true }
+pallet-salary = { workspace = true, features = ["experimental"] }
 sp-api = { workspace = true }
 sp-arithmetic = { workspace = true }
 sp-block-builder = { workspace = true }
@@ -195,6 +196,7 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"frame-try-runtime?/std",
+	"frame-metadata-hash-extension/std",
 	"log/std",
 	"pallet-alliance/std",
 	"pallet-asset-rate/std",

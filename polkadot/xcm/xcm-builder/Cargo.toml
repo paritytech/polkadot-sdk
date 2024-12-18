@@ -78,3 +78,7 @@ std = [
 	"xcm-executor/std",
 	"xcm/std",
 ]
+
+experimental = [
+	"pallet-salary/experimental",
+]
