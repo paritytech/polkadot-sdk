@@ -4366,6 +4366,22 @@ fn call_data_size_api_works() {
 }
 
 #[test]
+fn call_data_copy_api_works() {
+	let (code, _) = compile_module("call_data_copy").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create fixture: Constructor does nothing
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// Call fixture: Expects an input of [255; 32] and executes tests.
+		assert_ok!(builder::call(addr).data(vec![255; 32]).build());
+	});
+}
+
+#[test]
 fn static_data_limit_is_enforced() {
 	let (oom_rw_trailing, _) = compile_module("oom_rw_trailing").unwrap();
 	let (oom_rw_included, _) = compile_module("oom_rw_included").unwrap();

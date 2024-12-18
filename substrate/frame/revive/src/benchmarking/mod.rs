@@ -362,10 +362,10 @@ mod benchmarks {
 
 	// We just call a dummy contract to measure the overhead of the call extrinsic.
 	// The size of the data has no influence on the costs of this extrinsic as long as the contract
-	// won't call `seal_input` in its constructor to copy the data to contract memory.
+	// won't call `seal_call_data_copy` in its constructor to copy the data to contract memory.
 	// The dummy contract used here does not do this. The costs for the data copy is billed as
-	// part of `seal_input`. The costs for invoking a contract of a specific size are not part
-	// of this benchmark because we cannot know the size of the contract when issuing a call
+	// part of `seal_call_data_copy`. The costs for invoking a contract of a specific size are not
+	// part of this benchmark because we cannot know the size of the contract when issuing a call
 	// transaction. See `call_with_code_per_byte` for this.
 	#[benchmark(pov_mode = Measured)]
 	fn call() -> Result<(), BenchmarkError> {
@@ -865,6 +865,29 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn seal_copy_to_contract(n: Linear<0, { limits::code::BLOB_BYTES - 4 }>) {
+		let mut setup = CallSetup::<T>::default();
+		let (mut ext, _) = setup.ext();
+		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
+		let mut memory = memory!(n.encode(), vec![0u8; n as usize],);
+		let result;
+		#[block]
+		{
+			result = runtime.write_sandbox_output(
+				memory.as_mut_slice(),
+				4,
+				0,
+				&vec![42u8; n as usize],
+				false,
+				|_| None,
+			);
+		}
+		assert_ok!(result);
+		assert_eq!(&memory[..4], &n.encode());
+		assert_eq!(&memory[4..], &vec![42u8; n as usize]);
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_call_data_load() {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
@@ -880,18 +903,18 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_input(n: Linear<0, { limits::code::BLOB_BYTES - 4 }>) {
+	fn seal_call_data_copy(n: Linear<0, { limits::code::BLOB_BYTES }>) {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![42u8; n as usize]);
-		let mut memory = memory!(n.to_le_bytes(), vec![0u8; n as usize],);
+		let mut memory = memory!(vec![0u8; n as usize],);
 		let result;
 		#[block]
 		{
-			result = runtime.bench_input(memory.as_mut_slice(), 4, 0);
+			result = runtime.bench_call_data_copy(memory.as_mut_slice(), 0, n, 0);
 		}
 		assert_ok!(result);
-		assert_eq!(&memory[4..], &vec![42u8; n as usize]);
+		assert_eq!(&memory[..], &vec![42u8; n as usize]);
 	}
 
 	#[benchmark(pov_mode = Measured)]

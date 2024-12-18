@@ -121,8 +121,9 @@ macro_rules! input {
 	// e.g input!(buffer, 512, var1: u32, var2: [u8], );
 	($buffer:ident, $size:expr, $($rest:tt)*) => {
 		let mut $buffer = [0u8; $size];
-		let $buffer = &mut &mut $buffer[..];
-		$crate::api::input($buffer);
+		let input_size = $crate::u64_output!($crate::api::call_data_size,);
+		let $buffer = &mut &mut $buffer[..$size.min(input_size as usize)];
+		$crate::api::call_data_copy($buffer, 0);
 		input!(@inner $buffer, 0, $($rest)*);
 	};
 
