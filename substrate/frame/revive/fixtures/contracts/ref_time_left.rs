@@ -18,19 +18,17 @@
 #![no_std]
 #![no_main]
 
-use common::input;
-use uapi::{HostFn, HostFnImpl as api};
+extern crate common;
+use uapi::{HostFn, HostFnImpl as api, ReturnFlags};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
-pub extern "C" fn deploy() {}
+pub extern "C" fn deploy() {
+	assert!(api::ref_time_left() > api::ref_time_left());
+}
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	input!(address: &[u8; 20], expected: u64,);
-
-	let received = api::code_size(address);
-
-	assert_eq!(expected, received);
+	api::return_value(ReturnFlags::empty(), &api::ref_time_left().to_le_bytes());
 }
