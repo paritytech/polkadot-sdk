@@ -91,8 +91,8 @@ pub fn decode<T: Config>(gas: U256) -> Option<(Weight, BalanceOf<T>)> {
 
 	// Casting with as_u32 is safe since all values are maxed by `SCALE`.
 	let deposit = deposit.as_u32();
-	let proof_time = ((gas_without_deposit / SCALE) % SCALE).as_u32();
-	let ref_time = ((gas_without_deposit / SCALE.pow(2)) % SCALE).as_u32();
+	let proof_time = ((gas / SCALE) % SCALE).as_u32();
+	let ref_time = ((gas / SCALE.pow(2)) % SCALE).as_u32();
 
 	let weight = Weight::from_parts(
 		if ref_time == 0 { 0 } else { 1u64.checked_shl(ref_time)? },
