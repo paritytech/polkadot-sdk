@@ -71,6 +71,8 @@ pub mod v17 {
 			let mut migration_errors = false;
 
 			v16::MaxValidatorsCount::<T>::kill();
+			v16::ErasStakers::<T>::kill();
+			v16::ErasStakersClipped::<T>::kill();
 
 			let old_disabled_validators = v16::DisabledValidators::<T>::get();
 			// BoundedVec with MaxDisabledValidators limit, this should always work
@@ -253,6 +255,28 @@ pub mod v16 {
 
 	#[frame_support::storage_alias]
 	pub(crate) type MaxValidatorsCount<T: Config> = StorageValue<Pallet<T>, u32, OptionQuery>;
+
+	#[frame_support::storage_alias]
+	pub(crate) type ErasStakers<T: Config> = StorageDoubleMap<
+		Pallet<T>,
+		Twox64Concat,
+		EraIndex,
+		Twox64Concat,
+		<T as frame_system::Config>::AccountId,
+		Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
+		ValueQuery,
+	>;
+
+	#[frame_support::storage_alias]
+	pub(crate) type ErasStakersClipped<T: Config> = StorageDoubleMap<
+		Pallet<T>,
+		Twox64Concat,
+		EraIndex,
+		Twox64Concat,
+		<T as frame_system::Config>::AccountId,
+		Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
+		ValueQuery,
+	>;
 
 	pub struct VersionUncheckedMigrateV15ToV16<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV15ToV16<T> {

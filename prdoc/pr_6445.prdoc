@@ -1,4 +1,4 @@
-title: Add storage bounds for pallet `staking`
+title: Add storage bounds for pallet `staking` and clean up deprecated non paged exposure storages
 doc:
 - audience: Runtime Dev
   description: |-
@@ -17,18 +17,13 @@ doc:
         - Completing the task from #5986
     - Use `MaxExposurePageSize` to bound  `ErasStakersPaged` mapping to exposure pages: each `ExposurePage.others` Vec is turned into a `WeakBoundedVec` to allow easy and quick changes to this bound
     - Add `MaxBondedEras` to bound `BondedEras` Vec -> `BoundedVec`
-        - Set to `BondingDuration::get() + 1` everywhere to include both time interval endpoints in [`current_era - BondingDuration::get()`, `current_era`]
+        - Set to `BondingDuration::get() + 1` everywhere to include both time interval endpoints in [`current_era - BondingDuration::get()`, `current_era`]. Notice that this was done manually in every test and runtime.
     - Add `MaxRewardPagesPerValidator` to bound `ClaimedRewards` Vec of pages -> `WeakBoundedVec`
         - Set to constant 20 in the pallet. The vector of pages is now a `WeakBoundedVec` to allow easy and quick changes to this parameter
     - Remove `MaxValidatorsCount` optional storage item to add `MaxValidatorsCount` mandatory config parameter
         -  Using it to to bound `EraRewardPoints.individual` BTreeMap -> `BoundedBTreeMap`;
         -  Set to dynamic parameter in runtime westend so that changing it should not require migrations for it
 
-    **TO DO**
-    Slashing storage items will be bounded in another PR.
-
-    - `UnappliedSlashes`
-    - `SlashingSpans`
 crates:
 - name: pallet-staking
   bump: major
