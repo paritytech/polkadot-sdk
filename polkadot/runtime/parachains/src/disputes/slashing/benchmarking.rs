@@ -149,12 +149,11 @@ mod benchmarks {
 	// submitted for a past session
 	#[benchmark]
 	fn report_dispute_lost_unsigned(n: Linear<4, { max_validators_for::<T>() }>) {
-		let origin = RawOrigin::None.into();
 		let (session_index, key_owner_proof, validator_id) = setup_validator_set::<T>(n);
 		let dispute_proof = setup_dispute::<T>(session_index, validator_id);
 
 		#[extrinsic_call]
-		_(origin, Box::new(dispute_proof), key_owner_proof);
+		_(RawOrigin::None, Box::new(dispute_proof), key_owner_proof);
 
 		let unapplied = <UnappliedSlashes<T>>::get(session_index, CANDIDATE_HASH);
 		assert!(unapplied.is_none());
