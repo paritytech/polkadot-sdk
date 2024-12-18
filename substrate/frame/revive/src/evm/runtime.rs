@@ -49,6 +49,11 @@ type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 /// We use a fixed value for the gas price.
 /// This let us calculate the gas estimate for a transaction with the formula:
 /// `estimate_gas = substrate_fee / gas_price`.
+///
+/// The chosen constant value is balanced to ensure:
+/// - It is not too high, allowing components (ref_time, proof_size, and deposit) to be encoded in
+///   the lower digits of the gas value.
+/// - It is not too low, enabling users to adjust the gas price to define a tip.
 pub const GAS_PRICE: u32 = 1_000u32;
 
 /// Convert a `Balance` into a gas value, using the fixed `GAS_PRICE`.
@@ -400,8 +405,13 @@ pub trait EthExtra {
 		// The fees from the Ethereum transaction should be greater or equal to the actual fees paid
 		// by the account.
 		if eth_fee < actual_fee {
-			log::debug!(target: LOG_TARGET, "fees {eth_fee:?} too low for the extrinsic {actual_fee:?}");
+			log::debug!(target: LOG_TARGET, "eth fees {eth_fee:?} too low, actual fees: {actual_fee:?}");
 			return Err(InvalidTransaction::Payment.into())
+		}
+
+		if eth_fee_no_tip > actual_fee.saturating_mul(2u32.into()) {
+			log::debug!(target: LOG_TARGET, "actual fees {actual_fee:?} too high, base eth fees: {eth_fee_no_tip:?}");
+			return Err(InvalidTransaction::Call.into())
 		}
 
 		let tip = eth_fee.saturating_sub(eth_fee_no_tip);
@@ -495,6 +505,10 @@ mod test {
 				Ok(dry_run) => {
 					log::debug!(target: LOG_TARGET, "Estimated gas: {:?}", dry_run.eth_gas);
 					self.tx.gas = Some(dry_run.eth_gas);
+					let (gas_limit, deposit) =
+						gas_encoder::decode::<Test>(dry_run.eth_gas).unwrap();
+					self.gas_limit = gas_limit;
+					self.storage_deposit_limit = deposit;
 				},
 				Err(err) => {
 					log::debug!(target: LOG_TARGET, "Failed to estimate gas: {:?}", err);
@@ -650,7 +664,7 @@ mod test {
 
 	#[test]
 	fn check_transaction_fees() {
-		let scenarios: [(_, Box<dyn FnOnce(&mut GenericTransaction)>, _); 5] = [
+		let scenarios: Vec<(_, Box<dyn FnOnce(&mut GenericTransaction)>, _)> = vec![
 			(
 				"Eth fees too low",
 				Box::new(|tx| {
@@ -668,24 +682,9 @@ mod test {
 			(
 				"Gas fees too low",
 				Box::new(|tx| {
-					tx.gas = Some(tx.gas.unwrap() * 2);
+					tx.gas = Some(tx.gas.unwrap() / 2);
 				}),
-				InvalidTransaction::Call,
-			),
-			(
-				"Diff > 10%",
-				Box::new(|tx| {
-					tx.gas = Some(tx.gas.unwrap() * 111 / 100);
-				}),
-				InvalidTransaction::Call,
-			),
-			(
-				"Diff < 10%",
-				Box::new(|tx| {
-					tx.gas_price = Some(tx.gas_price.unwrap() * 2);
-					tx.gas = Some(tx.gas.unwrap() * 89 / 100);
-				}),
-				InvalidTransaction::Call,
+				InvalidTransaction::Payment,
 			),
 		];
 

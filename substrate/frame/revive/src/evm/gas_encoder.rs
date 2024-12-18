@@ -63,13 +63,6 @@ where
 /// - Encoding fails if the deposit is not convertible to `u128`
 /// - The deposit value is maxed by 2^99
 pub fn encode<T: Config>(gas_limit: U256, weight: Weight, deposit: BalanceOf<T>) -> Option<U256> {
-	let raw_gas_mask = U256::from(SCALE).pow(3.into());
-	let raw_gas_component = if gas_limit < raw_gas_mask {
-		raw_gas_mask
-	} else {
-		round_up(gas_limit, raw_gas_mask).saturating_mul(raw_gas_mask)
-	};
-
 	let deposit: u128 = deposit.try_into().ok()?;
 	let deposit_component = log2_round_up(deposit);
 
@@ -79,10 +72,16 @@ pub fn encode<T: Config>(gas_limit: U256, weight: Weight, deposit: BalanceOf<T>)
 	let proof_size = weight.proof_size();
 	let proof_size_component = SCALE * log2_round_up(proof_size);
 
-	let components = deposit_component + proof_size_component + ref_time_component;
-	let encoded = raw_gas_component.saturating_add(components.into());
+	let components = U256::from(deposit_component + proof_size_component + ref_time_component);
 
-	encoded.into()
+	let raw_gas_mask = U256::from(SCALE).pow(3.into());
+	let raw_gas_component = if gas_limit < raw_gas_mask.saturating_add(components) {
+		raw_gas_mask
+	} else {
+		round_up(gas_limit, raw_gas_mask).saturating_mul(raw_gas_mask)
+	};
+
+	Some(components.saturating_add(raw_gas_component))
 }
 
 /// Decodes the weight and deposit from the encoded gas value.
@@ -96,8 +95,15 @@ pub fn decode<T: Config>(gas: U256) -> Option<(Weight, BalanceOf<T>)> {
 	let proof_time = ((gas_without_deposit / SCALE) % SCALE).as_u32();
 	let ref_time = ((gas_without_deposit / SCALE.pow(2)) % SCALE).as_u32();
 
-	let weight = Weight::from_parts(1u64.checked_shl(ref_time)?, 1u64.checked_shl(proof_time)?);
-	let deposit = BalanceOf::<T>::one().checked_shl(deposit)?;
+	let weight = Weight::from_parts(
+		if ref_time == 0 { 0 } else { 1u64.checked_shl(ref_time)? },
+		if proof_time == 0 { 0 } else { 1u64.checked_shl(proof_time)? },
+	);
+	let deposit = if deposit == 0 {
+		BalanceOf::<T>::zero()
+	} else {
+		BalanceOf::<T>::one().checked_shl(deposit)?
+	};
 
 	Some((weight, deposit))
 }
@@ -123,6 +129,18 @@ mod test {
 
 		assert!(decoded_deposit >= deposit);
 		assert!(deposit * 2 >= decoded_deposit);
+	}
+
+	#[test]
+	fn test_encoding_zero_values_work() {
+		let encoded_gas =
+			encode::<Test>(Default::default(), Default::default(), Default::default()).unwrap();
+
+		assert_eq!(encoded_gas, U256::from(1_00_00_00));
+
+		let (decoded_weight, decoded_deposit) = decode::<Test>(encoded_gas).unwrap();
+		assert_eq!(Weight::default(), decoded_weight);
+		assert_eq!(BalanceOf::<Test>::zero(), decoded_deposit);
 	}
 
 	#[test]
