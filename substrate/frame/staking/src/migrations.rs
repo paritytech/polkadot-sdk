@@ -71,8 +71,36 @@ pub mod v17 {
 			let mut migration_errors = false;
 
 			v16::MaxValidatorsCount::<T>::kill();
-			v16::ErasStakers::<T>::remove_all(None);
-			v16::ErasStakersClipped::<T>::remove_all(None);
+
+			let mut eras_stakers_keys =
+				v16::ErasStakers::<T>::iter_keys().map(|(k1, k2)| k1).collect::<Vec<_>>();
+			eras_stakers_keys.dedup();
+			for k in eras_stakers_keys {
+				let mut removal_result =
+					v16::ErasStakers::<T>::clear_prefix(k, u32::max_value(), None);
+				while let Some(next_cursor) = removal_result.maybe_cursor {
+					removal_result = v16::ErasStakers::<T>::clear_prefix(
+						k,
+						u32::max_value(),
+						Some(&next_cursor[..]),
+					);
+				}
+			}
+
+			let mut eras_stakers_clipped_keys =
+				v16::ErasStakersClipped::<T>::iter_keys().map(|(k1, k2)| k1).collect::<Vec<_>>();
+			eras_stakers_clipped_keys.dedup();
+			for k in eras_stakers_clipped_keys {
+				let mut removal_result =
+					v16::ErasStakersClipped::<T>::clear_prefix(k, u32::max_value(), None);
+				while let Some(next_cursor) = removal_result.maybe_cursor {
+					removal_result = v16::ErasStakersClipped::<T>::clear_prefix(
+						k,
+						u32::max_value(),
+						Some(&next_cursor[..]),
+					);
+				}
+			}
 
 			let old_disabled_validators = v16::DisabledValidators::<T>::get();
 			// BoundedVec with MaxDisabledValidators limit, this should always work
