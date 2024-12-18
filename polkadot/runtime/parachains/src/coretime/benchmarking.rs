@@ -43,8 +43,15 @@ mod benchmarks {
 			.unwrap();
 		assigner_on_demand::Revenue::<T>::put(rev);
 
+<<<<<<< HEAD
 		<T as assigner_on_demand::Config>::Currency::make_free_balance_be(
 			&<assigner_on_demand::Pallet<T>>::account_id(),
+=======
+		crate::paras::Heads::<T>::insert(ParaId::from(T::BrokerId::get()), vec![1, 2, 3]);
+
+		<T as on_demand::Config>::Currency::make_free_balance_be(
+			&<on_demand::Pallet<T>>::account_id(),
+>>>>>>> c10e25aa (dmp: Check that the para exist before delivering a message (#6604))
 			minimum_balance * (mhr * (mhr + 1)).into(),
 		);
 

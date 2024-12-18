@@ -13,7 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+<<<<<<< HEAD
 use crate::imports::*;
+=======
+use crate::{create_pool_with_wnd_on, foreign_balance_on, imports::*};
+use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
+use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
+>>>>>>> c10e25aa (dmp: Check that the para exist before delivering a message (#6604))
 
 fn relay_to_para_sender_assertions(t: RelayToParaTest) {
 	type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
@@ -437,6 +443,11 @@ pub fn para_to_para_through_hop_receiver_assertions<Hop: Clone>(t: Test<PenpalA,
 }
 
 fn relay_to_para_reserve_transfer_assets(t: RelayToParaTest) -> DispatchResult {
+	let Junction::Parachain(para_id) = *t.args.dest.chain_location().last().unwrap() else {
+		unimplemented!("Destination is not a parachain?")
+	};
+
+	Dmp::make_parachain_reachable(para_id);
 	<Westend as WestendPallet>::XcmPallet::limited_reserve_transfer_assets(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
@@ -483,6 +494,13 @@ fn para_to_system_para_reserve_transfer_assets(t: ParaToSystemParaTest) -> Dispa
 fn para_to_para_through_relay_limited_reserve_transfer_assets(
 	t: ParaToParaThroughRelayTest,
 ) -> DispatchResult {
+	let Junction::Parachain(para_id) = *t.args.dest.chain_location().last().unwrap() else {
+		unimplemented!("Destination is not a parachain?")
+	};
+
+	Westend::ext_wrapper(|| {
+		Dmp::make_parachain_reachable(para_id);
+	});
 	<PenpalA as PenpalAPallet>::PolkadotXcm::limited_reserve_transfer_assets(
 		t.signed_origin,
 		bx!(t.args.dest.into()),

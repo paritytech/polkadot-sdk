@@ -57,6 +57,8 @@ impl HeadData {
 	}
 }
 
+impl codec::EncodeLike<HeadData> for alloc::vec::Vec<u8> {}
+
 /// Parachain validation code.
 #[derive(
 	PartialEq,
@@ -153,6 +155,9 @@ pub struct BlockData(#[cfg_attr(feature = "std", serde(with = "bytes"))] pub Vec
 )]
 #[cfg_attr(feature = "std", derive(derive_more::Display))]
 pub struct Id(u32);
+
+impl codec::EncodeLike<u32> for Id {}
+impl codec::EncodeLike<Id> for u32 {}
 
 impl TypeId for Id {
 	const TYPE_ID: [u8; 4] = *b"para";
