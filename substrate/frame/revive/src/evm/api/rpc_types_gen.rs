@@ -17,7 +17,7 @@
 //! Generated JSON-RPC types.
 #![allow(missing_docs)]
 
-use super::{byte::*, Type0, Type1, Type2, Type3};
+use super::{byte::*, TypeEip1559, TypeEip2930, TypeEip4844, TypeLegacy};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use derive_more::{From, TryInto};
@@ -94,8 +94,8 @@ pub struct Block {
 	/// Uncles
 	pub uncles: Vec<H256>,
 	/// Withdrawals
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub withdrawals: Option<Vec<Withdrawal>>,
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
+	pub withdrawals: Vec<Withdrawal>,
 	/// Withdrawals root
 	#[serde(rename = "withdrawalsRoot", skip_serializing_if = "Option::is_none")]
 	pub withdrawals_root: Option<H256>,
@@ -114,7 +114,7 @@ pub enum BlockNumberOrTag {
 }
 impl Default for BlockNumberOrTag {
 	fn default() -> Self {
-		BlockNumberOrTag::U256(Default::default())
+		BlockNumberOrTag::BlockTag(Default::default())
 	}
 }
 
@@ -133,7 +133,7 @@ pub enum BlockNumberOrTagOrHash {
 }
 impl Default for BlockNumberOrTagOrHash {
 	fn default() -> Self {
-		BlockNumberOrTagOrHash::U256(Default::default())
+		BlockNumberOrTagOrHash::BlockTag(Default::default())
 	}
 }
 
@@ -148,12 +148,12 @@ pub struct GenericTransaction {
 	pub access_list: Option<AccessList>,
 	/// blobVersionedHashes
 	/// List of versioned blob hashes associated with the transaction's EIP-4844 data blobs.
-	#[serde(rename = "blobVersionedHashes", skip_serializing_if = "Option::is_none")]
-	pub blob_versioned_hashes: Option<Vec<H256>>,
+	#[serde(rename = "blobVersionedHashes", default, skip_serializing_if = "Vec::is_empty")]
+	pub blob_versioned_hashes: Vec<H256>,
 	/// blobs
 	/// Raw blob data.
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub blobs: Option<Vec<Bytes>>,
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
+	pub blobs: Vec<Bytes>,
 	/// chainId
 	/// Chain ID that this transaction is valid on.
 	#[serde(rename = "chainId", skip_serializing_if = "Option::is_none")]
@@ -319,7 +319,7 @@ pub enum TransactionUnsigned {
 }
 impl Default for TransactionUnsigned {
 	fn default() -> Self {
-		TransactionUnsigned::Transaction4844Unsigned(Default::default())
+		TransactionUnsigned::TransactionLegacyUnsigned(Default::default())
 	}
 }
 
@@ -341,13 +341,13 @@ pub type AccessList = Vec<AccessListEntry>;
 )]
 pub enum BlockTag {
 	#[serde(rename = "earliest")]
-	#[default]
 	Earliest,
 	#[serde(rename = "finalized")]
 	Finalized,
 	#[serde(rename = "safe")]
 	Safe,
 	#[serde(rename = "latest")]
+	#[default]
 	Latest,
 	#[serde(rename = "pending")]
 	Pending,
@@ -392,7 +392,7 @@ pub struct Log {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub removed: Option<bool>,
 	/// topics
-	#[serde(skip_serializing_if = "Vec::is_empty")]
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
 	pub topics: Vec<H256>,
 	/// transaction hash
 	#[serde(rename = "transactionHash")]
@@ -455,7 +455,7 @@ pub struct Transaction1559Unsigned {
 	/// to address
 	pub to: Option<Address>,
 	/// type
-	pub r#type: Type2,
+	pub r#type: TypeEip1559,
 	/// value
 	pub value: U256,
 }
@@ -486,7 +486,7 @@ pub struct Transaction2930Unsigned {
 	/// to address
 	pub to: Option<Address>,
 	/// type
-	pub r#type: Type1,
+	pub r#type: TypeEip2930,
 	/// value
 	pub value: U256,
 }
@@ -530,7 +530,7 @@ pub struct Transaction4844Unsigned {
 	/// to address
 	pub to: Address,
 	/// type
-	pub r#type: Type3,
+	pub r#type: TypeEip4844,
 	/// value
 	pub value: U256,
 }
@@ -557,7 +557,7 @@ pub struct TransactionLegacyUnsigned {
 	/// to address
 	pub to: Option<Address>,
 	/// type
-	pub r#type: Type0,
+	pub r#type: TypeLegacy,
 	/// value
 	pub value: U256,
 }
@@ -574,7 +574,7 @@ pub enum TransactionSigned {
 }
 impl Default for TransactionSigned {
 	fn default() -> Self {
-		TransactionSigned::Transaction4844Signed(Default::default())
+		TransactionSigned::TransactionLegacySigned(Default::default())
 	}
 }
 
@@ -622,8 +622,8 @@ pub struct Transaction1559Signed {
 	pub v: Option<U256>,
 	/// yParity
 	/// The parity (0 for even, 1 for odd) of the y-value of the secp256k1 signature.
-	#[serde(rename = "yParity", skip_serializing_if = "Option::is_none")]
-	pub y_parity: Option<U256>,
+	#[serde(rename = "yParity")]
+	pub y_parity: U256,
 }
 
 /// Signed 2930 Transaction
@@ -661,8 +661,8 @@ pub struct Transaction4844Signed {
 	pub s: U256,
 	/// yParity
 	/// The parity (0 for even, 1 for odd) of the y-value of the secp256k1 signature.
-	#[serde(rename = "yParity", skip_serializing_if = "Option::is_none")]
-	pub y_parity: Option<U256>,
+	#[serde(rename = "yParity")]
+	pub y_parity: U256,
 }
 
 /// Signed Legacy Transaction
