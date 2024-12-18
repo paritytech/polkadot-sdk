@@ -1567,9 +1567,9 @@ pub mod env {
 		)?)
 	}
 
-	#[stable]
 	/// Returns the simulated ethereum `GASPRICE` value.
 	/// See [`pallet_revive_uapi::HostFn::gas_price`].
+	#[stable]
 	fn gas_price(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
 		self.charge_gas(RuntimeCosts::GasPrice)?;
 		Ok(GAS_PRICE.into())
