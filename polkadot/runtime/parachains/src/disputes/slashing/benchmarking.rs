@@ -148,7 +148,7 @@ mod benchmarks {
 	// in this setup we have a single `ForInvalid` dispute
 	// submitted for a past session
 	#[benchmark]
-	fn report_dispute_lost(n: Linear<4, { max_validators_for::<T>() }>) {
+	fn report_dispute_lost_unsigned(n: Linear<4, { max_validators_for::<T>() }>) {
 		let origin = RawOrigin::None.into();
 		let (session_index, key_owner_proof, validator_id) = setup_validator_set::<T>(n);
 		let dispute_proof = setup_dispute::<T>(session_index, validator_id);
