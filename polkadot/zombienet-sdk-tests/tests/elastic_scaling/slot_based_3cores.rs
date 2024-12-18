@@ -63,7 +63,6 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("elastic-scaling-mvp")
-				.with_default_args(vec![("--experimental-use-slot-based").into()])
 				.with_default_args(vec![
 					("--experimental-use-slot-based").into(),
 					("-lparachain=debug,aura=debug").into(),
@@ -161,6 +160,5 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 	.await?;
 
 	log::info!("Test finished successfully");
-
 	Ok(())
 }

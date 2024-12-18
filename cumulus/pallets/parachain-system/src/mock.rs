@@ -22,7 +22,7 @@ use super::*;
 
 use alloc::collections::vec_deque::VecDeque;
 use codec::Encode;
-use core::num::NonZeroU32;
+use core::{cell::Cell, num::NonZeroU32};
 use cumulus_primitives_core::{
 	relay_chain::BlockNumber as RelayBlockNumber, AggregateMessageOrigin, InboundDownwardMessage,
 	InboundHrmpMessage, PersistedValidationData,
@@ -94,7 +94,31 @@ impl Config for Test {
 	type CheckAssociatedRelayNumber = AnyRelayNumber;
 	type ConsensusHook = TestConsensusHook;
 	type WeightInfo = ();
-	type SelectCore = DefaultCoreSelector<Test>;
+	type SelectCore = TestCoreSelector<DefaultCoreSelector<Test>>;
+}
+
+std::thread_local! {
+	pub static USE_CORE_SELECTOR: Cell<bool> = Cell::new(true);
+}
+
+pub struct TestCoreSelector<Selector>(PhantomData<Selector>);
+
+impl<Selector: SelectCore> SelectCore for TestCoreSelector<Selector> {
+	fn selected_core() -> Option<(CoreSelector, ClaimQueueOffset)> {
+		if USE_CORE_SELECTOR.get() {
+			Selector::selected_core()
+		} else {
+			None
+		}
+	}
+
+	fn select_next_core() -> Option<(CoreSelector, ClaimQueueOffset)> {
+		if USE_CORE_SELECTOR.get() {
+			Selector::select_next_core()
+		} else {
+			None
+		}
+	}
 }
 
 std::thread_local! {
