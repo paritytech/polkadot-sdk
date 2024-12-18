@@ -12,7 +12,7 @@ edition = "2021"
 
 # All paths are injected dynamically by the build script.
 [dependencies]
-uapi = { package = 'pallet-revive-uapi', path = "", default-features = false }
+uapi = { package = 'pallet-revive-uapi', path = "", features = ["unstable-api"], default-features = false }
 common = { package = 'pallet-revive-fixtures-common', path = "" }
 polkavm-derive = { version = "0.17.0" }
 
