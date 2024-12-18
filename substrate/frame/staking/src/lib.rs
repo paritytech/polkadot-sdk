@@ -1062,7 +1062,6 @@ where
 pub struct EraInfo<T>(core::marker::PhantomData<T>);
 impl<T: Config> EraInfo<T> {
 	/// Returns true if validator has one or more page of era rewards not claimed yet.
-	// Also looks at legacy storage that can be cleaned up after #433.
 	pub fn pending_rewards(era: EraIndex, validator: &T::AccountId) -> bool {
 		<ErasStakersOverview<T>>::get(&era, validator)
 			.map(|overview| {
