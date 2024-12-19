@@ -71,8 +71,8 @@ use frame_support::{
 	dispatch::DispatchResultWithPostInfo,
 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
 	traits::{
-		tokens::Balance as BalanceTrait, EnsureOrigin, EnsureOriginWithArg, Get, RankedMembers,
-		RankedMembersSwapHandler,
+		tokens::Balance as BalanceTrait, EnsureOrigin, EnsureOriginWithArg, Get,
+		RankedMembers, RankedMembersSwapHandler,
 	},
 	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
@@ -153,11 +153,11 @@ impl<
 #[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
 pub struct MemberStatus<BlockNumber> {
 	/// Are they currently active?
-	is_active: bool,
+	pub is_active: bool,
 	/// The block number at which we last promoted them.
-	last_promotion: BlockNumber,
+	pub last_promotion: BlockNumber,
 	/// The last time a member was demoted, promoted or proved their rank.
-	last_proof: BlockNumber,
+	pub last_proof: BlockNumber,
 }
 
 #[frame_support::pallet]
@@ -171,11 +171,13 @@ pub mod pallet {
 	use frame_system::{ensure_root, pallet_prelude::*};
 	use sp_runtime::traits::BlockNumberProvider;
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
+
+	pub type InstanceHere = frame_support::instances::Instance1;
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
@@ -230,7 +232,7 @@ pub mod pallet {
 		/// Provides the current block number.
 		///
 		/// This is usually `cumulus_pallet_parachain_system::RelayChainDataProvider` if a
-		/// parachain, or `frame_system::Pallet` if a solo chain.
+		/// parachain, or `frame_system::Pallet` if a solochain.
 		type BlockNumberProvider: BlockNumberProvider;
 	}
 
@@ -248,12 +250,11 @@ pub mod pallet {
 
 	/// The overall status of the system.
 	#[pallet::storage]
-	pub(super) type Params<T: Config<I>, I: 'static = ()> =
-		StorageValue<_, ParamsOf<T, I>, ValueQuery>;
+	pub type Params<T: Config<I>, I: 'static = ()> = StorageValue<_, ParamsOf<T, I>, ValueQuery>;
 
 	/// The status of a claimant.
 	#[pallet::storage]
-	pub(super) type Member<T: Config<I>, I: 'static = ()> =
+	pub type Member<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, T::AccountId, MemberStatusOf<T, I>, OptionQuery>;
 
 	/// Some evidence together with the desired outcome for which it was presented.
@@ -350,7 +351,7 @@ pub mod pallet {
 			};
 
 			if demotion_period.is_zero() {
-				return Err(Error::<T, I>::NothingDoing.into())
+				return Err(Error::<T, I>::NothingDoing.into());
 			}
 
 			let demotion_block = member.last_proof.saturating_add(demotion_period);
@@ -370,7 +371,7 @@ pub mod pallet {
 					Event::<T, I>::Offboarded { who }
 				};
 				Self::deposit_event(event);
-				return Ok(Pays::No.into())
+				return Ok(Pays::No.into());
 			}
 
 			Err(Error::<T, I>::NothingDoing.into())
@@ -748,15 +749,15 @@ impl<T: Config<I>, I: 'static> RankedMembersSwapHandler<T::AccountId, u16> for P
 	fn swapped(old: &T::AccountId, new: &T::AccountId, _rank: u16) {
 		if old == new {
 			defensive!("Should not try to swap with self");
-			return
+			return;
 		}
 		if !Member::<T, I>::contains_key(old) {
 			defensive!("Should not try to swap non-member");
-			return
+			return;
 		}
 		if Member::<T, I>::contains_key(new) {
 			defensive!("Should not try to overwrite existing member");
-			return
+			return;
 		}
 
 		if let Some(member) = Member::<T, I>::take(old) {
@@ -770,11 +771,11 @@ impl<T: Config<I>, I: 'static> RankedMembersSwapHandler<T::AccountId, u16> for P
 	}
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-impl<T: Config<I>, I: 'static>
-	pallet_ranked_collective::BenchmarkSetup<<T as frame_system::Config>::AccountId> for Pallet<T, I>
-{
-	fn ensure_member(who: &<T as frame_system::Config>::AccountId) {
-		Self::import(frame_system::RawOrigin::Signed(who.clone()).into()).unwrap();
-	}
-}
+// #[cfg(feature = "runtime-benchmarks")]
+// impl<T: Config<I>, I: 'static>
+// 	pallet_ranked_collective::BenchmarkSetup<<T as frame_system::Config>::AccountId> for Pallet<T, I>
+// {
+// 	fn ensure_member(who: &<T as frame_system::Config>::AccountId) {
+// 		Self::import(frame_system::RawOrigin::Signed(who.clone()).into()).unwrap();
+// 	}
+// }
