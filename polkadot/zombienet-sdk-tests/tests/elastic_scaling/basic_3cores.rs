@@ -13,6 +13,7 @@ use crate::helpers::{
 		polkadot_runtime_parachains::assigner_coretime::PartsOf57600,
 	},
 };
+use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use subxt::{OnlineClient, PolkadotConfig};
 use subxt_signer::sr25519::dev;
@@ -122,7 +123,9 @@ async fn basic_3cores_test() -> Result<(), anyhow::Error> {
 	assert_para_throughput(
 		&relay_client,
 		15,
-		[(2000, 40..46), (2001, 12..16)].into_iter().collect(),
+		[(ParaId::from(2000), 40..46), (ParaId::from(2001), 12..16)]
+			.into_iter()
+			.collect(),
 	)
 	.await?;
 

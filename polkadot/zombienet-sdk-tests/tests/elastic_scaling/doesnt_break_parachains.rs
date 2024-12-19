@@ -13,7 +13,9 @@ use crate::helpers::{
 		polkadot_runtime_parachains::assigner_coretime::PartsOf57600,
 	},
 };
+use polkadot_primitives::{CoreIndex, Id as ParaId};
 use serde_json::json;
+use std::collections::{BTreeMap, VecDeque};
 use subxt::{OnlineClient, PolkadotConfig};
 use subxt_signer::sr25519::dev;
 use zombienet_sdk::NetworkConfigBuilder;
@@ -98,13 +100,32 @@ async fn doesnt_break_parachains_test() -> Result<(), anyhow::Error> {
 
 	log::info!("1 more core assigned to the parachain");
 
+	let para_id = ParaId::from(2000);
 	// Expect the parachain to be making normal progress, 1 candidate backed per relay chain block.
-	assert_para_throughput(&relay_client, 15, [(2000, 13..16)].into_iter().collect()).await?;
+	assert_para_throughput(&relay_client, 15, [(para_id, 13..16)].into_iter().collect()).await?;
 
 	let para_client = para_node.wait_client().await?;
 	// Assert the parachain finalized block height is also on par with the number of backed
 	// candidates.
 	assert_finalized_block_height(&para_client, 12..16).await?;
+
+	// Sanity check that indeed the parachain has two assigned cores.
+	let cq = relay_client
+		.runtime_api()
+		.at_latest()
+		.await?
+		.call_raw::<BTreeMap<CoreIndex, VecDeque<ParaId>>>("ParachainHost_claim_queue", None)
+		.await?;
+
+	assert_eq!(
+		cq,
+		[
+			(CoreIndex(0), [para_id, para_id].into_iter().collect()),
+			(CoreIndex(1), [para_id, para_id].into_iter().collect()),
+		]
+		.into_iter()
+		.collect()
+	);
 
 	log::info!("Test finished successfully");
 

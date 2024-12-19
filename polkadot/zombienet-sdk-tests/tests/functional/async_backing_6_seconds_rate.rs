@@ -6,6 +6,7 @@
 use anyhow::anyhow;
 
 use crate::helpers::{assert_finalized_block_height, assert_para_throughput};
+use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use subxt::{OnlineClient, PolkadotConfig};
 use zombienet_sdk::NetworkConfigBuilder;
@@ -78,7 +79,9 @@ async fn async_backing_6_seconds_rate_test() -> Result<(), anyhow::Error> {
 	assert_para_throughput(
 		&relay_client,
 		15,
-		[(2000, 11..16), (2001, 11..16)].into_iter().collect(),
+		[(ParaId::from(2000), 11..16), (ParaId::from(2001), 11..16)]
+			.into_iter()
+			.collect(),
 	)
 	.await?;
 
