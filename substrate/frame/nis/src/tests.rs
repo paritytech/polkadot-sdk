@@ -17,20 +17,14 @@
 
 //! Tests for NIS pallet.
 
-use super::*;
-use crate::{mock::*, Error};
-use frame_support::{
-	assert_noop, assert_ok,
-	traits::{
-		fungible::{hold::Inspect as InspectHold, Inspect as FunInspect, Mutate as FunMutate},
-		nonfungible::{Inspect, Transfer},
-		tokens::{Fortitude::Force, Precision::Exact, Preservation::Expendable},
-	},
+use frame::{
+	runtime::prelude::TokenError::FundsUnavailable, testing_prelude::*,
+	traits::fungible::InspectHold,
 };
-use sp_arithmetic::Perquintill;
-use sp_runtime::{
-	Saturating,
-	TokenError::{self, FundsUnavailable},
+
+use crate::{
+	mock::{Balance, *},
+	*,
 };
 
 fn pot() -> Balance {
