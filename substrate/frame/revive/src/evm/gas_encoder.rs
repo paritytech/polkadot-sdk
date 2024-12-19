@@ -116,7 +116,6 @@ where
 #[cfg(test)]
 mod test {
 	use super::*;
-	use crate::{tests::Test, Config};
 
 	#[test]
 	fn test_gas_encoding_decoding_works() {
@@ -124,13 +123,12 @@ mod test {
 		let weight = Weight::from_parts(222_999_999, 333_999_999);
 		let deposit = 444_999_999u64;
 
-		let encoded_gas =
-			<Test as Config>::EthGasEncoder::encode(raw_gas_limit.into(), weight, deposit);
+		let encoded_gas = <() as GasEncoder<u64>>::encode(raw_gas_limit.into(), weight, deposit);
 		assert_eq!(encoded_gas, U256::from(111_112_000_282_929u128));
 		assert!(encoded_gas > raw_gas_limit.into());
 
 		let (decoded_weight, decoded_deposit) =
-			<Test as Config>::EthGasEncoder::decode(encoded_gas).unwrap();
+			<() as GasEncoder<u64>>::decode(encoded_gas).unwrap();
 		assert!(decoded_weight.all_gte(weight));
 		assert!(weight.mul(2).all_gte(weight));
 
@@ -138,33 +136,25 @@ mod test {
 		assert!(deposit * 2 >= decoded_deposit);
 	}
 
-	//#[test]
-	//fn test_encoding_zero_values_work() {
-	//	let encoded_gas = <Test as Config>::EthGasEncoder::encode(
-	//		Default::default(),
-	//		Default::default(),
-	//		Default::default(),
-	//	);
-	//
-	//	assert_eq!(encoded_gas, U256::from(1_00_00_00));
-	//
-	//	let (decoded_weight, decoded_deposit) =
-	//		<Test as Config>::EthGasEncoder::decode(encoded_gas).unwrap();
-	//	assert_eq!(Weight::default(), decoded_weight);
-	//	assert_eq!(0u64, decoded_deposit);
-	//}
-	//
-	//#[test]
-	//fn test_overflow() {
-	//	assert_eq!(
-	//		None,
-	//		<Test as Config>::EthGasEncoder::decode(65_00u128.into()),
-	//		"Invalid proof size"
-	//	);
-	//	assert_eq!(
-	//		None,
-	//		<Test as Config>::EthGasEncoder::decode(65_00_00u128.into()),
-	//		"Invalid ref_time"
-	//	);
-	//}
+	#[test]
+	fn test_encoding_zero_values_work() {
+		let encoded_gas = <() as GasEncoder<u64>>::encode(
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		);
+
+		assert_eq!(encoded_gas, U256::from(1_00_00_00));
+
+		let (decoded_weight, decoded_deposit) =
+			<() as GasEncoder<u64>>::decode(encoded_gas).unwrap();
+		assert_eq!(Weight::default(), decoded_weight);
+		assert_eq!(0u64, decoded_deposit);
+	}
+
+	#[test]
+	fn test_overflow() {
+		assert_eq!(None, <() as GasEncoder<u64>>::decode(65_00u128.into()), "Invalid proof size");
+		assert_eq!(None, <() as GasEncoder<u64>>::decode(65_00_00u128.into()), "Invalid ref_time");
+	}
 }
