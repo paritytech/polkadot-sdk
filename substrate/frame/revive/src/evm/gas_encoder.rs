@@ -87,7 +87,6 @@ pub fn encode<T: Config>(gas_limit: U256, weight: Weight, deposit: BalanceOf<T>)
 /// Returns `None` if the gas value is invalid
 pub fn decode<T: Config>(gas: U256) -> Option<(Weight, BalanceOf<T>)> {
 	let deposit = gas % SCALE;
-	let gas_without_deposit = gas - deposit;
 
 	// Casting with as_u32 is safe since all values are maxed by `SCALE`.
 	let deposit = deposit.as_u32();
