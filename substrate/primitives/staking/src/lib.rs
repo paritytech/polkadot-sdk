@@ -382,15 +382,16 @@ impl<AccountId: Clone, Balance: HasCompact + AtLeast32BitUnsigned + Copy + MaxEn
 	Exposure<AccountId, Balance>
 {
 	/// Splits an `Exposure` into `PagedExposureMetadata` and multiple chunks of
-	/// `IndividualExposure` with each chunk having maximum of `page_size` elements.
+	/// `IndividualExposure` with each chunk having at least 1 element and a maximum of
+	/// `MaxExposurePageSize::get()` elements.
 	pub fn into_pages<MaxExposurePageSize>(
 		self,
-		page_size: Page,
 	) -> (PagedExposureMetadata<Balance>, Vec<ExposurePage<AccountId, Balance, MaxExposurePageSize>>)
 	where
 		MaxExposurePageSize: Get<u32>,
 	{
-		let individual_chunks = self.others.chunks(page_size as usize);
+		debug_assert!(MaxExposurePageSize::get() >= 1);
+		let individual_chunks = self.others.chunks(MaxExposurePageSize::get() as usize);
 		let mut exposure_pages: Vec<ExposurePage<AccountId, Balance, MaxExposurePageSize>> =
 			Vec::with_capacity(individual_chunks.len());
 

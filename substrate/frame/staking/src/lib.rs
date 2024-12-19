@@ -1200,8 +1200,7 @@ impl<T: Config> EraInfo<T> {
 			.defensive_saturating_add((page_size as usize).defensive_saturating_sub(1))
 			.saturating_div(page_size as usize);
 
-		let (exposure_metadata, exposure_pages) =
-			exposure.into_pages::<T::MaxExposurePageSize>(page_size);
+		let (exposure_metadata, exposure_pages) = exposure.into_pages::<T::MaxExposurePageSize>();
 		defensive_assert!(exposure_pages.len() == expected_page_count, "unexpected page count");
 
 		<ErasStakersOverview<T>>::insert(era, &validator, &exposure_metadata);

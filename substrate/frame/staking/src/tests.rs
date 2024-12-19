@@ -6574,10 +6574,11 @@ fn can_page_exposure() {
 		Exposure { total: total_stake, own: own_stake, others };
 
 	// when
+	MaxExposurePageSize::set(3);
 	let (exposure_metadata, exposure_page): (
 		PagedExposureMetadata<Balance>,
 		Vec<ExposurePage<AccountId, Balance, MaxExposurePageSize>>,
-	) = exposure.clone().into_pages::<MaxExposurePageSize>(3);
+	) = exposure.clone().into_pages::<MaxExposurePageSize>();
 
 	// then
 	// 7 pages of nominators.
