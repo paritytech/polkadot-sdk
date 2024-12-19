@@ -33,10 +33,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
+use frame::runtime::prelude::*;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
-	use frame_support::pallet_prelude::*;
+	use super::*;
 
 	/// This pallet is annotated to have a default config. This will auto-generate
 	/// [`DefaultConfig`].
@@ -88,7 +89,6 @@ pub mod pallet {
 	pub mod config_preludes {
 		// This will help use not need to disambiguate anything when using `derive_impl`.
 		use super::*;
-		use frame_support::derive_impl;
 
 		/// A type providing default configurations for this pallet in testing environment.
 		pub struct TestDefaultConfig;
@@ -96,13 +96,13 @@ pub mod pallet {
 		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for TestDefaultConfig {}
 
-		#[frame_support::register_default_impl(TestDefaultConfig)]
+		#[register_default_impl(TestDefaultConfig)]
 		impl DefaultConfig for TestDefaultConfig {
-			type WithDefaultValue = frame_support::traits::ConstU32<42>;
-			type OverwrittenDefaultValue = frame_support::traits::ConstU32<42>;
+			type WithDefaultValue = ConstU32<42>;
+			type OverwrittenDefaultValue = ConstU32<42>;
 
 			// `frame_system::config_preludes::TestDefaultConfig` declares account-id as u64.
-			type CanDeriveDefaultFromSystem = frame_support::traits::ConstU64<42>;
+			type CanDeriveDefaultFromSystem = ConstU64<42>;
 
 			type WithDefaultType = u32;
 			type OverwrittenDefaultType = u32;
@@ -118,11 +118,11 @@ pub mod pallet {
 		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for OtherDefaultConfig {}
 
-		#[frame_support::register_default_impl(OtherDefaultConfig)]
+		#[register_default_impl(OtherDefaultConfig)]
 		impl DefaultConfig for OtherDefaultConfig {
-			type WithDefaultValue = frame_support::traits::ConstU32<66>;
-			type OverwrittenDefaultValue = frame_support::traits::ConstU32<66>;
-			type CanDeriveDefaultFromSystem = frame_support::traits::ConstU64<42>;
+			type WithDefaultValue = ConstU32<66>;
+			type OverwrittenDefaultValue = ConstU32<66>;
+			type CanDeriveDefaultFromSystem = ConstU64<42>;
 			type WithDefaultType = u32;
 			type OverwrittenDefaultType = u32;
 		}
@@ -138,12 +138,11 @@ pub mod pallet {
 #[cfg(any(test, doc))]
 pub mod tests {
 	use super::*;
-	use frame_support::{derive_impl, parameter_types};
 	use pallet::{self as pallet_default_config_example, config_preludes::*};
 
 	type Block = frame_system::mocking::MockBlock<Runtime>;
 
-	frame_support::construct_runtime!(
+	construct_runtime!(
 		pub enum Runtime {
 			System: frame_system,
 			DefaultPallet: pallet_default_config_example,
@@ -200,16 +199,15 @@ pub mod tests {
 		type RuntimeEvent = RuntimeEvent;
 		type RuntimeTask = RuntimeTask;
 
-		type HasNoDefault = frame_support::traits::ConstU32<1>;
+		type HasNoDefault = ConstU32<1>;
 		type CannotHaveDefault = SomeCall;
 
-		type OverwrittenDefaultValue = frame_support::traits::ConstU32<678>;
+		type OverwrittenDefaultValue = ConstU32<678>;
 		type OverwrittenDefaultType = u128;
 	}
 
 	#[test]
 	fn it_works() {
-		use frame_support::traits::Get;
 		use pallet::{Config, DefaultConfig};
 
 		// assert one of the value types that is not overwritten.

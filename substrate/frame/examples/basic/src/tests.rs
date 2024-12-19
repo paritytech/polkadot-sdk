@@ -18,26 +18,14 @@
 //! Tests for pallet-example-basic.
 
 use crate::*;
-use frame_support::{
-	assert_ok, derive_impl,
-	dispatch::{DispatchInfo, GetDispatchInfo},
-	traits::{ConstU64, OnInitialize},
-};
-use sp_core::H256;
-// The testing primitives are very useful for avoiding having to work with signatures
-// or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
-use sp_runtime::{
-	traits::{BlakeTwo256, DispatchTransaction, IdentityLookup},
-	transaction_validity::TransactionSource::External,
-	BuildStorage,
-};
+use frame::testing_prelude::*;
 // Reexport crate as its pallet name for construct_runtime.
 use crate as pallet_example_basic;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
 // For testing the pallet, we construct a mock runtime.
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -48,7 +36,7 @@ frame_support::construct_runtime!(
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
+	type BaseCallFilter = frame::traits::Everything;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type DbWeight = ();
@@ -58,7 +46,7 @@ impl frame_system::Config for Test {
 	type RuntimeCall = RuntimeCall;
 	type Hashing = BlakeTwo256;
 	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
+	type Lookup = frame::traits::IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
 	type Version = ();
@@ -69,7 +57,7 @@ impl frame_system::Config for Test {
 	type SystemWeightInfo = ();
 	type SS58Prefix = ();
 	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type MaxConsumers = ConstU32<16>;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
@@ -85,7 +73,7 @@ impl Config for Test {
 
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup.
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestExternalities {
 	let t = RuntimeGenesisConfig {
 		// We use default for brevity, but you can configure as desired if needed.
 		system: Default::default(),
@@ -115,7 +103,7 @@ fn it_works_for_optional_value() {
 		assert_eq!(Dummy::<Test>::get(), Some(val1 + val2));
 
 		// Check that accumulate works when we Dummy has None in it.
-		<Example as OnInitialize<u64>>::on_initialize(2);
+		<Example as frame::traits::OnInitialize<u64>>::on_initialize(2);
 		assert_ok!(Example::accumulate_dummy(RuntimeOrigin::signed(1), val1));
 		assert_eq!(Dummy::<Test>::get(), Some(val1 + val2 + val1));
 	});
@@ -147,7 +135,7 @@ fn signed_ext_watch_dummy_works() {
 
 		assert_eq!(
 			WatchDummy::<Test>(PhantomData)
-				.validate_only(Some(1).into(), &call, &info, 150, External, 0)
+				.validate_only(Some(1).into(), &call, &info, 150, TransactionSource::External, 0)
 				.unwrap()
 				.0
 				.priority,
@@ -155,7 +143,7 @@ fn signed_ext_watch_dummy_works() {
 		);
 		assert_eq!(
 			WatchDummy::<Test>(PhantomData)
-				.validate_only(Some(1).into(), &call, &info, 250, External, 0)
+				.validate_only(Some(1).into(), &call, &info, 250, TransactionSource::External, 0)
 				.unwrap_err(),
 			InvalidTransaction::ExhaustsResources.into(),
 		);

@@ -202,7 +202,7 @@ pub mod prelude {
 
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
-	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
+	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo, ClassifyDispatch, DispatchClass, DispatchResult, Pays, PaysFee, WeighData, DispatchInfo};
 	pub use frame_support::traits::{Contains, IsSubType, OnRuntimeUpgrade};
 
 	/// Pallet prelude of `frame-system`.
@@ -220,12 +220,12 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
 		BlockNumberProvider, Bounded, DispatchInfoOf, Dispatchable, SaturatedConversion,
-		Saturating, StaticLookup, TrailingZeroInput,
+		Saturating, StaticLookup, TrailingZeroInput, DispatchOriginOf,
 	};
 
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
-	pub use sp_runtime::{DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError};
+	pub use sp_runtime::{DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError, print};
 }
 
 #[cfg(any(feature = "try-runtime", test))]
@@ -352,7 +352,9 @@ pub mod runtime {
 
 		/// Macros to easily impl traits such as `Get` for types.
 		// TODO: using linking in the Get in the line above triggers an ICE :/
-		pub use frame_support::{ord_parameter_types, parameter_types};
+		pub use frame_support::{ord_parameter_types, parameter_types, register_default_impl};
+
+		pub use crate::transaction::*;
 
 		/// For building genesis config.
 		pub use frame_support::genesis_builder_helper::{build_state, get_preset};
@@ -530,6 +532,10 @@ pub mod derive {
 pub mod hashing {
 	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
+}
+
+pub mod transaction {
+	pub use sp_runtime::{impl_tx_ext_default, traits::{TransactionExtension, ValidateResult, DispatchTransaction}, transaction_validity::{InvalidTransaction, ValidTransaction}};
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
