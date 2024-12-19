@@ -73,7 +73,7 @@ pub mod v17 {
 			v16::MaxValidatorsCount::<T>::kill();
 
 			let mut eras_stakers_keys =
-				v16::ErasStakers::<T>::iter_keys().map(|(k1, k2)| k1).collect::<Vec<_>>();
+				v16::ErasStakers::<T>::iter_keys().map(|(k1, _k2)| k1).collect::<Vec<_>>();
 			eras_stakers_keys.dedup();
 			for k in eras_stakers_keys {
 				let mut removal_result =
@@ -87,8 +87,9 @@ pub mod v17 {
 				}
 			}
 
-			let mut eras_stakers_clipped_keys =
-				v16::ErasStakersClipped::<T>::iter_keys().map(|(k1, k2)| k1).collect::<Vec<_>>();
+			let mut eras_stakers_clipped_keys = v16::ErasStakersClipped::<T>::iter_keys()
+				.map(|(k1, _k2)| k1)
+				.collect::<Vec<_>>();
 			eras_stakers_clipped_keys.dedup();
 			for k in eras_stakers_clipped_keys {
 				let mut removal_result =
