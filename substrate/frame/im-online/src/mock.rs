@@ -19,13 +19,8 @@
 
 #![cfg(test)]
 
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64},
-	weights::Weight,
-};
+use frame::testing_prelude::*;
 use pallet_session::historical as pallet_session_historical;
-use sp_runtime::{testing::UintAuthorityId, traits::ConvertInto, BuildStorage, Permill};
 use sp_staking::{
 	offence::{OffenceError, ReportOffence},
 	SessionIndex,
@@ -36,7 +31,7 @@ use crate::Config;
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Runtime {
 		System: frame_system,
 		Session: pallet_session,
@@ -73,7 +68,7 @@ impl pallet_session::historical::SessionManager<u64, u64> for TestSessionManager
 }
 
 /// An extrinsic type used for tests.
-pub type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, ()>;
+pub type Extrinsic = TestXt<RuntimeCall, ()>;
 type IdentificationTuple = (u64, u64);
 type Offence = crate::UnresponsivenessOffence<IdentificationTuple>;
 
@@ -94,9 +89,9 @@ impl ReportOffence<u64, IdentificationTuple, Offence> for OffenceHandler {
 	}
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestExternalities {
 	let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
-	let mut result: sp_io::TestExternalities = t.into();
+	let mut result: TestExternalities = t.into();
 	// Set the default keys, otherwise session will discard the validator.
 	result.execute_with(|| {
 		for i in 1..=6 {
@@ -150,7 +145,7 @@ parameter_types! {
 
 pub struct TestNextSessionRotation;
 
-impl frame_support::traits::EstimateNextSessionRotation<u64> for TestNextSessionRotation {
+impl EstimateNextSessionRotation<u64> for TestNextSessionRotation {
 	fn average_session_length() -> u64 {
 		// take the mock result if any and return it
 		let mock = MockAverageSessionLength::mutate(|p| p.take());

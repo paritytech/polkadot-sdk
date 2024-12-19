@@ -19,12 +19,7 @@
 
 use super::*;
 use alloc::vec::Vec;
-use frame_support::{storage_alias, traits::OnRuntimeUpgrade};
-
-#[cfg(feature = "try-runtime")]
-use frame_support::ensure;
-#[cfg(feature = "try-runtime")]
-use sp_runtime::TryRuntimeError;
+use frame::{testing_prelude::*, traits::WrapperOpaque};
 
 /// The log target.
 const TARGET: &str = "runtime::im-online::migration::v1";
@@ -32,7 +27,6 @@ const TARGET: &str = "runtime::im-online::migration::v1";
 /// The original data layout of the im-online pallet (`ReceivedHeartbeats` storage item).
 mod v0 {
 	use super::*;
-	use frame_support::traits::WrapperOpaque;
 
 	#[derive(Encode, Decode, Default)]
 	pub(super) struct BoundedOpaqueNetworkState {
@@ -61,7 +55,7 @@ pub mod v1 {
 
 	impl<T: Config> OnRuntimeUpgrade for Migration<T> {
 		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+		fn pre_upgrade() -> Result<Vec<u8>, frame::try_runtime::TryRuntimeError> {
 			let count = v0::ReceivedHeartbeats::<T>::iter().count();
 			log::info!(target: TARGET, "Migrating {} received heartbeats", count);
 
@@ -128,7 +122,7 @@ pub fn clear_offchain_storage(validator_set_size: u32) {
 			key.extend(idx.encode());
 			key
 		};
-		sp_runtime::offchain::storage::StorageValueRef::persistent(&key).clear();
+		StorageValueRef::persistent(&key).clear();
 	});
 }
 
@@ -136,7 +130,6 @@ pub fn clear_offchain_storage(validator_set_size: u32) {
 mod test {
 	use super::*;
 	use crate::mock::{new_test_ext, Runtime as T};
-	use frame_support::traits::WrapperOpaque;
 
 	#[test]
 	fn migration_works() {

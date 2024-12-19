@@ -21,12 +21,7 @@
 
 use super::*;
 use crate::mock::*;
-use frame_support::{assert_noop, dispatch};
-use sp_core::offchain::{
-	testing::{TestOffchainExt, TestTransactionPoolExt},
-	OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
-};
-use sp_runtime::testing::UintAuthorityId;
+use frame::testing_prelude::*;
 
 #[test]
 fn test_unresponsiveness_slash_fraction() {
@@ -111,7 +106,7 @@ fn heartbeat(
 	authority_index: u32,
 	id: UintAuthorityId,
 	validators: Vec<u64>,
-) -> dispatch::DispatchResult {
+) -> DispatchResult {
 	let heartbeat = Heartbeat {
 		block_number,
 		session_index,
