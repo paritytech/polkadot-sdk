@@ -327,6 +327,8 @@ pub enum RuntimeCosts {
 	BlockHash,
 	/// Weight of calling `seal_gas_price`.
 	GasPrice,
+	/// Weight of calling `seal_base_fee`.
+	BaseFee,
 	/// Weight of calling `seal_now`.
 	Now,
 	/// Weight of calling `seal_gas_limit`.
@@ -481,6 +483,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			BlockNumber => T::WeightInfo::seal_block_number(),
 			BlockHash => T::WeightInfo::seal_block_hash(),
 			GasPrice => T::WeightInfo::seal_gas_price(),
+			BaseFee => T::WeightInfo::seal_base_fee(),
 			Now => T::WeightInfo::seal_now(),
 			GasLimit => T::WeightInfo::seal_gas_limit(),
 			WeightToFee => T::WeightInfo::seal_weight_to_fee(),
@@ -589,8 +592,9 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 				log::error!(target: LOG_TARGET, "polkavm execution error: {error}");
 				Some(Err(Error::<E::T>::ExecutionFailed.into()))
 			},
-			Ok(Finished) =>
-				Some(Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })),
+			Ok(Finished) => {
+				Some(Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() }))
+			},
 			Ok(Trap) => Some(Err(Error::<E::T>::ContractTrapped.into())),
 			Ok(Segfault(_)) => Some(Err(Error::<E::T>::ExecutionFailed.into())),
 			Ok(NotEnoughGas) => Some(Err(Error::<E::T>::OutOfGas.into())),
@@ -605,11 +609,12 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 						instance.write_output(return_value);
 						None
 					},
-					Err(TrapReason::Return(ReturnData { flags, data })) =>
+					Err(TrapReason::Return(ReturnData { flags, data })) => {
 						match ReturnFlags::from_bits(flags) {
 							None => Some(Err(Error::<E::T>::InvalidCallFlags.into())),
 							Some(flags) => Some(Ok(ExecReturnValue { flags, data })),
-						},
+						}
+					},
 					Err(TrapReason::Termination) => Some(Ok(Default::default())),
 					Err(TrapReason::SupervisorError(error)) => Some(Err(error.into())),
 				}
@@ -1575,6 +1580,20 @@ pub mod env {
 		Ok(GAS_PRICE.into())
 	}
 
+	/// Returns the simulated ethereum `BASEFEE` value.
+	/// See [`pallet_revive_uapi::HostFn::base_fee`].
+	#[stable]
+	fn base_fee(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::BaseFee)?;
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&U256::zero().to_little_endian(),
+			false,
+			already_charged,
+		)?)
+	}
+
 	/// Load the latest block timestamp into the supplied buffer
 	/// See [`pallet_revive_uapi::HostFn::now`].
 	#[stable]
@@ -1752,8 +1771,9 @@ pub mod env {
 			Environment::new(self, memory, id, input_ptr, input_len, output_ptr, output_len_ptr);
 		let ret = match chain_extension.call(env)? {
 			RetVal::Converging(val) => Ok(val),
-			RetVal::Diverging { flags, data } =>
-				Err(TrapReason::Return(ReturnData { flags: flags.bits(), data })),
+			RetVal::Diverging { flags, data } => {
+				Err(TrapReason::Return(ReturnData { flags: flags.bits(), data }))
+			},
 		};
 		self.chain_extension = Some(chain_extension);
 		ret

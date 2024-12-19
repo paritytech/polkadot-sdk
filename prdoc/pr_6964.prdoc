@@ -1,0 +1,15 @@
+title: '[pallet-revive] implement the base fee API'
+doc:
+- audience: Runtime Dev
+  description: This PR implements the base fee syscall API method. Currently this
+    is implemented as a compile time constant in the revive compiler, returning 0.
+    However, since this is an opocde, if we ever need to implement it for compatibility
+    reasons with [EIP-1559](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1559.md),
+    it would break already deployed contracts. Thus we provide a syscall method instead.
+crates:
+- name: pallet-revive-fixtures
+  bump: minor
+- name: pallet-revive
+  bump: minor
+- name: pallet-revive-uapi
+  bump: minor
