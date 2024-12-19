@@ -20,7 +20,7 @@ use crate::{
 		api::{GenericTransaction, TransactionSigned},
 		GasEncoder,
 	},
-	AccountIdOf, AddressMapper, BalanceOf, MomentOf, LOG_TARGET,
+	AccountIdOf, AddressMapper, BalanceOf, Config, MomentOf, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
@@ -266,7 +266,7 @@ where
 /// EthExtra convert an unsigned [`crate::Call::eth_transact`] into a [`CheckedExtrinsic`].
 pub trait EthExtra {
 	/// The Runtime configuration.
-	type Config: crate::Config + pallet_transaction_payment::Config;
+	type Config: Config + pallet_transaction_payment::Config;
 
 	/// The Runtime's transaction extension.
 	/// It should include at least:
@@ -320,12 +320,11 @@ pub trait EthExtra {
 			InvalidTransaction::BadProof
 		})?;
 
-		let signer =
-			<Self::Config as crate::Config>::AddressMapper::to_fallback_account_id(&signer);
+		let signer = <Self::Config as Config>::AddressMapper::to_fallback_account_id(&signer);
 		let GenericTransaction { nonce, chain_id, to, value, input, gas, gas_price, .. } =
 			GenericTransaction::from_signed(tx, None);
 
-		if chain_id.unwrap_or_default() != <Self::Config as crate::Config>::ChainId::get().into() {
+		if chain_id.unwrap_or_default() != <Self::Config as Config>::ChainId::get().into() {
 			log::debug!(target: LOG_TARGET, "Invalid chain_id {chain_id:?}");
 			return Err(InvalidTransaction::Call);
 		}
@@ -338,12 +337,13 @@ pub trait EthExtra {
 
 		let data = input.unwrap_or_default().0;
 
-		let (gas_limit, storage_deposit_limit) =
-			<Self::Config as crate::Config>::EthGasEncoder::decode(gas.unwrap_or_default())
-				.ok_or_else(|| {
-					log::debug!(target: LOG_TARGET, "Failed to decode gas: {gas:?}");
-					InvalidTransaction::Call
-				})?;
+		let (gas_limit, storage_deposit_limit) = <Self::Config as Config>::EthGasEncoder::decode(
+			gas.unwrap_or_default(),
+		)
+		.ok_or_else(|| {
+			log::debug!(target: LOG_TARGET, "Failed to decode gas: {gas:?}");
+			InvalidTransaction::Call
+		})?;
 
 		let call = if let Some(dest) = to {
 			crate::Call::call::<Self::Config> {
@@ -484,7 +484,7 @@ mod test {
 			Self {
 				tx: GenericTransaction {
 					from: Some(Account::default().address()),
-					chain_id: Some(<Test as crate::Config>::ChainId::get().into()),
+					chain_id: Some(<Test as Config>::ChainId::get().into()),
 					gas_price: Some(U256::from(GAS_PRICE)),
 					..Default::default()
 				},
@@ -507,10 +507,8 @@ mod test {
 					log::debug!(target: LOG_TARGET, "Estimated gas: {:?}", dry_run.eth_gas);
 					self.tx.gas = Some(dry_run.eth_gas);
 					let (gas_limit, deposit) =
-						<<Test as crate::Config>::EthGasEncoder as GasEncoder<_>>::decode(
-							dry_run.eth_gas,
-						)
-						.unwrap();
+						<<Test as Config>::EthGasEncoder as GasEncoder<_>>::decode(dry_run.eth_gas)
+							.unwrap();
 					self.gas_limit = gas_limit;
 					self.storage_deposit_limit = deposit;
 				},
@@ -554,7 +552,7 @@ mod test {
 
 				// Fund the account.
 				let account = Account::default();
-				let _ = <Test as crate::Config>::Currency::set_balance(
+				let _ = <Test as Config>::Currency::set_balance(
 					&account.substrate_account(),
 					100_000_000_000_000,
 				);
