@@ -322,6 +322,7 @@ test("Initiate Teleport XCM v5", async () => {
 })
 
 test("Initiate Teleport with remote fees", async () => {
+
 	const msg = Enum('V5', [
 		XcmV4Instruction.WithdrawAsset([
 			{
@@ -345,12 +346,17 @@ test("Initiate Teleport with remote fees", async () => {
 				interior: XcmV3Junctions.Here(),
 			},
 			// optional field. an example of usage:
+			// do not use wild all
 			remote_fees: Enum('Teleport', {
-				type: 'Wild',
-				value: {
-					type: 'All',
-					value: undefined,
-				},
+				type: 'Definite',
+				value: [{
+					id: {
+						parents: 1,
+						interior: XcmV3Junctions.Here(),
+					},
+					// here need to put the cost/weight of remote xcm message.
+					fun: XcmV3MultiassetFungibility.Fungible(weight_to_asset_fee.value),
+				}],
 			}),
 			preserve_origin: false,
 			assets: [Enum('Teleport', {
@@ -377,6 +383,17 @@ test("Initiate Teleport with remote fees", async () => {
 			],
 		}),
 	]);
+
+	// const xcm_origin_weight = await AHApi.apis.XcmPaymentApi.query_xcm_weight(msg);
+	// const weight_to_asset_fee = await AHApi.apis.XcmPaymentApi.query_weight_to_asset_fee(
+	// 	{ ref_time: xcm_origin_weight.value.ref_time, proof_size: xcm_origin_weight.value.proof_size },
+	// 	Enum('V5', {
+	// 		parents: 1,
+	// 		interior: XcmV3Junctions.Here(),
+	// 	}),
+	// );
+	// expect(weight_to_asset_fee.value).toBe('123');
+
 	const weight = await AHApi.apis.XcmPaymentApi.query_xcm_weight(msg);
 
 	const ahToWnd = AHApi.tx.PolkadotXcm.execute({
