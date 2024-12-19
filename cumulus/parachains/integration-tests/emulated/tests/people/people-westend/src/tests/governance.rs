@@ -20,7 +20,9 @@ use codec::Encode;
 use frame_support::sp_runtime::traits::Dispatchable;
 use parachains_common::AccountId;
 use people_westend_runtime::people::IdentityInfo;
-use westend_runtime::governance::pallet_custom_origins::Origin::GeneralAdmin as GeneralAdminOrigin;
+use westend_runtime::{
+	governance::pallet_custom_origins::Origin::GeneralAdmin as GeneralAdminOrigin, Dmp,
+};
 use westend_system_emulated_network::people_westend_emulated_chain::people_westend_runtime;
 
 use pallet_identity::Data;
@@ -39,6 +41,8 @@ fn relay_commands_add_registrar() {
 		type PeopleCall = <PeopleWestend as Chain>::RuntimeCall;
 		type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
 
+		Dmp::make_parachain_reachable(1004);
+
 		let add_registrar_call =
 			PeopleCall::Identity(pallet_identity::Call::<PeopleRuntime>::add_registrar {
 				account: registrar.into(),
@@ -48,7 +52,11 @@ fn relay_commands_add_registrar() {
 			dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
 			message: bx!(VersionedXcm::from(Xcm(vec![
 				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-				Transact { origin_kind, call: add_registrar_call.encode().into() }
+				Transact {
+					origin_kind,
+					call: add_registrar_call.encode().into(),
+					fallback_max_weight: None
+				}
 			]))),
 		});
 
@@ -98,6 +106,8 @@ fn relay_commands_add_registrar_wrong_origin() {
 			type PeopleCall = <PeopleWestend as Chain>::RuntimeCall;
 			type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
 
+			Dmp::make_parachain_reachable(1004);
+
 			let add_registrar_call =
 				PeopleCall::Identity(pallet_identity::Call::<PeopleRuntime>::add_registrar {
 					account: registrar.into(),
@@ -107,7 +117,11 @@ fn relay_commands_add_registrar_wrong_origin() {
 				dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
 				message: bx!(VersionedXcm::from(Xcm(vec![
 					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-					Transact { origin_kind, call: add_registrar_call.encode().into() }
+					Transact {
+						origin_kind,
+						call: add_registrar_call.encode().into(),
+						fallback_max_weight: None
+					}
 				]))),
 			});
 
@@ -183,6 +197,8 @@ fn relay_commands_kill_identity() {
 		type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
 		type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
 
+		Dmp::make_parachain_reachable(1004);
+
 		let kill_identity_call =
 			PeopleCall::Identity(pallet_identity::Call::<PeopleRuntime>::kill_identity {
 				target: people_westend_runtime::MultiAddress::Id(PeopleWestend::account_id_of(
@@ -194,7 +210,11 @@ fn relay_commands_kill_identity() {
 			dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
 			message: bx!(VersionedXcm::from(Xcm(vec![
 				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-				Transact { origin_kind, call: kill_identity_call.encode().into() }
+				Transact {
+					origin_kind,
+					call: kill_identity_call.encode().into(),
+					fallback_max_weight: None
+				}
 			]))),
 		});
 
@@ -241,6 +261,8 @@ fn relay_commands_kill_identity_wrong_origin() {
 			type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
 			type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
 
+			Dmp::make_parachain_reachable(1004);
+
 			let kill_identity_call =
 				PeopleCall::Identity(pallet_identity::Call::<PeopleRuntime>::kill_identity {
 					target: people_westend_runtime::MultiAddress::Id(PeopleWestend::account_id_of(
@@ -252,7 +274,11 @@ fn relay_commands_kill_identity_wrong_origin() {
 				dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
 				message: bx!(VersionedXcm::from(Xcm(vec![
 					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-					Transact { origin_kind, call: kill_identity_call.encode().into() }
+					Transact {
+						origin_kind,
+						call: kill_identity_call.encode().into(),
+						fallback_max_weight: None
+					}
 				]))),
 			});
 
@@ -287,6 +313,8 @@ fn relay_commands_add_remove_username_authority() {
 		type PeopleCall = <PeopleWestend as Chain>::RuntimeCall;
 		type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
 
+		Dmp::make_parachain_reachable(1004);
+
 		let add_username_authority =
 			PeopleCall::Identity(pallet_identity::Call::<PeopleRuntime>::add_username_authority {
 				authority: people_westend_runtime::MultiAddress::Id(people_westend_alice.clone()),
@@ -298,7 +326,11 @@ fn relay_commands_add_remove_username_authority() {
 			dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
 			message: bx!(VersionedXcm::from(Xcm(vec![
 				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-				Transact { origin_kind, call: add_username_authority.encode().into() }
+				Transact {
+					origin_kind,
+					call: add_username_authority.encode().into(),
+					fallback_max_weight: None
+				}
 			]))),
 		});
 
@@ -372,6 +404,8 @@ fn relay_commands_add_remove_username_authority() {
 		type PeopleCall = <PeopleWestend as Chain>::RuntimeCall;
 		type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
 
+		Dmp::make_parachain_reachable(1004);
+
 		let remove_username_authority = PeopleCall::Identity(pallet_identity::Call::<
 			PeopleRuntime,
 		>::remove_username_authority {
@@ -383,7 +417,11 @@ fn relay_commands_add_remove_username_authority() {
 			dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
 			message: bx!(VersionedXcm::from(Xcm(vec![
 				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-				Transact { origin_kind, call: remove_username_authority.encode().into() }
+				Transact {
+					origin_kind,
+					call: remove_username_authority.encode().into(),
+					fallback_max_weight: None
+				}
 			]))),
 		});
 
@@ -431,6 +469,8 @@ fn relay_commands_add_remove_username_authority_wrong_origin() {
 			type PeopleCall = <PeopleWestend as Chain>::RuntimeCall;
 			type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
 
+			Dmp::make_parachain_reachable(1004);
+
 			let add_username_authority = PeopleCall::Identity(pallet_identity::Call::<
 				PeopleRuntime,
 			>::add_username_authority {
@@ -443,7 +483,11 @@ fn relay_commands_add_remove_username_authority_wrong_origin() {
 				dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
 				message: bx!(VersionedXcm::from(Xcm(vec![
 					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-					Transact { origin_kind, call: add_username_authority.encode().into() }
+					Transact {
+						origin_kind,
+						call: add_username_authority.encode().into(),
+						fallback_max_weight: None
+					}
 				]))),
 			});
 
@@ -475,6 +519,8 @@ fn relay_commands_add_remove_username_authority_wrong_origin() {
 				suffix: b"suffix1".into(),
 			});
 
+			Dmp::make_parachain_reachable(1004);
+
 			let remove_authority_xcm_msg =
 				RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::send {
 					dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
@@ -483,6 +529,7 @@ fn relay_commands_add_remove_username_authority_wrong_origin() {
 						Transact {
 							origin_kind: OriginKind::SovereignAccount,
 							call: remove_username_authority.encode().into(),
+							fallback_max_weight: None,
 						}
 					]))),
 				});
