@@ -252,7 +252,7 @@ impl Client {
 		let receipt_provider: Arc<dyn ReceiptProvider> = if let Some(database_url) = database_url {
 			Arc::new((
 				CacheReceiptProvider::default(),
-				DBReceiptProvider::new(database_url, block_provider.clone()).await?,
+				DBReceiptProvider::new(database_url, true, block_provider.clone()).await?,
 			))
 		} else {
 			Arc::new(CacheReceiptProvider::default())

@@ -28,22 +28,29 @@ pub struct DBReceiptProvider {
 	pool: SqlitePool,
 	/// The block provider used to fetch blocks, and reconstruct receipts.
 	block_provider: BlockInfoProvider,
+	/// weather or not we should write to the DB.
+	read_only: bool,
 }
 
 impl DBReceiptProvider {
 	/// Create a new `DBReceiptProvider` with the given database URL and block provider.
 	pub async fn new(
 		database_url: &str,
+		read_only: bool,
 		block_provider: BlockInfoProvider,
 	) -> Result<Self, sqlx::Error> {
 		let pool = SqlitePool::connect(database_url).await?;
-		Ok(Self { pool, block_provider })
+		Ok(Self { pool, block_provider, read_only })
 	}
 }
 
 #[async_trait]
 impl ReceiptProvider for DBReceiptProvider {
 	async fn insert(&self, block_hash: &H256, receipts: &[(TransactionSigned, ReceiptInfo)]) {
+		if self.read_only {
+			return
+		}
+
 		let block_hash_str = hex::encode(block_hash);
 		for (_, receipt) in receipts {
 			let transaction_hash = hex::encode(receipt.transaction_hash);
