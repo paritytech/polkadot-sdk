@@ -22,13 +22,13 @@
 //! by any view are detected and properly notified.
 
 use crate::{
-	common::log_xt::log_xt_trace,
+	common::tracing_log_xt::log_xt_trace,
 	fork_aware_txpool::stream_map_util::next_event,
 	graph::{self, BlockHash, ExtrinsicHash},
 	LOG_TARGET,
 };
 use futures::stream::StreamExt;
-use log::{debug, trace};
+use tracing::{debug, trace};
 use sc_transaction_pool_api::TransactionStatus;
 use sc_utils::mpsc;
 use sp_runtime::traits::Block as BlockT;
@@ -275,7 +275,8 @@ where
 						return Some(DroppedTransaction::new_enforced_by_limts(tx_hash))
 					}
 				} else {
-					debug!("[{:?}] dropped_watcher: removing (non-tracked) tx", tx_hash);
+					let tx_hash_string = format!("{:?}", tx_hash);
+					debug!(tx_hash_string, "dropped_watcher: removing (non-tracked) tx" );
 					return Some(DroppedTransaction::new_enforced_by_limts(tx_hash))
 				}
 			},
