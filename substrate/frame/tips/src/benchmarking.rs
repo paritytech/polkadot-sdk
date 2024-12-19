@@ -19,15 +19,9 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use frame_benchmarking::v1::{
-	account, benchmarks_instance_pallet, whitelisted_caller, BenchmarkError,
-};
-use frame_support::ensure;
-use frame_system::RawOrigin;
-use sp_runtime::traits::Saturating;
-
 use super::*;
 use crate::Pallet as TipsMod;
+use frame::benchmarking::prelude::*;
 
 const SEED: u32 = 0;
 
@@ -97,7 +91,7 @@ benchmarks_instance_pallet! {
 		let awesome_person_lookup = T::Lookup::unlookup(awesome_person);
 		// Whitelist caller account from further DB operations.
 		let caller_key = frame_system::Account::<T>::hashed_key_for(&caller);
-		frame_benchmarking::benchmarking::add_to_whitelist(caller_key.into());
+		add_to_whitelist(caller_key.into());
 	}: _(RawOrigin::Signed(caller), reason, awesome_person_lookup)
 
 	retract_tip {
@@ -113,7 +107,7 @@ benchmarks_instance_pallet! {
 		let hash = T::Hashing::hash_of(&(&reason_hash, &awesome_person));
 		// Whitelist caller account from further DB operations.
 		let caller_key = frame_system::Account::<T>::hashed_key_for(&caller);
-		frame_benchmarking::benchmarking::add_to_whitelist(caller_key.into());
+		add_to_whitelist(caller_key.into());
 	}: _(RawOrigin::Signed(caller), hash)
 
 	tip_new {
@@ -124,7 +118,7 @@ benchmarks_instance_pallet! {
 		let beneficiary_lookup = T::Lookup::unlookup(beneficiary);
 		// Whitelist caller account from further DB operations.
 		let caller_key = frame_system::Account::<T>::hashed_key_for(&caller);
-		frame_benchmarking::benchmarking::add_to_whitelist(caller_key.into());
+		add_to_whitelist(caller_key.into());
 	}: _(RawOrigin::Signed(caller), reason, beneficiary_lookup, value)
 
 	tip {
@@ -145,7 +139,7 @@ benchmarks_instance_pallet! {
 		let caller = account("member", t - 1, SEED);
 		// Whitelist caller account from further DB operations.
 		let caller_key = frame_system::Account::<T>::hashed_key_for(&caller);
-		frame_benchmarking::benchmarking::add_to_whitelist(caller_key.into());
+		add_to_whitelist(caller_key.into());
 	}: _(RawOrigin::Signed(caller), hash, value)
 
 	close_tip {
@@ -175,7 +169,7 @@ benchmarks_instance_pallet! {
 		let caller = account("caller", t, SEED);
 		// Whitelist caller account from further DB operations.
 		let caller_key = frame_system::Account::<T>::hashed_key_for(&caller);
-		frame_benchmarking::benchmarking::add_to_whitelist(caller_key.into());
+		add_to_whitelist(caller_key.into());
 	}: _(RawOrigin::Signed(caller), hash)
 
 	slash_tip {

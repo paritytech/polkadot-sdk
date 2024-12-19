@@ -18,30 +18,23 @@
 //! Treasury pallet tests.
 
 #![cfg(test)]
-
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BadOrigin, BlakeTwo256, IdentityLookup},
-	BuildStorage, Perbill, Permill,
-};
-use sp_storage::Storage;
-
-use frame_support::{
-	assert_noop, assert_ok, derive_impl, parameter_types,
-	storage::StoragePrefixedMap,
-	traits::{
-		tokens::{PayFromAccount, UnityAssetBalanceConversion},
-		ConstU32, ConstU64, IntegrityTest, SortedMembers, StorageVersion,
-	},
-	PalletId,
-};
-
 use super::*;
 use crate::{self as pallet_tips, Event as TipEvent};
+use frame::{
+	testing_prelude::*,
+	traits::{
+		tokens::{PayFromAccount, UnityAssetBalanceConversion},
+		IdentityLookup, NeverEnsureOrigin, PalletInfoAccess,
+	},
+};
+use storage::StoragePrefixedMap as _;
+
+#[cfg(feature = "try-runtime")]
+use crate::DispatchError::Other;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -112,7 +105,7 @@ impl pallet_treasury::Config for Test {
 	type WeightInfo = ();
 	type SpendFunds = ();
 	type MaxApprovals = ConstU32<100>;
-	type SpendOrigin = frame_support::traits::NeverEnsureOrigin<u64>;
+	type SpendOrigin = NeverEnsureOrigin<u64>;
 	type AssetKind = ();
 	type Beneficiary = Self::AccountId;
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
@@ -135,7 +128,7 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type WeightInfo = ();
 	type SpendFunds = ();
 	type MaxApprovals = ConstU32<100>;
-	type SpendOrigin = frame_support::traits::NeverEnsureOrigin<u64>;
+	type SpendOrigin = NeverEnsureOrigin<u64>;
 	type AssetKind = ();
 	type Beneficiary = Self::AccountId;
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
@@ -177,8 +170,8 @@ impl Config<Instance1> for Test {
 	type WeightInfo = ();
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
+pub fn new_test_ext() -> TestExternalities {
+	let mut ext: TestExternalities = RuntimeGenesisConfig {
 		system: frame_system::GenesisConfig::default(),
 		balances: pallet_balances::GenesisConfig { balances: vec![(0, 100), (1, 98), (2, 1)] },
 		treasury: Default::default(),
@@ -195,6 +188,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 pub fn build_and_execute(test: impl FnOnce() -> ()) {
 	new_test_ext().execute_with(|| {
 		test();
+		#[cfg(feature = "try-runtime")]
 		Tips::do_try_state().expect("All invariants must hold after a test");
 	});
 }
@@ -485,7 +479,7 @@ fn test_last_reward_migration() {
 
 	s.top = data.into_iter().collect();
 
-	sp_io::TestExternalities::new(s).execute_with(|| {
+	TestExternalities::new(s).execute_with(|| {
 		let module = pallet_tips::Tips::<Test>::pallet_prefix();
 		let item = pallet_tips::Tips::<Test>::storage_prefix();
 		Tips::migrate_retract_tip_for_tip_new(module, item);
@@ -543,15 +537,10 @@ fn test_migration_v4() {
 	let mut s = Storage::default();
 	s.top = data.into_iter().collect();
 
-	sp_io::TestExternalities::new(s).execute_with(|| {
-		use frame_support::traits::PalletInfoAccess;
-
+	TestExternalities::new(s).execute_with(|| {
 		let old_pallet = "Treasury";
 		let new_pallet = <Tips as PalletInfoAccess>::name();
-		frame_support::storage::migration::move_pallet(
-			new_pallet.as_bytes(),
-			old_pallet.as_bytes(),
-		);
+		storage::migration::move_pallet(new_pallet.as_bytes(), old_pallet.as_bytes());
 		StorageVersion::new(0).put::<Tips>();
 
 		crate::migrations::v4::pre_migrate::<Test, Tips, _>(old_pallet);
@@ -559,15 +548,10 @@ fn test_migration_v4() {
 		crate::migrations::v4::post_migrate::<Test, Tips, _>(old_pallet);
 	});
 
-	sp_io::TestExternalities::new(Storage::default()).execute_with(|| {
-		use frame_support::traits::PalletInfoAccess;
-
+	TestExternalities::new(Storage::default()).execute_with(|| {
 		let old_pallet = "Treasury";
 		let new_pallet = <Tips as PalletInfoAccess>::name();
-		frame_support::storage::migration::move_pallet(
-			new_pallet.as_bytes(),
-			old_pallet.as_bytes(),
-		);
+		storage::migration::move_pallet(new_pallet.as_bytes(), old_pallet.as_bytes());
 		StorageVersion::new(0).put::<Tips>();
 
 		crate::migrations::v4::pre_migrate::<Test, Tips, _>(old_pallet);
@@ -589,7 +573,7 @@ fn genesis_funding_works() {
 	pallet_treasury::GenesisConfig::<Test>::default()
 		.assimilate_storage(&mut t)
 		.unwrap();
-	let mut t: sp_io::TestExternalities = t.into();
+	let mut t: TestExternalities = t.into();
 
 	t.execute_with(|| {
 		assert_eq!(Balances::free_balance(Treasury::account_id()), initial_funding);
@@ -633,8 +617,6 @@ fn report_awesome_and_tip_works_second_instance() {
 #[test]
 fn equal_entries_invariant() {
 	new_test_ext().execute_with(|| {
-		use frame_support::pallet_prelude::DispatchError::Other;
-
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
 		assert_ok!(Tips::report_awesome(RuntimeOrigin::signed(0), b"awesome.dot".to_vec(), 3));
@@ -656,6 +638,7 @@ fn equal_entries_invariant() {
 		pallet_tips::Tips::<Test>::insert(hash1, tip);
 
 		// Invariant violated
+		#[cfg(feature = "try-runtime")]
 		assert_eq!(
 			Tips::do_try_state(),
 			Err(Other("Equal length of entries in `Tips` and `Reasons` Storage"))
@@ -666,8 +649,6 @@ fn equal_entries_invariant() {
 #[test]
 fn finders_fee_invariant() {
 	new_test_ext().execute_with(|| {
-		use frame_support::pallet_prelude::DispatchError::Other;
-
 		// Breaks invariant by having a zero deposit.
 		TipReportDepositBase::set(0);
 
@@ -676,6 +657,7 @@ fn finders_fee_invariant() {
 		assert_ok!(Tips::report_awesome(RuntimeOrigin::signed(0), b"".to_vec(), 3));
 
 		// Invariant violated
+		#[cfg(feature = "try-runtime")]
 		assert_eq!(
 			Tips::do_try_state(),
 			Err(Other("Tips with `finders_fee` should have non-zero `deposit`."))
@@ -686,8 +668,6 @@ fn finders_fee_invariant() {
 #[test]
 fn reasons_invariant() {
 	new_test_ext().execute_with(|| {
-		use frame_support::pallet_prelude::DispatchError::Other;
-
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
 		assert_ok!(Tips::report_awesome(RuntimeOrigin::signed(0), b"awesome.dot".to_vec(), 0));
@@ -702,6 +682,7 @@ fn reasons_invariant() {
 		pallet_tips::Tips::<Test>::insert(hash[0], open_tip);
 
 		// Invariant violated
+		#[cfg(feature = "try-runtime")]
 		assert_eq!(Tips::do_try_state(), Err(Other("no reason for this tip")));
 	})
 }
