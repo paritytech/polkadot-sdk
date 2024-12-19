@@ -4383,6 +4383,24 @@ fn gas_price_api_works() {
 }
 
 #[test]
+fn base_fee_api_works() {
+	let (code, _) = compile_module("base_fee").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create fixture: Constructor does nothing
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// Call the contract: It echoes back the value returned by the base fee API.
+		let received = builder::bare_call(addr).build_and_unwrap_result();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		assert_eq!(u64::from_le_bytes(received.data[..].try_into().unwrap()), 0);
+	});
+}
+
+#[test]
 fn call_data_size_api_works() {
 	let (code, _) = compile_module("call_data_size").unwrap();
 

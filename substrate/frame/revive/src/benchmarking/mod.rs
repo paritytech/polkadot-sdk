@@ -833,6 +833,17 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn seal_base_fee() {
+		build_runtime!(runtime, memory: []);
+		let result;
+		#[block]
+		{
+			result = runtime.bench_base_fee(memory.as_mut_slice());
+		}
+		assert_eq!(result.unwrap(), 0);
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_block_number() {
 		build_runtime!(runtime, memory: [[0u8;32], ]);
 		let result;

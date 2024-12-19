@@ -327,6 +327,8 @@ pub enum RuntimeCosts {
 	BlockHash,
 	/// Weight of calling `seal_gas_price`.
 	GasPrice,
+	/// Weight of calling `seal_base_fee`.
+	BaseFee,
 	/// Weight of calling `seal_now`.
 	Now,
 	/// Weight of calling `seal_gas_limit`.
@@ -481,6 +483,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			BlockNumber => T::WeightInfo::seal_block_number(),
 			BlockHash => T::WeightInfo::seal_block_hash(),
 			GasPrice => T::WeightInfo::seal_gas_price(),
+			BaseFee => T::WeightInfo::seal_base_fee(),
 			Now => T::WeightInfo::seal_now(),
 			GasLimit => T::WeightInfo::seal_gas_limit(),
 			WeightToFee => T::WeightInfo::seal_weight_to_fee(),
@@ -1573,6 +1576,14 @@ pub mod env {
 	fn gas_price(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
 		self.charge_gas(RuntimeCosts::GasPrice)?;
 		Ok(GAS_PRICE.into())
+	}
+
+	/// Returns the simulated ethereum `BASEFEE` value.
+	/// See [`pallet_revive_uapi::HostFn::base_fee`].
+	#[stable]
+	fn base_fee(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
+		self.charge_gas(RuntimeCosts::BaseFee)?;
+		Ok(0)
 	}
 
 	/// Load the latest block timestamp into the supplied buffer

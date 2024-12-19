@@ -75,6 +75,10 @@ pub trait HostFn: private::Sealed {
 	/// [GASPRICE](https://www.evm.codes/?fork=cancun#3a) opcode.
 	fn gas_price() -> u64;
 
+	/// Returns the base fee, akin to the EVM
+	/// [BASEFEE](https://www.evm.codes/?fork=cancun#48) opcode.
+	fn base_fee() -> u64;
+
 	/// Returns the call data size.
 	fn call_data_size() -> u64;
 

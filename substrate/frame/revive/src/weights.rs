@@ -85,6 +85,7 @@ pub trait WeightInfo {
 	fn seal_call_data_size() -> Weight;
 	fn seal_gas_limit() -> Weight;
 	fn seal_gas_price() -> Weight;
+	fn seal_base_fee() -> Weight;
 	fn seal_block_number() -> Weight;
 	fn seal_block_hash() -> Weight;
 	fn seal_now() -> Weight;
@@ -519,6 +520,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(356_000, 0)
 	}
 	fn seal_gas_price() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 261_000 picoseconds.
+		Weight::from_parts(293_000, 0)
+	}
+	fn seal_base_fee() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -1400,6 +1408,13 @@ impl WeightInfo for () {
 		Weight::from_parts(356_000, 0)
 	}
 	fn seal_gas_price() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 261_000 picoseconds.
+		Weight::from_parts(293_000, 0)
+	}
+	fn seal_base_fee() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
