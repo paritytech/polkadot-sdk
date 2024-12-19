@@ -1,0 +1,34 @@
+title: '[Backport] Version bumps and `prdocs` reordering form 2412'
+doc:
+- audience: Runtime Dev
+  description: This PR includes backport of the regular version bumps and `prdocs`
+    reordering from the `stable2412` branch back ro master
+crates:
+- name: polkadot-node-primitives
+  bump: none
+- name: asset-hub-rococo-runtime
+  bump: none
+- name: bridge-hub-rococo-runtime
+  bump: none
+- name: bridge-hub-westend-runtime
+  bump: none
+- name: collectives-westend-runtime
+  bump: none
+- name: contracts-rococo-runtime
+  bump: none
+- name: coretime-rococo-runtime
+  bump: none
+- name: coretime-westend-runtime
+  bump: none
+- name: glutton-westend-runtime
+  bump: none
+- name: people-rococo-runtime
+  bump: none
+- name: people-westend-runtime
+  bump: none
+- name: rococo-runtime
+  bump: none
+- name: westend-runtime
+  bump: none
+- name: asset-hub-westend-runtime
+  bump: none
