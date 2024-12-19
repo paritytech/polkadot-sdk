@@ -23,6 +23,7 @@ mod call_builder;
 mod code;
 use self::{call_builder::CallSetup, code::WasmModule};
 use crate::{
+	evm::runtime::GAS_PRICE,
 	exec::{Key, MomentOf},
 	limits,
 	storage::WriteOutcome,
@@ -818,6 +819,17 @@ mod benchmarks {
 			result = runtime.bench_gas_limit(&mut memory);
 		}
 		assert_eq!(result.unwrap(), T::BlockWeights::get().max_block.ref_time());
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_gas_price() {
+		build_runtime!(runtime, memory: []);
+		let result;
+		#[block]
+		{
+			result = runtime.bench_gas_price(memory.as_mut_slice());
+		}
+		assert_eq!(result.unwrap(), u64::from(GAS_PRICE));
 	}
 
 	#[benchmark(pov_mode = Measured)]
