@@ -15,7 +15,9 @@
 
 use super::*;
 use crate as pallet_asset_conversion_tx_payment;
-
+use frame::{testing_prelude::*, traits::{fungible, fungibles::{self, Mutate}, AsEnsureOriginWithArg, Currency, AsTransactionAuthorizedOrigin, ConstU32, ConstU64, ConstU8, Imbalance, OnUnbalanced, tokens::{fungible::{NativeFromLeft, NativeOrWithId, UnionOf, /*imbalance::ResolveAssetTo*/}}, AccountIdConversion, IdentityLookup, SaturatedConversion}, deps::{frame_support::{derive_impl, weights::{Weight, WeightToFee as WeightToFeeT},
+PalletId, dispatch::{DispatchClass, PostDispatchInfo}, instances::Instance2, ord_parameter_types, parameter_types, traits::tokens::imbalance::ResolveAssetTo}, frame_system::{self as system, EnsureRoot, EnsureSignedBy}, sp_runtime::Permill}};
+/*
 use frame_support::{
 	derive_impl,
 	dispatch::DispatchClass,
@@ -36,18 +38,20 @@ use frame_support::{
 };
 use frame_system as system;
 use frame_system::{EnsureRoot, EnsureSignedBy};
+*/
 use pallet_asset_conversion::{Ascending, Chain, WithFirstAsset};
 use pallet_transaction_payment::FungibleAdapter;
+/*
 use sp_runtime::{
 	traits::{AccountIdConversion, IdentityLookup, SaturatedConversion},
 	Permill,
 };
-
+*/
 type Block = frame_system::mocking::MockBlock<Runtime>;
 type Balance = u64;
 type AccountId = u64;
 
-frame_support::construct_runtime!(
+frame::runtime::prelude::construct_runtime!(
 	pub enum Runtime
 	{
 		System: system,
@@ -302,7 +306,7 @@ impl Config for Runtime {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> frame::deps::sp_io::TestExternalities {
 	let base_weight = 5;
 	let balance_factor = 100;
 	crate::tests::ExtBuilder::default()
@@ -321,8 +325,8 @@ impl BenchmarkHelperTrait<u64, NativeOrWithId<u32>, NativeOrWithId<u32>> for Hel
 	}
 
 	fn setup_balances_and_pool(asset_id: NativeOrWithId<u32>, account: u64) {
-		use frame_support::{assert_ok, traits::fungibles::Mutate};
-		use sp_runtime::traits::StaticLookup;
+		//use frame_support::{assert_ok, traits::fungibles::Mutate};
+		//use sp_runtime::traits::StaticLookup;
 		let NativeOrWithId::WithId(asset_idx) = asset_id.clone() else { unimplemented!() };
 		assert_ok!(Assets::force_create(
 			RuntimeOrigin::root(),
@@ -356,7 +360,7 @@ impl BenchmarkHelperTrait<u64, NativeOrWithId<u32>, NativeOrWithId<u32>> for Hel
 			lp_provider_account,
 		));
 
-		use frame_support::traits::Currency;
+		//use frame_support::traits::Currency;
 		let _ = Balances::deposit_creating(&account, u32::MAX.into());
 
 		let beneficiary = <Runtime as system::Config>::Lookup::unlookup(account);
