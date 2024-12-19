@@ -24,6 +24,7 @@ use testing_utils::*;
 use codec::Decode;
 use frame_election_provider_support::{bounds::DataProviderBounds, SortedListProvider};
 use frame_support::{
+	assert_ok,
 	pallet_prelude::*,
 	storage::bounded_vec::BoundedVec,
 	traits::{Get, Imbalance, UnfilteredDispatchable},
@@ -43,7 +44,6 @@ const SEED: u32 = 0;
 const MAX_SPANS: u32 = 100;
 const MAX_SLASHES: u32 = 1000;
 
-type MaxValidators<T> = <<T as Config>::BenchmarkingConfig as BenchmarkingConfig>::MaxValidators;
 type MaxNominators<T> = <<T as Config>::BenchmarkingConfig as BenchmarkingConfig>::MaxNominators;
 
 // Add slashing spans to a user account. Not relevant for actual use, only to benchmark
@@ -122,10 +122,14 @@ pub fn create_validator_with_nominators<T: Config>(
 	assert_ne!(Validators::<T>::count(), 0);
 	assert_eq!(Nominators::<T>::count(), original_nominator_count + nominators.len() as u32);
 
+	let mut reward_map = BoundedBTreeMap::new();
+	for (validator, reward) in points_individual {
+		assert_ok!(reward_map.try_insert(validator, reward));
+	}
 	// Give Era Points
-	let reward = EraRewardPoints::<T::AccountId> {
+	let reward = EraRewardPoints::<T::AccountId, T::MaxValidatorsCount> {
 		total: points_total,
-		individual: points_individual.into_iter().collect(),
+		individual: reward_map,
 	};
 
 	let current_era = CurrentEra::<T>::get().unwrap();
@@ -565,7 +569,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_validator_count() {
-		let validator_count = MaxValidators::<T>::get();
+		let validator_count = T::MaxValidatorsCount::get();
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, validator_count);
@@ -598,8 +602,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	// Worst case scenario, the list of invulnerables is very long.
-	fn set_invulnerables(v: Linear<0, { MaxValidators::<T>::get() }>) {
+	fn set_invulnerables(v: Linear<0, { T::MaxInvulnerables::get() }>) {
 		let mut invulnerables = Vec::new();
 		for i in 0..v {
 			invulnerables.push(account("invulnerable", i, SEED));
@@ -865,10 +868,14 @@ mod benchmarks {
 			payout_calls_arg.push((validator.clone(), current_era));
 		}
 
+		let mut reward_map = BoundedBTreeMap::new();
+		for (validator, reward) in points_individual {
+			assert_ok!(reward_map.try_insert(validator, reward));
+		}
 		// Give Era Points
-		let reward = EraRewardPoints::<T::AccountId> {
+		let reward = EraRewardPoints::<T::AccountId, T::MaxValidatorsCount> {
 			total: points_total,
-			individual: points_individual.into_iter().collect(),
+			individual: reward_map,
 		};
 
 		ErasRewardPoints::<T>::insert(current_era, reward);
@@ -938,7 +945,7 @@ mod benchmarks {
 	#[benchmark]
 	fn get_npos_voters(
 		// number of validator intention. we will iterate all of them.
-		v: Linear<{ MaxValidators::<T>::get() / 2 }, { MaxValidators::<T>::get() }>,
+		v: Linear<{ T::MaxValidatorsCount::get() / 2 }, { T::MaxValidatorsCount::get() }>,
 
 		// number of nominator intention. we will iterate all of them.
 		n: Linear<{ MaxNominators::<T>::get() / 2 }, { MaxNominators::<T>::get() }>,
@@ -971,7 +978,7 @@ mod benchmarks {
 	#[benchmark]
 	fn get_npos_targets(
 		// number of validator intention.
-		v: Linear<{ MaxValidators::<T>::get() / 2 }, { MaxValidators::<T>::get() }>,
+		v: Linear<{ T::MaxValidatorsCount::get() / 2 }, { T::MaxValidatorsCount::get() }>,
 	) -> Result<(), BenchmarkError> {
 		// number of nominator intention.
 		let n = MaxNominators::<T>::get();
@@ -1004,7 +1011,6 @@ mod benchmarks {
 			ConfigOp::Set(BalanceOf::<T>::max_value()),
 			ConfigOp::Set(BalanceOf::<T>::max_value()),
 			ConfigOp::Set(u32::MAX),
-			ConfigOp::Set(u32::MAX),
 			ConfigOp::Set(Percent::max_value()),
 			ConfigOp::Set(Perbill::max_value()),
 			ConfigOp::Set(Percent::max_value()),
@@ -1013,7 +1019,6 @@ mod benchmarks {
 		assert_eq!(MinNominatorBond::<T>::get(), BalanceOf::<T>::max_value());
 		assert_eq!(MinValidatorBond::<T>::get(), BalanceOf::<T>::max_value());
 		assert_eq!(MaxNominatorsCount::<T>::get(), Some(u32::MAX));
-		assert_eq!(MaxValidatorsCount::<T>::get(), Some(u32::MAX));
 		assert_eq!(ChillThreshold::<T>::get(), Some(Percent::from_percent(100)));
 		assert_eq!(MinCommission::<T>::get(), Perbill::from_percent(100));
 		assert_eq!(MaxStakedRewards::<T>::get(), Some(Percent::from_percent(100)));
@@ -1030,13 +1035,11 @@ mod benchmarks {
 			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
-			ConfigOp::Remove,
 		);
 
 		assert!(!MinNominatorBond::<T>::exists());
 		assert!(!MinValidatorBond::<T>::exists());
 		assert!(!MaxNominatorsCount::<T>::exists());
-		assert!(!MaxValidatorsCount::<T>::exists());
 		assert!(!ChillThreshold::<T>::exists());
 		assert!(!MinCommission::<T>::exists());
 		assert!(!MaxStakedRewards::<T>::exists());
@@ -1059,7 +1062,6 @@ mod benchmarks {
 			RawOrigin::Root.into(),
 			ConfigOp::Set(BalanceOf::<T>::max_value()),
 			ConfigOp::Set(BalanceOf::<T>::max_value()),
-			ConfigOp::Set(0),
 			ConfigOp::Set(0),
 			ConfigOp::Set(Percent::from_percent(0)),
 			ConfigOp::Set(Zero::zero()),

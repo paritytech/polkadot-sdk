@@ -28,6 +28,7 @@ use frame_support::{
 	dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo},
 	pallet_prelude::*,
 	traits::{Currency, Get, ReservableCurrency},
+	BoundedVec,
 };
 
 use mock::*;
@@ -52,7 +53,6 @@ fn set_staking_configs_works() {
 			ConfigOp::Set(1_500),
 			ConfigOp::Set(2_000),
 			ConfigOp::Set(10),
-			ConfigOp::Set(20),
 			ConfigOp::Set(Percent::from_percent(75)),
 			ConfigOp::Set(Zero::zero()),
 			ConfigOp::Set(Zero::zero())
@@ -60,7 +60,6 @@ fn set_staking_configs_works() {
 		assert_eq!(MinNominatorBond::<Test>::get(), 1_500);
 		assert_eq!(MinValidatorBond::<Test>::get(), 2_000);
 		assert_eq!(MaxNominatorsCount::<Test>::get(), Some(10));
-		assert_eq!(MaxValidatorsCount::<Test>::get(), Some(20));
 		assert_eq!(ChillThreshold::<Test>::get(), Some(Percent::from_percent(75)));
 		assert_eq!(MinCommission::<Test>::get(), Perbill::from_percent(0));
 		assert_eq!(MaxStakedRewards::<Test>::get(), Some(Percent::from_percent(0)));
@@ -68,7 +67,6 @@ fn set_staking_configs_works() {
 		// noop does nothing
 		assert_storage_noop!(assert_ok!(Staking::set_staking_configs(
 			RuntimeOrigin::root(),
-			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
@@ -85,13 +83,11 @@ fn set_staking_configs_works() {
 			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
-			ConfigOp::Remove,
 			ConfigOp::Remove
 		));
 		assert_eq!(MinNominatorBond::<Test>::get(), 0);
 		assert_eq!(MinValidatorBond::<Test>::get(), 0);
 		assert_eq!(MaxNominatorsCount::<Test>::get(), None);
-		assert_eq!(MaxValidatorsCount::<Test>::get(), None);
 		assert_eq!(ChillThreshold::<Test>::get(), None);
 		assert_eq!(MinCommission::<Test>::get(), Perbill::from_percent(0));
 		assert_eq!(MaxStakedRewards::<Test>::get(), None);
@@ -234,6 +230,9 @@ fn basic_setup_works() {
 
 		// New era is not being forced
 		assert_eq!(ForceEra::<Test>::get(), Forcing::NotForcing);
+
+		// MaxBondedEras must be coherent with BondingDuration
+		assert_eq!(MaxBondedEras::get(), (BondingDuration::get() as u32) + 1);
 	});
 }
 
@@ -335,13 +334,14 @@ fn rewards_should_work() {
 		assert_eq!(asset::total_balance::<Test>(&11), init_balance_11);
 		assert_eq!(asset::total_balance::<Test>(&21), init_balance_21);
 		assert_eq!(asset::total_balance::<Test>(&101), init_balance_101);
-		assert_eq!(
-			ErasRewardPoints::<Test>::get(active_era()),
-			EraRewardPoints {
-				total: 50 * 3,
-				individual: vec![(11, 100), (21, 50)].into_iter().collect(),
-			}
-		);
+
+		let eras_reward_points = Staking::eras_reward_points(active_era());
+
+		assert_eq!(eras_reward_points.total, 50 * 3);
+		assert_eq!(eras_reward_points.individual.get(&11), Some(&100));
+		assert_eq!(eras_reward_points.individual.get(&21), Some(&50));
+		assert_eq!(eras_reward_points.individual.keys().cloned().collect::<Vec<_>>(), [11, 21]);
+
 		let part_for_11 = Perbill::from_rational::<u32>(1000, 1125);
 		let part_for_21 = Perbill::from_rational::<u32>(1000, 1375);
 		let part_for_101_from_11 = Perbill::from_rational::<u32>(125, 1125);
@@ -1808,7 +1808,6 @@ fn max_staked_rewards_works() {
 			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
-			ConfigOp::Noop,
 			ConfigOp::Set(Percent::from_percent(max_staked_rewards)),
 		));
 
@@ -2328,9 +2327,11 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 		let _ = asset::set_stakeable_balance::<Test>(&11, stake);
 
 		let exposure = Exposure::<AccountId, Balance> { total: stake, own: stake, others: vec![] };
-		let reward = EraRewardPoints::<AccountId> {
+		let mut reward_map = BoundedBTreeMap::new();
+		assert_ok!(reward_map.try_insert(11, 1));
+		let reward = EraRewardPoints::<AccountId, <Test as Config>::MaxValidatorsCount> {
 			total: 1,
-			individual: vec![(11, 1)].into_iter().collect(),
+			individual: reward_map,
 		};
 
 		// Check reward
@@ -2386,10 +2387,11 @@ fn reward_from_authorship_event_handler_works() {
 
 		// 21 is rewarded as an uncle producer
 		// 11 is rewarded as a block producer and uncle referencer and uncle producer
-		assert_eq!(
-			ErasRewardPoints::<Test>::get(active_era()),
-			EraRewardPoints { individual: vec![(11, 20 * 2)].into_iter().collect(), total: 40 },
-		);
+
+		let eras_reward_points = ErasRewardPoints::<Test>::get(active_era());
+		assert_eq!(eras_reward_points.total, 40);
+		assert_eq!(eras_reward_points.individual.get(&11), Some(&(20 * 2)));
+		assert_eq!(eras_reward_points.individual.keys().cloned().collect::<Vec<_>>(), [11]);
 	})
 }
 
@@ -2403,10 +2405,11 @@ fn add_reward_points_fns_works() {
 
 		Pallet::<Test>::reward_by_ids(vec![(21, 1), (11, 1), (11, 1)]);
 
-		assert_eq!(
-			ErasRewardPoints::<Test>::get(active_era()),
-			EraRewardPoints { individual: vec![(11, 4), (21, 2)].into_iter().collect(), total: 6 },
-		);
+		let eras_reward_points = ErasRewardPoints::<Test>::get(active_era());
+		assert_eq!(eras_reward_points.total, 6);
+		assert_eq!(eras_reward_points.individual.get(&11), Some(&4));
+		assert_eq!(eras_reward_points.individual.get(&21), Some(&2));
+		assert_eq!(eras_reward_points.individual.keys().cloned().collect::<Vec<_>>(), [11, 21]);
 	})
 }
 
@@ -4060,17 +4063,8 @@ fn test_multi_page_payout_stakers_by_page() {
 		);
 
 		// verify rewards are tracked to prevent double claims
-		let ledger = Staking::ledger(11.into());
 		for page in 0..EraInfo::<Test>::get_page_count(1, &11) {
-			assert_eq!(
-				EraInfo::<Test>::is_rewards_claimed_with_legacy_fallback(
-					1,
-					ledger.as_ref().unwrap(),
-					&11,
-					page
-				),
-				true
-			);
+			assert_eq!(EraInfo::<Test>::is_rewards_claimed(1, &11, page), true);
 		}
 
 		for i in 3..16 {
@@ -4092,15 +4086,7 @@ fn test_multi_page_payout_stakers_by_page() {
 
 			// verify we track rewards for each era and page
 			for page in 0..EraInfo::<Test>::get_page_count(i - 1, &11) {
-				assert_eq!(
-					EraInfo::<Test>::is_rewards_claimed_with_legacy_fallback(
-						i - 1,
-						Staking::ledger(11.into()).as_ref().unwrap(),
-						&11,
-						page
-					),
-					true
-				);
+				assert_eq!(EraInfo::<Test>::is_rewards_claimed(i - 1, &11, page), true);
 			}
 		}
 
@@ -4259,7 +4245,6 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 		}
 
 		// verify we no longer track rewards in `legacy_claimed_rewards` vec
-		let ledger = Staking::ledger(11.into());
 		assert_eq!(
 			Staking::ledger(11.into()).unwrap(),
 			StakingLedgerInspect {
@@ -4273,15 +4258,7 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 
 		// verify rewards are tracked to prevent double claims
 		for page in 0..EraInfo::<Test>::get_page_count(1, &11) {
-			assert_eq!(
-				EraInfo::<Test>::is_rewards_claimed_with_legacy_fallback(
-					1,
-					ledger.as_ref().unwrap(),
-					&11,
-					page
-				),
-				true
-			);
+			assert_eq!(EraInfo::<Test>::is_rewards_claimed(1, &11, page), true);
 		}
 
 		for i in 3..16 {
@@ -4303,15 +4280,7 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 
 			// verify we track rewards for each era and page
 			for page in 0..EraInfo::<Test>::get_page_count(i - 1, &11) {
-				assert_eq!(
-					EraInfo::<Test>::is_rewards_claimed_with_legacy_fallback(
-						i - 1,
-						Staking::ledger(11.into()).as_ref().unwrap(),
-						&11,
-						page
-					),
-					true
-				);
+				assert_eq!(EraInfo::<Test>::is_rewards_claimed(i - 1, &11, page), true);
 			}
 		}
 
@@ -5739,7 +5708,6 @@ fn chill_other_works() {
 				ConfigOp::Remove,
 				ConfigOp::Remove,
 				ConfigOp::Remove,
-				ConfigOp::Remove,
 				ConfigOp::Noop,
 			));
 
@@ -5754,12 +5722,13 @@ fn chill_other_works() {
 			);
 
 			// Add limits, but no threshold
+			let max = 10;
+			MaxValidatorsCount::set(max);
 			assert_ok!(Staking::set_staking_configs(
 				RuntimeOrigin::root(),
 				ConfigOp::Noop,
 				ConfigOp::Noop,
-				ConfigOp::Set(10),
-				ConfigOp::Set(10),
+				ConfigOp::Set(max),
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
@@ -5781,7 +5750,6 @@ fn chill_other_works() {
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Remove,
-				ConfigOp::Remove,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
@@ -5802,7 +5770,6 @@ fn chill_other_works() {
 				RuntimeOrigin::root(),
 				ConfigOp::Noop,
 				ConfigOp::Noop,
-				ConfigOp::Set(10),
 				ConfigOp::Set(10),
 				ConfigOp::Set(Percent::from_percent(75)),
 				ConfigOp::Noop,
@@ -5844,11 +5811,11 @@ fn capped_stakers_works() {
 
 		// Change the maximums
 		let max = 10;
+		MaxValidatorsCount::set(max);
 		assert_ok!(Staking::set_staking_configs(
 			RuntimeOrigin::root(),
 			ConfigOp::Set(10),
 			ConfigOp::Set(10),
-			ConfigOp::Set(max),
 			ConfigOp::Set(max),
 			ConfigOp::Remove,
 			ConfigOp::Remove,
@@ -5914,12 +5881,12 @@ fn capped_stakers_works() {
 			ValidatorPrefs::default()
 		));
 
-		// No problem when we set to `None` again
+		// No problem when we set to `None` again and increase MaxValidatorsCount
+		MaxValidatorsCount::set(2 * MaxValidatorsCount::get());
 		assert_ok!(Staking::set_staking_configs(
 			RuntimeOrigin::root(),
 			ConfigOp::Noop,
 			ConfigOp::Noop,
-			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
@@ -5953,7 +5920,6 @@ fn min_commission_works() {
 
 		assert_ok!(Staking::set_staking_configs(
 			RuntimeOrigin::root(),
-			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
@@ -6499,7 +6465,7 @@ fn reducing_max_unlocking_chunks_abrupt() {
 #[test]
 fn cannot_set_unsupported_validator_count() {
 	ExtBuilder::default().build_and_execute(|| {
-		MaxWinners::set(50);
+		MaxValidatorsCount::set(50);
 		// set validator count works
 		assert_ok!(Staking::set_validator_count(RuntimeOrigin::root(), 30));
 		assert_ok!(Staking::set_validator_count(RuntimeOrigin::root(), 50));
@@ -6514,7 +6480,7 @@ fn cannot_set_unsupported_validator_count() {
 #[test]
 fn increase_validator_count_errors() {
 	ExtBuilder::default().build_and_execute(|| {
-		MaxWinners::set(50);
+		MaxValidatorsCount::set(50);
 		assert_ok!(Staking::set_validator_count(RuntimeOrigin::root(), 40));
 
 		// increase works
@@ -6532,7 +6498,7 @@ fn increase_validator_count_errors() {
 #[test]
 fn scale_validator_count_errors() {
 	ExtBuilder::default().build_and_execute(|| {
-		MaxWinners::set(50);
+		MaxValidatorsCount::set(50);
 		assert_ok!(Staking::set_validator_count(RuntimeOrigin::root(), 20));
 
 		// scale value works
@@ -6608,10 +6574,11 @@ fn can_page_exposure() {
 		Exposure { total: total_stake, own: own_stake, others };
 
 	// when
+	MaxExposurePageSize::set(3);
 	let (exposure_metadata, exposure_page): (
 		PagedExposureMetadata<Balance>,
-		Vec<ExposurePage<AccountId, Balance>>,
-	) = exposure.clone().into_pages(3);
+		Vec<ExposurePage<AccountId, Balance, MaxExposurePageSize>>,
+	) = exposure.clone().into_pages::<MaxExposurePageSize>();
 
 	// then
 	// 7 pages of nominators.
@@ -6643,11 +6610,16 @@ fn should_retain_era_info_only_upto_history_depth() {
 		let validator_stash = 10;
 
 		for era in 0..4 {
-			ClaimedRewards::<Test>::insert(era, &validator_stash, vec![0, 1, 2]);
+			let rewards = WeakBoundedVec::try_from(vec![0, 1, 2]);
+			assert!(rewards.is_ok());
+			ClaimedRewards::<Test>::insert(era, &validator_stash, rewards.unwrap());
 			for page in 0..3 {
 				ErasStakersPaged::<Test>::insert(
 					(era, &validator_stash, page),
-					ExposurePage { page_total: 100, others: vec![] },
+					ExposurePage {
+						page_total: 100,
+						others: WeakBoundedVec::force_from(vec![], None),
+					},
 				);
 			}
 		}
@@ -6671,218 +6643,6 @@ fn should_retain_era_info_only_upto_history_depth() {
 }
 
 #[test]
-fn test_legacy_claimed_rewards_is_checked_at_reward_payout() {
-	ExtBuilder::default().has_stakers(false).build_and_execute(|| {
-		// Create a validator:
-		bond_validator(11, 1000);
-
-		// reward validator for next 2 eras
-		mock::start_active_era(1);
-		Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
-		mock::start_active_era(2);
-		Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
-		mock::start_active_era(3);
-
-		//verify rewards are not claimed
-		assert_eq!(
-			EraInfo::<Test>::is_rewards_claimed_with_legacy_fallback(
-				1,
-				Staking::ledger(11.into()).as_ref().unwrap(),
-				&11,
-				0
-			),
-			false
-		);
-		assert_eq!(
-			EraInfo::<Test>::is_rewards_claimed_with_legacy_fallback(
-				2,
-				Staking::ledger(11.into()).as_ref().unwrap(),
-				&11,
-				0
-			),
-			false
-		);
-
-		// assume reward claim for era 1 was stored in legacy storage
-		Ledger::<Test>::insert(
-			11,
-			StakingLedgerInspect {
-				stash: 11,
-				total: 1000,
-				active: 1000,
-				unlocking: Default::default(),
-				legacy_claimed_rewards: bounded_vec![1],
-			},
-		);
-
-		// verify rewards for era 1 cannot be claimed
-		assert_noop!(
-			Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 1, 0),
-			Error::<Test>::AlreadyClaimed
-				.with_weight(<Test as Config>::WeightInfo::payout_stakers_alive_staked(0)),
-		);
-		assert_eq!(
-			EraInfo::<Test>::is_rewards_claimed_with_legacy_fallback(
-				1,
-				Staking::ledger(11.into()).as_ref().unwrap(),
-				&11,
-				0
-			),
-			true
-		);
-
-		// verify rewards for era 2 can be claimed
-		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 2, 0));
-		assert_eq!(
-			EraInfo::<Test>::is_rewards_claimed_with_legacy_fallback(
-				2,
-				Staking::ledger(11.into()).as_ref().unwrap(),
-				&11,
-				0
-			),
-			true
-		);
-		// but the new claimed rewards for era 2 is not stored in legacy storage
-		assert_eq!(
-			Ledger::<Test>::get(11).unwrap(),
-			StakingLedgerInspect {
-				stash: 11,
-				total: 1000,
-				active: 1000,
-				unlocking: Default::default(),
-				legacy_claimed_rewards: bounded_vec![1],
-			},
-		);
-		// instead it is kept in `ClaimedRewards`
-		assert_eq!(ClaimedRewards::<Test>::get(2, 11), vec![0]);
-	});
-}
-
-#[test]
-fn test_validator_exposure_is_backward_compatible_with_non_paged_rewards_payout() {
-	ExtBuilder::default().has_stakers(false).build_and_execute(|| {
-		// case 1: exposure exist in clipped.
-		// set page cap to 10
-		MaxExposurePageSize::set(10);
-		bond_validator(11, 1000);
-		let mut expected_individual_exposures: Vec<IndividualExposure<AccountId, Balance>> = vec![];
-		let mut total_exposure: Balance = 0;
-		// 1st exposure page
-		for i in 0..10 {
-			let who = 1000 + i;
-			let value = 1000 + i as Balance;
-			bond_nominator(who, value, vec![11]);
-			expected_individual_exposures.push(IndividualExposure { who, value });
-			total_exposure += value;
-		}
-
-		for i in 10..15 {
-			let who = 1000 + i;
-			let value = 1000 + i as Balance;
-			bond_nominator(who, value, vec![11]);
-			expected_individual_exposures.push(IndividualExposure { who, value });
-			total_exposure += value;
-		}
-
-		mock::start_active_era(1);
-		// reward validator for current era
-		Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
-
-		// start new era
-		mock::start_active_era(2);
-		// verify exposure for era 1 is stored in paged storage, that each exposure is stored in
-		// one and only one page, and no exposure is repeated.
-		let actual_exposure_page_0 = ErasStakersPaged::<Test>::get((1, 11, 0)).unwrap();
-		let actual_exposure_page_1 = ErasStakersPaged::<Test>::get((1, 11, 1)).unwrap();
-		expected_individual_exposures.iter().for_each(|exposure| {
-			assert!(
-				actual_exposure_page_0.others.contains(exposure) ||
-					actual_exposure_page_1.others.contains(exposure)
-			);
-		});
-		assert_eq!(
-			expected_individual_exposures.len(),
-			actual_exposure_page_0.others.len() + actual_exposure_page_1.others.len()
-		);
-		// verify `EraInfo` returns page from paged storage
-		assert_eq!(
-			EraInfo::<Test>::get_paged_exposure(1, &11, 0).unwrap().others(),
-			&actual_exposure_page_0.others
-		);
-		assert_eq!(
-			EraInfo::<Test>::get_paged_exposure(1, &11, 1).unwrap().others(),
-			&actual_exposure_page_1.others
-		);
-		assert_eq!(EraInfo::<Test>::get_page_count(1, &11), 2);
-
-		// validator is exposed
-		assert!(<Staking as sp_staking::StakingInterface>::is_exposed_in_era(&11, &1));
-		// nominators are exposed
-		for i in 10..15 {
-			let who: AccountId = 1000 + i;
-			assert!(<Staking as sp_staking::StakingInterface>::is_exposed_in_era(&who, &1));
-		}
-
-		// case 2: exposure exist in ErasStakers and ErasStakersClipped (legacy).
-		// delete paged storage and add exposure to clipped storage
-		<ErasStakersPaged<Test>>::remove((1, 11, 0));
-		<ErasStakersPaged<Test>>::remove((1, 11, 1));
-		<ErasStakersOverview<Test>>::remove(1, 11);
-
-		<ErasStakers<Test>>::insert(
-			1,
-			11,
-			Exposure {
-				total: total_exposure,
-				own: 1000,
-				others: expected_individual_exposures.clone(),
-			},
-		);
-		let mut clipped_exposure = expected_individual_exposures.clone();
-		clipped_exposure.sort_by(|a, b| b.who.cmp(&a.who));
-		clipped_exposure.truncate(10);
-		<ErasStakersClipped<Test>>::insert(
-			1,
-			11,
-			Exposure { total: total_exposure, own: 1000, others: clipped_exposure.clone() },
-		);
-
-		// verify `EraInfo` returns exposure from clipped storage
-		let actual_exposure_paged = EraInfo::<Test>::get_paged_exposure(1, &11, 0).unwrap();
-		assert_eq!(actual_exposure_paged.others(), &clipped_exposure);
-		assert_eq!(actual_exposure_paged.own(), 1000);
-		assert_eq!(actual_exposure_paged.exposure_metadata.page_count, 1);
-
-		let actual_exposure_full = EraInfo::<Test>::get_full_exposure(1, &11);
-		assert_eq!(actual_exposure_full.others, expected_individual_exposures);
-		assert_eq!(actual_exposure_full.own, 1000);
-		assert_eq!(actual_exposure_full.total, total_exposure);
-
-		// validator is exposed
-		assert!(<Staking as sp_staking::StakingInterface>::is_exposed_in_era(&11, &1));
-		// nominators are exposed
-		for i in 10..15 {
-			let who: AccountId = 1000 + i;
-			assert!(<Staking as sp_staking::StakingInterface>::is_exposed_in_era(&who, &1));
-		}
-
-		// for pages other than 0, clipped storage returns empty exposure
-		assert_eq!(EraInfo::<Test>::get_paged_exposure(1, &11, 1), None);
-		// page size is 1 for clipped storage
-		assert_eq!(EraInfo::<Test>::get_page_count(1, &11), 1);
-
-		// payout for page 0 works
-		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 0, 0));
-		// payout for page 1 fails
-		assert_noop!(
-			Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 0, 1),
-			Error::<Test>::InvalidPage
-				.with_weight(<Test as Config>::WeightInfo::payout_stakers_alive_staked(0))
-		);
-	});
-}
-
-#[test]
 fn test_runtime_api_pending_rewards() {
 	ExtBuilder::default().build_and_execute(|| {
 		// GIVEN
@@ -6902,12 +6662,14 @@ fn test_runtime_api_pending_rewards() {
 			assert_ok!(Staking::bond(RuntimeOrigin::signed(v), stake, RewardDestination::Staked));
 		}
 
+		let mut reward_map = BoundedBTreeMap::new();
+		assert_ok!(reward_map.try_insert(validator_one, 1));
+		assert_ok!(reward_map.try_insert(validator_two, 1));
+		assert_ok!(reward_map.try_insert(validator_three, 1));
 		// Add reward points
-		let reward = EraRewardPoints::<AccountId> {
+		let reward = EraRewardPoints::<AccountId, <Test as Config>::MaxValidatorsCount> {
 			total: 1,
-			individual: vec![(validator_one, 1), (validator_two, 1), (validator_three, 1)]
-				.into_iter()
-				.collect(),
+			individual: reward_map,
 		};
 		ErasRewardPoints::<Test>::insert(0, reward);
 
@@ -6922,70 +6684,36 @@ fn test_runtime_api_pending_rewards() {
 			others: individual_exposures,
 		};
 
-		// add non-paged exposure for one and two.
-		<ErasStakers<Test>>::insert(0, validator_one, exposure.clone());
-		<ErasStakers<Test>>::insert(0, validator_two, exposure.clone());
-		// add paged exposure for third validator
-		EraInfo::<Test>::set_exposure(0, &validator_three, exposure);
+		// add exposure for validators
+		EraInfo::<Test>::set_exposure(0, &validator_one, exposure.clone());
+		EraInfo::<Test>::set_exposure(0, &validator_two, exposure.clone());
 
 		// add some reward to be distributed
 		ErasValidatorReward::<Test>::insert(0, 1000);
 
-		// mark rewards claimed for validator_one in legacy claimed rewards
-		<Ledger<Test>>::insert(
-			validator_one,
-			StakingLedgerInspect {
-				stash: validator_one,
-				total: stake,
-				active: stake,
-				unlocking: Default::default(),
-				legacy_claimed_rewards: bounded_vec![0],
-			},
-		);
-
-		// SCENARIO ONE: rewards already marked claimed in legacy storage.
-		// runtime api should return false for pending rewards for validator_one.
+		// SCENARIO: Validator with paged exposure (two pages).
+		// validators have not claimed rewards, so pending rewards is true.
+		assert!(EraInfo::<Test>::pending_rewards(0, &validator_one));
+		assert!(EraInfo::<Test>::pending_rewards(0, &validator_two));
+		// and payout works
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_one, 0));
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_two, 0));
+		// validators have two pages of exposure, so pending rewards is still true.
+		assert!(EraInfo::<Test>::pending_rewards(0, &validator_one));
+		assert!(EraInfo::<Test>::pending_rewards(0, &validator_two));
+		// payout again only for validator one
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_one, 0));
+		// now pending rewards is false for validator one
 		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_one));
-		// and if we try to pay, we get an error.
+		// and payout fails for validator one
 		assert_noop!(
 			Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_one, 0),
 			Error::<Test>::AlreadyClaimed.with_weight(err_weight)
 		);
-
-		// SCENARIO TWO: non-paged exposure
-		// validator two has not claimed rewards, so pending rewards is true.
+		// while pending reward is true for validator two
 		assert!(EraInfo::<Test>::pending_rewards(0, &validator_two));
-		// and payout works
+		// and payout works again for validator two.
 		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_two, 0));
-		// now pending rewards is false.
-		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_two));
-		// and payout fails
-		assert_noop!(
-			Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_two, 0),
-			Error::<Test>::AlreadyClaimed.with_weight(err_weight)
-		);
-
-		// SCENARIO THREE: validator with paged exposure (two pages).
-		// validator three has not claimed rewards, so pending rewards is true.
-		assert!(EraInfo::<Test>::pending_rewards(0, &validator_three));
-		// and payout works
-		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_three, 0));
-		// validator three has two pages of exposure, so pending rewards is still true.
-		assert!(EraInfo::<Test>::pending_rewards(0, &validator_three));
-		// payout again
-		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_three, 0));
-		// now pending rewards is false.
-		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_three));
-		// and payout fails
-		assert_noop!(
-			Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_three, 0),
-			Error::<Test>::AlreadyClaimed.with_weight(err_weight)
-		);
-
-		// for eras with no exposure, pending rewards is false.
-		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_one));
-		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_two));
-		assert!(!EraInfo::<Test>::pending_rewards(0, &validator_three));
 	});
 }
 
@@ -8752,14 +8480,14 @@ mod getters {
 		mock::{self},
 		pallet::pallet::{Invulnerables, MinimumValidatorCount, ValidatorCount},
 		slashing,
-		tests::{Staking, Test},
-		ActiveEra, ActiveEraInfo, BalanceOf, CanceledSlashPayout, ClaimedRewards, CurrentEra,
-		CurrentPlannedSession, EraRewardPoints, ErasRewardPoints, ErasStakersClipped,
+		tests::{Staking, Test, WeakBoundedVec},
+		ActiveEra, ActiveEraInfo, BalanceOf, BoundedBTreeMap, BoundedVec, CanceledSlashPayout,
+		ClaimedRewards, CurrentEra, CurrentPlannedSession, EraRewardPoints, ErasRewardPoints,
 		ErasStartSessionIndex, ErasTotalStake, ErasValidatorPrefs, ErasValidatorReward, ForceEra,
 		Forcing, Nominations, Nominators, Perbill, SlashRewardFraction, SlashingSpans,
 		ValidatorPrefs, Validators,
 	};
-	use sp_staking::{EraIndex, Exposure, IndividualExposure, Page, SessionIndex};
+	use sp_staking::{EraIndex, SessionIndex};
 
 	#[test]
 	fn get_validator_count_returns_value_from_storage() {
@@ -8796,7 +8524,9 @@ mod getters {
 		sp_io::TestExternalities::default().execute_with(|| {
 			// given
 			let v: Vec<mock::AccountId> = vec![1, 2, 3];
-			Invulnerables::<Test>::put(v.clone());
+			Invulnerables::<Test>::put(
+				BoundedVec::try_from(v.clone()).expect("Too many invulnerable validators!"),
+			);
 
 			// when
 			let result = Staking::invulnerables();
@@ -8896,33 +8626,12 @@ mod getters {
 	}
 
 	#[test]
-	fn get_eras_stakers_clipped_returns_value_from_storage() {
-		sp_io::TestExternalities::default().execute_with(|| {
-			// given
-			let era: EraIndex = 12;
-			let account_id: mock::AccountId = 1;
-			let exposure: Exposure<mock::AccountId, BalanceOf<Test>> = Exposure {
-				total: 1125,
-				own: 1000,
-				others: vec![IndividualExposure { who: 101, value: 125 }],
-			};
-			ErasStakersClipped::<Test>::insert(era, account_id, exposure.clone());
-
-			// when
-			let result = Staking::eras_stakers_clipped(era, &account_id);
-
-			// then
-			assert_eq!(result, exposure);
-		});
-	}
-
-	#[test]
 	fn get_claimed_rewards_returns_value_from_storage() {
 		sp_io::TestExternalities::default().execute_with(|| {
 			// given
 			let era: EraIndex = 12;
 			let account_id: mock::AccountId = 1;
-			let rewards = Vec::<Page>::new();
+			let rewards = WeakBoundedVec::force_from(vec![], None);
 			ClaimedRewards::<Test>::insert(era, account_id, rewards.clone());
 
 			// when
@@ -8973,10 +8682,9 @@ mod getters {
 		sp_io::TestExternalities::default().execute_with(|| {
 			// given
 			let era: EraIndex = 12;
-			let reward_points = EraRewardPoints::<mock::AccountId> {
-				total: 1,
-				individual: vec![(11, 1)].into_iter().collect(),
-			};
+			let mut reward_map = BoundedBTreeMap::new();
+			frame_support::assert_ok!(reward_map.try_insert(11, 1));
+			let reward_points = EraRewardPoints::<_, _> { total: 1, individual: reward_map };
 			ErasRewardPoints::<Test>::insert(era, reward_points);
 
 			// when
