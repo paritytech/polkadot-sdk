@@ -31,7 +31,7 @@ const CANDIDATE_HASH: CandidateHash = CandidateHash(Hash::zero());
 
 // Simplify getting the value in the benchmark
 pub const fn max_validators_for<T: super::Config>() -> u32 {
-	<T as pallet_staking::Config>::MaxValidatorsCount::get() - 1
+	<T as pallet_staking::Config>::MaxValidatorsCount::get()
 }
 
 pub trait Config:
