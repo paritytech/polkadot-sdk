@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-sdk"
-version = "0.7.0"
+version = "0.9.0"
 description = "Polkadot SDK umbrella crate."
 license = "Apache-2.0"
 
@@ -620,7 +620,7 @@ workspace = true
 path = "../cumulus/parachains/runtimes/assets/common"
 default-features = false
 optional = true
-version = "0.18.1"
+version = "0.18.3"
 
 [dependencies.binary-merkle-tree]
 path = "../substrate/utils/binary-merkle-tree"
@@ -680,7 +680,7 @@ version = "0.18.0"
 path = "../bridges/primitives/xcm-bridge-hub"
 default-features = false
 optional = true
-version = "0.4.0"
+version = "0.4.2"
 
 [dependencies.bp-xcm-bridge-hub-router]
 path = "../bridges/primitives/xcm-bridge-hub-router"
@@ -698,7 +698,7 @@ version = "0.10.0"
 path = "../bridges/bin/runtime-common"
 default-features = false
 optional = true
-version = "0.18.0"
+version = "0.18.2"
 
 [dependencies.cumulus-pallet-aura-ext]
 path = "../cumulus/pallets/aura-ext"
@@ -836,7 +836,7 @@ version = "0.6.0"
 path = "../substrate/frame/support"
 default-features = false
 optional = true
-version = "38.0.0"
+version = "38.2.0"
 
 [dependencies.frame-support-procedural]
 path = "../substrate/frame/support/procedural"
@@ -1004,13 +1004,13 @@ version = "0.18.0"
 path = "../bridges/modules/relayers"
 default-features = false
 optional = true
-version = "0.18.0"
+version = "0.18.2"
 
 [dependencies.pallet-broker]
 path = "../substrate/frame/broker"
 default-features = false
 optional = true
-version = "0.17.0"
+version = "0.17.2"
 
 [dependencies.pallet-child-bounties]
 path = "../substrate/frame/child-bounties"
@@ -1064,7 +1064,7 @@ version = "38.0.0"
 path = "../substrate/frame/core-fellowship"
 default-features = false
 optional = true
-version = "22.0.0"
+version = "22.2.0"
 
 [dependencies.pallet-delegated-staking]
 path = "../substrate/frame/delegated-staking"
@@ -1220,7 +1220,7 @@ version = "38.0.0"
 path = "../substrate/frame/nomination-pools"
 default-features = false
 optional = true
-version = "35.0.0"
+version = "35.0.2"
 
 [dependencies.pallet-nomination-pools-benchmarking]
 path = "../substrate/frame/nomination-pools/benchmarking"
@@ -1232,7 +1232,7 @@ version = "36.0.0"
 path = "../substrate/frame/nomination-pools/runtime-api"
 default-features = false
 optional = true
-version = "33.0.0"
+version = "33.0.2"
 
 [dependencies.pallet-offences]
 path = "../substrate/frame/offences"
@@ -1274,7 +1274,7 @@ version = "38.0.0"
 path = "../substrate/frame/ranked-collective"
 default-features = false
 optional = true
-version = "38.0.0"
+version = "38.2.0"
 
 [dependencies.pallet-recovery]
 path = "../substrate/frame/recovery"
@@ -1340,7 +1340,7 @@ version = "19.0.0"
 path = "../substrate/frame/salary"
 default-features = false
 optional = true
-version = "23.0.0"
+version = "23.2.0"
 
 [dependencies.pallet-scheduler]
 path = "../substrate/frame/scheduler"
@@ -1436,7 +1436,7 @@ version = "37.0.0"
 path = "../substrate/frame/transaction-payment"
 default-features = false
 optional = true
-version = "38.0.0"
+version = "38.0.2"
 
 [dependencies.pallet-transaction-payment-rpc-runtime-api]
 path = "../substrate/frame/transaction-payment/rpc/runtime-api"
@@ -1502,13 +1502,13 @@ version = "17.0.0"
 path = "../bridges/modules/xcm-bridge-hub"
 default-features = false
 optional = true
-version = "0.13.0"
+version = "0.13.2"
 
 [dependencies.pallet-xcm-bridge-hub-router]
 path = "../bridges/modules/xcm-bridge-hub-router"
 default-features = false
 optional = true
-version = "0.15.1"
+version = "0.15.3"
 
 [dependencies.parachains-common]
 path = "../cumulus/parachains/common"
@@ -1832,7 +1832,7 @@ version = "34.0.0"
 path = "../substrate/primitives/runtime"
 default-features = false
 optional = true
-version = "39.0.1"
+version = "39.0.5"
 
 [dependencies.sp-runtime-interface]
 path = "../substrate/primitives/runtime-interface"
@@ -1952,7 +1952,7 @@ version = "14.2.0"
 path = "../polkadot/xcm/xcm-builder"
 default-features = false
 optional = true
-version = "17.0.1"
+version = "17.0.3"
 
 [dependencies.staging-xcm-executor]
 path = "../polkadot/xcm/xcm-executor"
@@ -1988,19 +1988,19 @@ version = "10.1.0"
 path = "../polkadot/xcm/xcm-runtime-apis"
 default-features = false
 optional = true
-version = "0.4.0"
+version = "0.4.2"
 
 [dependencies.asset-test-utils]
 path = "../cumulus/parachains/runtimes/assets/test-utils"
 default-features = false
 optional = true
-version = "18.0.0"
+version = "20.0.0"
 
 [dependencies.bridge-hub-test-utils]
 path = "../cumulus/parachains/runtimes/bridge-hubs/test-utils"
 default-features = false
 optional = true
-version = "0.18.0"
+version = "0.20.0"
 
 [dependencies.cumulus-client-cli]
 path = "../cumulus/client/cli"
@@ -2096,7 +2096,7 @@ version = "0.16.0"
 path = "../cumulus/parachains/integration-tests/emulated/common"
 default-features = false
 optional = true
-version = "14.2.0"
+version = "16.0.0"
 
 [dependencies.fork-tree]
 path = "../substrate/utils/fork-tree"
@@ -2162,13 +2162,13 @@ version = "41.0.0"
 path = "../cumulus/parachains/runtimes/test-utils"
 default-features = false
 optional = true
-version = "17.0.0"
+version = "19.0.0"
 
 [dependencies.polkadot-approval-distribution]
 path = "../polkadot/node/network/approval-distribution"
 default-features = false
 optional = true
-version = "18.0.0"
+version = "18.2.0"
 
 [dependencies.polkadot-availability-bitfield-distribution]
 path = "../polkadot/node/network/bitfield-distribution"
@@ -2234,7 +2234,7 @@ version = "18.0.0"
 path = "../polkadot/node/core/approval-voting"
 default-features = false
 optional = true
-version = "18.0.0"
+version = "18.2.0"
 
 [dependencies.polkadot-node-core-av-store]
 path = "../polkadot/node/core/av-store"
@@ -2348,7 +2348,7 @@ version = "18.0.0"
 path = "../polkadot/node/network/protocol"
 default-features = false
 optional = true
-version = "18.0.2"
+version = "18.2.0"
 
 [dependencies.polkadot-node-primitives]
 path = "../polkadot/node/primitives"
@@ -2576,7 +2576,7 @@ version = "0.15.0"
 path = "../substrate/client/network"
 default-features = false
 optional = true
-version = "0.45.1"
+version = "0.45.3"
 
 [dependencies.sc-network-common]
 path = "../substrate/client/network/common"
@@ -2648,7 +2648,7 @@ version = "0.44.0"
 path = "../substrate/client/rpc-servers"
 default-features = false
 optional = true
-version = "17.1.0"
+version = "17.1.2"
 
 [dependencies.sc-rpc-spec-v2]
 path = "../substrate/client/rpc-spec-v2"
@@ -2726,7 +2726,7 @@ version = "17.0.0"
 path = "../bridges/snowbridge/runtime/test-common"
 default-features = false
 optional = true
-version = "0.10.0"
+version = "0.12.0"
 
 [dependencies.sp-blockchain]
 path = "../substrate/primitives/blockchain"
