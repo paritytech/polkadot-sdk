@@ -410,6 +410,7 @@ jobs:
 
       - name: Commit changes
         run: |
+          sleep 5
           if [ -n "$(git status --porcelain)" ]; then
             git config --global user.name command-bot
             git config --global user.email "<>"
