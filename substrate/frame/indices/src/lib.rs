@@ -29,11 +29,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use codec::Codec;
-use frame_support::traits::{BalanceStatus::Reserved, Currency, ReservableCurrency};
-use sp_runtime::{
-	traits::{AtLeast32Bit, LookupError, Saturating, StaticLookup, Zero},
-	MultiAddress,
-};
+use frame::prelude::*;
 pub use weights::WeightInfo;
 
 type BalanceOf<T> =
@@ -42,11 +38,9 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 
 pub use pallet::*;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	/// The module's config trait.
 	#[pallet::config]
@@ -265,7 +259,7 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, T::AccountIndex, (T::AccountId, BalanceOf<T>, bool)>;
 
 	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
+	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		pub indices: Vec<(T::AccountIndex, T::AccountId)>,
 	}

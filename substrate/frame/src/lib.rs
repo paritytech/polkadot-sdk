@@ -216,6 +216,9 @@ pub mod prelude {
 	/// All hashing related things
 	pub use super::hashing::*;
 
+	/// All arithmetic types used for safe math.
+	pub use super::arithmetic::*;
+
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
@@ -223,9 +226,25 @@ pub mod prelude {
 		Saturating, StaticLookup, TrailingZeroInput,
 	};
 
+	/// Bounded storage related types.
+	pub use sp_runtime::{BoundedSlice, BoundedVec};
+
+	/// Currency related traits and types.
+	pub use frame_support::traits::{
+		BalanceStatus::{self, Reserved},
+		Currency,
+		ExistenceRequirement::KeepAlive,
+		ReservableCurrency,
+	};
+
+	pub use super::address::*;
+
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
-	pub use sp_runtime::{DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError};
+	pub use sp_runtime::{
+		DispatchError::{self, BadOrigin},
+		DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
+	};
 }
 
 #[cfg(any(feature = "try-runtime", test))]
@@ -530,6 +549,13 @@ pub mod derive {
 pub mod hashing {
 	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
+}
+
+pub mod address {
+	pub use sp_runtime::{
+		traits::LookupError,
+		MultiAddress::{self, Id},
+	};
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,

@@ -20,9 +20,8 @@
 #![cfg(test)]
 
 use super::{mock::*, *};
-use frame_support::{assert_noop, assert_ok};
+use frame::testing_prelude::*;
 use pallet_balances::Error as BalancesError;
-use sp_runtime::MultiAddress::Id;
 
 #[test]
 fn claiming_should_work() {
