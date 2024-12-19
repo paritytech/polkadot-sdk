@@ -71,7 +71,7 @@ use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{
 		Bounded, DispatchInfoOf, DispatchOriginOf, SaturatedConversion, Saturating,
-		TransactionExtension, ValidateResult,
+		TransactionExtension, ValidateResult, StaticLookup,
 	},
 	transaction_validity::{InvalidTransaction, ValidTransaction},
 };
@@ -85,7 +85,11 @@ mod tests;
 mod benchmarking;
 pub mod weights;
 pub use weights::*;
+pub mod migration;
 
+const LOG_TARGET: &str = "runtime::example-basic";
+
+type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 /// A type alias for the balance type from this pallet's point of view.
 type BalanceOf<T> = <T as pallet_balances::Config>::Balance;
 const MILLICENTS: u32 = 1_000_000_000;
@@ -112,18 +116,19 @@ const MILLICENTS: u32 = 1_000_000_000;
 //   fulfilled by running the benchmarking toolchain. Refer to `benchmarking.rs` file.
 struct WeightForSetDummy<T: pallet_balances::Config>(BalanceOf<T>);
 
-impl<T: pallet_balances::Config> WeighData<(&BalanceOf<T>,)> for WeightForSetDummy<T> {
-	fn weigh_data(&self, target: (&BalanceOf<T>,)) -> Weight {
+impl<T: pallet_balances::Config> WeighData<(&AccountIdLookupOf<T>, &BalanceOf<T>)> for WeightForSetDummy<T> {
+	fn weigh_data(&self, target: (&AccountIdLookupOf<T>, &BalanceOf<T>)) -> Weight {
 		let multiplier = self.0;
 		// *target.0 is the amount passed into the extrinsic
-		let cents = *target.0 / <BalanceOf<T>>::from(MILLICENTS);
+		let cents = *target.1 / <BalanceOf<T>>::from(MILLICENTS);
 		Weight::from_parts((cents * multiplier).saturated_into::<u64>(), 0)
 	}
 }
 
-impl<T: pallet_balances::Config> ClassifyDispatch<(&BalanceOf<T>,)> for WeightForSetDummy<T> {
-	fn classify_dispatch(&self, target: (&BalanceOf<T>,)) -> DispatchClass {
-		if *target.0 > <BalanceOf<T>>::from(1000u32) {
+impl<T: pallet_balances::Config> ClassifyDispatch<(&AccountIdLookupOf<T>, &BalanceOf<T>)> for WeightForSetDummy<T> {
+	fn classify_dispatch(&self, target: (&AccountIdLookupOf<T>, &BalanceOf<T>)) -> DispatchClass {
+		// current_balance + target amount passed into the extrinsic.
+		if self.0.saturating_add(*target.1) > <BalanceOf<T>>::from(1000u32) {
 			DispatchClass::Operational
 		} else {
 			DispatchClass::Normal
@@ -131,9 +136,13 @@ impl<T: pallet_balances::Config> ClassifyDispatch<(&BalanceOf<T>,)> for WeightFo
 	}
 }
 
-impl<T: pallet_balances::Config> PaysFee<(&BalanceOf<T>,)> for WeightForSetDummy<T> {
-	fn pays_fee(&self, _target: (&BalanceOf<T>,)) -> Pays {
-		Pays::Yes
+impl<T: pallet_balances::Config> PaysFee<(&AccountIdLookupOf<T>, &BalanceOf<T>)> for WeightForSetDummy<T> {
+	fn pays_fee(&self, target: (&AccountIdLookupOf<T>, &BalanceOf<T>)) -> Pays {
+		if *target.1 > <BalanceOf<T>>::from(1000u32) {
+            Pays::Yes
+        } else {
+            Pays::No
+        }
 	}
 }
 
@@ -143,7 +152,7 @@ impl<T: pallet_balances::Config> PaysFee<(&BalanceOf<T>,)> for WeightForSetDummy
 pub mod pallet {
 	// Import various types used to declare pallet in scope.
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, weights::WeightMeter};
 	use frame_system::pallet_prelude::*;
 
 	/// Our pallet's configuration trait. All our types and constants go in here. If the
@@ -178,6 +187,7 @@ pub mod pallet {
 		//
 		// This function must return the weight consumed by `on_initialize` and `on_finalize`.
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
+
 			// Anything that needs to be done at the start of the block.
 			// We don't do anything here.
 			Weight::zero()
@@ -186,23 +196,13 @@ pub mod pallet {
 		// `on_finalize` is executed at the end of block after all extrinsic are dispatched.
 		fn on_finalize(_n: BlockNumberFor<T>) {
 			// Perform necessary data/state clean up here.
-		}
-
-		// A runtime code run after every block and have access to extended set of APIs.
-		//
-		// For instance you can generate extrinsics for the upcoming produced block.
-		fn offchain_worker(_n: BlockNumberFor<T>) {
-			// We don't do anything here.
-			// but we could dispatch extrinsic (transaction/unsigned/inherent) using
-			// sp_io::submit_extrinsic.
-			// To see example on offchain worker, please refer to example-offchain-worker pallet
-			// accompanied in this repository.
+			let _ = Dummy::<T>::clear(u32::MAX, None);
 		}
 
 		// The on_idle hook is called when the system is idle, typically
 		// during periods when no extrinsics are being processed.
 		// More details about the hook can be found here: https://github.com/paritytech/substrate/issues/4064.
-		fn on_idle(_n: BlockNumberFor<T>, _remaining_weight: Weight) -> Weight {
+		fn on_idle(n: BlockNumberFor<T>, _remaining_weight: Weight) -> Weight {
 			// Log the block number at which the on_idle hook is being called
 			log::info!("on_idle called at block number {:?}", n);
 
@@ -212,7 +212,20 @@ pub mod pallet {
 			Weight::zero()
 		}
 
+		fn on_poll(_n: BlockNumberFor<T>, _weight: &mut WeightMeter) { 
+			unimplemented!() 
+		}
+
 		fn on_runtime_upgrade() -> Weight {
+			unimplemented!()
+		}
+
+		// Assert invariants that must always be held in a pallet with non-trivial.
+		// More details about implementing the `try-state`
+		// can be found here: https://github.com/paritytech/polkadot-sdk/issues/239.
+		// This pallet contains trivial logic hence no invariant checking required.
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 			unimplemented!()
 		}
 
@@ -226,13 +239,19 @@ pub mod pallet {
 			unimplemented!()
 		}
 
-		// Assert invariants that must always be held in a pallet with non-trivial.
-		// More details about implementing the `try-state`
-		// can be found here: https://github.com/paritytech/polkadot-sdk/issues/239.
-		// This pallet contains trivial logic hence no invariant checking required.
-		#[cfg(feature = "try-runtime")]
-		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
-			unimplemented!()
+		// A runtime code run after every block and have access to extended set of APIs.
+		//
+		// For instance you can generate extrinsics for the upcoming produced block.
+		fn offchain_worker(_n: BlockNumberFor<T>) {
+			// We don't do anything here.
+			// but we could dispatch extrinsic (transaction/unsigned/inherent) using
+			// sp_io::submit_extrinsic.
+			// To see example on offchain worker, please refer to example-offchain-worker pallet
+			// accompanied in this repository.
+		}
+
+		fn integrity_test() { 
+			unimplemented!() 
 		}
 	}
 
@@ -322,33 +341,9 @@ pub mod pallet {
 		// The weight for this extrinsic we rely on the auto-generated `WeightInfo` from the
 		// benchmark toolchain.
 		#[pallet::call_index(0)]
-		pub fn accumulate_dummy(origin: OriginFor<T>, increase_by: T::Balance) -> DispatchResult {
-			// This is a public call, so we ensure that the origin is some signed account.
-			let _sender = ensure_signed(origin)?;
-
-			// Read the value of dummy from storage.
-			// let dummy = Dummy::<T>::get();
-
-			// Calculate the new value.
-			// let new_dummy = dummy.map_or(increase_by, |dummy| dummy + increase_by);
-
-			// Put the new value into storage.
-			// <Dummy<T>>::put(new_dummy);
-			// Will also work with a reference:
-			// <Dummy<T>>::put(&new_dummy);
-
-			// Here's the new one of read and then modify the value.
-			<Dummy<T>>::mutate(|dummy| {
-				// Using `saturating_add` instead of a regular `+` to avoid overflowing
-				let new_dummy = dummy.map_or(increase_by, |d| d.saturating_add(increase_by));
-				*dummy = Some(new_dummy);
-			});
-
-			// Let's deposit an event to let the outside world know this happened.
-			Self::deposit_event(Event::AccumulateDummy { balance: increase_by });
-
-			// All good, no refund.
-			Ok(())
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::accumulate_dummy())]
+		pub fn accumulate_dummy(who: OriginFor<T>, increase_by: T::Balance) -> DispatchResult {
+			Self::do_accumulate_dummy(who, increase_by)
 		}
 
 		/// A privileged call; in this case it resets our dummy value to something new.
@@ -365,9 +360,15 @@ pub mod pallet {
 		#[pallet::weight(WeightForSetDummy::<T>(<BalanceOf<T>>::from(100u32)))]
 		pub fn set_dummy(
 			origin: OriginFor<T>,
+			who: AccountIdLookupOf<T>,
 			#[pallet::compact] new_value: T::Balance,
 		) -> DispatchResult {
 			ensure_root(origin)?;
+			let who = T::Lookup::lookup(who)?;
+
+			// assert no value exixsts for that user.
+			// Assert no value exists for the user.
+			ensure!(Dummy::<T>::get(who.clone()).is_none(), Error::<T>::ValueAlreadySet);
 
 			// Print out log or debug message in the console via log::{error, warn, info, debug,
 			// trace}, accepting format strings similar to `println!`.
@@ -376,7 +377,7 @@ pub mod pallet {
 			info!("New value is now: {:?}", new_value);
 
 			// Put the new value into storage.
-			<Dummy<T>>::put(new_value);
+			<Dummy<T>>::insert(who, new_value);
 
 			Self::deposit_event(Event::SetDummy { balance: new_value });
 
@@ -401,10 +402,12 @@ pub mod pallet {
 		SetDummy {
 			balance: BalanceOf<T>,
 		},
-		SetBar {
-			account: T::AccountId,
-			balance: BalanceOf<T>,
-		},
+	}
+
+	#[pallet::error]
+	pub enum Error<T> {
+		NoEntryForSender,
+		ValueAlreadySet
 	}
 
 	// pallet::storage attributes allow for type-safe usage of the Substrate storage database,
@@ -413,33 +416,21 @@ pub mod pallet {
 	// Any storage must be one of `StorageValue`, `StorageMap` or `StorageDoubleMap`.
 	// The first generic holds the prefix to use and is generated by the macro.
 	// The query kind is either `OptionQuery` (the default) or `ValueQuery`.
-	// - for `type Foo<T> = StorageValue<_, u32, OptionQuery>`:
-	//   - `Foo::put(1); Foo::get()` returns `Some(1)`;
-	//   - `Foo::kill(); Foo::get()` returns `None`.
-	// - for `type Foo<T> = StorageValue<_, u32, ValueQuery>`:
-	//   - `Foo::put(1); Foo::get()` returns `1`;
-	//   - `Foo::kill(); Foo::get()` returns `0` (u32::default()).
+	// - for `type Dummy<T> = StorageValue<_, u32, OptionQuery>`:
+	//   - `Dummy::put(1); Foo::get()` returns `Some(1)`;
+	//   - `Dummy::kill(); Foo::get()` returns `None`.
+	// - for `type Dummy<T> = StorageValue<_, u32, ValueQuery>`:
+	//   - `Dummy::put(1); Foo::get()` returns `1`;
+	//   - `Dummy::kill(); Foo::get()` returns `0` (u32::default()).
 	#[pallet::storage]
-	pub(super) type Dummy<T: Config> = StorageValue<_, T::Balance>;
+	pub(super) type Dummy<T: Config> = StorageMap<_,Twox64Concat, T::AccountId, T::Balance, OptionQuery>;
 
-	// A map that has enumerable entries.
-	#[pallet::storage]
-	pub(super) type Bar<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, T::Balance>;
-
-	// this one uses the query kind: `ValueQuery`, we'll demonstrate the usage of 'mutate' API.
-	#[pallet::storage]
-	pub(super) type Foo<T: Config> = StorageValue<_, T::Balance, ValueQuery>;
-
-	#[pallet::storage]
-	pub type CountedMap<T> = CountedStorageMap<_, Blake2_128Concat, u8, u16>;
-
+	/*
 	// The genesis config type.
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		pub dummy: T::Balance,
-		pub bar: Vec<(T::AccountId, T::Balance)>,
-		pub foo: T::Balance,
 	}
 
 	// The build of genesis for the pallet.
@@ -447,12 +438,9 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			<Dummy<T>>::put(&self.dummy);
-			for (a, b) in &self.bar {
-				<Bar<T>>::insert(a, b);
-			}
-			<Foo<T>>::put(&self.foo);
 		}
 	}
+	*/
 }
 
 // The main implementation block for the pallet. Functions here fall into three broad
@@ -463,18 +451,35 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
 	// Add public immutables and private mutables.
 	#[allow(dead_code)]
-	fn accumulate_foo(origin: T::RuntimeOrigin, increase_by: T::Balance) -> DispatchResult {
-		let _sender = ensure_signed(origin)?;
-
-		let prev = Foo::<T>::get();
-		// Because Foo has 'default', the type of 'foo' in closure is the raw type instead of an
-		// Option<> type.
-		let result = Foo::<T>::mutate(|foo| {
-			*foo = foo.saturating_add(increase_by);
-			*foo
+	fn do_accumulate_dummy(origin: T::RuntimeOrigin, increase_by: T::Balance) -> DispatchResult {
+		// Ensure that the origin is signed, meaning the sender is an account.
+		let who = ensure_signed(origin)?;
+	
+		// Check if the sender already has an entry in the Dummy map.
+		// We want to ensure the sender is the owner of the entry.
+		let current_dummy = Dummy::<T>::get(&who);
+	
+		if current_dummy.is_none() {
+			// If no entry exists, we can create a new one or return an error
+			// indicating the sender does not own an entry.
+			return Err(Error::<T>::NoEntryForSender.into());
+		}
+	
+		// If an entry exists, we can mutate it.
+		<Dummy<T>>::mutate(&who, |dummy_opt| {
+			if let Some(dummy) = dummy_opt {
+				// Using `saturating_add` to avoid overflow and safely update the value.
+				*dummy = dummy.saturating_add(increase_by);
+			} else {
+				// If it's None, initialize it to the increase value.
+				*dummy_opt = Some(increase_by);
+			}
 		});
-		assert!(prev + increase_by == result);
-
+	
+		// Deposit an event to inform the outside world of the change.
+		Self::deposit_event(Event::AccumulateDummy { balance: increase_by });
+	
+		// Return Ok() since the operation was successful.
 		Ok(())
 	}
 }
