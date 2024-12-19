@@ -37,7 +37,7 @@ pub mod v0 {
 	pub type ReferendumInfoOf<T, I> = ReferendumInfo<
 		TrackIdOf<T, I>,
 		PalletsOriginOf<T>,
-		frame_system::pallet_prelude::BlockNumberFor<T>,
+		BlockNumberFor<T, I>,
 		BoundedCallOf<T, I>,
 		BalanceOf<T, I>,
 		TallyOf<T, I>,
