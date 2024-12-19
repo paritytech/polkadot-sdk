@@ -1555,25 +1555,36 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_delegate_call() -> Result<(), BenchmarkError> {
-		let hash = Contract::<T>::with_index(1, WasmModule::dummy(), vec![])?.info()?.code_hash;
+		let Contract { account_id: address, .. } =
+			Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
+
+		let address_bytes = address.encode();
+		let address_len = address_bytes.len() as u32;
+
+		let deposit: BalanceOf<T> = (u32::MAX - 100).into();
+		let deposit_bytes = Into::<U256>::into(deposit).encode();
 
 		let mut setup = CallSetup::<T>::default();
+		setup.set_storage_deposit_limit(deposit);
 		setup.set_origin(Origin::from_account_id(setup.contract().account_id.clone()));
 
 		let (mut ext, _) = setup.ext();
 		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
-		let mut memory = memory!(hash.encode(),);
+		let mut memory = memory!(address_bytes, deposit_bytes,);
 
 		let result;
 		#[block]
 		{
 			result = runtime.bench_delegate_call(
 				memory.as_mut_slice(),
-				0,        // flags
-				0,        // code_hash_ptr
-				0,        // input_data_ptr
-				0,        // input_data_len
-				SENTINEL, // output_ptr
+				0,           // flags
+				0,           // address_ptr
+				0,           // ref_time_limit
+				0,           // proof_size_limit
+				address_len, // deposit_ptr
+				0,           // input_data_ptr
+				0,           // input_data_len
+				SENTINEL,    // output_ptr
 				0,
 			);
 		}

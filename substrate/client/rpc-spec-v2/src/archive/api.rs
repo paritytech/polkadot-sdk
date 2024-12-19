@@ -19,7 +19,10 @@
 //! API trait of the archive methods.
 
 use crate::{
-	common::events::{ArchiveStorageResult, PaginatedStorageQuery},
+	common::events::{
+		ArchiveStorageDiffEvent, ArchiveStorageDiffItem, ArchiveStorageResult,
+		PaginatedStorageQuery,
+	},
 	MethodResult,
 };
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
@@ -104,4 +107,21 @@ pub trait ArchiveApi<Hash> {
 		items: Vec<PaginatedStorageQuery<String>>,
 		child_trie: Option<String>,
 	) -> RpcResult<ArchiveStorageResult>;
+
+	/// Returns the storage difference between two blocks.
+	///
+	/// # Unstable
+	///
+	/// This method is unstable and can change in minor or patch releases.
+	#[subscription(
+		name = "archive_unstable_storageDiff" => "archive_unstable_storageDiffEvent",
+		unsubscribe = "archive_unstable_storageDiff_stopStorageDiff",
+		item = ArchiveStorageDiffEvent,
+	)]
+	fn archive_unstable_storage_diff(
+		&self,
+		hash: Hash,
+		items: Vec<ArchiveStorageDiffItem<String>>,
+		previous_hash: Option<Hash>,
+	);
 }
