@@ -154,6 +154,7 @@ impl Config for Test {
 	type WeightInfo = ();
 	type MaxTurnout = frame_support::traits::TotalIssuanceOf<Balances, Self::AccountId>;
 	type Polls = TestPolls;
+	type BlockNumberProvider = System;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
