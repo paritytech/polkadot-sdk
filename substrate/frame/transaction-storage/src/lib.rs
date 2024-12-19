@@ -33,6 +33,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::result;
+/*
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	traits::{
@@ -42,6 +43,8 @@ use frame_support::{
 	},
 };
 use sp_runtime::traits::{BlakeTwo256, Dispatchable, Hash, One, Saturating, Zero};
+*/
+use frame::{deps::{sp_io, sp_runtime}, prelude::*, traits::{Get, IsType, fungible::{hold::Balanced, Inspect, Mutate, MutateHold}, tokens::fungible::Credit, OnUnbalanced, BlakeTwo256, Dispatchable, Hash, One, Saturating, Zero}};
 use sp_transaction_storage_proof::{
 	encode_index, random_chunk, InherentError, TransactionStorageProof, CHUNK_SIZE,
 	INHERENT_IDENTIFIER,
@@ -66,7 +69,7 @@ pub const DEFAULT_MAX_BLOCK_TRANSACTIONS: u32 = 512;
 	Encode,
 	Decode,
 	Clone,
-	sp_runtime::RuntimeDebug,
+	frame::derive::RuntimeDebug,
 	PartialEq,
 	Eq,
 	scale_info::TypeInfo,
@@ -88,11 +91,14 @@ fn num_chunks(bytes: u32) -> u32 {
 	((bytes as u64 + CHUNK_SIZE as u64 - 1) / CHUNK_SIZE as u64) as u32
 }
 
-#[frame_support::pallet]
+// #[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
+	/*
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	*/
 
 	/// A reason for this pallet placing a hold on funds.
 	#[pallet::composite_enum]

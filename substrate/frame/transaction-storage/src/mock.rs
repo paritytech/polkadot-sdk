@@ -21,16 +21,18 @@ use crate::{
 	self as pallet_transaction_storage, TransactionStorageProof, DEFAULT_MAX_BLOCK_TRANSACTIONS,
 	DEFAULT_MAX_TRANSACTION_SIZE,
 };
+use frame::{testing_prelude::*, traits::IdentityLookup};
+/*
 use frame_support::{
 	derive_impl,
 	traits::{ConstU32, OnFinalize, OnInitialize},
 };
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
-
+*/
 pub type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -63,7 +65,7 @@ impl pallet_transaction_storage::Config for Test {
 	type MaxTransactionSize = ConstU32<{ DEFAULT_MAX_TRANSACTION_SIZE }>;
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> frame::deps::sp_io::TestExternalities {
 	let t = RuntimeGenesisConfig {
 		system: Default::default(),
 		balances: pallet_balances::GenesisConfig::<Test> {
