@@ -384,6 +384,8 @@ zombienet-polkadot-elastic-scaling-doesnt-break-parachains:
       artifacts: true
   before_script:
     - !reference [ ".zombienet-polkadot-common", "before_script" ]
+  variables:
+    KUBERNETES_CPU_REQUEST: "1"
   script:
     # we want to use `--no-capture` in zombienet tests.
     - unset NEXTEST_FAILURE_OUTPUT
