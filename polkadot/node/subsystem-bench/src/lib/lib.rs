@@ -16,6 +16,7 @@
 
 // The validator index that represents the node that is under test.
 pub const NODE_UNDER_TEST: u32 = 0;
+pub const SESSION_INDEX: u32 = 0;
 
 pub mod approval;
 pub mod availability;

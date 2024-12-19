@@ -27,6 +27,7 @@ pub mod dummy;
 pub mod network_bridge;
 pub mod prospective_parachains;
 pub mod runtime_api;
+pub mod statement_distribution;
 
 pub struct AlwaysSupportsParachains {}
 

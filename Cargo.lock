@@ -19595,6 +19595,7 @@ dependencies = [
 name = "polkadot-subsystem-bench"
 version = "1.0.0"
 dependencies = [
+ "array-bytes",
  "assert_matches",
  "async-trait",
  "bincode",
@@ -19612,12 +19613,14 @@ dependencies = [
  "log",
  "orchestra",
  "parity-scale-codec",
+ "parking_lot 0.12.3",
  "paste",
  "polkadot-approval-distribution",
  "polkadot-availability-bitfield-distribution",
  "polkadot-availability-distribution",
  "polkadot-availability-recovery",
  "polkadot-erasure-coding",
+ "polkadot-network-bridge",
  "polkadot-node-core-approval-voting",
  "polkadot-node-core-approval-voting-parallel",
  "polkadot-node-core-av-store",
@@ -19643,6 +19646,7 @@ dependencies = [
  "rand_distr",
  "sc-keystore",
  "sc-network",
+ "sc-network-common",
  "sc-network-types",
  "sc-service",
  "schnorrkel 0.11.4",
