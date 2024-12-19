@@ -119,6 +119,15 @@ extern crate alloc;
 use crate::types::{AuthorityProperties, Provider, Suffix, Username, UsernameInformation};
 use alloc::{boxed::Box, vec::Vec};
 use codec::Encode;
+use frame::{
+	prelude::*,
+	traits::{
+		AppendZerosInput, BalanceStatus, Currency, Defensive, Hash, IdentifyAccount,
+		OnUnbalanced, ReservableCurrency, StorageVersion, Verify, Zero,
+	},
+};
+pub use pallet::*;
+/*
 use frame_support::{
 	ensure,
 	pallet_prelude::{DispatchError, DispatchResult},
@@ -128,10 +137,11 @@ use frame_support::{
 	BoundedVec,
 };
 use frame_system::pallet_prelude::*;
-pub use pallet::*;
+
 use sp_runtime::traits::{
 	AppendZerosInput, Hash, IdentifyAccount, Saturating, StaticLookup, Verify, Zero,
 };
+*/
 pub use types::{
 	Data, IdentityInformationProvider, Judgement, RegistrarIndex, RegistrarInfo, Registration,
 };
@@ -145,10 +155,11 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 type ProviderOf<T> = Provider<BalanceOf<T>>;
 
-#[frame_support::pallet]
+// #[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	// use frame_support::pallet_prelude::*;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {

@@ -18,17 +18,28 @@
 extern crate alloc;
 
 use super::*;
+use frame::deps::frame_support::{
+	migrations::{MigrationId, SteppedMigration, SteppedMigrationError, VersionedMigration},
+	pallet_prelude::*,
+	storage_alias,
+	traits::UncheckedOnRuntimeUpgrade,
+	weights::WeightMeter,
+	Hashable, IterableStorageMap,
+	migration,
+};
+/*
 use frame_support::{
 	migrations::VersionedMigration, pallet_prelude::*, storage_alias,
 	traits::UncheckedOnRuntimeUpgrade, IterableStorageMap,
 };
+*/
 
 #[cfg(feature = "try-runtime")]
 use alloc::collections::BTreeMap;
 #[cfg(feature = "try-runtime")]
 use codec::{Decode, Encode};
 #[cfg(feature = "try-runtime")]
-use sp_runtime::TryRuntimeError;
+use frame::deps::sp_runtime::TryRuntimeError;
 
 pub const PALLET_MIGRATIONS_ID: &[u8; 15] = b"pallet-identity";
 
@@ -181,10 +192,12 @@ pub mod v1 {
 
 pub mod v2 {
 	use super::*;
+	/*
 	use frame_support::{
 		migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 		weights::WeightMeter,
 	};
+	*/
 
 	type HashedKey = BoundedVec<u8, ConstU32<256>>;
 	// The resulting state of the step and the actual weight consumed.
@@ -603,7 +616,7 @@ pub mod v2 {
 				<T as Config>::MaxRegistrars,
 				<T as Config>::IdentityInformation,
 			> = Registration { judgements: Default::default(), deposit: 10u32.into(), info };
-			frame_support::migration::put_storage_value(
+			migration::put_storage_value(
 				b"Identity",
 				b"IdentityOf",
 				&account_id.twox_64_concat(),
@@ -611,7 +624,7 @@ pub mod v2 {
 			);
 			types_v1::AccountOfUsername::<T>::insert(&username, &account_id);
 			let since: BlockNumberFor<T> = 0u32.into();
-			frame_support::migration::put_storage_value(
+			migration::put_storage_value(
 				b"Identity",
 				b"PendingUsernames",
 				&username.blake2_128_concat(),
@@ -671,7 +684,7 @@ pub mod v2 {
 
 	#[cfg(test)]
 	mod tests {
-		use frame_support::Hashable;
+		// use frame_support::Hashable;
 
 		use super::*;
 		use crate::tests::{new_test_ext, Test};
@@ -724,7 +737,7 @@ pub mod v2 {
 					if i % 2 == 0 {
 						let has_identity = i % 4 == 0;
 						let reg = registration(has_identity);
-						frame_support::migration::put_storage_value(
+						migration::put_storage_value(
 							b"Identity",
 							b"IdentityOf",
 							&account_id.twox_64_concat(),
@@ -738,7 +751,7 @@ pub mod v2 {
 						let username_2: Username<Test> = username_2.try_into().unwrap();
 						types_v1::AccountOfUsername::<Test>::insert(&username_2, &account_id);
 						let reg = registration(has_identity);
-						frame_support::migration::put_storage_value(
+						migration::put_storage_value(
 							b"Identity",
 							b"IdentityOf",
 							&account_id.twox_64_concat(),
@@ -756,7 +769,7 @@ pub mod v2 {
 					bare_username.extend(suffix_1.iter());
 					let username: Username<Test> = bare_username.try_into().unwrap();
 					let since: BlockNumberFor<Test> = i.into();
-					frame_support::migration::put_storage_value(
+					migration::put_storage_value(
 						b"Identity",
 						b"PendingUsernames",
 						&username.blake2_128_concat(),
@@ -769,7 +782,7 @@ pub mod v2 {
 				for i in 120u8..130u8 {
 					let account_id = account_from_u8(i);
 					let reg = registration(true);
-					frame_support::migration::put_storage_value(
+					migration::put_storage_value(
 						b"Identity",
 						b"IdentityOf",
 						&account_id.twox_64_concat(),
