@@ -1650,8 +1650,8 @@ mod benchmarks {
 				&mut memory,
 				CallFlags::CLONE_INPUT.bits(), // flags
 				0,                             // callee_ptr
-				u64::MAX,                      // ref_time_limit
-				u64::MAX,                      // proof_size_limit
+				0,                             // ref_time_limit
+				0,                             // proof_size_limit
 				callee_len,                    // deposit_ptr
 				callee_len + deposit_len,      // value_ptr
 				0,                             // input_data_ptr
@@ -1744,8 +1744,8 @@ mod benchmarks {
 				&mut runtime,
 				&mut memory,
 				0,                   // code_hash_ptr
-				u64::MAX,            // ref_time_limit
-				u64::MAX,            // proof_size_limit
+				0,                   // ref_time_limit
+				0,                   // proof_size_limit
 				offset(hash_len),    // deposit_ptr
 				offset(deposit_len), // value_ptr
 				offset(value_len),   // input_data_ptr
