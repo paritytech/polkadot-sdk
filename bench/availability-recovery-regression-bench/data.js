@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734604894617,
+  "lastUpdate": 1734609390944,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -35587,6 +35587,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.23387821443333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "37865735+clangenb@users.noreply.github.com",
+            "name": "clangenb",
+            "username": "clangenb"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ade1f755cbba62cd6800601d1d78202ee5f629a5",
+          "message": "[polkadot-runtime-parachains] migrate disputes and disputes/slashing to benchmarking to bench v2 syntax (#6577)\n\n[polkadot-runtime-parachains] migrate disputes and disputes/slashing to\nbenchmarking to bench v2 syntax\n\nPart of:\n* #6202\n\n---------\n\nCo-authored-by: Giuseppe Re <giuseppe.re@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-12-19T10:53:37Z",
+          "tree_id": "156a4e9b9f886ff25dd38e461b365820e95dd62c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ade1f755cbba62cd6800601d1d78202ee5f629a5"
+        },
+        "date": 1734609373955,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.594981939399997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.23611661069999995,
             "unit": "seconds"
           }
         ]
