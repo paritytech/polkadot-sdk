@@ -60,7 +60,7 @@ polkadot-parachain \
 ```
 
 #### External Relay Chain Node
-An external relay chain node is connected via WebsSocket RPC by using the `--relay-chain-rpc-urls` command line
+An external relay chain node is connected via WebSocket RPC by using the `--relay-chain-rpc-urls` command line
 argument. This option accepts one or more space-separated WebSocket URLs to a full relay chain node. By default, only
 the first URL will be used, with the rest as a backup in case the connection to the first node is lost.
 
