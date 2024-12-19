@@ -82,7 +82,9 @@
 /// in practice at most once every few weeks.
 use polkadot_node_subsystem::messages::HypotheticalCandidate;
 use polkadot_primitives::{
-	async_backing::Constraints as PrimitiveConstraints, vstaging::skip_ump_signals, BlockNumber,
+	async_backing::Constraints as OldPrimitiveConstraints,
+	vstaging::async_backing::Constraints as PrimitiveConstraints,
+	vstaging::skip_ump_signals, BlockNumber,
 	CandidateCommitments, CandidateHash, Hash, HeadData, Id as ParaId, PersistedValidationData,
 	UpgradeRestriction, ValidationCodeHash,
 };
@@ -115,6 +117,8 @@ pub struct Constraints {
 	pub max_pov_size: usize,
 	/// The maximum new validation code size allowed, in bytes.
 	pub max_code_size: usize,
+	/// The maximum head-data size, in bytes.
+	pub max_head_data_size: usize,
 	/// The amount of UMP messages remaining.
 	pub ump_remaining: usize,
 	/// The amount of UMP bytes remaining.
@@ -146,6 +150,45 @@ impl From<PrimitiveConstraints> for Constraints {
 			min_relay_parent_number: c.min_relay_parent_number,
 			max_pov_size: c.max_pov_size as _,
 			max_code_size: c.max_code_size as _,
+			max_head_data_size: c.max_head_data_size as _,
+			ump_remaining: c.ump_remaining as _,
+			ump_remaining_bytes: c.ump_remaining_bytes as _,
+			max_ump_num_per_candidate: c.max_ump_num_per_candidate as _,
+			dmp_remaining_messages: c.dmp_remaining_messages,
+			hrmp_inbound: InboundHrmpLimitations {
+				valid_watermarks: c.hrmp_inbound.valid_watermarks,
+			},
+			hrmp_channels_out: c
+				.hrmp_channels_out
+				.into_iter()
+				.map(|(para_id, limits)| {
+					(
+						para_id,
+						OutboundHrmpChannelLimitations {
+							bytes_remaining: limits.bytes_remaining as _,
+							messages_remaining: limits.messages_remaining as _,
+						},
+					)
+				})
+				.collect(),
+			max_hrmp_num_per_candidate: c.max_hrmp_num_per_candidate as _,
+			required_parent: c.required_parent,
+			validation_code_hash: c.validation_code_hash,
+			upgrade_restriction: c.upgrade_restriction,
+			future_validation_code: c.future_validation_code,
+		}
+	}
+}
+
+
+impl From<OldPrimitiveConstraints> for Constraints {
+	fn from(c: OldPrimitiveConstraints) -> Self {
+		Constraints {
+			min_relay_parent_number: c.min_relay_parent_number,
+			max_pov_size: c.max_pov_size as _,
+			max_code_size: c.max_code_size as _,
+			// Equal to Polkadot/Kusama config.
+			max_head_data_size: 20480,
 			ump_remaining: c.ump_remaining as _,
 			ump_remaining_bytes: c.ump_remaining_bytes as _,
 			max_ump_num_per_candidate: c.max_ump_num_per_candidate as _,
@@ -520,6 +563,10 @@ pub enum FragmentValidityError {
 	///
 	/// Max allowed, new.
 	CodeSizeTooLarge(usize, usize),
+	/// Head data size too big.
+	///
+	/// Max allowed, new.
+	HeadDataTooLarge(usize, usize),
 	/// Relay parent too old.
 	///
 	/// Min allowed, current.
@@ -686,33 +733,22 @@ impl Fragment {
 	}
 }
 
-fn validate_against_constraints(
+/// Validates if the candidate commitments are obeying the constraints.
+pub fn validate_commitments(
 	constraints: &Constraints,
 	relay_parent: &RelayChainBlockInfo,
 	commitments: &CandidateCommitments,
-	persisted_validation_data: &PersistedValidationData,
 	validation_code_hash: &ValidationCodeHash,
-	modifications: &ConstraintModifications,
 ) -> Result<(), FragmentValidityError> {
-	let expected_pvd = PersistedValidationData {
-		parent_head: constraints.required_parent.clone(),
-		relay_parent_number: relay_parent.number,
-		relay_parent_storage_root: relay_parent.storage_root,
-		max_pov_size: constraints.max_pov_size as u32,
-	};
-
-	if expected_pvd != *persisted_validation_data {
-		return Err(FragmentValidityError::PersistedValidationDataMismatch(
-			expected_pvd,
-			persisted_validation_data.clone(),
-		))
-	}
-
 	if constraints.validation_code_hash != *validation_code_hash {
 		return Err(FragmentValidityError::ValidationCodeMismatch(
 			constraints.validation_code_hash,
 			*validation_code_hash,
 		))
+	}
+
+	if commitments.head_data.0.len() > constraints.max_head_data_size {
+		return Err(FragmentValidityError::HeadDataTooLarge(constraints.max_head_data_size, commitments.head_data.0.len()))
 	}
 
 	if relay_parent.number < constraints.min_relay_parent_number {
@@ -730,6 +766,7 @@ fn validate_against_constraints(
 		}
 	}
 
+
 	let announced_code_size =
 		commitments.new_validation_code.as_ref().map_or(0, |code| code.0.len());
 
@@ -740,6 +777,40 @@ fn validate_against_constraints(
 		))
 	}
 
+	if commitments.horizontal_messages.len() > constraints.max_hrmp_num_per_candidate {
+		return Err(FragmentValidityError::HrmpMessagesPerCandidateOverflow {
+			messages_allowed: constraints.max_hrmp_num_per_candidate,
+			messages_submitted: commitments.horizontal_messages.len(),
+		})
+	}
+	
+	Ok(())
+}
+
+fn validate_against_constraints(
+	constraints: &Constraints,
+	relay_parent: &RelayChainBlockInfo,
+	commitments: &CandidateCommitments,
+	persisted_validation_data: &PersistedValidationData,
+	validation_code_hash: &ValidationCodeHash,
+	modifications: &ConstraintModifications,
+) -> Result<(), FragmentValidityError> {
+	
+	validate_commitments(constraints, relay_parent, commitments, validation_code_hash)?;
+
+	let expected_pvd = PersistedValidationData {
+		parent_head: constraints.required_parent.clone(),
+		relay_parent_number: relay_parent.number,
+		relay_parent_storage_root: relay_parent.storage_root,
+		max_pov_size: constraints.max_pov_size as u32,
+	};
+
+	if expected_pvd != *persisted_validation_data {
+		return Err(FragmentValidityError::PersistedValidationDataMismatch(
+			expected_pvd,
+			persisted_validation_data.clone(),
+		))
+	}
 	if modifications.dmp_messages_processed == 0 {
 		if constraints
 			.dmp_remaining_messages
@@ -750,20 +821,12 @@ fn validate_against_constraints(
 		}
 	}
 
-	if commitments.horizontal_messages.len() > constraints.max_hrmp_num_per_candidate {
-		return Err(FragmentValidityError::HrmpMessagesPerCandidateOverflow {
-			messages_allowed: constraints.max_hrmp_num_per_candidate,
-			messages_submitted: commitments.horizontal_messages.len(),
-		})
-	}
-
 	if modifications.ump_messages_sent > constraints.max_ump_num_per_candidate {
 		return Err(FragmentValidityError::UmpMessagesPerCandidateOverflow {
 			messages_allowed: constraints.max_ump_num_per_candidate,
 			messages_submitted: commitments.upward_messages.len(),
 		})
 	}
-
 	constraints
 		.check_modifications(&modifications)
 		.map_err(FragmentValidityError::OutputsInvalid)

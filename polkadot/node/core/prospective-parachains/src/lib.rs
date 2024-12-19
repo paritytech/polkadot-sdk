@@ -45,15 +45,12 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::{BlockInfoProspectiveParachains as BlockInfo, View as ImplicitView},
 	inclusion_emulator::{Constraints, RelayChainBlockInfo},
-	request_session_index_for_child,
+	request_candidates_pending_availability, request_constraints, request_session_index_for_child,
 	runtime::{fetch_claim_queue, prospective_parachains_mode, ProspectiveParachainsMode},
 };
 use polkadot_primitives::{
-	vstaging::{
-		async_backing::CandidatePendingAvailability,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
-	},
-	BlockNumber, CandidateHash, Hash, HeadData, Header, Id as ParaId, PersistedValidationData,
+	vstaging::{CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState},
+	BlockNumber, CandidateHash, Hash, Header, Id as ParaId, PersistedValidationData,
 };
 
 use crate::{
@@ -257,8 +254,9 @@ async fn handle_active_leaves_update<Context>(
 		let mut fragment_chains = HashMap::new();
 		for para in scheduled_paras {
 			// Find constraints and pending availability candidates.
-			let backing_state = fetch_backing_state(ctx, hash, para).await?;
-			let Some((constraints, pending_availability)) = backing_state else {
+			let Some((constraints, pending_availability)) =
+				fetch_constraints_and_candidates(ctx, hash, para).await?
+			else {
 				// This indicates a runtime conflict of some kind.
 				gum::debug!(
 					target: LOG_TARGET,
@@ -273,7 +271,7 @@ async fn handle_active_leaves_update<Context>(
 			let pending_availability = preprocess_candidates_pending_availability(
 				ctx,
 				&mut temp_header_cache,
-				constraints.required_parent.clone(),
+				&constraints,
 				pending_availability,
 			)
 			.await?;
@@ -445,22 +443,23 @@ struct ImportablePendingAvailability {
 async fn preprocess_candidates_pending_availability<Context>(
 	ctx: &mut Context,
 	cache: &mut HashMap<Hash, Header>,
-	required_parent: HeadData,
-	pending_availability: Vec<CandidatePendingAvailability>,
+	constraints: &Constraints,
+	pending_availability: Vec<CommittedCandidateReceipt>,
 ) -> JfyiErrorResult<Vec<ImportablePendingAvailability>> {
-	let mut required_parent = required_parent;
+	let mut required_parent = constraints.required_parent.clone();
 
 	let mut importable = Vec::new();
 	let expected_count = pending_availability.len();
 
 	for (i, pending) in pending_availability.into_iter().enumerate() {
+		let candidate_hash = pending.hash();
 		let Some(relay_parent) =
 			fetch_block_info(ctx, cache, pending.descriptor.relay_parent()).await?
 		else {
 			let para_id = pending.descriptor.para_id();
 			gum::debug!(
 				target: LOG_TARGET,
-				?pending.candidate_hash,
+				?candidate_hash,
 				?para_id,
 				index = ?i,
 				?expected_count,
@@ -478,12 +477,12 @@ async fn preprocess_candidates_pending_availability<Context>(
 			},
 			persisted_validation_data: PersistedValidationData {
 				parent_head: required_parent,
-				max_pov_size: pending.max_pov_size,
+				max_pov_size: constraints.max_pov_size as _,
 				relay_parent_number: relay_parent.number,
 				relay_parent_storage_root: relay_parent.storage_root,
 			},
 			compact: fragment_chain::PendingAvailability {
-				candidate_hash: pending.candidate_hash,
+				candidate_hash,
 				relay_parent: relay_parent.into(),
 			},
 		});
@@ -883,7 +882,7 @@ async fn fetch_backing_state<Context>(
 	ctx: &mut Context,
 	relay_parent: Hash,
 	para_id: ParaId,
-) -> JfyiErrorResult<Option<(Constraints, Vec<CandidatePendingAvailability>)>> {
+) -> JfyiErrorResult<Option<(Constraints, Vec<CommittedCandidateReceipt>)>> {
 	let (tx, rx) = oneshot::channel();
 	ctx.send_message(RuntimeApiMessage::Request(
 		relay_parent,
@@ -891,10 +890,64 @@ async fn fetch_backing_state<Context>(
 	))
 	.await;
 
-	Ok(rx
+	Ok(rx.await.map_err(JfyiError::RuntimeApiRequestCanceled)??.map(|s| {
+		(
+			From::from(s.constraints),
+			s.pending_availability
+				.into_iter()
+				.map(|c| CommittedCandidateReceipt {
+					descriptor: c.descriptor,
+					commitments: c.commitments,
+				})
+				.collect(),
+		)
+	}))
+}
+
+#[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
+async fn fetch_constraints_and_candidates<Context>(
+	ctx: &mut Context,
+	relay_parent: Hash,
+	para_id: ParaId,
+) -> JfyiErrorResult<Option<(Constraints, Vec<CommittedCandidateReceipt>)>> {
+	match fetch_constraints_and_candidates_inner(ctx, relay_parent, para_id).await {
+		Ok(None) => fetch_backing_state(ctx, relay_parent, para_id).await,
+		Err(error) => {
+			gum::debug!(
+				target: LOG_TARGET,
+				?para_id,
+				?relay_parent,
+				?error,
+				"Failed to get constraints and candidates pending availability."
+			);
+
+			// Fallback to backing state.
+			fetch_backing_state(ctx, relay_parent, para_id).await
+		},
+		Ok(Some(constraints_and_candidates)) => Ok(Some(constraints_and_candidates)),
+	}
+}
+
+#[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
+async fn fetch_constraints_and_candidates_inner<Context>(
+	ctx: &mut Context,
+	relay_parent: Hash,
+	para_id: ParaId,
+) -> JfyiErrorResult<Option<(Constraints, Vec<CommittedCandidateReceipt>)>> {
+	let maybe_constraints = request_constraints(relay_parent, para_id, ctx.sender())
 		.await
-		.map_err(JfyiError::RuntimeApiRequestCanceled)??
-		.map(|s| (From::from(s.constraints), s.pending_availability)))
+		.await
+		.map_err(JfyiError::RuntimeApiRequestCanceled)??;
+
+	let Some(constraints) = maybe_constraints else { return Ok(None) };
+
+	let pending_availability =
+		request_candidates_pending_availability(relay_parent, para_id, ctx.sender())
+			.await
+			.await
+			.map_err(JfyiError::RuntimeApiRequestCanceled)??;
+
+	Ok(Some((From::from(constraints), pending_availability)))
 }
 
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]

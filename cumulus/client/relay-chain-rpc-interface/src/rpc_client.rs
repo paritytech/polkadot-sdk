@@ -35,7 +35,7 @@ use cumulus_primitives_core::{
 		async_backing::AsyncBackingParams,
 		slashing,
 		vstaging::{
-			async_backing::BackingState, CandidateEvent,
+			async_backing::{BackingState, Constraints}, CandidateEvent,
 			CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
 			ScrapedOnChainVotes,
 		},
@@ -718,6 +718,15 @@ impl RelayChainRpcClient {
 			Some((para_id, occupied_core_assumption)),
 		)
 		.await
+	}
+
+	pub async fn parachain_host_constraints(
+		&self,
+		at: RelayHash,
+		para_id: ParaId,
+	) -> Result<Option<Constraints>, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_constraints", at, Some(para_id))
+			.await
 	}
 
 	fn send_register_message_to_worker(
