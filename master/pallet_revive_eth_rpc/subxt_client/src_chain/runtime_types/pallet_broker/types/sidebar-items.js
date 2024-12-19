@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CompletionStatus","Finality"],"struct":["AutoRenewalRecord","ConfigRecord","ContributionRecord","InstaPoolHistoryRecord","LeaseRecordItem","OnDemandRevenueRecord","PoolIoRecord","PotentialRenewalId","PotentialRenewalRecord","RegionId","RegionRecord","SaleInfoRecord","ScheduleItem","StatusRecord"]};

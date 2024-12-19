@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["get_penpal_chain_spec","penpal_session_keys","penpal_testnet_genesis"]};

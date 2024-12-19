@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["delegated","undelegated","vote_removed","vote_unlocked","voted"],"struct":["Delegated","Undelegated","VoteRemoved","VoteUnlocked","Voted"]};

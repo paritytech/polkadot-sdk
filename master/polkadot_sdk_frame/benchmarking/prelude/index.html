@@ -1,0 +1,174 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `prelude` mod in crate `polkadot_sdk_frame`."><title>polkadot_sdk_frame::benchmarking::prelude - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_frame" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../polkadot_sdk_frame/index.html">polkadot_sdk_frame</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">Module prelude</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#attributes">Attribute Macros</a></li></ul></section><h2><a href="../index.html">In polkadot_sdk_frame::benchmarking</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_frame</a>::<wbr><a href="../index.html">benchmarking</a>::<wbr><a class="mod" href="#">prelude</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_frame/lib.rs.html#265">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><code>pub use crate::<a class="mod" href="../../prelude/index.html" title="mod polkadot_sdk_frame::prelude">prelude</a>::*;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="baseline/index.html" title="mod polkadot_sdk_frame::benchmarking::prelude::baseline">baseline</a></div><div class="desc docblock-short">A set of benchmarks which can establish a global baseline for all other
+benchmarking. These benchmarks do not require a pallet to be deployed.</div></li><li><div class="item-name"><a class="mod" href="v1/index.html" title="mod polkadot_sdk_frame::benchmarking::prelude::v1">v1</a></div><div class="desc docblock-short">Macros for benchmarking a FRAME runtime.</div></li></ul><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.add_benchmark.html" title="macro polkadot_sdk_frame::benchmarking::prelude::add_benchmark">add_benchmark</a></div><div class="desc docblock-short">This macro adds pallet benchmarks to a <code>Vec&lt;BenchmarkBatch&gt;</code> object.</div></li><li><div class="item-name"><a class="macro" href="macro.assert_impl_all.html" title="macro polkadot_sdk_frame::benchmarking::prelude::assert_impl_all">assert_impl_all</a></div><div class="desc docblock-short">Asserts that the type implements <em>all</em> of the given traits.</div></li><li><div class="item-name"><a class="macro" href="macro.assert_type_eq_all.html" title="macro polkadot_sdk_frame::benchmarking::prelude::assert_type_eq_all">assert_type_eq_all</a></div><div class="desc docblock-short">Asserts that <em>all</em> types in a list are equal to each other.</div></li><li><div class="item-name"><a class="macro" href="macro.benchmarks_instance.html" title="macro polkadot_sdk_frame::benchmarking::prelude::benchmarks_instance">benchmarks_instance</a></div><div class="desc docblock-short">Same as <a href="v1/macro.benchmarks.html" title="macro polkadot_sdk_frame::benchmarking::prelude::v1::benchmarks"><code>benchmarks</code></a> but for instantiable module.</div></li><li><div class="item-name"><a class="macro" href="macro.benchmarks_instance_pallet.html" title="macro polkadot_sdk_frame::benchmarking::prelude::benchmarks_instance_pallet">benchmarks_instance_pallet</a></div><div class="desc docblock-short">Same as <a href="v1/macro.benchmarks.html" title="macro polkadot_sdk_frame::benchmarking::prelude::v1::benchmarks"><code>benchmarks</code></a> but for instantiable pallet declared <a href="../../../frame_support_procedural/attr.pallet.html" title="attr frame_support_procedural::pallet"><code>frame_support::pallet</code></a>.</div></li><li><div class="item-name"><a class="macro" href="macro.define_benchmarks.html" title="macro polkadot_sdk_frame::benchmarking::prelude::define_benchmarks">define_benchmarks</a></div><div class="desc docblock-short">Defines pallet configs that <code>add_benchmarks</code> and <code>list_benchmarks</code> use.
+Should be preferred instead of having a repetitive list of configs
+in <code>add_benchmark</code> and <code>list_benchmark</code>.</div></li><li><div class="item-name"><a class="macro" href="macro.impl_benchmark_test_suite.html" title="macro polkadot_sdk_frame::benchmarking::prelude::impl_benchmark_test_suite">impl_benchmark_test_suite</a></div><div class="desc docblock-short">This creates a test suite which runs the module’s benchmarks.</div></li><li><div class="item-name"><a class="macro" href="macro.list_benchmark.html" title="macro polkadot_sdk_frame::benchmarking::prelude::list_benchmark">list_benchmark</a></div><div class="desc docblock-short">This macro allows users to easily generate a list of benchmarks for the pallets configured
+in the runtime.</div></li><li><div class="item-name"><a class="macro" href="macro.validate_pov_mode.html" title="macro polkadot_sdk_frame::benchmarking::prelude::validate_pov_mode">validate_pov_mode</a></div><div class="desc docblock-short">Validates the passed <code>pov_mode</code>s.</div></li><li><div class="item-name"><a class="macro" href="macro.whitelist.html" title="macro polkadot_sdk_frame::benchmarking::prelude::whitelist">whitelist</a></div><div class="desc docblock-short">Whitelist the given account.</div></li><li><div class="item-name"><a class="macro" href="macro.whitelist_account.html" title="macro polkadot_sdk_frame::benchmarking::prelude::whitelist_account">whitelist_account</a></div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Analysis.html" title="struct polkadot_sdk_frame::benchmarking::prelude::Analysis">Analysis</a></div></li><li><div class="item-name"><a class="struct" href="struct.BenchmarkBatch.html" title="struct polkadot_sdk_frame::benchmarking::prelude::BenchmarkBatch">BenchmarkBatch</a></div><div class="desc docblock-short">The results of a single of benchmark.</div></li><li><div class="item-name"><a class="struct" href="struct.BenchmarkBatchSplitResults.html" title="struct polkadot_sdk_frame::benchmarking::prelude::BenchmarkBatchSplitResults">BenchmarkBatchSplitResults</a></div><div class="desc docblock-short">The results of a single of benchmark, where time and db results are separated.</div></li><li><div class="item-name"><a class="struct" href="struct.BenchmarkConfig.html" title="struct polkadot_sdk_frame::benchmarking::prelude::BenchmarkConfig">BenchmarkConfig</a></div><div class="desc docblock-short">Configuration used to setup and run runtime benchmarks.</div></li><li><div class="item-name"><a class="struct" href="struct.BenchmarkList.html" title="struct polkadot_sdk_frame::benchmarking::prelude::BenchmarkList">BenchmarkList</a></div><div class="desc docblock-short">A list of benchmarks available for a particular pallet and instance.</div></li><li><div class="item-name"><a class="struct" href="struct.BenchmarkMetadata.html" title="struct polkadot_sdk_frame::benchmarking::prelude::BenchmarkMetadata">BenchmarkMetadata</a></div></li><li><div class="item-name"><a class="struct" href="struct.BenchmarkRecording.html" title="struct polkadot_sdk_frame::benchmarking::prelude::BenchmarkRecording">BenchmarkRecording</a></div><div class="desc docblock-short">Records the time and proof size of a single benchmark iteration.</div></li><li><div class="item-name"><a class="struct" href="struct.BenchmarkResult.html" title="struct polkadot_sdk_frame::benchmarking::prelude::BenchmarkResult">BenchmarkResult</a></div><div class="desc docblock-short">Result from running benchmarks on a FRAME pallet.
+Contains duration of the function call in nanoseconds along with the benchmark parameters
+used for that benchmark result.</div></li><li><div class="item-name"><a class="struct" href="struct.HostFunctions.html" title="struct polkadot_sdk_frame::benchmarking::prelude::HostFunctions">HostFunctions</a></div><div class="desc docblock-short">Provides implementations for the extern host functions.</div></li><li><div class="item-name"><a class="struct" href="struct.Linear.html" title="struct polkadot_sdk_frame::benchmarking::prelude::Linear">Linear</a></div><div class="desc docblock-short">Used by the new benchmarking code to specify that a benchmarking variable is linear
+over some specified range, i.e. <code>Linear&lt;0, 1_000&gt;</code> means that the corresponding variable
+is allowed to range from <code>0</code> to <code>1000</code>, inclusive.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.AnalysisChoice.html" title="enum polkadot_sdk_frame::benchmarking::prelude::AnalysisChoice">AnalysisChoice</a></div></li><li><div class="item-name"><a class="enum" href="enum.BenchmarkError.html" title="enum polkadot_sdk_frame::benchmarking::prelude::BenchmarkError">BenchmarkError</a></div><div class="desc docblock-short">Possible errors returned from the benchmarking pipeline.</div></li><li><div class="item-name"><a class="enum" href="enum.BenchmarkParameter.html" title="enum polkadot_sdk_frame::benchmarking::prelude::BenchmarkParameter">BenchmarkParameter</a></div><div class="desc docblock-short">An alphabet of possible parameters to use for benchmarking.</div></li><li><div class="item-name"><a class="enum" href="enum.BenchmarkSelector.html" title="enum polkadot_sdk_frame::benchmarking::prelude::BenchmarkSelector">BenchmarkSelector</a></div></li><li><div class="item-name"><a class="enum" href="enum.RawOrigin.html" title="enum polkadot_sdk_frame::benchmarking::prelude::RawOrigin">RawOrigin</a></div><div class="desc docblock-short">Origin for the System pallet.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Benchmark.html" title="trait polkadot_sdk_frame::benchmarking::prelude::Benchmark">Benchmark</a></div><div class="desc docblock-short">Runtime api for benchmarking a FRAME runtime.</div></li><li><div class="item-name"><a class="trait" href="trait.Benchmarking.html" title="trait polkadot_sdk_frame::benchmarking::prelude::Benchmarking">Benchmarking</a></div><div class="desc docblock-short">The pallet benchmarking trait.</div></li><li><div class="item-name"><a class="trait" href="trait.BenchmarkingSetup.html" title="trait polkadot_sdk_frame::benchmarking::prelude::BenchmarkingSetup">BenchmarkingSetup</a></div><div class="desc docblock-short">The required setup for creating a benchmark.</div></li><li><div class="item-name"><a class="trait" href="trait.ParamRange.html" title="trait polkadot_sdk_frame::benchmarking::prelude::ParamRange">ParamRange</a></div><div class="desc docblock-short">Trait that must be implemented by all structs that can be used as parameter range types
+in the new benchmarking code (i.e. <code>Linear&lt;0, 1_000&gt;</code>). Right now there is just
+<a href="v1/v2/struct.Linear.html" title="struct polkadot_sdk_frame::benchmarking::prelude::v1::v2::Linear"><code>Linear</code></a> but this could later be extended to support additional non-linear parameter
+ranges.</div></li><li><div class="item-name"><a class="trait" href="trait.Recording.html" title="trait polkadot_sdk_frame::benchmarking::prelude::Recording">Recording</a></div><div class="desc docblock-short">The recording trait used to mark the start and end of a benchmark.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.account.html" title="fn polkadot_sdk_frame::benchmarking::prelude::account">account</a></div><div class="desc docblock-short">Grab an account, seeded by a name and index.</div></li><li><div class="item-name"><a class="fn" href="fn.add_to_whitelist.html" title="fn polkadot_sdk_frame::benchmarking::prelude::add_to_whitelist">add_to_whitelist</a></div></li><li><div class="item-name"><a class="fn" href="fn.commit_db.html" title="fn polkadot_sdk_frame::benchmarking::prelude::commit_db">commit_db</a></div><div class="desc docblock-short">Commit pending storage changes to the trie database and clear the database cache.</div></li><li><div class="item-name"><a class="fn" href="fn.current_time.html" title="fn polkadot_sdk_frame::benchmarking::prelude::current_time">current_time</a></div><div class="desc docblock-short">Get the number of nanoseconds passed since the UNIX epoch</div></li><li><div class="item-name"><a class="fn" href="fn.get_read_and_written_keys.html" title="fn polkadot_sdk_frame::benchmarking::prelude::get_read_and_written_keys">get_read_and_written_keys</a></div></li><li><div class="item-name"><a class="fn" href="fn.get_whitelist.html" title="fn polkadot_sdk_frame::benchmarking::prelude::get_whitelist">get_whitelist</a></div><div class="desc docblock-short">Get the DB whitelist.</div></li><li><div class="item-name"><a class="fn" href="fn.proof_size.html" title="fn polkadot_sdk_frame::benchmarking::prelude::proof_size">proof_size</a></div><div class="desc docblock-short">Get current estimated proof size.</div></li><li><div class="item-name"><a class="fn" href="fn.read_write_count.html" title="fn polkadot_sdk_frame::benchmarking::prelude::read_write_count">read_write_count</a></div><div class="desc docblock-short">Get the read/write count.</div></li><li><div class="item-name"><a class="fn" href="fn.remove_from_whitelist.html" title="fn polkadot_sdk_frame::benchmarking::prelude::remove_from_whitelist">remove_from_whitelist</a></div></li><li><div class="item-name"><a class="fn" href="fn.reset_read_write_count.html" title="fn polkadot_sdk_frame::benchmarking::prelude::reset_read_write_count">reset_read_write_count</a></div><div class="desc docblock-short">Reset the read/write count.</div></li><li><div class="item-name"><a class="fn" href="fn.set_whitelist.html" title="fn polkadot_sdk_frame::benchmarking::prelude::set_whitelist">set_whitelist</a></div><div class="desc docblock-short">Set the DB whitelist.</div></li><li><div class="item-name"><a class="fn" href="fn.show_benchmark_debug_info.html" title="fn polkadot_sdk_frame::benchmarking::prelude::show_benchmark_debug_info">show_benchmark_debug_info</a></div><div class="desc docblock-short">show error message and debugging info for the case of an error happening
+during a benchmark</div></li><li><div class="item-name"><a class="fn" href="fn.whitelisted_caller.html" title="fn polkadot_sdk_frame::benchmarking::prelude::whitelisted_caller">whitelisted_caller</a></div><div class="desc docblock-short">This caller account is automatically whitelisted for DB reads/writes by the benchmarking macro.</div></li><li><div class="item-name"><a class="fn" href="fn.wipe_db.html" title="fn polkadot_sdk_frame::benchmarking::prelude::wipe_db">wipe_db</a></div><div class="desc docblock-short">Reset the trie database to the genesis state.</div></li></ul><h2 id="attributes" class="section-header">Attribute Macros<a href="#attributes" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="attr" href="attr.benchmark.html" title="attr polkadot_sdk_frame::benchmarking::prelude::benchmark">benchmark</a></div><div class="desc docblock-short">An attribute macro used to declare a benchmark within a benchmarking module. Must be
+attached to a function definition containing an <code>#[extrinsic_call]</code> or <code>#[block]</code>
+attribute.</div></li><li><div class="item-name"><a class="attr" href="attr.benchmarks.html" title="attr polkadot_sdk_frame::benchmarking::prelude::benchmarks">benchmarks</a></div><div class="desc docblock-short">An attribute macro that can be attached to a (non-empty) module declaration. Doing so will
+designate that module as a benchmarking module.</div></li><li><div class="item-name"><a class="attr" href="attr.block.html" title="attr polkadot_sdk_frame::benchmarking::prelude::block">block</a></div><div class="desc docblock-short">An attribute macro used to specify that a block should be the measured portion of the
+enclosing benchmark function, This attribute is also used as a boundary designating where
+the benchmark setup code ends, and the benchmark verification code begins.</div></li><li><div class="item-name"><a class="attr" href="attr.extrinsic_call.html" title="attr polkadot_sdk_frame::benchmarking::prelude::extrinsic_call">extrinsic_call</a></div><div class="desc docblock-short">An attribute macro used to specify the extrinsic call inside a benchmark function, and also
+used as a boundary designating where the benchmark setup code ends, and the benchmark
+verification code begins.</div></li><li><div class="item-name"><a class="attr" href="attr.instance_benchmarks.html" title="attr polkadot_sdk_frame::benchmarking::prelude::instance_benchmarks">instance_benchmarks</a></div><div class="desc docblock-short">An attribute macro that can be attached to a (non-empty) module declaration. Doing so will
+designate that module as an instance benchmarking module.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

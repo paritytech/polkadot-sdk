@@ -1,0 +1,319 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Weight functions needed for `pallet_uniques`."><title>WeightInfo in pallet_uniques::weights - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_uniques" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_uniques/index.html">pallet_uniques</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">WeightInfo</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.approve_transfer">approve_transfer</a></li><li><a href="#tymethod.burn">burn</a></li><li><a href="#tymethod.buy_item">buy_item</a></li><li><a href="#tymethod.cancel_approval">cancel_approval</a></li><li><a href="#tymethod.clear_attribute">clear_attribute</a></li><li><a href="#tymethod.clear_collection_metadata">clear_collection_metadata</a></li><li><a href="#tymethod.clear_metadata">clear_metadata</a></li><li><a href="#tymethod.create">create</a></li><li><a href="#tymethod.destroy">destroy</a></li><li><a href="#tymethod.force_create">force_create</a></li><li><a href="#tymethod.force_item_status">force_item_status</a></li><li><a href="#tymethod.freeze">freeze</a></li><li><a href="#tymethod.freeze_collection">freeze_collection</a></li><li><a href="#tymethod.mint">mint</a></li><li><a href="#tymethod.redeposit">redeposit</a></li><li><a href="#tymethod.set_accept_ownership">set_accept_ownership</a></li><li><a href="#tymethod.set_attribute">set_attribute</a></li><li><a href="#tymethod.set_collection_max_supply">set_collection_max_supply</a></li><li><a href="#tymethod.set_collection_metadata">set_collection_metadata</a></li><li><a href="#tymethod.set_metadata">set_metadata</a></li><li><a href="#tymethod.set_price">set_price</a></li><li><a href="#tymethod.set_team">set_team</a></li><li><a href="#tymethod.thaw">thaw</a></li><li><a href="#tymethod.thaw_collection">thaw_collection</a></li><li><a href="#tymethod.transfer">transfer</a></li><li><a href="#tymethod.transfer_ownership">transfer_ownership</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-WeightInfo-for-()">()</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In pallet_uniques::weights</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">pallet_uniques</a>::<wbr><a href="index.html">weights</a>::<wbr><a class="trait" href="#">WeightInfo</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/pallet_uniques/weights.rs.html#53-80">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait WeightInfo {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 26 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.create" class="fn">create</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.force_create" class="fn">force_create</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.destroy" class="fn">destroy</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, m: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, a: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.mint" class="fn">mint</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.burn" class="fn">burn</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.transfer" class="fn">transfer</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.redeposit" class="fn">redeposit</a>(i: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.freeze" class="fn">freeze</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.thaw" class="fn">thaw</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.freeze_collection" class="fn">freeze_collection</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.thaw_collection" class="fn">thaw_collection</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.transfer_ownership" class="fn">transfer_ownership</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_team" class="fn">set_team</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.force_item_status" class="fn">force_item_status</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_attribute" class="fn">set_attribute</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.clear_attribute" class="fn">clear_attribute</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_metadata" class="fn">set_metadata</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.clear_metadata" class="fn">clear_metadata</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_collection_metadata" class="fn">set_collection_metadata</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.clear_collection_metadata" class="fn">clear_collection_metadata</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.approve_transfer" class="fn">approve_transfer</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.cancel_approval" class="fn">cancel_approval</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_accept_ownership" class="fn">set_accept_ownership</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_collection_max_supply" class="fn">set_collection_max_supply</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_price" class="fn">set_price</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.buy_item" class="fn">buy_item</a>() -&gt; Weight;
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Weight functions needed for <code>pallet_uniques</code>.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><section id="tymethod.create" class="method"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#54">source</a><h4 class="code-header">fn <a href="#tymethod.create" class="fn">create</a>() -&gt; Weight</h4></section><section id="tymethod.force_create" class="method"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#55">source</a><h4 class="code-header">fn <a href="#tymethod.force_create" class="fn">force_create</a>() -&gt; Weight</h4></section><section id="tymethod.destroy" class="method"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#56">source</a><h4 class="code-header">fn <a href="#tymethod.destroy" class="fn">destroy</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, m: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, a: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.mint" class="method"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#57">source</a><h4 class="code-header">fn <a href="#tymethod.mint" class="fn">mint</a>() -&gt; Weight</h4></section><section id="tymethod.burn" class="method"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#58">source</a><h4 class="code-header">fn <a href="#tymethod.burn" class="fn">burn</a>() -&gt; Weight</h4></section><section id="tymethod.transfer" class="method"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#59">source</a><h4 class="code-header">fn <a href="#tymethod.transfer" class="fn">transfer</a>() -&gt; Weight</h4></section><section id="tymethod.redeposit" class="method"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#60">source</a><h4 class="code-header">fn <a href="#tymethod.redeposit" class="fn">redeposit</a>(i: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.freeze" class="method"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#61">source</a><h4 class="code-header">fn <a href="#tymethod.freeze" class="fn">freeze</a>() -&gt; Weight</h4></section><section id="tymethod.thaw" class="method"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#62">source</a><h4 class="code-header">fn <a href="#tymethod.thaw" class="fn">thaw</a>() -&gt; Weight</h4></section><section id="tymethod.freeze_collection" class="method"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#63">source</a><h4 class="code-header">fn <a href="#tymethod.freeze_collection" class="fn">freeze_collection</a>() -&gt; Weight</h4></section><section id="tymethod.thaw_collection" class="method"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#64">source</a><h4 class="code-header">fn <a href="#tymethod.thaw_collection" class="fn">thaw_collection</a>() -&gt; Weight</h4></section><section id="tymethod.transfer_ownership" class="method"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#65">source</a><h4 class="code-header">fn <a href="#tymethod.transfer_ownership" class="fn">transfer_ownership</a>() -&gt; Weight</h4></section><section id="tymethod.set_team" class="method"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#66">source</a><h4 class="code-header">fn <a href="#tymethod.set_team" class="fn">set_team</a>() -&gt; Weight</h4></section><section id="tymethod.force_item_status" class="method"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#67">source</a><h4 class="code-header">fn <a href="#tymethod.force_item_status" class="fn">force_item_status</a>() -&gt; Weight</h4></section><section id="tymethod.set_attribute" class="method"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#68">source</a><h4 class="code-header">fn <a href="#tymethod.set_attribute" class="fn">set_attribute</a>() -&gt; Weight</h4></section><section id="tymethod.clear_attribute" class="method"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#69">source</a><h4 class="code-header">fn <a href="#tymethod.clear_attribute" class="fn">clear_attribute</a>() -&gt; Weight</h4></section><section id="tymethod.set_metadata" class="method"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#70">source</a><h4 class="code-header">fn <a href="#tymethod.set_metadata" class="fn">set_metadata</a>() -&gt; Weight</h4></section><section id="tymethod.clear_metadata" class="method"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#71">source</a><h4 class="code-header">fn <a href="#tymethod.clear_metadata" class="fn">clear_metadata</a>() -&gt; Weight</h4></section><section id="tymethod.set_collection_metadata" class="method"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#72">source</a><h4 class="code-header">fn <a href="#tymethod.set_collection_metadata" class="fn">set_collection_metadata</a>() -&gt; Weight</h4></section><section id="tymethod.clear_collection_metadata" class="method"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#73">source</a><h4 class="code-header">fn <a href="#tymethod.clear_collection_metadata" class="fn">clear_collection_metadata</a>() -&gt; Weight</h4></section><section id="tymethod.approve_transfer" class="method"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#74">source</a><h4 class="code-header">fn <a href="#tymethod.approve_transfer" class="fn">approve_transfer</a>() -&gt; Weight</h4></section><section id="tymethod.cancel_approval" class="method"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#75">source</a><h4 class="code-header">fn <a href="#tymethod.cancel_approval" class="fn">cancel_approval</a>() -&gt; Weight</h4></section><section id="tymethod.set_accept_ownership" class="method"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#76">source</a><h4 class="code-header">fn <a href="#tymethod.set_accept_ownership" class="fn">set_accept_ownership</a>() -&gt; Weight</h4></section><section id="tymethod.set_collection_max_supply" class="method"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#77">source</a><h4 class="code-header">fn <a href="#tymethod.set_collection_max_supply" class="fn">set_collection_max_supply</a>() -&gt; Weight</h4></section><section id="tymethod.set_price" class="method"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#78">source</a><h4 class="code-header">fn <a href="#tymethod.set_price" class="fn">set_price</a>() -&gt; Weight</h4></section><section id="tymethod.buy_item" class="method"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#79">source</a><h4 class="code-header">fn <a href="#tymethod.buy_item" class="fn">buy_item</a>() -&gt; Weight</h4></section></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-WeightInfo-for-()" class="impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#478-869">source</a><a href="#impl-WeightInfo-for-()" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.WeightInfo.html" title="trait pallet_uniques::weights::WeightInfo">WeightInfo</a> for <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.create" class="method trait-impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#483-491">source</a><a href="#method.create" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.create" class="fn">create</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Uniques::Class</code> (r:1 w:1)
+Proof: <code>Uniques::Class</code> (<code>max_values</code>: None, <code>max_size</code>: Some(178), added: 2653, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::ClassAccount</code> (r:0 w:1)
+Proof: <code>Uniques::ClassAccount</code> (<code>max_values</code>: None, <code>max_size</code>: Some(68), added: 2543, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.force_create" class="method trait-impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#496-504">source</a><a href="#method.force_create" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.force_create" class="fn">force_create</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Uniques::Class</code> (r:1 w:1)
+Proof: <code>Uniques::Class</code> (<code>max_values</code>: None, <code>max_size</code>: Some(178), added: 2653, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::ClassAccount</code> (r:0 w:1)
+Proof: <code>Uniques::ClassAccount</code> (<code>max_values</code>: None, <code>max_size</code>: Some(68), added: 2543, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.destroy" class="method trait-impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#524-547">source</a><a href="#method.destroy" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.destroy" class="fn">destroy</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, m: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, a: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Uniques::Class</code> (r:1 w:1)
+Proof: <code>Uniques::Class</code> (<code>max_values</code>: None, <code>max_size</code>: Some(178), added: 2653, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::Asset</code> (r:1001 w:1000)
+Proof: <code>Uniques::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(122), added: 2597, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::InstanceMetadataOf</code> (r:1000 w:1000)
+Proof: <code>Uniques::InstanceMetadataOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(187), added: 2662, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::Attribute</code> (r:1000 w:1000)
+Proof: <code>Uniques::Attribute</code> (<code>max_values</code>: None, <code>max_size</code>: Some(172), added: 2647, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::ClassAccount</code> (r:0 w:1)
+Proof: <code>Uniques::ClassAccount</code> (<code>max_values</code>: None, <code>max_size</code>: Some(68), added: 2543, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::ClassMetadataOf</code> (r:0 w:1)
+Proof: <code>Uniques::ClassMetadataOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(167), added: 2642, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::Account</code> (r:0 w:1000)
+Proof: <code>Uniques::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(88), added: 2563, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::CollectionMaxSupply</code> (r:0 w:1)
+Proof: <code>Uniques::CollectionMaxSupply</code> (<code>max_values</code>: None, <code>max_size</code>: Some(24), added: 2499, mode: <code>MaxEncodedLen</code>)
+The range of component <code>n</code> is <code>[0, 1000]</code>.
+The range of component <code>m</code> is <code>[0, 1000]</code>.
+The range of component <code>a</code> is <code>[0, 1000]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.mint" class="method trait-impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#556-564">source</a><a href="#method.mint" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.mint" class="fn">mint</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Uniques::Asset</code> (r:1 w:1)
+Proof: <code>Uniques::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(122), added: 2597, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::Class</code> (r:1 w:1)
+Proof: <code>Uniques::Class</code> (<code>max_values</code>: None, <code>max_size</code>: Some(178), added: 2653, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::CollectionMaxSupply</code> (r:1 w:0)
+Proof: <code>Uniques::CollectionMaxSupply</code> (<code>max_values</code>: None, <code>max_size</code>: Some(24), added: 2499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::Account</code> (r:0 w:1)
+Proof: <code>Uniques::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(88), added: 2563, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.burn" class="method trait-impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#573-581">source</a><a href="#method.burn" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.burn" class="fn">burn</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Uniques::Class</code> (r:1 w:1)
+Proof: <code>Uniques::Class</code> (<code>max_values</code>: None, <code>max_size</code>: Some(178), added: 2653, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::Asset</code> (r:1 w:1)
+Proof: <code>Uniques::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(122), added: 2597, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::Account</code> (r:0 w:1)
+Proof: <code>Uniques::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(88), added: 2563, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::ItemPriceOf</code> (r:0 w:1)
+Proof: <code>Uniques::ItemPriceOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(89), added: 2564, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.transfer" class="method trait-impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#590-598">source</a><a href="#method.transfer" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.transfer" class="fn">transfer</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Uniques::Class</code> (r:1 w:0)
+Proof: <code>Uniques::Class</code> (<code>max_values</code>: None, <code>max_size</code>: Some(178), added: 2653, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::Asset</code> (r:1 w:1)
+Proof: <code>Uniques::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(122), added: 2597, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::Account</code> (r:0 w:2)
+Proof: <code>Uniques::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(88), added: 2563, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::ItemPriceOf</code> (r:0 w:1)
+Proof: <code>Uniques::ItemPriceOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(89), added: 2564, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.redeposit" class="method trait-impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#604-617">source</a><a href="#method.redeposit" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.redeposit" class="fn">redeposit</a>(i: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Uniques::Class</code> (r:1 w:1)
+Proof: <code>Uniques::Class</code> (<code>max_values</code>: None, <code>max_size</code>: Some(178), added: 2653, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::Asset</code> (r:5000 w:5000)
+Proof: <code>Uniques::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(122), added: 2597, mode: <code>MaxEncodedLen</code>)
+The range of component <code>i</code> is <code>[0, 5000]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.freeze" class="method trait-impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#622-630">source</a><a href="#method.freeze" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.freeze" class="fn">freeze</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Uniques::Asset</code> (r:1 w:1)
+Proof: <code>Uniques::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(122), added: 2597, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::Class</code> (r:1 w:0)
+Proof: <code>Uniques::Class</code> (<code>max_values</code>: None, <code>max_size</code>: Some(178), added: 2653, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.thaw" class="method trait-impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#635-643">source</a><a href="#method.thaw" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.thaw" class="fn">thaw</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Uniques::Asset</code> (r:1 w:1)
+Proof: <code>Uniques::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(122), added: 2597, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::Class</code> (r:1 w:0)
+Proof: <code>Uniques::Class</code> (<code>max_values</code>: None, <code>max_size</code>: Some(178), added: 2653, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.freeze_collection" class="method trait-impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#646-654">source</a><a href="#method.freeze_collection" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.freeze_collection" class="fn">freeze_collection</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Uniques::Class</code> (r:1 w:1)
+Proof: <code>Uniques::Class</code> (<code>max_values</code>: None, <code>max_size</code>: Some(178), added: 2653, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.thaw_collection" class="method trait-impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#657-665">source</a><a href="#method.thaw_collection" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.thaw_collection" class="fn">thaw_collection</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Uniques::Class</code> (r:1 w:1)
+Proof: <code>Uniques::Class</code> (<code>max_values</code>: None, <code>max_size</code>: Some(178), added: 2653, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.transfer_ownership" class="method trait-impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#674-682">source</a><a href="#method.transfer_ownership" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.transfer_ownership" class="fn">transfer_ownership</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Uniques::OwnershipAcceptance</code> (r:1 w:1)
+Proof: <code>Uniques::OwnershipAcceptance</code> (<code>max_values</code>: None, <code>max_size</code>: Some(52), added: 2527, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::Class</code> (r:1 w:1)
+Proof: <code>Uniques::Class</code> (<code>max_values</code>: None, <code>max_size</code>: Some(178), added: 2653, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::ClassAccount</code> (r:0 w:2)
+Proof: <code>Uniques::ClassAccount</code> (<code>max_values</code>: None, <code>max_size</code>: Some(68), added: 2543, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_team" class="method trait-impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#685-693">source</a><a href="#method.set_team" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_team" class="fn">set_team</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Uniques::Class</code> (r:1 w:1)
+Proof: <code>Uniques::Class</code> (<code>max_values</code>: None, <code>max_size</code>: Some(178), added: 2653, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.force_item_status" class="method trait-impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#698-706">source</a><a href="#method.force_item_status" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.force_item_status" class="fn">force_item_status</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Uniques::Class</code> (r:1 w:1)
+Proof: <code>Uniques::Class</code> (<code>max_values</code>: None, <code>max_size</code>: Some(178), added: 2653, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::ClassAccount</code> (r:0 w:1)
+Proof: <code>Uniques::ClassAccount</code> (<code>max_values</code>: None, <code>max_size</code>: Some(68), added: 2543, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_attribute" class="method trait-impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#713-721">source</a><a href="#method.set_attribute" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_attribute" class="fn">set_attribute</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Uniques::Class</code> (r:1 w:1)
+Proof: <code>Uniques::Class</code> (<code>max_values</code>: None, <code>max_size</code>: Some(178), added: 2653, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::InstanceMetadataOf</code> (r:1 w:0)
+Proof: <code>Uniques::InstanceMetadataOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(187), added: 2662, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::Attribute</code> (r:1 w:1)
+Proof: <code>Uniques::Attribute</code> (<code>max_values</code>: None, <code>max_size</code>: Some(172), added: 2647, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.clear_attribute" class="method trait-impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#728-736">source</a><a href="#method.clear_attribute" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.clear_attribute" class="fn">clear_attribute</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Uniques::Class</code> (r:1 w:1)
+Proof: <code>Uniques::Class</code> (<code>max_values</code>: None, <code>max_size</code>: Some(178), added: 2653, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::InstanceMetadataOf</code> (r:1 w:0)
+Proof: <code>Uniques::InstanceMetadataOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(187), added: 2662, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::Attribute</code> (r:1 w:1)
+Proof: <code>Uniques::Attribute</code> (<code>max_values</code>: None, <code>max_size</code>: Some(172), added: 2647, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_metadata" class="method trait-impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#741-749">source</a><a href="#method.set_metadata" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_metadata" class="fn">set_metadata</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Uniques::Class</code> (r:1 w:1)
+Proof: <code>Uniques::Class</code> (<code>max_values</code>: None, <code>max_size</code>: Some(178), added: 2653, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::InstanceMetadataOf</code> (r:1 w:1)
+Proof: <code>Uniques::InstanceMetadataOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(187), added: 2662, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.clear_metadata" class="method trait-impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#754-762">source</a><a href="#method.clear_metadata" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.clear_metadata" class="fn">clear_metadata</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Uniques::Class</code> (r:1 w:1)
+Proof: <code>Uniques::Class</code> (<code>max_values</code>: None, <code>max_size</code>: Some(178), added: 2653, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::InstanceMetadataOf</code> (r:1 w:1)
+Proof: <code>Uniques::InstanceMetadataOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(187), added: 2662, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_collection_metadata" class="method trait-impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#767-775">source</a><a href="#method.set_collection_metadata" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_collection_metadata" class="fn">set_collection_metadata</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Uniques::Class</code> (r:1 w:1)
+Proof: <code>Uniques::Class</code> (<code>max_values</code>: None, <code>max_size</code>: Some(178), added: 2653, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::ClassMetadataOf</code> (r:1 w:1)
+Proof: <code>Uniques::ClassMetadataOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(167), added: 2642, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.clear_collection_metadata" class="method trait-impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#780-788">source</a><a href="#method.clear_collection_metadata" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.clear_collection_metadata" class="fn">clear_collection_metadata</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Uniques::Class</code> (r:1 w:1)
+Proof: <code>Uniques::Class</code> (<code>max_values</code>: None, <code>max_size</code>: Some(178), added: 2653, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::ClassMetadataOf</code> (r:1 w:1)
+Proof: <code>Uniques::ClassMetadataOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(167), added: 2642, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.approve_transfer" class="method trait-impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#793-801">source</a><a href="#method.approve_transfer" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.approve_transfer" class="fn">approve_transfer</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Uniques::Class</code> (r:1 w:0)
+Proof: <code>Uniques::Class</code> (<code>max_values</code>: None, <code>max_size</code>: Some(178), added: 2653, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::Asset</code> (r:1 w:1)
+Proof: <code>Uniques::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(122), added: 2597, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.cancel_approval" class="method trait-impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#806-814">source</a><a href="#method.cancel_approval" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.cancel_approval" class="fn">cancel_approval</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Uniques::Class</code> (r:1 w:0)
+Proof: <code>Uniques::Class</code> (<code>max_values</code>: None, <code>max_size</code>: Some(178), added: 2653, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::Asset</code> (r:1 w:1)
+Proof: <code>Uniques::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(122), added: 2597, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_accept_ownership" class="method trait-impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#817-825">source</a><a href="#method.set_accept_ownership" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_accept_ownership" class="fn">set_accept_ownership</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Uniques::OwnershipAcceptance</code> (r:1 w:1)
+Proof: <code>Uniques::OwnershipAcceptance</code> (<code>max_values</code>: None, <code>max_size</code>: Some(52), added: 2527, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_collection_max_supply" class="method trait-impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#830-838">source</a><a href="#method.set_collection_max_supply" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_collection_max_supply" class="fn">set_collection_max_supply</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Uniques::CollectionMaxSupply</code> (r:1 w:1)
+Proof: <code>Uniques::CollectionMaxSupply</code> (<code>max_values</code>: None, <code>max_size</code>: Some(24), added: 2499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::Class</code> (r:1 w:0)
+Proof: <code>Uniques::Class</code> (<code>max_values</code>: None, <code>max_size</code>: Some(178), added: 2653, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_price" class="method trait-impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#843-851">source</a><a href="#method.set_price" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_price" class="fn">set_price</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Uniques::Asset</code> (r:1 w:0)
+Proof: <code>Uniques::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(122), added: 2597, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::ItemPriceOf</code> (r:0 w:1)
+Proof: <code>Uniques::ItemPriceOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(89), added: 2564, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.buy_item" class="method trait-impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#860-868">source</a><a href="#method.buy_item" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.buy_item" class="fn">buy_item</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Uniques::Asset</code> (r:1 w:1)
+Proof: <code>Uniques::Asset</code> (<code>max_values</code>: None, <code>max_size</code>: Some(122), added: 2597, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::ItemPriceOf</code> (r:1 w:1)
+Proof: <code>Uniques::ItemPriceOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(89), added: 2564, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::Class</code> (r:1 w:0)
+Proof: <code>Uniques::Class</code> (<code>max_values</code>: None, <code>max_size</code>: Some(178), added: 2653, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Uniques::Account</code> (r:0 w:2)
+Proof: <code>Uniques::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(88), added: 2563, mode: <code>MaxEncodedLen</code>)</p>
+</div></details></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-WeightInfo-for-SubstrateWeight%3CT%3E" class="impl"><a class="src rightside" href="../../src/pallet_uniques/weights.rs.html#84-475">source</a><a href="#impl-WeightInfo-for-SubstrateWeight%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: Config&gt; <a class="trait" href="trait.WeightInfo.html" title="trait pallet_uniques::weights::WeightInfo">WeightInfo</a> for <a class="struct" href="struct.SubstrateWeight.html" title="struct pallet_uniques::weights::SubstrateWeight">SubstrateWeight</a>&lt;T&gt;</h3></section></div><script src="../../trait.impl/pallet_uniques/weights/trait.WeightInfo.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

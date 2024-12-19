@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BenchmarkCmd"],"static":["SUBSTRATE_REFERENCE_HARDWARE"],"struct":["BasePath","BlockCmd","DynamicRemarkBuilder","ExtrinsicCmd","ExtrinsicFactory","MachineCmd","OverheadCmd","PalletCmd","StorageCmd"],"trait":["ExtrinsicBuilder"],"type":["OpaqueBlock","SubstrateRemarkBuilder"]};

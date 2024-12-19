@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["transaction_fee_paid"],"struct":["TransactionFeePaid"]};

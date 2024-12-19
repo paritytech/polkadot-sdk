@@ -1,0 +1,365 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Abstraction over a fungible assets system."><title>Currency in polkadot_sdk_frame::traits - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_sdk_frame" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../polkadot_sdk_frame/index.html">polkadot_sdk_frame</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">Currency</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Balance">Balance</a></li><li><a href="#associatedtype.NegativeImbalance">NegativeImbalance</a></li><li><a href="#associatedtype.PositiveImbalance">PositiveImbalance</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.burn">burn</a></li><li><a href="#tymethod.can_slash">can_slash</a></li><li><a href="#tymethod.deposit_creating">deposit_creating</a></li><li><a href="#tymethod.deposit_into_existing">deposit_into_existing</a></li><li><a href="#tymethod.ensure_can_withdraw">ensure_can_withdraw</a></li><li><a href="#tymethod.free_balance">free_balance</a></li><li><a href="#tymethod.issue">issue</a></li><li><a href="#tymethod.make_free_balance_be">make_free_balance_be</a></li><li><a href="#tymethod.minimum_balance">minimum_balance</a></li><li><a href="#tymethod.slash">slash</a></li><li><a href="#tymethod.total_balance">total_balance</a></li><li><a href="#tymethod.total_issuance">total_issuance</a></li><li><a href="#tymethod.transfer">transfer</a></li><li><a href="#tymethod.withdraw">withdraw</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.active_issuance">active_issuance</a></li><li><a href="#method.deactivate">deactivate</a></li><li><a href="#method.pair">pair</a></li><li><a href="#method.reactivate">reactivate</a></li><li><a href="#method.resolve_creating">resolve_creating</a></li><li><a href="#method.resolve_into_existing">resolve_into_existing</a></li><li><a href="#method.settle">settle</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-Currency%3CAccountId%3E-for-()">()</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In polkadot_sdk_frame::traits</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">polkadot_sdk_frame</a>::<wbr><a href="index.html">traits</a>::<wbr><a class="trait" href="#">Currency</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Currency&lt;AccountId&gt; {
+    type <a href="#associatedtype.Balance" class="associatedtype">Balance</a>: <a class="trait" href="tokens/trait.Balance.html" title="trait polkadot_sdk_frame::traits::tokens::Balance">Balance</a> + <a class="trait" href="trait.MaybeSerializeDeserialize.html" title="trait polkadot_sdk_frame::traits::MaybeSerializeDeserialize">MaybeSerializeDeserialize</a>;
+    type <a href="#associatedtype.PositiveImbalance" class="associatedtype">PositiveImbalance</a>: <a class="trait" href="trait.Imbalance.html" title="trait polkadot_sdk_frame::traits::Imbalance">Imbalance</a>&lt;Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>, Opposite = Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.NegativeImbalance" title="type polkadot_sdk_frame::traits::Currency::NegativeImbalance">NegativeImbalance</a>&gt;;
+    type <a href="#associatedtype.NegativeImbalance" class="associatedtype">NegativeImbalance</a>: <a class="trait" href="trait.Imbalance.html" title="trait polkadot_sdk_frame::traits::Imbalance">Imbalance</a>&lt;Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>, Opposite = Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.PositiveImbalance" title="type polkadot_sdk_frame::traits::Currency::PositiveImbalance">PositiveImbalance</a>&gt;;
+
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 21 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.total_balance" class="fn">total_balance</a>(who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.can_slash" class="fn">can_slash</a>(who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>, value: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.total_issuance" class="fn">total_issuance</a>() -&gt; Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.minimum_balance" class="fn">minimum_balance</a>() -&gt; Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.burn" class="fn">burn</a>(amount: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>) -&gt; Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.PositiveImbalance" title="type polkadot_sdk_frame::traits::Currency::PositiveImbalance">PositiveImbalance</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.issue" class="fn">issue</a>(amount: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>) -&gt; Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.NegativeImbalance" title="type polkadot_sdk_frame::traits::Currency::NegativeImbalance">NegativeImbalance</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.free_balance" class="fn">free_balance</a>(who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.ensure_can_withdraw" class="fn">ensure_can_withdraw</a>(
+        who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        _amount: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+        reasons: <a class="struct" href="struct.WithdrawReasons.html" title="struct polkadot_sdk_frame::traits::WithdrawReasons">WithdrawReasons</a>,
+        new_balance: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, DispatchError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.transfer" class="fn">transfer</a>(
+        source: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        dest: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        value: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+        existence_requirement: <a class="enum" href="enum.ExistenceRequirement.html" title="enum polkadot_sdk_frame::traits::ExistenceRequirement">ExistenceRequirement</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, DispatchError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.slash" class="fn">slash</a>(
+        who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        value: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+    ) -&gt; (Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.NegativeImbalance" title="type polkadot_sdk_frame::traits::Currency::NegativeImbalance">NegativeImbalance</a>, Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.deposit_into_existing" class="fn">deposit_into_existing</a>(
+        who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        value: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.PositiveImbalance" title="type polkadot_sdk_frame::traits::Currency::PositiveImbalance">PositiveImbalance</a>, DispatchError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.deposit_creating" class="fn">deposit_creating</a>(
+        who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        value: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+    ) -&gt; Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.PositiveImbalance" title="type polkadot_sdk_frame::traits::Currency::PositiveImbalance">PositiveImbalance</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.withdraw" class="fn">withdraw</a>(
+        who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        value: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+        reasons: <a class="struct" href="struct.WithdrawReasons.html" title="struct polkadot_sdk_frame::traits::WithdrawReasons">WithdrawReasons</a>,
+        liveness: <a class="enum" href="enum.ExistenceRequirement.html" title="enum polkadot_sdk_frame::traits::ExistenceRequirement">ExistenceRequirement</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.NegativeImbalance" title="type polkadot_sdk_frame::traits::Currency::NegativeImbalance">NegativeImbalance</a>, DispatchError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.make_free_balance_be" class="fn">make_free_balance_be</a>(
+        who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        balance: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+    ) -&gt; <a class="enum" href="enum.SignedImbalance.html" title="enum polkadot_sdk_frame::traits::SignedImbalance">SignedImbalance</a>&lt;Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>, Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.PositiveImbalance" title="type polkadot_sdk_frame::traits::Currency::PositiveImbalance">PositiveImbalance</a>&gt;;
+
+    // Provided methods
+    fn <a href="#method.active_issuance" class="fn">active_issuance</a>() -&gt; Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.deactivate" class="fn">deactivate</a>(_: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.reactivate" class="fn">reactivate</a>(_: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.pair" class="fn">pair</a>(
+        amount: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+    ) -&gt; (Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.PositiveImbalance" title="type polkadot_sdk_frame::traits::Currency::PositiveImbalance">PositiveImbalance</a>, Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.NegativeImbalance" title="type polkadot_sdk_frame::traits::Currency::NegativeImbalance">NegativeImbalance</a>) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.resolve_into_existing" class="fn">resolve_into_existing</a>(
+        who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        value: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.NegativeImbalance" title="type polkadot_sdk_frame::traits::Currency::NegativeImbalance">NegativeImbalance</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.NegativeImbalance" title="type polkadot_sdk_frame::traits::Currency::NegativeImbalance">NegativeImbalance</a>&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.resolve_creating" class="fn">resolve_creating</a>(who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>, value: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.NegativeImbalance" title="type polkadot_sdk_frame::traits::Currency::NegativeImbalance">NegativeImbalance</a>) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.settle" class="fn">settle</a>(
+        who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        value: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.PositiveImbalance" title="type polkadot_sdk_frame::traits::Currency::PositiveImbalance">PositiveImbalance</a>,
+        reasons: <a class="struct" href="struct.WithdrawReasons.html" title="struct polkadot_sdk_frame::traits::WithdrawReasons">WithdrawReasons</a>,
+        liveness: <a class="enum" href="enum.ExistenceRequirement.html" title="enum polkadot_sdk_frame::traits::ExistenceRequirement">ExistenceRequirement</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.PositiveImbalance" title="type polkadot_sdk_frame::traits::Currency::PositiveImbalance">PositiveImbalance</a>&gt; { ... }
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Abstraction over a fungible assets system.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.Balance" class="method"><h4 class="code-header">type <a href="#associatedtype.Balance" class="associatedtype">Balance</a>: <a class="trait" href="tokens/trait.Balance.html" title="trait polkadot_sdk_frame::traits::tokens::Balance">Balance</a> + <a class="trait" href="trait.MaybeSerializeDeserialize.html" title="trait polkadot_sdk_frame::traits::MaybeSerializeDeserialize">MaybeSerializeDeserialize</a></h4></section></summary><div class="docblock"><p>The balance of an account.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.PositiveImbalance" class="method"><h4 class="code-header">type <a href="#associatedtype.PositiveImbalance" class="associatedtype">PositiveImbalance</a>: <a class="trait" href="trait.Imbalance.html" title="trait polkadot_sdk_frame::traits::Imbalance">Imbalance</a>&lt;Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>, Opposite = Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.NegativeImbalance" title="type polkadot_sdk_frame::traits::Currency::NegativeImbalance">NegativeImbalance</a>&gt;</h4></section></summary><div class="docblock"><p>The opaque token type for an imbalance. This is returned by unbalanced operations
+and must be dealt with. It may be dropped but cannot be cloned.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.NegativeImbalance" class="method"><h4 class="code-header">type <a href="#associatedtype.NegativeImbalance" class="associatedtype">NegativeImbalance</a>: <a class="trait" href="trait.Imbalance.html" title="trait polkadot_sdk_frame::traits::Imbalance">Imbalance</a>&lt;Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>, Opposite = Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.PositiveImbalance" title="type polkadot_sdk_frame::traits::Currency::PositiveImbalance">PositiveImbalance</a>&gt;</h4></section></summary><div class="docblock"><p>The opaque token type for an imbalance. This is returned by unbalanced operations
+and must be dealt with. It may be dropped but cannot be cloned.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.total_balance" class="method"><h4 class="code-header">fn <a href="#tymethod.total_balance" class="fn">total_balance</a>(who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a></h4></section></summary><div class="docblock"><p>The combined balance of <code>who</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.can_slash" class="method"><h4 class="code-header">fn <a href="#tymethod.can_slash" class="fn">can_slash</a>(who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>, value: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Same result as <code>slash(who, value)</code> (but without the side-effects) assuming there are no
+balance changes in the meantime and only the reserved balance is not taken into account.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.total_issuance" class="method"><h4 class="code-header">fn <a href="#tymethod.total_issuance" class="fn">total_issuance</a>() -&gt; Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a></h4></section></summary><div class="docblock"><p>The total amount of issuance in the system.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.minimum_balance" class="method"><h4 class="code-header">fn <a href="#tymethod.minimum_balance" class="fn">minimum_balance</a>() -&gt; Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a></h4></section></summary><div class="docblock"><p>The minimum balance any single account may have. This is equivalent to the <code>Balances</code>
+module’s <code>ExistentialDeposit</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.burn" class="method"><h4 class="code-header">fn <a href="#tymethod.burn" class="fn">burn</a>(amount: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>) -&gt; Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.PositiveImbalance" title="type polkadot_sdk_frame::traits::Currency::PositiveImbalance">PositiveImbalance</a></h4></section></summary><div class="docblock"><p>Reduce the total issuance by <code>amount</code> and return the according imbalance. The imbalance will
+typically be used to reduce an account by the same amount with e.g. <code>settle</code>.</p>
+<p>This is infallible, but doesn’t guarantee that the entire <code>amount</code> is burnt, for example
+in the case of underflow.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.issue" class="method"><h4 class="code-header">fn <a href="#tymethod.issue" class="fn">issue</a>(amount: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>) -&gt; Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.NegativeImbalance" title="type polkadot_sdk_frame::traits::Currency::NegativeImbalance">NegativeImbalance</a></h4></section></summary><div class="docblock"><p>Increase the total issuance by <code>amount</code> and return the according imbalance. The imbalance
+will typically be used to increase an account by the same amount with e.g.
+<code>resolve_into_existing</code> or <code>resolve_creating</code>.</p>
+<p>This is infallible, but doesn’t guarantee that the entire <code>amount</code> is issued, for example
+in the case of overflow.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.free_balance" class="method"><h4 class="code-header">fn <a href="#tymethod.free_balance" class="fn">free_balance</a>(who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a></h4></section></summary><div class="docblock"><p>The ‘free’ balance of a given account.</p>
+<p>This is the only balance that matters in terms of most operations on tokens. It alone
+is used to determine the balance when in the contract execution environment. When this
+balance falls below the value of <code>ExistentialDeposit</code>, then the ‘current account’ is
+deleted: specifically <code>FreeBalance</code>.</p>
+<p><code>system::AccountNonce</code> is also deleted if <code>ReservedBalance</code> is also zero (it also gets
+collapsed to zero if it ever becomes less than <code>ExistentialDeposit</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.ensure_can_withdraw" class="method"><h4 class="code-header">fn <a href="#tymethod.ensure_can_withdraw" class="fn">ensure_can_withdraw</a>(
+    who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    _amount: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+    reasons: <a class="struct" href="struct.WithdrawReasons.html" title="struct polkadot_sdk_frame::traits::WithdrawReasons">WithdrawReasons</a>,
+    new_balance: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, DispatchError&gt;</h4></section></summary><div class="docblock"><p>Returns <code>Ok</code> iff the account is able to make a withdrawal of the given amount
+for the given reason. Basically, it’s just a dry-run of <code>withdraw</code>.</p>
+<p><code>Err(...)</code> with the reason why not otherwise.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.transfer" class="method"><h4 class="code-header">fn <a href="#tymethod.transfer" class="fn">transfer</a>(
+    source: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    dest: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    value: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+    existence_requirement: <a class="enum" href="enum.ExistenceRequirement.html" title="enum polkadot_sdk_frame::traits::ExistenceRequirement">ExistenceRequirement</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, DispatchError&gt;</h4></section></summary><div class="docblock"><p>Transfer some liquid free balance to another staker.</p>
+<p>This is a very high-level function. It will ensure no imbalance in the system remains.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.slash" class="method"><h4 class="code-header">fn <a href="#tymethod.slash" class="fn">slash</a>(
+    who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    value: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+) -&gt; (Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.NegativeImbalance" title="type polkadot_sdk_frame::traits::Currency::NegativeImbalance">NegativeImbalance</a>, Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>)</h4></section></summary><div class="docblock"><p>Deducts up to <code>value</code> from the combined balance of <code>who</code>, preferring to deduct from the
+free balance. This function cannot fail.</p>
+<p>The resulting imbalance is the first item of the tuple returned.</p>
+<p>As much funds up to <code>value</code> will be deducted as possible. If this is less than <code>value</code>,
+then a non-zero second item will be returned.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.deposit_into_existing" class="method"><h4 class="code-header">fn <a href="#tymethod.deposit_into_existing" class="fn">deposit_into_existing</a>(
+    who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    value: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.PositiveImbalance" title="type polkadot_sdk_frame::traits::Currency::PositiveImbalance">PositiveImbalance</a>, DispatchError&gt;</h4></section></summary><div class="docblock"><p>Mints <code>value</code> to the free balance of <code>who</code>.</p>
+<p>If <code>who</code> doesn’t exist, nothing is done and an Err returned.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.deposit_creating" class="method"><h4 class="code-header">fn <a href="#tymethod.deposit_creating" class="fn">deposit_creating</a>(
+    who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    value: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+) -&gt; Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.PositiveImbalance" title="type polkadot_sdk_frame::traits::Currency::PositiveImbalance">PositiveImbalance</a></h4></section></summary><div class="docblock"><p>Adds up to <code>value</code> to the free balance of <code>who</code>. If <code>who</code> doesn’t exist, it is created.</p>
+<p>Infallible.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.withdraw" class="method"><h4 class="code-header">fn <a href="#tymethod.withdraw" class="fn">withdraw</a>(
+    who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    value: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+    reasons: <a class="struct" href="struct.WithdrawReasons.html" title="struct polkadot_sdk_frame::traits::WithdrawReasons">WithdrawReasons</a>,
+    liveness: <a class="enum" href="enum.ExistenceRequirement.html" title="enum polkadot_sdk_frame::traits::ExistenceRequirement">ExistenceRequirement</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.NegativeImbalance" title="type polkadot_sdk_frame::traits::Currency::NegativeImbalance">NegativeImbalance</a>, DispatchError&gt;</h4></section></summary><div class="docblock"><p>Removes some free balance from <code>who</code> account for <code>reason</code> if possible. If <code>liveness</code> is
+<code>KeepAlive</code>, then no less than <code>ExistentialDeposit</code> must be left remaining.</p>
+<p>This checks any locks, vesting, and liquidity requirements. If the removal is not possible,
+then it returns <code>Err</code>.</p>
+<p>If the operation is successful, this will return <code>Ok</code> with a <code>NegativeImbalance</code> whose value
+is <code>value</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.make_free_balance_be" class="method"><h4 class="code-header">fn <a href="#tymethod.make_free_balance_be" class="fn">make_free_balance_be</a>(
+    who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    balance: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+) -&gt; <a class="enum" href="enum.SignedImbalance.html" title="enum polkadot_sdk_frame::traits::SignedImbalance">SignedImbalance</a>&lt;Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>, Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.PositiveImbalance" title="type polkadot_sdk_frame::traits::Currency::PositiveImbalance">PositiveImbalance</a>&gt;</h4></section></summary><div class="docblock"><p>Ensure an account’s free balance equals some value; this will create the account
+if needed.</p>
+<p>Returns a signed imbalance and status to indicate if the account was successfully updated or
+update has led to killing of the account.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.active_issuance" class="method"><h4 class="code-header">fn <a href="#method.active_issuance" class="fn">active_issuance</a>() -&gt; Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a></h4></section></summary><div class="docblock"><p>The total amount of issuance in the system excluding those which are controlled by the
+system.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.deactivate" class="method"><h4 class="code-header">fn <a href="#method.deactivate" class="fn">deactivate</a>(_: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>)</h4></section></summary><div class="docblock"><p>Reduce the active issuance by some amount.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.reactivate" class="method"><h4 class="code-header">fn <a href="#method.reactivate" class="fn">reactivate</a>(_: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>)</h4></section></summary><div class="docblock"><p>Increase the active issuance by some amount, up to the outstanding amount reduced.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.pair" class="method"><h4 class="code-header">fn <a href="#method.pair" class="fn">pair</a>(
+    amount: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+) -&gt; (Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.PositiveImbalance" title="type polkadot_sdk_frame::traits::Currency::PositiveImbalance">PositiveImbalance</a>, Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.NegativeImbalance" title="type polkadot_sdk_frame::traits::Currency::NegativeImbalance">NegativeImbalance</a>)</h4></section></summary><div class="docblock"><p>Produce a pair of imbalances that cancel each other out exactly.</p>
+<p>This is just the same as burning and issuing the same amount and has no effect on the
+total issuance.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.resolve_into_existing" class="method"><h4 class="code-header">fn <a href="#method.resolve_into_existing" class="fn">resolve_into_existing</a>(
+    who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    value: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.NegativeImbalance" title="type polkadot_sdk_frame::traits::Currency::NegativeImbalance">NegativeImbalance</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.NegativeImbalance" title="type polkadot_sdk_frame::traits::Currency::NegativeImbalance">NegativeImbalance</a>&gt;</h4></section></summary><div class="docblock"><p>Similar to deposit_creating, only accepts a <code>NegativeImbalance</code> and returns nothing on
+success.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.resolve_creating" class="method"><h4 class="code-header">fn <a href="#method.resolve_creating" class="fn">resolve_creating</a>(who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>, value: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.NegativeImbalance" title="type polkadot_sdk_frame::traits::Currency::NegativeImbalance">NegativeImbalance</a>)</h4></section></summary><div class="docblock"><p>Similar to deposit_creating, only accepts a <code>NegativeImbalance</code> and returns nothing on
+success.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.settle" class="method"><h4 class="code-header">fn <a href="#method.settle" class="fn">settle</a>(
+    who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    value: Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.PositiveImbalance" title="type polkadot_sdk_frame::traits::Currency::PositiveImbalance">PositiveImbalance</a>,
+    reasons: <a class="struct" href="struct.WithdrawReasons.html" title="struct polkadot_sdk_frame::traits::WithdrawReasons">WithdrawReasons</a>,
+    liveness: <a class="enum" href="enum.ExistenceRequirement.html" title="enum polkadot_sdk_frame::traits::ExistenceRequirement">ExistenceRequirement</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, Self::<a class="associatedtype" href="trait.Currency.html#associatedtype.PositiveImbalance" title="type polkadot_sdk_frame::traits::Currency::PositiveImbalance">PositiveImbalance</a>&gt;</h4></section></summary><div class="docblock"><p>Similar to withdraw, only accepts a <code>PositiveImbalance</code> and returns nothing on success.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-Currency%3CAccountId%3E-for-()" class="impl"><a href="#impl-Currency%3CAccountId%3E-for-()" class="anchor">§</a><h3 class="code-header">impl&lt;AccountId&gt; <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt; for <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><section id="associatedtype.Balance-1" class="associatedtype trait-impl"><a href="#associatedtype.Balance-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Balance" class="associatedtype">Balance</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a></h4></section><section id="associatedtype.PositiveImbalance-1" class="associatedtype trait-impl"><a href="#associatedtype.PositiveImbalance-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.PositiveImbalance" class="associatedtype">PositiveImbalance</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h4></section><section id="associatedtype.NegativeImbalance-1" class="associatedtype trait-impl"><a href="#associatedtype.NegativeImbalance-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.NegativeImbalance" class="associatedtype">NegativeImbalance</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h4></section><section id="method.total_balance" class="method trait-impl"><a href="#method.total_balance" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.total_balance" class="fn">total_balance</a>(_: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a></h4></section><section id="method.can_slash" class="method trait-impl"><a href="#method.can_slash" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.can_slash" class="fn">can_slash</a>(_: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>, _: &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></h4></section><section id="method.total_issuance" class="method trait-impl"><a href="#method.total_issuance" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.total_issuance" class="fn">total_issuance</a>() -&gt; &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a></h4></section><section id="method.minimum_balance" class="method trait-impl"><a href="#method.minimum_balance" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.minimum_balance" class="fn">minimum_balance</a>() -&gt; &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a></h4></section><section id="method.burn" class="method trait-impl"><a href="#method.burn" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.burn" class="fn">burn</a>(
+    _: &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+) -&gt; &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.PositiveImbalance" title="type polkadot_sdk_frame::traits::Currency::PositiveImbalance">PositiveImbalance</a></h4></section><section id="method.issue" class="method trait-impl"><a href="#method.issue" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.issue" class="fn">issue</a>(
+    _: &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+) -&gt; &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.NegativeImbalance" title="type polkadot_sdk_frame::traits::Currency::NegativeImbalance">NegativeImbalance</a></h4></section><section id="method.pair-1" class="method trait-impl"><a href="#method.pair-1" class="anchor">§</a><h4 class="code-header">fn <a href="#method.pair" class="fn">pair</a>(
+    _: &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+) -&gt; (&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.PositiveImbalance" title="type polkadot_sdk_frame::traits::Currency::PositiveImbalance">PositiveImbalance</a>, &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.NegativeImbalance" title="type polkadot_sdk_frame::traits::Currency::NegativeImbalance">NegativeImbalance</a>)</h4></section><section id="method.free_balance" class="method trait-impl"><a href="#method.free_balance" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.free_balance" class="fn">free_balance</a>(_: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a></h4></section><section id="method.ensure_can_withdraw" class="method trait-impl"><a href="#method.ensure_can_withdraw" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.ensure_can_withdraw" class="fn">ensure_can_withdraw</a>(
+    _: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    _: &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+    _: <a class="struct" href="struct.WithdrawReasons.html" title="struct polkadot_sdk_frame::traits::WithdrawReasons">WithdrawReasons</a>,
+    _: &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, DispatchError&gt;</h4></section><section id="method.transfer" class="method trait-impl"><a href="#method.transfer" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.transfer" class="fn">transfer</a>(
+    _: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    _: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    _: &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+    _: <a class="enum" href="enum.ExistenceRequirement.html" title="enum polkadot_sdk_frame::traits::ExistenceRequirement">ExistenceRequirement</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, DispatchError&gt;</h4></section><section id="method.slash" class="method trait-impl"><a href="#method.slash" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.slash" class="fn">slash</a>(
+    _: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    _: &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+) -&gt; (&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.NegativeImbalance" title="type polkadot_sdk_frame::traits::Currency::NegativeImbalance">NegativeImbalance</a>, &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>)</h4></section><section id="method.deposit_into_existing" class="method trait-impl"><a href="#method.deposit_into_existing" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.deposit_into_existing" class="fn">deposit_into_existing</a>(
+    _: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    _: &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.PositiveImbalance" title="type polkadot_sdk_frame::traits::Currency::PositiveImbalance">PositiveImbalance</a>, DispatchError&gt;</h4></section><section id="method.resolve_into_existing-1" class="method trait-impl"><a href="#method.resolve_into_existing-1" class="anchor">§</a><h4 class="code-header">fn <a href="#method.resolve_into_existing" class="fn">resolve_into_existing</a>(
+    _: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    _: &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.NegativeImbalance" title="type polkadot_sdk_frame::traits::Currency::NegativeImbalance">NegativeImbalance</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.NegativeImbalance" title="type polkadot_sdk_frame::traits::Currency::NegativeImbalance">NegativeImbalance</a>&gt;</h4></section><section id="method.deposit_creating" class="method trait-impl"><a href="#method.deposit_creating" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.deposit_creating" class="fn">deposit_creating</a>(
+    _: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    _: &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+) -&gt; &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.PositiveImbalance" title="type polkadot_sdk_frame::traits::Currency::PositiveImbalance">PositiveImbalance</a></h4></section><section id="method.resolve_creating-1" class="method trait-impl"><a href="#method.resolve_creating-1" class="anchor">§</a><h4 class="code-header">fn <a href="#method.resolve_creating" class="fn">resolve_creating</a>(
+    _: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    _: &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.NegativeImbalance" title="type polkadot_sdk_frame::traits::Currency::NegativeImbalance">NegativeImbalance</a>,
+)</h4></section><section id="method.withdraw" class="method trait-impl"><a href="#method.withdraw" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.withdraw" class="fn">withdraw</a>(
+    _: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    _: &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+    _: <a class="struct" href="struct.WithdrawReasons.html" title="struct polkadot_sdk_frame::traits::WithdrawReasons">WithdrawReasons</a>,
+    _: <a class="enum" href="enum.ExistenceRequirement.html" title="enum polkadot_sdk_frame::traits::ExistenceRequirement">ExistenceRequirement</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.NegativeImbalance" title="type polkadot_sdk_frame::traits::Currency::NegativeImbalance">NegativeImbalance</a>, DispatchError&gt;</h4></section><section id="method.settle-1" class="method trait-impl"><a href="#method.settle-1" class="anchor">§</a><h4 class="code-header">fn <a href="#method.settle" class="fn">settle</a>(
+    _: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    _: &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.PositiveImbalance" title="type polkadot_sdk_frame::traits::Currency::PositiveImbalance">PositiveImbalance</a>,
+    _: <a class="struct" href="struct.WithdrawReasons.html" title="struct polkadot_sdk_frame::traits::WithdrawReasons">WithdrawReasons</a>,
+    _: <a class="enum" href="enum.ExistenceRequirement.html" title="enum polkadot_sdk_frame::traits::ExistenceRequirement">ExistenceRequirement</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.PositiveImbalance" title="type polkadot_sdk_frame::traits::Currency::PositiveImbalance">PositiveImbalance</a>&gt;</h4></section><section id="method.make_free_balance_be" class="method trait-impl"><a href="#method.make_free_balance_be" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.make_free_balance_be" class="fn">make_free_balance_be</a>(
+    _: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    _: &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>,
+) -&gt; <a class="enum" href="enum.SignedImbalance.html" title="enum polkadot_sdk_frame::traits::SignedImbalance">SignedImbalance</a>&lt;&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::Currency::Balance">Balance</a>, &lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a> as <a class="trait" href="trait.Currency.html" title="trait polkadot_sdk_frame::traits::Currency">Currency</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="trait.Currency.html#associatedtype.PositiveImbalance" title="type polkadot_sdk_frame::traits::Currency::PositiveImbalance">PositiveImbalance</a>&gt;</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/frame_support/traits/tokens/currency/trait.Currency.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

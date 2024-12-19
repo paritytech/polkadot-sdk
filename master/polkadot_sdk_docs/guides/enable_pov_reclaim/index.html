@@ -1,0 +1,310 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="How to enhance a given runtime and node to be cumulus-enabled, run it as a parachain and connect it to a relay-chain. How to enable storage weight reclaiming in a parachain node and runtime."><title>polkadot_sdk_docs::guides::enable_pov_reclaim - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.com/favicon.ico"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module enable_pov_reclaim</a></h2><div class="sidebar-elems"><h2><a href="../index.html">In polkadot_sdk_docs::guides</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">guides</a>::<wbr><a class="mod" href="#">enable_pov_reclaim</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/guides/enable_pov_reclaim.rs.html#1-86">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>How to enhance a given runtime and node to be cumulus-enabled, run it as a parachain
+and connect it to a relay-chain.
+How to enable storage weight reclaiming in a parachain node and runtime.</p>
+<h2 id="enable-storage-weight-reclaiming"><a class="doc-anchor" href="#enable-storage-weight-reclaiming">§</a>Enable storage weight reclaiming</h2>
+<p>This guide will teach you how to enable storage weight reclaiming for a parachain. The
+explanations in this guide assume a project structure similar to the one detailed in
+the <a href="../../polkadot_sdk/substrate/index.html#anatomy-of-a-binary-crate" title="mod polkadot_sdk_docs::polkadot_sdk::substrate">substrate documentation</a>. Full
+technical details are available in the original <a href="https://github.com/paritytech/polkadot-sdk/pull/3002">pull request</a>.</p>
+<h2 id="what-is-pov-reclaim"><a class="doc-anchor" href="#what-is-pov-reclaim">§</a>What is PoV reclaim?</h2>
+<p>When a parachain submits a block to a relay chain like Polkadot or Kusama, it sends the block
+itself and a storage proof. Together they form the Proof-of-Validity (PoV). The PoV allows the
+relay chain to validate the parachain block by re-executing it. Relay chain
+validators distribute this PoV among themselves over the network. This distribution is costly
+and limits the size of the storage proof. The storage weight dimension of FRAME weights reflects
+this cost and limits the size of the storage proof. However, the storage weight determined
+during <a href="../../reference_docs/frame_benchmarking_weight/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_benchmarking_weight">benchmarking</a> represents the worst
+case. In reality, runtime operations often consume less space in the storage proof. PoV reclaim
+offers a mechanism to reclaim the difference between the benchmarked worst-case and the real
+proof-size consumption.</p>
+<h2 id="how-to-enable-pov-reclaim"><a class="doc-anchor" href="#how-to-enable-pov-reclaim">§</a>How to enable PoV reclaim</h2><h3 id="1-add-the-host-function-to-your-node"><a class="doc-anchor" href="#1-add-the-host-function-to-your-node">§</a>1. Add the host function to your node</h3>
+<p>To reclaim excess storage weight, a parachain runtime needs the
+ability to fetch the size of the storage proof from the node. The reclaim
+mechanism uses the
+<a href="../../../cumulus_primitives_proof_size_hostfunction/storage_proof_size/index.html" title="mod cumulus_primitives_proof_size_hostfunction::storage_proof_size"><code>storage_proof_size</code></a>
+host function for this purpose. For convenience, cumulus provides
+<a href="../../../cumulus_client_service/type.ParachainHostFunctions.html" title="type cumulus_client_service::ParachainHostFunctions"><code>ParachainHostFunctions</code></a>, a set of
+host functions typically used by cumulus-based parachains. In the binary crate of your
+parachain, find the instantiation of the <a href="../../../sc_executor/executor/struct.WasmExecutor.html" title="struct sc_executor::executor::WasmExecutor"><code>WasmExecutor</code></a> and set the
+correct generic type.</p>
+<p>This example from the parachain-template shows a type definition that includes the correct
+host functions.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">type </span>ParachainExecutor = WasmExecutor&lt;ParachainHostFunctions&gt;;</code></pre></div>
+<blockquote>
+<p><strong>Note:</strong></p>
+<p>If you see error <code>runtime requires function imports which are not present on the host: 'env:ext_storage_proof_size_storage_proof_size_version_1'</code>, it is likely
+that this step in the guide was not set up correctly.</p>
+</blockquote>
+<h3 id="2-enable-storage-proof-recording-during-import"><a class="doc-anchor" href="#2-enable-storage-proof-recording-during-import">§</a>2. Enable storage proof recording during import</h3>
+<p>The reclaim mechanism reads the size of the currently recorded storage proof multiple times
+during block authoring and block import. Proof recording during authoring is already enabled on
+parachains. You must also ensure that storage proof recording is enabled during block import.
+Find where your node builds the fundamental substrate components by calling
+<a href="../../../sc_service/builder/fn.new_full_parts.html" title="fn sc_service::builder::new_full_parts"><code>new_full_parts</code></a>. Replace this
+with <a href="../../../sc_service/builder/fn.new_full_parts_record_import.html" title="fn sc_service::builder::new_full_parts_record_import"><code>new_full_parts_record_import</code></a> and
+pass <code>true</code> as the last parameter to enable import recording.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub fn </span>new_partial(config: <span class="kw-2">&amp;</span>Configuration) -&gt; <span class="prelude-ty">Result</span>&lt;Service, sc_service::Error&gt; {
+	<span class="kw">let </span>telemetry = config
+		.telemetry_endpoints
+		.clone()
+		.filter(|x| !x.is_empty())
+		.map(|endpoints| -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, sc_telemetry::Error&gt; {
+			<span class="kw">let </span>worker = TelemetryWorker::new(<span class="number">16</span>)<span class="question-mark">?</span>;
+			<span class="kw">let </span>telemetry = worker.handle().new_telemetry(endpoints);
+			<span class="prelude-val">Ok</span>((worker, telemetry))
+		})
+		.transpose()<span class="question-mark">?</span>;
+
+	<span class="kw">let </span>heap_pages = config
+		.executor
+		.default_heap_pages
+		.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |h| HeapAllocStrategy::Static { extra_pages: h <span class="kw">as _ </span>});
+
+	<span class="kw">let </span>executor = ParachainExecutor::builder()
+		.with_execution_method(config.executor.wasm_method)
+		.with_onchain_heap_alloc_strategy(heap_pages)
+		.with_offchain_heap_alloc_strategy(heap_pages)
+		.with_max_runtime_instances(config.executor.max_runtime_instances)
+		.with_runtime_cache_size(config.executor.runtime_cache_size)
+		.build();
+
+	<span class="kw">let </span>(client, backend, keystore_container, task_manager) =
+		sc_service::new_full_parts_record_import::&lt;Block, RuntimeApi, <span class="kw">_</span>&gt;(
+			config,
+			telemetry.as_ref().map(|(<span class="kw">_</span>, telemetry)| telemetry.handle()),
+			executor,
+			<span class="bool-val">true</span>,
+		)<span class="question-mark">?</span>;
+	<span class="kw">let </span>client = Arc::new(client);
+
+	<span class="kw">let </span>telemetry_worker_handle = telemetry.as_ref().map(|(worker, <span class="kw">_</span>)| worker.handle());
+
+	<span class="kw">let </span>telemetry = telemetry.map(|(worker, telemetry)| {
+		task_manager.spawn_handle().spawn(<span class="string">"telemetry"</span>, <span class="prelude-val">None</span>, worker.run());
+		telemetry
+	});
+
+	<span class="kw">let </span>transaction_pool = Arc::from(
+		sc_transaction_pool::Builder::new(
+			task_manager.spawn_essential_handle(),
+			client.clone(),
+			config.role.is_authority().into(),
+		)
+		.with_options(config.transaction_pool.clone())
+		.with_prometheus(config.prometheus_registry())
+		.build(),
+	);
+
+	<span class="kw">let </span>block_import = ParachainBlockImport::new(client.clone(), backend.clone());
+
+	<span class="kw">let </span>import_queue = build_import_queue(
+		client.clone(),
+		block_import.clone(),
+		config,
+		telemetry.as_ref().map(|telemetry| telemetry.handle()),
+		<span class="kw-2">&amp;</span>task_manager,
+	);
+
+	<span class="prelude-val">Ok</span>(PartialComponents {
+		backend,
+		client,
+		import_queue,
+		keystore_container,
+		task_manager,
+		transaction_pool,
+		select_chain: (),
+		other: (block_import, telemetry, telemetry_worker_handle),
+	})
+}</code></pre></div>
+<blockquote>
+<p><strong>Note:</strong></p>
+<p>If you see error <code>Storage root must match that calculated.</code> during block import, it is likely
+that this step in the guide was not
+set up correctly.</p>
+</blockquote>
+<h3 id="3-add-the-transactionextension-to-your-runtime"><a class="doc-anchor" href="#3-add-the-transactionextension-to-your-runtime">§</a>3. Add the TransactionExtension to your runtime</h3>
+<p>In your runtime, you will find a list of TransactionExtensions.
+To enable the reclaiming,
+add <a href="../../../cumulus_primitives_storage_weight_reclaim/struct.StorageWeightReclaim.html" title="struct cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim"><code>StorageWeightReclaim</code></a>
+to that list. For maximum efficiency, make sure that <code>StorageWeightReclaim</code> is last in the list.
+The extension will check the size of the storage proof before and after an extrinsic execution.
+It reclaims the difference between the calculated size and the benchmarked size.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub type </span>TxExtension = (
+	frame_system::CheckNonZeroSender&lt;Runtime&gt;,
+	frame_system::CheckSpecVersion&lt;Runtime&gt;,
+	frame_system::CheckTxVersion&lt;Runtime&gt;,
+	frame_system::CheckGenesis&lt;Runtime&gt;,
+	frame_system::CheckEra&lt;Runtime&gt;,
+	frame_system::CheckNonce&lt;Runtime&gt;,
+	frame_system::CheckWeight&lt;Runtime&gt;,
+	pallet_transaction_payment::ChargeTransactionPayment&lt;Runtime&gt;,
+	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim&lt;Runtime&gt;,
+	frame_metadata_hash_extension::CheckMetadataHash&lt;Runtime&gt;,
+);</code></pre></div>
+<h3 id="optional-verify-that-reclaim-works"><a class="doc-anchor" href="#optional-verify-that-reclaim-works">§</a>Optional: Verify that reclaim works</h3>
+<p>Start your node with the log target <code>runtime::storage_reclaim</code> set to <code>trace</code> to enable full
+logging for <code>StorageWeightReclaim</code>. The following log is an example from a local testnet. To
+trigger the log, execute any extrinsic on the network.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>...
+<span class="number">2024</span>-<span class="number">04</span>-<span class="number">22 17</span>:<span class="number">31</span>:<span class="number">48.014 </span>TRACE runtime::storage_reclaim: [ferdie] Reclaiming storage weight. benchmarked: <span class="number">3593</span>, consumed: <span class="number">265 </span>unspent: <span class="number">0
+</span>...</code></pre></div>
+<p>In the above example we see a benchmarked size of 3593 bytes, while the extrinsic only consumed
+265 bytes of proof size. This results in 3328 bytes of reclaim.</p>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

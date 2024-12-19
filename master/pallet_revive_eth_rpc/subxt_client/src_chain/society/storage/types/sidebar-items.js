@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["bids","candidates","challenge_round_count","defender_votes","defending","founder","head","member_by_index","member_count","members","next_head","parameters","payouts","pot","round_count","rules","skeptic","suspended_members","vote_clear_cursor","votes"]};

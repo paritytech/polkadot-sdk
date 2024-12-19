@@ -1,0 +1,615 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Validator Disabling - The Polkadot Parachain Host Implementers&#x27; Guide</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="last-changed.css">
+
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="index.html">Preamble</a></li><li class="chapter-item expanded "><a href="whence-parachains.html"><strong aria-hidden="true">1.</strong> Whence Parachains</a></li><li class="chapter-item expanded "><a href="protocol-overview.html"><strong aria-hidden="true">2.</strong> Protocol Overview</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="protocol-approval.html"><strong aria-hidden="true">2.1.</strong> Approval Process</a></li><li class="chapter-item expanded "><a href="protocol-disputes.html"><strong aria-hidden="true">2.2.</strong> Disputes Process</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="disputes-flow.html"><strong aria-hidden="true">2.2.1.</strong> Dispute Flow</a></li></ol></li><li class="chapter-item expanded "><a href="protocol-chain-selection.html"><strong aria-hidden="true">2.3.</strong> Chain Selection and Finalization</a></li><li class="chapter-item expanded "><a href="protocol-validator-disabling.html" class="active"><strong aria-hidden="true">2.4.</strong> Validator Disabling</a></li></ol></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">3.</strong> Architecture Overview</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="messaging.html"><strong aria-hidden="true">3.1.</strong> Messaging Overview</a></li><li class="chapter-item expanded "><a href="pvf-prechecking.html"><strong aria-hidden="true">3.2.</strong> PVF Pre-checking</a></li></ol></li><li class="chapter-item expanded "><a href="runtime/index.html"><strong aria-hidden="true">4.</strong> Runtime Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="runtime/initializer.html"><strong aria-hidden="true">4.1.</strong> Initializer Pallet</a></li><li class="chapter-item expanded "><a href="runtime/configuration.html"><strong aria-hidden="true">4.2.</strong> Configuration Pallet</a></li><li class="chapter-item expanded "><a href="runtime/shared.html"><strong aria-hidden="true">4.3.</strong> Shared Pallet</a></li><li class="chapter-item expanded "><a href="runtime/disputes.html"><strong aria-hidden="true">4.4.</strong> Disputes Pallet</a></li><li class="chapter-item expanded "><a href="runtime/paras.html"><strong aria-hidden="true">4.5.</strong> Paras Pallet</a></li><li class="chapter-item expanded "><a href="runtime/scheduler.html"><strong aria-hidden="true">4.6.</strong> Scheduler Pallet</a></li><li class="chapter-item expanded "><a href="runtime/inclusion.html"><strong aria-hidden="true">4.7.</strong> Inclusion Pallet</a></li><li class="chapter-item expanded "><a href="runtime/parainherent.html"><strong aria-hidden="true">4.8.</strong> ParaInherent Pallet</a></li><li class="chapter-item expanded "><a href="runtime/dmp.html"><strong aria-hidden="true">4.9.</strong> DMP Pallet</a></li><li class="chapter-item expanded "><a href="runtime/hrmp.html"><strong aria-hidden="true">4.10.</strong> HRMP Pallet</a></li><li class="chapter-item expanded "><a href="runtime/session_info.html"><strong aria-hidden="true">4.11.</strong> Session Info Pallet</a></li></ol></li><li class="chapter-item expanded "><a href="runtime-api/index.html"><strong aria-hidden="true">5.</strong> Runtime APIs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="runtime-api/validators.html"><strong aria-hidden="true">5.1.</strong> Validators</a></li><li class="chapter-item expanded "><a href="runtime-api/validator-groups.html"><strong aria-hidden="true">5.2.</strong> Validator Groups</a></li><li class="chapter-item expanded "><a href="runtime-api/availability-cores.html"><strong aria-hidden="true">5.3.</strong> Availability Cores</a></li><li class="chapter-item expanded "><a href="runtime-api/persisted-validation-data.html"><strong aria-hidden="true">5.4.</strong> Persisted Validation Data</a></li><li class="chapter-item expanded "><a href="runtime-api/session-index.html"><strong aria-hidden="true">5.5.</strong> Session Index</a></li><li class="chapter-item expanded "><a href="runtime-api/validation-code.html"><strong aria-hidden="true">5.6.</strong> Validation Code</a></li><li class="chapter-item expanded "><a href="runtime-api/candidate-pending-availability.html"><strong aria-hidden="true">5.7.</strong> Candidate Pending Availability</a></li><li class="chapter-item expanded "><a href="runtime-api/candidate-events.html"><strong aria-hidden="true">5.8.</strong> Candidate Events</a></li><li class="chapter-item expanded "><a href="runtime-api/disputes-info.html"><strong aria-hidden="true">5.9.</strong> Disputes Info</a></li><li class="chapter-item expanded "><a href="runtime-api/candidates-included.html"><strong aria-hidden="true">5.10.</strong> Candidates Included</a></li><li class="chapter-item expanded "><a href="runtime-api/pvf-prechecking.html"><strong aria-hidden="true">5.11.</strong> PVF Pre-checking</a></li></ol></li><li class="chapter-item expanded "><a href="node/index.html"><strong aria-hidden="true">6.</strong> Node Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="node/subsystems-and-jobs.html"><strong aria-hidden="true">6.1.</strong> Subsystems and Jobs</a></li><li class="chapter-item expanded "><a href="node/overseer.html"><strong aria-hidden="true">6.2.</strong> Overseer</a></li><li class="chapter-item expanded "><a href="node/grandpa-voting-rule.html"><strong aria-hidden="true">6.3.</strong> GRANDPA Voting Rule</a></li><li class="chapter-item expanded "><a href="node/collators/index.html"><strong aria-hidden="true">6.4.</strong> Collator Subsystems</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="node/collators/collation-generation.html"><strong aria-hidden="true">6.4.1.</strong> Collation Generation</a></li><li class="chapter-item expanded "><a href="node/collators/collator-protocol.html"><strong aria-hidden="true">6.4.2.</strong> Collator Protocol</a></li></ol></li><li class="chapter-item expanded "><a href="node/backing/index.html"><strong aria-hidden="true">6.5.</strong> Backing Subsystems</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="node/backing/candidate-backing.html"><strong aria-hidden="true">6.5.1.</strong> Candidate Backing</a></li><li class="chapter-item expanded "><a href="node/backing/prospective-parachains.html"><strong aria-hidden="true">6.5.2.</strong> Prospective Parachains</a></li><li class="chapter-item expanded "><a href="node/backing/statement-distribution.html"><strong aria-hidden="true">6.5.3.</strong> Statement Distribution</a></li><li class="chapter-item expanded "><a href="node/backing/statement-distribution-legacy.html"><strong aria-hidden="true">6.5.4.</strong> Statement Distribution (Legacy)</a></li></ol></li><li class="chapter-item expanded "><a href="node/availability/index.html"><strong aria-hidden="true">6.6.</strong> Availability Subsystems</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="node/availability/availability-distribution.html"><strong aria-hidden="true">6.6.1.</strong> Availability Distribution</a></li><li class="chapter-item expanded "><a href="node/availability/availability-recovery.html"><strong aria-hidden="true">6.6.2.</strong> Availability Recovery</a></li><li class="chapter-item expanded "><a href="node/availability/bitfield-distribution.html"><strong aria-hidden="true">6.6.3.</strong> Bitfield Distribution</a></li><li class="chapter-item expanded "><a href="node/availability/bitfield-signing.html"><strong aria-hidden="true">6.6.4.</strong> Bitfield Signing</a></li></ol></li><li class="chapter-item expanded "><a href="node/approval/index.html"><strong aria-hidden="true">6.7.</strong> Approval Subsystems</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="node/approval/approval-voting.html"><strong aria-hidden="true">6.7.1.</strong> Approval Voting</a></li><li class="chapter-item expanded "><a href="node/approval/approval-distribution.html"><strong aria-hidden="true">6.7.2.</strong> Approval Distribution</a></li></ol></li><li class="chapter-item expanded "><a href="node/disputes/index.html"><strong aria-hidden="true">6.8.</strong> Disputes Subsystems</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="node/disputes/dispute-coordinator.html"><strong aria-hidden="true">6.8.1.</strong> Dispute Coordinator</a></li><li class="chapter-item expanded "><a href="node/disputes/dispute-distribution.html"><strong aria-hidden="true">6.8.2.</strong> Dispute Distribution</a></li></ol></li><li class="chapter-item expanded "><a href="node/utility/index.html"><strong aria-hidden="true">6.9.</strong> Utility Subsystems</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="node/utility/availability-store.html"><strong aria-hidden="true">6.9.1.</strong> Availability Store</a></li><li class="chapter-item expanded "><a href="node/utility/candidate-validation.html"><strong aria-hidden="true">6.9.2.</strong> Candidate Validation</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="node/utility/pvf-host-and-workers.html"><strong aria-hidden="true">6.9.2.1.</strong> PVF Host and Workers</a></li></ol></li><li class="chapter-item expanded "><a href="node/utility/provisioner.html"><strong aria-hidden="true">6.9.3.</strong> Provisioner</a></li><li class="chapter-item expanded "><a href="node/utility/network-bridge.html"><strong aria-hidden="true">6.9.4.</strong> Network Bridge</a></li><li class="chapter-item expanded "><a href="node/utility/gossip-support.html"><strong aria-hidden="true">6.9.5.</strong> Gossip Support</a></li><li class="chapter-item expanded "><a href="node/utility/peer-set-manager.html"><strong aria-hidden="true">6.9.6.</strong> Peer Set Manager</a></li><li class="chapter-item expanded "><a href="node/utility/runtime-api.html"><strong aria-hidden="true">6.9.7.</strong> Runtime API Requests</a></li><li class="chapter-item expanded "><a href="node/utility/chain-api.html"><strong aria-hidden="true">6.9.8.</strong> Chain API Requests</a></li><li class="chapter-item expanded "><a href="node/utility/chain-selection.html"><strong aria-hidden="true">6.9.9.</strong> Chain Selection Request</a></li><li class="chapter-item expanded "><a href="node/utility/pvf-prechecker.html"><strong aria-hidden="true">6.9.10.</strong> PVF Pre-Checking</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="types/index.html"><strong aria-hidden="true">7.</strong> Data Structures and Types</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="types/candidate.html"><strong aria-hidden="true">7.1.</strong> Candidate</a></li><li class="chapter-item expanded "><a href="types/backing.html"><strong aria-hidden="true">7.2.</strong> Backing</a></li><li class="chapter-item expanded "><a href="types/availability.html"><strong aria-hidden="true">7.3.</strong> Availability</a></li><li class="chapter-item expanded "><a href="types/overseer-protocol.html"><strong aria-hidden="true">7.4.</strong> Overseer and Subsystem Protocol</a></li><li class="chapter-item expanded "><a href="types/runtime.html"><strong aria-hidden="true">7.5.</strong> Runtime</a></li><li class="chapter-item expanded "><a href="types/messages.html"><strong aria-hidden="true">7.6.</strong> Messages</a></li><li class="chapter-item expanded "><a href="types/network.html"><strong aria-hidden="true">7.7.</strong> Network</a></li><li class="chapter-item expanded "><a href="types/approval.html"><strong aria-hidden="true">7.8.</strong> Approvals</a></li><li class="chapter-item expanded "><a href="types/disputes.html"><strong aria-hidden="true">7.9.</strong> Disputes</a></li><li class="chapter-item expanded "><a href="types/pvf-prechecking.html"><strong aria-hidden="true">7.10.</strong> PVF Pre-checking</a></li></ol></li><li class="chapter-item expanded "><a href="glossary.html">Glossary</a></li><li class="chapter-item expanded affix "><a href="further-reading.html">Further Reading</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">The Polkadot Parachain Host Implementers&#x27; Guide</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/paritytech/polkadot-sdk" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="validator-disabling"><a class="header" href="#validator-disabling">Validator Disabling</a></h1>
+<h2 id="background"><a class="header" href="#background">Background</a></h2>
+<p>As established in the <a href="protocol-approval.html">approval process</a> dealing with bad parablocks is a three step process:</p>
+<ol>
+<li>Detection</li>
+<li>Escalation</li>
+<li>Consequences</li>
+</ol>
+<p>The main system responsible for dispensing <strong>consequences</strong> for malicious actors is the <a href="protocol-disputes.html">dispute
+system</a> which eventually dispenses slash events. The slashes itself can be dispensed quickly (a
+matter of blocks) but for an extra layer of auditing all slashes are deferred for 27 days (in Polkadot/Kusama) which
+gives time for Governance to investigate and potentially alter the punishment. Dispute concluding by itself does not
+immediately remove the validator from the active validator set.</p>
+<blockquote>
+<p><strong>Note:</strong><br />
+There was an additional mechanism of automatically chilling the validator which removed their intent to participate in
+the next election, but the removed validator could simply re-register his intent to validate.</p>
+</blockquote>
+<p>There is a need to have a more immediate way to deal with malicious validators. This is where the validator disabling
+comes in. It is focused on dispensing <strong>low latency</strong> consequences for malicious actors. It is important to note that
+the validator disabling is not a replacement for the dispute or slashing systems. It is a complementary system that is
+focused on lighter but immediate consequences usually in the form of restricted validator privileges.</p>
+<p>The primary goals are:</p>
+<ul>
+<li>Eliminate or minimize cases where attackers can get free attempts at attacking the network</li>
+<li>Eliminate or minimize the risks of honest nodes being pushed out of consensus when getting unjustly slashed (defense
+in depth)</li>
+</ul>
+<p>The above two goals are generally at odds so a careful balance has to be struck between them. We will achieve them by
+sacrificing some <strong>liveness</strong> in favor of <strong>soundness</strong> when the network is under stress. Maintaining some liveness but
+absolute soundness is paramount.</p>
+<blockquote>
+<p><strong>Note:</strong><br />
+Liveness = Valid candidates can go through (at a decent pace)<br />
+Security = Invalid candidates cannot go through (or are statistically very improbable)</p>
+</blockquote>
+<p>Side goals are:</p>
+<ul>
+<li>Reduce the damages to honest nodes that had a fault which might cause repeated slashes</li>
+<li>Reduce liveness impact of individual malicious attackers</li>
+</ul>
+<h2 id="system-overview"><a class="header" href="#system-overview">System Overview</a></h2>
+<p>High level assumptions and goals of the validator disabling system that will be further discussed in the following
+sections:</p>
+<ol>
+<li>If validator gets slashed (even 0%) we mark them as disabled in the runtime and on the node side.</li>
+<li>We only disable up to byzantine threshold of the validators.</li>
+<li>If there are more offenders than byzantine threshold disable only the highest offenders. (Some might get re-enabled.)</li>
+<li>Disablement lasts for 1 era.</li>
+<li>Disabled validators remain in the active validator set but have some limited permissions.</li>
+<li>Disabled validators can get re-elected.</li>
+<li>Disabled validators can participate in approval checking.</li>
+<li>Disabled validators can participate in GRANDPA/BEEFY, but equivocations cause disablement.</li>
+<li>Disabled validators cannot author blocks.</li>
+<li>Disabled validators cannot back candidates.</li>
+<li>Disabled validators cannot initiate disputes, but their votes are still counted if a dispute occurs.</li>
+<li>Disabled validators making dispute statements no-show in approval checking.</li>
+</ol>
+<p></br></br></br></p>
+<h1 id="risks"><a class="header" href="#risks">Risks</a></h1>
+<h2 id="risks-of-not-having-validator-disabling"><a class="header" href="#risks-of-not-having-validator-disabling">Risks of NOT having validator disabling</a></h2>
+<p>Assume that if an offense is committed a slash is deposited but the perpetrator can still act normally. He will be
+slashed 100% with a long delay (slash deferral duration which is 27 days). This is akin to the current design.</p>
+<p>A simple argument for disabling is that if someone is already slashed 100% and they have nothing to lose they could
+cause harm to the network and should be silenced.</p>
+<p>What harm could they cause?</p>
+<p><strong>1. Liveness attacks:</strong></p>
+<ul>
+<li>
+<p>1.1. Break sharding (with mass no-shows or mass disputes): It forces everyone to do all the work which affects
+liveness but doesn't kill it completely. The chain can progress at a slow rate.</p>
+</li>
+<li>
+<p>1.2. Mass invalid candidate backing: Spawns a lot of worthless work that needs to be done but it is bounded by backing
+numbers. Honest backers will still back valid candidates and that cannot be stopped. Honest block authors will
+eventually select valid candidates and even if disputed they will win and progress the chain.</p>
+</li>
+</ul>
+<p><strong>2. Soundness attacks:</strong></p>
+<ul>
+<li>2.1. The best and possibly only way to affect soundness is by getting lucky in the approval process. If by chance all
+approval voters would be malicious, the attackers could get a single invalid candidate through. Their chances would be
+relatively low but in general this risk has to be taken seriously as it significantly reduces the safety buffer around
+approval checking.</li>
+</ul>
+<blockquote>
+<p><strong>Note:</strong> With 30 approvals needed chance that a malicious candidate going through is around 4*10^-15. Assuming
+attackers can back invalid candidates on 50 cores for 48 hours straight and only those candidates get included it
+still gives a 7*10^-9 chance of success which is still relatively small considering the cost (all malicious stake
+slashed).</p>
+</blockquote>
+<p>Attacks 1.2 and 2.1 should generally be pretty futile as a solo attacker while 1.1 could be possible with mass disputes
+even from a single attacker. Nevertheless whatever the attack vector within the old system the attackers would get
+<em>eventually</em> get slashed and pushed out of the active validator set but they had plenty of time to wreck havoc.</p>
+<h2 id="risks-of-having-validator-disabling"><a class="header" href="#risks-of-having-validator-disabling">Risks of having validator disabling</a></h2>
+<p>Assume we fully push out validator when they commit offenses.</p>
+<p>The primary risk behind having any sort of disabling is that it is a double-edged sword that in case of any dispute bugs
+or sources of PVF non-determinism could disable honest nodes or be abused by attackers to specifically silence honest
+nodes.</p>
+<p>Validators being pushed out of the validator set are an issue because that can greatly skew the numbers game in approval
+checking (% for 30-ish malicious in a row).</p>
+<p>There are also censorship or liveness issues if backing is suddenly dominated by malicious nodes but in general even if
+some honest blocks get backed liveness should be preserved.</p>
+<blockquote>
+<p><strong>Note:</strong> It is worth noting that is is fundamentally a defense in depth strategy because if we assume disputes are
+perfect it should not be a real concern. In reality disputes and determinism are difficult to get right, and
+non-determinism and happen so defense in depth is crucial when handling those subsystems.</p>
+</blockquote>
+<p></br></br></br></p>
+<h1 id="risks-mitigation"><a class="header" href="#risks-mitigation">Risks Mitigation</a></h1>
+<h2 id="addressing-the-risks-of-having-validator-disabling"><a class="header" href="#addressing-the-risks-of-having-validator-disabling">Addressing the risks of having validator disabling</a></h2>
+<p>One safety measure is bounding the disabled number to 1/3 (<a href="#system-overview"><strong>Point 2.</strong></a>) or to be exact the
+byzantine threshold. If for any reason more than 1/3 of validators are getting disabled it means that some part of the
+protocol failed or there is more than 1/3 malicious nodes which breaks the assumptions.</p>
+<p>Even in such a dire situation where more than 1/3 got disabled the most likely scenario is a non-determinism bug or
+sacrifice attack bug. Those attacks generally cause minor slashes to multiple honest nodes. In such a case the situation
+could be salvaged by prioritizing highest offenders for disabling (<a href="#system-overview"><strong>Point 3.</strong></a>).</p>
+<blockquote>
+<p><strong>Note:</strong><br />
+System can be launched with re-enabling and will still provide some security improvements. Re-enabling will be
+launched in an upgrade after the initial deployment.</p>
+</blockquote>
+<p>Fully pushing out offending validator out of the validator set it too risky in case of a dispute bug, non-determinism or
+sacrifice attacks. Main issue lies in skewing the numbers in approval checking so instead of fully blocking disabled
+nodes a different approach can be taken - one were only some functionalities are disabled (<a href="#system-overview"><strong>Point
+5.</strong></a>). Once of those functionalities can be approval voting which as pointed above is so crucial that
+even in a disabled state nodes should be able to participate in it (<a href="#system-overview"><strong>Point 7.</strong></a>).</p>
+<blockquote>
+<p><strong>Note:</strong><br />
+Approval Checking statement are implicitly valid. Sending a statement for an invalid candidate is a part of the
+dispute logic which we did not yet discuss. For now we only allow nodes to state that a candidate is valid or remain
+silent. But this solves the main risk of disabling.</p>
+</blockquote>
+<p>Because we capped the number of disabled nodes to 1/3 there will always be at least 1/3 honest nodes to participate in
+backing so liveness should be preserved. That means that backing <strong>COULD</strong> be safely disabled for disabled nodes
+(<a href="#system-overview"><strong>Point 10.</strong></a>).</p>
+<h2 id="addressing-the-risks-of-not-having-validator-disabling"><a class="header" href="#addressing-the-risks-of-not-having-validator-disabling">Addressing the risks of NOT having validator disabling</a></h2>
+<p>To determine if backing <strong>SHOULD</strong> be disabled the attack vector of 1.2 (Mass invalid candidate backing) and 2.1
+(Getting lucky in approval voting) need to be considered. In both of those cases having extra backed malicious
+candidates gives attackers extra chances to get lucky in approval checking. The solution is to not allow for backing in
+disablement. (<a href="#system-overview"><strong>Point 10.</strong></a>)</p>
+<p>The attack vector 1.1 (Break sharding) requires a bit more nuance. If we assume that the attacker is a single entity and
+that he can get a lot of disputes through he could potentially incredibly easily break sharding. This generally points
+into the direction of disallowing that during disablement (<a href="#system-overview"><strong>Point 11.</strong></a>).</p>
+<p>This might seem like an issue because it takes away the escalation privileges of disabled approval checkers but this is
+NOT true. By issuing a dispute statement those nodes remain silent in approval checking because they skip their approval
+statement and thus will count as a no-show. This will create a mini escalation for that particular candidate. This means
+that disabled nodes maintain just enough escalation that they can protect soundness (same argument as soundness
+protection during a DoS attack on approval checking) but they lose their extreme escalation privilege which are only
+given to flawlessly performing nodes (<a href="#system-overview"><strong>Point 12.</strong></a>).</p>
+<p>As a defense in depth measure dispute statements from disabled validators count toward confirming disputes (byzantine
+threshold needed to confirm). If a dispute is confirmed everyone participates in it. This protects us from situations
+where due to a bug more than byzantine threshold of validators would be disabled.</p>
+<blockquote>
+<p><strong>Note:</strong><br />
+The way this behavior is achieved easily in implementation is that honest nodes note down dispute statements from
+disabled validators just like they would for normal nodes, but they do not release their own dispute statements unless
+the dispute is confirmed already. This simply stops the escalation process of disputes.</p>
+</blockquote>
+<p></br></br></p>
+<h1 id="disabling-duration"><a class="header" href="#disabling-duration">Disabling Duration</a></h1>
+<h2 id="context"><a class="header" href="#context">Context</a></h2>
+<p>A crucial point to understand is that as of the time of writing all slashing events as alluded to in the begging are
+delayed for 27 days before being executed. This is primarily because it gives governance enough time to investigate and
+potentially intervene. For that duration when the slash is pending the stake is locked and cannot be moved. Time to
+unbond you stake is 28 days which ensures that the stake will eventually be slashed before being withdrawn.</p>
+<h2 id="design"><a class="header" href="#design">Design</a></h2>
+<p>A few options for the duration of disablement were considered:</p>
+<ul>
+<li>1 epoch (4h in Polkadot)</li>
+<li>1 era (24h in Polkadot)</li>
+<li>2-26 eras</li>
+<li>27 eras</li>
+</ul>
+<p>1 epoch is a short period and between a few epochs the validator will most likely be exactly the same. It is also very
+difficult to fix any local node issues for honest validator in such a short time so the chance for a repeated offense is
+high.</p>
+<p>1 era gives a bit more time to fix any minor issues. Additionally, it guarantees a validator set change at so many of
+the currently disabled validator might no longer be present anyway. It also gives the time for the validator to chill
+themselves if they have identified a cause and want to spend more time fixing it. (<a href="#system-overview"><strong>Point 4.</strong></a>)</p>
+<p>Higher values could be considered and the main arguments for those are based around the fact that it reduces the number
+of repeated attacks that will be allowed before the slash execution. Generally 1 attack per era for 27 eras resulting in
+27 attacks at most should not compromise our safety assumptions. Although this direction could be further explored and
+might be parametrized for governance to decide.</p>
+<p></br></br></br></p>
+<h1 id="economic-consequences-of-disablement"><a class="header" href="#economic-consequences-of-disablement">Economic consequences of Disablement</a></h1>
+<p>Disablement is generally a form of punishment and that will be reflected in the rewards at the end of an era. A disabled
+validator will not receive any rewards for backing or block authoring. which will reduce its profits.</p>
+<p>That means that the opportunity cost of being disabled is a punishment by itself and thus it can be used for some cases
+where a minor punishment is needed. Current implementation was using 0% slashes to mark nodes for chilling and similar
+approach of 0% slashes can be used to mark validators for disablement. (<a href="#system-overview"><strong>Point 1.</strong></a>) 0% slashes
+could for instance be used to punish approval checkers voting invalid on valid candidates.</p>
+<p>Anything higher than 0% will of course also lead to a disablement.</p>
+<blockquote>
+<p><strong>Notes:</strong><br />
+Alternative designs incorporating disabling proportional to offenses were explored but they were deemed too complex
+and not worth the effort. Main issue with those is that proportional disabling would cause back and forth between
+disabled and enabled which complicated tracking the state of disabled validators and messes with optimistic node
+optimizations. Main benefits were that minor slashes will be barely disabled which has nice properties against
+sacrifice attacks.</p>
+</blockquote>
+<p></br></br></br></p>
+<h1 id="redundancy"><a class="header" href="#redundancy">Redundancy</a></h1>
+<p>Some systems can be greatly simplified or outright removed thanks to the above changes. This leads to reduced complexity
+around the systems that were hard to reason about and were sources of potential bugs or new attack vectors.</p>
+<h2 id="automatic-chilling"><a class="header" href="#automatic-chilling">Automatic Chilling</a></h2>
+<p>Chilling is process of a validator dropping theirs intent to validate. This removes them from the upcoming NPoS
+elections and effectively pushes them out of the validator set as quickly as of the next era (or 2 era in case of late
+offenses). All nominators of that validator were also getting unsubscribed from that validator. Validator could
+re-register their intent to validate at any time. The intent behind this logic was to protect honest stakes from
+repeated slashes caused by unnoticed bugs. It would give time for validators to fix their issue before continuing as a
+validator.</p>
+<p>Chilling had a myriad of problems. It assumes that validators and nominators remain very active and monitor everything.
+If a validator got slashed he was getting automatically chilled and his nominators were getting unsubscribed. This was
+an issue because of minor non-malicious slashes due to node operator mistakes or small bugs. Validators got those bugs
+fixed quickly and were reimbursed but nominator had to manually re-subscribe to the validator, which they often
+postponed for very lengthy amounts of time most likely due to simply not checking their stake. <strong>This forced
+unsubscribing of nominators was later disabled.</strong></p>
+<p>Automatic chilling was achieving its goals in ideal scenarios (no attackers, no lazy nominators) but it opened new
+vulnerabilities for attackers. The biggest issue was that chilling in case of honest node slashes could lead to honest
+validators being quickly pushed out of the next validator set within the next era. This retains the validator set size
+but gives an edge to attackers as they can more easily win slots in the NPoS election.</p>
+<p>Disabling allows for punishment that limits the damages malicious actors can cause without having to resort to kicking
+them out of the validator set. This protects us from the edge case of honest validators getting quickly pushed out of
+the set by slashes. (<a href="#system-overview"><strong>Point 6.</strong></a>)</p>
+<blockquote>
+<p><strong>Notes:</strong><br />
+As long as honest slashes absolutely cannot occur automatic chilling is a sensible and desirable. This means it could
+be re-enabled once PolkaVM introduces deterministic gas metering. Then best of both worlds could be achieved.</p>
+</blockquote>
+<h2 id="forcing-new-era"><a class="header" href="#forcing-new-era">Forcing New Era</a></h2>
+<p>Previous implementation of disabling had some limited mechanisms allowing for validators disablement and if too many
+were disabled forcing a new era (new election). Frame staking pallet offered the ability to force a new era but it was
+also deemed unsafe as it could be abused and compromised the security of the network for instance by weakening the
+randomness used throughout the protocol.</p>
+<p></br></br></br></p>
+<h1 id="other-types-of-slashing"><a class="header" href="#other-types-of-slashing">Other types of slashing</a></h1>
+<p>Above slashes were specifically referring to slashing events coming from disputes against candidates, but in Polkadot
+other types of offenses exist for example GRANDPA equivocations or block authoring offenses. Question is if the above
+defined design can handle those offenses.</p>
+<h2 id="grandpabeefy-offenses"><a class="header" href="#grandpabeefy-offenses">GRANDPA/BEEFY Offenses</a></h2>
+<p>The main offences for GRANDPA/BEEFY are equivocations. It is not a very serious offense and some nodes committing do not
+endanger the system and performance is barely affected. If more than byzantine threshold of nodes equivocate it is a
+catastrophic failure potentially resulting in 2 finalized blocks on the same height in the case of GRANDPA.</p>
+<p>Honest nodes generally should not commit those offenses so the goal of protecting them does not apply here.</p>
+<blockquote>
+<p><strong>Note:</strong><br />
+A validator running multiple nodes with the same identity might equivocate. Doing that is highly not advised but it
+has happened before.</p>
+</blockquote>
+<p>It's not a game of chance so giving attackers extra chances does not compromise soundness. Also it requires a
+supermajority of honest nodes to successfully finalize blocks so any disabling of honest nodes from GRANDPA might
+compromise liveness.</p>
+<p>Best approach is to allow disabled nodes to participate in GRANDPA/BEEFY as normal and as mentioned before
+GRANDPA/BABE/BEEFY equivocations should not happen to honest nodes so we can safely disable the offenders. Additionally
+the slashes for singular equivocations will be very low so those offenders would easily get re-enabled in the case of
+more serious offenders showing up. (<a href="#system-overview"><strong>Point 8.</strong></a>)</p>
+<h2 id="block-authoring-offenses-babe-equivocations"><a class="header" href="#block-authoring-offenses-babe-equivocations">Block Authoring Offenses (BABE Equivocations)</a></h2>
+<p>Even if all honest nodes are disabled in Block Authoring (BA) liveness is generally preserved. At least 50% of blocks
+produced should still be honest. Soundness wise disabled nodes can create a decent amount of wasted work by creating bad
+blocks but they only get to do it in bounded amounts.</p>
+<p>Disabling in BA is not a requirement as both liveness and soundness are preserved but it is the current default behavior
+as well as it offers a bit less wasted work.</p>
+<p>Offenses in BA just like in backing can be caused by faulty PVFs or bugs. They might happen to honest nodes and
+disabling here while not a requirement can also ensure that this node does not repeat the offense as it might not be
+trusted with it's PVF anymore.</p>
+<p>Both points above don't present significant risks when disabling so the default behavior is to disable in BA and because
+of offenses in BA. (<a href="#system-overview"><strong>Point 9.</strong></a>) This filters out honest faulty nodes as well as protects from some
+attackers.</p>
+<p></br></br></br></p>
+<h1 id="extra-design-considerations"><a class="header" href="#extra-design-considerations">Extra Design Considerations</a></h1>
+<h2 id="disabling-vs-accumulating-slashes"><a class="header" href="#disabling-vs-accumulating-slashes">Disabling vs Accumulating Slashes</a></h2>
+<p>Instant disabling generally allows us to remove the need for accumulating slashes. It is a more immediate punishment and
+it is a more lenient punishment for honest nodes.</p>
+<p>The current architecture of using max slashing can be used and it works around the problems of delaying the slash for a
+long period.</p>
+<p>An alternative design with immediate slashing and acclimating slashing could relevant to other systems but it goes
+against the governance auditing mechanisms so it's not be suitable for Polkadot.</p>
+<h2 id="disabling-vs-getting-pushed-out-of-npos-elections"><a class="header" href="#disabling-vs-getting-pushed-out-of-npos-elections">Disabling vs Getting Pushed Out of NPoS Elections</a></h2>
+<p>Validator disabling and getting forced ouf of NPoS elections (1 era) due to slashes are actually very similar processes
+in terms of outcomes but there are some differences:</p>
+<ul>
+<li><strong>latency</strong> (next few blocks for validator disabling and 27 days for getting pushed out organically)</li>
+<li><strong>pool restriction</strong> (validator disabling could effectively lower the number of active validators during an era if we
+fully disable)</li>
+<li><strong>granularity</strong> (validator disabling could remove only a portion of validator privileges instead of all)</li>
+</ul>
+<p>Granularity is particularly crucial in the final design as only a few select functions are disabled while others remain.</p>
+<h2 id="enabling-approval-voter-slashes"><a class="header" href="#enabling-approval-voter-slashes">Enabling Approval Voter Slashes</a></h2>
+<p>The original Polkadot 1.0 design describes that all validators on the loosing side of the dispute are slashed. In the
+current system only the backers are slashed and any approval voters on the wrong side will not be slashed. This creates
+some undesirable incentives:</p>
+<ul>
+<li>Lazy approval checkers (approvals yay`ing everything)</li>
+<li>Spammy approval checkers (approval voters nay`ing everything)</li>
+</ul>
+<p>Initially those slashes were disabled to reduce the complexity and to minimize the risk surface in case the system
+malfunctioned. This is especially risky in case any nondeterministic bugs are present in the system. Once validator
+re-enabling is launched approval voter slashes can be re-instated. Numbers need to be further explored but slashes
+between 0-2% are reasonable. 0% would still disable which with the opportunity cost consideration should be enough.</p>
+<blockquote>
+<p><strong>Note:</strong><br />
+Spammy approval checkers are in fact not a big issue as a side effect of the offchain-disabling introduced by the
+Defense Against Past-Era Dispute Spam (<strong>Node</strong>) <a href="https://github.com/paritytech/polkadot-sdk/issues/2225">#2225</a>. It
+makes it so all validators loosing a dispute are locally disabled and ignored for dispute initiation so it effectively
+silences spammers. They can still no-show but the damage is minimized.</p>
+</blockquote>
+<h2 id="interaction-with-all-types-of-misbehaviors"><a class="header" href="#interaction-with-all-types-of-misbehaviors">Interaction with all types of misbehaviors</a></h2>
+<p>With re-enabling in place and potentially approval voter slashes enabled the overall misbehaviour-punishment system can
+be as highlighted in the table below:</p>
+<div class="table-wrapper"><table><thead><tr><th>Misbehaviour</th><th>Slash %</th><th>Onchain Disabling</th><th>Offchain Disabling</th><th>Chilling</th><th>Reputation Costs</th></tr></thead><tbody>
+<tr><td>Backing Invalid</td><td>100%</td><td>Yes (High Prio)</td><td>Yes   (High Prio)</td><td>No</td><td>No</td></tr>
+<tr><td>ForInvalid Vote</td><td>2%</td><td>Yes (Mid Prio)</td><td>Yes   (Mid Prio)</td><td>No</td><td>No</td></tr>
+<tr><td>AgainstValid Vote</td><td>0%</td><td>Yes (Low Prio)</td><td>Yes   (Low Prio)</td><td>No</td><td>No</td></tr>
+<tr><td>GRANDPA / BABE / BEEFY Equivocations</td><td>0.01-100%</td><td>Yes (Varying Prio)</td><td>No</td><td>No</td><td>No</td></tr>
+<tr><td>Seconded + Valid Equivocation</td><td>-</td><td>No</td><td>No</td><td>No</td><td>No</td></tr>
+<tr><td>Double Seconded Equivocation</td><td>-</td><td>No</td><td>No</td><td>No</td><td>Yes</td></tr>
+</tbody></table>
+</div>
+<p>*Ignoring AURA offences.</p>
+<p>**There are some other misbehaviour types handled in rep only (DoS prevention etc) but they are not relevant to this strategy.</p>
+<p>*** BEEFY will soon introduce new slash types so this strategy table will need to be revised but no major changes are expected.</p>
+<p></br></br></br></p>
+<h1 id="implementation"><a class="header" href="#implementation">Implementation</a></h1>
+<p>Implementation of the above design covers a few additional areas that allow for node-side optimizations.</p>
+<h2 id="core-features"><a class="header" href="#core-features">Core Features</a></h2>
+<ol>
+<li>
+<p>Disabled Validators Tracking (<strong>Runtime</strong>) <a href="https://github.com/paritytech/polkadot-sdk/issues/2950">#2950</a></p>
+<ul>
+<li>Expose a <code>disabled_validators</code> map through a Runtime API</li>
+</ul>
+</li>
+<li>
+<p>Enforce Backing Disabling (<strong>Runtime</strong>) <a href="https://github.com/paritytech/polkadot-sdk/issues/1592">#1592</a></p>
+<ul>
+<li>Filter out votes from <code>disabled_validators</code> in <code>BackedCandidates</code> in <code>process_inherent_data</code></li>
+</ul>
+</li>
+<li>
+<p>Substrate Byzantine Threshold (BZT) as Limit for Disabling
+<a href="https://github.com/paritytech/polkadot-sdk/issues/1963">#1963</a></p>
+<ul>
+<li>Can be parametrized but default to BZT</li>
+<li>Disable only up to 1/3 of validators</li>
+</ul>
+</li>
+<li>
+<p>Respect Disabling in Backing Statement Distribution (<strong>Node</strong>)
+<a href="https://github.com/paritytech/polkadot-sdk/issues/1951">#1591</a></p>
+<ul>
+<li>This is an optimization as in the end it would get filtered in the runtime anyway</li>
+<li>Filter out backing statements coming from <code>disabled_validators</code></li>
+</ul>
+</li>
+<li>
+<p>Respect Disablement in Backing (<strong>Node</strong>) <a href="https://github.com/paritytech/polkadot-sdk/issues/2951">#2951</a></p>
+<ul>
+<li>This is an optimization as in the end it would get filtered in the runtime anyway</li>
+<li>Don't start backing new candidates when disabled</li>
+<li>Don't react to backing requests when disabled</li>
+</ul>
+</li>
+<li>
+<p>Stop Automatic Chilling of Offenders <a href="https://github.com/paritytech/polkadot-sdk/issues/1962">#1962</a></p>
+<ul>
+<li>Chilling still persists as a state but is no longer automatically applied on offenses</li>
+</ul>
+</li>
+<li>
+<p>Respect Disabling in Dispute Participation (<strong>Node</strong>) <a href="https://github.com/paritytech/polkadot-sdk/issues/2225">#2225</a></p>
+<ul>
+<li>Receive dispute statements from <code>disabled_validators</code> but do not release own statements</li>
+<li>Ensure dispute confirmation when BZT statements from disabled</li>
+</ul>
+</li>
+<li>
+<p>Remove Liveness Slashes <a href="https://github.com/paritytech/polkadot-sdk/issues/1964">#1964</a></p>
+<ul>
+<li>Remove liveness slashes from the system</li>
+<li>The are other incentives to be online and they could be abused to attack the system</li>
+</ul>
+</li>
+<li>
+<p>Defense Against Past-Era Dispute Spam (<strong>Node</strong>) <a href="https://github.com/paritytech/polkadot-sdk/issues/2225">#2225</a></p>
+<ul>
+<li>This is needed because runtime cannot disable validators which it no longer knows about</li>
+<li>Add a node-side parallel store of <code>disabled_validators</code></li>
+<li>Add new disabled validators to node-side store when they loose a dispute in any leaf in scope</li>
+<li>Runtime <code>disabled_validators</code> always have priority over node-side <code>disabled_validators</code></li>
+<li>Respect the BZT threshold</li>
+</ul>
+<blockquote>
+<p><strong>Note:</strong><br />
+An alternative design here was considered where instead of tracking new incoming leaves a relay parent is used.
+This would guarantee determinism as different nodes can see different leaves, but this approach was leaving too
+wide of a window because of Async-Backing. Relay Parent could have been significantly in the past and it would
+give a lot of time for past session disputes to be spammed.</p>
+</blockquote>
+</li>
+<li>
+<p>Do not block finality for &quot;disabled&quot; disputes <a href="https://github.com/paritytech/polkadot-sdk/pull/3358">#3358</a></p>
+<ul>
+<li>Emergency fix to not block finality for disputes initiated only by disabled validators</li>
+</ul>
+</li>
+<li>
+<p>Re-enable small offender when approaching BZT (<strong>Runtime</strong>) #TODO</p>
+<ul>
+<li>When BZT limit is reached and there are more offenders to be disabled re-enable the smallest offenders to disable
+the biggest ones</li>
+</ul>
+</li>
+</ol>
+<footer id="last-change">Last change: 2024-05-10, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/00440779d4">00440779d4</a></footer>
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="protocol-chain-selection.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next" href="architecture.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="protocol-chain-selection.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next" href="architecture.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        <script type="text/javascript" src="mermaid-init.js"></script>
+        <script type="text/javascript" src="mermaid.min.js"></script>
+
+
+    </body>
+</html>

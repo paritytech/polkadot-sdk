@@ -1,0 +1,184 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Configuration trait of this pallet."><title>Config in snowbridge_pallet_inbound_queue::pallet - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="snowbridge_pallet_inbound_queue" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../snowbridge_pallet_inbound_queue/index.html">snowbridge_pallet_inbound_queue</a><span class="version">0.2.0</span></h2></div><h2 class="location"><a href="#">Config</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.AssetTransactor">AssetTransactor</a></li><li><a href="#associatedtype.ChannelLookup">ChannelLookup</a></li><li><a href="#associatedtype.GatewayAddress">GatewayAddress</a></li><li><a href="#associatedtype.Helper">Helper</a></li><li><a href="#associatedtype.LengthToFee">LengthToFee</a></li><li><a href="#associatedtype.MaxMessageSize">MaxMessageSize</a></li><li><a href="#associatedtype.MessageConverter">MessageConverter</a></li><li><a href="#associatedtype.PricingParameters">PricingParameters</a></li><li><a href="#associatedtype.RuntimeEvent">RuntimeEvent</a></li><li><a href="#associatedtype.Token">Token</a></li><li><a href="#associatedtype.Verifier">Verifier</a></li><li><a href="#associatedtype.WeightInfo">WeightInfo</a></li><li><a href="#associatedtype.WeightToFee">WeightToFee</a></li><li><a href="#associatedtype.XcmSender">XcmSender</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In snowbridge_pallet_inbound_queue::pallet</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">snowbridge_pallet_inbound_queue</a>::<wbr><a href="index.html">pallet</a>::<wbr><a class="trait" href="#">Config</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/snowbridge_pallet_inbound_queue/lib.rs.html#98-142">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Config: Config {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 14 associated items</span></summary>    type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Event.html" title="enum snowbridge_pallet_inbound_queue::pallet::Event">Event</a>&lt;Self&gt;&gt; + IsType&lt;&lt;Self as Config&gt;::RuntimeEvent&gt;;
+    type <a href="#associatedtype.Verifier" class="associatedtype">Verifier</a>: Verifier;
+    type <a href="#associatedtype.Token" class="associatedtype">Token</a>: Mutate&lt;Self::AccountId&gt; + Inspect&lt;Self::AccountId&gt;;
+    type <a href="#associatedtype.XcmSender" class="associatedtype">XcmSender</a>: SendXcm;
+    type <a href="#associatedtype.GatewayAddress" class="associatedtype">GatewayAddress</a>: Get&lt;H160&gt;;
+    type <a href="#associatedtype.MessageConverter" class="associatedtype">MessageConverter</a>: ConvertMessage&lt;AccountId = Self::AccountId, Balance = &lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait snowbridge_pallet_inbound_queue::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Token" title="type snowbridge_pallet_inbound_queue::pallet::Config::Token">Token</a> as Inspect&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::Balance&gt;;
+    type <a href="#associatedtype.ChannelLookup" class="associatedtype">ChannelLookup</a>: StaticLookup&lt;Source = ChannelId, Target = Channel&gt;;
+    type <a href="#associatedtype.PricingParameters" class="associatedtype">PricingParameters</a>: Get&lt;PricingParameters&lt;&lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait snowbridge_pallet_inbound_queue::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Token" title="type snowbridge_pallet_inbound_queue::pallet::Config::Token">Token</a> as Inspect&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::Balance&gt;&gt;;
+    type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="../weights/trait.WeightInfo.html" title="trait snowbridge_pallet_inbound_queue::weights::WeightInfo">WeightInfo</a>;
+    type <a href="#associatedtype.Helper" class="associatedtype">Helper</a>: <a class="trait" href="trait.BenchmarkHelper.html" title="trait snowbridge_pallet_inbound_queue::pallet::BenchmarkHelper">BenchmarkHelper</a>&lt;Self&gt;;
+    type <a href="#associatedtype.WeightToFee" class="associatedtype">WeightToFee</a>: WeightToFee&lt;Balance = &lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait snowbridge_pallet_inbound_queue::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Token" title="type snowbridge_pallet_inbound_queue::pallet::Config::Token">Token</a> as Inspect&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::Balance&gt;;
+    type <a href="#associatedtype.LengthToFee" class="associatedtype">LengthToFee</a>: WeightToFee&lt;Balance = &lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait snowbridge_pallet_inbound_queue::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Token" title="type snowbridge_pallet_inbound_queue::pallet::Config::Token">Token</a> as Inspect&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::Balance&gt;;
+    type <a href="#associatedtype.MaxMessageSize" class="associatedtype">MaxMessageSize</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.AssetTransactor" class="associatedtype">AssetTransactor</a>: TransactAsset;
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Configuration trait of this pallet.</p>
+<p>The main purpose of this trait is to act as an interface between this pallet and the runtime in
+which it is embedded in. A type, function, or constant in this trait is essentially left to be
+configured by the runtime that includes this pallet.</p>
+<p>Consequently, a runtime that wants to include this pallet must implement this trait.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><section id="associatedtype.RuntimeEvent" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_inbound_queue/lib.rs.html#99">source</a><h4 class="code-header">type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Event.html" title="enum snowbridge_pallet_inbound_queue::pallet::Event">Event</a>&lt;Self&gt;&gt; + IsType&lt;&lt;Self as Config&gt;::RuntimeEvent&gt;</h4></section><details class="toggle" open><summary><section id="associatedtype.Verifier" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_inbound_queue/lib.rs.html#102">source</a><h4 class="code-header">type <a href="#associatedtype.Verifier" class="associatedtype">Verifier</a>: Verifier</h4></section></summary><div class="docblock"><p>The verifier for inbound messages from Ethereum</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Token" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_inbound_queue/lib.rs.html#105">source</a><h4 class="code-header">type <a href="#associatedtype.Token" class="associatedtype">Token</a>: Mutate&lt;Self::AccountId&gt; + Inspect&lt;Self::AccountId&gt;</h4></section></summary><div class="docblock"><p>Message relayers are rewarded with this asset</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.XcmSender" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_inbound_queue/lib.rs.html#108">source</a><h4 class="code-header">type <a href="#associatedtype.XcmSender" class="associatedtype">XcmSender</a>: SendXcm</h4></section></summary><div class="docblock"><p>XCM message sender</p>
+</div></details><section id="associatedtype.GatewayAddress" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_inbound_queue/lib.rs.html#112">source</a><h4 class="code-header">type <a href="#associatedtype.GatewayAddress" class="associatedtype">GatewayAddress</a>: Get&lt;H160&gt;</h4></section><details class="toggle" open><summary><section id="associatedtype.MessageConverter" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_inbound_queue/lib.rs.html#115-118">source</a><h4 class="code-header">type <a href="#associatedtype.MessageConverter" class="associatedtype">MessageConverter</a>: ConvertMessage&lt;AccountId = Self::AccountId, Balance = &lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait snowbridge_pallet_inbound_queue::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Token" title="type snowbridge_pallet_inbound_queue::pallet::Config::Token">Token</a> as Inspect&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::Balance&gt;</h4></section></summary><div class="docblock"><p>Convert inbound message to XCM</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.ChannelLookup" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_inbound_queue/lib.rs.html#121">source</a><h4 class="code-header">type <a href="#associatedtype.ChannelLookup" class="associatedtype">ChannelLookup</a>: StaticLookup&lt;Source = ChannelId, Target = Channel&gt;</h4></section></summary><div class="docblock"><p>Lookup a channel descriptor</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.PricingParameters" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_inbound_queue/lib.rs.html#124">source</a><h4 class="code-header">type <a href="#associatedtype.PricingParameters" class="associatedtype">PricingParameters</a>: Get&lt;PricingParameters&lt;&lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait snowbridge_pallet_inbound_queue::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Token" title="type snowbridge_pallet_inbound_queue::pallet::Config::Token">Token</a> as Inspect&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::Balance&gt;&gt;</h4></section></summary><div class="docblock"><p>Lookup pricing parameters</p>
+</div></details><section id="associatedtype.WeightInfo" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_inbound_queue/lib.rs.html#126">source</a><h4 class="code-header">type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="../weights/trait.WeightInfo.html" title="trait snowbridge_pallet_inbound_queue::weights::WeightInfo">WeightInfo</a></h4></section><section id="associatedtype.Helper" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_inbound_queue/lib.rs.html#129">source</a><h4 class="code-header">type <a href="#associatedtype.Helper" class="associatedtype">Helper</a>: <a class="trait" href="trait.BenchmarkHelper.html" title="trait snowbridge_pallet_inbound_queue::pallet::BenchmarkHelper">BenchmarkHelper</a>&lt;Self&gt;</h4></section><details class="toggle" open><summary><section id="associatedtype.WeightToFee" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_inbound_queue/lib.rs.html#132">source</a><h4 class="code-header">type <a href="#associatedtype.WeightToFee" class="associatedtype">WeightToFee</a>: WeightToFee&lt;Balance = &lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait snowbridge_pallet_inbound_queue::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Token" title="type snowbridge_pallet_inbound_queue::pallet::Config::Token">Token</a> as Inspect&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::Balance&gt;</h4></section></summary><div class="docblock"><p>Convert a weight value into deductible balance type.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.LengthToFee" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_inbound_queue/lib.rs.html#135">source</a><h4 class="code-header">type <a href="#associatedtype.LengthToFee" class="associatedtype">LengthToFee</a>: WeightToFee&lt;Balance = &lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait snowbridge_pallet_inbound_queue::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Token" title="type snowbridge_pallet_inbound_queue::pallet::Config::Token">Token</a> as Inspect&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::Balance&gt;</h4></section></summary><div class="docblock"><p>Convert a length value into deductible balance type</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxMessageSize" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_inbound_queue/lib.rs.html#138">source</a><h4 class="code-header">type <a href="#associatedtype.MaxMessageSize" class="associatedtype">MaxMessageSize</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>The upper limit here only used to estimate delivery cost</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.AssetTransactor" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_inbound_queue/lib.rs.html#141">source</a><h4 class="code-header">type <a href="#associatedtype.AssetTransactor" class="associatedtype">AssetTransactor</a>: TransactAsset</h4></section></summary><div class="docblock"><p>To withdraw and deposit an asset.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/snowbridge_pallet_inbound_queue/pallet/trait.Config.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

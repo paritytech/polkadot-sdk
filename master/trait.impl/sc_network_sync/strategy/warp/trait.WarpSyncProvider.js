@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"sc_consensus_grandpa":[["impl&lt;Block: BlockT, Backend: ClientBackend&lt;Block&gt;&gt; WarpSyncProvider&lt;Block&gt; for <a class=\"struct\" href=\"sc_consensus_grandpa/warp_proof/struct.NetworkProvider.html\" title=\"struct sc_consensus_grandpa::warp_proof::NetworkProvider\">NetworkProvider</a>&lt;Block, Backend&gt;<div class=\"where\">where\n    NumberFor&lt;Block&gt;: <a class=\"trait\" href=\"sc_consensus_grandpa/trait.BlockNumberOps.html\" title=\"trait sc_consensus_grandpa::BlockNumberOps\">BlockNumberOps</a>,</div>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

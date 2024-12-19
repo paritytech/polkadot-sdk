@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["traits"],"struct":["AssetsInHolding","ExecutorError","FeesMode","WeighedMessage","XcmExecutor"],"trait":["Config"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["JobError","JobResponse","WorkerError"],"struct":["Handshake","WorkerResponse"],"type":["JobResult"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["G2_GENERATOR_X","G2_GENERATOR_Y"],"type":["Config","G2Affine","G2Projective"]};
