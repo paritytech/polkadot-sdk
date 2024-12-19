@@ -1,0 +1,9 @@
+title: 'Snowbridge: Ensure source always from Assethub for exported message'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Ensure the last hop of exported message is always from AH. 
+    So user can't export message from non system parachain directly.
+crates:
+- name: snowbridge-router-primitives
+  bump: patch
