@@ -1,0 +1,21 @@
+error: Unsupported syntax used to import api implementaions from an extension module. Try using `pub use <path>::*` or `use <path>::*`
+  --> tests/ui/incorrect_extension_import.rs:48:15
+   |
+48 |     use example::{api, *};
+   |                  ^^^^^^^^
+
+error[E0412]: cannot find type `RuntimeApiImpl` in this scope
+  --> tests/ui/incorrect_extension_import.rs:51:1
+   |
+51 | #[sp_api::impl_runtime_apis_ext]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+   |
+   = note: this error originates in the attribute macro `sp_api::impl_runtime_apis_ext` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unused import: `sp_runtime::traits::Block`
+  --> tests/ui/incorrect_extension_import.rs:18:5
+   |
+18 | use sp_runtime::traits::Block as BlockT;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
