@@ -1837,3 +1837,306 @@ fn start_sales_sets_correct_core_count() {
 		System::assert_has_event(Event::<Test>::CoreCountRequested { core_count: 9 }.into());
 	})
 }
+
+// Reservations currently need two sale period boundaries to pass before coming into effect.
+#[test]
+fn reserve_works() {
+	TestExt::new().execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 0));
+		// Advance forward from start_sales, but not into the first sale.
+		advance_to(1);
+
+		let system_workload = Schedule::truncate_from(vec![ScheduleItem {
+			mask: CoreMask::complete(),
+			assignment: Task(1004),
+		}]);
+
+		// This shouldn't work, as the reservation will never be assigned a core unless one is
+		// available.
+		// assert_noop!(Broker::do_reserve(system_workload.clone()), Error::<Test>::Unavailable);
+
+		// Add another core and create the reservation.
+		let status = Status::<Test>::get().unwrap();
+		assert_ok!(Broker::request_core_count(RuntimeOrigin::root(), status.core_count + 1));
+		assert_ok!(Broker::reserve(RuntimeOrigin::root(), system_workload.clone()));
+
+		// This is added to reservations.
+		System::assert_last_event(
+			Event::ReservationMade { index: 0, workload: system_workload.clone() }.into(),
+		);
+		assert_eq!(Reservations::<Test>::get(), vec![system_workload.clone()]);
+
+		// But not yet in workplan for any of the next few regions.
+		for i in 0..20 {
+			assert_eq!(Workplan::<Test>::get((i, 0)), None);
+		}
+		// And it hasn't been assigned a core.
+		assert_eq!(CoretimeTrace::get(), vec![]);
+
+		// Go to next sale. Rotate sale puts it in the workplan.
+		advance_sale_period();
+		assert_eq!(Workplan::<Test>::get((7, 0)), Some(system_workload.clone()));
+		// But it still hasn't been assigned a core.
+		assert_eq!(CoretimeTrace::get(), vec![]);
+
+		// Go to the second sale after reserving.
+		advance_sale_period();
+		// Core is assigned at block 14 (timeslice 7) after being reserved all the way back at
+		// timeslice 1! Since the mock periods are 3 timeslices long, this means that reservations
+		// made in period 0 will only come into effect in period 2.
+		assert_eq!(
+			CoretimeTrace::get(),
+			vec![(
+				12,
+				AssignCore {
+					core: 0,
+					begin: 14,
+					assignment: vec![(Task(1004), 57600)],
+					end_hint: None
+				}
+			)]
+		);
+		System::assert_has_event(
+			Event::CoreAssigned {
+				core: 0,
+				when: 14,
+				assignment: vec![(CoreAssignment::Task(1004), 57600)],
+			}
+			.into(),
+		);
+
+		// And it's in the workplan for the next period.
+		assert_eq!(Workplan::<Test>::get((10, 0)), Some(system_workload.clone()));
+	});
+}
+
+// We can use a hack to accelerate this by injecting it into the workplan.
+#[test]
+fn can_reserve_workloads_quickly() {
+	TestExt::new().execute_with(|| {
+		// Start sales.
+		assert_ok!(Broker::do_start_sales(100, 0));
+		advance_to(2);
+
+		let system_workload = Schedule::truncate_from(vec![ScheduleItem {
+			mask: CoreMask::complete(),
+			assignment: Task(1004),
+		}]);
+
+		// This shouldn't work, as the reservation will never be assigned a core unless one is
+		// available.
+		// assert_noop!(Broker::do_reserve(system_workload.clone()), Error::<Test>::Unavailable);
+
+		// Add another core and create the reservation.
+		let core_count = Status::<Test>::get().unwrap().core_count;
+		assert_ok!(Broker::request_core_count(RuntimeOrigin::root(), core_count + 1));
+		assert_ok!(Broker::reserve(RuntimeOrigin::root(), system_workload.clone()));
+
+		// These are the additional steps to onboard this immediately.
+		let core_index = core_count;
+		// In a real network this would call the relay chain
+		// `assigner_coretime::assign_core` extrinsic directly.
+		<TestCoretimeProvider as CoretimeInterface>::assign_core(
+			core_index,
+			2,
+			vec![(Task(1004), 57600)],
+			None,
+		);
+		// Inject into the workplan to ensure it's scheduled in the next rotate_sale.
+		Workplan::<Test>::insert((4, core_index), system_workload.clone());
+
+		// Reservation is added for the workload.
+		System::assert_has_event(
+			Event::ReservationMade { index: 0, workload: system_workload.clone() }.into(),
+		);
+		System::assert_has_event(Event::CoreCountRequested { core_count: 1 }.into());
+
+		// It is also in the workplan for the next region.
+		assert_eq!(Workplan::<Test>::get((4, 0)), Some(system_workload.clone()));
+
+		// Go to next sale. Rotate sale puts it in the workplan.
+		advance_sale_period();
+		assert_eq!(Workplan::<Test>::get((7, 0)), Some(system_workload.clone()));
+
+		// Go to the second sale after reserving.
+		advance_sale_period();
+
+		// Check the trace to ensure it has a core in every region.
+		assert_eq!(
+			CoretimeTrace::get(),
+			vec![
+				(
+					2,
+					AssignCore {
+						core: 0,
+						begin: 2,
+						assignment: vec![(Task(1004), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					6,
+					AssignCore {
+						core: 0,
+						begin: 8,
+						assignment: vec![(Task(1004), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					12,
+					AssignCore {
+						core: 0,
+						begin: 14,
+						assignment: vec![(Task(1004), 57600)],
+						end_hint: None
+					}
+				)
+			]
+		);
+		System::assert_has_event(
+			Event::CoreAssigned {
+				core: 0,
+				when: 8,
+				assignment: vec![(CoreAssignment::Task(1004), 57600)],
+			}
+			.into(),
+		);
+		System::assert_has_event(
+			Event::CoreAssigned {
+				core: 0,
+				when: 14,
+				assignment: vec![(CoreAssignment::Task(1004), 57600)],
+			}
+			.into(),
+		);
+		System::assert_has_event(
+			Event::CoreAssigned {
+				core: 0,
+				when: 14,
+				assignment: vec![(CoreAssignment::Task(1004), 57600)],
+			}
+			.into(),
+		);
+
+		// And it's in the workplan for the next period.
+		assert_eq!(Workplan::<Test>::get((10, 0)), Some(system_workload.clone()));
+	});
+}
+
+// Add an extrinsic to do it properly.
+#[test]
+fn force_reserve_works() {
+	TestExt::new().execute_with(|| {
+		let system_workload = Schedule::truncate_from(vec![ScheduleItem {
+			mask: CoreMask::complete(),
+			assignment: Task(1004),
+		}]);
+
+		// Not intended to work before sales are started.
+		assert_noop!(
+			Broker::force_reserve(RuntimeOrigin::root(), system_workload.clone(), 0),
+			Error::<Test>::NoSales
+		);
+
+		// Start sales.
+		assert_ok!(Broker::do_start_sales(100, 0));
+		advance_to(1);
+
+		// Add a new core. With the mock this is instant, with current relay implementation it
+		// takes two sessions to come into effect.
+		assert_ok!(Broker::do_request_core_count(1));
+
+		// Force reserve should now work.
+		assert_ok!(Broker::force_reserve(RuntimeOrigin::root(), system_workload.clone(), 0));
+
+		// Reservation is added for the workload.
+		System::assert_has_event(
+			Event::ReservationMade { index: 0, workload: system_workload.clone() }.into(),
+		);
+		System::assert_has_event(Event::CoreCountRequested { core_count: 1 }.into());
+		assert_eq!(Reservations::<Test>::get(), vec![system_workload.clone()]);
+
+		// Advance to where that timeslice will be committed.
+		advance_to(3);
+		System::assert_has_event(
+			Event::CoreAssigned {
+				core: 0,
+				when: 4,
+				assignment: vec![(CoreAssignment::Task(1004), 57600)],
+			}
+			.into(),
+		);
+
+		// It is also in the workplan for the next region.
+		assert_eq!(Workplan::<Test>::get((4, 0)), Some(system_workload.clone()));
+
+		// Go to next sale. Rotate sale puts it in the workplan.
+		advance_sale_period();
+		assert_eq!(Workplan::<Test>::get((7, 0)), Some(system_workload.clone()));
+
+		// Go to the second sale after reserving.
+		advance_sale_period();
+
+		// Check the trace to ensure it has a core in every region.
+		assert_eq!(
+			CoretimeTrace::get(),
+			vec![
+				(
+					2,
+					AssignCore {
+						core: 0,
+						begin: 4,
+						assignment: vec![(Task(1004), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					6,
+					AssignCore {
+						core: 0,
+						begin: 8,
+						assignment: vec![(Task(1004), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					12,
+					AssignCore {
+						core: 0,
+						begin: 14,
+						assignment: vec![(Task(1004), 57600)],
+						end_hint: None
+					}
+				)
+			]
+		);
+		System::assert_has_event(
+			Event::CoreAssigned {
+				core: 0,
+				when: 8,
+				assignment: vec![(CoreAssignment::Task(1004), 57600)],
+			}
+			.into(),
+		);
+		System::assert_has_event(
+			Event::CoreAssigned {
+				core: 0,
+				when: 14,
+				assignment: vec![(CoreAssignment::Task(1004), 57600)],
+			}
+			.into(),
+		);
+		System::assert_has_event(
+			Event::CoreAssigned {
+				core: 0,
+				when: 14,
+				assignment: vec![(CoreAssignment::Task(1004), 57600)],
+			}
+			.into(),
+		);
+
+		// And it's in the workplan for the next period.
+		assert_eq!(Workplan::<Test>::get((10, 0)), Some(system_workload.clone()));
+	});
+}
