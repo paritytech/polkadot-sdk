@@ -174,10 +174,20 @@ impl<Block: BlockT> WarpSyncProof<Block> {
 				let header = blockchain.header(latest_justification.target().1)?
 					.expect("header hash corresponds to a justification in db; must exist in db as well; qed.");
 
-				proofs.push(WarpSyncFragment { header, justification: latest_justification })
-			}
+				let proof = WarpSyncFragment { header, justification: latest_justification };
 
-			true
+				// Check for the limit. We remove some bytes from the maximum size, because we're
+				// only counting the size of the `WarpSyncFragment`s. The extra margin is here
+				// to leave room for rest of the data (the size of the `Vec` and the boolean).
+				if proofs_encoded_len + proof.encoded_size() >= MAX_WARP_SYNC_PROOF_SIZE - 50 {
+					false
+				} else {
+					proofs.push(proof);
+					true
+				}
+			} else {
+				true
+			}
 		};
 
 		let final_outcome = WarpSyncProof { proofs, is_finished };
