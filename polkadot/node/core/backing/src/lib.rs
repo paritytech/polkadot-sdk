@@ -982,7 +982,7 @@ async fn handle_communication<Context>(
 				state.claim_queue_state.release_claims_for_candidate(&candidate_hash);
 			},
 		CandidateBackingMessage::ClaimedSlots(relay_parent, tx) => {
-			let res = state.claim_queue_state.get_claimed_slots_at(&relay_parent);
+			let res = state.claim_queue_state.get_pending_slots_at(&relay_parent);
 			tx.send(res).map_err(|_| Error::SendClaimedSlots)?
 		},
 		CandidateBackingMessage::CanClaim(relay_parent, para_id, tx) => {

@@ -23,7 +23,7 @@ use crate::LOG_TARGET;
 use polkadot_primitives::{CandidateHash, Hash, Id as ParaId};
 
 /// Represents the state of a claim.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 enum ClaimState {
 	/// Unclaimed
 	Free,
@@ -35,7 +35,7 @@ enum ClaimState {
 
 /// Represents a single claim from the claim queue, mapped to the relay chain block where it could
 /// be backed on-chain.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 struct ClaimInfo {
 	// Hash of the relay chain block. Can be `None` if it is still not known (a future block).
 	hash: Option<Hash>,
@@ -270,7 +270,9 @@ impl ClaimQueueState {
 			let window = self.get_window(relay_parent);
 
 			for w in window {
-				if w.claimed == ClaimState::Pending(candidate_hash) {
+				if w.claimed == ClaimState::Pending(candidate_hash) ||
+					w.claimed == ClaimState::Seconded(candidate_hash)
+				{
 					w.claimed = ClaimState::Seconded(candidate_hash);
 					return true;
 				}
@@ -456,6 +458,68 @@ impl ClaimQueueState {
 	}
 }
 
+fn fork_from_state(
+	old_state: &mut ClaimQueueState,
+	target_relay_parent: &Hash,
+) -> Option<ClaimQueueState> {
+	if old_state.block_state.back().and_then(|state| state.hash) == Some(*target_relay_parent) {
+		// don't fork from the last block!
+		return None
+	}
+
+	// Find the index of the target relay parent in the old state
+	let target_index = old_state
+		.block_state
+		.iter()
+		.position(|claim_info| claim_info.hash == Some(*target_relay_parent))?;
+
+	let block_state = old_state
+		.block_state
+		.iter()
+		.cloned()
+		.take(target_index + 1)
+		.collect::<VecDeque<_>>();
+
+	let rp_in_view = block_state.iter().filter_map(|c| c.hash).collect::<HashSet<_>>();
+
+	let candidates = old_state
+		.candidates
+		.iter()
+		.filter(|(rp, _)| rp_in_view.contains(rp))
+		.map(|(rp, c)| (*rp, c.clone()))
+		.collect::<HashMap<_, _>>();
+
+	let candidates_in_view = candidates.iter().fold(HashSet::new(), |mut acc, (_, c)| {
+		acc.extend(c.iter().cloned());
+		acc
+	});
+
+	let future_blocks = old_state
+		.get_window(target_relay_parent)
+		.skip(1)
+		.map(|c| {
+			let claim_state = match c.claimed {
+				ClaimState::Free => ClaimState::Free,
+				ClaimState::Pending(candidate) =>
+					if candidates_in_view.contains(&candidate) {
+						ClaimState::Pending(candidate)
+					} else {
+						ClaimState::Free
+					},
+				ClaimState::Seconded(candidate) =>
+					if candidates_in_view.contains(&candidate) {
+						ClaimState::Seconded(candidate)
+					} else {
+						ClaimState::Free
+					},
+			};
+			ClaimInfo { hash: None, claim: c.claim, claim_queue_len: 1, claimed: claim_state }
+		})
+		.collect::<VecDeque<_>>();
+
+	Some(ClaimQueueState { block_state, future_blocks, candidates })
+}
+
 /// Keeps a per leaf state of the claim queue for multiple forks.
 pub struct PerLeafClaimQueueState {
 	/// The state of the claim queue per leaf
@@ -473,19 +537,26 @@ impl PerLeafClaimQueueState {
 	pub fn add_leaf(&mut self, leaf: &Hash, claim_queue: &VecDeque<ParaId>, parent: &Hash) {
 		let maybe_path = self.leaves.remove(parent);
 
-		match maybe_path {
-			Some(mut path) => {
-				path.add_leaf(leaf, claim_queue);
-				self.leaves.insert(*leaf, path);
-				return
-			},
-			None => {
-				// parent not found in state - add a new path
-				let mut new_path_state = ClaimQueueState::new();
-				new_path_state.add_leaf(leaf, claim_queue);
-				self.leaves.insert(*leaf, new_path_state);
-			},
+		// The new leaf builds on top of previous leaf
+		if let Some(mut path) = maybe_path {
+			path.add_leaf(leaf, claim_queue);
+			self.leaves.insert(*leaf, path);
+			return
 		}
+
+		// The new leaf could be a fork from a previous non-leaf block
+		for (_, state) in &mut self.leaves {
+			if let Some(mut new_fork) = fork_from_state(state, parent) {
+				new_fork.add_leaf(leaf, claim_queue);
+				self.leaves.insert(*leaf, new_fork);
+				return
+			}
+		}
+
+		// The new leaf is a completely separate fork
+		let mut new_fork = ClaimQueueState::new();
+		new_fork.add_leaf(leaf, claim_queue);
+		self.leaves.insert(*leaf, new_fork);
 	}
 
 	/// Removes a set of pruned blocks from all paths. If a path becomes empty it is removed from
@@ -602,7 +673,7 @@ impl PerLeafClaimQueueState {
 	}
 	/// Returns claimed slots at a relay parent. As there can be multiple forks per relay parent,
 	/// the longest one is returned.
-	pub fn get_claimed_slots_at(&mut self, relay_parent: &Hash) -> VecDeque<ParaId> {
+	pub fn get_pending_slots_at(&mut self, relay_parent: &Hash) -> VecDeque<ParaId> {
 		self.leaves
 			.iter_mut()
 			.map(|(_, s)| s.get_pending_at(relay_parent))
@@ -716,6 +787,30 @@ mod test {
 			assert!(state.candidates.is_empty());
 			assert!(state.can_claim_at(&relay_parent_b, &para_id, None));
 			assert!(state.get_pending_at(&relay_parent_b).is_empty());
+		}
+
+		#[test]
+		fn basic_claims_work() {
+			let mut state = ClaimQueueState::new();
+			let relay_parent_a = Hash::from_low_u64_be(1);
+			let para_id = ParaId::new(1);
+			let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
+
+			state.add_leaf(&relay_parent_a, &claim_queue);
+
+			let candidate_a = CandidateHash(Hash::from_low_u64_be(101));
+			let candidate_b = CandidateHash(Hash::from_low_u64_be(102));
+			assert!(state.can_claim_at(&relay_parent_a, &para_id, Some(candidate_a)));
+			assert!(state.claim_pending_at(&relay_parent_a, &para_id, candidate_a));
+			// Claiming the same slot again should return true
+			assert!(state.can_claim_at(&relay_parent_a, &para_id, Some(candidate_a)));
+			assert!(state.claim_pending_at(&relay_parent_a, &para_id, candidate_a));
+
+			assert!(state.can_claim_at(&relay_parent_a, &para_id, Some(candidate_b)));
+			assert!(state.claim_seconded_at(&relay_parent_a, &para_id, candidate_b));
+			// Claiming the same slot again should return true
+			assert!(state.claim_seconded_at(&relay_parent_a, &para_id, candidate_b));
+			assert!(state.can_claim_at(&relay_parent_a, &para_id, Some(candidate_b)));
 		}
 
 		#[test]
@@ -1840,6 +1935,8 @@ mod test {
 			assert!(state.upgrade_pending_claims(&relay_parent_a, &candidate_a1));
 			assert!(!state.upgrade_pending_claims(&relay_parent_a, &candidate_a2));
 			assert!(state.claim_pending_at(&relay_parent_a, &para_id, candidate_a1));
+			// subsequent calls are no-ops but return false
+			assert!(!state.upgrade_pending_claims(&relay_parent_a, &candidate_a1));
 			assert!(!state.claim_pending_at(&relay_parent_a, &para_id, candidate_a2));
 			assert_eq!(
 				state.block_state,
@@ -1931,7 +2028,335 @@ mod test {
 		}
 	}
 
+	mod fork_from_state {
+		use super::*;
+
+		#[test]
+		fn candidates_after_the_fork_are_excluded() {
+			let mut state = ClaimQueueState::new();
+			let relay_parent_a = Hash::from_low_u64_be(1);
+			let relay_parent_b = Hash::from_low_u64_be(2);
+			let relay_parent_c = Hash::from_low_u64_be(3);
+			let para_id = ParaId::new(1);
+			let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
+
+			state.add_leaf(&relay_parent_a, &claim_queue);
+			state.add_leaf(&relay_parent_b, &claim_queue);
+			state.add_leaf(&relay_parent_c, &claim_queue);
+
+			let candidate_a1 = CandidateHash(Hash::from_low_u64_be(101));
+			let candidate_a2 = CandidateHash(Hash::from_low_u64_be(102));
+			let candidate_a3 = CandidateHash(Hash::from_low_u64_be(103));
+
+			assert!(state.claim_pending_at(&relay_parent_a, &para_id, candidate_a1));
+			assert!(state.claim_pending_at(&relay_parent_b, &para_id, candidate_a2));
+			assert!(state.claim_pending_at(&relay_parent_c, &para_id, candidate_a3));
+
+			assert_eq!(
+				state.block_state,
+				VecDeque::from(vec![
+					ClaimInfo {
+						hash: Some(relay_parent_a),
+						claim: Some(para_id),
+						claim_queue_len: 3,
+						claimed: ClaimState::Pending(candidate_a1),
+					},
+					ClaimInfo {
+						hash: Some(relay_parent_b),
+						claim: Some(para_id),
+						claim_queue_len: 3,
+						claimed: ClaimState::Pending(candidate_a2),
+					},
+					ClaimInfo {
+						hash: Some(relay_parent_c),
+						claim: Some(para_id),
+						claim_queue_len: 3,
+						claimed: ClaimState::Pending(candidate_a3),
+					},
+				])
+			);
+			assert_eq!(
+				state.future_blocks,
+				VecDeque::from(vec![
+					ClaimInfo {
+						hash: None,
+						claim: Some(para_id),
+						claim_queue_len: 1,
+						claimed: ClaimState::Free
+					},
+					ClaimInfo {
+						hash: None,
+						claim: Some(para_id),
+						claim_queue_len: 1,
+						claimed: ClaimState::Free
+					}
+				])
+			);
+			assert_eq!(
+				state.candidates,
+				HashMap::from_iter([
+					(relay_parent_a, HashSet::from_iter(vec![candidate_a1])),
+					(relay_parent_b, HashSet::from_iter(vec![candidate_a2])),
+					(relay_parent_c, HashSet::from_iter(vec![candidate_a3]),)
+				])
+			);
+
+			let fork = fork_from_state(&mut state, &relay_parent_a).unwrap();
+
+			assert_eq!(
+				fork.block_state,
+				VecDeque::from(vec![ClaimInfo {
+					hash: Some(relay_parent_a),
+					claim: Some(para_id),
+					claim_queue_len: 3,
+					claimed: ClaimState::Pending(candidate_a1),
+				},])
+			);
+			assert_eq!(
+				fork.future_blocks,
+				VecDeque::from(vec![
+					ClaimInfo {
+						hash: None,
+						claim: Some(para_id),
+						claim_queue_len: 1,
+						claimed: ClaimState::Free
+					},
+					ClaimInfo {
+						hash: None,
+						claim: Some(para_id),
+						claim_queue_len: 1,
+						claimed: ClaimState::Free
+					}
+				])
+			);
+			assert_eq!(
+				fork.candidates,
+				HashMap::from_iter([(relay_parent_a, HashSet::from_iter(vec![candidate_a1]))])
+			);
+		}
+
+		#[test]
+		fn candidates_before_the_fork_are_included() {
+			let mut state = ClaimQueueState::new();
+			let relay_parent_a = Hash::from_low_u64_be(1);
+			let relay_parent_b = Hash::from_low_u64_be(2);
+			let relay_parent_c = Hash::from_low_u64_be(3);
+			let para_id = ParaId::new(1);
+			let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
+
+			state.add_leaf(&relay_parent_a, &claim_queue);
+			state.add_leaf(&relay_parent_b, &claim_queue);
+			state.add_leaf(&relay_parent_c, &claim_queue);
+
+			let candidate_a1 = CandidateHash(Hash::from_low_u64_be(101));
+			let candidate_a2 = CandidateHash(Hash::from_low_u64_be(102));
+			let candidate_a3 = CandidateHash(Hash::from_low_u64_be(103));
+
+			assert!(state.claim_pending_at(&relay_parent_a, &para_id, candidate_a1));
+			assert!(state.claim_pending_at(&relay_parent_a, &para_id, candidate_a2));
+			assert!(state.claim_pending_at(&relay_parent_b, &para_id, candidate_a3));
+
+			assert_eq!(
+				state.block_state,
+				VecDeque::from(vec![
+					ClaimInfo {
+						hash: Some(relay_parent_a),
+						claim: Some(para_id),
+						claim_queue_len: 3,
+						claimed: ClaimState::Pending(candidate_a1),
+					},
+					ClaimInfo {
+						hash: Some(relay_parent_b),
+						claim: Some(para_id),
+						claim_queue_len: 3,
+						claimed: ClaimState::Pending(candidate_a2),
+					},
+					ClaimInfo {
+						hash: Some(relay_parent_c),
+						claim: Some(para_id),
+						claim_queue_len: 3,
+						claimed: ClaimState::Pending(candidate_a3),
+					},
+				])
+			);
+			assert_eq!(
+				state.future_blocks,
+				VecDeque::from(vec![
+					ClaimInfo {
+						hash: None,
+						claim: Some(para_id),
+						claim_queue_len: 1,
+						claimed: ClaimState::Free
+					},
+					ClaimInfo {
+						hash: None,
+						claim: Some(para_id),
+						claim_queue_len: 1,
+						claimed: ClaimState::Free
+					}
+				])
+			);
+			assert_eq!(
+				state.candidates,
+				HashMap::from_iter([
+					(relay_parent_a, HashSet::from_iter(vec![candidate_a1, candidate_a2])),
+					(relay_parent_b, HashSet::from_iter(vec![candidate_a3]),)
+				])
+			);
+
+			let fork = fork_from_state(&mut state, &relay_parent_a).unwrap();
+
+			assert_eq!(
+				fork.block_state,
+				VecDeque::from(vec![ClaimInfo {
+					hash: Some(relay_parent_a),
+					claim: Some(para_id),
+					claim_queue_len: 3,
+					claimed: ClaimState::Pending(candidate_a1),
+				},])
+			);
+			assert_eq!(
+				fork.future_blocks,
+				VecDeque::from(vec![
+					ClaimInfo {
+						hash: None,
+						claim: Some(para_id),
+						claim_queue_len: 1,
+						claimed: ClaimState::Pending(candidate_a2)
+					},
+					ClaimInfo {
+						hash: None,
+						claim: Some(para_id),
+						claim_queue_len: 1,
+						claimed: ClaimState::Free
+					}
+				])
+			);
+			assert_eq!(
+				fork.candidates,
+				HashMap::from_iter([(
+					relay_parent_a,
+					HashSet::from_iter(vec![candidate_a1, candidate_a2])
+				),])
+			);
+		}
+
+		#[test]
+		fn future_claims_are_transferred_on_fork() {
+			let mut state = ClaimQueueState::new();
+			let relay_parent_a = Hash::from_low_u64_be(1);
+			let relay_parent_b = Hash::from_low_u64_be(2);
+			let para_id = ParaId::new(1);
+			let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
+
+			state.add_leaf(&relay_parent_a, &claim_queue);
+			state.add_leaf(&relay_parent_b, &claim_queue);
+
+			let candidate_a1 = CandidateHash(Hash::from_low_u64_be(101));
+			let candidate_a2 = CandidateHash(Hash::from_low_u64_be(102));
+			let candidate_a3 = CandidateHash(Hash::from_low_u64_be(103));
+
+			assert!(state.claim_pending_at(&relay_parent_a, &para_id, candidate_a1));
+			assert!(state.claim_pending_at(&relay_parent_a, &para_id, candidate_a2));
+			assert!(state.claim_pending_at(&relay_parent_a, &para_id, candidate_a3));
+
+			assert_eq!(
+				state.block_state,
+				VecDeque::from(vec![
+					ClaimInfo {
+						hash: Some(relay_parent_a),
+						claim: Some(para_id),
+						claim_queue_len: 3,
+						claimed: ClaimState::Pending(candidate_a1),
+					},
+					ClaimInfo {
+						hash: Some(relay_parent_b),
+						claim: Some(para_id),
+						claim_queue_len: 3,
+						claimed: ClaimState::Pending(candidate_a2),
+					},
+				])
+			);
+			assert_eq!(
+				state.future_blocks,
+				VecDeque::from(vec![
+					ClaimInfo {
+						hash: None,
+						claim: Some(para_id),
+						claim_queue_len: 1,
+						claimed: ClaimState::Pending(candidate_a3)
+					},
+					ClaimInfo {
+						hash: None,
+						claim: Some(para_id),
+						claim_queue_len: 1,
+						claimed: ClaimState::Free
+					}
+				])
+			);
+			assert_eq!(
+				state.candidates,
+				HashMap::from_iter([(
+					relay_parent_a,
+					HashSet::from_iter(vec![candidate_a1, candidate_a2, candidate_a3])
+				),])
+			);
+
+			let fork = fork_from_state(&mut state, &relay_parent_a).unwrap();
+
+			assert_eq!(
+				fork.block_state,
+				VecDeque::from(vec![ClaimInfo {
+					hash: Some(relay_parent_a),
+					claim: Some(para_id),
+					claim_queue_len: 3,
+					claimed: ClaimState::Pending(candidate_a1),
+				},])
+			);
+			assert_eq!(
+				fork.future_blocks,
+				VecDeque::from(vec![
+					ClaimInfo {
+						hash: None,
+						claim: Some(para_id),
+						claim_queue_len: 1,
+						claimed: ClaimState::Pending(candidate_a2)
+					},
+					ClaimInfo {
+						hash: None,
+						claim: Some(para_id),
+						claim_queue_len: 1,
+						claimed: ClaimState::Pending(candidate_a3)
+					}
+				])
+			);
+			assert_eq!(
+				fork.candidates,
+				HashMap::from_iter([(
+					relay_parent_a,
+					HashSet::from_iter(vec![candidate_a1, candidate_a2, candidate_a3])
+				),])
+			);
+		}
+
+		#[test]
+		fn fork_at_last() {
+			let mut state = ClaimQueueState::new();
+			let relay_parent_a = Hash::from_low_u64_be(1);
+			let relay_parent_b = Hash::from_low_u64_be(2);
+			let para_id = ParaId::new(1);
+			let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
+
+			state.add_leaf(&relay_parent_a, &claim_queue);
+			state.add_leaf(&relay_parent_b, &claim_queue);
+
+			assert!(fork_from_state(&mut state, &relay_parent_b).is_none());
+		}
+	}
+
 	mod per_leaf_claim_queue_state {
+		use std::vec;
+
 		use super::*;
 
 		#[test]
@@ -1942,7 +2367,9 @@ mod test {
 			let relay_parent_a = Hash::from_low_u64_be(1);
 			let relay_parent_b = Hash::from_low_u64_be(2);
 			let relay_parent_c = Hash::from_low_u64_be(3);
+			let relay_parent_d = Hash::from_low_u64_be(4);
 
+			//       / -> d
 			// 0 -> a -> b
 			//  \-> c
 			state.add_leaf(&relay_parent_a, &claim_queue, &Hash::from_low_u64_be(0));
@@ -1956,23 +2383,105 @@ mod test {
 			state.add_leaf(&relay_parent_c, &claim_queue, &Hash::from_low_u64_be(0));
 			assert_eq!(state.leaves.len(), 2);
 			assert_eq!(state.leaves[&relay_parent_b].block_state.len(), 2);
-			assert_eq!(state.leaves[&relay_parent_c].block_state.len(), 2);
+			assert_eq!(state.leaves[&relay_parent_c].block_state.len(), 1);
+
+			state.add_leaf(&relay_parent_d, &claim_queue, &relay_parent_a);
+			assert_eq!(state.leaves.len(), 3);
+			assert_eq!(state.leaves[&relay_parent_b].block_state.len(), 2);
+			assert_eq!(state.leaves[&relay_parent_c].block_state.len(), 1);
+			assert_eq!(state.leaves[&relay_parent_d].block_state.len(), 2);
 		}
 
+		#[test]
+		fn claim_pending_slot_at_leaf_works() {
+			let mut state = PerLeafClaimQueueState::new();
+			let para_id = ParaId::new(1);
+			let claim_queue = VecDeque::from(vec![para_id, para_id]);
+			let relay_parent_a = Hash::from_low_u64_be(1);
+			let relay_parent_b = Hash::from_low_u64_be(2);
+			let relay_parent_c = Hash::from_low_u64_be(3);
+
+			// 0 -> a -> b
+			//       \-> c
+			state.add_leaf(&relay_parent_a, &claim_queue, &Hash::from_low_u64_be(0));
+			state.add_leaf(&relay_parent_b, &claim_queue, &relay_parent_a);
+			state.add_leaf(&relay_parent_c, &claim_queue, &relay_parent_a);
+
+			let relay_parent_a = Hash::from_low_u64_be(1);
+			let candidate_a = CandidateHash(Hash::from_low_u64_be(101));
+			let candidate_b = CandidateHash(Hash::from_low_u64_be(102));
+			let candidate_c = CandidateHash(Hash::from_low_u64_be(103));
+
+			assert!(state.claim_pending_slot_at_leaf(
+				&relay_parent_b,
+				&candidate_a,
+				&relay_parent_a,
+				&para_id
+			));
+			assert!(state.claim_pending_slot_at_leaf(
+				&relay_parent_b,
+				&candidate_b,
+				&relay_parent_a,
+				&para_id
+			));
+			assert!(!state.has_free_slot_at_leaf_for(
+				&relay_parent_b,
+				&relay_parent_a,
+				&para_id,
+				&candidate_c
+			));
+			assert!(state.has_free_slot_at_leaf_for(
+				&relay_parent_c,
+				&relay_parent_a,
+				&para_id,
+				&candidate_c
+			));
+		}
+
+		#[test]
+		fn seconding_works() {
+			let mut state = PerLeafClaimQueueState::new();
+			let para_id = ParaId::new(1);
+			let claim_queue = VecDeque::from(vec![para_id]);
+			let relay_parent_a = Hash::from_low_u64_be(1);
+			let relay_parent_b = Hash::from_low_u64_be(2);
+			let relay_parent_c = Hash::from_low_u64_be(3);
+
+			// 0 -> a -> b
+			//       \-> c
+			state.add_leaf(&relay_parent_a, &claim_queue, &Hash::from_low_u64_be(0));
+			state.add_leaf(&relay_parent_b, &claim_queue, &relay_parent_a);
+			state.add_leaf(&relay_parent_c, &claim_queue, &relay_parent_a);
+
+			let relay_parent_a = Hash::from_low_u64_be(1);
+			let candidate_a = CandidateHash(Hash::from_low_u64_be(101));
+
+			assert!(state.claim_pending_slot(&candidate_a, &relay_parent_a, &para_id));
+			assert_eq!(state.get_pending_slots_at(&relay_parent_a), vec![para_id]);
+			assert!(state.upgrade_pending_claims_to_seconded(&candidate_a, &relay_parent_a));
+			assert!(state.get_pending_slots_at(&relay_parent_a).is_empty());
+			assert!(!state.has_free_slot_for_para_id(&relay_parent_a, &para_id));
+
+			let candidate_b = CandidateHash(Hash::from_low_u64_be(102));
+			assert!(state.claim_seconded_slot(&candidate_b, &relay_parent_b, &para_id));
+			assert!(state.get_pending_slots_at(&relay_parent_b).is_empty());
+			assert!(!state.has_free_slot_for_para_id(&relay_parent_b, &para_id));
+		}
 		#[test]
 		fn remove_pruned_ancestors_works() {
 			let mut state = PerLeafClaimQueueState::new();
 			let para_id = ParaId::new(1);
 			let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
+			let root_relay_parent = Hash::from_low_u64_be(0);
 			let relay_parent_a = Hash::from_low_u64_be(1);
 			let relay_parent_b = Hash::from_low_u64_be(2);
 			let relay_parent_c = Hash::from_low_u64_be(3);
 
 			// 0 -> a -> b
 			//  \-> c
-			state.add_leaf(&relay_parent_a, &claim_queue, &Hash::from_low_u64_be(0));
+			state.add_leaf(&relay_parent_a, &claim_queue, &root_relay_parent);
 			state.add_leaf(&relay_parent_b, &claim_queue, &relay_parent_a);
-			state.add_leaf(&relay_parent_c, &claim_queue, &Hash::from_low_u64_be(0));
+			state.add_leaf(&relay_parent_c, &claim_queue, &root_relay_parent);
 
 			let removed = vec![relay_parent_a, relay_parent_b];
 			state.remove_pruned_ancestors(&HashSet::from_iter(removed.iter().cloned()));
@@ -1982,64 +2491,120 @@ mod test {
 		}
 
 		#[test]
-		fn has_slot_at_leaf_for_works() {
+		fn different_claims_per_leaf() {
 			let mut state = PerLeafClaimQueueState::new();
 			let para_id = ParaId::new(1);
 			let claim_queue = VecDeque::from(vec![para_id, para_id]);
+			let relay_parent_a = Hash::from_low_u64_be(1);
+			let relay_parent_b = Hash::from_low_u64_be(2);
+			let relay_parent_c = Hash::from_low_u64_be(3);
+
+			// 0 -> a -> b
+			//       \-> c
+			state.add_leaf(&relay_parent_a, &claim_queue, &Hash::from_low_u64_be(0));
+			state.add_leaf(&relay_parent_b, &claim_queue, &relay_parent_a);
+			state.add_leaf(&relay_parent_c, &claim_queue, &relay_parent_a);
+
 			let relay_parent_a = Hash::from_low_u64_be(1);
 			let candidate_a = CandidateHash(Hash::from_low_u64_be(101));
 			let candidate_b = CandidateHash(Hash::from_low_u64_be(102));
 			let candidate_c = CandidateHash(Hash::from_low_u64_be(103));
 
-			state.add_leaf(&relay_parent_a, &claim_queue, &Hash::from_low_u64_be(0));
-
-			assert!(state.has_free_slot_at_leaf_for(
-				&relay_parent_a,
-				&relay_parent_a,
-				&para_id,
-				&candidate_a
-			));
-
-			assert!(state.has_free_slot_at_leaf_for(
-				&relay_parent_a,
-				&relay_parent_a,
-				&para_id,
-				&candidate_b
-			));
-
-			assert!(state.has_free_slot_at_leaf_for(
-				&relay_parent_a,
-				&relay_parent_a,
-				&para_id,
-				&candidate_c
-			));
-
-			assert!(state.claim_pending_slot(&candidate_a, &relay_parent_a, &para_id));
-			assert!(state.claim_pending_slot(&candidate_b, &relay_parent_a, &para_id,));
-
-			// Because `candidate_a` already has got a slot
-			assert!(state.has_free_slot_at_leaf_for(
-				&relay_parent_a,
-				&relay_parent_a,
-				&para_id,
-				&candidate_a
-			));
-
-			// Because `candidate_b` already has got a slot
-			assert!(state.has_free_slot_at_leaf_for(
-				&relay_parent_a,
-				&relay_parent_a,
-				&para_id,
-				&candidate_b
-			));
-
-			// Because there are no free slots
+			// `relay_parent_a` is not a leaf (b and c are)
 			assert!(!state.has_free_slot_at_leaf_for(
 				&relay_parent_a,
 				&relay_parent_a,
 				&para_id,
+				&candidate_a
+			));
+			assert!(state.has_free_slot_at_leaf_for(
+				&relay_parent_b,
+				&relay_parent_a,
+				&para_id,
+				&candidate_a
+			));
+			assert!(state.has_free_slot_at_leaf_for(
+				&relay_parent_c,
+				&relay_parent_a,
+				&para_id,
+				&candidate_b
+			));
+			assert!(state.has_free_slot_for_para_id(&relay_parent_a, &para_id));
+
+			// Claim a slot at the common ancestor (rpa) and rp b
+			assert!(state.claim_pending_slot(&candidate_a, &relay_parent_a, &para_id));
+			assert!(state.claim_pending_slot(&candidate_b, &relay_parent_b, &para_id));
+
+			// now try adding another candidate at the common ancestor at both leaves. It should
+			// fail for b and succeed for c
+			assert!(!state.has_free_slot_at_leaf_for(
+				&relay_parent_b,
+				&relay_parent_a,
+				&para_id,
 				&candidate_c
 			));
+			assert!(state.has_free_slot_at_leaf_for(
+				&relay_parent_c,
+				&relay_parent_a,
+				&para_id,
+				&candidate_c
+			));
+			assert!(state.has_free_slot_for_para_id(&relay_parent_a, &para_id));
+		}
+
+		#[test]
+		fn claims_at_common_ancestor_occupy_all_forks() {
+			let mut state = PerLeafClaimQueueState::new();
+			let para_id = ParaId::new(1);
+			let claim_queue = VecDeque::from(vec![para_id, para_id]);
+			let relay_parent_a = Hash::from_low_u64_be(1);
+			let relay_parent_b = Hash::from_low_u64_be(2);
+			let relay_parent_c = Hash::from_low_u64_be(3);
+
+			// 0 -> a -> b
+			//       \-> c
+			state.add_leaf(&relay_parent_a, &claim_queue, &Hash::from_low_u64_be(0));
+			state.add_leaf(&relay_parent_b, &claim_queue, &relay_parent_a);
+			state.add_leaf(&relay_parent_c, &claim_queue, &relay_parent_a);
+
+			let candidate_a = CandidateHash(Hash::from_low_u64_be(101));
+			let candidate_b = CandidateHash(Hash::from_low_u64_be(102));
+			let candidate_c = CandidateHash(Hash::from_low_u64_be(103));
+
+			// Claim a slot at the common ancestor (rpa) for two candidates
+			assert!(state.claim_pending_slot(&candidate_a, &relay_parent_a, &para_id));
+			assert!(state.claim_pending_slot(&candidate_b, &relay_parent_a, &para_id));
+
+			// now try adding another candidate at the common ancestor at both leaves. It should
+			// fail for both
+			assert!(!state.has_free_slot_at_leaf_for(
+				&relay_parent_b,
+				&relay_parent_a,
+				&para_id,
+				&candidate_c
+			));
+			assert!(!state.has_free_slot_at_leaf_for(
+				&relay_parent_c,
+				&relay_parent_a,
+				&para_id,
+				&candidate_c
+			));
+			assert!(!state.has_free_slot_for_para_id(&relay_parent_a, &para_id));
+
+			// add one more leaf from a:
+			// 0 -> a -> b
+			//       \-> c
+			//        \-> d
+			// the claim should be transferred there too
+			let relay_parent_d = Hash::from_low_u64_be(4);
+			state.add_leaf(&relay_parent_d, &claim_queue, &relay_parent_a);
+			assert!(!state.has_free_slot_at_leaf_for(
+				&relay_parent_d,
+				&relay_parent_a,
+				&para_id,
+				&candidate_c
+			));
+			assert!(!state.has_free_slot_for_para_id(&relay_parent_a, &para_id));
 		}
 	}
 }
