@@ -401,7 +401,7 @@ impl<AccountId: Clone, Balance: HasCompact + AtLeast32BitUnsigned + Copy + MaxEn
 			let mut others: WeakBoundedVec<
 				IndividualExposure<AccountId, Balance>,
 				MaxExposurePageSize,
-			> = WeakBoundedVec::force_from(vec![], None);
+			> = WeakBoundedVec::default();
 			for individual in chunk.iter() {
 				page_total.saturating_accrue(individual.value);
 				let _ = others.try_push(IndividualExposure {
@@ -444,10 +444,7 @@ pub struct ExposurePage<
 
 impl<A, B: Default + HasCompact + MaxEncodedLen, C: Get<u32>> Default for ExposurePage<A, B, C> {
 	fn default() -> Self {
-		ExposurePage {
-			page_total: Default::default(),
-			others: WeakBoundedVec::force_from(vec![], None),
-		}
+		ExposurePage { page_total: Default::default(), others: WeakBoundedVec::default() }
 	}
 }
 

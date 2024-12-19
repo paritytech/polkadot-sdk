@@ -6616,10 +6616,7 @@ fn should_retain_era_info_only_upto_history_depth() {
 			for page in 0..3 {
 				ErasStakersPaged::<Test>::insert(
 					(era, &validator_stash, page),
-					ExposurePage {
-						page_total: 100,
-						others: WeakBoundedVec::force_from(vec![], None),
-					},
+					ExposurePage { page_total: 100, others: WeakBoundedVec::default() },
 				);
 			}
 		}
@@ -8631,7 +8628,7 @@ mod getters {
 			// given
 			let era: EraIndex = 12;
 			let account_id: mock::AccountId = 1;
-			let rewards = WeakBoundedVec::force_from(vec![], None);
+			let rewards = WeakBoundedVec::default();
 			ClaimedRewards::<Test>::insert(era, account_id, rewards.clone());
 
 			// when
