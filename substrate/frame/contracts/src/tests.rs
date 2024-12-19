@@ -18,10 +18,7 @@
 mod pallet_dummy;
 mod test_debug;
 
-use self::{
-	test_debug::TestDebug,
-	test_utils::{ensure_stored, expected_deposit},
-};
+use self::{test_debug::TestDebug, test_utils::expected_deposit};
 use crate::{
 	self as pallet_contracts,
 	chain_extension::{
@@ -100,7 +97,7 @@ pub mod test_utils {
 	use super::{Contracts, DepositPerByte, DepositPerItem, Test};
 	use crate::{
 		exec::AccountIdOf, BalanceOf, CodeHash, CodeInfo, CodeInfoOf, Config, ContractInfo,
-		ContractInfoOf, Nonce, PristineCode,
+		ContractInfoOf, Nonce,
 	};
 	use codec::{Encode, MaxEncodedLen};
 	use frame_support::traits::fungible::{InspectHold, Mutate};
@@ -152,12 +149,6 @@ pub mod test_utils {
 		// We add 2 storage items: one for code, other for code_info
 		DepositPerByte::get().saturating_mul(code_len as u64 + code_info_len) +
 			DepositPerItem::get().saturating_mul(2)
-	}
-	pub fn ensure_stored(code_hash: CodeHash<Test>) -> usize {
-		// Assert that code_info is stored
-		assert!(CodeInfoOf::<Test>::contains_key(&code_hash));
-		// Assert that contract code is stored, and get its size.
-		PristineCode::<Test>::try_get(&code_hash).unwrap().len()
 	}
 }
 
@@ -760,25 +751,6 @@ fn instantiate_and_call_and_deposit_event() {
 					}),
 					topics: vec![],
 				},
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Contracts(crate::Event::Instantiated {
-						deployer: ALICE,
-						contract: addr.clone()
-					}),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Contracts(
-						pallet_contracts::Event::StorageDepositTransferredAndHeld {
-							from: ALICE,
-							to: addr.clone(),
-							amount: test_utils::contract_info_storage_deposit(&addr),
-						}
-					),
-					topics: vec![],
-				},
 			]
 		);
 	});
@@ -1094,46 +1066,11 @@ fn deploy_and_call_other_contract() {
 				},
 				EventRecord {
 					phase: Phase::Initialization,
-					event: RuntimeEvent::Contracts(crate::Event::Instantiated {
-						deployer: caller_addr.clone(),
-						contract: callee_addr.clone(),
-					}),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
 					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
 						from: caller_addr.clone(),
 						to: callee_addr.clone(),
 						amount: 32768,
 					}),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Contracts(crate::Event::Called {
-						caller: Origin::from_account_id(caller_addr.clone()),
-						contract: callee_addr.clone(),
-					}),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Contracts(crate::Event::Called {
-						caller: Origin::from_account_id(ALICE),
-						contract: caller_addr.clone(),
-					}),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Contracts(
-						pallet_contracts::Event::StorageDepositTransferredAndHeld {
-							from: ALICE,
-							to: callee_addr.clone(),
-							amount: test_utils::contract_info_storage_deposit(&callee_addr),
-						}
-					),
 					topics: vec![],
 				},
 			]
@@ -1323,8 +1260,6 @@ fn self_destruct_works() {
 		// Check that the BOB contract has been instantiated.
 		let _ = get_contract(&addr);
 
-		let info_deposit = test_utils::contract_info_storage_deposit(&addr);
-
 		// Drop all previous events
 		initialize_block(2);
 
@@ -1354,33 +1289,6 @@ fn self_destruct_works() {
 		pretty_assertions::assert_eq!(
 			System::events(),
 			vec![
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Contracts(crate::Event::Terminated {
-						contract: addr.clone(),
-						beneficiary: DJANGO
-					}),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Contracts(crate::Event::Called {
-						caller: Origin::from_account_id(ALICE),
-						contract: addr.clone(),
-					}),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Contracts(
-						pallet_contracts::Event::StorageDepositTransferredAndReleased {
-							from: addr.clone(),
-							to: ALICE,
-							amount: info_deposit,
-						}
-					),
-					topics: vec![],
-				},
 				EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::System(frame_system::Event::KilledAccount {
@@ -2555,21 +2463,6 @@ fn upload_code_works() {
 			Some(codec::Compact(1_000)),
 			Determinism::Enforced,
 		));
-		// Ensure the contract was stored and get expected deposit amount to be reserved.
-		let deposit_expected = expected_deposit(ensure_stored(code_hash));
-
-		assert_eq!(
-			System::events(),
-			vec![EventRecord {
-				phase: Phase::Initialization,
-				event: RuntimeEvent::Contracts(crate::Event::CodeStored {
-					code_hash,
-					deposit_held: deposit_expected,
-					uploader: ALICE
-				}),
-				topics: vec![],
-			},]
-		);
 	});
 }
 
@@ -2641,33 +2534,8 @@ fn remove_code_works() {
 			Some(codec::Compact(1_000)),
 			Determinism::Enforced,
 		));
-		// Ensure the contract was stored and get expected deposit amount to be reserved.
-		let deposit_expected = expected_deposit(ensure_stored(code_hash));
 
 		assert_ok!(Contracts::remove_code(RuntimeOrigin::signed(ALICE), code_hash));
-		assert_eq!(
-			System::events(),
-			vec![
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Contracts(crate::Event::CodeStored {
-						code_hash,
-						deposit_held: deposit_expected,
-						uploader: ALICE
-					}),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Contracts(crate::Event::CodeRemoved {
-						code_hash,
-						deposit_released: deposit_expected,
-						remover: ALICE
-					}),
-					topics: vec![],
-				},
-			]
-		);
 	});
 }
 
@@ -2687,25 +2555,10 @@ fn remove_code_wrong_origin() {
 			Some(codec::Compact(1_000)),
 			Determinism::Enforced,
 		));
-		// Ensure the contract was stored and get expected deposit amount to be reserved.
-		let deposit_expected = expected_deposit(ensure_stored(code_hash));
 
 		assert_noop!(
 			Contracts::remove_code(RuntimeOrigin::signed(BOB), code_hash),
 			sp_runtime::traits::BadOrigin,
-		);
-
-		assert_eq!(
-			System::events(),
-			vec![EventRecord {
-				phase: Phase::Initialization,
-				event: RuntimeEvent::Contracts(crate::Event::CodeStored {
-					code_hash,
-					deposit_held: deposit_expected,
-					uploader: ALICE
-				}),
-				topics: vec![],
-			},]
 		);
 	});
 }
@@ -2752,7 +2605,7 @@ fn remove_code_not_found() {
 
 #[test]
 fn instantiate_with_zero_balance_works() {
-	let (wasm, code_hash) = compile_module::<Test>("dummy").unwrap();
+	let (wasm, _code_hash) = compile_module::<Test>("dummy").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let min_balance = Contracts::min_balance();
@@ -2762,9 +2615,6 @@ fn instantiate_with_zero_balance_works() {
 
 		// Instantiate the BOB contract.
 		let addr = builder::bare_instantiate(Code::Upload(wasm)).build_and_unwrap_account_id();
-
-		// Ensure the contract was stored and get expected deposit amount to be reserved.
-		let deposit_expected = expected_deposit(ensure_stored(code_hash));
 
 		// Make sure the account exists even though no free balance was send
 		assert_eq!(<Test as Config>::Currency::free_balance(&addr), min_balance);
@@ -2776,15 +2626,6 @@ fn instantiate_with_zero_balance_works() {
 		assert_eq!(
 			System::events(),
 			vec![
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Contracts(crate::Event::CodeStored {
-						code_hash,
-						deposit_held: deposit_expected,
-						uploader: ALICE
-					}),
-					topics: vec![],
-				},
 				EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::System(frame_system::Event::NewAccount {
@@ -2809,25 +2650,6 @@ fn instantiate_with_zero_balance_works() {
 					}),
 					topics: vec![],
 				},
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Contracts(crate::Event::Instantiated {
-						deployer: ALICE,
-						contract: addr.clone(),
-					}),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Contracts(
-						pallet_contracts::Event::StorageDepositTransferredAndHeld {
-							from: ALICE,
-							to: addr.clone(),
-							amount: test_utils::contract_info_storage_deposit(&addr),
-						}
-					),
-					topics: vec![],
-				},
 			]
 		);
 	});
@@ -2835,7 +2657,7 @@ fn instantiate_with_zero_balance_works() {
 
 #[test]
 fn instantiate_with_below_existential_deposit_works() {
-	let (wasm, code_hash) = compile_module::<Test>("dummy").unwrap();
+	let (wasm, _code_hash) = compile_module::<Test>("dummy").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let min_balance = Contracts::min_balance();
@@ -2849,8 +2671,6 @@ fn instantiate_with_below_existential_deposit_works() {
 			.value(value)
 			.build_and_unwrap_account_id();
 
-		// Ensure the contract was stored and get expected deposit amount to be reserved.
-		let deposit_expected = expected_deposit(ensure_stored(code_hash));
 		// Make sure the account exists even though not enough free balance was send
 		assert_eq!(<Test as Config>::Currency::free_balance(&addr), min_balance + value);
 		assert_eq!(
@@ -2861,15 +2681,6 @@ fn instantiate_with_below_existential_deposit_works() {
 		assert_eq!(
 			System::events(),
 			vec![
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Contracts(crate::Event::CodeStored {
-						code_hash,
-						deposit_held: deposit_expected,
-						uploader: ALICE
-					}),
-					topics: vec![],
-				},
 				EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::System(frame_system::Event::NewAccount {
@@ -2901,25 +2712,6 @@ fn instantiate_with_below_existential_deposit_works() {
 						to: addr.clone(),
 						amount: 50,
 					}),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Contracts(crate::Event::Instantiated {
-						deployer: ALICE,
-						contract: addr.clone(),
-					}),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Contracts(
-						pallet_contracts::Event::StorageDepositTransferredAndHeld {
-							from: ALICE,
-							to: addr.clone(),
-							amount: test_utils::contract_info_storage_deposit(&addr),
-						}
-					),
 					topics: vec![],
 				},
 			]
@@ -2965,74 +2757,15 @@ fn storage_deposit_works() {
 
 		assert_eq!(
 			System::events(),
-			vec![
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-						from: ALICE,
-						to: addr.clone(),
-						amount: 42,
-					}),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Contracts(crate::Event::Called {
-						caller: Origin::from_account_id(ALICE),
-						contract: addr.clone(),
-					}),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Contracts(
-						pallet_contracts::Event::StorageDepositTransferredAndHeld {
-							from: ALICE,
-							to: addr.clone(),
-							amount: charged0,
-						}
-					),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Contracts(crate::Event::Called {
-						caller: Origin::from_account_id(ALICE),
-						contract: addr.clone(),
-					}),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Contracts(
-						pallet_contracts::Event::StorageDepositTransferredAndHeld {
-							from: ALICE,
-							to: addr.clone(),
-							amount: charged1,
-						}
-					),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Contracts(crate::Event::Called {
-						caller: Origin::from_account_id(ALICE),
-						contract: addr.clone(),
-					}),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Contracts(
-						pallet_contracts::Event::StorageDepositTransferredAndReleased {
-							from: addr.clone(),
-							to: ALICE,
-							amount: refunded0,
-						}
-					),
-					topics: vec![],
-				},
-			]
+			vec![EventRecord {
+				phase: Phase::Initialization,
+				event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
+					from: ALICE,
+					to: addr.clone(),
+					amount: 42,
+				}),
+				topics: vec![],
+			},]
 		);
 	});
 }
@@ -3125,18 +2858,6 @@ fn set_code_extrinsic() {
 		assert_eq!(get_contract(&addr).code_hash, new_code_hash);
 		assert_refcount!(&code_hash, 0);
 		assert_refcount!(&new_code_hash, 1);
-		assert_eq!(
-			System::events(),
-			vec![EventRecord {
-				phase: Phase::Initialization,
-				event: RuntimeEvent::Contracts(pallet_contracts::Event::ContractCodeUpdated {
-					contract: addr.clone(),
-					new_code_hash,
-					old_code_hash: code_hash,
-				}),
-				topics: vec![],
-			},]
-		);
 	});
 }
 
@@ -3242,7 +2963,7 @@ fn contract_reverted() {
 
 #[test]
 fn set_code_hash() {
-	let (wasm, code_hash) = compile_module::<Test>("set_code_hash").unwrap();
+	let (wasm, _code_hash) = compile_module::<Test>("set_code_hash").unwrap();
 	let (new_wasm, new_code_hash) = compile_module::<Test>("new_set_code_hash_contract").unwrap();
 
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
@@ -3274,38 +2995,6 @@ fn set_code_hash() {
 			.debug(DebugInfo::UnsafeDebug)
 			.build_and_unwrap_result();
 		assert_return_code!(result, 2);
-
-		// Checking for the last event only
-		assert_eq!(
-			&System::events(),
-			&[
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Contracts(crate::Event::ContractCodeUpdated {
-						contract: contract_addr.clone(),
-						new_code_hash,
-						old_code_hash: code_hash,
-					}),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Contracts(crate::Event::Called {
-						caller: Origin::from_account_id(ALICE),
-						contract: contract_addr.clone(),
-					}),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::Contracts(crate::Event::Called {
-						caller: Origin::from_account_id(ALICE),
-						contract: contract_addr.clone(),
-					}),
-					topics: vec![],
-				},
-			],
-		);
 	});
 }
 

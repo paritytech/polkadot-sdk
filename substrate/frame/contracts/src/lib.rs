@@ -906,11 +906,6 @@ pub mod pallet {
 				};
 				<ExecStack<T, WasmBlob<T>>>::increment_refcount(code_hash)?;
 				<ExecStack<T, WasmBlob<T>>>::decrement_refcount(contract.code_hash);
-				Self::deposit_event(Event::ContractCodeUpdated {
-					contract: dest.clone(),
-					new_code_hash: code_hash,
-					old_code_hash: contract.code_hash,
-				});
 				contract.code_hash = code_hash;
 				Ok(())
 			})
@@ -1128,25 +1123,6 @@ pub mod pallet {
 
 	#[pallet::event]
 	pub enum Event<T: Config> {
-		/// Contract deployed by address at the specified address.
-		Instantiated { deployer: T::AccountId, contract: T::AccountId },
-
-		/// Contract has been removed.
-		///
-		/// # Note
-		///
-		/// The only way for a contract to be removed and emitting this event is by calling
-		/// `seal_terminate`.
-		Terminated {
-			/// The contract that was terminated.
-			contract: T::AccountId,
-			/// The account that received the contracts remaining balance
-			beneficiary: T::AccountId,
-		},
-
-		/// Code with the specified hash has been stored.
-		CodeStored { code_hash: T::Hash, deposit_held: BalanceOf<T>, uploader: T::AccountId },
-
 		/// A custom event emitted by the contract.
 		ContractEmitted {
 			/// The contract that emitted the event.
@@ -1154,62 +1130,6 @@ pub mod pallet {
 			/// Data supplied by the contract. Metadata generated during contract compilation
 			/// is needed to decode it.
 			data: Vec<u8>,
-		},
-
-		/// A code with the specified hash was removed.
-		CodeRemoved { code_hash: T::Hash, deposit_released: BalanceOf<T>, remover: T::AccountId },
-
-		/// A contract's code was updated.
-		ContractCodeUpdated {
-			/// The contract that has been updated.
-			contract: T::AccountId,
-			/// New code hash that was set for the contract.
-			new_code_hash: T::Hash,
-			/// Previous code hash of the contract.
-			old_code_hash: T::Hash,
-		},
-
-		/// A contract was called either by a plain account or another contract.
-		///
-		/// # Note
-		///
-		/// Please keep in mind that like all events this is only emitted for successful
-		/// calls. This is because on failure all storage changes including events are
-		/// rolled back.
-		Called {
-			/// The caller of the `contract`.
-			caller: Origin<T>,
-			/// The contract that was called.
-			contract: T::AccountId,
-		},
-
-		/// A contract delegate called a code hash.
-		///
-		/// # Note
-		///
-		/// Please keep in mind that like all events this is only emitted for successful
-		/// calls. This is because on failure all storage changes including events are
-		/// rolled back.
-		DelegateCalled {
-			/// The contract that performed the delegate call and hence in whose context
-			/// the `code_hash` is executed.
-			contract: T::AccountId,
-			/// The code hash that was delegate called.
-			code_hash: CodeHash<T>,
-		},
-
-		/// Some funds have been transferred and held as storage deposit.
-		StorageDepositTransferredAndHeld {
-			from: T::AccountId,
-			to: T::AccountId,
-			amount: BalanceOf<T>,
-		},
-
-		/// Some storage deposit funds have been transferred and released.
-		StorageDepositTransferredAndReleased {
-			from: T::AccountId,
-			to: T::AccountId,
-			amount: BalanceOf<T>,
 		},
 	}
 
@@ -1899,11 +1819,6 @@ impl<T: Config> Pallet<T> {
 		let schedule = T::Schedule::get();
 		WasmBlob::<T>::from_code_unchecked(code, &schedule, owner)?.store_code()?;
 		Ok(())
-	}
-
-	/// Deposit a pallet contracts event.
-	fn deposit_event(event: Event<T>) {
-		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
 	}
 
 	/// Deposit a pallet contracts indexed event.

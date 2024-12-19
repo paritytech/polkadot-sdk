@@ -45,8 +45,8 @@ use crate::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	gas::{GasMeter, Token},
 	weights::WeightInfo,
-	AccountIdOf, BadOrigin, BalanceOf, CodeHash, CodeInfoOf, CodeVec, Config, Error, Event,
-	HoldReason, Pallet, PristineCode, Schedule, Weight, LOG_TARGET,
+	AccountIdOf, BadOrigin, BalanceOf, CodeHash, CodeInfoOf, CodeVec, Config, Error, HoldReason,
+	PristineCode, Schedule, Weight, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -177,16 +177,9 @@ impl<T: Config> WasmBlob<T> {
 					code_info.deposit,
 					BestEffort,
 				);
-				let deposit_released = code_info.deposit;
-				let remover = code_info.owner.clone();
 
 				*existing = None;
 				<PristineCode<T>>::remove(&code_hash);
-				<Pallet<T>>::deposit_event(Event::CodeRemoved {
-					code_hash,
-					deposit_released,
-					remover,
-				});
 				Ok(())
 			} else {
 				Err(<Error<T>>::CodeNotFound.into())
@@ -270,11 +263,6 @@ impl<T: Config> WasmBlob<T> {
 					self.code_info.refcount = 0;
 					<PristineCode<T>>::insert(code_hash, &self.code);
 					*stored_code_info = Some(self.code_info.clone());
-					<Pallet<T>>::deposit_event(Event::CodeStored {
-						code_hash,
-						deposit_held: deposit,
-						uploader: self.code_info.owner.clone(),
-					});
 					Ok(deposit)
 				},
 			}
