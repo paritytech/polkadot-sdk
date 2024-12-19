@@ -24,9 +24,8 @@ use cumulus_primitives_core::{GetCoreSelectorApi, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_primitives::{
-	vstaging::{ClaimQueueOffset, CoreSelector, DEFAULT_CLAIM_QUEUE_OFFSET},
-	Block as RelayBlock, BlockId, CoreIndex, Hash as RelayHash, Header as RelayHeader,
-	Id as ParaId, OccupiedCoreAssumption,
+	Block as RelayBlock,
+	Id as ParaId,
 };
 
 use futures::prelude::*;
