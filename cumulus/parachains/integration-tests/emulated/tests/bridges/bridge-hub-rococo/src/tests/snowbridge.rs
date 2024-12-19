@@ -238,7 +238,7 @@ fn register_weth_token_from_ethereum_to_asset_hub() {
 /// Tests the registering of a token as an asset on AssetHub, and then subsequently sending
 /// a token from Ethereum to AssetHub.
 #[test]
-fn send_token_from_ethereum_to_asset_hub() {
+fn send_weth_from_ethereum_to_asset_hub() {
 	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id().into(), INITIAL_FUND);
 
 	// Fund ethereum sovereign on AssetHub
@@ -278,7 +278,7 @@ fn send_token_from_ethereum_to_asset_hub() {
 /// Tests sending a token to a 3rd party parachain, called PenPal. The token reserve is
 /// still located on AssetHub.
 #[test]
-fn send_token_from_ethereum_to_penpal() {
+fn send_weth_from_ethereum_to_penpal() {
 	let asset_hub_sovereign = BridgeHubRococo::sovereign_account_id_of(Location::new(
 		1,
 		[Parachain(AssetHubRococo::para_id().into())],
@@ -565,7 +565,7 @@ fn register_weth_token_in_asset_hub_fail_for_insufficient_fee() {
 	});
 }
 
-fn send_token_from_ethereum_to_asset_hub_with_fee(account_id: [u8; 32], fee: u128) {
+fn send_weth_from_ethereum_to_asset_hub_with_fee(account_id: [u8; 32], fee: u128) {
 	let ethereum_network_v5: NetworkId = EthereumNetwork::get().into();
 	let weth_asset_location: Location =
 		Location::new(2, [ethereum_network_v5.into(), AccountKey20 { network: None, key: WETH }]);
@@ -623,8 +623,8 @@ fn send_token_from_ethereum_to_asset_hub_with_fee(account_id: [u8; 32], fee: u12
 }
 
 #[test]
-fn send_token_from_ethereum_to_existent_account_on_asset_hub() {
-	send_token_from_ethereum_to_asset_hub_with_fee(AssetHubRococoSender::get().into(), XCM_FEE);
+fn send_weth_from_ethereum_to_existent_account_on_asset_hub() {
+	send_weth_from_ethereum_to_asset_hub_with_fee(AssetHubRococoSender::get().into(), XCM_FEE);
 
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
@@ -640,8 +640,8 @@ fn send_token_from_ethereum_to_existent_account_on_asset_hub() {
 }
 
 #[test]
-fn send_token_from_ethereum_to_non_existent_account_on_asset_hub() {
-	send_token_from_ethereum_to_asset_hub_with_fee([1; 32], XCM_FEE);
+fn send_weth_from_ethereum_to_non_existent_account_on_asset_hub() {
+	send_weth_from_ethereum_to_asset_hub_with_fee([1; 32], XCM_FEE);
 
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
@@ -657,8 +657,8 @@ fn send_token_from_ethereum_to_non_existent_account_on_asset_hub() {
 }
 
 #[test]
-fn send_token_from_ethereum_to_non_existent_account_on_asset_hub_with_insufficient_fee() {
-	send_token_from_ethereum_to_asset_hub_with_fee([1; 32], INSUFFICIENT_XCM_FEE);
+fn send_weth_from_ethereum_to_non_existent_account_on_asset_hub_with_insufficient_fee() {
+	send_weth_from_ethereum_to_asset_hub_with_fee([1; 32], INSUFFICIENT_XCM_FEE);
 
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
@@ -675,10 +675,10 @@ fn send_token_from_ethereum_to_non_existent_account_on_asset_hub_with_insufficie
 }
 
 #[test]
-fn send_token_from_ethereum_to_non_existent_account_on_asset_hub_with_sufficient_fee_but_do_not_satisfy_ed(
+fn send_weth_from_ethereum_to_non_existent_account_on_asset_hub_with_sufficient_fee_but_do_not_satisfy_ed(
 ) {
 	// On AH the xcm fee is 26_789_690 and the ED is 3_300_000
-	send_token_from_ethereum_to_asset_hub_with_fee([1; 32], 30_000_000);
+	send_weth_from_ethereum_to_asset_hub_with_fee([1; 32], 30_000_000);
 
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
