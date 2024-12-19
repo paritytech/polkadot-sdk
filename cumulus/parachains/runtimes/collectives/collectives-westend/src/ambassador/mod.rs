@@ -32,10 +32,7 @@ pub mod origins;
 mod tracks;
 
 use super::*;
-use crate::{
-	xcm_config::{FellowshipAdminBodyId, LocationToAccountId, WndAssetHub},
-	System,
-};
+use crate::xcm_config::{FellowshipAdminBodyId, LocationToAccountId, WndAssetHub};
 use frame_support::traits::{EitherOf, MapSuccess, TryMapSuccess};
 use frame_system::EnsureRootWithSuccess;
 pub use origins::pallet_origins as pallet_ambassador_origins;
@@ -226,7 +223,7 @@ impl pallet_core_fellowship::Config<AmbassadorCoreInstance> for Runtime {
 	type FastPromoteOrigin = Self::PromoteOrigin;
 	type EvidenceSize = ConstU32<65536>;
 	type MaxRank = ConstU32<9>;
-	type BlockNumberProvider = System;
+	type BlockNumberProvider = cumulus_pallet_parachain_system::RelaychainDataProvider<Runtime>;
 }
 
 pub type AmbassadorSalaryInstance = pallet_salary::Instance2;
