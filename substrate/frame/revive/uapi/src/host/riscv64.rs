@@ -94,7 +94,7 @@ mod sys {
 			data_len: u32,
 		);
 		pub fn gas_price() -> u64;
-		pub fn base_fee() -> u64;
+		pub fn base_fee(out_ptr: *mut u8);
 		pub fn call_data_size() -> u64;
 		pub fn block_number(out_ptr: *mut u8);
 		pub fn block_hash(block_number_ptr: *const u8, out_ptr: *mut u8);
@@ -375,8 +375,8 @@ impl HostFn for HostFnImpl {
 		unsafe { sys::gas_price() }
 	}
 
-	fn base_fee() -> u64 {
-		unsafe { sys::base_fee() }
+	fn base_fee(output: &mut [u8; 32]) {
+		unsafe { sys::base_fee(output.as_mut_ptr()) }
 	}
 
 	fn balance(output: &mut [u8; 32]) {

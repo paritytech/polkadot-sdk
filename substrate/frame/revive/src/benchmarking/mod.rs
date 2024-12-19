@@ -834,13 +834,14 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_base_fee() {
-		build_runtime!(runtime, memory: []);
+		build_runtime!(runtime, memory: [[0u8;32], ]);
 		let result;
 		#[block]
 		{
-			result = runtime.bench_base_fee(memory.as_mut_slice());
+			result = runtime.bench_base_fee(memory.as_mut_slice(), 0);
 		}
-		assert_eq!(result.unwrap(), 0);
+		assert_ok!(result);
+		assert_eq!(U256::from_little_endian(&memory[..]), U256::zero());
 	}
 
 	#[benchmark(pov_mode = Measured)]

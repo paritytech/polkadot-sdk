@@ -6,7 +6,6 @@ doc:
     However, since this is an opocde, if we ever need to implement it for compatibility
     reasons with [EIP-1559](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1559.md),
     it would break already deployed contracts. Thus we provide a syscall method instead.
-    It returns an u64 because ref_time is also u64 and the base fee is always less.
 crates:
 - name: pallet-revive-fixtures
   bump: minor
