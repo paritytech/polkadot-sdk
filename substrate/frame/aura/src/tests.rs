@@ -22,9 +22,7 @@
 use super::pallet;
 use crate::mock::{build_ext_and_execute_test, Aura, MockDisabledValidators, System, Test};
 use codec::Encode;
-use frame_support::traits::OnInitialize;
-use sp_consensus_aura::{Slot, AURA_ENGINE_ID};
-use sp_runtime::{Digest, DigestItem};
+use frame::testing_prelude::*;
 
 #[test]
 fn initial_values() {
