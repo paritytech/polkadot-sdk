@@ -1,0 +1,9 @@
+title: 'Snowbridge: Emit sent xcm from BH to AH'
+doc:
+- audience: Runtime Dev
+  description: Emit the sent xcm from BH to AH which is helpful 
+    to index the transfer across multiple chains.
+crates:
+- name: snowbridge-pallet-inbound-queue
+  bump: patch
+
