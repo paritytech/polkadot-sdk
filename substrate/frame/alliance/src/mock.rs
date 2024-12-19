@@ -16,19 +16,11 @@
 // limitations under the License.
 
 //! Test utilities
-
-pub use sp_core::H256;
-use sp_runtime::traits::Hash;
-pub use sp_runtime::{
-	traits::{BlakeTwo256, IdentifyAccount, Lazy, Verify},
-	BuildStorage,
+use frame::{
+	arithmetic::Perbill,
+	testing_prelude::*,
+	traits::{EitherOfDiverse, IdentifyAccount, Lazy, Verify},
 };
-
-pub use frame_support::{
-	assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
-	traits::EitherOfDiverse, BoundedVec,
-};
-use frame_system::{EnsureRoot, EnsureSignedBy};
 use pallet_identity::{
 	legacy::{IdentityField, IdentityInfo},
 	Data, IdentityOf, Judgement, SuperOf,
@@ -63,7 +55,7 @@ parameter_types! {
 	pub const MotionDuration: BlockNumber = MOTION_DURATION_IN_BLOCKS;
 	pub const MaxProposals: u32 = 100;
 	pub const MaxMembers: u32 = 100;
-	pub MaxProposalWeight: Weight = sp_runtime::Perbill::from_percent(50) * BlockWeights::get().max_block;
+	pub MaxProposalWeight: Weight = Perbill::from_percent(50) * BlockWeights::get().max_block;
 }
 type AllianceCollective = pallet_collective::Instance1;
 impl pallet_collective::Config<AllianceCollective> for Test {
@@ -237,7 +229,7 @@ impl Config for Test {
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -268,7 +260,7 @@ pub(super) fn test_identity_info_deposit() -> <Test as pallet_balances::Config>:
 	byte_deposit * test_identity_info().encoded_size() as u64 + basic_deposit
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	pallet_balances::GenesisConfig::<Test> {
@@ -295,7 +287,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	.assimilate_storage(&mut t)
 	.unwrap();
 
-	let mut ext = sp_io::TestExternalities::new(t);
+	let mut ext = TestExternalities::new(t);
 	ext.execute_with(|| {
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 1));
 
@@ -372,7 +364,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-pub fn new_bench_ext() -> sp_io::TestExternalities {
+pub fn new_bench_ext() -> TestExternalities {
 	RuntimeGenesisConfig::default().build_storage().unwrap().into()
 }
 

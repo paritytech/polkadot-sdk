@@ -194,6 +194,9 @@ pub mod prelude {
 	#[doc(inline)]
 	pub use frame_system;
 
+	/// Bounded types.
+	pub use frame_support::{BoundedVec, BoundedSlice};
+
 	/// Pallet prelude of `frame-support`.
 	///
 	/// Note: this needs to revised once `frame-support` evolves.
@@ -266,6 +269,7 @@ pub mod benchmarking {
 		pub use super::shared::*;
 		pub use crate::prelude::*;
 		pub use frame_benchmarking::v2::*;
+		pub use frame_support::traits::UnfilteredDispatchable;
 	}
 }
 
@@ -333,6 +337,9 @@ pub mod runtime {
 	/// This automatically brings in `polkadot_sdk_frame::prelude::*`.
 	pub mod prelude {
 		pub use crate::prelude::*;
+
+		/// Testing includes event cheking.
+		pub use crate::event::*;
 
 		/// All of the types related to the FRAME runtime executive.
 		pub use frame_executive::*;
@@ -511,6 +518,11 @@ pub mod traits {
 /// The arithmetic types used for safe math.
 pub mod arithmetic {
 	pub use sp_arithmetic::{traits::*, *};
+}
+
+/// Event checking system for mock runtimes.
+pub mod event {
+	pub use frame_system::{EventRecord, Phase};
 }
 
 /// All derive macros used in frame.
