@@ -317,6 +317,8 @@ pub mod testing_prelude {
 	pub use sp_io::TestExternalities;
 
 	pub use sp_io::TestExternalities as TestState;
+
+	pub use sp_runtime::bounded_vec;
 }
 
 /// All of the types and tools needed to build FRAME-based runtimes.
