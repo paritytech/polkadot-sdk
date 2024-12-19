@@ -25,17 +25,16 @@ extern crate alloc;
 
 use super::PALLET_MIGRATIONS_ID;
 use crate::pallet::{Config, MyMap};
-use frame_support::{
-	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
-	pallet_prelude::PhantomData,
-	weights::WeightMeter,
-};
+use frame::testing_prelude::*;
 
 #[cfg(feature = "try-runtime")]
 use alloc::collections::btree_map::BTreeMap;
 
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
+
+#[cfg(feature = "try-runtime")]
+use frame::try_runtime::TryRuntimeError;
 
 mod benchmarks;
 mod tests;
@@ -48,9 +47,9 @@ pub mod weights;
 // This module is public only for the purposes of linking it in the documentation. It is not
 // intended to be used by any other code.
 pub mod v0 {
-	use super::Config;
+	use super::*;
 	use crate::pallet::Pallet;
-	use frame_support::{storage_alias, Blake2_128Concat};
+	// use frame_support::{storage_alias, Blake2_128Concat};
 
 	#[storage_alias]
 	/// The storage item that is being migrated from.
@@ -125,7 +124,7 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for LazyMigrationV1<T, 
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<Vec<u8>, frame_support::sp_runtime::TryRuntimeError> {
+	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 		use codec::Encode;
 
 		// Return the state of the storage before the migration.
@@ -133,7 +132,7 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for LazyMigrationV1<T, 
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(prev: Vec<u8>) -> Result<(), frame_support::sp_runtime::TryRuntimeError> {
+	fn post_upgrade(prev: Vec<u8>) -> Result<(), TryRuntimeError> {
 		use codec::Decode;
 
 		// Check the state of the storage after the migration.

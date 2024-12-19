@@ -68,12 +68,13 @@
 
 pub mod migrations;
 mod mock;
+use frame::prelude::*;
 
 pub use pallet::*;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
-	use frame_support::{pallet_prelude::StorageMap, Blake2_128Concat};
+	use super::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);

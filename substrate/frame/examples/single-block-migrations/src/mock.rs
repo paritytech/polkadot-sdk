@@ -18,7 +18,7 @@
 #![cfg(any(all(feature = "try-runtime", test), doc))]
 
 use crate::*;
-use frame_support::{derive_impl, weights::constants::ParityDbWeight};
+use frame::testing_prelude::*;
 
 // Re-export crate as its pallet name for construct_runtime.
 use crate as pallet_example_storage_migration;
@@ -26,7 +26,7 @@ use crate as pallet_example_storage_migration;
 type Block = frame_system::mocking::MockBlock<MockRuntime>;
 
 // For testing the pallet, we construct a mock runtime.
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub struct MockRuntime {
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
@@ -38,7 +38,7 @@ frame_support::construct_runtime!(
 impl frame_system::Config for MockRuntime {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type DbWeight = ParityDbWeight;
+	type DbWeight = weights::constants::ParityDbWeight;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
@@ -48,9 +48,7 @@ impl pallet_balances::Config for MockRuntime {
 
 impl Config for MockRuntime {}
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	use sp_runtime::BuildStorage;
-
+pub fn new_test_ext() -> TestExternalities {
 	let t = RuntimeGenesisConfig { system: Default::default(), balances: Default::default() }
 		.build_storage()
 		.unwrap();

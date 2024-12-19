@@ -160,8 +160,7 @@ mod mock;
 extern crate alloc;
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::traits::StorageVersion;
-use sp_runtime::RuntimeDebug;
+use frame::prelude::*;
 
 /// Example struct holding the most recently set [`u32`] and the
 /// second most recently set [`u32`] (if one existed).
@@ -177,11 +176,9 @@ pub struct CurrentAndPreviousValue {
 }
 
 // Pallet for demonstrating storage migrations.
-#[frame_support::pallet(dev_mode)]
+#[frame::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	/// Define the current [`StorageVersion`] of the pallet.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);

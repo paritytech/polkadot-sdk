@@ -28,13 +28,13 @@ use crate::{
 	},
 };
 use codec::Decode;
-use frame_support::traits::OnRuntimeUpgrade;
+use frame::testing_prelude::*;
 use pallet_migrations::WeightInfo as _;
 
 #[test]
 fn lazy_migration_works() {
 	new_test_ext().execute_with(|| {
-		frame_support::__private::sp_tracing::try_init_simple();
+		frame::deps::frame_support::__private::sp_tracing::try_init_simple();
 		// Insert some values into the old storage map.
 		for i in 0..1024 {
 			v1::v0::MyMap::<T>::insert(i, i);
@@ -56,8 +56,8 @@ fn lazy_migration_works() {
 			let mut decodable = 0;
 			for i in 0..1024 {
 				let key = crate::MyMap::<T>::hashed_key_for(i);
-				let value =
-					frame_support::storage::unhashed::get_raw(&key[..]).expect("value exists");
+				let value = frame::deps::frame_support::storage::unhashed::get_raw(&key[..])
+					.expect("value exists");
 
 				if let Ok(value) = u64::decode(&mut &value[..]) {
 					assert_eq!(value, i as u64);
