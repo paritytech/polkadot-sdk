@@ -22,7 +22,7 @@ use frame_support::{
 	weights::Weight,
 	DefaultNoBound,
 };
-use sp_runtime::{traits::Zero, DispatchError};
+use sp_runtime::DispatchError;
 
 #[cfg(test)]
 use std::{any::Any, fmt::Debug};
@@ -168,27 +168,14 @@ impl<T: Config> GasMeter<T> {
 		}
 	}
 
-	/// Create a new gas meter by removing gas from the current meter.
+	/// Create a new gas meter for a nested call by removing gas from the current meter.
 	///
-	/// # Note
-	///
-	/// Passing `0` as amount is interpreted as "all remaining gas".
+	/// Per [EIP-150](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-150.md), this is
+	/// capped at 63/64ths of the caller's gas limit.
 	pub fn nested(&mut self, amount: Weight) -> Self {
-		let amount = Weight::from_parts(
-			if amount.ref_time().is_zero() {
-				self.gas_left().ref_time()
-			} else {
-				amount.ref_time()
-			},
-			if amount.proof_size().is_zero() {
-				self.gas_left().proof_size()
-			} else {
-				amount.proof_size()
-			},
-		)
-		.min(self.gas_left);
-		self.gas_left -= amount;
-		GasMeter::new(amount)
+		let amt = amount.min(self.gas_left - self.gas_left / 64);
+		self.gas_left -= amt;
+		GasMeter::new(amt)
 	}
 
 	/// Absorb the remaining gas of a nested meter after we are done using it.
@@ -390,6 +377,52 @@ mod tests {
 	fn refuse_to_execute_anything_if_zero() {
 		let mut gas_meter = GasMeter::<Test>::new(Weight::zero());
 		assert!(gas_meter.charge(SimpleToken(1)).is_err());
+	}
+
+	#[test]
+	/// Previously, passing a `Weight` of 0 to `nested` would consume all of the meter's current
+	/// gas.
+	///
+	/// Now, a `Weight` of 0 means no gas for the nested call.
+	fn nested_zero_gas_requested() {
+		let test_weight = 50000.into();
+		let mut gas_meter = GasMeter::<Test>::new(test_weight);
+		let gas_for_nested_call = gas_meter.nested(0.into());
+
+		assert_eq!(gas_meter.gas_left(), 50000.into());
+		assert_eq!(gas_for_nested_call.gas_left(), 0.into())
+	}
+
+	#[test]
+	fn nested_some_gas_requested() {
+		let test_weight = 50000.into();
+		let mut gas_meter = GasMeter::<Test>::new(test_weight);
+		let gas_for_nested_call = gas_meter.nested(10000.into());
+
+		assert_eq!(gas_meter.gas_left(), 40000.into());
+		assert_eq!(gas_for_nested_call.gas_left(), 10000.into())
+	}
+
+	#[test]
+	fn nested_all_gas_requested() {
+		let test_weight = Weight::from_parts(50000, 50000);
+		let mut gas_meter = GasMeter::<Test>::new(test_weight);
+		let gas_for_nested_call = gas_meter.nested(test_weight);
+
+		// With EIP-150, it is not possible for subcalls to consume all available gas.
+		// They are limited to 63/64ths; 50000 / 64 ≈ 781
+		assert_eq!(gas_meter.gas_left(), Weight::from_parts(781, 781));
+		assert_eq!(gas_for_nested_call.gas_left(), 49219.into())
+	}
+
+	#[test]
+	fn nested_excess_gas_requested() {
+		let test_weight = Weight::from_parts(50000, 50000);
+		let mut gas_meter = GasMeter::<Test>::new(test_weight);
+		let gas_for_nested_call = gas_meter.nested(test_weight + 10000.into());
+
+		assert_eq!(gas_meter.gas_left(), Weight::from_parts(781, 781));
+		assert_eq!(gas_for_nested_call.gas_left(), 49219.into())
 	}
 
 	// Make sure that the gas meter does not charge in case of overcharge

@@ -38,8 +38,8 @@ pub extern "C" fn call() {
 	api::call(
 		uapi::CallFlags::empty(),
 		callee_addr,
-		0u64,       // How much ref_time to devote for the execution. 0 = all.
-		0u64,       // How much proof_size to devote for the execution. 0 = all.
+		u64::MAX,   // How much ref_time to devote for the execution. u64::MAX = use all.
+		u64::MAX,   // How much proof_size to devote for the execution. u64::MAX = use all.
 		None,       // No deposit limit.
 		&[0u8; 32], // Value transferred to the contract.
 		callee_input,

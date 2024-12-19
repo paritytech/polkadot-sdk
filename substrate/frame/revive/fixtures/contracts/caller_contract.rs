@@ -42,8 +42,8 @@ pub extern "C" fn call() {
 	// Fail to deploy the contract since it returns a non-zero exit status.
 	let res = api::instantiate(
 		code_hash,
-		0u64, // How much ref_time weight to devote for the execution. 0 = all.
-		0u64, // How much proof_size weight to devote for the execution. 0 = all.
+		u64::MAX, // How much ref_time weight to devote for the execution. u64::MAX = use all.
+		u64::MAX, // How much proof_size weight to devote for the execution. u64::MAX = use all.
 		None, // No deposit limit.
 		&value,
 		&reverted_input,
@@ -57,7 +57,7 @@ pub extern "C" fn call() {
 	let res = api::instantiate(
 		code_hash,
 		1u64, // too little ref_time weight
-		0u64, // How much proof_size weight to devote for the execution. 0 = all.
+		u64::MAX, // How much proof_size weight to devote for the execution. u64::MAX = use all.
 		None, // No deposit limit.
 		&value,
 		&input,
@@ -70,7 +70,7 @@ pub extern "C" fn call() {
 	// Fail to deploy the contract due to insufficient proof_size weight.
 	let res = api::instantiate(
 		code_hash,
-		0u64, // How much ref_time weight to devote for the execution. 0 = all.
+		u64::MAX, // How much ref_time weight to devote for the execution. u64::MAX = use all.
 		1u64, // Too little proof_size weight
 		None, // No deposit limit.
 		&value,
@@ -86,8 +86,8 @@ pub extern "C" fn call() {
 
 	api::instantiate(
 		code_hash,
-		0u64, // How much ref_time weight to devote for the execution. 0 = all.
-		0u64, // How much proof_size weight to devote for the execution. 0 = all.
+		u64::MAX, // How much ref_time weight to devote for the execution. u64::MAX = use all.
+		u64::MAX, // How much proof_size weight to devote for the execution. u64::MAX = use all.
 		None, // No deposit limit.
 		&value,
 		&input,
@@ -101,8 +101,8 @@ pub extern "C" fn call() {
 	let res = api::call(
 		uapi::CallFlags::empty(),
 		&callee,
-		0u64, // How much ref_time weight to devote for the execution. 0 = all.
-		0u64, // How much proof_size weight to devote for the execution. 0 = all.
+		u64::MAX, // How much ref_time weight to devote for the execution. u64::MAX = use all.
+		u64::MAX, // How much proof_size weight to devote for the execution. u64::MAX = use all.
 		None, // No deposit limit.
 		&value,
 		&reverted_input,
@@ -115,7 +115,7 @@ pub extern "C" fn call() {
 		uapi::CallFlags::empty(),
 		&callee,
 		1u64, // Too little ref_time weight.
-		0u64, // How much proof_size weight to devote for the execution. 0 = all.
+		u64::MAX, // How much proof_size weight to devote for the execution. u64::MAX = use all.
 		None, // No deposit limit.
 		&value,
 		&input,
@@ -127,7 +127,7 @@ pub extern "C" fn call() {
 	let res = api::call(
 		uapi::CallFlags::empty(),
 		&callee,
-		0u64, // How much ref_time weight to devote for the execution. 0 = all.
+		u64::MAX, // How much ref_time weight to devote for the execution. u64::MAX = use all.
 		1u64, // too little proof_size weight
 		None, // No deposit limit.
 		&value,
@@ -141,8 +141,8 @@ pub extern "C" fn call() {
 	api::call(
 		uapi::CallFlags::empty(),
 		&callee,
-		0u64, // How much ref_time weight to devote for the execution. 0 = all.
-		0u64, // How much proof_size weight to devote for the execution. 0 = all.
+		u64::MAX, // How much ref_time weight to devote for the execution. u64::MAX = use all.
+		u64::MAX, // How much proof_size weight to devote for the execution. u64::MAX = use all.
 		None, // No deposit limit.
 		&value,
 		&input,
