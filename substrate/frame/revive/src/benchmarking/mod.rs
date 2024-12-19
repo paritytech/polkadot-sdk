@@ -834,7 +834,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_base_fee() {
-		build_runtime!(runtime, memory: [[0u8;32], ]);
+		build_runtime!(runtime, memory: [[1u8;32], ]);
 		let result;
 		#[block]
 		{
