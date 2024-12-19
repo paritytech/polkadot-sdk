@@ -42,9 +42,8 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		gas_encoder,
 		runtime::{gas_from_fee, GAS_PRICE},
-		GenericTransaction,
+		GasEncoder, GenericTransaction,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Ext, Key, Origin, Stack as ExecStack},
 	gas::GasMeter,
@@ -299,6 +298,10 @@ pub mod pallet {
 		/// The ratio between the decimal representation of the native token and the ETH token.
 		#[pallet::constant]
 		type NativeToEthRatio: Get<u32>;
+
+		/// Encode and decode Ethereum gas values. See [`GasEncoder`].
+		#[pallet::no_default_bounds]
+		type EthGasEncoder: GasEncoder<BalanceOf<Self>>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -372,6 +375,7 @@ pub mod pallet {
 			type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
 			type ChainId = ConstU64<0>;
 			type NativeToEthRatio = ConstU32<1>;
+			type EthGasEncoder = ();
 		}
 	}
 
@@ -1418,11 +1422,7 @@ where
 			.into();
 			let eth_gas = gas_from_fee(fee);
 			let eth_gas =
-				gas_encoder::encode::<T>(eth_gas, result.gas_required, result.storage_deposit)
-					.ok_or_else(|| {
-						log::debug!(target: LOG_TARGET, "Failed to encode gas {eth_gas:?} {result:?}");
-						EthTransactError::Message("Failed to encode gas".into())
-					})?;
+				T::EthGasEncoder::encode(eth_gas, result.gas_required, result.storage_deposit);
 
 			if eth_gas == result.eth_gas {
 				log::trace!(target: LOG_TARGET, "bare_eth_call: encoded_len: {encoded_len:?} eth_gas: {eth_gas:?}");

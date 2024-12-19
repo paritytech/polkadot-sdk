@@ -18,7 +18,7 @@
 use crate::{
 	evm::{
 		api::{GenericTransaction, TransactionSigned},
-		gas_encoder,
+		GasEncoder,
 	},
 	AccountIdOf, AddressMapper, BalanceOf, MomentOf, LOG_TARGET,
 };
@@ -339,10 +339,11 @@ pub trait EthExtra {
 		let data = input.unwrap_or_default().0;
 
 		let (gas_limit, storage_deposit_limit) =
-			gas_encoder::decode::<Self::Config>(gas.unwrap_or_default()).ok_or_else(|| {
-				log::debug!(target: LOG_TARGET, "Failed to decode gas: {gas:?}");
-				InvalidTransaction::Call
-			})?;
+			<Self::Config as crate::Config>::EthGasEncoder::decode(gas.unwrap_or_default())
+				.ok_or_else(|| {
+					log::debug!(target: LOG_TARGET, "Failed to decode gas: {gas:?}");
+					InvalidTransaction::Call
+				})?;
 
 		let call = if let Some(dest) = to {
 			crate::Call::call::<Self::Config> {
@@ -506,7 +507,10 @@ mod test {
 					log::debug!(target: LOG_TARGET, "Estimated gas: {:?}", dry_run.eth_gas);
 					self.tx.gas = Some(dry_run.eth_gas);
 					let (gas_limit, deposit) =
-						gas_encoder::decode::<Test>(dry_run.eth_gas).unwrap();
+						<<Test as crate::Config>::EthGasEncoder as GasEncoder<_>>::decode(
+							dry_run.eth_gas,
+						)
+						.unwrap();
 					self.gas_limit = gas_limit;
 					self.storage_deposit_limit = deposit;
 				},
