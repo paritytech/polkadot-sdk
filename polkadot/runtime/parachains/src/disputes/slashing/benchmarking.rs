@@ -29,11 +29,6 @@ use sp_session::MembershipProof;
 // Candidate hash of the disputed candidate.
 const CANDIDATE_HASH: CandidateHash = CandidateHash(Hash::zero());
 
-// Simplify getting the value in the benchmark
-pub const fn max_validators_for<T: Config>() -> u32 {
-	<T as pallet_staking::Config>::MaxValidatorsCount::get()
-}
-
 pub trait Config:
 	pallet_session::Config
 	+ pallet_session::historical::Config
@@ -148,7 +143,9 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn report_dispute_lost_unsigned(n: Linear<4, { max_validators_for::<T>() - 1 }>) {
+	fn report_dispute_lost_unsigned(
+		n: Linear<4, { <T as pallet_staking::Config>::MaxValidatorsCount::get() - 1 }>,
+	) {
 		let (session_index, key_owner_proof, validator_id) = setup_validator_set::<T>(n);
 
 		// submit a single `ForInvalid` dispute for a past session.
