@@ -16,35 +16,25 @@
 
 use color_eyre::eyre;
 
-/// Show if the app is running under Prometheus monitoring
-pub(crate) fn is_prometheus_running() -> bool {
-	use std::net::TcpStream;
+pub(crate) fn initialize_prometheus_endpoint(
+    port: u16,
+    dependencies: &Dependencies, // Assume Dependencies includes `registry` and `task_manager`
+) -> Result<()> {
+    let registry_clone = dependencies.registry.clone();
+    let addr = SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::LOCALHOST), port);
 
-	let prometheus_address = "127.0.0.1:9999"; // Replace with your Prometheus endpoint
-	TcpStream::connect(prometheus_address).is_ok()
-}
+    // Spawn the Prometheus task using the task manager
+    dependencies.task_manager.spawn_handle().spawn_blocking(
+        "prometheus",
+        "test-environment",
+        async move {
+            if let Err(e) = prometheus_endpoint::init_prometheus(addr, registry_clone).await {
+                eprintln!("Failed to initialize Prometheus endpoint at {}: {:?}", addr, e);
+            } else {
+                println!("Prometheus endpoint initialized at {}.", addr);
+            }
+        },
+    );
 
-/// Relaunch the app in Prometheus monitoring mode
-pub(crate) fn relaunch_in_prometheus_mode() -> eyre::Result<()> {
-	use tokio::runtime::Runtime;
-
-	if is_prometheus_running() {
-		println!("Prometheus mode is already active.");
-		return Ok(());
-	}
-
-	// Initialize Tokio runtime for blocking the future
-	let runtime = Runtime::new()?;
-	runtime.block_on(async {
-		let registry = prometheus::Registry::new();
-		let addr =
-			std::net::SocketAddr::new(std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST), 9999);
-
-		prometheus_endpoint::init_prometheus(addr, registry).await.map_err(|e| {
-			eyre::eyre!("Failed to initialize Prometheus endpoint at {}: {:?}", addr, e)
-		})
-	})?;
-
-	println!("App relaunched in Prometheus monitoring mode.");
-	Ok(())
+    Ok(())
 }

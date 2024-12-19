@@ -106,6 +106,10 @@ struct BenchCli {
 	/// Enable prometheus
 	pub prometheus: bool,
 
+	#[clap(long, requires = "prometheus", default_value_t =  9999)]
+	/// Port used by prometheus
+	pub prometheus_port:  u16,
+
 	#[arg(required = true)]
 	/// Path to the test sequence configuration file
 	pub path: String,
@@ -118,9 +122,8 @@ impl BenchCli {
 			return valgrind::relaunch_in_valgrind_mode()
 		}
 
-		let is_prometheus_running = prometheus::is_prometheus_running();
-		if !is_prometheus_running && self.prometheus {
-			return prometheus::relaunch_in_prometheus_mode()
+		if self.prometheus {
+			let _ = prometheus::initialize_prometheus_endpoint(self.prometheus_port);
 		}
 
 		let agent_running = if self.profile {
