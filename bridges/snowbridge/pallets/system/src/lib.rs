@@ -67,11 +67,13 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use snowbridge_core::{
-	meth,
-	outbound::{Command, Initializer, Message, OperatingMode, SendError, SendMessage},
-	sibling_sovereign_account, AgentId, AssetMetadata, Channel, ChannelId, ParaId,
+	meth, sibling_sovereign_account, AgentId, AssetMetadata, Channel, ChannelId, ParaId,
 	PricingParameters as PricingParametersRecord, TokenId, TokenIdOf, PRIMARY_GOVERNANCE_CHANNEL,
 	SECONDARY_GOVERNANCE_CHANNEL,
+};
+use snowbridge_outbound_primitives::{
+	v1::{Command, Initializer, Message, SendMessage},
+	OperatingMode, SendError,
 };
 use sp_core::{RuntimeDebug, H160, H256};
 use sp_io::hashing::blake2_256;
@@ -630,6 +632,40 @@ pub mod pallet {
 
 			Self::do_register_token(&location, metadata, PaysFee::<T>::No)?;
 
+			Ok(PostDispatchInfo {
+				actual_weight: Some(T::WeightInfo::register_token()),
+				pays_fee: Pays::No,
+			})
+		}
+
+		#[pallet::call_index(11)]
+		#[pallet::weight(T::WeightInfo::create_agent())]
+		pub fn force_create_agent(
+			origin: OriginFor<T>,
+			location: Box<VersionedLocation>,
+		) -> DispatchResultWithPostInfo {
+			ensure_root(origin)?;
+
+			let location: Location =
+				(*location).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
+
+			let ethereum_location = T::EthereumLocation::get();
+			let location = location
+				.clone()
+				.reanchored(&ethereum_location, &T::UniversalLocation::get())
+				.map_err(|_| Error::<T>::LocationConversionFailed)?;
+
+			let agent_id = agent_id_of::<T>(&location)?;
+
+			// Record the agent id or fail if it has already been created
+			ensure!(!Agents::<T>::contains_key(agent_id), Error::<T>::AgentAlreadyCreated);
+			Agents::<T>::insert(agent_id, ());
+
+			let command = Command::CreateAgent { agent_id };
+			let pays_fee = PaysFee::<T>::No;
+			Self::send(SECONDARY_GOVERNANCE_CHANNEL, command, pays_fee)?;
+
+			Self::deposit_event(Event::<T>::CreateAgent { location: Box::new(location), agent_id });
 			Ok(PostDispatchInfo {
 				actual_weight: Some(T::WeightInfo::register_token()),
 				pays_fee: Pays::No,

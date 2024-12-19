@@ -25,7 +25,13 @@ use crate::{
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
-use snowbridge_router_primitives::{inbound::MessageToXcm, outbound::EthereumBlobExporter};
+use snowbridge_outbound_primitives::{
+	v1::ConstantGasMeter, v2::ConstantGasMeter as ConstantGasMeterV2,
+};
+use snowbridge_outbound_router_primitives::{
+	v1::EthereumBlobExporter, v2::EthereumBlobExporter as EthereumBlobExporterV2,
+};
+use snowbridge_router_primitives::inbound::MessageToXcm;
 use sp_core::H160;
 use testnet_parachains_constants::westend::{
 	currency::*,
@@ -36,6 +42,7 @@ use testnet_parachains_constants::westend::{
 use crate::xcm_config::RelayNetwork;
 #[cfg(feature = "runtime-benchmarks")]
 use benchmark_helpers::DoNothingRouter;
+use cumulus_primitives_core::ParaId;
 use frame_support::{parameter_types, weights::ConstantMultiplier};
 use pallet_xcm::EnsureXcm;
 use sp_runtime::{
@@ -53,6 +60,21 @@ pub type SnowbridgeExporter = EthereumBlobExporter<
 	snowbridge_pallet_outbound_queue::Pallet<Runtime>,
 	snowbridge_core::AgentIdOf,
 	EthereumSystem,
+>;
+
+parameter_types! {
+	pub storage WETHAddress: H160 = H160(hex_literal::hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"));
+	pub AssetHubParaId: ParaId = ParaId::from(westend_runtime_constants::system_parachain::ASSET_HUB_ID);
+}
+
+pub type SnowbridgeExporterV2 = EthereumBlobExporterV2<
+	UniversalLocation,
+	EthereumNetwork,
+	snowbridge_pallet_outbound_queue_v2::Pallet<Runtime>,
+	snowbridge_core::AgentIdOf,
+	EthereumSystem,
+	WETHAddress,
+	AssetHubParaId,
 >;
 
 // Ethereum Bridge
@@ -109,12 +131,30 @@ impl snowbridge_pallet_outbound_queue::Config for Runtime {
 	type Decimals = ConstU8<12>;
 	type MaxMessagePayloadSize = ConstU32<2048>;
 	type MaxMessagesPerBlock = ConstU32<32>;
-	type GasMeter = snowbridge_core::outbound::ConstantGasMeter;
+	type GasMeter = ConstantGasMeter;
 	type Balance = Balance;
 	type WeightToFee = WeightToFee;
 	type WeightInfo = crate::weights::snowbridge_pallet_outbound_queue::WeightInfo<Runtime>;
 	type PricingParameters = EthereumSystem;
 	type Channels = EthereumSystem;
+}
+
+impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Hashing = Keccak256;
+	type MessageQueue = MessageQueue;
+	type MaxMessagePayloadSize = ConstU32<2048>;
+	type MaxMessagesPerBlock = ConstU32<32>;
+	type GasMeter = ConstantGasMeterV2;
+	type Balance = Balance;
+	type WeightToFee = WeightToFee;
+	type Verifier = snowbridge_pallet_ethereum_client::Pallet<Runtime>;
+	type GatewayAddress = EthereumGatewayAddress;
+	type WeightInfo = crate::weights::snowbridge_pallet_outbound_queue_v2::WeightInfo<Runtime>;
+	type RewardLedger = ();
+	type ConvertAssetId = EthereumSystem;
+	type EthereumNetwork = EthereumNetwork;
+	type WETHAddress = WETHAddress;
 }
 
 #[cfg(any(feature = "std", feature = "fast-runtime", feature = "runtime-benchmarks", test))]

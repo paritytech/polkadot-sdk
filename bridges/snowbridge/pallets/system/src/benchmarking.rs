@@ -7,7 +7,8 @@ use super::*;
 use crate::Pallet as SnowbridgeControl;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
-use snowbridge_core::{eth, outbound::OperatingMode};
+use snowbridge_core::eth;
+use snowbridge_outbound_primitives::OperatingMode;
 use sp_runtime::SaturatedConversion;
 use xcm::prelude::*;
 

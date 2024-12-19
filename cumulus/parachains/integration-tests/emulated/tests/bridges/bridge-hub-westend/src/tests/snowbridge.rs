@@ -20,7 +20,8 @@ use emulated_integration_tests_common::RESERVABLE_ASSET_ID;
 use frame_support::pallet_prelude::TypeInfo;
 use hex_literal::hex;
 use rococo_westend_system_emulated_network::asset_hub_westend_emulated_chain::genesis::AssetHubWestendAssetOwner;
-use snowbridge_core::{outbound::OperatingMode, AssetMetadata, TokenIdOf};
+use snowbridge_core::{AssetMetadata, TokenIdOf};
+use snowbridge_outbound_primitives::OperatingMode;
 use snowbridge_router_primitives::inbound::{
 	Command, Destination, EthereumLocationsConverterFor, MessageV1, VersionedMessage,
 };
@@ -30,7 +31,7 @@ use xcm_executor::traits::ConvertLocation;
 
 const INITIAL_FUND: u128 = 5_000_000_000_000;
 pub const CHAIN_ID: u64 = 11155111;
-pub const WETH: [u8; 20] = hex!("87d1f7fdfEe7f651FaBc8bFCB6E086C278b77A7d");
+pub const WETH: [u8; 20] = hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2");
 const ETHEREUM_DESTINATION_ADDRESS: [u8; 20] = hex!("44a57ee2f2FCcb85FDa2B0B18EBD0D8D2333700e");
 const XCM_FEE: u128 = 100_000_000_000;
 const TOKEN_AMOUNT: u128 = 100_000_000_000;

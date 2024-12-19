@@ -20,8 +20,12 @@ mod claim_assets;
 mod register_bridged_assets;
 mod send_xcm;
 mod snowbridge;
+mod snowbridge_common;
+mod snowbridge_v2_outbound;
 mod teleport;
 mod transact;
+
+mod snowbridge_edge_case;
 
 pub(crate) fn asset_hub_rococo_location() -> Location {
 	Location::new(

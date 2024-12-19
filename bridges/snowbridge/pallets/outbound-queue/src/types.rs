@@ -4,14 +4,12 @@ use codec::{Decode, Encode};
 use ethabi::Token;
 use frame_support::traits::ProcessMessage;
 use scale_info::TypeInfo;
+use snowbridge_core::ChannelId;
 use sp_core::H256;
 use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
 
 use super::Pallet;
-
-use snowbridge_core::ChannelId;
-pub use snowbridge_outbound_queue_merkle_tree::MerkleProof;
 
 pub type ProcessMessageOriginOf<T> = <Pallet<T> as ProcessMessage>::Origin;
 
