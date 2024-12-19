@@ -380,7 +380,8 @@ mod tests {
 	}
 
 	#[test]
-	/// Previously, passing a `Weight` of 0 to `nested` would consume all of the meter's current gas.
+	/// Previously, passing a `Weight` of 0 to `nested` would consume all of the meter's current
+	/// gas.
 	///
 	/// Now, a `Weight` of 0 means no gas for the nested call.
 	fn nested_zero_gas_requested() {
