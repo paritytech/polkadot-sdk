@@ -281,20 +281,21 @@ where
 	S: State + Default + Debug,
 {
 	/// Create a new child that has its `limit`.
-	/// Passing `0` as the limit is interpreted as to take whatever is remaining from its parent.
 	///
 	/// This is called whenever a new subcall is initiated in order to track the storage
 	/// usage for this sub call separately. This is necessary because we want to exchange balance
 	/// with the current contract we are interacting with.
-	pub fn nested(&self, lim: BalanceOf<T>) -> RawMeter<T, E, Nested> {
+	///
+	/// Gas for nested calls are capped to 63/64ths of the caller's originally available limit, per
+	/// EIP-150.
+	pub fn nested(&self, limit: BalanceOf<T>) -> RawMeter<T, E, Nested> {
 		debug_assert!(matches!(self.contract_state(), ContractState::Alive));
 
-		// Limit gas for nested call, per EIP-150.
 		let available = self.available() - self.available() / (BalanceOf::<T>::from(64u32));
 
 		// If a special limit is specified higher than it is available,
 		// we want to enforce the lesser limit to the nested meter, to fail in the sub-call.
-		let limit = available.min(lim);
+		let limit = available.min(limit);
 		RawMeter { limit, nested: Nested::OwnLimit, ..Default::default() }
 	}
 
