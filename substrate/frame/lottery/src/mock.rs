@@ -20,17 +20,12 @@
 use super::*;
 use crate as pallet_lottery;
 
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU32, OnFinalize, OnInitialize},
-};
+use frame::testing_prelude::*;
 use frame_support_test::TestRandomness;
-use frame_system::EnsureRoot;
-use sp_runtime::{BuildStorage, Perbill};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -74,7 +69,7 @@ impl Config for Test {
 pub type SystemCall = frame_system::Call<Test>;
 pub type BalancesCall = pallet_balances::Call<Test>;
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> frame::deps::sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(1, 100), (2, 100), (3, 100), (4, 100), (5, 100)],

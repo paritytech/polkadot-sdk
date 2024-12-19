@@ -202,7 +202,7 @@ pub mod prelude {
 
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
-	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
+	pub use frame_support::dispatch::{DispatchResult, GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::traits::{Contains, IsSubType, OnRuntimeUpgrade};
 
 	/// Pallet prelude of `frame-system`.
@@ -216,6 +216,9 @@ pub mod prelude {
 	/// All hashing related things
 	pub use super::hashing::*;
 
+	/// All arithmetic types used for safe math.
+	pub use super::arithmetic::*;
+
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
@@ -223,9 +226,20 @@ pub mod prelude {
 		Saturating, StaticLookup, TrailingZeroInput,
 	};
 
+	/// Bounded storage related types.
+	pub use sp_runtime::{BoundedSlice, BoundedVec};
+
+	/// Currency related traits.
+	pub use frame_support::traits::{
+		Currency, ExistenceRequirement::KeepAlive, ReservableCurrency,
+	};
+
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
-	pub use sp_runtime::{DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError};
+	pub use sp_runtime::{
+		DispatchError::{self, BadOrigin},
+		DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
+	};
 }
 
 #[cfg(any(feature = "try-runtime", test))]
@@ -308,7 +322,7 @@ pub mod testing_prelude {
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{
 		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok,
-		assert_storage_noop, storage_alias,
+		assert_storage_noop, ensure, storage_alias,
 	};
 
 	pub use frame_system::{self, mocking::*};
@@ -349,6 +363,9 @@ pub mod runtime {
 
 		/// Macro to easily derive the `Config` trait of various pallet for `Runtime`.
 		pub use frame_support::derive_impl;
+
+		/// Sovereign account ID for a pallet.
+		pub use frame_support::PalletId;
 
 		/// Macros to easily impl traits such as `Get` for types.
 		// TODO: using linking in the Get in the line above triggers an ICE :/
@@ -511,6 +528,7 @@ pub mod traits {
 /// The arithmetic types used for safe math.
 pub mod arithmetic {
 	pub use sp_arithmetic::{traits::*, *};
+	pub use sp_runtime::ArithmeticError;
 }
 
 /// All derive macros used in frame.
