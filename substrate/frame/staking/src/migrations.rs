@@ -184,7 +184,8 @@ pub mod v17 {
 						ClaimedRewards::<T>::insert(era, validator, reward_pages);
 					},
 					Err(_) => {
-						log!(warn, "Migration failed for ClaimedRewards from v16 to v17.");
+						let reward_pages = WeakBoundedVec::force_from(old_reward_pages, None);
+						log!(warn, "Forced migration of ClaimedRewards items from v16 to v17 having {} pages.", old_reward_pages.len());
 						migration_errors = true;
 					},
 				}
