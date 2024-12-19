@@ -308,7 +308,7 @@ pub mod testing_prelude {
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{
 		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok,
-		assert_storage_noop, storage_alias,
+		assert_storage_noop, defensive, storage_alias,
 	};
 
 	pub use frame_system::{self, mocking::*};
@@ -317,6 +317,8 @@ pub mod testing_prelude {
 	pub use sp_io::TestExternalities;
 
 	pub use sp_io::TestExternalities as TestState;
+
+	pub use sp_io::storage::*;
 }
 
 /// All of the types and tools needed to build FRAME-based runtimes.
