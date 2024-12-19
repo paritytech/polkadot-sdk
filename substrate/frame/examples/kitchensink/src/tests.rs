@@ -18,15 +18,14 @@
 //! Tests for pallet-example-kitchensink.
 
 use crate::*;
-use frame_support::{assert_ok, derive_impl, parameter_types, traits::VariantCountOf};
-use sp_runtime::BuildStorage;
+use frame::testing_prelude::*;
 // Reexport crate as its pallet name for construct_runtime.
 use crate as pallet_example_kitchensink;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
 // For testing the pallet, we construct a mock runtime.
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
@@ -48,7 +47,7 @@ impl pallet_balances::Config for Test {
 	type AccountStore = System;
 	type WeightInfo = ();
 	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
+	type MaxFreezes = frame::traits::VariantCountOf<RuntimeFreezeReason>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
@@ -73,7 +72,7 @@ impl Config for Test {
 
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup.
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestExternalities {
 	let t = RuntimeGenesisConfig {
 		// We use default for brevity, but you can configure as desired if needed.
 		system: Default::default(),

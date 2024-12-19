@@ -37,18 +37,17 @@ mod tests;
 mod benchmarking;
 
 #[cfg(feature = "try-runtime")]
-use sp_runtime::TryRuntimeError;
+use frame::try_runtime::TryRuntimeError;
 
 pub mod weights;
 pub use weights::*;
 
 extern crate alloc;
+pub use frame::prelude::*;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	/// The config trait of the pallet. You can basically do anything with the config trait that you
 	/// can do with a normal rust trait: import items consisting of types, constants and functions.
@@ -76,7 +75,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// This is a normal Rust type, nothing specific to FRAME here.
-		type Currency: frame_support::traits::fungible::Inspect<Self::AccountId>;
+		type Currency: frame::traits::fungible::Inspect<Self::AccountId>;
 
 		/// Similarly, let the runtime decide this.
 		fn some_function() -> u32;
@@ -104,7 +103,7 @@ pub mod pallet {
 		}
 	}
 
-	const STORAGE_VERSION: frame_support::traits::StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: frame::traits::StorageVersion = StorageVersion::new(1);
 
 	/// The pallet struct. There's nothing special to FRAME about this; it can implement functions
 	/// in an impl blocks, traits and so on.
