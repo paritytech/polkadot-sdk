@@ -23,10 +23,7 @@ use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{GetCoreSelectorApi, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
 
-use polkadot_primitives::{
-	Block as RelayBlock,
-	Id as ParaId,
-};
+use polkadot_primitives::{Block as RelayBlock, Id as ParaId};
 
 use futures::prelude::*;
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
