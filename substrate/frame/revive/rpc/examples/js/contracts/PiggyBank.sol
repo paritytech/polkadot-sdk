@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 contract PiggyBank {
 
-    uint private balance;
+    uint256 private balance;
     address public owner;
 
     constructor() {
@@ -11,16 +11,16 @@ contract PiggyBank {
         balance = 0;
     }
 
-    function deposit() public payable returns (uint) {
+    function deposit() public payable returns (uint256) {
         balance += msg.value;
         return balance;
     }
 
-    function getDeposit() public view returns (uint) {
+    function getDeposit() public view returns (uint256) {
         return balance;
     }
 
-    function withdraw(uint withdrawAmount) public returns (uint remainingBal) {
+    function withdraw(uint256 withdrawAmount) public returns (uint256 remainingBal) {
         require(msg.sender == owner);
         balance -= withdrawAmount;
         (bool success, ) = payable(msg.sender).call{value: withdrawAmount}("");

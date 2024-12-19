@@ -24,7 +24,7 @@ pub use pallet::*;
 use polkadot_primitives::Id as ParaId;
 use polkadot_runtime_parachains::{
 	configuration, dmp, hrmp,
-	paras::{self, AssignCoretime, ParaGenesisArgs},
+	paras::{self, AssignCoretime, ParaGenesisArgs, ParaKind},
 	ParaLifecycle,
 };
 
@@ -48,6 +48,8 @@ pub mod pallet {
 		/// A DMP message couldn't be sent because it exceeds the maximum size allowed for a
 		/// downward message.
 		ExceedsMaxMessageSize,
+		/// A DMP message couldn't be sent because the destination is unreachable.
+		Unroutable,
 		/// Could not schedule para cleanup.
 		CouldntCleanup,
 		/// Not a parathread (on-demand parachain).
@@ -80,10 +82,15 @@ pub mod pallet {
 			genesis: ParaGenesisArgs,
 		) -> DispatchResult {
 			ensure_root(origin)?;
+
+			let assign_coretime = genesis.para_kind == ParaKind::Parachain;
+
 			polkadot_runtime_parachains::schedule_para_initialize::<T>(id, genesis)
 				.map_err(|_| Error::<T>::ParaAlreadyExists)?;
 
-			T::AssignCoretime::assign_coretime(id)?;
+			if assign_coretime {
+				T::AssignCoretime::assign_coretime(id)?;
+			}
 
 			Ok(())
 		}
@@ -152,6 +159,7 @@ pub mod pallet {
 			{
 				dmp::QueueDownwardMessageError::ExceedsMaxMessageSize =>
 					Error::<T>::ExceedsMaxMessageSize.into(),
+				dmp::QueueDownwardMessageError::Unroutable => Error::<T>::Unroutable.into(),
 			})
 		}
 
