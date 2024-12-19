@@ -22,8 +22,7 @@
 use super::*;
 use crate::mock::{RuntimeCall, *};
 
-use frame_support::{assert_err, assert_noop, assert_ok, hypothetically_ok, traits::Currency};
-use sp_runtime::traits::Dispatchable;
+use frame::{deps::frame_support::hypothetically_ok, testing_prelude::*, traits::Currency};
 
 #[test]
 fn fails_to_filter_calls_to_safe_mode_pallet() {

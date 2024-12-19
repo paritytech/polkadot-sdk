@@ -22,16 +22,18 @@
 use super::*;
 use crate as pallet_safe_mode;
 
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU64, Everything, InsideBoth, InstanceFilter, IsInVec, SafeModeNotify},
-};
-use frame_system::EnsureSignedBy;
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
+use frame::{deps::sp_io, testing_prelude::*};
+use frame::traits::{BlakeTwo256, IdentityLookup, ConstU64, Everything, InsideBoth, InstanceFilter, IsInVec, SafeModeNotify};
+// use frame_support::{
+// 	derive_impl, parameter_types,
+// 	traits::{ConstU64, Everything, InsideBoth, InstanceFilter, IsInVec, SafeModeNotify},
+// };
+// use frame_system::EnsureSignedBy;
+// use sp_core::H256;
+// use sp_runtime::{
+// 	traits::{BlakeTwo256, IdentityLookup},
+// 	BuildStorage,
+// };
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
