@@ -155,11 +155,11 @@ pub mod pallet {
 			nonce: u64,
 			/// ID of the XCM message which was forwarded to the final destination parachain
 			message_id: [u8; 32],
-			/// Fee burned for the teleport
-			fee_burned: BalanceOf<T>,
 		},
 		/// Set OperatingMode
 		OperatingModeChanged { mode: BasicOperatingMode },
+		/// A XCM message was sent.
+		Sent { destination: Location, message_id: XcmHash },
 	}
 
 	#[pallet::error]
@@ -279,6 +279,12 @@ pub mod pallet {
 			let message = VersionedMessage::decode_all(&mut envelope.payload.as_ref())
 				.map_err(|_| Error::<T>::InvalidPayload)?;
 
+			Self::deposit_event(Event::MessageReceived {
+				channel_id: envelope.channel_id,
+				nonce: envelope.nonce,
+				message_id: envelope.message_id.into(),
+			});
+
 			// Decode message into XCM
 			let (xcm, fee) = Self::do_convert(envelope.message_id, message.clone())?;
 
@@ -293,14 +299,7 @@ pub mod pallet {
 			Self::burn_fees(channel.para_id, fee)?;
 
 			// Attempt to send XCM to a dest parachain
-			let message_id = Self::send_xcm(xcm, channel.para_id)?;
-
-			Self::deposit_event(Event::MessageReceived {
-				channel_id: envelope.channel_id,
-				nonce: envelope.nonce,
-				message_id,
-				fee_burned: fee,
-			});
+			Self::send_xcm(xcm, channel.para_id)?;
 
 			Ok(())
 		}
@@ -331,7 +330,9 @@ pub mod pallet {
 
 		pub fn send_xcm(xcm: Xcm<()>, dest: ParaId) -> Result<XcmHash, Error<T>> {
 			let dest = Location::new(1, [Parachain(dest.into())]);
-			let (xcm_hash, _) = send_xcm::<T::XcmSender>(dest, xcm).map_err(Error::<T>::from)?;
+			let (xcm_hash, _) =
+				send_xcm::<T::XcmSender>(dest.clone(), xcm.clone()).map_err(Error::<T>::from)?;
+			Self::deposit_event(Event::Sent { destination: dest, message_id: xcm_hash });
 			Ok(xcm_hash)
 		}
 
