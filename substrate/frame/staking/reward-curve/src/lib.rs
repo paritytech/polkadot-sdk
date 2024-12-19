@@ -55,9 +55,11 @@ use syn::parse::{Parse, ParseStream};
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # fn main() {}
-/// use sp_runtime::curve::PiecewiseLinear;
+/// // polkadot-sdk-frame dependency prelude which includes `PiecewiseLinear`
+/// use frame::prelude::*;
+/// // or `use sp_runtime::curve::PiecewiseLinear;` if you are using `sp-runtime` dependency.
 ///
 /// pallet_staking_reward_curve::build! {
 ///     const I_NPOS: PiecewiseLinear<'static> = curve!(
@@ -93,7 +95,14 @@ pub fn build(input: TokenStream) -> TokenStream {
 				let ident = syn::Ident::new(&polkadot_sdk, Span::call_site());
 				quote!( #[doc(hidden)] pub use #ident::sp_runtime as _sp_runtime; )
 			},
-			_ => syn::Error::new(Span::call_site(), e).to_compile_error(),
+			Ok(FoundCrate::Itself) => syn::Error::new(Span::call_site(), e).to_compile_error(),
+			Err(e) => match crate_name("polkadot-sdk-frame") {
+				Ok(FoundCrate::Name(polkadot_sdk_frame)) => {
+					let ident = syn::Ident::new(&polkadot_sdk_frame, Span::call_site());
+					quote!( #[doc(hidden)] pub use #ident::deps::sp_runtime as _sp_runtime; )
+				},
+				_ => syn::Error::new(Span::call_site(), e).to_compile_error(),
+			},
 		},
 	};
 
