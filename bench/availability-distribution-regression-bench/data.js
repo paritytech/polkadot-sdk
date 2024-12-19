@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734604919273,
+  "lastUpdate": 1734609415302,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -44197,6 +44197,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.024565204433333338,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "37865735+clangenb@users.noreply.github.com",
+            "name": "clangenb",
+            "username": "clangenb"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ade1f755cbba62cd6800601d1d78202ee5f629a5",
+          "message": "[polkadot-runtime-parachains] migrate disputes and disputes/slashing to benchmarking to bench v2 syntax (#6577)\n\n[polkadot-runtime-parachains] migrate disputes and disputes/slashing to\nbenchmarking to bench v2 syntax\n\nPart of:\n* #6202\n\n---------\n\nCo-authored-by: Giuseppe Re <giuseppe.re@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-12-19T10:53:37Z",
+          "tree_id": "156a4e9b9f886ff25dd38e461b365820e95dd62c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ade1f755cbba62cd6800601d1d78202ee5f629a5"
+        },
+        "date": 1734609398530,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024493435100000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.015976172839999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1813856095133333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00845959687333342,
             "unit": "seconds"
           }
         ]
