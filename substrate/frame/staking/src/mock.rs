@@ -378,8 +378,8 @@ impl ExtBuilder {
 		self
 	}
 	pub fn invulnerables(mut self, invulnerables: Vec<AccountId>) -> Self {
-		self.invulnerables =
-			BoundedVec::try_from(invulnerables).expect("Too many invulnerable validators!");
+		self.invulnerables = BoundedVec::try_from(invulnerables)
+			.expect("Too many invulnerable validators: upper limit is MaxInvulnerables");
 		self
 	}
 	pub fn session_per_era(self, length: SessionIndex) -> Self {

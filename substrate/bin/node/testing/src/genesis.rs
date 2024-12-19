@@ -66,7 +66,7 @@ pub fn config_endowed(extra_endowed: Vec<AccountId>) -> RuntimeGenesisConfig {
 			minimum_validator_count: 0,
 			slash_reward_fraction: Perbill::from_percent(10),
 			invulnerables: BoundedVec::try_from(vec![alice(), bob(), charlie()])
-				.expect("Too many invulnerable validators!"),
+				.expect("Too many invulnerable validators: upper limit is MaxInvulnerables from pallet staking config"),
 			..Default::default()
 		},
 		society: SocietyConfig { pot: 0 },

@@ -205,7 +205,7 @@ fn westend_testnet_genesis(
 			invulnerables: BoundedVec::try_from(
 				initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>()
 			)
-			.expect("Too many invulnerable validators!"),
+			.expect("Too many invulnerable validators: upper limit is MaxInvulnerables from pallet staking config"),
 			force_era: Forcing::NotForcing,
 			slash_reward_fraction: Perbill::from_percent(10),
 		},
@@ -379,7 +379,7 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 			invulnerables: BoundedVec::try_from(
 				initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>()
 			)
-			.expect("Too many invulnerable validators!"),
+			.expect("Too many invulnerable validators: upper limit is MaxInvulnerables from pallet staking config"),
 			force_era: Forcing::ForceNone,
 			slash_reward_fraction: Perbill::from_percent(10),
 		},
