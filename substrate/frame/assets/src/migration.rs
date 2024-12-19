@@ -16,15 +16,16 @@
 // limitations under the License.
 
 use super::*;
-use frame_support::traits::OnRuntimeUpgrade;
+// use frame_support::traits::OnRuntimeUpgrade;
+use frame::traits::OnRuntimeUpgrade;
 use log;
 
 #[cfg(feature = "try-runtime")]
-use sp_runtime::TryRuntimeError;
+use frame::try_runtime;
 
 pub mod next_asset_id {
 	use super::*;
-	use sp_core::Get;
+	use frame::deps::sp_core::Get;
 
 	/// Set [`NextAssetId`] to the value of `ID` if [`NextAssetId`] does not exist yet.
 	pub struct SetNextAssetId<ID, T: Config<I>, I: 'static = ()>(
@@ -35,7 +36,7 @@ pub mod next_asset_id {
 		T::AssetId: Incrementable,
 		ID: Get<T::AssetId>,
 	{
-		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+		fn on_runtime_upgrade() -> frame::runtime::prelude::weights::Weight {
 			if !NextAssetId::<T, I>::exists() {
 				NextAssetId::<T, I>::put(ID::get());
 				T::DbWeight::get().reads_writes(1, 1)
@@ -47,7 +48,7 @@ pub mod next_asset_id {
 }
 
 pub mod v1 {
-	use frame_support::{pallet_prelude::*, weights::Weight};
+	// use frame depframe_support::{pallet_prelude::*, weights::Weight};
 
 	use super::*;
 

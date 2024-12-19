@@ -202,7 +202,7 @@ pub mod prelude {
 
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
-	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
+	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo, DispatchResult};
 	pub use frame_support::traits::{Contains, IsSubType, OnRuntimeUpgrade};
 
 	/// Pallet prelude of `frame-system`.
