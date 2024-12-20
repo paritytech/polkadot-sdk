@@ -51,7 +51,7 @@ polkadot-runtime-common = { workspace = true }
 # Cumulus
 cumulus-pallet-aura-ext = { workspace = true }
 pallet-message-queue = { workspace = true }
-cumulus-pallet-parachain-system = { workspace = true, features = ["experimental-ump-signals"] }
+cumulus-pallet-parachain-system = { workspace = true }
 cumulus-pallet-xcm = { workspace = true }
 cumulus-pallet-xcmp-queue = { workspace = true }
 cumulus-ping = { workspace = true }
@@ -136,6 +136,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 
 # A feature that should be enabled when the runtime should be built for on-chain
