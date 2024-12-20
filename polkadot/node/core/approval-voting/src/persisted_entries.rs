@@ -172,7 +172,7 @@ impl ApprovalEntry {
 		});
 
 		our.map(|a| {
-			self.import_assignment(a.tranche(), a.validator_index(), tick_now);
+			self.import_assignment(a.tranche(), a.validator_index(), tick_now, false);
 
 			(a.cert().clone(), a.validator_index(), a.tranche())
 		})
@@ -197,6 +197,7 @@ impl ApprovalEntry {
 		tranche: DelayTranche,
 		validator_index: ValidatorIndex,
 		tick_now: Tick,
+		is_duplicate: bool,
 	) {
 		// linear search probably faster than binary. not many tranches typically.
 		let idx = match self.tranches.iter().position(|t| t.tranche >= tranche) {
@@ -214,7 +215,14 @@ impl ApprovalEntry {
 			},
 		};
 
-		self.tranches[idx].assignments.push((validator_index, tick_now));
+		if !is_duplicate ||
+			!self.tranches[idx]
+				.assignments
+				.iter()
+				.any(|(validator, _)| validator == &validator_index)
+		{
+			self.tranches[idx].assignments.push((validator_index, tick_now));
+		}
 		self.assigned_validators.set(validator_index.0 as _, true);
 	}
 
