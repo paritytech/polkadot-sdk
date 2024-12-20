@@ -343,6 +343,10 @@ where
 			_ => ContractState::Alive,
 		}
 	}
+
+	pub(crate) fn take_all(&self) -> RawMeter<T, E, Nested> {
+		RawMeter { limit: self.available(), ..Default::default() }
+	}
 }
 
 /// Functions that only apply to the root state.

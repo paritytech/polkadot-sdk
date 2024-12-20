@@ -890,6 +890,7 @@ where
 			BalanceOf::<T>::max_value(),
 			false,
 			true,
+			true
 		)?
 		else {
 			return Ok(None);
@@ -925,6 +926,7 @@ where
 		deposit_limit: BalanceOf<T>,
 		read_only: bool,
 		origin_is_caller: bool,
+		is_root: bool,
 	) -> Result<Option<(Frame<T>, E)>, ExecError> {
 		let (account_id, contract_info, executable, delegate, entry_point) = match frame_args {
 			FrameArgs::Call { dest, cached_info, delegated_call } => {
@@ -982,14 +984,25 @@ where
 			},
 		};
 
+		let nested_gas;
+		let nested_storage;
+
+		if is_root {
+			nested_gas = gas_meter.take_all();
+			nested_storage = storage_meter.take_all();
+		} else {
+			nested_gas = gas_meter.nested(gas_limit);
+			nested_storage = storage_meter.nested(deposit_limit);
+		}
+
 		let frame = Frame {
 			delegate,
 			value_transferred,
 			contract_info: CachedContract::Cached(contract_info),
 			account_id,
 			entry_point,
-			nested_gas: gas_meter.nested(gas_limit),
-			nested_storage: storage_meter.nested(deposit_limit),
+			nested_gas,
+			nested_storage,
 			allows_reentry: true,
 			read_only,
 			last_frame_output: Default::default(),
@@ -1037,6 +1050,7 @@ where
 			deposit_limit,
 			read_only,
 			false,
+			false
 		)? {
 			self.frames.try_push(frame).map_err(|_| Error::<T>::MaxCallDepthReached)?;
 			Ok(Some(executable))

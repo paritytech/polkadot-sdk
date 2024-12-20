@@ -168,6 +168,12 @@ impl<T: Config> GasMeter<T> {
 		}
 	}
 
+	pub(crate) fn take_all(&mut self) -> Self {
+		let gas_left = self.gas_left;
+		self.gas_left -= gas_left;
+		GasMeter::new(gas_left)
+	}
+
 	/// Create a new gas meter for a nested call by removing gas from the current meter.
 	///
 	/// Per [EIP-150](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-150.md), this is
