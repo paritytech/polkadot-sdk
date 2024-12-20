@@ -17,61 +17,173 @@
 
 //! Functions that deal contract addresses.
 
+use crate::{ensure, AddressSuffix, Config, Error, HoldReason};
 use alloc::vec::Vec;
-use sp_core::H160;
+use core::marker::PhantomData;
+use frame_support::traits::{fungible::MutateHold, tokens::Precision};
+use sp_core::{Get, H160};
 use sp_io::hashing::keccak_256;
-use sp_runtime::AccountId32;
+use sp_runtime::{AccountId32, DispatchResult, SaturatedConversion, Saturating};
 
 /// Map between the native chain account id `T` and an Ethereum [`H160`].
 ///
 /// This trait exists only to emulate specialization for different concrete
 /// native account ids. **Not** to make the mapping user configurable. Hence
-/// the trait is `Sealed` and only one mandatory implementor [`DefaultAddressMapper`]
-/// exists.
+/// the trait is `Sealed` and depending on your runtime configuration you need
+/// to pick either [`AccountId32Mapper`] or [`H160Mapper`]. Picking the wrong
+/// one will result in a compilation error. No footguns here.
 ///
 /// Please note that we assume that the native account is at least 20 bytes and
 /// only implement this type for a `T` where this is the case. Luckily, this is the
-/// case for all existing runtimes as of right now. Reasing is that this will allow
+/// case for all existing runtimes as of right now. Reasoning is that this will allow
 /// us to reverse an address -> account_id mapping by just stripping the prefix.
-pub trait AddressMapper<T>: private::Sealed {
-	/// Convert an account id to an ethereum address.
-	///
-	/// This mapping is **not** required to be reversible.
-	fn to_address(account_id: &T) -> H160;
+///
+/// We require the mapping to be reversible. Since we are potentially dealing with types of
+/// different sizes one direction of the mapping is necessarily lossy. This requires the mapping to
+/// make use of the [`AddressSuffix`] storage item to reverse the mapping.
+pub trait AddressMapper<T: Config>: private::Sealed {
+	/// Convert an account id to an ethereum adress.
+	fn to_address(account_id: &T::AccountId) -> H160;
 
 	/// Convert an ethereum address to a native account id.
-	///
-	/// This mapping is **required** to be reversible.
-	fn to_account_id(address: &H160) -> T;
+	fn to_account_id(address: &H160) -> T::AccountId;
 
-	/// Same as [`Self::to_account_id`] but when we know the address is a contract.
+	/// Same as [`Self::to_account_id`] but always returns the fallback account.
 	///
-	/// This is only the case when we just generated the new address.
-	fn to_account_id_contract(address: &H160) -> T;
+	/// This skips the query into [`AddressSuffix`] and always returns the stateless
+	/// fallback account. This is useful when we know for a fact that the `address`
+	/// in question is originally a `H160`. This is usually only the case when we
+	/// generated a new contract address.
+	fn to_fallback_account_id(address: &H160) -> T::AccountId;
+
+	/// Create a stateful mapping for `account_id`
+	///
+	/// This will enable `to_account_id` to map back to the original
+	/// `account_id` instead of the fallback account id.
+	fn map(account_id: &T::AccountId) -> DispatchResult;
+
+	/// Remove the mapping in order to reclaim the deposit.
+	///
+	/// There is no reason why one would unmap their `account_id` except
+	/// for reclaiming the deposit.
+	fn unmap(account_id: &T::AccountId) -> DispatchResult;
+
+	/// Returns true if the `account_id` is useable as an origin.
+	///
+	/// This means either the `account_id` doesn't require a stateful mapping
+	/// or a stateful mapping exists.
+	fn is_mapped(account_id: &T::AccountId) -> bool;
 }
 
 mod private {
 	pub trait Sealed {}
-	impl Sealed for super::DefaultAddressMapper {}
+	impl<T> Sealed for super::AccountId32Mapper<T> {}
+	impl<T> Sealed for super::H160Mapper<T> {}
 }
 
-/// The only implementor for `AddressMapper`.
-pub enum DefaultAddressMapper {}
+/// The mapper to be used if the account id is `AccountId32`.
+///
+/// It converts between addresses by either truncating the last 12 bytes or
+/// suffixing them. The suffix is queried from [`AddressSuffix`] and will fall
+/// back to all `0xEE` if no suffix was registered. This means contracts and
+/// plain wallets controlled by an `secp256k1` always have a `0xEE` suffixed
+/// account.
+pub struct AccountId32Mapper<T>(PhantomData<T>);
 
-impl AddressMapper<AccountId32> for DefaultAddressMapper {
+/// The mapper to be used if the account id is `H160`.
+///
+/// It just trivially returns its inputs and doesn't make use of any state.
+pub struct H160Mapper<T>(PhantomData<T>);
+
+impl<T> AddressMapper<T> for AccountId32Mapper<T>
+where
+	T: Config<AccountId = AccountId32>,
+{
 	fn to_address(account_id: &AccountId32) -> H160 {
 		H160::from_slice(&<AccountId32 as AsRef<[u8; 32]>>::as_ref(&account_id)[..20])
 	}
 
 	fn to_account_id(address: &H160) -> AccountId32 {
+		if let Some(suffix) = <AddressSuffix<T>>::get(address) {
+			let mut account_id = Self::to_fallback_account_id(address);
+			let account_bytes: &mut [u8; 32] = account_id.as_mut();
+			account_bytes[20..].copy_from_slice(suffix.as_slice());
+			account_id
+		} else {
+			Self::to_fallback_account_id(address)
+		}
+	}
+
+	fn to_fallback_account_id(address: &H160) -> AccountId32 {
 		let mut account_id = AccountId32::new([0xEE; 32]);
-		<AccountId32 as AsMut<[u8; 32]>>::as_mut(&mut account_id)[..20]
-			.copy_from_slice(address.as_bytes());
+		let account_bytes: &mut [u8; 32] = account_id.as_mut();
+		account_bytes[..20].copy_from_slice(address.as_bytes());
 		account_id
 	}
 
-	fn to_account_id_contract(address: &H160) -> AccountId32 {
-		Self::to_account_id(address)
+	fn map(account_id: &T::AccountId) -> DispatchResult {
+		ensure!(!Self::is_mapped(account_id), <Error<T>>::AccountAlreadyMapped);
+
+		let account_bytes: &[u8; 32] = account_id.as_ref();
+
+		// each mapping entry stores one AccountId32 distributed between key and value
+		let deposit = T::DepositPerByte::get()
+			.saturating_mul(account_bytes.len().saturated_into())
+			.saturating_add(T::DepositPerItem::get());
+
+		let suffix: [u8; 12] = account_bytes[20..]
+			.try_into()
+			.expect("Skipping 20 byte of a an 32 byte array will fit into 12 bytes; qed");
+		T::Currency::hold(&HoldReason::AddressMapping.into(), account_id, deposit)?;
+		<AddressSuffix<T>>::insert(Self::to_address(account_id), suffix);
+		Ok(())
+	}
+
+	fn unmap(account_id: &T::AccountId) -> DispatchResult {
+		// will do nothing if address is not mapped so no check required
+		<AddressSuffix<T>>::remove(Self::to_address(account_id));
+		T::Currency::release_all(
+			&HoldReason::AddressMapping.into(),
+			account_id,
+			Precision::BestEffort,
+		)?;
+		Ok(())
+	}
+
+	fn is_mapped(account_id: &T::AccountId) -> bool {
+		let account_bytes: &[u8; 32] = account_id.as_ref();
+		&account_bytes[20..] == &[0xEE; 12] ||
+			<AddressSuffix<T>>::contains_key(Self::to_address(account_id))
+	}
+}
+
+impl<T> AddressMapper<T> for H160Mapper<T>
+where
+	T: Config,
+	crate::AccountIdOf<T>: AsRef<[u8; 20]> + From<H160>,
+{
+	fn to_address(account_id: &T::AccountId) -> H160 {
+		H160::from_slice(account_id.as_ref())
+	}
+
+	fn to_account_id(address: &H160) -> T::AccountId {
+		Self::to_fallback_account_id(address)
+	}
+
+	fn to_fallback_account_id(address: &H160) -> T::AccountId {
+		(*address).into()
+	}
+
+	fn map(_account_id: &T::AccountId) -> DispatchResult {
+		Ok(())
+	}
+
+	fn unmap(_account_id: &T::AccountId) -> DispatchResult {
+		Ok(())
+	}
+
+	fn is_mapped(_account_id: &T::AccountId) -> bool {
+		true
 	}
 }
 
@@ -102,7 +214,16 @@ pub fn create2(deployer: &H160, code: &[u8], input_data: &[u8], salt: &[u8; 32])
 #[cfg(test)]
 mod test {
 	use super::*;
-	use crate::test_utils::ALICE_ADDR;
+	use crate::{
+		test_utils::*,
+		tests::{ExtBuilder, Test},
+		AddressMapper, Error,
+	};
+	use frame_support::{
+		assert_err,
+		traits::fungible::{InspectHold, Mutate},
+	};
+	use pretty_assertions::assert_eq;
 	use sp_core::{hex2array, H160};
 
 	#[test]
@@ -124,5 +245,124 @@ mod test {
 			),
 			H160(hex2array!("7f31e795e5836a19a8f919ab5a9de9a197ecd2b6")),
 		)
+	}
+
+	#[test]
+	fn fallback_map_works() {
+		assert!(<Test as Config>::AddressMapper::is_mapped(&ALICE));
+		assert_eq!(
+			ALICE_FALLBACK,
+			<Test as Config>::AddressMapper::to_fallback_account_id(&ALICE_ADDR)
+		);
+		assert_eq!(ALICE_ADDR, <Test as Config>::AddressMapper::to_address(&ALICE_FALLBACK));
+	}
+
+	#[test]
+	fn map_works() {
+		ExtBuilder::default().build().execute_with(|| {
+			<Test as Config>::Currency::set_balance(&EVE, 1_000_000);
+			// before mapping the fallback account is returned
+			assert!(!<Test as Config>::AddressMapper::is_mapped(&EVE));
+			assert_eq!(EVE_FALLBACK, <Test as Config>::AddressMapper::to_account_id(&EVE_ADDR));
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::AddressMapping.into(),
+					&EVE
+				),
+				0
+			);
+
+			// when mapped the full account id is returned
+			<Test as Config>::AddressMapper::map(&EVE).unwrap();
+			assert!(<Test as Config>::AddressMapper::is_mapped(&EVE));
+			assert_eq!(EVE, <Test as Config>::AddressMapper::to_account_id(&EVE_ADDR));
+			assert!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::AddressMapping.into(),
+					&EVE
+				) > 0
+			);
+		});
+	}
+
+	#[test]
+	fn map_fallback_account_fails() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert!(<Test as Config>::AddressMapper::is_mapped(&ALICE));
+			// alice is an e suffixed account and hence cannot be mapped
+			assert_err!(
+				<Test as Config>::AddressMapper::map(&ALICE),
+				<Error<Test>>::AccountAlreadyMapped,
+			);
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::AddressMapping.into(),
+					&ALICE
+				),
+				0
+			);
+		});
+	}
+
+	#[test]
+	fn double_map_fails() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert!(!<Test as Config>::AddressMapper::is_mapped(&EVE));
+			<Test as Config>::Currency::set_balance(&EVE, 1_000_000);
+			<Test as Config>::AddressMapper::map(&EVE).unwrap();
+			assert!(<Test as Config>::AddressMapper::is_mapped(&EVE));
+			let deposit = <Test as Config>::Currency::balance_on_hold(
+				&HoldReason::AddressMapping.into(),
+				&EVE,
+			);
+			assert_err!(
+				<Test as Config>::AddressMapper::map(&EVE),
+				<Error<Test>>::AccountAlreadyMapped,
+			);
+			assert!(<Test as Config>::AddressMapper::is_mapped(&EVE));
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::AddressMapping.into(),
+					&EVE
+				),
+				deposit
+			);
+		});
+	}
+
+	#[test]
+	fn unmap_works() {
+		ExtBuilder::default().build().execute_with(|| {
+			<Test as Config>::Currency::set_balance(&EVE, 1_000_000);
+			<Test as Config>::AddressMapper::map(&EVE).unwrap();
+			assert!(<Test as Config>::AddressMapper::is_mapped(&EVE));
+			assert!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::AddressMapping.into(),
+					&EVE
+				) > 0
+			);
+
+			<Test as Config>::AddressMapper::unmap(&EVE).unwrap();
+			assert!(!<Test as Config>::AddressMapper::is_mapped(&EVE));
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::AddressMapping.into(),
+					&EVE
+				),
+				0
+			);
+
+			// another unmap is a noop
+			<Test as Config>::AddressMapper::unmap(&EVE).unwrap();
+			assert!(!<Test as Config>::AddressMapper::is_mapped(&EVE));
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::AddressMapping.into(),
+					&EVE
+				),
+				0
+			);
+		});
 	}
 }

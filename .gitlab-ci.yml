@@ -22,7 +22,7 @@ workflow:
 
 variables:
   # CI_IMAGE: !reference [ .ci-unified, variables, CI_IMAGE ]
-  CI_IMAGE: "docker.io/paritytech/ci-unified:bullseye-1.81.0-2024-09-11-v202409111034"
+  CI_IMAGE: "docker.io/paritytech/ci-unified:bullseye-1.81.0-2024-11-19-v202411281558"
   # BUILDAH_IMAGE is defined in group variables
   BUILDAH_COMMAND: "buildah --storage-driver overlay2"
   RELENG_SCRIPTS_BRANCH: "master"

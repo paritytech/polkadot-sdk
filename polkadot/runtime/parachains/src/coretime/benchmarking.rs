@@ -43,6 +43,8 @@ mod benchmarks {
 			.unwrap();
 		on_demand::Revenue::<T>::put(rev);
 
+		crate::paras::Heads::<T>::insert(ParaId::from(T::BrokerId::get()), vec![1, 2, 3]);
+
 		<T as on_demand::Config>::Currency::make_free_balance_be(
 			&<on_demand::Pallet<T>>::account_id(),
 			minimum_balance * (mhr * (mhr + 1)).into(),

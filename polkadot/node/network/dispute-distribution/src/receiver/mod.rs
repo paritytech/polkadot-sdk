@@ -334,7 +334,7 @@ where
 			.runtime
 			.get_session_info_by_index(
 				&mut self.sender,
-				payload.0.candidate_receipt.descriptor.relay_parent,
+				payload.0.candidate_receipt.descriptor.relay_parent(),
 				payload.0.session_index,
 			)
 			.await?;

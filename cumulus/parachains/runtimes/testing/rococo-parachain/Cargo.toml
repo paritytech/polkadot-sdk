@@ -5,6 +5,8 @@ authors.workspace = true
 edition.workspace = true
 description = "Simple runtime used by the rococo parachain(s)"
 license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -134,6 +136,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 
 # A feature that should be enabled when the runtime should be built for on-chain

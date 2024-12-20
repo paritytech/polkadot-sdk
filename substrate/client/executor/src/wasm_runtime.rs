@@ -441,18 +441,20 @@ where
 
 #[cfg(test)]
 mod tests {
+	extern crate alloc;
+
 	use super::*;
+	use alloc::borrow::Cow;
 	use codec::Encode;
 	use sp_api::{Core, RuntimeApiInfo};
-	use sp_runtime::RuntimeString;
 	use sp_version::{create_apis_vec, RuntimeVersion};
 	use sp_wasm_interface::HostFunctions;
 	use substrate_test_runtime::Block;
 
 	#[derive(Encode)]
 	pub struct OldRuntimeVersion {
-		pub spec_name: RuntimeString,
-		pub impl_name: RuntimeString,
+		pub spec_name: Cow<'static, str>,
+		pub impl_name: Cow<'static, str>,
 		pub authoring_version: u32,
 		pub spec_version: u32,
 		pub impl_version: u32,

@@ -39,7 +39,7 @@ use sp_consensus_aura::{AuraApi, Slot};
 use sp_core::Pair;
 use sp_io::TestExternalities;
 use sp_keystore::testing::MemoryKeystore;
-use sp_runtime::{generic::Era, traits::Header, BuildStorage, SaturatedConversion};
+use sp_runtime::{generic::Era, traits::Header, BuildStorage, MultiAddress, SaturatedConversion};
 use std::sync::Arc;
 pub use substrate_test_client::*;
 
@@ -158,7 +158,7 @@ pub fn generate_extrinsic_with_pair(
 
 	UncheckedExtrinsic::new_signed(
 		function,
-		origin.public().into(),
+		MultiAddress::Id(origin.public().into()),
 		Signature::Sr25519(signature),
 		tx_ext,
 	)
@@ -167,7 +167,7 @@ pub fn generate_extrinsic_with_pair(
 /// Generate an extrinsic from the provided function call, origin and [`Client`].
 pub fn generate_extrinsic(
 	client: &Client,
-	origin: sp_keyring::AccountKeyring,
+	origin: sp_keyring::Sr25519Keyring,
 	function: impl Into<RuntimeCall>,
 ) -> UncheckedExtrinsic {
 	generate_extrinsic_with_pair(client, origin.into(), function, None)
@@ -176,12 +176,12 @@ pub fn generate_extrinsic(
 /// Transfer some token from one account to another using a provided test [`Client`].
 pub fn transfer(
 	client: &Client,
-	origin: sp_keyring::AccountKeyring,
-	dest: sp_keyring::AccountKeyring,
+	origin: sp_keyring::Sr25519Keyring,
+	dest: sp_keyring::Sr25519Keyring,
 	value: Balance,
 ) -> UncheckedExtrinsic {
 	let function = RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
-		dest: dest.public().into(),
+		dest: MultiAddress::Id(dest.public().into()),
 		value,
 	});
 
