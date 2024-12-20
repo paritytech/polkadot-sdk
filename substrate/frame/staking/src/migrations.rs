@@ -178,14 +178,14 @@ pub mod v17 {
 			}
 
 			for (era, validator, old_reward_pages) in v16::ClaimedRewards::<T>::iter() {
-				let reward_pages_maybe = WeakBoundedVec::try_from(old_reward_pages);
+				let reward_pages_maybe = WeakBoundedVec::try_from(old_reward_pages.clone());
 				match reward_pages_maybe {
 					Ok(reward_pages) => {
 						ClaimedRewards::<T>::insert(era, validator, reward_pages);
 					},
 					Err(_) => {
 						let reward_pages = WeakBoundedVec::force_from(old_reward_pages, None);
-						log!(warn, "Forced migration of ClaimedRewards items from v16 to v17 having {} pages.", old_reward_pages.len());
+						log!(warn, "Forced migration of ClaimedRewards items from v16 to v17 having {} pages.", reward_pages.len());
 						ClaimedRewards::<T>::insert(era, validator, reward_pages);
 					},
 				}
