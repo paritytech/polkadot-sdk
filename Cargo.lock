@@ -788,7 +788,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-rococo-runtime"
-version = "0.22.2"
+version = "0.22.4"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -921,7 +921,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.26.2"
+version = "0.26.4"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -1007,7 +1007,7 @@ dependencies = [
 
 [[package]]
 name = "asset-test-utils"
-version = "18.0.0"
+version = "20.0.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -1038,7 +1038,7 @@ dependencies = [
 
 [[package]]
 name = "assets-common"
-version = "0.18.1"
+version = "0.18.3"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
@@ -1649,7 +1649,7 @@ dependencies = [
 
 [[package]]
 name = "bp-asset-hub-rococo"
-version = "0.14.0"
+version = "0.14.2"
 dependencies = [
  "bp-xcm-bridge-hub-router",
  "frame-support",
@@ -1661,7 +1661,7 @@ dependencies = [
 
 [[package]]
 name = "bp-asset-hub-westend"
-version = "0.13.0"
+version = "0.13.2"
 dependencies = [
  "bp-xcm-bridge-hub-router",
  "frame-support",
@@ -1956,7 +1956,7 @@ dependencies = [
 
 [[package]]
 name = "bp-xcm-bridge-hub"
-version = "0.4.0"
+version = "0.4.2"
 dependencies = [
  "bp-messages",
  "bp-runtime",
@@ -2047,7 +2047,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-rococo-runtime"
-version = "0.16.0"
+version = "0.16.2"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -2150,7 +2150,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-test-utils"
-version = "0.18.0"
+version = "0.20.0"
 dependencies = [
  "asset-test-utils",
  "bp-header-chain",
@@ -2243,7 +2243,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-westend-runtime"
-version = "0.13.0"
+version = "0.13.2"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -2344,7 +2344,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-runtime-common"
-version = "0.18.0"
+version = "0.18.2"
 dependencies = [
  "bp-header-chain",
  "bp-messages",
@@ -3281,7 +3281,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-rococo-runtime"
-version = "0.12.0"
+version = "0.12.2"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -3379,7 +3379,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-westend-runtime"
-version = "0.12.0"
+version = "0.12.2"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -5134,7 +5134,7 @@ dependencies = [
 
 [[package]]
 name = "emulated-integration-tests-common"
-version = "14.2.0"
+version = "16.0.0"
 dependencies = [
  "asset-test-utils",
  "bp-messages",
@@ -5960,7 +5960,7 @@ dependencies = [
 
 [[package]]
 name = "frame-support"
-version = "38.0.0"
+version = "38.2.0"
 dependencies = [
  "aquamarine",
  "array-bytes",
@@ -10133,7 +10133,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-bridge-relayers"
-version = "0.18.0"
+version = "0.18.2"
 dependencies = [
  "bp-header-chain",
  "bp-messages",
@@ -10163,7 +10163,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-broker"
-version = "0.17.0"
+version = "0.17.2"
 dependencies = [
  "bitvec",
  "frame-benchmarking",
@@ -10388,7 +10388,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-core-fellowship"
-version = "22.0.0"
+version = "22.2.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -11044,7 +11044,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nomination-pools"
-version = "35.0.0"
+version = "35.0.2"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -11100,7 +11100,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nomination-pools-runtime-api"
-version = "33.0.0"
+version = "33.0.2"
 dependencies = [
  "pallet-nomination-pools",
  "parity-scale-codec",
@@ -11293,7 +11293,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-ranked-collective"
-version = "38.0.0"
+version = "38.2.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -11523,7 +11523,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-salary"
-version = "23.0.0"
+version = "23.2.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -11811,7 +11811,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-transaction-payment"
-version = "38.0.0"
+version = "38.0.2"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -12027,7 +12027,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm-bridge-hub"
-version = "0.13.0"
+version = "0.13.2"
 dependencies = [
  "bp-header-chain",
  "bp-messages",
@@ -12054,7 +12054,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm-bridge-hub-router"
-version = "0.15.1"
+version = "0.15.3"
 dependencies = [
  "bp-xcm-bridge-hub-router",
  "frame-benchmarking",
@@ -12238,7 +12238,7 @@ dependencies = [
 
 [[package]]
 name = "parachains-runtimes-test-utils"
-version = "17.0.0"
+version = "19.0.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -12913,7 +12913,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-approval-distribution"
-version = "18.0.0"
+version = "18.2.0"
 dependencies = [
  "assert_matches",
  "bitvec",
@@ -13244,7 +13244,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-approval-voting"
-version = "18.0.0"
+version = "18.2.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -13718,7 +13718,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-network-protocol"
-version = "18.0.2"
+version = "18.2.0"
 dependencies = [
  "async-channel",
  "async-trait",
@@ -14220,7 +14220,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-sdk"
-version = "0.7.0"
+version = "0.9.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -17879,7 +17879,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network"
-version = "0.45.1"
+version = "0.45.3"
 dependencies = [
  "array-bytes",
  "assert_matches",
@@ -18239,7 +18239,7 @@ dependencies = [
 
 [[package]]
 name = "sc-rpc-server"
-version = "17.1.0"
+version = "17.1.2"
 dependencies = [
  "dyn-clone",
  "forwarded-header-value",
@@ -19779,7 +19779,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-runtime-test-common"
-version = "0.10.0"
+version = "0.12.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "frame-support",
@@ -20511,7 +20511,7 @@ dependencies = [
 
 [[package]]
 name = "sp-runtime"
-version = "39.0.1"
+version = "39.0.5"
 dependencies = [
  "docify",
  "either",
@@ -21015,7 +21015,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-builder"
-version = "17.0.1"
+version = "17.0.3"
 dependencies = [
  "assert_matches",
  "frame-support",
@@ -24123,7 +24123,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-runtime-apis"
-version = "0.4.0"
+version = "0.4.2"
 dependencies = [
  "frame-executive",
  "frame-support",
