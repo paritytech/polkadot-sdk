@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Compact, Encode};
+use codec::{Compact, Decode, Encode};
 use scale_info::{
 	form::{Form, MetaForm, PortableForm},
 	prelude::{collections::BTreeMap, vec::Vec},
@@ -41,6 +41,8 @@ pub struct MetadataIR<T: Form = MetaForm> {
 	pub apis: Vec<RuntimeApiMetadataIR<T>>,
 	/// The outer enums types as found in the runtime.
 	pub outer_enums: OuterEnumsIR<T>,
+	/// Metadata of view function queries
+	pub view_functions: RuntimeViewFunctionsIR<T>,
 }
 
 /// Metadata of a runtime trait.
@@ -112,6 +114,89 @@ impl IntoPortable for RuntimeApiMethodParamMetadataIR {
 
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
 		RuntimeApiMethodParamMetadataIR {
+			name: self.name.into_portable(registry),
+			ty: registry.register_type(&self.ty),
+		}
+	}
+}
+
+/// Metadata of the top level runtime view function dispatch.
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
+pub struct RuntimeViewFunctionsIR<T: Form = MetaForm> {
+	/// The type implementing the runtime query dispatch.
+	pub ty: T::Type,
+	/// The view function groupings metadata.
+	pub groups: Vec<ViewFunctionGroupIR<T>>,
+}
+
+/// Metadata of a runtime view function group.
+///
+/// For example, view functions associated with a pallet would form a view function group.
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
+pub struct ViewFunctionGroupIR<T: Form = MetaForm> {
+	/// Name of the view function group.
+	pub name: T::String,
+	/// View functions belonging to the group.
+	pub view_functions: Vec<ViewFunctionMetadataIR<T>>,
+	/// View function group documentation.
+	pub docs: Vec<T::String>,
+}
+
+impl IntoPortable for ViewFunctionGroupIR {
+	type Output = ViewFunctionGroupIR<PortableForm>;
+
+	fn into_portable(self, registry: &mut Registry) -> Self::Output {
+		ViewFunctionGroupIR {
+			name: self.name.into_portable(registry),
+			view_functions: registry.map_into_portable(self.view_functions),
+			docs: registry.map_into_portable(self.docs),
+		}
+	}
+}
+
+/// Metadata of a runtime view function.
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
+pub struct ViewFunctionMetadataIR<T: Form = MetaForm> {
+	/// Query name.
+	pub name: T::String,
+	/// Query id.
+	pub id: [u8; 32],
+	/// Query args.
+	pub args: Vec<ViewFunctionArgMetadataIR<T>>,
+	/// Query output.
+	pub output: T::Type,
+	/// Query documentation.
+	pub docs: Vec<T::String>,
+}
+
+impl IntoPortable for ViewFunctionMetadataIR {
+	type Output = ViewFunctionMetadataIR<PortableForm>;
+
+	fn into_portable(self, registry: &mut Registry) -> Self::Output {
+		ViewFunctionMetadataIR {
+			name: self.name.into_portable(registry),
+			id: self.id,
+			args: registry.map_into_portable(self.args),
+			output: registry.register_type(&self.output),
+			docs: registry.map_into_portable(self.docs),
+		}
+	}
+}
+
+/// Metadata of a runtime method argument.
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
+pub struct ViewFunctionArgMetadataIR<T: Form = MetaForm> {
+	/// Query argument name.
+	pub name: T::String,
+	/// Query argument type.
+	pub ty: T::Type,
+}
+
+impl IntoPortable for ViewFunctionArgMetadataIR {
+	type Output = ViewFunctionArgMetadataIR<PortableForm>;
+
+	fn into_portable(self, registry: &mut Registry) -> Self::Output {
+		ViewFunctionArgMetadataIR {
 			name: self.name.into_portable(registry),
 			ty: registry.register_type(&self.ty),
 		}
