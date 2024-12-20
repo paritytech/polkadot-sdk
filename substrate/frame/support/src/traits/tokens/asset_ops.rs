@@ -516,12 +516,12 @@ pub mod common_strategies {
 		pub witness: Witness,
 	}
 	impl<Owner, Assignment: IdAssignment> Owned<Owner, Assignment, (), ()> {
-		pub fn new(owner: Owner, id_assignment: Assignment) -> Self {
+		pub fn new(id_assignment: Assignment, owner: Owner) -> Self {
 			Self { id_assignment, owner, config: (), witness: () }
 		}
 	}
 	impl<Owner, Assignment: IdAssignment, Config> Owned<Owner, Assignment, Config, ()> {
-		pub fn new_configured(owner: Owner, id_assignment: Assignment, config: Config) -> Self {
+		pub fn new_configured(id_assignment: Assignment, owner: Owner, config: Config) -> Self {
 			Self { id_assignment, owner, config, witness: () }
 		}
 	}
