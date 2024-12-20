@@ -292,17 +292,9 @@ jobs:
       image: ${{ needs.set-image.outputs.IMAGE }}
     timeout-minutes: 1440 # 24 hours per runtime
     steps:
-      - name: Generate token
-        uses: actions/create-github-app-token@v1
-        id: generate_token
-        with:
-          app-id: ${{ secrets.CMD_BOT_APP_ID }}
-          private-key: ${{ secrets.CMD_BOT_APP_KEY }}
-
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          token: ${{ steps.generate_token.outputs.token }}
           repository: ${{ needs.get-pr-branch.outputs.repo }}
           ref: ${{ needs.get-pr-branch.outputs.pr-branch }}
 
@@ -408,14 +400,21 @@ jobs:
           app-id: ${{ secrets.CMD_BOT_APP_ID }}
           private-key: ${{ secrets.CMD_BOT_APP_KEY }}
 
+      - name: Get GitHub App User ID
+        id: get-user-id
+        run: echo "user-id=$(gh api "/users/${{ steps.generate_token_commit.outputs.app-slug }}[bot]" --jq .id)" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ steps.generate_token_commit.outputs.token }}
+
       - name: Commit changes
         run: |
           # Allow some time for token propagation
           sleep 5
           
           if [ -n "$(git status --porcelain)" ]; then
-            git config --global user.name command-bot
-            git config --global user.email "<>"
+            git config --global user.name '${{ steps.generate_token_commit.outputs.app-slug }}[bot]'
+            git config --global user.email '${{ steps.get-user-id.outputs.user-id }}+${{ steps.generate_token_commit.outputs.app-slug }}[bot]@users.noreply.github.com>'
+
             git config --global pull.rebase false
 
             TOKEN="${{ steps.generate_token_commit.outputs.token }}"
