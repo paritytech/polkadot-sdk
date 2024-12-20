@@ -118,31 +118,34 @@ pub async fn extract_receipt_from_extrinsic(
 	ext: subxt::blocks::ExtrinsicDetails<SrcChainConfig, subxt::OnlineClient<SrcChainConfig>>,
 	call: EthTransact,
 ) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
+	let transaction_index = ext.index();
+	let block_number = U256::from(block.number());
+	let block_hash = block.hash();
 	let events = ext.events().await?;
+
+	let success = events.has::<ExtrinsicSuccess>().inspect_err(|err| {
+		log::debug!(target: LOG_TARGET, "Failed to lookup for ExtrinsicSuccess event in block {block_number}: {err:?}")
+	})?;
 	let tx_fees = events
 		.find_first::<TransactionFeePaid>()?
 		.ok_or(ClientError::TxFeeNotFound)
 		.inspect_err(
-			|_| log::debug!(target: LOG_TARGET, "TransactionFeePaid not found in events for {}", block.number()),
+			|err| log::debug!(target: LOG_TARGET, "TransactionFeePaid not found in events for block {block_number}\n{err:?}")
 		)?;
 	let transaction_hash = H256(keccak_256(&call.payload));
 
 	let signed_tx =
 		TransactionSigned::decode(&call.payload).map_err(|_| ClientError::TxDecodingFailed)?;
-	let from = signed_tx
-		.recover_eth_address()
-		.map_err(|_| ClientError::RecoverEthAddressFailed)?;
+	let from = signed_tx.recover_eth_address().map_err(|_| {
+		log::error!(target: LOG_TARGET, "Failed to recover eth address from signed tx");
+		ClientError::RecoverEthAddressFailed
+	})?;
 
 	let tx_info = GenericTransaction::from_signed(signed_tx.clone(), Some(from));
 	let gas_price = tx_info.gas_price.unwrap_or_default();
 	let gas_used = (tx_fees.tip.saturating_add(tx_fees.actual_fee))
 		.checked_div(gas_price.as_u128())
 		.unwrap_or_default();
-
-	let success = events.has::<ExtrinsicSuccess>()?;
-	let transaction_index = ext.index();
-	let block_number = U256::from(block.number());
-	let block_hash = block.hash();
 
 	// get logs from ContractEmitted event
 	let logs = events
@@ -178,8 +181,7 @@ pub async fn extract_receipt_from_extrinsic(
 		None
 	};
 
-	log::debug!(target: LOG_TARGET, "Adding receipt for tx hash: {transaction_hash:?} - block:
-	 {block_number:?}");
+	log::debug!(target: LOG_TARGET, "Adding receipt for tx hash: {transaction_hash:?} - block: {block_number:?}");
 	let receipt = ReceiptInfo::new(
 		block_hash,
 		block_number,
