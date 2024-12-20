@@ -93,6 +93,7 @@ jobs:
         with:
           name: ${{ matrix.template.chain_spec_output }}
           path: ${{ matrix.template.chain_spec_output }}
+          overwrite: true
 
   verify-template-chain-specs:
     if: success()
@@ -133,11 +134,12 @@ jobs:
           jq -S . ${{ matrix.template.runtime_path }}/dev_chain_spec.json > existing_spec_sorted.json
           jq -S . ./downloaded_spec/${{ matrix.template.chain_spec_output }} > generated_spec_sorted.json
 
-          echo "❌ Spec files differ:"
-          # Output the first 30 characters of each differing line for brevity
-          diff -C 3 existing_spec_sorted.json generated_spec_sorted.json | while read -r line; do
-          echo "${line:0:200}..."
-          done
-
-          # Exit with failure
-          exit 1
+          # Compare files and handle the exit condition properly
+          if diff -C 3 existing_spec_sorted.json generated_spec_sorted.json | while read -r line; do
+            echo "${line:0:200}..."
+          done; then
+            echo "✅ Spec files are identical."
+          else
+            echo "❌ Spec files differ. Exiting with failure."
+            exit 1
+          fi
