@@ -20,6 +20,7 @@ use crate::{
 	subxt_client::SrcChainConfig,
 	ClientError, LOG_TARGET,
 };
+use jsonrpsee::core::async_trait;
 use sp_core::H256;
 use std::{
 	collections::{HashMap, VecDeque},
@@ -28,9 +29,28 @@ use std::{
 use subxt::{backend::legacy::LegacyRpcMethods, OnlineClient};
 use tokio::sync::RwLock;
 
+/// BlockInfoProvider cache and retrieves information about blocks.
+#[async_trait]
+pub trait BlockInfoProvider: Send + Sync {
+	/// Cache a new block and return the pruned block hash.
+	async fn cache_block(&self, block: SubstrateBlock) -> Option<H256>;
+
+	/// Return the latest ingested block.
+	async fn latest_block(&self) -> Option<Arc<SubstrateBlock>>;
+
+	/// Get block by block_number.
+	async fn block_by_number(
+		&self,
+		block_number: SubstrateBlockNumber,
+	) -> Result<Option<Arc<SubstrateBlock>>, ClientError>;
+
+	/// Get block by block hash.
+	async fn block_by_hash(&self, hash: &H256) -> Result<Option<Arc<SubstrateBlock>>, ClientError>;
+}
+
 /// Provides information about blocks.
 #[derive(Clone)]
-pub struct BlockInfoProvider {
+pub struct BlockInfoProviderImpl {
 	/// The shared in memory cache.
 	cache: Arc<RwLock<BlockCache<SubstrateBlock>>>,
 
@@ -41,8 +61,7 @@ pub struct BlockInfoProvider {
 	api: OnlineClient<SrcChainConfig>,
 }
 
-impl BlockInfoProvider {
-	/// Create a new `BlockInfoProvider` with the given cache size, rpc client and api client.
+impl BlockInfoProviderImpl {
 	pub fn new(
 		cache_size: usize,
 		api: OnlineClient<SrcChainConfig>,
@@ -51,25 +70,24 @@ impl BlockInfoProvider {
 		Self { api, rpc, cache: Arc::new(RwLock::new(BlockCache::new(cache_size))) }
 	}
 
-	/// Get a read access on the shared cache.
 	async fn cache(&self) -> tokio::sync::RwLockReadGuard<'_, BlockCache<SubstrateBlock>> {
 		self.cache.read().await
 	}
+}
 
-	/// Cache new block and return the pruned block hash.
-	pub async fn cache_block(&self, block: SubstrateBlock) -> Option<H256> {
+#[async_trait]
+impl BlockInfoProvider for BlockInfoProviderImpl {
+	async fn cache_block(&self, block: SubstrateBlock) -> Option<H256> {
 		let mut cache = self.cache.write().await;
 		cache.insert(block)
 	}
 
-	/// Return the latest ingested block.
-	pub async fn latest_block(&self) -> Option<Arc<SubstrateBlock>> {
+	async fn latest_block(&self) -> Option<Arc<SubstrateBlock>> {
 		let cache = self.cache().await;
 		cache.buffer.back().cloned()
 	}
 
-	/// Get block by block_number.
-	pub async fn block_by_number(
+	async fn block_by_number(
 		&self,
 		block_number: SubstrateBlockNumber,
 	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
@@ -85,11 +103,7 @@ impl BlockInfoProvider {
 		self.block_by_hash(&hash).await
 	}
 
-	/// Get block by block hash.
-	pub async fn block_by_hash(
-		&self,
-		hash: &H256,
-	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
+	async fn block_by_hash(&self, hash: &H256) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
 		let cache = self.cache().await;
 		if let Some(block) = cache.blocks_by_hash.get(hash).cloned() {
 			return Ok(Some(block));
@@ -170,7 +184,7 @@ impl<B: BlockInfo> BlockCache<B> {
 }
 
 #[cfg(test)]
-mod test {
+pub mod test {
 	use super::*;
 
 	struct MockBlock {
@@ -204,5 +218,32 @@ mod test {
 		assert_eq!(cache.buffer.len(), 2);
 		assert_eq!(cache.blocks_by_number.len(), 2);
 		assert_eq!(cache.blocks_by_hash.len(), 2);
+	}
+
+	pub struct MockBlockInfoProvider;
+
+	#[async_trait]
+	impl BlockInfoProvider for MockBlockInfoProvider {
+		async fn cache_block(&self, _block: SubstrateBlock) -> Option<H256> {
+			None
+		}
+
+		async fn latest_block(&self) -> Option<Arc<SubstrateBlock>> {
+			None
+		}
+
+		async fn block_by_number(
+			&self,
+			_block_number: SubstrateBlockNumber,
+		) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
+			Ok(None)
+		}
+
+		async fn block_by_hash(
+			&self,
+			_hash: &H256,
+		) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
+			Ok(None)
+		}
 	}
 }

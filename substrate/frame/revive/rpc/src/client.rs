@@ -202,7 +202,7 @@ pub struct Client {
 	rpc_client: ReconnectingRpcClient,
 	rpc: LegacyRpcMethods<SrcChainConfig>,
 	receipt_provider: Arc<dyn ReceiptProvider>,
-	block_provider: BlockInfoProvider,
+	block_provider: Arc<dyn BlockInfoProvider>,
 	chain_id: u64,
 	max_block_weight: Weight,
 }
@@ -257,7 +257,7 @@ impl Client {
 		api: OnlineClient<SrcChainConfig>,
 		rpc_client: ReconnectingRpcClient,
 		rpc: LegacyRpcMethods<SrcChainConfig>,
-		block_provider: BlockInfoProvider,
+		block_provider: Arc<dyn BlockInfoProvider>,
 		receipt_provider: Arc<dyn ReceiptProvider>,
 	) -> Result<Self, ClientError> {
 		let (chain_id, max_block_weight) =

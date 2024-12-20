@@ -69,10 +69,11 @@ subxt-signer = { workspace = true, optional = true, features = [
 ] }
 hex = { workspace = true }
 ethabi = { version = "18.0.0" }
-sqlx = { version = "0.8.2", features = ["macros", "runtime-tokio", "sqlite"] }
+sqlx = { version = "0.8.2", features = ["macros", "runtime-tokio", "postgres", "sqlite"] }
 
 [features]
 example = ["rlp", "subxt-signer"]
+sqlite = []
 
 [dev-dependencies]
 env_logger = { workspace = true }

@@ -17,8 +17,9 @@
 //! The Ethereum JSON-RPC server.
 use crate::{
 	client::{connect, Client},
-	BlockInfoProvider, CacheReceiptProvider, DBReceiptProvider, EthRpcServer, EthRpcServerImpl,
-	ReceiptProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
+	BlockInfoProvider, BlockInfoProviderImpl, CacheReceiptProvider, DBReceiptProvider,
+	EthRpcServer, EthRpcServerImpl, ReceiptProvider, SystemHealthRpcServer,
+	SystemHealthRpcServerImpl,
 };
 use clap::Parser;
 use futures::{pin_mut, FutureExt};
@@ -143,7 +144,8 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		let signals = tokio_runtime.block_on(async { Signals::capture() })?;
 		let fut = async {
 			let (api, rpc_client, rpc) = connect(&node_rpc_url).await?;
-			let block_provider = BlockInfoProvider::new(cache_size, api.clone(), rpc.clone());
+			let block_provider: Arc<dyn BlockInfoProvider> =
+				Arc::new(BlockInfoProviderImpl::new(cache_size, api.clone(), rpc.clone()));
 			let receipt_provider: Arc<dyn ReceiptProvider> =
 				if let Some(database_url) = database_url.as_ref() {
 					Arc::new((

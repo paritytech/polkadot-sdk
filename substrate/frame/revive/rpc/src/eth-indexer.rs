@@ -18,7 +18,7 @@
 use clap::Parser;
 use pallet_revive_eth_rpc::{
 	client::{connect, Client, SubstrateBlockNumber},
-	BlockInfoProvider, DBReceiptProvider, ReceiptProvider,
+	BlockInfoProvider, BlockInfoProviderImpl, DBReceiptProvider, ReceiptProvider,
 };
 use sc_cli::SharedParams;
 use std::sync::Arc;
@@ -67,14 +67,16 @@ fn init_logger(params: &SharedParams) -> anyhow::Result<()> {
 
 #[tokio::main]
 pub async fn main() -> anyhow::Result<()> {
-	let CliCommand { node_rpc_url, database_url, shared_params, oldest_block, .. } =
-		CliCommand::parse();
+	let CliCommand {
+		node_rpc_url, database_url, shared_params: _shared_params, oldest_block, ..
+	} = CliCommand::parse();
 
 	#[cfg(not(test))]
-	init_logger(&shared_params)?;
+	init_logger(&_shared_params)?;
 
 	let (api, rpc_client, rpc) = connect(&node_rpc_url).await?;
-	let block_provider = BlockInfoProvider::new(0, api.clone(), rpc.clone());
+	let block_provider: Arc<dyn BlockInfoProvider> =
+		Arc::new(BlockInfoProviderImpl::new(0, api.clone(), rpc.clone()));
 	let receipt_provider: Arc<dyn ReceiptProvider> =
 		Arc::new(DBReceiptProvider::new(&database_url, false, block_provider.clone()).await?);
 
