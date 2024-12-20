@@ -19857,6 +19857,7 @@ dependencies = [
  "env_logger 0.11.3",
  "log",
  "parity-scale-codec",
+ "polkadot-primitives 7.0.0",
  "serde",
  "serde_json",
  "substrate-build-script-utils",
