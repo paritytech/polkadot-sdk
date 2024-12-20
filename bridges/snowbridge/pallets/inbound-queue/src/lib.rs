@@ -241,6 +241,12 @@ pub mod pallet {
 			let envelope =
 				Envelope::try_from(&message.event_log).map_err(|_| Error::<T>::InvalidEnvelope)?;
 
+			Self::deposit_event(Event::MessageReceived {
+				channel_id: envelope.channel_id,
+				nonce: envelope.nonce,
+				message_id: envelope.message_id.into(),
+			});
+
 			// Verify that the message was submitted from the known Gateway contract
 			ensure!(T::GatewayAddress::get() == envelope.gateway, Error::<T>::InvalidGateway);
 
@@ -278,12 +284,6 @@ pub mod pallet {
 			// Decode payload into `VersionedMessage`
 			let message = VersionedMessage::decode_all(&mut envelope.payload.as_ref())
 				.map_err(|_| Error::<T>::InvalidPayload)?;
-
-			Self::deposit_event(Event::MessageReceived {
-				channel_id: envelope.channel_id,
-				nonce: envelope.nonce,
-				message_id: envelope.message_id.into(),
-			});
 
 			// Decode message into XCM
 			let (xcm, fee) = Self::do_convert(envelope.message_id, message.clone())?;
