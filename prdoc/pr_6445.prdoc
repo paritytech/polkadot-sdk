@@ -30,7 +30,7 @@ crates:
 - name: westend-runtime
   bump: minor
 - name: sp-staking
-  bump: minor
+  bump: major
 - name: polkadot-runtime-common
   bump: patch
 - name: pallet-fast-unstake
