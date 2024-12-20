@@ -25,7 +25,7 @@ use codec::Encode;
 use frame_metadata_hash_extension::CheckMetadataHash;
 use frame_system::{CheckNonce, CheckWeight};
 use sp_core::crypto::Pair as TraitPair;
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 use sp_runtime::{
 	generic::Preamble, traits::TransactionExtension, transaction_validity::TransactionPriority,
 	Perbill,
@@ -54,8 +54,8 @@ impl Transfer {
 impl Default for TransferData {
 	fn default() -> Self {
 		Self {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Bob.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Bob.into(),
 			amount: 0,
 			nonce: 0,
 		}
@@ -93,7 +93,7 @@ impl ExtrinsicBuilder {
 	pub fn new(function: impl Into<RuntimeCall>) -> Self {
 		Self {
 			function: function.into(),
-			signer: Some(AccountKeyring::Alice.pair()),
+			signer: Some(Sr25519Keyring::Alice.pair()),
 			nonce: None,
 			metadata_hash: None,
 		}
