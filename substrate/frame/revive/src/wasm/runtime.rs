@@ -19,6 +19,7 @@
 
 use crate::{
 	address::AddressMapper,
+	evm::runtime::GAS_PRICE,
 	exec::{ExecError, ExecResult, Ext, Key},
 	gas::{ChargedAmount, Token},
 	limits,
@@ -324,6 +325,10 @@ pub enum RuntimeCosts {
 	BlockNumber,
 	/// Weight of calling `seal_block_hash`.
 	BlockHash,
+	/// Weight of calling `seal_gas_price`.
+	GasPrice,
+	/// Weight of calling `seal_base_fee`.
+	BaseFee,
 	/// Weight of calling `seal_now`.
 	Now,
 	/// Weight of calling `seal_gas_limit`.
@@ -477,6 +482,8 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			MinimumBalance => T::WeightInfo::seal_minimum_balance(),
 			BlockNumber => T::WeightInfo::seal_block_number(),
 			BlockHash => T::WeightInfo::seal_block_hash(),
+			GasPrice => T::WeightInfo::seal_gas_price(),
+			BaseFee => T::WeightInfo::seal_base_fee(),
 			Now => T::WeightInfo::seal_now(),
 			GasLimit => T::WeightInfo::seal_gas_limit(),
 			WeightToFee => T::WeightInfo::seal_weight_to_fee(),
@@ -1558,6 +1565,28 @@ pub mod env {
 			memory,
 			out_ptr,
 			&self.ext.value_transferred().to_little_endian(),
+			false,
+			already_charged,
+		)?)
+	}
+
+	/// Returns the simulated ethereum `GASPRICE` value.
+	/// See [`pallet_revive_uapi::HostFn::gas_price`].
+	#[stable]
+	fn gas_price(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
+		self.charge_gas(RuntimeCosts::GasPrice)?;
+		Ok(GAS_PRICE.into())
+	}
+
+	/// Returns the simulated ethereum `BASEFEE` value.
+	/// See [`pallet_revive_uapi::HostFn::base_fee`].
+	#[stable]
+	fn base_fee(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::BaseFee)?;
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&U256::zero().to_little_endian(),
 			false,
 			already_charged,
 		)?)
