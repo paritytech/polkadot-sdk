@@ -222,8 +222,7 @@ impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type PalletsOrigin = OriginCaller;
-	type BatchPreHook = ();
-	type BatchPostHook = ();
+	type BatchHook = ();
 	type WeightInfo = ();
 }
 

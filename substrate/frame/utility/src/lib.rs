@@ -70,24 +70,20 @@ use sp_runtime::traits::{BadOrigin, Dispatchable, TrailingZeroInput};
 pub use weights::WeightInfo;
 pub use pallet::*;
 
-pub trait BatchPreHook {
+pub trait BatchHook {
 	fn on_batch_start() -> sp_runtime::DispatchResult;
-}
-
-pub trait BatchPostHook {
 	fn on_batch_end() -> sp_runtime::DispatchResult;
-}
 
-impl BatchPreHook for () {
+}
+impl BatchHook for () {
 	fn on_batch_start() -> sp_runtime::DispatchResult {
 		Ok(())
 	}
-}
 
-impl BatchPostHook for () {
 	fn on_batch_end() -> sp_runtime::DispatchResult {
 		Ok(())
 	}
+
 }
 
 #[frame_support::pallet]
@@ -120,10 +116,7 @@ pub mod pallet {
 			IsType<<<Self as frame_system::Config>::RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin>;
 
 		///Hook to be called before any batch operation
-		type BatchPreHook: BatchPreHook;
-
-		///Hook to be called after any batch operation
-		type BatchPostHook: BatchPostHook;
+		type BatchHook: BatchHook;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -221,7 +214,7 @@ pub mod pallet {
 				return Err(BadOrigin.into())
 			}
 
-			T::BatchPreHook::on_batch_start()?;
+			T::BatchHook::on_batch_start()?;
 
 			let is_root = ensure_root(origin.clone()).is_ok();
 			let calls_len = calls.len();
@@ -253,7 +246,7 @@ pub mod pallet {
 			}
 			Self::deposit_event(Event::BatchCompleted);
 
-			T::BatchPostHook::on_batch_end()?;
+			T::BatchHook::on_batch_end()?;
 
 			let base_weight = T::WeightInfo::batch(calls_len as u32);
 			Ok(Some(base_weight.saturating_add(weight)).into())
@@ -335,7 +328,7 @@ pub mod pallet {
 				return Err(BadOrigin.into())
 			}
 
-			T::BatchPreHook::on_batch_start()?;
+			T::BatchHook::on_batch_start()?;
 
 			let is_root = ensure_root(origin.clone()).is_ok();
 			let calls_len = calls.len();
@@ -372,7 +365,7 @@ pub mod pallet {
 			}
 			Self::deposit_event(Event::BatchCompleted);
 
-			T::BatchPostHook::on_batch_end()?;
+			T::BatchHook::on_batch_end()?;
 
 			let base_weight = T::WeightInfo::batch_all(calls_len as u32);
 			Ok(Some(base_weight.saturating_add(weight)).into())
@@ -436,7 +429,7 @@ pub mod pallet {
 				return Err(BadOrigin.into())
 			}
 
-			T::BatchPreHook::on_batch_start()?;
+			T::BatchHook::on_batch_start()?;
 
 			let is_root = ensure_root(origin.clone()).is_ok();
 			let calls_len = calls.len();
@@ -469,7 +462,7 @@ pub mod pallet {
 				Self::deposit_event(Event::BatchCompleted);
 			}
 
-			T::BatchPostHook::on_batch_end()?;
+			T::BatchHook::on_batch_end()?;
 
 			let base_weight = T::WeightInfo::batch(calls_len as u32);
 			Ok(Some(base_weight.saturating_add(weight)).into())

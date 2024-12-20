@@ -22,7 +22,7 @@ This module contains two basic pieces of functionality:
 Since proxy filters are respected in all dispatches of this module, it should never need to be
 filtered by any proxy.
 
-Pre- and post-hooks can be configured via `BatchPostHook` and `BatchPostHook` associated types. 
+Pre- and post-hooks can be configured via `BatchHook` associated type. 
 They are triggered for each batch call: `batch`, `batch_all`, and `force_batch`. Use the unit type `()` if no behavior is required.
 
 ## Interface
