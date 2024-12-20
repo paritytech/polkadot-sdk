@@ -173,9 +173,9 @@ impl<T: Config> GasMeter<T> {
 	/// Per [EIP-150](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-150.md), this is
 	/// capped at 63/64ths of the caller's gas limit.
 	pub fn nested(&mut self, amount: Weight) -> Self {
-		let amt = amount.min(self.gas_left - self.gas_left / 64);
-		self.gas_left -= amt;
-		GasMeter::new(amt)
+		let amount = amount.min(self.gas_left - self.gas_left / 64);
+		self.gas_left -= amount;
+		GasMeter::new(amount)
 	}
 
 	/// Absorb the remaining gas of a nested meter after we are done using it.
@@ -379,11 +379,11 @@ mod tests {
 		assert!(gas_meter.charge(SimpleToken(1)).is_err());
 	}
 
-	#[test]
 	/// Previously, passing a `Weight` of 0 to `nested` would consume all of the meter's current
 	/// gas.
 	///
 	/// Now, a `Weight` of 0 means no gas for the nested call.
+	#[test]
 	fn nested_zero_gas_requested() {
 		let test_weight = 50000.into();
 		let mut gas_meter = GasMeter::<Test>::new(test_weight);

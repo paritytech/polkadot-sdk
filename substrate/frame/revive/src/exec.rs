@@ -1135,7 +1135,7 @@ where
 			let contract = frame.contract_info.as_contract();
 			frame
 				.nested_storage
-				.enforce_subcall_limit(contract)
+				.enforce_limit(contract)
 				.map_err(|e| ExecError { error: e, origin: ErrorOrigin::Callee })?;
 
 			let account_id = T::AddressMapper::to_address(&frame.account_id);

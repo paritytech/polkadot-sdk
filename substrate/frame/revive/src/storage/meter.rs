@@ -100,13 +100,8 @@ pub trait State: private::Sealed {}
 pub struct Root;
 
 /// State parameter that constitutes a meter that is in its nested state.
-/// Its value indicates whether the nested meter has its own limit.
-#[derive(DefaultNoBound, RuntimeDebugNoBound)]
-pub enum Nested {
-	#[default]
-	DerivedLimit,
-	OwnLimit,
-}
+#[derive(Default, Debug)]
+pub struct Nested;
 
 impl State for Root {}
 impl State for Nested {}
@@ -126,7 +121,7 @@ pub struct RawMeter<T: Config, E, S: State + Default + Debug> {
 	/// limited by the maximum call depth.
 	charges: Vec<Charge<T>>,
 	/// We store the nested state to determine if it has a special limit for sub-call.
-	nested: S,
+	_nested: PhantomData<S>,
 	/// Type parameter only used in impls.
 	_phantom: PhantomData<E>,
 }
@@ -296,7 +291,7 @@ where
 		// If a special limit is specified higher than it is available,
 		// we want to enforce the lesser limit to the nested meter, to fail in the sub-call.
 		let limit = available.min(limit);
-		RawMeter { limit, nested: Nested::OwnLimit, ..Default::default() }
+		RawMeter { limit, ..Default::default() }
 	}
 
 	/// Absorb a child that was spawned to handle a sub call.
@@ -483,8 +478,7 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 	///
 	/// We normally need to call this **once** for every call stack and not for every cross contract
 	/// call. However, if a dedicated limit is specified for a sub-call, this needs to be called
-	/// once the sub-call has returned. For this, the [`Self::enforce_subcall_limit`] wrapper is
-	/// used.
+	/// once the sub-call has returned.
 	pub fn enforce_limit(
 		&mut self,
 		info: Option<&mut ContractInfo<T>>,
@@ -502,18 +496,6 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 			}
 		}
 		Ok(())
-	}
-
-	/// This is a wrapper around [`Self::enforce_limit`] to use on the exit from a sub-call to
-	/// enforce its special limit if needed.
-	pub fn enforce_subcall_limit(
-		&mut self,
-		info: Option<&mut ContractInfo<T>>,
-	) -> Result<(), DispatchError> {
-		match self.nested {
-			Nested::OwnLimit => self.enforce_limit(info),
-			Nested::DerivedLimit => Ok(()),
-		}
 	}
 }
 
@@ -725,10 +707,10 @@ mod tests {
 		)
 	}
 
-	#[test]
 	/// Previously, passing a limit of 0 meant unlimited storage for a nested call.
 	///
 	/// Now, a limit of 0 means the subcall will not be able to use any storage.
+	#[test]
 	fn nested_zero_limit_requested() {
 		clear_ext();
 
