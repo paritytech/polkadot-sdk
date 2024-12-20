@@ -16,9 +16,18 @@
       "config": {
         "babe": {
           "authorities": [
-            "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
-            "5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL",
-            "5CcjiSgG2KLuKAsqkE2Nak1S2FbAcMr5SxRASUuwR3zSNV2b"
+            [
+              "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+              1
+            ],
+            [
+              "5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL",
+              1
+            ],
+            [
+              "5CcjiSgG2KLuKAsqkE2Nak1S2FbAcMr5SxRASUuwR3zSNV2b",
+              1
+            ]
           ],
           "epochConfig": {
             "allowed_slots": "PrimaryAndSecondaryVRFSlots",

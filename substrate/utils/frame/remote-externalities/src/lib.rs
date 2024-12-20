@@ -1239,8 +1239,9 @@ where
 #[cfg(test)]
 mod test_prelude {
 	pub(crate) use super::*;
-	pub(crate) use sp_runtime::testing::{Block as RawBlock, ExtrinsicWrapper, H256 as Hash};
-	pub(crate) type Block = RawBlock<ExtrinsicWrapper<Hash>>;
+	pub(crate) use sp_runtime::testing::{Block as RawBlock, MockCallU64};
+	pub(crate) type UncheckedXt = sp_runtime::testing::TestXt<MockCallU64, ()>;
+	pub(crate) type Block = RawBlock<UncheckedXt>;
 
 	pub(crate) fn init_logger() {
 		sp_tracing::try_init_simple();

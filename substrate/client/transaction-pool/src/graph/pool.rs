@@ -73,13 +73,24 @@ pub trait ChainApi: Send + Sync {
 		+ Send
 		+ 'static;
 
-	/// Verify extrinsic at given block.
+	/// Asynchronously verify extrinsic at given block.
 	fn validate_transaction(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		uxt: ExtrinsicFor<Self>,
 	) -> Self::ValidationFuture;
+
+	/// Synchronously verify given extrinsic at given block.
+	///
+	/// Validates a transaction by calling into the runtime. Same as `validate_transaction` but
+	/// blocks the current thread when performing validation.
+	fn validate_transaction_blocking(
+		&self,
+		at: <Self::Block as BlockT>::Hash,
+		source: TransactionSource,
+		uxt: ExtrinsicFor<Self>,
+	) -> Result<TransactionValidity, Self::Error>;
 
 	/// Returns a block number given the block id.
 	fn block_id_to_number(
@@ -170,10 +181,8 @@ impl<B: ChainApi> Pool<B> {
 	pub async fn submit_at(
 		&self,
 		at: &HashAndNumber<B::Block>,
-		source: TransactionSource,
-		xts: impl IntoIterator<Item = ExtrinsicFor<B>>,
+		xts: impl IntoIterator<Item = (base::TimedTransactionSource, ExtrinsicFor<B>)>,
 	) -> Vec<Result<ExtrinsicHash<B>, B::Error>> {
-		let xts = xts.into_iter().map(|xt| (source, xt));
 		let validated_transactions = self.verify(at, xts, CheckBannedBeforeVerify::Yes).await;
 		self.validated_pool.submit(validated_transactions.into_values())
 	}
@@ -184,10 +193,8 @@ impl<B: ChainApi> Pool<B> {
 	pub async fn resubmit_at(
 		&self,
 		at: &HashAndNumber<B::Block>,
-		source: TransactionSource,
-		xts: impl IntoIterator<Item = ExtrinsicFor<B>>,
+		xts: impl IntoIterator<Item = (base::TimedTransactionSource, ExtrinsicFor<B>)>,
 	) -> Vec<Result<ExtrinsicHash<B>, B::Error>> {
-		let xts = xts.into_iter().map(|xt| (source, xt));
 		let validated_transactions = self.verify(at, xts, CheckBannedBeforeVerify::No).await;
 		self.validated_pool.submit(validated_transactions.into_values())
 	}
@@ -196,10 +203,10 @@ impl<B: ChainApi> Pool<B> {
 	pub async fn submit_one(
 		&self,
 		at: &HashAndNumber<B::Block>,
-		source: TransactionSource,
+		source: base::TimedTransactionSource,
 		xt: ExtrinsicFor<B>,
 	) -> Result<ExtrinsicHash<B>, B::Error> {
-		let res = self.submit_at(at, source, std::iter::once(xt)).await.pop();
+		let res = self.submit_at(at, std::iter::once((source, xt))).await.pop();
 		res.expect("One extrinsic passed; one result returned; qed")
 	}
 
@@ -207,7 +214,7 @@ impl<B: ChainApi> Pool<B> {
 	pub async fn submit_and_watch(
 		&self,
 		at: &HashAndNumber<B::Block>,
-		source: TransactionSource,
+		source: base::TimedTransactionSource,
 		xt: ExtrinsicFor<B>,
 	) -> Result<Watcher<ExtrinsicHash<B>, ExtrinsicHash<B>>, B::Error> {
 		let (_, tx) = self
@@ -357,7 +364,7 @@ impl<B: ChainApi> Pool<B> {
 		// Try to re-validate pruned transactions since some of them might be still valid.
 		// note that `known_imported_hashes` will be rejected here due to temporary ban.
 		let pruned_transactions =
-			prune_status.pruned.into_iter().map(|tx| (tx.source, tx.data.clone()));
+			prune_status.pruned.into_iter().map(|tx| (tx.source.clone(), tx.data.clone()));
 
 		let reverified_transactions =
 			self.verify(at, pruned_transactions, CheckBannedBeforeVerify::Yes).await;
@@ -385,7 +392,7 @@ impl<B: ChainApi> Pool<B> {
 	async fn verify(
 		&self,
 		at: &HashAndNumber<B::Block>,
-		xts: impl IntoIterator<Item = (TransactionSource, ExtrinsicFor<B>)>,
+		xts: impl IntoIterator<Item = (base::TimedTransactionSource, ExtrinsicFor<B>)>,
 		check: CheckBannedBeforeVerify,
 	) -> IndexMap<ExtrinsicHash<B>, ValidatedTransactionFor<B>> {
 		let HashAndNumber { number, hash } = *at;
@@ -406,7 +413,7 @@ impl<B: ChainApi> Pool<B> {
 		&self,
 		block_hash: <B::Block as BlockT>::Hash,
 		block_number: NumberFor<B>,
-		source: TransactionSource,
+		source: base::TimedTransactionSource,
 		xt: ExtrinsicFor<B>,
 		check: CheckBannedBeforeVerify,
 	) -> (ExtrinsicHash<B>, ValidatedTransactionFor<B>) {
@@ -420,7 +427,7 @@ impl<B: ChainApi> Pool<B> {
 		let validation_result = self
 			.validated_pool
 			.api()
-			.validate_transaction(block_hash, source, xt.clone())
+			.validate_transaction(block_hash, source.clone().into(), xt.clone())
 			.await;
 
 		let status = match validation_result {
@@ -477,6 +484,7 @@ mod tests {
 	use super::{super::base_pool::Limit, *};
 	use crate::common::tests::{pool, uxt, TestApi, INVALID_NONCE};
 	use assert_matches::assert_matches;
+	use base::TimedTransactionSource;
 	use codec::Encode;
 	use futures::executor::block_on;
 	use parking_lot::Mutex;
@@ -484,9 +492,10 @@ mod tests {
 	use sp_runtime::transaction_validity::TransactionSource;
 	use std::{collections::HashMap, time::Instant};
 	use substrate_test_runtime::{AccountId, ExtrinsicBuilder, Transfer, H256};
-	use substrate_test_runtime_client::AccountKeyring::{Alice, Bob};
+	use substrate_test_runtime_client::Sr25519Keyring::{Alice, Bob};
 
-	const SOURCE: TransactionSource = TransactionSource::External;
+	const SOURCE: TimedTransactionSource =
+		TimedTransactionSource { source: TransactionSource::External, timestamp: None };
 
 	#[test]
 	fn should_validate_and_import_transaction() {
@@ -534,8 +543,8 @@ mod tests {
 		let initial_hashes = txs.iter().map(|t| api.hash_and_length(t).0).collect::<Vec<_>>();
 
 		// when
-		let txs = txs.into_iter().map(|x| Arc::from(x)).collect::<Vec<_>>();
-		let hashes = block_on(pool.submit_at(&api.expect_hash_and_number(0), SOURCE, txs));
+		let txs = txs.into_iter().map(|x| (SOURCE, Arc::from(x))).collect::<Vec<_>>();
+		let hashes = block_on(pool.submit_at(&api.expect_hash_and_number(0), txs));
 		log::debug!("--> {hashes:#?}");
 
 		// then

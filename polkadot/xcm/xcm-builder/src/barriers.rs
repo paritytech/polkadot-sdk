@@ -95,7 +95,8 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 			})?
 			.skip_inst_while(|inst| {
 				matches!(inst, ClearOrigin | AliasOrigin(..)) ||
-					matches!(inst, DescendOrigin(child) if child != &Here)
+					matches!(inst, DescendOrigin(child) if child != &Here) ||
+					matches!(inst, SetHints { .. })
 			})?
 			.match_next_inst(|inst| match inst {
 				BuyExecution { weight_limit: Limited(ref mut weight), .. }
@@ -108,6 +109,7 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 					*weight_limit = Limited(max_weight);
 					Ok(())
 				},
+				PayFees { .. } => Ok(()),
 				_ => Err(ProcessMessageError::Overweight(max_weight)),
 			})?;
 		Ok(())

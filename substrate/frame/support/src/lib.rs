@@ -53,6 +53,7 @@ pub mod __private {
 	pub use paste;
 	pub use scale_info;
 	pub use serde;
+	pub use serde_json;
 	pub use sp_core::{Get, OpaqueMetadata, Void};
 	pub use sp_crypto_hashing_proc_macro;
 	pub use sp_inherents;
@@ -63,7 +64,8 @@ pub mod __private {
 	#[cfg(feature = "std")]
 	pub use sp_runtime::{bounded_btree_map, bounded_vec};
 	pub use sp_runtime::{
-		traits::Dispatchable, DispatchError, RuntimeDebug, StateVersion, TransactionOutcome,
+		traits::{AsSystemOriginSigner, AsTransactionAuthorizedOrigin, Dispatchable},
+		DispatchError, RuntimeDebug, StateVersion, TransactionOutcome,
 	};
 	#[cfg(feature = "std")]
 	pub use sp_state_machine::BasicExternalities;
@@ -902,8 +904,9 @@ pub mod pallet_prelude {
 			StorageList,
 		},
 		traits::{
-			BuildGenesisConfig, ConstU32, EnsureOrigin, Get, GetDefault, GetStorageVersion, Hooks,
-			IsType, PalletInfoAccess, StorageInfoTrait, StorageVersion, Task, TypedGet,
+			BuildGenesisConfig, ConstU32, ConstUint, EnsureOrigin, Get, GetDefault,
+			GetStorageVersion, Hooks, IsType, PalletInfoAccess, StorageInfoTrait, StorageVersion,
+			Task, TypedGet,
 		},
 		Blake2_128, Blake2_128Concat, Blake2_256, CloneNoBound, DebugNoBound, EqNoBound, Identity,
 		PartialEqNoBound, RuntimeDebugNoBound, Twox128, Twox256, Twox64Concat,
@@ -1695,8 +1698,8 @@ pub mod pallet_macros {
 	/// [`ValidateUnsigned`](frame_support::pallet_prelude::ValidateUnsigned) for
 	/// type `Pallet<T>`, and some optional where clause.
 	///
-	/// NOTE: There is also the [`sp_runtime::traits::SignedExtension`] trait that can be used
-	/// to add some specific logic for transaction validation.
+	/// NOTE: There is also the [`sp_runtime::traits::TransactionExtension`] trait that can be
+	/// used to add some specific logic for transaction validation.
 	///
 	/// ## Macro expansion
 	///
@@ -1880,10 +1883,15 @@ pub mod pallet_macros {
 	/// }
 	/// ```
 	///
-	/// Please note that this only works for signed dispatchables and requires a signed
+	/// Please note that this only works for signed dispatchables and requires a transaction
 	/// extension such as [`pallet_skip_feeless_payment::SkipCheckIfFeeless`] to wrap the
 	/// existing payment extension. Else, this is completely ignored and the dispatchable is
 	/// still charged.
+	///
+	/// Also this will not allow accountless caller to send a transaction if some transaction
+	/// extension such as `frame_system::CheckNonce` is used.
+	/// Extensions such as `frame_system::CheckNonce` require a funded account to validate
+	/// the transaction.
 	///
 	/// ### Macro expansion
 	///
@@ -2587,8 +2595,11 @@ sp_core::generate_feature_enabled_macro!(try_runtime_enabled, feature = "try-run
 sp_core::generate_feature_enabled_macro!(try_runtime_or_std_enabled, any(feature = "try-runtime", feature = "std"), $);
 sp_core::generate_feature_enabled_macro!(try_runtime_and_std_not_enabled, all(not(feature = "try-runtime"), not(feature = "std")), $);
 
-// Helper for implementing GenesisBuilder runtime API
+/// Helper for implementing GenesisBuilder runtime API
 pub mod genesis_builder_helper;
+
+/// Helper for generating the `RuntimeGenesisConfig` instance for presets.
+pub mod generate_genesis_config;
 
 #[cfg(test)]
 mod test {

@@ -54,7 +54,7 @@ fn create_account_extrinsics(client: &Client, accounts: &[sr25519::Pair]) -> Vec
 					SudoCall::sudo {
 						call: Box::new(
 							BalancesCall::force_set_balance {
-								who: AccountId::from(a.public()),
+								who: AccountId::from(a.public()).into(),
 								new_free: 0,
 							}
 							.into(),
@@ -69,7 +69,7 @@ fn create_account_extrinsics(client: &Client, accounts: &[sr25519::Pair]) -> Vec
 					SudoCall::sudo {
 						call: Box::new(
 							BalancesCall::force_set_balance {
-								who: AccountId::from(a.public()),
+								who: AccountId::from(a.public()).into(),
 								new_free: 1_000_000_000_000 * ExistentialDeposit::get(),
 							}
 							.into(),
@@ -96,7 +96,7 @@ fn create_benchmark_extrinsics(
 				construct_extrinsic(
 					client,
 					BalancesCall::transfer_allow_death {
-						dest: Bob.to_account_id(),
+						dest: Bob.to_account_id().into(),
 						value: ExistentialDeposit::get(),
 					},
 					account.clone(),

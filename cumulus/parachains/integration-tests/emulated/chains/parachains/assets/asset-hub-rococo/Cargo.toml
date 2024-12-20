@@ -14,6 +14,7 @@ workspace = true
 
 # Substrate
 sp-core = { workspace = true }
+sp-keyring = { workspace = true }
 frame-support = { workspace = true }
 
 # Cumulus

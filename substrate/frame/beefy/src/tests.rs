@@ -313,7 +313,7 @@ fn report_equivocation_current_set_works(mut f: impl ReportEquivocationFn) {
 	let authorities = test_authorities();
 
 	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
-		assert_eq!(Staking::current_era(), Some(0));
+		assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(0));
 		assert_eq!(Session::current_index(), 0);
 
 		start_era(1);
@@ -906,7 +906,7 @@ fn report_fork_voting_invalid_context() {
 
 	let mut era = 1;
 	let block_num = ext.execute_with(|| {
-		assert_eq!(Staking::current_era(), Some(0));
+		assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(0));
 		assert_eq!(Session::current_index(), 0);
 		start_era(era);
 

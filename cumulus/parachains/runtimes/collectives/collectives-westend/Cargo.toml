@@ -5,6 +5,8 @@ authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 description = "Westend Collectives Parachain Runtime"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -50,6 +52,7 @@ sp-arithmetic = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-core = { workspace = true }
+sp-keyring = { workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
 sp-offchain = { workspace = true }
@@ -93,6 +96,7 @@ substrate-wasm-builder = { optional = true, workspace = true, default-features =
 
 [dev-dependencies]
 sp-io = { features = ["std"], workspace = true, default-features = true }
+parachains-runtimes-test-utils = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -123,6 +127,7 @@ runtime-benchmarks = [
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-state-trie-migration/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
@@ -133,6 +138,7 @@ runtime-benchmarks = [
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
 	"cumulus-pallet-aura-ext/try-runtime",
@@ -228,6 +234,7 @@ std = [
 	"sp-core/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
+	"sp-keyring/std",
 	"sp-offchain/std",
 	"sp-runtime/std",
 	"sp-session/std",

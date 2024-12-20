@@ -46,8 +46,8 @@ fn dmp() {
 			Parachain(1),
 			Xcm(vec![Transact {
 				origin_kind: OriginKind::SovereignAccount,
-				require_weight_at_most: Weight::from_parts(INITIAL_BALANCE as u64, 1024 * 1024),
 				call: remark.encode().into(),
+				fallback_max_weight: None,
 			}]),
 		));
 	});
@@ -74,8 +74,8 @@ fn ump() {
 			Parent,
 			Xcm(vec![Transact {
 				origin_kind: OriginKind::SovereignAccount,
-				require_weight_at_most: Weight::from_parts(INITIAL_BALANCE as u64, 1024 * 1024),
 				call: remark.encode().into(),
+				fallback_max_weight: None,
 			}]),
 		));
 	});
@@ -102,8 +102,8 @@ fn xcmp() {
 			(Parent, Parachain(2)),
 			Xcm(vec![Transact {
 				origin_kind: OriginKind::SovereignAccount,
-				require_weight_at_most: Weight::from_parts(INITIAL_BALANCE as u64, 1024 * 1024),
 				call: remark.encode().into(),
+				fallback_max_weight: None,
 			}]),
 		));
 	});
@@ -383,7 +383,6 @@ fn reserve_asset_class_create_and_reserve_transfer() {
 
 		let message = Xcm(vec![Transact {
 			origin_kind: OriginKind::Xcm,
-			require_weight_at_most: Weight::from_parts(1_000_000_000, 1024 * 1024),
 			call: parachain::RuntimeCall::from(
 				pallet_uniques::Call::<parachain::Runtime>::create {
 					collection: (Parent, 2u64).into(),
@@ -392,6 +391,7 @@ fn reserve_asset_class_create_and_reserve_transfer() {
 			)
 			.encode()
 			.into(),
+			fallback_max_weight: None,
 		}]);
 		// Send creation.
 		assert_ok!(RelayChainPalletXcm::send_xcm(Here, Parachain(1), message));

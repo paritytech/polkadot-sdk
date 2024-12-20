@@ -1,0 +1,9 @@
+[relaychain]
+default_command = "polkadot-omni-node"
+chain = "dev"
+chain_spec_path = "<path/to/chain_spec.json>"
+default_args = ["--dev"]
+
+[[relaychain.nodes]]
+name = "alice"
+ws_port = 9944

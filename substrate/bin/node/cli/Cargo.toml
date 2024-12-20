@@ -46,6 +46,7 @@ futures = { workspace = true }
 log = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
+subxt-signer = { workspace = true, features = ["unstable-eth"] }
 
 # The Polkadot-SDK:
 polkadot-sdk = { features = [
@@ -56,8 +57,6 @@ polkadot-sdk = { features = [
 	"generate-bags",
 	"mmr-gadget",
 	"mmr-rpc",
-	"pallet-contracts-mock-network",
-	"pallet-revive-mock-network",
 	"pallet-transaction-payment-rpc",
 	"sc-allocator",
 	"sc-authority-discovery",
@@ -155,6 +154,7 @@ wait-timeout = { workspace = true }
 wat = { workspace = true }
 serde_json = { workspace = true, default-features = true }
 scale-info = { features = ["derive", "serde"], workspace = true, default-features = true }
+sp-keyring = { workspace = true }
 pretty_assertions.workspace = true
 
 # These testing-only dependencies are not exported by the Polkadot-SDK crate:
@@ -172,12 +172,7 @@ polkadot-sdk = { features = ["frame-benchmarking-cli", "sc-cli", "sc-storage-mon
 
 [features]
 default = ["cli"]
-cli = [
-	"clap",
-	"clap_complete",
-	"node-inspect",
-	"polkadot-sdk",
-]
+cli = ["clap", "clap_complete", "node-inspect", "polkadot-sdk"]
 runtime-benchmarks = [
 	"kitchensink-runtime/runtime-benchmarks",
 	"node-inspect?/runtime-benchmarks",
@@ -187,10 +182,6 @@ try-runtime = [
 	"kitchensink-runtime/try-runtime",
 	"polkadot-sdk/try-runtime",
 	"substrate-cli-test-utils/try-runtime",
-]
-riscv = [
-	"kitchensink-runtime/riscv",
-	"polkadot-sdk/riscv",
 ]
 
 [[bench]]

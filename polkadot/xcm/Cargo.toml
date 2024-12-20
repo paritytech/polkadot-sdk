@@ -5,6 +5,8 @@ version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -23,11 +25,12 @@ serde = { features = ["alloc", "derive", "rc"], workspace = true }
 schemars = { default-features = true, optional = true, workspace = true }
 xcm-procedural = { workspace = true, default-features = true }
 environmental = { workspace = true }
+hex-literal = { workspace = true, default-features = true }
+frame-support = { workspace = true }
 
 [dev-dependencies]
 sp-io = { workspace = true, default-features = true }
 hex = { workspace = true, default-features = true }
-hex-literal = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -36,6 +39,7 @@ std = [
 	"bounded-collections/std",
 	"codec/std",
 	"environmental/std",
+	"frame-support/std",
 	"log/std",
 	"scale-info/std",
 	"serde/std",
@@ -46,4 +50,8 @@ json-schema = [
 	"bounded-collections/json-schema",
 	"dep:schemars",
 	"sp-weights/json-schema",
+]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]

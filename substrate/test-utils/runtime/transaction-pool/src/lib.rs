@@ -43,7 +43,7 @@ use substrate_test_runtime_client::{
 		AccountId, Block, BlockNumber, Extrinsic, ExtrinsicBuilder, Hash, Header, Nonce, Transfer,
 		TransferData,
 	},
-	AccountKeyring::{self, *},
+	Sr25519Keyring::{self, *},
 };
 
 /// Error type used by [`TestApi`].
@@ -338,7 +338,7 @@ trait TagFrom {
 
 impl TagFrom for AccountId {
 	fn tag_from(&self) -> u8 {
-		let f = AccountKeyring::iter().enumerate().find(|k| AccountId::from(k.1) == *self);
+		let f = Sr25519Keyring::iter().enumerate().find(|k| AccountId::from(k.1) == *self);
 		u8::try_from(f.unwrap().0).unwrap()
 	}
 }
@@ -450,6 +450,15 @@ impl ChainApi for TestApi {
 		ready(Ok(Ok(validity)))
 	}
 
+	fn validate_transaction_blocking(
+		&self,
+		_at: <Self::Block as BlockT>::Hash,
+		_source: TransactionSource,
+		_uxt: Arc<<Self::Block as BlockT>::Extrinsic>,
+	) -> Result<TransactionValidity, Error> {
+		unimplemented!();
+	}
+
 	fn block_id_to_number(
 		&self,
 		at: &BlockId<Self::Block>,
@@ -525,7 +534,7 @@ impl sp_blockchain::HeaderMetadata<Block> for TestApi {
 /// Generate transfer extrinsic with a given nonce.
 ///
 /// Part of the test api.
-pub fn uxt(who: AccountKeyring, nonce: Nonce) -> Extrinsic {
+pub fn uxt(who: Sr25519Keyring, nonce: Nonce) -> Extrinsic {
 	let dummy = codec::Decode::decode(&mut TrailingZeroInput::zeroes()).unwrap();
 	let transfer = Transfer { from: who.into(), to: dummy, nonce, amount: 1 };
 	ExtrinsicBuilder::new_transfer(transfer).build()

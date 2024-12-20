@@ -1,0 +1,11 @@
+title: migrate pallet-nft-fractionalization to benchmarking v2 syntax
+doc:
+- audience: Runtime Dev
+  description: |-
+    Migrates pallet-nft-fractionalization to benchmarking v2 syntax.
+
+    Part of:
+    * #6202
+crates:
+- name: pallet-nft-fractionalization
+  bump: patch

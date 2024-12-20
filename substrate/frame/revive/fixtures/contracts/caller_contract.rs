@@ -65,7 +65,7 @@ pub extern "C" fn call() {
 		None,
 		Some(&salt),
 	);
-	assert!(matches!(res, Err(ReturnErrorCode::CalleeTrapped)));
+	assert!(matches!(res, Err(ReturnErrorCode::OutOfResources)));
 
 	// Fail to deploy the contract due to insufficient proof_size weight.
 	let res = api::instantiate(
@@ -79,7 +79,7 @@ pub extern "C" fn call() {
 		None,
 		Some(&salt),
 	);
-	assert!(matches!(res, Err(ReturnErrorCode::CalleeTrapped)));
+	assert!(matches!(res, Err(ReturnErrorCode::OutOfResources)));
 
 	// Deploy the contract successfully.
 	let mut callee = [0u8; 20];
@@ -121,7 +121,7 @@ pub extern "C" fn call() {
 		&input,
 		None,
 	);
-	assert!(matches!(res, Err(ReturnErrorCode::CalleeTrapped)));
+	assert!(matches!(res, Err(ReturnErrorCode::OutOfResources)));
 
 	// Fail to call the contract due to insufficient proof_size weight.
 	let res = api::call(
@@ -134,7 +134,7 @@ pub extern "C" fn call() {
 		&input,
 		None,
 	);
-	assert!(matches!(res, Err(ReturnErrorCode::CalleeTrapped)));
+	assert!(matches!(res, Err(ReturnErrorCode::OutOfResources)));
 
 	// Call the contract successfully.
 	let mut output = [0u8; 4];

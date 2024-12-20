@@ -15,14 +15,14 @@
 
 // Substrate
 use frame_support::parameter_types;
-use sp_core::{sr25519, storage::Storage};
+use sp_core::storage::Storage;
+use sp_keyring::Sr25519Keyring as Keyring;
 
 // Cumulus
 use emulated_integration_tests_common::{
-	accounts, build_genesis_storage, collators, get_account_id_from_seed,
-	PenpalBSiblingSovereignAccount, PenpalBTeleportableAssetLocation,
-	PenpalSiblingSovereignAccount, PenpalTeleportableAssetLocation, RESERVABLE_ASSET_ID,
-	SAFE_XCM_VERSION, USDT_ID,
+	accounts, build_genesis_storage, collators, PenpalASiblingSovereignAccount,
+	PenpalATeleportableAssetLocation, PenpalBSiblingSovereignAccount,
+	PenpalBTeleportableAssetLocation, RESERVABLE_ASSET_ID, SAFE_XCM_VERSION, USDT_ID,
 };
 use parachains_common::{AccountId, Balance};
 
@@ -31,7 +31,7 @@ pub const ED: Balance = testnet_parachains_constants::westend::currency::EXISTEN
 pub const USDT_ED: Balance = 70_000;
 
 parameter_types! {
-	pub AssetHubWestendAssetOwner: AccountId = get_account_id_from_seed::<sr25519::Public>("Alice");
+	pub AssetHubWestendAssetOwner: AccountId = Keyring::Alice.to_account_id();
 }
 
 pub fn genesis() -> Storage {
@@ -75,10 +75,10 @@ pub fn genesis() -> Storage {
 		},
 		foreign_assets: asset_hub_westend_runtime::ForeignAssetsConfig {
 			assets: vec![
-				// Penpal's teleportable asset representation
+				// PenpalA's teleportable asset representation
 				(
-					PenpalTeleportableAssetLocation::get(),
-					PenpalSiblingSovereignAccount::get(),
+					PenpalATeleportableAssetLocation::get(),
+					PenpalASiblingSovereignAccount::get(),
 					false,
 					ED,
 				),

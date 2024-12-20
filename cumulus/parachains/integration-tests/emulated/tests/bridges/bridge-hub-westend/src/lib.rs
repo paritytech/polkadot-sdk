@@ -22,9 +22,9 @@ mod imports {
 
 	// Polkadot
 	pub use xcm::{
-		latest::ParentThen,
+		latest::{ParentThen, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
 		prelude::{AccountId32 as AccountId32Junction, *},
-		v4::{self, NetworkId::Rococo as RococoId},
+		v5,
 	};
 	pub use xcm_executor::traits::TransferType;
 
@@ -37,16 +37,17 @@ mod imports {
 		xcm_emulator::{
 			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, TestExt,
 		},
+		xcm_helpers::xcm_transact_paid_execution,
 		ASSETS_PALLET_ID, USDT_ID,
 	};
 	pub use parachains_common::AccountId;
 	pub use rococo_westend_system_emulated_network::{
 		asset_hub_rococo_emulated_chain::{
-			genesis::{AssetHubRococoAssetOwner, ED as ASSET_HUB_ROCOCO_ED},
-			AssetHubRococoParaPallet as AssetHubRococoPallet,
+			genesis::ED as ASSET_HUB_ROCOCO_ED, AssetHubRococoParaPallet as AssetHubRococoPallet,
 		},
 		asset_hub_westend_emulated_chain::{
-			genesis::ED as ASSET_HUB_WESTEND_ED, AssetHubWestendParaPallet as AssetHubWestendPallet,
+			genesis::{AssetHubWestendAssetOwner, ED as ASSET_HUB_WESTEND_ED},
+			AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},
 		bridge_hub_westend_emulated_chain::{
 			genesis::ED as BRIDGE_HUB_WESTEND_ED, BridgeHubWestendExistentialDeposit,
@@ -55,6 +56,7 @@ mod imports {
 		penpal_emulated_chain::{
 			penpal_runtime::xcm_config::{
 				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
+				LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
 				UniversalLocation as PenpalUniversalLocation,
 			},
 			PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet,
@@ -70,10 +72,12 @@ mod imports {
 		BridgeHubWestendPara as BridgeHubWestend,
 		BridgeHubWestendParaReceiver as BridgeHubWestendReceiver,
 		BridgeHubWestendParaSender as BridgeHubWestendSender, PenpalBPara as PenpalB,
-		PenpalBParaSender as PenpalBSender, WestendRelay as Westend,
-		WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
+		PenpalBParaReceiver as PenpalBReceiver, PenpalBParaSender as PenpalBSender,
+		WestendRelay as Westend, WestendRelayReceiver as WestendReceiver,
+		WestendRelaySender as WestendSender,
 	};
 
+	pub const ASSET_ID: u32 = 1;
 	pub const ASSET_MIN_BALANCE: u128 = 1000;
 }
 

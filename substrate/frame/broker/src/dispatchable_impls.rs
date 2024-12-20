@@ -21,7 +21,7 @@ use frame_support::{
 	traits::{fungible::Mutate, tokens::Preservation::Expendable, DefensiveResult},
 };
 use sp_arithmetic::traits::{CheckedDiv, Saturating, Zero};
-use sp_runtime::traits::Convert;
+use sp_runtime::traits::{BlockNumberProvider, Convert};
 use CompletionStatus::{Complete, Partial};
 
 impl<T: Config> Pallet<T> {
@@ -91,7 +91,7 @@ impl<T: Config> Pallet<T> {
 			last_committed_timeslice: commit_timeslice.saturating_sub(1),
 			last_timeslice: Self::current_timeslice(),
 		};
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 		// Imaginary old sale for bootstrapping the first actual sale:
 		let old_sale = SaleInfoRecord {
 			sale_start: now,
@@ -119,7 +119,7 @@ impl<T: Config> Pallet<T> {
 		let mut sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
 		Self::ensure_cores_for_sale(&status, &sale)?;
 
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 		ensure!(now > sale.sale_start, Error::<T>::TooEarly);
 		let price = Self::sale_price(&sale, now);
 		ensure!(price_limit >= price, Error::<T>::Overpriced);
@@ -171,7 +171,7 @@ impl<T: Config> Pallet<T> {
 
 		let begin = sale.region_end;
 		let price_cap = record.price + config.renewal_bump * record.price;
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 		let price = Self::sale_price(&sale, now).min(price_cap);
 		log::debug!(
 			"Renew with: sale price: {:?}, price cap: {:?}, old price: {:?}",
@@ -569,7 +569,7 @@ impl<T: Config> Pallet<T> {
 
 		Self::ensure_cores_for_sale(&status, &sale)?;
 
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 		Ok(Self::sale_price(&sale, now))
 	}
 }

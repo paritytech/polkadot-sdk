@@ -34,7 +34,7 @@ use sp_runtime::{bounded_btree_map, traits::Zero};
 fn pool_lifecycle_e2e() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Balances::minimum_balance(), 5);
-		assert_eq!(Staking::current_era(), None);
+		assert_eq!(CurrentEra::<T>::get(), None);
 
 		// create the pool, we know this has id 1.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 50, 10, 10, 10));
@@ -286,7 +286,7 @@ fn destroy_pool_with_erroneous_consumer() {
 fn pool_chill_e2e() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Balances::minimum_balance(), 5);
-		assert_eq!(Staking::current_era(), None);
+		assert_eq!(CurrentEra::<T>::get(), None);
 
 		// create the pool, we know this has id 1.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 50, 10, 10, 10));
@@ -413,7 +413,7 @@ fn pool_slash_e2e() {
 	new_test_ext().execute_with(|| {
 		ExistentialDeposit::set(1);
 		assert_eq!(Balances::minimum_balance(), 1);
-		assert_eq!(Staking::current_era(), None);
+		assert_eq!(CurrentEra::<T>::get(), None);
 
 		// create the pool, we know this has id 1.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 40, 10, 10, 10));
@@ -623,7 +623,7 @@ fn pool_slash_proportional() {
 		ExistentialDeposit::set(1);
 		BondingDuration::set(28);
 		assert_eq!(Balances::minimum_balance(), 1);
-		assert_eq!(Staking::current_era(), None);
+		assert_eq!(CurrentEra::<T>::get(), None);
 
 		// create the pool, we know this has id 1.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 40, 10, 10, 10));
@@ -760,7 +760,7 @@ fn pool_slash_non_proportional_only_bonded_pool() {
 		ExistentialDeposit::set(1);
 		BondingDuration::set(28);
 		assert_eq!(Balances::minimum_balance(), 1);
-		assert_eq!(Staking::current_era(), None);
+		assert_eq!(CurrentEra::<T>::get(), None);
 
 		// create the pool, we know this has id 1.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 40, 10, 10, 10));
@@ -839,7 +839,7 @@ fn pool_slash_non_proportional_bonded_pool_and_chunks() {
 		ExistentialDeposit::set(1);
 		BondingDuration::set(28);
 		assert_eq!(Balances::minimum_balance(), 1);
-		assert_eq!(Staking::current_era(), None);
+		assert_eq!(CurrentEra::<T>::get(), None);
 
 		// create the pool, we know this has id 1.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 40, 10, 10, 10));

@@ -6,6 +6,8 @@ description = "Westend testnet Relay Chain runtime."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -42,6 +44,7 @@ sp-version = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-npos-elections = { workspace = true }
+sp-keyring = { workspace = true }
 
 frame-election-provider-support = { workspace = true }
 frame-executive = { workspace = true }
@@ -68,6 +71,7 @@ pallet-identity = { workspace = true }
 pallet-indices = { workspace = true }
 pallet-membership = { workspace = true }
 pallet-message-queue = { workspace = true }
+pallet-migrations = { workspace = true }
 pallet-mmr = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-nomination-pools = { workspace = true }
@@ -168,6 +172,7 @@ std = [
 	"pallet-indices/std",
 	"pallet-membership/std",
 	"pallet-message-queue/std",
+	"pallet-migrations/std",
 	"pallet-mmr/std",
 	"pallet-multisig/std",
 	"pallet-nomination-pools-benchmarking?/std",
@@ -258,6 +263,7 @@ runtime-benchmarks = [
 	"pallet-indices/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
+	"pallet-migrations/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-nomination-pools-benchmarking/runtime-benchmarks",
@@ -276,6 +282,7 @@ runtime-benchmarks = [
 	"pallet-state-trie-migration/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
@@ -291,6 +298,7 @@ runtime-benchmarks = [
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
@@ -319,6 +327,7 @@ try-runtime = [
 	"pallet-indices/try-runtime",
 	"pallet-membership/try-runtime",
 	"pallet-message-queue/try-runtime",
+	"pallet-migrations/try-runtime",
 	"pallet-mmr/try-runtime",
 	"pallet-multisig/try-runtime",
 	"pallet-nomination-pools/try-runtime",

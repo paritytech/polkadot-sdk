@@ -27,13 +27,12 @@ use array_bytes::bytes2hex;
 use futures::{FutureExt, Stream};
 use futures_timer::Delay;
 use ip_network::IpNetwork;
-use libp2p::kad::record::Key as KademliaKey;
 use litep2p::{
 	protocol::{
 		libp2p::{
 			identify::{Config as IdentifyConfig, IdentifyEvent},
 			kademlia::{
-				Config as KademliaConfig, ConfigBuilder as KademliaConfigBuilder,
+				Config as KademliaConfig, ConfigBuilder as KademliaConfigBuilder, ContentProvider,
 				IncomingRecordValidationMode, KademliaEvent, KademliaHandle, QueryId, Quorum,
 				Record, RecordKey, RecordsType,
 			},
@@ -45,6 +44,7 @@ use litep2p::{
 	PeerId, ProtocolName,
 };
 use parking_lot::RwLock;
+use sc_network_types::kad::Key as KademliaKey;
 use schnellru::{ByLength, LruMap};
 
 use std::{
@@ -144,6 +144,14 @@ pub enum DiscoveryEvent {
 		query_id: QueryId,
 	},
 
+	/// Providers were successfully retrieved.
+	GetProvidersSuccess {
+		/// Query ID.
+		query_id: QueryId,
+		/// Found providers sorted by distance to provided key.
+		providers: Vec<ContentProvider>,
+	},
+
 	/// Query failed.
 	QueryFailed {
 		/// Query ID.
@@ -162,6 +170,9 @@ pub enum DiscoveryEvent {
 
 /// Discovery.
 pub struct Discovery {
+	/// Local peer ID.
+	local_peer_id: litep2p::PeerId,
+
 	/// Ping event stream.
 	ping_event_stream: Box<dyn Stream<Item = PingEvent> + Send + Unpin>,
 
@@ -233,6 +244,7 @@ impl Discovery {
 	/// Enables `/ipfs/ping/1.0.0` and `/ipfs/identify/1.0.0` by default and starts
 	/// the mDNS peer discovery if it was enabled.
 	pub fn new<Hash: AsRef<[u8]> + Clone>(
+		local_peer_id: litep2p::PeerId,
 		config: &NetworkConfiguration,
 		genesis_hash: Hash,
 		fork_id: Option<&str>,
@@ -273,6 +285,7 @@ impl Discovery {
 
 		(
 			Self {
+				local_peer_id,
 				ping_event_stream,
 				identify_event_stream,
 				mdns_event_stream,
@@ -400,6 +413,21 @@ impl Discovery {
 				expires,
 			})
 			.await;
+	}
+
+	/// Start providing `key`.
+	pub async fn start_providing(&mut self, key: KademliaKey) {
+		self.kademlia_handle.start_providing(key.into()).await;
+	}
+
+	/// Stop providing `key`.
+	pub async fn stop_providing(&mut self, key: KademliaKey) {
+		self.kademlia_handle.stop_providing(key.into()).await;
+	}
+
+	/// Get providers for `key`.
+	pub async fn get_providers(&mut self, key: KademliaKey) -> QueryId {
+		self.kademlia_handle.get_providers(key.into()).await
 	}
 
 	/// Check if the observed address is a known address.
@@ -553,7 +581,7 @@ impl Stream for Discovery {
 
 				return Poll::Ready(Some(DiscoveryEvent::GetRecordSuccess { query_id, records }));
 			},
-			Poll::Ready(Some(KademliaEvent::PutRecordSucess { query_id, key: _ })) =>
+			Poll::Ready(Some(KademliaEvent::PutRecordSuccess { query_id, key: _ })) =>
 				return Poll::Ready(Some(DiscoveryEvent::PutRecordSuccess { query_id })),
 			Poll::Ready(Some(KademliaEvent::QueryFailed { query_id })) => {
 				match this.find_node_query_id == Some(query_id) {
@@ -576,6 +604,23 @@ impl Stream for Discovery {
 
 				return Poll::Ready(Some(DiscoveryEvent::IncomingRecord { record }))
 			},
+			Poll::Ready(Some(KademliaEvent::GetProvidersSuccess {
+				provided_key,
+				providers,
+				query_id,
+			})) => {
+				log::trace!(
+					target: LOG_TARGET,
+					"`GET_PROVIDERS` for {query_id:?} with {provided_key:?} yielded {providers:?}",
+				);
+
+				return Poll::Ready(Some(DiscoveryEvent::GetProvidersSuccess {
+					query_id,
+					providers,
+				}))
+			},
+			// We do not validate incoming providers.
+			Poll::Ready(Some(KademliaEvent::IncomingProvider { .. })) => {},
 		}
 
 		match Pin::new(&mut this.identify_event_stream).poll_next(cx) {
@@ -588,24 +633,43 @@ impl Stream for Discovery {
 				observed_address,
 				..
 			})) => {
-				let (is_new, expired_address) =
-					this.is_new_external_address(&observed_address, peer);
+				let observed_address =
+					if let Some(Protocol::P2p(peer_id)) = observed_address.iter().last() {
+						if peer_id != *this.local_peer_id.as_ref() {
+							log::warn!(
+								target: LOG_TARGET,
+								"Discovered external address for a peer that is not us: {observed_address}",
+							);
+							None
+						} else {
+							Some(observed_address)
+						}
+					} else {
+						Some(observed_address.with(Protocol::P2p(this.local_peer_id.into())))
+					};
 
-				if let Some(expired_address) = expired_address {
-					log::trace!(
-						target: LOG_TARGET,
-						"Removing expired external address expired={expired_address} is_new={is_new} observed={observed_address}",
-					);
+				// Ensure that an external address with a different peer ID does not have
+				// side effects of evicting other external addresses via `ExternalAddressExpired`.
+				if let Some(observed_address) = observed_address {
+					let (is_new, expired_address) =
+						this.is_new_external_address(&observed_address, peer);
 
-					this.pending_events.push_back(DiscoveryEvent::ExternalAddressExpired {
-						address: expired_address,
-					});
-				}
+					if let Some(expired_address) = expired_address {
+						log::trace!(
+							target: LOG_TARGET,
+							"Removing expired external address expired={expired_address} is_new={is_new} observed={observed_address}",
+						);
 
-				if is_new {
-					this.pending_events.push_back(DiscoveryEvent::ExternalAddressDiscovered {
-						address: observed_address.clone(),
-					});
+						this.pending_events.push_back(DiscoveryEvent::ExternalAddressExpired {
+							address: expired_address,
+						});
+					}
+
+					if is_new {
+						this.pending_events.push_back(DiscoveryEvent::ExternalAddressDiscovered {
+							address: observed_address.clone(),
+						});
+					}
 				}
 
 				return Poll::Ready(Some(DiscoveryEvent::Identified {
