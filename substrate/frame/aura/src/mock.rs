@@ -20,18 +20,13 @@
 #![cfg(test)]
 
 use crate as pallet_aura;
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64, DisabledValidators},
-};
-use sp_consensus_aura::{ed25519::AuthorityId, AuthorityIndex};
-use sp_runtime::{testing::UintAuthorityId, BuildStorage};
+use frame::testing_prelude::*;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
 const SLOT_DURATION: u64 = 2;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -69,7 +64,7 @@ impl MockDisabledValidators {
 	}
 }
 
-impl DisabledValidators for MockDisabledValidators {
+impl crate::DisabledValidators for MockDisabledValidators {
 	fn is_disabled(index: AuthorityIndex) -> bool {
 		DisabledValidatorTestValue::get().binary_search(&index).is_ok()
 	}
@@ -87,7 +82,7 @@ impl pallet_aura::Config for Test {
 	type SlotDuration = ConstU64<SLOT_DURATION>;
 }
 
-fn build_ext(authorities: Vec<u64>) -> sp_io::TestExternalities {
+fn build_ext(authorities: Vec<u64>) -> TestExternalities {
 	let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_aura::GenesisConfig::<Test> {
 		authorities: authorities.into_iter().map(|a| UintAuthorityId(a).to_public_key()).collect(),
