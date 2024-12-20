@@ -47,6 +47,7 @@ decl_test_parachains! {
 			PolkadotXcm: bridge_hub_westend_runtime::PolkadotXcm,
 			Balances: bridge_hub_westend_runtime::Balances,
 			EthereumSystem: bridge_hub_westend_runtime::EthereumSystem,
+			BridgeRelayers: bridge_hub_westend_runtime::BridgeRelayers,
 		}
 	},
 }
