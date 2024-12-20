@@ -3508,12 +3508,11 @@ async fn launch_approval<
 							"Data unavailable for candidate {:?}",
 							(candidate_hash, candidate.descriptor.para_id()),
 						);
-						let retry_back_off = APPROVAL_CHECKING_TIMEOUT / 2;
 						// Availability could fail if we did not discover much of the network, so
 						// let's back off and order the subsystem to retry at a later point if the
 						// approval is still needed, because no-show wasn't covered yet.
 						if retry.attempts_remaining > 0 {
-							Delay::new(retry_back_off).await;
+							Delay::new(retry.backoff).await;
 							next_retry = Some(RetryApprovalInfo {
 								candidate,
 								backing_group,
