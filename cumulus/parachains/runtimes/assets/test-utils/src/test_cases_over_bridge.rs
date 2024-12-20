@@ -571,6 +571,7 @@ pub fn update_bridge_status_from_xcm_bridge_router_works<
 				);
 				assert_ok!(outcome.ensure_complete());
 
+				// TODO:revert-for-depracated-new
 				// check after
 				let bridge_state = pallet_xcm_bridge_hub_router::Bridges::<
 					Runtime,
@@ -579,6 +580,9 @@ pub fn update_bridge_status_from_xcm_bridge_router_works<
 				let is_congested_after = bridge_state.map(|bs| bs.is_congested).unwrap_or(false);
 				assert_eq!(is_congested_after, is_congested);
 				assert_ne!(is_congested_after, is_congested_before,);
+
+				// TODO:revert-for-depracated-old
+				// assert_eq!(is_congested, pallet_xcm_bridge_hub_router::Pallet::<Runtime, XcmBridgeHubRouterInstance>::bridge().is_congested);
 			};
 
 			update_bridge_status(true);

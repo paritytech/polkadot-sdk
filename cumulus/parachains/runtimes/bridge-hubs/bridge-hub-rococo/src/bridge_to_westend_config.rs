@@ -136,7 +136,11 @@ impl Convert<Vec<u8>, Xcm<()>> for UpdateBridgeStatusXcmProvider {
 	fn convert(encoded_call: Vec<u8>) -> Xcm<()> {
 		Xcm(vec![
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-			Transact { origin_kind: OriginKind::Xcm, call: encoded_call.into() },
+			Transact {
+				origin_kind: OriginKind::Xcm,
+				fallback_max_weight: Some(bp_asset_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get()),
+				call: encoded_call.into()
+			},
 			ExpectTransactStatus(MaybeErrorCode::Success),
 		])
 	}
@@ -171,6 +175,7 @@ impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubWestendInstance> for Runtime 
 	type AllowWithoutBridgeDeposit =
 		RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>;
 
+	// TODO:revert-for-depracated-new
 	// This pallet is deployed on BH, so we expect a remote router with `ExportMessage`. We handle
 	// congestion with XCM using `update_bridge_status` sent to the sending chain. (congestion with
 	// local sending chain)
@@ -194,7 +199,48 @@ impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubWestendInstance> for Runtime 
 		cumulus_pallet_xcmp_queue::bridging::OutXcmpChannelStatusProvider<Runtime>,
 	>;
 	type CongestionLimits = ();
+
+	// TODO:revert-for-depracated-old
+	// type LocalXcmChannelManager = CongestionManager;
+	// type BlobDispatcher = FromWestendMessageBlobDispatcher;
 }
+
+// TODO:revert-for-depracated-old
+// /// Implementation of `bp_xcm_bridge_hub::LocalXcmChannelManager` for congestion management.
+// pub struct CongestionManager;
+// impl pallet_xcm_bridge_hub::LocalXcmChannelManager for CongestionManager {
+// 	type Error = SendError;
+//
+// 	fn is_congested(with: &Location) -> bool {
+// 		// This is used to check the inbound bridge queue/messages to determine if they can be
+// 		// dispatched and sent to the sibling parachain. Therefore, checking outbound `XcmpQueue`
+// 		// is sufficient here.
+// 		use bp_xcm_bridge_hub_router::XcmChannelStatusProvider;
+// 		cumulus_pallet_xcmp_queue::bridging::OutXcmpChannelStatusProvider::<Runtime>::is_congested(
+// 			with,
+// 		)
+// 	}
+//
+// 	fn suspend_bridge(local_origin: &Location, bridge: BridgeId) -> Result<(), Self::Error> {
+// 		// This bridge is intended for AH<>AH communication with a hard-coded/static lane,
+// 		// so `local_origin` is expected to represent only the local AH.
+// 		send_xcm::<XcmpQueue>(
+// 			local_origin.clone(),
+// 			bp_asset_hub_rococo::build_congestion_message(bridge.inner(), true).into(),
+// 		)
+// 		.map(|_| ())
+// 	}
+//
+// 	fn resume_bridge(local_origin: &Location, bridge: BridgeId) -> Result<(), Self::Error> {
+// 		// This bridge is intended for AH<>AH communication with a hard-coded/static lane,
+// 		// so `local_origin` is expected to represent only the local AH.
+// 		send_xcm::<XcmpQueue>(
+// 			local_origin.clone(),
+// 			bp_asset_hub_rococo::build_congestion_message(bridge.inner(), false).into(),
+// 		)
+// 		.map(|_| ())
+// 	}
+// }
 
 #[cfg(test)]
 mod tests {

@@ -1244,6 +1244,62 @@ mod asset_hub_rococo_tests {
 	}
 
 	#[test]
+	fn update_bridge_status_from_xcm_bridge_router_for_westend_works() {
+		asset_test_utils::test_cases_over_bridge::update_bridge_status_from_xcm_bridge_router_works::<
+			Runtime,
+			AllPalletsWithoutSystem,
+			XcmConfig,
+			LocationToAccountId,
+			ToWestendXcmRouterInstance,
+		>(
+			collator_session_keys(),
+			bridging_to_asset_hub_westend,
+			|bridge_id, is_congested| bp_asset_hub_rococo::build_congestion_message(bridge_id.inner(), is_congested).into(),
+		)
+	}
+
+	#[test]
+	fn test_report_bridge_status_call_compatibility() {
+		let bridge_id = bp_xcm_bridge_hub::BridgeId::new(
+			&InteriorLocation::from([GlobalConsensus(ByGenesis([0; 32]))]),
+			&InteriorLocation::from([GlobalConsensus(ByGenesis([1; 32]))]),
+		);
+
+		// if this test fails, make sure `bp_asset_hub_rococo` has valid encoding
+		assert_eq!(
+			RuntimeCall::ToWestendXcmRouter(
+				pallet_xcm_bridge_hub_router::Call::update_bridge_status {
+					bridge_id: bridge_id.clone(),
+					is_congested: true,
+				}
+			)
+			.encode(),
+			bp_asset_hub_rococo::Call::ToWestendXcmRouter(
+				bp_asset_hub_rococo::XcmBridgeHubRouterCall::report_bridge_status {
+					bridge_id: bridge_id.inner(),
+					is_congested: true,
+				}
+			)
+			.encode()
+		);
+	}
+
+	#[test]
+	fn check_sane_weight_report_bridge_status_for_westend() {
+		use pallet_xcm_bridge_hub_router::WeightInfo;
+		let actual = <Runtime as pallet_xcm_bridge_hub_router::Config<
+			ToWestendXcmRouterInstance,
+		>>::WeightInfo::update_bridge_status();
+		let max_weight = bp_asset_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get();
+		assert!(
+			actual.all_lte(max_weight),
+			"max_weight: {:?} should be adjusted to actual {:?}",
+			max_weight,
+			actual
+		);
+	}
+
+	#[test]
 	fn reserve_transfer_native_asset_to_non_teleport_para_works() {
 		asset_test_utils::test_cases::reserve_transfer_native_asset_to_non_teleport_para_works::<
 			Runtime,
@@ -1271,34 +1327,6 @@ mod asset_hub_rococo_tests {
 			}),
 			WeightLimit::Unlimited,
 		);
-	}
-
-	#[test]
-	fn update_bridge_status_from_xcm_bridge_router_for_rococo_works() {
-		asset_test_utils::test_cases_over_bridge::update_bridge_status_from_xcm_bridge_router_works::<
-			Runtime,
-			AllPalletsWithoutSystem,
-			XcmConfig,
-			LocationToAccountId,
-			ToWestendXcmRouterInstance,
-		>(collator_session_keys(), bridging_to_asset_hub_westend, |bridge_id, is_congested| {
-			vec![
-				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-				Transact {
-					origin_kind: OriginKind::Xcm,
-					call: RuntimeCall::ToWestendXcmRouter(
-						pallet_xcm_bridge_hub_router::Call::update_bridge_status {
-							bridge_id,
-							is_congested,
-						},
-					)
-					.encode()
-					.into(),
-				},
-				ExpectTransactStatus(MaybeErrorCode::Success),
-			]
-			.into()
-		})
 	}
 }
 

@@ -249,7 +249,7 @@ impl crate::benchmarking::Config<()> for TestRuntime {
 /// the `MessageExporter`. This means that the router sends an `ExportMessage`.
 pub type XcmOverBridgeWrappedWithExportMessageRouterInstance = ();
 #[derive_impl(pallet_xcm_bridge_hub_router::config_preludes::TestDefaultConfig)]
-impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
+impl pallet_xcm_bridge_hub_router::Config<XcmOverBridgeWrappedWithExportMessageRouterInstance> for TestRuntime {
 	// We use `SovereignPaidRemoteExporter` here to test and ensure that the `ExportMessage`
 	// produced by `pallet_xcm_bridge_hub_router` is compatible with the `ExportXcm` implementation
 	// of `pallet_xcm_bridge_hub`.
@@ -512,10 +512,10 @@ pub struct TestingLocalXcmChannelManager<Bridge, Tested>(PhantomData<(Bridge, Te
 
 impl<Bridge: Encode + sp_std::fmt::Debug, Tested> TestingLocalXcmChannelManager<Bridge, Tested> {
 	fn suspended_key(bridge: &Bridge) -> Vec<u8> {
-		[b"SwitchedLocalXcmChannelManager.Suspended", bridge.encode().as_slice()].concat()
+		[b"TestingLocalXcmChannelManager.Suspended", bridge.encode().as_slice()].concat()
 	}
 	fn resumed_key(bridge: &Bridge) -> Vec<u8> {
-		[b"SwitchedLocalXcmChannelManager.Resumed", bridge.encode().as_slice()].concat()
+		[b"TestingLocalXcmChannelManager.Resumed", bridge.encode().as_slice()].concat()
 	}
 
 	pub fn is_bridge_suspened(bridge: &Bridge) -> bool {
@@ -559,7 +559,11 @@ impl Convert<Vec<u8>, Xcm<()>> for UpdateBridgeStatusXcmProvider {
 	fn convert(encoded_call: Vec<u8>) -> Xcm<()> {
 		Xcm(vec![
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-			Transact { origin_kind: OriginKind::Xcm, call: encoded_call.into() },
+			Transact {
+				origin_kind: OriginKind::Xcm,
+				fallback_max_weight: Some(Weight::from_parts(200_000_000, 6144)),
+				call: encoded_call.into()
+			},
 			ExpectTransactStatus(MaybeErrorCode::Success),
 		])
 	}

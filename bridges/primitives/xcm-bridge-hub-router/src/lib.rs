@@ -63,3 +63,13 @@ impl ResolveBridgeId for () {
 		None
 	}
 }
+
+// TODO:revert-for-depracated: BridgeId->H256
+/// A minimized version of `pallet-xcm-bridge-hub-router::Call` that can be used without a runtime.
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
+#[allow(non_camel_case_types)]
+pub enum XcmBridgeHubRouterCall<BridgeId> {
+	/// `pallet-xcm-bridge-hub-router::Call::report_bridge_status`
+	#[codec(index = 0)]
+	report_bridge_status { bridge_id: BridgeId, is_congested: bool },
+}

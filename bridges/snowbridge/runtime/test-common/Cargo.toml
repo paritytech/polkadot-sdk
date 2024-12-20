@@ -6,6 +6,8 @@ authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
 license = "Apache-2.0"
 categories = ["cryptography::cryptocurrencies"]
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -90,5 +92,6 @@ runtime-benchmarks = [
 	"snowbridge-pallet-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 fast-runtime = []

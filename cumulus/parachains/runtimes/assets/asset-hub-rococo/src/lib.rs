@@ -934,6 +934,7 @@ impl pallet_xcm_bridge_hub_router::Config<ToWestendXcmRouterInstance> for Runtim
 
 	type DestinationVersion = PolkadotXcm;
 
+	// TODO:revert-for-depracated-new
 	// Let's use `SovereignPaidRemoteExporter`, which sends `ExportMessage` over HRMP to the sibling
 	// BridgeHub.
 	type ToBridgeHubSender = SovereignPaidRemoteExporter<
@@ -957,6 +958,15 @@ impl pallet_xcm_bridge_hub_router::Config<ToWestendXcmRouterInstance> for Runtim
 	// For congestion - allow only calls from BH.
 	type BridgeHubOrigin =
 		AsEnsureOriginWithArg<EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>>;
+
+	// TODO:revert-for-depracated-old
+	// type BridgeHubOrigin = frame_support::traits::EitherOfDiverse<
+	// 	EnsureRoot<AccountId>,
+	// 	EnsureXcm<Equals<Self::SiblingBridgeHubLocation>>,
+	// >;
+	// type ToBridgeHubSender = XcmpQueue;
+	// type LocalXcmChannelManager =
+	// 	cumulus_pallet_xcmp_queue::bridging::InAndOutXcmpChannelStatusProvider<Runtime>;
 
 	// For adding message size fees
 	type ByteFee = xcm_config::bridging::XcmBridgeHubRouterByteFee;

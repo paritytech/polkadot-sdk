@@ -21,7 +21,7 @@ codec = { features = [
 ], optional = true, workspace = true }
 
 [package.metadata.docs.rs]
-default-target = ["wasm32-unknown-unknown"]
+targets = ["wasm32-unknown-unknown"]
 
 [features]
 default = ["scale"]

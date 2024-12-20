@@ -814,6 +814,9 @@ mod tests {
 				>,
 			>(dest.clone(), Xcm::<()>::default()));
 
+			// we need to set `UniversalLocation` for `sibling_parachain_origin` for
+			// `XcmOverBridgeWrappedWithExportMessageRouterInstance`.
+			ExportMessageOriginUniversalLocation::set(Some(SiblingUniversalLocation::get()));
 			// send `ExportMessage(message)` by `pallet_xcm_bridge_hub_router`.
 			ExecuteXcmOverSendXcm::set_origin_for_execute(origin_as_location);
 			assert_ok!(send_xcm::<XcmOverBridgeWrappedWithExportMessageRouter>(
