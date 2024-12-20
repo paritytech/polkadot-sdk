@@ -748,7 +748,7 @@ impl pallet_staking::Config for Runtime {
 	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy;
 	type MaxInvulnerables = ConstU32<20>;
 	type MaxRewardPagesPerValidator = ConstU32<20>;
-	type MaxValidatorsCount = ConstU32<300>;
+	type MaxValidatorsCount = MaxAuthorities;
 	type MaxDisabledValidators = ConstU32<100>;
 }
 
@@ -1485,7 +1485,7 @@ parameter_types! {
 	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
 	/// We prioritize im-online heartbeats over election solution submission.
 	pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
-	pub const MaxAuthorities: u32 = 100;
+	pub const MaxAuthorities: u32 = 300;
 	pub const MaxKeys: u32 = 10_000;
 	pub const MaxPeerInHeartbeats: u32 = 10_000;
 }

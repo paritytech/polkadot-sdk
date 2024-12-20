@@ -346,6 +346,7 @@ parameter_types! {
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 	pub const MaxExposurePageSize: u32 = 64;
 	pub const MaxNominators: u32 = 256;
+	// This corresponds to the maximum number of validators
 	pub const MaxAuthorities: u32 = 100_000;
 	pub const OnChainMaxWinners: u32 = u32::MAX;
 	// Unbounded number of election targets and voters.
@@ -400,7 +401,7 @@ impl pallet_staking::Config for Runtime {
 	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy;
 	type MaxInvulnerables = ConstU32<20>;
 	type MaxRewardPagesPerValidator = ConstU32<20>;
-	type MaxValidatorsCount = ConstU32<300>;
+	type MaxValidatorsCount = MaxAuthorities;
 	type MaxDisabledValidators = ConstU32<100>;
 }
 
