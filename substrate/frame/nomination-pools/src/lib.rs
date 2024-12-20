@@ -1740,6 +1740,16 @@ pub mod pallet {
 	pub type ClaimPermissions<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, ClaimPermission, ValueQuery>;
 
+	#[pallet::view_functions]
+	impl<T: Config> Pallet<T> {
+		/// Provide bonded account and reward account for nomination pool.
+		pub fn pool_accountss(pool_id: PoolId) -> (T::AccountId, T::AccountId) {
+			let bonded_account = Self::generate_bonded_account(pool_id);
+			let reward_account = Self::generate_reward_account(pool_id);
+			(bonded_account, reward_account)
+		}
+	}
+
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		pub min_join_bond: BalanceOf<T>,
@@ -4070,15 +4080,5 @@ impl<T: Config> sp_staking::OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pall
 				tvl.saturating_reduce(amount);
 			});
 		}
-	}
-}
-
-#[pallet::view_functions]
-impl<T: Config> Pallet<T> {
-	/// Provide bonded account and reward account for nomination pool.
-	pub fn pool_accounts(pool_id: PoolId) -> (T::AccountId, T::AccountId) {
-		let bonded_account = Self::generate_bonded_account(pool_id);
-		let reward_account = Self::generate_reward_account(pool_id);
-		(bonded_account, reward_account)
 	}
 }
