@@ -766,7 +766,7 @@ type Migrations = (
 	>,
 );
 
-// Helpers for core fellowship pallet migration.
+// Helpers for the core fellowship pallet v1->v2 storage migration.
 use sp_runtime::traits::BlockNumberProvider;
 type CoreFellowshipLocalBlockNumber = <System as BlockNumberProvider>::BlockNumber;
 type CoreFellowshipNewBlockNumber = <cumulus_pallet_parachain_system::RelaychainDataProvider<Runtime> as BlockNumberProvider>::BlockNumber;
@@ -777,9 +777,8 @@ impl
 	CoreFellowshipNewBlockNumber	
 	> for BlockNumberConverter
 {
-	/// Convert the duration since local block to equivalent relay duration then substract that
-	/// from current relay block number as this should be the new starting point for any 
-	/// block timestamps previously set.
+	/// The equivalent moment in time from the perspective of the relay chain, starting from a
+	/// local moment in time (system block number)
 	fn equivalent_moment_in_time(local: CoreFellowshipLocalBlockNumber) -> CoreFellowshipNewBlockNumber {
 		let block_number = System::block_number();
 		let local_duration = block_number.saturating_sub(local);
@@ -788,8 +787,9 @@ impl
 		relay_block_number.saturating_sub(relay_duration)
 	}
 
-	/// Identity function, as blocks blocks on westend relay and westend collectives are
-	/// both currently 6s
+	/// The equivalent duration from the perspective of the relay chain, starting from
+	/// a local duration (number of block). Identity function for Westend, since both
+	/// relay and collectives chain run 6s block times
 	fn equivalent_block_duration(local: CoreFellowshipLocalBlockNumber) -> CoreFellowshipNewBlockNumber {
 		local
 	}

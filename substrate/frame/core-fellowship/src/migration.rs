@@ -123,19 +123,19 @@ pub mod v2 {
 	use crate::BlockNumberFor as NewBlockNumberFor;
 	use frame_system::pallet_prelude::BlockNumberFor as LocalBlockNumberFor;
 
-	/// Helper for migration. Converts old (local) block number into the new one. May be identity functions
+	/// Converts previous (local) block number into the new one. May just be identity functions
 	/// if sticking with local block number as the provider.
 	pub trait ConvertBlockNumber<L, N> {
 		/// Converts to the new type and finds the equivalent moment in time as relative to the new block provider
 		///
 		/// For instance - if your new version uses the relay chain number, you'll want to 
-		/// use relay current - ((current local - local) * 2) (if local 6s and relay 12s) 
+		/// use relay current - ((current local - local) * equivalent_block_duration)
 		fn equivalent_moment_in_time(local: L) -> N;
 
 		/// Returns the equivalent time duration as the previous type when represented as the new type
 		///
 		/// For instance - If you previously had 12s blocks and are now following the relay chain's 6,
-		/// values should be 2x the old to achieve the same duration in time
+		/// one local block is equivalent to 2 relay blocks in duration
 		fn equivalent_block_duration(local: L) -> N;
 	}
 
