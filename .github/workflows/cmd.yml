@@ -410,34 +410,72 @@ jobs:
 
       - name: Commit changes
         run: |
+          # Allow some time for token propagation
           sleep 5
+          
           if [ -n "$(git status --porcelain)" ]; then
             git config --global user.name command-bot
             git config --global user.email "<>"
             git config --global pull.rebase false
 
-            # Push the results to the target branch
-            git remote add \
-              github \
-              "https://x-access-token:${{ steps.generate_token_commit.outputs.token }}@github.com/${{ needs.get-pr-branch.outputs.repo }}.git" || :
-
-            push_changes() {
-              git push github "HEAD:${{ needs.get-pr-branch.outputs.pr-branch }}"
-            }
-
+            TOKEN="${{ steps.generate_token_commit.outputs.token }}"
+            REPO="${{ needs.get-pr-branch.outputs.repo }}"
+            BRANCH="${{ needs.get-pr-branch.outputs.pr-branch }}"
+            
+            # Remove existing remote if any
+            git remote remove github 2>/dev/null || true
+            
+            # Add remote with explicit token
+            git remote add github "https://x-access-token:${TOKEN}@github.com/${REPO}.git"
+            
+            # Stage changes
             git add .
             git restore --staged Cargo.lock # ignore changes in Cargo.lock
-            git commit -m "Update from ${{ github.actor }} running command '${{ steps.get-pr-comment.outputs.group2 }}'" || true
             
-            # Attempt to push changes
-            if ! push_changes; then
-              echo "Push failed, trying to rebase..."
-              git pull --rebase github "${{ needs.get-pr-branch.outputs.pr-branch }}"
-              # After successful rebase, try pushing again
-              push_changes
+            # Commit changes
+            git commit -m "Update from ${{ github.actor }} running command '${{ steps.get-pr-comment.outputs.group2 }}'" || {
+              echo "No changes to commit"
+              exit 0
+            }
+            
+            # Function to push with retries
+            push_with_retries() {
+              max_attempts=3
+              attempt=1
+              
+              while [ $attempt -le $max_attempts ]; do
+                echo "Push attempt $attempt of $max_attempts"
+                
+                if git push github "HEAD:${BRANCH}"; then
+                  echo "Push successful"
+                  return 0
+                else
+                  echo "Push failed on attempt $attempt"
+                  
+                  if [ $attempt -lt $max_attempts ]; then
+                    echo "Trying to rebase..."
+                    if ! git pull --rebase github "${BRANCH}"; then
+                      echo "Rebase failed, retrying from scratch"
+                      git rebase --abort || true
+                    fi
+                    sleep 5
+                  fi
+                fi
+                
+                attempt=$((attempt + 1))
+              done
+              
+              echo "Failed to push after $max_attempts attempts"
+              return 1
+            }
+            
+            # Attempt the push with retries
+            if ! push_with_retries; then
+              echo "All push attempts failed"
+              exit 1
             fi
           else
-            echo "Nothing to commit";
+            echo "No changes to commit"
           fi
 
       - name: Run Subweight
