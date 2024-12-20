@@ -295,6 +295,7 @@ pub(crate) mod mock;
 #[cfg(test)]
 mod tests;
 
+pub mod asset;
 pub mod election_size_tracker;
 pub mod inflation;
 pub mod ledger;
@@ -995,7 +996,7 @@ impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>
 	for ExposureOf<T>
 {
 	fn convert(validator: T::AccountId) -> Option<Exposure<T::AccountId, BalanceOf<T>>> {
-		<Pallet<T>>::active_era()
+		ActiveEra::<T>::get()
 			.map(|active_era| <Pallet<T>>::eras_stakers(active_era.index, &validator))
 	}
 }
@@ -1325,7 +1326,7 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 			log!(
 				debug,
 				"Won't disable: current_era {:?} > slash_era {:?}",
-				Pallet::<T>::current_era().unwrap_or_default(),
+				CurrentEra::<T>::get().unwrap_or_default(),
 				slash_era
 			);
 			return None

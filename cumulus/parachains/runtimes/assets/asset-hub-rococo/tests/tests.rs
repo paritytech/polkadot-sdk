@@ -21,8 +21,8 @@ use asset_hub_rococo_runtime::{
 	xcm_config,
 	xcm_config::{
 		bridging, AssetFeeAsExistentialDepositMultiplierFeeCharger, CheckingAccount,
-		ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger, ForeignCreatorsSovereignAccountOf,
-		LocationToAccountId, StakingPot, TokenLocation, TrustBackedAssetsPalletLocation, XcmConfig,
+		ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger, LocationToAccountId, StakingPot,
+		TokenLocation, TrustBackedAssetsPalletLocation, XcmConfig,
 	},
 	AllPalletsWithoutSystem, AssetConversion, AssetDeposit, Assets, Balances, CollatorSelection,
 	ExistentialDeposit, ForeignAssets, ForeignAssetsInstance, MetadataDepositBase,
@@ -48,12 +48,14 @@ use frame_support::{
 };
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
+use sp_core::crypto::Ss58Codec;
 use sp_runtime::traits::MaybeEquivalence;
 use std::convert::Into;
 use testnet_parachains_constants::rococo::{consensus::*, currency::UNITS, fee::WeightToFee};
 use xcm::latest::prelude::{Assets as XcmAssets, *};
 use xcm_builder::WithLatestLocationConverter;
 use xcm_executor::traits::{JustTry, WeightTrader};
+use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 const ALICE: [u8; 32] = [1u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
@@ -939,7 +941,7 @@ asset_test_utils::include_teleports_for_foreign_assets_works!(
 	CheckingAccount,
 	WeightToFee,
 	ParachainSystem,
-	ForeignCreatorsSovereignAccountOf,
+	LocationToAccountId,
 	ForeignAssetsInstance,
 	collator_session_keys(),
 	slot_durations(),
@@ -1013,7 +1015,7 @@ asset_test_utils::include_create_and_manage_foreign_assets_for_local_consensus_p
 	Runtime,
 	XcmConfig,
 	WeightToFee,
-	ForeignCreatorsSovereignAccountOf,
+	LocationToAccountId,
 	ForeignAssetsInstance,
 	Location,
 	WithLatestLocationConverter<Location>,
@@ -1076,6 +1078,7 @@ fn limited_reserve_transfer_assets_for_native_asset_over_bridge_works(
 mod asset_hub_rococo_tests {
 	use super::*;
 	use asset_hub_rococo_runtime::PolkadotXcm;
+	use xcm::latest::WESTEND_GENESIS_HASH;
 	use xcm_executor::traits::ConvertLocation;
 
 	fn bridging_to_asset_hub_westend() -> TestBridgingConfig {
@@ -1106,8 +1109,10 @@ mod asset_hub_rococo_tests {
 		let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
 		let staking_pot = StakingPot::get();
 
-		let foreign_asset_id_location =
-			Location::new(2, [Junction::GlobalConsensus(NetworkId::Westend)]);
+		let foreign_asset_id_location = Location::new(
+			2,
+			[Junction::GlobalConsensus(NetworkId::ByGenesis(WESTEND_GENESIS_HASH))],
+		);
 		let foreign_asset_id_minimum_balance = 1_000_000_000;
 		// sovereign account as foreign asset owner (can be whoever for this scenario)
 		let foreign_asset_owner =
@@ -1141,7 +1146,7 @@ mod asset_hub_rococo_tests {
 			},
 			(
 				[PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX)].into(),
-				GlobalConsensus(Westend),
+				GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
 				[Parachain(1000)].into()
 			),
 			|| {
@@ -1180,8 +1185,10 @@ mod asset_hub_rococo_tests {
 		let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
 		let staking_pot = StakingPot::get();
 
-		let foreign_asset_id_location =
-			Location::new(2, [Junction::GlobalConsensus(NetworkId::Westend)]);
+		let foreign_asset_id_location = Location::new(
+			2,
+			[Junction::GlobalConsensus(NetworkId::ByGenesis(WESTEND_GENESIS_HASH))],
+		);
 		let foreign_asset_id_minimum_balance = 1_000_000_000;
 		// sovereign account as foreign asset owner (can be whoever for this scenario)
 		let foreign_asset_owner =
@@ -1208,7 +1215,7 @@ mod asset_hub_rococo_tests {
 			bridging_to_asset_hub_westend,
 			(
 				[PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX)].into(),
-				GlobalConsensus(Westend),
+				GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
 				[Parachain(1000)].into()
 			),
 			|| {
@@ -1354,4 +1361,113 @@ fn change_xcm_bridge_hub_ethereum_base_fee_by_governance_works() {
 			}
 		},
 	)
+}
+
+#[test]
+fn location_conversion_works() {
+	// the purpose of hardcoded values is to catch an unintended location conversion logic change.
+	struct TestCase {
+		description: &'static str,
+		location: Location,
+		expected_account_id_str: &'static str,
+	}
+
+	let test_cases = vec![
+		// DescribeTerminus
+		TestCase {
+			description: "DescribeTerminus Parent",
+			location: Location::new(1, Here),
+			expected_account_id_str: "5Dt6dpkWPwLaH4BBCKJwjiWrFVAGyYk3tLUabvyn4v7KtESG",
+		},
+		TestCase {
+			description: "DescribeTerminus Sibling",
+			location: Location::new(1, [Parachain(1111)]),
+			expected_account_id_str: "5Eg2fnssmmJnF3z1iZ1NouAuzciDaaDQH7qURAy3w15jULDk",
+		},
+		// DescribePalletTerminal
+		TestCase {
+			description: "DescribePalletTerminal Parent",
+			location: Location::new(1, [PalletInstance(50)]),
+			expected_account_id_str: "5CnwemvaAXkWFVwibiCvf2EjqwiqBi29S5cLLydZLEaEw6jZ",
+		},
+		TestCase {
+			description: "DescribePalletTerminal Sibling",
+			location: Location::new(1, [Parachain(1111), PalletInstance(50)]),
+			expected_account_id_str: "5GFBgPjpEQPdaxEnFirUoa51u5erVx84twYxJVuBRAT2UP2g",
+		},
+		// DescribeAccountId32Terminal
+		TestCase {
+			description: "DescribeAccountId32Terminal Parent",
+			location: Location::new(
+				1,
+				[AccountId32 { network: None, id: AccountId::from(ALICE).into() }],
+			),
+			expected_account_id_str: "5DN5SGsuUG7PAqFL47J9meViwdnk9AdeSWKFkcHC45hEzVz4",
+		},
+		TestCase {
+			description: "DescribeAccountId32Terminal Sibling",
+			location: Location::new(
+				1,
+				[
+					Parachain(1111),
+					Junction::AccountId32 { network: None, id: AccountId::from(ALICE).into() },
+				],
+			),
+			expected_account_id_str: "5DGRXLYwWGce7wvm14vX1Ms4Vf118FSWQbJkyQigY2pfm6bg",
+		},
+		// DescribeAccountKey20Terminal
+		TestCase {
+			description: "DescribeAccountKey20Terminal Parent",
+			location: Location::new(1, [AccountKey20 { network: None, key: [0u8; 20] }]),
+			expected_account_id_str: "5F5Ec11567pa919wJkX6VHtv2ZXS5W698YCW35EdEbrg14cg",
+		},
+		TestCase {
+			description: "DescribeAccountKey20Terminal Sibling",
+			location: Location::new(
+				1,
+				[Parachain(1111), AccountKey20 { network: None, key: [0u8; 20] }],
+			),
+			expected_account_id_str: "5CB2FbUds2qvcJNhDiTbRZwiS3trAy6ydFGMSVutmYijpPAg",
+		},
+		// DescribeTreasuryVoiceTerminal
+		TestCase {
+			description: "DescribeTreasuryVoiceTerminal Parent",
+			location: Location::new(1, [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]),
+			expected_account_id_str: "5CUjnE2vgcUCuhxPwFoQ5r7p1DkhujgvMNDHaF2bLqRp4D5F",
+		},
+		TestCase {
+			description: "DescribeTreasuryVoiceTerminal Sibling",
+			location: Location::new(
+				1,
+				[Parachain(1111), Plurality { id: BodyId::Treasury, part: BodyPart::Voice }],
+			),
+			expected_account_id_str: "5G6TDwaVgbWmhqRUKjBhRRnH4ry9L9cjRymUEmiRsLbSE4gB",
+		},
+		// DescribeBodyTerminal
+		TestCase {
+			description: "DescribeBodyTerminal Parent",
+			location: Location::new(1, [Plurality { id: BodyId::Unit, part: BodyPart::Voice }]),
+			expected_account_id_str: "5EBRMTBkDisEXsaN283SRbzx9Xf2PXwUxxFCJohSGo4jYe6B",
+		},
+		TestCase {
+			description: "DescribeBodyTerminal Sibling",
+			location: Location::new(
+				1,
+				[Parachain(1111), Plurality { id: BodyId::Unit, part: BodyPart::Voice }],
+			),
+			expected_account_id_str: "5DBoExvojy8tYnHgLL97phNH975CyT45PWTZEeGoBZfAyRMH",
+		},
+	];
+
+	for tc in test_cases {
+		let expected =
+			AccountId::from_string(tc.expected_account_id_str).expect("Invalid AccountId string");
+
+		let got = LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
+			tc.location.into(),
+		)
+		.unwrap();
+
+		assert_eq!(got, expected, "{}", tc.description);
+	}
 }

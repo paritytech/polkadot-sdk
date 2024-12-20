@@ -23,7 +23,7 @@ use codec::Encode;
 use futures::future::ready;
 use parking_lot::RwLock;
 use sc_transaction_pool::ChainApi;
-use sp_blockchain::{CachedHeaderMetadata, TreeRoute};
+use sp_blockchain::{CachedHeaderMetadata, HashAndNumber, TreeRoute};
 use sp_runtime::{
 	generic::{self, BlockId},
 	traits::{
@@ -34,7 +34,10 @@ use sp_runtime::{
 		ValidTransaction,
 	},
 };
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::{
+	collections::{BTreeMap, HashMap, HashSet},
+	sync::Arc,
+};
 use substrate_test_runtime_client::{
 	runtime::{
 		AccountId, Block, BlockNumber, Extrinsic, ExtrinsicBuilder, Hash, Header, Nonce, Transfer,
@@ -46,7 +49,7 @@ use substrate_test_runtime_client::{
 /// Error type used by [`TestApi`].
 #[derive(Debug, thiserror::Error)]
 #[error(transparent)]
-pub struct Error(#[from] sc_transaction_pool_api::error::Error);
+pub struct Error(#[from] pub sc_transaction_pool_api::error::Error);
 
 impl sc_transaction_pool_api::error::IntoPoolError for Error {
 	fn into_pool_error(self) -> Result<sc_transaction_pool_api::error::Error, Self> {
@@ -79,7 +82,7 @@ impl From<bool> for IsBestBlock {
 pub struct ChainState {
 	pub block_by_number: BTreeMap<BlockNumber, Vec<(Block, IsBestBlock)>>,
 	pub block_by_hash: HashMap<Hash, Block>,
-	pub nonces: HashMap<AccountId, u64>,
+	pub nonces: HashMap<Hash, HashMap<AccountId, u64>>,
 	pub invalid_hashes: HashSet<Hash>,
 	pub priorities: HashMap<Hash, u64>,
 }
@@ -89,14 +92,22 @@ pub struct TestApi {
 	valid_modifier: RwLock<Box<dyn Fn(&mut ValidTransaction) + Send + Sync>>,
 	chain: RwLock<ChainState>,
 	validation_requests: RwLock<Vec<Extrinsic>>,
+	enable_stale_check: bool,
 }
 
 impl TestApi {
 	/// Test Api with Alice nonce set initially.
 	pub fn with_alice_nonce(nonce: u64) -> Self {
 		let api = Self::empty();
+		assert_eq!(api.chain.read().block_by_hash.len(), 1);
+		assert_eq!(api.chain.read().nonces.len(), 1);
 
-		api.chain.write().nonces.insert(Alice.into(), nonce);
+		api.chain
+			.write()
+			.nonces
+			.values_mut()
+			.nth(0)
+			.map(|h| h.insert(Alice.into(), nonce));
 
 		api
 	}
@@ -107,12 +118,21 @@ impl TestApi {
 			valid_modifier: RwLock::new(Box::new(|_| {})),
 			chain: Default::default(),
 			validation_requests: RwLock::new(Default::default()),
+			enable_stale_check: false,
 		};
 
 		// Push genesis block
 		api.push_block(0, Vec::new(), true);
 
+		let hash0 = *api.chain.read().block_by_hash.keys().nth(0).unwrap();
+		api.chain.write().nonces.insert(hash0, Default::default());
+
 		api
+	}
+
+	pub fn enable_stale_check(mut self) -> Self {
+		self.enable_stale_check = true;
+		self
 	}
 
 	/// Set hook on modify valid result of transaction.
@@ -184,6 +204,24 @@ impl TestApi {
 		let mut chain = self.chain.write();
 		chain.block_by_hash.insert(hash, block.clone());
 
+		if *block_number > 0 {
+			// copy nonces to new block
+			let prev_nonces = chain
+				.nonces
+				.get(block.header.parent_hash())
+				.expect("there shall be nonces for parent block")
+				.clone();
+			chain.nonces.insert(hash, prev_nonces);
+		}
+
+		log::info!(
+			"add_block: {:?} {:?} {:?} nonces:{:#?}",
+			block_number,
+			hash,
+			block.header.parent_hash(),
+			chain.nonces
+		);
+
 		if is_best_block {
 			chain
 				.block_by_number
@@ -241,10 +279,33 @@ impl TestApi {
 		&self.chain
 	}
 
+	/// Set nonce in the inner state for given block.
+	pub fn set_nonce(&self, at: Hash, account: AccountId, nonce: u64) {
+		let mut chain = self.chain.write();
+		chain.nonces.entry(at).and_modify(|h| {
+			h.insert(account, nonce);
+		});
+
+		log::debug!("set_nonce: {:?} nonces:{:#?}", at, chain.nonces);
+	}
+
+	/// Increment nonce in the inner state for given block.
+	pub fn increment_nonce_at_block(&self, at: Hash, account: AccountId) {
+		let mut chain = self.chain.write();
+		chain.nonces.entry(at).and_modify(|h| {
+			h.entry(account).and_modify(|n| *n += 1).or_insert(1);
+		});
+
+		log::debug!("increment_nonce_at_block: {:?} nonces:{:#?}", at, chain.nonces);
+	}
+
 	/// Increment nonce in the inner state.
 	pub fn increment_nonce(&self, account: AccountId) {
 		let mut chain = self.chain.write();
-		chain.nonces.entry(account).and_modify(|n| *n += 1).or_insert(1);
+		// if no particular block was given, then update nonce everywhere
+		chain.nonces.values_mut().for_each(|h| {
+			h.entry(account).and_modify(|n| *n += 1).or_insert(1);
+		})
 	}
 
 	/// Calculate a tree route between the two given blocks.
@@ -260,6 +321,26 @@ impl TestApi {
 	pub fn expect_hash_from_number(&self, n: BlockNumber) -> Hash {
 		self.block_id_to_hash(&BlockId::Number(n)).unwrap().unwrap()
 	}
+
+	/// Helper function for getting genesis hash
+	pub fn genesis_hash(&self) -> Hash {
+		self.expect_hash_from_number(0)
+	}
+
+	pub fn expect_hash_and_number(&self, n: BlockNumber) -> HashAndNumber<Block> {
+		HashAndNumber { hash: self.expect_hash_from_number(n), number: n }
+	}
+}
+
+trait TagFrom {
+	fn tag_from(&self) -> u8;
+}
+
+impl TagFrom for AccountId {
+	fn tag_from(&self) -> u8 {
+		let f = AccountKeyring::iter().enumerate().find(|k| AccountId::from(k.1) == *self);
+		u8::try_from(f.unwrap().0).unwrap()
+	}
 }
 
 impl ChainApi for TestApi {
@@ -272,9 +353,11 @@ impl ChainApi for TestApi {
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		_source: TransactionSource,
-		uxt: <Self::Block as BlockT>::Extrinsic,
+		uxt: Arc<<Self::Block as BlockT>::Extrinsic>,
 	) -> Self::ValidationFuture {
+		let uxt = (*uxt).clone();
 		self.validation_requests.write().push(uxt.clone());
+		let block_number;
 
 		match self.block_id_to_number(&BlockId::Hash(at)) {
 			Ok(Some(number)) => {
@@ -285,6 +368,7 @@ impl ChainApi for TestApi {
 					.get(&number)
 					.map(|blocks| blocks.iter().any(|b| b.1.is_best()))
 					.unwrap_or(false);
+				block_number = Some(number);
 
 				// If there is no best block, we don't know based on which block we should validate
 				// the transaction. (This is not required for this test function, but in real
@@ -303,10 +387,44 @@ impl ChainApi for TestApi {
 		}
 
 		let (requires, provides) = if let Ok(transfer) = TransferData::try_from(&uxt) {
-			let chain_nonce = self.chain.read().nonces.get(&transfer.from).cloned().unwrap_or(0);
-			let requires =
-				if chain_nonce == transfer.nonce { vec![] } else { vec![vec![chain_nonce as u8]] };
-			let provides = vec![vec![transfer.nonce as u8]];
+			let chain_nonce = self
+				.chain
+				.read()
+				.nonces
+				.get(&at)
+				.expect("nonces must be there for every block")
+				.get(&transfer.from)
+				.cloned()
+				.unwrap_or(0);
+			let requires = if chain_nonce == transfer.nonce {
+				vec![]
+			} else {
+				if self.enable_stale_check {
+					vec![vec![transfer.from.tag_from(), (transfer.nonce - 1) as u8]]
+				} else {
+					vec![vec![(transfer.nonce - 1) as u8]]
+				}
+			};
+			let provides = if self.enable_stale_check {
+				vec![vec![transfer.from.tag_from(), transfer.nonce as u8]]
+			} else {
+				vec![vec![transfer.nonce as u8]]
+			};
+
+			log::info!(
+				"test_api::validate_transaction: h:{:?} n:{:?} cn:{:?} tn:{:?} r:{:?} p:{:?}",
+				at,
+				block_number,
+				chain_nonce,
+				transfer.nonce,
+				requires,
+				provides,
+			);
+
+			if self.enable_stale_check && transfer.nonce < chain_nonce {
+				log::info!("test_api::validate_transaction: invalid_transaction(stale)....");
+				return ready(Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Stale))))
+			}
 
 			(requires, provides)
 		} else {
@@ -314,6 +432,7 @@ impl ChainApi for TestApi {
 		};
 
 		if self.chain.read().invalid_hashes.contains(&self.hash_and_length(&uxt).0) {
+			log::info!("test_api::validate_transaction: invalid_transaction....");
 			return ready(Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(0)))))
 		}
 
@@ -329,6 +448,15 @@ impl ChainApi for TestApi {
 		(self.valid_modifier.read())(&mut validity);
 
 		ready(Ok(Ok(validity)))
+	}
+
+	fn validate_transaction_blocking(
+		&self,
+		_at: <Self::Block as BlockT>::Hash,
+		_source: TransactionSource,
+		_uxt: Arc<<Self::Block as BlockT>::Extrinsic>,
+	) -> Result<TransactionValidity, Error> {
+		unimplemented!();
 	}
 
 	fn block_id_to_number(

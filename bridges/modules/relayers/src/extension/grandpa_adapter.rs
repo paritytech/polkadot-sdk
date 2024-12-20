@@ -30,7 +30,7 @@ use pallet_bridge_grandpa::{
 	SubmitFinalityProofHelper,
 };
 use pallet_bridge_messages::{
-	CallSubType as BridgeMessagesCallSubType, Config as BridgeMessagesConfig,
+	CallSubType as BridgeMessagesCallSubType, Config as BridgeMessagesConfig, LaneIdOf,
 };
 use sp_runtime::{
 	traits::{Dispatchable, Get},
@@ -54,6 +54,8 @@ pub struct WithGrandpaChainExtensionConfig<
 	BridgeGrandpaPalletInstance,
 	// instance of BridgedChain `pallet-bridge-messages`, tracked by this extension
 	BridgeMessagesPalletInstance,
+	// instance of `pallet-bridge-relayers`, tracked by this extension
+	BridgeRelayersPalletInstance,
 	// message delivery transaction priority boost for every additional message
 	PriorityBoostPerMessage,
 >(
@@ -63,20 +65,22 @@ pub struct WithGrandpaChainExtensionConfig<
 		BatchCallUnpacker,
 		BridgeGrandpaPalletInstance,
 		BridgeMessagesPalletInstance,
+		BridgeRelayersPalletInstance,
 		PriorityBoostPerMessage,
 	)>,
 );
 
-impl<ID, R, BCU, GI, MI, P> ExtensionConfig
-	for WithGrandpaChainExtensionConfig<ID, R, BCU, GI, MI, P>
+impl<ID, R, BCU, GI, MI, RI, P> ExtensionConfig
+	for WithGrandpaChainExtensionConfig<ID, R, BCU, GI, MI, RI, P>
 where
 	ID: StaticStrProvider,
-	R: BridgeRelayersConfig
+	R: BridgeRelayersConfig<RI>
 		+ BridgeMessagesConfig<MI, BridgedChain = pallet_bridge_grandpa::BridgedChain<R, GI>>
 		+ BridgeGrandpaConfig<GI>,
 	BCU: BatchCallUnpacker<R>,
 	GI: 'static,
 	MI: 'static,
+	RI: 'static,
 	P: Get<TransactionPriority>,
 	R::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
 		+ BridgeGrandpaCallSubtype<R, GI>
@@ -85,14 +89,15 @@ where
 	type IdProvider = ID;
 	type Runtime = R;
 	type BridgeMessagesPalletInstance = MI;
+	type BridgeRelayersPalletInstance = RI;
 	type PriorityBoostPerMessage = P;
-	type Reward = R::Reward;
 	type RemoteGrandpaChainBlockNumber = pallet_bridge_grandpa::BridgedBlockNumber<R, GI>;
+	type LaneId = LaneIdOf<R, Self::BridgeMessagesPalletInstance>;
 
 	fn parse_and_check_for_obsolete_call(
 		call: &R::RuntimeCall,
 	) -> Result<
-		Option<ExtensionCallInfo<Self::RemoteGrandpaChainBlockNumber>>,
+		Option<ExtensionCallInfo<Self::RemoteGrandpaChainBlockNumber, Self::LaneId>>,
 		TransactionValidityError,
 	> {
 		let calls = BCU::unpack(call, 2);
@@ -120,12 +125,12 @@ where
 	}
 
 	fn check_call_result(
-		call_info: &ExtensionCallInfo<Self::RemoteGrandpaChainBlockNumber>,
+		call_info: &ExtensionCallInfo<Self::RemoteGrandpaChainBlockNumber, Self::LaneId>,
 		call_data: &mut ExtensionCallData,
 		relayer: &R::AccountId,
 	) -> bool {
 		verify_submit_finality_proof_succeeded::<Self, GI>(call_info, call_data, relayer) &&
-			verify_messages_call_succeeded::<Self, MI>(call_info, call_data, relayer)
+			verify_messages_call_succeeded::<Self>(call_info, call_data, relayer)
 	}
 }
 
@@ -134,7 +139,7 @@ where
 ///
 /// Only returns false when GRANDPA chain state update call has failed.
 pub(crate) fn verify_submit_finality_proof_succeeded<C, GI>(
-	call_info: &ExtensionCallInfo<C::RemoteGrandpaChainBlockNumber>,
+	call_info: &ExtensionCallInfo<C::RemoteGrandpaChainBlockNumber, C::LaneId>,
 	call_data: &mut ExtensionCallData,
 	relayer: &<C::Runtime as SystemConfig>::AccountId,
 ) -> bool

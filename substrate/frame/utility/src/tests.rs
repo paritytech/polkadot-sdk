@@ -297,7 +297,7 @@ fn as_derivative_handles_weight_refund() {
 		let info = call.get_dispatch_info();
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_ok!(result);
-		assert_eq!(extract_actual_weight(&result, &info), info.weight);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight);
 
 		// Refund weight when ok
 		let inner_call = call_foobar(false, start_weight, Some(end_weight));
@@ -309,7 +309,7 @@ fn as_derivative_handles_weight_refund() {
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_ok!(result);
 		// Diff is refunded
-		assert_eq!(extract_actual_weight(&result, &info), info.weight - diff);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight - diff);
 
 		// Full weight when err
 		let inner_call = call_foobar(true, start_weight, None);
@@ -324,7 +324,7 @@ fn as_derivative_handles_weight_refund() {
 			DispatchErrorWithPostInfo {
 				post_info: PostDispatchInfo {
 					// No weight is refunded
-					actual_weight: Some(info.weight),
+					actual_weight: Some(info.call_weight),
 					pays_fee: Pays::Yes,
 				},
 				error: DispatchError::Other("The cake is a lie."),
@@ -344,7 +344,7 @@ fn as_derivative_handles_weight_refund() {
 			DispatchErrorWithPostInfo {
 				post_info: PostDispatchInfo {
 					// Diff is refunded
-					actual_weight: Some(info.weight - diff),
+					actual_weight: Some(info.call_weight - diff),
 					pays_fee: Pays::Yes,
 				},
 				error: DispatchError::Other("The cake is a lie."),
@@ -457,14 +457,14 @@ fn batch_weight_calculation_doesnt_overflow() {
 		let big_call = RuntimeCall::RootTesting(RootTestingCall::fill_block {
 			ratio: Perbill::from_percent(50),
 		});
-		assert_eq!(big_call.get_dispatch_info().weight, Weight::MAX / 2);
+		assert_eq!(big_call.get_dispatch_info().call_weight, Weight::MAX / 2);
 
 		// 3 * 50% saturates to 100%
 		let batch_call = RuntimeCall::Utility(crate::Call::batch {
 			calls: vec![big_call.clone(), big_call.clone(), big_call.clone()],
 		});
 
-		assert_eq!(batch_call.get_dispatch_info().weight, Weight::MAX);
+		assert_eq!(batch_call.get_dispatch_info().call_weight, Weight::MAX);
 	});
 }
 
@@ -483,7 +483,7 @@ fn batch_handles_weight_refund() {
 		let info = call.get_dispatch_info();
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_ok!(result);
-		assert_eq!(extract_actual_weight(&result, &info), info.weight);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight);
 
 		// Refund weight when ok
 		let inner_call = call_foobar(false, start_weight, Some(end_weight));
@@ -493,7 +493,7 @@ fn batch_handles_weight_refund() {
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_ok!(result);
 		// Diff is refunded
-		assert_eq!(extract_actual_weight(&result, &info), info.weight - diff * batch_len);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight - diff * batch_len);
 
 		// Full weight when err
 		let good_call = call_foobar(false, start_weight, None);
@@ -507,7 +507,7 @@ fn batch_handles_weight_refund() {
 			utility::Event::BatchInterrupted { index: 1, error: DispatchError::Other("") }.into(),
 		);
 		// No weight is refunded
-		assert_eq!(extract_actual_weight(&result, &info), info.weight);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight);
 
 		// Refund weight when err
 		let good_call = call_foobar(false, start_weight, Some(end_weight));
@@ -521,7 +521,7 @@ fn batch_handles_weight_refund() {
 		System::assert_last_event(
 			utility::Event::BatchInterrupted { index: 1, error: DispatchError::Other("") }.into(),
 		);
-		assert_eq!(extract_actual_weight(&result, &info), info.weight - diff * batch_len);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight - diff * batch_len);
 
 		// Partial batch completion
 		let good_call = call_foobar(false, start_weight, Some(end_weight));
@@ -572,7 +572,7 @@ fn batch_all_revert() {
 			DispatchErrorWithPostInfo {
 				post_info: PostDispatchInfo {
 					actual_weight: Some(
-						<Test as Config>::WeightInfo::batch_all(2) + info.weight * 2
+						<Test as Config>::WeightInfo::batch_all(2) + info.call_weight * 2
 					),
 					pays_fee: Pays::Yes
 				},
@@ -599,7 +599,7 @@ fn batch_all_handles_weight_refund() {
 		let info = call.get_dispatch_info();
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_ok!(result);
-		assert_eq!(extract_actual_weight(&result, &info), info.weight);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight);
 
 		// Refund weight when ok
 		let inner_call = call_foobar(false, start_weight, Some(end_weight));
@@ -609,7 +609,7 @@ fn batch_all_handles_weight_refund() {
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_ok!(result);
 		// Diff is refunded
-		assert_eq!(extract_actual_weight(&result, &info), info.weight - diff * batch_len);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight - diff * batch_len);
 
 		// Full weight when err
 		let good_call = call_foobar(false, start_weight, None);
@@ -620,7 +620,7 @@ fn batch_all_handles_weight_refund() {
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_err_ignore_postinfo!(result, "The cake is a lie.");
 		// No weight is refunded
-		assert_eq!(extract_actual_weight(&result, &info), info.weight);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight);
 
 		// Refund weight when err
 		let good_call = call_foobar(false, start_weight, Some(end_weight));
@@ -631,7 +631,7 @@ fn batch_all_handles_weight_refund() {
 		let info = call.get_dispatch_info();
 		let result = call.dispatch(RuntimeOrigin::signed(1));
 		assert_err_ignore_postinfo!(result, "The cake is a lie.");
-		assert_eq!(extract_actual_weight(&result, &info), info.weight - diff * batch_len);
+		assert_eq!(extract_actual_weight(&result, &info), info.call_weight - diff * batch_len);
 
 		// Partial batch completion
 		let good_call = call_foobar(false, start_weight, Some(end_weight));
@@ -665,7 +665,9 @@ fn batch_all_does_not_nest() {
 			Utility::batch_all(RuntimeOrigin::signed(1), vec![batch_all.clone()]),
 			DispatchErrorWithPostInfo {
 				post_info: PostDispatchInfo {
-					actual_weight: Some(<Test as Config>::WeightInfo::batch_all(1) + info.weight),
+					actual_weight: Some(
+						<Test as Config>::WeightInfo::batch_all(1) + info.call_weight
+					),
 					pays_fee: Pays::Yes
 				},
 				error: frame_system::Error::<Test>::CallFiltered.into(),
@@ -790,7 +792,7 @@ fn batch_all_doesnt_work_with_inherents() {
 			batch_all.dispatch(RuntimeOrigin::signed(1)),
 			DispatchErrorWithPostInfo {
 				post_info: PostDispatchInfo {
-					actual_weight: Some(info.weight),
+					actual_weight: Some(info.call_weight),
 					pays_fee: Pays::Yes
 				},
 				error: frame_system::Error::<Test>::CallFiltered.into(),
@@ -806,7 +808,7 @@ fn batch_works_with_council_origin() {
 			calls: vec![RuntimeCall::Democracy(mock_democracy::Call::external_propose_majority {})],
 		});
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&proposal);
 
 		assert_ok!(Council::propose(
@@ -843,7 +845,7 @@ fn force_batch_works_with_council_origin() {
 			calls: vec![RuntimeCall::Democracy(mock_democracy::Call::external_propose_majority {})],
 		});
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&proposal);
 
 		assert_ok!(Council::propose(
@@ -893,7 +895,7 @@ fn with_weight_works() {
 			}));
 		// Weight before is max.
 		assert_eq!(
-			upgrade_code_call.get_dispatch_info().weight,
+			upgrade_code_call.get_dispatch_info().call_weight,
 			<Test as frame_system::Config>::SystemWeightInfo::set_code()
 		);
 		assert_eq!(
@@ -906,7 +908,7 @@ fn with_weight_works() {
 			weight: Weight::from_parts(123, 456),
 		};
 		// Weight after is set by Root.
-		assert_eq!(with_weight_call.get_dispatch_info().weight, Weight::from_parts(123, 456));
+		assert_eq!(with_weight_call.get_dispatch_info().call_weight, Weight::from_parts(123, 456));
 		assert_eq!(
 			with_weight_call.get_dispatch_info().class,
 			frame_support::dispatch::DispatchClass::Operational

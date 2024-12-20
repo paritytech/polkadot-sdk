@@ -50,15 +50,15 @@
 //! Based on research at <https://research.web3.foundation/en/latest/polkadot/slashing/npos.html>
 
 use crate::{
-	BalanceOf, Config, DisabledValidators, DisablingStrategy, Error, Exposure, NegativeImbalanceOf,
-	NominatorSlashInEra, Pallet, Perbill, SessionInterface, SpanSlash, UnappliedSlash,
-	ValidatorSlashInEra,
+	asset, BalanceOf, Config, DisabledValidators, DisablingStrategy, Error, Exposure,
+	NegativeImbalanceOf, NominatorSlashInEra, Pallet, Perbill, SessionInterface, SpanSlash,
+	UnappliedSlash, ValidatorSlashInEra,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	ensure,
-	traits::{Currency, Defensive, DefensiveSaturating, Imbalance, OnUnbalanced},
+	traits::{Defensive, DefensiveSaturating, Imbalance, OnUnbalanced},
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -578,7 +578,7 @@ pub fn do_slash<T: Config>(
 			Err(_) => return, // nothing to do.
 		};
 
-	let value = ledger.slash(value, T::Currency::minimum_balance(), slash_era);
+	let value = ledger.slash(value, asset::existential_deposit::<T>(), slash_era);
 	if value.is_zero() {
 		// nothing to do
 		return
@@ -586,7 +586,7 @@ pub fn do_slash<T: Config>(
 
 	// Skip slashing for virtual stakers. The pallets managing them should handle the slashing.
 	if !Pallet::<T>::is_virtual_staker(stash) {
-		let (imbalance, missing) = T::Currency::slash(stash, value);
+		let (imbalance, missing) = asset::slash::<T>(stash, value);
 		slashed_imbalance.subsume(imbalance);
 
 		if !missing.is_zero() {
@@ -656,7 +656,7 @@ fn pay_reporters<T: Config>(
 
 		// this cancels out the reporter reward imbalance internally, leading
 		// to no change in total issuance.
-		T::Currency::resolve_creating(reporter, reporter_reward);
+		asset::deposit_slashed::<T>(reporter, reporter_reward);
 	}
 
 	// the rest goes to the on-slash imbalance handler (e.g. treasury)

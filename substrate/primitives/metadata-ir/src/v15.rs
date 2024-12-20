@@ -21,7 +21,7 @@ use crate::OuterEnumsIR;
 
 use super::types::{
 	ExtrinsicMetadataIR, MetadataIR, PalletMetadataIR, RuntimeApiMetadataIR,
-	RuntimeApiMethodMetadataIR, RuntimeApiMethodParamMetadataIR, SignedExtensionMetadataIR,
+	RuntimeApiMethodMetadataIR, RuntimeApiMethodParamMetadataIR, TransactionExtensionMetadataIR,
 };
 
 use frame_metadata::v15::{
@@ -87,12 +87,12 @@ impl From<PalletMetadataIR> for PalletMetadata {
 	}
 }
 
-impl From<SignedExtensionMetadataIR> for SignedExtensionMetadata {
-	fn from(ir: SignedExtensionMetadataIR) -> Self {
+impl From<TransactionExtensionMetadataIR> for SignedExtensionMetadata {
+	fn from(ir: TransactionExtensionMetadataIR) -> Self {
 		SignedExtensionMetadata {
 			identifier: ir.identifier,
 			ty: ir.ty,
-			additional_signed: ir.additional_signed,
+			additional_signed: ir.implicit,
 		}
 	}
 }
@@ -105,7 +105,7 @@ impl From<ExtrinsicMetadataIR> for ExtrinsicMetadata {
 			call_ty: ir.call_ty,
 			signature_ty: ir.signature_ty,
 			extra_ty: ir.extra_ty,
-			signed_extensions: ir.signed_extensions.into_iter().map(Into::into).collect(),
+			signed_extensions: ir.extensions.into_iter().map(Into::into).collect(),
 		}
 	}
 }

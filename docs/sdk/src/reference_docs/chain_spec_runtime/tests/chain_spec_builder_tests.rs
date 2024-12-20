@@ -58,7 +58,7 @@ fn get_preset() {
 
 	let output: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
 
-	//note: copy of chain_spec_guide_runtime::preset_1
+	//note: copy of chain_spec_guide_runtime::preset_2
 	let expected_output = json!({
 		"bar": {
 			"initialAccount": "5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL",
@@ -185,4 +185,21 @@ fn generate_para_chain_spec() {
 	  }
 	});
 	assert_eq!(output, expected_output, "Output did not match expected");
+}
+
+#[test]
+#[docify::export]
+fn preset_4_json() {
+	assert_eq!(
+		chain_spec_guide_runtime::presets::preset_4(),
+		json!({
+			"foo": {
+				"someEnum": {
+					"Data2": {
+						"values": "0x0c10"
+					}
+				},
+			},
+		})
+	);
 }

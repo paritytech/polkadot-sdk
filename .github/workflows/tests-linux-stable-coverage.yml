@@ -56,7 +56,7 @@ jobs:
           --no-report --release
           --workspace
           --locked --no-fail-fast
-          --features try-runtime,ci-only-tests,experimental,riscv
+          --features try-runtime,ci-only-tests,experimental
           --filter-expr "
           !test(/.*benchmark.*/)
           - test(/recovers_from_only_chunks_if_pov_large::case_1/)

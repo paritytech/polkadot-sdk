@@ -227,7 +227,7 @@ pub trait SimpleSlotWorker<B: BlockT> {
 					"⌛️ Discarding proposal for slot {}; block production took too long", slot,
 				);
 				// If the node was compiled with debug, tell the user to use release optimizations.
-				#[cfg(build_type = "debug")]
+				#[cfg(build_profile = "debug")]
 				info!(
 					target: log_target,
 					"👉 Recompile your node in `--release` mode to mitigate this problem.",

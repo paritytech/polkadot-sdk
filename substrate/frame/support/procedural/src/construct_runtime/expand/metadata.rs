@@ -49,6 +49,7 @@ pub fn expand_runtime_metadata(
 			let event = expand_pallet_metadata_events(&filtered_names, runtime, decl);
 			let constants = expand_pallet_metadata_constants(runtime, decl);
 			let errors = expand_pallet_metadata_errors(runtime, decl);
+			let associated_types = expand_pallet_metadata_associated_types(runtime, decl);
 			let docs = expand_pallet_metadata_docs(runtime, decl);
 			let attr = decl.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
 				let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
@@ -70,6 +71,7 @@ pub fn expand_runtime_metadata(
 					constants: #constants,
 					error: #errors,
 					docs: #docs,
+					associated_types: #associated_types,
 					deprecation_info: #deprecation_info,
 				}
 			}
@@ -99,16 +101,16 @@ pub fn expand_runtime_metadata(
 
 				let ty = #scrate::__private::scale_info::meta_type::<#extrinsic>();
 				let address_ty = #scrate::__private::scale_info::meta_type::<
-						<<#extrinsic as #scrate::sp_runtime::traits::Extrinsic>::SignaturePayload as #scrate::sp_runtime::traits::SignaturePayload>::SignatureAddress
+						<#extrinsic as #scrate::traits::SignedTransactionBuilder>::Address
 					>();
 				let call_ty = #scrate::__private::scale_info::meta_type::<
-					<#extrinsic as #scrate::sp_runtime::traits::Extrinsic>::Call
+						<#extrinsic as #scrate::traits::ExtrinsicCall>::Call
 					>();
 				let signature_ty = #scrate::__private::scale_info::meta_type::<
-						<<#extrinsic as #scrate::sp_runtime::traits::Extrinsic>::SignaturePayload as #scrate::sp_runtime::traits::SignaturePayload>::Signature
+						<#extrinsic as #scrate::traits::SignedTransactionBuilder>::Signature
 					>();
 				let extra_ty = #scrate::__private::scale_info::meta_type::<
-						<<#extrinsic as #scrate::sp_runtime::traits::Extrinsic>::SignaturePayload as #scrate::sp_runtime::traits::SignaturePayload>::SignatureExtra
+						<#extrinsic as #scrate::traits::SignedTransactionBuilder>::Extension
 					>();
 
 				#scrate::__private::metadata_ir::MetadataIR {
@@ -120,16 +122,20 @@ pub fn expand_runtime_metadata(
 						call_ty,
 						signature_ty,
 						extra_ty,
-						signed_extensions: <
+						extensions: <
 								<
 									#extrinsic as #scrate::sp_runtime::traits::ExtrinsicMetadata
-								>::SignedExtensions as #scrate::sp_runtime::traits::SignedExtension
+								>::TransactionExtensions
+								as
+								#scrate::sp_runtime::traits::TransactionExtension::<
+									<#runtime as #system_path::Config>::RuntimeCall
+								>
 							>::metadata()
 								.into_iter()
-								.map(|meta| #scrate::__private::metadata_ir::SignedExtensionMetadataIR {
+								.map(|meta| #scrate::__private::metadata_ir::TransactionExtensionMetadataIR {
 									identifier: meta.identifier,
 									ty: meta.ty,
-									additional_signed: meta.additional_signed,
+									implicit: meta.implicit,
 								})
 								.collect(),
 					},
@@ -259,5 +265,14 @@ fn expand_pallet_metadata_docs(runtime: &Ident, decl: &Pallet) -> TokenStream {
 
 	quote! {
 		#path::Pallet::<#runtime #(, #path::#instance)*>::pallet_documentation_metadata()
+	}
+}
+
+fn expand_pallet_metadata_associated_types(runtime: &Ident, decl: &Pallet) -> TokenStream {
+	let path = &decl.path;
+	let instance = decl.instance.as_ref().into_iter();
+
+	quote! {
+		#path::Pallet::<#runtime #(, #path::#instance)*>::pallet_associated_types_metadata()
 	}
 }

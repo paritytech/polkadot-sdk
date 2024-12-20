@@ -12,4 +12,3 @@ workspace = true
 [dependencies]
 polkadot-overseer = { workspace = true, default-features = true }
 polkadot-node-subsystem-types = { workspace = true, default-features = true }
-polkadot-node-jaeger = { workspace = true, default-features = true }

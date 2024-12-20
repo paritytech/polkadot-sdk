@@ -99,7 +99,7 @@ pub const WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX: u8 = 51;
 pub const WITH_BRIDGE_ROCOCO_TO_BULLETIN_MESSAGES_PALLET_INDEX: u8 = 61;
 
 decl_bridge_finality_runtime_apis!(bridge_hub_rococo);
-decl_bridge_messages_runtime_apis!(bridge_hub_rococo);
+decl_bridge_messages_runtime_apis!(bridge_hub_rococo, LegacyLaneId);
 
 frame_support::parameter_types! {
 	/// The XCM fee that is paid for executing XCM program (with `ExportMessage` instruction) at the Rococo
@@ -109,11 +109,11 @@ frame_support::parameter_types! {
 
 	/// Transaction fee that is paid at the Rococo BridgeHub for delivering single inbound message.
 	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_standalone_message_delivery_transaction` + `33%`)
-	pub const BridgeHubRococoBaseDeliveryFeeInRocs: u128 = 297_644_174;
+	pub const BridgeHubRococoBaseDeliveryFeeInRocs: u128 = 297_685_840;
 
 	/// Transaction fee that is paid at the Rococo BridgeHub for delivering single outbound message confirmation.
 	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_standalone_message_confirmation_transaction` + `33%`)
-	pub const BridgeHubRococoBaseConfirmationFeeInRocs: u128 = 56_740_432;
+	pub const BridgeHubRococoBaseConfirmationFeeInRocs: u128 = 56_782_099;
 }
 
 /// Wrapper over `BridgeHubRococo`'s `RuntimeCall` that can be used without a runtime.

@@ -245,8 +245,13 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let pool =
-			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
+		let pool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner,
+			client.clone(),
+		));
 
 		let source = sp_runtime::transaction_validity::TransactionSource::External;
 		let new_transaction = |nonce: u64| {
@@ -281,8 +286,13 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let pool =
-			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
+		let pool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner,
+			client.clone(),
+		));
 
 		let accounts = System::new(client, pool);
 
@@ -300,8 +310,13 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let pool =
-			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
+		let pool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner,
+			client.clone(),
+		));
 
 		let accounts = System::new(client, pool);
 
@@ -331,8 +346,13 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let pool =
-			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
+		let pool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner,
+			client.clone(),
+		));
 
 		let accounts = System::new(client, pool);
 

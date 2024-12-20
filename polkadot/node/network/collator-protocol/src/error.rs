@@ -23,6 +23,7 @@ use polkadot_node_network_protocol::request_response::incoming;
 use polkadot_node_primitives::UncheckedSignedFullStatement;
 use polkadot_node_subsystem::{errors::SubsystemError, RuntimeApiError};
 use polkadot_node_subsystem_util::{backing_implicit_view, runtime};
+use polkadot_primitives::vstaging::CandidateDescriptorVersion;
 
 use crate::LOG_TARGET;
 
@@ -63,6 +64,12 @@ pub enum Error {
 
 	#[error("CollationSeconded contained statement with invalid signature")]
 	InvalidStatementSignature(UncheckedSignedFullStatement),
+
+	#[error("Response receiver for session index request cancelled")]
+	CancelledSessionIndex(oneshot::Canceled),
+
+	#[error("Response receiver for claim queue request cancelled")]
+	CancelledClaimQueue(oneshot::Canceled),
 }
 
 /// An error happened on the validator side of the protocol when attempting
@@ -87,11 +94,23 @@ pub enum SecondingError {
 	#[error("Candidate hash doesn't match the advertisement")]
 	CandidateHashMismatch,
 
+	#[error("Relay parent hash doesn't match the advertisement")]
+	RelayParentMismatch,
+
 	#[error("Received duplicate collation from the peer")]
 	Duplicate,
 
 	#[error("The provided parent head data does not match the hash")]
 	ParentHeadDataMismatch,
+
+	#[error("Core index {0} present in descriptor is different than the assigned core {1}")]
+	InvalidCoreIndex(u32, u32),
+
+	#[error("Session index {0} present in descriptor is different than the expected one {1}")]
+	InvalidSessionIndex(u32, u32),
+
+	#[error("Invalid candidate receipt version {0:?}")]
+	InvalidReceiptVersion(CandidateDescriptorVersion),
 }
 
 impl SecondingError {
@@ -102,7 +121,11 @@ impl SecondingError {
 			self,
 			PersistedValidationDataMismatch |
 				CandidateHashMismatch |
-				Duplicate | ParentHeadDataMismatch
+				RelayParentMismatch |
+				Duplicate | ParentHeadDataMismatch |
+				InvalidCoreIndex(_, _) |
+				InvalidSessionIndex(_, _) |
+				InvalidReceiptVersion(_)
 		)
 	}
 }

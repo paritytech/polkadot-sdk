@@ -99,7 +99,7 @@ pub mod pallet {
 		type DestinationVersion: GetVersion;
 
 		/// Actual message sender (`HRMP` or `DMP`) to the sibling bridge hub location.
-		type ToBridgeHubSender: SendXcm + InspectMessageQueues;
+		type ToBridgeHubSender: SendXcm;
 		/// Local XCM channel manager.
 		type LocalXcmChannelManager: XcmChannelStatusProvider;
 
@@ -408,12 +408,12 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 }
 
 impl<T: Config<I>, I: 'static> InspectMessageQueues for Pallet<T, I> {
-	fn clear_messages() {
-		ViaBridgeHubExporter::<T, I>::clear_messages()
-	}
+	fn clear_messages() {}
 
+	/// This router needs to implement `InspectMessageQueues` but doesn't have to
+	/// return any messages, since it just reuses the `XcmpQueue` router.
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
-		ViaBridgeHubExporter::<T, I>::get_messages()
+		Vec::new()
 	}
 }
 
@@ -646,34 +646,13 @@ mod tests {
 	}
 
 	#[test]
-	fn get_messages_works() {
+	fn get_messages_does_not_return_anything() {
 		run_test(|| {
 			assert_ok!(send_xcm::<XcmBridgeHubRouter>(
 				(Parent, Parent, GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)).into(),
 				vec![ClearOrigin].into()
 			));
-			assert_eq!(
-				XcmBridgeHubRouter::get_messages(),
-				vec![(
-					VersionedLocation::V4((Parent, Parachain(1002)).into()),
-					vec![VersionedXcm::V4(
-						Xcm::builder()
-							.withdraw_asset((Parent, 1_002_000))
-							.buy_execution((Parent, 1_002_000), Unlimited)
-							.set_appendix(
-								Xcm::builder_unsafe()
-									.deposit_asset(AllCounted(1), (Parent, Parachain(1000)))
-									.build()
-							)
-							.export_message(
-								Kusama,
-								Parachain(1000),
-								Xcm::builder_unsafe().clear_origin().build()
-							)
-							.build()
-					)],
-				),],
-			);
+			assert_eq!(XcmBridgeHubRouter::get_messages(), vec![]);
 		});
 	}
 }

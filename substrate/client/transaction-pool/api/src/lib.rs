@@ -26,7 +26,7 @@ use codec::Codec;
 use futures::{Future, Stream};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sp_core::offchain::TransactionPoolExt;
-use sp_runtime::traits::{Block as BlockT, Member, NumberFor};
+use sp_runtime::traits::{Block as BlockT, Member};
 use std::{collections::HashMap, hash::Hash, marker::PhantomData, pin::Pin, sync::Arc};
 
 const LOG_TARGET: &str = "txpool::api";
@@ -36,7 +36,7 @@ pub use sp_runtime::transaction_validity::{
 };
 
 /// Transaction pool status.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PoolStatus {
 	/// Number of transactions in the ready queue.
 	pub ready: usize,
@@ -49,7 +49,7 @@ pub struct PoolStatus {
 }
 
 impl PoolStatus {
-	/// Returns true if the are no transactions in the pool.
+	/// Returns true if there are no transactions in the pool.
 	pub fn is_empty(&self) -> bool {
 		self.ready == 0 && self.future == 0
 	}
@@ -57,7 +57,7 @@ impl PoolStatus {
 
 /// Possible transaction status events.
 ///
-/// This events are being emitted by `TransactionPool` watchers,
+/// These events are being emitted by `TransactionPool` watchers,
 /// which are also exposed over RPC.
 ///
 /// The status events can be grouped based on their kinds as:
@@ -144,7 +144,7 @@ pub enum TransactionStatus<Hash, BlockHash> {
 	/// Maximum number of finality watchers has been reached,
 	/// old watchers are being removed.
 	FinalityTimeout(BlockHash),
-	/// Transaction has been finalized by a finality-gadget, e.g GRANDPA.
+	/// Transaction has been finalized by a finality-gadget, e.g. GRANDPA.
 	#[serde(with = "v1_compatible")]
 	Finalized((BlockHash, TxIndex)),
 	/// Transaction has been replaced in the pool, by another transaction
@@ -245,7 +245,7 @@ pub trait TransactionPool: Send + Sync {
 	type Hash: Hash + Eq + Member + Serialize + DeserializeOwned + Codec;
 	/// In-pool transaction type.
 	type InPoolTransaction: InPoolTransaction<
-		Transaction = TransactionFor<Self>,
+		Transaction = Arc<TransactionFor<Self>>,
 		Hash = TxHash<Self>,
 	>;
 	/// Error type.
@@ -269,7 +269,7 @@ pub trait TransactionPool: Send + Sync {
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<TxHash<Self>, Self::Error>;
 
-	/// Returns a future that import a single transaction and starts to watch their progress in the
+	/// Returns a future that imports a single transaction and starts to watch their progress in the
 	/// pool.
 	fn submit_and_watch(
 		&self,
@@ -285,7 +285,7 @@ pub trait TransactionPool: Send + Sync {
 	/// Guarantees to return immediately when `None` is passed.
 	fn ready_at(
 		&self,
-		at: NumberFor<Self::Block>,
+		at: <Self::Block as BlockT>::Hash,
 	) -> Pin<
 		Box<
 			dyn Future<
@@ -321,6 +321,23 @@ pub trait TransactionPool: Send + Sync {
 
 	/// Return specific ready transaction by hash, if there is one.
 	fn ready_transaction(&self, hash: &TxHash<Self>) -> Option<Arc<Self::InPoolTransaction>>;
+
+	/// Returns set of ready transaction at given block within given timeout.
+	///
+	/// If the timeout is hit during method execution then the best effort set of ready transactions
+	/// for given block, without executing full maintain process is returned.
+	fn ready_at_with_timeout(
+		&self,
+		at: <Self::Block as BlockT>::Hash,
+		timeout: std::time::Duration,
+	) -> Pin<
+		Box<
+			dyn Future<
+					Output = Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>,
+				> + Send
+				+ '_,
+		>,
+	>;
 }
 
 /// An iterator of ready transactions.
@@ -345,6 +362,7 @@ impl<T> ReadyTransactions for std::iter::Empty<T> {
 }
 
 /// Events that the transaction pool listens for.
+#[derive(Debug)]
 pub enum ChainEvent<B: BlockT> {
 	/// New best block have been added to the chain.
 	NewBestBlock {
@@ -441,7 +459,7 @@ impl<TPool: LocalTransactionPool> OffchainSubmitTransaction<TPool::Block> for TP
 		at: <TPool::Block as BlockT>::Hash,
 		extrinsic: <TPool::Block as BlockT>::Extrinsic,
 	) -> Result<(), ()> {
-		log::debug!(
+		log::trace!(
 			target: LOG_TARGET,
 			"(offchain call) Submitting a transaction to the pool: {:?}",
 			extrinsic

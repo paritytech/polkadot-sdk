@@ -27,8 +27,8 @@ pub use prometheus::{
 		AtomicF64 as F64, AtomicI64 as I64, AtomicU64 as U64, GenericCounter as Counter,
 		GenericCounterVec as CounterVec, GenericGauge as Gauge, GenericGaugeVec as GaugeVec,
 	},
-	exponential_buckets, Error as PrometheusError, Histogram, HistogramOpts, HistogramVec, Opts,
-	Registry,
+	exponential_buckets, histogram_opts, linear_buckets, Error as PrometheusError, Histogram,
+	HistogramOpts, HistogramVec, Opts, Registry,
 };
 pub use sourced::{MetricSource, SourcedCounter, SourcedGauge, SourcedMetric};
 
@@ -86,9 +86,10 @@ async fn request_metrics(
 /// Initializes the metrics context, and starts an HTTP server
 /// to serve metrics.
 pub async fn init_prometheus(prometheus_addr: SocketAddr, registry: Registry) -> Result<(), Error> {
-	let listener = tokio::net::TcpListener::bind(&prometheus_addr)
-		.await
-		.map_err(|_| Error::PortInUse(prometheus_addr))?;
+	let listener = tokio::net::TcpListener::bind(&prometheus_addr).await.map_err(|e| {
+		log::error!(target: "prometheus", "Error binding to '{:#?}': {:#?}", prometheus_addr, e);
+		Error::PortInUse(prometheus_addr)
+	})?;
 
 	init_prometheus_with_listener(listener, registry).await
 }

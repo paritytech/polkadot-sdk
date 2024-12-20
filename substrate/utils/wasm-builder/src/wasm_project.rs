@@ -601,9 +601,10 @@ fn project_enabled_features(
 			// We don't want to enable the `std`/`default` feature for the wasm build and
 			// we need to check if the feature is enabled by checking the env variable.
 			*f != "std" &&
-				*f != "default" && env::var(format!("CARGO_FEATURE_{}", feature_env))
-				.map(|v| v == "1")
-				.unwrap_or_default()
+				*f != "default" &&
+				env::var(format!("CARGO_FEATURE_{feature_env}"))
+					.map(|v| v == "1")
+					.unwrap_or_default()
 		})
 		.map(|d| d.0.clone())
 		.collect::<Vec<_>>();
@@ -867,6 +868,18 @@ fn build_bloaty_blob(
 		.env_remove("RUSTC")
 		// We don't want to call ourselves recursively
 		.env(crate::SKIP_BUILD_ENV, "");
+
+	let cargo_args = env::var(crate::WASM_BUILD_CARGO_ARGS).unwrap_or_default();
+	if !cargo_args.is_empty() {
+		let Some(args) = shlex::split(&cargo_args) else {
+			build_helper::warning(format!(
+				"the {} environment variable is not a valid shell string",
+				crate::WASM_BUILD_CARGO_ARGS
+			));
+			std::process::exit(1);
+		};
+		build_cmd.args(args);
+	}
 
 	#[cfg(feature = "metadata-hash")]
 	if let Some(hash) = metadata_hash {
@@ -1139,6 +1152,7 @@ fn generate_rerun_if_changed_instructions(
 	println!("cargo:rerun-if-env-changed={}", crate::WASM_BUILD_TOOLCHAIN);
 	println!("cargo:rerun-if-env-changed={}", crate::WASM_BUILD_STD);
 	println!("cargo:rerun-if-env-changed={}", crate::RUNTIME_TARGET);
+	println!("cargo:rerun-if-env-changed={}", crate::WASM_BUILD_CARGO_ARGS);
 }
 
 /// Track files and paths related to the given package to rerun `build.rs` on any relevant change.

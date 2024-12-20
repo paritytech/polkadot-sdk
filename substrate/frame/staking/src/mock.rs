@@ -568,11 +568,11 @@ impl ExtBuilder {
 }
 
 pub(crate) fn active_era() -> EraIndex {
-	Staking::active_era().unwrap().index
+	pallet_staking::ActiveEra::<Test>::get().unwrap().index
 }
 
 pub(crate) fn current_era() -> EraIndex {
-	Staking::current_era().unwrap()
+	pallet_staking::CurrentEra::<Test>::get().unwrap()
 }
 
 pub(crate) fn bond(who: AccountId, val: Balance) {
@@ -663,7 +663,7 @@ pub(crate) fn start_active_era(era_index: EraIndex) {
 
 pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
 	let (payout, _rest) = <Test as Config>::EraPayout::era_payout(
-		Staking::eras_total_stake(active_era()),
+		pallet_staking::ErasTotalStake::<Test>::get(active_era()),
 		pallet_balances::TotalIssuance::<Test>::get(),
 		duration,
 	);
@@ -673,7 +673,7 @@ pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
 
 pub(crate) fn maximum_payout_for_duration(duration: u64) -> Balance {
 	let (payout, rest) = <Test as Config>::EraPayout::era_payout(
-		Staking::eras_total_stake(active_era()),
+		pallet_staking::ErasTotalStake::<Test>::get(active_era()),
 		pallet_balances::TotalIssuance::<Test>::get(),
 		duration,
 	);
@@ -732,11 +732,11 @@ pub(crate) fn on_offence_in_era(
 		}
 	}
 
-	if Staking::active_era().unwrap().index == era {
+	if pallet_staking::ActiveEra::<Test>::get().unwrap().index == era {
 		let _ = Staking::on_offence(
 			offenders,
 			slash_fraction,
-			Staking::eras_start_session_index(era).unwrap(),
+			pallet_staking::ErasStartSessionIndex::<Test>::get(era).unwrap(),
 		);
 	} else {
 		panic!("cannot slash in era {}", era);
@@ -750,7 +750,7 @@ pub(crate) fn on_offence_now(
 	>],
 	slash_fraction: &[Perbill],
 ) {
-	let now = Staking::active_era().unwrap().index;
+	let now = pallet_staking::ActiveEra::<Test>::get().unwrap().index;
 	on_offence_in_era(offenders, slash_fraction, now)
 }
 
@@ -889,10 +889,10 @@ macro_rules! assert_session_era {
 			$session,
 		);
 		assert_eq!(
-			Staking::current_era().unwrap(),
+			CurrentEra::<T>::get().unwrap(),
 			$era,
 			"wrong current era {} != {}",
-			Staking::current_era().unwrap(),
+			CurrentEra::<T>::get().unwrap(),
 			$era,
 		);
 	};

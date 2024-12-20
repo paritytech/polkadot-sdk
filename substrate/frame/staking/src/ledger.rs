@@ -31,15 +31,12 @@
 //! performed through the methods exposed by the [`StakingLedger`] implementation in order to ensure
 //! state consistency.
 
-use frame_support::{
-	defensive, ensure,
-	traits::{Defensive, LockableCurrency},
-};
+use frame_support::{defensive, ensure, traits::Defensive};
 use sp_staking::{StakingAccount, StakingInterface};
 
 use crate::{
-	BalanceOf, Bonded, Config, Error, Ledger, Pallet, Payee, RewardDestination, StakingLedger,
-	VirtualStakers, STAKING_ID,
+	asset, BalanceOf, Bonded, Config, Error, Ledger, Pallet, Payee, RewardDestination,
+	StakingLedger, VirtualStakers,
 };
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
@@ -190,12 +187,7 @@ impl<T: Config> StakingLedger<T> {
 		// We skip locking virtual stakers.
 		if !Pallet::<T>::is_virtual_staker(&self.stash) {
 			// for direct stakers, update lock on stash based on ledger.
-			T::Currency::set_lock(
-				STAKING_ID,
-				&self.stash,
-				self.total,
-				frame_support::traits::WithdrawReasons::all(),
-			);
+			asset::update_stake::<T>(&self.stash, self.total);
 		}
 
 		Ledger::<T>::insert(
@@ -269,7 +261,7 @@ impl<T: Config> StakingLedger<T> {
 			// kill virtual staker if it exists.
 			if <VirtualStakers<T>>::take(&stash).is_none() {
 				// if not virtual staker, clear locks.
-				T::Currency::remove_lock(STAKING_ID, &ledger.stash);
+				asset::kill_stake::<T>(&ledger.stash);
 			}
 
 			Ok(())

@@ -89,15 +89,17 @@ use polkadot_node_subsystem::{
 		AvailabilityDistributionMessage, AvailabilityStoreMessage, CanSecondRequest,
 		CandidateBackingMessage, CandidateValidationMessage, CollatorProtocolMessage,
 		HypotheticalCandidate, HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest,
-		ProspectiveParachainsMessage, ProvisionableData, ProvisionerMessage, RuntimeApiMessage,
-		RuntimeApiRequest, StatementDistributionMessage, StoreAvailableDataError,
+		ProspectiveParachainsMessage, ProvisionableData, ProvisionerMessage, PvfExecKind,
+		RuntimeApiMessage, RuntimeApiRequest, StatementDistributionMessage,
+		StoreAvailableDataError,
 	},
-	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
+	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, RuntimeApiError, SpawnedSubsystem,
+	SubsystemError,
 };
 use polkadot_node_subsystem_util::{
 	self as util,
 	backing_implicit_view::{FetchError as ImplicitViewFetchError, View as ImplicitView},
-	executor_params_at_relay_parent, request_from_runtime, request_session_index_for_child,
+	request_from_runtime, request_session_executor_params, request_session_index_for_child,
 	request_validator_groups, request_validators,
 	runtime::{
 		self, fetch_claim_queue, prospective_parachains_mode, request_min_backing_votes,
@@ -105,12 +107,17 @@ use polkadot_node_subsystem_util::{
 	},
 	Validator,
 };
+use polkadot_parachain_primitives::primitives::IsSystem;
 use polkadot_primitives::{
-	node_features::FeatureIndex, BackedCandidate, CandidateCommitments, CandidateHash,
-	CandidateReceipt, CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, GroupIndex,
-	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures, PersistedValidationData,
-	PvfExecKind, SessionIndex, SigningContext, ValidationCode, ValidatorId, ValidatorIndex,
-	ValidatorSignature, ValidityAttestation,
+	node_features::FeatureIndex,
+	vstaging::{
+		BackedCandidate, CandidateReceiptV2 as CandidateReceipt,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
+	},
+	CandidateCommitments, CandidateHash, CoreIndex, ExecutorParams, GroupIndex, GroupRotationInfo,
+	Hash, Id as ParaId, IndexedVec, NodeFeatures, PersistedValidationData, SessionIndex,
+	SigningContext, ValidationCode, ValidatorId, ValidatorIndex, ValidatorSignature,
+	ValidityAttestation,
 };
 use polkadot_statement_table::{
 	generic::AttestedCandidate as TableAttestedCandidate,
@@ -211,8 +218,10 @@ struct PerRelayParentState {
 	prospective_parachains_mode: ProspectiveParachainsMode,
 	/// The hash of the relay parent on top of which this job is doing it's work.
 	parent: Hash,
-	/// Session index.
-	session_index: SessionIndex,
+	/// The node features.
+	node_features: NodeFeatures,
+	/// The executor parameters.
+	executor_params: Arc<ExecutorParams>,
 	/// The `CoreIndex` assigned to the local validator at this relay parent.
 	assigned_core: Option<CoreIndex>,
 	/// The candidates that are backed by enough validators in their group, by hash.
@@ -286,6 +295,178 @@ impl From<&ActiveLeafState> for ProspectiveParachainsMode {
 	}
 }
 
+/// A cache for storing data per-session to reduce repeated
+/// runtime API calls and avoid redundant computations.
+struct PerSessionCache {
+	/// Cache for storing validators list, retrieved from the runtime.
+	validators_cache: LruMap<SessionIndex, Arc<Vec<ValidatorId>>>,
+	/// Cache for storing node features, retrieved from the runtime.
+	node_features_cache: LruMap<SessionIndex, Option<NodeFeatures>>,
+	/// Cache for storing executor parameters, retrieved from the runtime.
+	executor_params_cache: LruMap<SessionIndex, Arc<ExecutorParams>>,
+	/// Cache for storing the minimum backing votes threshold, retrieved from the runtime.
+	minimum_backing_votes_cache: LruMap<SessionIndex, u32>,
+	/// Cache for storing validator-to-group mappings, computed from validator groups.
+	validator_to_group_cache:
+		LruMap<SessionIndex, Arc<IndexedVec<ValidatorIndex, Option<GroupIndex>>>>,
+}
+
+impl Default for PerSessionCache {
+	/// Creates a new `PerSessionCache` with a default capacity.
+	fn default() -> Self {
+		Self::new(2)
+	}
+}
+
+impl PerSessionCache {
+	/// Creates a new `PerSessionCache` with a given capacity.
+	fn new(capacity: u32) -> Self {
+		PerSessionCache {
+			validators_cache: LruMap::new(ByLength::new(capacity)),
+			node_features_cache: LruMap::new(ByLength::new(capacity)),
+			executor_params_cache: LruMap::new(ByLength::new(capacity)),
+			minimum_backing_votes_cache: LruMap::new(ByLength::new(capacity)),
+			validator_to_group_cache: LruMap::new(ByLength::new(capacity)),
+		}
+	}
+
+	/// Gets validators from the cache or fetches them from the runtime if not present.
+	async fn validators(
+		&mut self,
+		session_index: SessionIndex,
+		parent: Hash,
+		sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
+	) -> Result<Arc<Vec<ValidatorId>>, RuntimeApiError> {
+		// Try to get the validators list from the cache.
+		if let Some(validators) = self.validators_cache.get(&session_index) {
+			return Ok(Arc::clone(validators));
+		}
+
+		// Fetch the validators list from the runtime since it was not in the cache.
+		let validators: Vec<ValidatorId> =
+			request_validators(parent, sender).await.await.map_err(|err| {
+				RuntimeApiError::Execution { runtime_api_name: "Validators", source: Arc::new(err) }
+			})??;
+
+		// Wrap the validators list in an Arc to avoid a deep copy when storing it in the cache.
+		let validators = Arc::new(validators);
+
+		// Cache the fetched validators list for future use.
+		self.validators_cache.insert(session_index, Arc::clone(&validators));
+
+		Ok(validators)
+	}
+
+	/// Gets the node features from the cache or fetches it from the runtime if not present.
+	async fn node_features(
+		&mut self,
+		session_index: SessionIndex,
+		parent: Hash,
+		sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
+	) -> Result<Option<NodeFeatures>, Error> {
+		// Try to get the node features from the cache.
+		if let Some(node_features) = self.node_features_cache.get(&session_index) {
+			return Ok(node_features.clone());
+		}
+
+		// Fetch the node features from the runtime since it was not in the cache.
+		let node_features: Option<NodeFeatures> =
+			request_node_features(parent, session_index, sender).await?;
+
+		// Cache the fetched node features for future use.
+		self.node_features_cache.insert(session_index, node_features.clone());
+
+		Ok(node_features)
+	}
+
+	/// Gets the executor parameters from the cache or
+	/// fetches them from the runtime if not present.
+	async fn executor_params(
+		&mut self,
+		session_index: SessionIndex,
+		parent: Hash,
+		sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
+	) -> Result<Arc<ExecutorParams>, RuntimeApiError> {
+		// Try to get the executor parameters from the cache.
+		if let Some(executor_params) = self.executor_params_cache.get(&session_index) {
+			return Ok(Arc::clone(executor_params));
+		}
+
+		// Fetch the executor parameters from the runtime since it was not in the cache.
+		let executor_params = request_session_executor_params(parent, session_index, sender)
+			.await
+			.await
+			.map_err(|err| RuntimeApiError::Execution {
+				runtime_api_name: "SessionExecutorParams",
+				source: Arc::new(err),
+			})??
+			.ok_or_else(|| RuntimeApiError::Execution {
+				runtime_api_name: "SessionExecutorParams",
+				source: Arc::new(Error::MissingExecutorParams),
+			})?;
+
+		// Wrap the executor parameters in an Arc to avoid a deep copy when storing it in the cache.
+		let executor_params = Arc::new(executor_params);
+
+		// Cache the fetched executor parameters for future use.
+		self.executor_params_cache.insert(session_index, Arc::clone(&executor_params));
+
+		Ok(executor_params)
+	}
+
+	/// Gets the minimum backing votes threshold from the
+	/// cache or fetches it from the runtime if not present.
+	async fn minimum_backing_votes(
+		&mut self,
+		session_index: SessionIndex,
+		parent: Hash,
+		sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
+	) -> Result<u32, RuntimeApiError> {
+		// Try to get the value from the cache.
+		if let Some(minimum_backing_votes) = self.minimum_backing_votes_cache.get(&session_index) {
+			return Ok(*minimum_backing_votes);
+		}
+
+		// Fetch the value from the runtime since it was not in the cache.
+		let minimum_backing_votes = request_min_backing_votes(parent, session_index, sender)
+			.await
+			.map_err(|err| RuntimeApiError::Execution {
+				runtime_api_name: "MinimumBackingVotes",
+				source: Arc::new(err),
+			})?;
+
+		// Cache the fetched value for future use.
+		self.minimum_backing_votes_cache.insert(session_index, minimum_backing_votes);
+
+		Ok(minimum_backing_votes)
+	}
+
+	/// Gets or computes the validator-to-group mapping for a session.
+	fn validator_to_group(
+		&mut self,
+		session_index: SessionIndex,
+		validators: &[ValidatorId],
+		validator_groups: &[Vec<ValidatorIndex>],
+	) -> Arc<IndexedVec<ValidatorIndex, Option<GroupIndex>>> {
+		let validator_to_group = self
+			.validator_to_group_cache
+			.get_or_insert(session_index, || {
+				let mut vector = vec![None; validators.len()];
+
+				for (group_idx, validator_group) in validator_groups.iter().enumerate() {
+					for validator in validator_group {
+						vector[validator.0 as usize] = Some(GroupIndex(group_idx as u32));
+					}
+				}
+
+				Arc::new(IndexedVec::<_, _>::from(vector))
+			})
+			.expect("Just inserted");
+
+		Arc::clone(validator_to_group)
+	}
+}
+
 /// The state of the subsystem.
 struct State {
 	/// The utility for managing the implicit and explicit views in a consistent way.
@@ -316,9 +497,9 @@ struct State {
 	/// This is guaranteed to have an entry for each candidate with a relay parent in the implicit
 	/// or explicit view for which a `Seconded` statement has been successfully imported.
 	per_candidate: HashMap<CandidateHash, PerCandidateState>,
-	/// Cache the per-session Validator->Group mapping.
-	validator_to_group_cache:
-		LruMap<SessionIndex, Arc<IndexedVec<ValidatorIndex, Option<GroupIndex>>>>,
+	/// A local cache for storing per-session data. This cache helps to
+	/// reduce repeated calls to the runtime and avoid redundant computations.
+	per_session_cache: PerSessionCache,
 	/// A clonable sender which is dispatched to background candidate validation tasks to inform
 	/// the main task of the result.
 	background_validation_tx: mpsc::Sender<(Hash, ValidatedCandidateCommand)>,
@@ -336,7 +517,7 @@ impl State {
 			per_leaf: HashMap::default(),
 			per_relay_parent: HashMap::default(),
 			per_candidate: HashMap::new(),
-			validator_to_group_cache: LruMap::new(ByLength::new(2)),
+			per_session_cache: PerSessionCache::default(),
 			background_validation_tx,
 			keystore,
 		}
@@ -625,6 +806,8 @@ async fn request_candidate_validation(
 	executor_params: ExecutorParams,
 ) -> Result<ValidationResult, Error> {
 	let (tx, rx) = oneshot::channel();
+	let is_system = candidate_receipt.descriptor.para_id().is_system();
+	let relay_parent = candidate_receipt.descriptor.relay_parent();
 
 	sender
 		.send_message(CandidateValidationMessage::ValidateFromExhaustive {
@@ -633,7 +816,11 @@ async fn request_candidate_validation(
 			candidate_receipt,
 			pov,
 			executor_params,
-			exec_kind: PvfExecKind::Backing,
+			exec_kind: if is_system {
+				PvfExecKind::BackingSystemParas(relay_parent)
+			} else {
+				PvfExecKind::Backing(relay_parent)
+			},
 			response_sender: tx,
 		})
 		.await;
@@ -658,7 +845,8 @@ struct BackgroundValidationParams<S: overseer::CandidateBackingSenderTrait, F> {
 	tx_command: mpsc::Sender<(Hash, ValidatedCandidateCommand)>,
 	candidate: CandidateReceipt,
 	relay_parent: Hash,
-	session_index: SessionIndex,
+	node_features: NodeFeatures,
+	executor_params: Arc<ExecutorParams>,
 	persisted_validation_data: PersistedValidationData,
 	pov: PoVData,
 	n_validators: usize,
@@ -677,7 +865,8 @@ async fn validate_and_make_available(
 		mut tx_command,
 		candidate,
 		relay_parent,
-		session_index,
+		node_features,
+		executor_params,
 		persisted_validation_data,
 		pov,
 		n_validators,
@@ -685,7 +874,7 @@ async fn validate_and_make_available(
 	} = params;
 
 	let validation_code = {
-		let validation_code_hash = candidate.descriptor().validation_code_hash;
+		let validation_code_hash = candidate.descriptor().validation_code_hash();
 		let (tx, rx) = oneshot::channel();
 		sender
 			.send_message(RuntimeApiMessage::Request(
@@ -702,15 +891,6 @@ async fn validate_and_make_available(
 		}
 	};
 
-	let executor_params = match executor_params_at_relay_parent(relay_parent, &mut sender).await {
-		Ok(ep) => ep,
-		Err(e) => return Err(Error::UtilError(e)),
-	};
-
-	let node_features = request_node_features(relay_parent, session_index, &mut sender)
-		.await?
-		.unwrap_or(NodeFeatures::EMPTY);
-
 	let pov = match pov {
 		PoVData::Ready(pov) => pov,
 		PoVData::FetchFromValidator { from_validator, candidate_hash, pov_hash } =>
@@ -718,7 +898,7 @@ async fn validate_and_make_available(
 				&mut sender,
 				relay_parent,
 				from_validator,
-				candidate.descriptor.para_id,
+				candidate.descriptor.para_id(),
 				candidate_hash,
 				pov_hash,
 			)
@@ -746,7 +926,7 @@ async fn validate_and_make_available(
 			validation_code,
 			candidate.clone(),
 			pov.clone(),
-			executor_params,
+			executor_params.as_ref().clone(),
 		)
 		.await?
 	};
@@ -765,7 +945,7 @@ async fn validate_and_make_available(
 				pov.clone(),
 				candidate.hash(),
 				validation_data.clone(),
-				candidate.descriptor.erasure_root,
+				candidate.descriptor.erasure_root(),
 				core_index,
 				node_features,
 			)
@@ -973,7 +1153,7 @@ async fn handle_active_leaves_update<Context>(
 			ctx,
 			maybe_new,
 			&state.keystore,
-			&mut state.validator_to_group_cache,
+			&mut state.per_session_cache,
 			mode,
 		)
 		.await?;
@@ -1047,7 +1227,7 @@ fn core_index_from_statement(
 	}
 
 	if let StatementWithPVD::Seconded(candidate, _pvd) = statement.payload() {
-		let candidate_para_id = candidate.descriptor.para_id;
+		let candidate_para_id = candidate.descriptor.para_id();
 		let mut assigned_paras = claim_queue.iter_claims_for_core(&core_index);
 
 		if !assigned_paras.any(|id| id == &candidate_para_id) {
@@ -1073,17 +1253,13 @@ async fn construct_per_relay_parent_state<Context>(
 	ctx: &mut Context,
 	relay_parent: Hash,
 	keystore: &KeystorePtr,
-	validator_to_group_cache: &mut LruMap<
-		SessionIndex,
-		Arc<IndexedVec<ValidatorIndex, Option<GroupIndex>>>,
-	>,
+	per_session_cache: &mut PerSessionCache,
 	mode: ProspectiveParachainsMode,
 ) -> Result<Option<PerRelayParentState>, Error> {
 	let parent = relay_parent;
 
-	let (session_index, validators, groups, cores) = futures::try_join!(
+	let (session_index, groups, cores) = futures::try_join!(
 		request_session_index_for_child(parent, ctx.sender()).await,
-		request_validators(parent, ctx.sender()).await,
 		request_validator_groups(parent, ctx.sender()).await,
 		request_from_runtime(parent, ctx.sender(), |tx| {
 			RuntimeApiRequest::AvailabilityCores(tx)
@@ -1094,20 +1270,32 @@ async fn construct_per_relay_parent_state<Context>(
 
 	let session_index = try_runtime_api!(session_index);
 
-	let inject_core_index = request_node_features(parent, session_index, ctx.sender())
+	let validators = per_session_cache.validators(session_index, parent, ctx.sender()).await;
+	let validators = try_runtime_api!(validators);
+
+	let node_features = per_session_cache
+		.node_features(session_index, parent, ctx.sender())
 		.await?
-		.unwrap_or(NodeFeatures::EMPTY)
+		.unwrap_or(NodeFeatures::EMPTY);
+
+	let inject_core_index = node_features
 		.get(FeatureIndex::ElasticScalingMVP as usize)
 		.map(|b| *b)
 		.unwrap_or(false);
 
+	let executor_params =
+		per_session_cache.executor_params(session_index, parent, ctx.sender()).await;
+	let executor_params = try_runtime_api!(executor_params);
+
 	gum::debug!(target: LOG_TARGET, inject_core_index, ?parent, "New state");
 
-	let validators: Vec<_> = try_runtime_api!(validators);
 	let (validator_groups, group_rotation_info) = try_runtime_api!(groups);
 	let cores = try_runtime_api!(cores);
-	let minimum_backing_votes =
-		try_runtime_api!(request_min_backing_votes(parent, session_index, ctx.sender()).await);
+
+	let minimum_backing_votes = per_session_cache
+		.minimum_backing_votes(session_index, parent, ctx.sender())
+		.await;
+	let minimum_backing_votes = try_runtime_api!(minimum_backing_votes);
 
 	// TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
 	// Once runtime ver `DISABLED_VALIDATORS_RUNTIME_REQUIREMENT` is released remove this call to
@@ -1180,21 +1368,11 @@ async fn construct_per_relay_parent_state<Context>(
 	}
 	gum::debug!(target: LOG_TARGET, ?groups, "TableContext");
 
-	let validator_to_group = validator_to_group_cache
-		.get_or_insert(session_index, || {
-			let mut vector = vec![None; validators.len()];
+	let validator_to_group =
+		per_session_cache.validator_to_group(session_index, &validators, &validator_groups);
 
-			for (group_idx, validator_group) in validator_groups.iter().enumerate() {
-				for validator in validator_group {
-					vector[validator.0 as usize] = Some(GroupIndex(group_idx as u32));
-				}
-			}
-
-			Arc::new(IndexedVec::<_, _>::from(vector))
-		})
-		.expect("Just inserted");
-
-	let table_context = TableContext { validator, groups, validators, disabled_validators };
+	let table_context =
+		TableContext { validator, groups, validators: validators.to_vec(), disabled_validators };
 	let table_config = TableConfig {
 		allow_multiple_seconded: match mode {
 			ProspectiveParachainsMode::Enabled { .. } => true,
@@ -1205,7 +1383,8 @@ async fn construct_per_relay_parent_state<Context>(
 	Ok(Some(PerRelayParentState {
 		prospective_parachains_mode: mode,
 		parent,
-		session_index,
+		node_features,
+		executor_params,
 		assigned_core,
 		backed: HashSet::new(),
 		table: Table::new(table_config),
@@ -1217,7 +1396,7 @@ async fn construct_per_relay_parent_state<Context>(
 		inject_core_index,
 		n_cores: cores.len() as u32,
 		claim_queue: ClaimQueueSnapshot::from(claim_queue),
-		validator_to_group: validator_to_group.clone(),
+		validator_to_group,
 		group_rotation_info,
 	}))
 }
@@ -1438,14 +1617,14 @@ async fn handle_validated_candidate_command<Context>(
 							let candidate_hash = candidate.hash();
 							gum::debug!(
 								target: LOG_TARGET,
-								relay_parent = ?candidate.descriptor().relay_parent,
+								relay_parent = ?candidate.descriptor().relay_parent(),
 								?candidate_hash,
 								"Attempted to second candidate but was rejected by prospective parachains",
 							);
 
 							// Ensure the collator is reported.
 							ctx.send_message(CollatorProtocolMessage::Invalid(
-								candidate.descriptor().relay_parent,
+								candidate.descriptor().relay_parent(),
 								candidate,
 							))
 							.await;
@@ -1480,7 +1659,7 @@ async fn handle_validated_candidate_command<Context>(
 									Some(d) => d,
 								};
 
-								leaf_data.add_seconded_candidate(candidate.descriptor().para_id);
+								leaf_data.add_seconded_candidate(candidate.descriptor().para_id());
 							}
 
 							rp_state.issued_statements.insert(candidate_hash);
@@ -1629,7 +1808,7 @@ async fn import_statement<Context>(
 				let (tx, rx) = oneshot::channel();
 				ctx.send_message(ProspectiveParachainsMessage::IntroduceSecondedCandidate(
 					IntroduceSecondedCandidateRequest {
-						candidate_para: candidate.descriptor().para_id,
+						candidate_para: candidate.descriptor.para_id(),
 						candidate_receipt: candidate.clone(),
 						persisted_validation_data: pvd.clone(),
 					},
@@ -1658,7 +1837,7 @@ async fn import_statement<Context>(
 					persisted_validation_data: pvd.clone(),
 					// This is set after importing when seconding locally.
 					seconded_locally: false,
-					relay_parent: candidate.descriptor().relay_parent,
+					relay_parent: candidate.descriptor.relay_parent(),
 				},
 			);
 		}
@@ -1702,7 +1881,7 @@ async fn post_import_statement_actions<Context>(
 				&rp_state.table_context,
 				rp_state.inject_core_index,
 			) {
-				let para_id = backed.candidate().descriptor.para_id;
+				let para_id = backed.candidate().descriptor.para_id();
 				gum::debug!(
 					target: LOG_TARGET,
 					candidate_hash = ?candidate_hash,
@@ -1883,7 +2062,8 @@ async fn kick_off_validation_work<Context>(
 			tx_command: background_validation_tx.clone(),
 			candidate: attesting.candidate,
 			relay_parent: rp_state.parent,
-			session_index: rp_state.session_index,
+			node_features: rp_state.node_features.clone(),
+			executor_params: Arc::clone(&rp_state.executor_params),
 			persisted_validation_data,
 			pov,
 			n_validators: rp_state.table_context.validators.len(),
@@ -1960,7 +2140,7 @@ async fn maybe_validate_and_import<Context>(
 						.get_candidate(&candidate_hash)
 						.ok_or(Error::CandidateNotFound)?
 						.to_plain(),
-					pov_hash: receipt.descriptor.pov_hash,
+					pov_hash: receipt.descriptor.pov_hash(),
 					from_validator: statement.validator_index(),
 					backing: Vec::new(),
 				};
@@ -2037,7 +2217,8 @@ async fn validate_and_second<Context>(
 			tx_command: background_validation_tx.clone(),
 			candidate: candidate.clone(),
 			relay_parent: rp_state.parent,
-			session_index: rp_state.session_index,
+			node_features: rp_state.node_features.clone(),
+			executor_params: Arc::clone(&rp_state.executor_params),
 			persisted_validation_data,
 			pov: PoVData::Ready(pov),
 			n_validators: rp_state.table_context.validators.len(),
@@ -2061,9 +2242,9 @@ async fn handle_second_message<Context>(
 	let _timer = metrics.time_process_second();
 
 	let candidate_hash = candidate.hash();
-	let relay_parent = candidate.descriptor().relay_parent;
+	let relay_parent = candidate.descriptor().relay_parent();
 
-	if candidate.descriptor().persisted_validation_data_hash != persisted_validation_data.hash() {
+	if candidate.descriptor().persisted_validation_data_hash() != persisted_validation_data.hash() {
 		gum::warn!(
 			target: LOG_TARGET,
 			?candidate_hash,
@@ -2097,12 +2278,12 @@ async fn handle_second_message<Context>(
 	let assigned_paras = rp_state.assigned_core.and_then(|core| rp_state.claim_queue.0.get(&core));
 
 	// Sanity check that candidate is from our assignment.
-	if !matches!(assigned_paras, Some(paras) if paras.contains(&candidate.descriptor().para_id)) {
+	if !matches!(assigned_paras, Some(paras) if paras.contains(&candidate.descriptor().para_id())) {
 		gum::debug!(
 			target: LOG_TARGET,
 			our_assignment_core = ?rp_state.assigned_core,
 			our_assignment_paras = ?assigned_paras,
-			collation = ?candidate.descriptor().para_id,
+			collation = ?candidate.descriptor().para_id(),
 			"Subsystem asked to second for para outside of our assignment",
 		);
 		return Ok(());
@@ -2112,7 +2293,7 @@ async fn handle_second_message<Context>(
 		target: LOG_TARGET,
 		our_assignment_core = ?rp_state.assigned_core,
 		our_assignment_paras = ?assigned_paras,
-		collation = ?candidate.descriptor().para_id,
+		collation = ?candidate.descriptor().para_id(),
 		"Current assignments vs collation",
 	);
 

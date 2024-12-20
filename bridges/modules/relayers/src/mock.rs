@@ -21,7 +21,7 @@ use crate as pallet_bridge_relayers;
 use bp_header_chain::ChainWithGrandpa;
 use bp_messages::{
 	target_chain::{DispatchMessage, MessageDispatch},
-	ChainWithMessages, LaneId, MessageNonce,
+	ChainWithMessages, HashedLaneId, LaneIdType, MessageNonce,
 };
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use bp_relayers::{
@@ -74,6 +74,13 @@ pub type BridgedChainHeader =
 pub const TEST_BRIDGED_CHAIN_ID: ChainId = *b"brdg";
 /// Maximal extrinsic size at the `BridgedChain`.
 pub const BRIDGED_CHAIN_MAX_EXTRINSIC_SIZE: u32 = 1024;
+
+/// Lane identifier type used for tests.
+pub type TestLaneIdType = HashedLaneId;
+/// Lane that we're using in tests.
+pub fn test_lane_id() -> TestLaneIdType {
+	TestLaneIdType::try_new(1, 2).unwrap()
+}
 
 /// Underlying chain of `ThisChain`.
 pub struct ThisUnderlyingChain;
@@ -253,10 +260,10 @@ impl pallet_bridge_messages::Config for TestRuntime {
 	type WeightInfo = pallet_bridge_messages::weights::BridgeWeight<TestRuntime>;
 
 	type OutboundPayload = Vec<u8>;
-
 	type InboundPayload = Vec<u8>;
-	type DeliveryPayments = ();
+	type LaneId = TestLaneIdType;
 
+	type DeliveryPayments = ();
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		TestRuntime,
 		(),
@@ -276,15 +283,20 @@ impl pallet_bridge_relayers::Config for TestRuntime {
 	type PaymentProcedure = TestPaymentProcedure;
 	type StakeAndSlash = TestStakeAndSlash;
 	type WeightInfo = ();
+	type LaneId = TestLaneIdType;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
 impl pallet_bridge_relayers::benchmarking::Config for TestRuntime {
-	fn prepare_rewards_account(account_params: RewardsAccountParams, reward: ThisChainBalance) {
-		let rewards_account =
-			bp_relayers::PayRewardFromAccount::<Balances, ThisChainAccountId>::rewards_account(
-				account_params,
-			);
+	fn prepare_rewards_account(
+		account_params: RewardsAccountParams<Self::LaneId>,
+		reward: Self::Reward,
+	) {
+		let rewards_account = bp_relayers::PayRewardFromAccount::<
+			Balances,
+			ThisChainAccountId,
+			Self::LaneId,
+		>::rewards_account(account_params);
 		Self::deposit_account(rewards_account, reward);
 	}
 
@@ -306,17 +318,18 @@ pub const REGISTER_RELAYER: ThisChainAccountId = 42;
 pub struct TestPaymentProcedure;
 
 impl TestPaymentProcedure {
-	pub fn rewards_account(params: RewardsAccountParams) -> ThisChainAccountId {
-		PayRewardFromAccount::<(), ThisChainAccountId>::rewards_account(params)
+	pub fn rewards_account(params: RewardsAccountParams<TestLaneIdType>) -> ThisChainAccountId {
+		PayRewardFromAccount::<(), ThisChainAccountId, TestLaneIdType>::rewards_account(params)
 	}
 }
 
 impl PaymentProcedure<ThisChainAccountId, ThisChainBalance> for TestPaymentProcedure {
 	type Error = ();
+	type LaneId = TestLaneIdType;
 
 	fn pay_reward(
 		relayer: &ThisChainAccountId,
-		_lane_id: RewardsAccountParams,
+		_lane_id: RewardsAccountParams<Self::LaneId>,
 		_reward: ThisChainBalance,
 	) -> Result<(), Self::Error> {
 		match *relayer {
@@ -330,7 +343,7 @@ impl PaymentProcedure<ThisChainAccountId, ThisChainBalance> for TestPaymentProce
 pub struct DummyMessageDispatch;
 
 impl DummyMessageDispatch {
-	pub fn deactivate(lane: LaneId) {
+	pub fn deactivate(lane: TestLaneIdType) {
 		frame_support::storage::unhashed::put(&(b"inactive", lane).encode()[..], &false);
 	}
 }
@@ -338,26 +351,33 @@ impl DummyMessageDispatch {
 impl MessageDispatch for DummyMessageDispatch {
 	type DispatchPayload = Vec<u8>;
 	type DispatchLevelResult = ();
+	type LaneId = TestLaneIdType;
 
-	fn is_active(lane: LaneId) -> bool {
+	fn is_active(lane: Self::LaneId) -> bool {
 		frame_support::storage::unhashed::take::<bool>(&(b"inactive", lane).encode()[..]) !=
 			Some(false)
 	}
 
-	fn dispatch_weight(_message: &mut DispatchMessage<Self::DispatchPayload>) -> Weight {
+	fn dispatch_weight(
+		_message: &mut DispatchMessage<Self::DispatchPayload, Self::LaneId>,
+	) -> Weight {
 		Weight::zero()
 	}
 
 	fn dispatch(
-		_: DispatchMessage<Self::DispatchPayload>,
+		_: DispatchMessage<Self::DispatchPayload, Self::LaneId>,
 	) -> MessageDispatchResult<Self::DispatchLevelResult> {
 		MessageDispatchResult { unspent_weight: Weight::zero(), dispatch_level_result: () }
 	}
 }
 
 /// Reward account params that we are using in tests.
-pub fn test_reward_account_param() -> RewardsAccountParams {
-	RewardsAccountParams::new(LaneId::new(1, 2), *b"test", RewardsAccountOwner::ThisChain)
+pub fn test_reward_account_param() -> RewardsAccountParams<TestLaneIdType> {
+	RewardsAccountParams::new(
+		TestLaneIdType::try_new(1, 2).unwrap(),
+		*b"test",
+		RewardsAccountOwner::ThisChain,
+	)
 }
 
 /// Return test externalities to use in tests.

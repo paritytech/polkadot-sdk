@@ -769,5 +769,6 @@ fn derive_partial_eq_no_bound_core_mod() {
 		crate::DefaultNoBound,
 		crate::EqNoBound,
 	)]
+	#[allow(dead_code)]
 	struct Test;
 }

@@ -5,7 +5,10 @@ use snowbridge_core::{
 	AgentIdOf,
 };
 use sp_std::default::Default;
-use xcm::prelude::SendError as XcmSendError;
+use xcm::{
+	latest::{ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
+	prelude::SendError as XcmSendError,
+};
 
 use super::*;
 
@@ -61,7 +64,7 @@ impl SendMessageFeeProvider for MockErrOutboundQueue {
 pub struct MockTokenIdConvert;
 impl MaybeEquivalence<TokenId, Location> for MockTokenIdConvert {
 	fn convert(_id: &TokenId) -> Option<Location> {
-		Some(Location::new(1, [GlobalConsensus(Westend)]))
+		Some(Location::new(1, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]))
 	}
 	fn convert_back(_loc: &Location) -> Option<TokenId> {
 		None
@@ -148,7 +151,7 @@ fn exporter_validate_without_universal_source_yields_missing_argument() {
 }
 
 #[test]
-fn exporter_validate_without_global_universal_location_yields_unroutable() {
+fn exporter_validate_without_global_universal_location_yields_not_applicable() {
 	let network = BridgedNetwork::get();
 	let channel: u32 = 0;
 	let mut universal_source: Option<InteriorLocation> = Here.into();
@@ -163,7 +166,7 @@ fn exporter_validate_without_global_universal_location_yields_unroutable() {
 			AgentIdOf,
 			MockTokenIdConvert,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
-	assert_eq!(result, Err(XcmSendError::Unroutable));
+	assert_eq!(result, Err(XcmSendError::NotApplicable));
 }
 
 #[test]
@@ -206,7 +209,7 @@ fn exporter_validate_with_remote_universal_source_yields_not_applicable() {
 }
 
 #[test]
-fn exporter_validate_without_para_id_in_source_yields_missing_argument() {
+fn exporter_validate_without_para_id_in_source_yields_not_applicable() {
 	let network = BridgedNetwork::get();
 	let channel: u32 = 0;
 	let mut universal_source: Option<InteriorLocation> = Some(GlobalConsensus(Polkadot).into());
@@ -221,11 +224,11 @@ fn exporter_validate_without_para_id_in_source_yields_missing_argument() {
 			AgentIdOf,
 			MockTokenIdConvert,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
-	assert_eq!(result, Err(XcmSendError::MissingArgument));
+	assert_eq!(result, Err(XcmSendError::NotApplicable));
 }
 
 #[test]
-fn exporter_validate_complex_para_id_in_source_yields_missing_argument() {
+fn exporter_validate_complex_para_id_in_source_yields_not_applicable() {
 	let network = BridgedNetwork::get();
 	let channel: u32 = 0;
 	let mut universal_source: Option<InteriorLocation> =
@@ -241,7 +244,7 @@ fn exporter_validate_complex_para_id_in_source_yields_missing_argument() {
 			AgentIdOf,
 			MockTokenIdConvert,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
-	assert_eq!(result, Err(XcmSendError::MissingArgument));
+	assert_eq!(result, Err(XcmSendError::NotApplicable));
 }
 
 #[test]
@@ -1109,7 +1112,7 @@ fn xcm_converter_transfer_native_token_success() {
 	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
 
 	let amount = 1000000;
-	let asset_location = Location::new(1, [GlobalConsensus(Westend)]);
+	let asset_location = Location::new(1, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]);
 	let token_id = TokenIdOf::convert_location(&asset_location).unwrap();
 
 	let assets: Assets = vec![Asset { id: AssetId(asset_location), fun: Fungible(amount) }].into();
@@ -1142,7 +1145,8 @@ fn xcm_converter_transfer_native_token_with_invalid_location_will_fail() {
 
 	let amount = 1000000;
 	// Invalid asset location from a different consensus
-	let asset_location = Location { parents: 2, interior: [GlobalConsensus(Rococo)].into() };
+	let asset_location =
+		Location { parents: 2, interior: [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH))].into() };
 
 	let assets: Assets = vec![Asset { id: AssetId(asset_location), fun: Fungible(amount) }].into();
 	let filter: AssetFilter = assets.clone().into();
@@ -1162,4 +1166,109 @@ fn xcm_converter_transfer_native_token_with_invalid_location_will_fail() {
 		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
 	let result = converter.convert();
 	assert_eq!(result.err(), Some(XcmConverterError::InvalidAsset));
+}
+
+#[test]
+fn exporter_validate_with_invalid_dest_does_not_alter_destination() {
+	let network = BridgedNetwork::get();
+	let destination: InteriorLocation = Parachain(1000).into();
+
+	let universal_source: InteriorLocation = [GlobalConsensus(Polkadot), Parachain(1000)].into();
+
+	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
+	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
+
+	let channel: u32 = 0;
+	let assets: Assets = vec![Asset {
+		id: AssetId([AccountKey20 { network: None, key: token_address }].into()),
+		fun: Fungible(1000),
+	}]
+	.into();
+	let fee = assets.clone().get(0).unwrap().clone();
+	let filter: AssetFilter = assets.clone().into();
+	let msg: Xcm<()> = vec![
+		WithdrawAsset(assets.clone()),
+		ClearOrigin,
+		BuyExecution { fees: fee, weight_limit: Unlimited },
+		DepositAsset {
+			assets: filter,
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
+		},
+		SetTopic([0; 32]),
+	]
+	.into();
+	let mut msg_wrapper: Option<Xcm<()>> = Some(msg.clone());
+	let mut dest_wrapper = Some(destination.clone());
+	let mut universal_source_wrapper = Some(universal_source.clone());
+
+	let result =
+		EthereumBlobExporter::<
+			UniversalLocation,
+			BridgedNetwork,
+			MockOkOutboundQueue,
+			AgentIdOf,
+			MockTokenIdConvert,
+		>::validate(
+			network, channel, &mut universal_source_wrapper, &mut dest_wrapper, &mut msg_wrapper
+		);
+
+	assert_eq!(result, Err(XcmSendError::NotApplicable));
+
+	// ensure mutable variables are not changed
+	assert_eq!(Some(destination), dest_wrapper);
+	assert_eq!(Some(msg), msg_wrapper);
+	assert_eq!(Some(universal_source), universal_source_wrapper);
+}
+
+#[test]
+fn exporter_validate_with_invalid_universal_source_does_not_alter_universal_source() {
+	let network = BridgedNetwork::get();
+	let destination: InteriorLocation = Here.into();
+
+	let universal_source: InteriorLocation =
+		[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1000)].into();
+
+	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
+	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
+
+	let channel: u32 = 0;
+	let assets: Assets = vec![Asset {
+		id: AssetId([AccountKey20 { network: None, key: token_address }].into()),
+		fun: Fungible(1000),
+	}]
+	.into();
+	let fee = assets.clone().get(0).unwrap().clone();
+	let filter: AssetFilter = assets.clone().into();
+	let msg: Xcm<()> = vec![
+		WithdrawAsset(assets.clone()),
+		ClearOrigin,
+		BuyExecution { fees: fee, weight_limit: Unlimited },
+		DepositAsset {
+			assets: filter,
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
+		},
+		SetTopic([0; 32]),
+	]
+	.into();
+	let mut msg_wrapper: Option<Xcm<()>> = Some(msg.clone());
+	let mut dest_wrapper = Some(destination.clone());
+	let mut universal_source_wrapper = Some(universal_source.clone());
+
+	let result =
+		EthereumBlobExporter::<
+			UniversalLocation,
+			BridgedNetwork,
+			MockOkOutboundQueue,
+			AgentIdOf,
+			MockTokenIdConvert,
+		>::validate(
+			network, channel, &mut universal_source_wrapper, &mut dest_wrapper, &mut msg_wrapper
+		);
+
+	assert_eq!(result, Err(XcmSendError::NotApplicable));
+
+	// ensure mutable variables are not changed
+	assert_eq!(Some(destination), dest_wrapper);
+	assert_eq!(Some(msg), msg_wrapper);
+	assert_eq!(Some(universal_source), universal_source_wrapper);
 }

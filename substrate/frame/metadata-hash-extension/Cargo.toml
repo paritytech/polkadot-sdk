@@ -17,6 +17,7 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
 docify = { workspace = true }
+const-hex = { workspace = true }
 
 [dev-dependencies]
 substrate-wasm-builder = { features = ["metadata-hash"], workspace = true, default-features = true }
@@ -31,6 +32,7 @@ sp-tracing = { workspace = true, default-features = true }
 default = ["std"]
 std = [
 	"codec/std",
+	"const-hex/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",

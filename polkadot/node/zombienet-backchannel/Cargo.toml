@@ -16,7 +16,6 @@ tokio = { features = ["macros", "net", "rt-multi-thread", "sync"], workspace = t
 url = { workspace = true }
 tokio-tungstenite = { workspace = true }
 futures-util = { workspace = true, default-features = true }
-lazy_static = { workspace = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 reqwest = { features = ["rustls-tls"], workspace = true }
 thiserror = { workspace = true }

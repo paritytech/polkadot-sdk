@@ -4020,6 +4020,13 @@ impl<T: Config> Pallet<T> {
 		T::StakeAdapter::total_balance(Pool::from(Self::generate_bonded_account(pool_id)))
 			.unwrap_or_default()
 	}
+
+	/// Returns the bonded account and reward account associated with the pool_id.
+	pub fn api_pool_accounts(pool_id: PoolId) -> (T::AccountId, T::AccountId) {
+		let bonded_account = Self::generate_bonded_account(pool_id);
+		let reward_account = Self::generate_reward_account(pool_id);
+		(bonded_account, reward_account)
+	}
 }
 
 impl<T: Config> sp_staking::OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {

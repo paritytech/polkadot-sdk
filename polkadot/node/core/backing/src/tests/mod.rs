@@ -22,19 +22,19 @@ use polkadot_node_primitives::{BlockData, InvalidCandidate, SignedFullStatement,
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
 	messages::{
-		AllMessages, CollatorProtocolMessage, RuntimeApiMessage, RuntimeApiRequest,
+		AllMessages, CollatorProtocolMessage, PvfExecKind, RuntimeApiMessage, RuntimeApiRequest,
 		ValidationFailed,
 	},
 	ActiveLeavesUpdate, FromOrchestra, OverseerSignal, TimeoutExt,
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
-	node_features, CandidateDescriptor, GroupRotationInfo, HeadData, PersistedValidationData,
-	PvfExecKind, ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
+	node_features, vstaging::MutateDescriptorV2, CandidateDescriptor, GroupRotationInfo, HeadData,
+	PersistedValidationData, ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_receipt_bad_sig, dummy_collator, dummy_collator_signature,
-	dummy_committed_candidate_receipt, dummy_hash, validator_pubkeys,
+	dummy_committed_candidate_receipt_v2, dummy_hash, validator_pubkeys,
 };
 use polkadot_statement_table::v2::Misbehavior;
 use rstest::rstest;
@@ -69,6 +69,14 @@ fn dummy_pvd() -> PersistedValidationData {
 	}
 }
 
+#[derive(Default)]
+struct PerSessionCacheState {
+	has_cached_validators: bool,
+	has_cached_node_features: bool,
+	has_cached_executor_params: bool,
+	has_cached_minimum_backing_votes: bool,
+}
+
 pub(crate) struct TestState {
 	chain_ids: Vec<ParaId>,
 	keystore: KeystorePtr,
@@ -85,6 +93,7 @@ pub(crate) struct TestState {
 	minimum_backing_votes: u32,
 	disabled_validators: Vec<ValidatorIndex>,
 	node_features: NodeFeatures,
+	per_session_cache_state: PerSessionCacheState,
 }
 
 impl TestState {
@@ -157,6 +166,7 @@ impl Default for TestState {
 			chain_ids,
 			keystore,
 			validators,
+			per_session_cache_state: PerSessionCacheState::default(),
 			validator_public,
 			validator_groups: (validator_groups, group_rotation_info),
 			validator_to_group,
@@ -236,7 +246,8 @@ impl TestCandidateBuilder {
 				para_head: self.head_data.hash(),
 				validation_code_hash: ValidationCode(self.validation_code).hash(),
 				persisted_validation_data_hash: self.persisted_validation_data_hash,
-			},
+			}
+			.into(),
 			commitments: CandidateCommitments {
 				head_data: self.head_data,
 				upward_messages: Default::default(),
@@ -250,7 +261,7 @@ impl TestCandidateBuilder {
 }
 
 // Tests that the subsystem performs actions that are required on startup.
-async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &TestState) {
+async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &mut TestState) {
 	// Start work on some new parent.
 	virtual_overseer
 		.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(
@@ -277,16 +288,6 @@ async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 		}
 	);
 
-	// Check that subsystem job issues a request for a validator set.
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(parent, RuntimeApiRequest::Validators(tx))
-		) if parent == test_state.relay_parent => {
-			tx.send(Ok(test_state.validator_public.clone())).unwrap();
-		}
-	);
-
 	// Check that subsystem job issues a request for the validator groups.
 	assert_matches!(
 		virtual_overseer.recv().await,
@@ -307,26 +308,58 @@ async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &TestS
 		}
 	);
 
-	// Node features request from runtime: all features are disabled.
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(_parent, RuntimeApiRequest::NodeFeatures(_session_index, tx))
-		) => {
-			tx.send(Ok(test_state.node_features.clone())).unwrap();
-		}
-	);
+	if !test_state.per_session_cache_state.has_cached_validators {
+		// Check that subsystem job issues a request for a validator set.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::Validators(tx))
+			) if parent == test_state.relay_parent => {
+				tx.send(Ok(test_state.validator_public.clone())).unwrap();
+			}
+		);
+		test_state.per_session_cache_state.has_cached_validators = true;
+	}
 
-	// Check if subsystem job issues a request for the minimum backing votes.
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			parent,
-			RuntimeApiRequest::MinimumBackingVotes(session_index, tx),
-		)) if parent == test_state.relay_parent && session_index == test_state.signing_context.session_index => {
-			tx.send(Ok(test_state.minimum_backing_votes)).unwrap();
-		}
-	);
+	if !test_state.per_session_cache_state.has_cached_node_features {
+		// Node features request from runtime: all features are disabled.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(_parent, RuntimeApiRequest::NodeFeatures(_session_index, tx))
+			) => {
+				tx.send(Ok(test_state.node_features.clone())).unwrap();
+			}
+		);
+		test_state.per_session_cache_state.has_cached_node_features = true;
+	}
+
+	if !test_state.per_session_cache_state.has_cached_executor_params {
+		// Check if subsystem job issues a request for the executor parameters.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(_parent, RuntimeApiRequest::SessionExecutorParams(_session_index, tx))
+			) => {
+				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
+			}
+		);
+		test_state.per_session_cache_state.has_cached_executor_params = true;
+	}
+
+	if !test_state.per_session_cache_state.has_cached_minimum_backing_votes {
+		// Check if subsystem job issues a request for the minimum backing votes.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				parent,
+				RuntimeApiRequest::MinimumBackingVotes(session_index, tx),
+			)) if parent == test_state.relay_parent && session_index == test_state.signing_context.session_index => {
+				tx.send(Ok(test_state.minimum_backing_votes)).unwrap();
+			}
+		);
+		test_state.per_session_cache_state.has_cached_minimum_backing_votes = true;
+	}
 
 	// Check that subsystem job issues a request for the runtime version.
 	assert_matches!(
@@ -381,33 +414,6 @@ async fn assert_validation_requests(
 			tx.send(Ok(Some(validation_code))).unwrap();
 		}
 	);
-
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
-		) => {
-			tx.send(Ok(1u32.into())).unwrap();
-		}
-	);
-
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
-		) if sess_idx == 1 => {
-			tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-		}
-	);
-
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(sess_idx, tx))
-		) if sess_idx == 1 => {
-			tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
-		}
-	);
 }
 
 async fn assert_validate_from_exhaustive(
@@ -433,8 +439,8 @@ async fn assert_validate_from_exhaustive(
 			},
 		) if validation_data == *assert_pvd &&
 			validation_code == *assert_validation_code &&
-			*pov == *assert_pov && &candidate_receipt.descriptor == assert_candidate.descriptor() &&
-			exec_kind == PvfExecKind::Backing &&
+			*pov == *assert_pov && candidate_receipt.descriptor == assert_candidate.descriptor &&
+			matches!(exec_kind, PvfExecKind::BackingSystemParas(_)) &&
 			candidate_receipt.commitments_hash == assert_candidate.commitments.hash() =>
 		{
 			response_sender.send(Ok(ValidationResult::Valid(
@@ -457,9 +463,9 @@ async fn assert_validate_from_exhaustive(
 // and in case validation is successful issues a `StatementDistributionMessage`.
 #[test]
 fn backing_second_works() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		test_startup(&mut virtual_overseer, &mut test_state).await;
 
 		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd = dummy_pvd();
@@ -553,7 +559,7 @@ fn backing_works(#[case] elastic_scaling_mvp: bool) {
 	}
 
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		test_startup(&mut virtual_overseer, &mut test_state).await;
 
 		let pov_ab = PoV { block_data: BlockData(vec![1, 2, 3]) };
 		let pvd_ab = dummy_pvd();
@@ -650,8 +656,8 @@ fn backing_works(#[case] elastic_scaling_mvp: bool) {
 				},
 			) if validation_data == pvd_ab &&
 				validation_code == validation_code_ab &&
-				*pov == pov_ab && &candidate_receipt.descriptor == candidate_a.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
+				*pov == pov_ab && candidate_receipt.descriptor == candidate_a.descriptor &&
+				matches!(exec_kind, PvfExecKind::BackingSystemParas(_)) &&
 				candidate_receipt.commitments_hash == candidate_a_commitments_hash =>
 			{
 				response_sender.send(Ok(
@@ -771,7 +777,7 @@ fn get_backed_candidate_preserves_order() {
 		.insert(CoreIndex(2), [test_state.chain_ids[1]].into_iter().collect());
 
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		test_startup(&mut virtual_overseer, &mut test_state).await;
 
 		let pov_a = PoV { block_data: BlockData(vec![1, 2, 3]) };
 		let pov_b = PoV { block_data: BlockData(vec![3, 4, 5]) };
@@ -1121,7 +1127,7 @@ fn extract_core_index_from_statement_works() {
 	.flatten()
 	.expect("should be signed");
 
-	candidate.descriptor.para_id = test_state.chain_ids[1];
+	candidate.descriptor.set_para_id(test_state.chain_ids[1]);
 
 	let signed_statement_3 = SignedFullStatementWithPVD::sign(
 		&test_state.keystore,
@@ -1170,9 +1176,9 @@ fn extract_core_index_from_statement_works() {
 
 #[test]
 fn backing_works_while_validation_ongoing() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		test_startup(&mut virtual_overseer, &mut test_state).await;
 
 		let pov_abc = PoV { block_data: BlockData(vec![1, 2, 3]) };
 		let pvd_abc = dummy_pvd();
@@ -1286,8 +1292,8 @@ fn backing_works_while_validation_ongoing() {
 				},
 			) if validation_data == pvd_abc &&
 				validation_code == validation_code_abc &&
-				*pov == pov_abc && &candidate_receipt.descriptor == candidate_a.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
+				*pov == pov_abc && candidate_receipt.descriptor == candidate_a.descriptor &&
+				matches!(exec_kind, PvfExecKind::BackingSystemParas(_)) &&
 				candidate_a_commitments_hash == candidate_receipt.commitments_hash =>
 			{
 				// we never validate the candidate. our local node
@@ -1365,9 +1371,9 @@ fn backing_works_while_validation_ongoing() {
 // be a misbehavior.
 #[test]
 fn backing_misbehavior_works() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		test_startup(&mut virtual_overseer, &mut test_state).await;
 
 		let pov_a = PoV { block_data: BlockData(vec![1, 2, 3]) };
 
@@ -1453,8 +1459,8 @@ fn backing_misbehavior_works() {
 				},
 			) if validation_data == pvd_a &&
 				validation_code == validation_code_a &&
-				*pov == pov_a && &candidate_receipt.descriptor == candidate_a.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
+				*pov == pov_a && candidate_receipt.descriptor == candidate_a.descriptor &&
+				matches!(exec_kind, PvfExecKind::BackingSystemParas(_)) &&
 				candidate_a_commitments_hash == candidate_receipt.commitments_hash =>
 			{
 				response_sender.send(Ok(
@@ -1551,9 +1557,9 @@ fn backing_misbehavior_works() {
 // can still second a valid one afterwards.
 #[test]
 fn backing_dont_second_invalid() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		test_startup(&mut virtual_overseer, &mut test_state).await;
 
 		let pov_block_a = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd_a = dummy_pvd();
@@ -1620,8 +1626,8 @@ fn backing_dont_second_invalid() {
 				},
 			) if validation_data == pvd_a &&
 				validation_code == validation_code_a &&
-				*pov == pov_block_a && &candidate_receipt.descriptor == candidate_a.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
+				*pov == pov_block_a && candidate_receipt.descriptor == candidate_a.descriptor &&
+				matches!(exec_kind, PvfExecKind::BackingSystemParas(_)) &&
 				candidate_a.commitments.hash() == candidate_receipt.commitments_hash =>
 			{
 				response_sender.send(Ok(ValidationResult::Invalid(InvalidCandidate::BadReturn))).unwrap();
@@ -1660,8 +1666,8 @@ fn backing_dont_second_invalid() {
 				},
 			) if validation_data == pvd_b &&
 				validation_code == validation_code_b &&
-				*pov == pov_block_b && &candidate_receipt.descriptor == candidate_b.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
+				*pov == pov_block_b && candidate_receipt.descriptor == candidate_b.descriptor &&
+				matches!(exec_kind, PvfExecKind::BackingSystemParas(_)) &&
 				candidate_b.commitments.hash() == candidate_receipt.commitments_hash =>
 			{
 				response_sender.send(Ok(
@@ -1711,9 +1717,9 @@ fn backing_dont_second_invalid() {
 // candidate we will not be issuing a `Seconded` statement on it.
 #[test]
 fn backing_second_after_first_fails_works() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		test_startup(&mut virtual_overseer, &mut test_state).await;
 
 		let pov_a = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd_a = dummy_pvd();
@@ -1787,8 +1793,8 @@ fn backing_second_after_first_fails_works() {
 				},
 			) if validation_data == pvd_a &&
 				validation_code == validation_code_a &&
-				*pov == pov_a && &candidate_receipt.descriptor == candidate.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
+				*pov == pov_a && candidate_receipt.descriptor == candidate.descriptor &&
+				matches!(exec_kind, PvfExecKind::BackingSystemParas(_)) &&
 				candidate.commitments.hash() == candidate_receipt.commitments_hash =>
 			{
 				response_sender.send(Ok(ValidationResult::Invalid(InvalidCandidate::BadReturn))).unwrap();
@@ -1857,9 +1863,9 @@ fn backing_second_after_first_fails_works() {
 // the work of this subsystem and so it is not fatal to the node.
 #[test]
 fn backing_works_after_failed_validation() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		test_startup(&mut virtual_overseer, &mut test_state).await;
 
 		let pov_a = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd_a = dummy_pvd();
@@ -1931,8 +1937,8 @@ fn backing_works_after_failed_validation() {
 				},
 			) if validation_data == pvd_a &&
 				validation_code == validation_code_a &&
-				*pov == pov_a && &candidate_receipt.descriptor == candidate.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
+				*pov == pov_a && candidate_receipt.descriptor == candidate.descriptor &&
+				matches!(exec_kind, PvfExecKind::BackingSystemParas(_)) &&
 				candidate.commitments.hash() == candidate_receipt.commitments_hash =>
 			{
 				response_sender.send(Err(ValidationFailed("Internal test error".into()))).unwrap();
@@ -1999,7 +2005,7 @@ fn candidate_backing_reorders_votes() {
 	};
 
 	let attested = TableAttestedCandidate {
-		candidate: dummy_committed_candidate_receipt(dummy_hash()),
+		candidate: dummy_committed_candidate_receipt_v2(dummy_hash()),
 		validity_votes: vec![
 			(ValidatorIndex(5), fake_attestation(5)),
 			(ValidatorIndex(3), fake_attestation(3)),
@@ -2036,9 +2042,9 @@ fn candidate_backing_reorders_votes() {
 #[test]
 fn retry_works() {
 	// sp_tracing::try_init_simple();
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		test_startup(&mut virtual_overseer, &mut test_state).await;
 
 		let pov_a = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd_a = dummy_pvd();
@@ -2133,7 +2139,7 @@ fn retry_works() {
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
 		// Not deterministic which message comes first:
-		for _ in 0u32..6 {
+		for _ in 0u32..3 {
 			match virtual_overseer.recv().await {
 				AllMessages::Provisioner(ProvisionerMessage::ProvisionableData(
 					_,
@@ -2151,24 +2157,6 @@ fn retry_works() {
 					RuntimeApiRequest::ValidationCodeByHash(hash, tx),
 				)) if hash == validation_code_a.hash() => {
 					tx.send(Ok(Some(validation_code_a.clone()))).unwrap();
-				},
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_,
-					RuntimeApiRequest::SessionIndexForChild(tx),
-				)) => {
-					tx.send(Ok(1u32.into())).unwrap();
-				},
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_,
-					RuntimeApiRequest::SessionExecutorParams(1, tx),
-				)) => {
-					tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-				},
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_,
-					RuntimeApiRequest::NodeFeatures(1, tx),
-				)) => {
-					tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 				},
 				msg => {
 					assert!(false, "Unexpected message: {:?}", msg);
@@ -2210,8 +2198,8 @@ fn retry_works() {
 				},
 			) if validation_data == pvd_a &&
 				validation_code == validation_code_a &&
-				*pov == pov_a && &candidate_receipt.descriptor == candidate.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
+				*pov == pov_a && candidate_receipt.descriptor == candidate.descriptor &&
+				matches!(exec_kind, PvfExecKind::BackingSystemParas(_)) &&
 				candidate.commitments.hash() == candidate_receipt.commitments_hash
 		);
 		virtual_overseer
@@ -2220,10 +2208,10 @@ fn retry_works() {
 
 #[test]
 fn observes_backing_even_if_not_validator() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	let empty_keystore = Arc::new(sc_keystore::LocalKeystore::in_memory());
 	test_harness(empty_keystore, |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		test_startup(&mut virtual_overseer, &mut test_state).await;
 
 		let pov = PoV { block_data: BlockData(vec![1, 2, 3]) };
 		let pvd = dummy_pvd();
@@ -2339,9 +2327,9 @@ fn observes_backing_even_if_not_validator() {
 // without prospective parachains.
 #[test]
 fn cannot_second_multiple_candidates_per_parent() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		test_startup(&mut virtual_overseer, &mut test_state).await;
 
 		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd = dummy_pvd();
@@ -2477,13 +2465,13 @@ fn new_leaf_view_doesnt_clobber_old() {
 	let relay_parent_2 = Hash::repeat_byte(1);
 	assert_ne!(test_state.relay_parent, relay_parent_2);
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		test_startup(&mut virtual_overseer, &mut test_state).await;
 
 		// New leaf that doesn't clobber old.
 		{
 			let old_relay_parent = test_state.relay_parent;
 			test_state.relay_parent = relay_parent_2;
-			test_startup(&mut virtual_overseer, &test_state).await;
+			test_startup(&mut virtual_overseer, &mut test_state).await;
 			test_state.relay_parent = old_relay_parent;
 		}
 
@@ -2536,7 +2524,7 @@ fn disabled_validator_doesnt_distribute_statement_on_receiving_second() {
 	test_state.disabled_validators.push(ValidatorIndex(0));
 
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		test_startup(&mut virtual_overseer, &mut test_state).await;
 
 		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd = dummy_pvd();
@@ -2584,7 +2572,7 @@ fn disabled_validator_doesnt_distribute_statement_on_receiving_statement() {
 	test_state.disabled_validators.push(ValidatorIndex(0));
 
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		test_startup(&mut virtual_overseer, &mut test_state).await;
 
 		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd = dummy_pvd();
@@ -2646,7 +2634,7 @@ fn validator_ignores_statements_from_disabled_validators() {
 	test_state.disabled_validators.push(ValidatorIndex(2));
 
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		test_startup(&mut virtual_overseer, &test_state).await;
+		test_startup(&mut virtual_overseer, &mut test_state).await;
 
 		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd = dummy_pvd();
@@ -2752,8 +2740,8 @@ fn validator_ignores_statements_from_disabled_validators() {
 				}
 			) if validation_data == pvd &&
 				validation_code == expected_validation_code &&
-				*pov == expected_pov && &candidate_receipt.descriptor == candidate.descriptor() &&
-				exec_kind == PvfExecKind::Backing &&
+				*pov == expected_pov && candidate_receipt.descriptor == candidate.descriptor &&
+				matches!(exec_kind, PvfExecKind::BackingSystemParas(_)) &&
 				candidate_commitments_hash == candidate_receipt.commitments_hash =>
 			{
 				response_sender.send(Ok(

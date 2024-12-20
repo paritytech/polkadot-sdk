@@ -6,7 +6,7 @@ name: Check the getting-started.sh script
 #
 # There are two jobs inside.
 # One for systems that can run in a docker container, and one for macOS.
-# 
+#
 # Each job consists of:
 # 1. Some necessary prerequisites for the workflow itself.
 # 2. A first pass of the script, which will install dependencies and clone a template.
@@ -24,10 +24,10 @@ name: Check the getting-started.sh script
 on:
   pull_request:
     paths:
-      - '.github/workflows/check-getting-started.yml'
-      - 'scripts/getting-started.sh'
+      - ".github/workflows/check-getting-started.yml"
+      - "scripts/getting-started.sh"
   schedule:
-    - cron: '0 5 * * *'
+    - cron: "0 5 * * *"
   workflow_dispatch:
 
 concurrency:
@@ -60,7 +60,7 @@ jobs:
             container: opensuse/tumbleweed
             template: solochain
             shell: sh
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: parity-large
     container: ${{ matrix.container }}:latest
     steps:
       # A minimal amount of prerequisites required before we can run the actual getting-started script,
@@ -116,7 +116,7 @@ jobs:
           expect "start with one of the templates" {
             send "y\r"
           }
-          
+
           expect -re "(.)\\) ${{ matrix.template }} template" {
             send "$expect_out(1,string)\r"
           }
@@ -150,7 +150,7 @@ jobs:
           expect "start with one of the templates" {
             send "y\r"
           }
-          
+
           expect -re "(.)\\) ${{ matrix.template }} template" {
             send "$expect_out(1,string)\r"
             expect "directory already exists" {}
@@ -227,7 +227,7 @@ jobs:
           expect "start with one of the templates" {
             send "y\r"
           }
-          
+
           expect -re "(.)\\) ${{ matrix.template }} template" {
             send "$expect_out(1,string)\r"
           }
@@ -267,7 +267,7 @@ jobs:
           expect "start with one of the templates" {
             send "y\r"
           }
-          
+
           expect -re "(.)\\) ${{ matrix.template }} template" {
             send "$expect_out(1,string)\r"
             expect "directory already exists" {}

@@ -10,7 +10,9 @@
     "/dns4/coretime-polkadot.boot.stake.plus/tcp/30332/wss/p2p/12D3KooWFJ2yBTKFKYwgKUjfY3F7XfaxHV8hY6fbJu5oMkpP7wZ9",
     "/dns4/coretime-polkadot.boot.stake.plus/tcp/31332/wss/p2p/12D3KooWCy5pToLafcQzPHn5kadxAftmF6Eh8ZJGPXhSeXSUDfjv",
     "/dns/coretime-polkadot-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWGpmytHjdthrkKgkXDZyKm9ABtJ2PtGk9NStJDG4pChy9",
-    "/dns/coretime-polkadot-boot-ng.dwellir.com/tcp/30361/p2p/12D3KooWGpmytHjdthrkKgkXDZyKm9ABtJ2PtGk9NStJDG4pChy9"
+    "/dns/coretime-polkadot-boot-ng.dwellir.com/tcp/30361/p2p/12D3KooWGpmytHjdthrkKgkXDZyKm9ABtJ2PtGk9NStJDG4pChy9",
+    "/dns/coretime-polkadot-bootnode.radiumblock.com/tcp/30333/p2p/12D3KooWFsQphSqvqjVyKcEdR1D7LPcXHqjmy6ASuJrTr5isk9JU",
+    "/dns/coretime-polkadot-bootnode.radiumblock.com/tcp/30336/wss/p2p/12D3KooWFsQphSqvqjVyKcEdR1D7LPcXHqjmy6ASuJrTr5isk9JU"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

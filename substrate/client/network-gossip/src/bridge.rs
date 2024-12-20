@@ -377,9 +377,6 @@ mod tests {
 	#[derive(Clone, Default)]
 	struct TestNetwork {}
 
-	#[derive(Clone, Default)]
-	struct TestNetworkInner {}
-
 	#[async_trait::async_trait]
 	impl NetworkPeers for TestNetwork {
 		fn set_authorized_peers(&self, _peers: HashSet<PeerId>) {

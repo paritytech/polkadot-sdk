@@ -15,7 +15,6 @@ async-trait = { workspace = true }
 hex = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
-polkadot-node-jaeger = { workspace = true, default-features = true }
 codec = { features = ["derive"], workspace = true }
 sc-network = { workspace = true, default-features = true }
 sc-network-types = { workspace = true, default-features = true }

@@ -32,7 +32,7 @@ use polkadot_service::{
 	Error, FullClient, IsParachainNode, NewFull, OverseerGen, PrometheusConfig,
 };
 use polkadot_test_runtime::{
-	ParasCall, ParasSudoWrapperCall, Runtime, SignedExtra, SignedPayload, SudoCall,
+	ParasCall, ParasSudoWrapperCall, Runtime, SignedPayload, SudoCall, TxExtension,
 	UncheckedExtrinsic, VERSION,
 };
 
@@ -88,7 +88,6 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					is_parachain_node,
 					enable_beefy: true,
 					force_authoring_backoff: false,
-					jaeger_agent: None,
 					telemetry_worker_handle: None,
 					node_version: None,
 					secure_validator_mode: false,
@@ -101,6 +100,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					execute_workers_max_num: None,
 					prepare_workers_hard_max_num: None,
 					prepare_workers_soft_max_num: None,
+					enable_approval_voting_parallel: false,
 				},
 			),
 		sc_network::config::NetworkBackendType::Litep2p =>
@@ -110,7 +110,6 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					is_parachain_node,
 					enable_beefy: true,
 					force_authoring_backoff: false,
-					jaeger_agent: None,
 					telemetry_worker_handle: None,
 					node_version: None,
 					secure_validator_mode: false,
@@ -123,6 +122,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					execute_workers_max_num: None,
 					prepare_workers_hard_max_num: None,
 					prepare_workers_soft_max_num: None,
+					enable_approval_voting_parallel: false,
 				},
 			),
 	}
@@ -414,7 +414,7 @@ pub fn construct_extrinsic(
 	let period =
 		BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
 	let tip = 0;
-	let extra: SignedExtra = (
+	let tx_ext: TxExtension = (
 		frame_system::CheckNonZeroSender::<Runtime>::new(),
 		frame_system::CheckSpecVersion::<Runtime>::new(),
 		frame_system::CheckTxVersion::<Runtime>::new(),
@@ -423,10 +423,11 @@ pub fn construct_extrinsic(
 		frame_system::CheckNonce::<Runtime>::from(nonce),
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
-	);
+	)
+		.into();
 	let raw_payload = SignedPayload::from_raw(
 		function.clone(),
-		extra.clone(),
+		tx_ext.clone(),
 		(
 			(),
 			VERSION.spec_version,
@@ -443,7 +444,7 @@ pub fn construct_extrinsic(
 		function.clone(),
 		polkadot_test_runtime::Address::Id(caller.public().into()),
 		polkadot_primitives::Signature::Sr25519(signature),
-		extra.clone(),
+		tx_ext.clone(),
 	)
 }
 
