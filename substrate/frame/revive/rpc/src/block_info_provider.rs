@@ -135,6 +135,7 @@ struct BlockCache<Block> {
 
 /// Provides information about a block,
 /// This is an abstratction on top of [`SubstrateBlock`] used to test the [`BlockCache`].
+/// Can be removed once https://github.com/paritytech/subxt/issues/1883 is fixed.
 trait BlockInfo {
 	/// Returns the block hash.
 	fn hash(&self) -> H256;
@@ -167,7 +168,6 @@ impl<B: BlockInfo> BlockCache<B> {
 		let mut pruned_block_hash = None;
 		if self.buffer.len() >= self.max_cache_size {
 			if let Some(block) = self.buffer.pop_front() {
-				log::trace!(target: LOG_TARGET, "Pruning block: {}", block.number());
 				let hash = block.hash();
 				self.blocks_by_hash.remove(&hash);
 				self.blocks_by_number.remove(&block.number());
@@ -220,6 +220,7 @@ pub mod test {
 		assert_eq!(cache.blocks_by_hash.len(), 2);
 	}
 
+	/// A Noop BlockInfoProvider used to test [`db::DBReceiptProvider`].
 	pub struct MockBlockInfoProvider;
 
 	#[async_trait]

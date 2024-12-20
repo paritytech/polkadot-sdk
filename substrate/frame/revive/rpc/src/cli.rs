@@ -51,7 +51,7 @@ pub struct CliCommand {
 
 	/// The database used to store Ethereum transaction hashes.
 	/// This is only useful if the node needs to act as an archive node and respond to Ethereum RPC
-	/// querires for transactions that are not in the in memory cache.
+	/// queries for transactions that are not in the in memory cache.
 	#[clap(long)]
 	pub database_url: Option<String>,
 

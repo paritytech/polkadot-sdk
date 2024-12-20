@@ -31,7 +31,8 @@ pub struct CliCommand {
 	#[clap(long, default_value = "ws://127.0.0.1:9944")]
 	pub node_rpc_url: String,
 
-	/// If specified, indexing will walk back and index block until this block number.
+	/// Specifies the block number to start indexing from, going backwards from the current block.
+	/// If not provided, only new blocks will be indexed
 	#[clap(long)]
 	pub oldest_block: Option<SubstrateBlockNumber>,
 
