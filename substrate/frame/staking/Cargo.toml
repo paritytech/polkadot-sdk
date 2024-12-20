@@ -50,6 +50,7 @@ substrate-test-utils = { workspace = true }
 frame-benchmarking = { workspace = true, default-features = true }
 frame-election-provider-support = { workspace = true, default-features = true }
 rand_chacha = { workspace = true, default-features = true }
+frame-support = { features = ["experimental"], workspace = true, default-features = true }
 
 [features]
 default = ["std"]
