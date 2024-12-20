@@ -61,7 +61,7 @@ impl Default for ObsoleteReleases {
 #[storage_alias]
 type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, ValueQuery>;
 
-/// Migrating all unbounded storage items to bounded
+/// Migrating all non-slashing related unbounded storage items to bounded
 pub mod v17 {
 	use super::*;
 
