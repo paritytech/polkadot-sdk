@@ -169,6 +169,10 @@ pub struct ApprovalVotingSubsystem {
 	metrics: Metrics,
 	clock: Arc<dyn Clock + Send + Sync>,
 	spawner: Arc<dyn overseer::gen::Spawner + 'static>,
+	/// The maximum time we retry to approve a block if it is still needed and PoV fetch failed.
+	max_approval_retries: u32,
+	/// The backoff before we retry the approval.
+	retry_backoff: Duration,
 }
 
 #[derive(Clone)]
@@ -497,6 +501,8 @@ impl ApprovalVotingSubsystem {
 			metrics,
 			Arc::new(SystemClock {}),
 			spawner,
+			MAX_APPROVAL_RETRIES,
+			APPROVAL_CHECKING_TIMEOUT / 2,
 		)
 	}
 
@@ -509,6 +515,8 @@ impl ApprovalVotingSubsystem {
 		metrics: Metrics,
 		clock: Arc<dyn Clock + Send + Sync>,
 		spawner: Arc<dyn overseer::gen::Spawner + 'static>,
+		max_approval_retries: u32,
+		retry_backoff: Duration,
 	) -> Self {
 		ApprovalVotingSubsystem {
 			keystore,
@@ -519,6 +527,8 @@ impl ApprovalVotingSubsystem {
 			metrics,
 			clock,
 			spawner,
+			max_approval_retries,
+			retry_backoff,
 		}
 	}
 
@@ -713,13 +723,12 @@ enum ApprovalOutcome {
 #[derive(Clone)]
 struct RetryApprovalInfo {
 	candidate: CandidateReceipt,
-	validator_index: ValidatorIndex,
 	backing_group: GroupIndex,
 	executor_params: ExecutorParams,
 	core_index: Option<CoreIndex>,
-	relay_block: Hash,
 	session_index: SessionIndex,
-	num_attempts: u32,
+	attempts_remaining: u32,
+	backoff: Duration,
 }
 
 struct ApprovalState {
@@ -1332,42 +1341,33 @@ where
 					actions.append(&mut approvals);
 				}
 
-				if let Some(RetryApprovalInfo {
-					candidate,
-					validator_index,
-					backing_group,
-					executor_params,
-					core_index,
-					relay_block,
-					session_index,
-					num_attempts: _,
-				}) = retry_info.clone()  {
+				if let Some(retry_info) = retry_info {
 					for block_hash in relay_block_hashes {
 						if overlayed_db.load_block_entry(&block_hash).map(|block_info| block_info.is_some()).unwrap_or(false) {
 							let sender = to_other_subsystems.clone();
 							let spawn_handle = subsystem.spawner.clone();
 							let metrics = subsystem.metrics.clone();
 							let retry_info = retry_info.clone();
-							let executor_params = executor_params.clone();
-							let candidate = candidate.clone();
+							let executor_params = retry_info.executor_params.clone();
+							let candidate = retry_info.candidate.clone();
 
 							currently_checking_set
 								.insert_relay_block_hash(
 									candidate_hash,
 									validator_index,
-									relay_block,
+									block_hash,
 									async move {
 										launch_approval(
 											sender,
 											spawn_handle,
 											metrics,
-											session_index,
+											retry_info.session_index,
 											candidate,
 											validator_index,
 											block_hash,
-											backing_group,
+											retry_info.backing_group,
 											executor_params,
-											core_index,
+											retry_info.core_index,
 											retry_info,
 										)
 										.await
@@ -1428,6 +1428,8 @@ where
 			&mut approvals_cache,
 			&mut subsystem.mode,
 			actions,
+			subsystem.max_approval_retries,
+			subsystem.retry_backoff,
 		)
 		.await?
 		{
@@ -1477,6 +1479,8 @@ pub async fn start_approval_worker<
 		metrics,
 		clock,
 		spawner,
+		MAX_APPROVAL_RETRIES,
+		APPROVAL_CHECKING_TIMEOUT / 2,
 	);
 	let backend = DbBackend::new(db.clone(), approval_voting.db_config);
 	let spawner = approval_voting.spawner.clone();
@@ -1544,6 +1548,8 @@ async fn handle_actions<
 	approvals_cache: &mut LruMap<CandidateHash, ApprovalOutcome>,
 	mode: &mut Mode,
 	actions: Vec<Action>,
+	max_approval_retries: u32,
+	retry_backoff: Duration,
 ) -> SubsystemResult<bool> {
 	let mut conclude = false;
 	let mut actions_iter = actions.into_iter();
@@ -1630,6 +1636,16 @@ async fn handle_actions<
 						let sender = sender.clone();
 						let spawn_handle = spawn_handle.clone();
 
+						let retry = RetryApprovalInfo {
+							candidate: candidate.clone(),
+							backing_group,
+							executor_params: executor_params.clone(),
+							core_index,
+							session_index: session,
+							attempts_remaining: max_approval_retries,
+							backoff: retry_backoff,
+						};
+
 						currently_checking_set
 							.insert_relay_block_hash(
 								candidate_hash,
@@ -1647,7 +1663,7 @@ async fn handle_actions<
 										backing_group,
 										executor_params,
 										core_index,
-										None,
+										retry,
 									)
 									.await
 								},
@@ -2561,7 +2577,12 @@ fn schedule_wakeup_action(
 				last_assignment_tick.map(|l| l + APPROVAL_DELAY).filter(|t| t > &tick_now),
 				next_no_show,
 			)
-			.map(|tick| Action::ScheduleWakeup { block_hash, block_number, candidate_hash, tick })
+			.map(|tick| Action::ScheduleWakeup {
+				block_hash,
+				block_number,
+				candidate_hash,
+				tick,
+			})
 		},
 		RequiredTranches::Pending { considered, next_no_show, clock_drift, .. } => {
 			// select the minimum of `next_no_show`, or the tick of the next non-empty tranche
@@ -3413,7 +3434,7 @@ async fn launch_approval<
 	backing_group: GroupIndex,
 	executor_params: ExecutorParams,
 	core_index: Option<CoreIndex>,
-	mut retry: Option<RetryApprovalInfo>,
+	retry: RetryApprovalInfo,
 ) -> SubsystemResult<RemoteHandle<ApprovalState>> {
 	let (a_tx, a_rx) = oneshot::channel();
 	let (code_tx, code_rx) = oneshot::channel();
@@ -3445,6 +3466,7 @@ async fn launch_approval<
 
 	let candidate_hash = candidate.hash();
 	let para_id = candidate.descriptor.para_id();
+	let mut next_retry = None;
 	gum::trace!(target: LOG_TARGET, ?candidate_hash, ?para_id, "Recovering data.");
 
 	let timer = metrics.time_recover_and_approve();
@@ -3486,26 +3508,23 @@ async fn launch_approval<
 							"Data unavailable for candidate {:?}",
 							(candidate_hash, candidate.descriptor.para_id()),
 						);
-						let num_attempts =
-							retry.as_ref().map(|retry| retry.num_attempts + 1).unwrap_or(1);
 						let retry_back_off = APPROVAL_CHECKING_TIMEOUT / 2;
 						// Availability could fail if we did not discover much of the network, so
 						// let's back off and order the subsystem to retry at a later point if the
 						// approval is still needed, because no-show wasn't covered yet.
-						if num_attempts < MAX_APPROVAL_RETRIES {
+						if retry.attempts_remaining > 0 {
 							Delay::new(retry_back_off).await;
-							retry = Some(RetryApprovalInfo {
+							next_retry = Some(RetryApprovalInfo {
 								candidate,
-								validator_index,
 								backing_group,
 								executor_params,
 								core_index,
-								relay_block: block_hash,
 								session_index,
-								num_attempts,
+								attempts_remaining: retry.attempts_remaining - 1,
+								backoff: retry.backoff,
 							});
 						} else {
-							retry = None;
+							next_retry = None;
 						}
 						metrics_guard.take().on_approval_unavailable();
 					},
@@ -3537,7 +3556,7 @@ async fn launch_approval<
 						metrics_guard.take().on_approval_invalid();
 					},
 				}
-				return ApprovalState::failed_with_retry(validator_index, candidate_hash, retry)
+				return ApprovalState::failed_with_retry(validator_index, candidate_hash, next_retry)
 			},
 		};
 
