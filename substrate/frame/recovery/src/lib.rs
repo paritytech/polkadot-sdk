@@ -155,15 +155,11 @@ extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_runtime::{
-	traits::{CheckedAdd, CheckedMul, Dispatchable, SaturatedConversion, StaticLookup},
-	RuntimeDebug,
-};
 
-use frame_support::{
-	dispatch::{GetDispatchInfo, PostDispatchInfo},
+use frame::{
+	arithmetic::ArithmeticError,
+	prelude::*,
 	traits::{BalanceStatus, Currency, ReservableCurrency},
-	BoundedVec,
 };
 
 pub use pallet::*;
@@ -211,12 +207,12 @@ pub struct RecoveryConfig<BlockNumber, Balance, Friends> {
 	threshold: u16,
 }
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
-	use sp_runtime::ArithmeticError;
+	// use frame_support::pallet_prelude::*;
+	// use frame_system::pallet_prelude::*;
+	// use sp_runtime::ArithmeticError;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
