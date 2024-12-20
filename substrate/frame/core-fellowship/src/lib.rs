@@ -177,8 +177,6 @@ pub mod pallet {
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
-	pub type InstanceHere = frame_support::instances::Instance1;
-
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// Weight information for extrinsics in this pallet.
@@ -771,11 +769,11 @@ impl<T: Config<I>, I: 'static> RankedMembersSwapHandler<T::AccountId, u16> for P
 	}
 }
 
-// #[cfg(feature = "runtime-benchmarks")]
-// impl<T: Config<I>, I: 'static>
-// 	pallet_ranked_collective::BenchmarkSetup<<T as frame_system::Config>::AccountId> for Pallet<T, I>
-// {
-// 	fn ensure_member(who: &<T as frame_system::Config>::AccountId) {
-// 		Self::import(frame_system::RawOrigin::Signed(who.clone()).into()).unwrap();
-// 	}
-// }
+#[cfg(feature = "runtime-benchmarks")]
+impl<T: Config<I>, I: 'static>
+	pallet_ranked_collective::BenchmarkSetup<<T as frame_system::Config>::AccountId> for Pallet<T, I>
+{
+	fn ensure_member(who: &<T as frame_system::Config>::AccountId) {
+		Self::import(frame_system::RawOrigin::Signed(who.clone()).into()).unwrap();
+	}
+}
