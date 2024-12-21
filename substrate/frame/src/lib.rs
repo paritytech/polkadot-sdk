@@ -210,7 +210,8 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::{
 		traits::{
-			Contains, Defensive, ExistenceRequirement, IsSubType, OnRuntimeUpgrade, VariantCountOf,
+			Contains, Defensive, ExistenceRequirement, IsSubType, OnRuntimeUpgrade, StorageVersion,
+			VariantCountOf,
 		},
 		BoundedSlice, BoundedVec, PalletId, WeakBoundedVec,
 	};
