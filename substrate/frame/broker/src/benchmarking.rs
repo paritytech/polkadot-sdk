@@ -1015,6 +1015,47 @@ mod benches {
 	}
 
 	#[benchmark]
+	fn force_reserve() -> Result<(), BenchmarkError> {
+		Configuration::<T>::put(new_config_record::<T>());
+		// Assume Reservations to be almost filled for worst case.
+		let reservation_count = T::MaxReservedCores::get().saturating_sub(1);
+		setup_reservations::<T>(reservation_count);
+
+		// Assume leases to be filled for worst case
+		setup_leases::<T>(T::MaxLeasedCores::get(), 1, 10);
+
+		let origin =
+			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		// Sales must be started.
+		Broker::<T>::do_start_sales(100u32.into(), CoreIndex::try_from(reservation_count).unwrap())
+			.map_err(|_| BenchmarkError::Weightless)?;
+
+		// Add a core.
+		let status = Status::<T>::get().unwrap();
+		Broker::<T>::do_request_core_count(status.core_count + 1).unwrap();
+
+		advance_to::<T>(T::TimeslicePeriod::get().try_into().ok().unwrap());
+		let schedule = new_schedule();
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, schedule.clone(), status.core_count);
+
+		assert_eq!(Reservations::<T>::decode_len().unwrap(), T::MaxReservedCores::get() as usize);
+
+		let sale_info = SaleInfo::<T>::get().unwrap();
+		assert_eq!(
+			Workplan::<T>::get((sale_info.region_begin, status.core_count)),
+			Some(schedule.clone())
+		);
+		// We called at timeslice 1, therefore 2 was already processed and 3 is the next possible
+		// assignment point.
+		assert_eq!(Workplan::<T>::get((3, status.core_count)), Some(schedule));
+
+		Ok(())
+	}
+
+	#[benchmark]
 	fn swap_leases() -> Result<(), BenchmarkError> {
 		let admin_origin =
 			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
