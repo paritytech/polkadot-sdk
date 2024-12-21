@@ -28,40 +28,42 @@
 //! during the relay chain block. After the block is built, the block builder task sends it to
 //! the collation task which compresses it and submits it to the collation-generation subsystem.
 
+use self::{block_builder_task::run_block_builder, collation_task::run_collation_task};
 use codec::Codec;
 use consensus_common::ParachainCandidate;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::GetCoreSelectorApi;
+use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector, GetCoreSelectorApi};
 use cumulus_relay_chain_interface::RelayChainInterface;
+use futures::FutureExt;
 use polkadot_primitives::{
-	CollatorPair, CoreIndex, Hash as RelayHash, Id as ParaId, ValidationCodeHash,
+	vstaging::DEFAULT_CLAIM_QUEUE_OFFSET, CollatorPair, CoreIndex, Hash as RelayHash, Id as ParaId,
+	ValidationCodeHash,
 };
-
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_utils::mpsc::tracing_unbounded;
-
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::AuraApi;
-use sp_core::crypto::Pair;
+use sp_core::{crypto::Pair, traits::SpawnNamed, U256};
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, Member};
-
+use sp_runtime::traits::{Block as BlockT, Member, NumberFor, One};
 use std::{sync::Arc, time::Duration};
 
-use self::{block_builder_task::run_block_builder, collation_task::run_collation_task};
+pub use block_import::{SlotBasedBlockImport, SlotBasedBlockImportHandle};
 
 mod block_builder_task;
+mod block_import;
 mod collation_task;
+mod relay_chain_data_cache;
 
 /// Parameters for [`run`].
-pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
+pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner> {
 	/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.
 	/// the timestamp, slot, and paras inherents should be omitted, as they are set by this
 	/// collator.
@@ -93,13 +95,33 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	/// Drift slots by a fixed duration. This can be used to create more preferrable authoring
 	/// timings.
 	pub slot_drift: Duration,
+	/// The handle returned by [`SlotBasedBlockImport`].
+	pub block_import_handle: SlotBasedBlockImportHandle<Block>,
+	/// Spawner for spawning futures.
+	pub spawner: Spawner,
 }
 
 /// Run aura-based block building and collation task.
-pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>(
-	params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>,
-) -> (impl futures::Future<Output = ()>, impl futures::Future<Output = ()>)
-where
+pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>(
+	Params {
+		create_inherent_data_providers,
+		block_import,
+		para_client,
+		para_backend,
+		relay_client,
+		code_hash_provider,
+		keystore,
+		collator_key,
+		para_id,
+		proposer,
+		collator_service,
+		authoring_duration,
+		reinitialize,
+		slot_drift,
+		block_import_handle,
+		spawner,
+	}: Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>,
+) where
 	Block: BlockT,
 	Client: ProvideRuntimeApi<Block>
 		+ BlockOf
@@ -123,39 +145,50 @@ where
 	P: Pair + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
+	Spawner: SpawnNamed,
 {
 	let (tx, rx) = tracing_unbounded("mpsc_builder_to_collator", 100);
 	let collator_task_params = collation_task::Params {
-		relay_client: params.relay_client.clone(),
-		collator_key: params.collator_key,
-		para_id: params.para_id,
-		reinitialize: params.reinitialize,
-		collator_service: params.collator_service.clone(),
+		relay_client: relay_client.clone(),
+		collator_key,
+		para_id,
+		reinitialize,
+		collator_service: collator_service.clone(),
 		collator_receiver: rx,
+		block_import_handle,
 	};
 
 	let collation_task_fut = run_collation_task::<Block, _, _>(collator_task_params);
 
 	let block_builder_params = block_builder_task::BuilderTaskParams {
-		create_inherent_data_providers: params.create_inherent_data_providers,
-		block_import: params.block_import,
-		para_client: params.para_client,
-		para_backend: params.para_backend,
-		relay_client: params.relay_client,
-		code_hash_provider: params.code_hash_provider,
-		keystore: params.keystore,
-		para_id: params.para_id,
-		proposer: params.proposer,
-		collator_service: params.collator_service,
-		authoring_duration: params.authoring_duration,
+		create_inherent_data_providers,
+		block_import,
+		para_client,
+		para_backend,
+		relay_client,
+		code_hash_provider,
+		keystore,
+		para_id,
+		proposer,
+		collator_service,
+		authoring_duration,
 		collator_sender: tx,
-		slot_drift: params.slot_drift,
+		slot_drift,
 	};
 
 	let block_builder_fut =
 		run_block_builder::<Block, P, _, _, _, _, _, _, _, _>(block_builder_params);
 
-	(collation_task_fut, block_builder_fut)
+	spawner.spawn_blocking(
+		"slot-based-block-builder",
+		Some("slot-based-collator"),
+		block_builder_fut.boxed(),
+	);
+	spawner.spawn_blocking(
+		"slot-based-collation",
+		Some("slot-based-collator"),
+		collation_task_fut.boxed(),
+	);
 }
 
 /// Message to be sent from the block builder to the collation task.
@@ -172,4 +205,27 @@ struct CollatorMessage<Block: BlockT> {
 	pub validation_code_hash: ValidationCodeHash,
 	/// Core index that this block should be submitted on
 	pub core_index: CoreIndex,
+}
+
+/// Fetch the `CoreSelector` and `ClaimQueueOffset` for `parent_hash`.
+fn core_selector<Block: BlockT, Client>(
+	para_client: &Client,
+	parent_hash: Block::Hash,
+	parent_number: NumberFor<Block>,
+) -> Result<(CoreSelector, ClaimQueueOffset), sp_api::ApiError>
+where
+	Client: ProvideRuntimeApi<Block> + Send + Sync,
+	Client::Api: GetCoreSelectorApi<Block>,
+{
+	let runtime_api = para_client.runtime_api();
+
+	if runtime_api.has_api::<dyn GetCoreSelectorApi<Block>>(parent_hash)? {
+		Ok(runtime_api.core_selector(parent_hash)?)
+	} else {
+		let next_block_number: U256 = (parent_number + One::one()).into();
+
+		// If the runtime API does not support the core selector API, fallback to some default
+		// values.
+		Ok((CoreSelector(next_block_number.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)))
+	}
 }

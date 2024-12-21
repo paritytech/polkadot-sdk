@@ -114,6 +114,7 @@ pub mod pallet {
 						})
 						.encode()
 						.into(),
+						fallback_max_weight: None,
 					}]),
 				) {
 					Ok((hash, cost)) => {
@@ -214,6 +215,7 @@ pub mod pallet {
 					})
 					.encode()
 					.into(),
+					fallback_max_weight: None,
 				}]),
 			) {
 				Ok((hash, cost)) =>

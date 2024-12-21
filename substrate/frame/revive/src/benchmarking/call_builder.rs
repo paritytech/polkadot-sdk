@@ -21,7 +21,7 @@ use crate::{
 	exec::{ExportedFunction, Ext, Key, Stack},
 	storage::meter::Meter,
 	transient_storage::MeterEntry,
-	wasm::{ApiVersion, PreparedCall, Runtime},
+	wasm::{PreparedCall, Runtime},
 	BalanceOf, Config, DebugBuffer, Error, GasMeter, MomentOf, Origin, WasmBlob, Weight,
 };
 use alloc::{vec, vec::Vec};
@@ -45,7 +45,7 @@ pub struct CallSetup<T: Config> {
 
 impl<T> Default for CallSetup<T>
 where
-	T: Config + pallet_balances::Config,
+	T: Config,
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
 	T::Hash: frame_support::traits::IsType<H256>,
@@ -57,7 +57,7 @@ where
 
 impl<T> CallSetup<T>
 where
-	T: Config + pallet_balances::Config,
+	T: Config,
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
 	T::Hash: frame_support::traits::IsType<H256>,
@@ -164,13 +164,7 @@ where
 		module: WasmBlob<T>,
 		input: Vec<u8>,
 	) -> PreparedCall<'a, StackExt<'a, T>> {
-		module
-			.prepare_call(
-				Runtime::new(ext, input),
-				ExportedFunction::Call,
-				ApiVersion::UnsafeNewest,
-			)
-			.unwrap()
+		module.prepare_call(Runtime::new(ext, input), ExportedFunction::Call).unwrap()
 	}
 
 	/// Add transient_storage
