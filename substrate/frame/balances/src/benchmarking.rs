@@ -19,7 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use super::{*, Pallet as Balances};
+use super::{Pallet as Balances, *};
 use frame::benchmarking::prelude::*;
 
 const SEED: u32 = 0;

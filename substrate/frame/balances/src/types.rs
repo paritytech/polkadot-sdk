@@ -19,7 +19,7 @@
 
 use super::*;
 use core::ops::BitOr;
-use frame::traits::{WithdrawReasons, LockIdentifier, Imbalance};
+use frame::traits::{Imbalance, LockIdentifier, WithdrawReasons};
 
 /// Simplified reasons for withdrawing balance.
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
