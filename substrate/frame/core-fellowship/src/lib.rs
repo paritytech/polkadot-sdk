@@ -71,8 +71,8 @@ use frame_support::{
 	dispatch::DispatchResultWithPostInfo,
 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
 	traits::{
-		tokens::Balance as BalanceTrait, EnsureOrigin, EnsureOriginWithArg, Get,
-		RankedMembers, RankedMembersSwapHandler,
+		tokens::Balance as BalanceTrait, EnsureOrigin, EnsureOriginWithArg, Get, RankedMembers,
+		RankedMembersSwapHandler,
 	},
 	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };

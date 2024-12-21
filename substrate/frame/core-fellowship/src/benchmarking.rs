@@ -20,8 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use crate::Pallet as CoreFellowship;
-use crate::BlockNumberFor as CoreFellowshipBlockNumberFor;
+use crate::{BlockNumberFor as CoreFellowshipBlockNumberFor, Pallet as CoreFellowship};
 
 use alloc::{boxed::Box, vec};
 use frame_benchmarking::v2::*;

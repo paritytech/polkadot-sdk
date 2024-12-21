@@ -19,7 +19,11 @@
 mod origins;
 mod tracks;
 use crate::{
-	weights, xcm_config::{FellowshipAdminBodyId, LocationToAccountId, TreasurerBodyId, UsdtAssetHub}, AccountId, AssetRate, Balance, Balances, FellowshipReferenda, GovernanceLocation, ParachainInfo, Preimage, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler, System, WestendTreasuryAccount, DAYS,
+	weights,
+	xcm_config::{FellowshipAdminBodyId, LocationToAccountId, TreasurerBodyId, UsdtAssetHub},
+	AccountId, AssetRate, Balance, Balances, FellowshipReferenda, GovernanceLocation,
+	ParachainInfo, Preimage, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler, System,
+	WestendTreasuryAccount, DAYS,
 };
 use cumulus_primitives_core::ParaId;
 use frame_support::{

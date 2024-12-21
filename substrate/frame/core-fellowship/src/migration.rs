@@ -75,8 +75,13 @@ pub mod v1 {
 	pub type MemberStatusOf<T> = MemberStatus<LocalBlockNumberFor<T>>;
 	/// V1 type for [`crate::Member`].
 	#[storage_alias]
-	pub type Member<T: Config<I>, I: 'static> =
-		StorageMap<Pallet<T, I>, Twox64Concat, <T as frame_system::Config>::AccountId, MemberStatusOf<T>, OptionQuery>;
+	pub type Member<T: Config<I>, I: 'static> = StorageMap<
+		Pallet<T, I>,
+		Twox64Concat,
+		<T as frame_system::Config>::AccountId,
+		MemberStatusOf<T>,
+		OptionQuery,
+	>;
 
 	pub type ParamsOf<T, I> =
 		ParamsType<<T as Config<I>>::Balance, LocalBlockNumberFor<T>, <T as Config<I>>::MaxRank>;
@@ -95,14 +100,18 @@ pub mod v1 {
 			);
 			Ok(Default::default())
 		}
-	
+
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
 			// Read the old value from storage
 			let old_value = v0::Params::<T, I>::take();
 			// Write the new value to storage
 			let new = ParamsOf::<T, I> {
-				active_salary: BoundedVec::defensive_truncate_from(old_value.active_salary.to_vec()),
-				passive_salary: BoundedVec::defensive_truncate_from(old_value.passive_salary.to_vec()),
+				active_salary: BoundedVec::defensive_truncate_from(
+					old_value.active_salary.to_vec(),
+				),
+				passive_salary: BoundedVec::defensive_truncate_from(
+					old_value.passive_salary.to_vec(),
+				),
 				demotion_period: BoundedVec::defensive_truncate_from(
 					old_value.demotion_period.to_vec(),
 				),
@@ -117,7 +126,6 @@ pub mod v1 {
 	}
 }
 
-
 pub mod v2 {
 	use super::*;
 	use crate::BlockNumberFor as NewBlockNumberFor;
@@ -126,16 +134,18 @@ pub mod v2 {
 	/// Converts previous (local) block number into the new one. May just be identity functions
 	/// if sticking with local block number as the provider.
 	pub trait ConvertBlockNumber<L, N> {
-		/// Converts to the new type and finds the equivalent moment in time as relative to the new block provider
+		/// Converts to the new type and finds the equivalent moment in time as relative to the new
+		/// block provider
 		///
-		/// For instance - if your new version uses the relay chain number, you'll want to 
+		/// For instance - if your new version uses the relay chain number, you'll want to
 		/// use relay current - ((current local - local) * equivalent_block_duration)
 		fn equivalent_moment_in_time(local: L) -> N;
 
-		/// Returns the equivalent time duration as the previous type when represented as the new type
+		/// Returns the equivalent time duration as the previous type when represented as the new
+		/// type
 		///
-		/// For instance - If you previously had 12s blocks and are now following the relay chain's 6,
-		/// one local block is equivalent to 2 relay blocks in duration
+		/// For instance - If you previously had 12s blocks and are now following the relay chain's
+		/// 6, one local block is equivalent to 2 relay blocks in duration
 		fn equivalent_block_duration(local: L) -> N;
 	}
 
@@ -156,16 +166,20 @@ pub mod v2 {
 			let new_params = crate::ParamsOf::<T, I> {
 				active_salary: old_params.active_salary,
 				passive_salary: old_params.passive_salary,
-				demotion_period: BoundedVec::defensive_truncate_from(old_params
-					.demotion_period
-					.into_iter()
-					.map(|original| BlockNumberConverter::equivalent_block_duration(original))
-					.collect()),
-				min_promotion_period: BoundedVec::defensive_truncate_from(old_params
-					.min_promotion_period
-					.into_iter()
-					.map(|original| BlockNumberConverter::equivalent_block_duration(original))
-					.collect()),
+				demotion_period: BoundedVec::defensive_truncate_from(
+					old_params
+						.demotion_period
+						.into_iter()
+						.map(|original| BlockNumberConverter::equivalent_block_duration(original))
+						.collect(),
+				),
+				min_promotion_period: BoundedVec::defensive_truncate_from(
+					old_params
+						.min_promotion_period
+						.into_iter()
+						.map(|original| BlockNumberConverter::equivalent_block_duration(original))
+						.collect(),
+				),
 				offboard_timeout: BlockNumberConverter::equivalent_block_duration(
 					old_params.offboard_timeout,
 				),
@@ -178,8 +192,12 @@ pub mod v2 {
 				translation_count.saturating_inc();
 				Some(crate::MemberStatus {
 					is_active: member_data.is_active,
-					last_promotion: BlockNumberConverter::equivalent_moment_in_time(member_data.last_promotion),
-					last_proof: BlockNumberConverter::equivalent_moment_in_time(member_data.last_proof),
+					last_promotion: BlockNumberConverter::equivalent_moment_in_time(
+						member_data.last_promotion,
+					),
+					last_proof: BlockNumberConverter::equivalent_moment_in_time(
+						member_data.last_proof,
+					),
 				})
 			});
 

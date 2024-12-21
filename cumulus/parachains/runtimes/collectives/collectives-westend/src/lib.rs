@@ -320,42 +320,42 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			ProxyType::NonTransfer => !matches!(c, RuntimeCall::Balances { .. }),
 			ProxyType::CancelProxy => matches!(
 				c,
-				RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. })
-					| RuntimeCall::Utility { .. }
-					| RuntimeCall::Multisig { .. }
+				RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. }) |
+					RuntimeCall::Utility { .. } |
+					RuntimeCall::Multisig { .. }
 			),
 			ProxyType::Collator => matches!(
 				c,
-				RuntimeCall::CollatorSelection { .. }
-					| RuntimeCall::Utility { .. }
-					| RuntimeCall::Multisig { .. }
+				RuntimeCall::CollatorSelection { .. } |
+					RuntimeCall::Utility { .. } |
+					RuntimeCall::Multisig { .. }
 			),
 			ProxyType::Alliance => matches!(
 				c,
-				RuntimeCall::AllianceMotion { .. }
-					| RuntimeCall::Alliance { .. }
-					| RuntimeCall::Utility { .. }
-					| RuntimeCall::Multisig { .. }
+				RuntimeCall::AllianceMotion { .. } |
+					RuntimeCall::Alliance { .. } |
+					RuntimeCall::Utility { .. } |
+					RuntimeCall::Multisig { .. }
 			),
 			ProxyType::Fellowship => matches!(
 				c,
-				RuntimeCall::FellowshipCollective { .. }
-					| RuntimeCall::FellowshipReferenda { .. }
-					| RuntimeCall::FellowshipCore { .. }
-					| RuntimeCall::FellowshipSalary { .. }
-					| RuntimeCall::FellowshipTreasury { .. }
-					| RuntimeCall::Utility { .. }
-					| RuntimeCall::Multisig { .. }
+				RuntimeCall::FellowshipCollective { .. } |
+					RuntimeCall::FellowshipReferenda { .. } |
+					RuntimeCall::FellowshipCore { .. } |
+					RuntimeCall::FellowshipSalary { .. } |
+					RuntimeCall::FellowshipTreasury { .. } |
+					RuntimeCall::Utility { .. } |
+					RuntimeCall::Multisig { .. }
 			),
 			ProxyType::Ambassador => matches!(
 				c,
-				RuntimeCall::AmbassadorCollective { .. }
-					| RuntimeCall::AmbassadorReferenda { .. }
-					| RuntimeCall::AmbassadorContent { .. }
-					| RuntimeCall::AmbassadorCore { .. }
-					| RuntimeCall::AmbassadorSalary { .. }
-					| RuntimeCall::Utility { .. }
-					| RuntimeCall::Multisig { .. }
+				RuntimeCall::AmbassadorCollective { .. } |
+					RuntimeCall::AmbassadorReferenda { .. } |
+					RuntimeCall::AmbassadorContent { .. } |
+					RuntimeCall::AmbassadorCore { .. } |
+					RuntimeCall::AmbassadorSalary { .. } |
+					RuntimeCall::Utility { .. } |
+					RuntimeCall::Multisig { .. }
 			),
 		}
 	}
@@ -769,17 +769,21 @@ type Migrations = (
 // Helpers for the core fellowship pallet v1->v2 storage migration.
 use sp_runtime::traits::BlockNumberProvider;
 type CoreFellowshipLocalBlockNumber = <System as BlockNumberProvider>::BlockNumber;
-type CoreFellowshipNewBlockNumber = <cumulus_pallet_parachain_system::RelaychainDataProvider<Runtime> as BlockNumberProvider>::BlockNumber;
+type CoreFellowshipNewBlockNumber = <cumulus_pallet_parachain_system::RelaychainDataProvider<
+	Runtime,
+> as BlockNumberProvider>::BlockNumber;
 pub struct BlockNumberConverter;
 impl
 	pallet_core_fellowship::migration::v2::ConvertBlockNumber<
-	CoreFellowshipLocalBlockNumber,
-	CoreFellowshipNewBlockNumber	
+		CoreFellowshipLocalBlockNumber,
+		CoreFellowshipNewBlockNumber,
 	> for BlockNumberConverter
 {
 	/// The equivalent moment in time from the perspective of the relay chain, starting from a
 	/// local moment in time (system block number)
-	fn equivalent_moment_in_time(local: CoreFellowshipLocalBlockNumber) -> CoreFellowshipNewBlockNumber {
+	fn equivalent_moment_in_time(
+		local: CoreFellowshipLocalBlockNumber,
+	) -> CoreFellowshipNewBlockNumber {
 		let block_number = System::block_number();
 		let local_duration = block_number.saturating_sub(local);
 		let relay_duration = Self::equivalent_block_duration(local_duration); //6s to 6s
@@ -790,7 +794,9 @@ impl
 	/// The equivalent duration from the perspective of the relay chain, starting from
 	/// a local duration (number of block). Identity function for Westend, since both
 	/// relay and collectives chain run 6s block times
-	fn equivalent_block_duration(local: CoreFellowshipLocalBlockNumber) -> CoreFellowshipNewBlockNumber {
+	fn equivalent_block_duration(
+		local: CoreFellowshipLocalBlockNumber,
+	) -> CoreFellowshipNewBlockNumber {
 		local
 	}
 }
