@@ -26,4 +26,5 @@ pallet-paged-list = { features = ["std"], workspace = true }
 default = ["std"]
 std = [
 	"frame/std",
+	"pallet-paged-list/std",
 ]
