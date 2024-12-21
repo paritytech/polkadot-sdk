@@ -584,10 +584,6 @@ pub use pallet_revive;
 #[cfg(feature = "pallet-revive-eth-rpc")]
 pub use pallet_revive_eth_rpc;
 
-/// Fixtures for testing and benchmarking.
-#[cfg(feature = "pallet-revive-fixtures")]
-pub use pallet_revive_fixtures;
-
 /// A mock network for testing pallet-revive.
 #[cfg(feature = "pallet-revive-mock-network")]
 pub use pallet_revive_mock_network;
@@ -1122,6 +1118,10 @@ pub use sc_rpc_server;
 /// Substrate RPC interface v2.
 #[cfg(feature = "sc-rpc-spec-v2")]
 pub use sc_rpc_spec_v2;
+
+/// Substrate client utilities for frame runtime functions calls.
+#[cfg(feature = "sc-runtime-utilities")]
+pub use sc_runtime_utilities;
 
 /// Substrate service. Starts a thread that spins up the network, client, and extrinsic pool.
 /// Manages communication between them.

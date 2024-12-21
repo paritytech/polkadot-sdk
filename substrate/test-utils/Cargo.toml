@@ -20,5 +20,5 @@ futures = { workspace = true }
 tokio = { features = ["macros", "time"], workspace = true, default-features = true }
 
 [dev-dependencies]
-trybuild = { features = ["diff"], workspace = true }
 sc-service = { workspace = true, default-features = true }
+trybuild = { features = ["diff"], workspace = true }

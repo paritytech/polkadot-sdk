@@ -180,7 +180,7 @@ where
 
 #[tokio::test(flavor = "multi_thread")]
 async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
-	env_logger::init_from_env(
+	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
@@ -499,7 +499,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 
 	assert_total_issuance(relay_client.clone(), para_client.clone(), total_issuance).await;
 
-	log::info!("Test finished successfuly");
+	log::info!("Test finished successfully");
 
 	Ok(())
 }
