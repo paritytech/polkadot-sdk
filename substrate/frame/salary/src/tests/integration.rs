@@ -100,6 +100,7 @@ impl Config for Test {
 	type RegistrationPeriod = ConstU64<2>;
 	type PayoutPeriod = ConstU64<2>;
 	type Budget = Budget;
+	type BlockNumberProvider = System;
 }
 
 pub struct FixedSalary;

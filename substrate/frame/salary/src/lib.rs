@@ -89,7 +89,8 @@ pub struct ClaimantStatus<CycleIndex, Balance, Id> {
 pub mod pallet {
 	use super::*;
 	use frame_support::{dispatch::Pays, pallet_prelude::*};
-	use frame_system::pallet_prelude::*;
+	use frame_system::pallet_prelude::{OriginFor, ensure_signed};
+	use sp_runtime::traits::BlockNumberProvider;
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
@@ -125,27 +126,34 @@ pub mod pallet {
 		/// The number of blocks between sequential payout cycles is the sum of this and
 		/// `PayoutPeriod`.
 		#[pallet::constant]
-		type RegistrationPeriod: Get<BlockNumberFor<Self>>;
+		type RegistrationPeriod: Get<BlockNumberFor<Self, I>>;
 
 		/// The number of blocks within a cycle which accounts have to claim the payout.
 		///
 		/// The number of blocks between sequential payout cycles is the sum of this and
 		/// `RegistrationPeriod`.
 		#[pallet::constant]
-		type PayoutPeriod: Get<BlockNumberFor<Self>>;
+		type PayoutPeriod: Get<BlockNumberFor<Self, I>>;
 
 		/// The total budget per cycle.
 		///
 		/// This may change over the course of a cycle without any problem.
 		#[pallet::constant]
 		type Budget: Get<BalanceOf<Self, I>>;
+
+		/// Provides the current block number.
+		///
+		/// This is usually `cumulus_pallet_parachain_system::RelaychainDataProvider` if a
+		/// parachain, or `frame_system::Pallet` if a solochain.
+		type BlockNumberProvider: BlockNumberProvider;
 	}
 
-	pub type CycleIndexOf<T> = BlockNumberFor<T>;
+	pub type BlockNumberFor<T, I> = <<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+	pub type CycleIndexOf<T, I> = BlockNumberFor<T, I>;
 	pub type BalanceOf<T, I> = <<T as Config<I>>::Paymaster as Pay>::Balance;
 	pub type IdOf<T, I> = <<T as Config<I>>::Paymaster as Pay>::Id;
-	pub type StatusOf<T, I> = StatusType<CycleIndexOf<T>, BlockNumberFor<T>, BalanceOf<T, I>>;
-	pub type ClaimantStatusOf<T, I> = ClaimantStatus<CycleIndexOf<T>, BalanceOf<T, I>, IdOf<T, I>>;
+	pub type StatusOf<T, I> = StatusType<CycleIndexOf<T, I>, BlockNumberFor<T, I>, BalanceOf<T, I>>;
+	pub type ClaimantStatusOf<T, I> = ClaimantStatus<CycleIndexOf<T, I>, BalanceOf<T, I>, IdOf<T, I>>;
 
 	/// The overall status of the system.
 	#[pallet::storage]
@@ -172,7 +180,7 @@ pub mod pallet {
 			id: <T::Paymaster as Pay>::Id,
 		},
 		/// The next cycle begins.
-		CycleStarted { index: CycleIndexOf<T> },
+		CycleStarted { index: CycleIndexOf<T, I> },
 		/// A member swapped their account.
 		Swapped { who: T::AccountId, new_who: T::AccountId },
 	}
@@ -218,7 +226,7 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		pub fn init(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			ensure!(!Status::<T, I>::exists(), Error::<T, I>::AlreadyStarted);
 			let status = StatusType {
 				cycle_index: Zero::zero(),
@@ -240,7 +248,7 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		pub fn bump(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			let cycle_period = Self::cycle_period();
 			let mut status = Status::<T, I>::get().ok_or(Error::<T, I>::NotStarted)?;
 			status.cycle_start.saturating_accrue(cycle_period);
@@ -286,7 +294,7 @@ pub mod pallet {
 			let rank = T::Members::rank_of(&who).ok_or(Error::<T, I>::NotMember)?;
 			let mut status = Status::<T, I>::get().ok_or(Error::<T, I>::NotStarted)?;
 			let mut claimant = Claimant::<T, I>::get(&who).ok_or(Error::<T, I>::NotInducted)?;
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			ensure!(
 				now < status.cycle_start + T::RegistrationPeriod::get(),
 				Error::<T, I>::TooLate
@@ -386,17 +394,17 @@ pub mod pallet {
 		pub fn status() -> Option<StatusOf<T, I>> {
 			Status::<T, I>::get()
 		}
-		pub fn last_active(who: &T::AccountId) -> Result<CycleIndexOf<T>, DispatchError> {
+		pub fn last_active(who: &T::AccountId) -> Result<CycleIndexOf<T, I>, DispatchError> {
 			Ok(Claimant::<T, I>::get(&who).ok_or(Error::<T, I>::NotInducted)?.last_active)
 		}
-		pub fn cycle_period() -> BlockNumberFor<T> {
+		pub fn cycle_period() -> BlockNumberFor<T, I> {
 			T::RegistrationPeriod::get() + T::PayoutPeriod::get()
 		}
 		fn do_payout(who: T::AccountId, beneficiary: T::AccountId) -> DispatchResult {
 			let mut status = Status::<T, I>::get().ok_or(Error::<T, I>::NotStarted)?;
 			let mut claimant = Claimant::<T, I>::get(&who).ok_or(Error::<T, I>::NotInducted)?;
 
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			ensure!(
 				now >= status.cycle_start + T::RegistrationPeriod::get(),
 				Error::<T, I>::TooEarly,
