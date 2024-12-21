@@ -2629,7 +2629,7 @@ dependencies = [
  "rococo-westend-system-emulated-network",
  "scale-info",
  "snowbridge-core 0.2.0",
- "snowbridge-pallet-inbound-queue-fixtures 0.10.0",
+ "snowbridge-pallet-inbound-queue-fixtures 0.11.0",
  "snowbridge-pallet-outbound-queue 0.2.0",
  "snowbridge-pallet-system 0.2.0",
  "snowbridge-router-primitives 0.10.0",
@@ -2870,7 +2870,7 @@ dependencies = [
  "scale-info",
  "snowbridge-core 0.2.0",
  "snowbridge-pallet-inbound-queue 0.2.0",
- "snowbridge-pallet-inbound-queue-fixtures 0.10.0",
+ "snowbridge-pallet-inbound-queue-fixtures 0.11.0",
  "snowbridge-pallet-outbound-queue 0.2.0",
  "snowbridge-pallet-system 0.2.0",
  "snowbridge-router-primitives 0.10.0",
@@ -18910,7 +18910,7 @@ dependencies = [
  "snowbridge-pallet-ethereum-client 0.2.0",
  "snowbridge-pallet-ethereum-client-fixtures 0.9.0",
  "snowbridge-pallet-inbound-queue 0.2.0",
- "snowbridge-pallet-inbound-queue-fixtures 0.10.0",
+ "snowbridge-pallet-inbound-queue-fixtures 0.11.0",
  "snowbridge-pallet-outbound-queue 0.2.0",
  "snowbridge-pallet-system 0.2.0",
  "snowbridge-router-primitives 0.10.0",
@@ -25141,7 +25141,7 @@ dependencies = [
  "snowbridge-beacon-primitives 0.2.0",
  "snowbridge-core 0.2.0",
  "snowbridge-pallet-ethereum-client 0.2.0",
- "snowbridge-pallet-inbound-queue-fixtures 0.10.0",
+ "snowbridge-pallet-inbound-queue-fixtures 0.11.0",
  "snowbridge-router-primitives 0.10.0",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
@@ -25182,7 +25182,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue-fixtures"
-version = "0.10.0"
+version = "0.11.0"
 dependencies = [
  "hex-literal",
  "snowbridge-beacon-primitives 0.2.0",
