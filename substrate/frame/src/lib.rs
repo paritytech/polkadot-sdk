@@ -202,11 +202,11 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::pallet_prelude::*;
 
-	/// Dispatch types from `frame-support`, other fundamental traits
+	/// Dispatch types from `frame-support`.
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 
-	/// Frequently used general items in FRAME.
+	/// Frequently used fundamental/general items in FRAME.
 	#[doc(no_inline)]
 	pub use frame_support::{
 		traits::{
