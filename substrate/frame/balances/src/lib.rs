@@ -21,11 +21,11 @@
 //! token.
 //!
 //! It makes heavy use of concepts such as Holds and Freezes from the
-//! [`frame_support::traits::fungible`] traits, therefore you should read and understand those docs
+//! [`frame::traits::fungible`] traits, therefore you should read and understand those docs
 //! as a prerequisite to understanding this pallet.
 //!
 //! Also see the [`frame_tokens`] reference docs for higher level information regarding the
-//! place of this palet in FRAME.
+//! place of this pallet in FRAME.
 //!
 //! ## Overview
 //!
@@ -67,11 +67,11 @@
 //!
 //! - [`Currency`]: Functions for dealing with a fungible assets system.
 //! - [`ReservableCurrency`]
-//! - [`NamedReservableCurrency`](frame_support::traits::NamedReservableCurrency):
+//! - [`NamedReservableCurrency`](frame::traits::NamedReservableCurrency):
 //! Functions for dealing with assets that can be reserved from an account.
-//! - [`LockableCurrency`](frame_support::traits::LockableCurrency): Functions for
+//! - [`LockableCurrency`](frame::traits::LockableCurrency): Functions for
 //! dealing with accounts that allow liquidity restrictions.
-//! - [`Imbalance`](frame_support::traits::Imbalance): Functions for handling
+//! - [`Imbalance`](frame::traits::Imbalance): Functions for handling
 //! imbalances between total issuance in the system and account balances. Must be used when a
 //! function creates new funds (e.g. a reward) or destroys some funds (e.g. a system fee).
 //!
@@ -85,7 +85,7 @@
 //! `Currency`:
 //!
 //! ```
-//! use frame_support::traits::Currency;
+//! use frame::traits::Currency;
 //! # pub trait Config: frame_system::Config {
 //! #   type Currency: Currency<Self::AccountId>;
 //! # }
@@ -99,14 +99,14 @@
 //! The Staking pallet uses the `LockableCurrency` trait to lock a stash account's funds:
 //!
 //! ```
-//! use frame_support::traits::{WithdrawReasons, LockableCurrency};
+//! use frame::traits::{WithdrawReasons, LockableCurrency};
 //! use sp_runtime::traits::Bounded;
 //! pub trait Config: frame_system::Config {
 //!     type Currency: LockableCurrency<Self::AccountId, Moment=frame_system::pallet_prelude::BlockNumberFor<Self>>;
 //! }
 //! # struct StakingLedger<T: Config> {
 //! #   stash: <T as frame_system::Config>::AccountId,
-//! #   total: <<T as Config>::Currency as frame_support::traits::Currency<<T as frame_system::Config>::AccountId>>::Balance,
+//! #   total: <<T as Config>::Currency as frame::traits::Currency<<T as frame_system::Config>::AccountId>>::Balance,
 //! #   phantom: std::marker::PhantomData<T>,
 //! # }
 //! # const STAKING_ID: [u8; 8] = *b"staking ";
@@ -142,77 +142,60 @@
 //! [`frame_tokens`]: ../polkadot_sdk_docs/reference_docs/frame_tokens/index.html
 
 #![cfg_attr(not(feature = "std"), no_std)]
-mod benchmarking;
-mod impl_currency;
-mod impl_fungible;
-pub mod migration;
-mod tests;
-mod types;
-pub mod weights;
 
 extern crate alloc;
 
-use alloc::vec::Vec;
-use codec::{Codec, MaxEncodedLen};
-use core::{cmp, fmt::Debug, mem, result};
-use frame_support::{
-	ensure,
-	pallet_prelude::DispatchResult,
-	traits::{
-		tokens::{
-			fungible, BalanceStatus as Status, DepositConsequence,
-			Fortitude::{self, Force, Polite},
-			IdAmount,
-			Preservation::{Expendable, Preserve, Protect},
-			WithdrawConsequence,
-		},
-		Currency, Defensive, Get, OnUnbalanced, ReservableCurrency, StoredMap,
-	},
-	BoundedSlice, WeakBoundedVec,
-};
-use frame_system as system;
+pub mod migration;
+pub mod weights;
+
+mod benchmarking;
+mod impl_currency;
+mod impl_fungible;
+mod tests;
+mod types;
+
 pub use impl_currency::{NegativeImbalance, PositiveImbalance};
-use scale_info::TypeInfo;
-use sp_runtime::{
-	traits::{
-		AtLeast32BitUnsigned, CheckedAdd, CheckedSub, MaybeSerializeDeserialize, Saturating,
-		StaticLookup, Zero,
-	},
-	ArithmeticError, DispatchError, FixedPointOperand, Perbill, RuntimeDebug, TokenError,
-};
+pub use pallet::*;
 pub use types::{
 	AccountData, AdjustmentDirection, BalanceLock, DustCleaner, ExtraFlags, Reasons, ReserveData,
 };
 pub use weights::WeightInfo;
 
-pub use pallet::*;
+use alloc::vec::Vec;
+use core::mem;
+use frame::{
+	prelude::*,
+	traits::{
+		fungible::{self, Credit},
+		tokens::{
+			Fortitude::{self, *},
+			IdAmount, Precision,
+			Preservation::*,
+		},
+		BalanceStatus as Status, Currency, OnUnbalanced, ReservableCurrency, StoredMap,
+		VariantCount,
+	},
+};
+
+type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
+type CreditOf<T, I> = Credit<<T as frame_system::Config>::AccountId, Pallet<T, I>>;
 
 const LOG_TARGET: &str = "runtime::balances";
 
-type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
-
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{
-		pallet_prelude::*,
-		traits::{fungible::Credit, tokens::Precision, VariantCount, VariantCountOf},
-	};
-	use frame_system::pallet_prelude::*;
-
-	pub type CreditOf<T, I> = Credit<<T as frame_system::Config>::AccountId, Pallet<T, I>>;
 
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::*;
-		use frame_support::derive_impl;
 
 		pub struct TestDefaultConfig;
 
-		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
+		#[frame::derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for TestDefaultConfig {}
 
-		#[frame_support::register_default_impl(TestDefaultConfig)]
+		#[frame::register_default_impl(TestDefaultConfig)]
 		impl DefaultConfig for TestDefaultConfig {
 			#[inject_runtime_type]
 			type RuntimeEvent = ();
@@ -324,8 +307,7 @@ pub mod pallet {
 	}
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: frame_support::traits::StorageVersion =
-		frame_support::traits::StorageVersion::new(1);
+	const STORAGE_VERSION: frame::traits::StorageVersion = frame::traits::StorageVersion::new(1);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -862,7 +844,7 @@ pub mod pallet {
 			}
 			a.flags.set_new_logic();
 			if !a.reserved.is_zero() && a.frozen.is_zero() {
-				if system::Pallet::<T>::providers(who) == 0 {
+				if frame_system::Pallet::<T>::providers(who) == 0 {
 					// Gah!! We have no provider refs :(
 					// This shouldn't practically happen, but we need a failsafe anyway: let's give
 					// them enough for an ED.
@@ -872,9 +854,9 @@ pub mod pallet {
 						who
 					);
 					a.free = a.free.max(Self::ed());
-					system::Pallet::<T>::inc_providers(who);
+					frame_system::Pallet::<T>::inc_providers(who);
 				}
-				let _ = system::Pallet::<T>::inc_consumers_without_limit(who).defensive();
+				let _ = frame_system::Pallet::<T>::inc_consumers_without_limit(who).defensive();
 			}
 			// Should never fail - we're only setting a bit.
 			let _ = T::AccountStore::try_mutate_exists(who, |account| -> DispatchResult {

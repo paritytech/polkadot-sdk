@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use super::*;
-use frame_support::traits::fungible::{conformance_tests, Inspect, Mutate};
+use frame::traits::fungible::{conformance_tests, Mutate};
 use paste::paste;
 
 macro_rules! generate_tests {

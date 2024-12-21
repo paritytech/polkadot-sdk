@@ -20,28 +20,21 @@
 //! Note that `WithdrawReasons` are intentionally not used for anything in this implementation and
 //! are expected to be removed in the near future, once migration to `fungible::*` traits is done.
 
-use super::*;
-use frame_support::{
-	ensure,
-	pallet_prelude::DispatchResult,
-	traits::{
-		tokens::{fungible, BalanceStatus as Status, Fortitude::Polite, Precision::BestEffort},
-		Currency, DefensiveSaturating, ExistenceRequirement,
-		ExistenceRequirement::AllowDeath,
-		Get, Imbalance, InspectLockableCurrency, LockIdentifier, LockableCurrency,
-		NamedReservableCurrency, ReservableCurrency, SignedImbalance, TryDrop, WithdrawReasons,
-	},
-};
-use frame_system::pallet_prelude::BlockNumberFor;
 pub use imbalances::{NegativeImbalance, PositiveImbalance};
-use sp_runtime::traits::Bounded;
+
+use super::*;
+use core::cmp;
+use frame::traits::{
+	tokens::{imbalance::TryMerge, Precision::*},
+	DefensiveSaturating, Imbalance, InspectLockableCurrency, LockIdentifier, LockableCurrency,
+	NamedReservableCurrency, SameOrOther, SignedImbalance, TryDrop, WithdrawReasons,
+};
+use ExistenceRequirement::*;
 
 // wrapping these imbalances in a private module is necessary to ensure absolute privacy
 // of the inner member.
 mod imbalances {
 	use super::*;
-	use core::mem;
-	use frame_support::traits::{tokens::imbalance::TryMerge, SameOrOther};
 
 	/// Opaque, move-only struct with private fields that serves as a token denoting that
 	/// funds have been created without any equal and opposite accounting.
@@ -70,7 +63,7 @@ mod imbalances {
 	}
 
 	impl<T: Config<I>, I: 'static> TryDrop for PositiveImbalance<T, I> {
-		fn try_drop(self) -> result::Result<(), Self> {
+		fn try_drop(self) -> Result<(), Self> {
 			self.drop_zero()
 		}
 	}
@@ -87,7 +80,7 @@ mod imbalances {
 		fn zero() -> Self {
 			Self(Zero::zero())
 		}
-		fn drop_zero(self) -> result::Result<(), Self> {
+		fn drop_zero(self) -> Result<(), Self> {
 			if self.0.is_zero() {
 				Ok(())
 			} else {
@@ -140,7 +133,7 @@ mod imbalances {
 	}
 
 	impl<T: Config<I>, I: 'static> TryDrop for NegativeImbalance<T, I> {
-		fn try_drop(self) -> result::Result<(), Self> {
+		fn try_drop(self) -> Result<(), Self> {
 			self.drop_zero()
 		}
 	}
@@ -157,7 +150,7 @@ mod imbalances {
 		fn zero() -> Self {
 			Self(Zero::zero())
 		}
-		fn drop_zero(self) -> result::Result<(), Self> {
+		fn drop_zero(self) -> Result<(), Self> {
 			if self.0.is_zero() {
 				Ok(())
 			} else {
@@ -366,7 +359,7 @@ where
 			|account, _is_new| -> Result<(Self::NegativeImbalance, Self::Balance), DispatchError> {
 				// Best value is the most amount we can slash following liveness rules.
 				let ed = T::ExistentialDeposit::get();
-				let actual = match system::Pallet::<T>::can_dec_provider(who) {
+				let actual = match frame_system::Pallet::<T>::can_dec_provider(who) {
 					true => value.min(account.free),
 					false => value.min(account.free.saturating_sub(ed)),
 				};
@@ -451,7 +444,7 @@ where
 		value: Self::Balance,
 		reasons: WithdrawReasons,
 		liveness: ExistenceRequirement,
-	) -> result::Result<Self::NegativeImbalance, DispatchError> {
+	) -> Result<Self::NegativeImbalance, DispatchError> {
 		if value.is_zero() {
 			return Ok(NegativeImbalance::zero())
 		}

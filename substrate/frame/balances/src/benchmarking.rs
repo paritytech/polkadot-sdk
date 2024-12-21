@@ -19,13 +19,8 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use super::*;
-use crate::Pallet as Balances;
-
-use frame_benchmarking::v2::*;
-use frame_system::RawOrigin;
-use sp_runtime::traits::Bounded;
-use types::ExtraFlags;
+use super::{*, Pallet as Balances};
+use frame::benchmarking::prelude::*;
 
 const SEED: u32 = 0;
 // existential deposit multiplier

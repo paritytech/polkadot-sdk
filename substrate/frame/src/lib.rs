@@ -152,12 +152,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg(feature = "experimental")]
 
+/// Macros used within the main [`pallet`] macro.
 #[doc(no_inline)]
-pub use frame_support::pallet;
+pub use frame_support::{derive_impl, pallet, register_default_impl};
 
 #[doc(no_inline)]
 pub use frame_support::pallet_macros::{import_section, pallet_section};
 
+// TODO: remove this after https://github.com/paritytech/polkadot-sdk/issues/6976.
 /// The logging library of the runtime. Can normally be the classic `log` crate.
 pub use log;
 
@@ -173,7 +175,7 @@ pub use frame_support::storage_alias;
 /// section below:
 pub mod pallet_macros {
 	#[doc(no_inline)]
-	pub use frame_support::{derive_impl, pallet, pallet_macros::*};
+	pub use frame_support::{derive_impl, pallet, pallet_macros::*, register_default_impl};
 }
 
 /// The main prelude of FRAME.
@@ -203,7 +205,22 @@ pub mod prelude {
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{Contains, IsSubType, OnRuntimeUpgrade};
+
+	/// Frequently used general items in FRAME.
+	#[doc(no_inline)]
+	pub use frame_support::{
+		traits::{
+			Contains, Defensive, ExistenceRequirement, IsSubType, OnRuntimeUpgrade, VariantCountOf,
+		},
+		BoundedSlice, BoundedVec, PalletId, WeakBoundedVec,
+	};
+
+	// ? this can be removed if the macros use absolute paths.
+	/// Macros used within the main [`pallet`] macro.
+	///
+	/// Note: this is to satisfy the compiler with using such as `frame::derive_impl`.
+	#[doc(no_inline)]
+	pub use frame_support::derive_impl;
 
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
@@ -216,6 +233,12 @@ pub mod prelude {
 	/// All hashing related things
 	pub use super::hashing::*;
 
+	/// Runtime arithmetic.
+	#[doc(no_inline)]
+	pub use sp_arithmetic::{
+		traits::AtLeast32BitUnsigned, ArithmeticError, FixedPointNumber, FixedPointOperand, Perbill,
+	};
+
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
@@ -226,6 +249,10 @@ pub mod prelude {
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
 	pub use sp_runtime::{DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError};
+
+	/// Necessary third-party items in runtime development.
+	#[doc(no_inline)]
+	pub use {codec::Codec, log};
 }
 
 #[cfg(any(feature = "try-runtime", test))]
@@ -308,15 +335,19 @@ pub mod testing_prelude {
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{
 		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok,
-		assert_storage_noop, storage_alias,
+		assert_storage_noop, hypothetically, storage_alias,
 	};
 
 	pub use frame_system::{self, mocking::*};
+
+	pub use frame_support::{dispatch::DispatchInfo, weights::IdentityFee, StorageNoopGuard};
 
 	#[deprecated(note = "Use `frame::testing_prelude::TestExternalities` instead.")]
 	pub use sp_io::TestExternalities;
 
 	pub use sp_io::TestExternalities as TestState;
+
+	pub use sp_runtime::traits::{BadOrigin, DispatchTransaction};
 }
 
 /// All of the types and tools needed to build FRAME-based runtimes.
@@ -369,7 +400,7 @@ pub mod runtime {
 		/// Primary types used to parameterize `EnsureOrigin` and `EnsureRootWithArg`.
 		pub use frame_system::{
 			EnsureNever, EnsureNone, EnsureRoot, EnsureRootWithSuccess, EnsureSigned,
-			EnsureSignedBy,
+			EnsureSignedBy, RawOrigin,
 		};
 
 		/// Types to define your runtime version.
@@ -517,7 +548,7 @@ pub mod arithmetic {
 ///
 /// This is already part of the [`prelude`].
 pub mod derive {
-	pub use codec::{Decode, Encode};
+	pub use codec::{Decode, Encode, MaxEncodedLen};
 	pub use core::fmt::Debug;
 	pub use frame_support::{
 		CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, OrdNoBound, PartialEqNoBound,

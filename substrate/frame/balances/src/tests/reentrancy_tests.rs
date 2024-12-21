@@ -18,12 +18,7 @@
 //! Tests regarding the reentrancy functionality.
 
 use super::*;
-use frame_support::traits::tokens::{
-	Fortitude::Force,
-	Precision::BestEffort,
-	Preservation::{Expendable, Protect},
-};
-use fungible::Balanced;
+use frame::traits::{fungible::Balanced, tokens::Precision::*, Imbalance};
 
 #[test]
 fn transfer_dust_removal_tst1_should_work() {
@@ -165,14 +160,14 @@ fn emit_events_with_no_existential_deposit_suicide_with_dust() {
 		assert_eq!(
 			events(),
 			[
-				RuntimeEvent::System(system::Event::NewAccount { account: 1 }),
+				RuntimeEvent::System(frame_system::Event::NewAccount { account: 1 }),
 				RuntimeEvent::Balances(crate::Event::Endowed { account: 1, free_balance: 100 }),
 				RuntimeEvent::Balances(crate::Event::Issued { amount: 100 }),
 				RuntimeEvent::Balances(crate::Event::BalanceSet { who: 1, free: 100 }),
 			]
 		);
 
-		let res = Balances::withdraw(&1, 98, BestEffort, Protect, Force);
+		let res = <Balances as Balanced<_>>::withdraw(&1, 98, BestEffort, Protect, Force);
 		assert_eq!(res.unwrap().peek(), 98);
 
 		// no events
@@ -181,13 +176,13 @@ fn emit_events_with_no_existential_deposit_suicide_with_dust() {
 			[RuntimeEvent::Balances(crate::Event::Withdraw { who: 1, amount: 98 })]
 		);
 
-		let res = Balances::withdraw(&1, 1, BestEffort, Expendable, Force);
+		let res = <Balances as Balanced<_>>::withdraw(&1, 1, BestEffort, Expendable, Force);
 		assert_eq!(res.unwrap().peek(), 1);
 
 		assert_eq!(
 			events(),
 			[
-				RuntimeEvent::System(system::Event::KilledAccount { account: 1 }),
+				RuntimeEvent::System(frame_system::Event::KilledAccount { account: 1 }),
 				RuntimeEvent::Balances(crate::Event::DustLost { account: 1, amount: 1 }),
 				RuntimeEvent::Balances(crate::Event::Withdraw { who: 1, amount: 1 })
 			]

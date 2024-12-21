@@ -18,25 +18,17 @@
 //! Tests regarding the functionality of the `Currency` trait set implementations.
 
 use super::*;
-use crate::{Event, NegativeImbalance};
-use frame_support::{
-	traits::{
-		BalanceStatus::{Free, Reserved},
-		Currency,
-		ExistenceRequirement::{self, AllowDeath, KeepAlive},
-		Hooks, InspectLockableCurrency, LockIdentifier, LockableCurrency, NamedReservableCurrency,
-		ReservableCurrency, WithdrawReasons,
-	},
-	StorageNoopGuard,
+use frame::traits::{
+	BalanceStatus::*, Imbalance, InspectLockableCurrency, LockIdentifier, LockableCurrency,
+	NamedReservableCurrency, WithdrawReasons,
 };
-use frame_system::Event as SysEvent;
-use sp_runtime::traits::DispatchTransaction;
-
-const ID_1: LockIdentifier = *b"1       ";
-const ID_2: LockIdentifier = *b"2       ";
+use ExistenceRequirement::*;
 
 pub const CALL: &<Test as frame_system::Config>::RuntimeCall =
 	&RuntimeCall::Balances(crate::Call::transfer_allow_death { dest: 0, value: 0 });
+
+const ID_1: LockIdentifier = *b"1       ";
+const ID_2: LockIdentifier = *b"2       ";
 
 #[test]
 fn ed_should_work() {
@@ -895,7 +887,7 @@ fn emit_events_with_existential_deposit() {
 		assert_eq!(
 			events(),
 			[
-				RuntimeEvent::System(system::Event::NewAccount { account: 1 }),
+				RuntimeEvent::System(frame_system::Event::NewAccount { account: 1 }),
 				RuntimeEvent::Balances(crate::Event::Endowed { account: 1, free_balance: 100 }),
 				RuntimeEvent::Balances(crate::Event::Issued { amount: 100 }),
 				RuntimeEvent::Balances(crate::Event::BalanceSet { who: 1, free: 100 }),
@@ -908,7 +900,7 @@ fn emit_events_with_existential_deposit() {
 		assert_eq!(
 			events(),
 			[
-				RuntimeEvent::System(system::Event::KilledAccount { account: 1 }),
+				RuntimeEvent::System(frame_system::Event::KilledAccount { account: 1 }),
 				RuntimeEvent::Balances(crate::Event::DustLost { account: 1, amount: 99 }),
 				RuntimeEvent::Balances(crate::Event::Slashed { who: 1, amount: 1 }),
 				RuntimeEvent::Balances(crate::Event::Rescinded { amount: 1 }),
@@ -926,7 +918,7 @@ fn emit_events_with_no_existential_deposit_suicide() {
 			events(),
 			[
 				RuntimeEvent::Balances(crate::Event::BalanceSet { who: 1, free: 100 }),
-				RuntimeEvent::System(system::Event::NewAccount { account: 1 }),
+				RuntimeEvent::System(frame_system::Event::NewAccount { account: 1 }),
 				RuntimeEvent::Balances(crate::Event::Endowed { account: 1, free_balance: 100 }),
 				RuntimeEvent::Balances(crate::Event::Issued { amount: 100 }),
 			]
@@ -938,7 +930,7 @@ fn emit_events_with_no_existential_deposit_suicide() {
 		assert_eq!(
 			events(),
 			[
-				RuntimeEvent::System(system::Event::KilledAccount { account: 1 }),
+				RuntimeEvent::System(frame_system::Event::KilledAccount { account: 1 }),
 				RuntimeEvent::Balances(crate::Event::Slashed { who: 1, amount: 100 }),
 				RuntimeEvent::Balances(crate::Event::Rescinded { amount: 100 }),
 			]
@@ -1409,7 +1401,7 @@ fn self_transfer_noop() {
 			events(),
 			[
 				Event::Deposit { who: 1, amount: 100 }.into(),
-				SysEvent::NewAccount { account: 1 }.into(),
+				frame_system::Event::NewAccount { account: 1 }.into(),
 				Event::Endowed { account: 1, free_balance: 100 }.into(),
 				Event::Issued { amount: 100 }.into(),
 			]
