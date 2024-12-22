@@ -5,16 +5,18 @@ version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
 
 [dependencies]
+cfg-if = { workspace = true }
 cpu-time = { workspace = true }
 gum = { workspace = true, default-features = true }
-cfg-if = { workspace = true }
-nix = { features = ["process", "resource", "sched"], workspace = true }
 libc = { workspace = true }
+nix = { features = ["process", "resource", "sched"], workspace = true }
 
 codec = { features = ["derive"], workspace = true }
 

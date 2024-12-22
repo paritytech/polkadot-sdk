@@ -20,14 +20,14 @@ use crate as pallet_xcm_bridge_hub;
 
 use bp_messages::{
 	target_chain::{DispatchMessage, MessageDispatch},
-	ChainWithMessages, LaneId, MessageNonce,
+	ChainWithMessages, HashedLaneId, MessageNonce,
 };
 use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId, HashOf};
 use bp_xcm_bridge_hub::{BridgeId, LocalXcmChannelManager};
-use codec::Encode;
+use codec::{Decode, Encode};
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
-	traits::{EnsureOrigin, Equals, Everything, OriginTrait},
+	traits::{EnsureOrigin, Equals, Everything, Get, OriginTrait},
 	weights::RuntimeDbWeight,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
@@ -38,17 +38,20 @@ use sp_runtime::{
 	AccountId32, BuildStorage, StateVersion,
 };
 use sp_std::cell::RefCell;
-use xcm::prelude::*;
+use xcm::{latest::ROCOCO_GENESIS_HASH, prelude::*};
 use xcm_builder::{
 	AllowUnpaidExecutionFrom, DispatchBlob, DispatchBlobError, FixedWeightBounds,
 	InspectMessageQueues, NetworkExportTable, NetworkExportTableItem, ParentIsPreset,
 	SiblingParachainConvertsVia,
 };
-use xcm_executor::XcmExecutor;
+use xcm_executor::{traits::ConvertOrigin, XcmExecutor};
 
 pub type AccountId = AccountId32;
 pub type Balance = u64;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
+
+/// Lane identifier type used for tests.
+pub type TestLaneIdType = HashedLaneId;
 
 pub const SIBLING_ASSET_HUB_ID: u32 = 2001;
 pub const THIS_BRIDGE_HUB_ID: u32 = 2002;
@@ -60,7 +63,7 @@ frame_support::construct_runtime! {
 		Balances: pallet_balances::{Pallet, Event<T>},
 		Messages: pallet_bridge_messages::{Pallet, Call, Event<T>},
 		XcmOverBridge: pallet_xcm_bridge_hub::{Pallet, Call, HoldReason, Event<T>},
-		XcmOverBridgeRouter: pallet_xcm_bridge_hub_router,
+		XcmOverBridgeWrappedWithExportMessageRouter: pallet_xcm_bridge_hub_router = 57,
 	}
 }
 
@@ -92,6 +95,7 @@ impl pallet_bridge_messages::Config for TestRuntime {
 
 	type OutboundPayload = Vec<u8>;
 	type InboundPayload = Vec<u8>;
+	type LaneId = TestLaneIdType;
 
 	type DeliveryPayments = ();
 	type DeliveryConfirmationPayments = ();
@@ -152,11 +156,11 @@ parameter_types! {
 	pub SiblingLocation: Location = Location::new(1, [Parachain(SIBLING_ASSET_HUB_ID)]);
 	pub SiblingUniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetwork::get()), Parachain(SIBLING_ASSET_HUB_ID)].into();
 
-	pub const BridgedRelayNetwork: NetworkId = NetworkId::Polkadot;
+	pub const BridgedRelayNetwork: NetworkId = NetworkId::ByGenesis([1; 32]);
 	pub BridgedRelayNetworkLocation: Location = (Parent, GlobalConsensus(BridgedRelayNetwork::get())).into();
 	pub BridgedRelativeDestination: InteriorLocation = [Parachain(BRIDGED_ASSET_HUB_ID)].into();
 	pub BridgedUniversalDestination: InteriorLocation = [GlobalConsensus(BridgedRelayNetwork::get()), Parachain(BRIDGED_ASSET_HUB_ID)].into();
-	pub const NonBridgedRelayNetwork: NetworkId = NetworkId::Rococo;
+	pub const NonBridgedRelayNetwork: NetworkId = NetworkId::ByGenesis(ROCOCO_GENESIS_HASH);
 
 	pub const BridgeDeposit: Balance = 100_000;
 
@@ -190,7 +194,7 @@ impl pallet_xcm_bridge_hub::Config for TestRuntime {
 	type MessageExportPrice = ();
 	type DestinationVersion = AlwaysLatest;
 
-	type AdminOrigin = frame_system::EnsureNever<()>;
+	type ForceOrigin = frame_system::EnsureNever<()>;
 	type OpenBridgeOrigin = OpenBridgeOrigin;
 	type BridgeOriginAccountIdConverter = LocationToAccountId;
 
@@ -204,17 +208,27 @@ impl pallet_xcm_bridge_hub::Config for TestRuntime {
 	type BlobDispatcher = TestBlobDispatcher;
 }
 
-impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
+/// A router instance simulates a scenario where the router is deployed on a different chain than
+/// the `MessageExporter`. This means that the router sends an `ExportMessage`.
+pub type XcmOverBridgeWrappedWithExportMessageRouterInstance = ();
+impl pallet_xcm_bridge_hub_router::Config<XcmOverBridgeWrappedWithExportMessageRouterInstance>
+	for TestRuntime
+{
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 
-	type UniversalLocation = UniversalLocation;
+	type UniversalLocation = ExportMessageOriginUniversalLocation;
 	type SiblingBridgeHubLocation = BridgeHubLocation;
 	type BridgedNetworkId = BridgedRelayNetwork;
 	type Bridges = NetworkExportTable<BridgeTable>;
 	type DestinationVersion = AlwaysLatest;
 
-	type ToBridgeHubSender = TestExportXcmWithXcmOverBridge;
+	// We convert to root `here` location with `BridgeHubLocationXcmOriginAsRoot`
+	type BridgeHubOrigin = frame_system::EnsureRoot<AccountId>;
+	// **Note**: The crucial part is that `ExportMessage` is processed by `XcmExecutor`, which
+	// calls the `ExportXcm` implementation of `pallet_xcm_bridge_hub` as the
+	// `MessageExporter`.
+	type ToBridgeHubSender = ExecuteXcmOverSendXcm;
 	type LocalXcmChannelManager = TestLocalXcmChannelManager;
 
 	type ByteFee = ConstU128<0>;
@@ -226,7 +240,7 @@ impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = ();
 	type AssetTransactor = ();
-	type OriginConverter = ();
+	type OriginConverter = BridgeHubLocationXcmOriginAsRoot<RuntimeOrigin>;
 	type IsReserve = ();
 	type IsTeleporter = ();
 	type UniversalLocation = UniversalLocation;
@@ -266,8 +280,8 @@ thread_local! {
 ///
 /// Note: The crucial part is that `ExportMessage` is processed by `XcmExecutor`, which calls the
 /// `ExportXcm` implementation of `pallet_xcm_bridge_hub` as `MessageExporter`.
-pub struct TestExportXcmWithXcmOverBridge;
-impl SendXcm for TestExportXcmWithXcmOverBridge {
+pub struct ExecuteXcmOverSendXcm;
+impl SendXcm for ExecuteXcmOverSendXcm {
 	type Ticket = Xcm<()>;
 
 	fn validate(
@@ -294,7 +308,7 @@ impl SendXcm for TestExportXcmWithXcmOverBridge {
 		Ok(hash)
 	}
 }
-impl InspectMessageQueues for TestExportXcmWithXcmOverBridge {
+impl InspectMessageQueues for ExecuteXcmOverSendXcm {
 	fn clear_messages() {
 		todo!()
 	}
@@ -303,9 +317,48 @@ impl InspectMessageQueues for TestExportXcmWithXcmOverBridge {
 		todo!()
 	}
 }
-impl TestExportXcmWithXcmOverBridge {
+impl ExecuteXcmOverSendXcm {
 	pub fn set_origin_for_execute(origin: Location) {
 		EXECUTE_XCM_ORIGIN.with(|o| *o.borrow_mut() = Some(origin));
+	}
+}
+
+/// A dynamic way to set different universal location for the origin which sends `ExportMessage`.
+pub struct ExportMessageOriginUniversalLocation;
+impl ExportMessageOriginUniversalLocation {
+	pub(crate) fn set(universal_location: Option<InteriorLocation>) {
+		EXPORT_MESSAGE_ORIGIN_UNIVERSAL_LOCATION.with(|o| *o.borrow_mut() = universal_location);
+	}
+}
+impl Get<InteriorLocation> for ExportMessageOriginUniversalLocation {
+	fn get() -> InteriorLocation {
+		EXPORT_MESSAGE_ORIGIN_UNIVERSAL_LOCATION.with(|o| {
+			o.borrow()
+				.clone()
+				.expect("`EXPORT_MESSAGE_ORIGIN_UNIVERSAL_LOCATION` is not set!")
+		})
+	}
+}
+thread_local! {
+	pub static EXPORT_MESSAGE_ORIGIN_UNIVERSAL_LOCATION: RefCell<Option<InteriorLocation>> = RefCell::new(None);
+}
+
+pub struct BridgeHubLocationXcmOriginAsRoot<RuntimeOrigin>(
+	sp_std::marker::PhantomData<RuntimeOrigin>,
+);
+impl<RuntimeOrigin: OriginTrait> ConvertOrigin<RuntimeOrigin>
+	for BridgeHubLocationXcmOriginAsRoot<RuntimeOrigin>
+{
+	fn convert_origin(
+		origin: impl Into<Location>,
+		kind: OriginKind,
+	) -> Result<RuntimeOrigin, Location> {
+		let origin = origin.into();
+		if kind == OriginKind::Xcm && origin.eq(&BridgeHubLocation::get()) {
+			Ok(RuntimeOrigin::root())
+		} else {
+			Err(origin)
+		}
 	}
 }
 
@@ -392,6 +445,9 @@ impl EnsureOrigin<RuntimeOrigin> for OpenBridgeOrigin {
 	}
 }
 
+pub(crate) type OpenBridgeOriginOf<T, I> =
+	<T as pallet_xcm_bridge_hub::Config<I>>::OpenBridgeOrigin;
+
 pub struct TestLocalXcmChannelManager;
 
 impl TestLocalXcmChannelManager {
@@ -399,30 +455,82 @@ impl TestLocalXcmChannelManager {
 		frame_support::storage::unhashed::put(b"TestLocalXcmChannelManager.Congested", &true);
 	}
 
-	pub fn is_bridge_suspened() -> bool {
-		frame_support::storage::unhashed::get_or_default(b"TestLocalXcmChannelManager.Suspended")
+	fn suspended_key(bridge: &BridgeId) -> Vec<u8> {
+		[b"TestLocalXcmChannelManager.Suspended", bridge.encode().as_slice()].concat()
+	}
+	fn resumed_key(bridge: &BridgeId) -> Vec<u8> {
+		[b"TestLocalXcmChannelManager.Resumed", bridge.encode().as_slice()].concat()
 	}
 
-	pub fn is_bridge_resumed() -> bool {
-		frame_support::storage::unhashed::get_or_default(b"TestLocalXcmChannelManager.Resumed")
+	pub fn is_bridge_suspended(bridge: &BridgeId) -> bool {
+		frame_support::storage::unhashed::get_or_default(&Self::suspended_key(bridge))
+	}
+
+	pub fn is_bridge_resumed(bridge: &BridgeId) -> bool {
+		frame_support::storage::unhashed::get_or_default(&Self::resumed_key(bridge))
+	}
+
+	fn build_congestion_message(bridge: &BridgeId, is_congested: bool) -> Vec<Instruction<()>> {
+		use bp_xcm_bridge_hub_router::XcmBridgeHubRouterCall;
+		#[allow(clippy::large_enum_variant)]
+		#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, scale_info::TypeInfo)]
+		enum Call {
+			#[codec(index = 57)]
+			XcmOverBridgeWrappedWithExportMessageRouter(XcmBridgeHubRouterCall),
+		}
+
+		sp_std::vec![
+			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+			Transact {
+				origin_kind: OriginKind::Xcm,
+				fallback_max_weight: None,
+				call: Call::XcmOverBridgeWrappedWithExportMessageRouter(
+					XcmBridgeHubRouterCall::report_bridge_status {
+						bridge_id: bridge.inner(),
+						is_congested,
+					}
+				)
+				.encode()
+				.into(),
+			},
+			ExpectTransactStatus(MaybeErrorCode::Success),
+		]
+	}
+
+	fn report_bridge_status(
+		local_origin: &Location,
+		bridge: &BridgeId,
+		is_congested: bool,
+		key: Vec<u8>,
+	) -> Result<(), SendError> {
+		// send as BridgeHub would send to sibling chain
+		ExecuteXcmOverSendXcm::set_origin_for_execute(BridgeHubLocation::get());
+		let result = send_xcm::<ExecuteXcmOverSendXcm>(
+			local_origin.clone(),
+			Self::build_congestion_message(&bridge, is_congested).into(),
+		);
+
+		if result.is_ok() {
+			frame_support::storage::unhashed::put(&key, &true);
+		}
+
+		result.map(|_| ())
 	}
 }
 
 impl LocalXcmChannelManager for TestLocalXcmChannelManager {
-	type Error = ();
+	type Error = SendError;
 
 	fn is_congested(_with: &Location) -> bool {
 		frame_support::storage::unhashed::get_or_default(b"TestLocalXcmChannelManager.Congested")
 	}
 
-	fn suspend_bridge(_local_origin: &Location, _bridge: BridgeId) -> Result<(), Self::Error> {
-		frame_support::storage::unhashed::put(b"TestLocalXcmChannelManager.Suspended", &true);
-		Ok(())
+	fn suspend_bridge(local_origin: &Location, bridge: BridgeId) -> Result<(), Self::Error> {
+		Self::report_bridge_status(local_origin, &bridge, true, Self::suspended_key(&bridge))
 	}
 
-	fn resume_bridge(_local_origin: &Location, _bridge: BridgeId) -> Result<(), Self::Error> {
-		frame_support::storage::unhashed::put(b"TestLocalXcmChannelManager.Resumed", &true);
-		Ok(())
+	fn resume_bridge(local_origin: &Location, bridge: BridgeId) -> Result<(), Self::Error> {
+		Self::report_bridge_status(local_origin, &bridge, false, Self::resumed_key(&bridge))
 	}
 }
 
@@ -523,7 +631,7 @@ impl bp_header_chain::HeaderChain<BridgedUnderlyingChain> for BridgedHeaderChain
 pub struct TestMessageDispatch;
 
 impl TestMessageDispatch {
-	pub fn deactivate(lane: LaneId) {
+	pub fn deactivate(lane: TestLaneIdType) {
 		frame_support::storage::unhashed::put(&(b"inactive", lane).encode()[..], &false);
 	}
 }
@@ -531,18 +639,21 @@ impl TestMessageDispatch {
 impl MessageDispatch for TestMessageDispatch {
 	type DispatchPayload = Vec<u8>;
 	type DispatchLevelResult = ();
+	type LaneId = TestLaneIdType;
 
-	fn is_active(lane: LaneId) -> bool {
+	fn is_active(lane: Self::LaneId) -> bool {
 		frame_support::storage::unhashed::take::<bool>(&(b"inactive", lane).encode()[..]) !=
 			Some(false)
 	}
 
-	fn dispatch_weight(_message: &mut DispatchMessage<Self::DispatchPayload>) -> Weight {
+	fn dispatch_weight(
+		_message: &mut DispatchMessage<Self::DispatchPayload, Self::LaneId>,
+	) -> Weight {
 		Weight::zero()
 	}
 
 	fn dispatch(
-		_: DispatchMessage<Self::DispatchPayload>,
+		_: DispatchMessage<Self::DispatchPayload, Self::LaneId>,
 	) -> MessageDispatchResult<Self::DispatchLevelResult> {
 		MessageDispatchResult { unspent_weight: Weight::zero(), dispatch_level_result: () }
 	}

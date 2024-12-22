@@ -15,7 +15,6 @@
 
 use crate::imports::*;
 use codec::Encode;
-use emulated_integration_tests_common::ASSET_HUB_WESTEND_ID;
 use frame_support::{assert_ok, sp_runtime::traits::Dispatchable, traits::schedule::DispatchTime};
 use xcm_executor::traits::ConvertLocation;
 
@@ -61,13 +60,13 @@ fn treasury_creates_asset_reward_pool() {
 		let create_pool_call =
 			WestendRuntimeCall::XcmPallet(pallet_xcm::Call::<WestendRuntime>::send {
 				dest: bx!(VersionedLocation::V4(
-					xcm::v4::Junction::Parachain(ASSET_HUB_WESTEND_ID).into()
+					xcm::v4::Junction::Parachain(AssetHubWestend::para_id().into()).into()
 				)),
-				message: bx!(VersionedXcm::V4(Xcm(vec![
+				message: bx!(VersionedXcm::V5(Xcm(vec![
 					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 					Transact {
 						origin_kind: OriginKind::SovereignAccount,
-						require_weight_at_most: Weight::from_parts(5_000_000_000, 500_000),
+						fallback_max_weight: None,
 						call: AssetHubWestendRuntimeCall::AssetRewards(
 							pallet_asset_rewards::Call::<AssetHubWestendRuntime>::create_pool {
 								staked_asset_id,

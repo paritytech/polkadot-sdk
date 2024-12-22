@@ -36,7 +36,7 @@
 //!
 //! Let's see a quick example:
 //!
-//! ```rust(ignore)
+//! ```nocompile
 //! sp_api::decl_runtime_apis! {
 //! 	#[api_version(2)]
 //! 	pub trait MyApi {

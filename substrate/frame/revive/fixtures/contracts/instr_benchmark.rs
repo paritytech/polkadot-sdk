@@ -22,6 +22,8 @@ extern crate common;
 use common::input;
 use uapi::{HostFn, HostFnImpl as api, ReturnFlags};
 
+static mut MULT: [u32; 5_000] = [1u32; 5_000];
+
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn deploy() {}
@@ -29,13 +31,13 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	input!(rounds: u32, start: u32, div: u32, mult: u32, add: u32, );
+	input!(rounds: u32, );
 
-	let mut acc = start;
+	let mut acc = 5;
 
-	for _ in 0..rounds {
-		acc = acc / div * mult + add;
+	for i in 0..rounds {
+		acc = acc * unsafe { MULT[i as usize] }
 	}
 
-	api::return_value(ReturnFlags::empty(), start.to_le_bytes().as_ref());
+	api::return_value(ReturnFlags::empty(), acc.to_le_bytes().as_ref());
 }

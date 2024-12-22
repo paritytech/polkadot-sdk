@@ -15,7 +15,6 @@
 
 use crate::imports::*;
 use codec::Encode;
-use emulated_integration_tests_common::ASSET_HUB_ROCOCO_ID;
 use frame_support::{assert_ok, sp_runtime::traits::Dispatchable, traits::schedule::DispatchTime};
 use xcm_executor::traits::ConvertLocation;
 
@@ -62,13 +61,13 @@ fn treasury_creates_asset_reward_pool() {
 		let create_pool_call =
 			RococoRuntimeCall::XcmPallet(pallet_xcm::Call::<RococoRuntime>::send {
 				dest: bx!(VersionedLocation::V4(
-					xcm::v4::Junction::Parachain(ASSET_HUB_ROCOCO_ID).into()
+					xcm::v4::Junction::Parachain(AssetHubRococo::para_id().into()).into()
 				)),
-				message: bx!(VersionedXcm::V4(Xcm(vec![
+				message: bx!(VersionedXcm::V5(Xcm(vec![
 					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 					Transact {
 						origin_kind: OriginKind::SovereignAccount,
-						require_weight_at_most: Weight::from_parts(5_000_000_000, 500_000),
+						fallback_max_weight: None,
 						call: AssetHubRococoRuntimeCall::AssetRewards(
 							pallet_asset_rewards::Call::<AssetHubRococoRuntime>::create_pool {
 								staked_asset_id,

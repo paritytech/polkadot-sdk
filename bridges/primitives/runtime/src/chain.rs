@@ -365,17 +365,23 @@ macro_rules! decl_bridge_finality_runtime_apis {
 	};
 }
 
+// Re-export to avoid include tuplex dependency everywhere.
+#[doc(hidden)]
+pub mod __private {
+	pub use codec;
+}
+
 /// Convenience macro that declares bridge messages runtime apis and related constants for a chain.
 /// This includes:
 /// - chain-specific bridge runtime APIs:
-///     - `To<ThisChain>OutboundLaneApi`
-///     - `From<ThisChain>InboundLaneApi`
+///     - `To<ThisChain>OutboundLaneApi<LaneIdType>`
+///     - `From<ThisChain>InboundLaneApi<LaneIdType>`
 /// - constants that are stringified names of runtime API methods:
 ///     - `FROM_<THIS_CHAIN>_MESSAGE_DETAILS_METHOD`,
 /// The name of the chain has to be specified in snake case (e.g. `bridge_hub_polkadot`).
 #[macro_export]
 macro_rules! decl_bridge_messages_runtime_apis {
-	($chain: ident) => {
+	($chain: ident, $lane_id_type:ty) => {
 		bp_runtime::paste::item! {
 			mod [<$chain _messages_api>] {
 				use super::*;
@@ -400,7 +406,7 @@ macro_rules! decl_bridge_messages_runtime_apis {
 						/// If some (or all) messages are missing from the storage, they'll also will
 						/// be missing from the resulting vector. The vector is ordered by the nonce.
 						fn message_details(
-							lane: bp_messages::LaneId,
+							lane: $lane_id_type,
 							begin: bp_messages::MessageNonce,
 							end: bp_messages::MessageNonce,
 						) -> sp_std::vec::Vec<bp_messages::OutboundMessageDetails>;
@@ -416,7 +422,7 @@ macro_rules! decl_bridge_messages_runtime_apis {
 					pub trait [<From $chain:camel InboundLaneApi>] {
 						/// Return details of given inbound messages.
 						fn message_details(
-							lane: bp_messages::LaneId,
+							lane: $lane_id_type,
 							messages: sp_std::vec::Vec<(bp_messages::MessagePayload, bp_messages::OutboundMessageDetails)>,
 						) -> sp_std::vec::Vec<bp_messages::InboundMessageDetails>;
 					}
@@ -433,8 +439,8 @@ macro_rules! decl_bridge_messages_runtime_apis {
 /// The name of the chain has to be specified in snake case (e.g. `bridge_hub_polkadot`).
 #[macro_export]
 macro_rules! decl_bridge_runtime_apis {
-	($chain: ident $(, $consensus: ident)?) => {
+	($chain: ident $(, $consensus: ident, $lane_id_type:ident)?) => {
 		bp_runtime::decl_bridge_finality_runtime_apis!($chain $(, $consensus)?);
-		bp_runtime::decl_bridge_messages_runtime_apis!($chain);
+		bp_runtime::decl_bridge_messages_runtime_apis!($chain, $lane_id_type);
 	};
 }

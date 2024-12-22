@@ -17,6 +17,7 @@
 use self::test_helpers::mock::new_leaf;
 use super::*;
 use crate::backend::V1ReadBackend;
+use itertools::Itertools;
 use overseer::prometheus::{
 	prometheus::{IntCounter, IntCounterVec},
 	Histogram, HistogramOpts, HistogramVec, Opts,
@@ -39,16 +40,16 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
-use polkadot_overseer::{HeadSupportsParachains, SpawnGlue};
+use polkadot_overseer::SpawnGlue;
 use polkadot_primitives::{
-	ApprovalVote, CandidateCommitments, CandidateEvent, CoreIndex, DisputeStatement, GroupIndex,
-	Header, Id as ParaId, IndexedVec, NodeFeatures, ValidDisputeStatementKind, ValidationCode,
+	vstaging::{CandidateEvent, MutateDescriptorV2},
+	ApprovalVote, CandidateCommitments, CoreIndex, DisputeStatement, GroupIndex, Header,
+	Id as ParaId, IndexedVec, NodeFeatures, ValidDisputeStatementKind, ValidationCode,
 	ValidatorSignature,
 };
 use std::{cmp::max, time::Duration};
 
 use assert_matches::assert_matches;
-use async_trait::async_trait;
 use parking_lot::Mutex;
 use sp_keyring::sr25519::Keyring as Sr25519Keyring;
 use sp_keystore::Keystore;
@@ -69,7 +70,9 @@ use super::{
 	},
 };
 
-use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_candidate_receipt_bad_sig};
+use polkadot_primitives_test_helpers::{
+	dummy_candidate_receipt_v2, dummy_candidate_receipt_v2_bad_sig,
+};
 
 const SLOT_DURATION_MILLIS: u64 = 5000;
 
@@ -129,15 +132,6 @@ pub mod test_constants {
 	pub(crate) const NUM_COLUMNS: u32 = 1;
 
 	pub(crate) const TEST_CONFIG: DatabaseConfig = DatabaseConfig { col_approval_data: DATA_COL };
-}
-
-struct MockSupportsParachains;
-
-#[async_trait]
-impl HeadSupportsParachains for MockSupportsParachains {
-	async fn head_supports_parachains(&self, _head: &Hash) -> bool {
-		true
-	}
 }
 
 fn slot_to_tick(t: impl Into<Slot>) -> Tick {
@@ -263,7 +257,8 @@ where
 		_relay_vrf_story: polkadot_node_primitives::approval::v1::RelayVRFStory,
 		_assignment: &polkadot_node_primitives::approval::v2::AssignmentCertV2,
 		_backing_groups: Vec<polkadot_primitives::GroupIndex>,
-	) -> Result<polkadot_node_primitives::approval::v1::DelayTranche, criteria::InvalidAssignment> {
+	) -> Result<polkadot_node_primitives::approval::v1::DelayTranche, criteria::InvalidAssignment>
+	{
 		self.1(validator_index)
 	}
 }
@@ -646,8 +641,8 @@ where
 }
 
 fn make_candidate(para_id: ParaId, hash: &Hash) -> CandidateReceipt {
-	let mut r = dummy_candidate_receipt_bad_sig(*hash, Some(Default::default()));
-	r.descriptor.para_id = para_id;
+	let mut r = dummy_candidate_receipt_v2_bad_sig(*hash, Some(Default::default()));
+	r.descriptor.set_para_id(para_id);
 	r
 }
 
@@ -1290,7 +1285,7 @@ fn subsystem_rejects_approval_if_no_block_entry() {
 		let block_hash = Hash::repeat_byte(0x01);
 		let candidate_index = 0;
 		let validator = ValidatorIndex(0);
-		let candidate_hash = dummy_candidate_receipt(block_hash).hash();
+		let candidate_hash = dummy_candidate_receipt_v2(block_hash).hash();
 		let session_index = 1;
 
 		let rx = import_approval(
@@ -1332,9 +1327,9 @@ fn subsystem_rejects_approval_before_assignment() {
 
 		let candidate_hash = {
 			let mut candidate_receipt =
-				dummy_candidate_receipt_bad_sig(block_hash, Some(Default::default()));
-			candidate_receipt.descriptor.para_id = ParaId::from(0_u32);
-			candidate_receipt.descriptor.relay_parent = block_hash;
+				dummy_candidate_receipt_v2_bad_sig(block_hash, Some(Default::default()));
+			candidate_receipt.descriptor.set_para_id(ParaId::from(0_u32));
+			candidate_receipt.descriptor.set_relay_parent(block_hash);
 			candidate_receipt.hash()
 		};
 
@@ -1398,15 +1393,17 @@ fn subsystem_accepts_duplicate_assignment() {
 		let block_hash = Hash::repeat_byte(0x01);
 
 		let candidate_receipt1 = {
-			let mut receipt = dummy_candidate_receipt(block_hash);
-			receipt.descriptor.para_id = ParaId::from(1_u32);
+			let mut receipt = dummy_candidate_receipt_v2(block_hash);
+			receipt.descriptor.set_para_id(ParaId::from(1_u32));
 			receipt
-		};
+		}
+		.into();
 		let candidate_receipt2 = {
-			let mut receipt = dummy_candidate_receipt(block_hash);
-			receipt.descriptor.para_id = ParaId::from(2_u32);
+			let mut receipt = dummy_candidate_receipt_v2(block_hash);
+			receipt.descriptor.set_para_id(ParaId::from(2_u32));
 			receipt
-		};
+		}
+		.into();
 		let candidate_index1 = 0;
 		let candidate_index2 = 1;
 
@@ -1580,9 +1577,9 @@ fn subsystem_accepts_and_imports_approval_after_assignment() {
 
 		let candidate_hash = {
 			let mut candidate_receipt =
-				dummy_candidate_receipt_bad_sig(block_hash, Some(Default::default()));
-			candidate_receipt.descriptor.para_id = ParaId::from(0_u32);
-			candidate_receipt.descriptor.relay_parent = block_hash;
+				dummy_candidate_receipt_v2_bad_sig(block_hash, Some(Default::default()));
+			candidate_receipt.descriptor.set_para_id(ParaId::from(0_u32));
+			candidate_receipt.descriptor.set_relay_parent(block_hash);
 			candidate_receipt.hash()
 		};
 
@@ -1651,9 +1648,9 @@ fn subsystem_second_approval_import_only_schedules_wakeups() {
 
 		let candidate_hash = {
 			let mut candidate_receipt =
-				dummy_candidate_receipt_bad_sig(block_hash, Some(Default::default()));
-			candidate_receipt.descriptor.para_id = ParaId::from(0_u32);
-			candidate_receipt.descriptor.relay_parent = block_hash;
+				dummy_candidate_receipt_v2_bad_sig(block_hash, Some(Default::default()));
+			candidate_receipt.descriptor.set_para_id(ParaId::from(0_u32));
+			candidate_receipt.descriptor.set_relay_parent(block_hash);
 			candidate_receipt.hash()
 		};
 
@@ -2410,13 +2407,13 @@ fn subsystem_import_checked_approval_sets_one_block_bit_at_a_time() {
 		let block_hash = Hash::repeat_byte(0x01);
 
 		let candidate_receipt1 = {
-			let mut receipt = dummy_candidate_receipt(block_hash);
-			receipt.descriptor.para_id = ParaId::from(1_u32);
+			let mut receipt = dummy_candidate_receipt_v2(block_hash);
+			receipt.descriptor.set_para_id(ParaId::from(1_u32));
 			receipt
 		};
 		let candidate_receipt2 = {
-			let mut receipt = dummy_candidate_receipt(block_hash);
-			receipt.descriptor.para_id = ParaId::from(2_u32);
+			let mut receipt = dummy_candidate_receipt_v2(block_hash);
+			receipt.descriptor.set_para_id(ParaId::from(2_u32));
 			receipt
 		};
 		let candidate_hash1 = candidate_receipt1.hash();
@@ -2574,18 +2571,18 @@ fn inclusion_events_can_be_unordered_by_core_index() {
 		let block_hash = Hash::repeat_byte(0x01);
 
 		let candidate_receipt0 = {
-			let mut receipt = dummy_candidate_receipt(block_hash);
-			receipt.descriptor.para_id = ParaId::from(0_u32);
+			let mut receipt = dummy_candidate_receipt_v2(block_hash);
+			receipt.descriptor.set_para_id(ParaId::from(0_u32));
 			receipt
 		};
 		let candidate_receipt1 = {
-			let mut receipt = dummy_candidate_receipt(block_hash);
-			receipt.descriptor.para_id = ParaId::from(1_u32);
+			let mut receipt = dummy_candidate_receipt_v2(block_hash);
+			receipt.descriptor.set_para_id(ParaId::from(1_u32));
 			receipt
 		};
 		let candidate_receipt2 = {
-			let mut receipt = dummy_candidate_receipt(block_hash);
-			receipt.descriptor.para_id = ParaId::from(2_u32);
+			let mut receipt = dummy_candidate_receipt_v2(block_hash);
+			receipt.descriptor.set_para_id(ParaId::from(2_u32));
 			receipt
 		};
 		let candidate_index0 = 0;
@@ -2718,8 +2715,8 @@ fn approved_ancestor_test(
 			.iter()
 			.enumerate()
 			.map(|(i, hash)| {
-				let mut candidate_receipt = dummy_candidate_receipt(*hash);
-				candidate_receipt.descriptor.para_id = i.into();
+				let mut candidate_receipt = dummy_candidate_receipt_v2(*hash);
+				candidate_receipt.descriptor.set_para_id(i.into());
 				candidate_receipt
 			})
 			.collect();
@@ -2890,7 +2887,7 @@ fn subsystem_validate_approvals_cache() {
 		let block_hash = Hash::repeat_byte(0x01);
 		let fork_block_hash = Hash::repeat_byte(0x02);
 		let candidate_commitments = CandidateCommitments::default();
-		let mut candidate_receipt = dummy_candidate_receipt(block_hash);
+		let mut candidate_receipt = dummy_candidate_receipt_v2(block_hash);
 		candidate_receipt.commitments_hash = candidate_commitments.hash();
 		let candidate_hash = candidate_receipt.hash();
 		let slot = Slot::from(1);
@@ -3020,13 +3017,13 @@ fn subsystem_doesnt_distribute_duplicate_compact_assignments() {
 		let block_hash = Hash::repeat_byte(0x01);
 
 		let candidate_receipt1 = {
-			let mut receipt = dummy_candidate_receipt(block_hash);
-			receipt.descriptor.para_id = ParaId::from(1_u32);
+			let mut receipt = dummy_candidate_receipt_v2(block_hash);
+			receipt.descriptor.set_para_id(ParaId::from(1_u32));
 			receipt
 		};
 		let candidate_receipt2 = {
-			let mut receipt = dummy_candidate_receipt(block_hash);
-			receipt.descriptor.para_id = ParaId::from(2_u32);
+			let mut receipt = dummy_candidate_receipt_v2(block_hash);
+			receipt.descriptor.set_para_id(ParaId::from(2_u32));
 			receipt
 		};
 		let candidate_index1 = 0;
@@ -3271,7 +3268,7 @@ where
 		);
 
 		let block_hash = Hash::repeat_byte(0x01);
-		let candidate_receipt = dummy_candidate_receipt(block_hash);
+		let candidate_receipt = dummy_candidate_receipt_v2(block_hash);
 		let candidate_hash = candidate_receipt.hash();
 		let slot = Slot::from(1);
 		let candidate_index = 0;
@@ -3973,8 +3970,8 @@ fn test_approval_is_sent_on_max_approval_coalesce_count() {
 		let candidate_commitments = CandidateCommitments::default();
 
 		let candidate_receipt1 = {
-			let mut receipt = dummy_candidate_receipt(block_hash);
-			receipt.descriptor.para_id = ParaId::from(1_u32);
+			let mut receipt = dummy_candidate_receipt_v2(block_hash);
+			receipt.descriptor.set_para_id(ParaId::from(1_u32));
 			receipt.commitments_hash = candidate_commitments.hash();
 			receipt
 		};
@@ -3982,8 +3979,8 @@ fn test_approval_is_sent_on_max_approval_coalesce_count() {
 		let candidate_hash1 = candidate_receipt1.hash();
 
 		let candidate_receipt2 = {
-			let mut receipt = dummy_candidate_receipt(block_hash);
-			receipt.descriptor.para_id = ParaId::from(2_u32);
+			let mut receipt = dummy_candidate_receipt_v2(block_hash);
+			receipt.descriptor.set_para_id(ParaId::from(2_u32));
 			receipt.commitments_hash = candidate_commitments.hash();
 			receipt
 		};
@@ -4274,8 +4271,8 @@ fn test_approval_is_sent_on_max_approval_coalesce_wait() {
 		let candidate_commitments = CandidateCommitments::default();
 
 		let candidate_receipt1 = {
-			let mut receipt = dummy_candidate_receipt(block_hash);
-			receipt.descriptor.para_id = ParaId::from(1_u32);
+			let mut receipt = dummy_candidate_receipt_v2(block_hash);
+			receipt.descriptor.set_para_id(ParaId::from(1_u32));
 			receipt.commitments_hash = candidate_commitments.hash();
 			receipt
 		};
@@ -4283,8 +4280,8 @@ fn test_approval_is_sent_on_max_approval_coalesce_wait() {
 		let candidate_hash1 = candidate_receipt1.hash();
 
 		let candidate_receipt2 = {
-			let mut receipt = dummy_candidate_receipt(block_hash);
-			receipt.descriptor.para_id = ParaId::from(2_u32);
+			let mut receipt = dummy_candidate_receipt_v2(block_hash);
+			receipt.descriptor.set_para_id(ParaId::from(2_u32));
 			receipt.commitments_hash = candidate_commitments.hash();
 			receipt
 		};
@@ -4428,7 +4425,7 @@ async fn setup_overseer_with_two_blocks_each_with_one_assignment_triggered(
 	let block_hash = Hash::repeat_byte(0x01);
 	let fork_block_hash = Hash::repeat_byte(0x02);
 	let candidate_commitments = CandidateCommitments::default();
-	let mut candidate_receipt = dummy_candidate_receipt(block_hash);
+	let mut candidate_receipt = dummy_candidate_receipt_v2(block_hash);
 	candidate_receipt.commitments_hash = candidate_commitments.hash();
 	let candidate_hash = candidate_receipt.hash();
 	let slot = Slot::from(1);
@@ -4457,6 +4454,114 @@ async fn setup_overseer_with_two_blocks_each_with_one_assignment_triggered(
 	futures_timer::Delay::new(Duration::from_millis(200)).await;
 
 	let candidate_entry = store.load_candidate_entry(&candidate_hash).unwrap().unwrap();
+	let our_assignment =
+		candidate_entry.approval_entry(&block_hash).unwrap().our_assignment().unwrap();
+	assert!(our_assignment.triggered());
+}
+
+// Builds a chain with a fork where both relay blocks include the same candidate.
+async fn build_chain_with_block_with_two_candidates(
+	block_hash1: Hash,
+	slot: Slot,
+	sync_oracle_handle: TestSyncOracleHandle,
+	candidate_receipt: Vec<CandidateReceipt>,
+) -> (ChainBuilder, SessionInfo) {
+	let validators = vec![
+		Sr25519Keyring::Alice,
+		Sr25519Keyring::Bob,
+		Sr25519Keyring::Charlie,
+		Sr25519Keyring::Dave,
+		Sr25519Keyring::Eve,
+	];
+	let session_info = SessionInfo {
+		validator_groups: IndexedVec::<GroupIndex, Vec<ValidatorIndex>>::from(vec![
+			vec![ValidatorIndex(0), ValidatorIndex(1)],
+			vec![ValidatorIndex(2)],
+			vec![ValidatorIndex(3), ValidatorIndex(4)],
+		]),
+		..session_info(&validators)
+	};
+
+	let candidates = Some(
+		candidate_receipt
+			.iter()
+			.enumerate()
+			.map(|(i, receipt)| (receipt.clone(), CoreIndex(i as u32), GroupIndex(i as u32)))
+			.collect(),
+	);
+	let mut chain_builder = ChainBuilder::new();
+
+	chain_builder
+		.major_syncing(sync_oracle_handle.is_major_syncing.clone())
+		.add_block(
+			block_hash1,
+			ChainBuilder::GENESIS_HASH,
+			1,
+			BlockConfig {
+				slot,
+				candidates: candidates.clone(),
+				session_info: Some(session_info.clone()),
+				end_syncing: true,
+			},
+		);
+	(chain_builder, session_info)
+}
+
+async fn setup_overseer_with_blocks_with_two_assignments_triggered(
+	virtual_overseer: &mut VirtualOverseer,
+	store: TestStore,
+	clock: &Arc<MockClock>,
+	sync_oracle_handle: TestSyncOracleHandle,
+) {
+	assert_matches!(
+		overseer_recv(virtual_overseer).await,
+		AllMessages::ChainApi(ChainApiMessage::FinalizedBlockNumber(rx)) => {
+			rx.send(Ok(0)).unwrap();
+		}
+	);
+
+	let block_hash = Hash::repeat_byte(0x01);
+	let candidate_commitments = CandidateCommitments::default();
+	let mut candidate_receipt = dummy_candidate_receipt_v2(block_hash);
+	candidate_receipt.commitments_hash = candidate_commitments.hash();
+	let candidate_hash = candidate_receipt.hash();
+
+	let mut candidate_commitments2 = CandidateCommitments::default();
+	candidate_commitments2.processed_downward_messages = 3;
+	let mut candidate_receipt2 = dummy_candidate_receipt_v2(block_hash);
+	candidate_receipt2.commitments_hash = candidate_commitments2.hash();
+	let candidate_hash2 = candidate_receipt2.hash();
+
+	let slot = Slot::from(1);
+	let (chain_builder, _session_info) = build_chain_with_block_with_two_candidates(
+		block_hash,
+		slot,
+		sync_oracle_handle,
+		vec![candidate_receipt, candidate_receipt2],
+	)
+	.await;
+	chain_builder.build(virtual_overseer).await;
+
+	assert!(!clock.inner.lock().current_wakeup_is(1));
+	clock.inner.lock().wakeup_all(1);
+
+	assert!(clock.inner.lock().current_wakeup_is(slot_to_tick(slot)));
+	clock.inner.lock().wakeup_all(slot_to_tick(slot));
+
+	futures_timer::Delay::new(Duration::from_millis(200)).await;
+
+	clock.inner.lock().wakeup_all(slot_to_tick(slot + 2));
+
+	assert_eq!(clock.inner.lock().wakeups.len(), 0);
+
+	futures_timer::Delay::new(Duration::from_millis(200)).await;
+
+	let candidate_entry = store.load_candidate_entry(&candidate_hash).unwrap().unwrap();
+	let our_assignment =
+		candidate_entry.approval_entry(&block_hash).unwrap().our_assignment().unwrap();
+	assert!(our_assignment.triggered());
+
+	let candidate_entry = store.load_candidate_entry(&candidate_hash2).unwrap().unwrap();
 	let our_assignment =
 		candidate_entry.approval_entry(&block_hash).unwrap().our_assignment().unwrap();
 	assert!(our_assignment.triggered());
@@ -4557,7 +4662,7 @@ fn subsystem_relaunches_approval_work_on_restart() {
 		let block_hash = Hash::repeat_byte(0x01);
 		let fork_block_hash = Hash::repeat_byte(0x02);
 		let candidate_commitments = CandidateCommitments::default();
-		let mut candidate_receipt = dummy_candidate_receipt(block_hash);
+		let mut candidate_receipt = dummy_candidate_receipt_v2(block_hash);
 		candidate_receipt.commitments_hash = candidate_commitments.hash();
 		let slot = Slot::from(1);
 		clock.inner.lock().set_tick(slot_to_tick(slot + 2));
@@ -4813,7 +4918,7 @@ fn subsystem_sends_pending_approvals_on_approval_restart() {
 		let block_hash = Hash::repeat_byte(0x01);
 		let fork_block_hash = Hash::repeat_byte(0x02);
 		let candidate_commitments = CandidateCommitments::default();
-		let mut candidate_receipt = dummy_candidate_receipt(block_hash);
+		let mut candidate_receipt = dummy_candidate_receipt_v2(block_hash);
 		candidate_receipt.commitments_hash = candidate_commitments.hash();
 		let slot = Slot::from(1);
 
@@ -4823,7 +4928,7 @@ fn subsystem_sends_pending_approvals_on_approval_restart() {
 			fork_block_hash,
 			slot,
 			sync_oracle_handle,
-			candidate_receipt,
+			candidate_receipt.into(),
 		)
 		.await;
 		chain_builder.build(&mut virtual_overseer).await;
@@ -4923,6 +5028,212 @@ fn subsystem_sends_pending_approvals_on_approval_restart() {
 	});
 }
 
+// Test that after restart approvals are sent after all assignments have been distributed.
+#[test]
+fn subsystem_sends_assignment_approval_in_correct_order_on_approval_restart() {
+	let assignment_criteria = Box::new(MockAssignmentCriteria(
+		|| {
+			let mut assignments = HashMap::new();
+
+			let _ = assignments.insert(
+				CoreIndex(0),
+				approval_db::v2::OurAssignment {
+					cert: garbage_assignment_cert_v2(AssignmentCertKindV2::RelayVRFModuloCompact {
+						core_bitfield: vec![CoreIndex(0), CoreIndex(2)].try_into().unwrap(),
+					}),
+					tranche: 0,
+					validator_index: ValidatorIndex(0),
+					triggered: false,
+				}
+				.into(),
+			);
+
+			let _ = assignments.insert(
+				CoreIndex(1),
+				approval_db::v2::OurAssignment {
+					cert: garbage_assignment_cert_v2(AssignmentCertKindV2::RelayVRFDelay {
+						core_index: CoreIndex(1),
+					}),
+					tranche: 0,
+					validator_index: ValidatorIndex(0),
+					triggered: false,
+				}
+				.into(),
+			);
+			assignments
+		},
+		|_| Ok(0),
+	));
+	let config = HarnessConfigBuilder::default().assignment_criteria(assignment_criteria).build();
+	let store = config.backend();
+	let store_clone = config.backend();
+
+	test_harness(config, |test_harness| async move {
+		let TestHarness { mut virtual_overseer, clock, sync_oracle_handle } = test_harness;
+
+		setup_overseer_with_blocks_with_two_assignments_triggered(
+			&mut virtual_overseer,
+			store,
+			&clock,
+			sync_oracle_handle,
+		)
+		.await;
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::ApprovalDistribution(ApprovalDistributionMessage::DistributeAssignment(
+				_,
+				_,
+			)) => {
+			}
+		);
+
+		recover_available_data(&mut virtual_overseer).await;
+		fetch_validation_code(&mut virtual_overseer).await;
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::ApprovalDistribution(ApprovalDistributionMessage::DistributeAssignment(
+				_,
+				_
+			)) => {
+			}
+		);
+
+		recover_available_data(&mut virtual_overseer).await;
+		fetch_validation_code(&mut virtual_overseer).await;
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::CandidateValidation(CandidateValidationMessage::ValidateFromExhaustive {
+				exec_kind,
+				response_sender,
+				..
+			}) if exec_kind == PvfExecKind::Approval => {
+				response_sender.send(Ok(ValidationResult::Valid(Default::default(), Default::default())))
+					.unwrap();
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::CandidateValidation(CandidateValidationMessage::ValidateFromExhaustive {
+				exec_kind,
+				response_sender,
+				..
+			}) if exec_kind == PvfExecKind::Approval => {
+				response_sender.send(Ok(ValidationResult::Valid(Default::default(), Default::default())))
+					.unwrap();
+			}
+		);
+
+		// Configure a big coalesce number, so that the signature is cached instead of being sent to
+		// approval-distribution.
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
+				let _ = sender.send(Ok(ApprovalVotingParams {
+					max_approval_coalesce_count: 2,
+				}));
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
+				let _ = sender.send(Ok(ApprovalVotingParams {
+					max_approval_coalesce_count: 2,
+				}));
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::ApprovalDistribution(ApprovalDistributionMessage::DistributeApproval(_))
+		);
+
+		// Assert that there are no more messages being sent by the subsystem
+		assert!(overseer_recv(&mut virtual_overseer).timeout(TIMEOUT / 2).await.is_none());
+
+		virtual_overseer
+	});
+
+	let config = HarnessConfigBuilder::default().backend(store_clone).major_syncing(true).build();
+	// On restart  we should first distribute all assignments covering a coalesced approval.
+	test_harness(config, |test_harness| async move {
+		let TestHarness { mut virtual_overseer, clock, sync_oracle_handle } = test_harness;
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::ChainApi(ChainApiMessage::FinalizedBlockNumber(rx)) => {
+				rx.send(Ok(0)).unwrap();
+			}
+		);
+
+		let block_hash = Hash::repeat_byte(0x01);
+		let candidate_commitments = CandidateCommitments::default();
+		let mut candidate_receipt = dummy_candidate_receipt_v2(block_hash);
+		candidate_receipt.commitments_hash = candidate_commitments.hash();
+
+		let mut candidate_commitments2 = CandidateCommitments::default();
+		candidate_commitments2.processed_downward_messages = 3;
+		let mut candidate_receipt2 = dummy_candidate_receipt_v2(block_hash);
+		candidate_receipt2.commitments_hash = candidate_commitments2.hash();
+
+		let slot = Slot::from(1);
+
+		clock.inner.lock().set_tick(slot_to_tick(slot + 2));
+		let (chain_builder, _session_info) = build_chain_with_block_with_two_candidates(
+			block_hash,
+			slot,
+			sync_oracle_handle,
+			vec![candidate_receipt.into(), candidate_receipt2.into()],
+		)
+		.await;
+		chain_builder.build(&mut virtual_overseer).await;
+
+		futures_timer::Delay::new(Duration::from_millis(2000)).await;
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NewBlocks(
+				_,
+			)) => {
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::ApprovalDistribution(ApprovalDistributionMessage::DistributeAssignment(
+				_,
+				_,
+			)) => {
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::ApprovalDistribution(ApprovalDistributionMessage::DistributeAssignment(
+				_,
+				_,
+			)) => {
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::ApprovalDistribution(ApprovalDistributionMessage::DistributeApproval(approval)) => {
+				assert_eq!(approval.candidate_indices.count_ones(), 2);
+			}
+		);
+
+		// Assert that there are no more messages being sent by the subsystem
+		assert!(overseer_recv(&mut virtual_overseer).timeout(TIMEOUT / 2).await.is_none());
+
+		virtual_overseer
+	});
+}
+
 // Test we correctly update the timer when we mark the beginning of gathering assignments.
 #[test]
 fn test_gathering_assignments_statements() {
@@ -4931,7 +5242,6 @@ fn test_gathering_assignments_statements() {
 		slot_duration_millis: 6_000,
 		clock: Arc::new(MockClock::default()),
 		assignment_criteria: Box::new(MockAssignmentCriteria::check_only(|_| Ok(0))),
-		spans: HashMap::new(),
 		per_block_assignments_gathering_times: LruMap::new(ByLength::new(
 			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 		)),
@@ -5026,7 +5336,6 @@ fn test_observe_assignment_gathering_status() {
 		slot_duration_millis: 6_000,
 		clock: Arc::new(MockClock::default()),
 		assignment_criteria: Box::new(MockAssignmentCriteria::check_only(|_| Ok(0))),
-		spans: HashMap::new(),
 		per_block_assignments_gathering_times: LruMap::new(ByLength::new(
 			MAX_BLOCKS_WITH_ASSIGNMENT_TIMESTAMPS,
 		)),

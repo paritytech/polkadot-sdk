@@ -82,7 +82,7 @@ where
 ///
 /// In the best case our vote is exactly N blocks
 /// behind the best block, but if there is a scenario where either
-/// >34% of validators run without this rule or the fork-choice rule
+/// \>34% of validators run without this rule or the fork-choice rule
 /// can prioritize shorter chains over longer ones, the vote may be
 /// closer to the best block than N.
 #[derive(Clone)]

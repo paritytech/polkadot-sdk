@@ -27,7 +27,6 @@ use self::metrics::Metrics;
 use futures::{select, FutureExt as _};
 use itertools::Itertools;
 use net_protocol::peer_set::{ProtocolVersion, ValidationVersion};
-use polkadot_node_jaeger as jaeger;
 use polkadot_node_network_protocol::{
 	self as net_protocol, filter_by_peer_version,
 	grid_topology::{RandomRouting, RequiredRouting, SessionGridTopologies, SessionGridTopology},
@@ -73,7 +72,8 @@ use std::{
 	time::Duration,
 };
 
-mod metrics;
+/// Approval distribution metrics.
+pub mod metrics;
 
 #[cfg(test)]
 mod tests;
@@ -99,7 +99,7 @@ const MAX_BITFIELD_SIZE: usize = 500;
 pub struct ApprovalDistribution {
 	metrics: Metrics,
 	slot_duration_millis: u64,
-	clock: Box<dyn Clock + Send + Sync>,
+	clock: Arc<dyn Clock + Send + Sync>,
 	assignment_criteria: Arc<dyn AssignmentCriteria + Send + Sync>,
 }
 
@@ -163,8 +163,6 @@ enum ApprovalEntryError {
 	InvalidCandidateIndex,
 	DuplicateApproval,
 	UnknownAssignment,
-	#[allow(dead_code)]
-	AssignmentsFollowedDifferentPaths(RequiredRouting, RequiredRouting),
 }
 
 impl ApprovalEntry {
@@ -318,7 +316,7 @@ impl Default for AggressionConfig {
 	fn default() -> Self {
 		AggressionConfig {
 			l1_threshold: Some(16),
-			l2_threshold: Some(28),
+			l2_threshold: Some(64),
 			resend_unfinalized_period: Some(8),
 		}
 	}
@@ -357,9 +355,6 @@ pub struct State {
 
 	/// Tracks recently finalized blocks.
 	recent_outdated_blocks: RecentlyOutdated,
-
-	/// HashMap from active leaves to spans
-	spans: HashMap<Hash, jaeger::PerLeafSpan>,
 
 	/// Aggression configuration.
 	aggression_config: AggressionConfig,
@@ -517,6 +512,8 @@ struct BlockEntry {
 	vrf_story: RelayVRFStory,
 	/// The block slot.
 	slot: Slot,
+	/// Backing off from re-sending messages to peers.
+	last_resent_at_block_number: Option<u32>,
 }
 
 impl BlockEntry {
@@ -571,7 +568,7 @@ impl BlockEntry {
 		&mut self,
 		approval: IndirectSignedApprovalVoteV2,
 	) -> Result<(RequiredRouting, HashSet<PeerId>), ApprovalEntryError> {
-		let mut required_routing = None;
+		let mut required_routing: Option<RequiredRouting> = None;
 		let mut peers_randomly_routed_to = HashSet::new();
 
 		if self.candidates.len() < approval.candidate_indices.len() as usize {
@@ -598,16 +595,11 @@ impl BlockEntry {
 				peers_randomly_routed_to
 					.extend(approval_entry.routing_info().peers_randomly_routed.iter());
 
-				if let Some(required_routing) = required_routing {
-					if required_routing != approval_entry.routing_info().required_routing {
-						// This shouldn't happen since the required routing is computed based on the
-						// validator_index, so two assignments from the same validators will have
-						// the same required routing.
-						return Err(ApprovalEntryError::AssignmentsFollowedDifferentPaths(
-							required_routing,
-							approval_entry.routing_info().required_routing,
-						))
-					}
+				if let Some(current_required_routing) = required_routing {
+					required_routing = Some(
+						current_required_routing
+							.combine(approval_entry.routing_info().required_routing),
+					);
 				} else {
 					required_routing = Some(approval_entry.routing_info().required_routing)
 				}
@@ -871,18 +863,9 @@ impl State {
 		);
 
 		for meta in metas {
-			let mut span = self
-				.spans
-				.get(&meta.hash)
-				.map(|span| span.child(&"handle-new-blocks"))
-				.unwrap_or_else(|| jaeger::Span::new(meta.hash, &"handle-new-blocks"))
-				.with_string_tag("block-hash", format!("{:?}", meta.hash))
-				.with_stage(jaeger::Stage::ApprovalDistribution);
-
 			match self.blocks.entry(meta.hash) {
 				hash_map::Entry::Vacant(entry) => {
 					let candidates_count = meta.candidates.len();
-					span.add_uint_tag("candidates-count", candidates_count as u64);
 					let mut candidates = Vec::with_capacity(candidates_count);
 					candidates.resize_with(candidates_count, Default::default);
 
@@ -897,6 +880,7 @@ impl State {
 						candidates_metadata: meta.candidates,
 						vrf_story: meta.vrf_story,
 						slot: meta.slot,
+						last_resent_at_block_number: None,
 					});
 
 					self.topologies.inc_session_refs(meta.session);
@@ -1329,12 +1313,38 @@ impl State {
 			if let Some(block_entry) = self.blocks.remove(relay_block) {
 				self.topologies.dec_session_refs(block_entry.session);
 			}
-			self.spans.remove(&relay_block);
 		});
 
 		// If a block was finalized, this means we may need to move our aggression
 		// forward to the now oldest block(s).
 		self.enable_aggression(network_sender, Resend::No, metrics).await;
+	}
+
+	// When finality is lagging as a last resort nodes start sending the messages they have
+	// multiples times. This means it is safe to accept duplicate messages without punishing the
+	// peer and reduce the reputation and can end up banning the Peer, which in turn will create
+	// more no-shows.
+	fn accept_duplicates_from_validators(
+		blocks_by_number: &BTreeMap<BlockNumber, Vec<Hash>>,
+		topologies: &SessionGridTopologies,
+		aggression_config: &AggressionConfig,
+		entry: &BlockEntry,
+		peer: PeerId,
+	) -> bool {
+		let topology = topologies.get_topology(entry.session);
+		let min_age = blocks_by_number.iter().next().map(|(num, _)| num);
+		let max_age = blocks_by_number.iter().rev().next().map(|(num, _)| num);
+
+		// Return if we don't have at least 1 block.
+		let (min_age, max_age) = match (min_age, max_age) {
+			(Some(min), Some(max)) => (*min, *max),
+			_ => return false,
+		};
+
+		let age = max_age.saturating_sub(min_age);
+
+		aggression_config.should_trigger_aggression(age) &&
+			topology.map(|topology| topology.is_validator(&peer)).unwrap_or(false)
 	}
 
 	async fn import_and_circulate_assignment<A, N, RA, R>(
@@ -1356,21 +1366,6 @@ impl State {
 		RA: overseer::SubsystemSender<RuntimeApiMessage>,
 		R: CryptoRng + Rng,
 	{
-		let _span = self
-			.spans
-			.get(&assignment.block_hash)
-			.map(|span| {
-				span.child(if source.peer_id().is_some() {
-					"peer-import-and-distribute-assignment"
-				} else {
-					"local-import-and-distribute-assignment"
-				})
-			})
-			.unwrap_or_else(|| jaeger::Span::new(&assignment.block_hash, "distribute-assignment"))
-			.with_string_tag("block-hash", format!("{:?}", assignment.block_hash))
-			.with_optional_peer_id(source.peer_id().as_ref())
-			.with_stage(jaeger::Stage::ApprovalDistribution);
-
 		let block_hash = assignment.block_hash;
 		let validator_index = assignment.validator;
 
@@ -1416,20 +1411,29 @@ impl State {
 					if peer_knowledge.contains(&message_subject, message_kind) {
 						// wasn't included before
 						if !peer_knowledge.received.insert(message_subject.clone(), message_kind) {
-							gum::debug!(
-								target: LOG_TARGET,
-								?peer_id,
-								?message_subject,
-								"Duplicate assignment",
-							);
-
-							modify_reputation(
-								&mut self.reputation,
-								network_sender,
+							if !Self::accept_duplicates_from_validators(
+								&self.blocks_by_number,
+								&self.topologies,
+								&self.aggression_config,
+								entry,
 								peer_id,
-								COST_DUPLICATE_MESSAGE,
-							)
-							.await;
+							) {
+								gum::debug!(
+									target: LOG_TARGET,
+									?peer_id,
+									?message_subject,
+									"Duplicate assignment",
+								);
+
+								modify_reputation(
+									&mut self.reputation,
+									network_sender,
+									peer_id,
+									COST_DUPLICATE_MESSAGE,
+								)
+								.await;
+							}
+
 							metrics.on_assignment_duplicate();
 						} else {
 							gum::trace!(
@@ -1745,6 +1749,9 @@ impl State {
 		assignments_knowledge_key: &Vec<(MessageSubject, MessageKind)>,
 		approval_knowledge_key: &(MessageSubject, MessageKind),
 		entry: &mut BlockEntry,
+		blocks_by_number: &BTreeMap<BlockNumber, Vec<Hash>>,
+		topologies: &SessionGridTopologies,
+		aggression_config: &AggressionConfig,
 		reputation: &mut ReputationAggregator,
 		peer_id: PeerId,
 		metrics: &Metrics,
@@ -1773,20 +1780,27 @@ impl State {
 						.received
 						.insert(approval_knowledge_key.0.clone(), approval_knowledge_key.1)
 					{
-						gum::trace!(
-							target: LOG_TARGET,
-							?peer_id,
-							?approval_knowledge_key,
-							"Duplicate approval",
-						);
-
-						modify_reputation(
-							reputation,
-							network_sender,
+						if !Self::accept_duplicates_from_validators(
+							blocks_by_number,
+							topologies,
+							aggression_config,
+							entry,
 							peer_id,
-							COST_DUPLICATE_MESSAGE,
-						)
-						.await;
+						) {
+							gum::trace!(
+								target: LOG_TARGET,
+								?peer_id,
+								?approval_knowledge_key,
+								"Duplicate approval",
+							);
+							modify_reputation(
+								reputation,
+								network_sender,
+								peer_id,
+								COST_DUPLICATE_MESSAGE,
+							)
+							.await;
+						}
 						metrics.on_approval_duplicate();
 					}
 					return false
@@ -1836,21 +1850,6 @@ impl State {
 		vote: IndirectSignedApprovalVoteV2,
 		session_info_provider: &mut RuntimeInfo,
 	) {
-		let _span = self
-			.spans
-			.get(&vote.block_hash)
-			.map(|span| {
-				span.child(if source.peer_id().is_some() {
-					"peer-import-and-distribute-approval"
-				} else {
-					"local-import-and-distribute-approval"
-				})
-			})
-			.unwrap_or_else(|| jaeger::Span::new(&vote.block_hash, "distribute-approval"))
-			.with_string_tag("block-hash", format!("{:?}", vote.block_hash))
-			.with_optional_peer_id(source.peer_id().as_ref())
-			.with_stage(jaeger::Stage::ApprovalDistribution);
-
 		let block_hash = vote.block_hash;
 		let validator_index = vote.validator;
 		let candidate_indices = &vote.candidate_indices;
@@ -1893,6 +1892,9 @@ impl State {
 				&assignments_knowledge_keys,
 				&approval_knwowledge_key,
 				entry,
+				&self.blocks_by_number,
+				&self.topologies,
+				&self.aggression_config,
 				&mut self.reputation,
 				peer_id,
 				metrics,
@@ -2090,14 +2092,6 @@ impl State {
 	) -> HashMap<ValidatorIndex, (Hash, Vec<CandidateIndex>, ValidatorSignature)> {
 		let mut all_sigs = HashMap::new();
 		for (hash, index) in indices {
-			let _span = self
-				.spans
-				.get(&hash)
-				.map(|span| span.child("get-approval-signatures"))
-				.unwrap_or_else(|| jaeger::Span::new(&hash, "get-approval-signatures"))
-				.with_string_tag("block-hash", format!("{:?}", hash))
-				.with_stage(jaeger::Stage::ApprovalDistribution);
-
 			let block_entry = match self.blocks.get(&hash) {
 				None => {
 					gum::debug!(
@@ -2311,18 +2305,43 @@ impl State {
 			&self.topologies,
 			|block_entry| {
 				let block_age = max_age - block_entry.number;
+				// We want to resend only for blocks of min_age, there is no point in
+				// resending for blocks newer than that, because we are just going to create load
+				// and not gain anything.
+				let diff_from_min_age = block_entry.number - min_age;
+
+				// We want to back-off on resending for blocks that have been resent recently, to
+				// give time for nodes to process all the extra messages, if we still have not
+				// finalized we are going to resend again after unfinalized_period * 2 since the
+				// last resend.
+				let blocks_since_last_sent = block_entry
+					.last_resent_at_block_number
+					.map(|last_resent_at_block_number| max_age - last_resent_at_block_number);
+
+				let can_resend_at_this_age = blocks_since_last_sent
+					.zip(config.resend_unfinalized_period)
+					.map(|(blocks_since_last_sent, unfinalized_period)| {
+						blocks_since_last_sent >= unfinalized_period * 2
+					})
+					.unwrap_or(true);
 
 				if resend == Resend::Yes &&
-					config
-						.resend_unfinalized_period
-						.as_ref()
-						.map_or(false, |p| block_age > 0 && block_age % p == 0)
-				{
+					config.resend_unfinalized_period.as_ref().map_or(false, |p| {
+						block_age > 0 &&
+							block_age % p == 0 && diff_from_min_age == 0 &&
+							can_resend_at_this_age
+					}) {
 					// Retry sending to all peers.
 					for (_, knowledge) in block_entry.known_by.iter_mut() {
 						knowledge.sent = Knowledge::default();
 					}
-
+					block_entry.last_resent_at_block_number = Some(max_age);
+					gum::debug!(
+						target: LOG_TARGET,
+						block_number = ?block_entry.number,
+						?max_age,
+						"Aggression enabled with resend for block",
+					);
 					true
 				} else {
 					false
@@ -2668,7 +2687,7 @@ impl ApprovalDistribution {
 		Self::new_with_clock(
 			metrics,
 			slot_duration_millis,
-			Box::new(SystemClock),
+			Arc::new(SystemClock),
 			assignment_criteria,
 		)
 	}
@@ -2677,7 +2696,7 @@ impl ApprovalDistribution {
 	pub fn new_with_clock(
 		metrics: Metrics,
 		slot_duration_millis: u64,
-		clock: Box<dyn Clock + Send + Sync>,
+		clock: Arc<dyn Clock + Send + Sync>,
 		assignment_criteria: Arc<dyn AssignmentCriteria + Send + Sync>,
 	) -> Self {
 		Self { metrics, slot_duration_millis, clock, assignment_criteria }
@@ -2775,18 +2794,12 @@ impl ApprovalDistribution {
 					session_info_provider,
 				)
 				.await,
-			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) => {
+			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(_update)) => {
 				gum::trace!(target: LOG_TARGET, "active leaves signal (ignored)");
 				// the relay chain blocks relevant to the approval subsystems
 				// are those that are available, but not finalized yet
 				// activated and deactivated heads hence are irrelevant to this subsystem, other
 				// than for tracing purposes.
-				if let Some(activated) = update.activated {
-					let head = activated.hash;
-					let approval_distribution_span =
-						jaeger::PerLeafSpan::new(activated.span, "approval-distribution");
-					state.spans.insert(head, approval_distribution_span);
-				}
 			},
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, number)) => {
 				gum::trace!(target: LOG_TARGET, number = %number, "finalized signal");
@@ -2845,14 +2858,6 @@ impl ApprovalDistribution {
 					.await;
 			},
 			ApprovalDistributionMessage::DistributeAssignment(cert, candidate_indices) => {
-				let _span = state
-					.spans
-					.get(&cert.block_hash)
-					.map(|span| span.child("import-and-distribute-assignment"))
-					.unwrap_or_else(|| jaeger::Span::new(&cert.block_hash, "distribute-assignment"))
-					.with_string_tag("block-hash", format!("{:?}", cert.block_hash))
-					.with_stage(jaeger::Stage::ApprovalDistribution);
-
 				gum::debug!(
 					target: LOG_TARGET,
 					?candidate_indices,

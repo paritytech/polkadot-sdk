@@ -11,9 +11,7 @@ publish = false
 
 [dependencies]
 codec = { workspace = true }
-scale-info = { workspace = true }
 polkadot-sdk = { workspace = true, features = [
-	"experimental",
 	"pallet-balances",
 	"pallet-sudo",
 	"pallet-timestamp",
@@ -21,6 +19,8 @@ polkadot-sdk = { workspace = true, features = [
 	"pallet-transaction-payment-rpc-runtime-api",
 	"runtime",
 ] }
+scale-info = { workspace = true }
+serde_json = { workspace = true, default-features = false, features = ["alloc"] }
 
 # local pallet templates
 pallet-minimal-template = { workspace = true }
@@ -37,4 +37,5 @@ std = [
 	"pallet-minimal-template/std",
 	"polkadot-sdk/std",
 	"scale-info/std",
+	"serde_json/std",
 ]

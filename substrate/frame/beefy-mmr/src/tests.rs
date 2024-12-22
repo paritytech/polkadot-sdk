@@ -278,8 +278,28 @@ fn is_non_canonical_should_work_correctly() {
 				&Commitment {
 					payload: Payload::from_single_entry(
 						known_payloads::MMR_ROOT_ID,
-						H256::repeat_byte(0).encode(),
-					),
+						prev_roots[250 - 1].encode()
+					)
+					.push_raw(known_payloads::MMR_ROOT_ID, H256::repeat_byte(0).encode(),),
+					block_number: 250,
+					validator_set_id: 0,
+				},
+				valid_proof.clone(),
+				Mmr::mmr_root(),
+			),
+			true
+		);
+
+		// If the `commitment.payload` contains an MMR root that can't be decoded,
+		// it's non-canonical.
+		assert_eq!(
+			BeefyMmr::is_non_canonical(
+				&Commitment {
+					payload: Payload::from_single_entry(
+						known_payloads::MMR_ROOT_ID,
+						prev_roots[250 - 1].encode()
+					)
+					.push_raw(known_payloads::MMR_ROOT_ID, vec![],),
 					block_number: 250,
 					validator_set_id: 0,
 				},
