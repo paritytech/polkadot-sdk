@@ -218,7 +218,8 @@ pub mod pallet {
 				.map_or_else(|err| err.post_info.actual_weight, |info| info.actual_weight)
 				.unwrap_or(info.total_weight());
 
-			Ok((Some(T::WeightInfo::bare_dispatch().saturating_add(meta_weight)), true.into()).into())
+			Ok((Some(T::WeightInfo::bare_dispatch().saturating_add(meta_weight)), true.into())
+				.into())
 		}
 	}
 
