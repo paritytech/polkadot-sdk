@@ -19,7 +19,7 @@ use crate::*;
 use frame_support::traits::tokens::fungible::Inspect;
 use mock::*;
 use sp_io::hashing::blake2_256;
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 use sp_runtime::{
 	generic::Era,
 	traits::{Applyable, Checkable, Hash, IdentityLookup},
@@ -59,7 +59,7 @@ pub fn create_meta_tx_bare_ext(account: AccountId) -> MetaTxBareExtension {
 fn create_signature<Call: Encode, Ext: Encode + TransactionExtension<RuntimeCall>>(
 	call: Call,
 	ext: Ext,
-	signer: AccountKeyring,
+	signer: Sr25519Keyring,
 ) -> MultiSignature {
 	MultiSignature::Sr25519(
 		(META_EXTENSION_VERSION, call, ext.clone(), ext.implicit().unwrap())
@@ -89,9 +89,9 @@ fn apply_extrinsic(uxt: UncheckedExtrinsic) -> DispatchResultWithPostInfo {
 fn sign_and_execute_meta_tx() {
 	new_test_ext().execute_with(|| {
 		// meta tx signer
-		let alice_keyring = AccountKeyring::Alice;
+		let alice_keyring = Sr25519Keyring::Alice;
 		// meta tx relayer
-		let bob_keyring = AccountKeyring::Bob;
+		let bob_keyring = Sr25519Keyring::Bob;
 
 		let alice_account: AccountId = alice_keyring.public().into();
 		let bob_account: AccountId = bob_keyring.public().into();
@@ -177,9 +177,9 @@ fn sign_and_execute_meta_tx() {
 fn invalid_signature() {
 	new_test_ext().execute_with(|| {
 		// meta tx signer
-		let alice_keyring = AccountKeyring::Alice;
+		let alice_keyring = Sr25519Keyring::Alice;
 		// meta tx relayer
-		let bob_keyring = AccountKeyring::Bob;
+		let bob_keyring = Sr25519Keyring::Bob;
 
 		let alice_account: AccountId = alice_keyring.public().into();
 		let bob_account: AccountId = bob_keyring.public().into();
@@ -197,7 +197,7 @@ fn invalid_signature() {
 		let invalid_meta_tx_sig = create_signature(
 			remark_call.clone(),
 			meta_tx_bare_ext.clone(),
-			AccountKeyring::Charlie,
+			Sr25519Keyring::Charlie,
 		);
 		let meta_tx_ext = (
 			VerifySignatureExt::new_with_signature(invalid_meta_tx_sig, alice_account.clone()),
@@ -246,9 +246,9 @@ fn invalid_signature() {
 fn meta_tx_extension_work() {
 	new_test_ext().execute_with(|| {
 		// meta tx signer
-		let alice_keyring = AccountKeyring::Alice;
+		let alice_keyring = Sr25519Keyring::Alice;
 		// meta tx relayer
-		let bob_keyring = AccountKeyring::Bob;
+		let bob_keyring = Sr25519Keyring::Bob;
 
 		let alice_account: AccountId = alice_keyring.public().into();
 		let bob_account: AccountId = bob_keyring.public().into();
@@ -310,9 +310,9 @@ fn meta_tx_extension_work() {
 fn meta_tx_call_fails() {
 	new_test_ext().execute_with(|| {
 		// meta tx signer
-		let alice_keyring = AccountKeyring::Alice;
+		let alice_keyring = Sr25519Keyring::Alice;
 		// meta tx relayer
-		let bob_keyring = AccountKeyring::Bob;
+		let bob_keyring = Sr25519Keyring::Bob;
 
 		let alice_account: AccountId = alice_keyring.public().into();
 		let bob_account: AccountId = bob_keyring.public().into();
