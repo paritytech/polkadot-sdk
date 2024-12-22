@@ -623,12 +623,59 @@ pub mod pallet {
 			location: Box<VersionedLocation>,
 			metadata: AssetMetadata,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			let origin_location: Location = T::SiblingOrigin::ensure_origin(origin)?;
 
 			let location: Location =
 				(*location).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
 
-			Self::do_register_token(&location, metadata, PaysFee::<T>::No)?;
+			// Ensure that origin location is some consensus system on a sibling parachain
+			let (para_id, agent_id) = ensure_sibling::<T>(&origin_location)?;
+
+			let pays_fee = PaysFee::<T>::Yes(sibling_sovereign_account::<T>(para_id));
+			Self::do_register_token(&location, agent_id, para_id.into(), metadata, pays_fee)?;
+
+			Ok(PostDispatchInfo {
+				actual_weight: Some(T::WeightInfo::register_token()),
+				pays_fee: Pays::No,
+			})
+		}
+
+		/// Registers a Polkadot-native token as a wrapped ERC20 token on Ethereum.
+		/// Privileged. Can only be called by root.
+		///
+		/// Fee required: No
+		///
+		/// - `origin`: Must be root
+		/// - `location`: Location of the asset (relative to this chain)
+		/// - `metadata`: Metadata to include in the instantiated ERC20 contract on Ethereum
+		#[pallet::call_index(11)]
+		#[pallet::weight(T::WeightInfo::force_register_token())]
+		pub fn force_register_token(
+			origin: OriginFor<T>,
+			origin_location: Box<VersionedLocation>,
+			token_location: Box<VersionedLocation>,
+			metadata: AssetMetadata,
+		) -> DispatchResultWithPostInfo {
+			ensure_root(origin)?;
+
+			let origin_location: Location = (*origin_location)
+				.try_into()
+				.map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
+
+			let token_location: Location = (*token_location)
+				.try_into()
+				.map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
+
+			// Ensure that origin location is some consensus system on a sibling parachain
+			let (_, agent_id) = ensure_sibling::<T>(&origin_location)?;
+
+			Self::do_register_token(
+				&token_location,
+				agent_id,
+				SECONDARY_GOVERNANCE_CHANNEL,
+				metadata,
+				PaysFee::<T>::No,
+			)?;
 
 			Ok(PostDispatchInfo {
 				actual_weight: Some(T::WeightInfo::register_token()),
@@ -727,9 +774,14 @@ pub mod pallet {
 
 		pub(crate) fn do_register_token(
 			location: &Location,
+			agent_id: H256,
+			channel_id: ChannelId,
 			metadata: AssetMetadata,
 			pays_fee: PaysFee<T>,
 		) -> Result<(), DispatchError> {
+			ensure!(Agents::<T>::contains_key(agent_id), Error::<T>::NoAgent);
+			ensure!(Channels::<T>::contains_key(channel_id), Error::<T>::NoChannel);
+
 			let ethereum_location = T::EthereumLocation::get();
 			// reanchor to Ethereum context
 			let location = location
@@ -746,12 +798,13 @@ pub mod pallet {
 			}
 
 			let command = Command::RegisterForeignToken {
+				agent_id,
 				token_id,
 				name: metadata.name.into_inner(),
 				symbol: metadata.symbol.into_inner(),
 				decimals: metadata.decimals,
 			};
-			Self::send(SECONDARY_GOVERNANCE_CHANNEL, command, pays_fee)?;
+			Self::send(channel_id, command, pays_fee)?;
 
 			Self::deposit_event(Event::<T>::RegisterToken {
 				location: location.clone().into(),
