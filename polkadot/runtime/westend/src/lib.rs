@@ -1597,9 +1597,7 @@ pub type MetaTxExtension = (
 
 impl pallet_meta_tx::Config for Runtime {
 	type WeightInfo = weights::pallet_meta_tx::WeightInfo<Runtime>;
-	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
-	type RuntimeCall = RuntimeCall;
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Extension = MetaTxExtension;
 	#[cfg(feature = "runtime-benchmarks")]

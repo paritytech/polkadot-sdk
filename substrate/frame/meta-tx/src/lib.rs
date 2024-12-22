@@ -98,31 +98,27 @@ impl<Call, Extension> MetaTx<Call, Extension> {
 }
 
 /// The [`MetaTx`] for the given config.
-pub type MetaTxFor<T> = MetaTx<<T as Config>::RuntimeCall, <T as Config>::Extension>;
+pub type MetaTxFor<T> = MetaTx<<T as frame_system::Config>::RuntimeCall, <T as Config>::Extension>;
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config:
+		frame_system::Config<
+		RuntimeCall: Dispatchable<
+			Info = DispatchInfo,
+			PostInfo = PostDispatchInfo,
+			RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin,
+		>,
+		RuntimeOrigin: AsTransactionAuthorizedOrigin + From<SystemOrigin<Self::AccountId>>,
+	>
+	{
 		/// Weight information for calls in this pallet.
 		type WeightInfo: WeightInfo;
-		/// The overarching origin type.
-		// We need extra `AsTransactionAuthorizedOrigin` bound to use `DispatchTransaction` impl.
-		type RuntimeOrigin: AsTransactionAuthorizedOrigin
-			+ From<SystemOrigin<Self::AccountId>>
-			+ IsType<<Self as frame_system::Config>::RuntimeOrigin>;
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-		/// The overarching call type.
-		type RuntimeCall: Parameter
-			+ GetDispatchInfo
-			+ Dispatchable<
-				Info = DispatchInfo,
-				PostInfo = PostDispatchInfo,
-				RuntimeOrigin = <Self as Config>::RuntimeOrigin,
-			> + IsType<<Self as frame_system::Config>::RuntimeCall>;
 		/// Transaction extension/s for meta transactions.
 		///
 		/// The extensions that must be present in every meta transaction. This generally includes
@@ -138,7 +134,7 @@ pub mod pallet {
 		/// The extension must provide an origin and the extension's weight must be zero. Use
 		/// `pallet_meta_tx::WeightlessExtension` type when the `runtime-benchmarks` feature
 		/// enabled.
-		type Extension: TransactionExtension<<Self as Config>::RuntimeCall>;
+		type Extension: TransactionExtension<<Self as frame_system::Config>::RuntimeCall>;
 	}
 
 	#[pallet::error]

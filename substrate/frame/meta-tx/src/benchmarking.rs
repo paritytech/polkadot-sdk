@@ -80,7 +80,6 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	where
 		T: Config,
 		<T as Config>::Extension: Default,
-		<T as Config>::RuntimeCall: From<frame_system::Call<T>>,
 	)]
 mod benchmarks {
 	use super::*;
