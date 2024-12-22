@@ -9,15 +9,15 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
-		"@parity/revive": "^0.0.5",
+		"@parity/revive": "^0.0.8",
 		"ethers": "^6.13.4",
 		"solc": "^0.8.28",
-		"viem": "^2.21.47"
+		"viem": "^2.21.55"
 	},
 	"devDependencies": {
-		"prettier": "^3.3.3",
-		"@types/bun": "^1.1.13",
-		"typescript": "^5.5.3",
-		"vite": "^5.4.8"
+		"prettier": "^3.4.2",
+		"@types/bun": "^1.1.14",
+		"typescript": "^5.7.2",
+		"vite": "^5.4.11"
 	}
 }

@@ -18,7 +18,7 @@
 use crate::{
 	client::{SubstrateBlock, SubstrateBlockNumber},
 	subxt_client::SrcChainConfig,
-	ClientError, LOG_TARGET,
+	ClientError,
 };
 use jsonrpsee::core::async_trait;
 use sp_core::H256;

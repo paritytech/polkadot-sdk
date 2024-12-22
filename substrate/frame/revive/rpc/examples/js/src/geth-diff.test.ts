@@ -1,9 +1,73 @@
-import { jsonRpcErrors, procs, createEnv, getByteCode } from './geth-diff-setup.ts'
+import {
+	jsonRpcErrors,
+	createEnv,
+	getByteCode,
+	killProcessOnPort,
+	waitForHealth,
+	polkadotSdkPath,
+} from './util.ts'
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test'
 import { encodeFunctionData, Hex, parseEther } from 'viem'
 import { ErrorTesterAbi } from '../abi/ErrorTester'
 import { FlipperCallerAbi } from '../abi/FlipperCaller'
 import { FlipperAbi } from '../abi/Flipper'
+import { Subprocess, spawn } from 'bun'
+
+const procs: Subprocess[] = []
+beforeAll(async () => {
+	if (!process.env.USE_LIVE_SERVERS) {
+		procs.push(
+			// Run geth on port 8546
+			await (async () => {
+				killProcessOnPort(8546)
+				const proc = spawn(
+					'geth --http --http.api web3,eth,debug,personal,net --http.port 8546 --dev --verbosity 0'.split(
+						' '
+					),
+					{ stdout: Bun.file('/tmp/geth.out.log'), stderr: Bun.file('/tmp/geth.err.log') }
+				)
+
+				await waitForHealth('http://localhost:8546').catch()
+				return proc
+			})(),
+			//Run the substate node
+			(() => {
+				killProcessOnPort(9944)
+				return spawn(
+					[
+						'./target/debug/substrate-node',
+						'--dev',
+						'-l=error,evm=debug,sc_rpc_server=info,runtime::revive=debug',
+					],
+					{
+						stdout: Bun.file('/tmp/kitchensink.out.log'),
+						stderr: Bun.file('/tmp/kitchensink.err.log'),
+						cwd: polkadotSdkPath,
+					}
+				)
+			})(),
+			// Run eth-rpc on 8545
+			await (async () => {
+				killProcessOnPort(8545)
+				const proc = spawn(
+					[
+						'./target/debug/eth-rpc',
+						'--dev',
+						'--node-rpc-url=ws://localhost:9944',
+						'-l=rpc-metrics=debug,eth-rpc=debug',
+					],
+					{
+						stdout: Bun.file('/tmp/eth-rpc.out.log'),
+						stderr: Bun.file('/tmp/eth-rpc.err.log'),
+						cwd: polkadotSdkPath,
+					}
+				)
+				await waitForHealth('http://localhost:8545').catch()
+				return proc
+			})()
+		)
+	}
+})
 
 afterEach(() => {
 	jsonRpcErrors.length = 0
