@@ -14,22 +14,22 @@ contract Flipper {
     }
 }
 
-// FlipperCaller - Interacts with the Flipper contract
-contract FlipperCaller {
-    // Address of the Flipper contract
-    address public flipperAddress;
-
-    // Constructor to initialize Flipper's address
-    constructor(address _flipperAddress) {
-        flipperAddress = _flipperAddress;
-    }
-
-    function callFlip() external {
-        Flipper(flipperAddress).flip();
-    }
-
-    function callGetValue() external view returns (bool) {
-        return Flipper(flipperAddress).getValue();
-    }
-}
-
+// // FlipperCaller - Interacts with the Flipper contract
+// contract FlipperCaller {
+//     // Address of the Flipper contract
+//     address public flipperAddress;
+//
+//     // Constructor to initialize Flipper's address
+//     constructor(address _flipperAddress) {
+//         flipperAddress = _flipperAddress;
+//     }
+//
+//     function callFlip() external {
+//         Flipper(flipperAddress).flip();
+//     }
+//
+//     function callGetValue() external view returns (bool) {
+//         return Flipper(flipperAddress).getValue();
+//     }
+// }
+//
