@@ -898,9 +898,8 @@ where
 		pending_ext: &mut TestExternalities<HashingFor<B>>,
 	) -> Result<ChildKeyValues, &'static str> {
 		let child_roots = top_kv
-			.iter()
-			.filter(|(k, _)| is_default_child_storage_key(k.as_ref()))
-			.map(|(k, _)| k.clone())
+			.into_iter()
+			.filter_map(|(k, _)| is_default_child_storage_key(k.as_ref()).then(|| k.clone()))
 			.collect::<Vec<_>>();
 
 		if child_roots.is_empty() {
@@ -916,34 +915,75 @@ where
 
 		let at = self.as_online().at_expected();
 
-		let client = self.as_online().rpc_client();
-		let mut child_kv = vec![];
-		for prefixed_top_key in child_roots {
-			let child_keys =
-				Self::rpc_child_get_keys(client, &prefixed_top_key, StorageKey(vec![]), at).await?;
+		let client = self.as_online().rpc_client().clone();
 
-			let child_kv_inner =
-				Self::rpc_child_get_storage_paged(client, &prefixed_top_key, child_keys, at)
+		let mut child_kv = vec![];
+
+		// Create a semaphore to limit concurrent requests.
+		let semaphore = tokio::sync::Semaphore::new(Self::PARALLEL_REQUESTS);
+
+		// Create a collection of futures for each child root.
+		let futures: Vec<_> = child_roots
+			.into_iter()
+			.map(|prefixed_top_key| {
+				let client = &client;
+				let semaphore = &semaphore;
+				async move {
+					// Acquire the semaphore permit before making the request.
+					let _permit =
+						semaphore.acquire().await.expect("Failed to acquire semaphore permit");
+
+					// Asynchronously retrieve child keys using the RPC client.
+					let child_keys = Self::rpc_child_get_keys(
+						&client,
+						&prefixed_top_key,
+						StorageKey(vec![]),
+						at,
+					)
 					.await?;
 
-			let prefixed_top_key = PrefixedStorageKey::new(prefixed_top_key.clone().0);
-			let un_prefixed = match ChildType::from_prefixed_key(&prefixed_top_key) {
-				Some((ChildType::ParentKeyId, storage_key)) => storage_key,
-				None => {
-					log::error!(target: LOG_TARGET, "invalid key: {:?}", prefixed_top_key);
-					return Err("Invalid child key")
-				},
-			};
+					// Asynchronously retrieve child storage data using the RPC client.
+					let child_kv_inner = Self::rpc_child_get_storage_paged(
+						&client,
+						&prefixed_top_key,
+						child_keys,
+						at,
+					)
+					.await?;
 
-			let info = ChildInfo::new_default(un_prefixed);
-			let key_values =
-				child_kv_inner.iter().cloned().map(|(k, v)| (k.0, v.0)).collect::<Vec<_>>();
-			child_kv.push((info.clone(), child_kv_inner));
-			for (k, v) in key_values {
-				pending_ext.insert_child(info.clone(), k, v);
+					// Extract the unprefixed storage key and create ChildInfo.
+					let prefixed_top_key = PrefixedStorageKey::new(prefixed_top_key.clone().0);
+					let un_prefixed = match ChildType::from_prefixed_key(&prefixed_top_key) {
+						Some((ChildType::ParentKeyId, storage_key)) => storage_key,
+						None => {
+							log::error!(target: LOG_TARGET, "invalid key: {:?}", prefixed_top_key);
+							return Err("Invalid child key")
+						},
+					};
+
+					let info = ChildInfo::new_default(un_prefixed);
+					let key_values =
+						child_kv_inner.iter().cloned().map(|(k, v)| (k.0, v.0)).collect::<Vec<_>>();
+					Ok((info, child_kv_inner, key_values))
+				}
+			})
+			.collect();
+
+		// Await all futures and collect the results.
+		for result in futures::future::join_all(futures).await {
+			match result {
+				Ok((info, child_kv_inner, key_values)) => {
+					child_kv.push((info.clone(), child_kv_inner));
+					// Insert child key-value pairs into the pending externalities.
+					for (k, v) in key_values {
+						pending_ext.insert_child(info.clone(), k, v);
+					}
+				},
+				Err(_) => return Err("Error in processing child key"),
 			}
 		}
 
+		// Return the collected child key-value pairs.
 		Ok(child_kv)
 	}
 
