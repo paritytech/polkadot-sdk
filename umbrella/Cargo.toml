@@ -1083,9 +1083,9 @@ optional = true
 path = "../substrate/frame/message-queue"
 
 [dependencies.pallet-meta-tx]
-path = "../substrate/frame/meta-tx"
 default-features = false
 optional = true
+path = "../substrate/frame/meta-tx"
 
 [dependencies.pallet-migrations]
 default-features = false
