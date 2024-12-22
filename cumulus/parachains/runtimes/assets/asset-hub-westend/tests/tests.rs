@@ -1258,11 +1258,9 @@ fn update_bridge_status_from_xcm_bridge_router_for_rococo_works() {
 		XcmConfig,
 		LocationToAccountId,
 		ToRococoXcmRouterInstance,
-	>(
-		collator_session_keys(),
-		bridging_to_asset_hub_rococo,
-		|bridge_id, is_congested|  bp_asset_hub_westend::build_congestion_message(bridge_id.inner(), is_congested).into()
-	)
+	>(collator_session_keys(), bridging_to_asset_hub_rococo, |bridge_id, is_congested| {
+		bp_asset_hub_westend::build_congestion_message(bridge_id.inner(), is_congested).into()
+	})
 }
 
 #[test]

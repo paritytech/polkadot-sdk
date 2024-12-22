@@ -582,7 +582,8 @@ pub fn update_bridge_status_from_xcm_bridge_router_works<
 				assert_ne!(is_congested_after, is_congested_before,);
 
 				// TODO:revert-for-depracated-old
-				// assert_eq!(is_congested, pallet_xcm_bridge_hub_router::Pallet::<Runtime, XcmBridgeHubRouterInstance>::bridge().is_congested);
+				// assert_eq!(is_congested, pallet_xcm_bridge_hub_router::Pallet::<Runtime,
+				// XcmBridgeHubRouterInstance>::bridge().is_congested);
 			};
 
 			update_bridge_status(true);

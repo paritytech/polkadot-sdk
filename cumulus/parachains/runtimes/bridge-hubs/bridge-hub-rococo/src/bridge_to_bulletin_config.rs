@@ -22,7 +22,7 @@
 use crate::{
 	bridge_common_config::RelayersForPermissionlessLanesInstance, weights,
 	xcm_config::UniversalLocation, AccountId, Balance, Balances, BridgeRococoBulletinGrandpa,
- 	BridgeRococoBulletinMessages, Runtime, RuntimeEvent, RuntimeHoldReason, XcmOverRococoBulletin,
+	BridgeRococoBulletinMessages, Runtime, RuntimeEvent, RuntimeHoldReason, XcmOverRococoBulletin,
 	XcmRouter,
 };
 use bp_messages::{

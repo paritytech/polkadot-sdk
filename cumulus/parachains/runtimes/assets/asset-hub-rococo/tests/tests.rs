@@ -1251,11 +1251,9 @@ mod asset_hub_rococo_tests {
 			XcmConfig,
 			LocationToAccountId,
 			ToWestendXcmRouterInstance,
-		>(
-			collator_session_keys(),
-			bridging_to_asset_hub_westend,
-			|bridge_id, is_congested| bp_asset_hub_rococo::build_congestion_message(bridge_id.inner(), is_congested).into(),
-		)
+		>(collator_session_keys(), bridging_to_asset_hub_westend, |bridge_id, is_congested| {
+			bp_asset_hub_rococo::build_congestion_message(bridge_id.inner(), is_congested).into()
+		})
 	}
 
 	#[test]

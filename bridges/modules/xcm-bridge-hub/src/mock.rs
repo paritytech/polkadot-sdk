@@ -249,7 +249,9 @@ impl crate::benchmarking::Config<()> for TestRuntime {
 /// the `MessageExporter`. This means that the router sends an `ExportMessage`.
 pub type XcmOverBridgeWrappedWithExportMessageRouterInstance = ();
 #[derive_impl(pallet_xcm_bridge_hub_router::config_preludes::TestDefaultConfig)]
-impl pallet_xcm_bridge_hub_router::Config<XcmOverBridgeWrappedWithExportMessageRouterInstance> for TestRuntime {
+impl pallet_xcm_bridge_hub_router::Config<XcmOverBridgeWrappedWithExportMessageRouterInstance>
+	for TestRuntime
+{
 	// We use `SovereignPaidRemoteExporter` here to test and ensure that the `ExportMessage`
 	// produced by `pallet_xcm_bridge_hub_router` is compatible with the `ExportXcm` implementation
 	// of `pallet_xcm_bridge_hub`.
@@ -562,7 +564,7 @@ impl Convert<Vec<u8>, Xcm<()>> for UpdateBridgeStatusXcmProvider {
 			Transact {
 				origin_kind: OriginKind::Xcm,
 				fallback_max_weight: Some(Weight::from_parts(200_000_000, 6144)),
-				call: encoded_call.into()
+				call: encoded_call.into(),
 			},
 			ExpectTransactStatus(MaybeErrorCode::Success),
 		])

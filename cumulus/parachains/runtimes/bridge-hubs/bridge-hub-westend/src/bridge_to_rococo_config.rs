@@ -169,8 +169,10 @@ impl Convert<Vec<u8>, Xcm<()>> for UpdateBridgeStatusXcmProvider {
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 			Transact {
 				origin_kind: OriginKind::Xcm,
-				fallback_max_weight: Some(bp_asset_hub_westend::XcmBridgeHubRouterTransactCallMaxWeight::get()),
-				call: encoded_call.into()
+				fallback_max_weight: Some(
+					bp_asset_hub_westend::XcmBridgeHubRouterTransactCallMaxWeight::get(),
+				),
+				call: encoded_call.into(),
 			},
 			ExpectTransactStatus(MaybeErrorCode::Success),
 		])
