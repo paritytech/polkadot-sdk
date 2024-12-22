@@ -95,6 +95,9 @@ impl<Exporter: ExportXcm, UniversalLocation: Get<InteriorLocation>> SendXcm
 	fn deliver(ticket: Exporter::Ticket) -> Result<XcmHash, SendError> {
 		Exporter::deliver(ticket)
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery(_: Option<Location>) {}
 }
 
 pub trait ExporterFor {
@@ -261,6 +264,11 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 	fn deliver(validation: Self::Ticket) -> Result<XcmHash, SendError> {
 		Router::deliver(validation)
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery(location: Option<Location>) {
+		Router::ensure_successful_delivery(location);
+	}
 }
 
 /// Implementation of `SendXcm` which wraps the message inside an `ExportMessage` instruction
@@ -360,6 +368,11 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 
 	fn deliver(ticket: Router::Ticket) -> Result<XcmHash, SendError> {
 		Router::deliver(ticket)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery(location: Option<Location>) {
+		Router::ensure_successful_delivery(location);
 	}
 }
 
@@ -613,6 +626,9 @@ mod tests {
 		fn deliver(_ticket: Self::Ticket) -> Result<XcmHash, SendError> {
 			Ok([0; 32])
 		}
+
+		#[cfg(feature = "runtime-benchmarks")]
+		fn ensure_successful_delivery(_: Option<Location>) {}
 	}
 	impl<Filter: Contains<(NetworkId, InteriorLocation)>> ExportXcm for OkFor<Filter> {
 		type Ticket = ();
