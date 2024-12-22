@@ -16,8 +16,8 @@ log = { workspace = true }
 scale-info = { features = ["bit-vec", "derive", "serde"], workspace = true }
 
 # Bridge dependencies
-bp-xcm-bridge-hub-router = { workspace = true }
 bp-xcm-bridge-hub = { workspace = true }
+bp-xcm-bridge-hub-router = { workspace = true }
 
 # Substrate Dependencies
 frame-benchmarking = { optional = true, workspace = true }

@@ -195,6 +195,7 @@ std = [
 	"bp-asset-hub-westend/std",
 	"bp-bridge-hub-rococo/std",
 	"bp-bridge-hub-westend/std",
+	"bp-xcm-bridge-hub/std",
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",
 	"cumulus-pallet-parachain-system/std",
