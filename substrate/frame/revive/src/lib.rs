@@ -115,19 +115,6 @@ const SENTINEL: u32 = u32::MAX;
 /// Example: `RUST_LOG=runtime::revive=debug my_code --dev`
 const LOG_TARGET: &str = "runtime::revive";
 
-/// This version determines which syscalls are available to contracts.
-///
-/// Needs to be bumped every time a versioned syscall is added.
-const API_VERSION: u16 = 0;
-
-#[test]
-fn api_version_up_to_date() {
-	assert!(
-		API_VERSION == crate::wasm::HIGHEST_API_VERSION,
-		"A new versioned API has been added. The `API_VERSION` needs to be bumped."
-	);
-}
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -622,14 +609,6 @@ pub mod pallet {
 	/// use it with this pallet.
 	#[pallet::storage]
 	pub(crate) type AddressSuffix<T: Config> = StorageMap<_, Identity, H160, [u8; 12]>;
-
-	#[pallet::extra_constants]
-	impl<T: Config> Pallet<T> {
-		#[pallet::constant_name(ApiVersion)]
-		fn api_version() -> u16 {
-			API_VERSION
-		}
-	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
