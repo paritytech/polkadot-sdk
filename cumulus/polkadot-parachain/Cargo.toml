@@ -59,6 +59,8 @@ cumulus-primitives-core.workspace = true
 cumulus-primitives-core.default-features = true
 bp-messages.workspace = true
 bp-messages.default-features = true
+sp-keyring.workspace = true
+sp-keyring.default-features = true
 
 [build-dependencies]
 substrate-build-script-utils.workspace = true

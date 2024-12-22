@@ -560,14 +560,15 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>  where T::AccountId: From<[u8; 32]>  {
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
 			Self::do_tick()
 		}
 	}
 
 	#[pallet::call(weight(<T as Config>::WeightInfo))]
-	impl<T: Config> Pallet<T> {
+	impl<T: Config> Pallet<T>
+	  where T::AccountId: From<[u8; 32]> {
 		/// Configure the pallet.
 		///
 		/// - `origin`: Must be Root or pass `AdminOrigin`.

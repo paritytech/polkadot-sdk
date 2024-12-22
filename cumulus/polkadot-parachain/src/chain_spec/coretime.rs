@@ -113,8 +113,7 @@ impl CoretimeRuntimeType {
 			CoretimeRuntimeType::Rococo => Ok(Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/coretime-rococo.json")[..],
 			)?)),
-			CoretimeRuntimeType::RococoLocal =>
-				Ok(Box::new(rococo::local_config(*self, "rococo-local"))),
+			CoretimeRuntimeType::RococoLocal => Ok(Box::new(rococo::local_config(*self, "versi"))),
 			CoretimeRuntimeType::RococoDevelopment =>
 				Ok(Box::new(rococo::local_config(*self, "rococo-dev"))),
 			CoretimeRuntimeType::Westend => Ok(Box::new(GenericChainSpec::from_json_bytes(
@@ -145,19 +144,16 @@ pub fn chain_type_name(chain_type: &ChainType) -> Cow<str> {
 
 /// Sub-module for Rococo setup.
 pub mod rococo {
-	use super::{chain_type_name, CoretimeRuntimeType, ParaId};
-	use crate::chain_spec::{
-		get_account_id_from_seed, get_collator_keys_from_seed, SAFE_XCM_VERSION,
-	};
-	use parachains_common::{AccountId, AuraId, Balance};
+	use super::{chain_type_name, CoretimeRuntimeType};
+	use parachains_common::{AccountId, AuraId};
 	use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
-	use sp_core::sr25519;
+	use sp_core::hex2array;
+	use sp_keyring::sr25519::Keyring;
 
 	pub(crate) const CORETIME_ROCOCO: &str = "coretime-rococo";
-	pub(crate) const CORETIME_ROCOCO_LOCAL: &str = "coretime-rococo-local";
+	pub(crate) const CORETIME_ROCOCO_LOCAL: &str = "coretime-versi";
 	pub(crate) const CORETIME_ROCOCO_DEVELOPMENT: &str = "coretime-rococo-dev";
-	const CORETIME_ROCOCO_ED: Balance = coretime_rococo_runtime::ExistentialDeposit::get();
 
 	pub fn local_config(runtime_type: CoretimeRuntimeType, relay_chain: &str) -> GenericChainSpec {
 		// Rococo defaults
@@ -177,6 +173,8 @@ pub mod rococo {
 			coretime_rococo_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!")
 		};
+		let yap_sudo: AccountId =
+			hex2array!("6205a2a2aecb71c13d8ad3197e12c10bcdcaa0c9f176997bc236c6b39143aa15").into();
 
 		GenericChainSpec::builder(
 			wasm_binary,
@@ -185,59 +183,19 @@ pub mod rococo {
 		.with_name(&chain_name)
 		.with_id(runtime_type.into())
 		.with_chain_type(chain_type)
-		.with_genesis_config_patch(genesis(
-			// initial collators.
-			vec![(
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_collator_keys_from_seed::<AuraId>("Alice"),
-			)],
-			vec![
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-			],
-			para_id,
+		.with_genesis_config_patch(serde_json::json!({
+			"sudo": { "key": Some(yap_sudo.clone()) },
+			"parachainInfo": {
+				"parachainId": para_id,
+			},
+			"balances": {
+				"balances" : vec![yap_sudo].into_iter().map(|k| (k, 1u64<<60)).collect::<Vec<_>>(),
+			},
+			"aura": { "authorities": vec![Into::<AuraId>::into(Keyring::Alice.public())] }
+		}
 		))
 		.with_properties(properties)
 		.build()
-	}
-
-	fn genesis(
-		invulnerables: Vec<(AccountId, AuraId)>,
-		endowed_accounts: Vec<AccountId>,
-		id: ParaId,
-	) -> serde_json::Value {
-		serde_json::json!({
-			"balances": {
-				"balances": endowed_accounts.iter().cloned().map(|k| (k, CORETIME_ROCOCO_ED * 4096)).collect::<Vec<_>>(),
-			},
-			"parachainInfo": {
-				"parachainId": id,
-			},
-			"collatorSelection": {
-				"invulnerables": invulnerables.iter().cloned().map(|(acc, _)| acc).collect::<Vec<_>>(),
-				"candidacyBond": CORETIME_ROCOCO_ED * 16,
-			},
-			"session": {
-				"keys": invulnerables
-					.into_iter()
-					.map(|(acc, aura)| {
-						(
-							acc.clone(),                                   // account id
-							acc,                                           // validator id
-							coretime_rococo_runtime::SessionKeys { aura }, // session keys
-						)
-					})
-					.collect::<Vec<_>>(),
-			},
-			"polkadotXcm": {
-				"safeXcmVersion": Some(SAFE_XCM_VERSION),
-			},
-			"sudo": {
-				"key": Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
-			},
-		})
 	}
 }
 
