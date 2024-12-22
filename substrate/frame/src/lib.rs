@@ -258,7 +258,9 @@ pub mod prelude {
 
 #[cfg(any(feature = "try-runtime", test))]
 pub mod try_runtime {
-	pub use sp_runtime::TryRuntimeError;
+	pub mod prelude {
+		pub use sp_runtime::TryRuntimeError;
+	}
 }
 
 /// Prelude to be included in the `benchmarking.rs` of a pallet.

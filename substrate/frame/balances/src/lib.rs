@@ -154,6 +154,8 @@ mod impl_fungible;
 mod tests;
 mod types;
 
+#[cfg(feature = "try-runtime")]
+use frame::try_runtime::prelude::*;
 pub use impl_currency::{NegativeImbalance, PositiveImbalance};
 pub use pallet::*;
 pub use types::{
@@ -547,7 +549,7 @@ pub mod pallet {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 			Holds::<T, I>::iter_keys().try_for_each(|k| {
 				if Holds::<T, I>::decode_len(k).unwrap_or(0) >
 					T::RuntimeHoldReason::VARIANT_COUNT as usize
