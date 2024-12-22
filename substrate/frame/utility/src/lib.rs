@@ -211,7 +211,9 @@ pub mod pallet {
 					call.dispatch(origin.clone())
 				};
 				// Add the weight of this call.
-				weight = weight.saturating_add(extract_actual_weight(&result, &info));
+				let individual_call_weight = extract_actual_weight(&result, &info);
+				let amortized_call_weight = Weight::from_parts(individual_call_weight.ref_time() / 4, individual_call_weight.proof_size());
+				weight = weight.saturating_add(amortized_call_weight);
 				if let Err(e) = result {
 					Self::deposit_event(Event::BatchInterrupted {
 						index: index as u32,

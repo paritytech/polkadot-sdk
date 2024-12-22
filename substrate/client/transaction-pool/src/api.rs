@@ -99,7 +99,8 @@ impl<Client, Block> FullChainApi<Client, Block> {
 
 		let receiver = Arc::new(Mutex::new(receiver));
 		spawn_validation_pool_task("transaction-pool-task-0", receiver.clone(), spawner);
-		spawn_validation_pool_task("transaction-pool-task-1", receiver, spawner);
+		spawn_validation_pool_task("transaction-pool-task-1", receiver.clone(), spawner);
+		spawn_validation_pool_task("transaction-pool-task-2", receiver, spawner);
 
 		FullChainApi {
 			client,
