@@ -460,6 +460,10 @@ pub trait SendXcm {
 
 	/// Actually carry out the delivery operation for a previously validated message sending.
 	fn deliver(ticket: Self::Ticket) -> result::Result<XcmHash, SendError>;
+
+	/// Ensure `[Self::delivery]` is successful for the given `location` when called in benchmarks.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery(_location: Option<Location>) {}
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
@@ -499,6 +503,13 @@ impl SendXcm for Tuple {
 			}
 		)* );
 		Err(SendError::Unroutable)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery(location: Option<Location>) {
+		for_tuples!( #(
+			return Tuple::ensure_successful_delivery(location.clone());
+		)* );
 	}
 }
 

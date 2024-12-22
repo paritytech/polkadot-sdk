@@ -114,3 +114,19 @@ pub fn schedule_code_upgrade<T: paras::Config>(
 pub fn set_current_head<T: paras::Config>(id: ParaId, new_head: HeadData) {
 	paras::Pallet::<T>::set_current_head(id, new_head)
 }
+
+/// Ensure more initialization for `ParaId` when benchmarking. (e.g. open HRMP channels, ...)
+#[cfg(feature = "runtime-benchmarks")]
+pub trait EnsureForParachain {
+	fn ensure(para_id: ParaId);
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+impl EnsureForParachain for Tuple {
+	fn ensure(para: ParaId) {
+		for_tuples!( #(
+			Tuple::ensure(para);
+		)* );
+	}
+}

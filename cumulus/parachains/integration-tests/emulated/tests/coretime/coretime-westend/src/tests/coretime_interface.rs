@@ -18,6 +18,7 @@ use frame_support::traits::OnInitialize;
 use pallet_broker::{ConfigRecord, Configuration, CoreAssignment, CoreMask, ScheduleItem};
 use sp_runtime::Perbill;
 use westend_runtime_constants::system_parachain::coretime::TIMESLICE_PERIOD;
+use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 
 #[test]
 fn transact_hardcoded_weights_are_sane() {
@@ -33,6 +34,10 @@ fn transact_hardcoded_weights_are_sane() {
 	// <https://github.com/rust-lang/rust/issues/86935>
 	type CoretimeEvent = <CoretimeWestend as Chain>::RuntimeEvent;
 	type RelayEvent = <Westend as Chain>::RuntimeEvent;
+
+	Westend::execute_with(|| {
+		Dmp::make_parachain_reachable(CoretimeWestend::para_id());
+	});
 
 	// Reserve a workload, configure broker and start sales.
 	CoretimeWestend::execute_with(|| {
