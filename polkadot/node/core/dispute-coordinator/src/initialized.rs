@@ -44,9 +44,10 @@ use polkadot_node_subsystem_util::runtime::{
 	self, key_ownership_proof, submit_report_dispute_lost, RuntimeInfo,
 };
 use polkadot_primitives::{
-	slashing, BlockNumber, CandidateHash, CandidateReceipt, CompactStatement, DisputeStatement,
-	DisputeStatementSet, Hash, ScrapedOnChainVotes, SessionIndex, ValidDisputeStatementKind,
-	ValidatorId, ValidatorIndex,
+	slashing,
+	vstaging::{CandidateReceiptV2 as CandidateReceipt, ScrapedOnChainVotes},
+	BlockNumber, CandidateHash, CompactStatement, DisputeStatement, DisputeStatementSet, Hash,
+	SessionIndex, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
 };
 use schnellru::{LruMap, UnlimitedCompact};
 
@@ -607,7 +608,7 @@ impl Initialized {
 		// the new active leaf as if we received them via gossip.
 		for (candidate_receipt, backers) in backing_validators_per_candidate {
 			// Obtain the session info, for sake of `ValidatorId`s
-			let relay_parent = candidate_receipt.descriptor.relay_parent;
+			let relay_parent = candidate_receipt.descriptor.relay_parent();
 			let session_info = match self
 				.runtime_info
 				.get_session_info_by_index(ctx.sender(), relay_parent, session)
@@ -958,9 +959,9 @@ impl Initialized {
 		let votes_in_db = overlay_db.load_candidate_votes(session, &candidate_hash)?;
 		let relay_parent = match &candidate_receipt {
 			MaybeCandidateReceipt::Provides(candidate_receipt) =>
-				candidate_receipt.descriptor().relay_parent,
+				candidate_receipt.descriptor().relay_parent(),
 			MaybeCandidateReceipt::AssumeBackingVotePresent(candidate_hash) => match &votes_in_db {
-				Some(votes) => votes.candidate_receipt.descriptor().relay_parent,
+				Some(votes) => votes.candidate_receipt.descriptor().relay_parent(),
 				None => {
 					gum::warn!(
 						target: LOG_TARGET,
@@ -1451,7 +1452,7 @@ impl Initialized {
 			ctx,
 			&mut self.runtime_info,
 			session,
-			candidate_receipt.descriptor.relay_parent,
+			candidate_receipt.descriptor.relay_parent(),
 			self.offchain_disabled_validators.iter(session),
 		)
 		.await

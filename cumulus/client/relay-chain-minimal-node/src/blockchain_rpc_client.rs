@@ -26,8 +26,8 @@ use futures::{Stream, StreamExt};
 use polkadot_core_primitives::{Block, BlockNumber, Hash, Header};
 use polkadot_overseer::{ChainApiBackend, RuntimeApiSubsystemClient};
 use polkadot_primitives::{
-	async_backing::{AsyncBackingParams, BackingState},
-	slashing, ApprovalVotingParams, CoreIndex, NodeFeatures,
+	async_backing::AsyncBackingParams, slashing, vstaging::async_backing::BackingState,
+	ApprovalVotingParams, CoreIndex, NodeFeatures,
 };
 use sc_authority_discovery::{AuthorityDiscovery, Error as AuthorityDiscoveryError};
 use sc_client_api::AuxStore;
@@ -143,7 +143,10 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	async fn availability_cores(
 		&self,
 		at: Hash,
-	) -> Result<Vec<polkadot_primitives::CoreState<Hash, BlockNumber>>, sp_api::ApiError> {
+	) -> Result<
+		Vec<polkadot_primitives::vstaging::CoreState<Hash, polkadot_core_primitives::BlockNumber>>,
+		sp_api::ApiError,
+	> {
 		Ok(self.rpc_client.parachain_host_availability_cores(at).await?)
 	}
 
@@ -212,8 +215,11 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	async fn candidate_pending_availability(
 		&self,
 		at: Hash,
-		para_id: ParaId,
-	) -> Result<Option<polkadot_primitives::CommittedCandidateReceipt<Hash>>, sp_api::ApiError> {
+		para_id: cumulus_primitives_core::ParaId,
+	) -> Result<
+		Option<polkadot_primitives::vstaging::CommittedCandidateReceiptV2<Hash>>,
+		sp_api::ApiError,
+	> {
 		Ok(self
 			.rpc_client
 			.parachain_host_candidate_pending_availability(at, para_id)
@@ -223,7 +229,7 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	async fn candidate_events(
 		&self,
 		at: Hash,
-	) -> Result<Vec<polkadot_primitives::CandidateEvent<Hash>>, sp_api::ApiError> {
+	) -> Result<Vec<polkadot_primitives::vstaging::CandidateEvent<Hash>>, sp_api::ApiError> {
 		Ok(self.rpc_client.parachain_host_candidate_events(at).await?)
 	}
 
@@ -266,7 +272,8 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	async fn on_chain_votes(
 		&self,
 		at: Hash,
-	) -> Result<Option<polkadot_primitives::ScrapedOnChainVotes<Hash>>, sp_api::ApiError> {
+	) -> Result<Option<polkadot_primitives::vstaging::ScrapedOnChainVotes<Hash>>, sp_api::ApiError>
+	{
 		Ok(self.rpc_client.parachain_host_on_chain_votes(at).await?)
 	}
 
@@ -437,8 +444,11 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	async fn candidates_pending_availability(
 		&self,
 		at: Hash,
-		para_id: ParaId,
-	) -> Result<Vec<polkadot_primitives::CommittedCandidateReceipt<Hash>>, sp_api::ApiError> {
+		para_id: cumulus_primitives_core::ParaId,
+	) -> Result<
+		Vec<polkadot_primitives::vstaging::CommittedCandidateReceiptV2<Hash>>,
+		sp_api::ApiError,
+	> {
 		Ok(self
 			.rpc_client
 			.parachain_host_candidates_pending_availability(at, para_id)

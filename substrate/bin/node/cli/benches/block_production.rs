@@ -121,12 +121,11 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 }
 
 fn extrinsic_set_time(now: u64) -> OpaqueExtrinsic {
-	let utx: kitchensink_runtime::UncheckedExtrinsic = generic::UncheckedExtrinsic {
-		signature: None,
-		function: kitchensink_runtime::RuntimeCall::Timestamp(pallet_timestamp::Call::set { now }),
-	}
+	let utx: kitchensink_runtime::UncheckedExtrinsic = generic::UncheckedExtrinsic::new_bare(
+		kitchensink_runtime::RuntimeCall::Timestamp(pallet_timestamp::Call::set { now }),
+	)
 	.into();
-	utx.0.into()
+	utx.into()
 }
 
 fn import_block(client: &FullClient, built: BuiltBlock<node_primitives::Block>) {
@@ -166,7 +165,6 @@ fn prepare_benchmark(client: &FullClient) -> (usize, Vec<OpaqueExtrinsic>) {
 			BalancesCall::transfer_allow_death { dest: dst.clone(), value: 1 * DOLLARS },
 			Some(nonce),
 		)
-		.0
 		.into();
 
 		match block_builder.push(extrinsic.clone()) {

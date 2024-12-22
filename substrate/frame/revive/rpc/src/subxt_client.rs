@@ -15,19 +15,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! The generated subxt client.
+//! Generated against a substrate chain configured with [`pallet_revive`] using:
+//! subxt metadata  --url ws://localhost:9944 -o rpc/revive_chain.scale
 use subxt::config::{signed_extensions, Config, PolkadotConfig};
 
-// Generated with
-// subxt metadata --url ws://localhost:9944 -o rpc/kitchensink.scale
 #[subxt::subxt(
-	runtime_metadata_path = "kitchensink.scale",
+	runtime_metadata_path = "revive_chain.metadata",
+	// TODO remove once subxt use the same U256 type
 	substitute_type(
-		path = "pallet_revive::primitives::EthContractResult<A>",
-		with = "::subxt::utils::Static<::pallet_revive::EthContractResult<A>>"
+		path = "primitive_types::U256",
+		with = "::subxt::utils::Static<::sp_core::U256>"
 	),
 	substitute_type(
-		path = "pallet_revive::primitives::EthTransactKind",
-		with = "::subxt::utils::Static<::pallet_revive::EthTransactKind>"
+		path = "pallet_revive::evm::api::rpc_types_gen::GenericTransaction",
+		with = "::subxt::utils::Static<::pallet_revive::evm::GenericTransaction>"
+	),
+	substitute_type(
+		path = "pallet_revive::primitives::EthTransactInfo<B>",
+		with = "::subxt::utils::Static<::pallet_revive::EthTransactInfo<B>>"
+	),
+	substitute_type(
+		path = "pallet_revive::primitives::EthTransactError",
+		with = "::subxt::utils::Static<::pallet_revive::EthTransactError>"
+	),
+	substitute_type(
+		path = "pallet_revive::primitives::ExecReturnValue",
+		with = "::subxt::utils::Static<::pallet_revive::ExecReturnValue>"
 	),
 	substitute_type(
 		path = "sp_weights::weight_v2::Weight",

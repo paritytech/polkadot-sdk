@@ -23,14 +23,11 @@
 #![recursion_limit = "1024"]
 
 pub mod chain_ops;
+pub mod client;
 pub mod config;
 pub mod error;
 
 mod builder;
-#[cfg(feature = "test-helpers")]
-pub mod client;
-#[cfg(not(feature = "test-helpers"))]
-mod client;
 mod metrics;
 mod task_manager;
 
@@ -59,11 +56,13 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 pub use self::{
 	builder::{
-		build_network, build_polkadot_syncing_strategy, gen_rpc_module, init_telemetry, new_client,
-		new_db_backend, new_full_client, new_full_parts, new_full_parts_record_import,
+		build_default_block_downloader, build_default_syncing_engine, build_network,
+		build_network_advanced, build_polkadot_syncing_strategy, gen_rpc_module, init_telemetry,
+		new_client, new_db_backend, new_full_client, new_full_parts, new_full_parts_record_import,
 		new_full_parts_with_genesis_builder, new_wasm_executor,
-		propagate_transaction_notifications, spawn_tasks, BuildNetworkParams, KeystoreContainer,
-		NetworkStarter, SpawnTasksParams, TFullBackend, TFullCallExecutor, TFullClient,
+		propagate_transaction_notifications, spawn_tasks, BuildNetworkAdvancedParams,
+		BuildNetworkParams, DefaultSyncingEngineConfig, KeystoreContainer, SpawnTasksParams,
+		TFullBackend, TFullCallExecutor, TFullClient,
 	},
 	client::{ClientConfig, LocalCallExecutor},
 	error::Error,
@@ -94,11 +93,13 @@ pub use sc_network_sync::WarpSyncConfig;
 pub use sc_network_transactions::config::{TransactionImport, TransactionImportFuture};
 pub use sc_rpc::{RandomIntegerSubscriptionId, RandomStringSubscriptionId};
 pub use sc_tracing::TracingReceiver;
-pub use sc_transaction_pool::Options as TransactionPoolOptions;
+pub use sc_transaction_pool::TransactionPoolOptions;
 pub use sc_transaction_pool_api::{error::IntoPoolError, InPoolTransaction, TransactionPool};
 #[doc(hidden)]
 pub use std::{ops::Deref, result::Result, sync::Arc};
-pub use task_manager::{SpawnTaskHandle, Task, TaskManager, TaskRegistry, DEFAULT_GROUP_NAME};
+pub use task_manager::{
+	SpawnEssentialTaskHandle, SpawnTaskHandle, Task, TaskManager, TaskRegistry, DEFAULT_GROUP_NAME,
+};
 use tokio::runtime::Handle;
 
 const DEFAULT_PROTOCOL_ID: &str = "sup";
@@ -484,7 +485,7 @@ where
 		.filter(|t| t.is_propagable())
 		.map(|t| {
 			let hash = t.hash().clone();
-			let ex: B::Extrinsic = t.data().clone();
+			let ex: B::Extrinsic = (**t.data()).clone();
 			(hash, ex)
 		})
 		.collect()
@@ -523,23 +524,28 @@ where
 			},
 		};
 
-		let import_future = self.pool.submit_one(
-			self.client.info().best_hash,
-			sc_transaction_pool_api::TransactionSource::External,
-			uxt,
-		);
+		let start = std::time::Instant::now();
+		let pool = self.pool.clone();
+		let client = self.client.clone();
 		Box::pin(async move {
-			match import_future.await {
-				Ok(_) => TransactionImport::NewGood,
+			match pool
+				.submit_one(
+					client.info().best_hash,
+					sc_transaction_pool_api::TransactionSource::External,
+					uxt,
+				)
+				.await
+			{
+				Ok(_) => {
+					let elapsed = start.elapsed();
+					debug!(target: sc_transaction_pool::LOG_TARGET, "import transaction: {elapsed:?}");
+					TransactionImport::NewGood
+				},
 				Err(e) => match e.into_pool_error() {
 					Ok(sc_transaction_pool_api::error::Error::AlreadyImported(_)) =>
 						TransactionImport::KnownGood,
-					Ok(e) => {
-						debug!("Error adding transaction to the pool: {:?}", e);
-						TransactionImport::Bad
-					},
-					Err(e) => {
-						debug!("Error converting pool error: {}", e);
+					Ok(_) => TransactionImport::Bad,
+					Err(_) => {
 						// it is not bad at least, just some internal node logic error, so peer is
 						// innocent.
 						TransactionImport::KnownGood
@@ -556,7 +562,7 @@ where
 	fn transaction(&self, hash: &H) -> Option<B::Extrinsic> {
 		self.pool.ready_transaction(hash).and_then(
 			// Only propagable transactions should be resolved for network service.
-			|tx| if tx.is_propagable() { Some(tx.data().clone()) } else { None },
+			|tx| if tx.is_propagable() { Some((**tx.data()).clone()) } else { None },
 		)
 	}
 }
@@ -578,15 +584,20 @@ mod tests {
 		let (client, longest_chain) = TestClientBuilder::new().build_with_longest_chain();
 		let client = Arc::new(client);
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let pool =
-			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
+		let pool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner,
+			client.clone(),
+		));
 		let source = sp_runtime::transaction_validity::TransactionSource::External;
 		let best = block_on(longest_chain.best_chain()).unwrap();
 		let transaction = Transfer {
 			amount: 5,
 			nonce: 0,
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Bob.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Bob.into(),
 		}
 		.into_unchecked_extrinsic();
 		block_on(pool.submit_one(best.hash(), source, transaction.clone())).unwrap();

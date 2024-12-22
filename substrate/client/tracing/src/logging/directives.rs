@@ -40,12 +40,17 @@ pub(crate) fn add_default_directives(directives: &str) {
 	add_directives(directives);
 }
 
-/// Add directives to current directives
+/// Add directives to current directives.
 pub fn add_directives(directives: &str) {
 	CURRENT_DIRECTIVES
 		.get_or_init(|| Mutex::new(Vec::new()))
 		.lock()
 		.push(directives.to_owned());
+}
+
+/// Returns the current directives.
+pub fn get_directives() -> Vec<String> {
+	CURRENT_DIRECTIVES.get_or_init(|| Mutex::new(Vec::new())).lock().clone()
 }
 
 /// Parse `Directive` and add to default directives if successful.

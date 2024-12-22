@@ -17,16 +17,40 @@
 
 //! A crate that hosts a common definitions that are relevant for the pallet-revive.
 
-use crate::{debug::Tracer, H160};
-use alloc::vec::Vec;
+use crate::{H160, U256};
+use alloc::{string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{dispatch::DispatchInfo, weights::Weight};
+use frame_support::weights::Weight;
 use pallet_revive_uapi::ReturnFlags;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Saturating, Zero},
 	DispatchError, RuntimeDebug,
 };
+
+#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub enum DepositLimit<Balance> {
+	/// Allows bypassing all balance transfer checks.
+	Unchecked,
+
+	/// Specifies a maximum allowable balance for a deposit.
+	Balance(Balance),
+}
+
+impl<T> DepositLimit<T> {
+	pub fn is_unchecked(&self) -> bool {
+		match self {
+			Self::Unchecked => true,
+			_ => false,
+		}
+	}
+}
+
+impl<T> From<T> for DepositLimit<T> {
+	fn from(value: T) -> Self {
+		Self::Balance(value)
+	}
+}
 
 /// Result type of a `bare_call` or `bare_instantiate` call as well as `ContractsApi::call` and
 /// `ContractsApi::instantiate`.
@@ -39,7 +63,7 @@ use sp_runtime::{
 /// `ContractsApi` version. Therefore when SCALE decoding a `ContractResult` its trailing data
 /// should be ignored to avoid any potential compatibility issues.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct ContractResult<R, Balance> {
+pub struct ContractResult<R, Balance, EventRecord> {
 	/// How much weight was consumed during execution.
 	pub gas_consumed: Weight,
 	/// How much weight is required as gas limit in order to execute this call.
@@ -60,63 +84,46 @@ pub struct ContractResult<R, Balance> {
 	/// is `Err`. This is because on error all storage changes are rolled back including the
 	/// payment of the deposit.
 	pub storage_deposit: StorageDeposit<Balance>,
-	#[codec(skip)]
-	/// The tracer that was used to collect traces during the execution of the contract
-	pub tracer: Tracer,
+	/// An optional debug message. This message is only filled when explicitly requested
+	/// by the code that calls into the contract. Otherwise it is empty.
+	///
+	/// The contained bytes are valid UTF-8. This is not declared as `String` because
+	/// this type is not allowed within the runtime.
+	///
+	/// Clients should not make any assumptions about the format of the buffer.
+	/// They should just display it as-is. It is **not** only a collection of log lines
+	/// provided by a contract but a formatted buffer with different sections.
+	///
+	/// # Note
+	///
+	/// The debug message is never generated during on-chain execution. It is reserved for
+	/// RPC calls.
+	pub debug_message: Vec<u8>,
 	/// The execution result of the wasm code.
 	pub result: Result<R, DispatchError>,
+	/// The events that were emitted during execution. It is an option as event collection is
+	/// optional.
+	pub events: Option<Vec<EventRecord>>,
 }
 
 /// The result of the execution of a `eth_transact` call.
-pub struct EthContractResultDetails<Balance> {
-	/// The kind of transaction that was executed.
-	pub transact_kind: EthTransactKind,
-	/// The call's dispatch info.
-	pub dispatch_info: DispatchInfo,
-	/// Length of the encoded call.
-	pub len: u32,
-	/// Gas limit of the transaction.
-	pub gas_limit: Weight,
-	/// Storage deposit charged.
-	pub storage_deposit: Balance,
-	/// The execution result.
-	pub result: Result<Vec<u8>, DispatchError>,
-}
-
-impl<Balance: From<u32>> EthContractResultDetails<Balance> {
-	/// Map to a EthContractResult, using the provided compute_fee function.
-	///
-	/// # Parameters
-	///
-	/// - `compute_fee`: A function that takes the length of the encoded call, the dispatch info and
-	///   the tip and returns the fee.
-	pub fn map(
-		self,
-		compute_fee: impl FnOnce(u32, &DispatchInfo, Balance) -> Balance,
-	) -> EthContractResult<Balance> {
-		EthContractResult {
-			transact_kind: self.transact_kind,
-			result: self.result,
-			gas_limit: self.gas_limit,
-			storage_deposit: self.storage_deposit,
-			fee: compute_fee(self.len, &self.dispatch_info, 0.into()),
-		}
-	}
-}
-
-/// Similar to `EthContractResultDetails` but with the fee instead of dispatch info and len.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct EthContractResult<Balance> {
-	/// The kind of transaction that was executed.
-	pub transact_kind: EthTransactKind,
-	/// The fee charged for the execution.
-	pub fee: Balance,
-	/// Gas limit of the transaction.
-	pub gas_limit: Weight,
+pub struct EthTransactInfo<Balance> {
+	/// The amount of gas that was necessary to execute the transaction.
+	pub gas_required: Weight,
 	/// Storage deposit charged.
 	pub storage_deposit: Balance,
-	/// The execution result.
-	pub result: Result<Vec<u8>, DispatchError>,
+	/// The weight and deposit equivalent in EVM Gas.
+	pub eth_gas: U256,
+	/// The execution return value.
+	pub data: Vec<u8>,
+}
+
+/// Error type of a `eth_transact` call.
+#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub enum EthTransactError {
+	Data(Vec<u8>),
+	Message(String),
 }
 
 /// Result type of a `bare_code_upload` call.
@@ -148,20 +155,6 @@ impl ExecReturnValue {
 	pub fn did_revert(&self) -> bool {
 		self.flags.contains(ReturnFlags::REVERT)
 	}
-}
-
-/// Describes the type of an [`crate::Call::eth_transact`] call.
-#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub enum EthTransactKind {
-	/// A Call to an existing contract.
-	Call,
-	/// The instantiation of a new contract.
-	InstantiateWithCode {
-		#[codec(compact)]
-		code_len: u32,
-		#[codec(compact)]
-		data_len: u32,
-	},
 }
 
 /// The result of a successful contract instantiation.
@@ -290,4 +283,37 @@ where
 			Refund(amount) => limit.saturating_add(*amount),
 		}
 	}
+}
+
+/// Determines whether events should be collected during execution.
+#[derive(
+	Copy, Clone, PartialEq, Eq, RuntimeDebug, Decode, Encode, MaxEncodedLen, scale_info::TypeInfo,
+)]
+pub enum CollectEvents {
+	/// Collect events.
+	///
+	/// # Note
+	///
+	/// Events should only be collected when called off-chain, as this would otherwise
+	/// collect all the Events emitted in the block so far and put them into the PoV.
+	///
+	/// **Never** use this mode for on-chain execution.
+	UnsafeCollect,
+	/// Skip event collection.
+	Skip,
+}
+
+/// Determines whether debug messages will be collected.
+#[derive(
+	Copy, Clone, PartialEq, Eq, RuntimeDebug, Decode, Encode, MaxEncodedLen, scale_info::TypeInfo,
+)]
+pub enum DebugInfo {
+	/// Collect debug messages.
+	/// # Note
+	///
+	/// This should only ever be set to `UnsafeDebug` when executing as an RPC because
+	/// it adds allocations and could be abused to drive the runtime into an OOM panic.
+	UnsafeDebug,
+	/// Skip collection of debug messages.
+	Skip,
 }

@@ -32,49 +32,43 @@ name = "extrinsic"
 path = "examples/rust/extrinsic.rs"
 required-features = ["example"]
 
+[[example]]
+name = "remark-extrinsic"
+path = "examples/rust/remark-extrinsic.rs"
+required-features = ["example"]
+
 [dependencies]
 clap = { workspace = true, features = ["derive"] }
 anyhow = { workspace = true }
 futures = { workspace = true, features = ["thread-pool"] }
 jsonrpsee = { workspace = true, features = ["full"] }
-serde_json = { workspace = true }
 thiserror = { workspace = true }
 sp-crypto-hashing = { workspace = true }
-subxt = { workspace = true, default-features = true, features = [
-	"unstable-reconnecting-rpc-client",
-] }
+subxt = { workspace = true, default-features = true, features = ["reconnecting-rpc-client"] }
 tokio = { workspace = true, features = ["full"] }
 codec = { workspace = true, features = ["derive"] }
-log.workspace = true
-tracing-subscriber.workspace = true
+log = { workspace = true }
 pallet-revive = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-weights = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
-serde = { features = [
-	"alloc",
-	"derive",
-], workspace = true, default-features = true }
-
-tower.workspace = true
-tower-http = { workspace = true, features = ["full"] }
-hyper.workspace = true
-
+sc-rpc-api = { workspace = true, default-features = true }
+sc-cli = { workspace = true, default-features = true }
+sc-service = { workspace = true, default-features = true }
+prometheus-endpoint = { workspace = true, default-features = true }
 rlp = { workspace = true, optional = true }
 subxt-signer = { workspace = true, optional = true, features = [
 	"unstable-eth",
 ] }
-hex = { workspace = true, optional = true }
-hex-literal = { workspace = true, optional = true }
-scale-info = { workspace = true }
-secp256k1 = { workspace = true, optional = true, features = ["recovery"] }
-env_logger = { workspace = true }
+hex = { workspace = true }
+ethabi = { version = "18.0.0" }
 
 [features]
-dev = []
-example = ["hex", "hex-literal", "rlp", "secp256k1", "subxt-signer"]
+example = ["rlp", "subxt-signer"]
 
 [dev-dependencies]
-hex-literal = { workspace = true }
-pallet-revive-fixtures = { workspace = true }
+env_logger = { workspace = true }
+static_init = { workspace = true }
+pallet-revive-fixtures = { workspace = true, default-features = true }
+substrate-cli-test-utils = { workspace = true }
+subxt-signer = { workspace = true, features = ["unstable-eth"] }

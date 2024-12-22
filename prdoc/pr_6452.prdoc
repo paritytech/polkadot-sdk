@@ -1,0 +1,16 @@
+title: "elastic scaling RFC 103 end-to-end tests"
+
+doc:
+  - audience: [Node Dev, Runtime Dev]
+    description: |
+      Adds end-to-end zombienet-sdk tests for elastic scaling using the RFC103 implementation.
+      Only notable user-facing change is that the default chain configurations of westend and rococo
+      now enable by default the CandidateReceiptV2 node feature.
+
+crates:
+  - name: westend-runtime
+    bump: patch
+  - name: rococo-runtime
+    bump: patch
+  - name: rococo-parachain-runtime
+    bump: patch

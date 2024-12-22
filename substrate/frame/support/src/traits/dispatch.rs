@@ -482,7 +482,7 @@ pub trait OriginTrait: Sized {
 	type Call;
 
 	/// The caller origin, overarching type of all pallets origins.
-	type PalletsOrigin: Into<Self> + CallerTrait<Self::AccountId> + MaxEncodedLen;
+	type PalletsOrigin: Send + Sync + Into<Self> + CallerTrait<Self::AccountId> + MaxEncodedLen;
 
 	/// The AccountId used across the system.
 	type AccountId;
@@ -495,6 +495,14 @@ pub trait OriginTrait: Sized {
 
 	/// Replace the caller with caller from the other origin
 	fn set_caller_from(&mut self, other: impl Into<Self>);
+
+	/// Replace the caller with caller from the other origin
+	fn set_caller(&mut self, caller: Self::PalletsOrigin);
+
+	/// Replace the caller with caller from the other origin
+	fn set_caller_from_signed(&mut self, caller_account: Self::AccountId) {
+		self.set_caller(Self::PalletsOrigin::from(RawOrigin::Signed(caller_account)))
+	}
 
 	/// Filter the call if caller is not root, if false is returned then the call must be filtered
 	/// out.
@@ -543,6 +551,17 @@ pub trait OriginTrait: Sized {
 	/// Extract a reference to the system origin, if that's what the caller is.
 	fn as_system_ref(&self) -> Option<&RawOrigin<Self::AccountId>> {
 		self.caller().as_system_ref()
+	}
+
+	/// Extract a reference to the signer, if that's what the caller is.
+	fn as_signer(&self) -> Option<&Self::AccountId> {
+		self.caller().as_system_ref().and_then(|s| {
+			if let RawOrigin::Signed(ref who) = s {
+				Some(who)
+			} else {
+				None
+			}
+		})
 	}
 }
 

@@ -1,0 +1,14 @@
+title: '[pallet-revive] implement tx origin API'
+
+doc:
+- audience:
+  - Runtime Dev
+  description: Implement a syscall to retreive the transaction origin.
+
+crates:
+- name: pallet-revive
+  bump: minor
+- name: pallet-revive-uapi
+  bump: minor
+- name: pallet-revive-fixtures
+  bump: patch

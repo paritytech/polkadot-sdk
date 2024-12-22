@@ -80,6 +80,7 @@ impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
 	/// Add a new relay-parent to the allowed relay parents, along with info about the header.
 	/// Provide a maximum ancestry length for the buffer, which will cause old relay-parents to be
 	/// pruned.
+	/// If the relay parent hash is already present, do nothing.
 	pub(crate) fn update(
 		&mut self,
 		relay_parent: Hash,
@@ -88,6 +89,11 @@ impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
 		number: BlockNumber,
 		max_ancestry_len: u32,
 	) {
+		if self.buffer.iter().any(|info| info.relay_parent == relay_parent) {
+			// Already present.
+			return
+		}
+
 		let claim_queue = transpose_claim_queue(claim_queue);
 
 		// + 1 for the most recent block, which is always allowed.

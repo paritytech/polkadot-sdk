@@ -5,6 +5,8 @@ authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 description = "Glutton parachain runtime."
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -75,6 +77,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 std = [
 	"codec/std",

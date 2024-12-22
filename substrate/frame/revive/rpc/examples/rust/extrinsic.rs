@@ -14,7 +14,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use pallet_revive_eth_rpc::subxt_client::{self, SrcChainConfig};
+use pallet_revive_eth_rpc::subxt_client::{
+	self, revive::calls::types::InstantiateWithCode, SrcChainConfig,
+};
 use sp_weights::Weight;
 use subxt::OnlineClient;
 use subxt_signer::sr25519::dev;
@@ -28,7 +30,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let tx_payload = subxt_client::tx().revive().instantiate_with_code(
 		0u32.into(),
 		Weight::from_parts(100_000, 0).into(),
-		3_000_000_000_000_000,
+		3_000_000_000_000_000_000,
 		bytes,
 		vec![],
 		None,
@@ -38,9 +40,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.tx()
 		.sign_and_submit_then_watch_default(&tx_payload, &dev::alice())
 		.await?
-		.wait_for_finalized_success()
+		.wait_for_finalized()
 		.await?;
 	println!("Transaction finalized: {:?}", res.extrinsic_hash());
+
+	let block_hash = res.block_hash();
+
+	let block = client.blocks().at(block_hash).await.unwrap();
+	let extrinsics = block.extrinsics().await.unwrap();
+	let _ = extrinsics.find_first::<InstantiateWithCode>()?;
 
 	Ok(())
 }

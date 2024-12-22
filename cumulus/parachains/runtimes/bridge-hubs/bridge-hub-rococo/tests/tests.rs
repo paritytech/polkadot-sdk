@@ -18,13 +18,11 @@
 
 use bp_polkadot_core::Signature;
 use bridge_hub_rococo_runtime::{
-	bridge_common_config, bridge_to_bulletin_config,
-	bridge_to_ethereum_config::EthereumGatewayAddress,
-	bridge_to_westend_config,
-	xcm_config::{LocationToAccountId, RelayNetwork, TokenLocation, XcmConfig},
-	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, Executive, ExistentialDeposit,
-	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
-	SignedExtra, TransactionPayment, UncheckedExtrinsic,
+	bridge_common_config, bridge_to_bulletin_config, bridge_to_westend_config,
+	xcm_config::{RelayNetwork, TokenLocation, XcmConfig},
+	AllPalletsWithoutSystem, Block, BridgeRejectObsoleteHeadersAndMessages, Executive,
+	ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
+	RuntimeOrigin, SessionKeys, TransactionPayment, TxExtension, UncheckedExtrinsic,
 };
 use bridge_hub_test_utils::SlotDurations;
 use codec::{Decode, Encode};
@@ -33,13 +31,13 @@ use parachains_common::{AccountId, AuraId, Balance};
 use snowbridge_core::ChannelId;
 use sp_consensus_aura::SlotDuration;
 use sp_core::{crypto::Ss58Codec, H160};
-use sp_keyring::AccountKeyring::Alice;
+use sp_keyring::Sr25519Keyring::Alice;
 use sp_runtime::{
 	generic::{Era, SignedPayload},
 	AccountId32, Perbill,
 };
 use testnet_parachains_constants::rococo::{consensus::*, fee::WeightToFee};
-use xcm::latest::prelude::*;
+use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 parameter_types! {
@@ -47,11 +45,11 @@ parameter_types! {
 }
 
 fn construct_extrinsic(
-	sender: sp_keyring::AccountKeyring,
+	sender: sp_keyring::Sr25519Keyring,
 	call: RuntimeCall,
 ) -> UncheckedExtrinsic {
 	let account_id = AccountId32::from(sender.public());
-	let extra: SignedExtra = (
+	let tx_ext: TxExtension = (
 		frame_system::CheckNonZeroSender::<Runtime>::new(),
 		frame_system::CheckSpecVersion::<Runtime>::new(),
 		frame_system::CheckTxVersion::<Runtime>::new(),
@@ -64,16 +62,17 @@ fn construct_extrinsic(
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
 		BridgeRejectObsoleteHeadersAndMessages::default(),
 		(bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),),
-		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
 		frame_metadata_hash_extension::CheckMetadataHash::new(false),
-	);
-	let payload = SignedPayload::new(call.clone(), extra.clone()).unwrap();
+		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
+	)
+		.into();
+	let payload = SignedPayload::new(call.clone(), tx_ext.clone()).unwrap();
 	let signature = payload.using_encoded(|e| sender.sign(e));
-	UncheckedExtrinsic::new_signed(call, account_id.into(), Signature::Sr25519(signature), extra)
+	UncheckedExtrinsic::new_signed(call, account_id.into(), Signature::Sr25519(signature), tx_ext)
 }
 
 fn construct_and_apply_extrinsic(
-	relayer_at_target: sp_keyring::AccountKeyring,
+	relayer_at_target: sp_keyring::Sr25519Keyring,
 	call: RuntimeCall,
 ) -> sp_runtime::DispatchOutcome {
 	let xt = construct_extrinsic(relayer_at_target, call);
@@ -127,6 +126,9 @@ mod bridge_hub_westend_tests {
 	use bridge_common_config::{
 		BridgeGrandpaWestendInstance, BridgeParachainWestendInstance, DeliveryRewardInBalance,
 		RelayersForLegacyLaneIdsMessagesInstance,
+	};
+	use bridge_hub_rococo_runtime::{
+		bridge_to_ethereum_config::EthereumGatewayAddress, xcm_config::LocationToAccountId,
 	};
 	use bridge_hub_test_utils::test_cases::from_parachain;
 	use bridge_to_westend_config::{
@@ -322,11 +324,12 @@ mod bridge_hub_westend_tests {
 				>(
 					SiblingParachainLocation::get(),
 					BridgedUniversalLocation::get(),
-					|locations, fee| {
+					false,
+					|locations, _fee| {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime,
 							XcmOverBridgeHubWestendInstance
-						>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+						>(locations, LegacyLaneId([0, 0, 0, 1]))
 					}
 				).1
 			},
@@ -375,7 +378,7 @@ mod bridge_hub_westend_tests {
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 			SIBLING_PARACHAIN_ID,
-			Rococo,
+			ByGenesis(ROCOCO_GENESIS_HASH),
 			|| {
 				// we need to create lane between sibling parachain and remote destination
 				bridge_hub_test_utils::ensure_opened_bridge::<
@@ -386,11 +389,12 @@ mod bridge_hub_westend_tests {
 				>(
 					SiblingParachainLocation::get(),
 					BridgedUniversalLocation::get(),
-					|locations, fee| {
+					false,
+					|locations, _fee| {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime,
 							XcmOverBridgeHubWestendInstance,
-						>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+						>(locations, LegacyLaneId([0, 0, 0, 1]))
 					},
 				)
 				.1
@@ -409,7 +413,7 @@ mod bridge_hub_westend_tests {
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 			SIBLING_PARACHAIN_ID,
-			Rococo,
+			ByGenesis(ROCOCO_GENESIS_HASH),
 			|| {
 				// we need to create lane between sibling parachain and remote destination
 				bridge_hub_test_utils::ensure_opened_bridge::<
@@ -420,11 +424,12 @@ mod bridge_hub_westend_tests {
 				>(
 					SiblingParachainLocation::get(),
 					BridgedUniversalLocation::get(),
-					|locations, fee| {
+					false,
+					|locations, _fee| {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime,
 							XcmOverBridgeHubWestendInstance,
-						>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+						>(locations, LegacyLaneId([0, 0, 0, 1]))
 					},
 				)
 				.1
@@ -496,9 +501,12 @@ mod bridge_hub_westend_tests {
 
 mod bridge_hub_bulletin_tests {
 	use super::*;
-	use bp_messages::{HashedLaneId, LaneIdType};
+	use bp_messages::LegacyLaneId;
 	use bridge_common_config::BridgeGrandpaRococoBulletinInstance;
-	use bridge_hub_rococo_runtime::bridge_common_config::RelayersForPermissionlessLanesInstance;
+	use bridge_hub_rococo_runtime::{
+		bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance,
+		xcm_config::LocationToAccountId,
+	};
 	use bridge_hub_test_utils::test_cases::from_grandpa_chain;
 	use bridge_to_bulletin_config::{
 		RococoBulletinGlobalConsensusNetwork, RococoBulletinGlobalConsensusNetworkLocation,
@@ -520,7 +528,7 @@ mod bridge_hub_bulletin_tests {
 		AllPalletsWithoutSystem,
 		BridgeGrandpaRococoBulletinInstance,
 		WithRococoBulletinMessagesInstance,
-		RelayersForPermissionlessLanesInstance,
+		RelayersForLegacyLaneIdsMessagesInstance,
 	>;
 
 	#[test]
@@ -586,11 +594,12 @@ mod bridge_hub_bulletin_tests {
 				>(
 					SiblingPeopleParachainLocation::get(),
 					BridgedBulletinLocation::get(),
-					|locations, fee| {
+					false,
+					|locations, _fee| {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime,
 							XcmOverPolkadotBulletinInstance
-						>(locations, fee, HashedLaneId::try_new(1, 2).unwrap())
+						>(locations, LegacyLaneId([0, 0, 0, 0]))
 					}
 				).1
 			},
@@ -638,7 +647,7 @@ mod bridge_hub_bulletin_tests {
 			slot_durations(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			SIBLING_PEOPLE_PARACHAIN_ID,
-			Rococo,
+			ByGenesis(ROCOCO_GENESIS_HASH),
 			|| {
 				// we need to create lane between RococoPeople and RococoBulletin
 				bridge_hub_test_utils::ensure_opened_bridge::<
@@ -649,11 +658,12 @@ mod bridge_hub_bulletin_tests {
 				>(
 					SiblingPeopleParachainLocation::get(),
 					BridgedBulletinLocation::get(),
-					|locations, fee| {
+					false,
+					|locations, _fee| {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime,
 							XcmOverPolkadotBulletinInstance,
-						>(locations, fee, HashedLaneId::try_new(1, 2).unwrap())
+						>(locations, LegacyLaneId([0, 0, 0, 0]))
 					},
 				)
 				.1
@@ -671,7 +681,7 @@ mod bridge_hub_bulletin_tests {
 			slot_durations(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			SIBLING_PEOPLE_PARACHAIN_ID,
-			Rococo,
+			ByGenesis(ROCOCO_GENESIS_HASH),
 			|| {
 				// we need to create lane between RococoPeople and RococoBulletin
 				bridge_hub_test_utils::ensure_opened_bridge::<
@@ -682,11 +692,12 @@ mod bridge_hub_bulletin_tests {
 				>(
 					SiblingPeopleParachainLocation::get(),
 					BridgedBulletinLocation::get(),
-					|locations, fee| {
+					false,
+					|locations, _fee| {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime,
 							XcmOverPolkadotBulletinInstance,
-						>(locations, fee, HashedLaneId::try_new(1, 2).unwrap())
+						>(locations, LegacyLaneId([0, 0, 0, 0]))
 					},
 				)
 				.1
@@ -818,11 +829,22 @@ fn location_conversion_works() {
 		let expected =
 			AccountId::from_string(tc.expected_account_id_str).expect("Invalid AccountId string");
 
-		let got = LocationToAccountHelper::<AccountId, LocationToAccountId>::convert_location(
-			tc.location.into(),
-		)
+		let got = LocationToAccountHelper::<
+			AccountId,
+			bridge_hub_rococo_runtime::xcm_config::LocationToAccountId,
+		>::convert_location(tc.location.into())
 		.unwrap();
 
 		assert_eq!(got, expected, "{}", tc.description);
 	}
+}
+
+#[test]
+fn xcm_payment_api_works() {
+	parachains_runtimes_test_utils::test_cases::xcm_payment_api_with_native_token_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		Block,
+	>();
 }
