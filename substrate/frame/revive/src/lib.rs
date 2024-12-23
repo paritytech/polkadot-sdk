@@ -1567,8 +1567,6 @@ sp_api::decl_runtime_apis! {
 			key: [u8; 32],
 		) -> GetStorageResult;
 
-
-
 		/// Replay the transaction with the given hash, and return the trace.
 		fn trace_tx(
 			tx: H256
