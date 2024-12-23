@@ -12,13 +12,13 @@ anyhow = { workspace = true }
 codec = { workspace = true, features = ["derive"] }
 env_logger = { workspace = true }
 log = { workspace = true }
+polkadot-primitives = { workspace = true, default-features = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 subxt = { workspace = true, features = ["substrate-compat"] }
 subxt-signer = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 zombienet-sdk = { workspace = true }
-polkadot-primitives = { workspace = true, default-features = true }
 
 [features]
 zombie-metadata = []
