@@ -50,6 +50,7 @@ mod imports {
 			AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},
 		bridge_hub_rococo_emulated_chain::{
+			bridge_hub_rococo_runtime::bridge_to_ethereum_config::EthereumGatewayAddress,
 			genesis::ED as BRIDGE_HUB_ROCOCO_ED, BridgeHubRococoExistentialDeposit,
 			BridgeHubRococoParaPallet as BridgeHubRococoPallet, BridgeHubRococoRuntimeOrigin,
 			BridgeHubRococoXcmConfig, EthereumBeaconClient, EthereumInboundQueue,
