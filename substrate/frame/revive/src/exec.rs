@@ -1091,11 +1091,11 @@ where
 			}
 
 			let contract_address = T::AddressMapper::to_address(&top_frame!(self).account_id);
-			let caller_address = T::AddressMapper::to_address(self.caller().account_id()?);
+			let maybe_caller_address = self.caller().account_id().map(T::AddressMapper::to_address);
 
 			<Tracer as Tracing<T>>::enter_child_span(
 				self.tracer,
-				&caller_address,
+				&maybe_caller_address.unwrap_or_default(),
 				&contract_address,
 				is_delegate_call,
 				read_only,
@@ -1146,7 +1146,7 @@ where
 
 					// Deposit an instantiation event.
 					Contracts::<T>::deposit_event(Event::Instantiated {
-						deployer: caller_address,
+						deployer: maybe_caller_address?,
 						contract: account_id,
 					});
 				},
