@@ -234,7 +234,9 @@ pub mod prelude {
 
 	/// Other runtime types and traits
 	#[doc(no_inline)]
-	pub use sp_runtime::{DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError, BoundToRuntimeAppPublic};
+	pub use sp_runtime::{
+		BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
+	};
 }
 
 #[cfg(any(feature = "try-runtime", test))]
