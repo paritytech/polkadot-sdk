@@ -1,0 +1,11 @@
+error[E0631]: type mismatch in closure arguments
+  --> tests/pallet_ui/authorize_wrong_closure_2.rs:36:23
+   |
+36 |         #[pallet::authorize(|_, _: u8| -> bool { true })]
+   |                             ^-----------------
+   |                             |
+   |                             expected due to this
+   |                             found signature defined here
+   |
+   = note: expected closure signature `for<'a> fn(TransactionSource, &'a u32) -> _`
+              found closure signature `fn(TransactionSource, u8) -> _`

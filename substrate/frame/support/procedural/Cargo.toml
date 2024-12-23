@@ -49,11 +49,13 @@ sp-runtime = { features = [
 	"serde",
 ], workspace = true }
 static_assertions = { workspace = true }
+frame-benchmarking = { workspace = true }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
+	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
 	"scale-info/std",
