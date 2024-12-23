@@ -18,10 +18,7 @@
 //! operations used in parachain consensus/authoring.
 
 use cumulus_client_network::WaitToAnnounce;
-use cumulus_primitives_core::{
-	relay_chain::vstaging::UMP_SEPARATOR, CollationInfo, CollectCollationInfo, GetCoreSelectorApi,
-	ParachainBlockData,
-};
+use cumulus_primitives_core::{CollationInfo, CollectCollationInfo, ParachainBlockData};
 
 use sc_client_api::BlockBackend;
 use sp_api::{ApiExt, ProvideRuntimeApi};
@@ -236,7 +233,7 @@ where
 		};
 
 		// Create the parachain block data for the validators.
-		let mut collation_info = self
+		let collation_info = self
 			.fetch_collation_info(block_hash, &header)
 			.map_err(|e| {
 				tracing::error!(
