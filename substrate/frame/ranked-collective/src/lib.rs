@@ -195,16 +195,18 @@ impl MemberRecord {
 #[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum VoteRecord {
 	/// Vote was an aye with given vote weight.
-	Aye(Votes),
+	Aye(Option<Votes>),
 	/// Vote was a nay with given vote weight.
-	Nay(Votes),
+	Nay(Option<Votes>),
 }
 
-impl From<(bool, Votes)> for VoteRecord {
-	fn from((aye, votes): (bool, Votes)) -> Self {
-		match aye {
-			true => VoteRecord::Aye(votes),
-			false => VoteRecord::Nay(votes),
+impl From<(bool, Option<Votes>)> for VoteRecord {
+	fn from((aye, votes): (bool, Option<Votes>)) -> Self {
+		match (aye, votes) {
+			(true, Some(votes)) => VoteRecord::Aye(Some(votes)),
+			(true, None) => VoteRecord::Aye(None),
+			(false, Some(votes)) => VoteRecord::Nay(Some(votes)),
+			(false, None) => VoteRecord::Nay(None),
 		}
 	}
 }
@@ -631,29 +633,26 @@ pub mod pallet {
 							Err(Error::<T, I>::NotPolling)?,
 						PollStatus::Ongoing(ref mut tally, class) => {
 							match Voting::<T, I>::get(&poll, &who) {
-								Some(Aye(votes)) => {
-									if votes > 0 {
+								Some(Aye(Some(votes))) => {
 										tally.bare_ayes.saturating_dec();
 										tally.ayes.saturating_reduce(votes);
-									} else {
-										tally.out_of_rank_ayes.saturating_dec();
 									}
-									
+								Some(Aye(None)) => {
+									tally.out_of_rank_ayes.saturating_dec();
 								},
-								Some(Nay(votes)) => {
-									if votes > 0 {
+								Some(Nay(Some(votes))) => {
 										tally.nays.saturating_reduce(votes)
-									} else {
-										tally.out_of_rank_nays.saturating_dec();
-									}
+									},
+								Some(Nay(None)) => {
+									tally.out_of_rank_nays.saturating_dec();
 								},
 								None => pays = Pays::No,
 							}
 							let min_rank = T::MinRankOfClass::convert(class);
-							let votes = Self::rank_to_votes(record.rank, min_rank).unwrap_or(0);
+							let votes = Self::rank_to_votes(record.rank, min_rank);
 							let vote = VoteRecord::from((aye, votes));
 							match votes {
-								0 => {
+								None => {
 									match aye {
 										true => {
 											tally.out_of_rank_ayes.saturating_inc();
@@ -663,7 +662,7 @@ pub mod pallet {
 										},
 									}
 								},
-								_ => {
+								Some(votes) => {
 									match aye {
 										true => {
 											tally.bare_ayes.saturating_inc();
