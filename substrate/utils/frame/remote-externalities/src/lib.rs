@@ -21,6 +21,7 @@
 //! based chain, or a local state snapshot file.
 
 use codec::{Compact, Decode, Encode};
+use futures::{pin_mut, Stream, StreamExt};
 use indicatif::{ProgressBar, ProgressStyle};
 use jsonrpsee::{core::params::ArrayParams, http_client::HttpClient};
 use log::*;
@@ -36,7 +37,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, HashingFor},
 	StateVersion,
 };
-use sp_state_machine::TestExternalities;
+use sp_state_machine::{OverlayedChanges, TestExternalities};
 use spinners::{Spinner, Spinners};
 use std::{
 	cmp::{max, min},
@@ -46,6 +47,9 @@ use std::{
 	sync::Arc,
 	time::{Duration, Instant},
 };
+use async_stream::stream;
+use tokio::task;
+use tokio::task::JoinHandle;
 use substrate_rpc_client::{rpc_params, BatchRequestBuilder, ChainApi, ClientT, StateApi};
 use tokio_retry::{strategy::FixedInterval, Retry};
 
@@ -401,86 +405,104 @@ where
 			})
 	}
 
-	/// Get keys with `prefix` at `block` in a parallel manner.
-	async fn rpc_get_keys_parallel(
-		&self,
-		prefix: &StorageKey,
+	/// Get keys and values with `prefix` at `block` using a stream.
+	async fn rpc_get_keys_and_values<'a>(
+		&'a self,
+		prefix: &'a StorageKey,
 		block: B::Hash,
-		parallel: usize,
-	) -> Result<Vec<StorageKey>, &'static str> {
-		/// Divide the workload and return the start key of each chunks. Guaranteed to return a
-		/// non-empty list.
+	) -> impl Stream<Item = Vec<KeyValue>> + 'a {
 		fn gen_start_keys(prefix: &StorageKey) -> Vec<StorageKey> {
 			let mut prefix = prefix.as_ref().to_vec();
 			let scale = 32usize.saturating_sub(prefix.len());
 
-			// no need to divide workload
-			if scale < 9 {
-				prefix.extend(vec![0; scale]);
-				return vec![StorageKey(prefix)]
+			if prefix.len() == 32 {
+				return vec![StorageKey(prefix)];
 			}
 
-			let chunks = 16;
-			let step = 0x10000 / chunks;
-			let ext = scale - 2;
-
-			(0..chunks)
-				.map(|i| {
-					let mut key = prefix.clone();
-					let start = i * step;
-					key.extend(vec![(start >> 8) as u8, (start & 0xff) as u8]);
-					key.extend(vec![0; ext]);
-					StorageKey(key)
-				})
-				.collect()
+			prefix.extend(vec![0; scale]);
+			vec![StorageKey(prefix)]
 		}
 
-		let start_keys = gen_start_keys(&prefix);
-		let start_keys: Vec<Option<&StorageKey>> = start_keys.iter().map(Some).collect();
-		let mut end_keys: Vec<Option<&StorageKey>> = start_keys[1..].to_vec();
-		end_keys.push(None);
+		async_stream::stream! {
+			let start_keys = gen_start_keys(&prefix);
+			let binding = start_keys.clone();
 
-		// use a semaphore to limit max scraping tasks
-		let parallel = Arc::new(tokio::sync::Semaphore::new(parallel));
-		let builder = Arc::new(self.clone());
-		let mut handles = vec![];
+			let start_keys: Vec<Option<&StorageKey>> = binding.iter().map(Some).collect();
+			let mut end_keys: Vec<Option<&StorageKey>> = start_keys[1..].to_vec();
+			end_keys.push(None);
 
-		for (start_key, end_key) in start_keys.into_iter().zip(end_keys) {
-			let permit = parallel
-				.clone()
-				.acquire_owned()
-				.await
-				.expect("semaphore is not closed until the end of loop");
+			let builder = Arc::new(self.clone());
 
-			let builder = builder.clone();
 			let prefix = prefix.clone();
-			let start_key = start_key.cloned();
-			let end_key = end_key.cloned();
+			let end_keys = end_keys.clone();
+			for (start_key, end_key) in start_keys.into_iter().zip(end_keys.clone()) {
+				let start_key = start_key.cloned();
+				let end_key = end_key.cloned();
 
-			let handle = tokio::spawn(async move {
+
 				let res = builder
 					.rpc_get_keys_in_range(&prefix, block, start_key.as_ref(), end_key.as_ref())
 					.await;
-				drop(permit);
-				res
-			});
 
-			handles.push(handle);
+				let keys = res.unwrap_or_default();
+
+				if keys.is_empty() {
+					yield vec![]
+				}
+
+				let client = self.as_online().rpc_client();
+				let payloads = keys
+							.iter()
+							.map(|key| ("state_getStorage".to_string(), rpc_params!(key, block)))
+							.collect::<Vec<_>>();
+
+				let bar = ProgressBar::new(payloads.len() as u64);
+				bar.enable_steady_tick(Duration::from_secs(1));
+				bar.set_message("Downloading key values".to_string());
+				bar.set_style(
+					ProgressStyle::with_template(
+						"[{elapsed_precise}] {msg} {per_sec} [{wide_bar}] {pos}/{len} ({eta})",
+					)
+					.unwrap()
+					.progress_chars("=>-"),
+				);
+				let payloads_chunked =
+				payloads.chunks((payloads.len() / Self::PARALLEL_REQUESTS).max(1));
+				let requests = payloads_chunked.map(|payload_chunk| {
+					Self::get_storage_data_dynamic_batch_size(client, payload_chunk.to_vec(), &bar)
+				});
+				// Execute the requests and move the Result outside.
+				let storage_data_result: Result<Vec<_>, _> =
+				futures::future::join_all(requests).await.into_iter().collect();
+
+				// Handle the Result.
+				let storage_data = match storage_data_result.clone() {
+					Ok(storage_data) => storage_data.clone().into_iter().flatten().collect::<Vec<_>>(),
+					Err(e) => {
+						log::error!(target: LOG_TARGET, "Error while getting storage data: {}", e);
+						vec![]
+					},
+				};
+				bar.finish_with_message("✅ Downloaded key values");
+
+				// Check if we got responses for all submitted requests.
+				assert_eq!(keys.len(), storage_data.len());
+
+				let key_values = keys.clone()
+					.iter()
+					.zip(storage_data)
+					.map(|(key, maybe_value)| match maybe_value.clone() {
+						Some(data) => (key.clone(), data),
+						None => {
+							log::warn!(target: LOG_TARGET, "key {:?} had none corresponding value.", &key);
+							let data = StorageData(vec![]);
+							(key.clone(), data)
+						},
+					}).collect::<Vec<_>>();
+
+				yield key_values;
+			}
 		}
-
-		parallel.close();
-
-		let keys = futures::future::join_all(handles)
-			.await
-			.into_iter()
-			.filter_map(|res| match res {
-				Ok(Ok(keys)) => Some(keys),
-				_ => None,
-			})
-			.flatten()
-			.collect::<Vec<StorageKey>>();
-
-		Ok(keys)
 	}
 
 	/// Get all keys with `prefix` within the given range at `block`.
@@ -691,88 +713,76 @@ where
 		pending_ext: &mut TestExternalities<HashingFor<B>>,
 	) -> Result<Vec<KeyValue>, &'static str> {
 		let start = Instant::now();
-		let mut sp = Spinner::with_timer(Spinners::Dots, "Scraping keys...".into());
+		//let mut sp = Spinner::with_timer(Spinners::Dots, "Scraping keys...".into());
+
+		let mut vec_keys_values = vec![];
 		// TODO We could start downloading when having collected the first batch of keys
 		// https://github.com/paritytech/polkadot-sdk/issues/2494
-		let keys = self
-			.rpc_get_keys_parallel(&prefix, at, Self::PARALLEL_REQUESTS)
-			.await?
-			.into_iter()
-			.collect::<Vec<_>>();
-		sp.stop_with_message(format!(
-			"✅ Found {} keys ({:.2}s)",
-			keys.len(),
-			start.elapsed().as_secs_f32()
-		));
-		if keys.is_empty() {
-			return Ok(Default::default())
+		let keys_values_stream = self.rpc_get_keys_and_values(&prefix, at).await;
+
+		pin_mut!(keys_values_stream);
+
+		let mut tasks = vec![];
+
+		while let Some(keys_values) = keys_values_stream.next().await {
+			println!("processing batching of key values");
+			/*sp.stop_with_message(format!(
+				"✅ Found {} keys ({:.2}s)",
+				keys_values.len(),
+				start.elapsed().as_secs_f32()
+			));*/
+
+
+			let keys_values_clone = keys_values.clone();
+
+			let task = task::spawn(async move {
+				let mut pending_ext_clone = sp_io::TestExternalities::new(Default::default());
+
+				pending_ext_clone.batch_insert(keys_values_clone.into_iter().filter_map(|(k, v)| {
+					// Don't insert the child keys here, they need to be inserted separately with all
+					// their data in the load_child_remote function.
+					match is_default_child_storage_key(&k.0) {
+						true => None,
+						false => Some((k.0, v.0)),
+					}
+				}));
+				/*sp.stop_with_message(format!(
+					"✅ Inserted keys into DB ({:.2}s)",
+					start.elapsed().as_secs_f32()
+				));*/
+			});
+
+			tasks.push(task);
+
+			vec_keys_values.push(keys_values);
 		}
+		println!("vec_keys_values length is {:?}", vec_keys_values.len());
+		/*println!("tasks length is {:?}", tasks.len());
+		// Await all spawned tasks to complete
+		for task in tasks {
+			task.await.map_err(|_| "Task failed")?;
+		}*/
 
-		let client = self.as_online().rpc_client();
-		let payloads = keys
-			.iter()
-			.map(|key| ("state_getStorage".to_string(), rpc_params!(key, at)))
-			.collect::<Vec<_>>();
 
-		let bar = ProgressBar::new(payloads.len() as u64);
-		bar.enable_steady_tick(Duration::from_secs(1));
-		bar.set_message("Downloading key values".to_string());
-		bar.set_style(
-			ProgressStyle::with_template(
-				"[{elapsed_precise}] {msg} {per_sec} [{wide_bar}] {pos}/{len} ({eta})",
-			)
-			.unwrap()
-			.progress_chars("=>-"),
-		);
-		let payloads_chunked = payloads.chunks((payloads.len() / Self::PARALLEL_REQUESTS).max(1));
-		let requests = payloads_chunked.map(|payload_chunk| {
-			Self::get_storage_data_dynamic_batch_size(client, payload_chunk.to_vec(), &bar)
-		});
-		// Execute the requests and move the Result outside.
-		let storage_data_result: Result<Vec<_>, _> =
-			futures::future::join_all(requests).await.into_iter().collect();
-		// Handle the Result.
-		let storage_data = match storage_data_result {
-			Ok(storage_data) => storage_data.into_iter().flatten().collect::<Vec<_>>(),
-			Err(e) => {
-				log::error!(target: LOG_TARGET, "Error while getting storage data: {}", e);
-				return Err("Error while getting storage data")
-			},
-		};
-		bar.finish_with_message("✅ Downloaded key values");
-		println!();
+		/*pending_ext.batch_insert(keys_values.clone().into_iter().filter_map(|(k, v)| {
+				// Don't insert the child keys here, they need to be inserted seperately with all
+				// their data in the load_child_remote function.
+				match is_default_child_storage_key(&k.0) {
+					true => None,
+					false => Some((k.0, v.0)),
+				}
+			}));
 
-		// Check if we got responses for all submitted requests.
-		assert_eq!(keys.len(), storage_data.len());
+			sp.stop_with_message(format!(
+				"✅ Inserted keys into DB ({:.2}s)",
+				start.elapsed().as_secs_f32()
+			));
 
-		let key_values = keys
-			.iter()
-			.zip(storage_data)
-			.map(|(key, maybe_value)| match maybe_value {
-				Some(data) => (key.clone(), data),
-				None => {
-					log::warn!(target: LOG_TARGET, "key {:?} had none corresponding value.", &key);
-					let data = StorageData(vec![]);
-					(key.clone(), data)
-				},
-			})
-			.collect::<Vec<_>>();
+			vec_keys_values.push(keys_values);
+		}*/
 
-		let mut sp = Spinner::with_timer(Spinners::Dots, "Inserting keys into DB...".into());
-		let start = Instant::now();
-		pending_ext.batch_insert(key_values.clone().into_iter().filter_map(|(k, v)| {
-			// Don't insert the child keys here, they need to be inserted separately with all their
-			// data in the load_child_remote function.
-			match is_default_child_storage_key(&k.0) {
-				true => None,
-				false => Some((k.0, v.0)),
-			}
-		}));
-		sp.stop_with_message(format!(
-			"✅ Inserted keys into DB ({:.2}s)",
-			start.elapsed().as_secs_f32()
-		));
-		Ok(key_values)
+		let result: Vec<KeyValue> = vec_keys_values.into_iter().flatten().collect();
+		Ok(result)
 	}
 
 	/// Get the values corresponding to `child_keys` at the given `prefixed_top_key`.
@@ -1588,8 +1598,8 @@ mod remote_tests {
 			.execute_with(|| {});
 	}
 
-	#[tokio::test]
-	async fn can_fetch_in_parallel() {
+	/*#[tokio::test]
+	async fn can_fetch_keys_and_values() {
 		init_logger();
 
 		let mut builder = Builder::<Block>::new().mode(Mode::Online(OnlineConfig {
@@ -1599,15 +1609,36 @@ mod remote_tests {
 		builder.init_remote_client().await.unwrap();
 
 		let at = builder.as_online().at.unwrap();
-
-		let prefix = StorageKey(vec![13]);
-		let paged = builder.rpc_get_keys_in_range(&prefix, at, None, None).await.unwrap();
-		let para = builder.rpc_get_keys_parallel(&prefix, at, 4).await.unwrap();
-		assert_eq!(paged, para);
-
 		let prefix = StorageKey(vec![]);
-		let paged = builder.rpc_get_keys_in_range(&prefix, at, None, None).await.unwrap();
-		let para = builder.rpc_get_keys_parallel(&prefix, at, 8).await.unwrap();
-		assert_eq!(paged, para);
+		let keys_values_stream = builder.rpc_get_keys_and_values(&prefix, at).await;
+
+		pin_mut!(keys_values_stream);
+
+		while let Some(keys_values) = keys_values_stream.next().await {
+			assert!(keys_values.len() > 0);
+		}
+	}*/
+
+	#[tokio::test]
+	async fn can_fetch_keys_and_values() {
+		init_logger();
+
+		let mut builder = Builder::<Block>::new().mode(Mode::Online(OnlineConfig {
+			transport: endpoint().clone().into(),
+			..Default::default()
+		}));
+		builder.init_remote_client().await.unwrap();
+
+		let mut pending_ext = TestExternalities::new_with_code_and_state(
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		);
+
+
+		let at = builder.as_online().at.unwrap();
+		let prefix = StorageKey(vec![]);
+		let keys_values_stream = builder.rpc_get_pairs(prefix, at, &mut pending_ext).await;
+
 	}
 }
