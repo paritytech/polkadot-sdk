@@ -287,7 +287,7 @@ impl<T: Config> WasmBlob<T> {
 		}
 		let engine = polkavm::Engine::new(&config).expect(
 			"on-chain (no_std) use of interpreter is hard coded.
-				interpreter is available on all plattforms; qed",
+				interpreter is available on all platforms; qed",
 		);
 
 		let mut module_config = polkavm::ModuleConfig::new();

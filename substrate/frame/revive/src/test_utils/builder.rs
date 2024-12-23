@@ -17,9 +17,10 @@
 
 use super::{deposit_limit, GAS_LIMIT};
 use crate::{
-	address::AddressMapper, AccountIdOf, BalanceOf, Code, CollectEvents, Config, ContractResult,
-	DebugInfo, DepositLimit, EventRecordOf, ExecReturnValue, InstantiateReturnValue, OriginFor,
-	Pallet, Weight,
+	address::AddressMapper,
+	debug::{CallTracer, Tracer},
+	AccountIdOf, BalanceOf, Code, Config, ContractResult, DepositLimit, ExecReturnValue,
+	InstantiateReturnValue, OriginFor, Pallet, Weight,
 };
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
 use paste::paste;
@@ -138,9 +139,8 @@ builder!(
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
-		debug: DebugInfo,
-		collect_events: CollectEvents,
-	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>, EventRecordOf<T>>;
+		tracer: Tracer,
+	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>>;
 
 	/// Build the instantiate call and unwrap the result.
 	pub fn build_and_unwrap_result(self) -> InstantiateReturnValue {
@@ -164,8 +164,7 @@ builder!(
 			code,
 			data: vec![],
 			salt: Some([0; 32]),
-			debug: DebugInfo::UnsafeDebug,
-			collect_events: CollectEvents::Skip,
+			tracer: Tracer::CallTracer(CallTracer::default()),
 		}
 	}
 );
@@ -201,9 +200,8 @@ builder!(
 		gas_limit: Weight,
 		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		data: Vec<u8>,
-		debug: DebugInfo,
-		collect_events: CollectEvents,
-	) -> ContractResult<ExecReturnValue, BalanceOf<T>, EventRecordOf<T>>;
+		tracer: Tracer,
+	) -> ContractResult<ExecReturnValue, BalanceOf<T>>;
 
 	/// Build the call and unwrap the result.
 	pub fn build_and_unwrap_result(self) -> ExecReturnValue {
@@ -219,8 +217,7 @@ builder!(
 			gas_limit: GAS_LIMIT,
 			storage_deposit_limit: DepositLimit::Balance(deposit_limit::<T>()),
 			data: vec![],
-			debug: DebugInfo::UnsafeDebug,
-			collect_events: CollectEvents::Skip,
+			tracer: Tracer::CallTracer(CallTracer::default()),
 		}
 	}
 );

@@ -495,12 +495,16 @@ mod test {
 		}
 
 		fn estimate_gas(&mut self) {
-			let dry_run =
-				crate::Pallet::<Test>::bare_eth_transact(self.tx.clone(), Weight::MAX, |call| {
+			let dry_run = crate::Pallet::<Test>::bare_eth_transact(
+				self.tx.clone(),
+				Weight::MAX,
+				|call| {
 					let call = RuntimeCall::Contracts(call);
 					let uxt: Ex = sp_runtime::generic::UncheckedExtrinsic::new_bare(call).into();
 					uxt.encoded_size() as u32
-				});
+				},
+				crate::debug::Tracer::Disabled,
+			);
 
 			match dry_run {
 				Ok(dry_run) => {

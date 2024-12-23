@@ -1,7 +1,7 @@
 import { spawnSync } from 'bun'
 import { resolve } from 'path'
 import { readFileSync } from 'fs'
-import { createWalletClient, defineChain, Hex, http, publicActions } from 'viem'
+import { createClient, createWalletClient, defineChain, type Hex, http, publicActions } from 'viem'
 import { privateKeyToAccount, nonceManager } from 'viem/accounts'
 
 export function getByteCode(name: string, evm: boolean = false): Hex {
@@ -85,8 +85,23 @@ export async function createEnv(name: 'geth' | 'kitchensink') {
 		chain,
 	}).extend(publicActions)
 
-	return { serverWallet, accountWallet, evm: name == 'geth' }
+	const debugClient = createClient({
+		chain,
+		transport,
+	}).extend((client) => ({
+		async traceTransaction(txHash: Hex) {
+			return client.request({
+				method: 'debug_traceTransaction' as any,
+				params: [txHash, { tracer: 'callTracer' } as any],
+			})
+		},
+		// ...
+	}))
+
+	return { debugClient, serverWallet, accountWallet, evm: name == 'geth' }
 }
+
+export type Env = Awaited<ReturnType<typeof createEnv>>
 
 export function wait(ms: number) {
 	return new Promise((resolve) => setTimeout(resolve, ms))

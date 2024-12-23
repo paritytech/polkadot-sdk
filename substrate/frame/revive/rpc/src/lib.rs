@@ -44,8 +44,8 @@ pub use receipt_provider::*;
 mod rpc_health;
 pub use rpc_health::*;
 
-mod rpc_methods_gen;
-pub use rpc_methods_gen::*;
+mod apis;
+pub use apis::*;
 
 pub const LOG_TARGET: &str = "eth-rpc";
 
