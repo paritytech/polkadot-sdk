@@ -8,16 +8,16 @@ license.workspace = true
 publish = false
 
 [dependencies]
+anyhow = { workspace = true }
+codec = { workspace = true, features = ["derive"] }
 env_logger = { workspace = true }
 log = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 subxt = { workspace = true, features = ["substrate-compat"] }
 subxt-signer = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
-anyhow = { workspace = true }
 zombienet-sdk = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-codec = { workspace = true, features = ["derive"] }
 polkadot-primitives = { workspace = true, default-features = true }
 
 [features]
