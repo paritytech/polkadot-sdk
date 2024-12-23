@@ -498,6 +498,21 @@ impl<T: Config> FindAuthor<u32> for Pallet<T> {
 
 		None
 	}
+
+	fn has_authorities_change<'a, I>(digests: I) -> bool
+	where
+		I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])> + Clone,
+	{
+		for (id, mut data) in digests {
+			if id == BABE_ENGINE_ID {
+				if let Ok(ConsensusLog::NextEpochData(_)) = ConsensusLog::decode(&mut data) {
+					return true;
+				}
+			}
+		}
+
+		false
+	}
 }
 
 impl<T: Config> IsMember<AuthorityId> for Pallet<T> {
