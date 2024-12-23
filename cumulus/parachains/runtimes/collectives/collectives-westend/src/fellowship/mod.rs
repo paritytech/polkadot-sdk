@@ -23,7 +23,7 @@ use crate::{
 	xcm_config::{FellowshipAdminBodyId, LocationToAccountId, TreasurerBodyId, UsdtAssetHub},
 	AccountId, AssetRate, Balance, Balances, FellowshipReferenda, GovernanceLocation,
 	ParachainInfo, Preimage, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler,
-	WestendTreasuryAccount, DAYS,
+	WestendTreasuryAccount, DAYS, System,
 };
 use cumulus_primitives_core::ParaId;
 use frame_support::{
@@ -257,6 +257,8 @@ impl pallet_salary::Config<FellowshipSalaryInstance> for Runtime {
 	type PayoutPeriod = ConstU32<{ 15 * DAYS }>;
 	// Total monthly salary budget.
 	type Budget = ConstU128<{ 100_000 * USDT_UNITS }>;
+
+	type BlockNumberProvider = System;
 }
 
 parameter_types! {
