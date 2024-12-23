@@ -25,7 +25,7 @@ use either::Either;
 use fnv::FnvHashMap;
 use futures::prelude::*;
 use libp2p::{
-	core::{ConnectedPoint, Endpoint},
+	core::{transport::PortUse, ConnectedPoint, Endpoint},
 	identify::{
 		Behaviour as Identify, Config as IdentifyConfig, Event as IdentifyEvent,
 		Info as IdentifyInfo,
@@ -38,8 +38,8 @@ use libp2p::{
 			ExternalAddrConfirmed, FromSwarm, ListenFailure,
 		},
 		ConnectionDenied, ConnectionHandler, ConnectionHandlerSelect, ConnectionId,
-		NetworkBehaviour, NewExternalAddrCandidate, PollParameters, THandler, THandlerInEvent,
-		THandlerOutEvent, ToSwarm,
+		NetworkBehaviour, NewExternalAddrCandidate, THandler, THandlerInEvent, THandlerOutEvent,
+		ToSwarm,
 	},
 	Multiaddr, PeerId,
 };
@@ -280,23 +280,26 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 		peer: PeerId,
 		addr: &Multiaddr,
 		role_override: Endpoint,
+		port_use: PortUse,
 	) -> Result<THandler<Self>, ConnectionDenied> {
 		let ping_handler = self.ping.handle_established_outbound_connection(
 			connection_id,
 			peer,
 			addr,
 			role_override,
+			port_use,
 		)?;
 		let identify_handler = self.identify.handle_established_outbound_connection(
 			connection_id,
 			peer,
 			addr,
 			role_override,
+			port_use,
 		)?;
 		Ok(ping_handler.select(identify_handler))
 	}
 
-	fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {
+	fn on_swarm_event(&mut self, event: FromSwarm) {
 		match event {
 			FromSwarm::ConnectionEstablished(
 				e @ ConnectionEstablished { peer_id, endpoint, .. },
@@ -324,22 +327,21 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 				peer_id,
 				connection_id,
 				endpoint,
-				handler,
+				cause,
 				remaining_established,
 			}) => {
-				let (ping_handler, identity_handler) = handler.into_inner();
 				self.ping.on_swarm_event(FromSwarm::ConnectionClosed(ConnectionClosed {
 					peer_id,
 					connection_id,
 					endpoint,
-					handler: ping_handler,
+					cause,
 					remaining_established,
 				}));
 				self.identify.on_swarm_event(FromSwarm::ConnectionClosed(ConnectionClosed {
 					peer_id,
 					connection_id,
 					endpoint,
-					handler: identity_handler,
+					cause,
 					remaining_established,
 				}));
 
@@ -374,18 +376,21 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 				send_back_addr,
 				error,
 				connection_id,
+				peer_id,
 			}) => {
 				self.ping.on_swarm_event(FromSwarm::ListenFailure(ListenFailure {
 					local_addr,
 					send_back_addr,
 					error,
 					connection_id,
+					peer_id,
 				}));
 				self.identify.on_swarm_event(FromSwarm::ListenFailure(ListenFailure {
 					local_addr,
 					send_back_addr,
 					error,
 					connection_id,
+					peer_id,
 				}));
 			},
 			FromSwarm::ListenerError(e) => {
@@ -449,6 +454,11 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 				self.ping.on_swarm_event(FromSwarm::NewListenAddr(e));
 				self.identify.on_swarm_event(FromSwarm::NewListenAddr(e));
 			},
+			event => {
+				debug!(target: "sub-libp2p", "New unknown `FromSwarm` libp2p event: {event:?}");
+				self.ping.on_swarm_event(event);
+				self.identify.on_swarm_event(event);
+			},
 		}
 	}
 
@@ -466,47 +476,29 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 		}
 	}
 
-	fn poll(
-		&mut self,
-		cx: &mut Context,
-		params: &mut impl PollParameters,
-	) -> Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
+	fn poll(&mut self, cx: &mut Context) -> Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
 		if let Some(event) = self.pending_actions.pop_front() {
 			return Poll::Ready(event)
 		}
 
 		loop {
-			match self.ping.poll(cx, params) {
+			match self.ping.poll(cx) {
 				Poll::Pending => break,
 				Poll::Ready(ToSwarm::GenerateEvent(ev)) => {
 					if let PingEvent { peer, result: Ok(rtt), connection } = ev {
 						self.handle_ping_report(&peer, rtt, connection)
 					}
 				},
-				Poll::Ready(ToSwarm::Dial { opts }) => return Poll::Ready(ToSwarm::Dial { opts }),
-				Poll::Ready(ToSwarm::NotifyHandler { peer_id, handler, event }) =>
-					return Poll::Ready(ToSwarm::NotifyHandler {
-						peer_id,
-						handler,
-						event: Either::Left(event),
-					}),
-				Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }) =>
-					return Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }),
-				Poll::Ready(ToSwarm::NewExternalAddrCandidate(observed)) =>
-					return Poll::Ready(ToSwarm::NewExternalAddrCandidate(observed)),
-				Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr)) =>
-					return Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr)),
-				Poll::Ready(ToSwarm::ExternalAddrExpired(addr)) =>
-					return Poll::Ready(ToSwarm::ExternalAddrExpired(addr)),
-				Poll::Ready(ToSwarm::ListenOn { opts }) =>
-					return Poll::Ready(ToSwarm::ListenOn { opts }),
-				Poll::Ready(ToSwarm::RemoveListener { id }) =>
-					return Poll::Ready(ToSwarm::RemoveListener { id }),
+				Poll::Ready(event) => {
+					return Poll::Ready(event.map_in(Either::Left).map_out(|_| {
+						unreachable!("`GenerateEvent` is handled in a branch above; qed")
+					}));
+				},
 			}
 		}
 
 		loop {
-			match self.identify.poll(cx, params) {
+			match self.identify.poll(cx) {
 				Poll::Pending => break,
 				Poll::Ready(ToSwarm::GenerateEvent(event)) => match event {
 					IdentifyEvent::Received { peer_id, info, .. } => {
@@ -514,31 +506,20 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 						let event = PeerInfoEvent::Identified { peer_id, info };
 						return Poll::Ready(ToSwarm::GenerateEvent(event))
 					},
-					IdentifyEvent::Error { peer_id, error } => {
-						debug!(target: "sub-libp2p", "Identification with peer {:?} failed => {}", peer_id, error)
+					IdentifyEvent::Error { connection_id, peer_id, error } => {
+						debug!(
+							target: "sub-libp2p",
+							"Identification with peer {peer_id:?}({connection_id}) failed => {error}"
+						);
 					},
 					IdentifyEvent::Pushed { .. } => {},
 					IdentifyEvent::Sent { .. } => {},
 				},
-				Poll::Ready(ToSwarm::Dial { opts }) => return Poll::Ready(ToSwarm::Dial { opts }),
-				Poll::Ready(ToSwarm::NotifyHandler { peer_id, handler, event }) =>
-					return Poll::Ready(ToSwarm::NotifyHandler {
-						peer_id,
-						handler,
-						event: Either::Right(event),
-					}),
-				Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }) =>
-					return Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }),
-				Poll::Ready(ToSwarm::NewExternalAddrCandidate(observed)) =>
-					return Poll::Ready(ToSwarm::NewExternalAddrCandidate(observed)),
-				Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr)) =>
-					return Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr)),
-				Poll::Ready(ToSwarm::ExternalAddrExpired(addr)) =>
-					return Poll::Ready(ToSwarm::ExternalAddrExpired(addr)),
-				Poll::Ready(ToSwarm::ListenOn { opts }) =>
-					return Poll::Ready(ToSwarm::ListenOn { opts }),
-				Poll::Ready(ToSwarm::RemoveListener { id }) =>
-					return Poll::Ready(ToSwarm::RemoveListener { id }),
+				Poll::Ready(event) => {
+					return Poll::Ready(event.map_in(Either::Right).map_out(|_| {
+						unreachable!("`GenerateEvent` is handled in a branch above; qed")
+					}));
+				},
 			}
 		}
 

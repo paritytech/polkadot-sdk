@@ -85,7 +85,7 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::disputes::slashing::W
 	/// Storage: Staking UnappliedSlashes (r:1 w:1)
 	/// Proof Skipped: Staking UnappliedSlashes (max_values: None, max_size: None, mode: Measured)
 	/// The range of component `n` is `[4, 300]`.
-	fn report_dispute_lost(n: u32, ) -> Weight {
+	fn report_dispute_lost_unsigned(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `4531 + n * (189 ±0)`
 		//  Estimated: `7843 + n * (192 ±0)`
