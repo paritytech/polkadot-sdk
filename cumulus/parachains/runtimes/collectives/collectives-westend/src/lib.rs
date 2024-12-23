@@ -770,9 +770,8 @@ type Migrations = (
 // Helpers for the salary pallet v0->v1 storage migration.
 use sp_runtime::traits::BlockNumberProvider;
 type SalaryLocalBlockNumber = <System as BlockNumberProvider>::BlockNumber;
-type SalaryNewBlockNumber = <System as BlockNumberProvider>::BlockNumber;//<cumulus_pallet_parachain_system::RelaychainDataProvider<
-	// Runtime,
-// > as BlockNumberProvider>::BlockNumber;
+type SalaryNewBlockNumber = <cumulus_pallet_parachain_system::RelaychainDataProvider<Runtime> 
+	as BlockNumberProvider>::BlockNumber;
 pub struct SalaryBlockNumberConverter;
 impl
 	pallet_salary::migration::v1::ConvertBlockNumber<

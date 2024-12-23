@@ -50,7 +50,7 @@ mod v0 {
 	>;
 }
 
-mod v1 {
+pub mod v1 {
 	use super::{BlockNumberFor as NewBlockNumberFor, *};
 	use frame_system::pallet_prelude::BlockNumberFor as LocalBlockNumberFor;
 
