@@ -41,6 +41,7 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub mod weights;
+pub mod migration;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -52,15 +53,15 @@ pub type Cycle = u32;
 #[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
 pub struct StatusType<CycleIndex, BlockNumber, Balance> {
 	/// The index of the "current cycle" (i.e. the last cycle being processed).
-	cycle_index: CycleIndex,
+	pub cycle_index: CycleIndex,
 	/// The first block of the "current cycle" (i.e. the last cycle being processed).
-	cycle_start: BlockNumber,
+	pub cycle_start: BlockNumber,
 	/// The total budget available for all payments in the current cycle.
-	budget: Balance,
+	pub budget: Balance,
 	/// The total amount of the payments registered in the current cycle.
-	total_registrations: Balance,
+	pub total_registrations: Balance,
 	/// The total amount of unregistered payments which have been made in the current cycle.
-	total_unregistered_paid: Balance,
+	pub total_unregistered_paid: Balance,
 }
 
 /// The state of a specific payment claim.
