@@ -106,21 +106,20 @@ pub const PARACHAIN_ID: u32 = 100;
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = 4;
 #[cfg(not(any(feature = "elastic-scaling", feature = "elastic-scaling-500ms")))]
 const BLOCK_PROCESSING_VELOCITY: u32 = 1;
+#[cfg(not(any(feature = "elastic-scaling", feature = "elastic-scaling-500ms")))]
+pub const MILLISECS_PER_BLOCK: u64 = 6000;
 
-#[cfg(feature = "elastic-scaling")]
+#[cfg(all(feature = "elastic-scaling", not(feature = "elastic-scaling-500ms")))]
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = 7;
-#[cfg(feature = "elastic-scaling")]
+#[cfg(all(feature = "elastic-scaling", not(feature = "elastic-scaling-500ms")))]
 const BLOCK_PROCESSING_VELOCITY: u32 = 4;
+#[cfg(all(feature = "elastic-scaling", not(feature = "elastic-scaling-500ms")))]
+pub const MILLISECS_PER_BLOCK: u64 = 2000;
 
 #[cfg(feature = "elastic-scaling-500ms")]
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = 30;
 #[cfg(feature = "elastic-scaling-500ms")]
 const BLOCK_PROCESSING_VELOCITY: u32 = 12;
-
-#[cfg(not(any(feature = "elastic-scaling", feature = "elastic-scaling-500ms")))]
-pub const MILLISECS_PER_BLOCK: u64 = 6000;
-#[cfg(feature = "elastic-scaling")]
-pub const MILLISECS_PER_BLOCK: u64 = 2000;
 #[cfg(feature = "elastic-scaling-500ms")]
 pub const MILLISECS_PER_BLOCK: u64 = 500;
 
