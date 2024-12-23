@@ -949,11 +949,6 @@ parameter_types! {
 	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
 }
 
-type EventRecord = frame_system::EventRecord<
-	<Runtime as frame_system::Config>::RuntimeEvent,
-	<Runtime as frame_system::Config>::Hash,
->;
-
 impl pallet_revive::Config for Runtime {
 	type Time = Timestamp;
 	type Currency = Balances;
@@ -2077,7 +2072,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber, EventRecord> for Runtime
+	impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber> for Runtime
 	{
 		fn balance(address: H160) -> U256 {
 			Revive::evm_balance(&address)
@@ -2102,6 +2097,7 @@ impl_runtime_apis! {
 				tx,
 				blockweights.max_block,
 				encoded_size,
+				pallet_revive::debug::Tracer::Disabled,
 			)
 		}
 
@@ -2112,7 +2108,7 @@ impl_runtime_apis! {
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
 			input_data: Vec<u8>,
-		) -> pallet_revive::ContractResult<pallet_revive::ExecReturnValue, Balance, EventRecord> {
+		) -> pallet_revive::ContractResult<pallet_revive::ExecReturnValue, Balance> {
 			let blockweights= <Runtime as frame_system::Config>::BlockWeights::get();
 			Revive::bare_call(
 				RuntimeOrigin::signed(origin),
@@ -2121,8 +2117,7 @@ impl_runtime_apis! {
 				gas_limit.unwrap_or(blockweights.max_block),
 				pallet_revive::DepositLimit::Balance(storage_deposit_limit.unwrap_or(u128::MAX)),
 				input_data,
-				pallet_revive::DebugInfo::UnsafeDebug,
-				pallet_revive::CollectEvents::UnsafeCollect,
+				pallet_revive::debug::Tracer::Disabled,
 			)
 		}
 
@@ -2134,7 +2129,7 @@ impl_runtime_apis! {
 			code: pallet_revive::Code,
 			data: Vec<u8>,
 			salt: Option<[u8; 32]>,
-		) -> pallet_revive::ContractResult<pallet_revive::InstantiateReturnValue, Balance, EventRecord>
+		) -> pallet_revive::ContractResult<pallet_revive::InstantiateReturnValue, Balance>
 		{
 			let blockweights= <Runtime as frame_system::Config>::BlockWeights::get();
 			Revive::bare_instantiate(
@@ -2145,8 +2140,7 @@ impl_runtime_apis! {
 				code,
 				data,
 				salt,
-				pallet_revive::DebugInfo::UnsafeDebug,
-				pallet_revive::CollectEvents::UnsafeCollect,
+				pallet_revive::debug::Tracer::Disabled,
 			)
 		}
 
@@ -2171,6 +2165,12 @@ impl_runtime_apis! {
 				address,
 				key
 			)
+		}
+
+		fn trace_tx(
+			_tx: sp_core::H256
+		) -> Result<pallet_revive::evm::CallTrace, sp_runtime::DispatchError> {
+			todo!()
 		}
 	}
 }
