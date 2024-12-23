@@ -71,6 +71,7 @@ impl pallet_balances::Config for MockRuntime {
 	type MaxFreezes = ConstU32<50>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type DoneSlashHandler = ();
 }
 
 impl pallet_assets::Config<Instance1> for MockRuntime {
