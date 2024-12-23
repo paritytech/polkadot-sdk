@@ -100,14 +100,11 @@ use frame_support::{
 	},
 	weights::{Weight, WeightMeter},
 };
-use frame_system::{
-	pallet_prelude::BlockNumberFor,
-	{self as system},
-};
+use frame_system::{self as system};
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-	traits::{BadOrigin, Dispatchable, One, Saturating, Zero},
+	traits::{BadOrigin, BlockNumberProvider, Dispatchable, One, Saturating, Zero},
 	BoundedVec, DispatchError, RuntimeDebug,
 };
 
@@ -124,6 +121,9 @@ pub type CallOrHashOf<T> =
 
 pub type BoundedCallOf<T> =
 	Bounded<<T as Config>::RuntimeCall, <T as frame_system::Config>::Hashing>;
+
+pub type BlockNumberFor<T> =
+	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// The configuration of the retry mechanism for a given task along with its current state.
 #[derive(Clone, Copy, RuntimeDebug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
@@ -230,7 +230,7 @@ impl<T: WeightInfo> MarginalWeightInfo for T {}
 pub mod pallet {
 	use super::*;
 	use frame_support::{dispatch::PostDispatchInfo, pallet_prelude::*};
-	use frame_system::pallet_prelude::*;
+	use frame_system::pallet_prelude::{BlockNumberFor as SystemBlockNumberFor, OriginFor};
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
@@ -292,10 +292,18 @@ pub mod pallet {
 
 		/// The preimage provider with which we look up call hashes to get the call.
 		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
-	}
 
-	#[pallet::storage]
-	pub type IncompleteSince<T: Config> = StorageValue<_, BlockNumberFor<T>>;
+		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		type BlockNumberProvider: BlockNumberProvider;
+
+		/// The maximum number of blocks that can be scheduled.
+		#[pallet::constant]
+		type MaxScheduledBlocks: Get<u32>;
+
+		/// The maximum number of blocks that a task can be stale for.
+		#[pallet::constant]
+		type MaxStaleTaskAge: Get<BlockNumberFor<Self>>;
+	}
 
 	/// Items to be executed, indexed by the block number that they should be executed on.
 	#[pallet::storage]
@@ -324,6 +332,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type Lookup<T: Config> =
 		StorageMap<_, Twox64Concat, TaskName, TaskAddress<BlockNumberFor<T>>>;
+
+	/// The queue of block numbers that have scheduled agendas.
+	#[pallet::storage]
+	pub(crate) type Queue<T: Config> =
+		StorageValue<_, BoundedVec<BlockNumberFor<T>, T::MaxScheduledBlocks>, ValueQuery>;
 
 	/// Events type.
 	#[pallet::event]
@@ -374,9 +387,10 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+	impl<T: Config> Hooks<SystemBlockNumberFor<T>> for Pallet<T> {
 		/// Execute the scheduled calls
-		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+		fn on_initialize(_do_not_use_local_block_number: SystemBlockNumberFor<T>) -> Weight {
+			let now = T::BlockNumberProvider::current_block_number();
 			let mut weight_counter = WeightMeter::with_limit(T::MaximumWeight::get());
 			Self::service_agendas(&mut weight_counter, now, u32::max_value());
 			weight_counter.consumed()
@@ -889,7 +903,7 @@ impl<T: Config> Pallet<T> {
 	fn resolve_time(
 		when: DispatchTime<BlockNumberFor<T>>,
 	) -> Result<BlockNumberFor<T>, DispatchError> {
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = T::BlockNumberProvider::current_block_number();
 
 		let when = match when {
 			DispatchTime::At(x) => x,
@@ -926,17 +940,23 @@ impl<T: Config> Pallet<T> {
 		let mut agenda = Agenda::<T>::get(when);
 		let index = if (agenda.len() as u32) < T::MaxScheduledPerBlock::get() {
 			// will always succeed due to the above check.
-			let _ = agenda.try_push(Some(what));
+			let _ = agenda.try_push(Some(what.clone()));
 			agenda.len() as u32 - 1
 		} else {
 			if let Some(hole_index) = agenda.iter().position(|i| i.is_none()) {
-				agenda[hole_index] = Some(what);
+				agenda[hole_index] = Some(what.clone());
 				hole_index as u32
 			} else {
 				return Err((DispatchError::Exhausted, what))
 			}
 		};
 		Agenda::<T>::insert(when, agenda);
+		Queue::<T>::mutate(|q| {
+			if let Err(index) = q.binary_search_by_key(&when, |x| *x) {
+				q.try_insert(index, when).map_err(|_| (DispatchError::Exhausted, what))?;
+			}
+			Ok(())
+		})?;
 		Ok(index)
 	}
 
@@ -952,6 +972,11 @@ impl<T: Config> Pallet<T> {
 			Some(_) => {},
 			None => {
 				Agenda::<T>::remove(when);
+				Queue::<T>::mutate(|q| {
+					if let Ok(index) = q.binary_search_by_key(&when, |x| *x) {
+						q.remove(index);
+					}
+				});
 			},
 		}
 	}
@@ -1157,24 +1182,34 @@ impl<T: Config> Pallet<T> {
 			return
 		}
 
-		let mut incomplete_since = now + One::one();
-		let mut when = IncompleteSince::<T>::take().unwrap_or(now);
-		let mut executed = 0;
+		let queue = Queue::<T>::get();
+		let end_index = match queue.binary_search_by_key(&now, |x| *x) {
+			Ok(end_index) => end_index.saturating_add(1),
+			Err(end_index) => {
+				if end_index == 0 {
+					return;
+				}
+				end_index
+			},
+		};
 
-		let max_items = T::MaxScheduledPerBlock::get();
-		let mut count_down = max;
-		let service_agenda_base_weight = T::WeightInfo::service_agenda_base(max_items);
-		while count_down > 0 && when <= now && weight.can_consume(service_agenda_base_weight) {
-			if !Self::service_agenda(weight, &mut executed, now, when, u32::max_value()) {
-				incomplete_since = incomplete_since.min(when);
+		let mut index = 0;
+		while index < end_index {
+			let when = queue[index];
+			if when < now.saturating_sub(T::MaxStaleTaskAge::get()) {
+				Agenda::<T>::remove(when);
+			} else {
+				let mut executed = 0;
+				if !Self::service_agenda(weight, &mut executed, now, when, max) {
+					break;
+				}
 			}
-			when.saturating_inc();
-			count_down.saturating_dec();
+			index.saturating_inc();
 		}
-		incomplete_since = incomplete_since.min(when);
-		if incomplete_since <= now {
-			IncompleteSince::<T>::put(incomplete_since);
-		}
+
+		Queue::<T>::mutate(|queue| {
+			queue.drain(0..index);
+		});
 	}
 
 	/// Returns `true` if the agenda was fully completed, `false` if it should be revisited at a
