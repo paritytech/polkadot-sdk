@@ -50,7 +50,7 @@ use sp_runtime::DispatchError;
 
 /// Validated Wasm module ready for execution.
 /// This data structure is immutable once created and stored.
-#[derive(Encode, Decode, scale_info::TypeInfo)]
+#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone)]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T))]
 pub struct WasmBlob<T: Config> {
@@ -70,7 +70,7 @@ pub struct WasmBlob<T: Config> {
 /// - reference count,
 ///
 /// It is stored in a separate storage entry to avoid loading the code when not necessary.
-#[derive(Clone, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen, Debug)]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T))]
 pub struct CodeInfo<T: Config> {
