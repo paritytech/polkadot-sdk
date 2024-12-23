@@ -250,7 +250,7 @@ impl PeerData {
 					candidates.insert(candidate_hash);
 				} else {
 					if self.version != CollationVersion::V1 {
-						gum::error!(
+						sp_tracing::error!(
 							target: LOG_TARGET,
 							"Programming error, `candidate_hash` can not be `None` \
 							 for non `V1` networking.",
@@ -447,7 +447,7 @@ impl State {
 					.count()
 			});
 
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			?relay_parent,
 			?para_id,
@@ -1057,7 +1057,7 @@ fn ensure_seconding_limit_is_respected(
 ) -> std::result::Result<(), AdvertisementError> {
 	let paths = state.implicit_view.paths_via_relay_parent(relay_parent);
 
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		?relay_parent,
 		?para_id,
@@ -1085,7 +1085,7 @@ fn ensure_seconding_limit_is_respected(
 		}
 
 		if cq_state.can_claim_at(relay_parent, &para_id) {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?relay_parent,
 				?para_id,
@@ -1243,7 +1243,7 @@ where
 
 	match collations.status {
 		CollationStatus::Fetching(_) | CollationStatus::WaitingOnValidation => {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				peer_id = ?peer_id,
 				%para_id,
@@ -1341,7 +1341,7 @@ where
 	}
 
 	for (removed, _) in removed {
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			?view,
 			?removed,
@@ -1765,7 +1765,7 @@ async fn dequeue_next_collation_and_fetch<Context>(
 	previous_fetch: (CollatorId, Option<CandidateHash>),
 ) {
 	while let Some((next, id)) = get_next_collation_to_fetch(&previous_fetch, relay_parent, state) {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?relay_parent,
 			?id,
@@ -2193,7 +2193,7 @@ fn get_next_collation_to_fetch(
 	let unfulfilled_entries = match unfulfilled_claim_queue_entries(&relay_parent, &state) {
 		Ok(entries) => entries,
 		Err(err) => {
-			gum::error!(
+			sp_tracing::error!(
 				target: LOG_TARGET,
 				?relay_parent,
 				?err,
@@ -2205,7 +2205,7 @@ fn get_next_collation_to_fetch(
 	let rp_state = match state.per_relay_parent.get_mut(&relay_parent) {
 		Some(rp_state) => rp_state,
 		None => {
-			gum::error!(
+			sp_tracing::error!(
 				target: LOG_TARGET,
 				?relay_parent,
 				"Failed to get relay parent state"
@@ -2221,7 +2221,7 @@ fn get_next_collation_to_fetch(
 		if collator_id != &finished_one.0 &&
 			maybe_candidate_hash.map_or(true, |hash| Some(&hash) != finished_one.1.as_ref())
 		{
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				waiting_collation = ?rp_state.collations.fetching_from,
 				?finished_one,

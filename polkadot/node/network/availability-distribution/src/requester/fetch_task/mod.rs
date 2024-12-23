@@ -279,7 +279,7 @@ impl RunningTask {
 			{
 				Ok(resp) => resp,
 				Err(TaskError::ShuttingDown) => {
-					gum::info!(
+					sp_tracing::info!(
 						target: LOG_TARGET,
 						"Node seems to be shutting down, canceling fetch task"
 					);
@@ -295,7 +295,7 @@ impl RunningTask {
 			let chunk = match resp {
 				Some(chunk) => chunk,
 				None => {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						validator = ?validator,
 						relay_parent = ?self.relay_parent,
@@ -337,7 +337,7 @@ impl RunningTask {
 		network_error_freq: &mut gum::Freq,
 		canceled_freq: &mut gum::Freq,
 	) -> std::result::Result<Option<ErasureChunk>, TaskError> {
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			origin = ?validator,
 			relay_parent = ?self.relay_parent,
@@ -373,7 +373,7 @@ impl RunningTask {
 					match v2::ChunkFetchingResponse::decode(&mut &bytes[..]) {
 						Ok(chunk_response) => Ok(Option::<ErasureChunk>::from(chunk_response)),
 						Err(e) => {
-							gum::warn!(
+							sp_tracing::warn!(
 								target: LOG_TARGET,
 								origin = ?validator,
 								relay_parent = ?self.relay_parent,
@@ -392,7 +392,7 @@ impl RunningTask {
 						Ok(chunk_response) => Ok(Option::<ChunkResponse>::from(chunk_response)
 							.map(|c| c.recombine_into_chunk(&self.request.into()))),
 						Err(e) => {
-							gum::warn!(
+							sp_tracing::warn!(
 								target: LOG_TARGET,
 								origin = ?validator,
 								relay_parent = ?self.relay_parent,
@@ -407,7 +407,7 @@ impl RunningTask {
 						},
 					},
 				_ => {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						origin = ?validator,
 						relay_parent = ?self.relay_parent,
@@ -421,7 +421,7 @@ impl RunningTask {
 				},
 			},
 			Err(RequestError::InvalidResponse(err)) => {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					origin = ?validator,
 					relay_parent = ?self.relay_parent,
@@ -475,7 +475,7 @@ impl RunningTask {
 		expected_chunk_index: ChunkIndex,
 	) -> bool {
 		if chunk.index != expected_chunk_index {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				candidate_hash = ?self.request.candidate_hash,
 				origin = ?validator,
@@ -489,7 +489,7 @@ impl RunningTask {
 			match branch_hash(&self.erasure_root, chunk.proof(), chunk.index.0 as usize) {
 				Ok(hash) => hash,
 				Err(e) => {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						candidate_hash = ?self.request.candidate_hash,
 						origin = ?validator,
@@ -501,7 +501,7 @@ impl RunningTask {
 			};
 		let erasure_chunk_hash = BlakeTwo256::hash(&chunk.chunk);
 		if anticipated_hash != erasure_chunk_hash {
-			gum::warn!(target: LOG_TARGET, origin = ?validator,  "Received chunk does not match merkle tree");
+			sp_tracing::warn!(target: LOG_TARGET, origin = ?validator,  "Received chunk does not match merkle tree");
 			return false
 		}
 		true
@@ -523,11 +523,11 @@ impl RunningTask {
 			))
 			.await;
 		if let Err(err) = r {
-			gum::error!(target: LOG_TARGET, err= ?err, "Storing erasure chunk failed, system shutting down?");
+			sp_tracing::error!(target: LOG_TARGET, err= ?err, "Storing erasure chunk failed, system shutting down?");
 		}
 
 		if let Err(oneshot::Canceled) = rx.await {
-			gum::error!(target: LOG_TARGET, "Storing erasure chunk failed");
+			sp_tracing::error!(target: LOG_TARGET, "Storing erasure chunk failed");
 		}
 	}
 
@@ -543,7 +543,7 @@ impl RunningTask {
 			})
 		};
 		if let Err(err) = self.sender.send(FromFetchTask::Concluded(payload)).await {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				err= ?err,
 				"Sending concluded message for task failed"
@@ -554,7 +554,7 @@ impl RunningTask {
 	async fn conclude_fail(&mut self) {
 		if let Err(err) = self.sender.send(FromFetchTask::Failed(self.request.candidate_hash)).await
 		{
-			gum::warn!(target: LOG_TARGET, ?err, "Sending `Failed` message for task failed");
+			sp_tracing::warn!(target: LOG_TARGET, ?err, "Sending `Failed` message for task failed");
 		}
 	}
 }

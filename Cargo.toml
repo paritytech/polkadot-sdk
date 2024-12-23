@@ -505,6 +505,7 @@ members = [
 	"substrate/primitives/test-primitives",
 	"substrate/primitives/timestamp",
 	"substrate/primitives/tracing",
+	"substrate/primitives/tracing/proc-macro",
 	"substrate/primitives/transaction-pool",
 	"substrate/primitives/transaction-storage-proof",
 	"substrate/primitives/trie",
@@ -1288,6 +1289,7 @@ sp-storage = { path = "substrate/primitives/storage", default-features = false }
 sp-test-primitives = { path = "substrate/primitives/test-primitives" }
 sp-timestamp = { path = "substrate/primitives/timestamp", default-features = false }
 sp-tracing = { path = "substrate/primitives/tracing", default-features = false }
+sp-tracing-proc-macro = { path = "substrate/primitives/tracing/proc-macro", default-features = false }
 sp-transaction-pool = { path = "substrate/primitives/transaction-pool", default-features = false }
 sp-transaction-storage-proof = { path = "substrate/primitives/transaction-storage-proof", default-features = false }
 sp-trie = { path = "substrate/primitives/trie", default-features = false }

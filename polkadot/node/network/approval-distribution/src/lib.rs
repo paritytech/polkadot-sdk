@@ -1418,7 +1418,7 @@ impl State {
 								entry,
 								peer_id,
 							) {
-								gum::debug!(
+								sp_tracing::debug!(
 									target: LOG_TARGET,
 									?peer_id,
 									?message_subject,
@@ -1787,7 +1787,7 @@ impl State {
 							entry,
 							peer_id,
 						) {
-							gum::trace!(
+							sp_tracing::trace!(
 								target: LOG_TARGET,
 								?peer_id,
 								?approval_knowledge_key,
@@ -2336,7 +2336,7 @@ impl State {
 						knowledge.sent = Knowledge::default();
 					}
 					block_entry.last_resent_at_block_number = Some(max_age);
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						block_number = ?block_entry.number,
 						?max_age,
