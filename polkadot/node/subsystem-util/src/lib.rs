@@ -43,7 +43,7 @@ use futures::channel::{mpsc, oneshot};
 use polkadot_primitives::{
 	slashing,
 	vstaging::{
-		async_backing::BackingState, CandidateEvent,
+		async_backing::{Constraints, BackingState}, CandidateEvent,
 		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, ScrapedOnChainVotes,
 	},
 	AsyncBackingParams, AuthorityDiscoveryId, CandidateHash, CoreIndex, EncodeAs, ExecutorParams,
@@ -313,6 +313,8 @@ specialize_requests! {
 	fn request_async_backing_params() -> AsyncBackingParams; AsyncBackingParams;
 	fn request_claim_queue() -> BTreeMap<CoreIndex, VecDeque<ParaId>>; ClaimQueue;
 	fn request_para_backing_state(para_id: ParaId) -> Option<BackingState>; ParaBackingState;
+	fn request_constraints(para_id: ParaId) -> Option<Constraints>; Constraints;
+
 }
 
 /// Requests executor parameters from the runtime effective at given relay-parent. First obtains
