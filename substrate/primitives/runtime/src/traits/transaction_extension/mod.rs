@@ -54,16 +54,23 @@ pub use dispatch_transaction::DispatchTransaction;
 /// implication for legacy transactions.
 const EXTENSION_V0_VERSION: ExtensionVersion = 0;
 
-/// TODO TODO: doc
+/// A versioned transaction extension pipeline defined with 2 variants: one for the version 0 and
+/// one for other versions.
+///
+/// The generic `ExtensionOtherVersions` must not re-define a transaction extension pipeline for the
+/// version 0, it will be ignored and overwritten by `ExtensionV0`.
+/// TODO TODO: find good name. or keep it private anyway.
 #[derive(PartialEq, Eq, Clone, RuntimeDebug, TypeInfo)]
 pub enum ExtensionVariant<ExtensionV0, ExtensionOtherVersions> {
-	/// TODO TODO: doc
+	/// A transaction extension pipeline for the version 0.
 	V0(ExtensionV0),
-	/// TODO TODO: doc
+	/// A transaction extension pipeline for other versions.
 	Other(ExtensionOtherVersions),
 }
 
-impl<ExtensionV0, ExtensionOtherVersions: VersionedTransactionExtensionPipelineVersion> VersionedTransactionExtensionPipelineVersion for ExtensionVariant<ExtensionV0, ExtensionOtherVersions> {
+impl<ExtensionV0, ExtensionOtherVersions: VersTxExtLineVersion> VersTxExtLineVersion
+	for ExtensionVariant<ExtensionV0, ExtensionOtherVersions>
+{
 	fn version(&self) -> u8 {
 		match self {
 			ExtensionVariant::V0(_) => EXTENSION_V0_VERSION,
@@ -124,30 +131,27 @@ impl<ExtensionV0: Decode, ExtensionOtherVersions: DecodeWithVersion> DecodeWithV
 	}
 }
 
-pub trait VersionedTransactionExtensionPipelineWeight<Call: Dispatchable> {
+/// The weight for an instance of a versioned transaction extension pipeline and a call.
+///
+/// This trait is part of [`VersTxExtLine`]. It is defined independently to allow implementation to
+/// rely only on it without bounding the whole trait [`VersTxExtLine`]. This is used by
+/// [`crate::generic::UncheckedExtrinsic`] to be backward compatible with its previous version.
+pub trait VersTxExtLineWeight<Call: Dispatchable> {
+	/// Return the pre dispatch weight for the given versioned transaction extension pipeline and
+	/// call.
 	fn weight(&self, call: &Call) -> Weight;
 }
 
 impl<
 		Call: Dispatchable + Encode,
 		ExtensionV0: TransactionExtension<Call>,
-		ExtensionOtherVersions: VersionedTransactionExtensionPipeline<Call>,
-	> VersionedTransactionExtensionPipeline<Call>
-	for ExtensionVariant<ExtensionV0, ExtensionOtherVersions>
+		ExtensionOtherVersions: VersTxExtLine<Call>,
+	> VersTxExtLine<Call> for ExtensionVariant<ExtensionV0, ExtensionOtherVersions>
 where
-	// TODO TODO: remove this bound: maybe remove the function dispatch transaction from the trait
-	// and just implement the DispatchTransaction trait for all types
 	<Call as Dispatchable>::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 {
-	// TODO TODO: maybe this can be const.
-	fn build_metadata(builder: &mut VersionedTransactionExtensionsMetadataBuilder) {
+	fn build_metadata(builder: &mut VersTxExtLineMetadataBuilder) {
 		ExtensionOtherVersions::build_metadata(builder);
-	}
-	fn weight(&self, call: &Call) -> Weight {
-		match self {
-			ExtensionVariant::V0(ext) => ext.weight(call),
-			ExtensionVariant::Other(ext) => ext.weight(call),
-		}
 	}
 	fn validate_only(
 		&self,
@@ -185,9 +189,8 @@ where
 impl<
 		Call: Dispatchable + Encode,
 		ExtensionV0: TransactionExtension<Call>,
-		ExtensionOtherVersions: VersionedTransactionExtensionPipelineWeight<Call>,
-	> VersionedTransactionExtensionPipelineWeight<Call>
-	for ExtensionVariant<ExtensionV0, ExtensionOtherVersions>
+		ExtensionOtherVersions: VersTxExtLineWeight<Call>,
+	> VersTxExtLineWeight<Call> for ExtensionVariant<ExtensionV0, ExtensionOtherVersions>
 {
 	fn weight(&self, call: &Call) -> Weight {
 		match self {
@@ -197,25 +200,25 @@ impl<
 	}
 }
 
-/// TODO TODO: doc
+/// A type that can be decoded from a specific version and a [`codec::Input`].
 pub trait DecodeWithVersion: Sized {
-	/// TODO TODO: doc
+	/// Decode the type from the given version and input.
 	fn decode_with_version<I: codec::Input>(
 		extension_version: u8,
 		input: &mut I,
 	) -> Result<Self, codec::Error>;
 }
 
-/// A type to build the metadata for the transaction extensions.
-pub struct VersionedTransactionExtensionsMetadataBuilder {
-	/// The transaction extensions by version and its list of items as vec of index into the vec
-	/// below.
+/// A type to build the metadata for the versioned transaction extension pipeline.
+pub struct VersTxExtLineMetadataBuilder {
+	/// The transaction extension pipeline by version and its list of items as vec of index into
+	/// other field `in_versions`.
 	pub by_version: Vec<(u8, Vec<u32>)>,
 	/// The list of all transaction extension item used.
 	pub in_versions: Vec<TransactionExtensionMetadata>,
 }
 
-impl VersionedTransactionExtensionsMetadataBuilder {
+impl VersTxExtLineMetadataBuilder {
 	/// Create a new empty metadata builder.
 	pub fn new() -> Self {
 		Self { by_version: Vec::new(), in_versions: Vec::new() }
@@ -229,34 +232,45 @@ impl VersionedTransactionExtensionsMetadataBuilder {
 	) {
 		debug_assert!(
 			self.by_version.iter().all(|(v, _)| *v != ext_version),
-			"Duplicate definition for transaction extension version: {}", ext_version
+			"Duplicate definition for transaction extension version: {}",
+			ext_version
 		);
 
 		let mut ext_item_indices = Vec::with_capacity(ext_items.len());
 		for ext_item in ext_items {
-			let ext_item_index = match self.in_versions.iter().position(|ext| ext.identifier == ext_item.identifier) {
-				Some(index) => index,
-				None => {
-					self.in_versions.push(ext_item);
-					self.in_versions.len() - 1
-				}
-			};
+			let ext_item_index =
+				match self.in_versions.iter().position(|ext| ext.identifier == ext_item.identifier)
+				{
+					Some(index) => index,
+					None => {
+						self.in_versions.push(ext_item);
+						self.in_versions.len() - 1
+					},
+				};
 			ext_item_indices.push(ext_item_index as u32);
 		}
 		self.by_version.push((ext_version, ext_item_indices));
 	}
-
 }
 
-/// TODO TODO: doc
-// TODO TODO: or maybe name it DispatchTransactionWithExtensionVersion
-pub trait VersionedTransactionExtensionPipeline<Call: Dispatchable>:
-	Encode + DecodeWithVersion + Debug + StaticTypeInfo + Send + Sync + Clone
+/// A versioned transaction extension pipeline.
+///
+/// This defines multiple version of a transaction extensions pipeline.
+pub trait VersTxExtLine<Call: Dispatchable>:
+	Encode
+	+ DecodeWithVersion
+	+ Debug
+	+ StaticTypeInfo
+	+ Send
+	+ Sync
+	+ Clone
+	+ VersTxExtLineWeight<Call>
+	+ VersTxExtLineVersion
 {
-	/// TODO TODO: doc
-	fn build_metadata(builder: &mut VersionedTransactionExtensionsMetadataBuilder);
+	/// Build the metadata for the versioned transaction extension pipeline.
+	fn build_metadata(builder: &mut VersTxExtLineMetadataBuilder);
 
-	/// TODO TODO: doc
+	/// Validate a transaction.
 	fn validate_only(
 		&self,
 		origin: DispatchOriginOf<Call>,
@@ -266,7 +280,7 @@ pub trait VersionedTransactionExtensionPipeline<Call: Dispatchable>:
 		source: TransactionSource,
 	) -> Result<ValidTransaction, TransactionValidityError>;
 
-	/// TODO TODO: doc
+	/// Dispatch a transaction.
 	fn dispatch_transaction(
 		self,
 		origin: DispatchOriginOf<Call>,
@@ -274,17 +288,16 @@ pub trait VersionedTransactionExtensionPipeline<Call: Dispatchable>:
 		info: &DispatchInfoOf<Call>,
 		len: usize,
 	) -> crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Call>>;
-	/// TODO TODO: doc
-	fn weight(&self, call: &Call) -> Weight;
 }
 
-/// TODO TODO: doc
+/// A transaction extension pipeline defined for a single version.
 #[derive(Encode, Clone, Debug, TypeInfo)]
-pub struct VersionedExtension<const VERSION: u8, Extension> {
-	extension: Extension,
+pub struct TxExtLineAtVers<const VERSION: u8, Extension> {
+	/// The transaction extension pipeline for the version `VERSION`.
+	pub extension: Extension,
 }
 
-impl<const VERSION: u8, Extension> VersionedExtension<VERSION, Extension> {
+impl<const VERSION: u8, Extension> TxExtLineAtVers<VERSION, Extension> {
 	/// Create a new versioned extension.
 	pub fn new(extension: Extension) -> Self {
 		Self { extension }
@@ -292,23 +305,21 @@ impl<const VERSION: u8, Extension> VersionedExtension<VERSION, Extension> {
 }
 
 impl<const VERSION: u8, Extension: Decode> DecodeWithVersion
-	for VersionedExtension<VERSION, Extension>
+	for TxExtLineAtVers<VERSION, Extension>
 {
 	fn decode_with_version<I: codec::Input>(
 		extension_version: u8,
 		input: &mut I,
 	) -> Result<Self, codec::Error> {
 		if extension_version == VERSION {
-			Ok(VersionedExtension { extension: Extension::decode(input)? })
+			Ok(TxExtLineAtVers { extension: Extension::decode(input)? })
 		} else {
 			Err(codec::Error::from("Invalid extension version"))
 		}
 	}
 }
 
-impl<A: VersionedTransactionExtensionPipelineVersion, B: VersionedTransactionExtensionPipelineVersion> VersionedTransactionExtensionPipelineVersion
-	for MultiVersion<A, B>
-{
+impl<A: VersTxExtLineVersion, B: VersTxExtLineVersion> VersTxExtLineVersion for MultiVersion<A, B> {
 	fn version(&self) -> u8 {
 		match self {
 			MultiVersion::A(a) => a.version(),
@@ -350,17 +361,23 @@ impl<A: Encode, B: Encode> Encode for MultiVersion<A, B> {
 	}
 }
 
-/// TODO TODO: doc
+/// An implementation of [`VersTxExtLine`] that consider any version invalid.
 #[derive(Encode, Debug, Clone, Eq, PartialEq, TypeInfo)]
 pub struct InvalidVersion;
 
-/// TODO TODO: doc
+/// An implementation of [`VersTxExtLine`] that aggregated multiple transaction extension pipeline
+/// of different versions.
+///
+/// Each variant have its own version, duplicated version must be avoided, only the first used
+/// version will be effective other duplicated version will be ignored.
+///
+/// TODO TODO: example
 #[allow(private_interfaces)]
 #[derive(Clone, Debug, TypeInfo)]
 pub enum MultiVersion<A, B = InvalidVersion> {
-	/// TODO TODO: doc
+	/// The first aggregated transaction extension pipeline of a specific version.
 	A(A),
-	/// TODO TODO: doc
+	/// The second aggregated transaction extension pipeline of a specific version.
 	B(B),
 }
 
@@ -373,12 +390,9 @@ impl DecodeWithVersion for InvalidVersion {
 	}
 }
 
-impl<Call: Dispatchable> VersionedTransactionExtensionPipeline<Call> for InvalidVersion {
-	fn build_metadata(_builder: &mut VersionedTransactionExtensionsMetadataBuilder) {
+impl<Call: Dispatchable> VersTxExtLine<Call> for InvalidVersion {
+	fn build_metadata(_builder: &mut VersTxExtLineMetadataBuilder) {
 		// Do nothing.
-	}
-	fn weight(&self, _call: &Call) -> Weight {
-		Weight::zero()
 	}
 	fn validate_only(
 		&self,
@@ -401,40 +415,45 @@ impl<Call: Dispatchable> VersionedTransactionExtensionPipeline<Call> for Invalid
 	}
 }
 
-pub trait VersionedTransactionExtensionPipelineVersion {
+/// The version for an instance of a versioned transaction extension pipeline.
+///
+/// This trait is part of [`VersTxExtLine`]. It is defined independently to allow implementation to
+/// rely only on it without bounding the whole trait [`VersTxExtLine`]. This is used by
+/// [`crate::generic::UncheckedExtrinsic`] to be backward compatible with its previous version.
+pub trait VersTxExtLineVersion {
+	/// Return the version for the given versioned transaction extension pipeline.
 	fn version(&self) -> u8;
 }
 
-impl VersionedTransactionExtensionPipelineVersion for InvalidVersion {
+impl VersTxExtLineVersion for InvalidVersion {
 	fn version(&self) -> u8 {
 		0
 	}
 }
 
-impl<const VERSION: u8, Extension> VersionedTransactionExtensionPipelineVersion for VersionedExtension<VERSION, Extension> {
+impl<const VERSION: u8, Extension> VersTxExtLineVersion for TxExtLineAtVers<VERSION, Extension> {
 	fn version(&self) -> u8 {
 		VERSION
 	}
 }
 
-impl<Call: Dispatchable> VersionedTransactionExtensionPipelineWeight<Call> for InvalidVersion {
-	fn weight(&self, call: &Call) -> Weight {
+impl<Call: Dispatchable> VersTxExtLineWeight<Call> for InvalidVersion {
+	fn weight(&self, _call: &Call) -> Weight {
 		Weight::zero()
 	}
 }
 
-/// TODO TODO: doc
+/// An item in [`MultiVersion`]. It represents a transaction extension pipeline of a specific
+/// single version.
 pub trait MultiVersionItem {
-	/// TODO TODO: doc
+	/// The version of the transaction extension pipeline.
 	const VERSION: Option<u8>;
 }
 
-impl<const VERSION: u8, Extension> MultiVersionItem for VersionedExtension<VERSION, Extension> {
+impl<const VERSION: u8, Extension> MultiVersionItem for TxExtLineAtVers<VERSION, Extension> {
 	const VERSION: Option<u8> = Some(VERSION);
 }
 
-// TODO TODO: think about how to define the bare extrinsic transaction extension, and how to define
-// the signed extrinsic transaction extension.
 impl MultiVersionItem for InvalidVersion {
 	const VERSION: Option<u8> = None;
 }
@@ -456,10 +475,10 @@ impl<A: DecodeWithVersion + MultiVersionItem, B: DecodeWithVersion + MultiVersio
 	}
 }
 
-impl<A, B, Call: Dispatchable> VersionedTransactionExtensionPipelineWeight<Call> for MultiVersion<A, B>
+impl<A, B, Call: Dispatchable> VersTxExtLineWeight<Call> for MultiVersion<A, B>
 where
-	A: VersionedTransactionExtensionPipelineWeight<Call> + MultiVersionItem,
-	B: VersionedTransactionExtensionPipelineWeight<Call> + MultiVersionItem,
+	A: VersTxExtLineWeight<Call> + MultiVersionItem,
+	B: VersTxExtLineWeight<Call> + MultiVersionItem,
 {
 	fn weight(&self, call: &Call) -> Weight {
 		match self {
@@ -469,20 +488,14 @@ where
 	}
 }
 
-impl<A, B, Call: Dispatchable> VersionedTransactionExtensionPipeline<Call> for MultiVersion<A, B>
+impl<A, B, Call: Dispatchable> VersTxExtLine<Call> for MultiVersion<A, B>
 where
-	A: VersionedTransactionExtensionPipeline<Call> + MultiVersionItem,
-	B: VersionedTransactionExtensionPipeline<Call> + MultiVersionItem,
+	A: VersTxExtLine<Call> + MultiVersionItem,
+	B: VersTxExtLine<Call> + MultiVersionItem,
 {
-	fn build_metadata(builder: &mut VersionedTransactionExtensionsMetadataBuilder) {
+	fn build_metadata(builder: &mut VersTxExtLineMetadataBuilder) {
 		A::build_metadata(builder);
 		B::build_metadata(builder);
-	}
-	fn weight(&self, call: &Call) -> Weight {
-		match self {
-			MultiVersion::A(a) => a.weight(call),
-			MultiVersion::B(b) => b.weight(call),
-		}
 	}
 	fn validate_only(
 		&self,
@@ -515,13 +528,10 @@ impl<
 		const VERSION: u8,
 		Call: Dispatchable<RuntimeOrigin: AsTransactionAuthorizedOrigin> + Encode,
 		Extension: TransactionExtension<Call>,
-	> VersionedTransactionExtensionPipeline<Call> for VersionedExtension<VERSION, Extension>
+	> VersTxExtLine<Call> for TxExtLineAtVers<VERSION, Extension>
 {
-	fn build_metadata(builder: &mut VersionedTransactionExtensionsMetadataBuilder) {
+	fn build_metadata(builder: &mut VersTxExtLineMetadataBuilder) {
 		builder.push_versioned_extension(VERSION, Extension::metadata());
-	}
-	fn weight(&self, call: &Call) -> Weight {
-		self.extension.weight(call)
 	}
 	fn validate_only(
 		&self,
@@ -546,17 +556,13 @@ impl<
 	}
 }
 
-impl<
-		const VERSION: u8,
-		Call: Dispatchable,
-		Extension: TransactionExtension<Call>,
-	> VersionedTransactionExtensionPipelineWeight<Call> for VersionedExtension<VERSION, Extension>
+impl<const VERSION: u8, Call: Dispatchable, Extension: TransactionExtension<Call>>
+	VersTxExtLineWeight<Call> for TxExtLineAtVers<VERSION, Extension>
 {
 	fn weight(&self, call: &Call) -> Weight {
 		self.extension.weight(call)
 	}
 }
-
 
 /// Shortcut for the result value of the `validate` function.
 pub type ValidateResult<Val, Call> =

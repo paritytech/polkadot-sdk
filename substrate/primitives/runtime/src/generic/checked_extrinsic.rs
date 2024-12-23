@@ -18,23 +18,22 @@
 //! Generic implementation of an extrinsic that has passed the verification
 //! stage.
 
-use codec::Encode;
-use sp_core::RuntimeDebug;
-use sp_weights::Weight;
 use super::unchecked_extrinsic::ExtensionVersion;
 use crate::{
 	traits::{
 		self,
 		transaction_extension::{
-			ExtensionVariant, InvalidVersion, TransactionExtension,
-			VersionedTransactionExtensionPipeline,
-			VersionedTransactionExtensionPipelineWeight,
+			ExtensionVariant, InvalidVersion, TransactionExtension, VersTxExtLine,
+			VersTxExtLineWeight,
 		},
 		AsTransactionAuthorizedOrigin, DispatchInfoOf, DispatchTransaction, Dispatchable,
 		MaybeDisplay, Member, PostDispatchInfoOf, ValidateUnsigned,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 };
+use codec::Encode;
+use sp_core::RuntimeDebug;
+use sp_weights::Weight;
 
 /// Version 0 of the transaction extension version used to construct the inherited
 /// implication for legacy transactions.
@@ -76,7 +75,7 @@ where
 	AccountId: Member + MaybeDisplay,
 	Call: Member + Dispatchable<RuntimeOrigin = RuntimeOrigin> + Encode,
 	ExtensionV0: TransactionExtension<Call>,
-	ExtensionOtherVersions: VersionedTransactionExtensionPipeline<Call>,
+	ExtensionOtherVersions: VersTxExtLine<Call>,
 	RuntimeOrigin: From<Option<AccountId>> + AsTransactionAuthorizedOrigin,
 {
 	type Call = Call;
@@ -142,7 +141,7 @@ impl<AccountId, Call, ExtensionV0, ExtensionOtherVersions>
 where
 	Call: Dispatchable,
 	ExtensionV0: TransactionExtension<Call>,
-	ExtensionVariant<ExtensionV0, ExtensionOtherVersions>: VersionedTransactionExtensionPipelineWeight<Call>,
+	ExtensionVariant<ExtensionV0, ExtensionOtherVersions>: VersTxExtLineWeight<Call>,
 {
 	/// Returns the weight of the extension of this transaction, if present. If the transaction
 	/// doesn't use any extension, the weight returned is equal to zero.

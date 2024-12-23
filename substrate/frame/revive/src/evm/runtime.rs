@@ -99,7 +99,11 @@ impl<Address, Signature, E: EthExtra> ExtrinsicMetadata
 		E::Extension,
 	>::VERSIONS;
 	type TransactionExtensions = E::Extension;
-	type TransactionExtensionsVersions = sp_runtime::traits::transaction_extension::ExtensionVariant<E::Extension, sp_runtime::traits::transaction_extension::InvalidVersion>;
+	type TransactionExtensionsVersions =
+		sp_runtime::traits::transaction_extension::ExtensionVariant<
+			E::Extension,
+			sp_runtime::traits::transaction_extension::InvalidVersion,
+		>;
 }
 
 impl<Address: TypeInfo, Signature: TypeInfo, E: EthExtra> ExtrinsicCall

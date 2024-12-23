@@ -116,14 +116,15 @@ pub fn expand_runtime_metadata(
 				use #scrate::__private::metadata_ir::InternalImplRuntimeApis;
 
 
-				let mut versioned_extensions_metadata = #scrate::sp_runtime::traits::transaction_extension::VersionedTransactionExtensionsMetadataBuilder::new();
+				let mut versioned_extensions_metadata =
+					#scrate::sp_runtime::traits::transaction_extension::VersTxExtLineMetadataBuilder::new();
 
 				<
 					<
 						#extrinsic as #scrate::sp_runtime::traits::ExtrinsicMetadata
 					>::TransactionExtensionsVersions
 					as
-					#scrate::sp_runtime::traits::transaction_extension::VersionedTransactionExtensionPipeline::<
+					#scrate::sp_runtime::traits::transaction_extension::VersTxExtLine::<
 						<#runtime as #system_path::Config>::RuntimeCall
 					>
 				>::build_metadata(&mut versioned_extensions_metadata);

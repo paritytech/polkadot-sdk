@@ -23,12 +23,10 @@ use crate::{
 		self,
 		transaction_extension::{
 			DecodeWithVersion, ExtensionVariant, InvalidVersion, TransactionExtension,
-			VersionedTransactionExtensionPipeline,
-			VersionedTransactionExtensionPipelineWeight,
-			VersionedTransactionExtensionPipelineVersion,
+			VersTxExtLineVersion, VersTxExtLineWeight,
 		},
-		Checkable, Dispatchable, ExtrinsicLike, ExtrinsicMetadata,
-		IdentifyAccount, MaybeDisplay, Member, SignaturePayload,
+		Checkable, Dispatchable, ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount, MaybeDisplay,
+		Member, SignaturePayload,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic,
@@ -59,9 +57,6 @@ pub const EXTRINSIC_FORMAT_VERSION: ExtrinsicVersion = 5;
 /// compatibility reasons. It will be deprecated in favor of v5 extrinsics and an inherent/general
 /// transaction model.
 pub const LEGACY_EXTRINSIC_FORMAT_VERSION: ExtrinsicVersion = 4;
-/// Version 0 of the transaction extension version used to construct the inherited
-/// implication for legacy transactions.
-const EXTENSION_V0_VERSION: ExtensionVersion = 0;
 
 /// The `SignaturePayload` of `UncheckedExtrinsic`.
 pub type UncheckedSignaturePayload<Address, Signature, Extension> = (Address, Signature, Extension);
@@ -77,7 +72,8 @@ impl<Address: TypeInfo, Signature: TypeInfo, Extension: TypeInfo> SignaturePaylo
 /// A "header" for extrinsics leading up to the call itself. Determines the type of extrinsic and
 /// holds any necessary specialized data.
 #[derive(Eq, PartialEq, Clone)]
-pub enum Preamble<Address, Signature, ExtensionV0, ExtensionOtherVersions = InvalidVersion> { // TODO TODO: if we bounds version trait then we can get rid of the ExtensionVersion field
+pub enum Preamble<Address, Signature, ExtensionV0, ExtensionOtherVersions = InvalidVersion> {
+	// TODO TODO: if we bounds version trait then we can get rid of the ExtensionVersion field
 	/// An extrinsic without a signature or any extension. This means it's either an inherent or
 	/// an old-school "Unsigned" (we don't use that terminology any more since it's confusable with
 	/// the general transaction which is without a signature but does have an extension).
@@ -147,7 +143,7 @@ where
 	Address: Encode,
 	Signature: Encode,
 	ExtensionV0: Encode,
-	ExtensionOtherVersions: Encode + VersionedTransactionExtensionPipelineVersion,
+	ExtensionOtherVersions: Encode + VersTxExtLineVersion,
 {
 	fn size_hint(&self) -> usize {
 		match &self {
@@ -157,9 +153,8 @@ where
 				.saturating_add(address.size_hint())
 				.saturating_add(signature.size_hint())
 				.saturating_add(ext.size_hint()),
-			Preamble::General(ext) => EXTRINSIC_FORMAT_VERSION
-				.size_hint()
-				.saturating_add(ext.size_hint()),
+			Preamble::General(ext) =>
+				EXTRINSIC_FORMAT_VERSION.size_hint().saturating_add(ext.size_hint()),
 		}
 	}
 
@@ -206,8 +201,7 @@ where
 		match self {
 			Self::Bare(_) => write!(f, "Bare"),
 			Self::Signed(address, _, tx_ext) => write!(f, "Signed({:?}, {:?})", address, tx_ext),
-			Self::General(tx_ext) =>
-				write!(f, "General({:?})", tx_ext),
+			Self::General(tx_ext) => write!(f, "General({:?})", tx_ext),
 		}
 	}
 }
@@ -345,10 +339,7 @@ impl<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions>
 	///
 	/// This function is only available for `UncheckedExtrinsic` without multi version extension.
 	pub fn new_transaction(function: Call, tx_ext: ExtensionV0) -> Self {
-		Self {
-			preamble: Preamble::General(ExtensionVariant::V0(tx_ext)),
-			function,
-		}
+		Self { preamble: Preamble::General(ExtensionVariant::V0(tx_ext)), function }
 	}
 }
 
@@ -442,7 +433,7 @@ where
 	ExtensionV0: TransactionExtension<Call>,
 	// TODO TODO: redo the bound directly on the generic used to make it clearer that it is
 	// implemented on AlwaysInvalid
-	ExtensionVariant<ExtensionV0, ExtensionOtherVersions>: VersionedTransactionExtensionPipelineWeight<Call>,
+	ExtensionVariant<ExtensionV0, ExtensionOtherVersions>: VersTxExtLineWeight<Call>,
 {
 	/// Returns the weight of the extension of this transaction, if present. If the transaction
 	/// doesn't use any extension, the weight returned is equal to zero.
@@ -526,7 +517,7 @@ impl<
 		Signature: Encode,
 		Call: Encode,
 		ExtensionV0: Encode,
-		ExtensionOtherVersions: Encode + VersionedTransactionExtensionPipelineVersion,
+		ExtensionOtherVersions: Encode + VersTxExtLineVersion,
 	> serde::Serialize
 	for UncheckedExtrinsic<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions>
 {
@@ -625,7 +616,7 @@ where
 	Signature: Encode,
 	Call: Encode,
 	ExtensionV0: Encode,
-	ExtensionOtherVersions: Encode + VersionedTransactionExtensionPipelineVersion,
+	ExtensionOtherVersions: Encode + VersTxExtLineVersion,
 {
 	fn from(
 		extrinsic: UncheckedExtrinsic<
