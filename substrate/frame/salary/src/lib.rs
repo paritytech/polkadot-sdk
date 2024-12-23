@@ -92,8 +92,12 @@ pub mod pallet {
 	use frame_support::{dispatch::Pays, pallet_prelude::*};
 	use frame_system::pallet_prelude::{OriginFor, ensure_signed};
 	use sp_runtime::traits::BlockNumberProvider;
+	
+	/// The in-code storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	#[pallet::config]
