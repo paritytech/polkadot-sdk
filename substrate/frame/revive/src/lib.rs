@@ -1189,146 +1189,6 @@ where
 	}
 
 	/// A version of [`Self::eth_transact`] used to dry-run Ethereum calls.
-	pub fn bare_eth_transact(
-		origin: T::AccountId,
-		dest: Option<H160>,
-		value: BalanceOf<T>,
-		input: Vec<u8>,
-		gas_limit: Weight,
-		storage_deposit_limit: BalanceOf<T>,
-		tracer: Tracer,
-	) -> EthContractResultDetails<BalanceOf<T>>
-	where
-		<T as Config>::RuntimeCall: From<crate::Call<T>>,
-		<T as Config>::RuntimeCall: Encode,
-		T::Nonce: Into<U256>,
-	{
-		use crate::evm::TransactionLegacyUnsigned;
-		use frame_support::traits::OriginTrait;
-		let nonce: T::Nonce = <System<T>>::account_nonce(&origin);
-
-		if let Some(dest) = dest {
-			let tx = TransactionLegacyUnsigned {
-				value: value.into(),
-				input: input.into(),
-				nonce: nonce.into(),
-				chain_id: Some(T::ChainId::get().into()),
-				gas_price: 1u32.into(),
-				gas: u128::MAX.into(),
-				to: Some(dest),
-				..Default::default()
-			};
-
-			let payload = tx.dummy_signed_payload();
-
-			let result = crate::Pallet::<T>::bare_call(
-				T::RuntimeOrigin::signed(origin),
-				dest,
-				value,
-				gas_limit,
-				storage_deposit_limit,
-				tx.input.0,
-				tracer,
-			);
-
-			let transact_kind = EthTransactKind::Call;
-			let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::eth_transact {
-				payload,
-				gas_limit: result.gas_required,
-				storage_deposit_limit: result.storage_deposit.charge_or_zero(),
-				transact_kind,
-			}
-			.into();
-
-			EthContractResultDetails {
-				transact_kind,
-				dispatch_info: dispatch_call.get_dispatch_info(),
-				len: dispatch_call.encode().len() as u32,
-				gas_limit: result.gas_required,
-				storage_deposit: result.storage_deposit.charge_or_zero(),
-				result: result.result.map(|v| v.data),
-			}
-		} else {
-			let tx = TransactionLegacyUnsigned {
-				value: value.into(),
-				input: input.into(),
-				nonce: nonce.into(),
-				chain_id: Some(T::ChainId::get().into()),
-				gas_price: 1u32.into(),
-				gas: u128::MAX.into(),
-				..Default::default()
-			};
-			let payload = tx.dummy_signed_payload();
-
-			let blob = match polkavm::ProgramParts::blob_length(&tx.input.0) {
-				Some(blob_len) => blob_len
-					.try_into()
-					.ok()
-					.and_then(|blob_len| (tx.input.0.split_at_checked(blob_len))),
-				_ => {
-					log::debug!(target: LOG_TARGET, "Failed to extract polkavm blob length");
-					None
-				},
-			};
-
-			let Some((code, data)) = blob else {
-				log::debug!(target: LOG_TARGET, "Failed to extract polkavm code & data");
-				let transact_kind = EthTransactKind::InstantiateWithCode {
-					code_len: tx.input.0.len() as u32,
-					data_len: 0,
-				};
-
-				let dispatch_call = crate::Call::<T>::eth_transact {
-					payload,
-					gas_limit: Default::default(),
-					storage_deposit_limit: 0u32.into(),
-					transact_kind,
-				};
-
-				return EthContractResultDetails {
-					transact_kind,
-					dispatch_info: dispatch_call.get_dispatch_info(),
-					gas_limit: Default::default(),
-					storage_deposit: Default::default(),
-					len: dispatch_call.encode().len() as u32,
-					result: Err(<Error<T>>::DecodingFailed.into()),
-				};
-			};
-
-			let code_len = code.len() as u32;
-			let data_len = data.len() as u32;
-			let result = crate::Pallet::<T>::bare_instantiate(
-				T::RuntimeOrigin::signed(origin),
-				value,
-				gas_limit,
-				storage_deposit_limit,
-				Code::Upload(code.to_vec()),
-				data.to_vec(),
-				None,
-				tracer,
-			);
-
-			let transact_kind = EthTransactKind::InstantiateWithCode { code_len, data_len };
-			let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::eth_transact {
-				payload,
-				transact_kind,
-				gas_limit: result.gas_required,
-				storage_deposit_limit: result.storage_deposit.charge_or_zero(),
-			}
-			.into();
-
-			EthContractResultDetails {
-				transact_kind,
-				dispatch_info: dispatch_call.get_dispatch_info(),
-				len: dispatch_call.encode().len() as u32,
-				gas_limit: result.gas_required,
-				storage_deposit: result.storage_deposit.charge_or_zero(),
-				result: result.result.map(|v| v.result.data),
-			}
-		}
-	}
-
-	/// A version of [`Self::eth_transact`] used to dry-run Ethereum calls.
 	///
 	/// # Parameters
 	///
@@ -1340,6 +1200,7 @@ where
 		mut tx: GenericTransaction,
 		gas_limit: Weight,
 		utx_encoded_size: impl Fn(Call<T>) -> u32,
+		tracer: Tracer,
 	) -> Result<EthTransactInfo<BalanceOf<T>>, EthTransactError>
 	where
 		T: pallet_transaction_payment::Config,
@@ -1381,8 +1242,6 @@ where
 		};
 
 		let input = tx.input.clone().unwrap_or_default().0;
-		let debug = DebugInfo::Skip;
-		let collect_events = CollectEvents::Skip;
 
 		let extract_error = |err| {
 			if err == Error::<T>::TransferFailed.into() ||
@@ -1413,8 +1272,7 @@ where
 					gas_limit,
 					storage_deposit_limit,
 					input.clone(),
-					debug,
-					collect_events,
+					tracer,
 				);
 
 				let data = match result.result {
@@ -1471,8 +1329,7 @@ where
 					Code::Upload(code.to_vec()),
 					data.to_vec(),
 					None,
-					debug,
-					collect_events,
+					tracer,
 				);
 
 				let returned_data = match result.result {

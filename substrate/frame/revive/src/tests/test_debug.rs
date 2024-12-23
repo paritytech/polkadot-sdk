@@ -23,6 +23,7 @@ use crate::{
 	test_utils::*,
 };
 use frame_support::traits::Currency;
+use pretty_assertions::assert_eq;
 use std::cell::RefCell;
 
 thread_local! {
@@ -47,58 +48,51 @@ impl CallInterceptor<Test> for TestDebug {
 	}
 }
 
-/// We can only run the tests if we have a riscv toolchain installed
-#[cfg(feature = "riscv")]
-mod run_tests {
-	use super::*;
-	use pretty_assertions::assert_eq;
+#[test]
+fn call_interception_works() {
+	let (wasm, _) = compile_module("dummy").unwrap();
 
-	#[test]
-	fn call_interception_works() {
-		let (wasm, _) = compile_module("dummy").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = Balances::deposit_creating(&ALICE, 1_000_000);
 
-		ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-			let _ = Balances::deposit_creating(&ALICE, 1_000_000);
+		let account_id = Contracts::bare_instantiate(
+			RuntimeOrigin::signed(ALICE),
+			0,
+			GAS_LIMIT,
+			deposit_limit::<Test>(),
+			Code::Upload(wasm),
+			vec![],
+			// some salt to ensure that the address of this contract is unique among all tests
+			Some([0x41; 32]),
+			Tracer::Disabled,
+		)
+		.result
+		.unwrap()
+		.addr;
 
-			let account_id = Contracts::bare_instantiate(
-				RuntimeOrigin::signed(ALICE),
-				0,
-				GAS_LIMIT,
-				deposit_limit::<Test>(),
-				Code::Upload(wasm),
-				vec![],
-				// some salt to ensure that the address of this contract is unique among all tests
-				Some([0x41; 32]),
-				Tracer::Disabled,
-			)
-			.result
-			.unwrap()
-			.addr;
+		// no interception yet
+		assert_ok!(Contracts::call(
+			RuntimeOrigin::signed(ALICE),
+			account_id,
+			0,
+			GAS_LIMIT,
+			deposit_limit::<Test>(),
+			vec![],
+		));
 
-			// no interception yet
-			assert_ok!(Contracts::call(
+		// intercept calls to this contract
+		INTERCEPTED_ADDRESS.with(|i| *i.borrow_mut() = Some(account_id));
+
+		assert_err_ignore_postinfo!(
+			Contracts::call(
 				RuntimeOrigin::signed(ALICE),
 				account_id,
 				0,
 				GAS_LIMIT,
 				deposit_limit::<Test>(),
 				vec![],
-			));
-
-			// intercept calls to this contract
-			INTERCEPTED_ADDRESS.with(|i| *i.borrow_mut() = Some(account_id));
-
-			assert_err_ignore_postinfo!(
-				Contracts::call(
-					RuntimeOrigin::signed(ALICE),
-					account_id,
-					0,
-					GAS_LIMIT,
-					deposit_limit::<Test>(),
-					vec![],
-				),
-				<Error<Test>>::ContractReverted,
-			);
-		});
-	}
+			),
+			<Error<Test>>::ContractReverted,
+		);
+	});
 }
