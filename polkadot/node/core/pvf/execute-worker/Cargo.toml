@@ -12,11 +12,11 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-cpu-time = { workspace = true }
-sp-tracing = { workspace = true, default-features = true }
 cfg-if = { workspace = true }
-nix = { features = ["process", "resource", "sched"], workspace = true }
+cpu-time = { workspace = true }
+gum = { workspace = true, default-features = true }
 libc = { workspace = true }
+nix = { features = ["process", "resource", "sched"], workspace = true }
 
 codec = { features = ["derive"], workspace = true }
 

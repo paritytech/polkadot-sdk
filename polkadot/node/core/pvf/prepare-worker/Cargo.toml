@@ -15,11 +15,11 @@ workspace = true
 blake3 = { workspace = true }
 cfg-if = { workspace = true }
 libc = { workspace = true }
+nix = { features = ["process", "resource", "sched"], workspace = true }
 rayon = { workspace = true }
-tracking-allocator = { workspace = true, default-features = true }
 tikv-jemalloc-ctl = { optional = true, workspace = true }
 tikv-jemallocator = { optional = true, workspace = true }
-nix = { features = ["process", "resource", "sched"], workspace = true }
+tracking-allocator = { workspace = true, default-features = true }
 
 codec = { features = ["derive"], workspace = true }
 

@@ -39,9 +39,9 @@ xcm = { workspace = true }
 xcm-executor = { workspace = true }
 
 # Cumulus
-pallet-collator-selection = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-primitives-utility = { workspace = true }
+pallet-collator-selection = { workspace = true }
 parachain-info = { workspace = true }
 
 [dev-dependencies]
