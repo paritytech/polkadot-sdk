@@ -17,7 +17,7 @@
 //! The client connects to the source substrate chain
 //! and is used by the rpc server to query and send transactions to the substrate chain.
 use crate::{
-	runtime::GAS_PRICE,
+	runtime::gas_from_fee,
 	subxt_client::{
 		revive::{calls::types::EthTransact, events::ContractEmitted},
 		runtime_types::pallet_revive::storage::ContractInfo,
@@ -771,7 +771,7 @@ impl Client {
 	pub async fn evm_block(&self, block: Arc<SubstrateBlock>) -> Result<Block, ClientError> {
 		let runtime_api = self.inner.api.runtime_api().at(block.hash());
 		let max_fee = Self::weight_to_fee(&runtime_api, self.max_block_weight()).await?;
-		let gas_limit = U256::from(max_fee / GAS_PRICE as u128);
+		let gas_limit = gas_from_fee(max_fee);
 
 		let header = block.header();
 		let timestamp = extract_block_timestamp(&block).await.unwrap_or_default();

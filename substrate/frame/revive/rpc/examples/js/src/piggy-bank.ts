@@ -1,9 +1,9 @@
 import { assert, getByteCode, walletClient } from './lib.ts'
-import { abi } from '../abi/piggyBank.ts'
+import { PiggyBankAbi } from '../abi/piggyBank.ts'
 import { parseEther } from 'viem'
 
 const hash = await walletClient.deployContract({
-	abi,
+	abi: PiggyBankAbi,
 	bytecode: getByteCode('piggyBank'),
 })
 const deployReceipt = await walletClient.waitForTransactionReceipt({ hash })
@@ -16,7 +16,7 @@ assert(contractAddress, 'Contract address should be set')
 	const result = await walletClient.estimateContractGas({
 		account: walletClient.account,
 		address: contractAddress,
-		abi,
+		abi: PiggyBankAbi,
 		functionName: 'deposit',
 		value: parseEther('10'),
 	})
@@ -26,7 +26,7 @@ assert(contractAddress, 'Contract address should be set')
 	const { request } = await walletClient.simulateContract({
 		account: walletClient.account,
 		address: contractAddress,
-		abi,
+		abi: PiggyBankAbi,
 		functionName: 'deposit',
 		value: parseEther('10'),
 	})
@@ -36,9 +36,6 @@ assert(contractAddress, 'Contract address should be set')
 
 	const receipt = await walletClient.waitForTransactionReceipt({ hash })
 	console.log(`Deposit receipt: ${receipt.status}`)
-	if (process.env.STOP) {
-		process.exit(0)
-	}
 }
 
 // Withdraw 5 WST
@@ -46,7 +43,7 @@ assert(contractAddress, 'Contract address should be set')
 	const { request } = await walletClient.simulateContract({
 		account: walletClient.account,
 		address: contractAddress,
-		abi,
+		abi: PiggyBankAbi,
 		functionName: 'withdraw',
 		args: [parseEther('5')],
 	})
@@ -58,7 +55,7 @@ assert(contractAddress, 'Contract address should be set')
 	// Check remaining balance
 	const balance = await walletClient.readContract({
 		address: contractAddress,
-		abi,
+		abi: PiggyBankAbi,
 		functionName: 'getDeposit',
 	})
 
