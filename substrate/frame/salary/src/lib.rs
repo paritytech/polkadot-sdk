@@ -40,8 +40,8 @@ mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-pub mod weights;
 pub mod migration;
+pub mod weights;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -90,9 +90,9 @@ pub struct ClaimantStatus<CycleIndex, Balance, Id> {
 pub mod pallet {
 	use super::*;
 	use frame_support::{dispatch::Pays, pallet_prelude::*};
-	use frame_system::pallet_prelude::{OriginFor, ensure_signed};
+	use frame_system::pallet_prelude::{ensure_signed, OriginFor};
 	use sp_runtime::traits::BlockNumberProvider;
-	
+
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
@@ -153,12 +153,14 @@ pub mod pallet {
 		type BlockNumberProvider: BlockNumberProvider;
 	}
 
-	pub type BlockNumberFor<T, I> = <<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+	pub type BlockNumberFor<T, I> =
+		<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 	pub type CycleIndexOf<T, I> = BlockNumberFor<T, I>;
 	pub type BalanceOf<T, I> = <<T as Config<I>>::Paymaster as Pay>::Balance;
 	pub type IdOf<T, I> = <<T as Config<I>>::Paymaster as Pay>::Id;
 	pub type StatusOf<T, I> = StatusType<CycleIndexOf<T, I>, BlockNumberFor<T, I>, BalanceOf<T, I>>;
-	pub type ClaimantStatusOf<T, I> = ClaimantStatus<CycleIndexOf<T, I>, BalanceOf<T, I>, IdOf<T, I>>;
+	pub type ClaimantStatusOf<T, I> =
+		ClaimantStatus<CycleIndexOf<T, I>, BalanceOf<T, I>, IdOf<T, I>>;
 
 	/// The overall status of the system.
 	#[pallet::storage]

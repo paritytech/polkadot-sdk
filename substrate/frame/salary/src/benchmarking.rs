@@ -20,7 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use crate::{Pallet as Salary, BlockNumberFor as SalaryBlockNumberFor};
+use crate::{BlockNumberFor as SalaryBlockNumberFor, Pallet as Salary};
 
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;

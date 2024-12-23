@@ -65,7 +65,7 @@ pub mod v1 {
 		/// use relay current - ((current local - local) * equivalent_block_duration)
 		fn equivalent_moment_in_time(local: L) -> N;
 
-        /// Returns the equivalent time duration as the previous type when represented as the new
+		/// Returns the equivalent time duration as the previous type when represented as the new
 		/// type
 		///
 		/// For instance - If you previously had 12s blocks and are now following the relay chain's
@@ -118,7 +118,7 @@ pub mod v1 {
 				},
 			);
 
-            T::DbWeight::get().reads_writes(transactions, transactions)
+			T::DbWeight::get().reads_writes(transactions, transactions)
 		}
 
 		#[cfg(feature = "try-runtime")]
