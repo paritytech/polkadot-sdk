@@ -22287,6 +22287,7 @@ dependencies = [
  "rand",
  "regex",
  "rpassword",
+ "sc-chain-spec",
  "sc-client-api",
  "sc-client-db",
  "sc-keystore",

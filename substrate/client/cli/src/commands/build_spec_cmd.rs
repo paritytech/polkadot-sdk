@@ -23,6 +23,7 @@ use crate::{
 };
 use clap::Parser;
 use log::info;
+use sc_chain_spec::OffchainExecutorParams;
 use sc_network::config::build_multiaddr;
 use sc_service::{
 	config::{MultiaddrWithPeerId, NetworkConfiguration},
@@ -42,6 +43,10 @@ pub struct BuildSpecCmd {
 	/// specification when no bootnode exists.
 	#[arg(long)]
 	pub disable_default_bootnode: bool,
+
+	/// Number of extra heap pages available to genesis builder.
+	#[arg(long)]
+	pub extra_heap_pages: Option<u64>,
 
 	#[allow(missing_docs)]
 	#[clap(flatten)]
@@ -71,6 +76,8 @@ impl BuildSpecCmd {
 			};
 			spec.add_boot_node(addr)
 		}
+
+		spec.set_executor_params(OffchainExecutorParams { extra_heap_pages: self.extra_heap_pages });
 
 		let json = sc_service::chain_ops::build_spec(&*spec, raw_output)?;
 		if std::io::stdout().write_all(json.as_bytes()).is_err() {

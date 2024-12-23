@@ -116,7 +116,7 @@ fn genesis_from_code<EHF: HostFunctions>(
 		sp_io::SubstrateHostFunctions,
 		frame_benchmarking::benchmarking::HostFunctions,
 		EHF,
-	)>::new(code);
+	)>::new(code, Default::default());
 
 	let mut preset_json = genesis_config_caller.get_named_preset(Some(genesis_builder_preset))?;
 	if let Some(patcher) = storage_patcher {

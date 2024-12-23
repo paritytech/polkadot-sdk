@@ -50,7 +50,8 @@ pub fn get_chain_spec_with_extra_endowed(
 	extra_endowed_accounts: Vec<AccountId>,
 	code: &[u8],
 ) -> ChainSpec {
-	let runtime_caller = GenesisConfigBuilderRuntimeCaller::<ParachainHostFunctions>::new(code);
+	let runtime_caller =
+		GenesisConfigBuilderRuntimeCaller::<ParachainHostFunctions>::new(code, Default::default());
 	let mut development_preset = runtime_caller
 		.get_named_preset(Some(&sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET.to_string()))
 		.expect("development preset is available on test runtime; qed");
