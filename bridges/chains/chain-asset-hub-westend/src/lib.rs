@@ -39,7 +39,7 @@ use xcm::latest::prelude::*;
 pub enum Call {
 	/// `ToRococoXcmRouter` bridge pallet.
 	#[codec(index = 34)]
-	ToRococoXcmRouter(XcmBridgeHubRouterCall),
+	ToRococoXcmRouter(XcmBridgeHubRouterCall<sp_core::H256>),
 }
 
 frame_support::parameter_types! {
