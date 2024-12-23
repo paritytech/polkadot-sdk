@@ -52,7 +52,7 @@ fn load_input(delegate_call: bool) {
 	}
 
 	if delegate_call {
-		api::delegate_call(uapi::CallFlags::empty(), address, 0, 0, None, &[], None).unwrap();
+		api::delegate_call(uapi::CallFlags::empty(), address, u64::MAX, u64::MAX, None, &[], None).unwrap();
 	}
 }
 

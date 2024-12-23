@@ -100,13 +100,8 @@ pub trait State: private::Sealed {}
 pub struct Root;
 
 /// State parameter that constitutes a meter that is in its nested state.
-/// Its value indicates whether the nested meter has its own limit.
-#[derive(DefaultNoBound, RuntimeDebugNoBound)]
-pub enum Nested {
-	#[default]
-	DerivedLimit,
-	OwnLimit,
-}
+#[derive(Default, Debug)]
+pub struct Nested;
 
 impl State for Root {}
 impl State for Nested {}
@@ -126,7 +121,7 @@ pub struct RawMeter<T: Config, E, S: State + Default + Debug> {
 	/// limited by the maximum call depth.
 	charges: Vec<Charge<T>>,
 	/// We store the nested state to determine if it has a special limit for sub-call.
-	nested: S,
+	_nested: PhantomData<S>,
 	/// Type parameter only used in impls.
 	_phantom: PhantomData<E>,
 }
@@ -281,21 +276,22 @@ where
 	S: State + Default + Debug,
 {
 	/// Create a new child that has its `limit`.
-	/// Passing `0` as the limit is interpreted as to take whatever is remaining from its parent.
 	///
 	/// This is called whenever a new subcall is initiated in order to track the storage
 	/// usage for this sub call separately. This is necessary because we want to exchange balance
 	/// with the current contract we are interacting with.
+	///
+	/// Gas for nested calls are capped to 63/64ths of the caller's originally available limit, per
+	/// EIP-150.
 	pub fn nested(&self, limit: BalanceOf<T>) -> RawMeter<T, E, Nested> {
 		debug_assert!(matches!(self.contract_state(), ContractState::Alive));
+
+		let available = self.available() - self.available() / (BalanceOf::<T>::from(64u32));
+
 		// If a special limit is specified higher than it is available,
 		// we want to enforce the lesser limit to the nested meter, to fail in the sub-call.
-		let limit = self.available().min(limit);
-		if limit.is_zero() {
-			RawMeter { limit: self.available(), ..Default::default() }
-		} else {
-			RawMeter { limit, nested: Nested::OwnLimit, ..Default::default() }
-		}
+		let limit = available.min(limit);
+		RawMeter { limit, ..Default::default() }
 	}
 
 	/// Absorb a child that was spawned to handle a sub call.
@@ -346,6 +342,10 @@ where
 				ContractState::Terminated { beneficiary: beneficiary.clone() },
 			_ => ContractState::Alive,
 		}
+	}
+
+	pub(crate) fn take_all(&self) -> RawMeter<T, E, Nested> {
+		RawMeter { limit: self.available(), ..Default::default() }
 	}
 }
 
@@ -482,8 +482,7 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 	///
 	/// We normally need to call this **once** for every call stack and not for every cross contract
 	/// call. However, if a dedicated limit is specified for a sub-call, this needs to be called
-	/// once the sub-call has returned. For this, the [`Self::enforce_subcall_limit`] wrapper is
-	/// used.
+	/// once the sub-call has returned.
 	pub fn enforce_limit(
 		&mut self,
 		info: Option<&mut ContractInfo<T>>,
@@ -501,18 +500,6 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 			}
 		}
 		Ok(())
-	}
-
-	/// This is a wrapper around [`Self::enforce_limit`] to use on the exit from a sub-call to
-	/// enforce its special limit if needed.
-	pub fn enforce_subcall_limit(
-		&mut self,
-		info: Option<&mut ContractInfo<T>>,
-	) -> Result<(), DispatchError> {
-		match self.nested {
-			Nested::OwnLimit => self.enforce_limit(info),
-			Nested::DerivedLimit => Ok(()),
-		}
 	}
 }
 
@@ -724,6 +711,49 @@ mod tests {
 		)
 	}
 
+	/// Previously, passing a limit of 0 meant unlimited storage for a nested call.
+	///
+	/// Now, a limit of 0 means the subcall will not be able to use any storage.
+	#[test]
+	fn nested_zero_limit_requested() {
+		clear_ext();
+
+		let meter = TestMeter::new(&Origin::from_account_id(ALICE), 1_000, 0).unwrap();
+		assert_eq!(meter.available(), 1_000);
+		let nested0 = meter.nested(BalanceOf::<Test>::zero());
+		assert_eq!(nested0.available(), 0);
+	}
+
+	#[test]
+	fn nested_some_limit_requested() {
+		clear_ext();
+
+		let meter = TestMeter::new(&Origin::from_account_id(ALICE), 1_000, 0).unwrap();
+		assert_eq!(meter.available(), 1_000);
+		let nested0 = meter.nested(500);
+		assert_eq!(nested0.available(), 500);
+	}
+
+	#[test]
+	fn nested_all_limit_requested() {
+		clear_ext();
+
+		let meter = TestMeter::new(&Origin::from_account_id(ALICE), 1_000, 0).unwrap();
+		assert_eq!(meter.available(), 1_000);
+		let nested0 = meter.nested(1_000);
+		assert_eq!(nested0.available(), 985);
+	}
+
+	#[test]
+	fn nested_over_limit_requested() {
+		clear_ext();
+
+		let meter = TestMeter::new(&Origin::from_account_id(ALICE), 1_000, 0).unwrap();
+		assert_eq!(meter.available(), 1_000);
+		let nested0 = meter.nested(2_000);
+		assert_eq!(nested0.available(), 985);
+	}
+
 	#[test]
 	fn empty_charge_works() {
 		clear_ext();
@@ -879,7 +909,7 @@ mod tests {
 			let mut meter = TestMeter::new(&test_case.origin, 1_000, 0).unwrap();
 			assert_eq!(meter.available(), 1_000);
 
-			let mut nested0 = meter.nested(BalanceOf::<Test>::zero());
+			let mut nested0 = meter.nested(BalanceOf::<Test>::max_value());
 			nested0.charge(&Diff {
 				bytes_added: 5,
 				bytes_removed: 1,
@@ -895,7 +925,7 @@ mod tests {
 				items_deposit: 20,
 				immutable_data_len: 0,
 			});
-			let mut nested1 = nested0.nested(BalanceOf::<Test>::zero());
+			let mut nested1 = nested0.nested(BalanceOf::<Test>::max_value());
 			nested1.charge(&Diff { items_removed: 5, ..Default::default() });
 			nested1.charge(&Diff { bytes_added: 20, ..Default::default() });
 			nested1.terminate(&nested1_info, CHARLIE);
