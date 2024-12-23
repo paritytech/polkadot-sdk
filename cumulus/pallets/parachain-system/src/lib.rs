@@ -35,7 +35,9 @@ use core::{cmp, marker::PhantomData};
 use cumulus_primitives_core::{
 	relay_chain::{
 		self,
-		vstaging::{ClaimQueueOffset, CoreSelector, DEFAULT_CLAIM_QUEUE_OFFSET},
+		vstaging::{
+			ClaimQueueOffset, CoreSelector, UMPSignal, DEFAULT_CLAIM_QUEUE_OFFSET, UMP_SEPARATOR,
+		},
 	},
 	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, GetChannelInfo,
 	InboundDownwardMessage, InboundHrmpMessage, ListChannelInfos, MessageSendError,
@@ -1458,8 +1460,6 @@ impl<T: Config> Pallet<T> {
 
 	/// Send the ump signals
 	fn send_ump_signal() {
-		use cumulus_primitives_core::relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
-
 		// If the runtime is configured with a core selection policy, send the core selector signal.
 		let maybe_core_selector = T::SelectCore::selected_core();
 

@@ -235,25 +235,6 @@ where
 			},
 		};
 
-		let runtime_api = self.runtime_api.runtime_api();
-
-		// Don't allow sending ump signals until the GetCoreSelectorApi is implemented and at
-		// version 2.
-		let allow_ump_signal = match runtime_api
-			.api_version::<dyn GetCoreSelectorApi<Block>>(block_hash)
-			.ok()
-			.flatten()
-		{
-			Some(version) => version >= 2,
-			None => {
-				tracing::error!(
-					target: LOG_TARGET,
-					"Could not fetch `GetCoreSelectorApi` runtime api version."
-				);
-				return None
-			},
-		};
-
 		// Create the parachain block data for the validators.
 		let mut collation_info = self
 			.fetch_collation_info(block_hash, &header)
@@ -272,14 +253,6 @@ where
 		let pov = polkadot_node_primitives::maybe_compress_pov(PoV {
 			block_data: BlockData(block_data.encode()),
 		});
-
-		if !allow_ump_signal {
-			collation_info.upward_messages = collation_info
-				.upward_messages
-				.into_iter()
-				.take_while(|message| *message != UMP_SEPARATOR)
-				.collect();
-		}
 
 		let upward_messages = collation_info
 			.upward_messages
