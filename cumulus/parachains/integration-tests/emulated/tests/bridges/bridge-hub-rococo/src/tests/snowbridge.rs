@@ -238,7 +238,7 @@ fn register_weth_token_from_ethereum_to_asset_hub() {
 /// Tests the registering of a token as an asset on AssetHub, and then subsequently sending
 /// a token from Ethereum to AssetHub.
 #[test]
-fn send_weth_from_ethereum_to_asset_hub() {
+fn send_weth_token_from_ethereum_to_asset_hub() {
 	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id().into(), INITIAL_FUND);
 
 	// Fund ethereum sovereign on AssetHub
