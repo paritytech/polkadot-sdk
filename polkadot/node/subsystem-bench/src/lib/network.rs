@@ -56,7 +56,9 @@ use net_protocol::{
 	request_response::{Recipient, Requests, ResponseSender},
 	ObservedRole, VersionedValidationProtocol, View,
 };
-use polkadot_node_network_protocol::{self as net_protocol, Versioned};
+use polkadot_node_network_protocol::{
+	self as net_protocol, authority_discovery::AuthorityDiscovery, Versioned,
+};
 use polkadot_node_subsystem::messages::StatementDistributionMessage;
 use polkadot_node_subsystem_types::messages::NetworkBridgeEvent;
 use polkadot_node_subsystem_util::metrics::prometheus::{
@@ -72,8 +74,9 @@ use sc_network::{
 };
 use sc_network_types::PeerId;
 use sc_service::SpawnTaskHandle;
+use sp_consensus::SyncOracle;
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	sync::Arc,
 	task::Poll,
 	time::{Duration, Instant},
@@ -1082,6 +1085,52 @@ impl RequestExt for Requests {
 				outgoing_request.payload.encoded_size(),
 			_ => unimplemented!("received an unexpected request"),
 		}
+	}
+}
+
+#[derive(Clone)]
+pub struct DummySyncOracle;
+
+impl SyncOracle for DummySyncOracle {
+	fn is_major_syncing(&self) -> bool {
+		false
+	}
+
+	fn is_offline(&self) -> bool {
+		false
+	}
+}
+
+#[derive(Clone, Debug)]
+pub struct DummyAuthotiryDiscoveryService {
+	by_peer_id: HashMap<PeerId, HashSet<AuthorityDiscoveryId>>,
+}
+
+impl DummyAuthotiryDiscoveryService {
+	pub fn new(by_peer_id: HashMap<PeerId, AuthorityDiscoveryId>) -> Self {
+		Self {
+			by_peer_id: by_peer_id
+				.into_iter()
+				.map(|(peer_id, authority_id)| (peer_id, HashSet::from([authority_id])))
+				.collect(),
+		}
+	}
+}
+
+#[async_trait::async_trait]
+impl AuthorityDiscovery for DummyAuthotiryDiscoveryService {
+	async fn get_addresses_by_authority_id(
+		&mut self,
+		authority: AuthorityDiscoveryId,
+	) -> Option<HashSet<sc_network::Multiaddr>> {
+		todo!("get_addresses_by_authority_id authority: {:?}", authority);
+	}
+
+	async fn get_authority_ids_by_peer_id(
+		&mut self,
+		peer_id: PeerId,
+	) -> Option<HashSet<AuthorityDiscoveryId>> {
+		self.by_peer_id.get(&peer_id).cloned()
 	}
 }
 
