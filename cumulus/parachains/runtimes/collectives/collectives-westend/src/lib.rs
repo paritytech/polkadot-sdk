@@ -49,9 +49,9 @@ extern crate alloc;
 pub use ambassador::pallet_ambassador_origins;
 
 use alloc::{vec, vec::Vec};
-use ambassador::AmbassadorCoreInstance;
+use ambassador::{AmbassadorCoreInstance, AmbassadorSalaryInstance};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
-use fellowship::{pallet_fellowship_origins, Fellows, FellowshipCoreInstance};
+use fellowship::{pallet_fellowship_origins, Fellows, FellowshipCoreInstance, FellowshipSalaryInstance};
 use impls::{AllianceProposalProvider, EqualOrGreatestRootCmp};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -763,8 +763,8 @@ type Migrations = (
 	// unreleased
 	pallet_core_fellowship::migration::MigrateV0ToV1<Runtime, AmbassadorCoreInstance>,
 	// unreleased
-	pallet_salary::migration::MigrateV0ToV1<Runtime, SalaryBlockNumberConverter, FellowshipCoreInstance>,
-	pallet_salary::migration::MigrateV0ToV1<Runtime, SalaryBlockNumberConverter, AmbassadorCoreInstance>,
+	pallet_salary::migration::MigrateV0ToV1<Runtime, SalaryBlockNumberConverter, FellowshipSalaryInstance>,
+	pallet_salary::migration::MigrateV0ToV1<Runtime, SalaryBlockNumberConverter, AmbassadorSalaryInstance>,
 );
 
 // Helpers for the salary pallet v0->v1 storage migration.
