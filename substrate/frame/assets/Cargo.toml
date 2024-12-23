@@ -25,14 +25,13 @@ sp-runtime = { workspace = true }
 # Needed for type-safe access to storage DB.
 frame-support = { workspace = true }
 # `system` module provides us with all sorts of useful stuff and macros depend on it being around.
-frame-system = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
+frame-system = { workspace = true }
 sp-core = { workspace = true }
 
 [dev-dependencies]
-sp-std = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

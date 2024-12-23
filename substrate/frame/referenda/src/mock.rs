@@ -24,7 +24,6 @@ use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
 		ConstU32, ConstU64, Contains, EqualPrivilegeOnly, OnInitialize, OriginTrait, Polling,
-		SortedMembers,
 	},
 	weights::Weight,
 };
@@ -97,14 +96,6 @@ ord_parameter_types! {
 	pub const Four: u64 = 4;
 	pub const Five: u64 = 5;
 	pub const Six: u64 = 6;
-}
-pub struct OneToFive;
-impl SortedMembers<u64> for OneToFive {
-	fn sorted_members() -> Vec<u64> {
-		vec![1, 2, 3, 4, 5]
-	}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn add(_m: &u64) {}
 }
 
 pub struct TestTracksInfo;

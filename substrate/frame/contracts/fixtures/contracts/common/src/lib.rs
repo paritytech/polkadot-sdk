@@ -22,13 +22,6 @@ pub use uapi::{HostFn, HostFnImpl as api};
 fn panic(_info: &core::panic::PanicInfo) -> ! {
 	#[cfg(target_arch = "wasm32")]
 	core::arch::wasm32::unreachable();
-
-	#[cfg(target_arch = "riscv32")]
-	// Safety: The unimp instruction is guaranteed to trap
-	unsafe {
-		core::arch::asm!("unimp");
-		core::hint::unreachable_unchecked();
-	}
 }
 
 /// Utility macro to read input passed to a contract.

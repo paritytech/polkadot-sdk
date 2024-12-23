@@ -22,14 +22,15 @@ use crate::{
 	protocol_controller::{self, SetId},
 	service::{metrics::NotificationMetrics, traits::Direction},
 	types::ProtocolName,
+	MAX_RESPONSE_SIZE,
 };
 
 use codec::Encode;
 use libp2p::{
-	core::Endpoint,
+	core::{transport::PortUse, Endpoint},
 	swarm::{
-		behaviour::FromSwarm, ConnectionDenied, ConnectionId, NetworkBehaviour, PollParameters,
-		THandler, THandlerInEvent, THandlerOutEvent, ToSwarm,
+		behaviour::FromSwarm, ConnectionDenied, ConnectionId, NetworkBehaviour, THandler,
+		THandlerInEvent, THandlerOutEvent, ToSwarm,
 	},
 	Multiaddr, PeerId,
 };
@@ -46,9 +47,7 @@ use notifications::{Notifications, NotificationsOut};
 
 pub(crate) use notifications::ProtocolHandle;
 
-pub use notifications::{
-	notification_service, NotificationsSink, NotifsHandlerError, ProtocolHandlePair, Ready,
-};
+pub use notifications::{notification_service, NotificationsSink, ProtocolHandlePair, Ready};
 
 mod notifications;
 
@@ -56,7 +55,7 @@ pub mod message;
 
 /// Maximum size used for notifications in the block announce and transaction protocols.
 // Must be equal to `max(MAX_BLOCK_ANNOUNCE_SIZE, MAX_TRANSACTIONS_SIZE)`.
-pub(crate) const BLOCK_ANNOUNCES_TRANSACTIONS_SUBSTREAM_SIZE: u64 = 16 * 1024 * 1024;
+pub(crate) const BLOCK_ANNOUNCES_TRANSACTIONS_SUBSTREAM_SIZE: u64 = MAX_RESPONSE_SIZE;
 
 /// Identifier of the peerset for the block announces protocol.
 const HARDCODED_PEERSETS_SYNC: SetId = SetId::from(0);
@@ -249,12 +248,14 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 		peer: PeerId,
 		addr: &Multiaddr,
 		role_override: Endpoint,
+		port_use: PortUse,
 	) -> Result<THandler<Self>, ConnectionDenied> {
 		self.behaviour.handle_established_outbound_connection(
 			connection_id,
 			peer,
 			addr,
 			role_override,
+			port_use,
 		)
 	}
 
@@ -270,7 +271,7 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 		Ok(Vec::new())
 	}
 
-	fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {
+	fn on_swarm_event(&mut self, event: FromSwarm) {
 		self.behaviour.on_swarm_event(event);
 	}
 
@@ -286,26 +287,15 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 	fn poll(
 		&mut self,
 		cx: &mut std::task::Context,
-		params: &mut impl PollParameters,
 	) -> Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
-		let event = match self.behaviour.poll(cx, params) {
+		let event = match self.behaviour.poll(cx) {
 			Poll::Pending => return Poll::Pending,
 			Poll::Ready(ToSwarm::GenerateEvent(ev)) => ev,
-			Poll::Ready(ToSwarm::Dial { opts }) => return Poll::Ready(ToSwarm::Dial { opts }),
-			Poll::Ready(ToSwarm::NotifyHandler { peer_id, handler, event }) =>
-				return Poll::Ready(ToSwarm::NotifyHandler { peer_id, handler, event }),
-			Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }) =>
-				return Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }),
-			Poll::Ready(ToSwarm::NewExternalAddrCandidate(observed)) =>
-				return Poll::Ready(ToSwarm::NewExternalAddrCandidate(observed)),
-			Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr)) =>
-				return Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr)),
-			Poll::Ready(ToSwarm::ExternalAddrExpired(addr)) =>
-				return Poll::Ready(ToSwarm::ExternalAddrExpired(addr)),
-			Poll::Ready(ToSwarm::ListenOn { opts }) =>
-				return Poll::Ready(ToSwarm::ListenOn { opts }),
-			Poll::Ready(ToSwarm::RemoveListener { id }) =>
-				return Poll::Ready(ToSwarm::RemoveListener { id }),
+			Poll::Ready(event) => {
+				return Poll::Ready(event.map_out(|_| {
+					unreachable!("`GenerateEvent` is handled in a branch above; qed")
+				}));
+			},
 		};
 
 		let outcome = match event {

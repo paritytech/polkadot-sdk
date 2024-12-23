@@ -96,13 +96,13 @@ const LOG_TARGET: &str = "wasm-heap";
 // The minimum possible allocation size is chosen to be 8 bytes because in that case we would have
 // easier time to provide the guaranteed alignment of 8.
 //
-// The maximum possible allocation size is set in the primitives to 64MiB.
+// The maximum possible allocation size is set in the primitives to 32MiB.
 //
 // N_ORDERS - represents the number of orders supported.
 //
 // This number corresponds to the number of powers between the minimum possible allocation and
-// maximum possible allocation, or: 2^3...2^26 (both ends inclusive, hence 24).
-const N_ORDERS: usize = 24;
+// maximum possible allocation, or: 2^3...2^25 (both ends inclusive, hence 23).
+const N_ORDERS: usize = 23;
 const MIN_POSSIBLE_ALLOCATION: u32 = 8; // 2^3 bytes, 8 bytes
 
 /// The exponent for the power of two sized block adjusted to the minimum size.

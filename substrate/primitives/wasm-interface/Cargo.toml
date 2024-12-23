@@ -17,13 +17,17 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+anyhow = { optional = true, workspace = true }
 codec = { features = ["derive"], workspace = true }
 impl-trait-for-tuples = { workspace = true }
 log = { optional = true, workspace = true, default-features = true }
 wasmtime = { optional = true, workspace = true }
-anyhow = { optional = true, workspace = true }
 
 [features]
 default = ["std"]
-std = ["codec/std", "log/std"]
+std = [
+	"anyhow?/std",
+	"codec/std",
+	"log/std",
+]
 wasmtime = ["anyhow", "dep:wasmtime"]

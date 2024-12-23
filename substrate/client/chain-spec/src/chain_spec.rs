@@ -18,10 +18,9 @@
 
 //! Substrate chain configurations.
 #![warn(missing_docs)]
-use crate::OffchainExecutorParams;
 use crate::{
 	extension::GetExtension, genesis_config_builder::HostFunctions, ChainType,
-	GenesisConfigBuilderRuntimeCaller as RuntimeCaller, Properties,
+	GenesisConfigBuilderRuntimeCaller as RuntimeCaller, OffchainExecutorParams, Properties,
 };
 use sc_network::config::MultiaddrWithPeerId;
 use sc_telemetry::TelemetryEndpoints;
@@ -122,7 +121,8 @@ impl<EHF: HostFunctions> GenesisSource<EHF> {
 					code: code.clone(),
 				})),
 			Self::GenesisBuilderApi(GenesisBuildAction::NamedPreset(name, _), code) => {
-				let patch = RuntimeCaller::<EHF>::new(&code[..], Default::default()).get_named_preset(Some(name))?;
+				let patch = RuntimeCaller::<EHF>::new(&code[..], Default::default())
+					.get_named_preset(Some(name))?;
 				Ok(Genesis::RuntimeGenesis(RuntimeGenesisInner {
 					json_blob: RuntimeGenesisConfigJson::Patch(patch),
 					code: code.clone(),
@@ -439,9 +439,7 @@ impl<E, EHF> ChainSpecBuilder<E, EHF> {
 			code_substitutes: BTreeMap::new(),
 		};
 
-		let executor_params = OffchainExecutorParams {
-			extra_heap_pages: self.heap_pages,
-		};
+		let executor_params = OffchainExecutorParams { extra_heap_pages: self.heap_pages };
 
 		ChainSpec {
 			client_spec,
@@ -604,7 +602,8 @@ where
 				}),
 			) => {
 				let mut storage =
-					RuntimeCaller::<EHF>::new(&code[..], self.executor_params.clone()).get_storage_for_config(config)?;
+					RuntimeCaller::<EHF>::new(&code[..], self.executor_params.clone())
+						.get_storage_for_config(config)?;
 				storage.top.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code);
 				RawGenesis::from(storage)
 			},
@@ -616,7 +615,8 @@ where
 				}),
 			) => {
 				let mut storage =
-					RuntimeCaller::<EHF>::new(&code[..], self.executor_params.clone()).get_storage_for_patch(patch)?;
+					RuntimeCaller::<EHF>::new(&code[..], self.executor_params.clone())
+						.get_storage_for_patch(patch)?;
 				storage.top.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code);
 				RawGenesis::from(storage)
 			},
@@ -804,7 +804,7 @@ mod tests {
 	use serde_json::{from_str, json, Value};
 	use sp_application_crypto::Ss58Codec;
 	use sp_core::storage::well_known_keys;
-	use sp_keyring::AccountKeyring;
+	use sp_keyring::Sr25519Keyring;
 
 	type TestSpec = ChainSpec;
 
@@ -946,8 +946,8 @@ mod tests {
 			},
 			"substrateTest": {
 				"authorities": [
-					AccountKeyring::Ferdie.public().to_ss58check(),
-					AccountKeyring::Alice.public().to_ss58check()
+					Sr25519Keyring::Ferdie.public().to_ss58check(),
+					Sr25519Keyring::Alice.public().to_ss58check()
 				],
 			}
 		}))
@@ -1002,8 +1002,8 @@ mod tests {
 			},
 			"substrateTest": {
 				"authorities": [
-					AccountKeyring::Ferdie.public().to_ss58check(),
-					AccountKeyring::Alice.public().to_ss58check()
+					Sr25519Keyring::Ferdie.public().to_ss58check(),
+					Sr25519Keyring::Alice.public().to_ss58check()
 				],
 			}
 		}))
@@ -1105,8 +1105,8 @@ mod tests {
 			"invalid_pallet": {},
 			"substrateTest": {
 				"authorities": [
-					AccountKeyring::Ferdie.public().to_ss58check(),
-					AccountKeyring::Alice.public().to_ss58check()
+					Sr25519Keyring::Ferdie.public().to_ss58check(),
+					Sr25519Keyring::Alice.public().to_ss58check()
 				],
 			}
 		}))

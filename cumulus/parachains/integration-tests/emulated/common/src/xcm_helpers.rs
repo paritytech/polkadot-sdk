@@ -23,17 +23,15 @@ use xcm::{prelude::*, DoubleEncoded};
 pub fn xcm_transact_paid_execution(
 	call: DoubleEncoded<()>,
 	origin_kind: OriginKind,
-	native_asset: Asset,
+	fees: Asset,
 	beneficiary: AccountId,
 ) -> VersionedXcm<()> {
 	let weight_limit = WeightLimit::Unlimited;
-	let require_weight_at_most = Weight::from_parts(1000000000, 200000);
-	let native_assets: Assets = native_asset.clone().into();
 
 	VersionedXcm::from(Xcm(vec![
-		WithdrawAsset(native_assets),
-		BuyExecution { fees: native_asset, weight_limit },
-		Transact { require_weight_at_most, origin_kind, call },
+		WithdrawAsset(fees.clone().into()),
+		BuyExecution { fees, weight_limit },
+		Transact { origin_kind, call, fallback_max_weight: None },
 		RefundSurplus,
 		DepositAsset {
 			assets: All.into(),
@@ -51,12 +49,11 @@ pub fn xcm_transact_unpaid_execution(
 	origin_kind: OriginKind,
 ) -> VersionedXcm<()> {
 	let weight_limit = WeightLimit::Unlimited;
-	let require_weight_at_most = Weight::from_parts(1000000000, 200000);
 	let check_origin = None;
 
 	VersionedXcm::from(Xcm(vec![
 		UnpaidExecution { weight_limit, check_origin },
-		Transact { require_weight_at_most, origin_kind, call },
+		Transact { origin_kind, call, fallback_max_weight: None },
 	]))
 }
 

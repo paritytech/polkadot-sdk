@@ -19,7 +19,7 @@ use crate::{Config, Pallet};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{DispatchInfoOf, SignedExtension},
+	impl_tx_ext_default, traits::TransactionExtension,
 	transaction_validity::TransactionValidityError,
 };
 
@@ -46,30 +46,24 @@ impl<T: Config + Send + Sync> core::fmt::Debug for CheckSpecVersion<T> {
 }
 
 impl<T: Config + Send + Sync> CheckSpecVersion<T> {
-	/// Create new `SignedExtension` to check runtime version.
+	/// Create new `TransactionExtension` to check runtime version.
 	pub fn new() -> Self {
 		Self(core::marker::PhantomData)
 	}
 }
 
-impl<T: Config + Send + Sync> SignedExtension for CheckSpecVersion<T> {
-	type AccountId = T::AccountId;
-	type Call = <T as Config>::RuntimeCall;
-	type AdditionalSigned = u32;
-	type Pre = ();
+impl<T: Config + Send + Sync> TransactionExtension<<T as Config>::RuntimeCall>
+	for CheckSpecVersion<T>
+{
 	const IDENTIFIER: &'static str = "CheckSpecVersion";
-
-	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
+	type Implicit = u32;
+	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		Ok(<Pallet<T>>::runtime_version().spec_version)
 	}
-
-	fn pre_dispatch(
-		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		self.validate(who, call, info, len).map(|_| ())
+	type Val = ();
+	type Pre = ();
+	fn weight(&self, _: &<T as Config>::RuntimeCall) -> sp_weights::Weight {
+		<T::ExtensionsWeightInfo as super::WeightInfo>::check_spec_version()
 	}
+	impl_tx_ext_default!(<T as Config>::RuntimeCall; validate prepare);
 }

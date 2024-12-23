@@ -5,6 +5,8 @@ authors.workspace = true
 edition.workspace = true
 description = "Rococo's People parachain runtime"
 license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
@@ -30,7 +32,9 @@ pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-identity = { workspace = true }
 pallet-message-queue = { workspace = true }
+pallet-migrations = { workspace = true }
 pallet-multisig = { workspace = true }
+pallet-proxy = { workspace = true }
 pallet-session = { workspace = true }
 pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
@@ -68,12 +72,15 @@ cumulus-pallet-xcm = { workspace = true }
 cumulus-pallet-xcmp-queue = { workspace = true }
 cumulus-primitives-aura = { workspace = true }
 cumulus-primitives-core = { workspace = true }
-cumulus-primitives-utility = { workspace = true }
 cumulus-primitives-storage-weight-reclaim = { workspace = true }
+cumulus-primitives-utility = { workspace = true }
 pallet-collator-selection = { workspace = true }
 parachain-info = { workspace = true }
 parachains-common = { workspace = true }
 testnet-parachains-constants = { features = ["rococo"], workspace = true }
+
+[dev-dependencies]
+parachains-runtimes-test-utils = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -103,7 +110,9 @@ std = [
 	"pallet-collator-selection/std",
 	"pallet-identity/std",
 	"pallet-message-queue/std",
+	"pallet-migrations/std",
 	"pallet-multisig/std",
+	"pallet-proxy/std",
 	"pallet-session/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
@@ -152,8 +161,11 @@ runtime-benchmarks = [
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
+	"pallet-migrations/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
+	"pallet-proxy/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
@@ -164,6 +176,7 @@ runtime-benchmarks = [
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 
 try-runtime = [
@@ -181,7 +194,9 @@ try-runtime = [
 	"pallet-collator-selection/try-runtime",
 	"pallet-identity/try-runtime",
 	"pallet-message-queue/try-runtime",
+	"pallet-migrations/try-runtime",
 	"pallet-multisig/try-runtime",
+	"pallet-proxy/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
@@ -191,3 +206,8 @@ try-runtime = [
 	"polkadot-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+
+# A feature that should be enabled when the runtime should be built for on-chain
+# deployment. This will disable stuff that shouldn't be part of the on-chain wasm
+# to make it smaller, like logging for example.
+on-chain-release-build = []

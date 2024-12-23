@@ -5,6 +5,8 @@ description = "Parachain testnet runtime for FRAME Contracts pallet."
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -22,6 +24,25 @@ log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 
 # Substrate
+frame-benchmarking = { optional = true, workspace = true }
+frame-executive = { workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+frame-system-benchmarking = { optional = true, workspace = true }
+frame-system-rpc-runtime-api = { workspace = true }
+frame-try-runtime = { optional = true, workspace = true }
+pallet-aura = { workspace = true }
+pallet-authorship = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-contracts = { workspace = true }
+pallet-insecure-randomness-collective-flip = { workspace = true }
+pallet-multisig = { workspace = true }
+pallet-session = { workspace = true }
+pallet-sudo = { workspace = true }
+pallet-timestamp = { workspace = true }
+pallet-transaction-payment = { workspace = true }
+pallet-transaction-payment-rpc-runtime-api = { workspace = true }
+pallet-utility = { workspace = true }
 sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
@@ -34,25 +55,6 @@ sp-session = { workspace = true }
 sp-storage = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
-frame-benchmarking = { optional = true, workspace = true }
-frame-try-runtime = { optional = true, workspace = true }
-frame-executive = { workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-frame-system-benchmarking = { optional = true, workspace = true }
-frame-system-rpc-runtime-api = { workspace = true }
-pallet-aura = { workspace = true }
-pallet-authorship = { workspace = true }
-pallet-insecure-randomness-collective-flip = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-multisig = { workspace = true }
-pallet-session = { workspace = true }
-pallet-timestamp = { workspace = true }
-pallet-transaction-payment = { workspace = true }
-pallet-transaction-payment-rpc-runtime-api = { workspace = true }
-pallet-utility = { workspace = true }
-pallet-sudo = { workspace = true }
-pallet-contracts = { workspace = true }
 
 # Polkadot
 pallet-xcm = { workspace = true }
@@ -66,15 +68,15 @@ xcm-runtime-apis = { workspace = true }
 
 # Cumulus
 cumulus-pallet-aura-ext = { workspace = true }
-pallet-message-queue = { workspace = true }
 cumulus-pallet-parachain-system = { workspace = true }
 cumulus-pallet-session-benchmarking = { workspace = true }
 cumulus-pallet-xcm = { workspace = true }
 cumulus-pallet-xcmp-queue = { workspace = true }
 cumulus-primitives-aura = { workspace = true }
 cumulus-primitives-core = { workspace = true }
-cumulus-primitives-utility = { workspace = true }
 cumulus-primitives-storage-weight-reclaim = { workspace = true }
+cumulus-primitives-utility = { workspace = true }
+pallet-message-queue = { workspace = true }
 
 pallet-collator-selection = { workspace = true }
 parachain-info = { workspace = true }
@@ -161,6 +163,7 @@ runtime-benchmarks = [
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
@@ -170,6 +173,7 @@ runtime-benchmarks = [
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 
 try-runtime = [
@@ -203,4 +207,4 @@ try-runtime = [
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
 # to make it smaller, like logging for example.
-on-chain-release-build = ["sp-api/disable-logging"]
+on-chain-release-build = []

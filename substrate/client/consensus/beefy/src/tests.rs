@@ -790,7 +790,7 @@ async fn beefy_importing_justifications() {
 
 	let client = net.peer(0).client().clone();
 	let full_client = client.as_client();
-	let (mut block_import, _, peer_data) = net.make_block_import(client.clone());
+	let (block_import, _, peer_data) = net.make_block_import(client.clone());
 	let PeerData { beefy_voter_links, .. } = peer_data;
 	let justif_stream = beefy_voter_links.lock().take().unwrap().from_block_import_justif_stream;
 	let mut justif_recv = justif_stream.subscribe(100_000);

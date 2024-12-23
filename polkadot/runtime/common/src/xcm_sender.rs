@@ -138,9 +138,21 @@ where
 			.map(|()| hash)
 			.map_err(|_| SendError::Transport(&"Error placing into DMP queue"))
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery(location: Option<Location>) {
+		if let Some((0, [Parachain(id)])) = location.as_ref().map(|l| l.unpack()) {
+			dmp::Pallet::<T>::make_parachain_reachable(*id);
+		}
+	}
 }
 
 impl<T: dmp::Config, W, P> InspectMessageQueues for ChildParachainRouter<T, W, P> {
+	fn clear_messages() {
+		// Best effort.
+		let _ = dmp::DownwardMessageQueues::<T>::clear(u32::MAX, None);
+	}
+
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
 		dmp::DownwardMessageQueues::<T>::iter()
 			.map(|(para_id, messages)| {
@@ -152,7 +164,7 @@ impl<T: dmp::Config, W, P> InspectMessageQueues for ChildParachainRouter<T, W, P
 						message
 					})
 					.collect();
-				(VersionedLocation::V4(Parachain(para_id.into()).into()), decoded_messages)
+				(VersionedLocation::from(Location::from(Parachain(para_id.into()))), decoded_messages)
 			})
 			.collect()
 	}
@@ -185,7 +197,7 @@ impl<
 		ExistentialDeposit: Get<Option<Asset>>,
 		PriceForDelivery: PriceForMessageDelivery<Id = ParaId>,
 		Parachain: Get<ParaId>,
-		ToParachainHelper: EnsureForParachain,
+		ToParachainHelper: polkadot_runtime_parachains::EnsureForParachain,
 	> xcm_builder::EnsureDelivery
 	for ToParachainDeliveryHelper<
 		XcmConfig,
@@ -214,6 +226,9 @@ impl<
 			return (None, None)
 		}
 
+		// allow more initialization for target parachain
+		ToParachainHelper::ensure(Parachain::get());
+
 		let mut fees_mode = None;
 		if !XcmConfig::FeeManager::is_waived(Some(origin_ref), fee_reason) {
 			// if not waived, we need to set up accounts for paying and receiving fees
@@ -233,25 +248,10 @@ impl<
 				XcmConfig::AssetTransactor::deposit_asset(&fee, &origin_ref, None).unwrap();
 			}
 
-			// allow more initialization for target parachain
-			ToParachainHelper::ensure(Parachain::get());
-
 			// expected worst case - direct withdraw
 			fees_mode = Some(FeesMode { jit_withdraw: true });
 		}
 		(fees_mode, None)
-	}
-}
-
-/// Ensure more initialization for `ParaId`. (e.g. open HRMP channels, ...)
-#[cfg(feature = "runtime-benchmarks")]
-pub trait EnsureForParachain {
-	fn ensure(para_id: ParaId);
-}
-#[cfg(feature = "runtime-benchmarks")]
-impl EnsureForParachain for () {
-	fn ensure(_: ParaId) {
-		// doing nothing
 	}
 }
 
@@ -343,6 +343,8 @@ mod tests {
 			configuration::ActiveConfig::<crate::integration_tests::Test>::mutate(|c| {
 				c.max_downward_message_size = u32::MAX;
 			});
+
+			dmp::Pallet::<crate::integration_tests::Test>::make_parachain_reachable(5555);
 
 			// Check that the good message is validated:
 			assert_ok!(<Router as SendXcm>::validate(

@@ -972,7 +972,7 @@ pub mod pallet {
 			let result = Self::assemble_collators();
 
 			frame_system::Pallet::<T>::register_extra_weight_unchecked(
-				T::WeightInfo::new_session(candidates_len_before, removed),
+				T::WeightInfo::new_session(removed, candidates_len_before),
 				DispatchClass::Mandatory,
 			);
 			Some(result)

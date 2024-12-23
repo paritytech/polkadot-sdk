@@ -1,0 +1,11 @@
+title: Migrate pallet-transaction-storage and pallet-indices to benchmark v2
+doc:
+- audience: Runtime Dev
+  description: |-
+    Part of:
+    #6202
+crates:
+- name: pallet-indices
+  bump: patch
+- name: pallet-transaction-storage
+  bump: patch

@@ -81,7 +81,6 @@ pub enum Outcome {
 	/// final destination location.
 	RenameTmpFile {
 		worker: IdleWorker,
-		result: PrepareWorkerResult,
 		err: String,
 		// Unfortunately `PathBuf` doesn't implement `Encode`/`Decode`, so we do a fallible
 		// conversion to `Option<String>`.
@@ -211,7 +210,7 @@ async fn handle_response(
 	//       https://github.com/paritytech/polkadot-sdk/issues/2399
 	let PrepareWorkerSuccess {
 		checksum: _,
-		stats: PrepareStats { cpu_time_elapsed, memory_stats },
+		stats: PrepareStats { cpu_time_elapsed, memory_stats, observed_wasm_code_len },
 	} = match result.clone() {
 		Ok(result) => result,
 		// Timed out on the child. This should already be logged by the child.
@@ -220,6 +219,8 @@ async fn handle_response(
 		Err(PrepareError::OutOfMemory) => return Outcome::OutOfMemory,
 		Err(err) => return Outcome::Concluded { worker, result: Err(err) },
 	};
+
+	metrics.observe_code_size(observed_wasm_code_len as usize);
 
 	if cpu_time_elapsed > preparation_timeout {
 		// The job didn't complete within the timeout.
@@ -267,7 +268,11 @@ async fn handle_response(
 			result: Ok(PrepareSuccess {
 				path: artifact_path,
 				size,
-				stats: PrepareStats { cpu_time_elapsed, memory_stats: memory_stats.clone() },
+				stats: PrepareStats {
+					cpu_time_elapsed,
+					memory_stats: memory_stats.clone(),
+					observed_wasm_code_len,
+				},
 			}),
 		},
 		Err(err) => {
@@ -281,7 +286,6 @@ async fn handle_response(
 			);
 			Outcome::RenameTmpFile {
 				worker,
-				result,
 				err: format!("{:?}", err),
 				src: tmp_file.to_str().map(String::from),
 				dest: artifact_path.to_str().map(String::from),

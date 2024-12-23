@@ -101,8 +101,9 @@ pub use bounded_collections as bounded;
 #[cfg(feature = "std")]
 pub use bounded_collections::{bounded_btree_map, bounded_vec};
 pub use bounded_collections::{
-	parameter_types, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128,
-	ConstU16, ConstU32, ConstU64, ConstU8, Get, GetDefault, TryCollect, TypedGet,
+	parameter_types, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstInt,
+	ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, ConstUint, Get, GetDefault, TryCollect,
+	TypedGet,
 };
 pub use sp_storage as storage;
 
@@ -406,9 +407,9 @@ macro_rules! impl_maybe_marker_std_or_serde {
 }
 
 /// The maximum number of bytes that can be allocated at one time.
-// The maximum possible allocation size was chosen rather arbitrary, 64 MiB should be enough for
+// The maximum possible allocation size was chosen rather arbitrary, 32 MiB should be enough for
 // everybody.
-pub const MAX_POSSIBLE_ALLOCATION: u32 = 67108864; // 2^26 bytes, 64 MiB
+pub const MAX_POSSIBLE_ALLOCATION: u32 = 33554432; // 2^25 bytes, 32 MiB
 
 /// Generates a macro for checking if a certain feature is enabled.
 ///

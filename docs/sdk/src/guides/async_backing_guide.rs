@@ -174,7 +174,7 @@
 //!    - In the `para_client` field, pass in a cloned para client rather than the original
 //!    - Add a `para_backend` parameter after `para_client`, passing in our para backend
 //!    - Provide a `code_hash_provider` closure like that shown below
-//!    - Increase `authoring_duration` from 500 milliseconds to 1500
+//!    - Increase `authoring_duration` from 500 milliseconds to 2000
 //! ```ignore
 //! let params = AuraParams {
 //!     ..
@@ -185,7 +185,7 @@
 //!         client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
 //!     },
 //!     ..
-//!     authoring_duration: Duration::from_millis(1500),
+//!     authoring_duration: Duration::from_millis(2000),
 //!     ..
 //! };
 //! ```

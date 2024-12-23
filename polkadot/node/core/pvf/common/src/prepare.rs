@@ -44,6 +44,8 @@ pub struct PrepareStats {
 	pub cpu_time_elapsed: std::time::Duration,
 	/// The observed memory statistics for the preparation job.
 	pub memory_stats: MemoryStats,
+	/// The decompressed Wasm code length observed during the preparation.
+	pub observed_wasm_code_len: u32,
 }
 
 /// Helper struct to contain all the memory stats, including `MemoryAllocationStats` and, if

@@ -27,15 +27,17 @@ mod imports {
 
 	// Polkadot
 	pub use xcm::{
+		latest::{ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
 		prelude::{AccountId32 as AccountId32Junction, *},
-		v3,
 	};
 	pub use xcm_executor::traits::TransferType;
 
 	// Cumulus
 	pub use asset_test_utils::xcm_helpers;
 	pub use emulated_integration_tests_common::{
-		test_parachain_is_trusted_teleporter,
+		accounts::DUMMY_EMPTY,
+		test_parachain_is_trusted_teleporter, test_parachain_is_trusted_teleporter_for_relay,
+		test_relay_is_trusted_teleporter, test_xcm_fee_querying_apis_work_for_asset_hub,
 		xcm_emulator::{
 			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, Test,
 			TestArgs, TestContext, TestExt,
@@ -49,6 +51,7 @@ mod imports {
 	pub use rococo_system_emulated_network::{
 		asset_hub_rococo_emulated_chain::{
 			asset_hub_rococo_runtime::{
+				self,
 				xcm_config::{
 					self as ahr_xcm_config, TokenLocation as RelayLocation,
 					XcmConfig as AssetHubRococoXcmConfig,
@@ -64,6 +67,7 @@ mod imports {
 				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
 				LocalReservableFromAssetHub as PenpalLocalReservableFromAssetHub,
 				LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
+				UsdtFromAssetHub as PenpalUsdtFromAssetHub,
 			},
 			PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner,
 			PenpalBParaPallet as PenpalBPallet, ED as PENPAL_ED,
@@ -90,7 +94,6 @@ mod imports {
 	pub const ASSET_ID: u32 = 3;
 	pub const ASSET_MIN_BALANCE: u128 = 1000;
 
-	pub type RelayToSystemParaTest = Test<Rococo, AssetHubRococo>;
 	pub type RelayToParaTest = Test<Rococo, PenpalA>;
 	pub type ParaToRelayTest = Test<PenpalA, Rococo>;
 	pub type SystemParaToRelayTest = Test<AssetHubRococo, Rococo>;

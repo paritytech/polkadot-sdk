@@ -98,17 +98,17 @@ where
 		let fut = self.0.call(req);
 
 		async move {
-			let res = fut.await.map_err(|err| err.into())?;
-
 			Ok(match maybe_intercept {
 				InterceptRequest::Deny =>
 					http_response(StatusCode::METHOD_NOT_ALLOWED, HttpBody::empty()),
-				InterceptRequest::No => res,
+				InterceptRequest::No => fut.await.map_err(|err| err.into())?,
 				InterceptRequest::Health => {
+					let res = fut.await.map_err(|err| err.into())?;
 					let health = parse_rpc_response(res.into_body()).await?;
 					http_ok_response(serde_json::to_string(&health)?)
 				},
 				InterceptRequest::Readiness => {
+					let res = fut.await.map_err(|err| err.into())?;
 					let health = parse_rpc_response(res.into_body()).await?;
 					if (!health.is_syncing && health.peers > 0) || !health.should_have_peers {
 						http_ok_response(HttpBody::empty())

@@ -136,7 +136,7 @@ the `macro@my_macro_name` syntax in your link. Read more about how to correctly 
 
 The above five guidelines must always be reasonably respected in the documentation.
 
-The following are a set of notes that may not necessarily hold in all circumstances:
+The following is a set of notes that may not necessarily hold in all circumstances:
 
 ---
 
@@ -205,7 +205,7 @@ properly do this.
 
 ## Pallet Crates
 
-The guidelines so far have been general in nature, and are applicable to crates that are pallets and crates that're not
+The guidelines so far have been general in nature, and are applicable to crates that are pallets and crates that are not
 pallets.
 
 The following is relevant to how to document parts of a crate that is a pallet. See

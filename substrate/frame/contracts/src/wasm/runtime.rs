@@ -329,7 +329,13 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			WeightToFee => T::WeightInfo::seal_weight_to_fee(),
 			Terminate(locked_dependencies) => T::WeightInfo::seal_terminate(locked_dependencies),
 			Random => T::WeightInfo::seal_random(),
-			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len),
+			// Given a 2-second block time and hardcoding a `ref_time` of 60,000 picoseconds per
+			// byte  (event_ref_time), the max allocation size is 32MB per block.
+			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len)
+				.saturating_add(Weight::from_parts(
+					T::Schedule::get().limits.event_ref_time.saturating_mul(len.into()),
+					0,
+				)),
 			DebugMessage(len) => T::WeightInfo::seal_debug_message(len),
 			SetStorage { new_bytes, old_bytes } =>
 				cost_storage!(write, seal_set_storage, new_bytes, old_bytes),
@@ -516,7 +522,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 		run: impl FnOnce(&mut Self) -> DispatchResultWithPostInfo,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		use frame_support::dispatch::extract_actual_weight;
-		let charged = self.charge_gas(runtime_cost(dispatch_info.weight))?;
+		let charged = self.charge_gas(runtime_cost(dispatch_info.call_weight))?;
 		let result = run(self);
 		let actual_weight = extract_actual_weight(&result, &dispatch_info);
 		self.adjust_gas(charged, runtime_cost(actual_weight));
@@ -2341,7 +2347,7 @@ pub mod env {
 		let execute_weight =
 			<<E::T as Config>::Xcm as ExecuteController<_, _>>::WeightInfo::execute();
 		let weight = ctx.ext.gas_meter().gas_left().max(execute_weight);
-		let dispatch_info = DispatchInfo { weight, ..Default::default() };
+		let dispatch_info = DispatchInfo { call_weight: weight, ..Default::default() };
 
 		ctx.call_dispatchable::<XcmExecutionFailed>(
 			dispatch_info,
