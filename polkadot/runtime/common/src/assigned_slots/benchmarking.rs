@@ -154,7 +154,7 @@ mod benchmarks {
 
 	impl_benchmark_test_suite!(
 		AssignedSlots,
-		crate::assigned_slots::tests::new_test_ext(),
-		crate::assigned_slots::tests::Test,
+		crate::assigned_slots::mock::new_test_ext(),
+		crate::assigned_slots::mock::Test,
 	);
 }
