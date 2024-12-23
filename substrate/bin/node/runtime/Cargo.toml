@@ -59,7 +59,6 @@ std = [
 	"serde_json/std",
 	"sp-debug-derive/std",
 	"substrate-wasm-builder",
-	"sp-debug-derive/std"
 ]
 runtime-benchmarks = [
 	"pallet-example-mbm/runtime-benchmarks",
