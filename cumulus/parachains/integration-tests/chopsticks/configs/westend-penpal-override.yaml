@@ -1,0 +1,35 @@
+endpoint: wss://westend-penpal-rpc.polkadot.io 
+mock-signature-host: true
+#block: ${env.WESTEND_BRIDGE_HUB_BLOCK_NUMBER}
+db: ./db.sqlite
+runtime-log-level: 5
+wasm-override: wasms/penpal_runtime.compact.compressed.wasm
+
+import-storage:
+  PolkadotXcm:
+    SafeXcmVersion: 5
+  System:
+    Account:
+      -
+        -
+          - 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY # Alice
+        - providers: 1
+          data:
+            free: 1000000000000000
+      -
+        -
+          - 5Eg2fntQqFi3EvFWAf71G66Ecjjah26bmFzoANAeHFgj9Lia
+        - providers: 1
+          data:
+            free: 1000000000000000
+      -
+        -
+          - 5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty # Bob
+        - providers: 1
+          data:
+            free: 1000000000000000
+  Assets:
+    Account:
+      - [[1984, 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY], { balance: 1000000000 }]
+      - [[1984, 5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty], { balance: 1000000000 }] # Bob
+    Asset: [[[1984], { supply: 1000000000 }]]
