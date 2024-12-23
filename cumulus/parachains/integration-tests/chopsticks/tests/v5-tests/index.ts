@@ -477,7 +477,6 @@ test("Withdraw USDT from Alice to Bob", async () => {
 
 	const ahToWnd = AHApi.tx.PolkadotXcm.execute({
 			message: msg,
-			// max_weight: { ref_time: weight.value.ref_time, proof_size: weight.value.proof_size },
 			max_weight: { ref_time: 81834380000n, proof_size: 823193n },
 		},
 	);
