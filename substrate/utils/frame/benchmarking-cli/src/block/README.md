@@ -105,7 +105,7 @@ License: Apache-2.0
 
 <!-- LINKS -->
 
-[Polkachu]: https://polkachu.com/snapshots
+[Polkachu]: https://polkachu.com/substrate_snapshots/polkadot
 [here]: https://github.com/paritytech/substrate/issues/11141
 [polkadot#5192]: https://github.com/paritytech/polkadot/issues/5192
 
