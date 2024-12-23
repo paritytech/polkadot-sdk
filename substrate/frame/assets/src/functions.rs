@@ -691,11 +691,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 			// Pre-check that an account can die if is below min balance
 			if source_account.balance < details.min_balance {
-				source_died =
-					Some(Self::dead_account(source, details, &source_account.reason, false));
-				if let Some(Remove) = source_died {
-					Self::ensure_account_can_die(id.clone(), source)?;
-				}
+				debug_assert!(source_account.balance.is_zero(), "checked in prep; qed");
+				Self::ensure_account_can_die(id.clone(), source)?;
 			}
 
 			Account::<T, I>::try_mutate(&id, &dest, |maybe_account| -> DispatchResult {
@@ -724,6 +721,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			// Remove source account if it's now dead.
 			if source_account.balance < details.min_balance {
 				debug_assert!(source_account.balance.is_zero(), "checked in prep; qed");
+				source_died =
+					Some(Self::dead_account(source, details, &source_account.reason, false));
 				if let Some(Remove) = source_died {
 					Account::<T, I>::remove(&id, &source);
 					return Ok(())
