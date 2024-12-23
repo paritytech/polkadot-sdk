@@ -541,6 +541,8 @@ pub mod pallet {
 		CannotAddSelfAsDelegateDependency,
 		/// Can not add more data to transient storage.
 		OutOfTransientStorage,
+		/// No immutable data could be found at the supplied address.
+		ImmutableDataNotFound,
 		/// The contract tried to call a syscall which does not exist (at its current api level).
 		InvalidSyscall,
 		/// Invalid storage flags were passed to one of the storage syscalls.
@@ -560,6 +562,8 @@ pub mod pallet {
 		AccountUnmapped,
 		/// Tried to map an account that is already mapped.
 		AccountAlreadyMapped,
+		/// Current immutable data is not compatible with new contract code.
+		IncompatibleImmutableData,
 	}
 
 	/// A reason for the pallet contracts placing a hold on funds.
