@@ -871,7 +871,7 @@ multihash = { version = "0.19.1", default-features = false }
 multihash-codetable = { version = "0.1.1" }
 multistream-select = { version = "0.13.0" }
 names = { version = "0.14.0", default-features = false }
-nix = { version = "0.28.0" }
+nix = { version = "0.29.0" }
 node-cli = { path = "substrate/bin/node/cli", package = "staging-node-cli" }
 node-inspect = { path = "substrate/bin/node/inspect", default-features = false, package = "staging-node-inspect" }
 node-primitives = { path = "substrate/bin/node/primitives", default-features = false }
@@ -1123,7 +1123,7 @@ regex = { version = "1.10.2" }
 relay-substrate-client = { path = "bridges/relays/client-substrate" }
 relay-utils = { path = "bridges/relays/utils" }
 remote-externalities = { path = "substrate/utils/frame/remote-externalities", default-features = false, package = "frame-remote-externalities" }
-reqwest = { version = "0.11", default-features = false }
+reqwest = { version = "0.12.9", default-features = false }
 rlp = { version = "0.6.1", default-features = false }
 rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/relays/rococo" }
 rococo-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/rococo-parachain" }
@@ -1389,7 +1389,7 @@ xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false }
 xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = false }
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 zeroize = { version = "1.7.0", default-features = false }
-zombienet-sdk = { version = "0.2.16" }
+zombienet-sdk = { version = "0.2.19" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]
