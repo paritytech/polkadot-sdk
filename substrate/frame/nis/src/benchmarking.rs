@@ -27,7 +27,7 @@ use frame_support::traits::{
 use frame_system::RawOrigin;
 use sp_arithmetic::Perquintill;
 use sp_runtime::{
-	traits::{Bounded, One, Zero},
+	traits::{BlockNumberProvider, Bounded, One, Zero},
 	DispatchError, PerThing,
 };
 
@@ -55,6 +55,12 @@ fn fill_queues<T: Config>() -> Result<(), DispatchError> {
 		Nis::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), T::MinBid::get(), 1 + d)?;
 	}
 	Ok(())
+}
+
+fn set_block_number<T: Config>(
+	n: <<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber,
+) {
+	<T as crate::Config>::BlockNumberProvider::set_block_number(n);
 }
 
 benchmarks! {
@@ -166,7 +172,7 @@ benchmarks! {
 		Nis::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
 		Nis::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
 		Nis::<T>::process_queues(Perquintill::one(), 1, 2, &mut WeightCounter::unlimited());
-		frame_system::Pallet::<T>::set_block_number(Receipts::<T>::get(0).unwrap().expiry);
+		set_block_number::<T>(Receipts::<T>::get(0).unwrap().expiry);
 	}: _(RawOrigin::Signed(caller.clone()), 0, None)
 	verify {
 		assert!(Receipts::<T>::get(0).is_none());
@@ -184,7 +190,7 @@ benchmarks! {
 		Nis::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
 		Nis::<T>::place_bid(RawOrigin::Signed(caller.clone()).into(), bid, 1)?;
 		Nis::<T>::process_queues(Perquintill::one(), 1, 2, &mut WeightCounter::unlimited());
-		frame_system::Pallet::<T>::set_block_number(Receipts::<T>::get(0).unwrap().expiry);
+		set_block_number::<T>(Receipts::<T>::get(0).unwrap().expiry);
 		Nis::<T>::communify(RawOrigin::Signed(caller.clone()).into(), 0)?;
 	}: _(RawOrigin::Signed(caller.clone()), 0)
 	verify {
