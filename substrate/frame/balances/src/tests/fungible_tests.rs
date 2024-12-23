@@ -18,20 +18,15 @@
 //! Tests regarding the functionality of the `fungible` trait set implementations.
 
 use super::*;
-use frame_support::traits::{
-	tokens::{
-		Fortitude::{Force, Polite},
-		Precision::{BestEffort, Exact},
-		Preservation::{Expendable, Preserve, Protect},
-		Restriction::Free,
+use frame::traits::{
+	fungible::{
+		FreezeConsideration, HoldConsideration, Inspect, InspectFreeze, InspectHold,
+		LoneFreezeConsideration, LoneHoldConsideration, Mutate, MutateFreeze, MutateHold,
+		Unbalanced,
 	},
+	tokens::{Precision::*, Restriction::*},
 	Consideration, Footprint, LinearStoragePrice, MaybeConsideration,
 };
-use fungible::{
-	FreezeConsideration, HoldConsideration, Inspect, InspectFreeze, InspectHold,
-	LoneFreezeConsideration, LoneHoldConsideration, Mutate, MutateFreeze, MutateHold, Unbalanced,
-};
-use sp_core::ConstU64;
 
 #[test]
 fn inspect_trait_reducible_balance_basic_works() {
@@ -274,8 +269,8 @@ fn frozen_hold_balance_best_effort_transfer_works() {
 				Free,
 				Polite
 			));
-			assert_eq!(Balances::total_balance(&1), 5);
-			assert_eq!(Balances::total_balance(&2), 25);
+			assert_eq!(<Balances as Inspect<_>>::total_balance(&1), 5);
+			assert_eq!(<Balances as Inspect<_>>::total_balance(&2), 25);
 		});
 }
 

@@ -19,29 +19,16 @@
 
 #![cfg(test)]
 
-use crate::{self as pallet_balances, AccountData, Config, CreditOf, Error, Pallet, TotalIssuance};
-use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{
-	assert_err, assert_noop, assert_ok, assert_storage_noop, derive_impl,
-	dispatch::{DispatchInfo, GetDispatchInfo},
-	parameter_types,
-	traits::{
-		fungible, ConstU32, ConstU8, Imbalance as ImbalanceT, OnUnbalanced, StorageMapShim,
-		StoredMap, VariantCount, VariantCountOf, WhitelistedStorageKeys,
-	},
-	weights::{IdentityFee, Weight},
+use super::*;
+use crate as pallet_balances;
+use alloc::collections::BTreeSet;
+use frame::{
+	deps::sp_core::hexdisplay::HexDisplay,
+	runtime::prelude::*,
+	testing_prelude::*,
+	traits::{StorageMapShim, WhitelistedStorageKeys},
 };
-use frame_system::{self as system, RawOrigin};
 use pallet_transaction_payment::{ChargeTransactionPayment, FungibleAdapter, Multiplier};
-use scale_info::TypeInfo;
-use sp_core::hexdisplay::HexDisplay;
-use sp_io;
-use sp_runtime::{
-	traits::{BadOrigin, Zero},
-	ArithmeticError, BuildStorage, DispatchError, DispatchResult, FixedPointNumber, RuntimeDebug,
-	TokenError,
-};
-use std::collections::BTreeSet;
 
 mod currency_tests;
 mod dispatchable_tests;
@@ -75,18 +62,32 @@ impl VariantCount for TestId {
 	const VARIANT_COUNT: u32 = 3;
 }
 
-frame_support::construct_runtime!(
-	pub enum Test {
-		System: frame_system,
-		Balances: pallet_balances,
-		TransactionPayment: pallet_transaction_payment,
-	}
-);
+#[frame_construct_runtime]
+mod runtime {
+	#[runtime::runtime]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeError,
+		RuntimeEvent,
+		RuntimeFreezeReason,
+		RuntimeHoldReason,
+		RuntimeOrigin,
+		RuntimeTask
+	)]
+	pub struct Test;
+
+	#[runtime::pallet_index(0)]
+	pub type System = frame_system;
+	#[runtime::pallet_index(1)]
+	pub type Balances = pallet_balances;
+	#[runtime::pallet_index(2)]
+	pub type TransactionPayment = pallet_transaction_payment;
+}
 
 parameter_types! {
 	pub BlockWeights: frame_system::limits::BlockWeights =
 		frame_system::limits::BlockWeights::simple_max(
-			frame_support::weights::Weight::from_parts(1024, u64::MAX),
+			Weight::from_parts(1024, u64::MAX),
 		);
 	pub static ExistentialDeposit: u64 = 1;
 }
@@ -154,7 +155,7 @@ impl ExtBuilder {
 		DUST_TRAP_TARGET.with(|v| v.replace(self.dust_trap));
 		EXISTENTIAL_DEPOSIT.with(|v| v.replace(self.existential_deposit));
 	}
-	pub fn build(self) -> sp_io::TestExternalities {
+	pub fn build(self) -> TestExternalities {
 		self.set_associated_consts();
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		pallet_balances::GenesisConfig::<Test> {
@@ -173,7 +174,7 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		let mut ext = sp_io::TestExternalities::new(t);
+		let mut ext = TestExternalities::new(t);
 		ext.execute_with(|| System::set_block_number(1));
 		ext
 	}

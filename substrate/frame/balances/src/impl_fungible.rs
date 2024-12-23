@@ -16,12 +16,13 @@
 // limitations under the License.
 
 //! Implementation of `fungible` traits for Balances pallet.
+
 use super::*;
-use frame_support::traits::{
+use frame::traits::{
 	tokens::{
-		Fortitude,
-		Preservation::{self, Preserve, Protect},
-		Provenance::{self, Minted},
+		DepositConsequence, Preservation,
+		Provenance::{self, *},
+		WithdrawConsequence,
 	},
 	AccountTouch,
 };
