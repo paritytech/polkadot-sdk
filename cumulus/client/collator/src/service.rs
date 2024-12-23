@@ -262,6 +262,7 @@ where
 				)
 			})
 			.ok()?;
+
 		let horizontal_messages = collation_info
 			.horizontal_messages
 			.try_into()

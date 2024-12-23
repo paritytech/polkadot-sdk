@@ -158,7 +158,7 @@ macro_rules! impl_node_runtime_apis {
 			}
 
 			impl cumulus_primitives_core::GetCoreSelectorApi<$block> for $runtime {
-				fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
+				fn core_selector() -> Option<(CoreSelector, ClaimQueueOffset)> {
 					unimplemented!()
 				}
 			}
