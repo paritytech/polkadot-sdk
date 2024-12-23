@@ -16,15 +16,14 @@
 // limitations under the License.
 
 pub use crate::{
-	evm::{CallTrace, CallType},
+	evm::{CallTrace, CallType, Traces},
 	exec::{ExecResult, ExportedFunction},
 	primitives::ExecReturnValue,
 	BalanceOf,
 };
-use crate::{limits, Config, DebugBuffer, LOG_TARGET};
+use crate::{Config, Weight, LOG_TARGET};
 use alloc::vec::Vec;
 use sp_core::{H160, U256};
-use sp_weights::Weight;
 
 /// Umbrella trait for all interfaces that serves for debugging.
 pub trait Debugger<T: Config>: CallInterceptor<T> {}
@@ -47,7 +46,7 @@ pub trait Tracing<T: Config>: Default {
 		to: &H160,
 		is_delegate_call: bool,
 		is_read_only: bool,
-		value: &crate::BalanceOf<T>,
+		value: &U256,
 		gas_limit: &Weight,
 		input: &[u8],
 	);
@@ -66,6 +65,13 @@ impl Tracer {
 			_ => None,
 		}
 	}
+
+	pub fn traces(self) -> Traces {
+		return match self {
+			Tracer::CallTracer(tracer) => Traces::CallTraces(tracer.traces),
+			Tracer::Disabled => Traces::CallTraces(Vec::new()),
+		};
+	}
 }
 
 impl<T: Config> Tracing<T> for Tracer
@@ -78,7 +84,7 @@ where
 		to: &H160,
 		is_delegate_call: bool,
 		is_read_only: bool,
-		value: &crate::BalanceOf<T>,
+		value: &U256,
 		gas_limit: &Weight,
 		input: &[u8],
 	) {
@@ -132,7 +138,7 @@ where
 		to: &H160,
 		is_delegate_call: bool,
 		is_read_only: bool,
-		value: &crate::BalanceOf<T>,
+		value: &U256,
 		gas_limit: &Weight,
 		input: &[u8],
 	) {

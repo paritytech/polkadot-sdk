@@ -59,7 +59,7 @@ fn call_interception_works() {
 			RuntimeOrigin::signed(ALICE),
 			0,
 			GAS_LIMIT,
-			deposit_limit::<Test>(),
+			deposit_limit::<Test>().into(),
 			Code::Upload(wasm),
 			vec![],
 			// some salt to ensure that the address of this contract is unique among all tests

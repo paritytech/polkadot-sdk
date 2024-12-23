@@ -764,8 +764,8 @@ where
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: U256,
 		input_data: Vec<u8>,
-		tracer: &'a mut Tracer,
 		skip_transfer: bool,
+		tracer: &'a mut Tracer,
 	) -> ExecResult {
 		let dest = T::AddressMapper::to_account_id(&dest);
 		if let Some((mut stack, executable)) = Self::new(
@@ -774,8 +774,8 @@ where
 			gas_meter,
 			storage_meter,
 			value,
-			tracer,
 			skip_transfer,
+			tracer,
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
@@ -801,8 +801,8 @@ where
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
-		tracer: &'a mut Tracer,
 		skip_transfer: bool,
+		tracer: &'a mut Tracer,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
 		let (mut stack, executable) = Self::new(
 			FrameArgs::Instantiate {
@@ -815,8 +815,8 @@ where
 			gas_meter,
 			storage_meter,
 			value,
-			tracer,
 			skip_transfer,
+			tracer,
 		)?
 		.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 		let address = T::AddressMapper::to_address(&stack.top_frame().account_id);
@@ -859,8 +859,8 @@ where
 		gas_meter: &'a mut GasMeter<T>,
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: U256,
-		tracer: &'a mut Tracer,
 		skip_transfer: bool,
+		tracer: &'a mut Tracer,
 	) -> Result<Option<(Self, E)>, ExecError> {
 		origin.ensure_mapped()?;
 		let Some((first_frame, executable)) = Self::new_frame(
@@ -1033,7 +1033,7 @@ where
 	fn run(&mut self, executable: E, input_data: Vec<u8>) -> Result<(), ExecError> {
 		let frame = self.top_frame();
 		let entry_point = frame.entry_point;
-		let is_delegate_call = frame.delegate_caller.is_some();
+		let is_delegate_call = frame.delegate.is_some();
 		let delegated_code_hash =
 			if frame.delegate.is_some() { Some(*executable.code_hash()) } else { None };
 
@@ -1091,11 +1091,12 @@ where
 			}
 
 			let contract_address = T::AddressMapper::to_address(&top_frame!(self).account_id);
+			let caller_address = T::AddressMapper::to_address(self.caller().account_id()?);
 
 			<Tracer as Tracing<T>>::enter_child_span(
 				self.tracer,
-				&caller_addr.unwrap_or_default(),
-				&contract_addr,
+				&caller_address,
+				&contract_address,
 				is_delegate_call,
 				read_only,
 				&value_transferred,
@@ -1143,10 +1144,9 @@ where
 						return Err(Error::<T>::TerminatedInConstructor.into());
 					}
 
-					let caller = T::AddressMapper::to_address(self.caller().account_id()?);
 					// Deposit an instantiation event.
 					Contracts::<T>::deposit_event(Event::Instantiated {
-						deployer: caller_addr.unwrap_or_default(),
+						deployer: caller_address,
 						contract: account_id,
 					});
 				},
@@ -1257,13 +1257,6 @@ where
 				}
 			}
 		} else {
-			//if let Some((msg, false)) = self.trace.as_ref().map(|m| (m, m.is_empty())) {
-			//	log::debug!(
-			//		target: LOG_TARGET,
-			//		"Execution finished with debug buffer: {}",
-			//		core::str::from_utf8(msg).unwrap_or("<Invalid UTF8>"),
-			//	);
-			//}
 			self.gas_meter.absorb_nested(mem::take(&mut self.first_frame.nested_gas));
 			if !persist {
 				return;
@@ -1921,7 +1914,6 @@ mod sealing {
 mod tests {
 	use super::*;
 	use crate::{
-		debug::CallTracer,
 		exec::ExportedFunction::*,
 		gas::GasMeter,
 		test_utils::*,
@@ -1929,7 +1921,7 @@ mod tests {
 			test_utils::{get_balance, place_contract, set_balance},
 			ExtBuilder, RuntimeCall, RuntimeEvent as MetaEvent, Test, TestFilter,
 		},
-		AddressMapper, DebugBuffer, Error,
+		AddressMapper, Error,
 	};
 	use assert_matches::assert_matches;
 	use frame_support::{assert_err, assert_noop, assert_ok, parameter_types};
@@ -2088,8 +2080,8 @@ mod tests {
 					&mut storage_meter,
 					value.into(),
 					vec![],
-					&mut Tracer::Disabled,
 					false,
+					&mut Tracer::Disabled,
 				),
 				Ok(_)
 			);
@@ -2181,6 +2173,7 @@ mod tests {
 				&mut storage_meter,
 				value.into(),
 				vec![],
+				false,
 				&mut Tracer::Disabled,
 			)
 			.unwrap();
@@ -2221,8 +2214,8 @@ mod tests {
 				&mut storage_meter,
 				value.into(),
 				vec![],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			));
 
 			assert_eq!(get_balance(&ALICE), 100 - value);
@@ -2259,7 +2252,7 @@ mod tests {
 					U256::zero(),
 					vec![],
 					false,
-					None,
+					&mut Tracer::Disabled,
 				),
 				ExecError {
 					error: Error::<Test>::CodeNotFound.into(),
@@ -2277,7 +2270,7 @@ mod tests {
 				U256::zero(),
 				vec![],
 				false,
-				None,
+				&mut Tracer::Disabled,
 			));
 		});
 	}
@@ -2305,8 +2298,8 @@ mod tests {
 				&mut storage_meter,
 				55u64.into(),
 				vec![],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			)
 			.unwrap();
 
@@ -2355,8 +2348,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			);
 
 			let output = result.unwrap();
@@ -2385,8 +2378,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			);
 
 			let output = result.unwrap();
@@ -2415,8 +2408,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![1, 2, 3, 4],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -2452,8 +2445,8 @@ mod tests {
 					min_balance.into(),
 					vec![1, 2, 3, 4],
 					Some(&[0; 32]),
-					&mut Tracer::Disabled,
 					false,
+					&mut Tracer::Disabled,
 				);
 				assert_matches!(result, Ok(_));
 			});
@@ -2507,8 +2500,8 @@ mod tests {
 				&mut storage_meter,
 				value.into(),
 				vec![],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			);
 
 			assert_matches!(result, Ok(_));
@@ -2573,7 +2566,7 @@ mod tests {
 				U256::zero(),
 				vec![],
 				false,
-				None,
+				&mut Tracer::Disabled,
 			);
 
 			assert_matches!(result, Ok(_));
@@ -2638,8 +2631,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			);
 
 			assert_matches!(result, Ok(_));
@@ -2671,8 +2664,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -2709,8 +2702,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![0],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -2736,8 +2729,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![0],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -2781,8 +2774,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![0],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -2808,8 +2801,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![0],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -2835,8 +2828,8 @@ mod tests {
 				&mut storage_meter,
 				1u64.into(),
 				vec![0],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Err(_));
 		});
@@ -2880,8 +2873,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![0],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -2926,8 +2919,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			);
 
 			assert_matches!(result, Ok(_));
@@ -2953,8 +2946,8 @@ mod tests {
 					U256::zero(), // <- zero value
 					vec![],
 					Some(&[0; 32]),
-					&mut Tracer::Disabled,
 					false,
+					&mut Tracer::Disabled,
 				),
 				Err(_)
 			);
@@ -2981,20 +2974,19 @@ mod tests {
 					storage::meter::Meter::new(&origin, min_balance * 100, min_balance).unwrap();
 
 				let instantiated_contract_address = assert_matches!(
-									MockStack::run_instantiate(
-										ALICE,
-										executable,
-										&mut gas_meter,
-										&mut storage_meter,
-				<<<<<<< HEAD
-										min_balance,
-										vec![],
-										Some(&[0 ;32]),
-										&mut Tracer::Disabled,
-										false,
-									),
-									Ok((address, ref output)) if output.data == vec![80, 65, 83, 83] => address
-								);
+					MockStack::run_instantiate(
+						ALICE,
+						executable,
+						&mut gas_meter,
+						&mut storage_meter,
+						min_balance.into(),
+						vec![],
+						Some(&[0 ;32]),
+						false,
+						&mut Tracer::Disabled,
+					),
+					Ok((address, ref output)) if output.data == vec![80, 65, 83, 83] => address
+				);
 				let instantiated_contract_id = <<Test as Config>::AddressMapper as AddressMapper<
 					Test,
 				>>::to_fallback_account_id(
@@ -3037,20 +3029,19 @@ mod tests {
 					storage::meter::Meter::new(&origin, min_balance * 100, min_balance).unwrap();
 
 				let instantiated_contract_address = assert_matches!(
-									MockStack::run_instantiate(
-										ALICE,
-										executable,
-										&mut gas_meter,
-										&mut storage_meter,
-				<<<<<<< HEAD
-										min_balance,
-										vec![],
-										Some(&[0; 32]),
-								&mut Tracer::Disabled,
-										false,
-									),
-									Ok((address, ref output)) if output.data == vec![70, 65, 73, 76] => address
-								);
+					MockStack::run_instantiate(
+						ALICE,
+						executable,
+						&mut gas_meter,
+						&mut storage_meter,
+						min_balance.into(),
+						vec![],
+						Some(&[0; 32]),
+						false,
+						&mut Tracer::Disabled,
+					),
+					Ok((address, ref output)) if output.data == vec![70, 65, 73, 76] => address
+				);
 
 				let instantiated_contract_id = <<Test as Config>::AddressMapper as AddressMapper<
 					Test,
@@ -3111,8 +3102,8 @@ mod tests {
 						&mut storage_meter,
 						(min_balance * 10).into(),
 						vec![],
-						&mut Tracer::Disabled,
 						false,
+						&mut Tracer::Disabled,
 					),
 					Ok(_)
 				);
@@ -3192,8 +3183,8 @@ mod tests {
 						&mut storage_meter,
 						U256::zero(),
 						vec![],
-						&mut Tracer::Disabled,
 						false,
+						&mut Tracer::Disabled,
 					),
 					Ok(_)
 				);
@@ -3235,9 +3226,8 @@ mod tests {
 						&mut storage_meter,
 						100u64.into(),
 						vec![],
-						None,
 						Some(&[0; 32]),
-						None,
+						false,
 						&mut Tracer::Disabled,
 					),
 					Err(Error::<Test>::TerminatedInConstructor.into())
@@ -3302,8 +3292,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![0],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -3364,9 +3354,8 @@ mod tests {
 					&mut storage_meter,
 					10u64.into(),
 					vec![],
-					None,
 					Some(&[0; 32]),
-					None,
+					false,
 					&mut Tracer::Disabled,
 				);
 				assert_matches!(result, Ok(_));
@@ -3413,8 +3402,8 @@ mod tests {
 					&mut storage_meter,
 					U256::zero(),
 					vec![],
-					&mut Tracer::Disabled,
 					false,
+					&mut Tracer::Disabled,
 				)
 				.unwrap();
 			});
@@ -3446,8 +3435,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				CHARLIE_ADDR.as_bytes().to_vec(),
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			));
 
 			// Calling into oneself fails
@@ -3459,8 +3448,8 @@ mod tests {
 					&mut storage_meter,
 					U256::zero(),
 					BOB_ADDR.as_bytes().to_vec(),
-					&mut Tracer::Disabled,
 					false,
+					&mut Tracer::Disabled,
 				)
 				.map_err(|e| e.error),
 				<Error<Test>>::ReentranceDenied,
@@ -3510,8 +3499,8 @@ mod tests {
 					&mut storage_meter,
 					U256::zero(),
 					vec![0],
-					&mut Tracer::Disabled,
 					false,
+					&mut Tracer::Disabled,
 				)
 				.map_err(|e| e.error),
 				<Error<Test>>::ReentranceDenied,
@@ -3545,8 +3534,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			)
 			.unwrap();
 
@@ -3630,8 +3619,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			)
 			.unwrap();
 
@@ -3757,8 +3746,8 @@ mod tests {
 					(min_balance * 100).into(),
 					vec![],
 					Some(&[0; 32]),
-					&mut Tracer::Disabled,
 					false,
+					&mut Tracer::Disabled,
 				)
 				.ok();
 				assert_eq!(System::account_nonce(&ALICE), 0);
@@ -3771,8 +3760,8 @@ mod tests {
 					(min_balance * 100).into(),
 					vec![],
 					Some(&[0; 32]),
-					&mut Tracer::Disabled,
 					false,
+					&mut Tracer::Disabled,
 				));
 				assert_eq!(System::account_nonce(&ALICE), 1);
 
@@ -3784,8 +3773,8 @@ mod tests {
 					(min_balance * 200).into(),
 					vec![],
 					Some(&[0; 32]),
-					&mut Tracer::Disabled,
 					false,
+					&mut Tracer::Disabled,
 				));
 				assert_eq!(System::account_nonce(&ALICE), 2);
 
@@ -3797,8 +3786,8 @@ mod tests {
 					(min_balance * 200).into(),
 					vec![],
 					Some(&[0; 32]),
-					&mut Tracer::Disabled,
 					false,
+					&mut Tracer::Disabled,
 				));
 				assert_eq!(System::account_nonce(&ALICE), 3);
 			});
@@ -3866,8 +3855,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			));
 		});
 	}
@@ -3978,8 +3967,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			));
 		});
 	}
@@ -4018,8 +4007,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			));
 		});
 	}
@@ -4058,8 +4047,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			));
 		});
 	}
@@ -4112,8 +4101,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			));
 		});
 	}
@@ -4169,8 +4158,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			));
 		});
 	}
@@ -4245,8 +4234,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			));
 		});
 	}
@@ -4316,8 +4305,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![0],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -4355,8 +4344,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			));
 		});
 	}
@@ -4418,8 +4407,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![0],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -4452,8 +4441,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -4536,8 +4525,8 @@ mod tests {
 					&mut storage_meter,
 					U256::zero(),
 					vec![],
-					&mut Tracer::Disabled,
 					false,
+					&mut Tracer::Disabled,
 				)
 				.unwrap()
 			});
@@ -4605,8 +4594,8 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![0],
-				&mut Tracer::Disabled,
 				false,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -4678,7 +4667,7 @@ mod tests {
 				U256::zero(),
 				vec![],
 				false,
-				None,
+				&mut Tracer::Disabled,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -4729,8 +4718,8 @@ mod tests {
 					&mut storage_meter,
 					U256::zero(),
 					vec![],
-					&mut Tracer::Disabled,
 					false,
+					&mut Tracer::Disabled,
 				)
 				.unwrap()
 			});
@@ -4799,8 +4788,8 @@ mod tests {
 					&mut storage_meter,
 					U256::zero(),
 					vec![],
-					&mut Tracer::Disabled,
 					false,
+					&mut Tracer::Disabled,
 				)
 				.unwrap()
 			});
@@ -4846,8 +4835,8 @@ mod tests {
 					&mut storage_meter,
 					U256::zero(),
 					vec![],
-					&mut Tracer::Disabled,
 					false,
+					&mut Tracer::Disabled,
 				)
 				.unwrap()
 			});
@@ -4891,8 +4880,8 @@ mod tests {
 					&mut storage_meter,
 					U256::zero(),
 					vec![],
-					&mut Tracer::Disabled,
 					false,
+					&mut Tracer::Disabled,
 				)
 				.unwrap()
 			});
@@ -4948,7 +4937,7 @@ mod tests {
 					U256::zero(),
 					vec![0],
 					false,
-					None,
+					&mut Tracer::Disabled,
 				),
 				Ok(_)
 			);

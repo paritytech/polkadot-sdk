@@ -29,6 +29,7 @@ use crate::{
 		ChainExtension, Environment, Ext, RegisteredChainExtension, Result as ExtensionResult,
 		RetVal, ReturnFlags,
 	},
+	debug::Tracer,
 	evm::{runtime::GAS_PRICE, GenericTransaction},
 	exec::Key,
 	limits,
@@ -38,9 +39,9 @@ use crate::{
 	tests::test_utils::{get_contract, get_contract_checked},
 	wasm::Memory,
 	weights::WeightInfo,
-	AccountId32Mapper, BalanceOf, Code, CodeInfoOf, CollectEvents, Config, ContractInfo,
-	ContractInfoOf, DebugInfo, DeletionQueueCounter, DepositLimit, Error, EthTransactError,
-	HoldReason, Origin, Pallet, PristineCode, H160,
+	AccountId32Mapper, BalanceOf, Code, CodeInfoOf, Config, ContractInfo, ContractInfoOf,
+	DeletionQueueCounter, DepositLimit, Error, EthTransactError, HoldReason, Origin, Pallet,
+	PristineCode, H160,
 };
 
 use crate::test_utils::builder::Contract;
@@ -2400,79 +2401,6 @@ fn ecdsa_recover() {
 }
 
 #[test]
-fn bare_instantiate_returns_events() {
-	let (wasm, _code_hash) = compile_module("transfer_return_code").unwrap();
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let min_balance = Contracts::min_balance();
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
-
-		let result = builder::bare_instantiate(Code::Upload(wasm))
-			.value(min_balance * 100)
-			.collect_events(CollectEvents::UnsafeCollect)
-			.build();
-
-		let events = result.events.unwrap();
-		assert!(!events.is_empty());
-		assert_eq!(events, System::events());
-	});
-}
-
-#[test]
-fn bare_instantiate_does_not_return_events() {
-	let (wasm, _code_hash) = compile_module("transfer_return_code").unwrap();
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let min_balance = Contracts::min_balance();
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
-
-		let result = builder::bare_instantiate(Code::Upload(wasm)).value(min_balance * 100).build();
-
-		let events = result.events;
-		assert!(!System::events().is_empty());
-		assert!(events.is_none());
-	});
-}
-
-#[test]
-fn bare_call_returns_events() {
-	let (wasm, _code_hash) = compile_module("transfer_return_code").unwrap();
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let min_balance = Contracts::min_balance();
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
-
-		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(wasm))
-			.value(min_balance * 100)
-			.build_and_unwrap_contract();
-
-		let result = builder::bare_call(addr).collect_events(CollectEvents::UnsafeCollect).build();
-
-		let events = result.events.unwrap();
-		assert_return_code!(&result.result.unwrap(), RuntimeReturnCode::Success);
-		assert!(!events.is_empty());
-		assert_eq!(events, System::events());
-	});
-}
-
-#[test]
-fn bare_call_does_not_return_events() {
-	let (wasm, _code_hash) = compile_module("transfer_return_code").unwrap();
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let min_balance = Contracts::min_balance();
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
-
-		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(wasm))
-			.value(min_balance * 100)
-			.build_and_unwrap_contract();
-
-		let result = builder::bare_call(addr).build();
-
-		let events = result.events;
-		assert_return_code!(&result.result.unwrap(), RuntimeReturnCode::Success);
-		assert!(!System::events().is_empty());
-		assert!(events.is_none());
-	});
-}
-
-#[test]
 fn sr25519_verify() {
 	let (wasm, _code_hash) = compile_module("sr25519_verify").unwrap();
 
@@ -3275,14 +3203,11 @@ fn set_code_hash() {
 		// First call sets new code_hash and returns 1
 		let result = builder::bare_call(contract_addr)
 			.data(new_code_hash.as_ref().to_vec())
-			.debug(DebugInfo::UnsafeDebug)
 			.build_and_unwrap_result();
 		assert_return_code!(result, 1);
 
 		// Second calls new contract code that returns 2
-		let result = builder::bare_call(contract_addr)
-			.debug(DebugInfo::UnsafeDebug)
-			.build_and_unwrap_result();
+		let result = builder::bare_call(contract_addr).build_and_unwrap_result();
 		assert_return_code!(result, 2);
 
 		// Checking for the last event only
@@ -4762,7 +4687,9 @@ fn skip_transfer_works() {
 					..Default::default()
 				},
 				Weight::MAX,
-				|_| 0u32
+				|_| 0u32,
+				Tracer::Disabled,
+
 			),
 			EthTransactError::Message(format!(
 				"insufficient funds for gas * price + value: address {BOB_ADDR:?} have 0 (supplied gas 1)"
@@ -4777,7 +4704,8 @@ fn skip_transfer_works() {
 				..Default::default()
 			},
 			Weight::MAX,
-			|_| 0u32
+			|_| 0u32,
+			Tracer::Disabled,
 		));
 
 		let Contract { addr, .. } =
@@ -4796,7 +4724,9 @@ fn skip_transfer_works() {
 					..Default::default()
 				},
 				Weight::MAX,
-				|_| 0u32
+				|_| 0u32,
+				Tracer::Disabled,
+
 			),
 			EthTransactError::Message(format!(
 				"insufficient funds for gas * price + value: address {BOB_ADDR:?} have 0 (supplied gas 1)"
@@ -4814,7 +4744,9 @@ fn skip_transfer_works() {
 					..Default::default()
 				},
 				Weight::MAX,
-				|_| 0u32
+				|_| 0u32,
+				Tracer::Disabled,
+
 			),
 			EthTransactError::Message(format!("insufficient funds for gas * price + value: address {BOB_ADDR:?} have 0 (supplied gas 1)"))
 		);
@@ -4823,7 +4755,8 @@ fn skip_transfer_works() {
 		assert_ok!(Pallet::<Test>::bare_eth_transact(
 			GenericTransaction { from: Some(BOB_ADDR), to: Some(addr), ..Default::default() },
 			Weight::MAX,
-			|_| 0u32
+			|_| 0u32,
+			Tracer::Disabled,
 		));
 
 		// works when calling from a contract when no gas is specified.
@@ -4835,7 +4768,8 @@ fn skip_transfer_works() {
 				..Default::default()
 			},
 			Weight::MAX,
-			|_| 0u32
+			|_| 0u32,
+			Tracer::Disabled,
 		));
 	});
 }
@@ -4908,15 +4842,11 @@ fn tracing_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		log::info!(target: crate::LOG_TARGET, "== Tracing test ==");
-
-		let _ = env_logger::builder().is_test(true).try_init();
 		let result = builder::bare_call(addr).data((3u32, addr_callee).encode()).build();
-		let traces = result.tracer.as_call_tracer().unwrap().traces;
 
 		assert_eq!(
-			traces,
-			vec![CallTrace {
+			result.traces,
+			Traces::CallTraces(vec![CallTrace {
 				from: ALICE_ADDR,
 				to: addr,
 				input: (3u32, addr_callee).encode(),
@@ -4977,7 +4907,7 @@ fn tracing_works() {
 					},
 				],
 				..Default::default()
-			},]
+			},])
 		);
 	});
 }

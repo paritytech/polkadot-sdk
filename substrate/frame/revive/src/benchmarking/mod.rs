@@ -107,8 +107,7 @@ where
 			Code::Upload(module.code),
 			data,
 			salt,
-			DebugInfo::Skip,
-			CollectEvents::Skip,
+			Tracer::Disabled,
 		);
 
 		let address = outcome.result?.addr;

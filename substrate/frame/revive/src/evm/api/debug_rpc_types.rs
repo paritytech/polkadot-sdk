@@ -23,6 +23,11 @@ pub enum CallType {
 	DelegateCall,
 }
 
+#[derive(TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+pub enum Traces {
+	CallTraces(Vec<CallTrace>),
+}
+
 /// A smart contract execution call trace.
 #[derive(
 	TypeInfo, Default, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq,

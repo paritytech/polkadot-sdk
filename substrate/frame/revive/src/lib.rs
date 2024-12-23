@@ -41,6 +41,7 @@ pub mod test_utils;
 pub mod weights;
 
 use crate::{
+	debug::{CallTrace, Tracer},
 	evm::{
 		runtime::{gas_from_fee, GAS_PRICE},
 		GasEncoder, GenericTransaction,
@@ -118,7 +119,7 @@ const LOG_TARGET: &str = "runtime::revive";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use crate::debug::Debugger;
+	use crate::debug::{Debugger, Tracer};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use sp_core::U256;
@@ -1112,7 +1113,7 @@ where
 			gas_consumed: gas_meter.gas_consumed(),
 			gas_required: gas_meter.gas_required(),
 			storage_deposit,
-			tracer,
+			traces: tracer.traces(),
 		}
 	}
 
@@ -1188,7 +1189,7 @@ where
 			gas_consumed: gas_meter.gas_consumed(),
 			gas_required: gas_meter.gas_required(),
 			storage_deposit,
-			tracer,
+			traces: tracer.traces(),
 		}
 	}
 

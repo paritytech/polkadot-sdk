@@ -17,9 +17,10 @@
 
 use super::{deposit_limit, GAS_LIMIT};
 use crate::{
-	address::AddressMapper, AccountIdOf, BalanceOf, Code, CollectEvents, Config, ContractResult,
-	DebugInfo, DepositLimit, EventRecordOf, ExecReturnValue, InstantiateReturnValue, OriginFor,
-	Pallet, Weight,
+	address::AddressMapper,
+	debug::{CallTracer, Tracer},
+	AccountIdOf, BalanceOf, Code, Config, ContractResult, DepositLimit, ExecReturnValue,
+	InstantiateReturnValue, OriginFor, Pallet, Weight,
 };
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
 use paste::paste;

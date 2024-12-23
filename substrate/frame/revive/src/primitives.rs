@@ -17,7 +17,7 @@
 
 //! A crate that hosts a common definitions that are relevant for the pallet-revive.
 
-use crate::{H160, U256};
+use crate::{evm::Traces, H160, U256};
 use alloc::{string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::weights::Weight;
@@ -63,7 +63,7 @@ impl<T> From<T> for DepositLimit<T> {
 /// `ContractsApi` version. Therefore when SCALE decoding a `ContractResult` its trailing data
 /// should be ignored to avoid any potential compatibility issues.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct ContractResult<R, Balance, EventRecord> {
+pub struct ContractResult<R, Balance> {
 	/// How much weight was consumed during execution.
 	pub gas_consumed: Weight,
 	/// How much weight is required as gas limit in order to execute this call.
@@ -86,9 +86,8 @@ pub struct ContractResult<R, Balance, EventRecord> {
 	pub storage_deposit: StorageDeposit<Balance>,
 	/// The execution result of the wasm code.
 	pub result: Result<R, DispatchError>,
-	/// The events that were emitted during execution. It is an option as event collection is
-	/// optional.
-	pub events: Option<Vec<EventRecord>>,
+	/// The traces collected during the execution.
+	pub traces: Traces,
 }
 
 /// The result of the execution of a `eth_transact` call.
@@ -268,37 +267,4 @@ where
 			Refund(amount) => limit.saturating_add(*amount),
 		}
 	}
-}
-
-/// Determines whether events should be collected during execution.
-#[derive(
-	Copy, Clone, PartialEq, Eq, RuntimeDebug, Decode, Encode, MaxEncodedLen, scale_info::TypeInfo,
-)]
-pub enum CollectEvents {
-	/// Collect events.
-	///
-	/// # Note
-	///
-	/// Events should only be collected when called off-chain, as this would otherwise
-	/// collect all the Events emitted in the block so far and put them into the PoV.
-	///
-	/// **Never** use this mode for on-chain execution.
-	UnsafeCollect,
-	/// Skip event collection.
-	Skip,
-}
-
-/// Determines whether debug messages will be collected.
-#[derive(
-	Copy, Clone, PartialEq, Eq, RuntimeDebug, Decode, Encode, MaxEncodedLen, scale_info::TypeInfo,
-)]
-pub enum DebugInfo {
-	/// Collect debug messages.
-	/// # Note
-	///
-	/// This should only ever be set to `UnsafeDebug` when executing as an RPC because
-	/// it adds allocations and could be abused to drive the runtime into an OOM panic.
-	UnsafeDebug,
-	/// Skip collection of debug messages.
-	Skip,
 }
