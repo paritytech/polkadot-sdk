@@ -98,6 +98,7 @@ pub fn derive_pallet_error(input: proc_macro::TokenStream) -> proc_macro::TokenS
 	};
 
 	quote::quote!(
+		#[allow(deprecated)]
 		const _: () = {
 			impl #impl_generics #frame_support::traits::PalletError
 				for #name #ty_generics #where_clause

@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::deprecation::extract_allow_attrs;
+
 use super::helper;
 use quote::ToTokens;
 use syn::{spanned::Spanned, Fields};
@@ -38,6 +40,8 @@ pub struct VariantDef {
 	pub field: Option<VariantField>,
 	/// The `cfg` attributes.
 	pub cfg_attrs: Vec<syn::Attribute>,
+	/// The `allow` attributes.
+	pub maybe_allow_attrs: Vec<syn::Attribute>,
 }
 
 /// This checks error declaration as a enum declaration with only variants without fields nor
@@ -99,8 +103,14 @@ impl ErrorDef {
 					return Err(syn::Error::new(span, msg))
 				}
 				let cfg_attrs: Vec<syn::Attribute> = helper::get_item_cfg_attrs(&variant.attrs);
+				let maybe_allow_attrs = extract_allow_attrs(&variant.attrs);
 
-				Ok(VariantDef { ident: variant.ident.clone(), field: field_ty, cfg_attrs })
+				Ok(VariantDef {
+					ident: variant.ident.clone(),
+					field: field_ty,
+					cfg_attrs,
+					maybe_allow_attrs,
+				})
 			})
 			.collect::<Result<_, _>>()?;
 

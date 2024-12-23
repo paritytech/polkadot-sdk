@@ -376,6 +376,7 @@ pub fn derive_eq_no_bound(input: TokenStream) -> TokenStream {
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
 	quote::quote_spanned!(name.span() =>
+		#[allow(deprecated)]
 		const _: () = {
 			impl #impl_generics ::core::cmp::Eq for #name #ty_generics #where_clause {}
 		};
