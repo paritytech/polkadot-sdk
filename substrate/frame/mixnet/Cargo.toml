@@ -17,13 +17,13 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
-scale-info = { features = ["derive"], workspace = true }
+frame = { workspace = true, features = ["experimental", "runtime"] }
 frame-benchmarking = { optional = true, workspace = true }
 log = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["derive"], workspace = true }
 sp-application-crypto = { workspace = true }
 sp-mixnet = { workspace = true }
-frame = { workspace = true, features = ["experimental", "runtime"] }
 
 [features]
 default = ["std"]
