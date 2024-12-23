@@ -18,6 +18,7 @@ parameter_types! {
 	UniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetwork::get()), Parachain(1013)].into();
 	const BridgedNetwork: NetworkId =  Ethereum{ chain_id: 1 };
 	const NonBridgedNetwork: NetworkId =  Ethereum{ chain_id: 2 };
+	pub AssetHubParaId: ParaId = ParaId::from(1000);
 }
 
 struct MockOkOutboundQueue;
@@ -86,6 +87,7 @@ fn exporter_validate_with_unknown_network_yields_not_applicable() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
+			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::NotApplicable));
 }
@@ -105,6 +107,7 @@ fn exporter_validate_with_invalid_destination_yields_missing_argument() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
+			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::MissingArgument));
 }
@@ -127,6 +130,7 @@ fn exporter_validate_with_x8_destination_yields_not_applicable() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
+			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::NotApplicable));
 }
@@ -146,6 +150,7 @@ fn exporter_validate_without_universal_source_yields_missing_argument() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
+			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::MissingArgument));
 }
@@ -165,6 +170,7 @@ fn exporter_validate_without_global_universal_location_yields_not_applicable() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
+			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::NotApplicable));
 }
@@ -184,6 +190,7 @@ fn exporter_validate_without_global_bridge_location_yields_not_applicable() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
+			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::NotApplicable));
 }
@@ -204,6 +211,7 @@ fn exporter_validate_with_remote_universal_source_yields_not_applicable() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
+			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::NotApplicable));
 }
@@ -223,6 +231,7 @@ fn exporter_validate_without_para_id_in_source_yields_not_applicable() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
+			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::NotApplicable));
 }
@@ -243,6 +252,7 @@ fn exporter_validate_complex_para_id_in_source_yields_not_applicable() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
+			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::NotApplicable));
 }
@@ -263,6 +273,7 @@ fn exporter_validate_without_xcm_message_yields_missing_argument() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
+			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::MissingArgument));
 }
@@ -310,6 +321,7 @@ fn exporter_validate_with_max_target_fee_yields_unroutable() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
+			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 
 	assert_eq!(result, Err(XcmSendError::Unroutable));
@@ -337,6 +349,7 @@ fn exporter_validate_with_unparsable_xcm_yields_unroutable() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
+			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 
 	assert_eq!(result, Err(XcmSendError::Unroutable));
@@ -383,6 +396,7 @@ fn exporter_validate_xcm_success_case_1() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
+			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 
 	assert!(result.is_ok());
@@ -396,6 +410,7 @@ fn exporter_deliver_with_submit_failure_yields_unroutable() {
 		MockErrOutboundQueue,
 		AgentIdOf,
 		MockTokenIdConvert,
+		AssetHubParaId,
 	>::deliver((hex!("deadbeef").to_vec(), XcmHash::default()));
 	assert_eq!(result, Err(XcmSendError::Transport("other transport error")))
 }
@@ -1208,6 +1223,7 @@ fn exporter_validate_with_invalid_dest_does_not_alter_destination() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
+			AssetHubParaId,
 		>::validate(
 			network, channel, &mut universal_source_wrapper, &mut dest_wrapper, &mut msg_wrapper
 		);
@@ -1261,6 +1277,7 @@ fn exporter_validate_with_invalid_universal_source_does_not_alter_universal_sour
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
+			AssetHubParaId,
 		>::validate(
 			network, channel, &mut universal_source_wrapper, &mut dest_wrapper, &mut msg_wrapper
 		);
