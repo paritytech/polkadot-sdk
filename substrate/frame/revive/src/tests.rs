@@ -2185,58 +2185,6 @@ fn refcounter() {
 }
 
 #[test]
-fn debug_message_works() {
-	let (wasm, _code_hash) = compile_module("debug_message_works").unwrap();
-
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(wasm))
-			.value(30_000)
-			.build_and_unwrap_contract();
-		let result = builder::bare_call(addr).debug(DebugInfo::UnsafeDebug).build();
-
-		assert_matches!(result.result, Ok(_));
-		assert_eq!(std::str::from_utf8(&result.debug_message).unwrap(), "Hello World!");
-	});
-}
-
-#[test]
-fn debug_message_logging_disabled() {
-	let (wasm, _code_hash) = compile_module("debug_message_logging_disabled").unwrap();
-
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(wasm))
-			.value(30_000)
-			.build_and_unwrap_contract();
-		// the dispatchables always run without debugging
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
-			addr,
-			0,
-			GAS_LIMIT,
-			deposit_limit::<Test>(),
-			vec![]
-		));
-	});
-}
-
-#[test]
-fn debug_message_invalid_utf8() {
-	let (wasm, _code_hash) = compile_module("debug_message_invalid_utf8").unwrap();
-
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(wasm))
-			.value(30_000)
-			.build_and_unwrap_contract();
-		let result = builder::bare_call(addr).debug(DebugInfo::UnsafeDebug).build();
-		assert_ok!(result.result);
-		assert!(result.debug_message.is_empty());
-	});
-}
-
-#[test]
 fn gas_estimation_for_subcalls() {
 	let (caller_code, _caller_hash) = compile_module("call_with_limit").unwrap();
 	let (call_runtime_code, _caller_hash) = compile_module("call_runtime").unwrap();

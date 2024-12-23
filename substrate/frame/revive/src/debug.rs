@@ -66,30 +66,6 @@ impl Tracer {
 			_ => None,
 		}
 	}
-	pub fn append_debug_buffer(&mut self, msg: &str) -> bool {
-		match self {
-			Tracer::Disabled => false,
-			Tracer::CallTracer(CallTracer { debug_buffer, .. }) => {
-				debug_buffer
-					.try_extend(&mut msg.bytes())
-					.map_err(|_| {
-						log::debug!(
-							target: LOG_TARGET,
-							"Debug buffer (of {} bytes) exhausted!",
-							limits::DEBUG_BUFFER_BYTES,
-						)
-					})
-					.ok();
-				true
-			},
-		}
-	}
-	pub fn debug_buffer_enabled(&self) -> bool {
-		match self {
-			Tracer::Disabled => false,
-			_ => true,
-		}
-	}
 }
 
 impl<T: Config> Tracing<T> for Tracer
@@ -140,8 +116,6 @@ where
 
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct CallTracer {
-	/// TODO restore doc
-	pub debug_buffer: DebugBuffer,
 	/// Store all in-progress CallTrace instances
 	pub traces: Vec<CallTrace>,
 	/// Stack of indices to the current active traces

@@ -84,21 +84,6 @@ pub struct ContractResult<R, Balance, EventRecord> {
 	/// is `Err`. This is because on error all storage changes are rolled back including the
 	/// payment of the deposit.
 	pub storage_deposit: StorageDeposit<Balance>,
-	/// An optional debug message. This message is only filled when explicitly requested
-	/// by the code that calls into the contract. Otherwise it is empty.
-	///
-	/// The contained bytes are valid UTF-8. This is not declared as `String` because
-	/// this type is not allowed within the runtime.
-	///
-	/// Clients should not make any assumptions about the format of the buffer.
-	/// They should just display it as-is. It is **not** only a collection of log lines
-	/// provided by a contract but a formatted buffer with different sections.
-	///
-	/// # Note
-	///
-	/// The debug message is never generated during on-chain execution. It is reserved for
-	/// RPC calls.
-	pub debug_message: Vec<u8>,
 	/// The execution result of the wasm code.
 	pub result: Result<R, DispatchError>,
 	/// The events that were emitted during execution. It is an option as event collection is

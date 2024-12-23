@@ -378,19 +378,6 @@ pub trait Ext: sealing::Sealed {
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff);
 
-	/// Append a string to the debug buffer.
-	///
-	/// It is added as-is without any additional new line.
-	///
-	/// This is a no-op if debug message recording is disabled which is always the case
-	/// when the code is executing on-chain.
-	///
-	/// Returns `true` if debug message recording is enabled. Otherwise `false` is returned.
-	fn append_debug_buffer(&mut self, msg: &str) -> bool;
-
-	/// Returns `true` if debug message recording is enabled. Otherwise `false` is returned.
-	fn debug_buffer_enabled(&self) -> bool;
-
 	/// Call some dispatchable and return the result.
 	fn call_runtime(&self, call: <Self::T as Config>::RuntimeCall) -> DispatchResultWithPostInfo;
 
@@ -857,7 +844,6 @@ where
 			storage_meter,
 			value.into(),
 			false,
-			debug_message, // TODO noop tracer
 		)
 		.unwrap()
 		.unwrap()
@@ -1778,14 +1764,6 @@ where
 
 	fn charge_storage(&mut self, diff: &Diff) {
 		self.top_frame_mut().nested_storage.charge(diff)
-	}
-
-	fn debug_buffer_enabled(&self) -> bool {
-		self.tracer.debug_buffer_enabled()
-	}
-
-	fn append_debug_buffer(&mut self, msg: &str) -> bool {
-		self.tracer.append_debug_buffer(msg)
 	}
 
 	fn call_runtime(&self, call: <Self::T as Config>::RuntimeCall) -> DispatchResultWithPostInfo {
@@ -3440,115 +3418,6 @@ mod tests {
 				)
 				.unwrap();
 			});
-	}
-
-	#[test]
-	fn printing_works() {
-		let code_hash = MockLoader::insert(Call, |ctx, _| {
-			ctx.ext.append_debug_buffer("This is a test");
-			ctx.ext.append_debug_buffer("More text");
-			exec_success()
-		});
-
-		let mut tracer = Tracer::new_call_tracer();
-
-		ExtBuilder::default().build().execute_with(|| {
-			let min_balance = <Test as Config>::Currency::minimum_balance();
-
-			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
-			set_balance(&ALICE, min_balance * 10);
-			place_contract(&BOB, code_hash);
-			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
-			MockStack::run_call(
-				origin,
-				BOB_ADDR,
-				&mut gas_meter,
-				&mut storage_meter,
-				U256::zero(),
-				vec![],
-				&mut tracer,
-				false,
-			)
-			.unwrap();
-		});
-
-		assert_eq!(
-			&String::from_utf8(tracer.as_call_tracer().unwrap().debug_buffer.to_vec()).unwrap(),
-			"This is a testMore text"
-		);
-	}
-
-	#[test]
-	fn printing_works_on_fail() {
-		let code_hash = MockLoader::insert(Call, |ctx, _| {
-			ctx.ext.append_debug_buffer("This is a test");
-			ctx.ext.append_debug_buffer("More text");
-			exec_trapped()
-		});
-
-		let mut tracer = Tracer::new_call_tracer();
-
-		ExtBuilder::default().build().execute_with(|| {
-			let min_balance = <Test as Config>::Currency::minimum_balance();
-
-			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
-			set_balance(&ALICE, min_balance * 10);
-			place_contract(&BOB, code_hash);
-			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
-			let result = MockStack::run_call(
-				origin,
-				BOB_ADDR,
-				&mut gas_meter,
-				&mut storage_meter,
-				U256::zero(),
-				vec![],
-				&mut tracer,
-				false,
-			);
-			assert!(result.is_err());
-		});
-
-		assert_eq!(
-			&String::from_utf8(tracer.as_call_tracer().unwrap().debug_buffer.to_vec()).unwrap(),
-			"This is a testMore text"
-		);
-	}
-
-	#[test]
-	fn debug_buffer_is_limited() {
-		let code_hash = MockLoader::insert(Call, move |ctx, _| {
-			ctx.ext.append_debug_buffer("overflowing bytes");
-			exec_success()
-		});
-
-		// Pre-fill the buffer almost up to its limit, leaving not enough space to the message
-		let debug_buf_before = DebugBuffer::try_from(vec![0u8; DebugBuffer::bound() - 5]).unwrap();
-		let mut tracer = CallTracer::default();
-		tracer.debug_buffer = debug_buf_before.clone();
-		let mut tracer = Tracer::CallTracer(tracer);
-
-		ExtBuilder::default().build().execute_with(|| {
-			let min_balance = <Test as Config>::Currency::minimum_balance();
-			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
-			set_balance(&ALICE, min_balance * 10);
-			place_contract(&BOB, code_hash);
-			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
-			MockStack::run_call(
-				origin,
-				BOB_ADDR,
-				&mut gas_meter,
-				&mut storage_meter,
-				U256::zero(),
-				vec![],
-				&mut tracer,
-				false,
-			)
-			.unwrap();
-			assert_eq!(debug_buf_before, tracer.as_call_tracer().unwrap().debug_buffer);
-		});
 	}
 
 	#[test]
