@@ -25,7 +25,7 @@ commit_with_message() {
     git commit -a -m "$MESSAGE" || true
 }
 
-# Retun list of the runtimes filterd
+# Retun list of the runtimes filtered
 # input: none
 # output: list of filtered runtimes
 get_filtered_runtimes_list() {
@@ -52,7 +52,7 @@ set_spec_versions() {
   git_show_log 'spec_version'
 }
 
-# Displays formated results of the git log command
+# Displays formatted results of the git log command
 # for the given pattern which needs to be found in logs
 # input: pattern, count (optional, default is 10)
 git_show_log() {
@@ -71,7 +71,7 @@ git_show_log() {
 # 1_012_000 or 1_012_001 if SUFFIX is set
 function get_spec_version() {
     INPUT=$1
-    SUFFIX=${SUFFIX:-000} #this variable makes it possible to set a specific ruuntime version like 93826 it can be intialised as sestem variable
+    SUFFIX=${SUFFIX:-000} #this variable makes it possible to set a specific runtime version like 93826 it can be initialised as system variable
     [[ $INPUT =~ .*([0-9]+\.[0-9]+\.[0-9]{1,2}).* ]]
     VERSION="${BASH_REMATCH[1]}"
     MATCH="${BASH_REMATCH[0]}"

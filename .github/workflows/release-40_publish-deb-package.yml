@@ -1,10 +1,10 @@
-name: Release - Publish polakdot deb package
+name: Release - Publish polkadot deb package
 
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Current final release tag in the format polakdot-stableYYMM or polkadot-stable-YYMM-X
+        description: Current final release tag in the format polkadot-stableYYMM or polkadot-stable-YYMM-X
         default: polkadot-stable2412
         required: true
         type: string
@@ -17,7 +17,7 @@ on:
 
 jobs:
   check-synchronization:
-    uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@main
+    uses: paritytech-release/sync-workflows/.github/workflows/check-synchronization.yml@main
 
   validate-inputs:
     needs: [check-synchronization]
