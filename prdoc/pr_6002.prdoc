@@ -1,0 +1,22 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Dry run xcms on bridge hubs to get forwarded xcms across the W<>R bridge
+
+doc:
+  - audience: Runtime User
+    description: |
+      It's now possible to dry-run XCMs on Bridge Hubs and get the forwarded XCM to the other
+      side of the W<>R bridge.
+
+crates:
+  - name: pallet-bridge-messages
+    bump: patch
+  - name: emulated-integration-tests-common
+    bump: patch
+  - name: bridge-hub-rococo-runtime
+    bump: patch
+  - name: bridge-hub-westend-runtime
+    bump: patch
+  - name: pallet-xcm
+    bump: patch
