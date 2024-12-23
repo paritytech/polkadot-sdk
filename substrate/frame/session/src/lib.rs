@@ -149,6 +149,15 @@ pub trait ShouldEndSession<BlockNumber> {
 	fn should_end_session(now: BlockNumber) -> bool;
 }
 
+/// Hook to be applied when an account deregisters keys
+pub trait OnKeysDeregistered<AccountId> {
+	fn on_keys_deregisterd(account: AccountId);
+}
+
+impl<AccountId> OnKeysDeregistered<AccountId> for () {
+	fn on_keys_deregisterd(_account: AccountId) {}
+}
+
 /// Ends the session after a fixed period of blocks.
 ///
 /// The first session will have length of `Offset`, and
@@ -415,6 +424,9 @@ pub mod pallet {
 
 		/// The keys.
 		type Keys: OpaqueKeys + Member + Parameter + MaybeSerializeDeserialize;
+
+		/// Hook to perform actions when keys are deregistered
+		type OnKeysDeregisteredHook: OnKeysDeregistered<Self::AccountId>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -887,6 +899,7 @@ impl<T: Config> Pallet<T> {
 			Self::clear_key_owner(*id, key_data);
 		}
 		frame_system::Pallet::<T>::dec_consumers(account);
+		T::OnKeysDeregisteredHook::on_keys_deregisterd(account.clone());
 
 		Ok(())
 	}
