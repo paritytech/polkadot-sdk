@@ -102,4 +102,28 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::on_demand::WeightInfo
 			.saturating_add(T::DbWeight::get().writes(3))
 			.saturating_add(Weight::from_parts(0, 8).saturating_mul(s.into()))
 	}
+	/// Storage: `OnDemandAssignmentProvider::QueueStatus` (r:1 w:1)
+	/// Proof: `OnDemandAssignmentProvider::QueueStatus` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `System::Account` (r:1 w:0)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `OnDemandAssignmentProvider::Revenue` (r:1 w:1)
+	/// Proof: `OnDemandAssignmentProvider::Revenue` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `OnDemandAssignmentProvider::ParaIdAffinity` (r:1 w:0)
+	/// Proof: `OnDemandAssignmentProvider::ParaIdAffinity` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `OnDemandAssignmentProvider::FreeEntries` (r:1 w:1)
+	/// Proof: `OnDemandAssignmentProvider::FreeEntries` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// The range of component `s` is `[1, 9999]`.
+	fn place_order_with_credits(s: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `270 + s * (8 ±0)`
+		//  Estimated: `3733 + s * (8 ±0)`
+		// Minimum execution time: 28_422_000 picoseconds.
+		Weight::from_parts(28_146_882, 0)
+			.saturating_add(Weight::from_parts(0, 3733))
+			// Standard Error: 140
+			.saturating_add(Weight::from_parts(21_283, 0).saturating_mul(s.into()))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(3))
+			.saturating_add(Weight::from_parts(0, 8).saturating_mul(s.into()))
+	}
 }
