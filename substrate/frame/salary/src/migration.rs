@@ -82,7 +82,7 @@ pub mod v1 {
 	{
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-			if let Some(old_status) = v0::Status::<T, I>::take() {
+			if let Some(old_status) = v0::Status::<T, I>::get() {
 				log::info!("\n Old status - {:?}\n", old_status);
 			}
 
