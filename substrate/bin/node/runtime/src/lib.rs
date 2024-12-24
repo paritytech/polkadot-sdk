@@ -1588,6 +1588,51 @@ impl pallet_offences::Config for Runtime {
 	type OnOffenceHandler = Staking;
 }
 
+
+parameter_types! {
+	// Id of the treasury
+	pub const PotId: PalletId = PalletId(*b"py/potid");
+	pub const VotingPeriod:BlockNumber = 30 * DAYS;
+	pub const ClaimingPeriod: BlockNumber = 7 * DAYS;
+	pub const VoteValidityPeriod: BlockNumber = 7 * DAYS;
+	pub const MaxProjects:u32 = 50;
+	
+
+}
+impl pallet_opf::Config for Runtime {
+	type RuntimeCall = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
+
+	type NativeBalance = Balances;
+
+	/// Pot PalletId
+	type PotId = PotId;
+
+	/// Maximum number of whitelisted projects
+	type MaxProjects = MaxProjects;
+
+	/// Time period in which people can vote. 
+	/// After the period has ended, the votes are counted (STOP THE COUNT) 
+	/// and then the funds are distributed into Spends.
+	type VotingPeriod = VotingPeriod;
+
+	/// Time for claiming a Spend. 
+	/// After the period has passed, a spend is thrown away 
+	/// and the funds are available again for distribution in the pot.
+	type ClaimingPeriod = ClaimingPeriod;
+
+	/// Period after which all the votes are resetted.
+	type VoteValidityPeriod = VoteValidityPeriod;
+
+	type BlockNumberProvider = System;
+
+	type Preimages = Preimage;
+
+	type Scheduler = Scheduler;
+
+	type WeightInfo = (); //pallet_opf::weights::SubstrateWeight<Runtime>;
+}
+
 impl pallet_authority_discovery::Config for Runtime {
 	type MaxAuthorities = MaxAuthorities;
 }
@@ -2633,6 +2678,9 @@ mod runtime {
 
 	#[runtime::pallet_index(81)]
 	pub type VerifySignature = pallet_verify_signature::Pallet<Runtime>;
+
+	#[runtime::pallet_index(82)]
+	pub type Opf = pallet_opf::Pallet<Runtime>;
 }
 
 impl TryFrom<RuntimeCall> for pallet_revive::Call<Runtime> {
@@ -2893,6 +2941,7 @@ mod benches {
 		[pallet_example_mbm, PalletExampleMbms]
 		[pallet_asset_conversion_ops, AssetConversionMigration]
 		[pallet_verify_signature, VerifySignature]
+		[pallet_opf, Opf]
 	);
 }
 

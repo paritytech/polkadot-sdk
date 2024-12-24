@@ -1,0 +1,90 @@
+[package]
+authors.workspace = true
+description = "Optimist Project Funding - pallet allowing users to nominate projects to be funded, by locking their DOTS."
+edition.workspace = true
+homepage = "https://substrate.io"
+license = "Apache-2.0"
+name = "pallet-opf"
+readme = "README.md"
+repository.workspace = true
+version = "0.1.0"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { workspace = true, default-features = false }
+frame-benchmarking = { optional = true, workspace = true, default-features = false }
+frame-support = { workspace = true, default-features = false }
+frame-system = { workspace = true, default-features = false }
+log = { workspace = true }
+pallet-conviction-voting = { workspace = true, default-features = false }
+scale-info = { features = [
+	"derive",
+], workspace = true, default-features = false }
+sp-core = { workspace = true, default-features = false }
+sp-io = { workspace = true, default-features = false }
+sp-runtime = { workspace = true, default-features = false }
+
+[dev-dependencies]
+pallet-assets = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+pallet-preimage = { workspace = true, default-features = true }
+pallet-scheduler = { workspace = true, default-features = true }
+pallet-sudo = { workspace = true, default-features = true }
+pallet-timestamp = { workspace = true, default-features = true }
+pallet-transaction-payment = { workspace = true, default-features = true }
+pallet-transaction-payment-rpc-runtime-api = { workspace = true, default-features = true }
+
+[features]
+default = ["std"]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-conviction-voting/runtime-benchmarks",
+	"pallet-preimage/runtime-benchmarks",
+	"pallet-scheduler/runtime-benchmarks",
+	"pallet-sudo/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
+std = [
+	"codec/std",
+	"frame-benchmarking?/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"pallet-assets/std",
+	"pallet-balances/std",
+	"pallet-conviction-voting/std",
+	"pallet-preimage/std",
+	"pallet-scheduler/std",
+	"pallet-sudo/std",
+	"pallet-timestamp/std",
+	"pallet-transaction-payment-rpc-runtime-api/std",
+	"pallet-transaction-payment/std",
+	"scale-info/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-assets/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-conviction-voting/try-runtime",
+	"pallet-preimage/try-runtime",
+	"pallet-scheduler/try-runtime",
+	"pallet-sudo/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"pallet-transaction-payment/try-runtime",
+	"sp-runtime/try-runtime",
+]
