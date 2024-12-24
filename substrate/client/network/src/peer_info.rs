@@ -66,6 +66,9 @@ pub struct PeerInfoBehaviour {
 	ping: Ping,
 	/// Periodically identifies the remote and responds to incoming requests.
 	identify: Identify,
+	/// Identity of our local node.
+	local_peer_id: PeerId,
+
 	/// Information that we know about all nodes.
 	nodes_info: FnvHashMap<PeerId, NodeInfo>,
 	/// Interval at which we perform garbage collection in `nodes_info`.
@@ -123,6 +126,7 @@ impl PeerInfoBehaviour {
 		local_public_key: PublicKey,
 		external_addresses: Arc<Mutex<HashSet<Multiaddr>>>,
 	) -> Self {
+		let local_peer_id = local_public_key.to_peer_id();
 		let identify = {
 			let cfg = IdentifyConfig::new("/substrate/1.0".to_string(), local_public_key)
 				.with_agent_version(user_agent)
@@ -134,6 +138,7 @@ impl PeerInfoBehaviour {
 		Self {
 			ping: Ping::new(PingConfig::new()),
 			identify,
+			local_peer_id,
 			nodes_info: FnvHashMap::default(),
 			garbage_collect: Box::pin(interval(GARBAGE_COLLECT_INTERVAL)),
 			external_addresses: ExternalAddresses { addresses: external_addresses },
@@ -406,17 +411,23 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 				self.external_addresses.remove(e.addr);
 			},
 			FromSwarm::NewExternalAddrCandidate(e @ NewExternalAddrCandidate { addr }) => {
-				self.ping.on_swarm_event(FromSwarm::NewExternalAddrCandidate(e));
-				self.identify.on_swarm_event(FromSwarm::NewExternalAddrCandidate(e));
+				// Verify the external address is valid.
+				let multiaddr: sc_network_types::multiaddr::Multiaddr = addr.clone().into();
+				if multiaddr.is_external_address_valid() &&
+					multiaddr.ensure_peer_id(self.local_peer_id.into()).is_some()
+				{
+					self.ping.on_swarm_event(FromSwarm::NewExternalAddrCandidate(e));
+					self.identify.on_swarm_event(FromSwarm::NewExternalAddrCandidate(e));
 
-				// Manually confirm all external address candidates.
-				// TODO: consider adding [AutoNAT protocol](https://docs.rs/libp2p/0.52.3/libp2p/autonat/index.html)
-				// (must go through the polkadot protocol spec) or implemeting heuristics for
-				// approving external address candidates. This can be done, for example, by
-				// approving only addresses reported by multiple peers.
-				// See also https://github.com/libp2p/rust-libp2p/pull/4721 introduced
-				// in libp2p v0.53 for heuristics approach.
-				self.pending_actions.push_back(ToSwarm::ExternalAddrConfirmed(addr.clone()));
+					// Manually confirm all external address candidates.
+					// TODO: consider adding [AutoNAT protocol](https://docs.rs/libp2p/0.52.3/libp2p/autonat/index.html)
+					// (must go through the polkadot protocol spec) or implemeting heuristics for
+					// approving external address candidates. This can be done, for example, by
+					// approving only addresses reported by multiple peers.
+					// See also https://github.com/libp2p/rust-libp2p/pull/4721 introduced
+					// in libp2p v0.53 for heuristics approach.
+					self.pending_actions.push_back(ToSwarm::ExternalAddrConfirmed(addr.clone()));
+				}
 			},
 			FromSwarm::ExternalAddrConfirmed(e @ ExternalAddrConfirmed { addr }) => {
 				self.ping.on_swarm_event(FromSwarm::ExternalAddrConfirmed(e));
