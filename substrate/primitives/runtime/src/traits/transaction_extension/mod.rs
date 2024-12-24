@@ -39,9 +39,13 @@ use super::{
 
 mod as_transaction_extension;
 mod dispatch_transaction;
+mod transaction_extension_pipeline;
 #[allow(deprecated)]
 pub use as_transaction_extension::AsTransactionExtension;
 pub use dispatch_transaction::DispatchTransaction;
+pub use transaction_extension_pipeline::{
+	NoTxExt, TransactionExtensionPipeline, TransactionExtensionPipelineImplicit,
+};
 
 /// Shortcut for the result value of the `validate` function.
 pub type ValidateResult<Val, Call> =
@@ -605,6 +609,7 @@ impl<Call: Dispatchable> TransactionExtension<Call> for Tuple {
 impl<Call: Dispatchable> TransactionExtension<Call> for () {
 	const IDENTIFIER: &'static str = "UnitTransactionExtension";
 	type Implicit = ();
+	#[inline]
 	fn implicit(&self) -> sp_std::result::Result<Self::Implicit, TransactionValidityError> {
 		Ok(())
 	}
