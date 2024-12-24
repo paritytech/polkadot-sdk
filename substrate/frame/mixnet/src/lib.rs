@@ -40,6 +40,7 @@ use sp_mixnet::types::{
 	AuthorityId, AuthoritySignature, KxPublic, Mixnode, MixnodesErr, PeerId, SessionIndex,
 	SessionPhase, SessionStatus, KX_PUBLIC_SIZE,
 };
+
 const LOG_TARGET: &str = "runtime::mixnet";
 
 /// Index of an authority in the authority list for a session.
