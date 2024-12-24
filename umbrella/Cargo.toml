@@ -290,7 +290,6 @@ runtime-benchmarks = [
 	"pallet-membership?/runtime-benchmarks",
 	"pallet-message-queue?/runtime-benchmarks",
 	"pallet-migrations?/runtime-benchmarks",
-	"pallet-mixnet?/runtime-benchmarks",
 	"pallet-mmr?/runtime-benchmarks",
 	"pallet-multisig?/runtime-benchmarks",
 	"pallet-nft-fractionalization?/runtime-benchmarks",
