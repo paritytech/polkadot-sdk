@@ -32,9 +32,7 @@ pub mod xcm_config;
 mod bag_thresholds;
 pub mod governance;
 mod staking;
-use governance::{
-	pallet_custom_origins, FellowshipAdmin, GeneralAdmin, LeaseAdmin, StakingAdmin, Treasurer,
-};
+use governance::{pallet_custom_origins, FellowshipAdmin, GeneralAdmin, StakingAdmin, Treasurer};
 
 extern crate alloc;
 
