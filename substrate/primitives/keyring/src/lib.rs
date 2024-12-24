@@ -32,19 +32,10 @@ pub mod ed25519;
 #[cfg(feature = "bandersnatch-experimental")]
 pub mod bandersnatch;
 
-/// Convenience export: Sr25519's Keyring is exposed as `AccountKeyring`, since it tends to be
-/// used for accounts (although it may also be used by authorities).
-pub use sr25519::Keyring as AccountKeyring;
-
 #[cfg(feature = "bandersnatch-experimental")]
 pub use bandersnatch::Keyring as BandersnatchKeyring;
 pub use ed25519::Keyring as Ed25519Keyring;
 pub use sr25519::Keyring as Sr25519Keyring;
-
-pub mod test {
-	/// The keyring for use with accounts when using the test runtime.
-	pub use super::ed25519::Keyring as AccountKeyring;
-}
 
 #[derive(Debug)]
 /// Represents an error that occurs when parsing a string into a `KeyRing`.

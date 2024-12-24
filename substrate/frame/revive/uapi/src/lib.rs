@@ -17,6 +17,7 @@
 //! Refer to substrate FRAME contract module for more documentation.
 
 #![no_std]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 mod flags;
 pub use flags::*;
