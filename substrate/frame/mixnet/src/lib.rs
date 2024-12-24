@@ -27,7 +27,6 @@ pub use pallet::*;
 
 use alloc::vec::Vec;
 use core::cmp::Ordering;
-
 use serde::{Deserialize, Serialize};
 
 use frame::{
