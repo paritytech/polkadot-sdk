@@ -66,12 +66,14 @@ use sc_client_api::{
 	utils::is_descendent_of,
 	IoInfo, MemoryInfo, MemorySize, UsageInfo,
 };
+use sc_consensus_grandpa::best_justification;
 use sc_state_db::{IsPruned, LastCanonicalized, StateDb};
 use sp_arithmetic::traits::Saturating;
 use sp_blockchain::{
 	Backend as _, CachedHeaderMetadata, DisplacedLeavesAfterFinalization, Error as ClientError,
 	HeaderBackend, HeaderMetadata, HeaderMetadataCache, Result as ClientResult,
 };
+use sp_consensus_grandpa::GRANDPA_ENGINE_ID;
 use sp_core::{
 	offchain::OffchainOverlayedChange,
 	storage::{well_known_keys, ChildInfo},
@@ -599,7 +601,14 @@ impl<Block: BlockT> BlockchainDb<Block> {
 						"Error decoding justifications: {err}"
 					))),
 			},
-			None => Ok(None),
+			None => {
+				if hash == self.meta.read().finalized_hash {
+					if let Ok(Some(justification)) = best_justification::<&BlockchainDb<Block>, Block>(&self) {
+						return Ok(Some(Justifications::from((GRANDPA_ENGINE_ID, justification.encode()))));
+					}
+				}
+				Ok(None)
+			},
 		}
 	}
 
@@ -660,6 +669,26 @@ impl<Block: BlockT> BlockchainDb<Block> {
 			}
 		}
 		Ok(None)
+	}
+}
+
+impl<Block : BlockT> sc_client_api::backend::AuxStore for &BlockchainDb<Block> {
+	fn insert_aux<
+		'a,
+		'b: 'a,
+		'c: 'a,
+		I: IntoIterator<Item = &'a (&'c [u8], &'c [u8])>,
+		D: IntoIterator<Item = &'a &'b [u8]>,
+	>(
+		&self,
+		_insert: I,
+		_delete: D,
+	) -> ClientResult<()> {
+		todo!()
+	}
+
+	fn get_aux(&self, key: &[u8]) -> ClientResult<Option<Vec<u8>>> {
+		Ok(self.db.get(columns::AUX, key))
 	}
 }
 
