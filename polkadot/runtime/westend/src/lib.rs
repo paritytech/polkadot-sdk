@@ -1084,7 +1084,7 @@ pub enum ProxyType {
 	CancelProxy,
 	Auction,
 	NominationPools,
-	ParaRegistration
+	ParaRegistration,
 }
 impl Default for ProxyType {
 	fn default() -> Self {
