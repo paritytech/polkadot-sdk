@@ -61,7 +61,10 @@ impl<
 		let destination = AccountIdConverter::convert_location(to)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		Assets::transfer(&class, &instance, &destination)
-			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
+			.map_err(|e| {
+				tracing::error!(target: LOG_TARGET, ?e, "Failed to transfer asset");
+				XcmError::FailedToTransactAsset(e.into())
+			})?;
 		Ok(what.clone().into())
 	}
 }
@@ -226,7 +229,10 @@ impl<
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		Assets::mint_into(&class, &instance, &who)
-			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))
+			.map_err(|e| {
+				tracing::error!(target: LOG_TARGET, ?e, "Failed to mint asset");
+				XcmError::FailedToTransactAsset(e.into())
+			})
 	}
 
 	fn withdraw_asset(
@@ -246,7 +252,10 @@ impl<
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		let (class, instance) = Matcher::matches_nonfungibles(what)?;
 		Assets::burn(&class, &instance, Some(&who))
-			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
+			.map_err(|e| {
+				tracing::error!(target: LOG_TARGET, ?e, "Failed to burn asset");
+				XcmError::FailedToTransactAsset(e.into())
+			})?;
 		Ok(what.clone().into())
 	}
 }

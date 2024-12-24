@@ -59,7 +59,10 @@ impl<
 		let dest = AccountIdConverter::convert_location(to)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		Assets::transfer(asset_id, &source, &dest, amount, Preserve)
-			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
+			.map_err(|e| {
+				tracing::error!(target: "xcm::fungibles_adapter", ?e, ?amount, "Failed to transfer asset internally");
+				XcmError::FailedToTransactAsset(e.into())
+			})?;
 		Ok(what.clone().into())
 	}
 }

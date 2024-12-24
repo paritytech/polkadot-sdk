@@ -167,7 +167,10 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 			return Ok(payment)
 		}
 		let unused =
-			payment.checked_sub((id, amount).into()).map_err(|_| XcmError::TooExpensive)?;
+			payment.checked_sub((id, amount).into()).map_err(|error| {
+				tracing::error!(target: "xcm::weight", ?error, "Failed to substract from payment");
+				XcmError::TooExpensive
+			})?;
 		self.0 = self.0.saturating_add(weight);
 		self.1 = self.1.saturating_add(amount);
 		Ok(unused)
@@ -231,9 +234,15 @@ impl<
 	) -> Result<AssetsInHolding, XcmError> {
 		tracing::trace!(target: "xcm::weight", "UsingComponents::buy_weight weight: {:?}, payment: {:?}, context: {:?}", weight, payment, context);
 		let amount = WeightToFee::weight_to_fee(&weight);
-		let u128_amount: u128 = amount.try_into().map_err(|_| XcmError::Overflow)?;
+		let u128_amount: u128 = amount.try_into().map_err(|error| {
+			tracing::error!(target: "xcm::weight", "Amount could not be converted");
+			XcmError::Overflow
+		})?;
 		let required = Asset { id: AssetId(AssetIdValue::get()), fun: Fungible(u128_amount) };
-		let unused = payment.checked_sub(required).map_err(|_| XcmError::TooExpensive)?;
+		let unused = payment.checked_sub(required).map_err(|error| {
+			tracing::error!(target: "xcm::weight", ?error, "Failed to substract from payment");
+			XcmError::TooExpensive
+		})?;
 		self.0 = self.0.saturating_add(weight);
 		self.1 = self.1.saturating_add(amount);
 		Ok(unused)
