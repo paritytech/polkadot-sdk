@@ -117,14 +117,14 @@ pub fn expand_runtime_metadata(
 
 
 				let mut versioned_extensions_metadata =
-					#scrate::sp_runtime::traits::transaction_extension::VersTxExtLineMetadataBuilder::new();
+					#scrate::sp_runtime::traits::VersTxExtLineMetadataBuilder::new();
 
 				<
 					<
 						#extrinsic as #scrate::sp_runtime::traits::ExtrinsicMetadata
 					>::TransactionExtensionsVersions
 					as
-					#scrate::sp_runtime::traits::transaction_extension::VersTxExtLine::<
+					#scrate::sp_runtime::traits::VersTxExtLine::<
 						<#runtime as #system_path::Config>::RuntimeCall
 					>
 				>::build_metadata(&mut versioned_extensions_metadata);

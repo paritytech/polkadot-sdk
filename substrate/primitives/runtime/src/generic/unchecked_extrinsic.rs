@@ -20,13 +20,9 @@
 use crate::{
 	generic::{CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
-		self,
-		transaction_extension::{
-			DecodeWithVersion, ExtensionVariant, InvalidVersion, TransactionExtension,
-			VersTxExtLineVersion, VersTxExtLineWeight,
-		},
-		Checkable, Dispatchable, ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount, MaybeDisplay,
-		Member, SignaturePayload,
+		self, Checkable, DecodeWithVersion, Dispatchable, ExtensionVariant, ExtrinsicLike,
+		ExtrinsicMetadata, IdentifyAccount, InvalidVersion, MaybeDisplay, Member, SignaturePayload,
+		TransactionExtension, VersTxExtLineVersion, VersTxExtLineWeight,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic,
