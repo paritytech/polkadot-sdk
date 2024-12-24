@@ -247,7 +247,7 @@ pub mod pallet {
 		StorageDoubleMap<_, Identity, SessionIndex, Identity, AuthorityIndex, BoundedMixnodeFor<T>>;
 
 	#[pallet::genesis_config]
-	#[derive(frame::prelude::DefaultNoBound)]
+	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		/// The mixnode set for the very first session.
 		pub mixnodes: BoundedVec<BoundedMixnodeFor<T>, T::MaxAuthorities>,
