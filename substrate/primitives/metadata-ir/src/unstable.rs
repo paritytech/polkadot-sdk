@@ -162,16 +162,12 @@ impl From<TransactionExtensionMetadataIR> for TransactionExtensionMetadata {
 
 impl From<ExtrinsicMetadataIR> for ExtrinsicMetadata {
 	fn from(ir: ExtrinsicMetadataIR) -> Self {
-		// Assume version 0 for all extensions.
-		let indexes = (0..ir.extensions.len()).map(|index| index as u32).collect();
-		let transaction_extensions_by_version = [(0, indexes)].iter().cloned().collect();
-
 		ExtrinsicMetadata {
 			versions: ir.versions,
 			address_ty: ir.address_ty,
 			signature_ty: ir.signature_ty,
-			transaction_extensions_by_version,
-			transaction_extensions: ir.extensions.into_iter().map(Into::into).collect(),
+			transaction_extensions_by_version: ir.extensions_by_version,
+			transaction_extensions: ir.extensions_in_versions.into_iter().map(Into::into).collect(),
 		}
 	}
 }

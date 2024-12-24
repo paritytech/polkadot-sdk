@@ -25,7 +25,7 @@ use crate::{
 	},
 	transaction_validity::{TransactionSource, TransactionValidityError, ValidTransaction},
 };
-use alloc::vec::Vec;
+use alloc::{collections::BTreeMap, vec::Vec};
 use codec::Encode;
 use core::fmt::Debug;
 use sp_weights::Weight;
@@ -110,7 +110,7 @@ pub trait DecodeWithVersion: Sized {
 pub struct VersTxExtLineMetadataBuilder {
 	/// The transaction extension pipeline by version and its list of items as vec of index into
 	/// other field `in_versions`.
-	pub by_version: Vec<(u8, Vec<u32>)>,
+	pub by_version: BTreeMap<u8, Vec<u32>>,
 	/// The list of all transaction extension item used.
 	pub in_versions: Vec<TransactionExtensionMetadata>,
 }
@@ -118,7 +118,7 @@ pub struct VersTxExtLineMetadataBuilder {
 impl VersTxExtLineMetadataBuilder {
 	/// Create a new empty metadata builder.
 	pub fn new() -> Self {
-		Self { by_version: Vec::new(), in_versions: Vec::new() }
+		Self { by_version: BTreeMap::new(), in_versions: Vec::new() }
 	}
 
 	/// A function to add a versioned transaction extension to the metadata builder.
@@ -127,11 +127,15 @@ impl VersTxExtLineMetadataBuilder {
 		ext_version: u8,
 		ext_items: Vec<TransactionExtensionMetadata>,
 	) {
-		debug_assert!(
-			self.by_version.iter().all(|(v, _)| *v != ext_version),
-			"Duplicate definition for transaction extension version: {}",
-			ext_version
-		);
+		if self.by_version.contains_key(&ext_version) {
+			log::warn!("Duplicate definition for transaction extension version: {}", ext_version);
+			debug_assert!(
+				false,
+				"Duplicate definition for transaction extension version: {}",
+				ext_version
+			);
+			return
+		}
 
 		let mut ext_item_indices = Vec::with_capacity(ext_items.len());
 		for ext_item in ext_items {
@@ -146,6 +150,6 @@ impl VersTxExtLineMetadataBuilder {
 				};
 			ext_item_indices.push(ext_item_index as u32);
 		}
-		self.by_version.push((ext_version, ext_item_indices));
+		self.by_version.insert(ext_version, ext_item_indices);
 	}
 }
