@@ -19,6 +19,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use scale_info::TypeInfo;
