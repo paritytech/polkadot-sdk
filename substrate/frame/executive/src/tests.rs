@@ -24,7 +24,7 @@ use sp_core::H256;
 use sp_runtime::{
 	generic::{DigestItem, Era},
 	testing::{Block, Digest, Header},
-	traits::{Block as BlockT, Header as HeaderT},
+	traits::{Block as BlockT, Header as HeaderT, TransactionExtension},
 	transaction_validity::{
 		InvalidTransaction, TransactionValidityError, UnknownTransaction, ValidTransaction,
 	},
@@ -309,6 +309,34 @@ parameter_types! {
 	};
 }
 
+pub struct MockExtensionsWeights;
+impl frame_system::ExtensionsWeightInfo for MockExtensionsWeights {
+	fn check_genesis() -> Weight {
+		Weight::zero()
+	}
+	fn check_mortality_mortal_transaction() -> Weight {
+		Weight::from_parts(10, 0)
+	}
+	fn check_mortality_immortal_transaction() -> Weight {
+		Weight::from_parts(10, 0)
+	}
+	fn check_non_zero_sender() -> Weight {
+		Weight::zero()
+	}
+	fn check_nonce() -> Weight {
+		Weight::from_parts(10, 0)
+	}
+	fn check_spec_version() -> Weight {
+		Weight::zero()
+	}
+	fn check_tx_version() -> Weight {
+		Weight::zero()
+	}
+	fn check_weight() -> Weight {
+		Weight::from_parts(10, 0)
+	}
+}
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BlockWeights = BlockWeights;
@@ -323,6 +351,7 @@ impl frame_system::Config for Runtime {
 	type PostInherents = MockedSystemCallbacks;
 	type PostTransactions = MockedSystemCallbacks;
 	type MultiBlockMigrator = MockedModeGetter;
+	type ExtensionsWeightInfo = MockExtensionsWeights;
 }
 
 #[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, MaxEncodedLen, TypeInfo, RuntimeDebug)]
@@ -336,13 +365,58 @@ impl VariantCount for FreezeReasonId {
 
 type Balance = u64;
 
+pub struct BalancesWeights;
+impl pallet_balances::WeightInfo for BalancesWeights {
+	fn transfer_allow_death() -> Weight {
+		Weight::from_parts(25, 0)
+	}
+	fn transfer_keep_alive() -> Weight {
+		Weight::zero()
+	}
+	fn force_set_balance_creating() -> Weight {
+		Weight::zero()
+	}
+	fn force_set_balance_killing() -> Weight {
+		Weight::zero()
+	}
+	fn force_transfer() -> Weight {
+		Weight::zero()
+	}
+	fn transfer_all() -> Weight {
+		Weight::zero()
+	}
+	fn force_unreserve() -> Weight {
+		Weight::zero()
+	}
+	fn upgrade_accounts(_u: u32) -> Weight {
+		Weight::zero()
+	}
+	fn force_adjust_total_issuance() -> Weight {
+		Weight::zero()
+	}
+	fn burn_allow_death() -> Weight {
+		Weight::zero()
+	}
+	fn burn_keep_alive() -> Weight {
+		Weight::zero()
+	}
+}
+
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	type AccountStore = System;
+	type WeightInfo = BalancesWeights;
 	type RuntimeFreezeReason = FreezeReasonId;
 	type FreezeIdentifier = FreezeReasonId;
 	type MaxFreezes = VariantCountOf<FreezeReasonId>;
+}
+
+pub struct MockTxPaymentWeights;
+impl pallet_transaction_payment::WeightInfo for MockTxPaymentWeights {
+	fn charge_transaction_payment() -> Weight {
+		Weight::from_parts(10, 0)
+	}
 }
 
 parameter_types! {
@@ -355,6 +429,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type WeightToFee = IdentityFee<Balance>;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = ();
+	type WeightInfo = MockTxPaymentWeights;
 }
 
 impl custom::Config for Runtime {}
@@ -372,14 +447,19 @@ parameter_types! {
 		Default::default();
 }
 
-type SignedExtra = (
+type TxExtension = (
 	frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 );
-type TestXt = sp_runtime::testing::TestXt<RuntimeCall, SignedExtra>;
-type TestBlock = Block<TestXt>;
+type UncheckedXt = sp_runtime::generic::UncheckedExtrinsic<
+	u64,
+	RuntimeCall,
+	sp_runtime::testing::UintAuthorityId,
+	TxExtension,
+>;
+type TestBlock = Block<UncheckedXt>;
 
 // Will contain `true` when the custom runtime logic was called.
 const CUSTOM_ON_RUNTIME_KEY: &[u8] = b":custom:on_runtime";
@@ -399,7 +479,7 @@ impl OnRuntimeUpgrade for CustomOnRuntimeUpgrade {
 
 type Executive = super::Executive<
 	Runtime,
-	Block<TestXt>,
+	Block<UncheckedXt>,
 	ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
@@ -474,17 +554,14 @@ impl MultiStepMigrator for MockedModeGetter {
 	}
 }
 
-fn extra(nonce: u64, fee: Balance) -> SignedExtra {
+fn tx_ext(nonce: u64, fee: Balance) -> TxExtension {
 	(
 		frame_system::CheckEra::from(Era::Immortal),
 		frame_system::CheckNonce::from(nonce),
 		frame_system::CheckWeight::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::from(fee),
 	)
-}
-
-fn sign_extra(who: u64, nonce: u64, fee: Balance) -> Option<(u64, SignedExtra)> {
-	Some((who, extra(nonce, fee)))
+		.into()
 }
 
 fn call_transfer(dest: u64, value: u64) -> RuntimeCall {
@@ -497,8 +574,8 @@ fn balance_transfer_dispatch_works() {
 	pallet_balances::GenesisConfig::<Runtime> { balances: vec![(1, 211)] }
 		.assimilate_storage(&mut t)
 		.unwrap();
-	let xt = TestXt::new(call_transfer(2, 69), sign_extra(1, 0, 0));
-	let weight = xt.get_dispatch_info().weight +
+	let xt = UncheckedXt::new_signed(call_transfer(2, 69), 1, 1.into(), tx_ext(0, 0));
+	let weight = xt.get_dispatch_info().total_weight() +
 		<Runtime as frame_system::Config>::BlockWeights::get()
 			.get(DispatchClass::Normal)
 			.base_extrinsic;
@@ -608,7 +685,7 @@ fn block_import_of_bad_extrinsic_root_fails() {
 fn bad_extrinsic_not_inserted() {
 	let mut t = new_test_ext(1);
 	// bad nonce check!
-	let xt = TestXt::new(call_transfer(33, 69), sign_extra(1, 30, 0));
+	let xt = UncheckedXt::new_signed(call_transfer(33, 69), 1, 1.into(), tx_ext(30, 0));
 	t.execute_with(|| {
 		Executive::initialize_block(&Header::new_from_number(1));
 		assert_err!(
@@ -622,35 +699,47 @@ fn bad_extrinsic_not_inserted() {
 #[test]
 fn block_weight_limit_enforced() {
 	let mut t = new_test_ext(10000);
-	// given: TestXt uses the encoded len as fixed Len:
-	let xt = TestXt::new(
-		RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 33, value: 0 }),
-		sign_extra(1, 0, 0),
-	);
-	let encoded = xt.encode();
-	let encoded_len = encoded.len() as u64;
+	let transfer_weight =
+			<<Runtime as pallet_balances::Config>::WeightInfo as pallet_balances::WeightInfo>::transfer_allow_death();
+	let extension_weight = tx_ext(0u32.into(), 0)
+		.weight(&RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 33, value: 0 }));
 	// on_initialize weight + base block execution weight
 	let block_weights = <Runtime as frame_system::Config>::BlockWeights::get();
 	let base_block_weight = Weight::from_parts(175, 0) + block_weights.base_block;
 	let limit = block_weights.get(DispatchClass::Normal).max_total.unwrap() - base_block_weight;
-	let num_to_exhaust_block = limit.ref_time() / (encoded_len + 5);
+	let num_to_exhaust_block =
+		limit.ref_time() / (transfer_weight.ref_time() + extension_weight.ref_time() + 5);
 	t.execute_with(|| {
 		Executive::initialize_block(&Header::new_from_number(1));
 		// Base block execution weight + `on_initialize` weight from the custom module.
 		assert_eq!(<frame_system::Pallet<Runtime>>::block_weight().total(), base_block_weight);
 
 		for nonce in 0..=num_to_exhaust_block {
-			let xt = TestXt::new(
+			let xt = UncheckedXt::new_signed(
 				RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 33, value: 0 }),
-				sign_extra(1, nonce.into(), 0),
+				1,
+				1.into(),
+				tx_ext(nonce.into(), 0),
 			);
+			let encoded = xt.encode();
+			let encoded_len = encoded.len() as u64;
 			let res = Executive::apply_extrinsic(xt);
 			if nonce != num_to_exhaust_block {
 				assert!(res.is_ok());
 				assert_eq!(
 					<frame_system::Pallet<Runtime>>::block_weight().total(),
-					//--------------------- on_initialize + block_execution + extrinsic_base weight + extrinsic len
-					Weight::from_parts((encoded_len + 5) * (nonce + 1), (nonce + 1)* encoded_len) + base_block_weight,
+					//---------------------
+					// on_initialize
+					// + block_execution
+					// + extrinsic_base weight
+					// + call weight
+					// + extension weight
+					// + extrinsic len
+					Weight::from_parts(
+						(transfer_weight.ref_time() + extension_weight.ref_time() + 5) *
+							(nonce + 1),
+						(nonce + 1) * encoded_len
+					) + base_block_weight,
 				);
 				assert_eq!(
 					<frame_system::Pallet<Runtime>>::extrinsic_index(),
@@ -665,20 +754,28 @@ fn block_weight_limit_enforced() {
 
 #[test]
 fn block_weight_and_size_is_stored_per_tx() {
-	let xt = TestXt::new(
+	let xt = UncheckedXt::new_signed(
 		RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 33, value: 0 }),
-		sign_extra(1, 0, 0),
+		1,
+		1.into(),
+		tx_ext(0, 0),
 	);
-	let x1 = TestXt::new(
+	let x1 = UncheckedXt::new_signed(
 		RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 33, value: 0 }),
-		sign_extra(1, 1, 0),
+		1,
+		1.into(),
+		tx_ext(1, 0),
 	);
-	let x2 = TestXt::new(
+	let x2 = UncheckedXt::new_signed(
 		RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 33, value: 0 }),
-		sign_extra(1, 2, 0),
+		1,
+		1.into(),
+		tx_ext(2, 0),
 	);
 	let len = xt.clone().encode().len() as u32;
-	let mut t = new_test_ext(1);
+	let extension_weight = xt.extension_weight();
+	let transfer_weight = <<Runtime as pallet_balances::Config>::WeightInfo as pallet_balances::WeightInfo>::transfer_allow_death();
+	let mut t = new_test_ext(2);
 	t.execute_with(|| {
 		// Block execution weight + on_initialize weight from custom module
 		let base_block_weight = Weight::from_parts(175, 0) +
@@ -693,8 +790,8 @@ fn block_weight_and_size_is_stored_per_tx() {
 		assert!(Executive::apply_extrinsic(x1.clone()).unwrap().is_ok());
 		assert!(Executive::apply_extrinsic(x2.clone()).unwrap().is_ok());
 
-		// default weight for `TestXt` == encoded length.
-		let extrinsic_weight = Weight::from_parts(len as u64, 0) +
+		let extrinsic_weight = transfer_weight +
+			extension_weight +
 			<Runtime as frame_system::Config>::BlockWeights::get()
 				.get(DispatchClass::Normal)
 				.base_extrinsic;
@@ -720,8 +817,8 @@ fn block_weight_and_size_is_stored_per_tx() {
 
 #[test]
 fn validate_unsigned() {
-	let valid = TestXt::new(RuntimeCall::Custom(custom::Call::allowed_unsigned {}), None);
-	let invalid = TestXt::new(RuntimeCall::Custom(custom::Call::unallowed_unsigned {}), None);
+	let valid = UncheckedXt::new_bare(RuntimeCall::Custom(custom::Call::allowed_unsigned {}));
+	let invalid = UncheckedXt::new_bare(RuntimeCall::Custom(custom::Call::unallowed_unsigned {}));
 	let mut t = new_test_ext(1);
 
 	t.execute_with(|| {
@@ -762,9 +859,11 @@ fn can_not_pay_for_tx_fee_on_full_lock() {
 			110,
 		)
 		.unwrap();
-		let xt = TestXt::new(
+		let xt = UncheckedXt::new_signed(
 			RuntimeCall::System(frame_system::Call::remark { remark: vec![1u8] }),
-			sign_extra(1, 0, 0),
+			1,
+			1.into(),
+			tx_ext(0, 0),
 		);
 		Executive::initialize_block(&Header::new_from_number(1));
 
@@ -889,9 +988,11 @@ fn event_from_runtime_upgrade_is_included() {
 /// used through the `ExecuteBlock` trait.
 #[test]
 fn custom_runtime_upgrade_is_called_when_using_execute_block_trait() {
-	let xt = TestXt::new(
+	let xt = UncheckedXt::new_signed(
 		RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 33, value: 0 }),
-		sign_extra(1, 0, 0),
+		1,
+		1.into(),
+		tx_ext(0, 0),
 	);
 
 	let header = new_test_ext(1).execute_with(|| {
@@ -919,7 +1020,10 @@ fn custom_runtime_upgrade_is_called_when_using_execute_block_trait() {
 			*v = sp_version::RuntimeVersion { spec_version: 1, ..Default::default() }
 		});
 
-		<Executive as ExecuteBlock<Block<TestXt>>>::execute_block(Block::new(header, vec![xt]));
+		<Executive as ExecuteBlock<Block<UncheckedXt>>>::execute_block(Block::new(
+			header,
+			vec![xt],
+		));
 
 		assert_eq!(&sp_io::storage::get(TEST_KEY).unwrap()[..], *b"module");
 		assert_eq!(sp_io::storage::get(CUSTOM_ON_RUNTIME_KEY).unwrap(), true.encode());
@@ -985,7 +1089,7 @@ fn offchain_worker_works_as_expected() {
 #[test]
 fn calculating_storage_root_twice_works() {
 	let call = RuntimeCall::Custom(custom::Call::calculate_storage_root {});
-	let xt = TestXt::new(call, sign_extra(1, 0, 0));
+	let xt = UncheckedXt::new_signed(call, 1, 1.into(), tx_ext(0, 0));
 
 	let header = new_test_ext(1).execute_with(|| {
 		// Let's build some fake block.
@@ -1004,11 +1108,13 @@ fn calculating_storage_root_twice_works() {
 #[test]
 #[should_panic(expected = "Invalid inherent position for extrinsic at index 1")]
 fn invalid_inherent_position_fail() {
-	let xt1 = TestXt::new(
+	let xt1 = UncheckedXt::new_signed(
 		RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 33, value: 0 }),
-		sign_extra(1, 0, 0),
+		1,
+		1.into(),
+		tx_ext(0, 0),
 	);
-	let xt2 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
+	let xt2 = UncheckedXt::new_bare(RuntimeCall::Custom(custom::Call::inherent {}));
 
 	let header = new_test_ext(1).execute_with(|| {
 		// Let's build some fake block.
@@ -1027,8 +1133,8 @@ fn invalid_inherent_position_fail() {
 
 #[test]
 fn valid_inherents_position_works() {
-	let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
-	let xt2 = TestXt::new(call_transfer(33, 0), sign_extra(1, 0, 0));
+	let xt1 = UncheckedXt::new_bare(RuntimeCall::Custom(custom::Call::inherent {}));
+	let xt2 = UncheckedXt::new_signed(call_transfer(33, 0), 1, 1.into(), tx_ext(0, 0));
 
 	let header = new_test_ext(1).execute_with(|| {
 		// Let's build some fake block.
@@ -1048,7 +1154,12 @@ fn valid_inherents_position_works() {
 #[test]
 #[should_panic(expected = "A call was labelled as mandatory, but resulted in an Error.")]
 fn invalid_inherents_fail_block_execution() {
-	let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), sign_extra(1, 0, 0));
+	let xt1 = UncheckedXt::new_signed(
+		RuntimeCall::Custom(custom::Call::inherent {}),
+		1,
+		1.into(),
+		tx_ext(0, 0),
+	);
 
 	new_test_ext(1).execute_with(|| {
 		Executive::execute_block(Block::new(
@@ -1061,7 +1172,7 @@ fn invalid_inherents_fail_block_execution() {
 // Inherents are created by the runtime and don't need to be validated.
 #[test]
 fn inherents_fail_validate_block() {
-	let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
+	let xt1 = UncheckedXt::new_bare(RuntimeCall::Custom(custom::Call::inherent {}));
 
 	new_test_ext(1).execute_with(|| {
 		assert_eq!(
@@ -1075,7 +1186,7 @@ fn inherents_fail_validate_block() {
 /// Inherents still work while `initialize_block` forbids transactions.
 #[test]
 fn inherents_ok_while_exts_forbidden_works() {
-	let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
+	let xt1 = UncheckedXt::new_bare(RuntimeCall::Custom(custom::Call::inherent {}));
 
 	let header = new_test_ext(1).execute_with(|| {
 		Executive::initialize_block(&Header::new_from_number(1));
@@ -1095,8 +1206,8 @@ fn inherents_ok_while_exts_forbidden_works() {
 #[test]
 #[should_panic = "Only inherents are allowed in this block"]
 fn transactions_in_only_inherents_block_errors() {
-	let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
-	let xt2 = TestXt::new(call_transfer(33, 0), sign_extra(1, 0, 0));
+	let xt1 = UncheckedXt::new_bare(RuntimeCall::Custom(custom::Call::inherent {}));
+	let xt2 = UncheckedXt::new_signed(call_transfer(33, 0), 1, 1.into(), tx_ext(0, 0));
 
 	let header = new_test_ext(1).execute_with(|| {
 		Executive::initialize_block(&Header::new_from_number(1));
@@ -1116,8 +1227,8 @@ fn transactions_in_only_inherents_block_errors() {
 /// Same as above but no error.
 #[test]
 fn transactions_in_normal_block_works() {
-	let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
-	let xt2 = TestXt::new(call_transfer(33, 0), sign_extra(1, 0, 0));
+	let xt1 = UncheckedXt::new_bare(RuntimeCall::Custom(custom::Call::inherent {}));
+	let xt2 = UncheckedXt::new_signed(call_transfer(33, 0), 1, 1.into(), tx_ext(0, 0));
 
 	let header = new_test_ext(1).execute_with(|| {
 		Executive::initialize_block(&Header::new_from_number(1));
@@ -1137,8 +1248,8 @@ fn transactions_in_normal_block_works() {
 #[test]
 #[cfg(feature = "try-runtime")]
 fn try_execute_block_works() {
-	let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
-	let xt2 = TestXt::new(call_transfer(33, 0), sign_extra(1, 0, 0));
+	let xt1 = UncheckedXt::new_bare(RuntimeCall::Custom(custom::Call::inherent {}));
+	let xt2 = UncheckedXt::new_signed(call_transfer(33, 0), 1, 1.into(), tx_ext(0, 0));
 
 	let header = new_test_ext(1).execute_with(|| {
 		Executive::initialize_block(&Header::new_from_number(1));
@@ -1165,8 +1276,8 @@ fn try_execute_block_works() {
 #[cfg(feature = "try-runtime")]
 #[should_panic = "Only inherents allowed"]
 fn try_execute_tx_forbidden_errors() {
-	let xt1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
-	let xt2 = TestXt::new(call_transfer(33, 0), sign_extra(1, 0, 0));
+	let xt1 = UncheckedXt::new_bare(RuntimeCall::Custom(custom::Call::inherent {}));
+	let xt2 = UncheckedXt::new_signed(call_transfer(33, 0), 1, 1.into(), tx_ext(0, 0));
 
 	let header = new_test_ext(1).execute_with(|| {
 		// Let's build some fake block.
@@ -1193,9 +1304,9 @@ fn try_execute_tx_forbidden_errors() {
 /// Check that `ensure_inherents_are_first` reports the correct indices.
 #[test]
 fn ensure_inherents_are_first_works() {
-	let in1 = TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None);
-	let in2 = TestXt::new(RuntimeCall::Custom2(custom2::Call::inherent {}), None);
-	let xt2 = TestXt::new(call_transfer(33, 0), sign_extra(1, 0, 0));
+	let in1 = UncheckedXt::new_bare(RuntimeCall::Custom(custom::Call::inherent {}));
+	let in2 = UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::inherent {}));
+	let xt2 = UncheckedXt::new_signed(call_transfer(33, 0), 1, 1.into(), tx_ext(0, 0));
 
 	// Mocked empty header:
 	let header = new_test_ext(1).execute_with(|| {
@@ -1273,18 +1384,20 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 
 			for i in 0..n_in {
 				let xt = if i % 2 == 0 {
-					TestXt::new(RuntimeCall::Custom(custom::Call::inherent {}), None)
+					UncheckedXt::new_bare(RuntimeCall::Custom(custom::Call::inherent {}))
 				} else {
-					TestXt::new(RuntimeCall::Custom2(custom2::Call::optional_inherent {}), None)
+					UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::optional_inherent {}))
 				};
 				Executive::apply_extrinsic(xt.clone()).unwrap().unwrap();
 				extrinsics.push(xt);
 			}
 
 			for t in 0..n_tx {
-				let xt = TestXt::new(
+				let xt = UncheckedXt::new_signed(
 					RuntimeCall::Custom2(custom2::Call::some_call {}),
-					sign_extra(1, t as u64, 0),
+					1,
+					1.into(),
+					tx_ext(t as u64, 0),
 				);
 				// Extrinsics can be applied even when MBMs are active. Only the `execute_block`
 				// will reject it.
@@ -1324,8 +1437,13 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 
 #[test]
 fn post_inherent_called_after_all_inherents() {
-	let in1 = TestXt::new(RuntimeCall::Custom2(custom2::Call::inherent {}), None);
-	let xt1 = TestXt::new(RuntimeCall::Custom2(custom2::Call::some_call {}), sign_extra(1, 0, 0));
+	let in1 = UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::inherent {}));
+	let xt1 = UncheckedXt::new_signed(
+		RuntimeCall::Custom2(custom2::Call::some_call {}),
+		1,
+		1.into(),
+		tx_ext(0, 0),
+	);
 
 	let header = new_test_ext(1).execute_with(|| {
 		// Let's build some fake block.
@@ -1359,8 +1477,13 @@ fn post_inherent_called_after_all_inherents() {
 /// Regression test for AppSec finding #40.
 #[test]
 fn post_inherent_called_after_all_optional_inherents() {
-	let in1 = TestXt::new(RuntimeCall::Custom2(custom2::Call::optional_inherent {}), None);
-	let xt1 = TestXt::new(RuntimeCall::Custom2(custom2::Call::some_call {}), sign_extra(1, 0, 0));
+	let in1 = UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::optional_inherent {}));
+	let xt1 = UncheckedXt::new_signed(
+		RuntimeCall::Custom2(custom2::Call::some_call {}),
+		1,
+		1.into(),
+		tx_ext(0, 0),
+	);
 
 	let header = new_test_ext(1).execute_with(|| {
 		// Let's build some fake block.
@@ -1393,14 +1516,14 @@ fn post_inherent_called_after_all_optional_inherents() {
 
 #[test]
 fn is_inherent_works() {
-	let ext = TestXt::new(RuntimeCall::Custom2(custom2::Call::inherent {}), None);
+	let ext = UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::inherent {}));
 	assert!(Runtime::is_inherent(&ext));
-	let ext = TestXt::new(RuntimeCall::Custom2(custom2::Call::optional_inherent {}), None);
+	let ext = UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::optional_inherent {}));
 	assert!(Runtime::is_inherent(&ext));
 
-	let ext = TestXt::new(call_transfer(33, 0), sign_extra(1, 0, 0));
+	let ext = UncheckedXt::new_signed(call_transfer(33, 0), 1, 1.into(), tx_ext(0, 0));
 	assert!(!Runtime::is_inherent(&ext));
 
-	let ext = TestXt::new(RuntimeCall::Custom2(custom2::Call::allowed_unsigned {}), None);
+	let ext = UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::allowed_unsigned {}));
 	assert!(!Runtime::is_inherent(&ext), "Unsigned ext are not automatically inherents");
 }

@@ -18,7 +18,9 @@ use substrate_wasm_builder::RuntimeTarget;
 
 #[cfg(feature = "std")]
 fn main() {
-	substrate_wasm_builder::WasmBuilder::new().with_current_project().build_for_target(RuntimeTarget::Riscv);
+	substrate_wasm_builder::WasmBuilder::new()
+		.with_current_project()
+		.build_for_target(RuntimeTarget::Riscv);
 }
 
 #[cfg(not(feature = "std"))]

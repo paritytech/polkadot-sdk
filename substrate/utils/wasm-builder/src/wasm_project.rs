@@ -109,6 +109,15 @@ fn crate_metadata(cargo_manifest: &Path) -> Metadata {
 	crate_metadata
 }
 
+/// Keep the build directories separate so that when switching between the
+/// targets we won't trigger unnecessary rebuilds.
+fn build_subdirectory(target: RuntimeTarget) -> &'static str {
+	match target {
+		RuntimeTarget::Wasm => "wbuild",
+		RuntimeTarget::Riscv => "rbuild",
+	}
+}
+
 /// Creates the WASM project, compiles the WASM binary and compacts the WASM binary.
 ///
 /// # Returns
@@ -125,7 +134,7 @@ pub(crate) fn create_and_compile(
 	#[cfg(feature = "metadata-hash")] enable_metadata_hash: Option<MetadataExtraInfo>,
 ) -> (Option<WasmBinary>, WasmBinaryBloaty) {
 	let runtime_workspace_root = get_wasm_workspace_root();
-	let runtime_workspace = runtime_workspace_root.join(target.build_subdirectory());
+	let runtime_workspace = runtime_workspace_root.join(build_subdirectory(target));
 
 	let crate_metadata = crate_metadata(orig_project_cargo_toml);
 
@@ -192,7 +201,7 @@ pub(crate) fn create_and_compile(
 
 	let out_path = match target {
 		RuntimeTarget::Wasm => project.join(format!("{blob_name}.wasm")),
-		RuntimeTarget::Riscv => project.join(format!("{blob_name}.polkavm"))
+		RuntimeTarget::Riscv => project.join(format!("{blob_name}.polkavm")),
 	};
 
 	fs::copy(raw_blob_path, &out_path).expect("copying the runtime blob should never fail");
@@ -235,14 +244,15 @@ fn maybe_compact_and_compress_wasm(
 		RuntimeTarget::Wasm => {
 			// Try to compact and compress the bloaty blob, if the *outer* profile wants it.
 			//
-			// This is because, by default the inner profile will be set to `Release` even when the outer
-			// profile is `Debug`, because the blob built in `Debug` profile is too slow for normal
-			// development activities.
+			// This is because, by default the inner profile will be set to `Release` even when the
+			// outer profile is `Debug`, because the blob built in `Debug` profile is too slow
+			// for normal development activities.
 			let (compact_blob_path, compact_compressed_blob_path) =
 				if build_config.outer_build_profile.wants_compact() {
 					let compact_blob_path = compact_wasm(&project, blob_name, &bloaty_blob_binary);
-					let compact_compressed_blob_path =
-						compact_blob_path.as_ref().and_then(|p| try_compress_blob_as(target, &p.0, blob_name));
+					let compact_compressed_blob_path = compact_blob_path
+						.as_ref()
+						.and_then(|p| try_compress_blob_as(target, &p.0, blob_name));
 					(compact_blob_path, compact_compressed_blob_path)
 				} else {
 					// We at least want to lower the `sign-ext` code to `mvp`.
@@ -267,9 +277,10 @@ fn maybe_compact_and_compress_wasm(
 			(final_blob_binary, bloaty_blob_binary)
 		},
 		RuntimeTarget::Riscv => {
-			let compressed = try_compress_blob_as(target, bloaty_blob_binary.bloaty_path(), blob_name);
+			let compressed =
+				try_compress_blob_as(target, bloaty_blob_binary.bloaty_path(), blob_name);
 			(compressed, bloaty_blob_binary)
-		}
+		},
 	}
 }
 
@@ -775,7 +786,7 @@ impl BuildConfiguration {
 				.collect::<Vec<_>>()
 				.iter()
 				.rev()
-				.take_while(|c| c.as_os_str() != target.build_subdirectory())
+				.take_while(|c| c.as_os_str() != build_subdirectory(target))
 				.last()
 				.expect("We put the runtime project within a `target/.../[rw]build` path; qed")
 				.as_os_str()
@@ -846,9 +857,7 @@ fn build_bloaty_blob(
 				"-C target-cpu=mvp -C target-feature=-sign-ext -C link-arg=--export-table ",
 			);
 		},
-		RuntimeTarget::Riscv => {
-			rustflags.push_str("-C target-feature=+lui-addi-fusion -C relocation-model=pie -C link-arg=--emit-relocs -C link-arg=--unique "); // -C link-arg=--export-dynamic ");
-		},
+		RuntimeTarget::Riscv => (),
 	}
 
 	rustflags.push_str(default_rustflags);
@@ -912,10 +921,9 @@ fn build_bloaty_blob(
 	//
 	// So here we force the compiler to also compile the standard library crates for us
 	// to make sure that they also only use the MVP features.
-	if crate::build_std_required() {
-		// Unfortunately this is still a nightly-only flag, but FWIW it is pretty widely used
-		// so it's unlikely to break without a replacement.
-		build_cmd.arg("-Z").arg("build-std");
+	if let Some(arg) = target.rustc_target_build_std() {
+		build_cmd.arg("-Z").arg(arg);
+
 		if !cargo_cmd.supports_nightly_features() {
 			build_cmd.env("RUSTC_BOOTSTRAP", "1");
 		}
@@ -939,7 +947,7 @@ fn build_bloaty_blob(
 	let blob_name = get_blob_name(target, &manifest_path);
 	let target_directory = project
 		.join("target")
-		.join(target.rustc_target())
+		.join(target.rustc_target_dir())
 		.join(blob_build_profile.directory());
 	match target {
 		RuntimeTarget::Riscv => {
@@ -974,7 +982,7 @@ fn build_bloaty_blob(
 					},
 				};
 
-				std::fs::write(&polkavm_path, &program)
+				std::fs::write(&polkavm_path, program)
 					.expect("writing the blob to a file always works");
 			}
 
@@ -1008,7 +1016,11 @@ fn compact_wasm(
 	Some(WasmBinary(wasm_compact_path))
 }
 
-fn try_compress_blob_as(target: RuntimeTarget, compact_blob_path: &Path, out_name: &str) -> Option<WasmBinary> {
+fn try_compress_blob_as(
+	target: RuntimeTarget,
+	compact_blob_path: &Path,
+	out_name: &str,
+) -> Option<WasmBinary> {
 	use sp_maybe_compressed_blob::CODE_BLOB_BOMB_LIMIT;
 
 	let project = compact_blob_path.parent().expect("blob path should have a parent directory");
@@ -1020,10 +1032,12 @@ fn try_compress_blob_as(target: RuntimeTarget, compact_blob_path: &Path, out_nam
 	let start = std::time::Instant::now();
 	let data = fs::read(compact_blob_path).expect("Failed to read WASM binary");
 	let blob_type = match target {
-	    RuntimeTarget::Wasm => sp_maybe_compressed_blob::MaybeCompressedBlobType::Other,
-	    RuntimeTarget::Riscv => sp_maybe_compressed_blob::MaybeCompressedBlobType::Pvm,
+		RuntimeTarget::Wasm => sp_maybe_compressed_blob::MaybeCompressedBlobType::Other,
+		RuntimeTarget::Riscv => sp_maybe_compressed_blob::MaybeCompressedBlobType::Pvm,
 	};
-	if let Some(compressed) = sp_maybe_compressed_blob::compress_as(blob_type, &data, CODE_BLOB_BOMB_LIMIT) {
+	if let Some(compressed) =
+		sp_maybe_compressed_blob::compress_as(blob_type, &data, CODE_BLOB_BOMB_LIMIT)
+	{
 		fs::write(&compact_compressed_blob_path, &compressed[..])
 			.expect("Failed to write WASM binary");
 

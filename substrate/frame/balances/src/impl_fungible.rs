@@ -354,7 +354,9 @@ impl<T: Config<I>, I: 'static> fungible::Balanced<T::AccountId> for Pallet<T, I>
 		Self::deposit_event(Event::<T, I>::Withdraw { who: who.clone(), amount });
 	}
 	fn done_issue(amount: Self::Balance) {
-		Self::deposit_event(Event::<T, I>::Issued { amount });
+		if !amount.is_zero() {
+			Self::deposit_event(Event::<T, I>::Issued { amount });
+		}
 	}
 	fn done_rescind(amount: Self::Balance) {
 		Self::deposit_event(Event::<T, I>::Rescinded { amount });
@@ -362,6 +364,14 @@ impl<T: Config<I>, I: 'static> fungible::Balanced<T::AccountId> for Pallet<T, I>
 }
 
 impl<T: Config<I>, I: 'static> fungible::BalancedHold<T::AccountId> for Pallet<T, I> {}
+
+impl<T: Config<I>, I: 'static>
+	fungible::hold::DoneSlash<T::RuntimeHoldReason, T::AccountId, T::Balance> for Pallet<T, I>
+{
+	fn done_slash(reason: &T::RuntimeHoldReason, who: &T::AccountId, amount: T::Balance) {
+		T::DoneSlashHandler::done_slash(reason, who, amount);
+	}
+}
 
 impl<T: Config<I>, I: 'static> AccountTouch<(), T::AccountId> for Pallet<T, I> {
 	type Balance = T::Balance;

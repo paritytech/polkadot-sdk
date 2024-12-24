@@ -21,12 +21,12 @@ use crate::{
 	exec::{ExportedFunction, Ext, Key, Stack},
 	storage::meter::Meter,
 	transient_storage::MeterEntry,
-	wasm::{ApiVersion, PreparedCall, Runtime},
+	wasm::{PreparedCall, Runtime},
 	BalanceOf, Config, DebugBuffer, Error, GasMeter, MomentOf, Origin, WasmBlob, Weight,
 };
 use alloc::{vec, vec::Vec};
 use frame_benchmarking::benchmarking;
-use sp_core::U256;
+use sp_core::{H256, U256};
 
 type StackExt<'a, T> = Stack<'a, T, WasmBlob<T>>;
 
@@ -45,9 +45,10 @@ pub struct CallSetup<T: Config> {
 
 impl<T> Default for CallSetup<T>
 where
-	T: Config + pallet_balances::Config,
+	T: Config,
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
+	T::Hash: frame_support::traits::IsType<H256>,
 {
 	fn default() -> Self {
 		Self::new(WasmModule::dummy())
@@ -56,9 +57,10 @@ where
 
 impl<T> CallSetup<T>
 where
-	T: Config + pallet_balances::Config,
+	T: Config,
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
+	T::Hash: frame_support::traits::IsType<H256>,
 {
 	/// Setup a new call for the given module.
 	pub fn new(module: WasmModule) -> Self {
@@ -162,13 +164,7 @@ where
 		module: WasmBlob<T>,
 		input: Vec<u8>,
 	) -> PreparedCall<'a, StackExt<'a, T>> {
-		module
-			.prepare_call(
-				Runtime::new(ext, input),
-				ExportedFunction::Call,
-				ApiVersion::UnsafeNewest,
-			)
-			.unwrap()
+		module.prepare_call(Runtime::new(ext, input), ExportedFunction::Call).unwrap()
 	}
 
 	/// Add transient_storage

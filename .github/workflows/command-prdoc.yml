@@ -14,7 +14,7 @@ on:
         required: true
         options:
           - "TODO"
-          - "no change"
+          - "no_change"
           - "patch"
           - "minor"
           - "major"
@@ -25,18 +25,15 @@ on:
         required: true
         options:
           - "TODO"
-          - "Runtime Dev"
-          - "Runtime User"
-          - "Node Dev"
-          - "Node Operator"
+          - "runtime_dev"
+          - "runtime_user"
+          - "node_dev"
+          - "node_operator"
       overwrite:
-        type: choice
+        type: boolean
         description: Overwrite existing PrDoc
-        default: "true"
+        default: true
         required: true
-        options:
-          - "true"
-          - "false"
 
 concurrency:
   group: command-prdoc
@@ -81,4 +78,4 @@ jobs:
         with:
           commit_message: Add PrDoc (auto generated)
           branch: ${{ steps.gh.outputs.branch }}
-          file_pattern: 'prdoc/*.prdoc'
+          file_pattern: "prdoc/*.prdoc"

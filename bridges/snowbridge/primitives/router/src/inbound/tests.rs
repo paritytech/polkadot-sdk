@@ -1,4 +1,4 @@
-use super::GlobalConsensusEthereumConvertsFor;
+use super::EthereumLocationsConverterFor;
 use crate::inbound::CallIndex;
 use frame_support::{assert_ok, parameter_types};
 use hex_literal::hex;
@@ -17,14 +17,28 @@ parameter_types! {
 }
 
 #[test]
-fn test_contract_location_with_network_converts_successfully() {
+fn test_ethereum_network_converts_successfully() {
 	let expected_account: [u8; 32] =
 		hex!("ce796ae65569a670d0c1cc1ac12515a3ce21b5fbf729d63d7b289baad070139d");
 	let contract_location = Location::new(2, [GlobalConsensus(NETWORK)]);
 
 	let account =
-		GlobalConsensusEthereumConvertsFor::<[u8; 32]>::convert_location(&contract_location)
-			.unwrap();
+		EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&contract_location).unwrap();
+
+	assert_eq!(account, expected_account);
+}
+
+#[test]
+fn test_contract_location_with_network_converts_successfully() {
+	let expected_account: [u8; 32] =
+		hex!("9038d35aba0e78e072d29b2d65be9df5bb4d7d94b4609c9cf98ea8e66e544052");
+	let contract_location = Location::new(
+		2,
+		[GlobalConsensus(NETWORK), AccountKey20 { network: None, key: [123u8; 20] }],
+	);
+
+	let account =
+		EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&contract_location).unwrap();
 
 	assert_eq!(account, expected_account);
 }
@@ -34,7 +48,7 @@ fn test_contract_location_with_incorrect_location_fails_convert() {
 	let contract_location = Location::new(2, [GlobalConsensus(Polkadot), Parachain(1000)]);
 
 	assert_eq!(
-		GlobalConsensusEthereumConvertsFor::<[u8; 32]>::convert_location(&contract_location),
+		EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&contract_location),
 		None,
 	);
 }

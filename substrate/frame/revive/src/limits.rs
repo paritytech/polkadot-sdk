@@ -36,7 +36,7 @@
 ///
 /// A 0 means that no callings of other contracts are possible. In other words only the origin
 /// called "root contract" is allowed to execute then.
-pub const CALL_STACK_DEPTH: u32 = 10;
+pub const CALL_STACK_DEPTH: u32 = 5;
 
 /// The maximum number of topics a call to [`crate::SyscallDoc::deposit_event`] can emit.
 ///
@@ -47,7 +47,7 @@ pub const NUM_EVENT_TOPICS: u32 = 4;
 pub const DELEGATE_DEPENDENCIES: u32 = 32;
 
 /// Maximum size of events (including topics) and storage values.
-pub const PAYLOAD_BYTES: u32 = 512;
+pub const PAYLOAD_BYTES: u32 = 448;
 
 /// The maximum size of the transient storage in bytes.
 ///
@@ -65,6 +65,12 @@ pub const DEBUG_BUFFER_BYTES: u32 = 2 * 1024 * 1024;
 /// The page size in which PolkaVM should allocate memory chunks.
 pub const PAGE_SIZE: u32 = 4 * 1024;
 
+/// The maximum amount of immutable bytes a single contract can store.
+///
+/// The current limit of 4kb allows storing up 16 U256 immutable variables.
+/// Which should always be enough because Solidity allows for 16 local (stack) variables.
+pub const IMMUTABLE_BYTES: u32 = 4 * 1024;
+
 /// Limits that are only enforced on code upload.
 ///
 /// # Note
@@ -76,7 +82,6 @@ pub mod code {
 	use super::PAGE_SIZE;
 	use crate::{CodeVec, Config, Error, LOG_TARGET};
 	use alloc::vec::Vec;
-	use frame_support::ensure;
 	use sp_runtime::DispatchError;
 
 	/// The maximum length of a code blob in bytes.
@@ -92,7 +97,7 @@ pub mod code {
 	/// for more code or more data. However, since code will decompress
 	/// into a bigger representation on compilation it will only increase
 	/// the allowed code size by [`BYTE_PER_INSTRUCTION`].
-	pub const STATIC_MEMORY_BYTES: u32 = 1024 * 1024;
+	pub const STATIC_MEMORY_BYTES: u32 = 2 * 1024 * 1024;
 
 	/// How much memory each instruction will take in-memory after compilation.
 	///
@@ -103,8 +108,18 @@ pub mod code {
 	/// The code is stored multiple times as part of the compiled program.
 	const EXTRA_OVERHEAD_PER_CODE_BYTE: u32 = 4;
 
+	/// The maximum size of a basic block in number of instructions.
+	///
+	/// We need to limit the size of basic blocks because the interpreters lazy compilation
+	/// compiles one basic block at a time. A malicious program could trigger the compilation
+	/// of the whole program by creating one giant basic block otherwise.
+	const BASIC_BLOCK_SIZE: u32 = 1000;
+
 	/// Make sure that the various program parts are within the defined limits.
-	pub fn enforce<T: Config>(blob: Vec<u8>) -> Result<CodeVec, DispatchError> {
+	pub fn enforce<T: Config>(
+		blob: Vec<u8>,
+		available_syscalls: &[&[u8]],
+	) -> Result<CodeVec, DispatchError> {
 		fn round_page(n: u32) -> u64 {
 			// performing the rounding in u64 in order to prevent overflow
 			u64::from(n).next_multiple_of(PAGE_SIZE.into())
@@ -117,8 +132,63 @@ pub mod code {
 			Error::<T>::CodeRejected
 		})?;
 
-		// this is O(n) but it allows us to be more precise
-		let num_instructions = program.instructions().count() as u64;
+		if !program.is_64_bit() {
+			log::debug!(target: LOG_TARGET, "32bit programs are not supported.");
+			Err(Error::<T>::CodeRejected)?;
+		}
+
+		// Need to check that no non-existent syscalls are used. This allows us to add
+		// new syscalls later without affecting already deployed code.
+		for (idx, import) in program.imports().iter().enumerate() {
+			// We are being defensive in case an attacker is able to somehow include
+			// a lot of imports. This is important because we search the array of host
+			// functions for every import.
+			if idx == available_syscalls.len() {
+				log::debug!(target: LOG_TARGET, "Program contains too many imports.");
+				Err(Error::<T>::CodeRejected)?;
+			}
+			let Some(import) = import else {
+				log::debug!(target: LOG_TARGET, "Program contains malformed import.");
+				return Err(Error::<T>::CodeRejected.into());
+			};
+			if !available_syscalls.contains(&import.as_bytes()) {
+				log::debug!(target: LOG_TARGET, "Program references unknown syscall: {}", import);
+				Err(Error::<T>::CodeRejected)?;
+			}
+		}
+
+		// This scans the whole program but we only do it once on code deployment.
+		// It is safe to do unchecked math in u32 because the size of the program
+		// was already checked above.
+		use polkavm::program::ISA64_V1 as ISA;
+		let mut num_instructions: u32 = 0;
+		let mut max_basic_block_size: u32 = 0;
+		let mut basic_block_size: u32 = 0;
+		for inst in program.instructions(ISA) {
+			use polkavm::program::Instruction;
+			num_instructions += 1;
+			basic_block_size += 1;
+			if inst.kind.opcode().starts_new_basic_block() {
+				max_basic_block_size = max_basic_block_size.max(basic_block_size);
+				basic_block_size = 0;
+			}
+			match inst.kind {
+				Instruction::invalid => {
+					log::debug!(target: LOG_TARGET, "invalid instruction at offset {}", inst.offset);
+					return Err(<Error<T>>::InvalidInstruction.into())
+				},
+				Instruction::sbrk(_, _) => {
+					log::debug!(target: LOG_TARGET, "sbrk instruction is not allowed. offset {}", inst.offset);
+					return Err(<Error<T>>::InvalidInstruction.into())
+				},
+				_ => (),
+			}
+		}
+
+		if max_basic_block_size > BASIC_BLOCK_SIZE {
+			log::debug!(target: LOG_TARGET, "basic block too large: {max_basic_block_size} limit: {BASIC_BLOCK_SIZE}");
+			return Err(Error::<T>::BasicBlockTooLarge.into())
+		}
 
 		// The memory consumptions is the byte size of the whole blob,
 		// minus the RO data payload in the blob,
@@ -133,12 +203,17 @@ pub mod code {
 			.saturating_add(round_page(program.rw_data_size()))
 			.saturating_sub(program.rw_data().len() as u64)
 			.saturating_add(round_page(program.stack_size()))
-			.saturating_add((num_instructions).saturating_mul(BYTES_PER_INSTRUCTION.into()))
+			.saturating_add(
+				u64::from(num_instructions).saturating_mul(BYTES_PER_INSTRUCTION.into()),
+			)
 			.saturating_add(
 				(program.code().len() as u64).saturating_mul(EXTRA_OVERHEAD_PER_CODE_BYTE.into()),
 			);
 
-		ensure!(memory_size <= STATIC_MEMORY_BYTES as u64, <Error<T>>::StaticMemoryTooLarge);
+		if memory_size > STATIC_MEMORY_BYTES.into() {
+			log::debug!(target: LOG_TARGET, "static memory too large: {memory_size} limit: {STATIC_MEMORY_BYTES}");
+			return Err(Error::<T>::StaticMemoryTooLarge.into())
+		}
 
 		Ok(blob)
 	}

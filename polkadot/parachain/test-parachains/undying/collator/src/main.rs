@@ -84,7 +84,6 @@ fn main() -> Result<()> {
 						),
 						enable_beefy: false,
 						force_authoring_backoff: false,
-						jaeger_agent: None,
 						telemetry_worker_handle: None,
 
 						// Collators don't spawn PVF workers, so we can disable version checks.

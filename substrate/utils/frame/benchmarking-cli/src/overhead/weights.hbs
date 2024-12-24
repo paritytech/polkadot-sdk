@@ -18,9 +18,9 @@ use sp_weights::{constants::WEIGHT_REF_TIME_PER_NANOS, Weight};
 
 parameter_types! {
 	{{#if (eq short_name "block")}}
-	/// Time to execute an empty block.
+	/// Weight of executing an empty block.
 	{{else}}
-	/// Time to execute a NO-OP extrinsic, for example `System::remark`.
+	/// Weight of executing a NO-OP extrinsic, for example `System::remark`.
 	{{/if}}
 	/// Calculated by multiplying the *{{params.weight.weight_metric}}* with `{{params.weight.weight_mul}}` and adding `{{params.weight.weight_add}}`.
 	///
@@ -35,7 +35,7 @@ parameter_types! {
 	///   95th: {{underscore stats.p95}}
 	///   75th: {{underscore stats.p75}}
 	pub const {{long_name}}Weight: Weight =
-		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul({{underscore weight}}), 0);
+		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul({{underscore ref_time}}), {{underscore proof_size}});
 }
 
 #[cfg(test)]

@@ -143,7 +143,7 @@ mod tests {
 
 		let compressed = compress(&v, BOMB_LIMIT).unwrap();
 
-		assert!(compressed.starts_with(&ZSTD_PREFIX));
+		assert!(compressed.starts_with(&ZSTD_PREFIX_OTHER));
 		assert_eq!(&decompress(&compressed, BOMB_LIMIT).unwrap()[..], &v[..])
 	}
 
@@ -157,7 +157,7 @@ mod tests {
 	#[test]
 	fn possible_bomb_fails() {
 		let encoded_bigger_than_bomb = vec![0; BOMB_LIMIT + 1];
-		let mut buf = ZSTD_PREFIX.to_vec();
+		let mut buf = ZSTD_PREFIX_OTHER.to_vec();
 
 		{
 			let mut v = zstd::Encoder::new(&mut buf, 3).unwrap().auto_finish();

@@ -1,0 +1,8 @@
+title: migrate pallet-nomination-pool-benchmarking to benchmarking syntax v2
+doc:
+- audience: Runtime Dev
+  description: |-
+    migrate pallet-nomination-pool-benchmarking to benchmarking syntax v2
+crates:
+- name: pallet-nomination-pools-benchmarking
+  bump: patch

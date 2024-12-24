@@ -7,7 +7,7 @@ It downloads and parses the patch from the GitHub API to opulate the prdoc with 
 This will delete any prdoc that already exists for the PR if `--force` is passed.
 
 Usage:
-	python generate-prdoc.py --pr 1234 --audience "TODO" --bump "TODO"
+	python generate-prdoc.py --pr 1234 --audience node_dev --bump patch
 """
 
 import argparse
@@ -110,27 +110,35 @@ def setup_yaml():
 	yaml.add_representer(str, yaml_multiline_string_presenter)
 
 # parse_args is also used by cmd/cmd.py
-def setup_parser(parser=None):
+# if pr_required is False, then --pr is optional, as it can be derived from the PR comment body
+def setup_parser(parser=None, pr_required=True):
+	allowed_audiences = ["runtime_dev", "runtime_user", "node_dev", "node_operator"]
 	if parser is None:
 		parser = argparse.ArgumentParser()
-	parser.add_argument("--pr", type=int, required=True, help="The PR number to generate the PrDoc for."	)
-	parser.add_argument("--audience", type=str, default="TODO", help="The audience of whom the changes may concern.")
-	parser.add_argument("--bump", type=str, default="TODO", help="A default bump level for all crates.")
-	parser.add_argument("--force", type=str, help="Whether to overwrite any existing PrDoc.")
-	
+	parser.add_argument("--pr", type=int, required=pr_required, help="The PR number to generate the PrDoc for.")
+	parser.add_argument("--audience", type=str, nargs='*', choices=allowed_audiences, default=["todo"], help="The audience of whom the changes may concern. Example: --audience runtime_dev node_dev")
+	parser.add_argument("--bump", type=str, default="major", choices=["patch", "minor", "major", "silent", "ignore", "no_change"], help="A default bump level for all crates. Example: --bump patch")
+	parser.add_argument("--force", action="store_true", help="Whether to overwrite any existing PrDoc.")
 	return parser
 
+def snake_to_title(s):
+	return ' '.join(word.capitalize() for word in s.split('_'))
+
 def main(args):
-	force = True if (args.force or "false").lower() == "true" else False
-	print(f"Args: {args}, force: {force}")
+	print(f"Args: {args}, force: {args.force}")
 	setup_yaml()
 	try:
-		from_pr_number(args.pr, args.audience, args.bump, force)
+		# Convert snake_case audience arguments to title case
+		mapped_audiences = [snake_to_title(a) for a in args.audience]
+		if len(mapped_audiences) == 1:
+			mapped_audiences = mapped_audiences[0]
+		from_pr_number(args.pr, mapped_audiences, args.bump, args.force)
 		return 0
 	except Exception as e:
 		print(f"Error generating prdoc: {e}")
 		return 1
 
 if __name__ == "__main__":
-	args = setup_parser().parse_args()
+	parser = setup_parser()
+	args = parser.parse_args()
 	main(args)

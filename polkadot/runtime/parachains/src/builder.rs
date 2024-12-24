@@ -18,7 +18,10 @@ use crate::{
 	configuration, inclusion, initializer, paras,
 	paras::ParaKind,
 	paras_inherent,
-	scheduler::{self, common::AssignmentProvider, CoreOccupied, ParasEntry},
+	scheduler::{
+		self,
+		common::{Assignment, AssignmentProvider},
+	},
 	session_info, shared,
 };
 use alloc::{
@@ -32,9 +35,9 @@ use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
 	node_features::FeatureIndex,
 	vstaging::{
-		BackedCandidate, CandidateDescriptorV2,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
-		InherentData as ParachainsInherentData,
+		BackedCandidate, CandidateDescriptorV2, ClaimQueueOffset,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreSelector,
+		InherentData as ParachainsInherentData, UMPSignal, UMP_SEPARATOR,
 	},
 	AvailabilityBitfield, CandidateCommitments, CandidateDescriptor, CandidateHash, CollatorId,
 	CollatorSignature, CompactStatement, CoreIndex, DisputeStatement, DisputeStatementSet,
@@ -52,14 +55,14 @@ fn mock_validation_code() -> ValidationCode {
 	ValidationCode(vec![1, 2, 3])
 }
 
-// Create a dummy collator id suitable to be used in a V1 candidate descriptor.
-fn junk_collator() -> CollatorId {
+/// Create a dummy collator id suitable to be used in a V1 candidate descriptor.
+pub fn junk_collator() -> CollatorId {
 	CollatorId::from_slice(&mut (0..32).into_iter().collect::<Vec<_>>().as_slice())
 		.expect("32 bytes; qed")
 }
 
-// Creates a dummy collator signature suitable to be used in a V1 candidate descriptor.
-fn junk_collator_signature() -> CollatorSignature {
+/// Creates a dummy collator signature suitable to be used in a V1 candidate descriptor.
+pub fn junk_collator_signature() -> CollatorSignature {
 	CollatorSignature::from_slice(&mut (0..64).into_iter().collect::<Vec<_>>().as_slice())
 		.expect("64 bytes; qed")
 }
@@ -138,14 +141,17 @@ pub(crate) struct BenchBuilder<T: paras_inherent::Config> {
 	/// Make every candidate include a code upgrade by setting this to `Some` where the interior
 	/// value is the byte length of the new code.
 	code_upgrade: Option<u32>,
-	/// Specifies whether the claimqueue should be filled.
-	fill_claimqueue: bool,
 	/// Cores which should not be available when being populated with pending candidates.
 	unavailable_cores: Vec<u32>,
 	/// Use v2 candidate descriptor.
 	candidate_descriptor_v2: bool,
+	/// Apply custom changes to generated candidates
+	candidate_modifier: Option<CandidateModifier<T::Hash>>,
 	_phantom: core::marker::PhantomData<T>,
 }
+
+pub type CandidateModifier<Hash> =
+	fn(CommittedCandidateReceipt<Hash>) -> CommittedCandidateReceipt<Hash>;
 
 /// Paras inherent `enter` benchmark scenario.
 #[cfg(any(feature = "runtime-benchmarks", test))]
@@ -173,9 +179,9 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			backed_in_inherent_paras: Default::default(),
 			elastic_paras: Default::default(),
 			code_upgrade: None,
-			fill_claimqueue: true,
 			unavailable_cores: vec![],
 			candidate_descriptor_v2: false,
+			candidate_modifier: None,
 			_phantom: core::marker::PhantomData::<T>,
 		}
 	}
@@ -290,6 +296,15 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		self
 	}
 
+	/// Set the candidate modifier.
+	pub(crate) fn set_candidate_modifier(
+		mut self,
+		modifier: Option<CandidateModifier<T::Hash>>,
+	) -> Self {
+		self.candidate_modifier = modifier;
+		self
+	}
+
 	/// Get the maximum number of validators per core.
 	fn max_validators_per_core(&self) -> u32 {
 		self.max_validators_per_core.unwrap_or(Self::fallback_max_validators_per_core())
@@ -307,13 +322,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		self.max_validators() / self.max_validators_per_core()
 	}
 
-	/// Set whether the claim queue should be filled.
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	pub(crate) fn set_fill_claimqueue(mut self, f: bool) -> Self {
-		self.fill_claimqueue = f;
-		self
-	}
-
 	/// Get the minimum number of validity votes in order for a backed candidate to be included.
 	#[cfg(feature = "runtime-benchmarks")]
 	pub(crate) fn fallback_min_backing_votes() -> u32 {
@@ -325,40 +333,62 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		HeadData(vec![0xFF; max_head_size as usize])
 	}
 
-	fn candidate_descriptor_mock() -> CandidateDescriptorV2<T::Hash> {
-		// Use a v1 descriptor.
-		CandidateDescriptor::<T::Hash> {
-			para_id: 0.into(),
-			relay_parent: Default::default(),
-			collator: junk_collator(),
-			persisted_validation_data_hash: Default::default(),
-			pov_hash: Default::default(),
-			erasure_root: Default::default(),
-			signature: junk_collator_signature(),
-			para_head: Default::default(),
-			validation_code_hash: mock_validation_code().hash(),
+	fn candidate_descriptor_mock(
+		para_id: ParaId,
+		candidate_descriptor_v2: bool,
+	) -> CandidateDescriptorV2<T::Hash> {
+		if candidate_descriptor_v2 {
+			CandidateDescriptorV2::new(
+				para_id,
+				Default::default(),
+				CoreIndex(200),
+				2,
+				Default::default(),
+				Default::default(),
+				Default::default(),
+				Default::default(),
+				mock_validation_code().hash(),
+			)
+		} else {
+			// Convert v1 to v2.
+			CandidateDescriptor::<T::Hash> {
+				para_id,
+				relay_parent: Default::default(),
+				collator: junk_collator(),
+				persisted_validation_data_hash: Default::default(),
+				pov_hash: Default::default(),
+				erasure_root: Default::default(),
+				signature: junk_collator_signature(),
+				para_head: Default::default(),
+				validation_code_hash: mock_validation_code().hash(),
+			}
+			.into()
 		}
 		.into()
 	}
 
 	/// Create a mock of `CandidatePendingAvailability`.
 	fn candidate_availability_mock(
+		para_id: ParaId,
 		group_idx: GroupIndex,
 		core_idx: CoreIndex,
 		candidate_hash: CandidateHash,
 		availability_votes: BitVec<u8, BitOrderLsb0>,
 		commitments: CandidateCommitments,
+		candidate_descriptor_v2: bool,
 	) -> inclusion::CandidatePendingAvailability<T::Hash, BlockNumberFor<T>> {
 		inclusion::CandidatePendingAvailability::<T::Hash, BlockNumberFor<T>>::new(
-			core_idx,                          // core
-			candidate_hash,                    // hash
-			Self::candidate_descriptor_mock(), // candidate descriptor
-			commitments,                       // commitments
-			availability_votes,                // availability votes
-			Default::default(),                // backers
-			Zero::zero(),                      // relay parent
-			One::one(),                        // relay chain block this was backed in
-			group_idx,                         // backing group
+			core_idx,                                                          // core
+			candidate_hash,                                                    // hash
+			Self::candidate_descriptor_mock(para_id, candidate_descriptor_v2), /* candidate descriptor */
+			commitments,                                                       // commitments
+			availability_votes,                                                /* availability
+			                                                                    * votes */
+			Default::default(), // backers
+			Zero::zero(),       // relay parent
+			One::one(),         /* relay chain block this
+			                     * was backed in */
+			group_idx, // backing group
 		)
 	}
 
@@ -373,6 +403,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		group_idx: GroupIndex,
 		availability_votes: BitVec<u8, BitOrderLsb0>,
 		candidate_hash: CandidateHash,
+		candidate_descriptor_v2: bool,
 	) {
 		let commitments = CandidateCommitments::<u32> {
 			upward_messages: Default::default(),
@@ -383,11 +414,13 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			hrmp_watermark: 0u32.into(),
 		};
 		let candidate_availability = Self::candidate_availability_mock(
+			para_id,
 			group_idx,
 			core_idx,
 			candidate_hash,
 			availability_votes,
 			commitments,
+			candidate_descriptor_v2,
 		);
 		inclusion::PendingAvailability::<T>::mutate(para_id, |maybe_candidates| {
 			if let Some(candidates) = maybe_candidates {
@@ -547,6 +580,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 					// No validators have made this candidate available yet.
 					bitvec::bitvec![u8, bitvec::order::Lsb0; 0; validators.len()],
 					CandidateHash(H256::from(byte32_slice_from(current_core_idx))),
+					self.candidate_descriptor_v2,
 				);
 				if !self.unavailable_cores.contains(&current_core_idx) {
 					concluding_cores.insert(current_core_idx);
@@ -654,7 +688,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 								para_id,
 								relay_parent,
 								core_idx,
-								1,
+								self.target_session,
 								persisted_validation_data_hash,
 								pov_hash,
 								Default::default(),
@@ -676,7 +710,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 							.into()
 						};
 
-						let candidate = CommittedCandidateReceipt::<T::Hash> {
+						let mut candidate = CommittedCandidateReceipt::<T::Hash> {
 							descriptor,
 							commitments: CandidateCommitments::<u32> {
 								upward_messages: Default::default(),
@@ -688,6 +722,27 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 								hrmp_watermark: self.relay_parent_number(),
 							},
 						};
+
+						if self.candidate_descriptor_v2 {
+							// `UMPSignal` separator.
+							candidate.commitments.upward_messages.force_push(UMP_SEPARATOR);
+
+							// `SelectCore` commitment.
+							// Claim queue offset must be `0` so this candidate is for the very
+							// next block.
+							candidate.commitments.upward_messages.force_push(
+								UMPSignal::SelectCore(
+									CoreSelector(chain_idx as u8),
+									ClaimQueueOffset(0),
+								)
+								.encode(),
+							);
+						}
+
+						// Maybe apply the candidate modifier
+						if let Some(modifier) = self.candidate_modifier {
+							candidate = modifier(candidate);
+						}
 
 						let candidate_hash = candidate.hash();
 
@@ -708,12 +763,15 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 							})
 							.collect();
 
-						// Check if the elastic scaling bit is set, if so we need to supply the core
-						// index in the generated candidate.
-						let core_idx = configuration::ActiveConfig::<T>::get()
-							.node_features
-							.get(FeatureIndex::ElasticScalingMVP as usize)
-							.map(|_the_bit| core_idx);
+						// Don't inject core when it is available in descriptor.
+						let core_idx = if candidate.descriptor.core_index().is_some() {
+							None
+						} else {
+							configuration::ActiveConfig::<T>::get()
+								.node_features
+								.get(FeatureIndex::ElasticScalingMVP as usize)
+								.and_then(|the_bit| if *the_bit { Some(core_idx) } else { None })
+						};
 
 						BackedCandidate::<T::Hash>::new(
 							candidate,
@@ -766,6 +824,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 					group_idx,
 					Self::validator_availability_votes_yes(validators.len()),
 					candidate_hash,
+					self.candidate_descriptor_v2,
 				);
 
 				let statements_len =
@@ -826,14 +885,11 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			extra_cores;
 
 		assert!(used_cores <= max_cores);
-		let fill_claimqueue = self.fill_claimqueue;
 
 		// NOTE: there is an n+2 session delay for these actions to take effect.
 		// We are currently in Session 0, so these changes will take effect in Session 2.
 		Self::setup_para_ids(used_cores - extra_cores);
-		configuration::ActiveConfig::<T>::mutate(|c| {
-			c.scheduler_params.num_cores = used_cores as u32;
-		});
+		configuration::Pallet::<T>::set_coretime_cores_unchecked(used_cores as u32).unwrap();
 
 		let validator_ids = generate_validator_pairs::<T>(self.max_validators());
 		let target_session = SessionIndex::from(self.target_session);
@@ -842,7 +898,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		let bitfields = builder.create_availability_bitfields(
 			&builder.backed_and_concluding_paras,
 			&builder.elastic_paras,
-			used_cores,
+			scheduler::Pallet::<T>::num_availability_cores(),
 		);
 
 		let mut backed_in_inherent = BTreeMap::new();
@@ -870,66 +926,57 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 
 		assert_eq!(inclusion::PendingAvailability::<T>::iter().count(), used_cores - extra_cores);
 
-		// Mark all the used cores as occupied. We expect that there are
-		// `backed_and_concluding_paras` that are pending availability and that there are
-		// `used_cores - backed_and_concluding_paras ` which are about to be disputed.
-		let now = frame_system::Pallet::<T>::block_number() + One::one();
-
+		// Sanity check that the occupied cores reported by the inclusion module are what we expect
+		// to be.
 		let mut core_idx = 0u32;
 		let elastic_paras = &builder.elastic_paras;
-		// Assign potentially multiple cores to same parachains,
-		let cores = all_cores
+
+		let mut occupied_cores = inclusion::Pallet::<T>::get_occupied_cores()
+			.map(|(core, candidate)| (core, candidate.candidate_descriptor().para_id()))
+			.collect::<Vec<_>>();
+		occupied_cores.sort_by(|(core_a, _), (core_b, _)| core_a.0.cmp(&core_b.0));
+
+		let mut expected_cores = all_cores
 			.iter()
 			.flat_map(|(para_id, _)| {
 				(0..elastic_paras.get(&para_id).cloned().unwrap_or(1))
 					.map(|_para_local_core_idx| {
-						let ttl = configuration::ActiveConfig::<T>::get().scheduler_params.ttl;
+						let old_core_idx = core_idx;
+						core_idx += 1;
+						(CoreIndex(old_core_idx), ParaId::from(*para_id))
+					})
+					.collect::<Vec<_>>()
+			})
+			.collect::<Vec<_>>();
+
+		expected_cores.sort_by(|(core_a, _), (core_b, _)| core_a.0.cmp(&core_b.0));
+
+		assert_eq!(expected_cores, occupied_cores);
+
+		// We need entries in the claim queue for those:
+		all_cores.append(&mut builder.backed_in_inherent_paras.clone());
+
+		let mut core_idx = 0u32;
+		let cores = all_cores
+			.keys()
+			.flat_map(|para_id| {
+				(0..elastic_paras.get(&para_id).cloned().unwrap_or(1))
+					.map(|_para_local_core_idx| {
 						// Load an assignment into provider so that one is present to pop
 						let assignment =
 							<T as scheduler::Config>::AssignmentProvider::get_mock_assignment(
 								CoreIndex(core_idx),
 								ParaId::from(*para_id),
 							);
+
 						core_idx += 1;
-						CoreOccupied::Paras(ParasEntry::new(assignment, now + ttl))
+						(CoreIndex(core_idx - 1), [assignment].into())
 					})
-					.collect::<Vec<CoreOccupied<_>>>()
+					.collect::<Vec<(CoreIndex, VecDeque<Assignment>)>>()
 			})
-			.collect::<Vec<CoreOccupied<_>>>();
+			.collect::<BTreeMap<CoreIndex, VecDeque<Assignment>>>();
 
-		scheduler::AvailabilityCores::<T>::set(cores);
-
-		core_idx = 0u32;
-
-		// We need entries in the claim queue for those:
-		all_cores.append(&mut builder.backed_in_inherent_paras.clone());
-
-		if fill_claimqueue {
-			let cores = all_cores
-				.keys()
-				.flat_map(|para_id| {
-					(0..elastic_paras.get(&para_id).cloned().unwrap_or(1))
-						.map(|_para_local_core_idx| {
-							let ttl = configuration::ActiveConfig::<T>::get().scheduler_params.ttl;
-							// Load an assignment into provider so that one is present to pop
-							let assignment =
-								<T as scheduler::Config>::AssignmentProvider::get_mock_assignment(
-									CoreIndex(core_idx),
-									ParaId::from(*para_id),
-								);
-
-							core_idx += 1;
-							(
-								CoreIndex(core_idx - 1),
-								[ParasEntry::new(assignment, now + ttl)].into(),
-							)
-						})
-						.collect::<Vec<(CoreIndex, VecDeque<ParasEntry<_>>)>>()
-				})
-				.collect::<BTreeMap<CoreIndex, VecDeque<ParasEntry<_>>>>();
-
-			scheduler::ClaimQueue::<T>::set(cores);
-		}
+		scheduler::ClaimQueue::<T>::set(cores);
 
 		Bench::<T> {
 			data: ParachainsInherentData {

@@ -24,7 +24,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod assigner_coretime;
-pub mod assigner_parachains;
 pub mod configuration;
 pub mod coretime;
 pub mod disputes;
@@ -114,4 +113,20 @@ pub fn schedule_code_upgrade<T: paras::Config>(
 /// Sets the current parachain head with the given id.
 pub fn set_current_head<T: paras::Config>(id: ParaId, new_head: HeadData) {
 	paras::Pallet::<T>::set_current_head(id, new_head)
+}
+
+/// Ensure more initialization for `ParaId` when benchmarking. (e.g. open HRMP channels, ...)
+#[cfg(feature = "runtime-benchmarks")]
+pub trait EnsureForParachain {
+	fn ensure(para_id: ParaId);
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+impl EnsureForParachain for Tuple {
+	fn ensure(para: ParaId) {
+		for_tuples!( #(
+			Tuple::ensure(para);
+		)* );
+	}
 }

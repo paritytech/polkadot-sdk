@@ -38,9 +38,11 @@ use polkadot_node_core_pvf_common::{
 	pvf::PvfPrepData,
 };
 use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT};
-use polkadot_node_subsystem::{SubsystemError, SubsystemResult};
+use polkadot_node_subsystem::{
+	messages::PvfExecKind, ActiveLeavesUpdate, SubsystemError, SubsystemResult,
+};
 use polkadot_parachain_primitives::primitives::{ValidationParams, ValidationResult};
-use polkadot_primitives::PersistedValidationData;
+use polkadot_primitives::{Hash, PersistedValidationData};
 use sp_maybe_compressed_blob::{blob_type, MaybeCompressedBlobType};
 use std::{
 	collections::HashMap,
@@ -116,6 +118,7 @@ impl ValidationHost {
 		pvd: Arc<PersistedValidationData>,
 		pov: Arc<PoV>,
 		priority: Priority,
+		exec_kind: PvfExecKind,
 		result_tx: ResultSender,
 	) -> Result<(), String> {
 		self.to_host_tx
@@ -125,6 +128,7 @@ impl ValidationHost {
 				pvd,
 				pov,
 				priority,
+				exec_kind,
 				result_tx,
 			}))
 			.await
@@ -143,12 +147,27 @@ impl ValidationHost {
 			.await
 			.map_err(|_| "the inner loop hung up".to_string())
 	}
+
+	/// Sends a signal to the validation host requesting to update best block.
+	///
+	/// Returns an error if the request cannot be sent to the validation host, i.e. if it shut down.
+	pub async fn update_active_leaves(
+		&mut self,
+		update: ActiveLeavesUpdate,
+		ancestors: Vec<Hash>,
+	) -> Result<(), String> {
+		self.to_host_tx
+			.send(ToHost::UpdateActiveLeaves { update, ancestors })
+			.await
+			.map_err(|_| "the inner loop hung up".to_string())
+	}
 }
 
 enum ToHost {
 	PrecheckPvf { pvf: PvfPrepData, result_tx: PrecheckResultSender },
 	ExecutePvf(ExecutePvfInputs),
 	HeadsUp { active_pvfs: Vec<PvfPrepData> },
+	UpdateActiveLeaves { update: ActiveLeavesUpdate, ancestors: Vec<Hash> },
 }
 
 struct ExecutePvfInputs {
@@ -157,6 +176,7 @@ struct ExecutePvfInputs {
 	pvd: Arc<PersistedValidationData>,
 	pov: Arc<PoV>,
 	priority: Priority,
+	exec_kind: PvfExecKind,
 	result_tx: ResultSender,
 }
 
@@ -487,6 +507,8 @@ async fn handle_to_host(
 		},
 		ToHost::HeadsUp { active_pvfs } =>
 			handle_heads_up(artifacts, prepare_queue, active_pvfs).await?,
+		ToHost::UpdateActiveLeaves { update, ancestors } =>
+			handle_update_active_leaves(execute_queue, update, ancestors).await?,
 	}
 
 	Ok(())
@@ -547,7 +569,7 @@ async fn handle_execute_pvf(
 	awaiting_prepare: &mut AwaitingPrepare,
 	inputs: ExecutePvfInputs,
 ) -> Result<(), Fatal> {
-	let ExecutePvfInputs { pvf, exec_timeout, pvd, pov, priority, result_tx } = inputs;
+	let ExecutePvfInputs { pvf, exec_timeout, pvd, pov, priority, exec_kind, result_tx } = inputs;
 
 	// A YOLO PVM execution interface
 
@@ -558,7 +580,9 @@ async fn handle_execute_pvf(
 			?pvf,
 			"handle_execute_pvf: Executing with YOLO PVM executor interface 🤟",
 		);
-		let raw_block_data = sp_maybe_compressed_blob::decompress(&pov.block_data.0, POV_BOMB_LIMIT).map_err(|_| Fatal)?;
+		let raw_block_data =
+			sp_maybe_compressed_blob::decompress(&pov.block_data.0, POV_BOMB_LIMIT)
+				.map_err(|_| Fatal)?;
 		let params = ValidationParams {
 			parent_head: pvd.parent_head.clone(),
 			block_data: polkadot_node_primitives::BlockData(raw_block_data.to_vec()),
@@ -567,19 +591,26 @@ async fn handle_execute_pvf(
 		};
 		let params = Arc::new(params.encode());
 
-		let code = sp_maybe_compressed_blob::decompress(&code, VALIDATION_CODE_BOMB_LIMIT).map_err(|_| Fatal)?;
-		let res = unsafe { polkadot_node_core_pvf_common::executor_interface::execute_artifact(&code, &pvf.executor_params(), &params) };
+		let code = sp_maybe_compressed_blob::decompress(&code, VALIDATION_CODE_BOMB_LIMIT)
+			.map_err(|_| Fatal)?;
+		let res = unsafe {
+			polkadot_node_core_pvf_common::executor_interface::execute_artifact(
+				&code,
+				&pvf.executor_params(),
+				&params,
+			)
+		};
 
 		let vres = match res {
-			Ok(bytes) => {
-				match ValidationResult::decode(&mut &bytes[..]) {
-					Ok(r) => Ok(r),
-					Err(e) => Err(ValidationError::Invalid(crate::InvalidCandidate::WorkerReportedInvalid(e.to_string())))
-				}
+			Ok(bytes) => match ValidationResult::decode(&mut &bytes[..]) {
+				Ok(r) => Ok(r),
+				Err(e) => Err(ValidationError::Invalid(
+					crate::InvalidCandidate::WorkerReportedInvalid(e.to_string()),
+				)),
 			},
-			Err(e) => {
-				Err(ValidationError::Invalid(crate::InvalidCandidate::WorkerReportedInvalid(e.to_string())))
-			}
+			Err(e) => Err(ValidationError::Invalid(
+				crate::InvalidCandidate::WorkerReportedInvalid(e.to_string()),
+			)),
 		};
 
 		result_tx.send(vres).map_err(|_| Fatal)?;
@@ -608,6 +639,7 @@ async fn handle_execute_pvf(
 								pvd,
 								pov,
 								executor_params,
+								exec_kind,
 								result_tx,
 							},
 						},
@@ -638,6 +670,7 @@ async fn handle_execute_pvf(
 							pvd,
 							pov,
 							executor_params,
+							exec_kind,
 							result_tx,
 						},
 					)
@@ -647,7 +680,14 @@ async fn handle_execute_pvf(
 			ArtifactState::Preparing { .. } => {
 				awaiting_prepare.add(
 					artifact_id,
-					PendingExecutionRequest { exec_timeout, pvd, pov, executor_params, result_tx },
+					PendingExecutionRequest {
+						exec_timeout,
+						pvd,
+						pov,
+						executor_params,
+						result_tx,
+						exec_kind,
+					},
 				);
 			},
 			ArtifactState::FailedToProcess { last_time_failed, num_failures, error } => {
@@ -679,6 +719,7 @@ async fn handle_execute_pvf(
 							pvd,
 							pov,
 							executor_params,
+							exec_kind,
 							result_tx,
 						},
 					)
@@ -698,7 +739,14 @@ async fn handle_execute_pvf(
 			pvf,
 			priority,
 			artifact_id,
-			PendingExecutionRequest { exec_timeout, pvd, pov, executor_params, result_tx },
+			PendingExecutionRequest {
+				exec_timeout,
+				pvd,
+				pov,
+				executor_params,
+				result_tx,
+				exec_kind,
+			},
 		)
 		.await?;
 	}
@@ -820,7 +868,7 @@ async fn handle_prepare_done(
 	// It's finally time to dispatch all the execution requests that were waiting for this artifact
 	// to be prepared.
 	let pending_requests = awaiting_prepare.take(&artifact_id);
-	for PendingExecutionRequest { exec_timeout, pvd, pov, executor_params, result_tx } in
+	for PendingExecutionRequest { exec_timeout, pvd, pov, executor_params, result_tx, exec_kind } in
 		pending_requests
 	{
 		if result_tx.is_canceled() {
@@ -846,6 +894,7 @@ async fn handle_prepare_done(
 					pvd,
 					pov,
 					executor_params,
+					exec_kind,
 					result_tx,
 				},
 			},
@@ -873,6 +922,14 @@ async fn handle_prepare_done(
 	};
 
 	Ok(())
+}
+
+async fn handle_update_active_leaves(
+	execute_queue: &mut mpsc::Sender<execute::ToQueue>,
+	update: ActiveLeavesUpdate,
+	ancestors: Vec<Hash>,
+) -> Result<(), Fatal> {
+	send_execute(execute_queue, execute::ToQueue::UpdateActiveLeaves { update, ancestors }).await
 }
 
 async fn send_prepare(
@@ -1275,6 +1332,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov1.clone(),
 			Priority::Normal,
+			PvfExecKind::Backing(H256::default()),
 			result_tx,
 		)
 		.await
@@ -1287,6 +1345,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov1,
 			Priority::Critical,
+			PvfExecKind::Backing(H256::default()),
 			result_tx,
 		)
 		.await
@@ -1299,6 +1358,7 @@ pub(crate) mod tests {
 			pvd,
 			pov2,
 			Priority::Normal,
+			PvfExecKind::Backing(H256::default()),
 			result_tx,
 		)
 		.await
@@ -1448,6 +1508,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
+			PvfExecKind::Backing(H256::default()),
 			result_tx,
 		)
 		.await
@@ -1496,6 +1557,7 @@ pub(crate) mod tests {
 			pvd,
 			pov,
 			Priority::Critical,
+			PvfExecKind::Backing(H256::default()),
 			result_tx,
 		)
 		.await
@@ -1606,6 +1668,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
+			PvfExecKind::Backing(H256::default()),
 			result_tx,
 		)
 		.await
@@ -1637,6 +1700,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
+			PvfExecKind::Backing(H256::default()),
 			result_tx_2,
 		)
 		.await
@@ -1660,6 +1724,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
+			PvfExecKind::Backing(H256::default()),
 			result_tx_3,
 		)
 		.await
@@ -1718,6 +1783,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
+			PvfExecKind::Backing(H256::default()),
 			result_tx,
 		)
 		.await
@@ -1749,6 +1815,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
+			PvfExecKind::Backing(H256::default()),
 			result_tx_2,
 		)
 		.await
@@ -1772,6 +1839,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
+			PvfExecKind::Backing(H256::default()),
 			result_tx_3,
 		)
 		.await
@@ -1846,6 +1914,7 @@ pub(crate) mod tests {
 			pvd,
 			pov,
 			Priority::Normal,
+			PvfExecKind::Backing(H256::default()),
 			result_tx,
 		)
 		.await

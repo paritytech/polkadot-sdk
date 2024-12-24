@@ -23,12 +23,9 @@ use crate::{
 	parachains::SubstrateParachainsPipeline,
 };
 use bp_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
-use codec::{Codec, EncodeLike};
-use messages_relay::Labeled;
 use relay_substrate_client::{
 	Chain, ChainWithRuntimeVersion, ChainWithTransactions, Parachain, RelayChain,
 };
-use std::fmt::Debug;
 
 /// Minimal bridge representation that can be used from the CLI.
 /// It connects a source chain to a target chain.
@@ -102,22 +99,7 @@ where
 /// Bridge representation that can be used from the CLI for relaying messages.
 pub trait MessagesCliBridge: CliBridgeBase {
 	/// The Source -> Destination messages synchronization pipeline.
-	type MessagesLane: SubstrateMessageLane<
-		SourceChain = Self::Source,
-		TargetChain = Self::Target,
-		LaneId = Self::LaneId,
-	>;
-	/// Lane identifier type.
-	type LaneId: Clone
-		+ Copy
-		+ Debug
-		+ Codec
-		+ EncodeLike
-		+ Send
-		+ Sync
-		+ Labeled
-		+ TryFrom<Vec<u8>>
-		+ Default;
+	type MessagesLane: SubstrateMessageLane<SourceChain = Self::Source, TargetChain = Self::Target>;
 
 	/// Optional messages delivery transaction limits that the messages relay is going
 	/// to use. If it returns `None`, limits are estimated using `TransactionPayment` API
@@ -128,4 +110,5 @@ pub trait MessagesCliBridge: CliBridgeBase {
 }
 
 /// An alias for lane identifier type.
-pub type MessagesLaneIdOf<B> = <B as MessagesCliBridge>::LaneId;
+pub type MessagesLaneIdOf<B> =
+	<<B as MessagesCliBridge>::MessagesLane as SubstrateMessageLane>::LaneId;

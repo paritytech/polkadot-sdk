@@ -5,8 +5,8 @@ Creds: config
 validator: reports node_roles is 4
 
 # register paras 2 by 2 to speed up the test. registering all at once will exceed the weight limit.
-validator-0: js-script ./0015-force-register-paras.js with "2000,2001" return is 0 within 600 seconds
-validator-0: js-script ./0015-force-register-paras.js with "2002,2003" return is 0 within 600 seconds
+validator-0: js-script ./force-register-paras.js with "2000,2001" return is 0 within 600 seconds
+validator-0: js-script ./force-register-paras.js with "2002,2003" return is 0 within 600 seconds
 # assign core 0 to be shared by all paras.
 validator-0: js-script ./assign-core.js with "0,2000,14400,2001,14400,2002,14400,2003,14400" return is 0 within 600 seconds
 

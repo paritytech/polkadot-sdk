@@ -16,69 +16,34 @@
 
 //! ChainSpecs dedicated to Rococo parachain setups (for testing and example purposes)
 
-use crate::chain_spec::{get_from_seed, SAFE_XCM_VERSION};
+use crate::chain_spec::SAFE_XCM_VERSION;
 use cumulus_primitives_core::ParaId;
-use hex_literal::hex;
-use parachains_common::{genesis_config_helpers::get_account_id_from_seed, AccountId};
-use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
+use parachains_common::AccountId;
+use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 use rococo_parachain_runtime::AuraId;
 use sc_chain_spec::ChainType;
-use sp_core::{crypto::UncheckedInto, sr25519};
+use sp_keyring::Sr25519Keyring;
 
 pub fn westend_parachain_local_config() -> GenericChainSpec {
 	GenericChainSpec::builder(
-		westend_parachain_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+		westend_parachain_runtime::WASM_BINARY
+			.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "westend-local".into(), para_id: 1000 },
 	)
 	.with_name("Westend Parachain Local")
 	.with_id("local_testnet")
 	.with_chain_type(ChainType::Local)
 	.with_genesis_config_patch(testnet_genesis(
-		get_account_id_from_seed::<sr25519::Public>("Alice"),
-		vec![get_from_seed::<AuraId>("Alice"), get_from_seed::<AuraId>("Bob")],
+		Sr25519Keyring::Alice.to_account_id(),
 		vec![
-			get_account_id_from_seed::<sr25519::Public>("Alice"),
-			get_account_id_from_seed::<sr25519::Public>("Bob"),
-			get_account_id_from_seed::<sr25519::Public>("Charlie"),
-			get_account_id_from_seed::<sr25519::Public>("Dave"),
-			get_account_id_from_seed::<sr25519::Public>("Eve"),
-			get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+			AuraId::from(Sr25519Keyring::Alice.public()),
+			AuraId::from(Sr25519Keyring::Bob.public()),
 		],
+		Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 		1000.into(),
 	))
 	.build()
 }
-
-// pub fn staging_rococo_parachain_local_config() -> GenericChainSpec {
-// 	#[allow(deprecated)]
-// 	GenericChainSpec::builder(
-// 		rococo_parachain_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-// 		Extensions { relay_chain: "rococo-local".into(), para_id: 1000 },
-// 	)
-// 	.with_name("Staging Rococo Parachain Local")
-// 	.with_id("staging_testnet")
-// 	.with_chain_type(ChainType::Live)
-// 	.with_genesis_config_patch(testnet_genesis(
-// 		hex!["9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00"].into(),
-// 		vec![
-// 			// $secret//one
-// 			hex!["aad9fa2249f87a210a0f93400b7f90e47b810c6d65caa0ca3f5af982904c2a33"]
-// 				.unchecked_into(),
-// 			// $secret//two
-// 			hex!["d47753f0cca9dd8da00c70e82ec4fc5501a69c49a5952a643d18802837c88212"]
-// 				.unchecked_into(),
-// 		],
-// 		vec![hex!["9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00"].into()],
-// 		1000.into(),
-// 	))
-// 	.build()
-// }
 
 pub(crate) fn testnet_genesis(
 	root_key: AccountId,
