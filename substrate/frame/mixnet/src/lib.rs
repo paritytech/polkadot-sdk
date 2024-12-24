@@ -27,7 +27,6 @@ pub use pallet::*;
 
 use alloc::vec::Vec;
 use core::cmp::Ordering;
-use serde::{Deserialize, Serialize};
 use frame::{
 	deps::{
 		sp_io::{self, MultiRemovalResults},
@@ -35,6 +34,7 @@ use frame::{
 	},
 	prelude::*,
 };
+use serde::{Deserialize, Serialize};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_mixnet::types::{
 	AuthorityId, AuthoritySignature, KxPublic, Mixnode, MixnodesErr, PeerId, SessionIndex,
