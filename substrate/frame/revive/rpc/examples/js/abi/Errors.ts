@@ -1,4 +1,4 @@
-export const ErrorTesterAbi = [
+export const ErrorsAbi = [
   {
     inputs: [
       {
