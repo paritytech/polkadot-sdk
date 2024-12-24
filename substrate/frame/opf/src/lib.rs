@@ -1,24 +1,16 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use pallet::*;
-mod functions;
 mod types;
 pub use pallet_scheduler as Schedule;
 pub use types::*;
 
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
 
-#[cfg(test)]
-mod mock;
-
-#[cfg(test)]
-mod tests;
-pub mod weights;
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use frame_system::WeightInfo;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -35,11 +27,7 @@ pub mod pallet {
 
 		/// Type to access the Balances Pallet.
 		type NativeBalance: fungible::Inspect<Self::AccountId>
-			+ fungible::Mutate<Self::AccountId>
-			+ fungible::hold::Inspect<Self::AccountId>
-			+ fungible::hold::Mutate<Self::AccountId, Reason = Self::RuntimeHoldReason>
-			+ fungible::freeze::Inspect<Self::AccountId>
-			+ fungible::freeze::Mutate<Self::AccountId>;
+			+ fungible::Mutate<Self::AccountId>;
 
 		/// Provider for the block number.
 		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
@@ -89,6 +77,15 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 	}
 
+	/// Number of Voting Rounds executed so far
+	#[pallet::storage]
+	pub type VotingRoundNumber<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+	/// Returns Infos about a Voting Round agains the Voting Round index
+	#[pallet::storage]
+	pub type VotingRounds<T: Config> =
+		StorageMap<_, Twox64Concat, RoundIndex, VotingRoundInfo<T>, OptionQuery>;
+
 	/// Spends that still have to be claimed.
 	#[pallet::storage]
 	pub(super) type Spends<T: Config> =
@@ -113,6 +110,38 @@ pub mod pallet {
 
 		/// Payment will be enacted for corresponding project
 		WillBeEnacted { project_id: ProjectId<T> },
+
+		/// Reward successfully assigned
+		RewardsAssigned { when: BlockNumberFor<T> },
+
+		/// User's vote successfully submitted
+		VoteCasted { who: VoterId<T>, when: BlockNumberFor<T>, project_id: ProjectId<T> },
+
+		/// User's vote successfully removed
+		VoteRemoved { who: VoterId<T>, when: BlockNumberFor<T>, project_id: ProjectId<T> },
+
+		/// Project removed from whitelisted projects list
+		ProjectUnlisted { when: BlockNumberFor<T>, project_id: ProjectId<T> },
+
+		/// Project Funding Accepted by voters
+		ProjectFundingAccepted {
+			project_id: ProjectId<T>,
+			when: BlockNumberFor<T>,
+			round_number: u32,
+			amount: BalanceOf<T>,
+		},
+
+		/// Project Funding rejected by voters
+		ProjectFundingRejected { when: BlockNumberFor<T>, project_id: ProjectId<T> },
+
+		/// A new voting round started
+		VotingRoundStarted { when: BlockNumberFor<T>, round_number: u32 },
+
+		/// The users voting period ended. Reward calculation will start.
+		VoteActionLocked { when: BlockNumberFor<T>, round_number: u32 },
+
+		/// The voting round ended
+		VotingRoundEnded { when: BlockNumberFor<T>, round_number: u32 },
 	}
 
 	#[pallet::error]

@@ -35,13 +35,13 @@ pub use frame_support::{
 	},
 	transactional, PalletId, Serialize,
 };
+pub use pallet_conviction_voting::Conviction;
 pub use frame_system::{pallet_prelude::*, RawOrigin};
 pub use scale_info::prelude::vec::Vec;
 pub use sp_runtime::traits::{
 	AccountIdConversion, BlockNumberProvider, Convert, Dispatchable, Saturating, StaticLookup, Zero,
 };
 pub use sp_std::boxed::Box;
-pub use weights::WeightInfo;
 
 pub type BalanceOf<T> = <<T as Config>::NativeBalance as fungible::Inspect<
 	<T as frame_system::Config>::AccountId,
@@ -55,7 +55,7 @@ pub type ProjectId<T> = AccountIdOf<T>;
 pub type PalletsOriginOf<T> =
 	<<T as frame_system::Config>::RuntimeOrigin as OriginTrait>::PalletsOrigin;
 pub const DISTRIBUTION_ID: LockIdentifier = *b"distribu";
-ub type RoundIndex = u32;
+pub type RoundIndex = u32;
 pub type VoterId<T> = AccountIdOf<T>;
 
 /// The state of the payment claim.
@@ -93,7 +93,7 @@ impl<T: Config> SpendInfo<T> {
 		let claimed = false;
 		let valid_from =
 			<frame_system::Pallet<T>>::block_number();
-		let expire = valid_from.clone().saturating_add(T::ClaimingPeriod::get())
+		let expire = valid_from.clone().saturating_add(T::ClaimingPeriod::get());
 
 		let spend = SpendInfo { amount, valid_from, whitelisted_project, claimed, expire };
 
@@ -140,8 +140,7 @@ impl<T: Config> VoteInfo<T> {
 		let conviction_coeff = <u8 as From<Conviction>>::from(self.conviction);
 		let funds_unlock_block = self
 			.round
-			.round_ending_block
-			.saturating_add(T::VoteLockingPeriod::get().saturating_mul(conviction_coeff.into()));
+			.round_ending_block;
 		self.funds_unlock_block = funds_unlock_block;
 	}
 }
