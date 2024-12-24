@@ -379,7 +379,7 @@ fn get_bool_environment_variable(name: &str) -> Option<bool> {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
-enum RuntimeTarget {
+pub enum RuntimeTarget {
 	Wasm,
 	Riscv,
 }

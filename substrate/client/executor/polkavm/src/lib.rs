@@ -82,6 +82,24 @@ impl WasmInstance for Instance {
 				None,
 			);
 		}
+		// // TODO: This will leak guest memory; find a better solution.
+		// let mut state_args = polkavm::StateArgs::new();
+
+		// // Make sure the memory is cleared...
+		// state_args.reset_memory(true);
+		// // ...and allocate space for the input payload.
+		// state_args.sbrk(raw_data_length);
+
+		// match self.0.update_state(state_args) {
+		// 	Ok(()) => {},
+		// 	Err(polkavm::ExecutionError::Trap(trap)) => {
+		// 		return (Err(format!("call into the runtime method '{name}' failed: failed to prepare
+		// the guest's memory: {trap}").into()), None); 	},
+		// 	Err(polkavm::ExecutionError::Error(error)) => {
+		// 		return (Err(format!("call into the runtime method '{name}' failed: failed to prepare
+		// the guest's memory: {error}").into()), None); 	},
+		// 	Err(polkavm::ExecutionError::OutOfGas) => unreachable!("gas metering is never enabled"),
+		// }
 
 		// Grab the address of where the guest's heap starts; that's where we've just allocated
 		// the memory for the input payload.
@@ -120,7 +138,7 @@ impl WasmInstance for Instance {
 			},
 		};
 
-		(Ok(output), None)
+		(Ok(output.to_vec()), None)
 	}
 }
 
