@@ -7,11 +7,11 @@ doc:
     usually be the local system pallet or the appropriate relay chain. Previously 
     it defaulted to the local system pallet.
 crates:
+- name: pallet-core-fellowship
+  bump: major
+- name: sp-runtime
+  bump: major
 - name: collectives-westend-runtime
   bump: minor
-- name: pallet-core-fellowship
-  bump: minor
-- name: sp-runtime
-  bump: patch
 - name: kitchensink-runtime
-  bump: none
+  bump: patch
