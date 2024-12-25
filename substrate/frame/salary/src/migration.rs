@@ -80,19 +80,6 @@ pub mod v1 {
 	where
 		BC: ConvertBlockNumber<LocalBlockNumberFor<T>, NewBlockNumberFor<T, I>>,
 	{
-		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-			if let Some(old_status) = v0::Status::<T, I>::get() {
-				log::info!("\n Old status - {:?}\n", old_status);
-			}
-
-			let _ = v0::Claimant::<T, I>::iter().for_each(|(key, value)| {
-				log::info!("\n Old claimant - {:?} -> {:?}\n", key, value);
-			});
-
-			Ok(Default::default())
-		}
-
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
 			let mut transactions = 0;
 
@@ -121,19 +108,6 @@ pub mod v1 {
 			);
 
 			T::DbWeight::get().reads_writes(transactions, transactions)
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
-			if let Some(new_status) = crate::Status::<T, I>::get() {
-				log::info!("\n New status - {:?}\n", new_status);
-			}
-
-			let _ = crate::Claimant::<T, I>::iter().for_each(|(key, value)| {
-				log::info!("\n New claimant - {:?} -> {:?}\n", key, value);
-			});
-
-			Ok(())
 		}
 	}
 }
