@@ -3640,7 +3640,7 @@ dependencies = [
 
 [[package]]
 name = "collectives-westend-runtime"
-version = "3.0.0"
+version = "3.1.0"
 dependencies = [
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
@@ -3675,7 +3675,7 @@ dependencies = [
  "pallet-proxy 28.0.0",
  "pallet-ranked-collective 28.0.0",
  "pallet-referenda 28.0.0",
- "pallet-salary 13.0.0",
+ "pallet-salary 14.0.0",
  "pallet-scheduler 29.0.0",
  "pallet-session 28.0.0",
  "pallet-state-trie-migration 29.0.0",
@@ -9507,7 +9507,7 @@ checksum = "c33070833c9ee02266356de0c43f723152bd38bd96ddf52c82b3af10c9138b28"
 
 [[package]]
 name = "kitchensink-runtime"
-version = "3.0.0-dev"
+version = "3.0.1-dev"
 dependencies = [
  "log",
  "node-primitives",
@@ -15168,7 +15168,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-salary"
-version = "13.0.0"
+version = "14.0.0"
 dependencies = [
  "frame-benchmarking 28.0.0",
  "frame-support 28.0.0",
@@ -18765,7 +18765,7 @@ dependencies = [
  "pallet-root-offences 25.0.0",
  "pallet-root-testing 4.0.0",
  "pallet-safe-mode 9.0.0",
- "pallet-salary 13.0.0",
+ "pallet-salary 14.0.0",
  "pallet-scheduler 29.0.0",
  "pallet-scored-pool 28.0.0",
  "pallet-session 28.0.0",
@@ -28180,7 +28180,7 @@ dependencies = [
  "pallet-asset-conversion 10.0.0",
  "pallet-assets 29.1.0",
  "pallet-balances 28.0.0",
- "pallet-salary 13.0.0",
+ "pallet-salary 14.0.0",
  "pallet-transaction-payment 28.0.0",
  "pallet-xcm 7.0.0",
  "parity-scale-codec",
