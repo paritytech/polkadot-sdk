@@ -7,7 +7,7 @@ pub use types::*;
 
 
 
-#[frame_support::pallet]
+#[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
 	use frame_system::WeightInfo;
@@ -68,7 +68,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type ClaimingPeriod: Get<BlockNumberFor<Self>>;
 
-		/// Period after which all the votes are resetted.
+		/// Period after which all the votes are reset.
 		#[pallet::constant]
 		type VoteValidityPeriod: Get<BlockNumberFor<Self>>;
 
@@ -172,4 +172,45 @@ pub mod pallet {
 			Self::begin_block(n)
 		}
 	}*/
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+
+		#[pallet::call_index(0)]
+		#[transactional]
+		pub fn register_project(origin: OriginFor<T>) -> DispatchResult{
+			Ok(())
+		}
+
+		#[pallet::call_index(1)]
+		#[transactional]
+		pub fn unregister_project(origin: OriginFor<T>) -> DispatchResult {
+			Ok(())
+		}
+
+		#[pallet::call_index(2)]
+		#[transactional]
+		pub fn vote(origin: OriginFor<T>) -> DispatchResult {
+			Ok(())
+		}
+
+		#[pallet::call_index(3)]
+		#[transactional]
+		pub fn remove_vote(origin: OriginFor<T>) -> DispatchResult {
+			Ok(())
+		}
+
+		#[pallet::call_index(4)]
+		#[transactional]
+		pub fn claim_reward_for(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
+			Ok(())
+		}
+
+		#[pallet::call_index(5)]
+		#[transactional]
+		pub fn execute_claim(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
+			Ok(())
+		}
+
+	}
 }
