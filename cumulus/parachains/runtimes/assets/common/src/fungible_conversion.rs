@@ -142,7 +142,10 @@ pub fn convert_balance<T: frame_support::pallet_prelude::Get<Location>, Balance:
 ) -> Result<Asset, FungiblesAccessError> {
 	match balance.try_into() {
 		Ok(balance) => Ok((T::get(), balance).into()),
-		Err(_) => Err(FungiblesAccessError::AmountToBalanceConversionFailed),
+		Err(_) => {
+			tracing::error!(target: "xcm::convert_balance", "Failed to convert balance with location to asset");
+			Err(FungiblesAccessError::AmountToBalanceConversionFailed)
+		},
 	}
 }
 
