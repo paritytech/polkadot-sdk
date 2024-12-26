@@ -24,8 +24,6 @@ sp-arithmetic = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-weights = { workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-asset-conversion = { workspace = true }
 tracing = { workspace = true }
