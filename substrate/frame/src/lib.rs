@@ -214,7 +214,7 @@ pub mod prelude {
 	pub use super::derive::*;
 
 	/// All hashing related things
-	pub use super::hashing::*;
+	pub use super::cryptography::*;
 
 	/// Runtime traits
 	#[doc(no_inline)]
@@ -222,6 +222,22 @@ pub mod prelude {
 		BlockNumberProvider, Bounded, DispatchInfoOf, Dispatchable, SaturatedConversion,
 		Saturating, StaticLookup, TrailingZeroInput,
 	};
+
+	/// Bounded storage related types.
+	pub use sp_runtime::{BoundedSlice, BoundedVec};
+
+	/// Currency related traits.
+	pub use frame_support::traits::{
+		BalanceStatus::{self, Reserved},
+		Currency, ExistenceRequirement::KeepAlive, ReservableCurrency, OnUnbalanced
+	};
+
+	/// Runtime storage types
+	pub use frame_support::IterableStorageMap;
+
+	pub use super::address::*;
+
+	pub use frame_support::traits::Defensive;
 
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
@@ -317,6 +333,12 @@ pub mod testing_prelude {
 	pub use sp_io::TestExternalities;
 
 	pub use sp_io::TestExternalities as TestState;
+
+	/// Migration helpers
+	pub use frame_support::{migrations::{MigrationId, SteppedMigration, SteppedMigrationError, VersionedMigration}, traits::UncheckedOnRuntimeUpgrade, migration::put_storage_value};
+
+	#[cfg(feature = "runtime-benchmarks")]
+	pub use frame_benchmarking::v1::account;
 }
 
 /// All of the types and tools needed to build FRAME-based runtimes.
@@ -366,7 +388,7 @@ pub mod runtime {
 		};
 
 		/// Used for simple fee calculation.
-		pub use frame_support::weights::{self, FixedFee, NoFee};
+		pub use frame_support::weights::{self, FixedFee, NoFee, WeightMeter};
 
 		/// Primary types used to parameterize `EnsureOrigin` and `EnsureRootWithArg`.
 		pub use frame_system::{
@@ -515,6 +537,7 @@ pub mod traits {
 /// The arithmetic types used for safe math.
 pub mod arithmetic {
 	pub use sp_arithmetic::{traits::*, *};
+	pub use frame_support::traits::DefensiveSaturating;
 }
 
 /// All derive macros used in frame.
@@ -527,13 +550,27 @@ pub mod derive {
 		CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, OrdNoBound, PartialEqNoBound,
 		PartialOrdNoBound, RuntimeDebugNoBound,
 	};
-	pub use scale_info::TypeInfo;
+	pub use scale_info::{TypeInfo, build::Variants, Path, Type};
 	pub use sp_runtime::RuntimeDebug;
 }
 
-pub mod hashing {
-	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
-	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
+pub mod cryptography {
+	pub use sp_application_crypto::{BoundToRuntimeAppPublic, RuntimeAppPublic};
+	pub use sp_core::{
+		crypto::{VrfPublic, VrfSecret, Wraps},
+		hashing::*,
+		Pair, H160, H256, H512, U256, U512,
+	};
+	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256, Verify, IdentifyAccount};
+	pub use frame_support::Hashable;
+	pub use sp_io::crypto::{sr25519_generate, sr25519_sign};
+}
+
+pub mod address {
+	pub use sp_runtime::{AccountId32,
+		traits::{LookupError, IdentifyAccount},
+		MultiAddress::{self, Id},
+	};
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,

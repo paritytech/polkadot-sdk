@@ -16,15 +16,16 @@
 // limitations under the License.
 
 use super::*;
-use alloc::{vec, vec::Vec};
-use codec::{Decode, Encode, MaxEncodedLen};
-use core::{fmt::Debug, iter::once, ops::Add};
+use alloc::{vec, vec::Vec, fmt::Debug};
+// use codec::{Decode, Encode, MaxEncodedLen};
+use core::{iter::once, ops::Add};
+use frame::runtime::prelude::*;
+/*
 use frame::{
 	derive::{CloneNoBound, PartialEqNoBound, RuntimeDebug, RuntimeDebugNoBound},
 	runtime::prelude::BoundedVec,
 	traits::{ConstU32, Get, Member, Zero},
 };
-/*
 use frame_support::{
 	traits::{ConstU32, Get},
 	BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound,
@@ -305,7 +306,7 @@ impl<
 	> Decode for Registration<Balance, MaxJudgements, IdentityInfo>
 {
 	fn decode<I: codec::Input>(input: &mut I) -> core::result::Result<Self, codec::Error> {
-		let (judgements, deposit, info) = Decode::decode(&mut AppendZerosInput::new(input))?;
+		let (judgements, deposit, info) = Decode::decode(&mut frame::traits::AppendZerosInput::new(input))?;
 		Ok(Self { judgements, deposit, info })
 	}
 }

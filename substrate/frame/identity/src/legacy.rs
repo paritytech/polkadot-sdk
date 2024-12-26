@@ -17,17 +17,20 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 use alloc::vec;
-use codec::{Decode, Encode, MaxEncodedLen};
+//use codec::{Decode, Encode, MaxEncodedLen};
 #[cfg(feature = "runtime-benchmarks")]
 use enumflags2::BitFlag;
 use enumflags2::{bitflags, BitFlags};
+/*
 use frame::{
 	derive::{CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebug, RuntimeDebugNoBound},
 	runtime::prelude::BoundedVec,
 	traits::Get,
 };
+*/
+pub use frame::prelude::*;
 // use frame_support::{traits::Get, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
-use scale_info::{build::Variants, Path, Type, TypeInfo};
+// use scale_info::{build::Variants, Path, Type};
 // use sp_runtime::{BoundedVec, RuntimeDebug};
 
 use crate::types::{Data, IdentityInformationProvider};

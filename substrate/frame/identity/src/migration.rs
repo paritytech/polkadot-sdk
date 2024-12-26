@@ -18,6 +18,7 @@
 extern crate alloc;
 
 use super::*;
+/*
 use frame::deps::frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError, VersionedMigration},
 	pallet_prelude::*,
@@ -27,19 +28,20 @@ use frame::deps::frame_support::{
 	Hashable, IterableStorageMap,
 	migration,
 };
-/*
 use frame_support::{
 	migrations::VersionedMigration, pallet_prelude::*, storage_alias,
 	traits::UncheckedOnRuntimeUpgrade, IterableStorageMap,
 };
 */
-
+pub use frame::testing_prelude::*;
 #[cfg(feature = "try-runtime")]
 use alloc::collections::BTreeMap;
+/*
 #[cfg(feature = "try-runtime")]
 use codec::{Decode, Encode};
+*/
 #[cfg(feature = "try-runtime")]
-use frame::deps::sp_runtime::TryRuntimeError;
+use frame::try_runtime::TryRuntimeError;
 
 pub const PALLET_MIGRATIONS_ID: &[u8; 15] = b"pallet-identity";
 
@@ -339,7 +341,7 @@ pub mod v2 {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 			let authorities: BTreeMap<Suffix<T>, (T::AccountId, u32)> =
 				types_v1::UsernameAuthorities::<T>::iter()
 					.map(|(account, authority_properties)| {
@@ -373,7 +375,7 @@ pub mod v2 {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
 			let mut prev_state: TryRuntimeState<T> = TryRuntimeState::<T>::decode(&mut &state[..])
 				.expect("Failed to decode the previous storage state");
 
@@ -600,10 +602,10 @@ pub mod v2 {
 	#[cfg(feature = "runtime-benchmarks")]
 	impl<T: Config> LazyMigrationV1ToV2<T> {
 		pub(crate) fn setup_benchmark_env_for_migration() -> BenchmarkingSetupOf<T> {
-			use frame_support::Hashable;
+			// use frame_support::Hashable;
 			let suffix: Suffix<T> = b"bench".to_vec().try_into().unwrap();
-			let authority: T::AccountId = frame_benchmarking::account("authority", 0, 0);
-			let account_id: T::AccountId = frame_benchmarking::account("account", 1, 0);
+			let authority: T::AccountId = account("authority", 0, 0);
+			let account_id: T::AccountId = account("account", 1, 0);
 
 			let prop: AuthorityProperties<Suffix<T>> =
 				AuthorityProperties { account_id: suffix.clone(), allocation: 10 };
@@ -616,7 +618,7 @@ pub mod v2 {
 				<T as Config>::MaxRegistrars,
 				<T as Config>::IdentityInformation,
 			> = Registration { judgements: Default::default(), deposit: 10u32.into(), info };
-			migration::put_storage_value(
+			put_storage_value(
 				b"Identity",
 				b"IdentityOf",
 				&account_id.twox_64_concat(),
@@ -624,7 +626,7 @@ pub mod v2 {
 			);
 			types_v1::AccountOfUsername::<T>::insert(&username, &account_id);
 			let since: BlockNumberFor<T> = 0u32.into();
-			migration::put_storage_value(
+			put_storage_value(
 				b"Identity",
 				b"PendingUsernames",
 				&username.blake2_128_concat(),
@@ -635,8 +637,8 @@ pub mod v2 {
 
 		pub(crate) fn setup_benchmark_env_for_cleanup() -> BenchmarkingSetupOf<T> {
 			let suffix: Suffix<T> = b"bench".to_vec().try_into().unwrap();
-			let authority: T::AccountId = frame_benchmarking::account("authority", 0, 0);
-			let account_id: T::AccountId = frame_benchmarking::account("account", 1, 0);
+			let authority: T::AccountId = account("authority", 0, 0);
+			let account_id: T::AccountId = account("account", 1, 0);
 
 			let prop: AuthorityProperties<Suffix<T>> =
 				AuthorityProperties { account_id: suffix.clone(), allocation: 10 };
@@ -737,7 +739,7 @@ pub mod v2 {
 					if i % 2 == 0 {
 						let has_identity = i % 4 == 0;
 						let reg = registration(has_identity);
-						migration::put_storage_value(
+						put_storage_value(
 							b"Identity",
 							b"IdentityOf",
 							&account_id.twox_64_concat(),
@@ -751,7 +753,7 @@ pub mod v2 {
 						let username_2: Username<Test> = username_2.try_into().unwrap();
 						types_v1::AccountOfUsername::<Test>::insert(&username_2, &account_id);
 						let reg = registration(has_identity);
-						migration::put_storage_value(
+						put_storage_value(
 							b"Identity",
 							b"IdentityOf",
 							&account_id.twox_64_concat(),
@@ -769,7 +771,7 @@ pub mod v2 {
 					bare_username.extend(suffix_1.iter());
 					let username: Username<Test> = bare_username.try_into().unwrap();
 					let since: BlockNumberFor<Test> = i.into();
-					migration::put_storage_value(
+					put_storage_value(
 						b"Identity",
 						b"PendingUsernames",
 						&username.blake2_128_concat(),
@@ -782,7 +784,7 @@ pub mod v2 {
 				for i in 120u8..130u8 {
 					let account_id = account_from_u8(i);
 					let reg = registration(true);
-					migration::put_storage_value(
+					put_storage_value(
 						b"Identity",
 						b"IdentityOf",
 						&account_id.twox_64_concat(),

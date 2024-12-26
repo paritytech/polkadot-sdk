@@ -118,6 +118,7 @@ extern crate alloc;
 
 use crate::types::{AuthorityProperties, Provider, Suffix, Username, UsernameInformation};
 use alloc::{boxed::Box, vec::Vec};
+/*
 use codec::Encode;
 use frame::{
 	prelude::*,
@@ -126,6 +127,7 @@ use frame::{
 		OnUnbalanced, ReservableCurrency, StorageVersion, Verify, Zero,
 	},
 };
+*/
 pub use pallet::*;
 /*
 use frame_support::{
@@ -142,6 +144,7 @@ use sp_runtime::traits::{
 	AppendZerosInput, Hash, IdentifyAccount, Saturating, StaticLookup, Verify, Zero,
 };
 */
+pub use frame::prelude::*;
 pub use types::{
 	Data, IdentityInformationProvider, Judgement, RegistrarIndex, RegistrarInfo, Registration,
 };

@@ -23,7 +23,8 @@ use crate::{
 	legacy::{IdentityField, IdentityInfo},
 };
 
-use codec::{Decode, Encode};
+//use codec::{Decode, Encode};
+/* 
 use frame::{
 	deps::sp_io::crypto::{sr25519_generate, sr25519_sign},
 	hashing::H256,
@@ -38,7 +39,7 @@ use frame::{
 		/*OnFinalize, OnInitialize,*/ Verify,
 	},
 };
-/*
+
 use frame_support::{
 	assert_err, assert_noop, assert_ok, derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64, Get, OnFinalize, OnInitialize},
@@ -48,14 +49,13 @@ use frame_support::{
 use frame_system::EnsureRoot;
 use sp_core::H256;
 use sp_io::crypto::{sr25519_generate, sr25519_sign};
-*/
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
-/*
 use sp_runtime::{
 	traits::{BadOrigin, BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature, MultiSigner,
 };
 */
+pub use frame::testing_prelude::*;
 type AccountIdOf<Test> = <Test as frame_system::Config>::AccountId;
 pub type AccountPublic = <MultiSignature as Verify>::Signer;
 pub type AccountId = <AccountPublic as IdentifyAccount>::AccountId;

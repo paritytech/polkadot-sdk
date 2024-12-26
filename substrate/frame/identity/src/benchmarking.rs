@@ -23,22 +23,21 @@ use super::*;
 
 use crate::{migration::v2::LazyMigrationV1ToV2, Pallet as Identity};
 use alloc::{vec, vec::Vec};
+use frame::benchmarking::prelude::*;
+/*
 use frame::{
 	benchmarking::prelude::*,
 	deps::RawOrigin,
 	runtime::types_common::Signature,
 	traits::{Bounded, EnsureOrigin, Get, IdentifyAccount, OnFinalize, OnInitialize, One},
 };
-/*
 use frame_benchmarking::{account, v2::*, whitelisted_caller, BenchmarkError};
 use frame_support::{
 	assert_ok, ensure,
 	traits::{EnsureOrigin, Get, OnFinalize, OnInitialize},
 };
 use frame_system::RawOrigin;
-*/
 use sp_io::crypto::{sr25519_generate, sr25519_sign};
-/*
 use sp_runtime::{
 	traits::{Bounded, IdentifyAccount, One},
 	MultiSignature, MultiSigner,
@@ -142,8 +141,8 @@ fn bounded_username<T: Config>(username: Vec<u8>, suffix: Vec<u8>) -> Username<T
 
 #[benchmarks(
 	where
-		<T as frame_system::Config>::AccountId: From<sp_runtime::AccountId32>,
-		T::OffchainSignature: From<Signature>,
+		<T as frame_system::Config>::AccountId: From<AccountId32>,
+		T::OffchainSignature: From<frame::runtime::types_common::Signature>,
 )]
 mod benchmarks {
 	use super::*;
@@ -640,7 +639,7 @@ mod benchmarks {
 		let who_lookup = T::Lookup::unlookup(who_account.clone());
 
 		let signature =
-			Signature::Sr25519(sr25519_sign(0.into(), &public, &bounded_username[..]).unwrap());
+			frame::runtime::types_common::Signature::Sr25519(sr25519_sign(0.into(), &public, &bounded_username[..]).unwrap());
 
 		// Verify signature here to avoid surprise errors at runtime
 		assert!(signature.verify(&bounded_username[..], &public.into()));

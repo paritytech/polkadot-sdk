@@ -13550,7 +13550,7 @@ dependencies = [
  "log",
  "pallet-balances 28.0.0",
  "parity-scale-codec",
- "polkadot-sdk-frame",
+ "polkadot-sdk-frame 0.1.0",
  "scale-info",
  "sp-keystore 0.34.0",
 ]
@@ -19187,6 +19187,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-api 26.0.0",
+ "sp-application-crypto 30.0.0",
  "sp-arithmetic 23.0.0",
  "sp-block-builder 26.0.0",
  "sp-consensus-aura 0.32.0",
