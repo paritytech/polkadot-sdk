@@ -19,14 +19,15 @@
 #![cfg(test)]
 
 use crate::{self as pallet_example_tasks};
-use frame_support::derive_impl;
-use sp_runtime::testing::TestXt;
+// use frame_support::derive_impl;
+// use sp_runtime::testing::TestXt;
+use frame::testing_prelude::*;
 
 pub type AccountId = u32;
 pub type Balance = u32;
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Runtime {
 		System: frame_system,
 		TasksExample: pallet_example_tasks,
@@ -64,7 +65,7 @@ impl pallet_example_tasks::Config for Runtime {
 
 pub fn advance_to(b: u64) {
 	#[cfg(feature = "experimental")]
-	use frame_support::traits::Hooks;
+	use frame::traits::Hooks;
 	while System::block_number() < b {
 		System::set_block_number(System::block_number() + 1);
 		#[cfg(feature = "experimental")]

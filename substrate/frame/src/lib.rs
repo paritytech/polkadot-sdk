@@ -214,7 +214,9 @@ pub mod prelude {
 	pub use super::derive::*;
 
 	/// All hashing related things
-	pub use super::hashing::*;
+	pub use super::cryptography::*;
+
+	pub use super::offchain::*;
 
 	/// Runtime traits
 	#[doc(no_inline)]
@@ -527,10 +529,34 @@ pub mod derive {
 	pub use sp_runtime::RuntimeDebug;
 }
 
-pub mod hashing {
-	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
-	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
+pub mod cryptography {
+	pub use sp_application_crypto::{BoundToRuntimeAppPublic, RuntimeAppPublic};
+	pub use sp_core::{
+		crypto::{VrfPublic, VrfSecret, Wraps, KeyTypeId},
+		sr25519::{Signature as Sr25519Signature, Public as Sr25519Public},
+		hashing::*,
+		Pair, H160, H256, H512, U256, U512,
+	};
+	pub use sp_runtime::{traits::{BlakeTwo256, Hash, Keccak256, Verify}, app_crypto::{app_crypto, sr25519}, MultiSignature, MultiSigner};
 }
+
+pub mod offchain {
+	pub use frame_system::offchain::{
+		AppCrypto, CreateInherent, CreateSignedTransaction, SendSignedTransaction,
+		SendUnsignedTransaction, SignedPayload, Signer, SigningTypes, SubmitTransaction, CreateTransactionBase, CreateTransaction
+	};
+	pub use sp_core::offchain::{
+		testing::{TestOffchainExt, TestTransactionPoolExt, PendingRequest, OffchainState},
+		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
+	};
+	pub use sp_io::offchain;
+	pub use sp_runtime::{offchain::{storage::{
+		MutateStorageError, StorageRetrievalError, StorageValueRef,
+	}, http, Duration}, testing::{TestSignature, TestXt}};
+
+	pub use sp_keystore::{testing::MemoryKeystore, Keystore, KeystoreExt};
+}
+
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
 /// this module can be used.

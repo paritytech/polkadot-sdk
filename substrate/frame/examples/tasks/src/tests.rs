@@ -21,17 +21,19 @@
 use crate::{mock::*, Numbers};
 #[cfg(feature = "experimental")]
 use codec::Decode;
-use frame_support::traits::Task;
-#[cfg(feature = "experimental")]
-use sp_core::offchain::{testing, OffchainWorkerExt, TransactionPoolExt};
-use sp_runtime::BuildStorage;
+//use frame_support::traits::Task;
+//#[cfg(feature = "experimental")]
+//use sp_core::offchain::{testing, OffchainWorkerExt, TransactionPoolExt};
+//use sp_runtime::BuildStorage;
 
-#[cfg(feature = "experimental")]
-use frame_support::{assert_noop, assert_ok};
+//#[cfg(feature = "experimental")]
+// use frame_support::{assert_noop, assert_ok};
+
+use frame::testing_prelude::*;
 
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup.
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestExternalities {
 	let t = RuntimeGenesisConfig {
 		// We use default for brevity, but you can configure as desired if needed.
 		system: Default::default(),
@@ -138,10 +140,10 @@ fn task_execution_fails_for_invalid_task() {
 #[cfg(feature = "experimental")]
 #[test]
 fn task_with_offchain_worker() {
-	let (offchain, _offchain_state) = testing::TestOffchainExt::new();
-	let (pool, pool_state) = testing::TestTransactionPoolExt::new();
+	let (offchain, _offchain_state) = TestOffchainExt::new();
+	let (pool, pool_state) = TestTransactionPoolExt::new();
 
-	let mut t = sp_io::TestExternalities::default();
+	let mut t = TestExternalities::default();
 	t.register_extension(OffchainWorkerExt::new(offchain));
 	t.register_extension(TransactionPoolExt::new(pool));
 
@@ -157,7 +159,7 @@ fn task_with_offchain_worker() {
 		let tx = pool_state.write().transactions.pop().unwrap();
 		assert!(pool_state.read().transactions.is_empty());
 		let tx = Extrinsic::decode(&mut &*tx).unwrap();
-		use sp_runtime::traits::ExtrinsicLike;
+		use frame::traits::ExtrinsicLike;
 		assert!(tx.is_bare());
 	});
 }

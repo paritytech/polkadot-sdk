@@ -20,7 +20,8 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::*;
-use frame_benchmarking::v2::*;
+//use frame_benchmarking::v2::*;
+use frame::benchmarking::prelude::*;
 
 #[benchmarks]
 mod benchmarks {
@@ -32,7 +33,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			Task::<T>::add_number_into_total(0).unwrap();
+			crate::pallet::Task::<T>::add_number_into_total(0).unwrap();
 		}
 
 		assert_eq!(Numbers::<T>::get(0), None);

@@ -18,12 +18,12 @@
 //! This pallet demonstrates the use of the `pallet::task` api for service work.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::dispatch::DispatchResult;
-use frame_system::offchain::CreateInherent;
+//use frame_support::dispatch::DispatchResult;
+//use frame_system::offchain::CreateInherent;
 #[cfg(feature = "experimental")]
 use frame_system::offchain::SubmitTransaction;
 // Re-export pallet items so that they can be accessed from the crate namespace.
-pub use pallet::*;
+pub use pallet::{*, Task};
 
 pub mod mock;
 pub mod tests;
@@ -34,14 +34,16 @@ mod benchmarking;
 pub mod weights;
 pub use weights::*;
 
+use frame::prelude::{*, Task as RunTask};
+
 #[cfg(feature = "experimental")]
 const LOG_TARGET: &str = "pallet-example-tasks";
 
-#[frame_support::pallet(dev_mode)]
+#[frame::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
+	//use frame_support::pallet_prelude::*;
+	//use frame_system::pallet_prelude::*;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -92,7 +94,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: CreateInherent<frame_system::Call<Self>> + frame_system::Config {
-		type RuntimeTask: frame_support::traits::Task
+		type RuntimeTask: RunTask
 			+ IsType<<Self as frame_system::Config>::RuntimeTask>
 			+ From<Task<Self>>;
 		type WeightInfo: WeightInfo;

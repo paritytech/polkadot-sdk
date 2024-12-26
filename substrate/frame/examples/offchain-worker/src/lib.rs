@@ -49,6 +49,8 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
+use frame::prelude::*;
+/*
 use frame_support::traits::Get;
 use frame_system::{
 	self as system,
@@ -58,7 +60,9 @@ use frame_system::{
 	},
 	pallet_prelude::BlockNumberFor,
 };
+*/
 use lite_json::json::JsonValue;
+/*
 use sp_core::crypto::KeyTypeId;
 use sp_runtime::{
 	offchain::{
@@ -70,6 +74,7 @@ use sp_runtime::{
 	transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
 	RuntimeDebug,
 };
+*/
 
 #[cfg(test)]
 mod tests;
@@ -87,40 +92,41 @@ pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"btc!");
 /// We can use from supported crypto kinds (`sr25519`, `ed25519` and `ecdsa`) and augment
 /// the types with this pallet-specific identifier.
 pub mod crypto {
-	use super::KEY_TYPE;
-	use sp_core::sr25519::Signature as Sr25519Signature;
+	use super::*;
+	//use sp_core::sr25519::Signature as Sr25519Signature;
+	/*
 	use sp_runtime::{
 		app_crypto::{app_crypto, sr25519},
 		traits::Verify,
 		MultiSignature, MultiSigner,
-	};
+	};*/
 	app_crypto!(sr25519, KEY_TYPE);
 
 	pub struct TestAuthId;
 
-	impl frame_system::offchain::AppCrypto<MultiSigner, MultiSignature> for TestAuthId {
+	impl AppCrypto<MultiSigner, MultiSignature> for TestAuthId {
 		type RuntimeAppPublic = Public;
-		type GenericSignature = sp_core::sr25519::Signature;
-		type GenericPublic = sp_core::sr25519::Public;
+		type GenericSignature = Sr25519Signature;
+		type GenericPublic = Sr25519Public;
 	}
 
 	// implemented for mock runtime in test
-	impl frame_system::offchain::AppCrypto<<Sr25519Signature as Verify>::Signer, Sr25519Signature>
+	impl AppCrypto<<Sr25519Signature as Verify>::Signer, Sr25519Signature>
 		for TestAuthId
 	{
 		type RuntimeAppPublic = Public;
-		type GenericSignature = sp_core::sr25519::Signature;
-		type GenericPublic = sp_core::sr25519::Public;
+		type GenericSignature = Sr25519Signature;
+		type GenericPublic = Sr25519Public;
 	}
 }
 
 pub use pallet::*;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
+	// use frame_support::pallet_prelude::*;
+	// use frame_system::pallet_prelude::*;
 
 	/// This pallet's configuration trait
 	#[pallet::config]
@@ -187,7 +193,7 @@ pub mod pallet {
 			// to the storage and other included pallets.
 			//
 			// We can easily import `frame_system` and retrieve a block hash of the parent block.
-			let parent_hash = <system::Pallet<T>>::block_hash(block_number - 1u32.into());
+			let parent_hash = <frame_system::Pallet<T>>::block_hash(block_number - 1u32.into());
 			log::debug!("Current block: {:?} (parent hash: {:?})", block_number, parent_hash);
 
 			// It's a good practice to keep `fn offchain_worker()` function minimal, and move most
@@ -271,7 +277,7 @@ pub mod pallet {
 			// Add the price to the on-chain list, but mark it as coming from an empty address.
 			Self::add_price(None, price);
 			// now increment the block number at which we expect next unsigned transaction.
-			let current_block = <system::Pallet<T>>::block_number();
+			let current_block = <frame_system::Pallet<T>>::block_number();
 			<NextUnsignedAt<T>>::put(current_block + T::UnsignedInterval::get());
 			Ok(().into())
 		}
@@ -288,7 +294,7 @@ pub mod pallet {
 			// Add the price to the on-chain list, but mark it as coming from an empty address.
 			Self::add_price(None, price_payload.price);
 			// now increment the block number at which we expect next unsigned transaction.
-			let current_block = <system::Pallet<T>>::block_number();
+			let current_block = <frame_system::Pallet<T>>::block_number();
 			<NextUnsignedAt<T>>::put(current_block + T::UnsignedInterval::get());
 			Ok(().into())
 		}
@@ -579,7 +585,7 @@ impl<T: Config> Pallet<T> {
 		// deadline to 2s to complete the external call.
 		// You can also wait indefinitely for the response, however you may still get a timeout
 		// coming from the host machine.
-		let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(2_000));
+		let deadline = offchain::timestamp().add(Duration::from_millis(2_000));
 		// Initiate an external HTTP GET request.
 		// This is using high-level wrappers from `sp_runtime`, for the low-level calls that
 		// you can find in `sp_io`. The API is trying to be similar to `request`, but
@@ -685,7 +691,7 @@ impl<T: Config> Pallet<T> {
 			return InvalidTransaction::Stale.into()
 		}
 		// Let's make sure to reject transactions from the future.
-		let current_block = <system::Pallet<T>>::block_number();
+		let current_block = <frame_system::Pallet<T>>::block_number();
 		if &current_block < block_number {
 			return InvalidTransaction::Future.into()
 		}
