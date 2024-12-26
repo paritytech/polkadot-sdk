@@ -166,11 +166,10 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 		if amount == 0 {
 			return Ok(payment)
 		}
-		let unused =
-			payment.checked_sub((id, amount).into()).map_err(|error| {
-				tracing::error!(target: "xcm::weight", ?error, "Failed to substract from payment");
-				XcmError::TooExpensive
-			})?;
+		let unused = payment.checked_sub((id, amount).into()).map_err(|error| {
+			tracing::error!(target: "xcm::weight", ?error, "Failed to substract from payment");
+			XcmError::TooExpensive
+		})?;
 		self.0 = self.0.saturating_add(weight);
 		self.1 = self.1.saturating_add(amount);
 		Ok(unused)
