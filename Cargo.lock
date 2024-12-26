@@ -1238,7 +1238,6 @@ dependencies = [
  "cumulus-primitives-core 0.7.0",
  "frame-support 28.0.0",
  "impl-trait-for-tuples",
- "log",
  "pallet-asset-conversion 10.0.0",
  "pallet-assets 29.1.0",
  "pallet-xcm 7.0.0",
@@ -1251,6 +1250,7 @@ dependencies = [
  "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "substrate-wasm-builder 17.0.0",
+ "tracing",
 ]
 
 [[package]]
