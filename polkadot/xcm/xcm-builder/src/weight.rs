@@ -234,7 +234,7 @@ impl<
 		tracing::trace!(target: "xcm::weight", "UsingComponents::buy_weight weight: {:?}, payment: {:?}, context: {:?}", weight, payment, context);
 		let amount = WeightToFee::weight_to_fee(&weight);
 		let u128_amount: u128 = amount.try_into().map_err(|error| {
-			tracing::error!(target: "xcm::weight", "Amount could not be converted");
+			tracing::error!(target: "xcm::weight", ?error, "Amount could not be converted");
 			XcmError::Overflow
 		})?;
 		let required = Asset { id: AssetId(AssetIdValue::get()), fun: Fungible(u128_amount) };
