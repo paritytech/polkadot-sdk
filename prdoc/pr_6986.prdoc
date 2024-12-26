@@ -11,6 +11,8 @@ doc:
 
 crates:
   - name: pallet-mixnet
-    bump: none
+    bump: minor
   - name: polkadot-sdk-frame
+    bump: none
+  - name: polkadot-sdk
     bump: none
