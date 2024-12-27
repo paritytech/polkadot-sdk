@@ -215,8 +215,17 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use super::derive::*;
 
-	/// All hashing related things
-	pub use super::hashing::*;
+	/// All crypto related things.
+	pub use super::cryptography::*;
+
+	/// All arithmetic types used for safe math.
+	pub use super::arithmetic::*;
+
+	/// All currency related things.
+	pub use super::currency::*;
+
+	/// All account related things.
+	pub use super::account::*;
 
 	/// Runtime traits
 	#[doc(no_inline)]
@@ -230,7 +239,10 @@ pub mod prelude {
 
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
-	pub use sp_runtime::{DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError};
+	pub use sp_runtime::{
+		DispatchError::{self, BadOrigin},
+		DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
+	};
 }
 
 #[cfg(any(feature = "try-runtime", test))]
@@ -540,9 +552,26 @@ pub mod derive {
 	pub use sp_runtime::RuntimeDebug;
 }
 
-pub mod hashing {
-	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
-	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
+pub mod cryptography {
+	pub use sp_core::{
+		crypto::{VrfPublic, VrfSecret, Wraps},
+		hashing::*,
+		Pair, H160, H256, H512, U256, U512,
+	};
+	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256, Verify};
+}
+
+pub mod currency {
+	/// Currency related traits.
+	pub use frame_support::traits::{
+		Currency, ExistenceRequirement::KeepAlive, OnUnbalanced, ReservableCurrency,
+	};
+}
+
+pub mod account {
+	/// Traits related to Accounts on substrate based chains.
+	pub use frame_support::traits::{ChangeMembers, EitherOfDiverse, InitializeMembers};
+	pub use sp_runtime::traits::IdentifyAccount;
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,

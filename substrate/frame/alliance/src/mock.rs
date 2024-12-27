@@ -16,11 +16,7 @@
 // limitations under the License.
 
 //! Test utilities
-use frame::{
-	arithmetic::Perbill,
-	testing_prelude::*,
-	traits::{EitherOfDiverse, IdentifyAccount, Lazy, Verify},
-};
+use frame::{testing_prelude::*, traits::Lazy};
 use pallet_identity::{
 	legacy::{IdentityField, IdentityInfo},
 	Data, IdentityOf, Judgement, SuperOf,

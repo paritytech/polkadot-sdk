@@ -98,10 +98,7 @@ extern crate alloc;
 
 use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame::{
-	prelude::*,
-	traits::{ChangeMembers, Currency, InitializeMembers, OnUnbalanced, ReservableCurrency},
-};
+use frame::prelude::*;
 use scale_info::TypeInfo;
 
 pub use pallet::*;
