@@ -1,0 +1,17 @@
+title: Reintroduce network starter
+doc:
+- audience: Node Dev
+  description: This reverts https://github.com/paritytech/polkadot-sdk/pull/6400 as
+    we are not ready yet to remove the network starter. Network starting faster than
+    other tasks leads to race conditions, namely https://github.com/paritytech/polkadot-sdk/issues/6573#issuecomment-2563091343.
+crates:
+- name: cumulus-relay-chain-minimal-node
+  bump: major
+- name: cumulus-client-service
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: major
+- name: polkadot-service
+  bump: major
+- name: sc-service
+  bump: major
