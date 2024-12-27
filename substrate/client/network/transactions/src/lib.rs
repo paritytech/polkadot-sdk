@@ -35,7 +35,8 @@ use log::{debug, trace, warn};
 use prometheus_endpoint::{register, Counter, PrometheusError, Registry, U64};
 use sc_network::{
 	config::{NonReservedPeerMode, ProtocolId, SetConfig},
-	error, multiaddr::{Multiaddr, Protocol},
+	error,
+	multiaddr::{Multiaddr, Protocol},
 	peer_store::PeerStoreProvider,
 	service::{
 		traits::{NotificationEvent, NotificationService, ValidationResult},
