@@ -561,15 +561,15 @@ pub mod cryptography {
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256, Verify};
 }
 
+/// Currency related traits.
 pub mod currency {
-	/// Currency related traits.
 	pub use frame_support::traits::{
 		Currency, ExistenceRequirement::KeepAlive, OnUnbalanced, ReservableCurrency,
 	};
 }
 
+/// Traits related to Accounts on substrate based chains.
 pub mod account {
-	/// Traits related to Accounts on substrate based chains.
 	pub use frame_support::traits::{ChangeMembers, EitherOfDiverse, InitializeMembers};
 	pub use sp_runtime::traits::IdentifyAccount;
 }

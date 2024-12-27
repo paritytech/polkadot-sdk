@@ -76,6 +76,7 @@ runtime = [
 	"sp-block-builder",
 	"sp-consensus-aura",
 	"sp-consensus-grandpa",
+	"sp-crypto-hashing",
 	"sp-genesis-builder",
 	"sp-inherents",
 	"sp-keyring",
