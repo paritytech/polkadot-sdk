@@ -42,8 +42,6 @@ use sp_runtime::{
 	TokenError,
 };
 use std::collections::BTreeSet;
-
-#[cfg(feature = "runtime-benchmarks")]
 use sp_core::{sr25519::Pair as SrPair, Pair};
 
 mod currency_tests;
@@ -172,7 +170,6 @@ impl ExtBuilder {
 			} else {
 				vec![]
 			},
-			#[cfg(feature = "runtime-benchmarks")]
 			dev_accounts: (1000, self.existential_deposit, Some("//Sender/{}".to_string())),
 		}
 		.assimilate_storage(&mut t)
@@ -287,13 +284,10 @@ pub fn ensure_ti_valid() {
 	let mut sum = 0;
 
 	// Fetch the dev accounts from Account Storage.
-	#[cfg(feature = "runtime-benchmarks")]
 	let dev_accounts = (1000, EXISTENTIAL_DEPOSIT, "//Sender/{}".to_string()); // You can customize this as needed
-	#[cfg(feature = "runtime-benchmarks")]
 	let (num_accounts, _balance, ref derivation) = dev_accounts;
 
 	// Generate the dev account public keys.
-	#[cfg(feature = "runtime-benchmarks")]
 	let dev_account_ids: Vec<_> = (0..num_accounts)
 		.map(|index| {
 			let derivation_string = derivation.replace("{}", &index.to_string());
@@ -310,7 +304,6 @@ pub fn ensure_ti_valid() {
 	for acc in frame_system::Account::<Test>::iter_keys() {
 		// Skip dev accounts by checking if the account is in the dev_account_ids list.
 		// This also proves dev_accounts exists in storage.
-		#[cfg(feature = "runtime-benchmarks")]
 		if dev_account_ids.contains(&acc) {
 			continue;
 		}
