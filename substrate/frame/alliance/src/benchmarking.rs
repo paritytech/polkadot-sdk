@@ -21,7 +21,7 @@
 
 use super::{Call as AllianceCall, Pallet as Alliance, *};
 use core::{cmp, mem::size_of};
-use frame::benchmarking::prelude::{*, RawOrigin as SystemOrigin, frame_system::Pallet as System};
+use frame::benchmarking::prelude::{frame_system::Pallet as System, RawOrigin as SystemOrigin, *};
 
 const SEED: u32 = 0;
 
@@ -32,7 +32,7 @@ fn assert_last_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::
 }
 
 fn cid(input: impl AsRef<[u8]>) -> Cid {
-	let result = sp_crypto_hashing::sha2_256(input.as_ref());
+	let result = frame::deps::sp_crypto_hashing::sha2_256(input.as_ref());
 	Cid::new_v0(result)
 }
 

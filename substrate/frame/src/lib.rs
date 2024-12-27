@@ -194,9 +194,6 @@ pub mod prelude {
 	#[doc(inline)]
 	pub use frame_system;
 
-	/// Bounded types.
-	pub use frame_support::{BoundedVec, BoundedSlice};
-
 	/// Pallet prelude of `frame-support`.
 	///
 	/// Note: this needs to revised once `frame-support` evolves.
@@ -206,7 +203,9 @@ pub mod prelude {
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{Contains, IsSubType, OnRuntimeUpgrade};
+	pub use frame_support::traits::{
+		Contains, IsSubType, OnRuntimeUpgrade, UnfilteredDispatchable,
+	};
 
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
@@ -225,6 +224,9 @@ pub mod prelude {
 		BlockNumberProvider, Bounded, DispatchInfoOf, Dispatchable, SaturatedConversion,
 		Saturating, StaticLookup, TrailingZeroInput,
 	};
+
+	/// Bounded storage related types.
+	pub use sp_runtime::{BoundedSlice, BoundedVec};
 
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
@@ -269,7 +271,6 @@ pub mod benchmarking {
 		pub use super::shared::*;
 		pub use crate::prelude::*;
 		pub use frame_benchmarking::v2::*;
-		pub use frame_support::traits::UnfilteredDispatchable;
 	}
 }
 
@@ -575,6 +576,8 @@ pub mod deps {
 	pub use sp_consensus_aura;
 	#[cfg(feature = "runtime")]
 	pub use sp_consensus_grandpa;
+	#[cfg(feature = "runtime")]
+	pub use sp_crypto_hashing;
 	#[cfg(feature = "runtime")]
 	pub use sp_genesis_builder;
 	#[cfg(feature = "runtime")]
