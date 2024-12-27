@@ -40,8 +40,7 @@ impl<Target: Get<L>, SelfParaId: Get<ParaId>, PalletId: Get<u32>, L: TryFrom<Loc
 					.try_into()
 					.map_err(|error| {
 						tracing::error!(
-							"Failed to create asset pairs when seed1 is even",
-							"error {:?}",
+							"Failed to create asset pairs when seed1 is even, error {:?}",
 							error
 						);
 						"Something went wrong"
@@ -55,7 +54,7 @@ impl<Target: Get<L>, SelfParaId: Get<ParaId>, PalletId: Get<u32>, L: TryFrom<Loc
 				with_id
 					.try_into()
 					.map_err(|error| {
-						tracing::error!("Failed to create asset pairs", "error {:?}", error);
+						tracing::error!("Failed to create asset pairs, error {:?}", error);
 						"Something went wrong"
 					})
 					.unwrap(),
