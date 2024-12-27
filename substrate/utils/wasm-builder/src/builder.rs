@@ -166,7 +166,7 @@ impl WasmBuilder {
 
 	/// Enable exporting `__heap_base` as global variable in the WASM binary.
 	///
-	/// This adds `-Clink-arg=--export=__heap_base` to `RUST_FLAGS`.
+	/// This adds `-C link-arg=--export=__heap_base` to `RUST_FLAGS`.
 	pub fn export_heap_base(mut self) -> Self {
 		self.export_heap_base = true;
 		self
@@ -239,7 +239,7 @@ impl WasmBuilder {
 
 		if target == RuntimeTarget::Wasm {
 			if self.export_heap_base {
-				self.rust_flags.push("-Clink-arg=--export=__heap_base".into());
+				self.rust_flags.push("-C link-arg=--export=__heap_base".into());
 			}
 
 			if self.import_memory {
@@ -265,7 +265,7 @@ impl WasmBuilder {
 			target,
 			file_path,
 			self.project_cargo_toml,
-			self.rust_flags.into_iter().map(|f| format!("{} ", f)).collect(),
+			self.rust_flags.join(" "),
 			self.features_to_enable,
 			self.file_name,
 			!self.disable_runtime_version_section_check,
@@ -353,7 +353,7 @@ fn build_project(
 	let cargo_cmd = match crate::prerequisites::check(target) {
 		Ok(cmd) => cmd,
 		Err(err_msg) => {
-			eprintln!("{}", err_msg);
+			eprintln!("{err_msg}");
 			process::exit(1);
 		},
 	};
