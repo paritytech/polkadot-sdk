@@ -312,6 +312,7 @@ impl pallet_utility::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type PalletsOrigin = OriginCaller;
+	type BatchHook = ();
 	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
 }
 

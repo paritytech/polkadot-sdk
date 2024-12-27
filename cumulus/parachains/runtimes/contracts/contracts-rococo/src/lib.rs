@@ -278,7 +278,16 @@ impl pallet_utility::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type PalletsOrigin = OriginCaller;
+	type BatchHook = ();
 	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
+}
+
+// To be removed after migration is complete.
+impl identity_migrator::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Reaper = EnsureRoot<AccountId>;
+	type ReapIdentityHandler = ();
+	type WeightInfo = weights::polkadot_runtime_common_identity_migrator::WeightInfo<Runtime>;
 }
 
 parameter_types! {
