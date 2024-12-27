@@ -1148,20 +1148,13 @@ where
 		announce_block,
 	);
 
-	// TODO: Normally, one is supposed to pass a list of notifications protocols supported by the
-	// node through the `NetworkConfiguration` struct. But because this function doesn't know in
-	// advance which components, such as GrandPa or Polkadot, will be plugged on top of the
-	// service, it is unfortunately not possible to do so without some deep refactoring. To
-	// bypass this problem, the `NetworkService` provides a `register_notifications_protocol`
-	// method that can be called even after the network has been initialized. However, we want to
-	// avoid the situation where `register_notifications_protocol` is called *after* the network
-	// actually connects to other peers. For this reason, we delay the process of the network
-	// future until the user calls `NetworkStarter::start_network`.
+	// TODO: Network starting faster than other tasks leads to race conditions. For example,
+	// GrandPa fails to connect to reserved nodes specified on the CLI if the connection on
+	// sync protocol is initiated fast enough
+	// (see https://github.com/paritytech/polkadot-sdk/issues/6573#issuecomment-2563091343).
 	//
-	// This entire hack should eventually be removed in favour of passing the list of protocols
-	// through the configuration.
-	//
-	// See also https://github.com/paritytech/substrate/issues/6827
+	// This hack is needed at least until protocol peer sets are made independed.
+	// See the discussion in https://github.com/paritytech/polkadot-sdk/issues/7006.
 	let (network_start_tx, network_start_rx) = oneshot::channel();
 
 	// The network worker is responsible for gathering all network messages and processing
