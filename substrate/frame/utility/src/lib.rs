@@ -121,7 +121,7 @@ pub mod pallet {
 			Into<<Self as frame_system::Config>::RuntimeOrigin> +
 			IsType<<<Self as frame_system::Config>::RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin>;
 
-		///Hook to be called before any batch operation
+		/// Hook to be called before any batch operation.
 		type BatchHook: BatchHook;
 
 		/// Weight information for extrinsics in this pallet.
