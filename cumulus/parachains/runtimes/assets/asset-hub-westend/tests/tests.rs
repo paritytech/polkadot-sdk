@@ -1251,33 +1251,35 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_suffic
 }
 
 #[test]
-fn report_bridge_status_from_xcm_bridge_router_for_rococo_works() {
-	asset_test_utils::test_cases_over_bridge::report_bridge_status_from_xcm_bridge_router_works::<
+fn update_bridge_status_from_xcm_bridge_router_for_rococo_works() {
+	asset_test_utils::test_cases_over_bridge::update_bridge_status_from_xcm_bridge_router_works::<
 		Runtime,
 		AllPalletsWithoutSystem,
 		XcmConfig,
 		LocationToAccountId,
 		ToRococoXcmRouterInstance,
-	>(
-		collator_session_keys(),
-		bridging_to_asset_hub_rococo,
-		|| bp_asset_hub_westend::build_congestion_message(Default::default(), true).into(),
-		|| bp_asset_hub_westend::build_congestion_message(Default::default(), false).into(),
-	)
+	>(collator_session_keys(), bridging_to_asset_hub_rococo, |bridge_id, is_congested| {
+		bp_asset_hub_westend::build_congestion_message(bridge_id.inner(), is_congested).into()
+	})
 }
 
 #[test]
 fn test_report_bridge_status_call_compatibility() {
+	let bridge_id = bp_xcm_bridge_hub::BridgeId::new(
+		&InteriorLocation::from([GlobalConsensus(ByGenesis([0; 32]))]),
+		&InteriorLocation::from([GlobalConsensus(ByGenesis([1; 32]))]),
+	);
+
 	// if this test fails, make sure `bp_asset_hub_rococo` has valid encoding
 	assert_eq!(
-		RuntimeCall::ToRococoXcmRouter(pallet_xcm_bridge_hub_router::Call::report_bridge_status {
-			bridge_id: Default::default(),
+		RuntimeCall::ToRococoXcmRouter(pallet_xcm_bridge_hub_router::Call::update_bridge_status {
+			bridge_id: bridge_id.clone(),
 			is_congested: true,
 		})
 		.encode(),
 		bp_asset_hub_westend::Call::ToRococoXcmRouter(
 			bp_asset_hub_westend::XcmBridgeHubRouterCall::report_bridge_status {
-				bridge_id: Default::default(),
+				bridge_id: bridge_id.inner(),
 				is_congested: true,
 			}
 		)
@@ -1290,7 +1292,7 @@ fn check_sane_weight_report_bridge_status() {
 	use pallet_xcm_bridge_hub_router::WeightInfo;
 	let actual = <Runtime as pallet_xcm_bridge_hub_router::Config<
 		ToRococoXcmRouterInstance,
-	>>::WeightInfo::report_bridge_status();
+	>>::WeightInfo::update_bridge_status();
 	let max_weight = bp_asset_hub_westend::XcmBridgeHubRouterTransactCallMaxWeight::get();
 	assert!(
 		actual.all_lte(max_weight),

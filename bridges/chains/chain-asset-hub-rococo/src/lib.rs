@@ -39,7 +39,7 @@ use xcm::latest::prelude::*;
 pub enum Call {
 	/// `ToWestendXcmRouter` bridge pallet.
 	#[codec(index = 45)]
-	ToWestendXcmRouter(XcmBridgeHubRouterCall),
+	ToWestendXcmRouter(XcmBridgeHubRouterCall<sp_core::H256>),
 }
 
 frame_support::parameter_types! {
