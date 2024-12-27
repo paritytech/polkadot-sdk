@@ -25,7 +25,7 @@ use crate::{
 	start_rpc_servers, BuildGenesisBlock, GenesisBlockBuilder, RpcHandlers, SpawnTaskHandle,
 	TaskManager, TransactionPoolAdapter,
 };
-use futures::{select, FutureExt, StreamExt};
+use futures::{channel::oneshot, select, FutureExt, StreamExt};
 use jsonrpsee::RpcModule;
 use log::info;
 use prometheus_endpoint::Registry;
@@ -845,6 +845,7 @@ pub fn build_network<Block, Net, TxPool, IQ, Client>(
 		Arc<dyn sc_network::service::traits::NetworkService>,
 		TracingUnboundedSender<sc_rpc::system::Request<Block>>,
 		sc_network_transactions::TransactionsHandlerController<<Block as BlockT>::Hash>,
+		NetworkStarter,
 		Arc<SyncingService<Block>>,
 	),
 	Error,
@@ -1006,6 +1007,7 @@ pub fn build_network_advanced<Block, Net, TxPool, IQ, Client>(
 		Arc<dyn sc_network::service::traits::NetworkService>,
 		TracingUnboundedSender<sc_rpc::system::Request<Block>>,
 		sc_network_transactions::TransactionsHandlerController<<Block as BlockT>::Hash>,
+		NetworkStarter,
 		Arc<SyncingService<Block>>,
 	),
 	Error,
@@ -1146,6 +1148,22 @@ where
 		announce_block,
 	);
 
+	// TODO: Normally, one is supposed to pass a list of notifications protocols supported by the
+	// node through the `NetworkConfiguration` struct. But because this function doesn't know in
+	// advance which components, such as GrandPa or Polkadot, will be plugged on top of the
+	// service, it is unfortunately not possible to do so without some deep refactoring. To
+	// bypass this problem, the `NetworkService` provides a `register_notifications_protocol`
+	// method that can be called even after the network has been initialized. However, we want to
+	// avoid the situation where `register_notifications_protocol` is called *after* the network
+	// actually connects to other peers. For this reason, we delay the process of the network
+	// future until the user calls `NetworkStarter::start_network`.
+	//
+	// This entire hack should eventually be removed in favour of passing the list of protocols
+	// through the configuration.
+	//
+	// See also https://github.com/paritytech/substrate/issues/6827
+	let (network_start_tx, network_start_rx) = oneshot::channel();
+
 	// The network worker is responsible for gathering all network messages and processing
 	// them. This is quite a heavy task, and at the time of the writing of this comment it
 	// frequently happens that this future takes several seconds or in some situations
@@ -1153,9 +1171,26 @@ where
 	// issue, and ideally we would like to fix the network future to take as little time as
 	// possible, but we also take the extra harm-prevention measure to execute the networking
 	// future using `spawn_blocking`.
-	spawn_handle.spawn_blocking("network-worker", Some("networking"), future);
+	spawn_handle.spawn_blocking("network-worker", Some("networking"), async move {
+		if network_start_rx.await.is_err() {
+			log::warn!(
+				"The NetworkStart returned as part of `build_network` has been silently dropped"
+			);
+			// This `return` might seem unnecessary, but we don't want to make it look like
+			// everything is working as normal even though the user is clearly misusing the API.
+			return
+		}
 
-	Ok((network, system_rpc_tx, tx_handler_controller, sync_service.clone()))
+		future.await
+	});
+
+	Ok((
+		network,
+		system_rpc_tx,
+		tx_handler_controller,
+		NetworkStarter(network_start_tx),
+		sync_service.clone(),
+	))
 }
 
 /// Configuration for [`build_default_syncing_engine`].
@@ -1383,4 +1418,22 @@ where
 		warp_sync_config,
 		warp_sync_protocol_name,
 	)?))
+}
+
+/// Object used to start the network.
+#[must_use]
+pub struct NetworkStarter(oneshot::Sender<()>);
+
+impl NetworkStarter {
+	/// Create a new NetworkStarter
+	pub fn new(sender: oneshot::Sender<()>) -> Self {
+		NetworkStarter(sender)
+	}
+
+	/// Start the network. Call this after all sub-components have been initialized.
+	///
+	/// > **Note**: If you don't call this function, the networking will not work.
+	pub fn start_network(self) {
+		let _ = self.0.send(());
+	}
 }

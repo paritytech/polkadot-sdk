@@ -1003,7 +1003,7 @@ pub fn new_full<
 		})
 	};
 
-	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
+	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
 			net_config,
@@ -1382,6 +1382,8 @@ pub fn new_full<
 			sc_consensus_grandpa::run_grandpa_voter(grandpa_config)?,
 		);
 	}
+
+	network_starter.start_network();
 
 	Ok(NewFull {
 		task_manager,

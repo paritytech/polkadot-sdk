@@ -289,7 +289,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				prometheus_registry.clone(),
 			);
 
-			let (network, system_rpc_tx, tx_handler_controller, sync_service) =
+			let (network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
 				build_network(BuildNetworkParams {
 					parachain_config: &parachain_config,
 					net_config,
@@ -396,6 +396,8 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					block_import_auxiliary_data,
 				)?;
 			}
+
+			start_network.start_network();
 
 			Ok(task_manager)
 		};
