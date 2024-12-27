@@ -4,4 +4,4 @@ doc:
   description: To simplify debugging of peerset related issues like https://github.com/paritytech/polkadot-sdk/issues/6573#issuecomment-2563091343.
 crates:
 - name: sc-network
-  bump: major
+  bump: patch
