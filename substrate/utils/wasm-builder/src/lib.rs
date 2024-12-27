@@ -64,7 +64,8 @@
 //! By using environment variables, you can configure which Wasm binaries are built and how:
 //!
 //! - `SUBSTRATE_RUNTIME_TARGET` - Sets the target for building runtime. Supported values are `wasm`
-//!   or `riscv` (experimental, do not use it in production!). By default the target is equal to `wasm`.
+//!   or `riscv` (experimental, do not use it in production!). By default the target is equal to
+//!   `wasm`.
 //! - `SKIP_WASM_BUILD` - Skips building any Wasm binary. This is useful when only native should be
 //!   recompiled. If this is the first run and there doesn't exist a Wasm binary, this will set both
 //!   variables to `None`.
@@ -87,8 +88,8 @@
 //!   actual workspace.
 //! - `WASM_BUILD_STD` - Sets whether the Rust's standard library crates (`core` and `alloc`) will
 //!   also be built. This is necessary to make sure the standard library crates only use the exact
-//!   WASM feature set that our executor supports. Enabled by default for RISC-V target and WASM target
-//!   (but only if Rust < 1.84). Disabled by default for WASM target and Rust >= 1.84.
+//!   WASM feature set that our executor supports. Enabled by default for RISC-V target and WASM
+//!   target (but only if Rust < 1.84). Disabled by default for WASM target and Rust >= 1.84.
 //! - `WASM_BUILD_CARGO_ARGS` - This can take a string as space separated list of `cargo` arguments.
 //!   It was added specifically for the use case of enabling JSON diagnostic messages during the
 //!   build phase, to be used by IDEs that parse them, but it might be useful for other cases too.
