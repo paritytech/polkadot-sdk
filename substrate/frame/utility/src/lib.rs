@@ -70,11 +70,17 @@ use sp_runtime::traits::{BadOrigin, Dispatchable, TrailingZeroInput};
 pub use weights::WeightInfo;
 pub use pallet::*;
 
+/// Hooks that will be called for `batch` calls.
+#[impl_trait_for_tuples::impl_for_tuples(30)]
 pub trait BatchHook {
+	/// Will be called before a batch is executed.
 	fn on_batch_start() -> sp_runtime::DispatchResult;
+	/// Will be called after the batch was executed.
+	///
+	/// Depending on the exact batch call used, it may not be called when a batch item failed.
 	fn on_batch_end() -> sp_runtime::DispatchResult;
-
 }
+
 impl BatchHook for () {
 	fn on_batch_start() -> sp_runtime::DispatchResult {
 		Ok(())
