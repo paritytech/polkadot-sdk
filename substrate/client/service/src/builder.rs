@@ -1153,6 +1153,10 @@ where
 	// sync protocol is initiated fast enough
 	// (see https://github.com/paritytech/polkadot-sdk/issues/6573#issuecomment-2563091343).
 	//
+	// The solution is far from ideal, because in the client code the nework starter is
+	// activated once all the tasks are spawned, not once they finished the initialization,
+	// so the race can still happen.
+	//
 	// This hack is needed at least until protocol peer sets are made independed.
 	// See the discussion in https://github.com/paritytech/polkadot-sdk/issues/7006.
 	let (network_start_tx, network_start_rx) = oneshot::channel();
