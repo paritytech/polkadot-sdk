@@ -19,7 +19,7 @@ workflows:
         '--left-side-outside-workspace=ignore',
         # Some features imply that they activate a specific dependency as non-optional. Otherwise the default behaviour with a `?` is used.
         '--feature-enables-dep=try-runtime:frame-try-runtime,runtime-benchmarks:frame-benchmarking',
-        # Auxillary flags:
+        # Auxiliary flags:
         '--offline',
         '--locked',
         '--show-path',
@@ -37,7 +37,7 @@ workflows:
 help:
   text: |
     Polkadot-SDK uses the Zepter CLI to detect abnormalities in the feature configuration.
-    It looks like one more more checks failed; please check the console output. You can try to automatically address them by running `zepter`.
+    It looks like one or more checks failed; please check the console output. You can try to automatically address them by running `zepter`.
     Otherwise please ask directly in the Merge Request, GitHub Discussions or on Matrix Chat, thank you.
   links:
     - "https://github.com/paritytech/polkadot-sdk/issues/1831"
