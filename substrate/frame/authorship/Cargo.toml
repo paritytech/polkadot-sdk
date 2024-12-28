@@ -23,10 +23,6 @@ impl-trait-for-tuples = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 frame = { workspace = true, features = ["experimental", "runtime"] }
 
-[dev-dependencies]
-sp-core = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-
 [features]
 default = ["std"]
 std = [

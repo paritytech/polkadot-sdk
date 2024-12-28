@@ -21,7 +21,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame::testing_prelude::*;
+use frame::prelude::*;
 
 pub use pallet::*;
 
@@ -94,6 +94,7 @@ mod tests {
 	use super::*;
 	use crate as pallet_authorship;
 	use codec::{Decode, Encode};
+	use frame::testing_prelude::*;
 
 	type Block = frame_system::mocking::MockBlock<Test>;
 
