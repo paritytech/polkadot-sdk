@@ -566,7 +566,7 @@ pub mod account {
 	pub use sp_runtime::traits::{IdentifyAccount, IdentityLookup};
 }
 
-/// Utility traits and types not tied to any direct operation in the runtime.
+/// Utility traits not tied to any direct operation in the runtime.
 pub mod utility {
 	pub use frame_support::traits::{Everything, VariantCount, VariantCountOf};
 }
