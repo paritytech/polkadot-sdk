@@ -159,7 +159,7 @@ where
 		&self,
 		xts: impl IntoIterator<Item = (TimedTransactionSource, ExtrinsicFor<ChainApi>)>,
 	) -> Vec<Result<ExtrinsicHash<ChainApi>, ChainApi::Error>> {
-		if log::log_enabled!(target: LOG_TARGET, log::Level::Trace) {
+		if tracing::enabled!(target: LOG_TARGET, tracing::Level::TRACE) {
 			let xts = xts.into_iter().collect::<Vec<_>>();
 			log_xt_trace!(target: LOG_TARGET, xts.iter().map(|(_,xt)| self.pool.validated_pool().api().hash_and_length(xt).0), "[{:?}] view::submit_many at:{}", self.at.hash);
 			self.pool.submit_at(&self.at, xts).await
@@ -174,7 +174,7 @@ where
 		source: TimedTransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
 	) -> Result<Watcher<ExtrinsicHash<ChainApi>, ExtrinsicHash<ChainApi>>, ChainApi::Error> {
-		log::trace!(target: LOG_TARGET, "[{:?}] view::submit_and_watch at:{}", self.pool.validated_pool().api().hash_and_length(&xt).0, self.at.hash);
+		tracing::trace!(target: LOG_TARGET, "[{:?}] view::submit_and_watch at:{}", self.pool.validated_pool().api().hash_and_length(&xt).0, self.at.hash);
 		self.pool.submit_and_watch(&self.at, source, xt).await
 	}
 
@@ -184,7 +184,7 @@ where
 		xt: ExtrinsicFor<ChainApi>,
 	) -> Result<ExtrinsicHash<ChainApi>, ChainApi::Error> {
 		let (hash, length) = self.pool.validated_pool().api().hash_and_length(&xt);
-		log::trace!(target: LOG_TARGET, "[{:?}] view::submit_local at:{}", hash, self.at.hash);
+		tracing::trace!(target: LOG_TARGET, "[{:?}] view::submit_local at:{}", hash, self.at.hash);
 
 		let validity = self
 			.pool
@@ -258,7 +258,7 @@ where
 			revalidation_result_tx,
 		} = finish_revalidation_worker_channels;
 
-		log::trace!(target:LOG_TARGET, "view::revalidate: at {} starting", self.at.hash);
+		tracing::trace!(target:LOG_TARGET, "view::revalidate: at {} starting", self.at.hash);
 		let start = Instant::now();
 		let validated_pool = self.pool.validated_pool();
 		let api = validated_pool.api();
@@ -279,7 +279,7 @@ where
 			let mut should_break = false;
 			tokio::select! {
 				_ = finish_revalidation_request_rx.recv() => {
-					log::trace!(target: LOG_TARGET, "view::revalidate: finish revalidation request received at {}.", self.at.hash);
+					tracing::trace!(target: LOG_TARGET, "view::revalidate: finish revalidation request received at {}.", self.at.hash);
 					break
 				}
 				_ = async {
@@ -302,7 +302,7 @@ where
 		self.metrics.report(|metrics| {
 			metrics.view_revalidation_duration.observe(revalidation_duration.as_secs_f64());
 		});
-		log::debug!(
+		tracing::debug!(
 			target:LOG_TARGET,
 			"view::revalidate: at {:?} count: {}/{} took {:?}",
 			self.at.hash,
@@ -331,7 +331,7 @@ where
 					);
 				},
 				Ok(Err(TransactionValidityError::Unknown(e))) => {
-					log::trace!(
+					tracing::trace!(
 						target: LOG_TARGET,
 						"[{:?}]: Removing. Cannot determine transaction validity: {:?}",
 						tx_hash,
@@ -340,7 +340,7 @@ where
 					invalid_hashes.push(tx_hash);
 				},
 				Err(validation_err) => {
-					log::trace!(
+					tracing::trace!(
 						target: LOG_TARGET,
 						"[{:?}]: Removing due to error during revalidation: {}",
 						tx_hash,
@@ -351,12 +351,12 @@ where
 			}
 		}
 
-		log::trace!(target:LOG_TARGET, "view::revalidate: sending revalidation result at {}", self.at.hash);
+		tracing::trace!(target:LOG_TARGET, "view::revalidate: sending revalidation result at {}", self.at.hash);
 		if let Err(e) = revalidation_result_tx
 			.send(RevalidationResult { invalid_hashes, revalidated })
 			.await
 		{
-			log::trace!(target:LOG_TARGET, "view::revalidate: sending revalidation_result at {} failed {:?}", self.at.hash, e);
+			tracing::trace!(target:LOG_TARGET, "view::revalidate: sending revalidation_result at {} failed {:?}", self.at.hash, e);
 		}
 	}
 
@@ -374,7 +374,7 @@ where
 			super::revalidation_worker::RevalidationQueue<ChainApi, ChainApi::Block>,
 		>,
 	) {
-		log::trace!(target:LOG_TARGET,"view::start_background_revalidation: at {}", view.at.hash);
+		tracing::trace!(target:LOG_TARGET,"view::start_background_revalidation: at {}", view.at.hash);
 		let (finish_revalidation_request_tx, finish_revalidation_request_rx) =
 			tokio::sync::mpsc::channel(1);
 		let (revalidation_result_tx, revalidation_result_rx) = tokio::sync::mpsc::channel(1);
@@ -404,10 +404,10 @@ where
 	///
 	/// Refer to [*View revalidation*](../index.html#view-revalidation) for more details.
 	pub(super) async fn finish_revalidation(&self) {
-		log::trace!(target:LOG_TARGET,"view::finish_revalidation: at {}", self.at.hash);
+		tracing::trace!(target:LOG_TARGET,"view::finish_revalidation: at {}", self.at.hash);
 		let Some(revalidation_worker_channels) = self.revalidation_worker_channels.lock().take()
 		else {
-			log::trace!(target:LOG_TARGET, "view::finish_revalidation: no finish_revalidation_request_tx");
+			tracing::trace!(target:LOG_TARGET, "view::finish_revalidation: no finish_revalidation_request_tx");
 			return
 		};
 
@@ -418,7 +418,7 @@ where
 
 		if let Some(finish_revalidation_request_tx) = finish_revalidation_request_tx {
 			if let Err(e) = finish_revalidation_request_tx.send(()).await {
-				log::trace!(target:LOG_TARGET, "view::finish_revalidation: sending cancellation request at {} failed {:?}", self.at.hash, e);
+				tracing::trace!(target:LOG_TARGET, "view::finish_revalidation: sending cancellation request at {} failed {:?}", self.at.hash, e);
 			}
 		}
 
@@ -444,7 +444,7 @@ where
 				);
 			});
 
-			log::debug!(
+			tracing::debug!(
 				target:LOG_TARGET,
 				"view::finish_revalidation: applying revalidation result invalid: {} revalidated: {} at {:?} took {:?}",
 				revalidation_result.invalid_hashes.len(),

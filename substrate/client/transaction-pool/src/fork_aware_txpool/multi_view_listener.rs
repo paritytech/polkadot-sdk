@@ -26,7 +26,7 @@ use crate::{
 	LOG_TARGET,
 };
 use futures::StreamExt;
-use log::{debug, trace};
+use tracing::{debug, trace};
 use sc_transaction_pool_api::{TransactionStatus, TransactionStatusStream, TxIndex};
 use sc_utils::mpsc;
 use sp_runtime::traits::Block as BlockT;
@@ -323,12 +323,12 @@ where
 						biased;
 						Some((view_hash, status)) =  next_event(&mut ctx.status_stream_map) => {
 							if let Some(new_status) = ctx.handle(status, view_hash) {
-								log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: {new_status:?}", ctx.tx_hash);
+								trace!(target: LOG_TARGET, "[{:?}] mvl sending out: {new_status:?}", ctx.tx_hash);
 								return Some((new_status, ctx))
 							}
 						},
 						cmd = ctx.command_receiver.next() => {
-							log::trace!(target: LOG_TARGET, "[{:?}] select::rx views:{:?}",
+							trace!(target: LOG_TARGET, "[{:?}] select::rx views:{:?}",
 								ctx.tx_hash,
 								ctx.status_stream_map.keys().collect::<Vec<_>>()
 							);
@@ -341,26 +341,26 @@ where
 								},
 								ControllerCommand::TransactionInvalidated => {
 									if ctx.handle_invalidate_transaction() {
-										log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Invalid", ctx.tx_hash);
+										trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Invalid", ctx.tx_hash);
 										return Some((TransactionStatus::Invalid, ctx))
 									}
 								},
 								ControllerCommand::FinalizeTransaction(block, index) => {
-									log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Finalized", ctx.tx_hash);
+									trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Finalized", ctx.tx_hash);
 									ctx.terminate = true;
 									return Some((TransactionStatus::Finalized((block, index)), ctx))
 								},
 								ControllerCommand::TransactionBroadcasted(peers) => {
-									log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Broadcasted", ctx.tx_hash);
+									trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Broadcasted", ctx.tx_hash);
 									return Some((TransactionStatus::Broadcast(peers), ctx))
 								},
 								ControllerCommand::TransactionDropped(DroppedReason::LimitsEnforced) => {
-									log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Dropped", ctx.tx_hash);
+									trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Dropped", ctx.tx_hash);
 									ctx.terminate = true;
 									return Some((TransactionStatus::Dropped, ctx))
 								},
 								ControllerCommand::TransactionDropped(DroppedReason::Usurped(by)) => {
-									log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Usurped({:?})", ctx.tx_hash, by);
+									trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Usurped({:?})", ctx.tx_hash, by);
 									ctx.terminate = true;
 									return Some((TransactionStatus::Usurped(by), ctx))
 								},
@@ -405,7 +405,7 @@ where
 			sender
 				.unbounded_send(ControllerCommand::RemoveViewStream(block_hash))
 				.map_err(|e| {
-					log::trace!(target: LOG_TARGET, "[{:?}] remove_view: send message failed: {:?}", tx_hash, e);
+					trace!(target: LOG_TARGET, "[{:?}] remove_view: send message failed: {:?}", tx_hash, e);
 					e
 				})
 				.is_ok()
@@ -525,7 +525,7 @@ mod tests {
 
 		let out = handle.await.unwrap();
 		assert_eq!(out, events);
-		log::debug!("out: {:#?}", out);
+		debug!("out: {:#?}", out);
 	}
 
 	#[tokio::test]
@@ -560,7 +560,7 @@ mod tests {
 
 		let out = handle.await.unwrap();
 
-		log::debug!("out: {:#?}", out);
+		debug!("out: {:#?}", out);
 		assert!(out.iter().all(|v| vec![
 			TransactionStatus::Future,
 			TransactionStatus::Ready,
@@ -600,7 +600,7 @@ mod tests {
 		listener.invalidate_transactions(&[tx_hash]);
 
 		let out = handle.await.unwrap();
-		log::debug!("out: {:#?}", out);
+		debug!("out: {:#?}", out);
 		assert!(out.iter().all(|v| vec![
 			TransactionStatus::Future,
 			TransactionStatus::Ready,
@@ -654,8 +654,8 @@ mod tests {
 		let out_tx0 = handle0.await.unwrap();
 		let out_tx1 = handle1.await.unwrap();
 
-		log::debug!("out_tx0: {:#?}", out_tx0);
-		log::debug!("out_tx1: {:#?}", out_tx1);
+		debug!("out_tx0: {:#?}", out_tx0);
+		debug!("out_tx1: {:#?}", out_tx1);
 		assert!(out_tx0.iter().all(|v| vec![
 			TransactionStatus::Future,
 			TransactionStatus::Ready,
@@ -707,7 +707,7 @@ mod tests {
 		listener.invalidate_transactions(&[tx_hash]);
 
 		let out = handle.await.unwrap();
-		log::debug!("out: {:#?}", out);
+		debug!("out: {:#?}", out);
 
 		// invalid shall not be sent
 		assert!(out.iter().all(|v| vec![
@@ -740,7 +740,7 @@ mod tests {
 		listener.add_view_watcher_for_tx(tx_hash, block_hash0, view_stream0.boxed());
 
 		let out = handle.await.unwrap();
-		log::debug!("out: {:#?}", out);
+		debug!("out: {:#?}", out);
 
 		assert!(out.iter().all(|v| vec![TransactionStatus::Invalid].contains(v)));
 		assert_eq!(out.len(), 1);
