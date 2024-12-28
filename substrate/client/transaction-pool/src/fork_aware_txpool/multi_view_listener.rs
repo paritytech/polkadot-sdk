@@ -26,7 +26,6 @@ use crate::{
 	LOG_TARGET,
 };
 use futures::StreamExt;
-use tracing::{debug, trace};
 use sc_transaction_pool_api::{TransactionStatus, TransactionStatusStream, TxIndex};
 use sc_utils::mpsc;
 use sp_runtime::traits::Block as BlockT;
@@ -35,6 +34,7 @@ use std::{
 	pin::Pin,
 };
 use tokio_stream::StreamMap;
+use tracing::{debug, trace};
 
 use super::dropped_watcher::{DroppedReason, DroppedTransaction};
 

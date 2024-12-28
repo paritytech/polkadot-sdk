@@ -28,7 +28,6 @@ use crate::{
 	LOG_TARGET,
 };
 use futures::stream::StreamExt;
-use tracing::{debug, trace};
 use sc_transaction_pool_api::TransactionStatus;
 use sc_utils::mpsc;
 use sp_runtime::traits::Block as BlockT;
@@ -41,6 +40,7 @@ use std::{
 	pin::Pin,
 };
 use tokio_stream::StreamMap;
+use tracing::{debug, trace};
 
 /// Represents a transaction that was removed from the transaction pool, including the reason of its
 /// removal.
@@ -276,7 +276,7 @@ where
 					}
 				} else {
 					let tx_hash_string = format!("{:?}", tx_hash);
-					debug!(tx_hash_string, "dropped_watcher: removing (non-tracked) tx" );
+					debug!(tx_hash_string, "dropped_watcher: removing (non-tracked) tx");
 					return Some(DroppedTransaction::new_enforced_by_limts(tx_hash))
 				}
 			},

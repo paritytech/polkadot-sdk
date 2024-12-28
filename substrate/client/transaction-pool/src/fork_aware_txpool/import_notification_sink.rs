@@ -27,7 +27,6 @@ use futures::{
 	stream::StreamExt,
 	Future, FutureExt,
 };
-use tracing::trace;
 use parking_lot::RwLock;
 use sc_utils::mpsc;
 use std::{
@@ -38,6 +37,7 @@ use std::{
 	sync::Arc,
 };
 use tokio_stream::StreamMap;
+use tracing::trace;
 
 /// A type alias for a pinned, boxed stream of items of type `I`.
 /// This alias is particularly useful for defining the types of the incoming streams from various
