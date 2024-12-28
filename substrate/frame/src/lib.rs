@@ -544,6 +544,8 @@ pub mod hashing {
 }
 
 /// Currency related traits.
+///
+/// This is already part of the [`prelude`].
 pub mod currency {
 	pub use frame_support::traits::{
 		fungibles::{Inspect, InspectFreeze, MutateFreeze},
@@ -554,7 +556,9 @@ pub mod currency {
 	};
 }
 
-/// Traits related to Accounts on substrate based chains.
+/// All account management related traits.
+///
+/// This is already part of the [`prelude`].
 pub mod account {
 	pub use frame_support::traits::{
 		AsEnsureOriginWithArg, ChangeMembers, EitherOfDiverse, InitializeMembers,
