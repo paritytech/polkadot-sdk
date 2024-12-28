@@ -212,7 +212,9 @@ impl<Inner: SendXcm> SendXcm for EnsureDecodableXcm<Inner> {
 			if versioned_xcm.validate_xcm_nesting().is_err() {
 				tracing::error!(
 					target: "xcm::validate_xcm_nesting",
-					"EnsureDecodableXcm validate_xcm_nesting error for \nversioned_xcm: {versioned_xcm:?}\nbased on xcm: {msg:?}"
+					?versioned_xcm,
+					?msg,
+					"EnsureDecodableXcm validate_xcm_nesting error for versioned_xcm based on xcm"
 				);
 				return Err(SendError::Transport("EnsureDecodableXcm validate_xcm_nesting error"))
 			}

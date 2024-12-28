@@ -55,8 +55,8 @@ impl<
 	) -> result::Result<AssetsInHolding, XcmError> {
 		tracing::trace!(
 			target: "xcm::fungible_adapter",
-			"internal_transfer_asset what: {:?}, from: {:?}, to: {:?}",
-			what, from, to
+			?what, ?from, ?to,
+			"internal_transfer_asset",
 		);
 		// Check we handle the asset
 		let amount = Matcher::matches_fungible(what).ok_or(MatchError::AssetNotHandled)?;
@@ -121,8 +121,8 @@ impl<
 	fn can_check_in(_origin: &Location, what: &Asset, _context: &XcmContext) -> XcmResult {
 		tracing::trace!(
 			target: "xcm::fungible_adapter",
-			"can_check_in origin: {:?}, what: {:?}",
-			_origin, what
+			?_origin, ?what,
+			"can_check_in origin",
 		);
 		// Check we handle this asset
 		let amount = Matcher::matches_fungible(what).ok_or(MatchError::AssetNotHandled)?;
@@ -138,8 +138,8 @@ impl<
 	fn check_in(_origin: &Location, what: &Asset, _context: &XcmContext) {
 		tracing::trace!(
 			target: "xcm::fungible_adapter",
-			"check_in origin: {:?}, what: {:?}",
-			_origin, what
+			?_origin, ?what,
+			"check_in origin",
 		);
 		if let Some(amount) = Matcher::matches_fungible(what) {
 			match CheckingAccount::get() {
@@ -155,9 +155,9 @@ impl<
 	fn can_check_out(_dest: &Location, what: &Asset, _context: &XcmContext) -> XcmResult {
 		tracing::trace!(
 			target: "xcm::fungible_adapter",
-			"can_check_out dest: {:?}, what: {:?}",
-			_dest,
-			what
+			?_dest,
+			?what,
+			"can_check_out",
 		);
 		let amount = Matcher::matches_fungible(what).ok_or(MatchError::AssetNotHandled)?;
 		match CheckingAccount::get() {
@@ -172,9 +172,9 @@ impl<
 	fn check_out(_dest: &Location, what: &Asset, _context: &XcmContext) {
 		tracing::trace!(
 			target: "xcm::fungible_adapter",
-			"check_out dest: {:?}, what: {:?}",
-			_dest,
-			what
+			?_dest,
+			?what,
+			"check_out",
 		);
 		if let Some(amount) = Matcher::matches_fungible(what) {
 			match CheckingAccount::get() {
@@ -190,8 +190,8 @@ impl<
 	fn deposit_asset(what: &Asset, who: &Location, _context: Option<&XcmContext>) -> XcmResult {
 		tracing::trace!(
 			target: "xcm::fungible_adapter",
-			"deposit_asset what: {:?}, who: {:?}",
-			what, who,
+			?what, ?who,
+			"deposit_asset",
 		);
 		let amount = Matcher::matches_fungible(what).ok_or(MatchError::AssetNotHandled)?;
 		let who = AccountIdConverter::convert_location(who)
@@ -208,8 +208,8 @@ impl<
 	) -> result::Result<AssetsInHolding, XcmError> {
 		tracing::trace!(
 			target: "xcm::fungible_adapter",
-			"withdraw_asset what: {:?}, who: {:?}",
-			what, who,
+			?what, ?who,
+			"withdraw_asset",
 		);
 		let amount = Matcher::matches_fungible(what).ok_or(MatchError::AssetNotHandled)?;
 		let who = AccountIdConverter::convert_location(who)

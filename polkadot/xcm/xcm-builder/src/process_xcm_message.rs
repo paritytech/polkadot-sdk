@@ -50,8 +50,8 @@ impl<
 		let versioned_message = VersionedXcm::<Call>::decode(&mut &message[..]).map_err(|e| {
 			tracing::trace!(
 				target: LOG_TARGET,
-				"`VersionedXcm` failed to decode: {:?}",
-				e
+				?e,
+				"`VersionedXcm` failed to decode",
 			);
 
 			ProcessMessageError::Corrupt

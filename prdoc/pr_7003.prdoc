@@ -11,5 +11,5 @@ crates:
   - name: staging-xcm-builder
     bump: minor
   - name: assets-common
-    bump: patch
+    bump: minor
     

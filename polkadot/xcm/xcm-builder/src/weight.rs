@@ -39,7 +39,7 @@ impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M: Get<u32>> WeightBounds<C>
 	for FixedWeightBounds<T, C, M>
 {
 	fn weight(message: &mut Xcm<C>) -> Result<Weight, ()> {
-		tracing::trace!(target: "xcm::weight", "FixedWeightBounds message: {:?}", message);
+		tracing::trace!(target: "xcm::weight", ?message, "FixedWeightBounds");
 		let mut instructions_left = M::get();
 		Self::weight_with_limit(message, &mut instructions_left)
 	}
@@ -82,7 +82,7 @@ where
 	Instruction<C>: xcm::latest::GetWeight<W>,
 {
 	fn weight(message: &mut Xcm<C>) -> Result<Weight, ()> {
-		tracing::trace!(target: "xcm::weight", "WeightInfoBounds message: {:?}", message);
+		tracing::trace!(target: "xcm::weight", ?message, "WeightInfoBounds");
 		let mut instructions_left = M::get();
 		Self::weight_with_limit(message, &mut instructions_left)
 	}
@@ -156,8 +156,8 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 	) -> Result<AssetsInHolding, XcmError> {
 		tracing::trace!(
 			target: "xcm::weight",
-			"FixedRateOfFungible::buy_weight weight: {:?}, payment: {:?}, context: {:?}",
-			weight, payment, context,
+			?weight, ?payment, ?context,
+			"FixedRateOfFungible::buy_weight",
 		);
 		let (id, units_per_second, units_per_mb) = T::get();
 		let amount = (units_per_second * (weight.ref_time() as u128) /
@@ -176,7 +176,7 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 	}
 
 	fn refund_weight(&mut self, weight: Weight, context: &XcmContext) -> Option<Asset> {
-		tracing::trace!(target: "xcm::weight", "FixedRateOfFungible::refund_weight weight: {:?}, context: {:?}", weight, context);
+		tracing::trace!(target: "xcm::weight", ?weight, ?context, "FixedRateOfFungible::refund_weight");
 		let (id, units_per_second, units_per_mb) = T::get();
 		let weight = weight.min(self.0);
 		let amount = (units_per_second * (weight.ref_time() as u128) /
@@ -231,7 +231,7 @@ impl<
 		payment: AssetsInHolding,
 		context: &XcmContext,
 	) -> Result<AssetsInHolding, XcmError> {
-		tracing::trace!(target: "xcm::weight", "UsingComponents::buy_weight weight: {:?}, payment: {:?}, context: {:?}", weight, payment, context);
+		tracing::trace!(target: "xcm::weight", ?weight, ?payment, ?context, "UsingComponents::buy_weight");
 		let amount = WeightToFee::weight_to_fee(&weight);
 		let u128_amount: u128 = amount.try_into().map_err(|_| {
 			tracing::error!(target: "xcm::weight", "Amount could not be converted");
@@ -248,13 +248,13 @@ impl<
 	}
 
 	fn refund_weight(&mut self, weight: Weight, context: &XcmContext) -> Option<Asset> {
-		tracing::trace!(target: "xcm::weight", "UsingComponents::refund_weight weight: {:?}, context: {:?}, available weight: {:?}, available amount: {:?}", weight, context, self.0, self.1);
+		tracing::trace!(target: "xcm::weight", ?weight, ?context, "UsingComponents::refund_weight available weight: {:?}, available amount: {:?}", self.0, self.1);
 		let weight = weight.min(self.0);
 		let amount = WeightToFee::weight_to_fee(&weight);
 		self.0 -= weight;
 		self.1 = self.1.saturating_sub(amount);
 		let amount: u128 = amount.saturated_into();
-		tracing::trace!(target: "xcm::weight", "UsingComponents::refund_weight amount to refund: {:?}", amount);
+		tracing::trace!(target: "xcm::weight", ?amount, "UsingComponents::refund_weight");
 		if amount > 0 {
 			Some((AssetIdValue::get(), amount).into())
 		} else {

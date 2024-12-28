@@ -123,7 +123,7 @@ pub type XcmOriginToTransactDispatchOrigin = (
 pub struct ParentOrParentsPlurality;
 impl Contains<Location> for ParentOrParentsPlurality {
 	fn contains(location: &Location) -> bool {
-		log::trace!(target: "xcm::contains", ?&location, "did match location");
+		log::trace!(target: "xcm::contains", "did match location: {:?}", &location);
 		matches!(location.unpack(), (1, []) | (1, [Plurality { .. }]))
 	}
 }

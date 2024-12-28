@@ -86,11 +86,7 @@ impl<
 		match ensure_is_remote(universal_source.clone(), a.clone()) {
 			Ok((network_id, _)) => network_id == ExpectedNetworkId::get(),
 			Err(e) => {
-				tracing::trace!(
-					target: "xcm::contains",
-					"FromNetwork origin: {:?} is not remote to the universal_source: {:?} {:?}",
-					a, universal_source, e
-				);
+				tracing::trace!(target: "xcm::contains", ?a, ?universal_source, ?e, "FromNetwork origin is not remote to the universal_source");
 				false
 			},
 		}

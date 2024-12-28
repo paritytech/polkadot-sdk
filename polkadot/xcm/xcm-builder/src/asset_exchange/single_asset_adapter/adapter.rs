@@ -75,9 +75,9 @@ where
 			Matcher::matches_fungibles(&give_asset).map_err(|error| {
 				tracing::trace!(
 					target: "xcm::SingleAssetExchangeAdapter::exchange_asset",
-					"Could not map XCM asset give {:?} to FRAME asset. Error: {:?}",
-					give_asset,
-					error,
+					?give_asset,
+					?error,
+					"Could not map XCM asset give to FRAME asset.",
 				);
 				give.clone()
 			})?;
@@ -85,9 +85,9 @@ where
 			Matcher::matches_fungibles(&want_asset).map_err(|error| {
 				tracing::trace!(
 					target: "xcm::SingleAssetExchangeAdapter::exchange_asset",
-					"Could not map XCM asset want {:?} to FRAME asset. Error: {:?}",
-					want_asset,
-					error,
+					?want_asset,
+					?error,
+					"Could not map XCM asset want to FRAME asset. Error"
 				);
 				give.clone()
 			})?;
@@ -108,8 +108,8 @@ where
 			.map_err(|(credit_in, error)| {
 				tracing::error!(
 					target: "xcm::SingleAssetExchangeAdapter::exchange_asset",
-					"Could not perform the swap, error: {:?}.",
-					error
+					?error,
+					"Could not perform the swap, error"
 				);
 				drop(credit_in);
 				give.clone()
@@ -129,8 +129,8 @@ where
 				.map_err(|(credit_in, error)| {
 					tracing::error!(
 						target: "xcm::SingleAssetExchangeAdapter::exchange_asset",
-						"Could not perform the swap, error: {:?}.",
-						error
+						?error,
+						"Could not perform the swap with error",
 					);
 					drop(credit_in);
 					give.clone()
@@ -164,9 +164,9 @@ where
 			.map_err(|error| {
 				tracing::trace!(
 					target: "xcm::SingleAssetExchangeAdapter::quote_exchange_price",
-					"Could not map XCM asset {:?} to FRAME asset. Error: {:?}.",
-					give_asset,
-					error,
+					?give_asset,
+					?error,
+					"Could not map XCM asset to FRAME asset."
 				);
 				()
 			})
@@ -175,9 +175,9 @@ where
 			.map_err(|error| {
 				tracing::trace!(
 					target: "xcm::SingleAssetExchangeAdapter::quote_exchange_price",
-					"Could not map XCM asset {:?} to FRAME asset. Error: {:?}.",
-					want_asset,
-					error,
+					?want_asset,
+					?error,
+					"Could not map XCM asset to FRAME asset"
 				);
 				()
 			})
