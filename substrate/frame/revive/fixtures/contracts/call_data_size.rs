@@ -30,8 +30,5 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	let mut buf = [0; 32];
-	api::call_data_size(&mut buf);
-
-	api::return_value(ReturnFlags::empty(), &buf);
+	api::return_value(ReturnFlags::empty(), &api::call_data_size().to_le_bytes());
 }
