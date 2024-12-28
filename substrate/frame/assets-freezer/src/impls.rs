@@ -16,10 +16,6 @@
 // limitations under the License.
 
 use super::*;
-use frame::traits::{
-	fungibles::{Inspect, InspectFreeze, MutateFreeze},
-	tokens::{DepositConsequence, Fortitude, Preservation, Provenance, WithdrawConsequence},
-};
 use pallet_assets::FrozenBalance;
 
 // Implements [`FrozenBalance`] from [`pallet-assets`], so it can understand how much of an

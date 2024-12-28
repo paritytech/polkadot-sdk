@@ -20,10 +20,7 @@
 use crate as pallet_assets_freezer;
 pub use crate::*;
 use codec::{Compact, Decode, Encode, MaxEncodedLen};
-use frame::{
-	testing_prelude::*,
-	traits::{AsEnsureOriginWithArg, Everything, IdentityLookup},
-};
+use frame::testing_prelude::*;
 use scale_info::TypeInfo;
 
 pub type AccountId = u64;
@@ -144,6 +141,7 @@ pub fn new_test_ext(execute: impl FnOnce()) -> TestExternalities {
 	ext.execute_with(|| {
 		System::set_block_number(1);
 		execute();
+		#[cfg(feature = "try-runtime")]
 		assert_ok!(AssetsFreezer::do_try_state());
 	});
 
