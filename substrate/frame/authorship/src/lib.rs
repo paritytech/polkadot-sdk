@@ -21,7 +21,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame::{prelude::*, traits::FindAuthor};
+use frame::prelude::*;
 
 pub use pallet::*;
 
