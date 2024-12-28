@@ -21,7 +21,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame::prelude::*;
+use frame::testing_prelude::*;
 
 pub use pallet::*;
 
@@ -94,15 +94,6 @@ mod tests {
 	use super::*;
 	use crate as pallet_authorship;
 	use codec::{Decode, Encode};
-	use frame::{
-		deps::{
-			frame_support::{construct_runtime, derive_impl, ConsensusEngineId},
-			sp_runtime::{
-				generic::DigestItem, testing::Header, traits::Header as HeaderT, BuildStorage,
-			},
-		},
-		hashing::H256,
-	};
 
 	type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -143,7 +134,7 @@ mod tests {
 		}
 	}
 
-	fn seal_header(mut header: Header, author: u64) -> Header {
+	fn seal_header(mut header: HeaderTest, author: u64) -> HeaderTest {
 		{
 			let digest = header.digest_mut();
 			digest.logs.push(DigestItem::PreRuntime(TEST_ID, author.encode()));
@@ -153,8 +144,8 @@ mod tests {
 		header
 	}
 
-	fn create_header(number: u64, parent_hash: H256, state_root: H256) -> Header {
-		Header::new(number, Default::default(), state_root, parent_hash, Default::default())
+	fn create_header(number: u64, parent_hash: H256, state_root: H256) -> HeaderTest {
+		HeaderTest::new(number, Default::default(), state_root, parent_hash, Default::default())
 	}
 
 	fn new_test_ext() -> frame::deps::sp_io::TestExternalities {

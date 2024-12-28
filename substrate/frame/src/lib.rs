@@ -219,6 +219,9 @@ pub mod prelude {
 	/// All account management related things.
 	pub use super::account::*;
 
+	/// All block production related things.
+	pub use super::block::*;
+
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
@@ -535,11 +538,20 @@ pub mod hashing {
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
 }
 
+/// All account management related traits.
+///
+/// This is already part of the [`prelude`].
 pub mod account {
 	pub use frame_support::traits::{
 		AsEnsureOriginWithArg, ChangeMembers, EitherOfDiverse, FindAuthor, InitializeMembers,
 	};
 	pub use sp_runtime::traits::{IdentifyAccount, IdentityLookup};
+}
+
+pub mod block {
+	pub use frame_support::ConsensusEngineId;
+	pub use frame_system::limits;
+	pub use sp_runtime::{generic::DigestItem, testing::Header as HeaderTest, traits::Header};
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
