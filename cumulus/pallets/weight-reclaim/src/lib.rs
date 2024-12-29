@@ -17,7 +17,7 @@
 //! Pallet and transaction extensions to reclaim PoV proof size weight after an extrinsic has been
 //! applied.
 //!
-//! This crate provides a transaction extensions and a pallet.
+//! This crate provides:
 //! * [`StorageWeightReclaim`] transaction extension: it must wrap the whole transaction extension
 //!   pipeline.
 //! * The pallet required for the transaction extensions weight information and benchmarks.
