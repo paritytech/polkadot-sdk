@@ -219,9 +219,6 @@ pub mod prelude {
 	/// All account management related things.
 	pub use super::account::*;
 
-	/// All block production related things.
-	pub use super::block::*;
-
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
@@ -232,6 +229,8 @@ pub mod prelude {
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
 	pub use sp_runtime::{DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError};
+
+	pub use sp_runtime::ConsensusEngineId;
 }
 
 #[cfg(any(feature = "try-runtime", test))]
@@ -323,6 +322,8 @@ pub mod testing_prelude {
 	pub use sp_io::TestExternalities;
 
 	pub use sp_io::TestExternalities as TestState;
+
+	pub use sp_runtime::DigestItem;
 }
 
 /// All of the types and tools needed to build FRAME-based runtimes.
@@ -546,15 +547,6 @@ pub mod account {
 		AsEnsureOriginWithArg, ChangeMembers, EitherOfDiverse, FindAuthor, InitializeMembers,
 	};
 	pub use sp_runtime::traits::{IdentifyAccount, IdentityLookup};
-}
-
-pub mod block {
-	pub use frame_support::ConsensusEngineId;
-	pub use frame_system::limits;
-	pub use sp_runtime::{generic::DigestItem, traits::Header};
-
-	#[cfg(feature = "std")]
-	pub use sp_runtime::testing::Header as HeaderTest;
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
