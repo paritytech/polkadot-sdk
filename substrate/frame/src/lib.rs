@@ -202,8 +202,8 @@ pub mod prelude {
 
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
-	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo, DispatchInfo};
-	pub use frame_support::traits::{Contains, IsSubType, OnRuntimeUpgrade};
+	pub use frame_support::dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo};
+	pub use frame_support::traits::{Contains, IsSubType, OnRuntimeUpgrade, OriginTrait};
 
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
@@ -213,14 +213,18 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use super::derive::*;
 
-	/// All hashing related things
-	pub use super::hashing::*;
+	/// All crypto related things.
+	pub use super::cryptography::*;
+
+	/// All account related things.
+	pub use super::account::*;
 
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, DispatchInfoOf, Dispatchable, SaturatedConversion,
-		Saturating, StaticLookup, TrailingZeroInput,
+		AsTransactionAuthorizedOrigin, BlockNumberProvider, Bounded, DispatchInfoOf,
+		DispatchTransaction, Dispatchable, SaturatedConversion, Saturating, StaticLookup,
+		TrailingZeroInput, TransactionExtension,
 	};
 
 	/// Other error/result types for runtime
@@ -364,7 +368,7 @@ pub mod runtime {
 		};
 
 		/// Used for simple fee calculation.
-		pub use frame_support::weights::{self, FixedFee, NoFee};
+		pub use frame_support::weights::{self, FixedFee, NoFee, Weight};
 
 		/// Primary types used to parameterize `EnsureOrigin` and `EnsureRootWithArg`.
 		pub use frame_system::{
@@ -391,8 +395,8 @@ pub mod runtime {
 			LOCAL_TESTNET_RUNTIME_PRESET,
 		};
 		pub use sp_inherents::{CheckInherentsResult, InherentData};
-		pub use sp_keyring::AccountKeyring;
-		pub use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode, impl_tx_ext_default};
+		pub use sp_keyring::Sr25519Keyring;
+		pub use sp_runtime::{impl_tx_ext_default, ApplyExtrinsicResult, ExtrinsicInclusionMode};
 	}
 
 	/// Types and traits for runtimes that implement runtime APIs.
@@ -493,8 +497,7 @@ pub mod runtime {
 	#[cfg(feature = "std")]
 	pub mod testing_prelude {
 		pub use sp_core::storage::Storage;
-		pub use sp_runtime::BuildStorage;
-		pub use sp_runtime::testing::{TestSignature, UintAuthorityId};
+		pub use sp_runtime::{testing::UintAuthorityId, BuildStorage};
 	}
 }
 
@@ -528,9 +531,21 @@ pub mod derive {
 	pub use sp_runtime::RuntimeDebug;
 }
 
-pub mod hashing {
-	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
-	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
+pub mod cryptography {
+	pub use sp_core::{
+		crypto::{VrfPublic, VrfSecret, Wraps},
+		hashing::*,
+		Pair, H160, H256, H512, U256, U512,
+	};
+	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256, Verify};
+}
+
+/// All account management related traits.
+///
+/// This is already part of the [`prelude`].
+pub mod account {
+	pub use frame_support::traits::{ChangeMembers, EitherOfDiverse, InitializeMembers};
+	pub use sp_runtime::traits::IdentifyAccount;
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,

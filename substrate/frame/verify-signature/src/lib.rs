@@ -34,10 +34,7 @@ extern crate alloc;
 pub use benchmarking::BenchmarkHelper;
 use codec::{Decode, Encode};
 pub use extension::VerifySignature;
-use frame::{
-	prelude::*,
-	traits::{IdentifyAccount, Verify},
-};
+use frame::prelude::*;
 pub use weights::WeightInfo;
 
 pub use pallet::*;

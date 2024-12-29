@@ -22,12 +22,9 @@
 use super::*;
 
 use extension::VerifySignature;
-use frame::{
-	testing_prelude::*,
-	traits::{DispatchTransaction, OriginTrait},
-};
+use frame::{deps::sp_runtime::testing::TestSignature, testing_prelude::*};
 use frame_system::Call as SystemCall;
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
 construct_runtime!(
 	pub enum Test

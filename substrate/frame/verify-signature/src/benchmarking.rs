@@ -21,7 +21,7 @@
 
 extern crate alloc;
 use super::*;
-use frame::benchmarking::prelude::{*, frame_system::Call as SystemCall};
+use frame::benchmarking::prelude::{frame_system::Call as SystemCall, *};
 
 #[allow(unused)]
 use crate::{extension::VerifySignature, Config, Pallet as VerifySignaturePallet};

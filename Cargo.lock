@@ -15992,7 +15992,6 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk-frame 0.1.0",
  "scale-info",
- "sp-weights 27.0.0",
 ]
 
 [[package]]

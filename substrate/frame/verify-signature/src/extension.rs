@@ -20,12 +20,8 @@
 
 use crate::{Config, WeightInfo};
 use codec::{Decode, Encode};
-use frame::{
-	runtime::prelude::*,
-	traits::{AsTransactionAuthorizedOrigin, OriginTrait, TransactionExtension, Verify},
-};
+use frame::runtime::prelude::*;
 use scale_info::TypeInfo;
-use sp_weights::Weight;
 
 /// Extension that, if enabled, validates a signature type against the payload constructed from the
 /// call and the rest of the transaction extension pipeline. This extension provides the
