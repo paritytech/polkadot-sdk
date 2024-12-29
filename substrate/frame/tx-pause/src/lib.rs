@@ -78,10 +78,7 @@ pub mod weights;
 extern crate alloc;
 
 use alloc::vec::Vec;
-use frame::{
-	runtime::prelude::*,
-	traits::{CallMetadata, GetCallMetadata, TransactionPause, TransactionPauseError},
-};
+use frame::runtime::prelude::*;
 pub use pallet::*;
 pub use weights::*;
 

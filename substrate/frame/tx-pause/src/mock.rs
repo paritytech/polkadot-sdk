@@ -21,10 +21,7 @@
 
 use super::*;
 use crate as pallet_tx_pause;
-use frame::{
-	testing_prelude::*,
-	traits::{Everything, InsideBoth, InstanceFilter},
-};
+use frame::testing_prelude::*;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
