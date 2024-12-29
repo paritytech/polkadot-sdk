@@ -551,7 +551,10 @@ pub mod account {
 pub mod block {
 	pub use frame_support::ConsensusEngineId;
 	pub use frame_system::limits;
-	pub use sp_runtime::{generic::DigestItem, testing::Header as HeaderTest, traits::Header};
+	pub use sp_runtime::{generic::DigestItem, traits::Header};
+
+	#[cfg(feature = "std")]
+	pub use sp_runtime::testing::Header as HeaderTest;
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
