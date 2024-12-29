@@ -14,7 +14,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#![allow(useless_deprecated, deprecated, clippy::deprecated_semver)]
 
 use std::collections::BTreeMap;
 
@@ -141,7 +140,9 @@ pub mod pallet {
 	{
 		/// Some comment
 		/// Some comment
+		#[deprecated = "test 2"]
 		#[pallet::constant]
+		#[allow(deprecated)]
 		type MyGetParam: Get<u32>;
 
 		/// Some comment
@@ -154,6 +155,7 @@ pub mod pallet {
 
 		type Balance: Parameter + Default + TypeInfo;
 
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
 
@@ -185,6 +187,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::hooks]
+	#[allow(deprecated)]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
 	where
 		T::AccountId: From<SomeType2> + From<SomeType1> + SomeAssociation1,
@@ -221,6 +224,7 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::from_parts(*foo as u64, 0))]
 		#[deprecated = "test"]
+		#[allow(deprecated)]
 		pub fn foo(
 			origin: OriginFor<T>,
 			#[pallet::compact] foo: u32,
@@ -237,6 +241,7 @@ pub mod pallet {
 		/// call foo_storage_layer doc comment put in metadata
 		#[pallet::call_index(1)]
 		#[pallet::weight({1})]
+		#[allow(deprecated)]
 		pub fn foo_storage_layer(
 			_origin: OriginFor<T>,
 			#[pallet::compact] foo: u32,
@@ -282,6 +287,7 @@ pub mod pallet {
 		/// error doc comment put in metadata
 		InsufficientProposersBalance,
 		#[deprecated = "test"]
+		#[allow(deprecated)]
 		NonExistentStorageValue,
 		Code(u8),
 		#[codec(skip)]
@@ -293,13 +299,15 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(fn deposit_event)]
-	#[deprecated = "test"]
+
 	pub enum Event<T: Config>
 	where
 		T::AccountId: SomeAssociation1 + From<SomeType1>,
 	{
 		/// event doc comment put in metadata
 		Proposed(<T as frame_system::Config>::AccountId),
+		#[deprecated = "test"]
+		#[allow(deprecated)]
 		Spending(BalanceOf<T>),
 		Something(u32),
 		SomethingElse(<T::AccountId as SomeAssociation1>::_1),
@@ -339,6 +347,7 @@ pub mod pallet {
 		StorageMap<Hasher = Twox64Concat, Key = u16, Value = u32, MaxValues = ConstU32<3>>;
 
 	#[pallet::storage]
+	#[allow(deprecated)]
 	pub type Map3<T> =
 		StorageMap<_, Blake2_128Concat, u32, u64, ResultQuery<Error<T>::NonExistentStorageValue>>;
 
@@ -356,6 +365,7 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
+	#[allow(deprecated)]
 	pub type DoubleMap3<T> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
@@ -380,6 +390,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn nmap3)]
+	#[allow(deprecated)]
 	pub type NMap3<T> = StorageNMap<
 		_,
 		(NMapKey<Blake2_128Concat, u8>, NMapKey<Twox64Concat, u16>),
@@ -401,6 +412,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn counted_nmap3)]
+	#[allow(deprecated)]
 	pub type CountedNMap3<T> = CountedStorageNMap<
 		_,
 		(NMapKey<Blake2_128Concat, u8>, NMapKey<Twox64Concat, u16>),
@@ -564,7 +576,6 @@ pub mod pallet {
 // Test that a pallet with non generic event and generic genesis_config is correctly handled
 // and that a pallet with the attribute without_storage_info is correctly handled.
 #[frame_support::pallet]
-#[deprecated = "test"]
 pub mod pallet2 {
 	use super::{SomeAssociation1, SomeType1, UpdateStorageVersion};
 	use frame_support::pallet_prelude::*;
@@ -856,6 +867,7 @@ fn maybe_docs(doc: Vec<&'static str>) -> Vec<&'static str> {
 }
 
 #[test]
+#[allow(deprecated)]
 fn transactional_works() {
 	TestExternalities::default().execute_with(|| {
 		frame_system::Pallet::<Runtime>::set_block_number(1);
@@ -1157,6 +1169,7 @@ fn composite_expand() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn pallet_expand_deposit_event() {
 	TestExternalities::default().execute_with(|| {
 		frame_system::Pallet::<Runtime>::set_block_number(1);
@@ -1176,6 +1189,7 @@ fn pallet_new_call_variant() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn storage_expand() {
 	use frame_support::{pallet_prelude::*, storage::StoragePrefixedMap};
 
@@ -1339,6 +1353,7 @@ fn storage_expand() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn pallet_hooks_expand() {
 	TestExternalities::default().execute_with(|| {
 		frame_system::Pallet::<Runtime>::set_block_number(1);
@@ -1434,6 +1449,7 @@ fn migrate_from_pallet_version_to_storage_version() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn pallet_item_docs_in_metadata() {
 	// call
 	let call_variants = match meta_type::<pallet::Call<Runtime>>().type_info().type_def {
@@ -1470,6 +1486,7 @@ fn pallet_item_docs_in_metadata() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn metadata() {
 	use codec::Decode;
 	use frame_metadata::{v15::*, *};
@@ -2556,6 +2573,7 @@ fn test_call_feature_parsing() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_error_feature_parsing() {
 	let err = pallet::Error::<Runtime>::InsufficientProposersBalance;
 	match err {
@@ -2577,13 +2595,6 @@ fn pallet_metadata() {
 	let example = pallets[0].clone();
 	let example2 = pallets[1].clone();
 	{
-		// Example2 pallet is deprecated
-		assert_eq!(
-			&DeprecationStatusIR::Deprecated { note: "test", since: None },
-			&example2.deprecation_info
-		)
-	}
-	{
 		// Example pallet calls is fully and partially deprecated
 		let meta = &example.calls.unwrap();
 		assert_eq!(
@@ -2591,6 +2602,14 @@ fn pallet_metadata() {
 				codec::Compact(0),
 				DeprecationStatusIR::Deprecated { note: "test", since: None }
 			)])),
+			meta.deprecation_info
+		)
+	}
+	{
+		// Example pallet constant is deprecated
+		let meta = &example.constants[0];
+		assert_eq!(
+			DeprecationStatusIR::Deprecated { note: "test 2", since: None },
 			meta.deprecation_info
 		)
 	}
@@ -2609,10 +2628,10 @@ fn pallet_metadata() {
 		// Example pallet events are partially and fully deprecated
 		let meta = example.event.unwrap();
 		assert_eq!(
-			DeprecationInfoIR::ItemDeprecated(DeprecationStatusIR::Deprecated {
-				note: "test",
-				since: None
-			}),
+			DeprecationInfoIR::VariantsDeprecated(BTreeMap::from([(
+				codec::Compact(1),
+				DeprecationStatusIR::Deprecated { note: "test", since: None }
+			)])),
 			meta.deprecation_info
 		);
 	}
