@@ -40,7 +40,7 @@ jobs:
         uses: korthout/backport-action@v3
         id: backport
         with:
-          target_branches: stable2407 stable2409
+          target_branches: stable2407 stable2409 stable2412
           merge_commits: skip
           github_token: ${{ steps.generate_token.outputs.token }}
           pull_description: |
@@ -86,7 +86,7 @@ jobs:
             const reviewer = '${{ github.event.pull_request.user.login }}';
 
             for (const pullNumber of pullNumbers) {
-              await github.pulls.createReviewRequest({
+              await github.pulls.requestReviewers({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 pull_number: parseInt(pullNumber),
