@@ -172,10 +172,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("parity-westend"),
 	authoring_version: 2,
-	spec_version: 1_016_001,
+	spec_version: 1_017_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 26,
+	transaction_version: 27,
 	system_version: 1,
 };
 
@@ -1018,6 +1018,7 @@ impl pallet_recovery::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type RuntimeCall = RuntimeCall;
+	type BlockNumberProvider = System;
 	type Currency = Balances;
 	type ConfigDepositBase = ConfigDepositBase;
 	type FriendDepositFactor = FriendDepositFactor;
@@ -2639,14 +2640,14 @@ sp_api::impl_runtime_apis! {
 						ExistentialDepositAsset,
 						xcm_config::PriceForChildParachainDelivery,
 						AssetHubParaId,
-						(),
+						Dmp,
 					>,
 					polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						xcm_config::PriceForChildParachainDelivery,
 						RandomParaId,
-						(),
+						Dmp,
 					>
 				);
 
@@ -2712,7 +2713,7 @@ sp_api::impl_runtime_apis! {
 					ExistentialDepositAsset,
 					xcm_config::PriceForChildParachainDelivery,
 					AssetHubParaId,
-					(),
+					Dmp,
 				>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
 					Ok(AssetHub::get())

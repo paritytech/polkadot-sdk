@@ -22,8 +22,8 @@ frame = { workspace = true, features = ["experimental", "runtime"] }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
-pallet-root-testing = { workspace = true, default-features = true }
 pallet-collective = { workspace = true, default-features = true }
+pallet-root-testing = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 
 [features]
