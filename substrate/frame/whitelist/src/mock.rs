@@ -22,7 +22,7 @@
 use crate as pallet_whitelist;
 
 use frame::testing_prelude::*;
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
 construct_runtime!(
 	pub enum Test
