@@ -34,17 +34,16 @@ pub trait BenchmarkHelper<Signature, Signer> {
 #[benchmarks(where
 	T: Config + Send + Sync,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo> + GetDispatchInfo,
-	T::RuntimeOrigin: frame::traits::AsTransactionAuthorizedOrigin,
+	T::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 )]
 mod benchmarks {
 	use super::*;
-	use frame::traits::DispatchTransaction;
 
 	#[benchmark]
 	fn verify_signature() -> Result<(), BenchmarkError> {
 		let entropy = [42u8; 256];
 		let call: T::RuntimeCall = SystemCall::remark { remark: vec![] }.into();
-		let ext_version: frame::deps::sp_runtime::generic::ExtensionVersion = 0;
+		let ext_version: ExtensionVersion = 0;
 		let info = call.get_dispatch_info();
 		let msg = (ext_version, &call).using_encoded(blake2_256).to_vec();
 		let (signature, signer) = T::BenchmarkHelper::create_signature(&entropy, &msg[..]);

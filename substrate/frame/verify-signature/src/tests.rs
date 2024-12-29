@@ -68,7 +68,7 @@ pub fn new_test_ext() -> TestExternalities {
 fn verification_works() {
 	let who = 0;
 	let call: RuntimeCall = SystemCall::remark { remark: vec![] }.into();
-	let ext_version: frame::deps::sp_runtime::generic::ExtensionVersion = 0;
+	let ext_version: ExtensionVersion = 0;
 	let sig = TestSignature(0, (ext_version, &call).using_encoded(blake2_256).to_vec());
 	let info = call.get_dispatch_info();
 

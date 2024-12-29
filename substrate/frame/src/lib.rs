@@ -219,12 +219,13 @@ pub mod prelude {
 	/// All account related things.
 	pub use super::account::*;
 
+	pub use crate::transaction::*;
+
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		AsTransactionAuthorizedOrigin, BlockNumberProvider, Bounded, DispatchInfoOf,
-		DispatchTransaction, Dispatchable, SaturatedConversion, Saturating, StaticLookup,
-		TrailingZeroInput, TransactionExtension,
+		BlockNumberProvider, Bounded, DispatchInfoOf, Dispatchable, SaturatedConversion,
+		Saturating, StaticLookup, TrailingZeroInput,
 	};
 
 	/// Other error/result types for runtime
@@ -396,7 +397,7 @@ pub mod runtime {
 		};
 		pub use sp_inherents::{CheckInherentsResult, InherentData};
 		pub use sp_keyring::Sr25519Keyring;
-		pub use sp_runtime::{impl_tx_ext_default, ApplyExtrinsicResult, ExtrinsicInclusionMode};
+		pub use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode};
 	}
 
 	/// Types and traits for runtimes that implement runtime APIs.
@@ -546,6 +547,21 @@ pub mod cryptography {
 pub mod account {
 	pub use frame_support::traits::{ChangeMembers, EitherOfDiverse, InitializeMembers};
 	pub use sp_runtime::traits::IdentifyAccount;
+}
+
+/// Systems involved in transaction fulfilment.
+///
+/// This is already part of the [`prelude`].
+pub mod transaction {
+	pub use sp_runtime::{
+		generic::ExtensionVersion,
+		impl_tx_ext_default,
+		traits::{
+			AsTransactionAuthorizedOrigin, DispatchTransaction, TransactionExtension,
+			ValidateResult,
+		},
+		transaction_validity::{InvalidTransaction, ValidTransaction},
+	};
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
