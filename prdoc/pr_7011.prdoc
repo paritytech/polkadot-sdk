@@ -9,8 +9,8 @@ crates:
 - name: sc-network-gossip
   bump: major
 - name: sc-network-statement
-  bump: major
+  bump: patch
 - name: sc-network-sync
   bump: major
 - name: sc-network-transactions
-  bump: major
+  bump: patch
