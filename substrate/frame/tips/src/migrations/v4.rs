@@ -53,7 +53,7 @@ pub fn migrate<T: pallet_tips::Config, P: GetStorageVersion + PalletInfoAccess, 
 
 	if on_chain_storage_version < 4 {
 		let storage_prefix = pallet_tips::Tips::<T>::storage_prefix();
-		storage::migration::move_storage_from_pallet(
+		move_storage_from_pallet(
 			storage_prefix,
 			old_pallet_name.as_bytes(),
 			new_pallet_name.as_bytes(),
@@ -61,7 +61,7 @@ pub fn migrate<T: pallet_tips::Config, P: GetStorageVersion + PalletInfoAccess, 
 		log_migration("migration", storage_prefix, old_pallet_name, new_pallet_name);
 
 		let storage_prefix = pallet_tips::Reasons::<T>::storage_prefix();
-		storage::migration::move_storage_from_pallet(
+		move_storage_from_pallet(
 			storage_prefix,
 			old_pallet_name.as_bytes(),
 			new_pallet_name.as_bytes(),
