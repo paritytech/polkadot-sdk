@@ -20,11 +20,7 @@
 
 use alloc::collections::btree_map::BTreeMap;
 use core::iter::Sum;
-use frame::{
-	runtime::prelude::*,
-	storage_alias,
-	traits::{Currency, LockableCurrency, ReservableCurrency},
-};
+use frame::testing_prelude::*;
 
 #[cfg(feature = "try-runtime")]
 const LOG_TARGET: &str = "runtime::tips::migrations::unreserve_deposits";

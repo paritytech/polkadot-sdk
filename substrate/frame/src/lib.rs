@@ -219,6 +219,9 @@ pub mod prelude {
 	/// All arithmetic types used for safe math.
 	pub use super::arithmetic::*;
 
+	/// All account related things.
+	pub use super::account::*;
+
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
@@ -226,9 +229,21 @@ pub mod prelude {
 		Saturating, StaticLookup, TrailingZeroInput,
 	};
 
+	/// Currency related traits.
+	pub use frame_support::traits::{
+		tokens::{PayFromAccount, UnityAssetBalanceConversion},
+		BalanceStatus::{self, Reserved},
+		Currency,
+		ExistenceRequirement::KeepAlive,
+		LockableCurrency, OnUnbalanced, ReservableCurrency,
+	};
+
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
-	pub use sp_runtime::{DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError};
+	pub use sp_runtime::{
+		DispatchError::{self, BadOrigin},
+		DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
+	};
 }
 
 #[cfg(any(feature = "try-runtime", test))]
@@ -337,6 +352,11 @@ pub mod runtime {
 	pub mod prelude {
 		pub use crate::prelude::*;
 
+		/// All things runtime metadata.
+		pub use frame_support::traits::{
+			CallMetadata, GetCallMetadata, PalletInfoAccess, STORAGE_VERSION_STORAGE_KEY_POSTFIX,
+		};
+
 		/// All of the types related to the FRAME runtime executive.
 		pub use frame_executive::*;
 
@@ -355,6 +375,9 @@ pub mod runtime {
 
 		/// sovereign account ID for a pallet.
 		pub use frame_support::PalletId;
+
+		/// Runtime storage traits amd types.
+		pub use frame_support::storage::{migration::*, KeyPrefixIterator, StoragePrefixedMap};
 
 		/// Macros to easily impl traits such as `Get` for types.
 		// TODO: using linking in the Get in the line above triggers an ICE :/
@@ -499,7 +522,7 @@ pub mod runtime {
 	#[cfg(feature = "std")]
 	pub mod testing_prelude {
 		pub use sp_core::storage::Storage;
-		pub use sp_runtime::{BuildStorage, DispatchError};
+		pub use sp_runtime::BuildStorage;
 	}
 }
 
@@ -536,6 +559,25 @@ pub mod derive {
 pub mod hashing {
 	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
+}
+
+/// Utility traits not tied to any direct(i.e. currency, account management e.t.c.) operation in the
+/// runtime.
+pub mod utility {
+	pub use frame_support::traits::{
+		Everything, InsideBoth, InstanceFilter, VariantCount, VariantCountOf,
+	};
+}
+
+/// All account management related traits.
+///
+/// This is already part of the [`prelude`].
+pub mod account {
+	pub use frame_support::traits::{
+		ChangeMembers, ContainsLengthBound, EitherOfDiverse, InitializeMembers, NeverEnsureOrigin,
+		SortedMembers,
+	};
+	pub use sp_runtime::traits::{AccountIdConversion, IdentifyAccount, IdentityLookup};
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,

@@ -63,13 +63,7 @@ pub mod weights;
 extern crate alloc;
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
-use frame::{
-	runtime::prelude::*,
-	traits::{
-		AccountIdConversion, BadOrigin, ContainsLengthBound, Currency,
-		ExistenceRequirement::KeepAlive, OnUnbalanced, ReservableCurrency, SortedMembers,
-	},
-};
+use frame::runtime::prelude::*;
 
 pub use pallet::*;
 pub use weights::WeightInfo;

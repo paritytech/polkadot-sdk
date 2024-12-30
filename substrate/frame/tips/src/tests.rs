@@ -20,19 +20,12 @@
 #![cfg(test)]
 use super::*;
 use crate::{self as pallet_tips, Event as TipEvent};
-use frame::{
-	testing_prelude::*,
-	traits::{
-		tokens::{PayFromAccount, UnityAssetBalanceConversion},
-		IdentityLookup, NeverEnsureOrigin, PalletInfoAccess,
-	},
-};
-use storage::StoragePrefixedMap as _;
+use frame::testing_prelude::*;
 
 #[cfg(feature = "try-runtime")]
 use crate::DispatchError::Other;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
 construct_runtime!(
 	pub enum Test
@@ -540,7 +533,7 @@ fn test_migration_v4() {
 	TestExternalities::new(s).execute_with(|| {
 		let old_pallet = "Treasury";
 		let new_pallet = <Tips as PalletInfoAccess>::name();
-		storage::migration::move_pallet(new_pallet.as_bytes(), old_pallet.as_bytes());
+		move_pallet(new_pallet.as_bytes(), old_pallet.as_bytes());
 		StorageVersion::new(0).put::<Tips>();
 
 		crate::migrations::v4::pre_migrate::<Test, Tips, _>(old_pallet);
@@ -551,7 +544,7 @@ fn test_migration_v4() {
 	TestExternalities::new(Storage::default()).execute_with(|| {
 		let old_pallet = "Treasury";
 		let new_pallet = <Tips as PalletInfoAccess>::name();
-		storage::migration::move_pallet(new_pallet.as_bytes(), old_pallet.as_bytes());
+		move_pallet(new_pallet.as_bytes(), old_pallet.as_bytes());
 		StorageVersion::new(0).put::<Tips>();
 
 		crate::migrations::v4::pre_migrate::<Test, Tips, _>(old_pallet);
