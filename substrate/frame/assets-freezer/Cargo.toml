@@ -21,6 +21,9 @@ scale-info = { features = ["derive"], workspace = true }
 frame = { workspace = true, features = ["experimental", "runtime"] }
 pallet-assets = { workspace = true }
 
+[dev-dependencies]
+pallet-balances = { workspace = true }
+
 [features]
 default = ["std"]
 std = [
@@ -34,10 +37,8 @@ std = [
 runtime-benchmarks = [
 	"frame/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame/try-runtime",
 	"pallet-assets/try-runtime",
-	"pallet-balances/try-runtime",
 ]
