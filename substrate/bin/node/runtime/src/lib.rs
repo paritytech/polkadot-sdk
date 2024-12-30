@@ -177,7 +177,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// implementation changes and behavior does not, then leave spec_version as
 	// is and increment impl_version.
 	spec_version: 268,
-	impl_version: 0,
+	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
 	system_version: 1,
@@ -1991,6 +1991,7 @@ impl pallet_core_fellowship::Config for Runtime {
 	type FastPromoteOrigin = Self::PromoteOrigin;
 	type EvidenceSize = ConstU32<16_384>;
 	type MaxRank = ConstU32<9>;
+	type BlockNumberProvider = System;
 }
 
 parameter_types! {

@@ -126,7 +126,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("collectives-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("collectives-westend"),
 	authoring_version: 1,
-	spec_version: 1_017_001,
+	spec_version: 1_018_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -751,18 +751,55 @@ pub type UncheckedExtrinsic =
 /// All migrations executed on runtime upgrade as a nested tuple of types implementing
 /// `OnRuntimeUpgrade`. Included migrations must be idempotent.
 type Migrations = (
-	// unreleased
-	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
-	// unreleased
-	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
-	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	// unreleased
-	pallet_core_fellowship::migration::MigrateV0ToV1<Runtime, FellowshipCoreInstance>,
-	// unreleased
-	pallet_core_fellowship::migration::MigrateV0ToV1<Runtime, AmbassadorCoreInstance>,
+	pallet_core_fellowship::migration::MigrateV1ToV2<
+		Runtime,
+		BlockNumberConverter,
+		FellowshipCoreInstance,
+	>,
+	pallet_core_fellowship::migration::MigrateV1ToV2<
+		Runtime,
+		BlockNumberConverter,
+		AmbassadorCoreInstance,
+	>,
 );
+
+// Helpers for the core fellowship pallet v1->v2 storage migration.
+use sp_runtime::traits::BlockNumberProvider;
+type CoreFellowshipLocalBlockNumber = <System as BlockNumberProvider>::BlockNumber;
+type CoreFellowshipNewBlockNumber = <cumulus_pallet_parachain_system::RelaychainDataProvider<
+	Runtime,
+> as BlockNumberProvider>::BlockNumber;
+pub struct BlockNumberConverter;
+impl
+	pallet_core_fellowship::migration::v2::ConvertBlockNumber<
+		CoreFellowshipLocalBlockNumber,
+		CoreFellowshipNewBlockNumber,
+	> for BlockNumberConverter
+{
+	/// The equivalent moment in time from the perspective of the relay chain, starting from a
+	/// local moment in time (system block number)
+	fn equivalent_moment_in_time(
+		local: CoreFellowshipLocalBlockNumber,
+	) -> CoreFellowshipNewBlockNumber {
+		let block_number = System::block_number();
+		let local_duration = block_number.saturating_sub(local);
+		let relay_duration = Self::equivalent_block_duration(local_duration); //6s to 6s
+		let relay_block_number = ParachainSystem::last_relay_block_number();
+		relay_block_number.saturating_sub(relay_duration)
+	}
+
+	/// The equivalent duration from the perspective of the relay chain, starting from
+	/// a local duration (number of block). Identity function for Westend, since both
+	/// relay and collectives chain run 6s block times
+	fn equivalent_block_duration(
+		local: CoreFellowshipLocalBlockNumber,
+	) -> CoreFellowshipNewBlockNumber {
+		local
+	}
+}
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
