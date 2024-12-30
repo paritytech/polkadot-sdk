@@ -216,9 +216,6 @@ pub mod prelude {
 	/// All hashing related things
 	pub use super::hashing::*;
 
-	/// All currency related things.
-	pub use super::currency::*;
-
 	pub use super::utility::*;
 
 	/// All account related things.
@@ -233,6 +230,17 @@ pub mod prelude {
 
 	/// Bounded storage related types.
 	pub use sp_runtime::{BoundedSlice, BoundedVec};
+
+	/// Currency related traits.
+	pub use frame_support::traits::{
+		fungibles::{Inspect, InspectFreeze, MutateFreeze},
+		tokens::{
+			DepositConsequence, Fortitude, IdAmount, Preservation, Provenance, WithdrawConsequence,
+		},
+		Currency,
+		ExistenceRequirement::KeepAlive,
+		OnUnbalanced, ReservableCurrency,
+	};
 
 	/// Other error/result types for runtime
 	#[doc(no_inline)]

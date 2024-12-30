@@ -46,6 +46,9 @@ use frame::prelude::*;
 
 pub use pallet::*;
 
+#[cfg(feature = "try-runtime")]
+use frame::try_runtime::TryRuntimeError;
+
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -116,7 +119,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
 		#[cfg(feature = "try-runtime")]
-		fn try_state(_: BlockNumberFor<T>) -> Result<(), frame::try_runtime::TryRuntimeError> {
+		fn try_state(_: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 			Self::do_try_state()
 		}
 	}
@@ -151,7 +154,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn do_try_state() -> Result<(), frame::try_runtime::TryRuntimeError> {
+	fn do_try_state() -> Result<(), TryRuntimeError> {
 		for (asset, who, _) in FrozenBalances::<T, I>::iter() {
 			let max_frozen_amount =
 				Freezes::<T, I>::get(asset.clone(), who.clone()).iter().map(|l| l.amount).max();
