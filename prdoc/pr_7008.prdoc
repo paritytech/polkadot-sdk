@@ -19,4 +19,4 @@ doc:
 
 crates:
 - name: substrate-wasm-builder
-  bump: patch
+  bump: minor
