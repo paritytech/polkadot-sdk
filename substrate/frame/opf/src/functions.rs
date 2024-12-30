@@ -90,7 +90,7 @@ impl<T: Config> Pallet<T> {
 		if projects.clone().len() > 0 as usize {
 			let total_positive_votes_amount = round.total_positive_votes_amount;
 			let total_negative_votes_amount = round.total_negative_votes_amount;
-
+            let when = T::BlockNumberProvider::current_block_number();
 			let total_votes_amount =
 				total_positive_votes_amount.saturating_sub(total_negative_votes_amount);
 
@@ -102,7 +102,8 @@ impl<T: Config> Pallet<T> {
 					let project_positive_reward = funds[0];
 					let project_negative_reward = funds[1];
 
-					let project_reward =
+                    if project_positive_reward > project_negative_reward{
+                        let project_reward =
 						project_positive_reward.saturating_sub(project_negative_reward);
 
 						let project_percentage =
@@ -110,29 +111,28 @@ impl<T: Config> Pallet<T> {
 						let final_amount = project_percentage * total_reward;
 
 						// Send calculated reward for reward distribution
-						let now = T::BlockNumberProvider::current_block_number();
 						let project_info = ProjectInfo {
 							project_id: project.clone(),
-							submission_block: now,
+							submission_block: when,
 							amount: final_amount,
 						};
 
-						let mut rewarded = Projects::<T>::get();
-						rewarded
-							.try_push(project_info.clone())
-							.map_err(|_| Error::<T>::MaximumProjectsNumber)?;
+                        // create a spend for project to be rewarded
+						let new_spend = SpendInfo::<T>::new(&project_info);
 
-						Projects::<T>::mutate(|value| {
-							*value = rewarded;
-						});
-
-						let when = T::BlockNumberProvider::current_block_number();
+						
 						Self::deposit_event(Event::<T>::ProjectFundingAccepted {
 							project_id: project,
 							when,
 							round_number,
 							amount: project_info.amount,
 						})
+                    } else{
+						Self::deposit_event(Event::<T>::ProjectFundingRejected {
+							when,
+                            project_id: project,
+						})
+                    }				
 					
 				}
 			}
@@ -140,5 +140,54 @@ impl<T: Config> Pallet<T> {
 
 		Ok(())
 	}
+
+    // To be executed in a hook, on_initialize
+	pub fn on_idle_function(now: ProvidedBlockNumberFor<T>, limit: Weight) -> Weight {
+		let mut meter = WeightMeter::with_limit(limit);
+		let max_block_weight = T::DbWeight::get().reads_writes(14, 8);
+
+		if meter.try_consume(max_block_weight).is_err() {
+			return meter.consumed();
+		}
+		let mut round_index = VotingRoundNumber::<T>::get();
+
+		// No active round?
+		if round_index == 0 {
+			// Start the first voting round
+			let _round0 = VotingRoundInfo::<T>::new();
+			round_index = VotingRoundNumber::<T>::get();
+		}
+
+		let current_round_index = round_index.saturating_sub(1);
+
+		let round_infos = VotingRounds::<T>::get(current_round_index).expect("InvalidResult");
+		let round_ending_block = round_infos.round_ending_block;
+
+		// Conditions for reward distribution preparations are:
+		// - We are at the end of voting_round period
+
+		if now == round_ending_block {
+			
+			// prepare reward distribution
+			// for now we are using the temporary-constant reward.
+			let _ = Self::calculate_rewards(T::TemporaryRewards::get())
+				.map_err(|_| Error::<T>::FailedRewardCalculation);
+
+		// Create a new round.
+			let _new_round = VotingRoundInfo::<T>::new();
+			// Clear WhiteListedProjectAccounts storage
+			WhiteListedProjectAccounts::<T>::kill();
+			// Clear ProjectFunds storage
+			ProjectFunds::<T>::drain();
+			// Emmit events
+			Self::deposit_event(Event::<T>::VotingRoundEnded {
+				when: now,
+				round_number: round_infos.round_number,
+			});
+		}
+
+		meter.consumed()
+	}
+
 
 }

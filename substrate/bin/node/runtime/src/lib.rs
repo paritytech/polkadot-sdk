@@ -1596,13 +1596,15 @@ parameter_types! {
 	pub const ClaimingPeriod: BlockNumber = 7 * DAYS;
 	pub const VoteValidityPeriod: BlockNumber = 7 * DAYS;
 	pub const MaxProjects:u32 = 50;
+
+	/// This should be calculated as a percentage of inflation.
+	pub const TemporaryRewards: Balance = 100000 * DOLLARS;
 	
 
 }
 impl pallet_opf::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
-
 	type NativeBalance = Balances;
 
 	/// Pot PalletId
@@ -1625,6 +1627,9 @@ impl pallet_opf::Config for Runtime {
 	type VoteValidityPeriod = VoteValidityPeriod;
 
 	type BlockNumberProvider = System;
+
+	/// This should be calculated as a percentage of inflation.
+	type TemporaryRewards = TemporaryRewards;
 
 	type Preimages = Preimage;
 

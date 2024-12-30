@@ -33,7 +33,7 @@ pub use frame_support::{
 		Bounded, DefensiveOption, EnsureOrigin, LockIdentifier, OriginTrait, QueryPreimage,
 		StorePreimage,
 	},
-	transactional, PalletId, Serialize,
+	transactional, PalletId, Serialize, weights::WeightMeter,
 };
 pub use pallet_conviction_voting::Conviction;
 pub use frame_system::{pallet_prelude::*, RawOrigin};
@@ -80,7 +80,7 @@ pub struct SpendInfo<T: Config> {
 	/// The block number from which the spend can be claimed(24h after SpendStatus Creation).
 	pub valid_from:ProvidedBlockNumberFor<T>,
 	/// Corresponding project id
-	pub whitelisted_project: AccountIdOf<T>,
+	pub whitelisted_project: ProjectInfo<T>,
 	/// Has it been claimed?
 	pub claimed: bool,
 	/// Claim Expiration block
@@ -90,7 +90,7 @@ pub struct SpendInfo<T: Config> {
 impl<T: Config> SpendInfo<T> {
 	pub fn new(whitelisted: &ProjectInfo<T>) -> Self {
 		let amount = whitelisted.amount;
-		let whitelisted_project = whitelisted.project_id.clone();
+		let whitelisted_project = whitelisted.clone();
 		let claimed = false;
 		let valid_from =
 			T::BlockNumberProvider::current_block_number();

@@ -88,6 +88,9 @@ pub mod pallet {
 		#[pallet::constant]
 		type VoteValidityPeriod: Get<ProvidedBlockNumberFor<Self>>;
 
+		/// Used for Pallet testing only. Represents the Total Reward distributed
+		type TemporaryRewards: Get<BalanceOf<Self>>;
+
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -106,11 +109,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type Spends<T: Config> =
 		CountedStorageMap<_, Twox64Concat, ProjectId<T>, SpendInfo<T>, OptionQuery>;
-
-	/// List of whitelisted projects to be rewarded
-	#[pallet::storage]
-	pub type Projects<T: Config> =
-		StorageValue<_, BoundedVec<ProjectInfo<T>, T::MaxProjects>, ValueQuery>;
 	
 	/// List of Whitelisted Project registered
 	#[pallet::storage]
