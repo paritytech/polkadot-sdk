@@ -152,7 +152,7 @@ mod tests {
 		Header::new(number, Default::default(), state_root, parent_hash, Default::default())
 	}
 
-	fn new_test_ext() -> frame::deps::sp_io::TestExternalities {
+	fn new_test_ext() -> TestExternalities {
 		let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		t.into()
 	}
