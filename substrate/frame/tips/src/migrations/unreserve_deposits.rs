@@ -20,7 +20,7 @@
 
 use alloc::collections::btree_map::BTreeMap;
 use core::iter::Sum;
-use frame::testing_prelude::*;
+use frame::runtime::prelude::*;
 
 #[cfg(feature = "try-runtime")]
 const LOG_TARGET: &str = "runtime::tips::migrations::unreserve_deposits";
@@ -57,7 +57,7 @@ pub trait UnlockConfig<I>: 'static {
 
 /// An open tipping "motion". Retains all details of a tip including information on the finder
 /// and the members who have voted.
-#[storage_alias(dynamic)]
+#[frame::storage_alias(dynamic)]
 type Tips<T: UnlockConfig<I>, I: 'static> = StorageMap<
 	<T as UnlockConfig<I>>::PalletName,
 	Twox64Concat,

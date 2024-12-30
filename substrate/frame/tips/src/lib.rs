@@ -63,10 +63,13 @@ pub mod weights;
 extern crate alloc;
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
-use frame::runtime::prelude::*;
+use frame::prelude::*;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
+
+#[cfg(feature = "try-runtime")]
+use frame::try_runtime::TryRuntimeError;
 
 const LOG_TARGET: &str = "runtime::tips";
 
@@ -464,7 +467,7 @@ pub mod pallet {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn try_state(_n: BlockNumberFor<T>) -> Result<(), frame::try_runtime::TryRuntimeError> {
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 			Self::do_try_state()
 		}
 	}
@@ -633,16 +636,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// 1. The number of entries in `Tips` should be equal to `Reasons`.
 	/// 2. Reasons exists for each Tip[`OpenTip.reason`].
 	/// 3. If `OpenTip.finders_fee` is true, then OpenTip.deposit should be greater than zero.
-	#[cfg(feature = "try-runtime")]
-	pub fn do_try_state() -> Result<(), frame::try_runtime::TryRuntimeError> {
+	#[cfg(any(feature = "try-runtime", test))]
+	pub fn do_try_state() -> Result<(), TryRuntimeError> {
 		let reasons = Reasons::<T, I>::iter_keys().collect::<Vec<_>>();
 		let tips = Tips::<T, I>::iter_keys().collect::<Vec<_>>();
 
 		ensure!(
 			reasons.len() == tips.len(),
-			frame::try_runtime::TryRuntimeError::Other(
-				"Equal length of entries in `Tips` and `Reasons` Storage"
-			)
+			TryRuntimeError::Other("Equal length of entries in `Tips` and `Reasons` Storage")
 		);
 
 		for tip in Tips::<T, I>::iter_keys() {
@@ -651,7 +652,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			if open_tip.finders_fee {
 				ensure!(
 					!open_tip.deposit.is_zero(),
-					frame::try_runtime::TryRuntimeError::Other(
+					TryRuntimeError::Other(
 						"Tips with `finders_fee` should have non-zero `deposit`."
 					)
 				)
@@ -659,7 +660,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 			ensure!(
 				reasons.contains(&open_tip.reason),
-				frame::try_runtime::TryRuntimeError::Other("no reason for this tip")
+				TryRuntimeError::Other("no reason for this tip")
 			);
 		}
 		Ok(())

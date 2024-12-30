@@ -22,9 +22,6 @@ use super::*;
 use crate::{self as pallet_tips, Event as TipEvent};
 use frame::testing_prelude::*;
 
-#[cfg(feature = "try-runtime")]
-use crate::DispatchError::Other;
-
 type Block = MockBlock<Test>;
 
 construct_runtime!(
@@ -181,7 +178,6 @@ pub fn new_test_ext() -> TestExternalities {
 pub fn build_and_execute(test: impl FnOnce() -> ()) {
 	new_test_ext().execute_with(|| {
 		test();
-		#[cfg(feature = "try-runtime")]
 		Tips::do_try_state().expect("All invariants must hold after a test");
 	});
 }
@@ -631,10 +627,9 @@ fn equal_entries_invariant() {
 		pallet_tips::Tips::<Test>::insert(hash1, tip);
 
 		// Invariant violated
-		#[cfg(feature = "try-runtime")]
 		assert_eq!(
 			Tips::do_try_state(),
-			Err(Other("Equal length of entries in `Tips` and `Reasons` Storage"))
+			Err(TryRuntimeError::Other("Equal length of entries in `Tips` and `Reasons` Storage"))
 		);
 	})
 }
@@ -650,10 +645,9 @@ fn finders_fee_invariant() {
 		assert_ok!(Tips::report_awesome(RuntimeOrigin::signed(0), b"".to_vec(), 3));
 
 		// Invariant violated
-		#[cfg(feature = "try-runtime")]
 		assert_eq!(
 			Tips::do_try_state(),
-			Err(Other("Tips with `finders_fee` should have non-zero `deposit`."))
+			Err(TryRuntimeError::Other("Tips with `finders_fee` should have non-zero `deposit`."))
 		);
 	})
 }
@@ -675,8 +669,7 @@ fn reasons_invariant() {
 		pallet_tips::Tips::<Test>::insert(hash[0], open_tip);
 
 		// Invariant violated
-		#[cfg(feature = "try-runtime")]
-		assert_eq!(Tips::do_try_state(), Err(Other("no reason for this tip")));
+		assert_eq!(Tips::do_try_state(), Err(TryRuntimeError::Other("no reason for this tip")));
 	})
 }
 
