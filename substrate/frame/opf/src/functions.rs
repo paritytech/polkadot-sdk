@@ -52,7 +52,6 @@ impl<T: Config> Pallet<T> {
 
 	// Helper function for project registration
 	pub fn register_new(project_id: ProjectId<T>) -> DispatchResult {
-		let submission_block = T::BlockNumberProvider::current_block_number();
 		let mut bounded: BoundedVec<ProjectId<T>, T::MaxProjects> =
 			WhiteListedProjectAccounts::<T>::get();
 		let _ = bounded.try_push(project_id);
@@ -117,7 +116,7 @@ impl<T: Config> Pallet<T> {
 						};
 
 						// create a spend for project to be rewarded
-						let new_spend = SpendInfo::<T>::new(&project_info);
+						let _ = SpendInfo::<T>::new(&project_info);
 
 						Self::deposit_event(Event::<T>::ProjectFundingAccepted {
 							project_id: project,
@@ -154,8 +153,6 @@ impl<T: Config> Pallet<T> {
 			let _round0 = VotingRoundInfo::<T>::new();
 			round_index = VotingRoundNumber::<T>::get();
 		}
-
-		// ToDo: Check Spends and remove those which are not valid anymore
 
 		let current_round_index = round_index.saturating_sub(1);
 

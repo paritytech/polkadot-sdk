@@ -169,6 +169,9 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 		},
 
+		/// Reward claim has expired
+		ExpiredClaim { expired_when: ProvidedBlockNumberFor<T>, project_id: ProjectId<T> },
+
 		/// Project Funding rejected by voters
 		ProjectFundingRejected { when: ProvidedBlockNumberFor<T>, project_id: ProjectId<T> },
 
@@ -257,16 +260,57 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// OPF Reward Claim logic
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be signed
+		///
+		/// ## Details
+		///
+		/// From this extrinsic any user can claim a reward for a nominated/whitelisted project.
+		///
+		/// ### Parameters
+		/// - `project_id`: The account that will receive the reward.
+		///
+		/// ### Errors
+		/// - [`Error::<T>::InexistentSpend`]:Spend or Spend index does not exists
+		/// - [`Error::<T>::NoValidAccount`]:  No valid Account_id found
+		/// - [`Error::<T>::NotClaimingPeriod`]: Still not in claiming period
+		///  
+		/// ## Events
+		/// Emits [`Event::<T>::RewardClaimed`] if successful for a positive approval.
 		#[pallet::call_index(4)]
 		#[transactional]
 		pub fn claim_reward_for(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
+			let _caller = ensure_signed(origin)?;
+			let now = T::BlockNumberProvider::current_block_number();
+			let info = Spends::<T>::get(&project_id).ok_or(Error::<T>::InexistentSpend)?;
+			match now {
+				_ if now >= info.expire => {
+					Spends::<T>::remove(&project_id);
+				Self::deposit_event(Event::ExpiredClaim {
+					expired_when: info.expire,
+					project_id,
+				});
+				Ok(())
+				},
+				_ if now >= info.expire => {
+					// transfer the funds
+			Self::spend(info.amount, project_id.clone())?;
+
+			Self::deposit_event(Event::RewardClaimed {
+				when: now,
+				amount: info.amount,
+				project_id,
+			});
 			Ok(())
+				}
+				_ => Err(DispatchError::Other("Not Claiming Period"))
+			}
+
 		}
 
-		#[pallet::call_index(5)]
-		#[transactional]
-		pub fn execute_claim(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
-			Ok(())
-		}
+
 	}
 }
