@@ -135,7 +135,7 @@ pub mod weights;
 use core::{cmp, result};
 use frame::{
 	runtime::prelude::*,
-	traits::{AtLeast32Bit, OnTimestampSet, Scale, Time, UnixTime},
+	traits::{OnTimestampSet, Scale, Time, UnixTime},
 };
 use sp_timestamp::{InherentError, InherentType, INHERENT_IDENTIFIER};
 pub use weights::WeightInfo;
