@@ -561,14 +561,6 @@ pub mod hashing {
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
 }
 
-/// Utility traits not tied to any direct operation(i.e. currency, account management e.t.c.) in the
-/// runtime.
-pub mod utility {
-	pub use frame_support::traits::{
-		Everything, InsideBoth, InstanceFilter, VariantCount, VariantCountOf,
-	};
-}
-
 /// All account management related traits.
 ///
 /// This is already part of the [`prelude`].
@@ -578,6 +570,14 @@ pub mod account {
 		SortedMembers,
 	};
 	pub use sp_runtime::traits::{AccountIdConversion, IdentifyAccount, IdentityLookup};
+}
+
+/// Utility traits not tied to any direct operation(i.e. currency, account management e.t.c.) in the
+/// runtime.
+pub mod utility {
+	pub use frame_support::traits::{
+		Everything, InsideBoth, InstanceFilter, VariantCount, VariantCountOf,
+	};
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
