@@ -16,11 +16,9 @@
 // limitations under the License.
 //! Helper functions for OPF pallet.
 
-
 pub use super::*;
 impl<T: Config> Pallet<T> {
-
-    pub fn pot_account() -> AccountIdOf<T> {
+	pub fn pot_account() -> AccountIdOf<T> {
 		// Get Pot account
 		T::PotId::get().into_account_truncating()
 	}
@@ -36,7 +34,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-    /// Series of checks on the Pot, to ensure that we have enough funds
+	/// Series of checks on the Pot, to ensure that we have enough funds
 	/// before executing a Spend --> used in tests.
 	pub fn pot_check(spend: BalanceOf<T>) -> DispatchResult {
 		// Get Pot account
@@ -52,16 +50,17 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-    // Helper function for project registration
-    pub fn register_new(project_id: ProjectId<T>) -> DispatchResult{
-        let submission_block = T::BlockNumberProvider::current_block_number();
-        let mut bounded: BoundedVec<ProjectId<T>, T::MaxProjects>  = WhiteListedProjectAccounts::<T>::get();
-        let _ = bounded.try_push(project_id);
-        WhiteListedProjectAccounts::<T>::put(bounded);
-        Ok(())
-    }
+	// Helper function for project registration
+	pub fn register_new(project_id: ProjectId<T>) -> DispatchResult {
+		let submission_block = T::BlockNumberProvider::current_block_number();
+		let mut bounded: BoundedVec<ProjectId<T>, T::MaxProjects> =
+			WhiteListedProjectAccounts::<T>::get();
+		let _ = bounded.try_push(project_id);
+		WhiteListedProjectAccounts::<T>::put(bounded);
+		Ok(())
+	}
 
-    // Voting Period checks
+	// Voting Period checks
 	pub fn period_check() -> DispatchResult {
 		// Get current voting round & check if we are in voting period or not
 		let current_round_index = VotingRoundNumber::<T>::get().saturating_sub(1);
@@ -71,18 +70,18 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-    pub fn unlist_project(project_id: ProjectId<T>) -> DispatchResult {
+	pub fn unlist_project(project_id: ProjectId<T>) -> DispatchResult {
 		WhiteListedProjectAccounts::<T>::mutate(|value| {
 			let mut val = value.clone();
 			val.retain(|x| *x != project_id);
 			*value = val;
 		});
-		
+
 		Ok(())
 	}
 
-    // The total reward to be distributed is a portion or inflation, determined in another pallet
-	// Reward calculation is executed within the Voting period 
+	// The total reward to be distributed is a portion or inflation, determined in another pallet
+	// Reward calculation is executed within the Voting period
 	pub fn calculate_rewards(total_reward: BalanceOf<T>) -> DispatchResult {
 		let projects = WhiteListedProjectAccounts::<T>::get();
 		let round_number = VotingRoundNumber::<T>::get().saturating_sub(1);
@@ -90,7 +89,7 @@ impl<T: Config> Pallet<T> {
 		if projects.clone().len() > 0 as usize {
 			let total_positive_votes_amount = round.total_positive_votes_amount;
 			let total_negative_votes_amount = round.total_negative_votes_amount;
-            let when = T::BlockNumberProvider::current_block_number();
+			let when = T::BlockNumberProvider::current_block_number();
 			let total_votes_amount =
 				total_positive_votes_amount.saturating_sub(total_negative_votes_amount);
 
@@ -102,9 +101,9 @@ impl<T: Config> Pallet<T> {
 					let project_positive_reward = funds[0];
 					let project_negative_reward = funds[1];
 
-                    if project_positive_reward > project_negative_reward{
-                        let project_reward =
-						project_positive_reward.saturating_sub(project_negative_reward);
+					if project_positive_reward > project_negative_reward {
+						let project_reward =
+							project_positive_reward.saturating_sub(project_negative_reward);
 
 						let project_percentage =
 							Percent::from_rational(project_reward, total_votes_amount);
@@ -117,23 +116,21 @@ impl<T: Config> Pallet<T> {
 							amount: final_amount,
 						};
 
-                        // create a spend for project to be rewarded
+						// create a spend for project to be rewarded
 						let new_spend = SpendInfo::<T>::new(&project_info);
 
-						
 						Self::deposit_event(Event::<T>::ProjectFundingAccepted {
 							project_id: project,
 							when,
 							round_number,
 							amount: project_info.amount,
 						})
-                    } else{
+					} else {
 						Self::deposit_event(Event::<T>::ProjectFundingRejected {
 							when,
-                            project_id: project,
+							project_id: project,
 						})
-                    }				
-					
+					}
 				}
 			}
 		}
@@ -141,7 +138,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-    // To be executed in a hook, on_initialize
+	// To be executed in a hook, on_initialize
 	pub fn on_idle_function(now: ProvidedBlockNumberFor<T>, limit: Weight) -> Weight {
 		let mut meter = WeightMeter::with_limit(limit);
 		let max_block_weight = T::DbWeight::get().reads_writes(14, 8);
@@ -158,6 +155,8 @@ impl<T: Config> Pallet<T> {
 			round_index = VotingRoundNumber::<T>::get();
 		}
 
+		// ToDo: Check Spends and remove those which are not valid anymore
+
 		let current_round_index = round_index.saturating_sub(1);
 
 		let round_infos = VotingRounds::<T>::get(current_round_index).expect("InvalidResult");
@@ -167,13 +166,12 @@ impl<T: Config> Pallet<T> {
 		// - We are at the end of voting_round period
 
 		if now == round_ending_block {
-			
 			// prepare reward distribution
 			// for now we are using the temporary-constant reward.
 			let _ = Self::calculate_rewards(T::TemporaryRewards::get())
 				.map_err(|_| Error::<T>::FailedRewardCalculation);
 
-		// Create a new round.
+			// Create a new round.
 			let _new_round = VotingRoundInfo::<T>::new();
 			// Clear WhiteListedProjectAccounts storage
 			WhiteListedProjectAccounts::<T>::kill();
@@ -188,6 +186,4 @@ impl<T: Config> Pallet<T> {
 
 		meter.consumed()
 	}
-
-
 }

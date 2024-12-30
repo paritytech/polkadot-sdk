@@ -18,8 +18,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use pallet::*;
-mod types;
 mod functions;
+mod types;
 pub use pallet_scheduler as Schedule;
 pub use types::*;
 
@@ -42,8 +42,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Type to access the Balances Pallet.
-		type NativeBalance: fungible::Inspect<Self::AccountId>
-			+ fungible::Mutate<Self::AccountId>;
+		type NativeBalance: fungible::Inspect<Self::AccountId> + fungible::Mutate<Self::AccountId>;
 
 		/// Provider for the block number.
 		type BlockNumberProvider: BlockNumberProvider;
@@ -57,20 +56,20 @@ pub mod pallet {
 
 		/// The Scheduler.
 		type Scheduler: ScheduleAnon<
-		ProvidedBlockNumberFor<Self>,
+				ProvidedBlockNumberFor<Self>,
 				CallOf<Self>,
 				PalletsOriginOf<Self>,
 				Hasher = Self::Hashing,
 			> + ScheduleNamed<
-			ProvidedBlockNumberFor<Self>,
+				ProvidedBlockNumberFor<Self>,
 				CallOf<Self>,
 				PalletsOriginOf<Self>,
 				Hasher = Self::Hashing,
 			>;
 
-		/// Time period in which people can vote. 
-	/// After the period has ended, the votes are counted (STOP THE COUNT) 
-	/// and then the funds are distributed into Spends.
+		/// Time period in which people can vote.
+		/// After the period has ended, the votes are counted (STOP THE COUNT)
+		/// and then the funds are distributed into Spends.
 		#[pallet::constant]
 		type VotingPeriod: Get<ProvidedBlockNumberFor<Self>>;
 
@@ -78,9 +77,9 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxProjects: Get<u32>;
 
-		/// Time for claiming a Spend. 
-	/// After the period has passed, a spend is thrown away 
-	/// and the funds are available again for distribution in the pot.
+		/// Time for claiming a Spend.
+		/// After the period has passed, a spend is thrown away
+		/// and the funds are available again for distribution in the pot.
 		#[pallet::constant]
 		type ClaimingPeriod: Get<ProvidedBlockNumberFor<Self>>;
 
@@ -90,7 +89,6 @@ pub mod pallet {
 
 		/// Used for Pallet testing only. Represents the Total Reward distributed
 		type TemporaryRewards: Get<BalanceOf<Self>>;
-
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -109,12 +107,12 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type Spends<T: Config> =
 		CountedStorageMap<_, Twox64Concat, ProjectId<T>, SpendInfo<T>, OptionQuery>;
-	
+
 	/// List of Whitelisted Project registered
 	#[pallet::storage]
 	pub type WhiteListedProjectAccounts<T: Config> =
 		StorageValue<_, BoundedVec<ProjectId<T>, T::MaxProjects>, ValueQuery>;
-	
+
 	/// Returns (positive_funds,negative_funds) of Whitelisted Project accounts
 	#[pallet::storage]
 	pub type ProjectFunds<T: Config> = StorageMap<
@@ -129,10 +127,18 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Reward successfully claimed
-		RewardClaimed { when: ProvidedBlockNumberFor<T>, amount: BalanceOf<T>, project_id: ProjectId<T> },
+		RewardClaimed {
+			when: ProvidedBlockNumberFor<T>,
+			amount: BalanceOf<T>,
+			project_id: ProjectId<T>,
+		},
 
 		/// A Spend was created
-		SpendCreated { when: ProvidedBlockNumberFor<T>, amount: BalanceOf<T>, project_id: ProjectId<T> },
+		SpendCreated {
+			when: ProvidedBlockNumberFor<T>,
+			amount: BalanceOf<T>,
+			project_id: ProjectId<T>,
+		},
 
 		/// Not yet in the claiming period
 		NotClaimingPeriod { project_id: ProjectId<T>, claiming_period: ProvidedBlockNumberFor<T> },
@@ -150,30 +156,30 @@ pub mod pallet {
 		VoteRemoved { who: VoterId<T>, when: ProvidedBlockNumberFor<T>, project_id: ProjectId<T> },
 
 		/// Project added to whitelisted projects list
-		Projectlisted { when:ProvidedBlockNumberFor<T>, project_id: ProjectId<T> },
+		Projectlisted { when: ProvidedBlockNumberFor<T>, project_id: ProjectId<T> },
 
 		/// Project removed from whitelisted projects list
-		ProjectUnlisted { when:ProvidedBlockNumberFor<T>, project_id: ProjectId<T> },
+		ProjectUnlisted { when: ProvidedBlockNumberFor<T>, project_id: ProjectId<T> },
 
 		/// Project Funding Accepted by voters
 		ProjectFundingAccepted {
 			project_id: ProjectId<T>,
-			when:ProvidedBlockNumberFor<T>,
+			when: ProvidedBlockNumberFor<T>,
 			round_number: u32,
 			amount: BalanceOf<T>,
 		},
 
 		/// Project Funding rejected by voters
-		ProjectFundingRejected { when:ProvidedBlockNumberFor<T>, project_id: ProjectId<T> },
+		ProjectFundingRejected { when: ProvidedBlockNumberFor<T>, project_id: ProjectId<T> },
 
 		/// A new voting round started
-		VotingRoundStarted { when:ProvidedBlockNumberFor<T>, round_number: u32 },
+		VotingRoundStarted { when: ProvidedBlockNumberFor<T>, round_number: u32 },
 
 		/// The users voting period ended. Reward calculation will start.
-		VoteActionLocked { when:ProvidedBlockNumberFor<T>, round_number: u32 },
+		VoteActionLocked { when: ProvidedBlockNumberFor<T>, round_number: u32 },
 
 		/// The voting round ended
-		VotingRoundEnded { when:ProvidedBlockNumberFor<T>, round_number: u32 },
+		VotingRoundEnded { when: ProvidedBlockNumberFor<T>, round_number: u32 },
 	}
 
 	#[pallet::error]
@@ -215,23 +221,22 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-
 		#[pallet::call_index(0)]
 		#[transactional]
-		pub fn register_project(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult{
+		pub fn register_project(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;
 			let when = T::BlockNumberProvider::current_block_number();
 			Self::register_new(project_id.clone())?;
-			Self::deposit_event(Event::Projectlisted {
-				when,
-				project_id,
-			});
+			Self::deposit_event(Event::Projectlisted { when, project_id });
 			Ok(())
 		}
 
 		#[pallet::call_index(1)]
 		#[transactional]
-		pub fn unregister_project(origin: OriginFor<T>, project_id:  ProjectId<T> ) -> DispatchResult {
+		pub fn unregister_project(
+			origin: OriginFor<T>,
+			project_id: ProjectId<T>,
+		) -> DispatchResult {
 			ensure_root(origin)?;
 			let when = T::BlockNumberProvider::current_block_number();
 			Self::unlist_project(project_id.clone())?;
@@ -263,6 +268,5 @@ pub mod pallet {
 		pub fn execute_claim(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
 			Ok(())
 		}
-
 	}
 }
