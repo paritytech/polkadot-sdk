@@ -561,7 +561,7 @@ pub mod hashing {
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
 }
 
-/// Utility traits not tied to any direct(i.e. currency, account management e.t.c.) operation in the
+/// Utility traits not tied to any direct operation(i.e. currency, account management e.t.c.) in the
 /// runtime.
 pub mod utility {
 	pub use frame_support::traits::{
