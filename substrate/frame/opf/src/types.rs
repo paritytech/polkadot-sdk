@@ -38,9 +38,9 @@ pub use frame_support::{
 pub use pallet_conviction_voting::Conviction;
 pub use frame_system::{pallet_prelude::*, RawOrigin};
 pub use scale_info::prelude::vec::Vec;
-pub use sp_runtime::traits::{
+pub use sp_runtime::{traits::{
 	AccountIdConversion, BlockNumberProvider, Convert, Dispatchable, Saturating, StaticLookup, Zero,
-};
+}, Percent};
 pub use sp_std::boxed::Box;
 
 pub type BalanceOf<T> = <<T as Config>::NativeBalance as fungible::Inspect<

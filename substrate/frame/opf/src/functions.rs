@@ -20,13 +20,125 @@
 pub use super::*;
 impl<T: Config> Pallet<T> {
 
+    pub fn pot_account() -> AccountIdOf<T> {
+		// Get Pot account
+		T::PotId::get().into_account_truncating()
+	}
+
+	/// Funds transfer from the Pot to a project account
+	pub fn spend(amount: BalanceOf<T>, beneficiary: AccountIdOf<T>) -> DispatchResult {
+		// Get Pot account
+		let pot_account: AccountIdOf<T> = Self::pot_account();
+
+		//Operate the transfer
+		T::NativeBalance::transfer(&pot_account, &beneficiary, amount, Preservation::Preserve)?;
+
+		Ok(())
+	}
+
+    /// Series of checks on the Pot, to ensure that we have enough funds
+	/// before executing a Spend --> used in tests.
+	pub fn pot_check(spend: BalanceOf<T>) -> DispatchResult {
+		// Get Pot account
+		let pot_account = Self::pot_account();
+
+		// Check that the Pot as enough funds for the transfer
+		let balance = T::NativeBalance::balance(&pot_account);
+		let minimum_balance = T::NativeBalance::minimum_balance();
+		let remaining_balance = balance.saturating_sub(spend);
+
+		ensure!(remaining_balance > minimum_balance, Error::<T>::InsufficientPotReserves);
+		ensure!(balance > spend, Error::<T>::InsufficientPotReserves);
+		Ok(())
+	}
+
     // Helper function for project registration
-    pub fn register_new(project_id: ProjectId<T>, amount: BalanceOf<T>) -> DispatchResult{
+    pub fn register_new(project_id: ProjectId<T>) -> DispatchResult{
         let submission_block = T::BlockNumberProvider::current_block_number();
-        let project_infos: ProjectInfo<T> = ProjectInfo { project_id, submission_block, amount};
-        let mut bounded = Projects::get();
-        let _ = bounded.try_push(project_infos);
-        Projects::put(bounded);
+        let mut bounded: BoundedVec<ProjectId<T>, T::MaxProjects>  = WhiteListedProjectAccounts::<T>::get();
+        let _ = bounded.try_push(project_id);
+        WhiteListedProjectAccounts::<T>::put(bounded);
         Ok(())
     }
+
+    // Voting Period checks
+	pub fn period_check() -> DispatchResult {
+		// Get current voting round & check if we are in voting period or not
+		let current_round_index = VotingRoundNumber::<T>::get().saturating_sub(1);
+		let round = VotingRounds::<T>::get(current_round_index).ok_or(Error::<T>::NoRoundFound)?;
+		let now = T::BlockNumberProvider::current_block_number();
+		ensure!(now < round.round_ending_block, Error::<T>::VotingRoundOver);
+		Ok(())
+	}
+
+    pub fn unlist_project(project_id: ProjectId<T>) -> DispatchResult {
+		WhiteListedProjectAccounts::<T>::mutate(|value| {
+			let mut val = value.clone();
+			val.retain(|x| *x != project_id);
+			*value = val;
+		});
+		
+		Ok(())
+	}
+
+    // The total reward to be distributed is a portion or inflation, determined in another pallet
+	// Reward calculation is executed within the Voting period 
+	pub fn calculate_rewards(total_reward: BalanceOf<T>) -> DispatchResult {
+		let projects = WhiteListedProjectAccounts::<T>::get();
+		let round_number = VotingRoundNumber::<T>::get().saturating_sub(1);
+		let round = VotingRounds::<T>::get(round_number).ok_or(Error::<T>::NoRoundFound)?;
+		if projects.clone().len() > 0 as usize {
+			let total_positive_votes_amount = round.total_positive_votes_amount;
+			let total_negative_votes_amount = round.total_negative_votes_amount;
+
+			let total_votes_amount =
+				total_positive_votes_amount.saturating_sub(total_negative_votes_amount);
+
+			// for each project, calculate the percentage of votes, the amount to be distributed,
+			// and then populate the storage Projects
+			for project in projects {
+				if ProjectFunds::<T>::contains_key(&project) {
+					let funds = ProjectFunds::<T>::get(&project);
+					let project_positive_reward = funds[0];
+					let project_negative_reward = funds[1];
+
+					let project_reward =
+						project_positive_reward.saturating_sub(project_negative_reward);
+
+						let project_percentage =
+							Percent::from_rational(project_reward, total_votes_amount);
+						let final_amount = project_percentage * total_reward;
+
+						// Send calculated reward for reward distribution
+						let now = T::BlockNumberProvider::current_block_number();
+						let project_info = ProjectInfo {
+							project_id: project.clone(),
+							submission_block: now,
+							amount: final_amount,
+						};
+
+						let mut rewarded = Projects::<T>::get();
+						rewarded
+							.try_push(project_info.clone())
+							.map_err(|_| Error::<T>::MaximumProjectsNumber)?;
+
+						Projects::<T>::mutate(|value| {
+							*value = rewarded;
+						});
+
+						let when = T::BlockNumberProvider::current_block_number();
+						Self::deposit_event(Event::<T>::ProjectFundingAccepted {
+							project_id: project,
+							when,
+							round_number,
+							amount: project_info.amount,
+						})
+					
+				}
+			}
+		}
+
+		Ok(())
+	}
+
 }

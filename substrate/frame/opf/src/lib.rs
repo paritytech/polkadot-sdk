@@ -111,6 +111,21 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Projects<T: Config> =
 		StorageValue<_, BoundedVec<ProjectInfo<T>, T::MaxProjects>, ValueQuery>;
+	
+	/// List of Whitelisted Project registered
+	#[pallet::storage]
+	pub type WhiteListedProjectAccounts<T: Config> =
+		StorageValue<_, BoundedVec<ProjectId<T>, T::MaxProjects>, ValueQuery>;
+	
+	/// Returns (positive_funds,negative_funds) of Whitelisted Project accounts
+	#[pallet::storage]
+	pub type ProjectFunds<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		ProjectId<T>,
+		BoundedVec<BalanceOf<T>, ConstU32<2>>,
+		ValueQuery,
+	>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -183,6 +198,14 @@ pub mod pallet {
 		FundsReserveFailed,
 		/// An invalid result  was returned
 		InvalidResult,
+		/// The reward calculation failed due to an internal error
+		FailedRewardCalculation,
+		/// Voting round is over
+		VotingRoundOver,
+		/// This voting round does not exists
+		NoRoundFound,
+		/// Maximum number of projects submission for reward distribution as been reached
+		MaximumProjectsNumber,
 	}
 
 	/*#[pallet::hooks]
@@ -197,10 +220,10 @@ pub mod pallet {
 
 		#[pallet::call_index(0)]
 		#[transactional]
-		pub fn register_project(origin: OriginFor<T>, project_id: ProjectId<T>, amount: BalanceOf<T>) -> DispatchResult{
+		pub fn register_project(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult{
 			let _caller = ensure_signed(origin)?;
 			let when = T::BlockNumberProvider::current_block_number();
-			Self::register_new(project_id.clone(), amount)?;
+			Self::register_new(project_id.clone())?;
 			Self::deposit_event(Event::Projectlisted {
 				when,
 				project_id,
@@ -210,7 +233,12 @@ pub mod pallet {
 
 		#[pallet::call_index(1)]
 		#[transactional]
-		pub fn unregister_project(origin: OriginFor<T>) -> DispatchResult {
+		pub fn unregister_project(origin: OriginFor<T>, project_id:  ProjectId<T> ) -> DispatchResult {
+			ensure_root(origin)?;
+			let when = T::BlockNumberProvider::current_block_number();
+			Self::unlist_project(project_id.clone())?;
+			Self::deposit_event(Event::<T>::ProjectUnlisted { when, project_id });
+
 			Ok(())
 		}
 
