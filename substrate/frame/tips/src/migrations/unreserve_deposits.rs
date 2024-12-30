@@ -233,7 +233,7 @@ mod test {
 		type Currency = Balances;
 		type TipReportDepositBase = ConstU64<1>;
 		type DataDepositPerByte = ConstU64<1>;
-		type Hash = crate::H256;
+		type Hash = H256;
 		type AccountId = u128;
 		type BlockNumber = BlockNumberFor<Test>;
 		type DbWeight = ();
@@ -277,8 +277,8 @@ mod test {
 				<Test as pallet_treasury::Config>::Currency::reserved_balance(&tipper_0),
 				tipper_0_initial_reserved +
 					<<Test as crate::Config>::TipReportDepositBase as TypedGet>::get() +
-					<<Test as crate::Config>::DataDepositPerByte as frame::prelude::TypedGet>::get(
-					) * tip_0_reason.len() as u64
+					<<Test as crate::Config>::DataDepositPerByte as TypedGet>::get() *
+						tip_0_reason.len() as u64
 			);
 			assert_eq!(
 				<Test as pallet_treasury::Config>::Currency::reserved_balance(&tipper_1),
