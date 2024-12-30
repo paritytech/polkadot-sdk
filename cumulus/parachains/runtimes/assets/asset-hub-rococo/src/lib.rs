@@ -62,7 +62,8 @@ use frame_support::{
 	ord_parameter_types, parameter_types,
 	traits::{
 		fungible, fungibles, tokens::imbalance::ResolveAssetTo, AsEnsureOriginWithArg, ConstBool,
-		ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse, InstanceFilter, TransformOrigin,
+		ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Equals, InstanceFilter,
+		TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight, WeightToFee as _},
 	BoundedVec, PalletId,
@@ -123,7 +124,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("statemine"),
 	impl_name: alloc::borrow::Cow::Borrowed("statemine"),
 	authoring_version: 1,
-	spec_version: 1_016_002,
+	spec_version: 1_017_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -939,6 +940,10 @@ impl pallet_xcm_bridge_hub_router::Config<ToWestendXcmRouterInstance> for Runtim
 	type Bridges = xcm_config::bridging::NetworkExportTable;
 	type DestinationVersion = PolkadotXcm;
 
+	type BridgeHubOrigin = frame_support::traits::EitherOfDiverse<
+		EnsureRoot<AccountId>,
+		EnsureXcm<Equals<Self::SiblingBridgeHubLocation>>,
+	>;
 	type ToBridgeHubSender = XcmpQueue;
 	type LocalXcmChannelManager =
 		cumulus_pallet_xcmp_queue::bridging::InAndOutXcmpChannelStatusProvider<Runtime>;
