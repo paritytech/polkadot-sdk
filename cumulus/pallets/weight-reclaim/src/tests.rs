@@ -912,3 +912,65 @@ fn sets_to_node_storage_proof_if_higher() {
 		})
 	}
 }
+
+#[test]
+fn test_pov_missing_from_node_reclaim() {
+	// Test scenario: after dispatch the pov size from node side is less than block weight.
+	// Ensure `pov_size_missing_from_node` is calculated correctly, and `ExtrinsicWeightReclaimed`
+	// is updated correctly.
+
+	// Proof size:
+	let bench_pre_dispatch_call = 220;
+	let bench_post_dispatch_actual = 90;
+	let len = 20; // Only one extrinsic in the scenario. So all extrinsics length.
+	let block_pre_dispatch = 100;
+	let missing_from_node = 50;
+	let node_diff = 70;
+
+	let node_pre_dispatch = block_pre_dispatch + missing_from_node;
+	let node_post_dispatch = node_pre_dispatch + node_diff;
+
+	// Initialize the test.
+	let mut test_ext = setup_test_externalities(&[
+		node_pre_dispatch as usize,
+		node_post_dispatch as usize,
+	]);
+
+	test_ext.execute_with(|| {
+		set_current_storage_weight(block_pre_dispatch);
+		let info = DispatchInfo {
+			call_weight: Weight::from_parts(0, bench_pre_dispatch_call),
+			extension_weight: Weight::from_parts(0, 0),
+			..Default::default()
+		};
+		let mut post_info = PostDispatchInfo {
+			actual_weight: Some(Weight::from_parts(0, bench_post_dispatch_actual)),
+			..Default::default()
+		};
+
+		// Execute the transaction.
+		let tx_ext = StorageWeightReclaim::<Test, frame_system::CheckWeight<Test>>::new(
+			frame_system::CheckWeight::new()
+		);
+		let (pre, _) = tx_ext
+			.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, len as usize, 0)
+			.expect("valid transaction extension pipeline");
+		assert_ok!(StorageWeightReclaim::<Test, frame_system::CheckWeight<Test>>::post_dispatch(
+			pre,
+			&info,
+			&mut post_info,
+			len as usize,
+			&Ok(()),
+		));
+
+		// Assert the results.
+		assert_eq!(
+			frame_system::BlockWeight::<Test>::get().get(DispatchClass::Normal).proof_size(),
+			node_post_dispatch + len,
+		);
+		assert_eq!(
+			frame_system::ExtrinsicWeightReclaimed::<Test>::get().proof_size(),
+			bench_pre_dispatch_call - node_diff - missing_from_node,
+		);
+	});
+}
