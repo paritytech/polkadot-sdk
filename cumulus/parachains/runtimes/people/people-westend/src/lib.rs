@@ -138,10 +138,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("people-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("people-westend"),
 	authoring_version: 1,
-	spec_version: 1_016_001,
+	spec_version: 1_017_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 1,
+	transaction_version: 2,
 	system_version: 1,
 };
 
@@ -1054,7 +1054,9 @@ impl_runtime_apis! {
 				}
 
 				fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
-					Err(BenchmarkError::Skip)
+					let origin = Location::new(1, [Parachain(1000)]);
+					let target = Location::new(1, [Parachain(1000), AccountId32 { id: [128u8; 32], network: None }]);
+					Ok((origin, target))
 				}
 			}
 

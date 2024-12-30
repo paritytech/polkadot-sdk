@@ -29,7 +29,7 @@ use frame_support::parameter_types;
 use parachains_common::{AccountId, AuraId, Balance};
 use snowbridge_pallet_ethereum_client::WeightInfo;
 use sp_core::H160;
-use sp_keyring::AccountKeyring::Alice;
+use sp_keyring::Sr25519Keyring::Alice;
 use sp_runtime::{
 	generic::{Era, SignedPayload},
 	AccountId32,
@@ -166,7 +166,7 @@ pub fn ethereum_outbound_queue_processes_messages_before_message_queue_works() {
 }
 
 fn construct_extrinsic(
-	sender: sp_keyring::AccountKeyring,
+	sender: sp_keyring::Sr25519Keyring,
 	call: RuntimeCall,
 ) -> UncheckedExtrinsic {
 	let account_id = AccountId32::from(sender.public());
@@ -192,7 +192,7 @@ fn construct_extrinsic(
 }
 
 fn construct_and_apply_extrinsic(
-	origin: sp_keyring::AccountKeyring,
+	origin: sp_keyring::Sr25519Keyring,
 	call: RuntimeCall,
 ) -> sp_runtime::DispatchOutcome {
 	let xt = construct_extrinsic(origin, call);

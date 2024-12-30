@@ -20,8 +20,6 @@ fnv = { workspace = true }
 futures = { workspace = true }
 log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
-thiserror = { workspace = true }
-wasm-timer = { workspace = true }
 prometheus-endpoint = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
@@ -40,18 +38,20 @@ sp-core = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+thiserror = { workspace = true }
 tokio = { workspace = true, default-features = true }
+wasm-timer = { workspace = true }
 
 [dev-dependencies]
-serde = { workspace = true, default-features = true }
-tempfile = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
 sc-network-test = { workspace = true }
+serde = { workspace = true, default-features = true }
 sp-consensus-grandpa = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-mmr-primitives = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
+tempfile = { workspace = true }
 
 [features]
 # This feature adds BLS crypto primitives. It should not be used in production since
