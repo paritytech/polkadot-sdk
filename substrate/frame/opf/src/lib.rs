@@ -289,28 +289,25 @@ pub mod pallet {
 			match now {
 				_ if now >= info.expire => {
 					Spends::<T>::remove(&project_id);
-				Self::deposit_event(Event::ExpiredClaim {
-					expired_when: info.expire,
-					project_id,
-				});
-				Ok(())
+					Self::deposit_event(Event::ExpiredClaim {
+						expired_when: info.expire,
+						project_id,
+					});
+					Ok(())
 				},
 				_ if now >= info.expire => {
 					// transfer the funds
-			Self::spend(info.amount, project_id.clone())?;
+					Self::spend(info.amount, project_id.clone())?;
 
-			Self::deposit_event(Event::RewardClaimed {
-				when: now,
-				amount: info.amount,
-				project_id,
-			});
-			Ok(())
-				}
-				_ => Err(DispatchError::Other("Not Claiming Period"))
+					Self::deposit_event(Event::RewardClaimed {
+						when: now,
+						amount: info.amount,
+						project_id,
+					});
+					Ok(())
+				},
+				_ => Err(DispatchError::Other("Not Claiming Period")),
 			}
-
 		}
-
-
 	}
 }
