@@ -21,9 +21,6 @@ scale-info = { features = ["derive"], workspace = true }
 frame = { workspace = true, features = ["experimental", "runtime"] }
 pallet-assets = { workspace = true }
 
-[dev-dependencies]
-pallet-balances = { workspace = true }
-
 [features]
 default = ["std"]
 std = [

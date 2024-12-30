@@ -17,14 +17,14 @@ log = { workspace = true }
 
 # Substrate
 frame-support = { workspace = true }
-sp-runtime = { workspace = true }
 pallet-asset-conversion = { workspace = true }
+sp-runtime = { workspace = true }
 
 # Polkadot
 polkadot-runtime-common = { workspace = true }
 xcm = { workspace = true }
-xcm-executor = { workspace = true }
 xcm-builder = { workspace = true }
+xcm-executor = { workspace = true }
 
 # Cumulus
 cumulus-primitives-core = { workspace = true }
@@ -52,4 +52,5 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
