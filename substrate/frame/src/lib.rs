@@ -551,19 +551,6 @@ pub mod hashing {
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
 }
 
-/// Currency related traits.
-///
-/// This is already part of the [`prelude`].
-pub mod currency {
-	pub use frame_support::traits::{
-		fungibles::{Inspect, InspectFreeze, MutateFreeze},
-		tokens::*,
-		Currency,
-		ExistenceRequirement::KeepAlive,
-		OnUnbalanced, ReservableCurrency,
-	};
-}
-
 /// All account management related traits.
 ///
 /// This is already part of the [`prelude`].
