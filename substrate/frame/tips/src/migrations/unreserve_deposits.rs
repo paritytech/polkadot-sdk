@@ -23,6 +23,9 @@ use core::iter::Sum;
 use frame::runtime::prelude::*;
 
 #[cfg(feature = "try-runtime")]
+use frame::try_runtime::TryRuntimeError;
+
+#[cfg(feature = "try-runtime")]
 const LOG_TARGET: &str = "runtime::tips::migrations::unreserve_deposits";
 
 type BalanceOf<T, I> =
@@ -124,7 +127,7 @@ where
 	/// Fails with a `TryRuntimeError` if somehow the amount reserved by this pallet is greater than
 	/// the actual total reserved amount for any accounts.
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, frame::try_runtime::TryRuntimeError> {
+	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, TryRuntimeError> {
 		use codec::Encode;
 
 		// Get the Tips pallet view of balances it has reserved
@@ -178,7 +181,7 @@ where
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(
 		account_reserved_before_bytes: alloc::vec::Vec<u8>,
-	) -> Result<(), frame::try_runtime::TryRuntimeError> {
+	) -> Result<(), TryRuntimeError> {
 		use codec::Decode;
 
 		let account_reserved_before = BTreeMap::<T::AccountId, BalanceOf<T, I>>::decode(
