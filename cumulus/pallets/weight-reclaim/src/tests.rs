@@ -931,10 +931,8 @@ fn test_pov_missing_from_node_reclaim() {
 	let node_post_dispatch = node_pre_dispatch + node_diff;
 
 	// Initialize the test.
-	let mut test_ext = setup_test_externalities(&[
-		node_pre_dispatch as usize,
-		node_post_dispatch as usize,
-	]);
+	let mut test_ext =
+		setup_test_externalities(&[node_pre_dispatch as usize, node_post_dispatch as usize]);
 
 	test_ext.execute_with(|| {
 		set_current_storage_weight(block_pre_dispatch);
@@ -950,7 +948,7 @@ fn test_pov_missing_from_node_reclaim() {
 
 		// Execute the transaction.
 		let tx_ext = StorageWeightReclaim::<Test, frame_system::CheckWeight<Test>>::new(
-			frame_system::CheckWeight::new()
+			frame_system::CheckWeight::new(),
 		);
 		let (pre, _) = tx_ext
 			.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, len as usize, 0)

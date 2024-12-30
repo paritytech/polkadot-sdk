@@ -239,7 +239,8 @@ where
 			let extrinsic_len = frame_system::AllExtrinsicsLen::<T>::get().unwrap_or(0);
 			let node_side_pov_size = proof_size_after_dispatch.saturating_add(extrinsic_len.into());
 			let block_weight_proof_size = current_weight.total().proof_size();
-			let pov_size_missing_from_node = node_side_pov_size.saturating_sub(block_weight_proof_size);
+			let pov_size_missing_from_node =
+				node_side_pov_size.saturating_sub(block_weight_proof_size);
 			if pov_size_missing_from_node > 0 {
 				log::warn!(
 					target: LOG_TARGET,
@@ -248,7 +249,8 @@ where
 					{block_weight_proof_size}, missing: {pov_size_missing_from_node}. Setting to \
 					node-side proof size."
 				);
-				current_weight.accrue(Weight::from_parts(0, pov_size_missing_from_node), info.class);
+				current_weight
+					.accrue(Weight::from_parts(0, pov_size_missing_from_node), info.class);
 			}
 
 			pov_size_missing_from_node
@@ -257,7 +259,8 @@ where
 		// The saturation will happen if the pre-dispatch weight is underestimating the proof
 		// size or if the node-side proof size is higher than expected.
 		// In this case the extrinsic proof size weight reclaimed is 0 and not a negative reclaim.
-		let accurate_unspent = info.total_weight()
+		let accurate_unspent = info
+			.total_weight()
 			.saturating_sub(accurate_weight)
 			.saturating_sub(Weight::from_parts(0, pov_size_missing_from_node));
 		frame_system::ExtrinsicWeightReclaimed::<T>::put(accurate_unspent);
