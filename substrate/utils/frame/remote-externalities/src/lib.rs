@@ -758,8 +758,8 @@ where
 				},
 			})
 			.collect::<Vec<_>>();
-		// Must succeed; qed.
-		let _ = logging::with_elapsed(
+
+		logging::with_elapsed(
 			|| {
 				pending_ext.batch_insert(key_values.clone().into_iter().filter_map(|(k, v)| {
 					// Don't insert the child keys here, they need to be inserted separately with
@@ -774,7 +774,7 @@ where
 			},
 			"Inserting keys into DB...",
 			|_| "Inserted keys into DB".into(),
-		);
+		).expect("must succeed; qed");
 
 		Ok(key_values)
 	}
