@@ -53,11 +53,7 @@ fn start(start_msg: &str) -> (Instant, Spinner) {
 }
 
 fn end<T>(val: T, start: Instant, sp: &mut Spinner, end_msg: impl FnOnce(&T) -> String) -> T {
-	sp.stop_with_message(format!(
-		"✅ {} in ({:.2}s)",
-		end_msg(&val),
-		start.elapsed().as_secs_f32()
-	));
+	sp.stop_with_message(format!("✅ {} in {:.2}s", end_msg(&val), start.elapsed().as_secs_f32()));
 
 	val
 }
