@@ -8,13 +8,10 @@ use spinners::{Spinner, Spinners};
 
 use super::Result;
 
-pub(super) fn with_elapsed<F, R>(
-	f: F,
-	start_msg: &str,
-	end_msg: impl FnOnce(&R) -> String,
-) -> Result<R>
+pub(super) fn with_elapsed<F, R, EndMsg>(f: F, start_msg: &str, end_msg: EndMsg) -> Result<R>
 where
 	F: FnOnce() -> Result<R>,
+	EndMsg: FnOnce(&R) -> String,
 {
 	if io::stdout().is_terminal() {
 		let (start, mut sp) = start(start_msg);
@@ -26,14 +23,11 @@ where
 	}
 }
 
-pub(super) async fn with_elapsed_async<F, Fut, R>(
-	f: F,
-	start_msg: &str,
-	end_msg: impl FnOnce(&R) -> String,
-) -> Result<R>
+pub(super) async fn with_elapsed_async<F, Fut, R, EndMsg>(f: F, start_msg: &str, end_msg: EndMsg) -> Result<R>
 where
 	F: FnOnce() -> Fut,
 	Fut: Future<Output = Result<R>>,
+	EndMsg: FnOnce(&R) -> String,
 {
 	if io::stdout().is_terminal() {
 		let (start, mut sp) = start(start_msg);
@@ -52,7 +46,10 @@ fn start(start_msg: &str) -> (Instant, Spinner) {
 	(start, sp)
 }
 
-fn end<T>(val: T, start: Instant, sp: &mut Spinner, end_msg: impl FnOnce(&T) -> String) -> T {
+fn end<T, EndMsg>(val: T, start: Instant, sp: &mut Spinner, end_msg: EndMsg) -> T
+where
+	EndMsg: FnOnce(&T) -> String,
+{
 	sp.stop_with_message(format!("✅ {} in {:.2}s", end_msg(&val), start.elapsed().as_secs_f32()));
 
 	val
