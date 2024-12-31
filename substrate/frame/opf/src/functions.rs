@@ -138,7 +138,8 @@ impl<T: Config> Pallet<T> {
 	}
 
 	// To be executed in a hook, on_initialize
-	pub fn on_idle_function(now: ProvidedBlockNumberFor<T>, limit: Weight) -> Weight {
+	pub fn on_idle_function(limit: Weight) -> Weight {
+		let now = T::BlockNumberProvider::current_block_number();
 		let mut meter = WeightMeter::with_limit(limit);
 		let max_block_weight = T::DbWeight::get().reads_writes(14, 8);
 

@@ -65,6 +65,7 @@ pub type RoundIndex = u32;
 pub type VoterId<T> = AccountIdOf<T>;
 pub type ProvidedBlockNumberFor<T> =
 	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+pub use frame_system::pallet_prelude::BlockNumberFor as SystemBlockNumberFor;
 
 /// The state of the payment claim.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo, Default)]

@@ -215,12 +215,12 @@ pub mod pallet {
 		MaximumProjectsNumber,
 	}
 
-	/*#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(n:ProvidedBlockNumberFor<T>) -> Weight {
-			Self::begin_block(n)
+	#[pallet::hooks]
+	impl<T: Config> Hooks<SystemBlockNumberFor<T>> for Pallet<T> {
+		fn on_idle(_n: SystemBlockNumberFor<T>, remaining_weight: Weight) -> Weight {
+			Self::on_idle_function(remaining_weight)
 		}
-	}*/
+	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
