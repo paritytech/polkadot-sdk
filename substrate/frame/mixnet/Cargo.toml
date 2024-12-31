@@ -35,9 +35,6 @@ std = [
 	"sp-application-crypto/std",
 	"sp-mixnet/std",
 ]
-runtime-benchmarks = [
-	"frame/runtime-benchmarks",
-]
 try-runtime = [
 	"frame/try-runtime",
 ]
