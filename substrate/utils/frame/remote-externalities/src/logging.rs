@@ -25,7 +25,7 @@ use spinners::{Spinner, Spinners};
 
 use super::Result;
 
-// A simple helper to time an async operation with a nice spinner, start message, and end message.
+// A simple helper to time a operation with a nice spinner, start message, and end message.
 //
 // The spinner is only displayed when stdout is a terminal.
 pub(super) fn with_elapsed<F, R, EndMsg>(f: F, start_msg: &str, end_msg: EndMsg) -> Result<R>
@@ -39,7 +39,7 @@ where
 	Ok(end(f()?, timer, maybe_sp.as_mut(), end_msg))
 }
 
-// A simple helper to time a operation with a nice spinner, start message, and end message.
+// A simple helper to time an async operation with a nice spinner, start message, and end message.
 //
 // The spinner is only displayed when stdout is a terminal.
 pub(super) async fn with_elapsed_async<F, Fut, R, EndMsg>(
