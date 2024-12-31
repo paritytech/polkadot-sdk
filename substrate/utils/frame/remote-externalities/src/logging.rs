@@ -33,14 +33,10 @@ where
 	F: FnOnce() -> Result<R>,
 	EndMsg: FnOnce(&R) -> String,
 {
-	if io::stdout().is_terminal() {
-		let (start, mut sp) = start(start_msg);
-		let r = f()?;
+	let timer = Instant::now();
+	let mut maybe_sp = start(start_msg);
 
-		Ok(end(r, start, &mut sp, end_msg))
-	} else {
-		f()
-	}
+	Ok(end(f()?, timer, maybe_sp.as_mut(), end_msg))
 }
 
 // A simple helper to time a operation with a nice spinner, start message, and end message.
@@ -56,28 +52,35 @@ where
 	Fut: Future<Output = Result<R>>,
 	EndMsg: FnOnce(&R) -> String,
 {
-	if io::stdout().is_terminal() {
-		let (start, mut sp) = start(start_msg);
-		let r = f().await?;
+	let timer = Instant::now();
+	let mut maybe_sp = start(start_msg);
 
-		Ok(end(r, start, &mut sp, end_msg))
+	Ok(end(f().await?, timer, maybe_sp.as_mut(), end_msg))
+}
+
+fn start(start_msg: &str) -> Option<Spinner> {
+	let msg = format!("⏳ {start_msg}");
+
+	if io::stdout().is_terminal() {
+		Some(Spinner::new(Spinners::Dots, msg))
 	} else {
-		f().await
+		println!("{msg}");
+
+		None
 	}
 }
 
-fn start(start_msg: &str) -> (Instant, Spinner) {
-	let start = Instant::now();
-	let sp = Spinner::new(Spinners::Dots, format!("⏳ {start_msg}"));
-
-	(start, sp)
-}
-
-fn end<T, EndMsg>(val: T, start: Instant, sp: &mut Spinner, end_msg: EndMsg) -> T
+fn end<T, EndMsg>(val: T, timer: Instant, maybe_sp: Option<&mut Spinner>, end_msg: EndMsg) -> T
 where
 	EndMsg: FnOnce(&T) -> String,
 {
-	sp.stop_with_message(format!("✅ {} in {:.2}s", end_msg(&val), start.elapsed().as_secs_f32()));
+	let msg = format!("✅ {} in {:.2}s", end_msg(&val), timer.elapsed().as_secs_f32());
+
+	if let Some(sp) = maybe_sp {
+		sp.stop_with_message(msg);
+	} else {
+		println!("{msg}");
+	}
 
 	val
 }
