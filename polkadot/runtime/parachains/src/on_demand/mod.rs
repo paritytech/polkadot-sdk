@@ -584,21 +584,27 @@ where
 
 	#[cfg(feature = "runtime-benchmarks")]
 	pub fn populate_queue(para_id: ParaId, num: u32) {
-		QueueStatus::<T>::mutate(|queue_status| {
+		let now = <frame_system::Pallet<T>>::block_number();
+		pallet::OrderStatus::<T>::mutate(|order_status| {
 			for _ in 0..num {
-				Pallet::<T>::add_on_demand_order(queue_status, para_id, QueuePushDirection::Back);
+				order_status.queue.try_push(now, para_id).unwrap();
 			}
 		});
 	}
 
-	#[cfg(test)]
-	fn set_queue_status(new_status: QueueStatusType) {
-		QueueStatus::<T>::set(new_status);
+	#[cfg(feature = "runtime-benchmarks")]
+	pub(crate) fn set_revenue(rev: BoundedVec<BalanceOf<T>, T::MaxHistoricalRevenue>) {
+		Revenue::<T>::put(rev);
 	}
 
 	#[cfg(test)]
-	fn get_queue_status() -> QueueStatusType {
-		QueueStatus::<T>::get()
+	fn set_order_status(new_status: OrderStatus<BlockNumberFor<T>>) {
+		pallet::OrderStatus::<T>::set(new_status);
+	}
+
+	#[cfg(test)]
+	fn get_queue_status() -> OrderStatus<BlockNumberFor<T>> {
+		pallet::OrderStatus::<T>::get()
 	}
 
 	#[cfg(test)]
