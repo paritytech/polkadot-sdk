@@ -276,7 +276,7 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type CoreSchedules<T: Config> = StorageMap<
 		_,
-		Twox256Concat,
+		Twox64Concat,
 		(BlockNumberFor<T>, CoreIndex),
 		Schedule<BlockNumberFor<T>>,
 		OptionQuery,

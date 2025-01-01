@@ -303,7 +303,7 @@ impl<T: Config> Pallet<T> {
 
 	#[cfg(any(feature = "try-runtime", test))]
 	fn claim_queue_len() -> usize {
-		ClaimQueue::<T>::get().iter().map(|la_vec| la_vec.1.len()).sum()
+		Self::claim_queue().iter().map(|la_vec| la_vec.1.len()).sum()
 	}
 
 	#[cfg(all(not(feature = "runtime-benchmarks"), test))]

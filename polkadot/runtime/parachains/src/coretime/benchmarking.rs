@@ -41,7 +41,7 @@ mod benchmarks {
 			T::MaxHistoricalRevenue,
 		> = BoundedVec::try_from((1..=mhr).map(|v| minimum_balance * v.into()).collect::<Vec<_>>())
 			.unwrap();
-		on_demand::Revenue::<T>::put(rev);
+		on_demand::Pallet::<T>::set_revenue(rev);
 
 		<T as on_demand::Config>::Currency::make_free_balance_be(
 			&<on_demand::Pallet<T>>::account_id(),
