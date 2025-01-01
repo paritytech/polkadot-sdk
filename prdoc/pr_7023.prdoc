@@ -1,0 +1,20 @@
+title: Fix transaction extension for tuple of tuples or other nested structure.
+doc:
+- audience:
+  - Runtime Dev
+  - Runtime User
+  description: |-
+    This PR introduce a new method in the `TransactionExtension` trait: `fn validate_pipeline`.
+    This method is similar as `fn validate` but with 3 arguments for implication:
+    - `inherited_tx_implication`: The implication not part of the transaction extensions. E.g. the call and the version of the transaction.
+    - `inherited_tx_ext_explicit_implication`: The explicit implications of the transaction extensions in the pipeline.
+    - `inherited_tx_ext_implicit_implication`: The implicit implications of the transaction extensions in the pipeline.
+
+    This allows tuple to forward implication correctly, making `(A, B, C)` equivalent to `(A, (B, C))`.
+
+    I think this is better than having tuple compiling but still breaking user interface silently.
+
+    An alternative would be https://github.com/paritytech/polkadot-sdk/pull/6571 : a new struct that allow to have long pipeline. But people using tuple would still make the implication order broken.
+crates:
+- name: sp-runtime
+  bump: major
