@@ -73,11 +73,16 @@ pub mod pallet {
 /// This extension must wrap all the transaction extensions:
 #[doc = docify::embed!("./src/tests.rs", Tx)]
 ///
-/// This extension checks the size of the node-side storage proof
-/// before and after executing a given extrinsic. The difference between
-/// benchmarked and used weight is reclaimed.
+/// This extension checks the size of the node-side storage proof before and after executing a given
+/// extrinsic using the proof size host function. The difference between benchmarked and used weight
+/// is reclaimed.
 ///
 /// If the benchmark was underestimating the proof size, then it is added to the block weight.
+///
+/// For the time part of the weight, it does same as system `WeightReclaim` extension, it
+/// calculates the unused weight using the post information and reclaim the unused weight.
+/// So this extension can be used as a drop-in replacement for `WeightReclaim` extension for
+/// parachains.
 #[derive(Encode, Decode, TypeInfo, Derivative)]
 #[derivative(
 	Clone(bound = "S: Clone"),

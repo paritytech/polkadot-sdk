@@ -941,7 +941,7 @@ fn test_pov_missing_from_node_reclaim() {
 			extension_weight: Weight::from_parts(0, 0),
 			..Default::default()
 		};
-		let mut post_info = PostDispatchInfo {
+		let post_info = PostDispatchInfo {
 			actual_weight: Some(Weight::from_parts(0, bench_post_dispatch_actual)),
 			..Default::default()
 		};
@@ -950,16 +950,10 @@ fn test_pov_missing_from_node_reclaim() {
 		let tx_ext = StorageWeightReclaim::<Test, frame_system::CheckWeight<Test>>::new(
 			frame_system::CheckWeight::new(),
 		);
-		let (pre, _) = tx_ext
-			.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, len as usize, 0)
-			.expect("valid transaction extension pipeline");
-		assert_ok!(StorageWeightReclaim::<Test, frame_system::CheckWeight<Test>>::post_dispatch(
-			pre,
-			&info,
-			&mut post_info,
-			len as usize,
-			&Ok(()),
-		));
+		tx_ext
+			.test_run(ALICE_ORIGIN.clone().into(), CALL, &info, len as usize, 0, |_| Ok(post_info))
+			.expect("valid")
+			.expect("success");
 
 		// Assert the results.
 		assert_eq!(
@@ -969,6 +963,77 @@ fn test_pov_missing_from_node_reclaim() {
 		assert_eq!(
 			frame_system::ExtrinsicWeightReclaimed::<Test>::get().proof_size(),
 			bench_pre_dispatch_call - node_diff - missing_from_node,
+		);
+	});
+}
+
+#[test]
+fn test_ref_time_weight_reclaim() {
+	// Test scenario: after dispatch the time weight is refunded correctly.
+
+	// Time weight:
+	let bench_pre_dispatch_call = 145;
+	let bench_post_dispatch_actual = 104;
+	let bench_mock_ext_weight = 63;
+	let bench_mock_ext_refund = 22;
+	let len = 20; // Only one extrinsic in the scenario. So all extrinsics length.
+	let block_pre_dispatch = 121;
+	let node_pre_dispatch = 0;
+	let node_post_dispatch = 0;
+
+	// Initialize the test.
+	CHECK_WEIGHT_WEIGHT.with_borrow_mut(|v| *v = Weight::from_parts(0, 0));
+	STORAGE_WEIGHT_RECLAIM_WEIGHT.with_borrow_mut(|v| *v = Weight::from_parts(0, 0));
+	MOCK_EXT_WEIGHT.with_borrow_mut(|v| *v = Weight::from_parts(bench_mock_ext_weight, 0));
+	MOCK_EXT_REFUND.with_borrow_mut(|v| *v = Weight::from_parts(bench_mock_ext_refund, 0));
+
+	let base_extrinsic = <<Test as frame_system::Config>::BlockWeights as Get<
+		frame_system::limits::BlockWeights,
+	>>::get()
+	.per_class
+	.get(DispatchClass::Normal)
+	.base_extrinsic;
+
+	let mut test_ext =
+		setup_test_externalities(&[node_pre_dispatch as usize, node_post_dispatch as usize]);
+
+	test_ext.execute_with(|| {
+		frame_system::BlockWeight::<Test>::mutate(|current_weight| {
+			current_weight.set(Weight::from_parts(block_pre_dispatch, 0), DispatchClass::Normal);
+		});
+		let info = DispatchInfo {
+			call_weight: Weight::from_parts(bench_pre_dispatch_call, 0),
+			extension_weight: Weight::from_parts(bench_mock_ext_weight, 0),
+			..Default::default()
+		};
+		let post_info = PostDispatchInfo {
+			actual_weight: Some(Weight::from_parts(bench_post_dispatch_actual, 0)),
+			..Default::default()
+		};
+
+		type InnerTxExt = (frame_system::CheckWeight<Test>, MockExtensionWithRefund);
+		// Execute the transaction.
+		let tx_ext = StorageWeightReclaim::<Test, InnerTxExt>::new((
+			frame_system::CheckWeight::new(),
+			MockExtensionWithRefund,
+		));
+		tx_ext
+			.test_run(ALICE_ORIGIN.clone().into(), CALL, &info, len as usize, 0, |_| Ok(post_info))
+			.expect("valid transaction extension pipeline")
+			.expect("success");
+
+		// Assert the results.
+		assert_eq!(
+			frame_system::BlockWeight::<Test>::get().get(DispatchClass::Normal).ref_time(),
+			block_pre_dispatch +
+				base_extrinsic.ref_time() +
+				bench_post_dispatch_actual +
+				bench_mock_ext_weight -
+				bench_mock_ext_refund,
+		);
+		assert_eq!(
+			frame_system::ExtrinsicWeightReclaimed::<Test>::get().ref_time(),
+			bench_pre_dispatch_call - bench_post_dispatch_actual + bench_mock_ext_refund,
 		);
 	});
 }

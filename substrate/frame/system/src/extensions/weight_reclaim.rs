@@ -31,7 +31,8 @@ use sp_weights::Weight;
 /// Reclaim the unused weight using the post dispatch information
 ///
 /// After the dispatch of the extrinsic, calculate the unused weight using the post dispatch
-/// information and the block consumed weight according to the new calculated extrinsic weight.
+/// information and update the block consumed weight according to the new calculated extrinsic
+/// weight.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, Default, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct WeightReclaim<T: Config + Send + Sync>(core::marker::PhantomData<T>);
