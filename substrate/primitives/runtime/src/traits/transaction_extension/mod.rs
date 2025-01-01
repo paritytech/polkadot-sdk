@@ -20,7 +20,8 @@
 use crate::{
 	scale_info::{MetaType, StaticTypeInfo},
 	transaction_validity::{
-		TransactionSource, TransactionValidity, TransactionValidityError, ValidTransaction,
+		InvalidTransaction, TransactionSource, TransactionValidity, TransactionValidityError,
+		ValidTransaction,
 	},
 	DispatchResult,
 };
@@ -36,6 +37,12 @@ use super::{
 	DispatchInfoOf, DispatchOriginOf, Dispatchable, ExtensionPostDispatchWeightHandler,
 	PostDispatchInfoOf, RefundWeight,
 };
+
+/// The transaction validation logic is incorrect.
+///
+/// This error is returned when [`TransactionExtension::validate`] is called on a transaction
+/// extension pipeline. Instead [`TransactionExtension::validate_pipeline`] should be called.
+pub const INCORRECT_TRANSACTION_VALIDATION_LOGIC: u8 = 183;
 
 mod as_transaction_extension;
 mod dispatch_transaction;
@@ -160,6 +167,16 @@ pub type ValidateResult<Val, Call> =
 /// transaction payment and refunds should be at the end of the pipeline in order to capture the
 /// correct amount of weight used during the call. This is because one cannot know the actual weight
 /// of an extension after post dispatch without running the post dispatch ahead of time.
+///
+/// ## Transaction extension and transaction extension pipeline.
+///
+/// This trait encapsulates 2 usages: the implementation of a single transaction extension, and the
+/// implementation of a pipeline of transaction extension. Some associated items are only relevant
+/// for pipelines, and some are only relevant for single transaction extensions. For instance:
+/// * `const IDENTIFIER` identifies a single transaction extension and its value is mostly
+///   irrelevant for pipelines, users must call `fn metadata` to get all relevant information.
+/// * `fn validate` is not fined-grained enough and can't be implemented by pipelines, users must
+///   call `fn validate_pipeline` to get complete validate implementation.
 pub trait TransactionExtension<Call: Dispatchable>:
 	Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
 {
@@ -247,6 +264,45 @@ pub trait TransactionExtension<Call: Dispatchable>:
 		inherited_implication: &impl Encode,
 		source: TransactionSource,
 	) -> ValidateResult<Self::Val, Call>;
+
+	/// Validate a transaction.
+	///
+	/// This is a fined-grained version of the [`Self::validate`] function. It must be called by
+	/// users to get the complete validate implementation of a pipeline.
+	///
+	/// `inherited_implication` parameter is replaced with:
+	/// - `inherited_tx_implication`: The implication not part of the transaction extensions. E.g.
+	///   the call and the version of the transaction.
+	/// - `inherited_tx_ext_explicit_implication`: The explicit implications of the transaction
+	///   extensions in the pipeline.
+	/// - `inherited_tx_ext_implicit_implication`: The implicit implications of the transaction
+	///   extensions in the pipeline.
+	fn validate_pipeline(
+		&self,
+		origin: DispatchOriginOf<Call>,
+		call: &Call,
+		info: &DispatchInfoOf<Call>,
+		len: usize,
+		self_implicit: Self::Implicit,
+		inherited_tx_implication: &impl Encode,
+		inherited_tx_ext_explicit_implication: &impl Encode,
+		inherited_tx_ext_implicit_implication: &impl Encode,
+		source: TransactionSource,
+	) -> ValidateResult<Self::Val, Call> {
+		self.validate(
+			origin,
+			call,
+			info,
+			len,
+			self_implicit,
+			&(
+				inherited_tx_implication,
+				inherited_tx_ext_explicit_implication,
+				inherited_tx_ext_implicit_implication,
+			),
+			source,
+		)
+	}
 
 	/// Do any pre-flight stuff for a transaction after validation.
 	///
@@ -505,6 +561,21 @@ impl<Call: Dispatchable> TransactionExtension<Call> for Tuple {
 		(ValidTransaction, Self::Val, <Call as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,
 	> {
+		Err(InvalidTransaction::Custom(INCORRECT_TRANSACTION_VALIDATION_LOGIC).into())
+	}
+
+	fn validate_pipeline(
+		&self,
+		origin: DispatchOriginOf<Call>,
+		call: &Call,
+		info: &DispatchInfoOf<Call>,
+		len: usize,
+		self_implicit: Self::Implicit,
+		inherited_tx_implication: &impl Encode,
+		inherited_tx_ext_explicit_implication: &impl Encode,
+		inherited_tx_ext_implicit_implication: &impl Encode,
+		source: TransactionSource,
+	) -> ValidateResult<Self::Val, Call> {
 		let valid = ValidTransaction::default();
 		let val = ();
 		let following_explicit_implications = for_tuples!( ( #( &self.Tuple ),* ) );
@@ -515,18 +586,17 @@ impl<Call: Dispatchable> TransactionExtension<Call> for Tuple {
 			let (_item, following_explicit_implications) = following_explicit_implications.pop_front();
 			let (item_implicit, following_implicit_implications) = following_implicit_implications.pop_front();
 			let (item_valid, item_val, origin) = {
-				let implications = (
-					// The first is the implications born of the fact we return the mutated
-					// origin.
-					inherited_implication,
-					// This is the explicitly made implication born of the fact the new origin is
-					// passed into the next items in this pipeline-tuple.
-					&following_explicit_implications,
-					// This is the implicitly made implication born of the fact the new origin is
-					// passed into the next items in this pipeline-tuple.
-					&following_implicit_implications,
-				);
-				Tuple.validate(origin, call, info, len, item_implicit, &implications, source)?
+				Tuple.validate_pipeline(
+					origin,
+					call,
+					info,
+					len,
+					item_implicit,
+					inherited_tx_implication,
+					&(&following_explicit_implications, inherited_tx_ext_explicit_implication),
+					&(&following_implicit_implications, inherited_tx_ext_implicit_implication),
+					source
+				)?
 			};
 			let valid = valid.combine_with(item_valid);
 			let val = val.push_back(item_val);
@@ -637,5 +707,174 @@ impl<Call: Dispatchable> TransactionExtension<Call> for () {
 		_len: usize,
 	) -> Result<(), TransactionValidityError> {
 		Ok(())
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	#[test]
+	fn test_implications_on_nested_structure() {
+		use scale_info::TypeInfo;
+		use std::cell::RefCell;
+
+		#[derive(Clone, Debug, Eq, PartialEq, Encode, Decode, TypeInfo)]
+		struct MockExtension {
+			also_implicit: u8,
+			explicit: u8,
+		}
+
+		const CALL_IMPLICIT: u8 = 23;
+
+		thread_local! {
+			static COUNTER: RefCell<u8> = RefCell::new(1);
+		}
+
+		impl TransactionExtension<()> for MockExtension {
+			const IDENTIFIER: &'static str = "MockExtension";
+			type Implicit = u8;
+			fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+				Ok(self.also_implicit)
+			}
+			type Val = ();
+			type Pre = ();
+			fn weight(&self, _call: &()) -> Weight {
+				Weight::zero()
+			}
+			fn prepare(
+				self,
+				_val: Self::Val,
+				_origin: &DispatchOriginOf<()>,
+				_call: &(),
+				_info: &DispatchInfoOf<()>,
+				_len: usize,
+			) -> Result<Self::Pre, TransactionValidityError> {
+				Ok(())
+			}
+			fn validate(
+				&self,
+				origin: DispatchOriginOf<()>,
+				_call: &(),
+				_info: &DispatchInfoOf<()>,
+				_len: usize,
+				self_implicit: Self::Implicit,
+				inherited_implication: &impl Encode,
+				_source: TransactionSource,
+			) -> ValidateResult<Self::Val, ()> {
+				COUNTER.with(|c| {
+					let mut counter = c.borrow_mut();
+
+					assert_eq!(self_implicit, *counter);
+					assert_eq!(
+						self,
+						&MockExtension { also_implicit: *counter, explicit: *counter + 1 }
+					);
+
+					// Implications must be call then 1 to 22 then 1 to 22 odd.
+					let mut assert_implications = Vec::new();
+					assert_implications.push(CALL_IMPLICIT);
+					for i in *counter + 2..23 {
+						assert_implications.push(i);
+					}
+					for i in *counter + 2..23 {
+						if i % 2 == 1 {
+							assert_implications.push(i);
+						}
+					}
+					assert_eq!(inherited_implication.encode(), assert_implications,);
+
+					*counter += 2;
+				});
+				Ok((ValidTransaction::default(), (), origin))
+			}
+			fn post_dispatch_details(
+				_pre: Self::Pre,
+				_info: &DispatchInfoOf<()>,
+				_post_info: &PostDispatchInfoOf<()>,
+				_len: usize,
+				_result: &DispatchResult,
+			) -> Result<Weight, TransactionValidityError> {
+				Ok(Weight::zero())
+			}
+		}
+
+		// Test for one nested structure
+
+		let ext = (
+			MockExtension { also_implicit: 1, explicit: 2 },
+			MockExtension { also_implicit: 3, explicit: 4 },
+			(
+				MockExtension { also_implicit: 5, explicit: 6 },
+				MockExtension { also_implicit: 7, explicit: 8 },
+				(
+					MockExtension { also_implicit: 9, explicit: 10 },
+					MockExtension { also_implicit: 11, explicit: 12 },
+				),
+				MockExtension { also_implicit: 13, explicit: 14 },
+				MockExtension { also_implicit: 15, explicit: 16 },
+			),
+			MockExtension { also_implicit: 17, explicit: 18 },
+			(MockExtension { also_implicit: 19, explicit: 20 },),
+			MockExtension { also_implicit: 21, explicit: 22 },
+		);
+
+		let implicit = ext.implicit().unwrap();
+
+		let res = ext
+			.validate_pipeline(
+				(),
+				&(),
+				&DispatchInfoOf::<()>::default(),
+				0,
+				implicit,
+				&CALL_IMPLICIT,
+				&(),
+				&(),
+				TransactionSource::Local,
+			)
+			.expect("valid");
+
+		assert_eq!(res.0, ValidTransaction::default());
+
+		// Test for another nested structure
+
+		COUNTER.with(|c| {
+			*c.borrow_mut() = 1;
+		});
+
+		let ext = (
+			MockExtension { also_implicit: 1, explicit: 2 },
+			MockExtension { also_implicit: 3, explicit: 4 },
+			MockExtension { also_implicit: 5, explicit: 6 },
+			MockExtension { also_implicit: 7, explicit: 8 },
+			MockExtension { also_implicit: 9, explicit: 10 },
+			MockExtension { also_implicit: 11, explicit: 12 },
+			(
+				MockExtension { also_implicit: 13, explicit: 14 },
+				MockExtension { also_implicit: 15, explicit: 16 },
+				MockExtension { also_implicit: 17, explicit: 18 },
+				MockExtension { also_implicit: 19, explicit: 20 },
+				MockExtension { also_implicit: 21, explicit: 22 },
+			),
+		);
+
+		let implicit = ext.implicit().unwrap();
+
+		let res = ext
+			.validate_pipeline(
+				(),
+				&(),
+				&DispatchInfoOf::<()>::default(),
+				0,
+				implicit,
+				&CALL_IMPLICIT,
+				&(),
+				&(),
+				TransactionSource::Local,
+			)
+			.expect("valid");
+
+		assert_eq!(res.0, ValidTransaction::default());
 	}
 }

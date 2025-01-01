@@ -105,13 +105,15 @@ where
 		source: TransactionSource,
 		extension_version: ExtensionVersion,
 	) -> Result<(ValidTransaction, T::Val, Self::Origin), TransactionValidityError> {
-		match self.validate(
+		match self.validate_pipeline(
 			origin,
 			call,
 			info,
 			len,
 			self.implicit()?,
 			&(extension_version, call),
+			&(),
+			&(),
 			source,
 		) {
 			// After validation, some origin must have been authorized.
