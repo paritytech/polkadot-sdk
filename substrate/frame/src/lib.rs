@@ -325,6 +325,8 @@ pub mod testing_prelude {
 		assert_storage_noop, ensure, storage_alias,
 	};
 
+	pub use frame_support_test::TestRandomness;
+
 	pub use frame_system::{self, mocking::*};
 
 	#[deprecated(note = "Use `frame::testing_prelude::TestExternalities` instead.")]

@@ -13861,7 +13861,6 @@ dependencies = [
 name = "pallet-lottery"
 version = "28.0.0"
 dependencies = [
- "frame-support-test",
  "pallet-balances 28.0.0",
  "parity-scale-codec",
  "polkadot-sdk-frame 0.1.0",
@@ -19364,6 +19363,7 @@ dependencies = [
  "frame-benchmarking 28.0.0",
  "frame-executive 28.0.0",
  "frame-support 28.0.0",
+ "frame-support-test",
  "frame-system 28.0.0",
  "frame-system-benchmarking 28.0.0",
  "frame-system-rpc-runtime-api 26.0.0",

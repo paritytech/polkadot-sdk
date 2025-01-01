@@ -21,7 +21,6 @@ use super::*;
 use crate as pallet_lottery;
 
 use frame::testing_prelude::*;
-use frame_support_test::TestRandomness;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

@@ -33,6 +33,7 @@ sp-arithmetic = { workspace = true }
 
 # frame deps, for developing FRAME pallets.
 frame-support = { workspace = true }
+frame-support-test = { workspace = true }
 frame-system = { workspace = true }
 
 # primitive types used for developing FRAME runtimes.
@@ -89,6 +90,7 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-executive?/std",
 	"frame-support/std",
+	"frame-support-test/std",
 	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api?/std",
 	"frame-system/std",

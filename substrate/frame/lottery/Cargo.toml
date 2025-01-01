@@ -22,7 +22,6 @@ scale-info = { features = ["derive"], workspace = true }
 frame = { workspace = true, features = ["experimental", "runtime"] }
 
 [dev-dependencies]
-frame-support-test = { workspace = true }
 pallet-balances = { workspace = true, default-features = true }
 
 [features]
@@ -30,7 +29,6 @@ default = ["std"]
 std = [
 	"codec/std",
 	"frame/std",
-	"frame-support-test/std",
 	"pallet-balances/std",
 	"scale-info/std",
 ]
