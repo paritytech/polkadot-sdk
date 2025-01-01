@@ -19,24 +19,23 @@
 
 use crate as pallet_salary;
 use crate::*;
-use frame_support::{
-	assert_noop, assert_ok, derive_impl, hypothetically,
-	pallet_prelude::Weight,
-	parameter_types,
-	traits::{ConstU64, EitherOf, MapSuccess, NoOpPoll},
-};
+
+use frame::{prelude::*, runtime::prelude::*, testing_prelude::*,
+			traits::{ConstU64, EitherOf, MapSuccess, NoOpPoll,
+					 Convert, ReduceBy, ReplaceWithDefault},
+			deps::{
+				sp_io::{self, MultiRemovalResults},
+				sp_runtime,
+			}};
 use pallet_ranked_collective::{EnsureRanked, Geometric};
 use sp_core::{ConstU16, Get};
-use sp_runtime::{
-	traits::{Convert, ReduceBy, ReplaceWithDefault},
-	BuildStorage,
-};
+use crate::tests::integration::sp_api_hidden_includes_construct_runtime::hidden_include::hypothetically;
 
 type Rank = u16;
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
-	pub enum Test
+construct_runtime!(
+	pub struct Test
 	{
 		System: frame_system,
 		Salary: pallet_salary,
@@ -145,9 +144,9 @@ impl pallet_ranked_collective::Config for Test {
 	type BenchmarkSetup = Salary;
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestState{
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	let mut ext = sp_io::TestExternalities::new(t);
+	let mut ext = TestState::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
 }
@@ -194,7 +193,7 @@ fn swap_exhaustive_works() {
 
 			// The events mess up the storage root:
 			System::reset_events();
-			sp_io::storage::root(sp_runtime::StateVersion::V1)
+			sp_io::storage::root( frame::deps::sp_runtime::StateVersion::V1)
 		});
 
 		let root_swap = hypothetically!({

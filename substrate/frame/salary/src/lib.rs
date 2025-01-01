@@ -19,16 +19,18 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
-use scale_info::TypeInfo;
-use sp_arithmetic::traits::{Saturating, Zero};
-use sp_runtime::{Perbill, RuntimeDebug};
+
 
 use frame_support::{
 	defensive,
 	dispatch::DispatchResultWithPostInfo,
 	ensure,
+
+};
+use frame::{
+	hashing::blake2_256,
+	prelude::*,
 	traits::{
 		tokens::{GetSalary, Pay, PaymentStatus},
 		RankedMembers, RankedMembersSwapHandler,
@@ -75,6 +77,7 @@ pub enum ClaimState<Balance, Id> {
 }
 
 use ClaimState::*;
+use frame::deps::frame_support;
 
 /// The status of a single payee/claimant.
 #[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]

@@ -46,7 +46,8 @@
 #![allow(unused_imports)]
 #![allow(missing_docs)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
+use crate::*;
+use frame::prelude::*;
 use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_salary`.
