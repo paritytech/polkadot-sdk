@@ -1037,3 +1037,14 @@ fn test_ref_time_weight_reclaim() {
 		);
 	});
 }
+
+#[test]
+fn test_metadata() {
+	assert_eq!(
+		StorageWeightReclaim::<Test, frame_system::CheckWeight<Test>>::metadata()
+			.iter()
+			.map(|m| m.identifier)
+			.collect::<Vec<_>>(),
+		vec!["CheckWeight", "StorageWeightReclaim"]
+	);
+}

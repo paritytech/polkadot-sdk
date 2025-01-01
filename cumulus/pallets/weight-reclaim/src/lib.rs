@@ -138,7 +138,13 @@ where
 	}
 
 	fn metadata() -> Vec<sp_runtime::traits::TransactionExtensionMetadata> {
-		S::metadata()
+		let mut inner = S::metadata();
+		inner.push(sp_runtime::traits::TransactionExtensionMetadata {
+			identifier: "StorageWeightReclaim",
+			ty: scale_info::meta_type::<()>(),
+			implicit: scale_info::meta_type::<()>(),
+		});
+		inner
 	}
 
 	fn weight(&self, call: &T::RuntimeCall) -> Weight {
