@@ -18,6 +18,7 @@
 use crate::*;
 use alloc::{vec, vec::Vec};
 use cumulus_primitives_core::ParaId;
+use frame_support::build_struct_json_patch;
 use parachains_common::{AccountId, AuraId};
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
@@ -34,7 +35,7 @@ fn bridge_hub_rococo_genesis(
 	asset_hub_para_id: ParaId,
 	opened_bridges: Vec<(Location, InteriorLocation, Option<bp_messages::LegacyLaneId>)>,
 ) -> serde_json::Value {
-	let config = RuntimeGenesisConfig {
+	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts
 				.iter()
@@ -42,11 +43,10 @@ fn bridge_hub_rococo_genesis(
 				.map(|k| (k, 1u128 << 60))
 				.collect::<Vec<_>>(),
 		},
-		parachain_info: ParachainInfoConfig { parachain_id: id, ..Default::default() },
+		parachain_info: ParachainInfoConfig { parachain_id: id },
 		collator_selection: CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: BRIDGE_HUB_ROCOCO_ED * 16,
-			..Default::default()
 		},
 		session: SessionConfig {
 			keys: invulnerables
@@ -59,33 +59,25 @@ fn bridge_hub_rococo_genesis(
 					)
 				})
 				.collect(),
-			..Default::default()
 		},
-		polkadot_xcm: PolkadotXcmConfig {
-			safe_xcm_version: Some(SAFE_XCM_VERSION),
-			..Default::default()
-		},
-		bridge_westend_grandpa: BridgeWestendGrandpaConfig {
+		polkadot_xcm: PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
+		bridge_polkadot_bulletin_grandpa: BridgePolkadotBulletinGrandpaConfig {
 			owner: bridges_pallet_owner.clone(),
-			..Default::default()
 		},
+		bridge_westend_grandpa: BridgeWestendGrandpaConfig { owner: bridges_pallet_owner.clone() },
 		bridge_westend_messages: BridgeWestendMessagesConfig {
 			owner: bridges_pallet_owner.clone(),
-			..Default::default()
 		},
-		xcm_over_bridge_hub_westend: XcmOverBridgeHubWestendConfig {
-			opened_bridges,
-			..Default::default()
+		xcm_over_polkadot_bulletin: XcmOverPolkadotBulletinConfig {
+			opened_bridges: vec![(
+				Location::new(1, [Parachain(1004)]),
+				Junctions::from([GlobalConsensus(NetworkId::PolkadotBulletin).into()]),
+				Some(bp_messages::LegacyLaneId([0, 0, 0, 0])),
+			)],
 		},
-		ethereum_system: EthereumSystemConfig {
-			para_id: id,
-			asset_hub_para_id,
-			..Default::default()
-		},
-		..Default::default()
-	};
-
-	serde_json::to_value(config).expect("Could not build genesis config.")
+		xcm_over_bridge_hub_westend: XcmOverBridgeHubWestendConfig { opened_bridges },
+		ethereum_system: EthereumSystemConfig { para_id: id, asset_hub_para_id },
+	})
 }
 
 /// Provides the JSON representation of predefined genesis config for given `id`.

@@ -19,17 +19,15 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use super::*;
-
-use alloc::{vec, vec::Vec};
-
-use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller, BenchmarkError};
-use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
-use sp_runtime::traits::BlockNumberProvider;
-
-use crate::Pallet as ChildBounties;
+use alloc::vec;
+use frame_benchmarking::{v2::*, BenchmarkError};
+use frame_support::ensure;
+use frame_system::RawOrigin;
 use pallet_bounties::Pallet as Bounties;
 use pallet_treasury::Pallet as Treasury;
+use sp_runtime::traits::BlockNumberProvider;
+
+use crate::*;
 
 const SEED: u32 = 0;
 
@@ -144,7 +142,7 @@ fn activate_child_bounty<T: Config>(
 	let mut bounty_setup = activate_bounty::<T>(user, description)?;
 	let child_curator_lookup = T::Lookup::unlookup(bounty_setup.child_curator.clone());
 
-	ChildBounties::<T>::add_child_bounty(
+	Pallet::<T>::add_child_bounty(
 		RawOrigin::Signed(bounty_setup.curator.clone()).into(),
 		bounty_setup.bounty_id,
 		bounty_setup.child_bounty_value,
@@ -153,7 +151,7 @@ fn activate_child_bounty<T: Config>(
 
 	bounty_setup.child_bounty_id = ParentTotalChildBounties::<T>::get(bounty_setup.bounty_id) - 1;
 
-	ChildBounties::<T>::propose_curator(
+	Pallet::<T>::propose_curator(
 		RawOrigin::Signed(bounty_setup.curator.clone()).into(),
 		bounty_setup.bounty_id,
 		bounty_setup.child_bounty_id,
@@ -161,7 +159,7 @@ fn activate_child_bounty<T: Config>(
 		bounty_setup.child_bounty_fee,
 	)?;
 
-	ChildBounties::<T>::accept_curator(
+	Pallet::<T>::accept_curator(
 		RawOrigin::Signed(bounty_setup.child_curator.clone()).into(),
 		bounty_setup.bounty_id,
 		bounty_setup.child_bounty_id,
@@ -180,26 +178,43 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
-benchmarks! {
-	add_child_bounty {
-		let d in 0 .. T::MaximumReasonLength::get();
+#[benchmarks]
+mod benchmarks {
+	use super::*;
+
+	#[benchmark]
+	fn add_child_bounty(
+		d: Linear<0, { T::MaximumReasonLength::get() }>,
+	) -> Result<(), BenchmarkError> {
 		setup_pot_account::<T>();
 		let bounty_setup = activate_bounty::<T>(0, d)?;
-	}: _(RawOrigin::Signed(bounty_setup.curator), bounty_setup.bounty_id,
-			bounty_setup.child_bounty_value, bounty_setup.reason.clone())
-	verify {
-		assert_last_event::<T>(Event::Added {
-			index: bounty_setup.bounty_id,
-			child_index: bounty_setup.child_bounty_id,
-		}.into())
+
+		#[extrinsic_call]
+		_(
+			RawOrigin::Signed(bounty_setup.curator),
+			bounty_setup.bounty_id,
+			bounty_setup.child_bounty_value,
+			bounty_setup.reason.clone(),
+		);
+
+		assert_last_event::<T>(
+			Event::Added {
+				index: bounty_setup.bounty_id,
+				child_index: bounty_setup.child_bounty_id,
+			}
+			.into(),
+		);
+
+		Ok(())
 	}
 
-	propose_curator {
+	#[benchmark]
+	fn propose_curator() -> Result<(), BenchmarkError> {
 		setup_pot_account::<T>();
 		let bounty_setup = activate_bounty::<T>(0, T::MaximumReasonLength::get())?;
 		let child_curator_lookup = T::Lookup::unlookup(bounty_setup.child_curator.clone());
 
-		ChildBounties::<T>::add_child_bounty(
+		Pallet::<T>::add_child_bounty(
 			RawOrigin::Signed(bounty_setup.curator.clone()).into(),
 			bounty_setup.bounty_id,
 			bounty_setup.child_bounty_value,
@@ -207,118 +222,183 @@ benchmarks! {
 		)?;
 		let child_bounty_id = ParentTotalChildBounties::<T>::get(bounty_setup.bounty_id) - 1;
 
-	}: _(RawOrigin::Signed(bounty_setup.curator), bounty_setup.bounty_id,
-			child_bounty_id, child_curator_lookup, bounty_setup.child_bounty_fee)
+		#[extrinsic_call]
+		_(
+			RawOrigin::Signed(bounty_setup.curator),
+			bounty_setup.bounty_id,
+			child_bounty_id,
+			child_curator_lookup,
+			bounty_setup.child_bounty_fee,
+		);
 
-	accept_curator {
+		Ok(())
+	}
+
+	#[benchmark]
+	fn accept_curator() -> Result<(), BenchmarkError> {
 		setup_pot_account::<T>();
 		let mut bounty_setup = activate_bounty::<T>(0, T::MaximumReasonLength::get())?;
 		let child_curator_lookup = T::Lookup::unlookup(bounty_setup.child_curator.clone());
 
-		ChildBounties::<T>::add_child_bounty(
+		Pallet::<T>::add_child_bounty(
 			RawOrigin::Signed(bounty_setup.curator.clone()).into(),
 			bounty_setup.bounty_id,
 			bounty_setup.child_bounty_value,
 			bounty_setup.reason.clone(),
 		)?;
-		bounty_setup.child_bounty_id = ParentTotalChildBounties::<T>::get(bounty_setup.bounty_id) - 1;
+		bounty_setup.child_bounty_id =
+			ParentTotalChildBounties::<T>::get(bounty_setup.bounty_id) - 1;
 
-		ChildBounties::<T>::propose_curator(
+		Pallet::<T>::propose_curator(
 			RawOrigin::Signed(bounty_setup.curator.clone()).into(),
 			bounty_setup.bounty_id,
 			bounty_setup.child_bounty_id,
 			child_curator_lookup,
 			bounty_setup.child_bounty_fee,
 		)?;
-	}: _(RawOrigin::Signed(bounty_setup.child_curator), bounty_setup.bounty_id,
-			bounty_setup.child_bounty_id)
+
+		#[extrinsic_call]
+		_(
+			RawOrigin::Signed(bounty_setup.child_curator),
+			bounty_setup.bounty_id,
+			bounty_setup.child_bounty_id,
+		);
+
+		Ok(())
+	}
 
 	// Worst case when curator is inactive and any sender un-assigns the curator.
-	unassign_curator {
+	#[benchmark]
+	fn unassign_curator() -> Result<(), BenchmarkError> {
 		setup_pot_account::<T>();
 		let bounty_setup = activate_child_bounty::<T>(0, T::MaximumReasonLength::get())?;
 		Treasury::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
 		set_block_number::<T>(T::SpendPeriod::get() + T::BountyUpdatePeriod::get() + 1u32.into());
 		let caller = whitelisted_caller();
-	}: _(RawOrigin::Signed(caller), bounty_setup.bounty_id,
-			bounty_setup.child_bounty_id)
 
-	award_child_bounty {
-		setup_pot_account::<T>();
-		let bounty_setup = activate_child_bounty::<T>(0, T::MaximumReasonLength::get())?;
-		let beneficiary_account: T::AccountId = account("beneficiary", 0, SEED);
-		let beneficiary = T::Lookup::unlookup(beneficiary_account.clone());
-	}: _(RawOrigin::Signed(bounty_setup.child_curator), bounty_setup.bounty_id,
-			bounty_setup.child_bounty_id, beneficiary)
-	verify {
-		assert_last_event::<T>(Event::Awarded {
-			index: bounty_setup.bounty_id,
-			child_index: bounty_setup.child_bounty_id,
-			beneficiary: beneficiary_account
-		}.into())
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), bounty_setup.bounty_id, bounty_setup.child_bounty_id);
+
+		Ok(())
 	}
 
-	claim_child_bounty {
+	#[benchmark]
+	fn award_child_bounty() -> Result<(), BenchmarkError> {
 		setup_pot_account::<T>();
 		let bounty_setup = activate_child_bounty::<T>(0, T::MaximumReasonLength::get())?;
-		let beneficiary_account: T::AccountId = account("beneficiary", 0, SEED);
+		let beneficiary_account = account::<T::AccountId>("beneficiary", 0, SEED);
+		let beneficiary = T::Lookup::unlookup(beneficiary_account.clone());
+
+		#[extrinsic_call]
+		_(
+			RawOrigin::Signed(bounty_setup.child_curator),
+			bounty_setup.bounty_id,
+			bounty_setup.child_bounty_id,
+			beneficiary,
+		);
+
+		assert_last_event::<T>(
+			Event::Awarded {
+				index: bounty_setup.bounty_id,
+				child_index: bounty_setup.child_bounty_id,
+				beneficiary: beneficiary_account,
+			}
+			.into(),
+		);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn claim_child_bounty() -> Result<(), BenchmarkError> {
+		setup_pot_account::<T>();
+		let bounty_setup = activate_child_bounty::<T>(0, T::MaximumReasonLength::get())?;
+		let beneficiary_account = account("beneficiary", 0, SEED);
 		let beneficiary = T::Lookup::unlookup(beneficiary_account);
 
-		ChildBounties::<T>::award_child_bounty(
+		Pallet::<T>::award_child_bounty(
 			RawOrigin::Signed(bounty_setup.child_curator.clone()).into(),
 			bounty_setup.bounty_id,
 			bounty_setup.child_bounty_id,
-			beneficiary
+			beneficiary,
 		)?;
 
-		let beneficiary_account: T::AccountId = account("beneficiary", 0, SEED);
-		let beneficiary = T::Lookup::unlookup(beneficiary_account.clone());
+		let beneficiary_account = account("beneficiary", 0, SEED);
 
 		set_block_number::<T>(T::SpendPeriod::get() + T::BountyDepositPayoutDelay::get());
-		ensure!(T::Currency::free_balance(&beneficiary_account).is_zero(),
-			"Beneficiary already has balance.");
+		ensure!(
+			T::Currency::free_balance(&beneficiary_account).is_zero(),
+			"Beneficiary already has balance."
+		);
 
-	}: _(RawOrigin::Signed(bounty_setup.curator), bounty_setup.bounty_id,
-			bounty_setup.child_bounty_id)
-	verify {
-		ensure!(!T::Currency::free_balance(&beneficiary_account).is_zero(),
-			"Beneficiary didn't get paid.");
+		#[extrinsic_call]
+		_(
+			RawOrigin::Signed(bounty_setup.curator),
+			bounty_setup.bounty_id,
+			bounty_setup.child_bounty_id,
+		);
+
+		ensure!(
+			!T::Currency::free_balance(&beneficiary_account).is_zero(),
+			"Beneficiary didn't get paid."
+		);
+
+		Ok(())
 	}
 
 	// Best case scenario.
-	close_child_bounty_added {
+	#[benchmark]
+	fn close_child_bounty_added() -> Result<(), BenchmarkError> {
 		setup_pot_account::<T>();
 		let mut bounty_setup = activate_bounty::<T>(0, T::MaximumReasonLength::get())?;
 
-		ChildBounties::<T>::add_child_bounty(
+		Pallet::<T>::add_child_bounty(
 			RawOrigin::Signed(bounty_setup.curator.clone()).into(),
 			bounty_setup.bounty_id,
 			bounty_setup.child_bounty_value,
 			bounty_setup.reason.clone(),
 		)?;
-		bounty_setup.child_bounty_id = ParentTotalChildBounties::<T>::get(bounty_setup.bounty_id) - 1;
+		bounty_setup.child_bounty_id =
+			ParentTotalChildBounties::<T>::get(bounty_setup.bounty_id) - 1;
 
-	}: close_child_bounty(RawOrigin::Root, bounty_setup.bounty_id,
-		bounty_setup.child_bounty_id)
-	verify {
-		assert_last_event::<T>(Event::Canceled {
-			index: bounty_setup.bounty_id,
-			child_index: bounty_setup.child_bounty_id
-		}.into())
+		#[extrinsic_call]
+		close_child_bounty(RawOrigin::Root, bounty_setup.bounty_id, bounty_setup.child_bounty_id);
+
+		assert_last_event::<T>(
+			Event::Canceled {
+				index: bounty_setup.bounty_id,
+				child_index: bounty_setup.child_bounty_id,
+			}
+			.into(),
+		);
+
+		Ok(())
 	}
 
 	// Worst case scenario.
-	close_child_bounty_active {
+	#[benchmark]
+	fn close_child_bounty_active() -> Result<(), BenchmarkError> {
 		setup_pot_account::<T>();
 		let bounty_setup = activate_child_bounty::<T>(0, T::MaximumReasonLength::get())?;
 		Treasury::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
-	}: close_child_bounty(RawOrigin::Root, bounty_setup.bounty_id, bounty_setup.child_bounty_id)
-	verify {
-		assert_last_event::<T>(Event::Canceled {
-			index: bounty_setup.bounty_id,
-			child_index: bounty_setup.child_bounty_id,
-		}.into())
+
+		#[extrinsic_call]
+		close_child_bounty(RawOrigin::Root, bounty_setup.bounty_id, bounty_setup.child_bounty_id);
+
+		assert_last_event::<T>(
+			Event::Canceled {
+				index: bounty_setup.bounty_id,
+				child_index: bounty_setup.child_bounty_id,
+			}
+			.into(),
+		);
+
+		Ok(())
 	}
 
-	impl_benchmark_test_suite!(ChildBounties, crate::tests::new_test_ext(), crate::tests::Test)
+	impl_benchmark_test_suite! {
+		Pallet,
+		tests::new_test_ext(),
+		tests::Test
+	}
 }

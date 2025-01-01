@@ -90,7 +90,7 @@ fn basic_refund() {
 		assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
 
 		let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
-			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN)
+			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN, 0)
 			.unwrap();
 		assert_eq!(pre, Some(0));
 
@@ -130,7 +130,7 @@ fn underestimating_refund() {
 		assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
 
 		let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
-			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN)
+			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN, 0)
 			.unwrap();
 		assert_eq!(pre, Some(0));
 
@@ -168,7 +168,7 @@ fn sets_to_node_storage_proof_if_higher() {
 			assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
 
 			let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
-				.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN)
+				.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN, 0)
 				.unwrap();
 			assert_eq!(pre, Some(1000));
 
@@ -211,7 +211,7 @@ fn sets_to_node_storage_proof_if_higher() {
 			assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
 
 			let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
-				.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN)
+				.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN, 0)
 				.unwrap();
 			assert_eq!(pre, Some(175));
 
@@ -256,7 +256,7 @@ fn does_nothing_without_extension() {
 		assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
 
 		let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
-			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN)
+			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN, 0)
 			.unwrap();
 		assert_eq!(pre, None);
 
@@ -288,7 +288,7 @@ fn negative_refund_is_added_to_weight() {
 		assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
 
 		let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
-			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN)
+			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN, 0)
 			.unwrap();
 		assert_eq!(pre, Some(100));
 
@@ -321,7 +321,7 @@ fn test_zero_proof_size() {
 		assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
 
 		let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
-			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN)
+			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN, 0)
 			.unwrap();
 		assert_eq!(pre, Some(0));
 
@@ -354,7 +354,7 @@ fn test_larger_pre_dispatch_proof_size() {
 		assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
 
 		let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
-			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN)
+			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN, 0)
 			.unwrap();
 		assert_eq!(pre, Some(300));
 
@@ -394,7 +394,7 @@ fn test_incorporates_check_weight_unspent_weight() {
 		assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
 
 		let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
-			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN)
+			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN, 0)
 			.unwrap();
 		assert_eq!(pre, Some(100));
 
@@ -434,7 +434,7 @@ fn test_incorporates_check_weight_unspent_weight_on_negative() {
 		assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
 
 		let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
-			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN)
+			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN, 0)
 			.unwrap();
 		assert_eq!(pre, Some(100));
 
@@ -478,7 +478,7 @@ fn test_nothing_relcaimed() {
 		assert_eq!(get_storage_weight().total().proof_size(), 250);
 
 		let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
-			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN)
+			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN, 0)
 			.unwrap();
 		// Should return `setup_test_externalities` proof recorder value: 100.
 		assert_eq!(pre, Some(0));
@@ -525,7 +525,7 @@ fn test_incorporates_check_weight_unspent_weight_reverse_order() {
 		assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
 
 		let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
-			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN)
+			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN, 0)
 			.unwrap();
 		assert_eq!(pre, Some(100));
 
@@ -567,7 +567,7 @@ fn test_incorporates_check_weight_unspent_weight_on_negative_reverse_order() {
 		assert_ok!(CheckWeight::<Test>::do_prepare(&info, LEN, next_len));
 
 		let (pre, _) = StorageWeightReclaim::<Test>(PhantomData)
-			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN)
+			.validate_and_prepare(Some(ALICE.clone()).into(), CALL, &info, LEN, 0)
 			.unwrap();
 		assert_eq!(pre, Some(100));
 

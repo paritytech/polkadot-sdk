@@ -41,7 +41,7 @@ pub mod genesis_config_presets {
 	use super::*;
 	use crate::{
 		interface::{Balance, MinimumBalance},
-		sp_keyring::AccountKeyring,
+		sp_keyring::Sr25519Keyring,
 		BalancesConfig, RuntimeGenesisConfig, SudoConfig,
 	};
 
@@ -51,17 +51,14 @@ pub mod genesis_config_presets {
 	/// Returns a development genesis config preset.
 	pub fn development_config_genesis() -> Value {
 		let endowment = <MinimumBalance as Get<Balance>>::get().max(1) * 1000;
-		let config = RuntimeGenesisConfig {
+		frame_support::build_struct_json_patch!(RuntimeGenesisConfig {
 			balances: BalancesConfig {
-				balances: AccountKeyring::iter()
+				balances: Sr25519Keyring::iter()
 					.map(|a| (a.to_account_id(), endowment))
 					.collect::<Vec<_>>(),
 			},
-			sudo: SudoConfig { key: Some(AccountKeyring::Alice.to_account_id()) },
-			..Default::default()
-		};
-
-		serde_json::to_value(config).expect("Could not build genesis config.")
+			sudo: SudoConfig { key: Some(Sr25519Keyring::Alice.to_account_id()) },
+		})
 	}
 
 	/// Get the set of the available genesis config presets.

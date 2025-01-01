@@ -133,7 +133,8 @@ fn default_parachains_host_configuration(
 		},
 		node_features: bitvec::vec::BitVec::from_element(
 			1u8 << (FeatureIndex::ElasticScalingMVP as usize) |
-				1u8 << (FeatureIndex::EnableAssignmentsV2 as usize),
+				1u8 << (FeatureIndex::EnableAssignmentsV2 as usize) |
+				1u8 << (FeatureIndex::CandidateReceiptV2 as usize),
 		),
 		scheduler_params: SchedulerParams {
 			lookahead: 2,
@@ -222,7 +223,7 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 	//
 	// SECRET_SEED="slow awkward present example safe bundle science ocean cradle word tennis earn"
 	// subkey inspect -n polkadot "$SECRET_SEED"
-	let endowed_accounts = vec![
+	let endowed_accounts: Vec<AccountId> = vec![
 		// 15S75FkhCWEowEGfxWwVfrW3LQuy8w8PNhVmrzfsVhCMjUh1
 		hex!["c416837e232d9603e83162ef4bda08e61580eeefe60fe92fc044aa508559ae42"].into(),
 	];
@@ -338,7 +339,7 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 	const ENDOWMENT: u128 = 1_000_000 * WND;
 	const STASH: u128 = 100 * WND;
 
-	let config = RuntimeGenesisConfig {
+	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts
 				.iter()
@@ -364,7 +365,6 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 					)
 				})
 				.collect::<Vec<_>>(),
-			..Default::default()
 		},
 		staking: StakingConfig {
 			validator_count: 50,
@@ -376,19 +376,12 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
 			force_era: Forcing::ForceNone,
 			slash_reward_fraction: Perbill::from_percent(10),
-			..Default::default()
 		},
-		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG, ..Default::default() },
+		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG },
 		sudo: SudoConfig { key: Some(endowed_accounts[0].clone()) },
 		configuration: ConfigurationConfig { config: default_parachains_host_configuration() },
-		registrar: RegistrarConfig {
-			next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
-			..Default::default()
-		},
-		..Default::default()
-	};
-
-	serde_json::to_value(config).expect("Could not build genesis config.")
+		registrar: RegistrarConfig { next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID },
+	})
 }
 
 //development

@@ -513,7 +513,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		Vec::default(),
 	));
 
-	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
+	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
 			net_config,
@@ -801,7 +801,6 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		);
 	}
 
-	network_starter.start_network();
 	Ok(NewFullBase {
 		task_manager,
 		client,
@@ -872,7 +871,7 @@ mod tests {
 	use sp_consensus::{BlockOrigin, Environment, Proposer};
 	use sp_core::crypto::Pair;
 	use sp_inherents::InherentDataProvider;
-	use sp_keyring::AccountKeyring;
+	use sp_keyring::Sr25519Keyring;
 	use sp_keystore::KeystorePtr;
 	use sp_runtime::{
 		generic::{self, Digest, Era, SignedPayload},
@@ -907,8 +906,8 @@ mod tests {
 		let mut slot = 1u64;
 
 		// For the extrinsics factory
-		let bob = Arc::new(AccountKeyring::Bob.pair());
-		let charlie = Arc::new(AccountKeyring::Charlie.pair());
+		let bob = Arc::new(Sr25519Keyring::Bob.pair());
+		let charlie = Arc::new(Sr25519Keyring::Charlie.pair());
 		let mut index = 0;
 
 		sc_service_test::sync(

@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Refactor pallet society
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Derives `MaxEncodedLen` implementation for stored types and removes `without_storage_info` attribute.
+      Migrates benchmarks from v1 to v2 API.
+
+crates:
+  - name: pallet-society
+    bump: minor

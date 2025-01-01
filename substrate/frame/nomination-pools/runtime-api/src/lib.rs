@@ -43,6 +43,9 @@ sp_api::decl_runtime_apis! {
 		fn pool_pending_slash(pool_id: PoolId) -> Balance;
 
 		/// Returns the pending slash for a given pool member.
+		///
+		/// If pending slash of the member exceeds `ExistentialDeposit`, it can be reported on
+		/// chain.
 		fn member_pending_slash(member: AccountId) -> Balance;
 
 		/// Returns true if the pool with `pool_id` needs migration.

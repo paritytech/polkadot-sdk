@@ -161,7 +161,7 @@ pub mod pallet {
 		impl DefaultConfig for TestDefaultConfig {
 			type Moment = u64;
 			type OnTimestampSet = ();
-			type MinimumPeriod = frame_support::traits::ConstU64<1>;
+			type MinimumPeriod = ConstUint<1>;
 			type WeightInfo = ();
 		}
 	}
