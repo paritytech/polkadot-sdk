@@ -54,7 +54,9 @@ impl<T: Config> Pallet<T> {
 	pub fn register_new(project_id: ProjectId<T>) -> DispatchResult {
 		let mut bounded: BoundedVec<ProjectId<T>, T::MaxProjects> =
 			WhiteListedProjectAccounts::<T>::get();
-		let _ = bounded.try_push(project_id);
+		let vec = bounded.clone().to_vec();
+		ensure!(!vec.contains(&project_id), Error::<T>::SubmittedProjectId);
+		let _ = bounded.try_push(project_id).map_err(|_| Error::<T>::MaximumProjectsNumber);
 		WhiteListedProjectAccounts::<T>::put(bounded);
 		Ok(())
 	}
@@ -70,6 +72,10 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn unlist_project(project_id: ProjectId<T>) -> DispatchResult {
+		let mut bounded: BoundedVec<ProjectId<T>, T::MaxProjects> =
+			WhiteListedProjectAccounts::<T>::get();
+		let vec = bounded.clone().to_vec();
+		ensure!(vec.contains(&project_id), Error::<T>::NoProjectAvailable);
 		WhiteListedProjectAccounts::<T>::mutate(|value| {
 			let mut val = value.clone();
 			val.retain(|x| *x != project_id);

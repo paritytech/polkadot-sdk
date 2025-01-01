@@ -213,6 +213,8 @@ pub mod pallet {
 		NoRoundFound,
 		/// Maximum number of projects submission for reward distribution as been reached
 		MaximumProjectsNumber,
+		/// Another project has already been submitted under the same project_id
+		SubmittedProjectId,
 	}
 
 	#[pallet::hooks]
@@ -224,6 +226,26 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+
+		/// OPF Projects registration
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be signed
+		///
+		/// ## Details
+		///
+		/// From this extrinsic any user can register project.
+		///
+		/// ### Parameters
+		/// - `project_id`: The account that will receive the reward.
+		///
+		/// ### Errors
+		/// - [`Error::<T>::SubmittedProjectId`]: Project already submitted under this project_id
+		/// - [`Error::<T>::MaximumProjectsNumber`]: Maximum number of project subscriptions reached
+		///  
+		/// ## Events
+		/// Emits [`Event::<T>::Projectlisted`].
 		#[pallet::call_index(0)]
 		#[transactional]
 		pub fn register_project(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
@@ -234,6 +256,24 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// OPF Projects de-listing
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be signed
+		///
+		/// ## Details
+		///
+		/// From this extrinsic only Root can de-list a project.
+		///
+		/// ### Parameters
+		/// - `project_id`: The account that will receive the reward.
+		///
+		/// ### Errors
+		/// - [`Error::<T>::NoProjectAvailable`]: No project found under this project_id
+		///  
+		/// ## Events
+		/// Emits [`Event::<T>::ProjectUnlisted`].
 		#[pallet::call_index(1)]
 		#[transactional]
 		pub fn unregister_project(
