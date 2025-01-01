@@ -33,7 +33,7 @@ sp-runtime = { workspace = true }
 
 # frame deps, for developing FRAME pallets.
 frame-support = { workspace = true }
-frame-support-test = { workspace = true }
+frame-support-test = { optional = true, workspace = true }
 frame-system = { workspace = true }
 
 # primitive types used for developing FRAME runtimes.
