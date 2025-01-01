@@ -125,6 +125,19 @@ pub struct ProjectInfo<T: Config> {
 	pub amount: BalanceOf<T>,
 }
 
+impl<T: Config> ProjectInfo<T> {
+	pub fn new(project_id: ProjectId<T>) {
+		let submission_block = T::BlockNumberProvider::current_block_number();
+		let amount = Zero::zero();
+		let project_info = ProjectInfo { project_id, submission_block, amount };
+		WhiteListedProjectAccounts::<T>::mutate(|project| {
+			let _ = project
+				.try_push(project_info.clone())
+				.map_err(|_| Error::<T>::MaximumProjectsNumber);
+		});
+	}
+}
+
 #[derive(Encode, Decode, Clone, PartialEq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct VoteInfo<T: Config> {

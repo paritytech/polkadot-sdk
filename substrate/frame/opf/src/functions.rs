@@ -50,17 +50,6 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	// Helper function for project registration
-	pub fn register_new(project_id: ProjectId<T>) -> DispatchResult {
-		let mut bounded: BoundedVec<ProjectId<T>, T::MaxProjects> =
-			WhiteListedProjectAccounts::<T>::get();
-		let vec = bounded.clone().to_vec();
-		ensure!(!vec.contains(&project_id), Error::<T>::SubmittedProjectId);
-		let _ = bounded.try_push(project_id).map_err(|_| Error::<T>::MaximumProjectsNumber);
-		WhiteListedProjectAccounts::<T>::put(bounded);
-		Ok(())
-	}
-
 	// Voting Period checks
 	pub fn period_check() -> DispatchResult {
 		// Get current voting round & check if we are in voting period or not
@@ -72,13 +61,9 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn unlist_project(project_id: ProjectId<T>) -> DispatchResult {
-		let mut bounded: BoundedVec<ProjectId<T>, T::MaxProjects> =
-			WhiteListedProjectAccounts::<T>::get();
-		let vec = bounded.clone().to_vec();
-		ensure!(vec.contains(&project_id), Error::<T>::NoProjectAvailable);
 		WhiteListedProjectAccounts::<T>::mutate(|value| {
 			let mut val = value.clone();
-			val.retain(|x| *x != project_id);
+			val.retain(|x| x.project_id != project_id);
 			*value = val;
 		});
 
@@ -101,8 +86,9 @@ impl<T: Config> Pallet<T> {
 			// for each project, calculate the percentage of votes, the amount to be distributed,
 			// and then populate the storage Projects
 			for project in projects {
-				if ProjectFunds::<T>::contains_key(&project) {
-					let funds = ProjectFunds::<T>::get(&project);
+				let project_id = &project.project_id;
+				if ProjectFunds::<T>::contains_key(project_id) {
+					let funds = ProjectFunds::<T>::get(project_id);
 					let project_positive_reward = funds[0];
 					let project_negative_reward = funds[1];
 
@@ -116,7 +102,7 @@ impl<T: Config> Pallet<T> {
 
 						// Send calculated reward for reward distribution
 						let project_info = ProjectInfo {
-							project_id: project.clone(),
+							project_id: project.project_id.clone(),
 							submission_block: when,
 							amount: final_amount,
 						};
@@ -125,7 +111,7 @@ impl<T: Config> Pallet<T> {
 						let _ = SpendInfo::<T>::new(&project_info);
 
 						Self::deposit_event(Event::<T>::ProjectFundingAccepted {
-							project_id: project,
+							project_id: project.project_id,
 							when,
 							round_number,
 							amount: project_info.amount,
@@ -133,7 +119,7 @@ impl<T: Config> Pallet<T> {
 					} else {
 						Self::deposit_event(Event::<T>::ProjectFundingRejected {
 							when,
-							project_id: project,
+							project_id: project.project_id,
 						})
 					}
 				}
@@ -177,8 +163,6 @@ impl<T: Config> Pallet<T> {
 
 			// Create a new round.
 			let _new_round = VotingRoundInfo::<T>::new();
-			// Clear WhiteListedProjectAccounts storage
-			WhiteListedProjectAccounts::<T>::kill();
 			// Clear ProjectFunds storage
 			ProjectFunds::<T>::drain();
 			// Emmit events
