@@ -23,6 +23,12 @@ mod types;
 pub use pallet_scheduler as Schedule;
 pub use types::*;
 
+#[cfg(test)]
+mod mock;
+
+#[cfg(test)]
+mod tests;
+
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
@@ -112,10 +118,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type WhiteListedProjectAccounts<T: Config> =
 		StorageValue<_, BoundedVec<ProjectInfo<T>, T::MaxProjects>, ValueQuery>;
-
-	/// Whitelisted Projects registration counter
-	#[pallet::storage]
-	pub type WhiteListedProjectCounter<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// Returns (positive_funds,negative_funds) of Whitelisted Project accounts
 	#[pallet::storage]
@@ -238,13 +240,12 @@ pub mod pallet {
 		///
 		/// ## Details
 		///
-		/// From this extrinsic any user can register project.
+		/// From this extrinsic only Root can register project.
 		///
 		/// ### Parameters
 		/// - `project_id`: The account that will receive the reward.
 		///
 		/// ### Errors
-		/// - [`Error::<T>::SubmittedProjectId`]: Project already submitted under this project_id
 		/// - [`Error::<T>::MaximumProjectsNumber`]: Maximum number of project subscriptions reached
 		///  
 		/// ## Events
@@ -252,7 +253,7 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[transactional]
 		pub fn register_project(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
-			let _caller = ensure_signed(origin)?;
+			let _caller = ensure_root(origin)?;
 			let when = T::BlockNumberProvider::current_block_number();
 			ProjectInfo::<T>::new(project_id.clone());
 			Self::deposit_event(Event::Projectlisted { when, project_id });
