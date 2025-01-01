@@ -39,7 +39,6 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 ]
 try-runtime = [
-	"frame-support-test/try-runtime",
 	"frame/try-runtime",
 	"pallet-balances/try-runtime",
 ]
