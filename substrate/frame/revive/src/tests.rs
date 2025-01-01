@@ -29,7 +29,7 @@ use crate::{
 		ChainExtension, Environment, Ext, RegisteredChainExtension, Result as ExtensionResult,
 		RetVal, ReturnFlags,
 	},
-	evm::GenericTransaction,
+	evm::{runtime::GAS_PRICE, GenericTransaction},
 	exec::Key,
 	limits,
 	primitives::CodeUploadReturnValue,
@@ -374,7 +374,7 @@ impl RegisteredChainExtension<Test> for TempStorageExtension {
 parameter_types! {
 	pub BlockWeights: frame_system::limits::BlockWeights =
 		frame_system::limits::BlockWeights::simple_max(
-			Weight::from_parts(2u64 * WEIGHT_REF_TIME_PER_SECOND, u64::MAX),
+			Weight::from_parts(2 * WEIGHT_REF_TIME_PER_SECOND, u64::MAX),
 		);
 	pub static ExistentialDeposit: u64 = 1;
 }
@@ -382,6 +382,7 @@ parameter_types! {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
+	type BlockWeights = BlockWeights;
 	type AccountId = AccountId32;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type AccountData = pallet_balances::AccountData<u64>;
@@ -438,7 +439,7 @@ parameter_types! {
 	pub static DepositPerByte: BalanceOf<Test> = 1;
 	pub const DepositPerItem: BalanceOf<Test> = 2;
 	pub static CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
-	pub static ChainId: u64 = 384;
+	pub static ChainId: u64 = 448;
 }
 
 impl Convert<Weight, BalanceOf<Self>> for Test {
@@ -1871,6 +1872,27 @@ fn lazy_batch_removal_works() {
 		for trie in tries.iter() {
 			assert_matches!(child::get::<i32>(trie, &[99]), None);
 		}
+	});
+}
+
+#[test]
+fn ref_time_left_api_works() {
+	let (code, _) = compile_module("ref_time_left").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create fixture: Constructor calls ref_time_left twice and asserts it to decrease
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// Call the contract: It echoes back the ref_time returned by the ref_time_left API.
+		let received = builder::bare_call(addr).build_and_unwrap_result();
+		assert_eq!(received.flags, ReturnFlags::empty());
+
+		let returned_value = u64::from_le_bytes(received.data[..8].try_into().unwrap());
+		assert!(returned_value > 0);
+		assert!(returned_value < GAS_LIMIT.ref_time());
 	});
 }
 
@@ -3483,7 +3505,7 @@ fn deposit_limit_in_nested_calls() {
 		// Require more than the sender's balance.
 		// Limit the sub call to little balance so it should fail in there
 		let ret = builder::bare_call(addr_caller)
-			.data((512u32, &addr_callee, U256::from(1u64)).encode())
+			.data((448, &addr_callee, U256::from(1u64)).encode())
 			.build_and_unwrap_result();
 		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
 
@@ -4343,6 +4365,80 @@ fn create1_with_value_works() {
 }
 
 #[test]
+fn gas_price_api_works() {
+	let (code, _) = compile_module("gas_price").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create fixture: Constructor does nothing
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// Call the contract: It echoes back the value returned by the gas price API.
+		let received = builder::bare_call(addr).build_and_unwrap_result();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		assert_eq!(u64::from_le_bytes(received.data[..].try_into().unwrap()), u64::from(GAS_PRICE));
+	});
+}
+
+#[test]
+fn base_fee_api_works() {
+	let (code, _) = compile_module("base_fee").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create fixture: Constructor does nothing
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// Call the contract: It echoes back the value returned by the base fee API.
+		let received = builder::bare_call(addr).build_and_unwrap_result();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		assert_eq!(U256::from_little_endian(received.data[..].try_into().unwrap()), U256::zero());
+	});
+}
+
+#[test]
+fn call_data_size_api_works() {
+	let (code, _) = compile_module("call_data_size").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create fixture: Constructor does nothing
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// Call the contract: It echoes back the value returned by the call data size API.
+		let received = builder::bare_call(addr).build_and_unwrap_result();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		assert_eq!(u64::from_le_bytes(received.data.try_into().unwrap()), 0);
+
+		let received = builder::bare_call(addr).data(vec![1; 256]).build_and_unwrap_result();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		assert_eq!(u64::from_le_bytes(received.data.try_into().unwrap()), 256);
+	});
+}
+
+#[test]
+fn call_data_copy_api_works() {
+	let (code, _) = compile_module("call_data_copy").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create fixture: Constructor does nothing
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// Call fixture: Expects an input of [255; 32] and executes tests.
+		assert_ok!(builder::call(addr).data(vec![255; 32]).build());
+	});
+}
+
+#[test]
 fn static_data_limit_is_enforced() {
 	let (oom_rw_trailing, _) = compile_module("oom_rw_trailing").unwrap();
 	let (oom_rw_included, _) = compile_module("oom_rw_included").unwrap();
@@ -4793,6 +4889,27 @@ fn skip_transfer_works() {
 			Weight::MAX,
 			|_| 0u32
 		));
+	});
+}
+
+#[test]
+fn gas_limit_api_works() {
+	let (code, _) = compile_module("gas_limit").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Create fixture: Constructor does nothing
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// Call the contract: It echoes back the value returned by the gas limit API.
+		let received = builder::bare_call(addr).build_and_unwrap_result();
+		assert_eq!(received.flags, ReturnFlags::empty());
+		assert_eq!(
+			u64::from_le_bytes(received.data[..].try_into().unwrap()),
+			<Test as frame_system::Config>::BlockWeights::get().max_block.ref_time()
+		);
 	});
 }
 

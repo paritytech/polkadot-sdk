@@ -19,12 +19,12 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { features = [
 	"derive",
 ], workspace = true }
-scale-info = { features = ["derive"], workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-session = { features = [
 	"historical",
 ], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 sp-application-crypto = { workspace = true }
 sp-authority-discovery = { workspace = true }
 sp-runtime = { workspace = true }
