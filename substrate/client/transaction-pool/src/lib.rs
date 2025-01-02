@@ -30,13 +30,16 @@ mod single_state_txpool;
 mod transaction_pool_wrapper;
 
 use common::{api, enactment_state};
-use std::{future::Future, pin::Pin, sync::Arc};
+use std::sync::Arc;
 
 pub use api::FullChainApi;
 pub use builder::{Builder, TransactionPoolHandle, TransactionPoolOptions, TransactionPoolType};
 pub use common::notification_future;
 pub use fork_aware_txpool::{ForkAwareTxPool, ForkAwareTxPoolTask};
-pub use graph::{base_pool::Limit as PoolLimit, ChainApi, Options, Pool};
+pub use graph::{
+	base_pool::{Limit as PoolLimit, TimedTransactionSource},
+	ChainApi, Options, Pool,
+};
 use single_state_txpool::prune_known_txs_for_block;
 pub use single_state_txpool::{BasicPool, RevalidationType};
 pub use transaction_pool_wrapper::TransactionPoolWrapper;
@@ -49,8 +52,6 @@ type BoxedReadyIterator<Hash, Data> = Box<
 
 type ReadyIteratorFor<PoolApi> =
 	BoxedReadyIterator<graph::ExtrinsicHash<PoolApi>, graph::ExtrinsicFor<PoolApi>>;
-
-type PolledIterator<PoolApi> = Pin<Box<dyn Future<Output = ReadyIteratorFor<PoolApi>> + Send>>;
 
 /// Log target for transaction pool.
 ///
