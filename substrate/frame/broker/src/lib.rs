@@ -983,8 +983,7 @@ pub mod pallet {
 		#[pallet::call_index(24)]
 		pub fn remove_lease(origin: OriginFor<T>, task: TaskId) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
-			Self::do_remove_lease(task)?;
-			Ok(())
+			Self::do_remove_lease(task)
 		}
 
 		#[pallet::call_index(99)]
