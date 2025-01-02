@@ -201,10 +201,6 @@ fn main() -> Result<()> {
 									continue;
 								}
 
-								// The time interval between collation submissions.
-								let submit_collation_interval =
-									Duration::from_secs(6 / scheduled_cores.len() as u64);
-
 								// Get the collation.
 								let validation_data =
 									match client.runtime_api().persisted_validation_data(
@@ -289,10 +285,10 @@ fn main() -> Result<()> {
 											"Collator",
 										)
 										.await;
-
-									// Wait before submitting the next collation.
-									sleep(submit_collation_interval);
 								}
+
+								// Wait before submitting the next collation.
+								sleep(Duration::from_secs(6 as u64));
 							}
 						},
 					);

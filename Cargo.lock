@@ -29412,6 +29412,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "polkadot-parachain-primitives 6.0.0",
+ "polkadot-primitives 7.0.0",
  "sp-io 30.0.0",
  "substrate-wasm-builder 17.0.0",
  "tiny-keccak",

@@ -22,6 +22,10 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
+use polkadot_parachain_primitives::primitives::UpwardMessages;
+use polkadot_primitives::vstaging::{
+	ClaimQueueOffset, CoreSelector, UMPSignal, DEFAULT_CLAIM_QUEUE_OFFSET, UMP_SEPARATOR,
+};
 use tiny_keccak::{Hasher as _, Keccak};
 
 #[cfg(not(feature = "std"))]
@@ -133,7 +137,7 @@ pub fn execute(
 	parent_hash: [u8; 32],
 	parent_head: HeadData,
 	block_data: BlockData,
-) -> Result<(HeadData, GraveyardState), StateMismatch> {
+) -> Result<(HeadData, GraveyardState, UpwardMessages), StateMismatch> {
 	assert_eq!(parent_hash, parent_head.hash());
 
 	if hash_state(&block_data.state) != parent_head.post_state {
@@ -149,6 +153,13 @@ pub fn execute(
 	// We need to clone the block data as the fn will mutate it's state.
 	let new_state = execute_transaction(block_data.clone());
 
+	let mut upward_messages: UpwardMessages = Default::default();
+	upward_messages.force_push(UMP_SEPARATOR);
+	upward_messages.force_push(
+		UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
+			.encode(),
+	);
+
 	Ok((
 		HeadData {
 			number: parent_head.number + 1,
@@ -156,5 +167,6 @@ pub fn execute(
 			post_state: hash_state(&new_state),
 		},
 		new_state,
+		upward_messages,
 	))
 }
