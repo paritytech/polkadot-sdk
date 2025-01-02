@@ -542,8 +542,9 @@ impl IntoPortable for DeprecationInfoIR {
 					entries.into_iter().map(|(k, entry)| (k, entry.into_portable(registry)));
 				DeprecationInfoIR::VariantsDeprecated(entries.collect())
 			},
-			Self::ItemDeprecated(deprecation) =>
-				DeprecationInfoIR::ItemDeprecated(deprecation.into_portable(registry)),
+			Self::ItemDeprecated(deprecation) => {
+				DeprecationInfoIR::ItemDeprecated(deprecation.into_portable(registry))
+			},
 			Self::NotDeprecated => DeprecationInfoIR::NotDeprecated,
 		}
 	}

@@ -105,7 +105,7 @@ where
 			has_failed || !SubmitFinalityProofHelper::<T, I>::was_successful(bundled_block_number);
 
 		if !has_failed {
-			return
+			return;
 		}
 
 		// let's slash registered relayer
@@ -172,11 +172,11 @@ where
 		// we are only interested in associated pallet submissions
 		let Some(update) = maybe_update else { return };
 		// we are only interested in failed or unneeded transactions
-		let has_failed = has_failed ||
-			!SubmitParachainHeadsHelper::<T, ParachainsInstance>::was_successful(&update);
+		let has_failed = has_failed
+			|| !SubmitParachainHeadsHelper::<T, ParachainsInstance>::was_successful(&update);
 
 		if !has_failed {
-			return
+			return;
 		}
 
 		// let's slash registered relayer
@@ -465,7 +465,7 @@ mod tests {
 		type ToPostDispatch = u64;
 		fn validate(_who: &u64, call: &MockCall) -> (u64, TransactionValidity) {
 			if call.data <= 1 {
-				return (1, InvalidTransaction::Custom(1).into())
+				return (1, InvalidTransaction::Custom(1).into());
 			}
 
 			(1, Ok(ValidTransaction { priority: 1, ..Default::default() }))
@@ -493,7 +493,7 @@ mod tests {
 		type ToPostDispatch = u64;
 		fn validate(_who: &u64, call: &MockCall) -> (u64, TransactionValidity) {
 			if call.data <= 2 {
-				return (2, InvalidTransaction::Custom(2).into())
+				return (2, InvalidTransaction::Custom(2).into());
 			}
 
 			(2, Ok(ValidTransaction { priority: 2, ..Default::default() }))

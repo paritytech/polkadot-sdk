@@ -191,7 +191,7 @@ impl Queue {
 		macro_rules! break_if_fatal {
 			($expr:expr) => {
 				if let Err(Fatal) = $expr {
-					break
+					break;
 				}
 			};
 		}
@@ -245,7 +245,7 @@ async fn handle_enqueue(
 			"duplicate `enqueue` command received for {:?}",
 			artifact_id,
 		);
-		return Ok(())
+		return Ok(());
 	}
 
 	let job = queue.jobs.insert(JobData { priority, pvf, worker: None });
@@ -271,8 +271,9 @@ async fn handle_from_pool(queue: &mut Queue, from_pool: pool::FromPool) -> Resul
 	use pool::FromPool;
 	match from_pool {
 		FromPool::Spawned(worker) => handle_worker_spawned(queue, worker).await?,
-		FromPool::Concluded { worker, rip, result } =>
-			handle_worker_concluded(queue, worker, rip, result).await?,
+		FromPool::Concluded { worker, rip, result } => {
+			handle_worker_concluded(queue, worker, rip, result).await?
+		},
 		FromPool::Rip(worker) => handle_worker_rip(queue, worker).await?,
 	}
 	Ok(())
@@ -306,7 +307,7 @@ async fn handle_worker_concluded(
 					// Assume the conditions holds, then this never is not hit;
 					// qed.
 					never!("never_none, {}", stringify!($expr));
-					return Ok(())
+					return Ok(());
 				},
 			}
 		};
@@ -514,7 +515,7 @@ mod tests {
 			}
 
 			if let Poll::Ready(r) = futures::poll!(&mut *fut) {
-				break r
+				break r;
 			}
 
 			if futures::poll!(&mut *task).is_ready() {

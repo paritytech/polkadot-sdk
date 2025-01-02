@@ -83,7 +83,7 @@ impl<B: BlockT> BlockCollection<B> {
 	/// Insert a set of blocks into collection.
 	pub fn insert(&mut self, start: NumberFor<B>, blocks: Vec<message::BlockData<B>>, who: PeerId) {
 		if blocks.is_empty() {
-			return
+			return;
 		}
 
 		match self.blocks.get(&start) {
@@ -92,7 +92,7 @@ impl<B: BlockT> BlockCollection<B> {
 			},
 			Some(BlockRangeState::Complete(existing)) if existing.len() >= blocks.len() => {
 				trace!(target: LOG_TARGET, "Ignored block data already downloaded: {}", start);
-				return
+				return;
 			},
 			_ => (),
 		}
@@ -118,7 +118,7 @@ impl<B: BlockT> BlockCollection<B> {
 	) -> Option<Range<NumberFor<B>>> {
 		if peer_best <= common {
 			// Bail out early
-			return None
+			return None;
 		}
 		// First block number that we need to download
 		let first_different = common + <NumberFor<B>>::one();
@@ -136,35 +136,41 @@ impl<B: BlockT> BlockCollection<B> {
 					// the range start.
 					(Some((start, &BlockRangeState::Downloading { ref len, downloading })), _)
 						if downloading < max_parallel && *start >= first_different =>
-						(*start..*start + *len, downloading),
+					{
+						(*start..*start + *len, downloading)
+					},
 					// If there is a gap between ranges requested, download this gap unless the peer
 					// has common number above the gap start
 					(Some((start, r)), Some((next_start, _)))
-						if *start + r.len() < *next_start &&
-							*start + r.len() >= first_different =>
-						(*start + r.len()..cmp::min(*next_start, *start + r.len() + count), 0),
+						if *start + r.len() < *next_start
+							&& *start + r.len() >= first_different =>
+					{
+						(*start + r.len()..cmp::min(*next_start, *start + r.len() + count), 0)
+					},
 					// Download `count` blocks after the last range requested unless the peer
 					// has common number above this new range
-					(Some((start, r)), None) if *start + r.len() >= first_different =>
-						(*start + r.len()..*start + r.len() + count, 0),
+					(Some((start, r)), None) if *start + r.len() >= first_different => {
+						(*start + r.len()..*start + r.len() + count, 0)
+					},
 					// If there are no ranges currently requested, download `count` blocks after
 					// `common` number
 					(None, None) => (first_different..first_different + count, 0),
 					// If the first range starts above `common + 1`, download the gap at the start
-					(None, Some((start, _))) if *start > first_different =>
-						(first_different..cmp::min(first_different + count, *start), 0),
+					(None, Some((start, _))) if *start > first_different => {
+						(first_different..cmp::min(first_different + count, *start), 0)
+					},
 					// Move on to the next range pair
 					_ => {
 						prev = next;
-						continue
+						continue;
 					},
-				}
+				};
 			}
 		};
 		// crop to peers best
 		if range.start > peer_best {
 			trace!(target: LOG_TARGET, "Out of range for peer {} ({} vs {})", who, range.start, peer_best);
-			return None
+			return None;
 		}
 		range.end = cmp::min(peer_best + One::one(), range.end);
 
@@ -175,7 +181,7 @@ impl<B: BlockT> BlockCollection<B> {
 			.map_or(false, |(n, _)| range.start > *n + max_ahead.into())
 		{
 			trace!(target: LOG_TARGET, "Too far ahead for peer {} ({})", who, range.start);
-			return None
+			return None;
 		}
 
 		self.peer_requests.insert(who, range.start);
@@ -206,7 +212,7 @@ impl<B: BlockT> BlockCollection<B> {
 		let mut prev = from;
 		for (&start, range_data) in &mut self.blocks {
 			if start > prev {
-				break
+				break;
 			}
 			let len = match range_data {
 				BlockRangeState::Complete(blocks) => {

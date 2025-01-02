@@ -62,7 +62,7 @@ where
 			previous
 		} else {
 			// empty is always sorted
-			return true
+			return true;
 		};
 		while let Some(cursor) = iter.next() {
 			match cmp(&previous, &cursor) {

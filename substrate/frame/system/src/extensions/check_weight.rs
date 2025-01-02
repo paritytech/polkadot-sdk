@@ -382,8 +382,8 @@ mod tests {
 	fn normal_extrinsic_limited_by_maximum_extrinsic_weight() {
 		new_test_ext().execute_with(|| {
 			let max = DispatchInfo {
-				call_weight: block_weights().get(DispatchClass::Normal).max_extrinsic.unwrap() +
-					Weight::from_parts(1, 0),
+				call_weight: block_weights().get(DispatchClass::Normal).max_extrinsic.unwrap()
+					+ Weight::from_parts(1, 0),
 				class: DispatchClass::Normal,
 				..Default::default()
 			};
@@ -723,9 +723,9 @@ mod tests {
 				.0;
 			assert_eq!(
 				BlockWeight::<Test>::get().total(),
-				info.total_weight() +
-					Weight::from_parts(128, 0) +
-					block_weights().get(DispatchClass::Normal).base_extrinsic,
+				info.total_weight()
+					+ Weight::from_parts(128, 0)
+					+ block_weights().get(DispatchClass::Normal).base_extrinsic,
 			);
 
 			assert_ok!(CheckWeight::<Test>::post_dispatch_details(
@@ -737,9 +737,9 @@ mod tests {
 			));
 			assert_eq!(
 				BlockWeight::<Test>::get().total(),
-				info.total_weight() +
-					Weight::from_parts(128, 0) +
-					block_weights().get(DispatchClass::Normal).base_extrinsic,
+				info.total_weight()
+					+ Weight::from_parts(128, 0)
+					+ block_weights().get(DispatchClass::Normal).base_extrinsic,
 			);
 		})
 	}

@@ -191,8 +191,9 @@ impl From<DeprecationStatusIR> for DeprecationStatus {
 		match ir {
 			DeprecationStatusIR::NotDeprecated => DeprecationStatus::NotDeprecated,
 			DeprecationStatusIR::DeprecatedWithoutNote => DeprecationStatus::DeprecatedWithoutNote,
-			DeprecationStatusIR::Deprecated { since, note } =>
-				DeprecationStatus::Deprecated { since, note },
+			DeprecationStatusIR::Deprecated { since, note } => {
+				DeprecationStatus::Deprecated { since, note }
+			},
 		}
 	}
 }
@@ -201,8 +202,9 @@ impl From<DeprecationInfoIR> for DeprecationInfo {
 	fn from(ir: DeprecationInfoIR) -> Self {
 		match ir {
 			DeprecationInfoIR::NotDeprecated => DeprecationInfo::NotDeprecated,
-			DeprecationInfoIR::ItemDeprecated(status) =>
-				DeprecationInfo::ItemDeprecated(status.into()),
+			DeprecationInfoIR::ItemDeprecated(status) => {
+				DeprecationInfo::ItemDeprecated(status.into())
+			},
 			DeprecationInfoIR::VariantsDeprecated(btree) => DeprecationInfo::VariantsDeprecated(
 				btree.into_iter().map(|(key, value)| (key.0, value.into())).collect(),
 			),

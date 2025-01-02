@@ -458,16 +458,18 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 		event: THandlerOutEvent<Self>,
 	) {
 		match event {
-			Either::Left(event) =>
-				self.ping.on_connection_handler_event(peer_id, connection_id, event),
-			Either::Right(event) =>
-				self.identify.on_connection_handler_event(peer_id, connection_id, event),
+			Either::Left(event) => {
+				self.ping.on_connection_handler_event(peer_id, connection_id, event)
+			},
+			Either::Right(event) => {
+				self.identify.on_connection_handler_event(peer_id, connection_id, event)
+			},
 		}
 	}
 
 	fn poll(&mut self, cx: &mut Context) -> Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
 		if let Some(event) = self.pending_actions.pop_front() {
-			return Poll::Ready(event)
+			return Poll::Ready(event);
 		}
 
 		loop {
@@ -493,7 +495,7 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 					IdentifyEvent::Received { peer_id, info, .. } => {
 						self.handle_identify_report(&peer_id, &info);
 						let event = PeerInfoEvent::Identified { peer_id, info };
-						return Poll::Ready(ToSwarm::GenerateEvent(event))
+						return Poll::Ready(ToSwarm::GenerateEvent(event));
 					},
 					IdentifyEvent::Error { connection_id, peer_id, error } => {
 						debug!(

@@ -137,7 +137,7 @@ impl ValidatorGroupsBuffer {
 		validators: &[AuthorityDiscoveryId],
 	) {
 		if validators.is_empty() {
-			return
+			return;
 		}
 
 		match self.group_infos.iter().enumerate().find(|(_, group)| {

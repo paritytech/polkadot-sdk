@@ -112,9 +112,9 @@ mod custom_origin {
 			}
 
 			match key {
-				RuntimeParametersKey::SomEWeirdSPElLInGS(_) |
-				RuntimeParametersKey::Nis(_) |
-				RuntimeParametersKey::Pallet1(_) => ensure_root(origin.clone()),
+				RuntimeParametersKey::SomEWeirdSPElLInGS(_)
+				| RuntimeParametersKey::Nis(_)
+				| RuntimeParametersKey::Pallet1(_) => ensure_root(origin.clone()),
 				RuntimeParametersKey::Pallet2(_) => ensure_signed(origin.clone()).map(|_| ()),
 			}
 			.map_err(|_| origin)

@@ -15170,17 +15170,13 @@ dependencies = [
 name = "pallet-salary"
 version = "13.0.0"
 dependencies = [
- "frame-benchmarking 28.0.0",
- "frame-support 28.0.0",
- "frame-system 28.0.0",
  "log",
  "pallet-ranked-collective 28.0.0",
  "parity-scale-codec",
+ "polkadot-sdk-frame 0.1.0",
  "scale-info",
  "sp-arithmetic 23.0.0",
  "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
 ]
 
 [[package]]

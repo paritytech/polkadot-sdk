@@ -148,7 +148,7 @@ async fn update_view(
 			let Some(msg) =
 				overseer_peek_with_timeout(virtual_overseer, Duration::from_millis(50)).await
 			else {
-				return
+				return;
 			};
 
 			if !matches!(
@@ -157,7 +157,7 @@ async fn update_view(
 					if *_hash == hash
 			) {
 				// Ancestry has already been cached for this leaf.
-				break
+				break;
 			}
 
 			assert_matches!(

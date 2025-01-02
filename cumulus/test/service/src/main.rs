@@ -106,7 +106,7 @@ fn main() -> Result<(), sc_cli::Error> {
 			let (mut task_manager, _, _, _, _, _) = tokio_runtime
 				.block_on(async move {
 					match relay_chain_config.network.network_backend {
-						sc_network::config::NetworkBackendType::Libp2p =>
+						sc_network::config::NetworkBackendType::Libp2p => {
 							cumulus_test_service::start_node_impl::<
 								_,
 								sc_network::NetworkWorker<_, _>,
@@ -123,8 +123,9 @@ fn main() -> Result<(), sc_cli::Error> {
 								true,
 								cli.experimental_use_slot_based,
 							)
-							.await,
-						sc_network::config::NetworkBackendType::Litep2p =>
+							.await
+						},
+						sc_network::config::NetworkBackendType::Litep2p => {
 							cumulus_test_service::start_node_impl::<
 								_,
 								sc_network::Litep2pNetworkBackend,
@@ -141,7 +142,8 @@ fn main() -> Result<(), sc_cli::Error> {
 								true,
 								cli.experimental_use_slot_based,
 							)
-							.await,
+							.await
+						},
 					}
 				})
 				.expect("could not create Cumulus test service");

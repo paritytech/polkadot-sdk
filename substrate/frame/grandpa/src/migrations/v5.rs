@@ -49,11 +49,11 @@ impl<T: crate::Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateImpl<T> {
 		if authority_list_len > T::MaxAuthorities::get() {
 			return Err(
 				"Grandpa: `Config::MaxAuthorities` is smaller than the actual number of authorities.".into()
-			)
+			);
 		}
 
 		if authority_list_len == 0 {
-			return Err("Grandpa: Authority list is empty!".into())
+			return Err("Grandpa: Authority list is empty!".into());
 		}
 
 		Ok(authority_list_len.encode())

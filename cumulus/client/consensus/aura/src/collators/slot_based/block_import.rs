@@ -39,7 +39,7 @@ impl<Block> SlotBasedBlockImportHandle<Block> {
 			if self.receiver.is_terminated() {
 				futures::pending!()
 			} else if let Some(res) = self.receiver.next().await {
-				return res
+				return res;
 			}
 		}
 	}
@@ -129,7 +129,7 @@ where
 			if params.header.state_root() != &gen_storage_changes.transaction_storage_root {
 				return Err(sp_consensus::Error::Other(Box::new(
 					sp_blockchain::Error::InvalidStateRoot,
-				)))
+				)));
 			}
 
 			params.state_action = StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(

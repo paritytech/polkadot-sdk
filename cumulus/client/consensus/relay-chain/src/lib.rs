@@ -205,7 +205,7 @@ where
 				"Error importing build block.",
 			);
 
-			return None
+			return None;
 		}
 
 		Some(ParachainCandidate { block, proof })

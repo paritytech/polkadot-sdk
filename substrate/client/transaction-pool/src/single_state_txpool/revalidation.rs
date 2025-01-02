@@ -75,11 +75,11 @@ async fn batch_revalidate<Api: ChainApi>(
 		Ok(Some(n)) => n,
 		Ok(None) => {
 			log::trace!(target: LOG_TARGET, "revalidation skipped at block {at:?}, could not get block number.");
-			return
+			return;
 		},
 		Err(e) => {
 			log::trace!(target: LOG_TARGET, "revalidation skipped at block {at:?}: {e:?}.");
-			return
+			return;
 		},
 	};
 
@@ -213,7 +213,7 @@ impl<Api: ChainApi> RevalidationWorker<Api> {
 					ext_hash,
 				);
 
-				continue
+				continue;
 			}
 
 			self.block_ordered

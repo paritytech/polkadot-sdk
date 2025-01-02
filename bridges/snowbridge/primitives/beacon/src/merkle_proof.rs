@@ -14,7 +14,7 @@ pub fn verify_merkle_branch(
 ) -> bool {
 	// verify the proof length
 	if branch.len() != depth {
-		return false
+		return false;
 	}
 	// verify the computed merkle root
 	root == compute_merkle_root(leaf, branch, index)

@@ -69,7 +69,7 @@ impl Parse for Input {
 			} else if lookahead.peek(keywords::CheckInherents) {
 				parse_inner::<keywords::CheckInherents>(input, &mut check_inherents)?;
 			} else {
-				return Err(lookahead.error())
+				return Err(lookahead.error());
 			}
 		}
 
@@ -83,8 +83,9 @@ impl Parse for Input {
 
 fn crate_() -> Result<Ident, Error> {
 	match crate_name("cumulus-pallet-parachain-system") {
-		Ok(FoundCrate::Itself) =>
-			Ok(syn::Ident::new("cumulus_pallet_parachain_system", Span::call_site())),
+		Ok(FoundCrate::Itself) => {
+			Ok(syn::Ident::new("cumulus_pallet_parachain_system", Span::call_site()))
+		},
 		Ok(FoundCrate::Name(name)) => Ok(Ident::new(&name, Span::call_site())),
 		Err(e) => Err(Error::new(Span::call_site(), e)),
 	}

@@ -864,7 +864,7 @@ pub fn check_candidate_backing<H: AsRef<[u8]> + Clone + Encode + core::fmt::Debu
 			group_len,
 			validator_indices.len(),
 		);
-		return Err(())
+		return Err(());
 	}
 
 	if validity_votes.len() > group_len {
@@ -874,7 +874,7 @@ pub fn check_candidate_backing<H: AsRef<[u8]> + Clone + Encode + core::fmt::Debu
 			group_len,
 			validity_votes.len(),
 		);
-		return Err(())
+		return Err(());
 	}
 
 	let mut signed = 0;
@@ -897,7 +897,7 @@ pub fn check_candidate_backing<H: AsRef<[u8]> + Clone + Encode + core::fmt::Debu
 				validator_id,
 				val_in_group_idx,
 			);
-			return Err(())
+			return Err(());
 		}
 	}
 
@@ -908,7 +908,7 @@ pub fn check_candidate_backing<H: AsRef<[u8]> + Clone + Encode + core::fmt::Debu
 			validity_votes.len(),
 			signed,
 		);
-		return Err(())
+		return Err(());
 	}
 
 	Ok(signed)
@@ -982,10 +982,10 @@ impl GroupRotationInfo {
 	/// `core_index` should be less than `cores`, which is capped at `u32::max()`.
 	pub fn group_for_core(&self, core_index: CoreIndex, cores: usize) -> GroupIndex {
 		if self.group_rotation_frequency == 0 {
-			return GroupIndex(core_index.0)
+			return GroupIndex(core_index.0);
 		}
 		if cores == 0 {
-			return GroupIndex(0)
+			return GroupIndex(0);
 		}
 
 		let cores = core::cmp::min(cores, u32::MAX as usize);
@@ -1004,10 +1004,10 @@ impl GroupRotationInfo {
 	/// `core_index` should be less than `cores`, which is capped at `u32::max()`.
 	pub fn core_for_group(&self, group_index: GroupIndex, cores: usize) -> CoreIndex {
 		if self.group_rotation_frequency == 0 {
-			return CoreIndex(group_index.0)
+			return CoreIndex(group_index.0);
 		}
 		if cores == 0 {
-			return CoreIndex(0)
+			return CoreIndex(0);
 		}
 
 		let cores = core::cmp::min(cores, u32::MAX as usize);
@@ -1039,15 +1039,15 @@ impl<N: Saturating + BaseArithmetic + Copy> GroupRotationInfo<N> {
 	/// is 10 and the rotation frequency is 5, this should return 15.
 	pub fn next_rotation_at(&self) -> N {
 		let cycle_once = self.now + self.group_rotation_frequency;
-		cycle_once -
-			(cycle_once.saturating_sub(self.session_start_block) % self.group_rotation_frequency)
+		cycle_once
+			- (cycle_once.saturating_sub(self.session_start_block) % self.group_rotation_frequency)
 	}
 
 	/// Returns the block number of the last rotation before or including the current block. If the
 	/// current block is 10 and the rotation frequency is 5, this should return 10.
 	pub fn last_rotation_at(&self) -> N {
-		self.now -
-			(self.now.saturating_sub(self.session_start_block) % self.group_rotation_frequency)
+		self.now
+			- (self.now.saturating_sub(self.session_start_block) % self.group_rotation_frequency)
 	}
 }
 
@@ -1398,8 +1398,9 @@ impl ConsensusLog {
 		digest_item: &sp_runtime::DigestItem,
 	) -> Result<Option<Self>, codec::Error> {
 		match digest_item {
-			sp_runtime::DigestItem::Consensus(id, encoded) if id == &POLKADOT_ENGINE_ID =>
-				Ok(Some(Self::decode(&mut &encoded[..])?)),
+			sp_runtime::DigestItem::Consensus(id, encoded) if id == &POLKADOT_ENGINE_ID => {
+				Ok(Some(Self::decode(&mut &encoded[..])?))
+			},
 			_ => Ok(None),
 		}
 	}
@@ -1435,33 +1436,38 @@ impl DisputeStatement {
 		session: SessionIndex,
 	) -> Result<Vec<u8>, ()> {
 		match self {
-			DisputeStatement::Valid(ValidDisputeStatementKind::Explicit) =>
+			DisputeStatement::Valid(ValidDisputeStatementKind::Explicit) => {
 				Ok(ExplicitDisputeStatement { valid: true, candidate_hash, session }
-					.signing_payload()),
+					.signing_payload())
+			},
 			DisputeStatement::Valid(ValidDisputeStatementKind::BackingSeconded(
 				inclusion_parent,
 			)) => Ok(CompactStatement::Seconded(candidate_hash).signing_payload(&SigningContext {
 				session_index: session,
 				parent_hash: *inclusion_parent,
 			})),
-			DisputeStatement::Valid(ValidDisputeStatementKind::BackingValid(inclusion_parent)) =>
+			DisputeStatement::Valid(ValidDisputeStatementKind::BackingValid(inclusion_parent)) => {
 				Ok(CompactStatement::Valid(candidate_hash).signing_payload(&SigningContext {
 					session_index: session,
 					parent_hash: *inclusion_parent,
-				})),
-			DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalChecking) =>
-				Ok(ApprovalVote(candidate_hash).signing_payload(session)),
+				}))
+			},
+			DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalChecking) => {
+				Ok(ApprovalVote(candidate_hash).signing_payload(session))
+			},
 			DisputeStatement::Valid(
 				ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(candidate_hashes),
-			) =>
+			) => {
 				if candidate_hashes.contains(&candidate_hash) {
 					Ok(ApprovalVoteMultipleCandidates(candidate_hashes).signing_payload(session))
 				} else {
 					Err(())
-				},
-			DisputeStatement::Invalid(InvalidDisputeStatementKind::Explicit) =>
+				}
+			},
+			DisputeStatement::Invalid(InvalidDisputeStatementKind::Explicit) => {
 				Ok(ExplicitDisputeStatement { valid: false, candidate_hash, session }
-					.signing_payload()),
+					.signing_payload())
+			},
 		}
 	}
 
@@ -1534,11 +1540,11 @@ impl ValidDisputeStatementKind {
 	/// Whether the statement is from the backing phase.
 	pub fn is_backing(&self) -> bool {
 		match self {
-			ValidDisputeStatementKind::BackingSeconded(_) |
-			ValidDisputeStatementKind::BackingValid(_) => true,
-			ValidDisputeStatementKind::Explicit |
-			ValidDisputeStatementKind::ApprovalChecking |
-			ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(_) => false,
+			ValidDisputeStatementKind::BackingSeconded(_)
+			| ValidDisputeStatementKind::BackingValid(_) => true,
+			ValidDisputeStatementKind::Explicit
+			| ValidDisputeStatementKind::ApprovalChecking
+			| ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(_) => false,
 		}
 	}
 }
@@ -1693,10 +1699,12 @@ impl ValidityAttestation {
 		signing_context: &SigningContext<H>,
 	) -> Vec<u8> {
 		match *self {
-			ValidityAttestation::Implicit(_) =>
-				(CompactStatement::Seconded(candidate_hash), signing_context).encode(),
-			ValidityAttestation::Explicit(_) =>
-				(CompactStatement::Valid(candidate_hash), signing_context).encode(),
+			ValidityAttestation::Implicit(_) => {
+				(CompactStatement::Seconded(candidate_hash), signing_context).encode()
+			},
+			ValidityAttestation::Explicit(_) => {
+				(CompactStatement::Valid(candidate_hash), signing_context).encode()
+			},
 		}
 	}
 }
@@ -1772,7 +1780,7 @@ impl codec::Decode for CompactStatement {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		let maybe_magic = <[u8; 4]>::decode(input)?;
 		if maybe_magic != BACKING_STATEMENT_MAGIC {
-			return Err(codec::Error::from("invalid magic string"))
+			return Err(codec::Error::from("invalid magic string"));
 		}
 
 		Ok(match CompactStatementInner::decode(input)? {

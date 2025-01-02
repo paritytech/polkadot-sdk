@@ -48,7 +48,7 @@ impl<H: Hash> AccessedNodesTracker<H> {
 	/// Ensure that all the nodes in the proof have been accessed.
 	pub fn ensure_no_unused_nodes(self) -> Result<(), Error> {
 		if self.proof_nodes_count != self.recorder.len() {
-			return Err(Error::UnusedNodes)
+			return Err(Error::UnusedNodes);
 		}
 
 		Ok(())
@@ -58,9 +58,9 @@ impl<H: Hash> AccessedNodesTracker<H> {
 impl<H: Hash + Ord> TrieRecorder<H> for AccessedNodesTracker<H> {
 	fn record(&mut self, access: TrieAccess<H>) {
 		match access {
-			TrieAccess::NodeOwned { hash, .. } |
-			TrieAccess::EncodedNode { hash, .. } |
-			TrieAccess::Value { hash, .. } => {
+			TrieAccess::NodeOwned { hash, .. }
+			| TrieAccess::EncodedNode { hash, .. }
+			| TrieAccess::Value { hash, .. } => {
 				self.recorder.insert(hash);
 			},
 			_ => {},

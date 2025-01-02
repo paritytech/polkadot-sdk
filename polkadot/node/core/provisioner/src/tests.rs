@@ -574,14 +574,16 @@ mod select_candidates {
 
 		while let Some(from_job) = receiver.next().await {
 			match from_job {
-				AllMessages::ChainApi(BlockNumber(_relay_parent, tx)) =>
-					tx.send(Ok(Some(BLOCK_UNDER_PRODUCTION - 1))).unwrap(),
+				AllMessages::ChainApi(BlockNumber(_relay_parent, tx)) => {
+					tx.send(Ok(Some(BLOCK_UNDER_PRODUCTION - 1))).unwrap()
+				},
 				AllMessages::RuntimeApi(Request(
 					_parent_hash,
 					PersistedValidationDataReq(_para_id, _assumption, tx),
 				)) => tx.send(Ok(Some(Default::default()))).unwrap(),
-				AllMessages::RuntimeApi(Request(_parent_hash, AvailabilityCores(tx))) =>
-					tx.send(Ok(mock_availability_cores.clone())).unwrap(),
+				AllMessages::RuntimeApi(Request(_parent_hash, AvailabilityCores(tx))) => {
+					tx.send(Ok(mock_availability_cores.clone())).unwrap()
+				},
 				AllMessages::CandidateBacking(CandidateBackingMessage::GetBackableCandidates(
 					hashes,
 					sender,
@@ -648,8 +650,9 @@ mod select_candidates {
 
 						let _ = tx.send(candidates);
 					},
-					ProspectiveParachainsMode::Disabled =>
-						panic!("unexpected prospective parachains request"),
+					ProspectiveParachainsMode::Disabled => {
+						panic!("unexpected prospective parachains request")
+					},
 				},
 				_ => panic!("Unexpected message: {:?}", from_job),
 			}

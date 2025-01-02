@@ -106,10 +106,11 @@ impl MockNetworkBridgeTx {
 		loop {
 			let subsystem_message = ctx.recv().await.expect("Overseer never fails us");
 			match subsystem_message {
-				orchestra::FromOrchestra::Signal(signal) =>
+				orchestra::FromOrchestra::Signal(signal) => {
 					if signal == OverseerSignal::Conclude {
-						return
-					},
+						return;
+					}
+				},
 				orchestra::FromOrchestra::Communication { msg } => match msg {
 					NetworkBridgeTxMessage::SendRequests(requests, _if_disconnected) => {
 						for request in requests {
@@ -130,7 +131,7 @@ impl MockNetworkBridgeTx {
 									.into_response_sender()
 									.send(Err(RequestFailure::NotConnected))
 									.expect("send never fails");
-								continue
+								continue;
 							}
 
 							let peer_message =

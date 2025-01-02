@@ -192,7 +192,7 @@ pub fn conclude_intake(allow_resignation: bool, judge_intake: Option<bool>) {
 				Society::claim_membership(Origin::signed(who)),
 				Error::<Test>::NotCandidate
 			);
-			continue
+			continue;
 		}
 		if candidacy.tally.clear_rejection() && allow_resignation {
 			assert_noop!(
@@ -200,18 +200,18 @@ pub fn conclude_intake(allow_resignation: bool, judge_intake: Option<bool>) {
 				Error::<Test>::NotApproved
 			);
 			assert_ok!(Society::resign_candidacy(Origin::signed(who)));
-			continue
+			continue;
 		}
 		if let (Some(founder), Some(approve)) = (Founder::<Test>::get(), judge_intake) {
 			if !candidacy.tally.clear_approval() && !approve {
 				// can be rejected by founder
 				assert_ok!(Society::kick_candidate(Origin::signed(founder), who));
-				continue
+				continue;
 			}
 			if !candidacy.tally.clear_rejection() && approve {
 				// can be rejected by founder
 				assert_ok!(Society::bestow_membership(Origin::signed(founder), who));
-				continue
+				continue;
 			}
 		}
 		if candidacy.tally.clear_rejection() && round > candidacy.round + 1 {
@@ -224,7 +224,7 @@ pub fn conclude_intake(allow_resignation: bool, judge_intake: Option<bool>) {
 				Society::drop_candidate(Origin::signed(0), who),
 				Error::<Test>::NotCandidate
 			);
-			continue
+			continue;
 		}
 		if !candidacy.skeptic_struck {
 			assert_ok!(Society::punish_skeptic(Origin::signed(who)));

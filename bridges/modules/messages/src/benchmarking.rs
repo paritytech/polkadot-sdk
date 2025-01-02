@@ -196,8 +196,8 @@ mod benchmarks {
 	//
 
 	fn max_msgs<T: Config<I>, I: 'static>() -> u32 {
-		T::BridgedChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX as u32 -
-			ReceiveMessagesProofSetup::<T, I>::LATEST_RECEIVED_NONCE as u32
+		T::BridgedChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX as u32
+			- ReceiveMessagesProofSetup::<T, I>::LATEST_RECEIVED_NONCE as u32
 	}
 
 	// Benchmark `receive_messages_proof` extrinsic with single minimal-weight message and following

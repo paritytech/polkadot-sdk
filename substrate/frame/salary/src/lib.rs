@@ -19,21 +19,17 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
-use scale_info::TypeInfo;
-use sp_arithmetic::traits::{Saturating, Zero};
-use sp_runtime::{Perbill, RuntimeDebug};
 
-use frame_support::{
-	defensive,
-	dispatch::DispatchResultWithPostInfo,
-	ensure,
+use frame::{
+	hashing::blake2_256,
+	prelude::*,
 	traits::{
 		tokens::{GetSalary, Pay, PaymentStatus},
 		RankedMembers, RankedMembersSwapHandler,
 	},
 };
+use frame_support::{defensive, dispatch::DispatchResultWithPostInfo, ensure};
 
 #[cfg(test)]
 mod tests;
@@ -74,6 +70,7 @@ pub enum ClaimState<Balance, Id> {
 	Attempted { registered: Option<Balance>, id: Id, amount: Balance },
 }
 
+use frame::deps::frame_support;
 use ClaimState::*;
 
 /// The status of a single payee/claimant.
@@ -88,8 +85,7 @@ pub struct ClaimantStatus<CycleIndex, Balance, Id> {
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{dispatch::Pays, pallet_prelude::*};
-	use frame_system::pallet_prelude::*;
+	use frame::prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
@@ -460,11 +456,11 @@ impl<T: Config<I>, I: 'static>
 	) {
 		if who == new_who {
 			defensive!("Should not try to swap with self");
-			return
+			return;
 		}
 		if Claimant::<T, I>::contains_key(new_who) {
 			defensive!("Should not try to overwrite existing claimant");
-			return
+			return;
 		}
 
 		let Some(claimant) = Claimant::<T, I>::take(who) else {

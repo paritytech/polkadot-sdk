@@ -89,24 +89,30 @@ impl<M> NetworkBridgeEvent<M> {
 		T: TryFrom<&'a M, Error = WrongVariant>,
 	{
 		Ok(match *self {
-			NetworkBridgeEvent::PeerMessage(ref peer, ref msg) =>
-				NetworkBridgeEvent::PeerMessage(*peer, T::try_from(msg)?),
+			NetworkBridgeEvent::PeerMessage(ref peer, ref msg) => {
+				NetworkBridgeEvent::PeerMessage(*peer, T::try_from(msg)?)
+			},
 			NetworkBridgeEvent::PeerConnected(
 				ref peer,
 				ref role,
 				ref version,
 				ref authority_id,
 			) => NetworkBridgeEvent::PeerConnected(*peer, *role, *version, authority_id.clone()),
-			NetworkBridgeEvent::PeerDisconnected(ref peer) =>
-				NetworkBridgeEvent::PeerDisconnected(*peer),
-			NetworkBridgeEvent::NewGossipTopology(ref topology) =>
-				NetworkBridgeEvent::NewGossipTopology(topology.clone()),
-			NetworkBridgeEvent::PeerViewChange(ref peer, ref view) =>
-				NetworkBridgeEvent::PeerViewChange(*peer, view.clone()),
-			NetworkBridgeEvent::OurViewChange(ref view) =>
-				NetworkBridgeEvent::OurViewChange(view.clone()),
-			NetworkBridgeEvent::UpdatedAuthorityIds(ref peer, ref authority_ids) =>
-				NetworkBridgeEvent::UpdatedAuthorityIds(*peer, authority_ids.clone()),
+			NetworkBridgeEvent::PeerDisconnected(ref peer) => {
+				NetworkBridgeEvent::PeerDisconnected(*peer)
+			},
+			NetworkBridgeEvent::NewGossipTopology(ref topology) => {
+				NetworkBridgeEvent::NewGossipTopology(topology.clone())
+			},
+			NetworkBridgeEvent::PeerViewChange(ref peer, ref view) => {
+				NetworkBridgeEvent::PeerViewChange(*peer, view.clone())
+			},
+			NetworkBridgeEvent::OurViewChange(ref view) => {
+				NetworkBridgeEvent::OurViewChange(view.clone())
+			},
+			NetworkBridgeEvent::UpdatedAuthorityIds(ref peer, ref authority_ids) => {
+				NetworkBridgeEvent::UpdatedAuthorityIds(*peer, authority_ids.clone())
+			},
 		})
 	}
 }

@@ -126,8 +126,8 @@ impl<C: Chain, Clnt: Client<C>, V: FloatStorageValue> StandaloneMetric
 				.await?;
 			self.value_converter.decode(maybe_storage_value).map(|maybe_fixed_point_value| {
 				maybe_fixed_point_value.map(|fixed_point_value| {
-					fixed_point_value.into_inner().unique_saturated_into() as f64 /
-						V::Value::DIV.unique_saturated_into() as f64
+					fixed_point_value.into_inner().unique_saturated_into() as f64
+						/ V::Value::DIV.unique_saturated_into() as f64
 				})
 			})
 		}

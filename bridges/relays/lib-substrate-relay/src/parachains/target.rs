@@ -197,8 +197,9 @@ where
 		let storage_value: Option<ParaStoredHeaderData> =
 			self.target_client.storage_value(at_block.hash(), storage_key).await?;
 		let para_head_number = match storage_value {
-			Some(para_head_data) =>
-				para_head_data.decode_parachain_head_data::<P::SourceParachain>()?.number,
+			Some(para_head_data) => {
+				para_head_data.decode_parachain_head_data::<P::SourceParachain>()?.number
+			},
 			None => return Ok(None),
 		};
 

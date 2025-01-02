@@ -109,8 +109,9 @@ where
 			calls.next().transpose()?.and_then(|c| c.submit_finality_proof_info());
 
 		Ok(match (total_calls, relay_finality_call, msgs_call) {
-			(2, Some(relay_finality_call), Some(msgs_call)) =>
-				Some(ExtensionCallInfo::RelayFinalityAndMsgs(relay_finality_call, msgs_call)),
+			(2, Some(relay_finality_call), Some(msgs_call)) => {
+				Some(ExtensionCallInfo::RelayFinalityAndMsgs(relay_finality_call, msgs_call))
+			},
 			(1, None, Some(msgs_call)) => Some(ExtensionCallInfo::Msgs(msgs_call)),
 			_ => None,
 		})
@@ -129,8 +130,8 @@ where
 		call_data: &mut ExtensionCallData,
 		relayer: &R::AccountId,
 	) -> bool {
-		verify_submit_finality_proof_succeeded::<Self, GI>(call_info, call_data, relayer) &&
-			verify_messages_call_succeeded::<Self>(call_info, call_data, relayer)
+		verify_submit_finality_proof_succeeded::<Self, GI>(call_info, call_data, relayer)
+			&& verify_messages_call_succeeded::<Self>(call_info, call_data, relayer)
 	}
 }
 
@@ -163,7 +164,7 @@ where
 			call_info.messages_call_info().lane_id(),
 			relayer,
 		);
-		return false
+		return false;
 	}
 
 	// there's a conflict between how bridge GRANDPA pallet works and a `utility.batchAll`

@@ -53,7 +53,7 @@ fn handle_new_finalized_head<P, Block, B>(
 				error = ?err,
 				"Could not decode parachain header while following finalized heads.",
 			);
-			return
+			return;
 		},
 	};
 
@@ -101,7 +101,7 @@ where
 		Ok(finalized_heads_stream) => finalized_heads_stream.fuse(),
 		Err(err) => {
 			tracing::error!(target: LOG_TARGET, error = ?err, "Unable to retrieve finalized heads stream.");
-			return
+			return;
 		},
 	};
 
@@ -233,7 +233,7 @@ async fn follow_new_best<P, R, Block, B>(
 		Ok(best_heads_stream) => best_heads_stream.fuse(),
 		Err(err) => {
 			tracing::error!(target: LOG_TARGET, error = ?err, "Unable to retrieve best heads stream.");
-			return
+			return;
 		},
 	};
 
@@ -310,12 +310,12 @@ async fn handle_new_block_imported<Block, P>(
 	};
 
 	let unset_hash = if notification.header.number() < unset_best_header.number() {
-		return
+		return;
 	} else if notification.header.number() == unset_best_header.number() {
 		let unset_hash = unset_best_header.hash();
 
 		if unset_hash != notification.hash {
-			return
+			return;
 		} else {
 			unset_hash
 		}
@@ -364,7 +364,7 @@ async fn handle_new_best_parachain_head<Block, P>(
 				error = ?err,
 				"Could not decode Parachain header while following best heads.",
 			);
-			return
+			return;
 		},
 	};
 
@@ -448,7 +448,7 @@ where
 			"Skipping importing block as new best block, because there already exists a \
 			 best block with an higher number",
 		);
-		return
+		return;
 	}
 
 	// Make it the new best block

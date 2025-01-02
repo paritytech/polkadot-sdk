@@ -173,8 +173,9 @@ impl<C: Chain> RpcClient<C> {
 		// same and we need to abort if actual version is > than expected
 		let actual = SimpleRuntimeVersion::from_runtime_version(&env.runtime_version().await?);
 		match actual.spec_version.cmp(&expected.spec_version) {
-			Ordering::Less =>
-				Err(Error::WaitingForRuntimeUpgrade { chain: C::NAME.into(), expected, actual }),
+			Ordering::Less => {
+				Err(Error::WaitingForRuntimeUpgrade { chain: C::NAME.into(), expected, actual })
+			},
 			Ordering::Equal => Ok(()),
 			Ordering::Greater => {
 				log::error!(

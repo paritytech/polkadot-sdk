@@ -311,18 +311,18 @@ impl<T: Config> MigrationStep for Migration<T> {
 				"code_hash mismatch"
 			);
 			ensure!(
-				migration_contract_info.storage_byte_deposit ==
-					crate_contract_info.storage_byte_deposit,
+				migration_contract_info.storage_byte_deposit
+					== crate_contract_info.storage_byte_deposit,
 				"storage_byte_deposit mismatch"
 			);
 			ensure!(
-				migration_contract_info.storage_base_deposit ==
-					crate_contract_info.storage_base_deposit(),
+				migration_contract_info.storage_base_deposit
+					== crate_contract_info.storage_base_deposit(),
 				"storage_base_deposit mismatch"
 			);
 			ensure!(
-				&migration_contract_info.delegate_dependencies ==
-					crate_contract_info.delegate_dependencies(),
+				&migration_contract_info.delegate_dependencies
+					== crate_contract_info.delegate_dependencies(),
 				"delegate_dependencies mismatch"
 			);
 		}

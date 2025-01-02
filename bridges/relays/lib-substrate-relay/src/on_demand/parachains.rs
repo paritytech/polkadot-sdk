@@ -363,7 +363,7 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 					&mut parachains_target,
 				)
 				.await;
-				continue
+				continue;
 			},
 		}
 
@@ -576,14 +576,14 @@ where
 	if let &RelayState::RelayingRelayHeader(relay_header_number) = &state {
 		if relay_header_at_target < relay_header_number {
 			// The required relay header hasn't yet been relayed. Ask / wait for it.
-			return state
+			return state;
 		}
 
 		// We may switch to `RelayingParaHeader` if parachain head is available.
 		if let Some(para_header_at_relay_header_at_target) =
 			data.para_header_at_relay_header_at_target.as_ref()
 		{
-			return RelayState::RelayingParaHeader(para_header_at_relay_header_at_target.clone())
+			return RelayState::RelayingParaHeader(para_header_at_relay_header_at_target.clone());
 		}
 
 		// else use the regular process - e.g. we may require to deliver new relay header first
@@ -594,7 +594,7 @@ where
 		let para_header_at_target_or_zero = data.para_header_at_target.unwrap_or_else(Zero::zero);
 		if para_header_at_target_or_zero < para_header_id.0 {
 			// The required parachain header hasn't yet been relayed. Ask / wait for it.
-			return state
+			return state;
 		}
 	}
 
@@ -613,12 +613,12 @@ where
 
 	// if we have already satisfied our "customer", do nothing
 	if required_para_header <= para_header_at_target {
-		return RelayState::Idle
+		return RelayState::Idle;
 	}
 
 	// if required header is not available even at the source chain, let's wait
 	if required_para_header > para_header_at_source.0 {
-		return RelayState::Idle
+		return RelayState::Idle;
 	}
 
 	// we will always try to sync latest parachain/relay header, even if we've been asked for some
@@ -626,7 +626,7 @@ where
 
 	// we need relay chain header first
 	if relay_header_at_target < data.relay_header_at_source {
-		return RelayState::RelayingRelayHeader(data.relay_header_at_source)
+		return RelayState::RelayingRelayHeader(data.relay_header_at_source);
 	}
 
 	// if all relay headers synced, we may start directly with parachain header

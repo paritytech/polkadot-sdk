@@ -90,10 +90,12 @@ impl From<request_response::OutboundFailure> for OutboundFailure {
 		match out {
 			request_response::OutboundFailure::DialFailure => OutboundFailure::DialFailure,
 			request_response::OutboundFailure::Timeout => OutboundFailure::Timeout,
-			request_response::OutboundFailure::ConnectionClosed =>
-				OutboundFailure::ConnectionClosed,
-			request_response::OutboundFailure::UnsupportedProtocols =>
-				OutboundFailure::UnsupportedProtocols,
+			request_response::OutboundFailure::ConnectionClosed => {
+				OutboundFailure::ConnectionClosed
+			},
+			request_response::OutboundFailure::UnsupportedProtocols => {
+				OutboundFailure::UnsupportedProtocols
+			},
 			request_response::OutboundFailure::Io(error) => OutboundFailure::Io(Arc::new(error)),
 		}
 	}
@@ -127,8 +129,9 @@ impl From<request_response::InboundFailure> for InboundFailure {
 			request_response::InboundFailure::ResponseOmission => InboundFailure::ResponseOmission,
 			request_response::InboundFailure::Timeout => InboundFailure::Timeout,
 			request_response::InboundFailure::ConnectionClosed => InboundFailure::ConnectionClosed,
-			request_response::InboundFailure::UnsupportedProtocols =>
-				InboundFailure::UnsupportedProtocols,
+			request_response::InboundFailure::UnsupportedProtocols => {
+				InboundFailure::UnsupportedProtocols
+			},
 			request_response::InboundFailure::Io(error) => InboundFailure::Io(Arc::new(error)),
 		}
 	}
@@ -406,7 +409,9 @@ impl RequestResponsesBehaviour {
 
 			match protocols.entry(protocol.name) {
 				Entry::Vacant(e) => e.insert((rq_rp, protocol.inbound_queue)),
-				Entry::Occupied(e) => return Err(RegisterError::DuplicateProtocol(e.key().clone())),
+				Entry::Occupied(e) => {
+					return Err(RegisterError::DuplicateProtocol(e.key().clone()))
+				},
 			};
 		}
 
@@ -582,7 +587,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 	) {
 		let p_name = event.0;
 		if let Some((proto, _)) = self.protocols.get_mut(p_name.as_str()) {
-			return proto.on_connection_handler_event(peer_id, connection_id, event.1)
+			return proto.on_connection_handler_event(peer_id, connection_id, event.1);
 		} else {
 			log::warn!(
 				target: "sub-libp2p",
@@ -634,7 +639,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 					return Poll::Ready(ToSwarm::GenerateEvent(Event::ReputationChanges {
 						peer,
 						changes: reputation_changes,
-					}))
+					}));
 				}
 			}
 
@@ -656,7 +661,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 									"The request-response isn't supposed to start dialing addresses"
 								);
 							}
-							return Poll::Ready(ToSwarm::Dial { opts })
+							return Poll::Ready(ToSwarm::Dial { opts });
 						},
 						event => {
 							return Poll::Ready(
@@ -689,7 +694,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 									peer,
 									reputation,
 								);
-								continue 'poll_protocol
+								continue 'poll_protocol;
 							}
 
 							let (tx, rx) = oneshot::channel();
@@ -731,7 +736,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 
 							// This `continue` makes sure that `pending_responses` gets polled
 							// after we have added the new element.
-							continue 'poll_all
+							continue 'poll_all;
 						},
 
 						// Received a response from a remote to one of our requests.
@@ -767,7 +772,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 										request_id,
 									);
 									debug_assert!(false);
-									continue
+									continue;
 								},
 							};
 
@@ -778,7 +783,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 								result: delivered,
 							};
 
-							return Poll::Ready(ToSwarm::GenerateEvent(out))
+							return Poll::Ready(ToSwarm::GenerateEvent(out));
 						},
 
 						// One of our requests has failed.
@@ -816,7 +821,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 												fallback_request,
 												response_tx,
 											));
-											continue
+											continue;
 										}
 									}
 
@@ -840,7 +845,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 										request_id,
 									);
 									debug_assert!(false);
-									continue
+									continue;
 								},
 							};
 
@@ -851,7 +856,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 								result: Err(RequestFailure::Network(error)),
 							};
 
-							return Poll::Ready(ToSwarm::GenerateEvent(out))
+							return Poll::Ready(ToSwarm::GenerateEvent(out));
 						},
 
 						// An inbound request failed, either while reading the request or due to
@@ -867,7 +872,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 								protocol: protocol.clone(),
 								result: Err(ResponseFailure::Network(error.into())),
 							};
-							return Poll::Ready(ToSwarm::GenerateEvent(out))
+							return Poll::Ready(ToSwarm::GenerateEvent(out));
 						},
 
 						// A response to an inbound request has been sent.
@@ -896,7 +901,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 								result: Ok(arrival_time),
 							};
 
-							return Poll::Ready(ToSwarm::GenerateEvent(out))
+							return Poll::Ready(ToSwarm::GenerateEvent(out));
 						},
 					};
 				}
@@ -921,7 +926,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 				}
 			}
 
-			break Poll::Pending
+			break Poll::Pending;
 		}
 	}
 }
@@ -973,7 +978,7 @@ impl Codec for GenericCodec {
 			return Err(io::Error::new(
 				io::ErrorKind::InvalidInput,
 				format!("Request size exceeds limit: {} > {}", length, self.max_request_size),
-			))
+			));
 		}
 
 		// Read the payload.
@@ -1000,7 +1005,9 @@ impl Codec for GenericCodec {
 			Ok(l) => l,
 			Err(unsigned_varint::io::ReadError::Io(err))
 				if matches!(err.kind(), io::ErrorKind::UnexpectedEof) =>
-				return Ok(Err(())),
+			{
+				return Ok(Err(()))
+			},
 			Err(err) => return Err(io::Error::new(io::ErrorKind::InvalidInput, err)),
 		};
 
@@ -1008,7 +1015,7 @@ impl Codec for GenericCodec {
 			return Err(io::Error::new(
 				io::ErrorKind::InvalidInput,
 				format!("Response size exceeds limit: {} > {}", length, self.max_response_size),
-			))
+			));
 		}
 
 		// Read the payload.
@@ -1215,7 +1222,7 @@ mod tests {
 					},
 					SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
 						result.unwrap();
-						break
+						break;
 					},
 					_ => {},
 				}
@@ -1320,7 +1327,7 @@ mod tests {
 					},
 					SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
 						assert!(result.is_err());
-						break
+						break;
 					},
 					_ => {},
 				}
@@ -1489,7 +1496,7 @@ mod tests {
 						num_responses += 1;
 						result.unwrap();
 						if num_responses == 2 {
-							break
+							break;
 						}
 					},
 					_ => {},
@@ -1642,7 +1649,7 @@ mod tests {
 					},
 					SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
 						result.unwrap();
-						break
+						break;
 					},
 					_ => {},
 				}
@@ -1671,7 +1678,7 @@ mod tests {
 				match swarm.select_next_some().await {
 					SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
 						result.unwrap();
-						break
+						break;
 					},
 					_ => {},
 				}
@@ -1700,7 +1707,7 @@ mod tests {
 							result.unwrap_err(),
 							RequestFailure::Network(OutboundFailure::UnsupportedProtocols)
 						);
-						break
+						break;
 					},
 					_ => {},
 				}
@@ -1720,7 +1727,7 @@ mod tests {
 				match swarm.select_next_some().await {
 					SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
 						result.unwrap();
-						break
+						break;
 					},
 					_ => {},
 				}

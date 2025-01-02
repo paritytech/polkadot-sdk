@@ -52,7 +52,7 @@ fn register_para<T: Config>(id: u32) -> ParaId {
 		frame_system::Origin::<T>::Root.into(),
 		validation_code,
 	));
-	return para
+	return para;
 }
 
 fn para_origin(id: u32) -> ParaOrigin {

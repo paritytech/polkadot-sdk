@@ -66,14 +66,14 @@ where
 
 		if network != expected_network {
 			log::trace!(target: "xcm::ethereum_blob_exporter", "skipped due to unmatched bridge network {network:?}.");
-			return Err(SendError::NotApplicable)
+			return Err(SendError::NotApplicable);
 		}
 
 		// Cloning destination to avoid modifying the value so subsequent exporters can use it.
 		let dest = destination.clone().take().ok_or(SendError::MissingArgument)?;
 		if dest != Here {
 			log::trace!(target: "xcm::ethereum_blob_exporter", "skipped due to unmatched remote destination {dest:?}.");
-			return Err(SendError::NotApplicable)
+			return Err(SendError::NotApplicable);
 		}
 
 		// Cloning universal_source to avoid modifying the value so subsequent exporters can use it.
@@ -91,14 +91,14 @@ where
 
 		if Ok(local_net) != universal_location.global_consensus() {
 			log::trace!(target: "xcm::ethereum_blob_exporter", "skipped due to unmatched relay network {local_net:?}.");
-			return Err(SendError::NotApplicable)
+			return Err(SendError::NotApplicable);
 		}
 
 		let para_id = match local_sub.as_slice() {
 			[Parachain(para_id)] => *para_id,
 			_ => {
 				log::error!(target: "xcm::ethereum_blob_exporter", "could not get parachain id from universal source '{local_sub:?}'.");
-				return Err(SendError::NotApplicable)
+				return Err(SendError::NotApplicable);
 			},
 		};
 
@@ -108,7 +108,7 @@ where
 			Some(id) => id,
 			None => {
 				log::error!(target: "xcm::ethereum_blob_exporter", "unroutable due to not being able to create agent id. '{source_location:?}'");
-				return Err(SendError::NotApplicable)
+				return Err(SendError::NotApplicable);
 			},
 		};
 
@@ -216,7 +216,7 @@ where
 
 		// All xcm instructions must be consumed before exit.
 		if self.next().is_ok() {
-			return Err(XcmConverterError::EndOfXcmMessageExpected)
+			return Err(XcmConverterError::EndOfXcmMessageExpected);
 		}
 
 		Ok(result)
@@ -261,12 +261,12 @@ where
 
 		// Make sure there are reserved assets.
 		if reserve_assets.len() == 0 {
-			return Err(NoReserveAssets)
+			return Err(NoReserveAssets);
 		}
 
 		// Check the the deposit asset filter matches what was reserved.
 		if reserve_assets.inner().iter().any(|asset| !deposit_assets.matches(asset)) {
-			return Err(FilterDoesNotConsumeAllAssets)
+			return Err(FilterDoesNotConsumeAllAssets);
 		}
 
 		// We only support a single asset at a time.
@@ -282,17 +282,19 @@ where
 		if let Some(fee_asset) = fee_asset {
 			// The fee asset must be the same as the reserve asset.
 			if fee_asset.id != reserve_asset.id || fee_asset.fun > reserve_asset.fun {
-				return Err(InvalidFeeAsset)
+				return Err(InvalidFeeAsset);
 			}
 		}
 
 		let (token, amount) = match reserve_asset {
-			Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
+			Asset { id: AssetId(inner_location), fun: Fungible(amount) } => {
 				match inner_location.unpack() {
-					(0, [AccountKey20 { network, key }]) if self.network_matches(network) =>
-						Some((H160(*key), *amount)),
+					(0, [AccountKey20 { network, key }]) if self.network_matches(network) => {
+						Some((H160(*key), *amount))
+					},
 					_ => None,
-				},
+				}
+			},
 			_ => None,
 		}
 		.ok_or(AssetResolutionFailed)?;
@@ -374,12 +376,12 @@ where
 
 		// Make sure there are reserved assets.
 		if reserve_assets.len() == 0 {
-			return Err(NoReserveAssets)
+			return Err(NoReserveAssets);
 		}
 
 		// Check the the deposit asset filter matches what was reserved.
 		if reserve_assets.inner().iter().any(|asset| !deposit_assets.matches(asset)) {
-			return Err(FilterDoesNotConsumeAllAssets)
+			return Err(FilterDoesNotConsumeAllAssets);
 		}
 
 		// We only support a single asset at a time.
@@ -395,13 +397,14 @@ where
 		if let Some(fee_asset) = fee_asset {
 			// The fee asset must be the same as the reserve asset.
 			if fee_asset.id != reserve_asset.id || fee_asset.fun > reserve_asset.fun {
-				return Err(InvalidFeeAsset)
+				return Err(InvalidFeeAsset);
 			}
 		}
 
 		let (asset_id, amount) = match reserve_asset {
-			Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
-				Some((inner_location.clone(), *amount)),
+			Asset { id: AssetId(inner_location), fun: Fungible(amount) } => {
+				Some((inner_location.clone(), *amount))
+			},
 			_ => None,
 		}
 		.ok_or(AssetResolutionFailed)?;

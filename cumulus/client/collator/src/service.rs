@@ -192,7 +192,7 @@ where
 						target: LOG_TARGET,
 						"Could not fetch `CollectCollationInfo` runtime api version."
 					);
-					return Ok(None)
+					return Ok(None);
 				},
 			};
 
@@ -228,7 +228,7 @@ where
 			Ok(proof) => proof,
 			Err(e) => {
 				tracing::error!(target: "cumulus-collator", "Failed to compact proof: {:?}", e);
-				return None
+				return None;
 			},
 		};
 

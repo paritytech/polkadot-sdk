@@ -298,8 +298,8 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 			// value here is tricky - there are several transaction payment pallets and we don't
 			// want to introduce additional bounds and traits here just for that, so let's just
 			// select some presumably large value
-			core::cmp::max::<Runtime::Balance>(Runtime::ExistentialDeposit::get(), 1u32.into()) *
-				100_000_000u32.into(),
+			core::cmp::max::<Runtime::Balance>(Runtime::ExistentialDeposit::get(), 1u32.into())
+				* 100_000_000u32.into(),
 		)],
 		|| {
 			let mut alice = [0u8; 32];
@@ -434,8 +434,8 @@ TokenLocation: Get<Location>{
 		let buy_execution_fee_amount = 5_000_000_000_000_u128;
 		let buy_execution_fee = (TokenLocation::get(), buy_execution_fee_amount).into();
 
-		let balance_needed = <Runtime as pallet_balances::Config>::ExistentialDeposit::get() +
-			buy_execution_fee_amount.into();
+		let balance_needed = <Runtime as pallet_balances::Config>::ExistentialDeposit::get()
+			+ buy_execution_fee_amount.into();
 		let source_account_id =
 			LocationToAccountId::convert_location(&source).expect("valid location");
 		let _ = <pallet_balances::Pallet<Runtime>>::mint_into(&source_account_id, balance_needed)
@@ -547,8 +547,8 @@ TokenLocation: Get<Location>{
 		let buy_execution_fee_amount = 2_500_000_000_000_u128;
 		let buy_execution_fee = (TokenLocation::get(), buy_execution_fee_amount).into();
 
-		let balance_needed = <Runtime as pallet_balances::Config>::ExistentialDeposit::get() +
-			buy_execution_fee_amount.into();
+		let balance_needed = <Runtime as pallet_balances::Config>::ExistentialDeposit::get()
+			+ buy_execution_fee_amount.into();
 		let source_account_id =
 			LocationToAccountId::convert_location(&expected_source).expect("valid location");
 		let _ = <pallet_balances::Pallet<Runtime>>::mint_into(&source_account_id, balance_needed)

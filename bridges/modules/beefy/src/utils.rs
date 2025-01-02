@@ -75,7 +75,7 @@ fn verify_signatures<T: Config<I>, I: 'static>(
 			if authority.verify(sig, &msg) {
 				missing_signatures = missing_signatures.saturating_sub(1);
 				if missing_signatures == 0 {
-					break
+					break;
 				}
 			} else {
 				log::debug!(
@@ -241,9 +241,9 @@ mod tests {
 			let mut header = ChainBuilder::new(20).append_finalized_header().to_header();
 			header.customize_signatures(|signatures| {
 				let first_signature_idx = signatures.iter().position(Option::is_some).unwrap();
-				let last_signature_idx = signatures.len() -
-					signatures.iter().rev().position(Option::is_some).unwrap() -
-					1;
+				let last_signature_idx = signatures.len()
+					- signatures.iter().rev().position(Option::is_some).unwrap()
+					- 1;
 				signatures[first_signature_idx] = signatures[last_signature_idx].clone();
 			});
 			assert_noop!(

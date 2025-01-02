@@ -392,7 +392,7 @@ pub mod pallet {
 		init_data: InitializationDataOf<T, I>,
 	) -> Result<(), Error<T, I>> {
 		if init_data.authority_set.len == 0 {
-			return Err(Error::<T, I>::InvalidInitialAuthoritySet)
+			return Err(Error::<T, I>::InvalidInitialAuthoritySet);
 		}
 		CurrentAuthoritySetInfo::<T, I>::put(init_data.authority_set);
 

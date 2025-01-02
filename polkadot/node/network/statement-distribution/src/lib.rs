@@ -412,8 +412,8 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 						NetworkBridgeEvent::PeerMessage(_, message) => match message {
 							Versioned::V2(
 								protocol_v2::StatementDistributionMessage::V1Compatibility(_),
-							) |
-							Versioned::V3(
+							)
+							| Versioned::V3(
 								protocol_v3::StatementDistributionMessage::V1Compatibility(_),
 							) => VersionTarget::Legacy,
 							Versioned::V1(_) => VersionTarget::Legacy,

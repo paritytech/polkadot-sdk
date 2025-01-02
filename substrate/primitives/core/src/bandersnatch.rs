@@ -98,7 +98,7 @@ impl TraitPair for Pair {
 	/// The slice must be 32 bytes long or it will return an error.
 	fn from_seed_slice(seed_slice: &[u8]) -> Result<Pair, SecretStringError> {
 		if seed_slice.len() != SEED_SERIALIZED_SIZE {
-			return Err(SecretStringError::InvalidSeedLength)
+			return Err(SecretStringError::InvalidSeedLength);
 		}
 		let mut seed = [0; SEED_SERIALIZED_SIZE];
 		seed.copy_from_slice(seed_slice);
@@ -123,7 +123,7 @@ impl TraitPair for Pair {
 			if let DeriveJunction::Hard(cc) = p {
 				seed = derive_hard(seed, cc);
 			} else {
-				return Err(DeriveError::SoftKeyInPath)
+				return Err(DeriveError::SoftKeyInPath);
 			}
 		}
 		Ok((Self::from_seed(&seed), Some(seed)))
@@ -282,7 +282,7 @@ pub mod vrf {
 		) -> Result<Self, ()> {
 			let inputs: Vec<VrfInput> = inputs.into_iter().collect();
 			if inputs.len() > MAX_VRF_IOS as usize {
-				return Err(())
+				return Err(());
 			}
 			Ok(Self::new_unchecked(transcript_label, transcript_data, inputs))
 		}
@@ -382,7 +382,7 @@ pub mod vrf {
 			const _: () = assert!(MAX_VRF_IOS == 3, "`MAX_VRF_IOS` expected to be 3");
 			let pre_outputs_len = signature.pre_outputs.len();
 			if pre_outputs_len != data.inputs.len() {
-				return false
+				return false;
 			}
 			// Workaround to overcome backend signature generic over the number of IOs.
 			match pre_outputs_len {
@@ -436,7 +436,7 @@ pub mod vrf {
 			signature: &VrfSignature,
 		) -> bool {
 			let Ok(public) = PublicKey::deserialize_compressed_unchecked(self.as_slice()) else {
-				return false
+				return false;
 			};
 
 			let preouts: [bandersnatch_vrfs::VrfPreOut; N] =
@@ -449,7 +449,7 @@ pub mod vrf {
 				signature.signature.as_slice(),
 			)
 			.map(|s| s.proof) else {
-				return false
+				return false;
 			};
 			let signature = ThinVrfSignature { proof, preouts };
 
@@ -494,9 +494,9 @@ pub mod ring_vrf {
 		const G2_POINTS_NUM: usize = 2;
 		let g1_points_num = 3 * domain_len as usize + 1;
 
-		OVERHEAD_SIZE +
-			g1_points_num * G1_POINT_UNCOMPRESSED_SIZE +
-			G2_POINTS_NUM * G2_POINT_UNCOMPRESSED_SIZE
+		OVERHEAD_SIZE
+			+ g1_points_num * G1_POINT_UNCOMPRESSED_SIZE
+			+ G2_POINTS_NUM * G2_POINT_UNCOMPRESSED_SIZE
 	}
 
 	pub(crate) const RING_VERIFIER_DATA_SERIALIZED_SIZE: usize = 388;
@@ -720,7 +720,7 @@ pub mod ring_vrf {
 			const _: () = assert!(MAX_VRF_IOS == 3, "`MAX_VRF_IOS` expected to be 3");
 			let preouts_len = self.pre_outputs.len();
 			if preouts_len != data.inputs.len() {
-				return false
+				return false;
 			}
 			// Workaround to overcome backend signature generic over the number of IOs.
 			match preouts_len {
@@ -742,7 +742,7 @@ pub mod ring_vrf {
 					self.signature.as_slice(),
 				)
 			else {
-				return false
+				return false;
 			};
 
 			let preouts: [bandersnatch_vrfs::VrfPreOut; N] =

@@ -296,15 +296,15 @@ impl TestRun {
 						self.chunk_responses.get(&req.peer).ok_or(network::RequestFailure::Refused);
 
 					if let Ok((resp, protocol)) = response {
-						let chunk = if protocol ==
-							&self.req_protocol_names.get_name(Protocol::ChunkFetchingV1)
+						let chunk = if protocol
+							== &self.req_protocol_names.get_name(Protocol::ChunkFetchingV1)
 						{
 							Into::<Option<v1::ChunkResponse>>::into(
 								v1::ChunkFetchingResponse::decode(&mut &resp[..]).unwrap(),
 							)
 							.map(|c| c.chunk)
-						} else if protocol ==
-							&self.req_protocol_names.get_name(Protocol::ChunkFetchingV2)
+						} else if protocol
+							== &self.req_protocol_names.get_name(Protocol::ChunkFetchingV2)
 						{
 							Into::<Option<ErasureChunk>>::into(
 								v2::ChunkFetchingResponse::decode(&mut &resp[..]).unwrap(),
@@ -325,7 +325,7 @@ impl TestRun {
 							.expect("Sending response should succeed");
 					}
 				}
-				return (valid_responses == 0) && self.valid_chunks.is_empty()
+				return (valid_responses == 0) && self.valid_chunks.is_empty();
 			},
 			AllMessages::AvailabilityStore(AvailabilityStoreMessage::StoreChunk {
 				chunk,
@@ -334,11 +334,11 @@ impl TestRun {
 			}) => {
 				assert!(self.valid_chunks.contains(&chunk.chunk));
 				tx.send(Ok(())).expect("Answering fetching task should work");
-				return true
+				return true;
 			},
 			_ => {
 				gum::debug!(target: LOG_TARGET, "Unexpected message");
-				return false
+				return false;
 			},
 		}
 	}

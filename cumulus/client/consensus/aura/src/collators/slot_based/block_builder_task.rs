@@ -147,7 +147,7 @@ where
 	pub async fn wait_until_next_slot(&self) -> Result<SlotInfo, ()> {
 		let Ok(slot_duration) = crate::slot_duration(&*self.client) else {
 			tracing::error!(target: crate::LOG_TARGET, "Failed to fetch slot duration from runtime.");
-			return Err(())
+			return Err(());
 		};
 
 		let time_until_next_slot = time_until_next_slot(slot_duration.as_duration(), self.drift);
@@ -230,14 +230,14 @@ where
 
 			let Ok(relay_parent) = relay_client.best_block_hash().await else {
 				tracing::warn!(target: crate::LOG_TARGET, "Unable to fetch latest relay chain block hash.");
-				continue
+				continue;
 			};
 
 			let Some((included_block, parent)) =
 				crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)
 					.await
 			else {
-				continue
+				continue;
 			};
 
 			let parent_hash = parent.hash;
@@ -252,7 +252,7 @@ where
 							"Unable to retrieve the core selector from the runtime API: {}",
 							err
 						);
-						continue
+						continue;
 					},
 				};
 
@@ -293,7 +293,7 @@ where
 					"Core {:?} was already claimed at this relay chain slot",
 					core_index
 				);
-				continue
+				continue;
 			}
 
 			let parent_header = parent.header;
@@ -324,7 +324,7 @@ where
 						parent = %parent_hash,
 						"Not building block."
 					);
-					continue
+					continue;
 				},
 			};
 
@@ -357,7 +357,7 @@ where
 			{
 				Err(err) => {
 					tracing::error!(target: crate::LOG_TARGET, ?err);
-					break
+					break;
 				},
 				Ok(x) => x,
 			};
@@ -365,7 +365,7 @@ where
 			let validation_code_hash = match code_hash_provider.code_hash_at(parent_hash) {
 				None => {
 					tracing::error!(target: crate::LOG_TARGET, ?parent_hash, "Could not fetch validation code hash");
-					break
+					break;
 				},
 				Some(v) => v,
 			};
@@ -416,7 +416,7 @@ where
 				core_index: *core_index,
 			}) {
 				tracing::error!(target: crate::LOG_TARGET, ?err, "Unable to send block to collation task.");
-				return
+				return;
 			}
 		}
 	}

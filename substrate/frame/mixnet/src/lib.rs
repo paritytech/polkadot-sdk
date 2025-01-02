@@ -308,7 +308,7 @@ pub mod pallet {
 
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			let Self::Call::register { registration, signature } = call else {
-				return InvalidTransaction::Call.into()
+				return InvalidTransaction::Call.into();
 			};
 
 			// Check session index matches
@@ -320,16 +320,16 @@ pub mod pallet {
 
 			// Check authority index is valid
 			if registration.authority_index >= T::MaxAuthorities::get() {
-				return InvalidTransaction::BadProof.into()
+				return InvalidTransaction::BadProof.into();
 			}
 			let Some(authority_id) = NextAuthorityIds::<T>::get(registration.authority_index)
 			else {
-				return InvalidTransaction::BadProof.into()
+				return InvalidTransaction::BadProof.into();
 			};
 
 			// Check the authority hasn't registered a mixnode yet
 			if Self::already_registered(registration.session_index, registration.authority_index) {
-				return InvalidTransaction::Stale.into()
+				return InvalidTransaction::Stale.into();
 			}
 
 			// Check signature. Note that we don't use regular signed transactions for registration
@@ -339,7 +339,7 @@ pub mod pallet {
 				authority_id.verify(&encoded_registration, signature)
 			});
 			if !signature_ok {
-				return InvalidTransaction::BadProof.into()
+				return InvalidTransaction::BadProof.into();
 			}
 
 			ValidTransaction::with_tag_prefix("MixnetRegistration")
@@ -368,12 +368,12 @@ impl<T: Config> Pallet<T> {
 			.saturating_sub(CurrentSessionStartBlock::<T>::get());
 		let Some(block_in_phase) = block_in_phase.checked_sub(&T::NumCoverToCurrentBlocks::get())
 		else {
-			return SessionPhase::CoverToCurrent
+			return SessionPhase::CoverToCurrent;
 		};
 		let Some(block_in_phase) =
 			block_in_phase.checked_sub(&T::NumRequestsToCurrentBlocks::get())
 		else {
-			return SessionPhase::RequestsToCurrent
+			return SessionPhase::RequestsToCurrent;
 		};
 		if block_in_phase < T::NumCoverToPrevBlocks::get() {
 			SessionPhase::CoverToPrev
@@ -411,7 +411,7 @@ impl<T: Config> Pallet<T> {
 			return Err(MixnodesErr::InsufficientRegistrations {
 				num: 0,
 				min: T::MinMixnodes::get(),
-			})
+			});
 		};
 		Self::mixnodes(prev_session_index)
 	}
@@ -430,7 +430,7 @@ impl<T: Config> Pallet<T> {
 		// registering
 		let block_in_session = block_number.saturating_sub(CurrentSessionStartBlock::<T>::get());
 		if block_in_session < T::NumRegisterStartSlackBlocks::get() {
-			return false
+			return false;
 		}
 
 		let (Some(end_block), _weight) =
@@ -438,7 +438,7 @@ impl<T: Config> Pallet<T> {
 		else {
 			// Things aren't going to work terribly well in this case as all the authorities will
 			// just pile in after the slack period...
-			return true
+			return true;
 		};
 
 		let remaining_blocks = end_block
@@ -447,7 +447,7 @@ impl<T: Config> Pallet<T> {
 		if remaining_blocks.is_zero() {
 			// Into the slack time at the end of the session. Not necessarily too late;
 			// registrations are accepted right up until the session ends.
-			return true
+			return true;
 		}
 
 		// Want uniform distribution over the remaining blocks, so pick this block with probability
@@ -496,7 +496,7 @@ impl<T: Config> Pallet<T> {
 				"Session {session_index} registration attempted, \
 				but current session is {current_session_index}",
 			);
-			return false
+			return false;
 		}
 
 		let block_number = frame_system::Pallet::<T>::block_number();
@@ -505,7 +505,7 @@ impl<T: Config> Pallet<T> {
 				target: LOG_TARGET,
 				"Waiting for the session to progress further before registering",
 			);
-			return false
+			return false;
 		}
 
 		let Some((authority_index, authority_id)) = Self::next_local_authority() else {
@@ -513,7 +513,7 @@ impl<T: Config> Pallet<T> {
 				target: LOG_TARGET,
 				"Not an authority in the next session; cannot register a mixnode",
 			);
-			return false
+			return false;
 		};
 
 		if Self::already_registered(session_index, authority_index) {
@@ -521,14 +521,14 @@ impl<T: Config> Pallet<T> {
 				target: LOG_TARGET,
 				"Already registered a mixnode for the next session",
 			);
-			return false
+			return false;
 		}
 
 		let registration =
 			Registration { block_number, session_index, authority_index, mixnode: mixnode.into() };
 		let Some(signature) = authority_id.sign(&registration.encode()) else {
 			log::debug!(target: LOG_TARGET, "Failed to sign registration");
-			return false
+			return false;
 		};
 		let call = Call::register { registration, signature };
 		let xt = T::create_inherent(call.into());

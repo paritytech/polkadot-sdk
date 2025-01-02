@@ -483,7 +483,7 @@ async fn distribute_collation_with_receipt(
 				)))
 				.unwrap();
 				// This call is mandatory - we are done:
-				break
+				break;
 			},
 			other => panic!("Unexpected message received: {:?}", other),
 		}

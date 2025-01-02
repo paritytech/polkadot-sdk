@@ -164,9 +164,9 @@ impl ValidatorGroup {
 				.get(candidate_hash)
 				.map_or(true, |advertised| !advertised[validator_index])
 			{
-				return ShouldAdvertiseTo::Yes
+				return ShouldAdvertiseTo::Yes;
 			} else {
-				return ShouldAdvertiseTo::AlreadyAdvertised
+				return ShouldAdvertiseTo::AlreadyAdvertised;
 			}
 		}
 
@@ -388,7 +388,7 @@ async fn distribute_collation<Context>(
 				candidate_hash = ?candidate_hash,
 				"Candidate relay parent is out of our view",
 			);
-			return Ok(())
+			return Ok(());
 		},
 	};
 	let relay_parent_mode = per_relay_parent.prospective_parachains_mode;
@@ -406,7 +406,7 @@ async fn distribute_collation<Context>(
 			"The limit of {} collations per relay parent is already reached",
 			collations_limit,
 		);
-		return Ok(())
+		return Ok(());
 	}
 
 	// We have already seen collation for this relay parent.
@@ -417,7 +417,7 @@ async fn distribute_collation<Context>(
 			?candidate_hash,
 			"Already seen this candidate",
 		);
-		return Ok(())
+		return Ok(());
 	}
 
 	// Determine which core(s) the para collated-on is assigned to.
@@ -431,7 +431,7 @@ async fn distribute_collation<Context>(
 					"looks like no core is assigned to {} at {}", id, candidate_relay_parent,
 				);
 
-				return Ok(())
+				return Ok(());
 			},
 			(cores, num_cores) => (cores, num_cores),
 		};
@@ -457,7 +457,7 @@ async fn distribute_collation<Context>(
 			"Attempting to distribute collation for a core we are not assigned to ",
 		);
 
-		return Ok(())
+		return Ok(());
 	}
 
 	let our_core = core_index;
@@ -476,7 +476,7 @@ async fn distribute_collation<Context>(
 			"there are no validators assigned to core",
 		);
 
-		return Ok(())
+		return Ok(());
 	}
 
 	// It's important to insert new collation interests **before**
@@ -596,7 +596,9 @@ async fn determine_cores(
 				CoreState::Occupied(occupied) if relay_parent_mode.is_enabled() =>
 				// With async backing we don't care about the core state,
 				// it is only needed for figuring our validators group.
-					occupied.next_up_on_available.as_ref().map(|c| c.para_id) == Some(para_id),
+				{
+					occupied.next_up_on_available.as_ref().map(|c| c.para_id) == Some(para_id)
+				},
 				_ => false,
 			},
 		};
@@ -753,7 +755,7 @@ async fn advertise_collation<Context>(
 					peer_id = %peer,
 					"Skipping advertising to validator, incorrect network protocol version",
 				);
-				return
+				return;
 			}
 		}
 
@@ -764,7 +766,7 @@ async fn advertise_collation<Context>(
 				?core_index,
 				"Skipping advertising to validator, validator group for core not found",
 			);
-			return
+			return;
 		};
 
 		let should_advertise = validator_group.should_advertise_to(candidate_hash, peer_ids, &peer);
@@ -779,7 +781,7 @@ async fn advertise_collation<Context>(
 					reason = ?should_advertise,
 					"Not advertising collation"
 				);
-				continue
+				continue;
 			},
 		}
 
@@ -926,14 +928,16 @@ async fn send_collation(
 	let candidate_hash = receipt.hash();
 
 	let result = match parent_head_data {
-		ParentHeadData::WithData { head_data, .. } =>
+		ParentHeadData::WithData { head_data, .. } => {
 			Ok(request_v2::CollationFetchingResponse::CollationWithParentHeadData {
 				receipt,
 				pov,
 				parent_head_data: head_data,
-			}),
-		ParentHeadData::OnlyHash(_) =>
-			Ok(request_v1::CollationFetchingResponse::Collation(receipt, pov)),
+			})
+		},
+		ParentHeadData::OnlyHash(_) => {
+			Ok(request_v1::CollationFetchingResponse::Collation(receipt, pov))
+		},
 	};
 
 	let response =
@@ -969,9 +973,9 @@ async fn handle_incoming_peer_message<Context>(
 	use protocol_v2::CollatorProtocolMessage as V2;
 
 	match msg {
-		Versioned::V1(V1::Declare(..)) |
-		Versioned::V2(V2::Declare(..)) |
-		Versioned::V3(V2::Declare(..)) => {
+		Versioned::V1(V1::Declare(..))
+		| Versioned::V2(V2::Declare(..))
+		| Versioned::V3(V2::Declare(..)) => {
 			gum::trace!(
 				target: LOG_TARGET,
 				?origin,
@@ -982,9 +986,9 @@ async fn handle_incoming_peer_message<Context>(
 			ctx.send_message(NetworkBridgeTxMessage::DisconnectPeer(origin, PeerSet::Collation))
 				.await;
 		},
-		Versioned::V1(V1::AdvertiseCollation(_)) |
-		Versioned::V2(V2::AdvertiseCollation { .. }) |
-		Versioned::V3(V2::AdvertiseCollation { .. }) => {
+		Versioned::V1(V1::AdvertiseCollation(_))
+		| Versioned::V2(V2::AdvertiseCollation { .. })
+		| Versioned::V3(V2::AdvertiseCollation { .. }) => {
 			gum::trace!(
 				target: LOG_TARGET,
 				?origin,
@@ -998,9 +1002,9 @@ async fn handle_incoming_peer_message<Context>(
 			ctx.send_message(NetworkBridgeTxMessage::DisconnectPeer(origin, PeerSet::Collation))
 				.await;
 		},
-		Versioned::V1(V1::CollationSeconded(relay_parent, statement)) |
-		Versioned::V2(V2::CollationSeconded(relay_parent, statement)) |
-		Versioned::V3(V2::CollationSeconded(relay_parent, statement)) => {
+		Versioned::V1(V1::CollationSeconded(relay_parent, statement))
+		| Versioned::V2(V2::CollationSeconded(relay_parent, statement))
+		| Versioned::V3(V2::CollationSeconded(relay_parent, statement)) => {
 			if !matches!(statement.unchecked_payload(), Statement::Seconded(_)) {
 				gum::warn!(
 					target: LOG_TARGET,
@@ -1036,7 +1040,7 @@ async fn handle_incoming_peer_message<Context>(
 								candidate_hash = ?&statement.payload().candidate_hash(),
 								"Seconded statement relay parent is out of our view",
 							);
-							return Ok(())
+							return Ok(());
 						},
 					};
 					match relay_parent.collations.get(&statement.payload().candidate_hash()) {
@@ -1089,16 +1093,18 @@ async fn handle_incoming_request<Context>(
 						"received a `RequestCollation` for a relay parent out of our view",
 					);
 
-					return Ok(())
+					return Ok(());
 				},
 			};
 			let mode = per_relay_parent.prospective_parachains_mode;
 
 			let collation_with_core = match &req {
-				VersionedCollationRequest::V1(_) if !mode.is_enabled() =>
-					per_relay_parent.collations.values_mut().next(),
-				VersionedCollationRequest::V2(req) =>
-					per_relay_parent.collations.get_mut(&req.payload.candidate_hash),
+				VersionedCollationRequest::V1(_) if !mode.is_enabled() => {
+					per_relay_parent.collations.values_mut().next()
+				},
+				VersionedCollationRequest::V2(req) => {
+					per_relay_parent.collations.get_mut(&req.payload.candidate_hash)
+				},
 				_ => {
 					gum::warn!(
 						target: LOG_TARGET,
@@ -1108,7 +1114,7 @@ async fn handle_incoming_request<Context>(
 						"Collation request version is invalid",
 					);
 
-					return Ok(())
+					return Ok(());
 				},
 			};
 			let (receipt, pov, parent_head_data) =
@@ -1127,7 +1133,7 @@ async fn handle_incoming_request<Context>(
 						"received a `RequestCollation` for a relay parent we don't have collation stored.",
 					);
 
-					return Ok(())
+					return Ok(());
 				};
 
 			state.metrics.on_collation_sent_requested();
@@ -1147,7 +1153,7 @@ async fn handle_incoming_request<Context>(
 					COST_APPARENT_FLOOD.into(),
 				)
 				.await;
-				return Ok(())
+				return Ok(());
 			}
 
 			if waiting.collation_fetch_active {
@@ -1190,7 +1196,7 @@ async fn handle_peer_view_change<Context>(
 	let Some(PeerData { view: current, version, unknown_heads }) =
 		state.peer_data.get_mut(&peer_id)
 	else {
-		return
+		return;
 	};
 
 	let added: Vec<Hash> = view.difference(&*current).cloned().collect();
@@ -1221,13 +1227,13 @@ async fn handle_peer_view_change<Context>(
 
 				unknown_heads.insert(added, ());
 
-				continue
+				continue;
 			},
 		};
 
 		for block_hash in block_hashes {
 			let Some(per_relay_parent) = state.per_relay_parent.get_mut(block_hash) else {
-				continue
+				continue;
 			};
 
 			advertise_collation(
@@ -1272,7 +1278,7 @@ async fn handle_network_msg<Context>(
 						?err,
 						"Unsupported protocol version"
 					);
-					return Ok(())
+					return Ok(());
 				},
 			};
 			state.peer_data.entry(peer_id).or_insert_with(|| PeerData {

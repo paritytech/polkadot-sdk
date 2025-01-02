@@ -1392,12 +1392,12 @@ fn can_swap_tokens_for_exact_tokens_when_not_liquidity_provider() {
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(user2), 2, user2, base2));
 
 		let pallet_account = <Test as Config>::PoolLocator::address(&pool_id).unwrap();
-		let before1 = balance(pallet_account, token_1.clone()) +
-			balance(user, token_1.clone()) +
-			balance(user2, token_1.clone());
-		let before2 = balance(pallet_account, token_2.clone()) +
-			balance(user, token_2.clone()) +
-			balance(user2, token_2.clone());
+		let before1 = balance(pallet_account, token_1.clone())
+			+ balance(user, token_1.clone())
+			+ balance(user2, token_1.clone());
+		let before2 = balance(pallet_account, token_2.clone())
+			+ balance(user, token_2.clone())
+			+ balance(user2, token_2.clone());
 
 		let liquidity1 = 10000;
 		let liquidity2 = 200;
@@ -1440,15 +1440,15 @@ fn can_swap_tokens_for_exact_tokens_when_not_liquidity_provider() {
 		// native and asset totals should be preserved.
 		assert_eq!(
 			before1,
-			balance(pallet_account, token_1.clone()) +
-				balance(user, token_1.clone()) +
-				balance(user2, token_1.clone())
+			balance(pallet_account, token_1.clone())
+				+ balance(user, token_1.clone())
+				+ balance(user2, token_1.clone())
 		);
 		assert_eq!(
 			before2,
-			balance(pallet_account, token_2.clone()) +
-				balance(user, token_2.clone()) +
-				balance(user2, token_2.clone())
+			balance(pallet_account, token_2.clone())
+				+ balance(user, token_2.clone())
+				+ balance(user2, token_2.clone())
 		);
 
 		let lp_token_minted = pool_balance(user2, lp_token);

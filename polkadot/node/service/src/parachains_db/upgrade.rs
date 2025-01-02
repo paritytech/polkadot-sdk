@@ -85,7 +85,7 @@ pub(crate) fn try_upgrade_db(
 		remove_file_lock(&db_path);
 
 		if version == target_version {
-			return Ok(())
+			return Ok(());
 		}
 	}
 
@@ -119,8 +119,9 @@ pub(crate) fn try_upgrade_db_to_next_version(
 			None if db_kind == DatabaseKind::RocksDB => CURRENT_VERSION,
 			// No version file. `ParityDB` did not previously have a version defined.
 			// We handle this as a `0 -> 1` migration.
-			None if db_kind == DatabaseKind::ParityDB =>
-				migrate_from_version_0_to_1(db_path, db_kind)?,
+			None if db_kind == DatabaseKind::ParityDB => {
+				migrate_from_version_0_to_1(db_path, db_kind)?
+			},
 			None => unreachable!(),
 		}
 	} else {
@@ -440,7 +441,7 @@ pub fn remove_file_lock(path: &std::path::Path) {
 			Err(error) => match error.kind() {
 				ErrorKind::WouldBlock => {
 					sleep(Duration::from_millis(100));
-					continue
+					continue;
 				},
 				_ => return,
 			},

@@ -124,8 +124,8 @@ impl<RuntimeOrigin: OriginTrait> ConvertOrigin<RuntimeOrigin>
 		kind: OriginKind,
 	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
-		if kind == OriginKind::Superuser &&
-			matches!(
+		if kind == OriginKind::Superuser
+			&& matches!(
 				origin.unpack(),
 				(1,	[Parachain(id)]) if ParaId::from(*id).is_system(),
 			) {
@@ -228,7 +228,7 @@ pub struct MockedChannelInfo;
 impl GetChannelInfo for MockedChannelInfo {
 	fn get_channel_status(id: ParaId) -> ChannelStatus {
 		if id == HRMP_PARA_ID.into() {
-			return ChannelStatus::Ready(usize::MAX, usize::MAX)
+			return ChannelStatus::Ready(usize::MAX, usize::MAX);
 		}
 
 		ParachainSystem::get_channel_status(id)
@@ -242,7 +242,7 @@ impl GetChannelInfo for MockedChannelInfo {
 				max_message_size: u32::MAX,
 				msg_count: 0,
 				total_size: 0,
-			})
+			});
 		}
 
 		ParachainSystem::get_channel_info(id)

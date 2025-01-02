@@ -65,8 +65,9 @@ impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M> FixedWeightBounds<T, C, M> 
 	) -> Result<Weight, ()> {
 		let instr_weight = match instruction {
 			Transact { ref mut call, .. } => call.ensure_decoded()?.get_dispatch_info().call_weight,
-			SetErrorHandler(xcm) | SetAppendix(xcm) | ExecuteWithOrigin { xcm, .. } =>
-				Self::weight_with_limit(xcm, instrs_limit)?,
+			SetErrorHandler(xcm) | SetAppendix(xcm) | ExecuteWithOrigin { xcm, .. } => {
+				Self::weight_with_limit(xcm, instrs_limit)?
+			},
 			_ => Weight::zero(),
 		};
 		T::get().checked_add(&instr_weight).ok_or(())
@@ -160,11 +161,11 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 			weight, payment, context,
 		);
 		let (id, units_per_second, units_per_mb) = T::get();
-		let amount = (units_per_second * (weight.ref_time() as u128) /
-			(WEIGHT_REF_TIME_PER_SECOND as u128)) +
-			(units_per_mb * (weight.proof_size() as u128) / (WEIGHT_PROOF_SIZE_PER_MB as u128));
+		let amount = (units_per_second * (weight.ref_time() as u128)
+			/ (WEIGHT_REF_TIME_PER_SECOND as u128))
+			+ (units_per_mb * (weight.proof_size() as u128) / (WEIGHT_PROOF_SIZE_PER_MB as u128));
 		if amount == 0 {
-			return Ok(payment)
+			return Ok(payment);
 		}
 		let unused =
 			payment.checked_sub((id, amount).into()).map_err(|_| XcmError::TooExpensive)?;
@@ -177,9 +178,9 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 		log::trace!(target: "xcm::weight", "FixedRateOfFungible::refund_weight weight: {:?}, context: {:?}", weight, context);
 		let (id, units_per_second, units_per_mb) = T::get();
 		let weight = weight.min(self.0);
-		let amount = (units_per_second * (weight.ref_time() as u128) /
-			(WEIGHT_REF_TIME_PER_SECOND as u128)) +
-			(units_per_mb * (weight.proof_size() as u128) / (WEIGHT_PROOF_SIZE_PER_MB as u128));
+		let amount = (units_per_second * (weight.ref_time() as u128)
+			/ (WEIGHT_REF_TIME_PER_SECOND as u128))
+			+ (units_per_mb * (weight.proof_size() as u128) / (WEIGHT_PROOF_SIZE_PER_MB as u128));
 		self.0 -= weight;
 		self.1 = self.1.saturating_sub(amount);
 		if amount > 0 {

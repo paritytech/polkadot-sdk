@@ -119,8 +119,9 @@ fn call_not_existing_function(wasm_method: WasmExecutionMethod) {
 	match call_in_wasm("test_calling_missing_external", &[], wasm_method, &mut ext).unwrap_err() {
 		Error::AbortedDueToTrap(error) => {
 			let expected = match wasm_method {
-				WasmExecutionMethod::Compiled { .. } =>
-					"call to a missing function env:missing_external",
+				WasmExecutionMethod::Compiled { .. } => {
+					"call to a missing function env:missing_external"
+				},
 			};
 			assert_eq!(error.message, expected);
 		},
@@ -138,8 +139,9 @@ fn call_yet_another_not_existing_function(wasm_method: WasmExecutionMethod) {
 	{
 		Error::AbortedDueToTrap(error) => {
 			let expected = match wasm_method {
-				WasmExecutionMethod::Compiled { .. } =>
-					"call to a missing function env:yet_another_missing_external",
+				WasmExecutionMethod::Compiled { .. } => {
+					"call to a missing function env:yet_another_missing_external"
+				},
 			};
 			assert_eq!(error.message, expected);
 		},
@@ -728,8 +730,9 @@ fn unreachable_intrinsic(wasm_method: WasmExecutionMethod) {
 	match call_in_wasm("test_unreachable_intrinsic", &[], wasm_method, &mut ext).unwrap_err() {
 		Error::AbortedDueToTrap(error) => {
 			let expected = match wasm_method {
-				WasmExecutionMethod::Compiled { .. } =>
-					"wasm trap: wasm `unreachable` instruction executed",
+				WasmExecutionMethod::Compiled { .. } => {
+					"wasm trap: wasm `unreachable` instruction executed"
+				},
 			};
 			assert_eq!(error.message, expected);
 		},

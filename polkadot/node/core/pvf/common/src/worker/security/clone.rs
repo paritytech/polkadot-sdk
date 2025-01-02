@@ -82,12 +82,12 @@ fn clone_flags(have_unshare_newuser: bool) -> CloneFlags {
 	// SIGCHLD flag is used to inform clone that the parent process is
 	// expecting a child termination signal, without this flag `waitpid` function
 	// return `ECHILD` error.
-	maybe_clone_newuser |
-		CloneFlags::CLONE_NEWCGROUP |
-		CloneFlags::CLONE_NEWIPC |
-		CloneFlags::CLONE_NEWNET |
-		CloneFlags::CLONE_NEWNS |
-		CloneFlags::CLONE_NEWPID |
-		CloneFlags::CLONE_NEWUTS |
-		CloneFlags::from_bits_retain(libc::SIGCHLD)
+	maybe_clone_newuser
+		| CloneFlags::CLONE_NEWCGROUP
+		| CloneFlags::CLONE_NEWIPC
+		| CloneFlags::CLONE_NEWNET
+		| CloneFlags::CLONE_NEWNS
+		| CloneFlags::CLONE_NEWPID
+		| CloneFlags::CLONE_NEWUTS
+		| CloneFlags::from_bits_retain(libc::SIGCHLD)
 }

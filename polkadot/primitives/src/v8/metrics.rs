@@ -42,7 +42,7 @@ pub struct RuntimeMetricUpdate {
 }
 
 fn vec_to_str<'a>(v: &'a Vec<u8>, default: &'static str) -> &'a str {
-	return alloc::str::from_utf8(v).unwrap_or(default)
+	return alloc::str::from_utf8(v).unwrap_or(default);
 }
 
 impl RuntimeMetricLabels {

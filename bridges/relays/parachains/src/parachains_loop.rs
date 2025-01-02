@@ -253,7 +253,7 @@ where
 					P::TargetChain::NAME,
 					free_source_relay_headers_interval,
 				);
-				return Err(FailedClient::Target)
+				return Err(FailedClient::Target);
 			},
 		}
 	} else {
@@ -288,7 +288,7 @@ where
 					"{} client is syncing. Won't do anything until it is synced",
 					P::SourceRelayChain::NAME,
 				);
-				continue
+				continue;
 			},
 			Err(e) => {
 				log::warn!(
@@ -297,7 +297,7 @@ where
 					P::SourceRelayChain::NAME,
 					e,
 				);
-				return Err(FailedClient::Source)
+				return Err(FailedClient::Source);
 			},
 		}
 
@@ -315,7 +315,7 @@ where
 				SubmittedHeadStatus::Waiting(tracker) => {
 					// no news about our transaction and we shall keep waiting
 					submitted_heads_tracker = Some(tracker);
-					continue
+					continue;
 				},
 				SubmittedHeadStatus::Final(TrackedTransactionStatus::Finalized(_)) => {
 					// all heads have been updated, we don't need this tracker anymore
@@ -328,7 +328,7 @@ where
 						P::TargetChain::NAME,
 					);
 
-					return Err(FailedClient::Both)
+					return Err(FailedClient::Both);
 				},
 			}
 		}
@@ -358,8 +358,8 @@ where
 					// find last free relay chain header in the range that we are interested in
 					let scan_range_begin = relay_of_head_at_target.number();
 					let scan_range_end = best_finalized_relay_block_at_target.number();
-					if scan_range_end.saturating_sub(scan_range_begin) <
-						free_source_relay_headers_interval
+					if scan_range_end.saturating_sub(scan_range_begin)
+						< free_source_relay_headers_interval
 					{
 						// there are no new **free** relay chain headers in the range
 						log::trace!(
@@ -650,7 +650,9 @@ impl<P: ParachainsPipeline> SubmittedHeadsTracker<P> {
 		let is_head_updated = match (self.submitted_head, head_at_target) {
 			(AvailableHeader::Available(submitted_head), Some(head_at_target))
 				if head_at_target.number() >= submitted_head.number() =>
-				true,
+			{
+				true
+			},
 			(AvailableHeader::Missing, None) => true,
 			_ => false,
 		};
@@ -663,19 +665,22 @@ impl<P: ParachainsPipeline> SubmittedHeadsTracker<P> {
 				head_at_target,
 			);
 
-			return SubmittedHeadStatus::Final(TrackedTransactionStatus::Finalized(*at_target_block))
+			return SubmittedHeadStatus::Final(TrackedTransactionStatus::Finalized(
+				*at_target_block,
+			));
 		}
 
 		// if underlying transaction tracker has reported that the transaction is lost, we may
 		// then restart our sync
 		let transaction_tracker = self.transaction_tracker.clone();
 		match poll!(transaction_tracker) {
-			Poll::Ready(TrackedTransactionStatus::Lost) =>
-				return SubmittedHeadStatus::Final(TrackedTransactionStatus::Lost),
+			Poll::Ready(TrackedTransactionStatus::Lost) => {
+				return SubmittedHeadStatus::Final(TrackedTransactionStatus::Lost)
+			},
 			Poll::Ready(TrackedTransactionStatus::Finalized(_)) => {
 				// so we are here and our transaction is mined+finalized, but some of heads were not
 				// updated => we're considering our loop as stalled
-				return SubmittedHeadStatus::Final(TrackedTransactionStatus::Lost)
+				return SubmittedHeadStatus::Final(TrackedTransactionStatus::Lost);
 			},
 			_ => (),
 		}

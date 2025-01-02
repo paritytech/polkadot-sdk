@@ -228,8 +228,8 @@ impl StorageType {
 					>;
 				}
 			},
-			Self::CountedMap { value_ty, query_type, hasher_ty, key_ty, .. } |
-			Self::Map { value_ty, query_type, hasher_ty, key_ty, .. } => {
+			Self::CountedMap { value_ty, query_type, hasher_ty, key_ty, .. }
+			| Self::Map { value_ty, query_type, hasher_ty, key_ty, .. } => {
 				let query_type = query_type.as_ref().map(|(c, t)| quote!(#c #t));
 				let map_type = Ident::new(
 					match self {
@@ -294,11 +294,11 @@ impl StorageType {
 	/// The prefix for this storage type.
 	fn prefix(&self) -> &Type {
 		match self {
-			Self::Value { prefix, .. } |
-			Self::Map { prefix, .. } |
-			Self::CountedMap { prefix, .. } |
-			Self::NMap { prefix, .. } |
-			Self::DoubleMap { prefix, .. } => prefix,
+			Self::Value { prefix, .. }
+			| Self::Map { prefix, .. }
+			| Self::CountedMap { prefix, .. }
+			| Self::NMap { prefix, .. }
+			| Self::DoubleMap { prefix, .. } => prefix,
 		}
 	}
 }
@@ -422,7 +422,7 @@ impl Parse for Input {
 		} else if lookahead.peek(Token![=]) {
 			None
 		} else {
-			return Err(lookahead.error())
+			return Err(lookahead.error());
 		};
 
 		let lookahead = input.lookahead1();
@@ -431,7 +431,7 @@ impl Parse for Input {
 		} else if lookahead.peek(Token![=]) {
 			None
 		} else {
-			return Err(lookahead.error())
+			return Err(lookahead.error());
 		};
 
 		let _equal = input.parse()?;
@@ -486,7 +486,7 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> Result<Toke
 	} else if syn::parse2::<prefix_types::dynamic>(attributes.clone()).is_ok() {
 		PrefixType::Dynamic
 	} else {
-		return Err(Error::new(attributes.span(), "Unknown attributes"))
+		return Err(Error::new(attributes.span(), "Unknown attributes"));
 	};
 
 	let storage_instance = generate_storage_instance(
@@ -537,7 +537,7 @@ fn generate_storage_instance(
 	prefix_type: PrefixType,
 ) -> Result<StorageInstance> {
 	if let Type::Infer(_) = prefix {
-		return Err(Error::new(prefix.span(), "`_` is not allowed as prefix by `storage_alias`."))
+		return Err(Error::new(prefix.span(), "`_` is not allowed as prefix by `storage_alias`."));
 	}
 
 	let impl_generics_used_by_prefix = storage_generics
@@ -550,7 +550,7 @@ fn generate_storage_instance(
 		.unwrap_or_default();
 
 	let (pallet_prefix, impl_generics, type_generics) = match prefix_type {
-		PrefixType::Compatibility =>
+		PrefixType::Compatibility => {
 			if !impl_generics_used_by_prefix.is_empty() {
 				let type_generics = impl_generics_used_by_prefix.iter().map(|g| &g.ident);
 				let impl_generics = impl_generics_used_by_prefix.iter();
@@ -570,16 +570,18 @@ fn generate_storage_instance(
 				return Err(Error::new_spanned(
 					prefix,
 					"If there are no generics, the prefix is only allowed to be an identifier.",
-				))
-			},
+				));
+			}
+		},
 		PrefixType::Verbatim => {
 			let prefix_str = match prefix.get_ident() {
 				Some(p) => p.to_string(),
-				None =>
+				None => {
 					return Err(Error::new_spanned(
 						prefix,
 						"Prefix type `verbatim` requires that the prefix is an ident.",
-					)),
+					))
+				},
 			};
 
 			(quote!(#prefix_str), quote!(), quote!())

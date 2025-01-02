@@ -253,8 +253,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let collection_config = Self::get_collection_config(&collection)?;
 
 		ensure!(
-			maybe_check_origin.is_none() ||
-				collection_config.is_setting_enabled(CollectionSetting::UnlockedMetadata),
+			maybe_check_origin.is_none()
+				|| collection_config.is_setting_enabled(CollectionSetting::UnlockedMetadata),
 			Error::<T, I>::LockedCollectionMetadata
 		);
 

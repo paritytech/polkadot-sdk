@@ -56,7 +56,7 @@ impl finality_grandpa::Chain<TestHash, TestNumber> for AncestryChain {
 		let mut current_hash = block;
 		loop {
 			if current_hash == base {
-				break
+				break;
 			}
 			match self.0.parent_hash_of(&current_hash) {
 				Some(parent_hash) => {

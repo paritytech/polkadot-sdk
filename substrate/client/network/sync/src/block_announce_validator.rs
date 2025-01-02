@@ -75,9 +75,9 @@ pub(crate) enum BlockAnnounceValidationResult<H> {
 impl<H> BlockAnnounceValidationResult<H> {
 	fn peer_id(&self) -> &PeerId {
 		match self {
-			BlockAnnounceValidationResult::Failure { peer_id, .. } |
-			BlockAnnounceValidationResult::Process { peer_id, .. } |
-			BlockAnnounceValidationResult::Skip { peer_id } => peer_id,
+			BlockAnnounceValidationResult::Failure { peer_id, .. }
+			| BlockAnnounceValidationResult::Process { peer_id, .. }
+			| BlockAnnounceValidationResult::Skip { peer_id } => peer_id,
 		}
 	}
 }
@@ -139,7 +139,7 @@ impl<B: BlockT> BlockAnnounceValidator<B> {
 				peer_id,
 				hash,
 			);
-			return
+			return;
 		}
 
 		// Try to allocate a slot for this block announce validation.
@@ -153,7 +153,7 @@ impl<B: BlockT> BlockAnnounceValidator<B> {
 					hash,
 					peer_id,
 				);
-				return
+				return;
 			},
 			AllocateSlotForBlockAnnounceValidation::MaximumPeerSlotsReached => {
 				debug!(
@@ -163,7 +163,7 @@ impl<B: BlockT> BlockAnnounceValidator<B> {
 					hash,
 					peer_id,
 				);
-				return
+				return;
 			},
 		}
 
@@ -231,7 +231,7 @@ impl<B: BlockT> BlockAnnounceValidator<B> {
 		peer_id: &PeerId,
 	) -> AllocateSlotForBlockAnnounceValidation {
 		if self.validations.len() >= MAX_CONCURRENT_BLOCK_ANNOUNCE_VALIDATIONS {
-			return AllocateSlotForBlockAnnounceValidation::TotalMaximumSlotsReached
+			return AllocateSlotForBlockAnnounceValidation::TotalMaximumSlotsReached;
 		}
 
 		match self.validations_per_peer.entry(*peer_id) {
@@ -262,12 +262,13 @@ impl<B: BlockT> BlockAnnounceValidator<B> {
 				);
 			},
 			Entry::Occupied(mut entry) => match entry.get().checked_sub(1) {
-				Some(value) =>
+				Some(value) => {
 					if value == 0 {
 						entry.remove();
 					} else {
 						*entry.get_mut() = value;
-					},
+					}
+				},
 				None => {
 					entry.remove();
 

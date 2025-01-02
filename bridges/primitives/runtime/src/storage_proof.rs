@@ -128,7 +128,7 @@ where
 
 		let db = proof.into_memory_db();
 		if !db.contains(&root, EMPTY_PREFIX) {
-			return Err(StorageProofError::StorageRootMismatch)
+			return Err(StorageProofError::StorageRootMismatch);
 		}
 
 		Ok(StorageProofChecker { root, db, accessed_nodes_tracker: recorder })
@@ -231,7 +231,7 @@ pub fn grow_storage_proof<L: TrieConfiguration>(
 		// create branches at the 1st nibble
 		for branch in 1..=15 {
 			if added_nodes >= num_extra_nodes {
-				return
+				return;
 			}
 
 			// create branches at the 1st nibble
@@ -245,7 +245,7 @@ pub fn grow_storage_proof<L: TrieConfiguration>(
 		// create branches at the 2nd nibble
 		for branch in 1..=15 {
 			if added_nodes >= num_extra_nodes {
-				return
+				return;
 			}
 
 			prefix[i] = (first_nibble << 4) | (second_nibble.wrapping_add(branch) % 16);

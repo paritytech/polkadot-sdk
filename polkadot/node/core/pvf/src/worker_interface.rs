@@ -150,7 +150,7 @@ where
 		for _ in 0..NUM_RETRIES {
 			let tmp_path = make_tmppath(prefix, &dir);
 			if !tmp_path.exists() {
-				return Ok(tmp_path)
+				return Ok(tmp_path);
 			}
 		}
 

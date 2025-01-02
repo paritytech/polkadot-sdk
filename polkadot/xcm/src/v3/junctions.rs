@@ -112,7 +112,7 @@ impl<'a> Iterator for JunctionsRefIterator<'a> {
 	type Item = &'a Junction;
 	fn next(&mut self) -> Option<&'a Junction> {
 		if self.next.saturating_add(self.back) >= self.junctions.len() {
-			return None
+			return None;
 		}
 
 		let result = self.junctions.at(self.next);
@@ -127,7 +127,7 @@ impl<'a> DoubleEndedIterator for JunctionsRefIterator<'a> {
 		// checked_sub here, because if the result is less than 0, we end iteration
 		let index = self.junctions.len().checked_sub(next_back)?;
 		if self.next > index {
-			return None
+			return None;
 		}
 		self.back = next_back;
 
@@ -275,7 +275,7 @@ impl Junctions {
 	/// junctions in `self`, implying that relative refers into a different global consensus.
 	pub fn within_global(mut self, relative: MultiLocation) -> Result<Self, ()> {
 		if self.len() <= relative.parents as usize {
-			return Err(())
+			return Err(());
 		}
 		for _ in 0..relative.parents {
 			self.take_last();
@@ -468,7 +468,7 @@ impl Junctions {
 	pub fn append_with(&mut self, suffix: impl Into<Junctions>) -> Result<(), Junctions> {
 		let suffix = suffix.into();
 		if self.len().saturating_add(suffix.len()) > MAX_JUNCTIONS {
-			return Err(suffix)
+			return Err(suffix);
 		}
 		for j in suffix.into_iter() {
 			self.push(j).expect("Already checked the sum of the len()s; qed")
@@ -596,14 +596,14 @@ impl Junctions {
 	/// ```
 	pub fn match_and_split(&self, prefix: &Junctions) -> Option<&Junction> {
 		if prefix.len() + 1 != self.len() {
-			return None
+			return None;
 		}
 		for i in 0..prefix.len() {
 			if prefix.at(i) != self.at(i) {
-				return None
+				return None;
 			}
 		}
-		return self.at(prefix.len())
+		return self.at(prefix.len());
 	}
 
 	pub fn starts_with(&self, prefix: &Junctions) -> bool {

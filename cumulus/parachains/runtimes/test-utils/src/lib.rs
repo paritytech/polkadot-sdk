@@ -276,7 +276,7 @@ where
 		loop {
 			let block_number = frame_system::Pallet::<Runtime>::block_number();
 			if block_number >= n.into() {
-				break
+				break;
 			}
 			// Set the new block number and author
 
@@ -305,7 +305,7 @@ where
 		loop {
 			let block_number = frame_system::Pallet::<Runtime>::block_number();
 			if block_number >= n.into() {
-				break
+				break;
 			}
 			// Set the new block number and author
 			let header = frame_system::Pallet::<Runtime>::finalize();
@@ -555,8 +555,9 @@ impl<
 			.into_iter()
 			.filter_map(|e| unwrap_xcmp_queue_event(e.event.encode()))
 			.find_map(|e| match e {
-				cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { message_hash } =>
-					Some(message_hash),
+				cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { message_hash } => {
+					Some(message_hash)
+				},
 				_ => None,
 			})
 	}

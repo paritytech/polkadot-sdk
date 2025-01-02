@@ -110,17 +110,17 @@ impl PrepareError {
 	pub fn is_deterministic(&self) -> bool {
 		use PrepareError::*;
 		match self {
-			Prevalidation(_) |
-			Preparation(_) |
-			JobError(_) |
-			OutOfMemory |
-			CouldNotDecompressCodeBlob(_) => true,
-			IoErr(_) |
-			JobDied { .. } |
-			CreateTmpFile(_) |
-			RenameTmpFile { .. } |
-			ClearWorkerDir(_) |
-			Kernel(_) => false,
+			Prevalidation(_)
+			| Preparation(_)
+			| JobError(_)
+			| OutOfMemory
+			| CouldNotDecompressCodeBlob(_) => true,
+			IoErr(_)
+			| JobDied { .. }
+			| CreateTmpFile(_)
+			| RenameTmpFile { .. }
+			| ClearWorkerDir(_)
+			| Kernel(_) => false,
 			// Can occur due to issues with the PVF, but also due to factors like local load.
 			TimedOut => false,
 			// Can occur due to issues with the PVF, but also due to local errors.

@@ -70,12 +70,12 @@ fn contains_duplicates_in_sorted_iter<
 	if let Some(mut previous) = iter.next() {
 		while let Some(current) = iter.next() {
 			if check_equal(previous, current) {
-				return true
+				return true;
 			}
 			previous = current;
 		}
 	}
-	return false
+	return false;
 }
 
 // All arguments for `initializer::on_new_session`
@@ -166,9 +166,9 @@ fn test_dispute_state_flag_from_state() {
 			start: 0,
 			concluded_at: None,
 		}),
-		DisputeStateFlags::AGAINST_SUPERMAJORITY |
-			DisputeStateFlags::CONFIRMED |
-			DisputeStateFlags::AGAINST_BYZANTINE,
+		DisputeStateFlags::AGAINST_SUPERMAJORITY
+			| DisputeStateFlags::CONFIRMED
+			| DisputeStateFlags::AGAINST_BYZANTINE,
 	);
 }
 
@@ -286,9 +286,9 @@ fn test_import_prev_participant_confirmed_slash_for() {
 	assert_eq!(summary.new_participants, bitvec![u8, BitOrderLsb0; 0, 0, 1, 1, 1, 1, 1, 0]);
 	assert_eq!(
 		summary.new_flags,
-		DisputeStateFlags::CONFIRMED |
-			DisputeStateFlags::AGAINST_SUPERMAJORITY |
-			DisputeStateFlags::AGAINST_BYZANTINE,
+		DisputeStateFlags::CONFIRMED
+			| DisputeStateFlags::AGAINST_SUPERMAJORITY
+			| DisputeStateFlags::AGAINST_BYZANTINE,
 	);
 }
 

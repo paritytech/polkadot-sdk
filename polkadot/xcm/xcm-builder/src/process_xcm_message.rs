@@ -80,7 +80,7 @@ impl<
 				meter.remaining(),
 			);
 
-			return Err(ProcessMessageError::Overweight(required))
+			return Err(ProcessMessageError::Overweight(required));
 		}
 
 		let (consumed, result) = match XcmExecutor::execute(origin.into(), pre, id, Weight::zero())

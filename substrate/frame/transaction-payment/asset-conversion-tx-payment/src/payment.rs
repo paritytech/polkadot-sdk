@@ -161,7 +161,7 @@ where
 			Err((credit_in, _)) => {
 				defensive!("Fee swap should pass for the quoted amount");
 				let _ = F::resolve(who, credit_in).defensive_proof("Should resolve the credit");
-				return Err(InvalidTransaction::Payment.into())
+				return Err(InvalidTransaction::Payment.into());
 			},
 		};
 
@@ -184,15 +184,16 @@ where
 		if asset_id == A::get() {
 			// The `asset_id` is the target asset, we do not need to swap.
 			match F::can_withdraw(asset_id.clone(), who, fee) {
-				WithdrawConsequence::BalanceLow |
-				WithdrawConsequence::UnknownAsset |
-				WithdrawConsequence::Underflow |
-				WithdrawConsequence::Overflow |
-				WithdrawConsequence::Frozen =>
-					return Err(TransactionValidityError::from(InvalidTransaction::Payment)),
-				WithdrawConsequence::Success |
-				WithdrawConsequence::ReducedToZero(_) |
-				WithdrawConsequence::WouldDie => return Ok(()),
+				WithdrawConsequence::BalanceLow
+				| WithdrawConsequence::UnknownAsset
+				| WithdrawConsequence::Underflow
+				| WithdrawConsequence::Overflow
+				| WithdrawConsequence::Frozen => {
+					return Err(TransactionValidityError::from(InvalidTransaction::Payment))
+				},
+				WithdrawConsequence::Success
+				| WithdrawConsequence::ReducedToZero(_)
+				| WithdrawConsequence::WouldDie => return Ok(()),
 			}
 		}
 
@@ -202,15 +203,16 @@ where
 
 		// Ensure we can withdraw enough `asset_id` for the swap.
 		match F::can_withdraw(asset_id.clone(), who, asset_fee) {
-			WithdrawConsequence::BalanceLow |
-			WithdrawConsequence::UnknownAsset |
-			WithdrawConsequence::Underflow |
-			WithdrawConsequence::Overflow |
-			WithdrawConsequence::Frozen =>
-				return Err(TransactionValidityError::from(InvalidTransaction::Payment)),
-			WithdrawConsequence::Success |
-			WithdrawConsequence::ReducedToZero(_) |
-			WithdrawConsequence::WouldDie => {},
+			WithdrawConsequence::BalanceLow
+			| WithdrawConsequence::UnknownAsset
+			| WithdrawConsequence::Underflow
+			| WithdrawConsequence::Overflow
+			| WithdrawConsequence::Frozen => {
+				return Err(TransactionValidityError::from(InvalidTransaction::Payment))
+			},
+			WithdrawConsequence::Success
+			| WithdrawConsequence::ReducedToZero(_)
+			| WithdrawConsequence::WouldDie => {},
 		};
 
 		Ok(())
@@ -227,8 +229,8 @@ where
 	) -> Result<BalanceOf<T>, TransactionValidityError> {
 		let (fee_paid, initial_asset_consumed) = already_withdrawn;
 		let refund_amount = fee_paid.peek().saturating_sub(corrected_fee);
-		let (fee_in_asset, adjusted_paid) = if refund_amount.is_zero() ||
-			F::total_balance(asset_id.clone(), who).is_zero()
+		let (fee_in_asset, adjusted_paid) = if refund_amount.is_zero()
+			|| F::total_balance(asset_id.clone(), who).is_zero()
 		{
 			// Nothing to refund or the account was removed be the dispatched function.
 			(initial_asset_consumed, fee_paid)
@@ -285,7 +287,7 @@ where
 							// expected to be exactly equal to the amount of `refund_asset` credit.
 							_ => {
 								defensive!("Debt should be equal to the refund credit");
-								return Err(InvalidTransaction::Payment.into())
+								return Err(InvalidTransaction::Payment.into());
 							},
 						};
 						(
@@ -301,7 +303,7 @@ where
 							// The error should not occur as the `debt` was just withdrawn above.
 							Err(_) => {
 								defensive!("Should settle the debt");
-								return Err(InvalidTransaction::Payment.into())
+								return Err(InvalidTransaction::Payment.into());
 							},
 						};
 						let adjusted_paid = adjusted_paid.merge(refund).map_err(|_| {

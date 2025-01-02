@@ -245,7 +245,7 @@ where
 							"Failed to get session info.",
 						);
 
-						continue
+						continue;
 					},
 				};
 
@@ -638,7 +638,7 @@ fn ensure_i_am_an_authority(
 ) -> Result<usize, util::Error> {
 	for (i, v) in authorities.iter().enumerate() {
 		if Keystore::has_keys(&**keystore, &[(v.to_raw_vec(), AuthorityDiscoveryId::ID)]) {
-			return Ok(i)
+			return Ok(i);
 		}
 	}
 	Err(util::Error::NotAValidator)

@@ -122,10 +122,12 @@ pub fn log_error(
 	match result.into_nested()? {
 		Err(jfyi) => {
 			match jfyi {
-				JfyiError::RequestedUnannouncedCandidate(_, _) =>
-					gum::warn!(target: LOG_TARGET, error = %jfyi, ctx),
-				_ =>
-					gum::warn_if_frequent!(freq: warn_freq, max_rate: gum::Times::PerHour(100), target: LOG_TARGET, error = %jfyi, ctx),
+				JfyiError::RequestedUnannouncedCandidate(_, _) => {
+					gum::warn!(target: LOG_TARGET, error = %jfyi, ctx)
+				},
+				_ => {
+					gum::warn_if_frequent!(freq: warn_freq, max_rate: gum::Times::PerHour(100), target: LOG_TARGET, error = %jfyi, ctx)
+				},
 			}
 			Ok(())
 		},

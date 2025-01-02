@@ -48,10 +48,12 @@ where
 	) -> sc_service::error::Result<TaskManager> {
 		let node = ManualSealNode::<T>::new();
 		match config.network.network_backend {
-			sc_network::config::NetworkBackendType::Libp2p =>
-				node.start_node::<sc_network::NetworkWorker<_, _>>(config, para_id, block_time),
-			sc_network::config::NetworkBackendType::Litep2p =>
-				node.start_node::<sc_network::Litep2pNetworkBackend>(config, para_id, block_time),
+			sc_network::config::NetworkBackendType::Libp2p => {
+				node.start_node::<sc_network::NetworkWorker<_, _>>(config, para_id, block_time)
+			},
+			sc_network::config::NetworkBackendType::Litep2p => {
+				node.start_node::<sc_network::Litep2pNetworkBackend>(config, para_id, block_time)
+			},
 		}
 	}
 }

@@ -217,9 +217,9 @@ impl ParaLifecycle {
 	pub fn is_parachain(&self) -> bool {
 		matches!(
 			self,
-			ParaLifecycle::Parachain |
-				ParaLifecycle::DowngradingParachain |
-				ParaLifecycle::OffboardingParachain
+			ParaLifecycle::Parachain
+				| ParaLifecycle::DowngradingParachain
+				| ParaLifecycle::OffboardingParachain
 		)
 	}
 
@@ -229,9 +229,9 @@ impl ParaLifecycle {
 	pub fn is_parathread(&self) -> bool {
 		matches!(
 			self,
-			ParaLifecycle::Parathread |
-				ParaLifecycle::UpgradingParathread |
-				ParaLifecycle::OffboardingParathread
+			ParaLifecycle::Parathread
+				| ParaLifecycle::UpgradingParathread
+				| ParaLifecycle::OffboardingParathread
 		)
 	}
 
@@ -1009,12 +1009,12 @@ pub mod pallet {
 					vote.age,
 					&cfg,
 				);
-				return Ok(())
+				return Ok(());
 			}
 
 			if CodeByHash::<T>::contains_key(&code_hash) {
 				// There is no vote, but the code exists. Nothing to do here.
-				return Ok(())
+				return Ok(());
 			}
 
 			// At this point the code is unknown and there is no PVF pre-checking vote for it, so we
@@ -1065,9 +1065,9 @@ pub mod pallet {
 			let validators = shared::ActiveValidatorKeys::<T>::get();
 			let current_session = shared::CurrentSessionIndex::<T>::get();
 			if stmt.session_index < current_session {
-				return Err(Error::<T>::PvfCheckStatementStale.into())
+				return Err(Error::<T>::PvfCheckStatementStale.into());
 			} else if stmt.session_index > current_session {
-				return Err(Error::<T>::PvfCheckStatementFuture.into())
+				return Err(Error::<T>::PvfCheckStatementFuture.into());
 			}
 			let validator_index = stmt.validator_index.0 as usize;
 			let validator_public = validators
@@ -1163,9 +1163,9 @@ pub mod pallet {
 
 			let current_session = shared::CurrentSessionIndex::<T>::get();
 			if stmt.session_index < current_session {
-				return InvalidTransaction::Stale.into()
+				return InvalidTransaction::Stale.into();
 			} else if stmt.session_index > current_session {
-				return InvalidTransaction::Future.into()
+				return InvalidTransaction::Future.into();
 			}
 
 			let validator_index = stmt.validator_index.0 as usize;
@@ -1177,7 +1177,7 @@ pub mod pallet {
 
 			let signing_payload = stmt.signing_payload();
 			if !signature.verify(&signing_payload[..], &validator_public) {
-				return InvalidTransaction::BadProof.into()
+				return InvalidTransaction::BadProof.into();
 			}
 
 			let active_vote = match PvfActiveVoteMap::<T>::get(&stmt.subject) {
@@ -1264,9 +1264,9 @@ impl<T: Config> Pallet<T> {
 
 	/// Called by the initializer to initialize the paras pallet.
 	pub(crate) fn initializer_initialize(now: BlockNumberFor<T>) -> Weight {
-		Self::prune_old_code(now) +
-			Self::process_scheduled_upgrade_changes(now) +
-			Self::process_future_code_upgrades_at(now)
+		Self::prune_old_code(now)
+			+ Self::process_scheduled_upgrade_changes(now)
+			+ Self::process_future_code_upgrades_at(now)
 	}
 
 	/// Called by the initializer to finalize the paras pallet.
@@ -1345,8 +1345,8 @@ impl<T: Config> Pallet<T> {
 					ParaLifecycles::<T>::insert(&para, ParaLifecycle::Parathread);
 				},
 				// Offboard a lease holding or on-demand parachain from the system
-				Some(ParaLifecycle::OffboardingParachain) |
-				Some(ParaLifecycle::OffboardingParathread) => {
+				Some(ParaLifecycle::OffboardingParachain)
+				| Some(ParaLifecycle::OffboardingParathread) => {
 					parachains.remove(para);
 
 					Heads::<T>::remove(&para);
@@ -1430,7 +1430,7 @@ impl<T: Config> Pallet<T> {
 		let code_retention_period = config.code_retention_period;
 		if now <= code_retention_period {
 			let weight = T::DbWeight::get().reads_writes(1, 0);
-			return weight
+			return weight;
 		}
 
 		// The height of any changes we no longer should keep around.
@@ -1499,7 +1499,7 @@ impl<T: Config> Pallet<T> {
 						new_code_hash
 					} else {
 						log::error!(target: LOG_TARGET, "Missing future code hash for {:?}", &id);
-						continue
+						continue;
 					};
 
 					weight += Self::set_current_code(id, new_code_hash, expected_at);
@@ -1591,7 +1591,7 @@ impl<T: Config> Pallet<T> {
 						"The PvfActiveVoteMap is out of sync with PvfActiveVoteList!",
 					);
 					debug_assert!(false);
-					continue
+					continue;
 				},
 			};
 
@@ -1654,8 +1654,8 @@ impl<T: Config> Pallet<T> {
 		//
 		// we cannot onboard at the current session, so it must be at least one
 		// session ahead.
-		let onboard_at: SessionIndex = shared::CurrentSessionIndex::<T>::get() +
-			cmp::max(shared::SESSION_DELAY.saturating_sub(sessions_observed), 1);
+		let onboard_at: SessionIndex = shared::CurrentSessionIndex::<T>::get()
+			+ cmp::max(shared::SESSION_DELAY.saturating_sub(sessions_observed), 1);
 
 		ActionsQueue::<T>::mutate(onboard_at, |v| {
 			if let Err(i) = v.binary_search(&id) {
@@ -1863,7 +1863,7 @@ impl<T: Config> Pallet<T> {
 		if let Some(future_code_hash) = FutureCodeHash::<T>::get(&id) {
 			let active_prechecking = PvfActiveVoteList::<T>::get();
 			if active_prechecking.contains(&future_code_hash) {
-				return Err(Error::<T>::CannotOffboard.into())
+				return Err(Error::<T>::CannotOffboard.into());
 			}
 		}
 
@@ -1888,7 +1888,7 @@ impl<T: Config> Pallet<T> {
 		});
 
 		if <T as Config>::QueueFootprinter::message_count(UmpQueueId::Para(id)) != 0 {
-			return Err(Error::<T>::CannotOffboard.into())
+			return Err(Error::<T>::CannotOffboard.into());
 		}
 
 		Ok(())
@@ -1961,7 +1961,7 @@ impl<T: Config> Pallet<T> {
 		let new_code_len = new_code.0.len();
 		if new_code_len < MIN_CODE_SIZE as usize || new_code_len > cfg.max_code_size as usize {
 			log::warn!(target: LOG_TARGET, "attempted to schedule an upgrade with invalid new validation code",);
-			return
+			return;
 		}
 
 		// Enacting this should be prevented by the `can_upgrade_validation_code`
@@ -1975,7 +1975,7 @@ impl<T: Config> Pallet<T> {
 			// NOTE: we cannot set `UpgradeGoAheadSignal` signal here since this will be reset by
 			//       the following call `note_new_head`
 			log::warn!(target: LOG_TARGET, "ended up scheduling an upgrade while one is pending",);
-			return
+			return;
 		}
 
 		let code_hash = new_code.hash();
@@ -1991,7 +1991,7 @@ impl<T: Config> Pallet<T> {
 				target: LOG_TARGET,
 				"para tried to upgrade to the same code. Abort the upgrade",
 			);
-			return
+			return;
 		}
 
 		// This is the start of the upgrade process. Prevent any further attempts at upgrading.
@@ -2115,7 +2115,7 @@ impl<T: Config> Pallet<T> {
 					new_code_hash
 				} else {
 					log::error!(target: LOG_TARGET, "Missing future code hash for {:?}", &id);
-					return
+					return;
 				};
 
 				Self::set_current_code(id, new_code_hash, expected_at);
@@ -2264,7 +2264,7 @@ impl<T: Config> Pallet<T> {
 		let refs = CodeByHashRefs::<T>::get(code_hash);
 		if refs == 0 {
 			log::error!(target: LOG_TARGET, "Code refs is already zero for {:?}", code_hash);
-			return weight
+			return weight;
 		}
 		if refs <= 1 {
 			weight += T::DbWeight::get().writes(2);

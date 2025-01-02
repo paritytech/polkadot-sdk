@@ -112,10 +112,11 @@ impl CollatorProtocolSubsystem {
 impl<Context> CollatorProtocolSubsystem {
 	fn start(self, ctx: Context) -> SpawnedSubsystem {
 		let future = match self.protocol_side {
-			ProtocolSide::Validator { keystore, eviction_policy, metrics } =>
+			ProtocolSide::Validator { keystore, eviction_policy, metrics } => {
 				validator_side::run(ctx, keystore, eviction_policy, metrics)
 					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
-					.boxed(),
+					.boxed()
+			},
 			ProtocolSide::Collator {
 				peer_id,
 				collator_pair,

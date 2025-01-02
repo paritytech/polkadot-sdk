@@ -384,8 +384,8 @@ impl RelayChainInterface for Relaychain {
 		hash: PHash,
 		_: ParaId,
 	) -> RelayChainResult<Option<CommittedCandidateReceipt>> {
-		if self.inner.lock().expect("Poisoned lock").runtime_version >=
-			RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
+		if self.inner.lock().expect("Poisoned lock").runtime_version
+			>= RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
 		{
 			panic!("Should have used candidates_pending_availability instead");
 		}
@@ -407,8 +407,8 @@ impl RelayChainInterface for Relaychain {
 		hash: PHash,
 		_: ParaId,
 	) -> RelayChainResult<Vec<CommittedCandidateReceipt>> {
-		if self.inner.lock().expect("Poisoned lock").runtime_version <
-			RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
+		if self.inner.lock().expect("Poisoned lock").runtime_version
+			< RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
 		{
 			panic!("Should have used candidate_pending_availability instead");
 		}

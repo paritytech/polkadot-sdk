@@ -133,7 +133,7 @@ impl<M: 'static + Send + Sync> DisputeSender<M> {
 		match self.disputes.entry(candidate_hash) {
 			Entry::Occupied(_) => {
 				gum::trace!(target: LOG_TARGET, ?candidate_hash, "Dispute sending already active.");
-				return Ok(())
+				return Ok(());
 			},
 			Entry::Vacant(vacant) => {
 				self.rate_limit.limit("in start_sender", candidate_hash).await;
@@ -174,7 +174,7 @@ impl<M: 'static + Send + Sync> DisputeSender<M> {
 							?result,
 							"Received `FromSendingTask::Finished` for non existing dispute."
 						);
-						return Ok(())
+						return Ok(());
 					},
 					Some(task) => task,
 				};

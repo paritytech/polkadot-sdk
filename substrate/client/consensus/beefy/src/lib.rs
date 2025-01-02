@@ -672,7 +672,7 @@ where
 			debug!(target: LOG_TARGET, "🥩 Transforming grandpa notification. #{}({:?})", notification.header.number(), notification.hash);
 			if let Err(err) = tx.unbounded_send(UnpinnedFinalityNotification::from(notification)) {
 				error!(target: LOG_TARGET, "🥩 Unable to send transformed notification. Shutting down. err = {}", err);
-				return
+				return;
 			};
 		}
 	};
@@ -786,10 +786,11 @@ where
 				Some(active) => return Ok(active),
 				// Move up the chain. Ultimately we'll get it from chain genesis state, or error out
 				// there.
-				None =>
+				None => {
 					header = wait_for_parent_header(blockchain, header, HEADER_SYNC_DELAY)
 						.await
-						.map_err(|e| Error::Backend(e.to_string()))?,
+						.map_err(|e| Error::Backend(e.to_string()))?
+				},
 			}
 		}
 	}

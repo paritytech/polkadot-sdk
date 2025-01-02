@@ -68,7 +68,7 @@ where
 			FeeReason::Export { network: bridged_network, ref destination }
 				if bridged_network == EthereumNetwork::get() && destination == &Here
 		) {
-			return fees
+			return fees;
 		}
 
 		// Get the parachain sovereign from the `context`.
@@ -90,7 +90,7 @@ where
 				"invalid location in context {:?}",
 				context,
 			);
-			return fees
+			return fees;
 		}
 		let para_id = maybe_para_id.unwrap();
 
@@ -102,7 +102,7 @@ where
 			.filter_map(|(index, asset)| {
 				if let Asset { id: location, fun: Fungible(amount) } = asset {
 					if location.0 == token_location {
-						return Some((index, (*amount).into()))
+						return Some((index, (*amount).into()));
 					}
 				}
 				None
@@ -114,7 +114,7 @@ where
 				"could not find fee asset item in fees: {:?}",
 				fees,
 			);
-			return fees
+			return fees;
 		}
 		let (fee_index, total_fee) = maybe_total_supplied_fee.unwrap();
 		let local_fee = FeeProvider::local_fee();
@@ -126,7 +126,7 @@ where
 				local_fee,
 				remote_fee,
 			);
-			return fees
+			return fees;
 		}
 		// Refund remote component of fee to physical origin
 		let result = AssetTransactor::deposit_asset(
@@ -140,7 +140,7 @@ where
 				"transact fee asset failed: {:?}",
 				result.unwrap_err()
 			);
-			return fees
+			return fees;
 		}
 
 		// Return remaining fee to the next fee handler in the chain.

@@ -80,10 +80,11 @@ impl<T> Sink<T> for SingleItemSink<T> {
 		let mut state = self.0.lock();
 
 		match *state {
-			SinkState::Empty { ref mut read_waker } =>
+			SinkState::Empty { ref mut read_waker } => {
 				if let Some(waker) = read_waker.take() {
 					waker.wake();
-				},
+				}
+			},
 			_ => panic!("start_send called outside of empty sink state ensured by poll_ready"),
 		}
 
@@ -224,7 +225,7 @@ where
 
 	async fn try_recv(&mut self) -> Result<Option<FromOrchestra<M>>, ()> {
 		if let Some(msg) = self.message_buffer.pop_front() {
-			return Ok(Some(msg))
+			return Ok(Some(msg));
 		}
 		match poll!(self.rx.next()) {
 			Poll::Ready(Some(msg)) => Ok(Some(msg)),
@@ -235,7 +236,7 @@ where
 
 	async fn recv(&mut self) -> SubsystemResult<FromOrchestra<M>> {
 		if let Some(msg) = self.message_buffer.pop_front() {
-			return Ok(msg)
+			return Ok(msg);
 		}
 		self.rx
 			.next()
@@ -251,7 +252,7 @@ where
 				.await
 				.ok_or_else(|| SubsystemError::Context("Receiving end closed".to_owned()))?;
 			if let FromOrchestra::Signal(sig) = msg {
-				return Ok(sig)
+				return Ok(sig);
 			} else {
 				self.message_buffer.push_back(msg)
 			}
@@ -327,7 +328,7 @@ impl<M> TestSubsystemContextHandle<M> {
 	/// Receive the next message from the subsystem, or `None` if the channel has been closed.
 	pub async fn try_recv(&mut self) -> Option<AllMessages> {
 		if let Some(msg) = self.message_buffer.take() {
-			return Some(msg)
+			return Some(msg);
 		}
 
 		self.rx

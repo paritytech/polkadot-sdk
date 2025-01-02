@@ -233,7 +233,7 @@ impl Collator {
 			let parent = match HeadData::decode(&mut &validation_data.parent_head.0[..]) {
 				Err(err) => {
 					log::error!("Requested to build on top of malformed head-data: {:?}", err);
-					return futures::future::ready(None).boxed()
+					return futures::future::ready(None).boxed();
 				},
 				Ok(p) => p,
 			};
@@ -241,7 +241,7 @@ impl Collator {
 			let (block_data, head_data) = match state.lock().unwrap().advance(parent.clone()) {
 				Err(err) => {
 					log::error!("Unable to build on top of {:?}: {:?}", parent, err);
-					return futures::future::ready(None).boxed()
+					return futures::future::ready(None).boxed();
 				},
 				Ok(x) => x,
 			};
@@ -310,7 +310,7 @@ impl Collator {
 			let current_block = self.state.lock().unwrap().best_block;
 
 			if start_block + blocks <= current_block {
-				return
+				return;
 			}
 		}
 	}
@@ -326,7 +326,7 @@ impl Collator {
 			Delay::new(Duration::from_secs(1)).await;
 
 			if seconded <= seconded_collations.load(Ordering::Relaxed) {
-				return
+				return;
 			}
 		}
 	}

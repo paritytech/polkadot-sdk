@@ -75,7 +75,7 @@ impl<T: Config> Delegation<T> {
 				<Delegators<T>>::remove(key);
 				// Remove provider if no delegation left.
 				let _ = frame_system::Pallet::<T>::dec_providers(key).defensive();
-				return
+				return;
 			}
 		} else {
 			// this is a new delegation. Provide for this account.

@@ -92,8 +92,9 @@ impl mixnet::request_manager::Request for Request {
 
 	fn with_data<T>(&self, f: impl FnOnce(Scattered<u8>) -> T, _context: &Self::Context) -> T {
 		match self {
-			Request::SubmitExtrinsic { extrinsic, .. } =>
-				f([&[SUBMIT_EXTRINSIC], extrinsic.as_ref()].as_slice().into()),
+			Request::SubmitExtrinsic { extrinsic, .. } => {
+				f([&[SUBMIT_EXTRINSIC], extrinsic.as_ref()].as_slice().into())
+			},
 		}
 	}
 

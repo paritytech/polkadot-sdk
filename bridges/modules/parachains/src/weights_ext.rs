@@ -104,9 +104,9 @@ pub trait WeightInfoExt: WeightInfo {
 
 	/// Returns weight that needs to be accounted when storage proof of given size is received.
 	fn storage_proof_size_overhead(extra_proof_bytes: u32) -> Weight {
-		let extra_byte_weight = (Self::submit_parachain_heads_with_16kb_proof() -
-			Self::submit_parachain_heads_with_1kb_proof()) /
-			(15 * 1024);
+		let extra_byte_weight = (Self::submit_parachain_heads_with_16kb_proof()
+			- Self::submit_parachain_heads_with_1kb_proof())
+			/ (15 * 1024);
 		extra_byte_weight.saturating_mul(extra_proof_bytes as u64)
 	}
 }

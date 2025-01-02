@@ -156,7 +156,7 @@ impl TestChainStorage {
 
 		while let Some(block) = self.blocks_by_hash.get(&block_hash) {
 			if minimum_block_number >= block.number {
-				break
+				break;
 			}
 			if !self.approved_blocks.contains(&block_hash) {
 				highest_approved_ancestor = None;
@@ -188,7 +188,7 @@ impl TestChainStorage {
 		highest_approved_block_hash: Hash,
 	) -> Option<Hash> {
 		if self.disputed_blocks.is_empty() {
-			return Some(highest_approved_block_hash)
+			return Some(highest_approved_block_hash);
 		}
 
 		let mut undisputed_chain = Some(highest_approved_block_hash);
@@ -199,7 +199,7 @@ impl TestChainStorage {
 				undisputed_chain = Some(*next);
 			}
 			if block.number() == &base_blocknumber {
-				break
+				break;
 			}
 			block_hash = *next;
 		}
@@ -355,7 +355,7 @@ async fn test_skeleton(
 	);
 
 	if best_chain_containing_block.is_none() {
-		return
+		return;
 	}
 
 	gum::trace!("approved ancestor response: {:?}", undisputed_chain);

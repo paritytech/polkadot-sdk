@@ -44,7 +44,7 @@ where
 	) -> core::result::Result<Self::Success, RuntimeOrigin> {
 		let origin_location = EnsureXcm::<Everything, L>::try_origin(origin.clone())?;
 		if !IsForeign::contains(asset_location, &origin_location) {
-			return Err(origin)
+			return Err(origin);
 		}
 		let latest_location: Location =
 			origin_location.clone().try_into().map_err(|_| origin.clone())?;

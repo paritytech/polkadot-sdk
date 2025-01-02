@@ -313,7 +313,7 @@ impl HandleNetworkMessage for TestState {
 					.unwrap()
 					.as_ref();
 				if statements_sent_count.load(Ordering::SeqCst) {
-					return None
+					return None;
 				} else {
 					statements_sent_count.store(true, Ordering::SeqCst);
 				}
@@ -321,7 +321,7 @@ impl HandleNetworkMessage for TestState {
 				let group_statements = self.statements.get(&candidate_hash).unwrap();
 				if !group_statements.iter().any(|s| s.unchecked_validator_index().0 == index as u32)
 				{
-					return None
+					return None;
 				}
 
 				let statement = CompactStatement::Valid(candidate_hash);
@@ -396,10 +396,12 @@ impl HandleNetworkMessage for TestState {
 						let position_in_group =
 							backing_group.iter().position(|v| *v == validator_index).unwrap();
 						match statement.unchecked_payload() {
-							CompactStatement::Seconded(_) =>
-								seconded_in_group.set(position_in_group, true),
-							CompactStatement::Valid(_) =>
-								validated_in_group.set(position_in_group, true),
+							CompactStatement::Seconded(_) => {
+								seconded_in_group.set(position_in_group, true)
+							},
+							CompactStatement::Valid(_) => {
+								validated_in_group.set(position_in_group, true)
+							},
 						}
 					}
 				}
