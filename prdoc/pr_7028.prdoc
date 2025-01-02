@@ -6,7 +6,7 @@ doc:
   description: |-
     Before this PR, the implications were different in the pipeline `(A, B, C)` and `((A, B), C)`.
     This PR fixes this behavior and make nested tuple transparant, the implication order of tuple of
-    tuple is not same as a single tuple.
+    tuple is now the same as in a single tuple.
 
     For runtime users this mean that the implication can be breaking depending on the pipeline used
     in the runtime.
