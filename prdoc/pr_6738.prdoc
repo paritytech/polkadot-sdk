@@ -1,0 +1,9 @@
+title: Migrate `pallet-insecure-randomness-collective-flip` to umbrella crate
+doc:
+- audience: Runtime Dev
+  description: Part of https://github.com/paritytech/polkadot-sdk/issues/6504
+crates:
+- name: pallet-insecure-randomness-collective-flip
+  bump: minor
+- name: polkadot-sdk-frame
+  bump: minor
