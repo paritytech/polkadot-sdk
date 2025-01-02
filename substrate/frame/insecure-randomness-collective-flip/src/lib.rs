@@ -162,7 +162,10 @@ impl<T: Config> Randomness<T::Hash, BlockNumberFor<T>> for Pallet<T> {
 mod tests {
 	use super::*;
 	use crate as pallet_insecure_randomness_collective_flip;
-	use frame::testing_prelude::*;
+	use frame::{
+		testing_prelude::{frame_system::limits, *},
+		traits::Header as _,
+	};
 
 	type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -186,7 +189,7 @@ mod tests {
 
 	impl pallet_insecure_randomness_collective_flip::Config for Test {}
 
-	fn new_test_ext() -> frame::deps::sp_io::TestExternalities {
+	fn new_test_ext() -> TestExternalities {
 		let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		t.into()
 	}

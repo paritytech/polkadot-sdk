@@ -337,8 +337,6 @@ pub mod runtime {
 	pub mod prelude {
 		pub use crate::prelude::*;
 
-		pub use crate::block::*;
-
 		/// All of the types related to the FRAME runtime executive.
 		pub use frame_executive::*;
 
@@ -535,11 +533,6 @@ pub mod derive {
 pub mod hashing {
 	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
-}
-
-pub mod block {
-	pub use frame_system::limits;
-	pub use sp_runtime::traits::Header;
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
