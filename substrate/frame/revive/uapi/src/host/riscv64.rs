@@ -93,6 +93,8 @@ mod sys {
 			data_ptr: *const u8,
 			data_len: u32,
 		);
+		pub fn gas_price() -> u64;
+		pub fn base_fee(out_ptr: *mut u8);
 		pub fn call_data_size() -> u64;
 		pub fn block_number(out_ptr: *mut u8);
 		pub fn block_hash(block_number_ptr: *const u8, out_ptr: *mut u8);
@@ -367,6 +369,14 @@ impl HostFn for HostFnImpl {
 	fn return_value(flags: ReturnFlags, return_value: &[u8]) -> ! {
 		unsafe { sys::seal_return(flags.bits(), return_value.as_ptr(), return_value.len() as u32) }
 		panic!("seal_return does not return");
+	}
+
+	fn gas_price() -> u64 {
+		unsafe { sys::gas_price() }
+	}
+
+	fn base_fee(output: &mut [u8; 32]) {
+		unsafe { sys::base_fee(output.as_mut_ptr()) }
 	}
 
 	fn balance(output: &mut [u8; 32]) {
