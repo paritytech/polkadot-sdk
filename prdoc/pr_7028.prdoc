@@ -1,0 +1,16 @@
+title: '[draft] Make `TransactionExtension` tuple of tuple transparent for implication'
+doc:
+- audience:
+  - Runtime Dev
+  - Runtime User
+  description: |-
+    Currently `(A, B, C)` and `((A, B), C)` change the order of implications in the transaction extension pipeline. This order is not accessible in the metadata, because the metadata is just a vector of transaction extension, the nested structure is not visible.
+
+    This PR make the implementation for tuple of `TransactionExtension` better for tuple of tuple.  `(A, B, C)` and `((A, B), C)` don't change the implication for the validation A.
+
+    This is a breaking change but only when using the trait `TransactionExtension` the code implementing the trait is not breaking (surprising rust behavior but fine).
+crates:
+- name: pallet-skip-feeless-payment
+  bump: major
+- name: sp-runtime
+  bump: major
