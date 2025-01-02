@@ -595,6 +595,7 @@ pub mod pallet {
 		/// - `origin`: A signed origin of a ranked, but not tracked, account.
 		#[pallet::weight(T::WeightInfo::import())]
 		#[pallet::call_index(8)]
+		#[deprecated = "Use `import_member` instead"]
 		pub fn import(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			Self::do_import(who)?;
