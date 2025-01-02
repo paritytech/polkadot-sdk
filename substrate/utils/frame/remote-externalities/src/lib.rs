@@ -774,7 +774,8 @@ where
 			},
 			"Inserting keys into DB...",
 			|_| "Inserted keys into DB".into(),
-		).expect("must succeed; qed");
+		)
+		.expect("must succeed; qed");
 
 		Ok(key_values)
 	}
