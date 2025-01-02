@@ -738,17 +738,17 @@ pub fn new_full<
 	let is_offchain_indexing_enabled = config.offchain_worker.indexing_enabled;
 	let role = config.role;
 	let force_authoring = config.force_authoring;
-	let backoff_authoring_blocks = if !force_authoring_backoff &&
-		(config.chain_spec.is_polkadot() || config.chain_spec.is_kusama())
+	let backoff_authoring_blocks = if !force_authoring_backoff
+		&& (config.chain_spec.is_polkadot() || config.chain_spec.is_kusama())
 	{
 		// the block authoring backoff is disabled by default on production networks
 		None
 	} else {
 		let mut backoff = sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default();
 
-		if config.chain_spec.is_rococo() ||
-			config.chain_spec.is_versi() ||
-			config.chain_spec.is_dev()
+		if config.chain_spec.is_rococo()
+			|| config.chain_spec.is_versi()
+			|| config.chain_spec.is_dev()
 		{
 			// on testnets that are in flux (like rococo or versi), finality has stalled
 			// sometimes due to operational issues and it's annoying to slow down block
@@ -1450,10 +1450,12 @@ pub fn build_full<OverseerGenerator: OverseerGen>(
 		});
 
 	match config.network.network_backend {
-		sc_network::config::NetworkBackendType::Libp2p =>
-			new_full::<_, sc_network::NetworkWorker<Block, Hash>>(config, params),
-		sc_network::config::NetworkBackendType::Litep2p =>
-			new_full::<_, sc_network::Litep2pNetworkBackend>(config, params),
+		sc_network::config::NetworkBackendType::Libp2p => {
+			new_full::<_, sc_network::NetworkWorker<Block, Hash>>(config, params)
+		},
+		sc_network::config::NetworkBackendType::Litep2p => {
+			new_full::<_, sc_network::Litep2pNetworkBackend>(config, params)
+		},
 	}
 }
 

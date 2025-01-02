@@ -152,8 +152,8 @@ where
 
 	fn is_mapped(account_id: &T::AccountId) -> bool {
 		let account_bytes: &[u8; 32] = account_id.as_ref();
-		&account_bytes[20..] == &[0xEE; 12] ||
-			<AddressSuffix<T>>::contains_key(Self::to_address(account_id))
+		&account_bytes[20..] == &[0xEE; 12]
+			|| <AddressSuffix<T>>::contains_key(Self::to_address(account_id))
 	}
 }
 

@@ -133,11 +133,11 @@ where
 
 		// Ensure that the connection has not reached the maximum number of active operations.
 		let Some(reserved_connection) = self.rpc_connections.reserve_space(conn_id) else {
-			return Ok(None)
+			return Ok(None);
 		};
 		let Some(reserved_identifier) = reserved_connection.register(id.clone()) else {
 			// This can only happen if the generated operation ID is not unique.
-			return Ok(None)
+			return Ok(None);
 		};
 
 		// The JSON-RPC server might check whether the transaction is valid before broadcasting it.
@@ -183,7 +183,7 @@ where
 						if pool_err.is_retriable() {
 							// Try to resubmit the transaction at a later block for
 							// recoverable errors.
-							continue
+							continue;
 						} else {
 							return;
 						}
@@ -224,7 +224,7 @@ where
 
 			// The broadcast was not stopped.
 			if result.is_ok() {
-				return
+				return;
 			}
 
 			// Best effort pool removal (tx can already be finalized).
@@ -254,13 +254,13 @@ where
 
 		// The operation ID must correlate to the same connection ID.
 		if !self.rpc_connections.contains_identifier(conn_id, &operation_id) {
-			return Err(ErrorBroadcast::InvalidOperationID)
+			return Err(ErrorBroadcast::InvalidOperationID);
 		}
 
 		let mut broadcast_ids = self.broadcast_ids.write();
 
 		let Some(broadcast_state) = broadcast_ids.remove(&operation_id) else {
-			return Err(ErrorBroadcast::InvalidOperationID)
+			return Err(ErrorBroadcast::InvalidOperationID);
 		};
 
 		broadcast_state.handle.abort();
@@ -283,7 +283,7 @@ where
 	while let Some(next) = stream.next().now_or_never() {
 		let Some(next) = next else {
 			// Nothing to do if the stream terminated.
-			return None
+			return None;
 		};
 		element = next;
 	}

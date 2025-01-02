@@ -55,7 +55,7 @@ impl rlp::Decodable for Receipt {
 				1 | 2 => {
 					let receipt_rlp = &rlp::Rlp::new(&data[1..]);
 					if !receipt_rlp.is_list() {
-						return Err(rlp::DecoderError::RlpExpectedToBeList)
+						return Err(rlp::DecoderError::RlpExpectedToBeList);
 					}
 					Self::decode_list(&rlp::Rlp::new(&data[1..]))
 				},

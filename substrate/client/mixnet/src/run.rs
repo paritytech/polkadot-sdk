@@ -95,7 +95,7 @@ fn handle_packet<X, E: Decode>(
 						debug!(target: LOG_TARGET, "No space in extrinsic queue; dropping request");
 						// We don't send a reply in this case; we want the requester to retry
 						reply_manager.abandon(reply_context);
-						return
+						return;
 					}
 
 					// Decode the extrinsic
@@ -109,7 +109,7 @@ fn handle_packet<X, E: Decode>(
 								Err(RemoteErr::Decode(format!("Bad extrinsic: {}", err))),
 								mixnet,
 							);
-							return
+							return;
 						},
 					};
 
@@ -132,7 +132,7 @@ fn handle_packet<X, E: Decode>(
 					"Received reply to already-completed request with message ID {:x?}",
 					message.request_id
 				);
-				return
+				return;
 			};
 			request.send_reply(&message.data);
 		},
@@ -168,7 +168,7 @@ pub async fn run<B, C, S, P>(
 		error!(target: LOG_TARGET,
 			"Failed to convert libp2p local peer ID {local_peer_id} to mixnet peer ID; \
 			mixnet not running");
-		return
+		return;
 	};
 
 	let offchain_transaction_pool_factory =

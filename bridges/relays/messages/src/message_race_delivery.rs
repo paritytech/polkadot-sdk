@@ -364,7 +364,7 @@ where
 				best_finalized_source_header_id_at_best_target,
 			);
 
-			return self.select_race_action(race_state).await.is_some()
+			return self.select_race_action(race_state).await.is_some();
 		}
 
 		false
@@ -376,12 +376,12 @@ where
 	) -> Option<(RangeInclusive<MessageNonce>, MessageProofParameters)> {
 		// if we have already selected nonces that we want to submit, do nothing
 		if race_state.nonces_to_submit().is_some() {
-			return None
+			return None;
 		}
 
 		// if we already submitted some nonces, do nothing
 		if race_state.nonces_submitted().is_some() {
-			return None
+			return None;
 		}
 
 		let best_target_nonce = self.strategy.best_at_target()?;
@@ -411,10 +411,10 @@ where
 		// "unrewarded relayers" set. If we are unable to prove new rewards to the target node, then
 		// we should wait for confirmations race.
 		let unrewarded_limit_reached =
-			target_nonces.nonces_data.unrewarded_relayers.unrewarded_relayer_entries >=
-				self.max_unrewarded_relayer_entries_at_target ||
-				target_nonces.nonces_data.unrewarded_relayers.total_messages >=
-					self.max_unconfirmed_nonces_at_target;
+			target_nonces.nonces_data.unrewarded_relayers.unrewarded_relayer_entries
+				>= self.max_unrewarded_relayer_entries_at_target
+				|| target_nonces.nonces_data.unrewarded_relayers.total_messages
+					>= self.max_unconfirmed_nonces_at_target;
 		if unrewarded_limit_reached {
 			// so there are already too many unrewarded relayer entries in the set
 			//
@@ -422,10 +422,10 @@ where
 			// be paid
 			let number_of_rewards_being_proved =
 				latest_confirmed_nonce_at_source.saturating_sub(latest_confirmed_nonce_at_target);
-			let enough_rewards_being_proved = number_of_rewards_being_proved >=
-				target_nonces.nonces_data.unrewarded_relayers.messages_in_oldest_entry;
+			let enough_rewards_being_proved = number_of_rewards_being_proved
+				>= target_nonces.nonces_data.unrewarded_relayers.messages_in_oldest_entry;
 			if !enough_rewards_being_proved {
-				return None
+				return None;
 			}
 		}
 
@@ -539,13 +539,13 @@ where
 	) -> Option<SourceHeaderIdOf<P>> {
 		// we have already submitted something - let's wait until it is mined
 		if race_state.nonces_submitted().is_some() {
-			return None
+			return None;
 		}
 
 		// if we can deliver something using current race state, go on
 		let selected_nonces = self.select_race_action(race_state.clone()).await;
 		if selected_nonces.is_some() {
-			return None
+			return None;
 		}
 
 		// check if we may deliver some messages if we'll relay require source header
@@ -559,7 +559,7 @@ where
 			)
 			.await
 		{
-			return maybe_source_header_for_delivery
+			return maybe_source_header_for_delivery;
 		}
 
 		// ok, we can't delivery anything even if we relay some source blocks first. But maybe
@@ -573,7 +573,7 @@ where
 			)
 			.await
 		{
-			return maybe_source_header_for_reward_confirmation
+			return maybe_source_header_for_reward_confirmation;
 		}
 
 		None

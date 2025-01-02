@@ -315,18 +315,20 @@ fn validate_using_artifact(
 		//         [`executor_interface::prepare`].
 		execute_artifact(compiled_artifact_blob, executor_params, params)
 	} {
-		Err(ExecuteError::RuntimeConstruction(wasmerr)) =>
-			return JobResponse::runtime_construction("execute", &wasmerr.to_string()),
+		Err(ExecuteError::RuntimeConstruction(wasmerr)) => {
+			return JobResponse::runtime_construction("execute", &wasmerr.to_string())
+		},
 		Err(err) => return JobResponse::format_invalid("execute", &err.to_string()),
 		Ok(d) => d,
 	};
 
 	let result_descriptor = match ValidationResult::decode(&mut &descriptor_bytes[..]) {
-		Err(err) =>
+		Err(err) => {
 			return JobResponse::format_invalid(
 				"validation result decoding failed",
 				&err.to_string(),
-			),
+			)
+		},
 		Ok(r) => r,
 	};
 
@@ -379,8 +381,9 @@ fn handle_clone(
 			pov_size,
 			execution_timeout,
 		),
-		Err(security::clone::Error::Clone(errno)) =>
-			Ok(Err(internal_error_from_errno("clone", errno))),
+		Err(security::clone::Error::Clone(errno)) => {
+			Ok(Err(internal_error_from_errno("clone", errno)))
+		},
 	}
 }
 
@@ -504,8 +507,9 @@ fn handle_child_process(
 			)),
 			Err(e) => Err(JobError::CpuTimeMonitorThread(stringify_panic_payload(e))),
 		},
-		WaitOutcome::Pending =>
-			unreachable!("we run wait_while until the outcome is no longer pending; qed"),
+		WaitOutcome::Pending => {
+			unreachable!("we run wait_while until the outcome is no longer pending; qed")
+		},
 	};
 
 	send_child_response(&mut pipe_write, response);
@@ -612,7 +616,7 @@ fn handle_parent_process(
 			cpu_tv.as_millis(),
 			timeout.as_millis(),
 		);
-		return Ok(Err(WorkerError::JobTimedOut))
+		return Ok(Err(WorkerError::JobTimedOut));
 	}
 
 	match status {

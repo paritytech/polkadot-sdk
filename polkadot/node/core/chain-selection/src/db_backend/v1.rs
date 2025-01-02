@@ -236,12 +236,13 @@ impl Backend for DbBackend {
 
 		let val = stagnant_at_iter
 			.filter_map(|r| match r {
-				Ok((k, v)) =>
+				Ok((k, v)) => {
 					match (decode_stagnant_at_key(&mut &k[..]), <Vec<_>>::decode(&mut &v[..]).ok())
 					{
 						(Some(at), Some(stagnant_at)) => Some(Ok((at, stagnant_at))),
 						_ => None,
-					},
+					}
+				},
 				Err(e) => Some(Err(e)),
 			})
 			.enumerate()
@@ -289,7 +290,7 @@ impl Backend for DbBackend {
 						block_entry.encode(),
 					);
 				},
-				BackendWriteOp::WriteBlocksByNumber(block_number, v) =>
+				BackendWriteOp::WriteBlocksByNumber(block_number, v) => {
 					if v.is_empty() {
 						tx.delete(self.config.col_data, &block_height_key(block_number));
 					} else {
@@ -298,7 +299,8 @@ impl Backend for DbBackend {
 							&block_height_key(block_number),
 							v.encode(),
 						);
-					},
+					}
+				},
 				BackendWriteOp::WriteViableLeaves(leaves) => {
 					let leaves: LeafEntrySet = leaves.into();
 					if leaves.inner.is_empty() {
@@ -370,10 +372,10 @@ fn stagnant_at_key(timestamp: Timestamp) -> [u8; 14 + 8] {
 
 fn decode_block_height_key(key: &[u8]) -> Option<BlockNumber> {
 	if key.len() != 15 + 4 {
-		return None
+		return None;
 	}
 	if !key.starts_with(BLOCK_HEIGHT_PREFIX) {
-		return None
+		return None;
 	}
 
 	let mut bytes = [0; 4];
@@ -383,10 +385,10 @@ fn decode_block_height_key(key: &[u8]) -> Option<BlockNumber> {
 
 fn decode_stagnant_at_key(key: &[u8]) -> Option<Timestamp> {
 	if key.len() != 14 + 8 {
-		return None
+		return None;
 	}
 	if !key.starts_with(STAGNANT_AT_PREFIX) {
-		return None
+		return None;
 	}
 
 	let mut bytes = [0; 8];

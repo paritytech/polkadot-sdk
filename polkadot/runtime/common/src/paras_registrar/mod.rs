@@ -318,7 +318,7 @@ pub mod pallet {
 			// early, since swapping the same id would otherwise be a noop.
 			if id == other {
 				PendingSwap::<T>::remove(id);
-				return Ok(())
+				return Ok(());
 			}
 
 			// Sanity check that `id` is even a para.
@@ -330,23 +330,23 @@ pub mod pallet {
 					paras::Pallet::<T>::lifecycle(other).ok_or(Error::<T>::NotRegistered)?;
 				// identify which is a lease holding parachain and which is a parathread (on-demand
 				// parachain)
-				if id_lifecycle == ParaLifecycle::Parachain &&
-					other_lifecycle == ParaLifecycle::Parathread
+				if id_lifecycle == ParaLifecycle::Parachain
+					&& other_lifecycle == ParaLifecycle::Parathread
 				{
 					Self::do_thread_and_chain_swap(id, other);
-				} else if id_lifecycle == ParaLifecycle::Parathread &&
-					other_lifecycle == ParaLifecycle::Parachain
+				} else if id_lifecycle == ParaLifecycle::Parathread
+					&& other_lifecycle == ParaLifecycle::Parachain
 				{
 					Self::do_thread_and_chain_swap(other, id);
-				} else if id_lifecycle == ParaLifecycle::Parachain &&
-					other_lifecycle == ParaLifecycle::Parachain
+				} else if id_lifecycle == ParaLifecycle::Parachain
+					&& other_lifecycle == ParaLifecycle::Parachain
 				{
 					// If both chains are currently parachains, there is nothing funny we
 					// need to do for their lifecycle management, just swap the underlying
 					// data.
 					T::OnSwap::on_swap(id, other);
 				} else {
-					return Err(Error::<T>::CannotSwap.into())
+					return Err(Error::<T>::CannotSwap.into());
 				}
 				Self::deposit_event(Event::<T>::Swapped { para_id: id, other_id: other });
 				PendingSwap::<T>::remove(other);
@@ -566,7 +566,7 @@ impl<T: Config> Pallet<T> {
 
 			if para_info.manager == who {
 				ensure!(!para_info.is_locked(), Error::<T>::ParaLocked);
-				return Ok(())
+				return Ok(());
 			}
 		}
 
@@ -579,7 +579,7 @@ impl<T: Config> Pallet<T> {
 		id: ParaId,
 	) -> DispatchResult {
 		if ensure_root(origin.clone()).is_ok() {
-			return Ok(())
+			return Ok(());
 		}
 
 		let caller_id = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;

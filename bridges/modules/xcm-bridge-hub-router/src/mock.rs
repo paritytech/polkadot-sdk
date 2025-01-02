@@ -94,7 +94,7 @@ impl<LocationValue: Contains<Location>> GetVersion
 {
 	fn get_version_for(dest: &Location) -> Option<XcmVersion> {
 		if LocationValue::contains(dest) {
-			return None
+			return None;
 		}
 		Some(XCM_VERSION)
 	}

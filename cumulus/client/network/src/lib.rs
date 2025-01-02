@@ -97,7 +97,7 @@ impl BlockAnnounceData {
 				h
 			} else {
 				tracing::debug!(target: LOG_TARGET, "`CompactStatement` isn't the candidate variant!",);
-				return Err(Validation::Failure { disconnect: true })
+				return Err(Validation::Failure { disconnect: true });
 			};
 
 		if *candidate_hash != self.receipt.hash() {
@@ -105,7 +105,7 @@ impl BlockAnnounceData {
 				target: LOG_TARGET,
 				"Receipt candidate hash doesn't match candidate hash in statement",
 			);
-			return Err(Validation::Failure { disconnect: true })
+			return Err(Validation::Failure { disconnect: true });
 		}
 
 		if HeadData(encoded_header).hash() != self.receipt.descriptor.para_head() {
@@ -113,7 +113,7 @@ impl BlockAnnounceData {
 				target: LOG_TARGET,
 				"Receipt para head hash doesn't match the hash of the header in the block announcement",
 			);
-			return Err(Validation::Failure { disconnect: true })
+			return Err(Validation::Failure { disconnect: true });
 		}
 
 		Ok(())
@@ -152,7 +152,7 @@ impl BlockAnnounceData {
 					"Block announcement justification signer is a validator index out of bound",
 				);
 
-				return Ok(Validation::Failure { disconnect: true })
+				return Ok(Validation::Failure { disconnect: true });
 			},
 		};
 
@@ -163,7 +163,7 @@ impl BlockAnnounceData {
 				"Block announcement justification signature is invalid.",
 			);
 
-			return Ok(Validation::Failure { disconnect: true })
+			return Ok(Validation::Failure { disconnect: true });
 		}
 
 		Ok(Validation::Success { is_new_best: true })
@@ -177,7 +177,7 @@ impl TryFrom<&'_ CollationSecondedSignal> for BlockAnnounceData {
 		let receipt = if let Statement::Seconded(receipt) = signal.statement.payload() {
 			receipt.to_plain()
 		} else {
-			return Err(())
+			return Err(());
 		};
 
 		Ok(BlockAnnounceData {
@@ -289,8 +289,8 @@ where
 
 		// If the relay chain runtime does not support the new runtime API, fallback to the
 		// deprecated one.
-		let candidate_receipts = if parachain_host_runtime_api_version <
-			RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
+		let candidate_receipts = if parachain_host_runtime_api_version
+			< RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
 		{
 			#[allow(deprecated)]
 			relay_chain_interface
@@ -327,7 +327,7 @@ where
 		if best_head == header {
 			tracing::debug!(target: LOG_TARGET, "Announced block matches best block.",);
 
-			return Ok(Validation::Success { is_new_best: true })
+			return Ok(Validation::Success { is_new_best: true });
 		}
 
 		let mut backed_blocks =
@@ -379,24 +379,25 @@ where
 				.unwrap_or(false);
 
 			if relay_chain_is_syncing {
-				return Ok(Validation::Success { is_new_best: false })
+				return Ok(Validation::Success { is_new_best: false });
 			}
 
 			if data.is_empty() {
-				return block_announce_validator.handle_empty_block_announce_data(header).await
+				return block_announce_validator.handle_empty_block_announce_data(header).await;
 			}
 
 			let block_announce_data = match BlockAnnounceData::decode_all(&mut data.as_slice()) {
 				Ok(r) => r,
-				Err(err) =>
+				Err(err) => {
 					return Err(Box::new(BlockAnnounceError(format!(
 						"Can not decode the `BlockAnnounceData`: {:?}",
 						err
-					))) as Box<_>),
+					))) as Box<_>)
+				},
 			};
 
 			if let Err(e) = block_announce_data.validate(header_encoded) {
-				return Ok(e)
+				return Ok(e);
 			}
 
 			let relay_parent = block_announce_data.receipt.descriptor.relay_parent();
@@ -477,7 +478,7 @@ async fn wait_to_announce<Block: BlockT>(
 				block = ?block_hash,
 				"Wait to announce stopped, because sender was dropped.",
 			);
-			return
+			return;
 		},
 	};
 

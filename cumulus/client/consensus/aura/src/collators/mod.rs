@@ -74,12 +74,12 @@ async fn check_validation_code_or_log(
 				%para_id,
 				"Failed to fetch validation code hash",
 			);
-			return
+			return;
 		},
 	};
 
 	match state_validation_code_hash {
-		Some(state) =>
+		Some(state) => {
 			if state != *local_validation_code_hash {
 				tracing::warn!(
 					target: super::LOG_TARGET,
@@ -89,7 +89,8 @@ async fn check_validation_code_or_log(
 					relay_validation_code_hash = ?state,
 					"Parachain code doesn't match validation code stored in the relay chain state.",
 				);
-			},
+			}
+		},
 		None => {
 			tracing::warn!(
 				target: super::LOG_TARGET,
@@ -147,7 +148,7 @@ async fn cores_scheduled_for_para(
 				?relay_parent,
 				"Failed to query claim queue runtime API",
 			);
-			return Vec::new()
+			return Vec::new();
 		},
 	};
 
@@ -181,10 +182,10 @@ where
 	// Here we lean on the property that building on an empty unincluded segment must always
 	// be legal. Skipping the runtime API query here allows us to seamlessly run this
 	// collator against chains which have not yet upgraded their runtime.
-	if parent_hash != included_block &&
-		!runtime_api.can_build_upon(parent_hash, included_block, slot).ok()?
+	if parent_hash != included_block
+		&& !runtime_api.can_build_upon(parent_hash, included_block, slot).ok()?
 	{
-		return None
+		return None;
 	}
 
 	Some(SlotClaim::unchecked::<P>(author_pub, slot, timestamp))
@@ -228,7 +229,7 @@ where
 				"Could not fetch potential parents to build upon"
 			);
 
-			return None
+			return None;
 		},
 		Ok(x) => x,
 	};

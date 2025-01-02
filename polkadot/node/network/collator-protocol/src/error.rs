@@ -122,13 +122,13 @@ impl SecondingError {
 		use SecondingError::*;
 		matches!(
 			self,
-			PersistedValidationDataMismatch |
-				CandidateHashMismatch |
-				RelayParentMismatch |
-				ParentHeadDataMismatch |
-				InvalidCoreIndex(_, _) |
-				InvalidSessionIndex(_, _) |
-				InvalidReceiptVersion(_)
+			PersistedValidationDataMismatch
+				| CandidateHashMismatch
+				| RelayParentMismatch
+				| ParentHeadDataMismatch
+				| InvalidCoreIndex(_, _)
+				| InvalidSessionIndex(_, _)
+				| InvalidReceiptVersion(_)
 		)
 	}
 }

@@ -411,8 +411,8 @@ pub trait WeightInfoExt: WeightInfo {
 	/// is less than that cost).
 	fn storage_proof_size_overhead(proof_size: u32) -> Weight {
 		let proof_size_in_bytes = proof_size;
-		let byte_weight = Self::receive_single_n_bytes_message_proof(2) -
-			Self::receive_single_n_bytes_message_proof(1);
+		let byte_weight = Self::receive_single_n_bytes_message_proof(2)
+			- Self::receive_single_n_bytes_message_proof(1);
 		proof_size_in_bytes * byte_weight
 	}
 

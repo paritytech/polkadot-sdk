@@ -111,7 +111,7 @@ pub async fn fetch(
 					?err,
 					"Sending request failed, node might be shutting down - exiting."
 				);
-				return
+				return;
 			}
 
 			metrics.on_sent_request();
@@ -132,7 +132,7 @@ pub async fn fetch(
 							);
 						}
 						// We want to get rid of this peer:
-						continue
+						continue;
 					}
 
 					if let Err(err) = sender
@@ -155,7 +155,7 @@ pub async fn fetch(
 					metrics.on_received_response(true);
 
 					// We are done now.
-					return
+					return;
 				},
 				Err(err) => {
 					gum::debug!(
@@ -210,7 +210,7 @@ async fn try_get_new_peers(
 			?err,
 			"Failed sending background task message, subsystem probably moved on."
 		);
-		return Err(())
+		return Err(());
 	}
 
 	match rx.timeout(RETRY_TIMEOUT).await.transpose() {

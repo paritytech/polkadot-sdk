@@ -113,15 +113,15 @@ where
 		_source: TransactionSource,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
 		let Some(who) = origin.as_system_origin_signer() else {
-			return Ok((Default::default(), Val::Refund(self.weight(call)), origin))
+			return Ok((Default::default(), Val::Refund(self.weight(call)), origin));
 		};
 		let account = crate::Account::<T>::get(who);
 		if account.providers.is_zero() && account.sufficients.is_zero() {
 			// Nonce storage not paid for
-			return Err(InvalidTransaction::Payment.into())
+			return Err(InvalidTransaction::Payment.into());
 		}
 		if self.0 < account.nonce {
-			return Err(InvalidTransaction::Stale.into())
+			return Err(InvalidTransaction::Stale.into());
 		}
 
 		let provides = vec![Encode::encode(&(&who, self.0))];
@@ -157,7 +157,7 @@ where
 
 		// `self.0 < nonce` already checked in `validate`.
 		if self.0 > nonce {
-			return Err(InvalidTransaction::Future.into())
+			return Err(InvalidTransaction::Future.into());
 		}
 		nonce += T::Nonce::one();
 		crate::Account::<T>::mutate(who, |account| account.nonce = nonce);

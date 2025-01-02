@@ -274,8 +274,8 @@ mod benchmarks {
 			Event::CandidateBondUpdated { account_id: caller, deposit: bond_amount }.into(),
 		);
 		assert!(
-			CandidateList::<T>::get().iter().last().unwrap().deposit ==
-				T::Currency::minimum_balance() * 2u32.into()
+			CandidateList::<T>::get().iter().last().unwrap().deposit
+				== T::Currency::minimum_balance() * 2u32.into()
 		);
 		Ok(())
 	}

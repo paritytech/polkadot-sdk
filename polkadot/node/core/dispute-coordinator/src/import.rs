@@ -82,8 +82,9 @@ impl<'a> CandidateEnvironment<'a> {
 			.get_session_info_by_index(ctx.sender(), relay_parent, session_index)
 			.await
 		{
-			Ok(extended_session_info) =>
-				(&extended_session_info.session_info, &extended_session_info.executor_params),
+			Ok(extended_session_info) => {
+				(&extended_session_info.session_info, &extended_session_info.executor_params)
+			},
 			Err(_) => return None,
 		};
 
@@ -98,7 +99,7 @@ impl<'a> CandidateEnvironment<'a> {
 			let mut d: HashSet<ValidatorIndex> = HashSet::new();
 			for v in disabled_onchain.into_iter().chain(disabled_offchain.into_iter()) {
 				if d.len() == byzantine_threshold {
-					break
+					break;
 				}
 				d.insert(v);
 			}
@@ -155,7 +156,7 @@ impl OwnVoteState {
 	fn new(votes: &CandidateVotes, env: &CandidateEnvironment) -> Self {
 		let controlled_indices = env.controlled_indices();
 		if controlled_indices.is_empty() {
-			return Self::CannotVote
+			return Self::CannotVote;
 		}
 
 		let our_valid_votes = controlled_indices
@@ -319,7 +320,7 @@ impl CandidateVoteState<CandidateVotes> {
 					"Validator index doesn't match claimed key",
 				);
 
-				continue
+				continue;
 			}
 			if statement.candidate_hash() != &expected_candidate_hash {
 				gum::error!(
@@ -330,7 +331,7 @@ impl CandidateVoteState<CandidateVotes> {
 					?expected_candidate_hash,
 					"Vote is for unexpected candidate!",
 				);
-				continue
+				continue;
 			}
 			if statement.session_index() != env.session_index() {
 				gum::error!(
@@ -341,7 +342,7 @@ impl CandidateVoteState<CandidateVotes> {
 					?expected_candidate_hash,
 					"Vote is for unexpected session!",
 				);
-				continue
+				continue;
 			}
 
 			match statement.statement() {
@@ -551,8 +552,8 @@ impl ImportResult {
 	/// Whether or not the invalid vote count for the dispute went beyond the byzantine threshold
 	/// after the last import
 	pub fn has_fresh_byzantine_threshold_against(&self) -> bool {
-		!self.old_state().byzantine_threshold_against &&
-			self.new_state().byzantine_threshold_against
+		!self.old_state().byzantine_threshold_against
+			&& self.new_state().byzantine_threshold_against
 	}
 
 	/// Modify this `ImportResult`s, by importing additional approval votes.
@@ -643,7 +644,7 @@ fn find_controlled_validator_indices(
 	let mut controlled = HashSet::new();
 	for (index, validator) in validators.iter().enumerate() {
 		if keystore.key_pair::<ValidatorPair>(validator).ok().flatten().is_none() {
-			continue
+			continue;
 		}
 
 		controlled.insert(ValidatorIndex(index as _));

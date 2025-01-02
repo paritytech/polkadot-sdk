@@ -116,8 +116,9 @@ pub mod pallet {
 						Outcome::Complete { used } => (Ok(used), Event::Success(Some(hash))),
 						// As far as the caller is concerned, this was dispatched without error, so
 						// we just report the weight used.
-						Outcome::Incomplete { used, error } =>
-							(Ok(used), Event::Fail(Some(hash), error)),
+						Outcome::Incomplete { used, error } => {
+							(Ok(used), Event::Fail(Some(hash), error))
+						},
 					}
 				},
 				Err(()) => (Err(XcmError::UnhandledXcmVersion), Event::BadVersion(Some(hash))),

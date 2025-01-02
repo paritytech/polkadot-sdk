@@ -327,7 +327,7 @@ fn pruning_range(now: impl Into<BETimestamp>) -> (Vec<u8>, Vec<u8>) {
 
 fn decode_unfinalized_key(s: &[u8]) -> Result<(BlockNumber, Hash, CandidateHash), CodecError> {
 	if !s.starts_with(UNFINALIZED_PREFIX) {
-		return Err("missing magic string".into())
+		return Err("missing magic string".into());
 	}
 
 	<(BEBlockNumber, Hash, CandidateHash)>::decode(&mut &s[UNFINALIZED_PREFIX.len()..])
@@ -336,7 +336,7 @@ fn decode_unfinalized_key(s: &[u8]) -> Result<(BlockNumber, Hash, CandidateHash)
 
 fn decode_pruning_key(s: &[u8]) -> Result<(Duration, CandidateHash), CodecError> {
 	if !s.starts_with(PRUNE_BY_TIME_PREFIX) {
-		return Err("missing magic string".into())
+		return Err("missing magic string".into());
 	}
 
 	<(BETimestamp, CandidateHash)>::decode(&mut &s[PRUNE_BY_TIME_PREFIX.len()..])
@@ -567,12 +567,12 @@ async fn run<Context>(mut subsystem: AvailabilityStoreSubsystem, mut ctx: Contex
 			Err(e) => {
 				e.trace();
 				if e.is_fatal() {
-					break
+					break;
 				}
 			},
 			Ok(true) => {
 				gum::info!(target: LOG_TARGET, "received `Conclude` signal, exiting");
-				break
+				break;
 			},
 			Ok(false) => continue,
 		}
@@ -848,13 +848,13 @@ fn note_block_included(
 						within.insert(i, be_block);
 						State::Unfinalized(at, within)
 					} else {
-						return Ok(())
+						return Ok(());
 					}
 				},
 				State::Finalized(_at) => {
 					// This should never happen as a candidate would have to be included after
 					// finality.
-					return Ok(())
+					return Ok(());
 				},
 			};
 
@@ -913,7 +913,7 @@ async fn process_block_finalized<Context>(
 		};
 
 		if batch_num < next_possible_batch {
-			continue
+			continue;
 		} // sanity.
 		next_possible_batch = batch_num + 1;
 
@@ -932,7 +932,7 @@ async fn process_block_finalized<Context>(
 						"Failed to retrieve finalized block number.",
 					);
 
-					break
+					break;
 				},
 				Ok(None) => {
 					gum::warn!(
@@ -942,7 +942,7 @@ async fn process_block_finalized<Context>(
 						batch_num,
 					);
 
-					break
+					break;
 				},
 				Ok(Some(h)) => h,
 			}
@@ -1020,7 +1020,7 @@ fn update_blocks_at_finalized_height(
 					candidate_hash,
 				);
 
-				continue
+				continue;
 			},
 			Some(c) => c,
 		};
@@ -1192,7 +1192,7 @@ fn process_message(
 				},
 				Err(e) => {
 					let _ = tx.send(Err(()));
-					return Err(e)
+					return Err(e);
 				},
 			}
 		},
@@ -1225,7 +1225,7 @@ fn process_message(
 				},
 				Err(Error::InvalidErasureRoot) => {
 					let _ = tx.send(Err(StoreAvailableDataError::InvalidErasureRoot));
-					return Err(Error::InvalidErasureRoot)
+					return Err(Error::InvalidErasureRoot);
 				},
 				Err(e) => {
 					// We do not bubble up internal errors to caller subsystems, instead the
@@ -1233,7 +1233,7 @@ fn process_message(
 					//
 					// We bubble up the specific error here so `av-store` logs still tell what
 					// happened.
-					return Err(e.into())
+					return Err(e.into());
 				},
 			}
 		},
@@ -1294,7 +1294,7 @@ fn store_available_data(
 	let mut meta = match load_meta(&subsystem.db, &subsystem.config, &candidate_hash)? {
 		Some(m) => {
 			if m.data_available {
-				return Ok(()) // already stored.
+				return Ok(()); // already stored.
 			}
 
 			m
@@ -1320,7 +1320,7 @@ fn store_available_data(
 	let branches = polkadot_erasure_coding::branches(chunks.as_ref());
 
 	if branches.root() != expected_erasure_root {
-		return Err(Error::InvalidErasureRoot)
+		return Err(Error::InvalidErasureRoot);
 	}
 
 	let erasure_chunks: Vec<_> = chunks

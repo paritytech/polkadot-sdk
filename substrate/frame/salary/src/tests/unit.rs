@@ -20,7 +20,10 @@
 use std::collections::BTreeMap;
 
 use core::cell::RefCell;
-use frame::{prelude::*, runtime::prelude::*, testing_prelude::*,
+use frame::{
+	prelude::*,
+	runtime::prelude::*,
+	testing_prelude::*,
 	traits::{tokens::ConvertRank, ConstU64},
 };
 use sp_runtime::{traits::Identity, BuildStorage, DispatchResult};

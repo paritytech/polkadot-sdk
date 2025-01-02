@@ -80,7 +80,7 @@ impl<
 					target: LOG_TARGET,
 					"OpenBridgeForLane - on_runtime_upgrade failed to construct bridge_locations with error: {e:?}"
 				);
-				return T::DbWeight::get().reads(0)
+				return T::DbWeight::get().reads(0);
 			},
 		};
 
@@ -100,7 +100,7 @@ impl<
 				);
 			}
 
-			return T::DbWeight::get().reads(2)
+			return T::DbWeight::get().reads(2);
 		}
 
 		if let Err(e) = Pallet::<T, I>::do_open_bridge(locations, lane_id, create_lane) {
@@ -123,10 +123,10 @@ impl<
 			bridge_origin_relative_location.clone(),
 			bridge_destination_universal_location.clone(),
 		) else {
-			return Err(sp_runtime::DispatchError::Other("Invalid locations!"))
+			return Err(sp_runtime::DispatchError::Other("Invalid locations!"));
 		};
 		let Some((bridge_id, _)) = Pallet::<T, I>::bridge_by_lane_id(&lane_id) else {
-			return Err(sp_runtime::DispatchError::Other("Missing bridge!"))
+			return Err(sp_runtime::DispatchError::Other("Missing bridge!"));
 		};
 		frame_support::ensure!(
 			locations.bridge_id() == &bridge_id,

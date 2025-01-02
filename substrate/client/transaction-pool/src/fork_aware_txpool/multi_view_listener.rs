@@ -220,9 +220,9 @@ where
 				self.terminate = true;
 				Some(status)
 			},
-			TransactionStatus::Usurped(_) |
-			TransactionStatus::Dropped |
-			TransactionStatus::Invalid => None,
+			TransactionStatus::Usurped(_)
+			| TransactionStatus::Dropped
+			| TransactionStatus::Invalid => None,
 		}
 	}
 
@@ -303,7 +303,7 @@ where
 	) -> Option<TxStatusStream<ChainApi>> {
 		let mut controllers = self.controllers.write();
 		if controllers.contains_key(&tx_hash) {
-			return None
+			return None;
 		}
 
 		trace!(target: LOG_TARGET, "[{:?}] create_external_watcher_for_tx", tx_hash);
@@ -316,7 +316,7 @@ where
 		Some(
 			futures::stream::unfold(ctx, |mut ctx| async move {
 				if ctx.terminate {
-					return None
+					return None;
 				}
 				loop {
 					tokio::select! {

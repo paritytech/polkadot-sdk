@@ -114,13 +114,14 @@ where
 	async move {
 		let mut collation_requests = match params.collation_request_receiver {
 			Some(receiver) => receiver,
-			None =>
+			None => {
 				cumulus_client_collator::relay_chain_driven::init(
 					params.collator_key,
 					params.para_id,
 					params.overseer_handle,
 				)
-				.await,
+				.await
+			},
 		};
 
 		let mut collator = {
@@ -166,7 +167,7 @@ where
 			let parent_hash = parent_header.hash();
 
 			if !collator.collator_service().check_block_status(parent_hash, &parent_header) {
-				continue
+				continue;
 			}
 
 			let Ok(Some(code)) =
@@ -220,10 +221,10 @@ where
 			//
 			// With https://github.com/paritytech/polkadot-sdk/issues/3168 this implementation will be
 			// obsolete and also the underlying issue will be fixed.
-			if last_processed_slot >= *claim.slot() &&
-				last_relay_chain_block < *relay_parent_header.number()
+			if last_processed_slot >= *claim.slot()
+				&& last_relay_chain_block < *relay_parent_header.number()
 			{
-				continue
+				continue;
 			}
 
 			let (parachain_inherent_data, other_inherent_data) = try_request!(

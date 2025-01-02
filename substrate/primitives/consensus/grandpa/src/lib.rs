@@ -355,10 +355,10 @@ where
 	macro_rules! check {
 		( $equivocation:expr, $message:expr ) => {
 			// if both votes have the same target the equivocation is invalid.
-			if $equivocation.first.0.target_hash == $equivocation.second.0.target_hash &&
-				$equivocation.first.0.target_number == $equivocation.second.0.target_number
+			if $equivocation.first.0.target_hash == $equivocation.second.0.target_hash
+				&& $equivocation.first.0.target_number == $equivocation.second.0.target_number
 			{
-				return false
+				return false;
 			}
 
 			// check signatures on both votes are valid

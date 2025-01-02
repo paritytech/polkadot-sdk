@@ -166,13 +166,13 @@ impl Participation {
 		// Participation already running - we can ignore that request, discarding its timer:
 		if self.running_participations.contains(req.candidate_hash()) {
 			req.discard_timer();
-			return Ok(())
+			return Ok(());
 		}
 		// Available capacity - participate right away (if we already have a recent block):
 		if let Some((_, h)) = self.recent_block {
 			if self.running_participations.len() < MAX_PARALLEL_PARTICIPATIONS {
 				self.fork_participation(ctx, req, h)?;
-				return Ok(())
+				return Ok(());
 			}
 		}
 		// Out of capacity/no recent block yet - queue:
@@ -248,7 +248,7 @@ impl Participation {
 			if let Some(req) = self.queue.dequeue() {
 				self.fork_participation(ctx, req, recent_head)?;
 			} else {
-				break
+				break;
 			}
 		}
 		Ok(())
@@ -319,7 +319,7 @@ async fn participate(
 				req.candidate_hash(),
 			);
 			send_result(&mut result_sender, req, ParticipationOutcome::Error).await;
-			return
+			return;
 		},
 		Ok(Ok(data)) => data,
 		Ok(Err(RecoveryError::Invalid)) => {
@@ -332,7 +332,7 @@ async fn participate(
 			// the available data was recovered but it is invalid, therefore we'll
 			// vote negatively for the candidate dispute
 			send_result(&mut result_sender, req, ParticipationOutcome::Invalid).await;
-			return
+			return;
 		},
 		Ok(Err(RecoveryError::Unavailable)) | Ok(Err(RecoveryError::ChannelClosed)) => {
 			gum::debug!(
@@ -342,7 +342,7 @@ async fn participate(
 				"Can't fetch availability data in participation"
 			);
 			send_result(&mut result_sender, req, ParticipationOutcome::Unavailable).await;
-			return
+			return;
 		},
 	};
 
@@ -365,12 +365,12 @@ async fn participate(
 			);
 
 			send_result(&mut result_sender, req, ParticipationOutcome::Error).await;
-			return
+			return;
 		},
 		Err(err) => {
 			gum::warn!(target: LOG_TARGET, ?err, "Error when fetching validation code.");
 			send_result(&mut result_sender, req, ParticipationOutcome::Error).await;
-			return
+			return;
 		},
 	};
 
@@ -403,7 +403,7 @@ async fn participate(
 				req.candidate_hash(),
 			);
 			send_result(&mut result_sender, req, ParticipationOutcome::Error).await;
-			return
+			return;
 		},
 		Ok(Err(err)) => {
 			gum::warn!(

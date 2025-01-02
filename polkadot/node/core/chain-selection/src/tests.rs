@@ -171,7 +171,7 @@ impl Backend for TestBackend {
 		// Early return if empty because empty writes shouldn't
 		// trigger wakeups (they happen on an interval)
 		if ops.is_empty() {
-			return Ok(())
+			return Ok(());
 		}
 		let mut inner = self.inner.lock();
 
@@ -513,7 +513,7 @@ async fn import_all_blocks_into(
 
 					// Last weight has been returned. Time to go.
 					if h == head_hash {
-						break
+						break;
 					}
 				},
 				_ => panic!("unexpected message"),

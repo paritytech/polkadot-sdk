@@ -81,11 +81,11 @@ pub async fn respond(
 			Ok(Ok(v)) => v,
 			Err(fatal) => {
 				gum::debug!(target: LOG_TARGET, error = ?fatal, "Shutting down request responder");
-				return
+				return;
 			},
 			Ok(Err(jfyi)) => {
 				gum::debug!(target: LOG_TARGET, error = ?jfyi, "Decoding request failed");
-				continue
+				continue;
 			},
 		};
 
@@ -100,7 +100,7 @@ pub async fn respond(
 			.await
 		{
 			gum::debug!(target: LOG_TARGET, ?err, "Shutting down responder");
-			return
+			return;
 		}
 		let response = match rx.await {
 			Err(err) => {

@@ -126,8 +126,9 @@ pub fn get_deprecation_enum<'a>(
 		})
 		.collect::<Result<Vec<TokenStream>>>()?;
 	match (parent_deprecation, children.as_slice()) {
-		(None, []) =>
-			Ok(quote::quote! { #path::__private::metadata_ir::DeprecationInfoIR::NotDeprecated }),
+		(None, []) => {
+			Ok(quote::quote! { #path::__private::metadata_ir::DeprecationInfoIR::NotDeprecated })
+		},
 		(None, _) => {
 			let children = quote::quote! { #path::__private::scale_info::prelude::collections::BTreeMap::from([#( #children),*]) };
 			Ok(

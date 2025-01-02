@@ -108,7 +108,7 @@ impl StorageMonitorService {
 		loop {
 			tokio::time::sleep(self.polling_period).await;
 			if Self::check_free_space(&self.path, self.threshold).is_err() {
-				break
+				break;
 			};
 		}
 	}

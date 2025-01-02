@@ -214,7 +214,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// if the bridge queue is not congested, we don't want to do anything
 		let is_congested = enqueued_messages > OUTBOUND_LANE_CONGESTED_THRESHOLD;
 		if !is_congested {
-			return
+			return;
 		}
 
 		// TODO: https://github.com/paritytech/parity-bridges-common/issues/2006 we either need fishermens
@@ -224,7 +224,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// check if the lane is already suspended. If it is, do nothing. We still accept new
 		// messages to the suspended bridge, hoping that it'll be actually resumed soon
 		if bridge.state == BridgeState::Suspended {
-			return
+			return;
 		}
 
 		// else - suspend the bridge
@@ -239,7 +239,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					bridge.bridge_origin_relative_location,
 				);
 
-				return
+				return;
 			},
 		};
 		let suspend_result =
@@ -262,7 +262,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					e,
 				);
 
-				return
+				return;
 			},
 		}
 
@@ -277,7 +277,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// if the bridge queue is still congested, we don't want to do anything
 		let is_congested = enqueued_messages > OUTBOUND_LANE_UNCONGESTED_THRESHOLD;
 		if is_congested {
-			return
+			return;
 		}
 
 		// if we have not suspended the bridge before (or it is closed), we don't want to do
@@ -288,7 +288,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// if there is no bridge or it has been closed, then we don't need to send resume
 				// signal to the local origin - it has closed bridge itself, so it should have
 				// alrady pruned everything else
-				return
+				return;
 			},
 		};
 
@@ -305,7 +305,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					e,
 				);
 
-				return
+				return;
 			},
 		};
 
@@ -331,7 +331,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					e,
 				);
 
-				return
+				return;
 			},
 		}
 

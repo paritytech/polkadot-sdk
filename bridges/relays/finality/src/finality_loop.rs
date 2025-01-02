@@ -241,7 +241,7 @@ impl<Tracker: TransactionTracker, Number: Debug + PartialOrd> Transaction<Tracke
 							return Err(Error::ProofSubmissionTxFailed {
 								submitted_number: self.header_number,
 								best_number_at_target: best_id_at_target.0,
-							})
+							});
 						}
 						Ok(())
 					})
@@ -290,16 +290,16 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 		let (prev_time, prev_best_number_at_target) = self.progress;
 		let now = Instant::now();
 
-		let needs_update = now - prev_time > Duration::from_secs(10) ||
-			prev_best_number_at_target
+		let needs_update = now - prev_time > Duration::from_secs(10)
+			|| prev_best_number_at_target
 				.map(|prev_best_number_at_target| {
-					info.best_number_at_target.saturating_sub(prev_best_number_at_target) >
-						10.into()
+					info.best_number_at_target.saturating_sub(prev_best_number_at_target)
+						> 10.into()
 				})
 				.unwrap_or(true);
 
 		if !needs_update {
-			return
+			return;
 		}
 
 		log::info!(
@@ -335,7 +335,7 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 		.await?;
 		// if we see that the header schedules GRANDPA change, we need to submit it
 		if self.sync_params.headers_to_relay == HeadersToRelay::Mandatory {
-			return Ok(selector.select_mandatory())
+			return Ok(selector.select_mandatory());
 		}
 
 		// all headers that are missing from the target client are non-mandatory
@@ -377,7 +377,7 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 		// if we have already submitted header, then we just need to wait for it
 		// if we're waiting too much, then we believe our transaction has been lost and restart sync
 		if Some(info.best_number_at_target) < self.best_submitted_number {
-			return Ok(None)
+			return Ok(None);
 		}
 
 		// submit new header if we have something new
@@ -401,7 +401,7 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 	async fn ensure_finality_proofs_stream(&mut self) -> Result<(), FailedClient> {
 		if let Err(e) = self.finality_proofs_stream.ensure_stream(&self.source_client).await {
 			if e.is_connection_error() {
-				return Err(FailedClient::Source)
+				return Err(FailedClient::Source);
 			}
 		}
 

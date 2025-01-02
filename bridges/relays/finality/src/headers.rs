@@ -72,7 +72,7 @@ impl<P: FinalitySyncPipeline> JustifiedHeaderSelector<P> {
 			match (header.is_mandatory(), maybe_proof) {
 				(true, Some(proof)) => {
 					log::trace!(target: "bridge", "Header {:?} is mandatory", header_number);
-					return Ok(Self::Mandatory(JustifiedHeader { header, proof }))
+					return Ok(Self::Mandatory(JustifiedHeader { header, proof }));
 				},
 				(true, None) => return Err(Error::MissingMandatoryFinalityProof(header.number())),
 				(false, Some(proof))
@@ -128,8 +128,9 @@ impl<P: FinalitySyncPipeline> JustifiedHeaderSelector<P> {
 	) -> Option<JustifiedHeader<P>> {
 		let (unjustified_headers, maybe_justified_header) = match self {
 			JustifiedHeaderSelector::Mandatory(justified_header) => return Some(justified_header),
-			JustifiedHeaderSelector::Regular(unjustified_headers, justified_header) =>
-				(unjustified_headers, Some(justified_header)),
+			JustifiedHeaderSelector::Regular(unjustified_headers, justified_header) => {
+				(unjustified_headers, Some(justified_header))
+			},
 			JustifiedHeaderSelector::None(unjustified_headers) => (unjustified_headers, None),
 		};
 
@@ -161,7 +162,7 @@ impl<P: FinalitySyncPipeline> JustifiedHeaderSelector<P> {
 					return Some(JustifiedHeader {
 						header: unjustified_header.clone(),
 						proof: finality_proof.clone(),
-					})
+					});
 				},
 				Ordering::Equal => {
 					maybe_finality_proof = finality_proofs_iter.next();
@@ -194,14 +195,15 @@ fn need_to_relay<P: FinalitySyncPipeline>(
 	match headers_to_relay {
 		HeadersToRelay::All => true,
 		HeadersToRelay::Mandatory => header.is_mandatory(),
-		HeadersToRelay::Free =>
-			header.is_mandatory() ||
-				free_headers_interval
+		HeadersToRelay::Free => {
+			header.is_mandatory()
+				|| free_headers_interval
 					.map(|free_headers_interval| {
-						header.number().saturating_sub(info.best_number_at_target) >=
-							free_headers_interval
+						header.number().saturating_sub(info.best_number_at_target)
+							>= free_headers_interval
 					})
-					.unwrap_or(false),
+					.unwrap_or(false)
+		},
 	}
 }
 

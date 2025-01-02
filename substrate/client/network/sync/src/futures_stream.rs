@@ -61,7 +61,7 @@ impl<F: Future> Stream for FuturesStream<F> {
 		let Poll::Ready(Some(result)) = self.futures.poll_next_unpin(cx) else {
 			self.waker = Some(cx.waker().clone());
 
-			return Poll::Pending
+			return Poll::Pending;
 		};
 
 		Poll::Ready(Some(result))

@@ -1167,9 +1167,9 @@ mod enter {
 		let backed_candidates_weight =
 			backed_candidates_weight::<Test>(&inherent_data.backed_candidates);
 
-		let sum = multi_dispute_statement_sets_weight +
-			signed_bitfields_weight +
-			backed_candidates_weight;
+		let sum = multi_dispute_statement_sets_weight
+			+ signed_bitfields_weight
+			+ backed_candidates_weight;
 
 		println!(
 			"disputes({})={} + bitfields({})={} + candidates({})={} -> {}",
@@ -1599,8 +1599,8 @@ mod enter {
 
 			// Test if weight insufficient even for 1 candidate (which doesn't contain a code
 			// upgrade).
-			let max_weight = backed_candidate_weight::<Test>(&input_candidates[0]) +
-				signed_bitfields_weight::<Test>(&input_bitfields);
+			let max_weight = backed_candidate_weight::<Test>(&input_candidates[0])
+				+ signed_bitfields_weight::<Test>(&input_bitfields);
 			let mut backed_candidates = input_candidates.clone();
 			let mut bitfields = input_bitfields.clone();
 			apply_weight_limit::<Test>(

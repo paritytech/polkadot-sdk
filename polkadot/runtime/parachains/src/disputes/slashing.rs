@@ -198,7 +198,7 @@ where
 					).map(|full_id| (id, full_id))
 				})
 				.collect::<Vec<IdentificationTuple<T>>>();
-			return Some(fully_identified)
+			return Some(fully_identified);
 		}
 		None
 	}
@@ -213,16 +213,16 @@ where
 		// sanity check for the current implementation
 		if kind == SlashingOffenceKind::AgainstValid {
 			debug_assert!(false, "should only slash ForInvalid disputes");
-			return
+			return;
 		}
 		let losers: BTreeSet<_> = losers.into_iter().collect();
 		if losers.is_empty() {
-			return
+			return;
 		}
 		let backers: BTreeSet<_> = backers.into_iter().collect();
 		let to_punish: Vec<ValidatorIndex> = losers.intersection(&backers).cloned().collect();
 		if to_punish.is_empty() {
-			return
+			return;
 		}
 
 		let session_info = crate::session_info::Sessions::<T>::get(session_index);
@@ -244,7 +244,7 @@ where
 			// This is the first time we report an offence for this dispute,
 			// so it is not a duplicate.
 			let _ = T::HandleReports::report_offence(offence);
-			return
+			return;
 		}
 
 		let keys = to_punish
@@ -471,14 +471,15 @@ pub mod pallet {
 			let try_remove = |v: &mut Option<PendingSlashes>| -> Result<(), DispatchError> {
 				let pending = v.as_mut().ok_or(Error::<T>::InvalidCandidateHash)?;
 				if pending.kind != dispute_proof.kind {
-					return Err(Error::<T>::InvalidCandidateHash.into())
+					return Err(Error::<T>::InvalidCandidateHash.into());
 				}
 
 				match pending.keys.entry(dispute_proof.validator_index) {
 					Entry::Vacant(_) => return Err(Error::<T>::InvalidValidatorIndex.into()),
 					// check that `validator_index` matches `validator_id`
-					Entry::Occupied(e) if e.get() != &dispute_proof.validator_id =>
-						return Err(Error::<T>::ValidatorIndexIdMismatch.into()),
+					Entry::Occupied(e) if e.get() != &dispute_proof.validator_id => {
+						return Err(Error::<T>::ValidatorIndexIdMismatch.into())
+					},
 					Entry::Occupied(e) => {
 						e.remove(); // the report is correct
 					},
@@ -540,7 +541,7 @@ impl<T: Config> Pallet<T> {
 
 		let config = crate::configuration::ActiveConfig::<T>::get();
 		if session_index <= config.dispute_period + 1 {
-			return
+			return;
 		}
 
 		let old_session = session_index - config.dispute_period - 1;
@@ -576,7 +577,7 @@ impl<T: Config> Pallet<T> {
 						"rejecting unsigned transaction because it is not local/in-block."
 					);
 
-					return InvalidTransaction::Call.into()
+					return InvalidTransaction::Call.into();
 				},
 			}
 

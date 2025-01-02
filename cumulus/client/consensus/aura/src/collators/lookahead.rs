@@ -84,14 +84,14 @@ fn export_pov_to_path<Block: BlockT>(
 ) {
 	if let Err(error) = fs::create_dir_all(&path) {
 		tracing::error!(target: LOG_TARGET, %error, path = %path.display(), "Failed to create PoV export directory");
-		return
+		return;
 	}
 
 	let mut file = match File::create(path.join(format!("{block_hash:?}_{block_number}.pov"))) {
 		Ok(f) => f,
 		Err(error) => {
 			tracing::error!(target: LOG_TARGET, %error, "Failed to export PoV.");
-			return
+			return;
 		},
 	};
 
@@ -235,7 +235,7 @@ where
 					"Failed to initialize consensus: no relay chain import notification stream"
 				);
 
-				return
+				return;
 			},
 		};
 
@@ -274,7 +274,7 @@ where
 					"Para is not scheduled on any core, skipping import notification",
 				);
 
-				continue
+				continue;
 			};
 
 			let max_pov_size = match params
@@ -290,7 +290,7 @@ where
 				Ok(Some(pvd)) => pvd.max_pov_size,
 				Err(err) => {
 					tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to gather information from relay-client");
-					continue
+					continue;
 				},
 			};
 
@@ -316,7 +316,7 @@ where
 					Ok(sd) => sd,
 					Err(err) => {
 						tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to acquire parachain slot duration");
-						return None
+						return None;
 					},
 				};
 				tracing::debug!(target: crate::LOG_TARGET, ?slot_duration, ?block_hash, "Parachain slot duration acquired");
@@ -352,7 +352,7 @@ where
 
 			// Do not try to build upon an unknown, pruned or bad block
 			if !collator.collator_service().check_block_status(parent_hash, &parent_header) {
-				continue
+				continue;
 			}
 
 			// This needs to change to support elastic scaling, but for continuously
@@ -393,7 +393,7 @@ where
 				{
 					Err(err) => {
 						tracing::error!(target: crate::LOG_TARGET, ?err);
-						break
+						break;
 					},
 					Ok(x) => x,
 				};
@@ -402,7 +402,7 @@ where
 					params.code_hash_provider.code_hash_at(parent_hash)
 				else {
 					tracing::error!(target: crate::LOG_TARGET, ?parent_hash, "Could not fetch validation code hash");
-					break
+					break;
 				};
 
 				super::check_validation_code_or_log(
@@ -477,11 +477,11 @@ where
 					},
 					Ok(None) => {
 						tracing::debug!(target: crate::LOG_TARGET, "No block proposal");
-						break
+						break;
 					},
 					Err(err) => {
 						tracing::error!(target: crate::LOG_TARGET, ?err);
-						break
+						break;
 					},
 				}
 			}

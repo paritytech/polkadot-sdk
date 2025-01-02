@@ -281,8 +281,8 @@ pub fn from_original<T: Config<I>, I: Instance + 'static>(
 
 		// The founder must be the first member in Society V2. If we find the founder not in index
 		// zero, we swap it with the first member.
-		if member == Founder::<T, I>::get().defensive_ok_or("founder must always be set")? &&
-			member_count > 0
+		if member == Founder::<T, I>::get().defensive_ok_or("founder must always be set")?
+			&& member_count > 0
 		{
 			let member_to_swap = MemberByIndex::<T, I>::get(0)
 				.defensive_ok_or("member_count > 0, we must have at least 1 member")?;

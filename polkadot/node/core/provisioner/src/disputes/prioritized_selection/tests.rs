@@ -687,8 +687,8 @@ fn many_batches() {
 			let vote_count = result.iter().map(|d| d.statements.len()).fold(0, |acc, v| acc + v);
 
 			assert!(
-				MAX_DISPUTE_VOTES_FORWARDED_TO_RUNTIME - VALIDATOR_COUNT <= vote_count &&
-					vote_count <= MAX_DISPUTE_VOTES_FORWARDED_TO_RUNTIME,
+				MAX_DISPUTE_VOTES_FORWARDED_TO_RUNTIME - VALIDATOR_COUNT <= vote_count
+					&& vote_count <= MAX_DISPUTE_VOTES_FORWARDED_TO_RUNTIME,
 				"vote_count: {}",
 				vote_count
 			);
@@ -741,8 +741,8 @@ fn votes_above_limit() {
 			let vote_count = result.iter().map(|d| d.statements.len()).fold(0, |acc, v| acc + v);
 
 			assert!(
-				MAX_DISPUTE_VOTES_FORWARDED_TO_RUNTIME - VALIDATOR_COUNT <= vote_count &&
-					vote_count <= MAX_DISPUTE_VOTES_FORWARDED_TO_RUNTIME,
+				MAX_DISPUTE_VOTES_FORWARDED_TO_RUNTIME - VALIDATOR_COUNT <= vote_count
+					&& vote_count <= MAX_DISPUTE_VOTES_FORWARDED_TO_RUNTIME,
 				"vote_count: {}",
 				vote_count
 			);

@@ -144,7 +144,7 @@ fn extract_revert_message(exec_data: &[u8]) -> Option<String> {
 		[0x08, 0xC3, 0x79, 0xA0] => {
 			let decoded = ethabi::decode(&[ethabi::ParamType::String], &exec_data[4..]).ok()?;
 			if let Some(ethabi::Token::String(msg)) = decoded.first() {
-				return Some(format!("execution reverted: {msg}"))
+				return Some(format!("execution reverted: {msg}"));
 			}
 			Some("execution reverted".to_string())
 		},
@@ -206,10 +206,12 @@ impl From<ClientError> for ErrorObjectOwned {
 				let data = format!("0x{}", hex::encode(data));
 				ErrorObjectOwned::owned::<String>(REVERT_CODE, msg, Some(data))
 			},
-			ClientError::Reverted(EthTransactError::Message(msg)) =>
-				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None),
-			_ =>
-				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None),
+			ClientError::Reverted(EthTransactError::Message(msg)) => {
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None)
+			},
+			_ => {
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None)
+			},
 		}
 	}
 }
