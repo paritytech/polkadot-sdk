@@ -585,11 +585,11 @@ pub mod pallet {
 			Ok(if replaced { Pays::Yes } else { Pays::No }.into())
 		}
 
-		/// Introduce an already-ranked individual of the collective into this pallet. The rank may
-		/// still be zero.
+		/// Introduce an already-ranked individual of the collective into this pallet.
 		///
-		/// This resets `last_proof` to the current block and `last_promotion` will be set to zero,
-		/// thereby delaying any automatic demotion but allowing immediate promotion.
+		/// The rank may still be zero. This resets `last_proof` to the current block and
+		/// `last_promotion` will be set to zero, thereby delaying any automatic demotion but
+		/// allowing immediate promotion.
 		///
 		/// - `origin`: A signed origin of a ranked, but not tracked, account.
 		#[pallet::weight(T::WeightInfo::import())]
@@ -602,10 +602,10 @@ pub mod pallet {
 			Ok(Pays::No.into()) // Successful imports are free
 		}
 
-		/// Introduce an already-ranked individual of the collective into this pallet. 
+		/// Introduce an already-ranked individual of the collective into this pallet.
 		///
-		/// The rank may
-		/// still be zero. Can be called by anyone on any collective member - including the sender.
+		/// The rank may still be zero. Can be called by anyone on any collective member - including
+		/// the sender.
 		///
 		/// This resets `last_proof` to the current block and `last_promotion` will be set to zero,
 		/// thereby delaying any automatic demotion but allowing immediate promotion.
