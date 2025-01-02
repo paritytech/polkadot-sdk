@@ -44,23 +44,28 @@ use sc_transaction_pool::TransactionPoolHandle;
 use sp_keystore::KeystorePtr;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
-pub(crate) trait BuildImportQueue<Block: BlockT, RuntimeApi> {
+pub(crate) trait BuildImportQueue<
+	Block: BlockT,
+	RuntimeApi,
+	BlockImport: sc_consensus::BlockImport<Block>,
+>
+{
 	fn build_import_queue(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
-		block_import: ParachainBlockImport<Block, RuntimeApi>,
+		block_import: ParachainBlockImport<Block, BlockImport>,
 		config: &Configuration,
 		telemetry_handle: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
 	) -> sc_service::error::Result<DefaultImportQueue<Block>>;
 }
 
-pub(crate) trait StartConsensus<Block: BlockT, RuntimeApi>
+pub(crate) trait StartConsensus<Block: BlockT, RuntimeApi, BI, BIAuxiliaryData>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 {
 	fn start_consensus(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
-		block_import: ParachainBlockImport<Block, RuntimeApi>,
+		block_import: ParachainBlockImport<Block, BI>,
 		prometheus_registry: Option<&Registry>,
 		telemetry: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
@@ -74,6 +79,7 @@ where
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
 		node_extra_args: NodeExtraArgs,
+		block_import_extra_return_value: BIAuxiliaryData,
 	) -> Result<(), sc_service::Error>;
 }
 
@@ -92,6 +98,31 @@ fn warn_if_slow_hardware(hwbench: &sc_sysinfo::HwBench) {
 	}
 }
 
+pub(crate) trait InitBlockImport<Block: BlockT, RuntimeApi> {
+	type BlockImport: sc_consensus::BlockImport<Block> + Clone + Send + Sync;
+	type BlockImportAuxiliaryData;
+
+	fn init_block_import(
+		client: Arc<ParachainClient<Block, RuntimeApi>>,
+	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)>;
+}
+
+pub(crate) struct ClientBlockImport;
+
+impl<Block: BlockT, RuntimeApi> InitBlockImport<Block, RuntimeApi> for ClientBlockImport
+where
+	RuntimeApi: Send + ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+{
+	type BlockImport = Arc<ParachainClient<Block, RuntimeApi>>;
+	type BlockImportAuxiliaryData = ();
+
+	fn init_block_import(
+		client: Arc<ParachainClient<Block, RuntimeApi>>,
+	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)> {
+		Ok((client.clone(), ()))
+	}
+}
+
 pub(crate) trait BaseNodeSpec {
 	type Block: NodeBlock;
 
@@ -100,7 +131,13 @@ pub(crate) trait BaseNodeSpec {
 		ParachainClient<Self::Block, Self::RuntimeApi>,
 	>;
 
-	type BuildImportQueue: BuildImportQueue<Self::Block, Self::RuntimeApi>;
+	type BuildImportQueue: BuildImportQueue<
+		Self::Block,
+		Self::RuntimeApi,
+		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
+	>;
+
+	type InitBlockImport: self::InitBlockImport<Self::Block, Self::RuntimeApi>;
 
 	/// Starts a `ServiceBuilder` for a full service.
 	///
@@ -108,7 +145,14 @@ pub(crate) trait BaseNodeSpec {
 	/// be able to perform chain operations.
 	fn new_partial(
 		config: &Configuration,
-	) -> sc_service::error::Result<ParachainService<Self::Block, Self::RuntimeApi>> {
+	) -> sc_service::error::Result<
+		ParachainService<
+			Self::Block,
+			Self::RuntimeApi,
+			<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
+			<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImportAuxiliaryData
+		>
+	>{
 		let telemetry = config
 			.telemetry_endpoints
 			.clone()
@@ -160,7 +204,10 @@ pub(crate) trait BaseNodeSpec {
 			.build(),
 		);
 
-		let block_import = ParachainBlockImport::new(client.clone(), backend.clone());
+		let (block_import, block_import_auxiliary_data) =
+			Self::InitBlockImport::init_block_import(client.clone())?;
+
+		let block_import = ParachainBlockImport::new(block_import, backend.clone());
 
 		let import_queue = Self::BuildImportQueue::build_import_queue(
 			client.clone(),
@@ -178,7 +225,7 @@ pub(crate) trait BaseNodeSpec {
 			task_manager,
 			transaction_pool,
 			select_chain: (),
-			other: (block_import, telemetry, telemetry_worker_handle),
+			other: (block_import, telemetry, telemetry_worker_handle, block_import_auxiliary_data),
 		})
 	}
 }
@@ -190,7 +237,12 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 		TransactionPoolHandle<Self::Block, ParachainClient<Self::Block, Self::RuntimeApi>>,
 	>;
 
-	type StartConsensus: StartConsensus<Self::Block, Self::RuntimeApi>;
+	type StartConsensus: StartConsensus<
+		Self::Block,
+		Self::RuntimeApi,
+		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
+		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImportAuxiliaryData,
+	>;
 
 	const SYBIL_RESISTANCE: CollatorSybilResistance;
 
@@ -212,7 +264,8 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			let parachain_config = prepare_node_config(parachain_config);
 
 			let params = Self::new_partial(&parachain_config)?;
-			let (block_import, mut telemetry, telemetry_worker_handle) = params.other;
+			let (block_import, mut telemetry, telemetry_worker_handle, block_import_auxiliary_data) =
+				params.other;
 			let client = params.client.clone();
 			let backend = params.backend.clone();
 			let mut task_manager = params.task_manager;
@@ -340,6 +393,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					announce_block,
 					backend.clone(),
 					node_extra_args,
+					block_import_auxiliary_data,
 				)?;
 			}
 
