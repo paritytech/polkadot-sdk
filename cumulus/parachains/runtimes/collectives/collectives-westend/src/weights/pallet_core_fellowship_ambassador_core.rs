@@ -215,6 +215,16 @@ impl<T: frame_system::Config> pallet_core_fellowship::WeightInfo for WeightInfo<
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	// FAIL-CI todo
+	fn import_member() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `313`
+		//  Estimated: `3514`
+		// Minimum execution time: 16_534_000 picoseconds.
+		Weight::from_parts(17_046_000, 3514)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 	/// Storage: `AmbassadorCollective::Members` (r:1 w:0)
 	/// Proof: `AmbassadorCollective::Members` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)
 	/// Storage: `AmbassadorCore::Member` (r:1 w:1)
