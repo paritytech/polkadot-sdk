@@ -1320,12 +1320,14 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 				let require_weight_at_most = match call.take_decoded() {
 					Ok(decoded) => decoded.get_dispatch_info().call_weight,
 					Err(error) => {
-						log::error!(
+						let fallback_weight = fallback_max_weight.unwrap_or(Weight::MAX);
+						log::debug!(
 							target: "xcm::versions::v5Tov4",
-							"Couldn't decode call in Transact: {:?}, using fallback weight.",
+							"Couldn't decode call in Transact: {:?}, using fallback weight: {:?}",
 							error,
+							fallback_weight,
 						);
-						fallback_max_weight.unwrap_or(Weight::MAX)
+						fallback_weight
 					},
 				};
 				Self::Transact { origin_kind, require_weight_at_most, call: call.into() }
