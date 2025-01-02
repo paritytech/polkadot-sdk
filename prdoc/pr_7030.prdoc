@@ -20,4 +20,4 @@ doc:
 
 crates:
 - name: pallet-core-fellowship
-  bump: minor
+  bump: major
