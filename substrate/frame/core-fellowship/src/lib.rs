@@ -585,7 +585,6 @@ pub mod pallet {
 			Ok(if replaced { Pays::Yes } else { Pays::No }.into())
 		}
 
-		/// DEPRECATED: Use `import_member` instead.
 		/// Introduce an already-ranked individual of the collective into this pallet. The rank may
 		/// still be zero.
 		///
