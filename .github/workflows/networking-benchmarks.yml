@@ -35,7 +35,7 @@ jobs:
         id: run-benchmarks
         run: |
           mkdir -p ./charts
-          forklift cargo bench -p sc-network --output-format bencher | tee ./charts/networking-bench.txt || echo "Benchmarks failed"
+          forklift cargo bench -p sc-network -- --output-format bencher | tee ./charts/networking-bench.txt || echo "Benchmarks failed"
           ls -lsa ./charts
 
       - name: Upload artifacts
