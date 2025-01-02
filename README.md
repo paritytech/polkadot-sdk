@@ -45,7 +45,7 @@ one year with patches. See the next upcoming versions in the [Release
 Registry](https://github.com/paritytech/release-registry/).
 
 You can use [`psvm`](https://github.com/paritytech/psvm) to update all dependencies to a specific
-version without needing to manually select the correct version for each crate.
+version without needing to manually select the correct version for each crate. 
 
 ## 🛠️ Tooling
 
