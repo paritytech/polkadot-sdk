@@ -43,15 +43,14 @@ sp-version = { workspace = true }
 # Polkadot
 pallet-xcm = { workspace = true }
 polkadot-parachain-primitives = { workspace = true }
+polkadot-runtime-common = { workspace = true }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
-polkadot-runtime-common = { workspace = true }
 
 # Cumulus
 cumulus-pallet-aura-ext = { workspace = true }
-pallet-message-queue = { workspace = true }
-cumulus-pallet-parachain-system = { workspace = true, features = ["experimental-ump-signals"] }
+cumulus-pallet-parachain-system = { workspace = true }
 cumulus-pallet-xcm = { workspace = true }
 cumulus-pallet-xcmp-queue = { workspace = true }
 cumulus-ping = { workspace = true }
@@ -59,9 +58,10 @@ cumulus-primitives-aura = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-primitives-storage-weight-reclaim = { workspace = true }
 cumulus-primitives-utility = { workspace = true }
+pallet-message-queue = { workspace = true }
+parachain-info = { workspace = true }
 parachains-common = { workspace = true }
 testnet-parachains-constants = { features = ["rococo"], workspace = true }
-parachain-info = { workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
@@ -136,6 +136,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 
 # A feature that should be enabled when the runtime should be built for on-chain
