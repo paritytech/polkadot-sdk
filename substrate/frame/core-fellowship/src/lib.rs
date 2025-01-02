@@ -602,7 +602,9 @@ pub mod pallet {
 			Ok(Pays::No.into()) // Successful imports are free
 		}
 
-		/// Introduce an already-ranked individual of the collective into this pallet. The rank may
+		/// Introduce an already-ranked individual of the collective into this pallet. 
+		///
+		/// The rank may
 		/// still be zero. Can be called by anyone on any collective member - including the sender.
 		///
 		/// This resets `last_proof` to the current block and `last_promotion` will be set to zero,
