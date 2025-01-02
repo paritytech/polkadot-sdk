@@ -322,8 +322,8 @@ impl RelayChainInterface for Relaychain {
 		.to_vec();
 
 		Ok(RuntimeVersion {
-			spec_name: sp_version::create_runtime_str!("test"),
-			impl_name: sp_version::create_runtime_str!("test"),
+			spec_name: Cow::Borrowed("test"),
+			impl_name: Cow::Borrowed("test"),
 			authoring_version: 1,
 			spec_version: 1,
 			impl_version: 0,

@@ -144,7 +144,7 @@ parameter_types! {
 	pub const BaseXcmWeight: Weight = Weight::from_parts(100, 10); // Random value.
 	pub const MaxInstructions: u32 = 100;
 	pub const NativeTokenPerSecondPerByte: (AssetId, u128, u128) = (AssetId(HereLocation::get()), 1, 1);
-	pub UniversalLocation: InteriorLocation = [GlobalConsensus(NetworkId::Westend), Parachain(2000)].into();
+	pub UniversalLocation: InteriorLocation = [GlobalConsensus(NetworkId::ByGenesis([0; 32])), Parachain(2000)].into();
 	pub const HereLocation: Location = Location::here();
 	pub const RelayLocation: Location = Location::parent();
 	pub const MaxAssetsIntoHolding: u32 = 64;
@@ -453,7 +453,8 @@ sp_api::mock_impl_runtime_apis! {
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
-			match asset.try_as::<AssetId>() {
+			let latest_asset_id: Result<AssetId, ()> = asset.clone().try_into();
+			match latest_asset_id {
 				Ok(asset_id) if asset_id.0 == HereLocation::get() => {
 					Ok(WeightToFee::weight_to_fee(&weight))
 				},

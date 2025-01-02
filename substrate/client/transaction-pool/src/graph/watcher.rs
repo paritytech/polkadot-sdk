@@ -113,6 +113,12 @@ impl<H: Clone, BH: Clone> Sender<H, BH> {
 	}
 
 	/// Transaction has been dropped from the pool because of the limit.
+	pub fn limit_enforced(&mut self) {
+		self.send(TransactionStatus::Dropped);
+		self.is_finalized = true;
+	}
+
+	/// Transaction has been dropped from the pool.
 	pub fn dropped(&mut self) {
 		self.send(TransactionStatus::Dropped);
 		self.is_finalized = true;

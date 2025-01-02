@@ -32,15 +32,15 @@ use crate::{
 	RequestFailure, Signature,
 };
 
-use crate::litep2p::Record;
 use codec::DecodeAll;
 use futures::{channel::oneshot, stream::BoxStream};
-use libp2p::{identity::SigningError, kad::record::Key as KademliaKey};
+use libp2p::identity::SigningError;
 use litep2p::{
 	addresses::PublicAddresses, crypto::ed25519::Keypair,
 	types::multiaddr::Multiaddr as LiteP2pMultiaddr,
 };
 use parking_lot::RwLock;
+use sc_network_types::kad::{Key as KademliaKey, Record};
 
 use sc_network_common::{
 	role::{ObservedRole, Roles},
@@ -103,6 +103,15 @@ pub enum NetworkServiceCommand {
 		/// Record expiration time as measured by a local, monothonic clock.
 		expires: Option<Instant>,
 	},
+
+	/// Start providing `key`.
+	StartProviding { key: KademliaKey },
+
+	/// Stop providing `key`.
+	StopProviding { key: KademliaKey },
+
+	/// Get providers for `key`.
+	GetProviders { key: KademliaKey },
 
 	/// Query network status.
 	Status {
@@ -266,12 +275,7 @@ impl NetworkDHTProvider for Litep2pNetworkService {
 		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::PutValue { key, value });
 	}
 
-	fn put_record_to(
-		&self,
-		record: libp2p::kad::Record,
-		peers: HashSet<PeerId>,
-		update_local_storage: bool,
-	) {
+	fn put_record_to(&self, record: Record, peers: HashSet<PeerId>, update_local_storage: bool) {
 		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::PutValueTo {
 			record: Record {
 				key: record.key.to_vec().into(),
@@ -300,6 +304,18 @@ impl NetworkDHTProvider for Litep2pNetworkService {
 			publisher,
 			expires,
 		});
+	}
+
+	fn start_providing(&self, key: KademliaKey) {
+		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::StartProviding { key });
+	}
+
+	fn stop_providing(&self, key: KademliaKey) {
+		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::StopProviding { key });
+	}
+
+	fn get_providers(&self, key: KademliaKey) {
+		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::GetProviders { key });
 	}
 }
 

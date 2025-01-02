@@ -27,6 +27,11 @@ pub mod wasm_spec_version_incremented {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_spec_version_incremented.rs"));
 }
 
+pub mod elastic_scaling_mvp {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_mvp.rs"));
+}
+
 pub mod elastic_scaling {
 	#[cfg(feature = "std")]
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling.rs"));
@@ -45,7 +50,7 @@ use sp_core::{ConstBool, ConstU32, ConstU64, OpaqueMetadata};
 
 use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector};
 use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys,
+	generic, impl_opaque_keys,
 	traits::{BlakeTwo256, Block as BlockT, IdentifyAccount, Verify},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiAddress, MultiSignature,
@@ -126,8 +131,8 @@ const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 #[cfg(not(feature = "increment-spec-version"))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("cumulus-test-parachain"),
-	impl_name: create_runtime_str!("cumulus-test-parachain"),
+	spec_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
+	impl_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
 	authoring_version: 1,
 	// Read the note above.
 	spec_version: 1,
@@ -140,8 +145,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 #[cfg(feature = "increment-spec-version")]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("cumulus-test-parachain"),
-	impl_name: create_runtime_str!("cumulus-test-parachain"),
+	spec_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
+	impl_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
 	authoring_version: 1,
 	// Read the note above.
 	spec_version: 2,

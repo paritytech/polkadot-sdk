@@ -219,8 +219,8 @@ pub mod prelude {
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		Bounded, DispatchInfoOf, Dispatchable, SaturatedConversion, Saturating, StaticLookup,
-		TrailingZeroInput,
+		BlockNumberProvider, Bounded, DispatchInfoOf, Dispatchable, SaturatedConversion,
+		Saturating, StaticLookup, TrailingZeroInput,
 	};
 
 	/// Other error/result types for runtime
@@ -373,7 +373,10 @@ pub mod runtime {
 		};
 
 		/// Types to define your runtime version.
-		pub use sp_version::{create_runtime_str, runtime_version, RuntimeVersion};
+		// TODO: Remove deprecation suppression once
+		#[allow(deprecated)]
+		pub use sp_version::create_runtime_str;
+		pub use sp_version::{runtime_version, RuntimeVersion};
 
 		#[cfg(feature = "std")]
 		pub use sp_version::NativeVersion;
@@ -388,7 +391,7 @@ pub mod runtime {
 			LOCAL_TESTNET_RUNTIME_PRESET,
 		};
 		pub use sp_inherents::{CheckInherentsResult, InherentData};
-		pub use sp_keyring::AccountKeyring;
+		pub use sp_keyring::Sr25519Keyring;
 		pub use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode};
 	}
 

@@ -67,7 +67,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::{Convert, ConvertBack, MaybeConvert};
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -305,10 +305,11 @@ pub mod pallet {
 		},
 		/// A new sale has been initialized.
 		SaleInitialized {
-			/// The local block number at which the sale will/did start.
-			sale_start: BlockNumberFor<T>,
-			/// The length in blocks of the Leadin Period (where the price is decreasing).
-			leadin_length: BlockNumberFor<T>,
+			/// The relay block number at which the sale will/did start.
+			sale_start: RelayBlockNumberOf<T>,
+			/// The length in relay chain blocks of the Leadin Period (where the price is
+			/// decreasing).
+			leadin_length: RelayBlockNumberOf<T>,
 			/// The price of Bulk Coretime at the beginning of the Leadin Period.
 			start_price: BalanceOf<T>,
 			/// The price of Bulk Coretime after the Leadin Period.
@@ -583,6 +584,9 @@ pub mod pallet {
 		}
 
 		/// Reserve a core for a workload.
+		///
+		/// The workload will be given a reservation, but two sale period boundaries must pass
+		/// before the core is actually assigned.
 		///
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
 		/// - `workload`: The workload which should be permanently placed on a core.
@@ -940,6 +944,29 @@ pub mod pallet {
 			Self::do_disable_auto_renew(core, task)?;
 
 			Ok(())
+		}
+
+		/// Reserve a core for a workload immediately.
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `workload`: The workload which should be permanently placed on a core starting
+		///   immediately.
+		/// - `core`: The core to which the assignment should be made until the reservation takes
+		///   effect. It is left to the caller to either add this new core or reassign any other
+		///   tasks to this existing core.
+		///
+		/// This reserves the workload and then injects the workload into the Workplan for the next
+		/// two sale periods. This overwrites any existing assignments for this core at the start of
+		/// the next sale period.
+		#[pallet::call_index(23)]
+		pub fn force_reserve(
+			origin: OriginFor<T>,
+			workload: Schedule,
+			core: CoreIndex,
+		) -> DispatchResultWithPostInfo {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_force_reserve(workload, core)?;
+			Ok(Pays::No.into())
 		}
 
 		#[pallet::call_index(99)]

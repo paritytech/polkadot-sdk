@@ -40,7 +40,7 @@ mockall::mock! {
 	impl<B: BlockT> ImportQueue<B> for ImportQueue<B> {
 		fn service(&self) -> Box<dyn ImportQueueService<B>>;
 		fn service_ref(&mut self) -> &mut dyn ImportQueueService<B>;
-		fn poll_actions<'a>(&mut self, cx: &mut futures::task::Context<'a>, link: &mut dyn Link<B>);
-		async fn run(self, link: Box<dyn Link<B>>);
+		fn poll_actions<'a>(&mut self, cx: &mut futures::task::Context<'a>, link: &dyn Link<B>);
+		async fn run(self, link: &'__mockall_link dyn Link<B>);
 	}
 }

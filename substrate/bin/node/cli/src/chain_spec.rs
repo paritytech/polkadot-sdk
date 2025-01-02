@@ -427,7 +427,7 @@ fn props() -> Properties {
 fn eth_account(from: subxt_signer::eth::Keypair) -> AccountId32 {
 	let mut account_id = AccountId32::new([0xEE; 32]);
 	<AccountId32 as AsMut<[u8; 32]>>::as_mut(&mut account_id)[..20]
-		.copy_from_slice(&from.account_id().0);
+		.copy_from_slice(&from.public_key().to_account_id().as_ref());
 	account_id
 }
 

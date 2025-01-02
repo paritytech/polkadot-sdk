@@ -58,7 +58,7 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys,
+	generic, impl_opaque_keys,
 	traits::{BlakeTwo256, Block as BlockT},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
@@ -134,10 +134,10 @@ impl_opaque_keys! {
 
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("people-rococo"),
-	impl_name: create_runtime_str!("people-rococo"),
+	spec_name: alloc::borrow::Cow::Borrowed("people-rococo"),
+	impl_name: alloc::borrow::Cow::Borrowed("people-rococo"),
 	authoring_version: 1,
-	spec_version: 1_016_001,
+	spec_version: 1_017_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -407,6 +407,7 @@ impl pallet_multisig::Config for Runtime {
 	type DepositFactor = DepositFactor;
 	type MaxSignatories = ConstU32<100>;
 	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 /// The type used to represent the kinds of proxying allowed.
@@ -520,6 +521,7 @@ impl pallet_proxy::Config for Runtime {
 	type CallHasher = BlakeTwo256;
 	type AnnouncementDepositBase = AnnouncementDepositBase;
 	type AnnouncementDepositFactor = AnnouncementDepositFactor;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -781,7 +783,8 @@ impl_runtime_apis! {
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
-			match asset.try_as::<AssetId>() {
+			let latest_asset_id: Result<AssetId, ()> = asset.clone().try_into();
+			match latest_asset_id {
 				Ok(asset_id) if asset_id.0 == xcm_config::RelayLocation::get() => {
 					// for native token
 					Ok(WeightToFee::weight_to_fee(&weight))
@@ -886,7 +889,7 @@ impl_runtime_apis! {
 
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
-		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
+		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
 			use frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};
 			use sp_storage::TrackedStorageKey;
 

@@ -41,7 +41,7 @@ pub mod genesis_config_presets {
 	use super::*;
 	use crate::{
 		interface::{Balance, MinimumBalance},
-		sp_keyring::AccountKeyring,
+		sp_keyring::Sr25519Keyring,
 		BalancesConfig, RuntimeGenesisConfig, SudoConfig,
 	};
 
@@ -51,23 +51,20 @@ pub mod genesis_config_presets {
 	/// Returns a development genesis config preset.
 	pub fn development_config_genesis() -> Value {
 		let endowment = <MinimumBalance as Get<Balance>>::get().max(1) * 1000;
-		let config = RuntimeGenesisConfig {
+		frame_support::build_struct_json_patch!(RuntimeGenesisConfig {
 			balances: BalancesConfig {
-				balances: AccountKeyring::iter()
+				balances: Sr25519Keyring::iter()
 					.map(|a| (a.to_account_id(), endowment))
 					.collect::<Vec<_>>(),
 			},
-			sudo: SudoConfig { key: Some(AccountKeyring::Alice.to_account_id()) },
-			..Default::default()
-		};
-
-		serde_json::to_value(config).expect("Could not build genesis config.")
+			sudo: SudoConfig { key: Some(Sr25519Keyring::Alice.to_account_id()) },
+		})
 	}
 
 	/// Get the set of the available genesis config presets.
 	pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
-		let patch = match id.try_into() {
-			Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => development_config_genesis(),
+		let patch = match id.as_ref() {
+			sp_genesis_builder::DEV_RUNTIME_PRESET => development_config_genesis(),
 			_ => return None,
 		};
 		Some(
@@ -86,8 +83,8 @@ pub mod genesis_config_presets {
 /// The runtime version.
 #[runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("minimal-template-runtime"),
-	impl_name: create_runtime_str!("minimal-template-runtime"),
+	spec_name: alloc::borrow::Cow::Borrowed("minimal-template-runtime"),
+	impl_name: alloc::borrow::Cow::Borrowed("minimal-template-runtime"),
 	authoring_version: 1,
 	spec_version: 0,
 	impl_version: 1,
