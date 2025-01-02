@@ -237,7 +237,7 @@ pub mod prelude {
 		ReservableCurrency,
 	};
 
-	pub use super::address::*;
+	pub use super::account::*;
 
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
@@ -551,9 +551,15 @@ pub mod hashing {
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
 }
 
-pub mod address {
+/// All account management related traits & types.
+///
+/// This is already part of the [`prelude`].
+pub mod account {
+	pub use frame_support::traits::{
+		AsEnsureOriginWithArg, ChangeMembers, EitherOfDiverse, FindAuthor, InitializeMembers,
+	};
 	pub use sp_runtime::{
-		traits::LookupError,
+		traits::{IdentifyAccount, IdentityLookup, LookupError},
 		MultiAddress::{self, Id},
 	};
 }
