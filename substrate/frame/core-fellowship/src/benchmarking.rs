@@ -261,6 +261,23 @@ mod benchmarks {
 	}
 
 	#[benchmark]
+	fn import_member() -> Result<(), BenchmarkError> {
+		let member = account("member", 0, SEED);
+		let sender = account("sender", 0, SEED);
+
+		T::Members::induct(&member)?;
+		T::Members::promote(&member)?;
+
+		assert!(!Member::<T, I>::contains_key(&member));
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(sender), member.clone());
+
+		assert!(Member::<T, I>::contains_key(&member));
+		Ok(())
+	}
+
+	#[benchmark]
 	fn approve() -> Result<(), BenchmarkError> {
 		let member = make_member::<T, I>(1)?;
 		let then = frame_system::Pallet::<T>::block_number();

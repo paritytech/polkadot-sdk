@@ -585,6 +585,7 @@ pub mod pallet {
 			Ok(if replaced { Pays::Yes } else { Pays::No }.into())
 		}
 
+		/// DEPRECATED: Use `import_member` instead.
 		/// Introduce an already-ranked individual of the collective into this pallet. The rank may
 		/// still be zero.
 		///
@@ -596,17 +597,29 @@ pub mod pallet {
 		#[pallet::call_index(8)]
 		pub fn import(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			ensure!(!Member::<T, I>::contains_key(&who), Error::<T, I>::AlreadyInducted);
-			let rank = T::Members::rank_of(&who).ok_or(Error::<T, I>::Unranked)?;
+			Self::do_import(who)?;
 
-			let now = frame_system::Pallet::<T>::block_number();
-			Member::<T, I>::insert(
-				&who,
-				MemberStatus { is_active: true, last_promotion: 0u32.into(), last_proof: now },
-			);
-			Self::deposit_event(Event::<T, I>::Imported { who, rank });
+			Ok(Pays::No.into()) // Successful imports are free
+		}
 
-			Ok(Pays::No.into())
+		/// Introduce an already-ranked individual of the collective into this pallet. The rank may
+		/// still be zero. Can be called by anyone on any collective member - including the sender.
+		///
+		/// This resets `last_proof` to the current block and `last_promotion` will be set to zero,
+		/// thereby delaying any automatic demotion but allowing immediate promotion.
+		///
+		/// - `origin`: A signed origin of a ranked, but not tracked, account.
+		/// - `who`: The account ID of the collective member to be inducted.
+		#[pallet::weight(T::WeightInfo::set_partial_params())]
+		#[pallet::call_index(11)]
+		pub fn import_member(
+			origin: OriginFor<T>,
+			who: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+			Self::do_import(who)?;
+
+			Ok(Pays::No.into()) // Successful imports are free
 		}
 
 		/// Set the parameters partially.
@@ -661,6 +674,21 @@ pub mod pallet {
 				}
 			}
 		}
+
+		pub(crate) fn do_import(who: T::AccountId) -> DispatchResult {
+			ensure!(!Member::<T, I>::contains_key(&who), Error::<T, I>::AlreadyInducted);
+			let rank = T::Members::rank_of(&who).ok_or(Error::<T, I>::Unranked)?;
+
+			let now = frame_system::Pallet::<T>::block_number();
+			Member::<T, I>::insert(
+				&who,
+				MemberStatus { is_active: true, last_promotion: 0u32.into(), last_proof: now },
+			);
+			Self::deposit_event(Event::<T, I>::Imported { who, rank });
+
+			Ok(())
+		}
+
 		/// Convert a rank into a `0..RANK_COUNT` index suitable for the arrays in Params.
 		///
 		/// Rank 1 becomes index 0, rank `RANK_COUNT` becomes index `RANK_COUNT - 1`. Any rank not
