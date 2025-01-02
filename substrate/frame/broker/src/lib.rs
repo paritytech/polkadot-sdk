@@ -333,6 +333,11 @@ pub mod pallet {
 			/// longer apply).
 			until: Timeslice,
 		},
+		/// A lease has been removed.
+		LeaseRemoved {
+			/// The task to which a core was assigned.
+			task: TaskId,
+		},
 		/// A lease is about to end.
 		LeaseEnding {
 			/// The task to which a core was assigned.
@@ -512,6 +517,8 @@ pub mod pallet {
 		TooManyReservations,
 		/// The maximum amount of leases has already been reached.
 		TooManyLeases,
+		/// The lease does not exist.
+		LeaseNotFound,
 		/// The revenue for the Instantaneous Core Sales of this period is not (yet) known and thus
 		/// this operation cannot proceed.
 		UnknownRevenue,
@@ -967,6 +974,17 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_force_reserve(workload, core)?;
 			Ok(Pays::No.into())
+		}
+
+		/// Remove a lease.
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `task`: The workload of the lease which should be removed.
+		#[pallet::call_index(24)]
+		pub fn remove_lease(origin: OriginFor<T>, task: TaskId) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_remove_lease(task)?;
+			Ok(())
 		}
 
 		#[pallet::call_index(99)]

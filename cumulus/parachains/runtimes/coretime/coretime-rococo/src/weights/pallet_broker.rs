@@ -645,4 +645,8 @@ impl<T: frame_system::Config> pallet_broker::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
+
+	fn remove_lease() -> Weight {
+		Weight::from_parts(1,1)
+	}
 }
