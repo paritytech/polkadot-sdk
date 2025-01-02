@@ -42,7 +42,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/paritytec
 
 The Polkadot SDK is released every three months as a `stableYYMM` release. They are supported for
 one year with patches. See the next upcoming versions in the [Release
-Registry](https://github.com/paritytech/release-registry/).
+Registry](https://github.com/paritytech/release-registry/) and more docs in [RELEASE.md](./docs/RELEASE.md).
 
 You can use [`psvm`](https://github.com/paritytech/psvm) to update all dependencies to a specific
 version without needing to manually select the correct version for each crate.
