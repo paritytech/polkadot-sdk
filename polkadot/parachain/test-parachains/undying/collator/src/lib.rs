@@ -21,7 +21,7 @@ use futures::channel::oneshot;
 use futures_timer::Delay;
 use polkadot_node_primitives::{
 	maybe_compress_pov, Collation, CollationResult, CollationSecondedSignal, CollatorFn,
-	MaybeCompressedPoV, PoV, Statement,
+	MaybeCompressedPoV, PoV, Statement, UpwardMessages,
 };
 use polkadot_primitives::{CollatorId, CollatorPair, Hash};
 use sp_core::Pair;
@@ -36,6 +36,8 @@ use std::{
 use test_parachain_undying::{
 	execute, hash_state, BlockData, GraveyardState, HeadData, StateMismatch,
 };
+
+pub const LOG_TARGET: &str = "parachain::undying-collator";
 
 /// Default PoV size which also drives state size.
 const DEFAULT_POV_SIZE: usize = 1000;
@@ -64,7 +66,7 @@ fn calculate_head_and_state_for_number(
 
 	while head.number < number {
 		let block = BlockData { state, tombstones: 1_000, iterations: pvf_complexity };
-		let (new_head, new_state) = execute(head.hash(), head.clone(), block)?;
+		let (new_head, new_state, _) = execute(head.hash(), head.clone(), block)?;
 		head = new_head;
 		state = new_state;
 	}
@@ -123,7 +125,10 @@ impl State {
 	/// Advance the state and produce a new block based on the given `parent_head`.
 	///
 	/// Returns the new [`BlockData`] and the new [`HeadData`].
-	fn advance(&mut self, parent_head: HeadData) -> Result<(BlockData, HeadData), StateMismatch> {
+	fn advance(
+		&mut self,
+		parent_head: HeadData,
+	) -> Result<(BlockData, HeadData, UpwardMessages), StateMismatch> {
 		self.best_block = parent_head.number;
 
 		let state = if let Some(state) = self
@@ -144,14 +149,15 @@ impl State {
 		// Start with prev state and transaction to execute (place 1000 tombstones).
 		let block = BlockData { state, tombstones: 1000, iterations: self.pvf_complexity };
 
-		let (new_head, new_state) = execute(parent_head.hash(), parent_head, block.clone())?;
+		let (new_head, new_state, upward_messages) =
+			execute(parent_head.hash(), parent_head, block.clone())?;
 
 		let new_head_arc = Arc::new(new_head.clone());
 
 		self.head_to_state.insert(new_head_arc.clone(), new_state);
 		self.number_to_head.insert(new_head.number, new_head_arc);
 
-		Ok((block, new_head))
+		Ok((block, new_head, upward_messages))
 	}
 }
 
@@ -238,13 +244,14 @@ impl Collator {
 				Ok(p) => p,
 			};
 
-			let (block_data, head_data) = match state.lock().unwrap().advance(parent.clone()) {
-				Err(err) => {
-					log::error!("Unable to build on top of {:?}: {:?}", parent, err);
-					return futures::future::ready(None).boxed()
-				},
-				Ok(x) => x,
-			};
+			let (block_data, head_data, upward_messages) =
+				match state.lock().unwrap().advance(parent.clone()) {
+					Err(err) => {
+						log::error!("Unable to build on top of {:?}: {:?}", parent, err);
+						return futures::future::ready(None).boxed()
+					},
+					Ok(x) => x,
+				};
 
 			log::info!(
 				"created a new collation on relay-parent({}): {:?}",
@@ -256,7 +263,7 @@ impl Collator {
 			let pov = PoV { block_data: block_data.encode().into() };
 
 			let collation = Collation {
-				upward_messages: Default::default(),
+				upward_messages,
 				horizontal_messages: Default::default(),
 				new_validation_code: None,
 				head_data: head_data.encode().into(),

@@ -15,6 +15,7 @@ workspace = true
 codec = { features = ["derive"], workspace = true }
 dlmalloc = { features = ["global"], workspace = true }
 log = { workspace = true }
+polkadot-primitives = { workspace = true, default-features = false }
 polkadot-parachain-primitives = { features = ["wasm-api"], workspace = true }
 tiny-keccak = { features = ["keccak"], workspace = true }
 
@@ -29,6 +30,7 @@ default = ["std"]
 std = [
 	"codec/std",
 	"log/std",
+	"polkadot-primitives/std",
 	"polkadot-parachain-primitives/std",
 	"sp-io/std",
 ]
