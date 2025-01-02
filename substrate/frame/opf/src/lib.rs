@@ -20,7 +20,7 @@
 pub use pallet::*;
 mod functions;
 mod types;
-pub use pallet_scheduler as Schedule;
+pub use pallet_referenda as Referenda;
 pub use types::*;
 
 #[cfg(test)]
@@ -38,13 +38,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
-		type RuntimeCall: Parameter
-			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
-			+ From<Call<Self>>
-			+ IsType<<Self as frame_system::Config>::RuntimeCall>
-			+ From<frame_system::Call<Self>>;
-
+	pub trait Config: frame_system::Config + Referenda::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Type to access the Balances Pallet.
@@ -56,22 +50,6 @@ pub mod pallet {
 		/// Treasury account Id
 		#[pallet::constant]
 		type PotId: Get<PalletId>;
-
-		/// The preimage provider.
-		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
-
-		/// The Scheduler.
-		type Scheduler: ScheduleAnon<
-				ProvidedBlockNumberFor<Self>,
-				CallOf<Self>,
-				PalletsOriginOf<Self>,
-				Hasher = Self::Hashing,
-			> + ScheduleNamed<
-				ProvidedBlockNumberFor<Self>,
-				CallOf<Self>,
-				PalletsOriginOf<Self>,
-				Hasher = Self::Hashing,
-			>;
 
 		/// Time period in which people can vote.
 		/// After the period has ended, the votes are counted (STOP THE COUNT)

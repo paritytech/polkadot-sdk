@@ -22,9 +22,7 @@ use crate::mock::*;
 use frame_support::{assert_noop, assert_ok, traits::OnIdle};
 
 pub fn next_block() {
-	System::set_block_number(
-		<Test as Config>::BlockNumberProvider::current_block_number() + 1,
-	);
+	System::set_block_number(<Test as Config>::BlockNumberProvider::current_block_number() + 1);
 	AllPalletsWithSystem::on_initialize(
 		<Test as Config>::BlockNumberProvider::current_block_number(),
 	);
@@ -46,12 +44,10 @@ pub fn run_to_block(n: BlockNumberFor<Test>) {
 }
 
 #[test]
-fn project_registration_works(){
-    new_test_ext().execute_with(|| {
-        
-      assert_ok!(Opf::register_project(RawOrigin::Root.into(), BOB));
-      let project_list = WhiteListedProjectAccounts::<Test>::get().to_vec();
-      assert_eq!(project_list.len(),1);
-    
-    })
+fn project_registration_works() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Opf::register_project(RawOrigin::Root.into(), BOB));
+		let project_list = WhiteListedProjectAccounts::<Test>::get().to_vec();
+		assert_eq!(project_list.len(), 1);
+	})
 }

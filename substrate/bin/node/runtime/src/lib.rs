@@ -1603,7 +1603,6 @@ parameter_types! {
 
 }
 impl pallet_opf::Config for Runtime {
-	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type NativeBalance = Balances;
 
@@ -1630,11 +1629,7 @@ impl pallet_opf::Config for Runtime {
 
 	/// This should be calculated as a percentage of inflation.
 	type TemporaryRewards = TemporaryRewards;
-
-	type Preimages = Preimage;
-
-	type Scheduler = Scheduler;
-
+	
 	type WeightInfo = (); //pallet_opf::weights::SubstrateWeight<Runtime>;
 }
 
