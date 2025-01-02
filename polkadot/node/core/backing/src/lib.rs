@@ -87,11 +87,11 @@ use polkadot_node_primitives::{
 use polkadot_node_subsystem::{
 	messages::{
 		AvailabilityDistributionMessage, AvailabilityStoreMessage, CanSecondRequest,
-		CandidateBackingMessage, CandidateValidationMessage, CollatorProtocolMessage,
-		HypotheticalCandidate, HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest,
-		ProspectiveParachainsMessage, ProvisionableData, ProvisionerMessage, PvfExecKind,
-		RuntimeApiMessage, RuntimeApiRequest, StatementDistributionMessage,
-		StoreAvailableDataError,
+		CandidateBackingMessage, CandidateValidationMessage, ChainApiMessage,
+		CollatorProtocolMessage, HypotheticalCandidate, HypotheticalMembershipRequest,
+		IntroduceSecondedCandidateRequest, ProspectiveParachainsMessage, ProvisionableData,
+		ProvisionerMessage, PvfExecKind, RuntimeApiMessage, RuntimeApiRequest,
+		StatementDistributionMessage, StoreAvailableDataError,
 	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, RuntimeApiError, SpawnedSubsystem,
 	SubsystemError,
@@ -1066,7 +1066,7 @@ async fn handle_active_leaves_update<Context>(
 	};
 
 	// add entries in `per_relay_parent`. for all new relay-parents.
-	for maybe_new in fresh_relay_parents {
+	for maybe_new in fresh_relay_parents.into_iter().rev() {
 		if state.per_relay_parent.contains_key(&maybe_new) {
 			continue
 		}
@@ -1081,6 +1081,25 @@ async fn handle_active_leaves_update<Context>(
 		)
 		.await?;
 
+		// get the ancestor of the relay block
+		let parent_hash = {
+			let (tx, rx) = oneshot::channel();
+
+			ctx.send_message(ChainApiMessage::BlockHeader(maybe_new, tx)).await;
+
+			match rx.await.map_err(Error::BlockHeader)?.map_err(Error::ChainApi)? {
+				Some(b) => b.parent_hash,
+				None => {
+					gum::warn!(
+						target: LOG_TARGET,
+						relay_parent = ?maybe_new,
+						"Failed to get block header for relay parent"
+					);
+					return Err(Error::MissingBlockHeader(maybe_new))
+				},
+			}
+		};
+
 		if let Some(per) = per {
 			let empty_cq = VecDeque::new();
 			let maybe_claim_queue = if let Some(core_idx) = per.assigned_core {
@@ -1090,7 +1109,16 @@ async fn handle_active_leaves_update<Context>(
 			}
 			.unwrap_or(&empty_cq);
 
-			state.claim_queue_state.add_leaf(&maybe_new, maybe_claim_queue, &per.parent);
+			gum::trace!(
+				target: LOG_TARGET,
+				?maybe_new,
+				maybe_assigned_core=?per.assigned_core,
+				?maybe_claim_queue,
+				?parent_hash,
+				"Inserting new leaf in claim queue state"
+			);
+
+			state.claim_queue_state.add_leaf(&maybe_new, maybe_claim_queue, &parent_hash);
 			state.per_relay_parent.insert(maybe_new, per);
 		}
 	}
@@ -1714,20 +1742,27 @@ async fn import_statement<Context>(
 	// our active leaves.
 	if let StatementWithPVD::Seconded(candidate, pvd) = statement.payload() {
 		if !per_candidate.contains_key(&candidate_hash) {
-			// claim a seconded slot at all possible paths
-			if !claim_queue_state.claim_seconded_slot(
-				&candidate_hash,
-				&candidate.descriptor.relay_parent(),
-				&candidate.descriptor.para_id(),
-			) {
-				gum::debug!(
-					target: LOG_TARGET,
-					?candidate_hash,
-					relay_parent=?candidate.descriptor.relay_parent(),
-					para_id=?candidate.descriptor.para_id(),
-					"Failed to claim slot for candidate"
-				);
-				return Err(Error::NoFreeSlotInClaimQueue)
+			// claim a seconded slot at all possible paths, if the candidate core matches the core
+			// we are assigned on
+			if rp_state.assigned_core.is_some() &&
+				rp_state.assigned_core == candidate.descriptor.core_index()
+			{
+				if !claim_queue_state.claim_seconded_slot(
+					&candidate_hash,
+					&candidate.descriptor.relay_parent(),
+					&candidate.descriptor.para_id(),
+				) {
+					gum::debug!(
+						target: LOG_TARGET,
+						?candidate_hash,
+						relay_parent=?candidate.descriptor.relay_parent(),
+						para_id=?candidate.descriptor.para_id(),
+						assigned_core=?rp_state.assigned_core,
+						candidate_core=?candidate.descriptor.core_index(),
+						"Failed to claim slot for candidate"
+					);
+					return Err(Error::NoFreeSlotInClaimQueue)
+				}
 			}
 
 			let (tx, rx) = oneshot::channel();

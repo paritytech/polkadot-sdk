@@ -117,6 +117,15 @@ pub enum Error {
 
 	#[error("Falied to send `CanClaim` response")]
 	SendCanClaim,
+
+	#[error("ChainApiSubsystem channel closed before receipt")]
+	BlockHeader(#[source] oneshot::Canceled),
+
+	#[error("Can't get block header from ChainApiSubsystem")]
+	ChainApi(#[source] polkadot_node_subsystem::ChainApiError),
+
+	#[error("Block header not found for relay parent {0:?}")]
+	MissingBlockHeader(polkadot_primitives::Hash),
 }
 
 /// Utility for eating top level errors and log them.

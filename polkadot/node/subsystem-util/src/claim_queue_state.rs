@@ -263,6 +263,7 @@ impl ClaimQueueState {
 			target: LOG_TARGET,
 			?para_id,
 			?relay_parent,
+			?candidate_hash,
 			"second_at"
 		);
 
@@ -535,6 +536,8 @@ impl PerLeafClaimQueueState {
 	/// Adds new leaf to the state. If the parent of the leaf is already in the state `leaf` is
 	/// added to the corresponding path. Otherwise a new path is created.
 	pub fn add_leaf(&mut self, leaf: &Hash, claim_queue: &VecDeque<ParaId>, parent: &Hash) {
+		debug_assert!(leaf != parent, "Leaf and parent can't be equal");
+
 		let maybe_path = self.leaves.remove(parent);
 
 		// The new leaf builds on top of previous leaf
@@ -649,10 +652,19 @@ impl PerLeafClaimQueueState {
 		para_id: &ParaId,
 	) -> bool {
 		let mut result = false;
-		for (_, state) in &mut self.leaves {
+		for (leaf, state) in &mut self.leaves {
 			if state.claim_seconded_at(relay_parent, para_id, *candidate_hash) {
 				result = true;
 			}
+			gum::trace!(
+				target: LOG_TARGET,
+				?leaf,
+				?para_id,
+				?relay_parent,
+				?candidate_hash,
+				result,
+				"claim_seconded_slot"
+			);
 		}
 		result
 	}
