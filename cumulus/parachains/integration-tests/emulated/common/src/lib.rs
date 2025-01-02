@@ -58,6 +58,8 @@ pub const USDT_ID: u32 = 1984;
 
 pub const PENPAL_A_ID: u32 = 2000;
 pub const PENPAL_B_ID: u32 = 2001;
+pub const ASSET_HUB_ROCOCO_ID: u32 = 1000;
+pub const ASSET_HUB_WESTEND_ID: u32 = 1000;
 pub const ASSETS_PALLET_ID: u8 = 50;
 
 parameter_types! {
