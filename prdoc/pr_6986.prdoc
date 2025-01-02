@@ -13,6 +13,6 @@ crates:
   - name: pallet-mixnet
     bump: minor
   - name: polkadot-sdk-frame
-    bump: none
+    bump: minor
   - name: polkadot-sdk
     bump: none
