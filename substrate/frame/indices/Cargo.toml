@@ -19,7 +19,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 frame = { workspace = true, features = ["experimental", "runtime"] }
-sp-keyring = { optional = true, workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
@@ -31,8 +30,6 @@ std = [
 	"frame/std",
 	"pallet-balances/std",
 	"scale-info/std",
-	"sp-keyring",
-	"sp-keyring?/std",
 ]
 runtime-benchmarks = [
 	"frame/runtime-benchmarks",
