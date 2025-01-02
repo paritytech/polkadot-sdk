@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - master
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review] # TODO: remove this
-  merge_group:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
