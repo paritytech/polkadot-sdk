@@ -40,7 +40,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/paritytec
 <!-- markdownlint-disable-next-line MD013 -->
 ![Current Stable Release](https://raw.githubusercontent.com/paritytech/release-registry/main/badges/polkadot-sdk-latest.svg)&nbsp;&nbsp;![Next Stable Release](https://raw.githubusercontent.com/paritytech/release-registry/main/badges/polkadot-sdk-next.svg)
 
-The Polkadot SDK is released every three months as a `stableYYMMDD` release. They are supported for
+The Polkadot SDK is released every three months as a `stableYYMM` release. They are supported for
 one year with patches. See the next upcoming versions in the [Release
 Registry](https://github.com/paritytech/release-registry/).
 

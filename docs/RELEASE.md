@@ -14,7 +14,7 @@ Merging to it is restricted to [Backports](#backports).
 
 We are releasing multiple different things from this repository in one release, but we don't want to use the same
 version for everything. Thus, in the following we explain the versioning story for the crates, node and Westend &
-Rococo. To easily refer to a release, it shall be named by its date in the form `stableYYMMDD`.
+Rococo. To easily refer to a release, it shall be named by its date in the form `stableYYMM`.
 
 ## Crate
 
