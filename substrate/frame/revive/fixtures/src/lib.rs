@@ -27,7 +27,6 @@ include!(concat!(env!("OUT_DIR"), "/fixture_location.rs"));
 pub fn compile_module(fixture_name: &str) -> anyhow::Result<(Vec<u8>, sp_core::H256)> {
 	let out_dir: std::path::PathBuf = FIXTURE_DIR.into();
 	let fixture_path = out_dir.join(format!("{fixture_name}.polkavm"));
-	log::debug!("Loading fixture from {fixture_path:?}");
 	let binary = std::fs::read(fixture_path)?;
 	let code_hash = sp_io::hashing::keccak_256(&binary);
 	Ok((binary, sp_core::H256(code_hash)))

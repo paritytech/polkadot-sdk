@@ -75,9 +75,7 @@ fn recursion_guard() -> [u8; 20] {
 
 /// Assert [api::return_data_size] to match the `expected` value.
 fn assert_return_data_size_of(expected: u64) {
-	let mut return_data_size = [0xff; 32];
-	api::return_data_size(&mut return_data_size);
-	assert_eq!(return_data_size, u256_bytes(expected));
+	assert_eq!(api::return_data_size(), expected);
 }
 
 /// Assert the return data to be reset after a balance transfer.

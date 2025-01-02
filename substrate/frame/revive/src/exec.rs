@@ -298,7 +298,7 @@ pub trait Ext: sealing::Sealed {
 	fn code_hash(&self, address: &H160) -> H256;
 
 	/// Returns the code size of the contract at the given `address` or zero.
-	fn code_size(&self, address: &H160) -> U256;
+	fn code_size(&self, address: &H160) -> u64;
 
 	/// Returns the code hash of the contract being executed.
 	fn own_code_hash(&mut self) -> &H256;
@@ -1677,7 +1677,7 @@ where
 			})
 	}
 
-	fn code_size(&self, address: &H160) -> U256 {
+	fn code_size(&self, address: &H160) -> u64 {
 		<ContractInfoOf<T>>::get(&address)
 			.and_then(|contract| CodeInfoOf::<T>::get(contract.code_hash))
 			.map(|info| info.code_len())
