@@ -27,6 +27,16 @@ jobs:
       image: ${{ needs.preflight.outputs.IMAGE }}
     strategy:
       fail-fast: false
+      matrix:
+        features:
+          [
+            {
+              bench: "notifications_protocol",
+            },
+            {
+              bench: "request_response_protocol",
+            },
+          ]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -35,13 +45,13 @@ jobs:
         id: run-benchmarks
         run: |
           mkdir -p ./charts
-          forklift cargo bench -p sc-network -- --output-format bencher | tee ./charts/networking-bench.txt || echo "Benchmarks failed"
+          forklift cargo bench -p sc-network --bench ${{ matrix.features.bench }} -- --output-format bencher | tee ./charts/networking-bench.txt || echo "Benchmarks failed"
           ls -lsa ./charts
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4.3.6
         with:
-          name: networking-bench-${{ github.sha }}
+          name: ${{ matrix.features.bench }}-${{ github.sha }}
           path: ./charts
 
   publish-benchmarks:
@@ -77,11 +87,24 @@ jobs:
           app-id: ${{ secrets.POLKADOTSDK_GHPAGES_APP_ID }}
           private-key: ${{ secrets.POLKADOTSDK_GHPAGES_APP_KEY }}
 
-      - name: Generate networking benchmarks
+      - name: Generate ${{ env.BENCH }}
+        env:
+          BENCH: notifications_protocol
         uses: benchmark-action/github-action-benchmark@v1
         with:
           tool: "cargo"
-          output-file-path: ./charts/networking-bench.txt
-          benchmark-data-dir-path: ./bench/networking
+          output-file-path: ./charts/${{ env.BENCH }}.txt
+          benchmark-data-dir-path: ./bench/${{ env.BENCH }}
+          github-token: ${{ steps.app-token.outputs.token }}
+          auto-push: true
+
+      - name: Generate ${{ env.BENCH }}
+        env:
+          BENCH: request_response_protocol
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: "cargo"
+          output-file-path: ./charts/${{ env.BENCH }}.txt
+          benchmark-data-dir-path: ./bench/${{ env.BENCH }}
           github-token: ${{ steps.app-token.outputs.token }}
           auto-push: true
