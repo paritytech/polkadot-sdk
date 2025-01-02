@@ -31,6 +31,8 @@ pub use sp_genesis_builder::{DEV_RUNTIME_PRESET, LOCAL_TESTNET_RUNTIME_PRESET};
 use sp_state_machine::BasicExternalities;
 use std::borrow::Cow;
 
+use crate::OffchainExecutorParams;
+
 /// A utility that facilitates calling the GenesisBuilder API from the runtime wasm code blob.
 ///
 /// `EHF` type allows to specify the extended host function required for building runtime's genesis
@@ -60,13 +62,19 @@ where
 	/// Creates new instance using the provided code blob.
 	///
 	/// This code is later referred to as `runtime`.
-	pub fn new(code: &'a [u8]) -> Self {
+	pub fn new(code: &'a [u8], executor_params: OffchainExecutorParams) -> Self {
+		let mut executor = WasmExecutor::<(sp_io::SubstrateHostFunctions, EHF)>::builder()
+			.with_allow_missing_host_functions(true);
+		if let Some(heap_pages) = executor_params.extra_heap_pages {
+			executor =
+				executor.with_offchain_heap_alloc_strategy(sc_executor::HeapAllocStrategy::Static {
+					extra_pages: heap_pages as _,
+				})
+		};
 		GenesisConfigBuilderRuntimeCaller {
 			code: code.into(),
 			code_hash: sp_crypto_hashing::blake2_256(code).to_vec(),
-			executor: WasmExecutor::<(sp_io::SubstrateHostFunctions, EHF)>::builder()
-				.with_allow_missing_host_functions(true)
-				.build(),
+			executor: executor.build(),
 		}
 	}
 
@@ -183,19 +191,23 @@ mod tests {
 	#[test]
 	fn list_presets_works() {
 		sp_tracing::try_init_simple();
-		let presets =
-			<GenesisConfigBuilderRuntimeCaller>::new(substrate_test_runtime::wasm_binary_unwrap())
-				.preset_names()
-				.unwrap();
+		let presets = <GenesisConfigBuilderRuntimeCaller>::new(
+			substrate_test_runtime::wasm_binary_unwrap(),
+			Default::default(),
+		)
+		.preset_names()
+		.unwrap();
 		assert_eq!(presets, vec![PresetId::from("foobar"), PresetId::from("staging"),]);
 	}
 
 	#[test]
 	fn get_default_config_works() {
-		let config =
-			<GenesisConfigBuilderRuntimeCaller>::new(substrate_test_runtime::wasm_binary_unwrap())
-				.get_default_config()
-				.unwrap();
+		let config = <GenesisConfigBuilderRuntimeCaller>::new(
+			substrate_test_runtime::wasm_binary_unwrap(),
+			Default::default(),
+		)
+		.get_default_config()
+		.unwrap();
 		let expected = r#"{"babe": {"authorities": [], "epochConfig": {"allowed_slots": "PrimaryAndSecondaryVRFSlots", "c": [1, 4]}}, "balances": {"balances": []}, "substrateTest": {"authorities": []}, "system": {}}"#;
 		assert_eq!(from_str::<Value>(expected).unwrap(), config);
 	}
@@ -203,10 +215,12 @@ mod tests {
 	#[test]
 	fn get_named_preset_works() {
 		sp_tracing::try_init_simple();
-		let config =
-			<GenesisConfigBuilderRuntimeCaller>::new(substrate_test_runtime::wasm_binary_unwrap())
-				.get_named_preset(Some(&"foobar".to_string()))
-				.unwrap();
+		let config = <GenesisConfigBuilderRuntimeCaller>::new(
+			substrate_test_runtime::wasm_binary_unwrap(),
+			Default::default(),
+		)
+		.get_named_preset(Some(&"foobar".to_string()))
+		.unwrap();
 		let expected = r#"{"foo":"bar"}"#;
 		assert_eq!(from_str::<Value>(expected).unwrap(), config);
 	}
@@ -225,10 +239,12 @@ mod tests {
 			},
 		});
 
-		let storage =
-			<GenesisConfigBuilderRuntimeCaller>::new(substrate_test_runtime::wasm_binary_unwrap())
-				.get_storage_for_patch(patch)
-				.unwrap();
+		let storage = <GenesisConfigBuilderRuntimeCaller>::new(
+			substrate_test_runtime::wasm_binary_unwrap(),
+			Default::default(),
+		)
+		.get_storage_for_patch(patch)
+		.unwrap();
 
 		//Babe|Authorities
 		let value: Vec<u8> = storage

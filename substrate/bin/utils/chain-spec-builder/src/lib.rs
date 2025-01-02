@@ -22,7 +22,7 @@ docify::compile_markdown!("README.docify.md", "README.md");
 use clap::{Parser, Subcommand};
 use sc_chain_spec::{
 	json_patch, set_code_substitute_in_json_chain_spec, update_code_in_json_chain_spec, ChainType,
-	GenericChainSpec, GenesisConfigBuilderRuntimeCaller,
+	GenericChainSpec, GenesisConfigBuilderRuntimeCaller, OffchainExecutorParams,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -83,6 +83,10 @@ pub struct CreateCmd {
 	/// errors will be reported.
 	#[arg(long, short = 'v')]
 	verify: bool,
+	/// Number of extra heap pages available to executor when calling into runtime to build chain
+	/// spec.
+	#[arg(long)]
+	extra_heap_pages: Option<u64>,
 	#[command(subcommand)]
 	action: GenesisBuildAction,
 
@@ -289,7 +293,7 @@ impl ChainSpecBuilder {
 				let code = fs::read(runtime.as_path())
 					.map_err(|e| format!("wasm blob shall be readable {e}"))?;
 				let caller: GenesisConfigBuilderRuntimeCaller =
-					GenesisConfigBuilderRuntimeCaller::new(&code[..]);
+					GenesisConfigBuilderRuntimeCaller::new(&code[..], Default::default());
 				let presets = caller
 					.preset_names()
 					.map_err(|e| format!("getting default config from runtime should work: {e}"))?;
@@ -299,7 +303,7 @@ impl ChainSpecBuilder {
 				let code = fs::read(runtime.as_path())
 					.map_err(|e| format!("wasm blob shall be readable {e}"))?;
 				let caller: GenesisConfigBuilderRuntimeCaller =
-					GenesisConfigBuilderRuntimeCaller::new(&code[..]);
+					GenesisConfigBuilderRuntimeCaller::new(&code[..], Default::default());
 				let preset = caller
 					.get_named_preset(preset_name.as_ref())
 					.map_err(|e| format!("getting default config from runtime should work: {e}"))?;
@@ -348,8 +352,10 @@ fn process_action<T: Serialize + Clone + Sync + 'static>(
 			)?)
 		},
 		GenesisBuildAction::Default(DefaultCmd {}) => {
-			let caller: GenesisConfigBuilderRuntimeCaller =
-				GenesisConfigBuilderRuntimeCaller::new(&code);
+			let caller: GenesisConfigBuilderRuntimeCaller = GenesisConfigBuilderRuntimeCaller::new(
+				&code,
+				OffchainExecutorParams { extra_heap_pages: cmd.extra_heap_pages },
+			);
 			let default_config = caller
 				.get_default_config()
 				.map_err(|e| format!("getting default config from runtime should work: {e}"))?;
