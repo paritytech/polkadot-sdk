@@ -675,6 +675,9 @@ pub mod pallet {
 			}
 		}
 
+		/// Import `who` into the core-fellowship pallet.
+		///
+		/// `who` must be a member of the collective but *not* already imported.
 		pub(crate) fn do_import(who: T::AccountId) -> DispatchResult {
 			ensure!(!Member::<T, I>::contains_key(&who), Error::<T, I>::AlreadyInducted);
 			let rank = T::Members::rank_of(&who).ok_or(Error::<T, I>::Unranked)?;
