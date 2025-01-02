@@ -297,7 +297,6 @@ fetch_release_artifacts_from_s3() {
   pwd
   ls -al --color
   popd > /dev/null
-
 }
 
 # Pass the name of the binary as input, it will
