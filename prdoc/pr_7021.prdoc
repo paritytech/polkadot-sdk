@@ -2,20 +2,7 @@ title: Improve remote externalities logging
 doc:
 - audience: Node Dev
   description: |-
-    Changes:
-    - Automatically detect if current env is tty. If not disable the spinner logging.
-    - Add `Result` type.
-    - Format log style.
-
-    Originally reported from:
-    - https://github.com/hack-ink/polkadot-runtime-releaser/blob/4811d2b419649a73edd5bd1f748a858b846eb139/action/try-runtime/action.yml#L75-L91
-    - https://github.com/hack-ink/polkadot-runtime-releaser-workshop/pull/3#issuecomment-2563883943
-
-    Closes #7010.
-
-    ---
-
-    Polkadot address: 156HGo9setPcU2qhFMVWLkcmtCEGySLwNqa3DaEiYSWtte4Y
+    Automatically detect if current env is tty. If not disable the spinner logging.
 crates:
 - name: frame-remote-externalities
   bump: patch
