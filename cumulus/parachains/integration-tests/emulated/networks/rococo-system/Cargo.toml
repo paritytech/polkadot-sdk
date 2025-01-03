@@ -12,10 +12,10 @@ workspace = true
 
 [dependencies]
 # Cumulus
-emulated-integration-tests-common = { workspace = true }
-rococo-emulated-chain = { workspace = true }
 asset-hub-rococo-emulated-chain = { workspace = true }
 bridge-hub-rococo-emulated-chain = { workspace = true }
-people-rococo-emulated-chain = { workspace = true }
-penpal-emulated-chain = { workspace = true }
 coretime-rococo-emulated-chain = { workspace = true }
+emulated-integration-tests-common = { workspace = true }
+penpal-emulated-chain = { workspace = true }
+people-rococo-emulated-chain = { workspace = true }
+rococo-emulated-chain = { workspace = true }

@@ -17,10 +17,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-safe-mix = { workspace = true }
-scale-info = { features = ["derive"], workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+safe-mix = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 sp-runtime = { workspace = true }
 
 [dev-dependencies]

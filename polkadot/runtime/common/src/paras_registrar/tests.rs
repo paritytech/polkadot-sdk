@@ -442,7 +442,7 @@ fn para_lock_works() {
 		// Owner cannot pass origin check when checking lock
 		assert_noop!(
 			mock::Registrar::ensure_root_para_or_owner(RuntimeOrigin::signed(1), para_id),
-			BadOrigin
+			Error::<Test>::ParaLocked,
 		);
 		// Owner cannot remove lock.
 		assert_noop!(mock::Registrar::remove_lock(RuntimeOrigin::signed(1), para_id), BadOrigin);

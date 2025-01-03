@@ -7,8 +7,8 @@ import {
 	polkadotSdkPath,
 } from './util.ts'
 import { afterAll, afterEach, describe, expect, test } from 'bun:test'
-import { encodeAbiParameters, encodeFunctionData, Hex, parseEther } from 'viem'
-import { ErrorTesterAbi } from '../abi/ErrorTester'
+import { encodeFunctionData, Hex, parseEther } from 'viem'
+import {  ErrorsAbi } from '../abi/Errors'
 import { TracingCallerAbi } from '../abi/TracingCaller.ts'
 import { TracingCalleeAbi } from '../abi/TracingCallee.ts'
 import { Subprocess, spawn } from 'bun'
@@ -99,7 +99,7 @@ for (const env of envs) {
 					return contractAddress
 				}
 				const hash = await env.serverWallet.deployContract({
-					abi: ErrorTesterAbi,
+					abi: ErrorsAbi,
 					bytecode: getByteCode('ErrorTester', env.evm),
 				})
 				const deployReceipt = await env.serverWallet.waitForTransactionReceipt({ hash })
@@ -115,7 +115,7 @@ for (const env of envs) {
 			try {
 				await env.accountWallet.readContract({
 					address: await getErrorTesterAddr(),
-					abi: ErrorTesterAbi,
+					abi: ErrorsAbi,
 					functionName: 'triggerAssertError',
 				})
 			} catch (err) {
@@ -133,7 +133,7 @@ for (const env of envs) {
 			try {
 				await env.accountWallet.readContract({
 					address: await getErrorTesterAddr(),
-					abi: ErrorTesterAbi,
+					abi: ErrorsAbi,
 					functionName: 'triggerRevertError',
 				})
 			} catch (err) {
@@ -151,7 +151,7 @@ for (const env of envs) {
 			try {
 				await env.accountWallet.readContract({
 					address: await getErrorTesterAddr(),
-					abi: ErrorTesterAbi,
+					abi: ErrorsAbi,
 					functionName: 'triggerDivisionByZero',
 				})
 			} catch (err) {
@@ -171,7 +171,7 @@ for (const env of envs) {
 			try {
 				await env.accountWallet.readContract({
 					address: await getErrorTesterAddr(),
-					abi: ErrorTesterAbi,
+					abi: ErrorsAbi,
 					functionName: 'triggerOutOfBoundsError',
 				})
 			} catch (err) {
@@ -191,7 +191,7 @@ for (const env of envs) {
 			try {
 				await env.accountWallet.readContract({
 					address: await getErrorTesterAddr(),
-					abi: ErrorTesterAbi,
+					abi: ErrorsAbi,
 					functionName: 'triggerCustomError',
 				})
 			} catch (err) {
@@ -209,7 +209,7 @@ for (const env of envs) {
 			try {
 				await env.accountWallet.simulateContract({
 					address: await getErrorTesterAddr(),
-					abi: ErrorTesterAbi,
+					abi: ErrorsAbi,
 					functionName: 'valueMatch',
 					value: parseEther('10'),
 					args: [parseEther('10')],
@@ -242,7 +242,7 @@ for (const env of envs) {
 			try {
 				await env.accountWallet.estimateContractGas({
 					address: await getErrorTesterAddr(),
-					abi: ErrorTesterAbi,
+					abi: ErrorsAbi,
 					functionName: 'valueMatch',
 					value: parseEther('10'),
 					args: [parseEther('10')],
@@ -260,7 +260,7 @@ for (const env of envs) {
 			try {
 				await env.accountWallet.estimateContractGas({
 					address: await getErrorTesterAddr(),
-					abi: ErrorTesterAbi,
+					abi: ErrorsAbi,
 					functionName: 'valueMatch',
 					value: parseEther('10'),
 					args: [parseEther('10')],
@@ -278,7 +278,7 @@ for (const env of envs) {
 			try {
 				await env.serverWallet.estimateContractGas({
 					address: await getErrorTesterAddr(),
-					abi: ErrorTesterAbi,
+					abi: ErrorsAbi,
 					functionName: 'valueMatch',
 					value: parseEther('11'),
 					args: [parseEther('10')],
@@ -310,7 +310,7 @@ for (const env of envs) {
 
 				await env.accountWallet.estimateContractGas({
 					address: await getErrorTesterAddr(),
-					abi: ErrorTesterAbi,
+					abi: ErrorsAbi,
 					functionName: 'setState',
 					args: [true],
 				})
@@ -327,7 +327,7 @@ for (const env of envs) {
 			expect(balance).toBe(0n)
 
 			const data = encodeFunctionData({
-				abi: ErrorTesterAbi,
+				abi: ErrorsAbi,
 				functionName: 'setState',
 				args: [true],
 			})

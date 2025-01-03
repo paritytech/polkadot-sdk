@@ -17,8 +17,8 @@ codec = { features = ["derive"], workspace = true }
 environmental = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
-trie-db = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+trie-db = { workspace = true }
 
 # Substrate
 frame-benchmarking = { optional = true, workspace = true }
@@ -49,18 +49,18 @@ cumulus-primitives-proof-size-hostfunction = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-hex-literal = { workspace = true, default-features = true }
-trie-standardmap = { workspace = true }
-rand = { workspace = true, default-features = true }
 futures = { workspace = true }
+hex-literal = { workspace = true, default-features = true }
+rand = { workspace = true, default-features = true }
+trie-standardmap = { workspace = true }
 
 # Substrate
 sc-client-api = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
+sp-consensus-slots = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
-sp-consensus-slots = { workspace = true, default-features = true }
 
 # Cumulus
 cumulus-test-client = { workspace = true }

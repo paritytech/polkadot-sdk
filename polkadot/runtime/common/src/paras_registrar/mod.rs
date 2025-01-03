@@ -561,15 +561,16 @@ impl<T: Config> Pallet<T> {
 		origin: <T as frame_system::Config>::RuntimeOrigin,
 		id: ParaId,
 	) -> DispatchResult {
-		ensure_signed(origin.clone())
-			.map_err(|e| e.into())
-			.and_then(|who| -> DispatchResult {
-				let para_info = Paras::<T>::get(id).ok_or(Error::<T>::NotRegistered)?;
+		if let Ok(who) = ensure_signed(origin.clone()) {
+			let para_info = Paras::<T>::get(id).ok_or(Error::<T>::NotRegistered)?;
+
+			if para_info.manager == who {
 				ensure!(!para_info.is_locked(), Error::<T>::ParaLocked);
-				ensure!(para_info.manager == who, Error::<T>::NotOwner);
-				Ok(())
-			})
-			.or_else(|_| -> DispatchResult { Self::ensure_root_or_para(origin, id) })
+				return Ok(())
+			}
+		}
+
+		Self::ensure_root_or_para(origin, id)
 	}
 
 	/// Ensure the origin is one of Root or the `para` itself.
@@ -577,14 +578,14 @@ impl<T: Config> Pallet<T> {
 		origin: <T as frame_system::Config>::RuntimeOrigin,
 		id: ParaId,
 	) -> DispatchResult {
-		if let Ok(caller_id) = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin.clone()))
-		{
-			// Check if matching para id...
-			ensure!(caller_id == id, Error::<T>::NotOwner);
-		} else {
-			// Check if root...
-			ensure_root(origin.clone())?;
+		if ensure_root(origin.clone()).is_ok() {
+			return Ok(())
 		}
+
+		let caller_id = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+		// Check if matching para id...
+		ensure!(caller_id == id, Error::<T>::NotOwner);
+
 		Ok(())
 	}
 
