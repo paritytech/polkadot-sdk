@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AccountStatus","AssetStatus","ExistenceReason"],"struct":["Approval","AssetAccount","AssetDetails","AssetMetadata"]};

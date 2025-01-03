@@ -1,0 +1,254 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Something that implements a decimal fixed point number."><title>FixedPointNumber in polkadot_sdk_frame::arithmetic - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_sdk_frame" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../polkadot_sdk_frame/index.html">polkadot_sdk_frame</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">FixedPointNumber</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Inner">Inner</a></li></ul><h3><a href="#required-associated-consts">Required Associated Constants</a></h3><ul class="block"><li><a href="#associatedconstant.DIV">DIV</a></li><li><a href="#associatedconstant.SIGNED">SIGNED</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.from_inner">from_inner</a></li><li><a href="#tymethod.into_inner">into_inner</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.accuracy">accuracy</a></li><li><a href="#method.ceil">ceil</a></li><li><a href="#method.checked_div_int">checked_div_int</a></li><li><a href="#method.checked_from_integer">checked_from_integer</a></li><li><a href="#method.checked_from_rational">checked_from_rational</a></li><li><a href="#method.checked_mul_int">checked_mul_int</a></li><li><a href="#method.floor">floor</a></li><li><a href="#method.frac">frac</a></li><li><a href="#method.is_negative">is_negative</a></li><li><a href="#method.is_one">is_one</a></li><li><a href="#method.is_positive">is_positive</a></li><li><a href="#method.reciprocal">reciprocal</a></li><li><a href="#method.round">round</a></li><li><a href="#method.saturating_abs">saturating_abs</a></li><li><a href="#method.saturating_div_int">saturating_div_int</a></li><li><a href="#method.saturating_from_integer">saturating_from_integer</a></li><li><a href="#method.saturating_from_rational">saturating_from_rational</a></li><li><a href="#method.saturating_mul_acc_int">saturating_mul_acc_int</a></li><li><a href="#method.saturating_mul_int">saturating_mul_int</a></li><li><a href="#method.trunc">trunc</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In polkadot_sdk_frame::arithmetic</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">polkadot_sdk_frame</a>::<wbr><a href="index.html">arithmetic</a>::<wbr><a class="trait" href="#">FixedPointNumber</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait FixedPointNumber: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a> + <a class="trait" href="../derive/trait.Debug.html" title="trait polkadot_sdk_frame::derive::Debug">Debug</a> + <a class="trait" href="traits/trait.Saturating.html" title="trait polkadot_sdk_frame::arithmetic::traits::Saturating">Saturating</a> + <a class="trait" href="traits/trait.Bounded.html" title="trait polkadot_sdk_frame::arithmetic::traits::Bounded">Bounded</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.PartialEq.html" title="trait core::cmp::PartialEq">PartialEq</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.PartialOrd.html" title="trait core::cmp::PartialOrd">PartialOrd</a> + <a class="trait" href="traits/trait.CheckedSub.html" title="trait polkadot_sdk_frame::arithmetic::traits::CheckedSub">CheckedSub</a> + <a class="trait" href="traits/trait.CheckedAdd.html" title="trait polkadot_sdk_frame::arithmetic::traits::CheckedAdd">CheckedAdd</a> + <a class="trait" href="traits/trait.CheckedMul.html" title="trait polkadot_sdk_frame::arithmetic::traits::CheckedMul">CheckedMul</a> + <a class="trait" href="traits/trait.CheckedDiv.html" title="trait polkadot_sdk_frame::arithmetic::traits::CheckedDiv">CheckedDiv</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/arith/trait.Add.html" title="trait core::ops::arith::Add">Add</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/arith/trait.Sub.html" title="trait core::ops::arith::Sub">Sub</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/arith/trait.Div.html" title="trait core::ops::arith::Div">Div</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/arith/trait.Mul.html" title="trait core::ops::arith::Mul">Mul</a> + <a class="trait" href="traits/trait.Zero.html" title="trait polkadot_sdk_frame::arithmetic::traits::Zero">Zero</a> + <a class="trait" href="traits/trait.One.html" title="trait polkadot_sdk_frame::arithmetic::traits::One">One</a> {
+    type <a href="#associatedtype.Inner" class="associatedtype">Inner</a>: <a class="trait" href="../derive/trait.Debug.html" title="trait polkadot_sdk_frame::derive::Debug">Debug</a> + <a class="trait" href="traits/trait.One.html" title="trait polkadot_sdk_frame::arithmetic::traits::One">One</a> + <a class="trait" href="traits/trait.CheckedMul.html" title="trait polkadot_sdk_frame::arithmetic::traits::CheckedMul">CheckedMul</a> + <a class="trait" href="traits/trait.CheckedDiv.html" title="trait polkadot_sdk_frame::arithmetic::traits::CheckedDiv">CheckedDiv</a> + <a class="trait" href="trait.FixedPointOperand.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointOperand">FixedPointOperand</a>;
+
+    const <a href="#associatedconstant.DIV" class="constant">DIV</a>: Self::<a class="associatedtype" href="trait.FixedPointNumber.html#associatedtype.Inner" title="type polkadot_sdk_frame::arithmetic::FixedPointNumber::Inner">Inner</a>;
+    const <a href="#associatedconstant.SIGNED" class="constant">SIGNED</a>: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>;
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 22 methods</span></summary>
+    // Required methods
+    fn <a href="#tymethod.from_inner" class="fn">from_inner</a>(int: Self::<a class="associatedtype" href="trait.FixedPointNumber.html#associatedtype.Inner" title="type polkadot_sdk_frame::arithmetic::FixedPointNumber::Inner">Inner</a>) -&gt; Self;
+<span class="item-spacer"></span>    fn <a href="#tymethod.into_inner" class="fn">into_inner</a>(self) -&gt; Self::<a class="associatedtype" href="trait.FixedPointNumber.html#associatedtype.Inner" title="type polkadot_sdk_frame::arithmetic::FixedPointNumber::Inner">Inner</a>;
+
+    // Provided methods
+    fn <a href="#method.accuracy" class="fn">accuracy</a>() -&gt; Self::<a class="associatedtype" href="trait.FixedPointNumber.html#associatedtype.Inner" title="type polkadot_sdk_frame::arithmetic::FixedPointNumber::Inner">Inner</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.saturating_from_integer" class="fn">saturating_from_integer</a>&lt;N&gt;(int: N) -&gt; Self
+       <span class="where">where N: <a class="trait" href="trait.FixedPointOperand.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointOperand">FixedPointOperand</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.checked_from_integer" class="fn">checked_from_integer</a>&lt;N&gt;(int: N) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self&gt;
+       <span class="where">where N: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;Self::<a class="associatedtype" href="trait.FixedPointNumber.html#associatedtype.Inner" title="type polkadot_sdk_frame::arithmetic::FixedPointNumber::Inner">Inner</a>&gt;</span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.saturating_from_rational" class="fn">saturating_from_rational</a>&lt;N, D&gt;(n: N, d: D) -&gt; Self
+       <span class="where">where N: <a class="trait" href="trait.FixedPointOperand.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointOperand">FixedPointOperand</a>,
+             D: <a class="trait" href="trait.FixedPointOperand.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointOperand">FixedPointOperand</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.checked_from_rational" class="fn">checked_from_rational</a>&lt;N, D&gt;(n: N, d: D) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self&gt;
+       <span class="where">where N: <a class="trait" href="trait.FixedPointOperand.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointOperand">FixedPointOperand</a>,
+             D: <a class="trait" href="trait.FixedPointOperand.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointOperand">FixedPointOperand</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.checked_mul_int" class="fn">checked_mul_int</a>&lt;N&gt;(self, n: N) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;N&gt;
+       <span class="where">where N: <a class="trait" href="trait.FixedPointOperand.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointOperand">FixedPointOperand</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.saturating_mul_int" class="fn">saturating_mul_int</a>&lt;N&gt;(self, n: N) -&gt; N
+       <span class="where">where N: <a class="trait" href="trait.FixedPointOperand.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointOperand">FixedPointOperand</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.checked_div_int" class="fn">checked_div_int</a>&lt;N&gt;(self, d: N) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;N&gt;
+       <span class="where">where N: <a class="trait" href="trait.FixedPointOperand.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointOperand">FixedPointOperand</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.saturating_div_int" class="fn">saturating_div_int</a>&lt;N&gt;(self, d: N) -&gt; N
+       <span class="where">where N: <a class="trait" href="trait.FixedPointOperand.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointOperand">FixedPointOperand</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.saturating_mul_acc_int" class="fn">saturating_mul_acc_int</a>&lt;N&gt;(self, n: N) -&gt; N
+       <span class="where">where N: <a class="trait" href="trait.FixedPointOperand.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointOperand">FixedPointOperand</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.saturating_abs" class="fn">saturating_abs</a>(self) -&gt; Self { ... }
+<span class="item-spacer"></span>    fn <a href="#method.reciprocal" class="fn">reciprocal</a>(self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.is_one" class="fn">is_one</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.is_positive" class="fn">is_positive</a>(self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.is_negative" class="fn">is_negative</a>(self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.trunc" class="fn">trunc</a>(self) -&gt; Self { ... }
+<span class="item-spacer"></span>    fn <a href="#method.frac" class="fn">frac</a>(self) -&gt; Self { ... }
+<span class="item-spacer"></span>    fn <a href="#method.ceil" class="fn">ceil</a>(self) -&gt; Self { ... }
+<span class="item-spacer"></span>    fn <a href="#method.floor" class="fn">floor</a>(self) -&gt; Self { ... }
+<span class="item-spacer"></span>    fn <a href="#method.round" class="fn">round</a>(self) -&gt; Self { ... }
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Something that implements a decimal fixed point number.</p>
+<p>The precision is given by <code>Self::DIV</code>, i.e. <code>1 / DIV</code> can be represented.</p>
+<p>Each type can store numbers from <code>Self::Inner::min_value() / Self::DIV</code>
+to <code>Self::Inner::max_value() / Self::DIV</code>.
+This is also referred to as the <em>accuracy</em> of the type in the documentation.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.Inner" class="method"><h4 class="code-header">type <a href="#associatedtype.Inner" class="associatedtype">Inner</a>: <a class="trait" href="../derive/trait.Debug.html" title="trait polkadot_sdk_frame::derive::Debug">Debug</a> + <a class="trait" href="traits/trait.One.html" title="trait polkadot_sdk_frame::arithmetic::traits::One">One</a> + <a class="trait" href="traits/trait.CheckedMul.html" title="trait polkadot_sdk_frame::arithmetic::traits::CheckedMul">CheckedMul</a> + <a class="trait" href="traits/trait.CheckedDiv.html" title="trait polkadot_sdk_frame::arithmetic::traits::CheckedDiv">CheckedDiv</a> + <a class="trait" href="trait.FixedPointOperand.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointOperand">FixedPointOperand</a></h4></section></summary><div class="docblock"><p>The underlying data type used for this fixed point number.</p>
+</div></details></div><h2 id="required-associated-consts" class="section-header">Required Associated Constants<a href="#required-associated-consts" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedconstant.DIV" class="method"><h4 class="code-header">const <a href="#associatedconstant.DIV" class="constant">DIV</a>: Self::<a class="associatedtype" href="trait.FixedPointNumber.html#associatedtype.Inner" title="type polkadot_sdk_frame::arithmetic::FixedPointNumber::Inner">Inner</a></h4></section></summary><div class="docblock"><p>Precision of this fixed point implementation. It should be a power of <code>10</code>.</p>
+</div></details><details class="toggle" open><summary><section id="associatedconstant.SIGNED" class="method"><h4 class="code-header">const <a href="#associatedconstant.SIGNED" class="constant">SIGNED</a>: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Indicates if this fixed point implementation is signed or not.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.from_inner" class="method"><h4 class="code-header">fn <a href="#tymethod.from_inner" class="fn">from_inner</a>(int: Self::<a class="associatedtype" href="trait.FixedPointNumber.html#associatedtype.Inner" title="type polkadot_sdk_frame::arithmetic::FixedPointNumber::Inner">Inner</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Builds this type from an integer number.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.into_inner" class="method"><h4 class="code-header">fn <a href="#tymethod.into_inner" class="fn">into_inner</a>(self) -&gt; Self::<a class="associatedtype" href="trait.FixedPointNumber.html#associatedtype.Inner" title="type polkadot_sdk_frame::arithmetic::FixedPointNumber::Inner">Inner</a></h4></section></summary><div class="docblock"><p>Consumes <code>self</code> and returns the inner raw value.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.accuracy" class="method"><h4 class="code-header">fn <a href="#method.accuracy" class="fn">accuracy</a>() -&gt; Self::<a class="associatedtype" href="trait.FixedPointNumber.html#associatedtype.Inner" title="type polkadot_sdk_frame::arithmetic::FixedPointNumber::Inner">Inner</a></h4></section></summary><div class="docblock"><p>Precision of this fixed point implementation.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.saturating_from_integer" class="method"><h4 class="code-header">fn <a href="#method.saturating_from_integer" class="fn">saturating_from_integer</a>&lt;N&gt;(int: N) -&gt; Self<div class="where">where
+    N: <a class="trait" href="trait.FixedPointOperand.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointOperand">FixedPointOperand</a>,</div></h4></section></summary><div class="docblock"><p>Creates self from an integer number <code>int</code>.</p>
+<p>Returns <code>Self::max</code> or <code>Self::min</code> if <code>int</code> exceeds accuracy.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.checked_from_integer" class="method"><h4 class="code-header">fn <a href="#method.checked_from_integer" class="fn">checked_from_integer</a>&lt;N&gt;(int: N) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self&gt;<div class="where">where
+    N: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;Self::<a class="associatedtype" href="trait.FixedPointNumber.html#associatedtype.Inner" title="type polkadot_sdk_frame::arithmetic::FixedPointNumber::Inner">Inner</a>&gt;,</div></h4></section></summary><div class="docblock"><p>Creates <code>self</code> from an integer number <code>int</code>.</p>
+<p>Returns <code>None</code> if <code>int</code> exceeds accuracy.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.saturating_from_rational" class="method"><h4 class="code-header">fn <a href="#method.saturating_from_rational" class="fn">saturating_from_rational</a>&lt;N, D&gt;(n: N, d: D) -&gt; Self<div class="where">where
+    N: <a class="trait" href="trait.FixedPointOperand.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointOperand">FixedPointOperand</a>,
+    D: <a class="trait" href="trait.FixedPointOperand.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointOperand">FixedPointOperand</a>,</div></h4></section></summary><div class="docblock"><p>Creates <code>self</code> from a rational number. Equal to <code>n / d</code>.</p>
+<p>Panics if <code>d = 0</code>. Returns <code>Self::max</code> or <code>Self::min</code> if <code>n / d</code> exceeds accuracy.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.checked_from_rational" class="method"><h4 class="code-header">fn <a href="#method.checked_from_rational" class="fn">checked_from_rational</a>&lt;N, D&gt;(n: N, d: D) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self&gt;<div class="where">where
+    N: <a class="trait" href="trait.FixedPointOperand.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointOperand">FixedPointOperand</a>,
+    D: <a class="trait" href="trait.FixedPointOperand.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointOperand">FixedPointOperand</a>,</div></h4></section></summary><div class="docblock"><p>Creates <code>self</code> from a rational number. Equal to <code>n / d</code>.</p>
+<p>Returns <code>None</code> if <code>d == 0</code> or <code>n / d</code> exceeds accuracy.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.checked_mul_int" class="method"><h4 class="code-header">fn <a href="#method.checked_mul_int" class="fn">checked_mul_int</a>&lt;N&gt;(self, n: N) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;N&gt;<div class="where">where
+    N: <a class="trait" href="trait.FixedPointOperand.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointOperand">FixedPointOperand</a>,</div></h4></section></summary><div class="docblock"><p>Checked multiplication for integer type <code>N</code>. Equal to <code>self * n</code>.</p>
+<p>Returns <code>None</code> if the result does not fit in <code>N</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.saturating_mul_int" class="method"><h4 class="code-header">fn <a href="#method.saturating_mul_int" class="fn">saturating_mul_int</a>&lt;N&gt;(self, n: N) -&gt; N<div class="where">where
+    N: <a class="trait" href="trait.FixedPointOperand.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointOperand">FixedPointOperand</a>,</div></h4></section></summary><div class="docblock"><p>Saturating multiplication for integer type <code>N</code>. Equal to <code>self * n</code>.</p>
+<p>Returns <code>N::min</code> or <code>N::max</code> if the result does not fit in <code>N</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.checked_div_int" class="method"><h4 class="code-header">fn <a href="#method.checked_div_int" class="fn">checked_div_int</a>&lt;N&gt;(self, d: N) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;N&gt;<div class="where">where
+    N: <a class="trait" href="trait.FixedPointOperand.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointOperand">FixedPointOperand</a>,</div></h4></section></summary><div class="docblock"><p>Checked division for integer type <code>N</code>. Equal to <code>self / d</code>.</p>
+<p>Returns <code>None</code> if the result does not fit in <code>N</code> or <code>d == 0</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.saturating_div_int" class="method"><h4 class="code-header">fn <a href="#method.saturating_div_int" class="fn">saturating_div_int</a>&lt;N&gt;(self, d: N) -&gt; N<div class="where">where
+    N: <a class="trait" href="trait.FixedPointOperand.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointOperand">FixedPointOperand</a>,</div></h4></section></summary><div class="docblock"><p>Saturating division for integer type <code>N</code>. Equal to <code>self / d</code>.</p>
+<p>Panics if <code>d == 0</code>. Returns <code>N::min</code> or <code>N::max</code> if the result does not fit in <code>N</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.saturating_mul_acc_int" class="method"><h4 class="code-header">fn <a href="#method.saturating_mul_acc_int" class="fn">saturating_mul_acc_int</a>&lt;N&gt;(self, n: N) -&gt; N<div class="where">where
+    N: <a class="trait" href="trait.FixedPointOperand.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointOperand">FixedPointOperand</a>,</div></h4></section></summary><div class="docblock"><p>Saturating multiplication for integer type <code>N</code>, adding the result back.
+Equal to <code>self * n + n</code>.</p>
+<p>Returns <code>N::min</code> or <code>N::max</code> if the multiplication or final result does not fit in <code>N</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.saturating_abs" class="method"><h4 class="code-header">fn <a href="#method.saturating_abs" class="fn">saturating_abs</a>(self) -&gt; Self</h4></section></summary><div class="docblock"><p>Saturating absolute value.</p>
+<p>Returns <code>Self::max</code> if <code>self == Self::min</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.reciprocal" class="method"><h4 class="code-header">fn <a href="#method.reciprocal" class="fn">reciprocal</a>(self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self&gt;</h4></section></summary><div class="docblock"><p>Takes the reciprocal (inverse). Equal to <code>1 / self</code>.</p>
+<p>Returns <code>None</code> if <code>self = 0</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.is_one" class="method"><h4 class="code-header">fn <a href="#method.is_one" class="fn">is_one</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Checks if the number is one.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.is_positive" class="method"><h4 class="code-header">fn <a href="#method.is_positive" class="fn">is_positive</a>(self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns <code>true</code> if <code>self</code> is positive and <code>false</code> if the number is zero or negative.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.is_negative" class="method"><h4 class="code-header">fn <a href="#method.is_negative" class="fn">is_negative</a>(self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns <code>true</code> if <code>self</code> is negative and <code>false</code> if the number is zero or positive.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.trunc" class="method"><h4 class="code-header">fn <a href="#method.trunc" class="fn">trunc</a>(self) -&gt; Self</h4></section></summary><div class="docblock"><p>Returns the integer part.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.frac" class="method"><h4 class="code-header">fn <a href="#method.frac" class="fn">frac</a>(self) -&gt; Self</h4></section></summary><div class="docblock"><p>Returns the fractional part.</p>
+<p>Note: the returned fraction will be non-negative for negative numbers,
+except in the case where the integer part is zero.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.ceil" class="method"><h4 class="code-header">fn <a href="#method.ceil" class="fn">ceil</a>(self) -&gt; Self</h4></section></summary><div class="docblock"><p>Returns the smallest integer greater than or equal to a number.</p>
+<p>Saturates to <code>Self::max</code> (truncated) if the result does not fit.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.floor" class="method"><h4 class="code-header">fn <a href="#method.floor" class="fn">floor</a>(self) -&gt; Self</h4></section></summary><div class="docblock"><p>Returns the largest integer less than or equal to a number.</p>
+<p>Saturates to <code>Self::min</code> (truncated) if the result does not fit.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.round" class="method"><h4 class="code-header">fn <a href="#method.round" class="fn">round</a>(self) -&gt; Self</h4></section></summary><div class="docblock"><p>Returns the number rounded to the nearest integer. Rounds half-way cases away from 0.0.</p>
+<p>Saturates to <code>Self::min</code> or <code>Self::max</code> (truncated) if the result does not fit.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-FixedPointNumber-for-FixedI64" class="impl"><a href="#impl-FixedPointNumber-for-FixedI64" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.FixedPointNumber.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointNumber">FixedPointNumber</a> for <a class="struct" href="struct.FixedI64.html" title="struct polkadot_sdk_frame::arithmetic::FixedI64">FixedI64</a></h3></section></summary><div class="impl-items"><section id="associatedtype.Inner-1" class="associatedtype trait-impl"><a href="#associatedtype.Inner-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Inner" class="associatedtype">Inner</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.i64.html">i64</a></h4></section><section id="associatedconstant.DIV-1" class="associatedconstant trait-impl"><a href="#associatedconstant.DIV-1" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.DIV" class="constant">DIV</a>: &lt;<a class="struct" href="struct.FixedI64.html" title="struct polkadot_sdk_frame::arithmetic::FixedI64">FixedI64</a> as <a class="trait" href="trait.FixedPointNumber.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointNumber">FixedPointNumber</a>&gt;::<a class="associatedtype" href="trait.FixedPointNumber.html#associatedtype.Inner" title="type polkadot_sdk_frame::arithmetic::FixedPointNumber::Inner">Inner</a> = {transmute(0x000000003b9aca00): &lt;sp_runtime::FixedI64 as sp_runtime::FixedPointNumber&gt;::Inner}</h4></section><section id="associatedconstant.SIGNED-1" class="associatedconstant trait-impl"><a href="#associatedconstant.SIGNED-1" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.SIGNED" class="constant">SIGNED</a>: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a> = true</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-FixedPointNumber-for-FixedI128" class="impl"><a href="#impl-FixedPointNumber-for-FixedI128" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.FixedPointNumber.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointNumber">FixedPointNumber</a> for <a class="struct" href="struct.FixedI128.html" title="struct polkadot_sdk_frame::arithmetic::FixedI128">FixedI128</a></h3></section></summary><div class="impl-items"><section id="associatedtype.Inner-2" class="associatedtype trait-impl"><a href="#associatedtype.Inner-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Inner" class="associatedtype">Inner</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.i128.html">i128</a></h4></section><section id="associatedconstant.DIV-2" class="associatedconstant trait-impl"><a href="#associatedconstant.DIV-2" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.DIV" class="constant">DIV</a>: &lt;<a class="struct" href="struct.FixedI128.html" title="struct polkadot_sdk_frame::arithmetic::FixedI128">FixedI128</a> as <a class="trait" href="trait.FixedPointNumber.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointNumber">FixedPointNumber</a>&gt;::<a class="associatedtype" href="trait.FixedPointNumber.html#associatedtype.Inner" title="type polkadot_sdk_frame::arithmetic::FixedPointNumber::Inner">Inner</a> = {transmute(0x00000000000000000de0b6b3a7640000): &lt;sp_runtime::FixedI128 as sp_runtime::FixedPointNumber&gt;::Inner}</h4></section><section id="associatedconstant.SIGNED-2" class="associatedconstant trait-impl"><a href="#associatedconstant.SIGNED-2" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.SIGNED" class="constant">SIGNED</a>: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a> = true</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-FixedPointNumber-for-FixedU64" class="impl"><a href="#impl-FixedPointNumber-for-FixedU64" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.FixedPointNumber.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointNumber">FixedPointNumber</a> for <a class="struct" href="struct.FixedU64.html" title="struct polkadot_sdk_frame::arithmetic::FixedU64">FixedU64</a></h3></section></summary><div class="impl-items"><section id="associatedtype.Inner-3" class="associatedtype trait-impl"><a href="#associatedtype.Inner-3" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Inner" class="associatedtype">Inner</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u64.html">u64</a></h4></section><section id="associatedconstant.DIV-3" class="associatedconstant trait-impl"><a href="#associatedconstant.DIV-3" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.DIV" class="constant">DIV</a>: &lt;<a class="struct" href="struct.FixedU64.html" title="struct polkadot_sdk_frame::arithmetic::FixedU64">FixedU64</a> as <a class="trait" href="trait.FixedPointNumber.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointNumber">FixedPointNumber</a>&gt;::<a class="associatedtype" href="trait.FixedPointNumber.html#associatedtype.Inner" title="type polkadot_sdk_frame::arithmetic::FixedPointNumber::Inner">Inner</a> = {transmute(0x000000003b9aca00): &lt;sp_runtime::FixedU64 as sp_runtime::FixedPointNumber&gt;::Inner}</h4></section><section id="associatedconstant.SIGNED-3" class="associatedconstant trait-impl"><a href="#associatedconstant.SIGNED-3" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.SIGNED" class="constant">SIGNED</a>: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a> = false</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-FixedPointNumber-for-FixedU128" class="impl"><a href="#impl-FixedPointNumber-for-FixedU128" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.FixedPointNumber.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointNumber">FixedPointNumber</a> for <a class="struct" href="struct.FixedU128.html" title="struct polkadot_sdk_frame::arithmetic::FixedU128">FixedU128</a></h3></section></summary><div class="impl-items"><section id="associatedtype.Inner-4" class="associatedtype trait-impl"><a href="#associatedtype.Inner-4" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Inner" class="associatedtype">Inner</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u128.html">u128</a></h4></section><section id="associatedconstant.DIV-4" class="associatedconstant trait-impl"><a href="#associatedconstant.DIV-4" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.DIV" class="constant">DIV</a>: &lt;<a class="struct" href="struct.FixedU128.html" title="struct polkadot_sdk_frame::arithmetic::FixedU128">FixedU128</a> as <a class="trait" href="trait.FixedPointNumber.html" title="trait polkadot_sdk_frame::arithmetic::FixedPointNumber">FixedPointNumber</a>&gt;::<a class="associatedtype" href="trait.FixedPointNumber.html#associatedtype.Inner" title="type polkadot_sdk_frame::arithmetic::FixedPointNumber::Inner">Inner</a> = {transmute(0x00000000000000000de0b6b3a7640000): &lt;sp_runtime::FixedU128 as sp_runtime::FixedPointNumber&gt;::Inner}</h4></section><section id="associatedconstant.SIGNED-4" class="associatedconstant trait-impl"><a href="#associatedconstant.SIGNED-4" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.SIGNED" class="constant">SIGNED</a>: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a> = false</h4></section></div></details></div><script src="../../trait.impl/sp_arithmetic/fixed_point/trait.FixedPointNumber.js" data-ignore-extern-crates="sp_arithmetic" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

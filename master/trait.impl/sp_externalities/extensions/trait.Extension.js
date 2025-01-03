@@ -1,0 +1,8 @@
+(function() {var implementors = {
+"sp_core":[["impl Extension for <a class=\"struct\" href=\"sp_core/offchain/struct.OffchainDbExt.html\" title=\"struct sp_core::offchain::OffchainDbExt\">OffchainDbExt</a>"],["impl Extension for <a class=\"struct\" href=\"sp_core/offchain/struct.OffchainWorkerExt.html\" title=\"struct sp_core::offchain::OffchainWorkerExt\">OffchainWorkerExt</a>"],["impl Extension for <a class=\"struct\" href=\"sp_core/offchain/struct.TransactionPoolExt.html\" title=\"struct sp_core::offchain::TransactionPoolExt\">TransactionPoolExt</a>"],["impl Extension for <a class=\"struct\" href=\"sp_core/traits/struct.ReadRuntimeVersionExt.html\" title=\"struct sp_core::traits::ReadRuntimeVersionExt\">ReadRuntimeVersionExt</a>"]],
+"sp_externalities":[],
+"sp_io":[["impl Extension for <a class=\"struct\" href=\"sp_io/struct.UseDalekExt.html\" title=\"struct sp_io::UseDalekExt\">UseDalekExt</a>"]],
+"sp_keystore":[["impl Extension for <a class=\"struct\" href=\"sp_keystore/struct.KeystoreExt.html\" title=\"struct sp_keystore::KeystoreExt\">KeystoreExt</a>"]],
+"sp_statement_store":[["impl Extension for <a class=\"struct\" href=\"sp_statement_store/runtime_api/struct.StatementStoreExt.html\" title=\"struct sp_statement_store::runtime_api::StatementStoreExt\">StatementStoreExt</a>"]],
+"sp_trie":[["impl Extension for <a class=\"struct\" href=\"sp_trie/proof_size_extension/struct.ProofSizeExt.html\" title=\"struct sp_trie::proof_size_extension::ProofSizeExt\">ProofSizeExt</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["rebagged","score_updated"],"struct":["Rebagged","ScoreUpdated"]};

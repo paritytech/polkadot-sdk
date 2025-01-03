@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ExplicitOrAccountParams","ExtensionCallInfo","RewardsAccountOwner"],"struct":["ExtensionCallData","PayRewardFromAccount","Registration","RelayerRewardsKeyProvider","RewardsAccountParams","RuntimeWithUtilityPallet"],"trait":["BatchCallUnpacker","ExtensionConfig","PaymentProcedure","StakeAndSlash"]};

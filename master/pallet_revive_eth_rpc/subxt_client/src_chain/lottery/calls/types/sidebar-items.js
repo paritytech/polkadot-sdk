@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["buy_ticket","set_calls","start_lottery"],"struct":["BuyTicket","SetCalls","StartLottery","StopRepeat"]};

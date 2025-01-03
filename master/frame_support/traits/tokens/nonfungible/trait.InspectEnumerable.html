@@ -1,0 +1,167 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Interface for enumerating items in existence or owned by a given account over a collection of NFTs."><title>InspectEnumerable in frame_support::traits::tokens::nonfungible - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../frame_support/index.html">frame_support</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">InspectEnumerable</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.ItemsIterator">ItemsIterator</a></li><li><a href="#associatedtype.OwnedIterator">OwnedIterator</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.items">items</a></li><li><a href="#tymethod.owned">owned</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In frame_support::traits::tokens::nonfungible</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../../../index.html">frame_support</a>::<wbr><a href="../../index.html">traits</a>::<wbr><a href="../index.html">tokens</a>::<wbr><a href="index.html">nonfungible</a>::<wbr><a class="trait" href="#">InspectEnumerable</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../../src/frame_support/traits/tokens/nonfungible.rs.html#67-78">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait InspectEnumerable&lt;AccountId&gt;: <a class="trait" href="trait.Inspect.html" title="trait frame_support::traits::tokens::nonfungible::Inspect">Inspect</a>&lt;AccountId&gt; {
+    type <a href="#associatedtype.ItemsIterator" class="associatedtype">ItemsIterator</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html" title="trait core::iter::traits::iterator::Iterator">Iterator</a>&lt;Item = Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.ItemId" title="type frame_support::traits::tokens::nonfungible::Inspect::ItemId">ItemId</a>&gt;;
+    type <a href="#associatedtype.OwnedIterator" class="associatedtype">OwnedIterator</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html" title="trait core::iter::traits::iterator::Iterator">Iterator</a>&lt;Item = Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.ItemId" title="type frame_support::traits::tokens::nonfungible::Inspect::ItemId">ItemId</a>&gt;;
+
+    // Required methods
+    fn <a href="#tymethod.items" class="fn">items</a>() -&gt; Self::<a class="associatedtype" href="trait.InspectEnumerable.html#associatedtype.ItemsIterator" title="type frame_support::traits::tokens::nonfungible::InspectEnumerable::ItemsIterator">ItemsIterator</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.owned" class="fn">owned</a>(who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; Self::<a class="associatedtype" href="trait.InspectEnumerable.html#associatedtype.OwnedIterator" title="type frame_support::traits::tokens::nonfungible::InspectEnumerable::OwnedIterator">OwnedIterator</a>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Interface for enumerating items in existence or owned by a given account over a collection
+of NFTs.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.ItemsIterator" class="method"><a class="src rightside" href="../../../../src/frame_support/traits/tokens/nonfungible.rs.html#69">source</a><h4 class="code-header">type <a href="#associatedtype.ItemsIterator" class="associatedtype">ItemsIterator</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html" title="trait core::iter::traits::iterator::Iterator">Iterator</a>&lt;Item = Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.ItemId" title="type frame_support::traits::tokens::nonfungible::Inspect::ItemId">ItemId</a>&gt;</h4></section></summary><div class="docblock"><p>The iterator type for <a href="trait.InspectEnumerable.html#tymethod.items"><code>Self::items</code></a>.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.OwnedIterator" class="method"><a class="src rightside" href="../../../../src/frame_support/traits/tokens/nonfungible.rs.html#71">source</a><h4 class="code-header">type <a href="#associatedtype.OwnedIterator" class="associatedtype">OwnedIterator</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html" title="trait core::iter::traits::iterator::Iterator">Iterator</a>&lt;Item = Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.ItemId" title="type frame_support::traits::tokens::nonfungible::Inspect::ItemId">ItemId</a>&gt;</h4></section></summary><div class="docblock"><p>The iterator type for <a href="trait.InspectEnumerable.html#tymethod.owned"><code>Self::owned</code></a>.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.items" class="method"><a class="src rightside" href="../../../../src/frame_support/traits/tokens/nonfungible.rs.html#74">source</a><h4 class="code-header">fn <a href="#tymethod.items" class="fn">items</a>() -&gt; Self::<a class="associatedtype" href="trait.InspectEnumerable.html#associatedtype.ItemsIterator" title="type frame_support::traits::tokens::nonfungible::InspectEnumerable::ItemsIterator">ItemsIterator</a></h4></section></summary><div class="docblock"><p>Returns an iterator of the items within a <code>collection</code> in existence.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.owned" class="method"><a class="src rightside" href="../../../../src/frame_support/traits/tokens/nonfungible.rs.html#77">source</a><h4 class="code-header">fn <a href="#tymethod.owned" class="fn">owned</a>(who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; Self::<a class="associatedtype" href="trait.InspectEnumerable.html#associatedtype.OwnedIterator" title="type frame_support::traits::tokens::nonfungible::InspectEnumerable::OwnedIterator">OwnedIterator</a></h4></section></summary><div class="docblock"><p>Returns an iterator of the items of all collections owned by <code>who</code>.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-InspectEnumerable%3CAccountId%3E-for-ItemOf%3CF,+A,+AccountId%3E" class="impl"><a class="src rightside" href="../../../../src/frame_support/traits/tokens/nonfungible.rs.html#151-168">source</a><a href="#impl-InspectEnumerable%3CAccountId%3E-for-ItemOf%3CF,+A,+AccountId%3E" class="anchor">§</a><h3 class="code-header">impl&lt;F: <a class="trait" href="../nonfungibles/trait.InspectEnumerable.html" title="trait frame_support::traits::tokens::nonfungibles::InspectEnumerable">InspectEnumerable</a>&lt;AccountId&gt;, A: <a class="trait" href="../../../pallet_prelude/trait.Get.html" title="trait frame_support::pallet_prelude::Get">Get</a>&lt;&lt;F as <a class="trait" href="../nonfungibles/trait.Inspect.html" title="trait frame_support::traits::tokens::nonfungibles::Inspect">Inspect</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="../nonfungibles/trait.Inspect.html#associatedtype.CollectionId" title="type frame_support::traits::tokens::nonfungibles::Inspect::CollectionId">CollectionId</a>&gt;, AccountId&gt; <a class="trait" href="trait.InspectEnumerable.html" title="trait frame_support::traits::tokens::nonfungible::InspectEnumerable">InspectEnumerable</a>&lt;AccountId&gt; for <a class="struct" href="struct.ItemOf.html" title="struct frame_support::traits::tokens::nonfungible::ItemOf">ItemOf</a>&lt;F, A, AccountId&gt;</h3></section></summary><div class="impl-items"><section id="associatedtype.ItemsIterator-1" class="associatedtype trait-impl"><a href="#associatedtype.ItemsIterator-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.ItemsIterator" class="associatedtype">ItemsIterator</a> = &lt;F as <a class="trait" href="../nonfungibles/trait.InspectEnumerable.html" title="trait frame_support::traits::tokens::nonfungibles::InspectEnumerable">InspectEnumerable</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="../nonfungibles/trait.InspectEnumerable.html#associatedtype.ItemsIterator" title="type frame_support::traits::tokens::nonfungibles::InspectEnumerable::ItemsIterator">ItemsIterator</a></h4></section><section id="associatedtype.OwnedIterator-1" class="associatedtype trait-impl"><a href="#associatedtype.OwnedIterator-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.OwnedIterator" class="associatedtype">OwnedIterator</a> = &lt;F as <a class="trait" href="../nonfungibles/trait.InspectEnumerable.html" title="trait frame_support::traits::tokens::nonfungibles::InspectEnumerable">InspectEnumerable</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="../nonfungibles/trait.InspectEnumerable.html#associatedtype.OwnedInCollectionIterator" title="type frame_support::traits::tokens::nonfungibles::InspectEnumerable::OwnedInCollectionIterator">OwnedInCollectionIterator</a></h4></section></div></details></div><script src="../../../../trait.impl/frame_support/traits/tokens/nonfungible/trait.InspectEnumerable.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

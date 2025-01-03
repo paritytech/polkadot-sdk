@@ -1,0 +1,641 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Exposes all runtime calls that are used by the runtime API subsystem."><title>RuntimeApiSubsystemClient in polkadot_node_subsystem_types - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="polkadot_node_subsystem_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../polkadot_node_subsystem_types/index.html">polkadot_node_subsystem_types</a><span class="version">7.0.0</span></h2></div><h2 class="location"><a href="#">RuntimeApiSubsystemClient</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.api_version_parachain_host">api_version_parachain_host</a></li><li><a href="#tymethod.approval_voting_params">approval_voting_params</a></li><li><a href="#tymethod.assumed_validation_data">assumed_validation_data</a></li><li><a href="#tymethod.async_backing_params">async_backing_params</a></li><li><a href="#tymethod.authorities">authorities</a></li><li><a href="#tymethod.availability_cores">availability_cores</a></li><li><a href="#tymethod.candidate_events">candidate_events</a></li><li><a href="#tymethod.candidate_pending_availability">candidate_pending_availability</a></li><li><a href="#tymethod.candidates_pending_availability">candidates_pending_availability</a></li><li><a href="#tymethod.check_validation_outputs">check_validation_outputs</a></li><li><a href="#tymethod.claim_queue">claim_queue</a></li><li><a href="#tymethod.current_epoch">current_epoch</a></li><li><a href="#tymethod.disabled_validators">disabled_validators</a></li><li><a href="#tymethod.disputes">disputes</a></li><li><a href="#tymethod.dmq_contents">dmq_contents</a></li><li><a href="#tymethod.inbound_hrmp_channels_contents">inbound_hrmp_channels_contents</a></li><li><a href="#tymethod.key_ownership_proof">key_ownership_proof</a></li><li><a href="#tymethod.minimum_backing_votes">minimum_backing_votes</a></li><li><a href="#tymethod.node_features">node_features</a></li><li><a href="#tymethod.on_chain_votes">on_chain_votes</a></li><li><a href="#tymethod.para_backing_state">para_backing_state</a></li><li><a href="#tymethod.persisted_validation_data">persisted_validation_data</a></li><li><a href="#tymethod.pvfs_require_precheck">pvfs_require_precheck</a></li><li><a href="#tymethod.session_executor_params">session_executor_params</a></li><li><a href="#tymethod.session_index_for_child">session_index_for_child</a></li><li><a href="#tymethod.session_info">session_info</a></li><li><a href="#tymethod.submit_pvf_check_statement">submit_pvf_check_statement</a></li><li><a href="#tymethod.submit_report_dispute_lost">submit_report_dispute_lost</a></li><li><a href="#tymethod.unapplied_slashes">unapplied_slashes</a></li><li><a href="#tymethod.validation_code">validation_code</a></li><li><a href="#tymethod.validation_code_by_hash">validation_code_by_hash</a></li><li><a href="#tymethod.validation_code_hash">validation_code_hash</a></li><li><a href="#tymethod.validator_groups">validator_groups</a></li><li><a href="#tymethod.validators">validators</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In crate polkadot_node_subsystem_types</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">polkadot_node_subsystem_types</a>::<wbr><a class="trait" href="#">RuntimeApiSubsystemClient</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#97-350">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait RuntimeApiSubsystemClient {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 34 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.api_version_parachain_host" class="fn">api_version_parachain_host</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.validators" class="fn">validators</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;ValidatorId&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.validator_groups" class="fn">validator_groups</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;ValidatorIndex&gt;&gt;, GroupRotationInfo&lt;<a class="type" href="type.BlockNumber.html" title="type polkadot_node_subsystem_types::BlockNumber">BlockNumber</a>&gt;), ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.availability_cores" class="fn">availability_cores</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;CoreState&lt;<a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>, <a class="type" href="type.BlockNumber.html" title="type polkadot_node_subsystem_types::BlockNumber">BlockNumber</a>&gt;&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.persisted_validation_data" class="fn">persisted_validation_data</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+        para_id: Id,
+        assumption: OccupiedCoreAssumption,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;PersistedValidationData&lt;<a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>, <a class="type" href="type.BlockNumber.html" title="type polkadot_node_subsystem_types::BlockNumber">BlockNumber</a>&gt;&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.assumed_validation_data" class="fn">assumed_validation_data</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+        para_id: Id,
+        expected_persisted_validation_data_hash: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(PersistedValidationData&lt;<a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>, <a class="type" href="type.BlockNumber.html" title="type polkadot_node_subsystem_types::BlockNumber">BlockNumber</a>&gt;, ValidationCodeHash)&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.check_validation_outputs" class="fn">check_validation_outputs</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+        para_id: Id,
+        outputs: CandidateCommitments,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.session_index_for_child" class="fn">session_index_for_child</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;SessionIndex, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.validation_code" class="fn">validation_code</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+        para_id: Id,
+        assumption: OccupiedCoreAssumption,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;ValidationCode&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.candidate_pending_availability" class="fn">candidate_pending_availability</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+        para_id: Id,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;CommittedCandidateReceipt&lt;<a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>&gt;&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.candidate_events" class="fn">candidate_events</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;CandidateEvent&lt;<a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>&gt;&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.dmq_contents" class="fn">dmq_contents</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+        recipient: Id,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;InboundDownwardMessage&lt;<a class="type" href="type.BlockNumber.html" title="type polkadot_node_subsystem_types::BlockNumber">BlockNumber</a>&gt;&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.inbound_hrmp_channels_contents" class="fn">inbound_hrmp_channels_contents</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+        recipient: Id,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;Id, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;InboundHrmpMessage&lt;<a class="type" href="type.BlockNumber.html" title="type polkadot_node_subsystem_types::BlockNumber">BlockNumber</a>&gt;&gt;&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.validation_code_by_hash" class="fn">validation_code_by_hash</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+        hash: ValidationCodeHash,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;ValidationCode&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.on_chain_votes" class="fn">on_chain_votes</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;ScrapedOnChainVotes&lt;<a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>&gt;&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.session_info" class="fn">session_info</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+        index: SessionIndex,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;SessionInfo&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.submit_pvf_check_statement" class="fn">submit_pvf_check_statement</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+        stmt: PvfCheckStatement,
+        signature: ValidatorSignature,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.pvfs_require_precheck" class="fn">pvfs_require_precheck</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;ValidationCodeHash&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.validation_code_hash" class="fn">validation_code_hash</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+        para_id: Id,
+        assumption: OccupiedCoreAssumption,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;ValidationCodeHash&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.disputes" class="fn">disputes</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(SessionIndex, CandidateHash, DisputeState&lt;<a class="type" href="type.BlockNumber.html" title="type polkadot_node_subsystem_types::BlockNumber">BlockNumber</a>&gt;)&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.unapplied_slashes" class="fn">unapplied_slashes</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(SessionIndex, CandidateHash, PendingSlashes)&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.key_ownership_proof" class="fn">key_ownership_proof</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+        validator_id: ValidatorId,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;OpaqueKeyOwnershipProof&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.submit_report_dispute_lost" class="fn">submit_report_dispute_lost</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+        dispute_proof: DisputeProof,
+        key_ownership_proof: OpaqueKeyOwnershipProof,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.current_epoch" class="fn">current_epoch</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Epoch, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.authorities" class="fn">authorities</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;AuthorityId&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.session_executor_params" class="fn">session_executor_params</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+        session_index: SessionIndex,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;ExecutorParams&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.minimum_backing_votes" class="fn">minimum_backing_votes</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+        session_index: SessionIndex,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.async_backing_params" class="fn">async_backing_params</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;AsyncBackingParams, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.para_backing_state" class="fn">para_backing_state</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+        para_id: Id,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BackingState&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.disabled_validators" class="fn">disabled_validators</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;ValidatorIndex&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.node_features" class="fn">node_features</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;NodeFeatures, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.approval_voting_params" class="fn">approval_voting_params</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+        session_index: SessionIndex,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;ApprovalVotingParams, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.claim_queue" class="fn">claim_queue</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;CoreIndex, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/collections/vec_deque/struct.VecDeque.html" title="struct alloc::collections::vec_deque::VecDeque">VecDeque</a>&lt;Id&gt;&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.candidates_pending_availability" class="fn">candidates_pending_availability</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+        para_id: Id,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;CommittedCandidateReceipt&lt;<a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>&gt;&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Exposes all runtime calls that are used by the runtime API subsystem.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.api_version_parachain_host" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#99">source</a><h4 class="code-header">fn <a href="#tymethod.api_version_parachain_host" class="fn">api_version_parachain_host</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Parachain host API version</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.validators" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#104">source</a><h4 class="code-header">fn <a href="#tymethod.validators" class="fn">validators</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;ValidatorId&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get the current validators.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.validator_groups" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#109-112">source</a><h4 class="code-header">fn <a href="#tymethod.validator_groups" class="fn">validator_groups</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;ValidatorIndex&gt;&gt;, GroupRotationInfo&lt;<a class="type" href="type.BlockNumber.html" title="type polkadot_node_subsystem_types::BlockNumber">BlockNumber</a>&gt;), ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Returns the validator groups and rotation info localized based on the hypothetical child
+of a block whose state  this is invoked on. Note that <code>now</code> in the <code>GroupRotationInfo</code>
+should be the successor of the number of the block.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.availability_cores" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#116-119">source</a><h4 class="code-header">fn <a href="#tymethod.availability_cores" class="fn">availability_cores</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;CoreState&lt;<a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>, <a class="type" href="type.BlockNumber.html" title="type polkadot_node_subsystem_types::BlockNumber">BlockNumber</a>&gt;&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Yields information on all availability cores as relevant to the child block.
+Cores are either free or occupied. Free cores can have paras assigned to them.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.persisted_validation_data" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#126-131">source</a><h4 class="code-header">fn <a href="#tymethod.persisted_validation_data" class="fn">persisted_validation_data</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    para_id: Id,
+    assumption: OccupiedCoreAssumption,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;PersistedValidationData&lt;<a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>, <a class="type" href="type.BlockNumber.html" title="type polkadot_node_subsystem_types::BlockNumber">BlockNumber</a>&gt;&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Yields the persisted validation data for the given <code>ParaId</code> along with an assumption that
+should be used if the para currently occupies a core.</p>
+<p>Returns <code>None</code> if either the para is not registered or the assumption is <code>Freed</code>
+and the para already occupies a core.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.assumed_validation_data" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#136-141">source</a><h4 class="code-header">fn <a href="#tymethod.assumed_validation_data" class="fn">assumed_validation_data</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    para_id: Id,
+    expected_persisted_validation_data_hash: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(PersistedValidationData&lt;<a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>, <a class="type" href="type.BlockNumber.html" title="type polkadot_node_subsystem_types::BlockNumber">BlockNumber</a>&gt;, ValidationCodeHash)&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Returns the persisted validation data for the given <code>ParaId</code> along with the corresponding
+validation code hash. Instead of accepting assumption about the para, matches the validation
+data hash against an expected one and yields <code>None</code> if they’re not equal.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.check_validation_outputs" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#144-149">source</a><h4 class="code-header">fn <a href="#tymethod.check_validation_outputs" class="fn">check_validation_outputs</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    para_id: Id,
+    outputs: CandidateCommitments,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Checks if the given validation outputs pass the acceptance criteria.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.session_index_for_child" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#154">source</a><h4 class="code-header">fn <a href="#tymethod.session_index_for_child" class="fn">session_index_for_child</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;SessionIndex, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Returns the session index expected at a child of the block.</p>
+<p>This can be used to instantiate a <code>SigningContext</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.validation_code" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#160-165">source</a><h4 class="code-header">fn <a href="#tymethod.validation_code" class="fn">validation_code</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    para_id: Id,
+    assumption: OccupiedCoreAssumption,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;ValidationCode&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Fetch the validation code used by a para, making the given <code>OccupiedCoreAssumption</code>.</p>
+<p>Returns <code>None</code> if either the para is not registered or the assumption is <code>Freed</code>
+and the para already occupies a core.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.candidate_pending_availability" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#169-173">source</a><h4 class="code-header">fn <a href="#tymethod.candidate_pending_availability" class="fn">candidate_pending_availability</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    para_id: Id,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;CommittedCandidateReceipt&lt;<a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>&gt;&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get the receipt of a candidate pending availability. This returns <code>Some</code> for any paras
+assigned to occupied cores in <code>availability_cores</code> and <code>None</code> otherwise.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.candidate_events" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#176">source</a><h4 class="code-header">fn <a href="#tymethod.candidate_events" class="fn">candidate_events</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;CandidateEvent&lt;<a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>&gt;&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get a vector of events concerning candidates that occurred within a block.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.dmq_contents" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#179-183">source</a><h4 class="code-header">fn <a href="#tymethod.dmq_contents" class="fn">dmq_contents</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    recipient: Id,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;InboundDownwardMessage&lt;<a class="type" href="type.BlockNumber.html" title="type polkadot_node_subsystem_types::BlockNumber">BlockNumber</a>&gt;&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get all the pending inbound messages in the downward message queue for a para.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.inbound_hrmp_channels_contents" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#187-191">source</a><h4 class="code-header">fn <a href="#tymethod.inbound_hrmp_channels_contents" class="fn">inbound_hrmp_channels_contents</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    recipient: Id,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;Id, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;InboundHrmpMessage&lt;<a class="type" href="type.BlockNumber.html" title="type polkadot_node_subsystem_types::BlockNumber">BlockNumber</a>&gt;&gt;&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get the contents of all channels addressed to the given recipient. Channels that have no
+messages in them are also included.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.validation_code_by_hash" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#194-198">source</a><h4 class="code-header">fn <a href="#tymethod.validation_code_by_hash" class="fn">validation_code_by_hash</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    hash: ValidationCodeHash,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;ValidationCode&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get the validation code from its hash.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.on_chain_votes" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#201-202">source</a><h4 class="code-header">fn <a href="#tymethod.on_chain_votes" class="fn">on_chain_votes</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;ScrapedOnChainVotes&lt;<a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>&gt;&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Scrape dispute relevant from on-chain, backing votes and resolved disputes.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.session_info" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#209-213">source</a><h4 class="code-header">fn <a href="#tymethod.session_info" class="fn">session_info</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    index: SessionIndex,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;SessionInfo&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get the session info for the given session, if stored.</p>
+<p>NOTE: This function is only available since parachain host version 2.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.submit_pvf_check_statement" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#218-223">source</a><h4 class="code-header">fn <a href="#tymethod.submit_pvf_check_statement" class="fn">submit_pvf_check_statement</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    stmt: PvfCheckStatement,
+    signature: ValidatorSignature,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Submits a PVF pre-checking statement into the transaction pool.</p>
+<p>NOTE: This function is only available since parachain host version 2.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.pvfs_require_precheck" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#228">source</a><h4 class="code-header">fn <a href="#tymethod.pvfs_require_precheck" class="fn">pvfs_require_precheck</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;ValidationCodeHash&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Returns code hashes of PVFs that require pre-checking by validators in the active set.</p>
+<p>NOTE: This function is only available since parachain host version 2.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.validation_code_hash" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#234-239">source</a><h4 class="code-header">fn <a href="#tymethod.validation_code_hash" class="fn">validation_code_hash</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    para_id: Id,
+    assumption: OccupiedCoreAssumption,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;ValidationCodeHash&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Fetch the hash of the validation code used by a para, making the given
+<code>OccupiedCoreAssumption</code>.</p>
+<p>NOTE: This function is only available since parachain host version 2.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.disputes" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#245-248">source</a><h4 class="code-header">fn <a href="#tymethod.disputes" class="fn">disputes</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(SessionIndex, CandidateHash, DisputeState&lt;<a class="type" href="type.BlockNumber.html" title="type polkadot_node_subsystem_types::BlockNumber">BlockNumber</a>&gt;)&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Returns all onchain disputes.
+This is a staging method! Do not use on production runtimes!</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.unapplied_slashes" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#253-256">source</a><h4 class="code-header">fn <a href="#tymethod.unapplied_slashes" class="fn">unapplied_slashes</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(SessionIndex, CandidateHash, PendingSlashes)&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Returns a list of validators that lost a past session dispute and need to be slashed.</p>
+<p>WARNING: This is a staging method! Do not use on production runtimes!</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.key_ownership_proof" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#261-265">source</a><h4 class="code-header">fn <a href="#tymethod.key_ownership_proof" class="fn">key_ownership_proof</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    validator_id: ValidatorId,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;OpaqueKeyOwnershipProof&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Returns a merkle proof of a validator session key in a past session.</p>
+<p>WARNING: This is a staging method! Do not use on production runtimes!</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.submit_report_dispute_lost" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#271-276">source</a><h4 class="code-header">fn <a href="#tymethod.submit_report_dispute_lost" class="fn">submit_report_dispute_lost</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    dispute_proof: DisputeProof,
+    key_ownership_proof: OpaqueKeyOwnershipProof,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Submits an unsigned extrinsic to slash validators who lost a dispute about
+a candidate of a past session.</p>
+<p>WARNING: This is a staging method! Do not use on production runtimes!</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.current_epoch" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#281">source</a><h4 class="code-header">fn <a href="#tymethod.current_epoch" class="fn">current_epoch</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Epoch, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Returns information regarding the current epoch.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.authorities" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#286-289">source</a><h4 class="code-header">fn <a href="#tymethod.authorities" class="fn">authorities</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;AuthorityId&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Retrieve authority identifiers of the current and next authority set.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.session_executor_params" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#292-296">source</a><h4 class="code-header">fn <a href="#tymethod.session_executor_params" class="fn">session_executor_params</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    session_index: SessionIndex,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;ExecutorParams&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get the execution environment parameter set by parent hash, if stored</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.minimum_backing_votes" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#300-304">source</a><h4 class="code-header">fn <a href="#tymethod.minimum_backing_votes" class="fn">minimum_backing_votes</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    session_index: SessionIndex,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get the minimum number of backing votes.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.async_backing_params" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#309-312">source</a><h4 class="code-header">fn <a href="#tymethod.async_backing_params" class="fn">async_backing_params</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;AsyncBackingParams, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Returns candidate’s acceptance limitations for asynchronous backing for a relay parent.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.para_backing_state" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#316-320">source</a><h4 class="code-header">fn <a href="#tymethod.para_backing_state" class="fn">para_backing_state</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    para_id: Id,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BackingState&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Returns the state of parachain backing for a given para.
+This is a staging method! Do not use on production runtimes!</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.disabled_validators" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#325">source</a><h4 class="code-header">fn <a href="#tymethod.disabled_validators" class="fn">disabled_validators</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;ValidatorIndex&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Gets the disabled validators at a specific block height</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.node_features" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#329">source</a><h4 class="code-header">fn <a href="#tymethod.node_features" class="fn">node_features</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;NodeFeatures, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get the node features.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.approval_voting_params" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#333-337">source</a><h4 class="code-header">fn <a href="#tymethod.approval_voting_params" class="fn">approval_voting_params</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    session_index: SessionIndex,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;ApprovalVotingParams, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Approval voting configuration parameters</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.claim_queue" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#341">source</a><h4 class="code-header">fn <a href="#tymethod.claim_queue" class="fn">claim_queue</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;CoreIndex, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/collections/vec_deque/struct.VecDeque.html" title="struct alloc::collections::vec_deque::VecDeque">VecDeque</a>&lt;Id&gt;&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Fetch the <code>ClaimQueue</code> from scheduler pallet</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.candidates_pending_availability" class="method"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#345-349">source</a><h4 class="code-header">fn <a href="#tymethod.candidates_pending_availability" class="fn">candidates_pending_availability</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>,
+    para_id: Id,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;CommittedCandidateReceipt&lt;<a class="type" href="type.Hash.html" title="type polkadot_node_subsystem_types::Hash">Hash</a>&gt;&gt;, ApiError&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get the receipts of all candidates pending availability for a <code>ParaId</code>.</p>
+</div></details></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-RuntimeApiSubsystemClient-for-DefaultSubsystemClient%3CClient%3E" class="impl"><a class="src rightside" href="../src/polkadot_node_subsystem_types/runtime_client.rs.html#369-627">source</a><a href="#impl-RuntimeApiSubsystemClient-for-DefaultSubsystemClient%3CClient%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Client&gt; <a class="trait" href="trait.RuntimeApiSubsystemClient.html" title="trait polkadot_node_subsystem_types::RuntimeApiSubsystemClient">RuntimeApiSubsystemClient</a> for <a class="struct" href="struct.DefaultSubsystemClient.html" title="struct polkadot_node_subsystem_types::DefaultSubsystemClient">DefaultSubsystemClient</a>&lt;Client&gt;<div class="where">where
+    Client: ProvideRuntimeApi&lt;<a class="type" href="type.Block.html" title="type polkadot_node_subsystem_types::Block">Block</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a>,
+    Client::Api: ParachainHost&lt;<a class="type" href="type.Block.html" title="type polkadot_node_subsystem_types::Block">Block</a>&gt; + BabeApi&lt;<a class="type" href="type.Block.html" title="type polkadot_node_subsystem_types::Block">Block</a>&gt; + AuthorityDiscoveryApi&lt;<a class="type" href="type.Block.html" title="type polkadot_node_subsystem_types::Block">Block</a>&gt;,</div></h3></section></div><script src="../trait.impl/polkadot_node_subsystem_types/runtime_client/trait.RuntimeApiSubsystemClient.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,243 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Learn about Cumulus, the framework that transforms `substrate`-based chains into `polkadot`-enabled parachains."><title>polkadot_sdk_docs::polkadot_sdk::cumulus - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.com/favicon.ico"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module cumulus</a></h2><div class="sidebar-elems"><h2><a href="../index.html">In polkadot_sdk_docs::polkadot_sdk</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">polkadot_sdk</a>::<wbr><a class="mod" href="#">cumulus</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/polkadot_sdk/cumulus.rs.html#1-130">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn about Cumulus, the framework that transforms <a href="../substrate/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::substrate"><code>substrate</code></a>-based chains into
+<a href="../polkadot/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::polkadot"><code>polkadot</code></a>-enabled parachains.</p>
+<h2 id="cumulus"><a class="doc-anchor" href="#cumulus">§</a>Cumulus</h2>
+<p>Substrate provides a framework (<a href="../frame_runtime/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::frame_runtime">FRAME</a>) through which a blockchain node and runtime can easily
+be created. Cumulus aims to extend the same approach to creation of Polkadot parachains.</p>
+<blockquote>
+<p>Cumulus clouds are shaped sort of like dots; together they form a system that is intricate,
+beautiful and functional.</p>
+</blockquote>
+<h3 id="example-runtime"><a class="doc-anchor" href="#example-runtime">§</a>Example: Runtime</h3>
+<p>A Cumulus-based runtime is fairly similar to other <a href="../frame_runtime/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::frame_runtime">FRAME</a>-based runtimes. Most notably, the
+following changes are applied to a normal FRAME-based runtime to make it a Cumulus-based
+runtime:</p>
+<h5 id="cumulus-pallets"><a class="doc-anchor" href="#cumulus-pallets">§</a>Cumulus Pallets</h5>
+<p>A parachain runtime should use a number of pallets that are provided by Cumulus and Substrate.
+Notably:</p>
+<ul>
+<li><a href="../../../frame_system/index.html" title="mod frame_system"><code>frame-system</code></a>, like all FRAME-based runtimes.</li>
+<li><a href="../../../cumulus_pallet_parachain_system/index.html" title="mod cumulus_pallet_parachain_system"><code>cumulus_pallet_parachain_system</code></a></li>
+<li><a href="../../../staging_parachain_info/index.html" title="mod staging_parachain_info"><code>parachain_info</code></a></li>
+</ul>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">mod </span>system_pallets {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+	<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+	</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
+		<span class="kw">type </span>Block = MockBlock&lt;<span class="self">Self</span>&gt;;
+		<span class="kw">type </span>OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode&lt;<span class="self">Self</span>&gt;;
+	}
+
+	<span class="kw">impl </span>cumulus_pallet_parachain_system::Config <span class="kw">for </span>Runtime {
+		<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+		<span class="kw">type </span>OnSystemEvent = ();
+		<span class="kw">type </span>SelfParaId = parachain_info::Pallet&lt;Runtime&gt;;
+		<span class="kw">type </span>OutboundXcmpMessageSource = ();
+		<span class="kw">type </span>XcmpMessageHandler = ();
+		<span class="kw">type </span>ReservedDmpWeight = ();
+		<span class="kw">type </span>ReservedXcmpWeight = ();
+		<span class="kw">type </span>CheckAssociatedRelayNumber =
+			cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
+		<span class="kw">type </span>ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook&lt;
+			Runtime,
+			<span class="number">6000</span>, <span class="comment">// relay chain block time
+			</span><span class="number">1</span>,
+			<span class="number">1</span>,
+		&gt;;
+		<span class="kw">type </span>WeightInfo = ();
+		<span class="kw">type </span>DmpQueue = frame::traits::EnqueueWithOrigin&lt;(), sp_core::ConstU8&lt;<span class="number">0</span>&gt;&gt;;
+		<span class="kw">type </span>SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector&lt;Runtime&gt;;
+	}
+
+	<span class="kw">impl </span>parachain_info::Config <span class="kw">for </span>Runtime {}
+}</code></pre></div>
+<p>Given that all Cumulus-based runtimes use a simple Aura-based consensus mechanism, the following
+pallets also need to be added:</p>
+<ul>
+<li><a href="../../../pallet_timestamp/index.html" title="mod pallet_timestamp"><code>pallet_timestamp</code></a></li>
+<li><a href="../../../pallet_aura/index.html" title="mod pallet_aura"><code>pallet_aura</code></a></li>
+<li><a href="../../../cumulus_pallet_aura_ext/index.html" title="mod cumulus_pallet_aura_ext"><code>cumulus_pallet_aura_ext</code></a></li>
+</ul>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">mod </span>consensus_pallets {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+	<span class="kw">impl </span>pallet_aura::Config <span class="kw">for </span>Runtime {
+		<span class="kw">type </span>AuthorityId = AuraId;
+		<span class="kw">type </span>DisabledValidators = ();
+		<span class="kw">type </span>MaxAuthorities = ConstU32&lt;<span class="number">100_000</span>&gt;;
+		<span class="kw">type </span>AllowMultipleBlocksPerSlot = ConstBool&lt;<span class="bool-val">false</span>&gt;;
+		<span class="kw">type </span>SlotDuration = pallet_aura::MinimumPeriodTimesTwo&lt;<span class="self">Self</span>&gt;;
+	}
+
+	<span class="attr">#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
+	</span><span class="kw">impl </span>pallet_timestamp::Config <span class="kw">for </span>Runtime {}
+
+	<span class="kw">impl </span>cumulus_pallet_aura_ext::Config <span class="kw">for </span>Runtime {}
+}</code></pre></div>
+<p>Finally, a separate macro, similar to
+<a href="../../../sp_api_proc_macro/macro.impl_runtime_apis.html" title="macro sp_api_proc_macro::impl_runtime_apis"><code>impl_runtime_api</code></a>, which creates the default set
+of runtime APIs, will generate the parachain runtime’s validation runtime API, also known as
+parachain validation function (PVF). Without this API, the relay chain is unable to validate
+blocks produced by our parachain.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">cumulus_pallet_parachain_system::register_validate_block!</span> {
+	Runtime = Runtime,
+	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::&lt;Runtime, Executive&gt;,
+}</code></pre></div>
+<hr />
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

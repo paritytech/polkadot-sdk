@@ -1,0 +1,10 @@
+(function() {var implementors = {
+"frame":[],
+"frame_system":[],
+"pallet_balances":[["impl DefaultConfig for <a class=\"struct\" href=\"pallet_balances/pallet/config_preludes/struct.TestDefaultConfig.html\" title=\"struct pallet_balances::pallet::config_preludes::TestDefaultConfig\">TestDefaultConfig</a>"]],
+"pallet_default_config_example":[["impl DefaultConfig for <a class=\"struct\" href=\"pallet_default_config_example/pallet/config_preludes/struct.TestDefaultConfig.html\" title=\"struct pallet_default_config_example::pallet::config_preludes::TestDefaultConfig\">TestDefaultConfig</a>"],["impl DefaultConfig for <a class=\"struct\" href=\"pallet_default_config_example/pallet/config_preludes/struct.OtherDefaultConfig.html\" title=\"struct pallet_default_config_example::pallet::config_preludes::OtherDefaultConfig\">OtherDefaultConfig</a>"]],
+"pallet_state_trie_migration":[["impl DefaultConfig for <a class=\"struct\" href=\"pallet_state_trie_migration/pallet/config_preludes/struct.TestDefaultConfig.html\" title=\"struct pallet_state_trie_migration::pallet::config_preludes::TestDefaultConfig\">TestDefaultConfig</a>"]],
+"pallet_sudo":[["impl DefaultConfig for <a class=\"struct\" href=\"pallet_sudo/pallet/config_preludes/struct.TestDefaultConfig.html\" title=\"struct pallet_sudo::pallet::config_preludes::TestDefaultConfig\">TestDefaultConfig</a>"]],
+"pallet_timestamp":[["impl DefaultConfig for <a class=\"struct\" href=\"pallet_timestamp/pallet/config_preludes/struct.TestDefaultConfig.html\" title=\"struct pallet_timestamp::pallet::config_preludes::TestDefaultConfig\">TestDefaultConfig</a>"]],
+"pallet_transaction_payment":[["impl DefaultConfig for <a class=\"struct\" href=\"pallet_transaction_payment/pallet/config_preludes/struct.TestDefaultConfig.html\" title=\"struct pallet_transaction_payment::pallet::config_preludes::TestDefaultConfig\">TestDefaultConfig</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

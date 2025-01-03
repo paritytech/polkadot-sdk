@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["account","asset","attribute","class","class_account","class_metadata_of","collection_max_supply","instance_metadata_of","item_price_of","ownership_acceptance"]};

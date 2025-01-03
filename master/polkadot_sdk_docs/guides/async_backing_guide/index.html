@@ -1,0 +1,469 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="How to enable Async Backing on parachain projects that started in 2023 or before."><title>polkadot_sdk_docs::guides::async_backing_guide - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.com/favicon.ico"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module async_backing_guide</a></h2><div class="sidebar-elems"><h2><a href="../index.html">In polkadot_sdk_docs::guides</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">guides</a>::<wbr><a class="mod" href="#">async_backing_guide</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/guides/async_backing_guide.rs.html#1-254">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>How to enable Async Backing on parachain projects that started in 2023 or before.</p>
+<h2 id="upgrade-parachain-for-asynchronous-backing-compatibility"><a class="doc-anchor" href="#upgrade-parachain-for-asynchronous-backing-compatibility">§</a>Upgrade Parachain for Asynchronous Backing Compatibility</h2>
+<p>This guide is relevant for cumulus based parachain projects started in 2023 or before, whose
+backing process is synchronous where parablocks can only be built on the latest Relay Chain
+block. Async Backing allows collators to build parablocks on older Relay Chain blocks and create
+pipelines of multiple pending parablocks. This parallel block generation increases efficiency
+and throughput. For more information on Async backing and its terminology, refer to the document
+on <a href="https://wiki.polkadot.network/docs/maintain-guides-async-backing">the Polkadot Wiki.</a></p>
+<blockquote>
+<p>If starting a new parachain project, please use an async backing compatible template such as
+the
+<a href="https://github.com/paritytech/polkadot-sdk/tree/master/templates/parachain">parachain template</a>.
+The rollout process for Async Backing has three phases. Phases 1 and 2 below put new
+infrastructure in place. Then we can simply turn on async backing in phase 3.</p>
+</blockquote>
+<h3 id="prerequisite"><a class="doc-anchor" href="#prerequisite">§</a>Prerequisite</h3>
+<p>The relay chain needs to have async backing enabled so double-check that the relay-chain
+configuration contains the following three parameters (especially when testing locally e.g. with
+zombienet):</p>
+<div class="example-wrap"><pre class="language-json"><code>&quot;async_backing_params&quot;: {
+    &quot;max_candidate_depth&quot;: 3,
+    &quot;allowed_ancestry_len&quot;: 2
+},
+&quot;scheduling_lookahead&quot;: 2
+</code></pre></div><div class="warning"><code>scheduling_lookahead</code> must be set to 2, otherwise parachain
+block times will degrade to worse than with sync backing!</div>
+<h3 id="phase-1---update-parachain-runtime"><a class="doc-anchor" href="#phase-1---update-parachain-runtime">§</a>Phase 1 - Update Parachain Runtime</h3>
+<p>This phase involves configuring your parachain’s runtime <code>/runtime/src/lib.rs</code> to make use of
+async backing system.</p>
+<ol>
+<li>Establish and ensure constants for <code>capacity</code> and <code>velocity</code> are both set to 1 in the
+runtime.</li>
+<li>Establish and ensure the constant relay chain slot duration measured in milliseconds equal to
+<code>6000</code> in the runtime.</li>
+</ol>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// Maximum number of blocks simultaneously accepted by the Runtime, not yet included into the
+// relay chain.
+</span><span class="kw">pub const </span>UNINCLUDED_SEGMENT_CAPACITY: u32 = <span class="number">1</span>;
+<span class="comment">// How many parachain blocks are processed by the relay chain per parent. Limits the number of
+// blocks authored per slot.
+</span><span class="kw">pub const </span>BLOCK_PROCESSING_VELOCITY: u32 = <span class="number">1</span>;
+<span class="comment">// Relay chain slot duration, in milliseconds.
+</span><span class="kw">pub const </span>RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = <span class="number">6000</span>;</code></pre></div>
+<ol start="3">
+<li>Establish constants <code>MILLISECS_PER_BLOCK</code> and <code>SLOT_DURATION</code> if not already present in the
+runtime.</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="comment">// `SLOT_DURATION` is picked up by `pallet_timestamp` which is in turn picked
+// up by `pallet_aura` to implement `fn slot_duration()`.
+//
+// Change this to adjust the block time.
+</span><span class="kw">pub const </span>MILLISECS_PER_BLOCK: u64 = <span class="number">12000</span>;
+<span class="kw">pub const </span>SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;</code></pre></div>
+<ol start="4">
+<li>Configure <code>cumulus_pallet_parachain_system</code> in the runtime.</li>
+</ol>
+<ul>
+<li>Define a <code>FixedVelocityConsensusHook</code> using our capacity, velocity, and relay slot duration
+constants. Use this to set the parachain system <code>ConsensusHook</code> property.</li>
+</ul>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">type </span>ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook&lt;
+	Runtime,
+	RELAY_CHAIN_SLOT_DURATION_MILLIS,
+	BLOCK_PROCESSING_VELOCITY,
+	UNINCLUDED_SEGMENT_CAPACITY,
+&gt;;</code></pre></div>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl </span>cumulus_pallet_parachain_system::Config <span class="kw">for </span>Runtime {
+    ..
+    <span class="kw">type </span>ConsensusHook = ConsensusHook;
+    ..
+}</code></pre></div>
+<ul>
+<li>Set the parachain system property <code>CheckAssociatedRelayNumber</code> to
+<code>RelayNumberMonotonicallyIncreases</code></li>
+</ul>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl </span>cumulus_pallet_parachain_system::Config <span class="kw">for </span>Runtime {
+	..
+	<span class="kw">type </span>CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
+	..
+}</code></pre></div>
+<ol start="5">
+<li>Configure <code>pallet_aura</code> in the runtime.</li>
+</ol>
+<ul>
+<li>
+<p>Set <code>AllowMultipleBlocksPerSlot</code> to <code>false</code> (don’t worry, we will set it to <code>true</code> when we
+activate async backing in phase 3).</p>
+</li>
+<li>
+<p>Define <code>pallet_aura::SlotDuration</code> using our constant <code>SLOT_DURATION</code></p>
+</li>
+</ul>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl </span>pallet_aura::Config <span class="kw">for </span>Runtime {
+	..
+	<span class="kw">type </span>AllowMultipleBlocksPerSlot = ConstBool&lt;<span class="bool-val">false</span>&gt;;
+	<span class="attr">#[cfg(feature = <span class="string">"experimental"</span>)]
+	</span><span class="kw">type </span>SlotDuration = ConstU64&lt;SLOT_DURATION&gt;;
+	..
+}</code></pre></div>
+<ol start="6">
+<li>Update <code>sp_consensus_aura::AuraApi::slot_duration</code> in <code>sp_api::impl_runtime_apis</code> to match
+the constant <code>SLOT_DURATION</code></li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>impl_slot_duration() -&gt; sp_consensus_aura::SlotDuration {
+	sp_consensus_aura::SlotDuration::from_millis(SLOT_DURATION)
+}</code></pre></div>
+<ol start="7">
+<li>
+<p>Implement the <code>AuraUnincludedSegmentApi</code>, which allows the collator client to query its
+runtime to determine whether it should author a block.</p>
+<ul>
+<li>Add the dependency <code>cumulus-primitives-aura</code> to the <code>runtime/Cargo.toml</code> file for your
+runtime</li>
+</ul>
+</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>..
+cumulus-primitives-aura = { path = <span class="string">"../../../../primitives/aura"</span>, default-features = <span class="bool-val">false </span>}
+..</code></pre></div>
+<ul>
+<li>
+<p>In the same file, add <code>"cumulus-primitives-aura/std",</code> to the <code>std</code> feature.</p>
+</li>
+<li>
+<p>Inside the <code>impl_runtime_apis!</code> block for your runtime, implement the
+<code>cumulus_primitives_aura::AuraUnincludedSegmentApi</code> as shown below.</p>
+</li>
+</ul>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>impl_can_build_upon(
+	included_hash: &lt;Block <span class="kw">as </span>BlockT&gt;::Hash,
+	slot: cumulus_primitives_aura::Slot,
+) -&gt; bool {
+	ConsensusHook::can_build_upon(included_hash, slot)
+}</code></pre></div>
+<p><strong>Note:</strong> With a capacity of 1 we have an effective velocity of ½ even when velocity is
+configured to some larger value. This is because capacity will be filled after a single block is
+produced and will only be freed up after that block is included on the relay chain, which takes
+2 relay blocks to accomplish. Thus with capacity 1 and velocity 1 we get the customary 12 second
+parachain block time.</p>
+<ol start="8">
+<li>If your <code>runtime/src/lib.rs</code> provides a <code>CheckInherents</code> type to <code>register_validate_block</code>,
+remove it. <code>FixedVelocityConsensusHook</code> makes it unnecessary. The following example shows how
+<code>register_validate_block</code> should look after removing <code>CheckInherents</code>.</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">cumulus_pallet_parachain_system::register_validate_block!</span> {
+	Runtime = Runtime,
+	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::&lt;Runtime, Executive&gt;,
+}</code></pre></div>
+<h3 id="phase-2---update-parachain-nodes"><a class="doc-anchor" href="#phase-2---update-parachain-nodes">§</a>Phase 2 - Update Parachain Nodes</h3>
+<p>This phase consists of plugging in the new lookahead collator node.</p>
+<ol>
+<li>Import <code>cumulus_primitives_core::ValidationCode</code> to <code>node/src/service.rs</code>.</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">use </span>cumulus_primitives_core::{
+	relay_chain::{CollatorPair, ValidationCode},
+	ParaId,
+};</code></pre></div>
+<ol start="2">
+<li>In <code>node/src/service.rs</code>, modify <code>sc_service::spawn_tasks</code> to use a clone of <code>Backend</code> rather
+than the original</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+    ..
+    backend: backend.clone(),
+    ..
+})<span class="question-mark">?</span>;</code></pre></div>
+<ol start="3">
+<li>Add <code>backend</code> as a parameter to <code>start_consensus()</code> in <code>node/src/service.rs</code></li>
+</ol>
+<div class="example-wrap"><pre class="language-text"><code>fn start_consensus(
+    ..
+    backend: Arc&lt;ParachainBackend&gt;,
+    ..
+</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">if </span>validator {
+  start_consensus(
+    ..
+    backend.clone(),
+    ..
+   )<span class="question-mark">?</span>;
+}</code></pre></div>
+<ol start="4">
+<li>In <code>node/src/service.rs</code> import the lookahead collator rather than the basic collator</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">use </span>cumulus_client_consensus_aura::collators::lookahead::{<span class="self">self </span><span class="kw">as </span>aura, Params <span class="kw">as </span>AuraParams};</code></pre></div>
+<ol start="5">
+<li>In <code>start_consensus()</code> replace the <code>BasicAuraParams</code> struct with <code>AuraParams</code>
+<ul>
+<li>Change the struct type from <code>BasicAuraParams</code> to <code>AuraParams</code></li>
+<li>In the <code>para_client</code> field, pass in a cloned para client rather than the original</li>
+<li>Add a <code>para_backend</code> parameter after <code>para_client</code>, passing in our para backend</li>
+<li>Provide a <code>code_hash_provider</code> closure like that shown below</li>
+<li>Increase <code>authoring_duration</code> from 500 milliseconds to 2000</li>
+</ul>
+</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">let </span>params = AuraParams {
+    ..
+    para_client: client.clone(),
+    para_backend: backend.clone(),
+    ..
+    code_hash_provider: <span class="kw">move </span>|block_hash| {
+        client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+    },
+    ..
+    authoring_duration: Duration::from_millis(<span class="number">2000</span>),
+    ..
+};</code></pre></div>
+<p><strong>Note:</strong> Set <code>authoring_duration</code> to whatever you want, taking your own hardware into account.
+But if the backer who should be slower than you due to reading from disk, times out at two
+seconds your candidates will be rejected.</p>
+<ol start="6">
+<li>In <code>start_consensus()</code> replace <code>basic_aura::run</code> with <code>aura::run</code></li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">let </span>fut =
+aura::run::&lt;Block, sp_consensus_aura::sr25519::AuthorityPair, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
+   params,
+);
+task_manager.spawn_essential_handle().spawn(<span class="string">"aura"</span>, <span class="prelude-val">None</span>, fut);</code></pre></div>
+<h3 id="phase-3---activate-async-backing"><a class="doc-anchor" href="#phase-3---activate-async-backing">§</a>Phase 3 - Activate Async Backing</h3>
+<p>This phase consists of changes to your parachain’s runtime that activate async backing feature.</p>
+<ol>
+<li>Configure <code>pallet_aura</code>, setting <code>AllowMultipleBlocksPerSlot</code> to true in
+<code>runtime/src/lib.rs</code>.</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl </span>pallet_aura::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>AuthorityId = AuraId;
+	<span class="kw">type </span>DisabledValidators = ();
+	<span class="kw">type </span>MaxAuthorities = ConstU32&lt;<span class="number">100_000</span>&gt;;
+	<span class="kw">type </span>AllowMultipleBlocksPerSlot = ConstBool&lt;<span class="bool-val">true</span>&gt;;
+	<span class="kw">type </span>SlotDuration = ConstU64&lt;SLOT_DURATION&gt;;
+}</code></pre></div>
+<ol start="2">
+<li>Increase the maximum <code>UNINCLUDED_SEGMENT_CAPACITY</code> in <code>runtime/src/lib.rs</code>.</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">mod </span>async_backing_params {
+	<span class="doccomment">/// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
+	/// into the relay chain.
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>UNINCLUDED_SEGMENT_CAPACITY: u32 = <span class="number">3</span>;
+	<span class="doccomment">/// How many parachain blocks are processed by the relay chain per parent. Limits the
+	/// number of blocks authored per slot.
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BLOCK_PROCESSING_VELOCITY: u32 = <span class="number">1</span>;
+	<span class="doccomment">/// Relay chain slot duration, in milliseconds.
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = <span class="number">6000</span>;
+}</code></pre></div>
+<ol start="3">
+<li>Decrease <code>MILLISECS_PER_BLOCK</code> to 6000.</li>
+</ol>
+<ul>
+<li>Note: For a parachain which measures time in terms of its own block number rather than by
+relay block number it may be preferable to increase velocity. Changing block time may cause
+complications, requiring additional changes. See the section “Timing by Block Number”.</li>
+</ul>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">mod </span>block_times {
+	<span class="doccomment">/// This determines the average expected block time that we are targeting. Blocks will be
+	/// produced at a minimum duration defined by `SLOT_DURATION`. `SLOT_DURATION` is picked up by
+	/// `pallet_timestamp` which is in turn picked up by `pallet_aura` to implement `fn
+	/// slot_duration()`.
+	///
+	/// Change this to adjust the block time.
+	</span><span class="kw">pub const </span>MILLI_SECS_PER_BLOCK: u64 = <span class="number">6000</span>;
+
+	<span class="comment">// NOTE: Currently it is not possible to change the slot duration after the chain has started.
+	// Attempting to do so will brick block production.
+	</span><span class="kw">pub const </span>SLOT_DURATION: u64 = MILLI_SECS_PER_BLOCK;
+}</code></pre></div>
+<ol start="4">
+<li>Update <code>MAXIMUM_BLOCK_WEIGHT</code> to reflect the increased time available for block production.</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">const </span>MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
+	WEIGHT_REF_TIME_PER_SECOND.saturating_mul(<span class="number">2</span>),
+	cumulus_primitives_core::relay_chain::MAX_POV_SIZE <span class="kw">as </span>u64,
+);</code></pre></div>
+<ol start="5">
+<li>Add a feature flagged alternative for <code>MinimumPeriod</code> in <code>pallet_timestamp</code>. The type should
+be <code>ConstU64&lt;0&gt;</code> with the feature flag experimental, and <code>ConstU64&lt;{SLOT_DURATION / 2}&gt;</code>
+without.</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl </span>pallet_timestamp::Config <span class="kw">for </span>Runtime {
+    ..
+    <span class="attr">#[cfg(feature = <span class="string">"experimental"</span>)]
+    </span><span class="kw">type </span>MinimumPeriod = ConstU64&lt;<span class="number">0</span>&gt;;
+    <span class="attr">#[cfg(not(feature = <span class="string">"experimental"</span>))]
+    </span><span class="kw">type </span>MinimumPeriod = ConstU64&lt;{ SLOT_DURATION / <span class="number">2 </span>}&gt;;
+    ..
+}</code></pre></div>
+<h3 id="timing-by-block-number"><a class="doc-anchor" href="#timing-by-block-number">§</a>Timing by Block Number</h3>
+<p>With asynchronous backing it will be possible for parachains to opt for a block time of 6
+seconds rather than 12 seconds. But modifying block duration isn’t so simple for a parachain
+which was measuring time in terms of its own block number. It could result in expected and
+actual time not matching up, stalling the parachain.</p>
+<p>One strategy to deal with this issue is to instead rely on relay chain block numbers for timing.
+Relay block number is kept track of by each parachain in <code>pallet-parachain-system</code> with the
+storage value <code>LastRelayChainBlockNumber</code>. This value can be obtained and used wherever timing
+based on block number is needed.</p>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

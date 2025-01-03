@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["deciding_count","metadata_of","referendum_count","referendum_info_for","track_queue"]};

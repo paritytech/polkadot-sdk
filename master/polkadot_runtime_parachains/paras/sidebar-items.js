@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_PARA_HEADS"],"enum":["ParaKind","ParaLifecycle","UpgradeStrategy"],"mod":["benchmarking","pallet"],"struct":["ParaGenesisArgs","ParaPastCodeMeta","ReplacementTimes","TestWeightInfo"],"trait":["AssignCoretime","OnNewHead","WeightInfo"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["RawOrigin"],"fn":["account","add_to_whitelist","commit_db","current_time","get_read_and_written_keys","get_whitelist","proof_size","read_write_count","remove_from_whitelist","reset_read_write_count","set_whitelist","whitelisted_caller","wipe_db"],"macro":["add_benchmark","benchmarks","whitelist"],"struct":["HostFunctions"]};

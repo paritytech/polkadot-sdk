@@ -1,0 +1,239 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Abstractions for asynchronous programming."><title>polkadot_node_subsystem::gen::futures - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_node_subsystem" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../crates.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../polkadot_node_subsystem/index.html">polkadot_node_subsystem</a><span class="version">7.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#traits">Traits</a></li></ul></section><h2><a href="../index.html">In polkadot_node_subsystem::gen</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a href="../../index.html">polkadot_node_subsystem</a>::<wbr><a href="../index.html">gen</a>::<wbr><a class="mod" href="#">futures</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Abstractions for asynchronous programming.</p>
+<p>This crate provides a number of core abstractions for writing asynchronous
+code:</p>
+<ul>
+<li><a href="prelude/future/index.html" title="mod polkadot_node_subsystem::gen::futures::prelude::future">Futures</a> are single eventual values produced by
+asynchronous computations. Some programming languages (e.g. JavaScript)
+call this concept “promise”.</li>
+<li><a href="prelude/stream/index.html" title="mod polkadot_node_subsystem::gen::futures::prelude::stream">Streams</a> represent a series of values
+produced asynchronously.</li>
+<li><a href="prelude/sink/index.html" title="mod polkadot_node_subsystem::gen::futures::prelude::sink">Sinks</a> provide support for asynchronous writing of
+data.</li>
+<li><a href="executor/index.html" title="mod polkadot_node_subsystem::gen::futures::executor">Executors</a> are responsible for running asynchronous
+tasks.</li>
+</ul>
+<p>The crate also contains abstractions for <a href="io/index.html" title="mod polkadot_node_subsystem::gen::futures::io">asynchronous I/O</a> and
+<a href="channel/index.html" title="mod polkadot_node_subsystem::gen::futures::channel">cross-task communication</a>.</p>
+<p>Underlying all of this is the <em>task system</em>, which is a form of lightweight
+threading. Large asynchronous computations are built up using futures,
+streams and sinks, and then spawned as independent tasks that are run to
+completion, but <em>do not block</em> the thread running them.</p>
+<p>The following example describes how the task system context is built and used
+within macros and keywords such as async and await!.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>main() {
+    <span class="kw">let </span>pool = ThreadPool::new().expect(<span class="string">"Failed to build pool"</span>);
+    <span class="kw">let </span>(tx, rx) = mpsc::unbounded::&lt;i32&gt;();
+
+    <span class="comment">// Create a future by an async block, where async is responsible for an
+    // implementation of Future. At this point no executor has been provided
+    // to this future, so it will not be running.
+    </span><span class="kw">let </span>fut_values = <span class="kw">async </span>{
+        <span class="comment">// Create another async block, again where the Future implementation
+        // is generated by async. Since this is inside of a parent async block,
+        // it will be provided with the executor of the parent block when the parent
+        // block is executed.
+        //
+        // This executor chaining is done by Future::poll whose second argument
+        // is a std::task::Context. This represents our executor, and the Future
+        // implemented by this async block can be polled using the parent async
+        // block's executor.
+        </span><span class="kw">let </span>fut_tx_result = <span class="kw">async move </span>{
+            (<span class="number">0</span>..<span class="number">100</span>).for_each(|v| {
+                tx.unbounded_send(v).expect(<span class="string">"Failed to send"</span>);
+            })
+        };
+
+        <span class="comment">// Use the provided thread pool to spawn the generated future
+        // responsible for transmission
+        </span>pool.spawn_ok(fut_tx_result);
+
+        <span class="kw">let </span>fut_values = rx
+            .map(|v| v * <span class="number">2</span>)
+            .collect();
+
+        <span class="comment">// Use the executor provided to this async block to wait for the
+        // future to complete.
+        </span>fut_values.<span class="kw">await
+    </span>};
+
+    <span class="comment">// Actually execute the above future, which will invoke Future::poll and
+    // subsequently chain appropriate Future::poll and methods needing executors
+    // to drive all futures. Eventually fut_values will be driven to completion.
+    </span><span class="kw">let </span>values: Vec&lt;i32&gt; = executor::block_on(fut_values);
+
+    <span class="macro">println!</span>(<span class="string">"Values={:?}"</span>, values);
+}</code></pre></div>
+<p>The majority of examples and code snippets in this crate assume that they are
+inside an async block as written above.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="channel/index.html" title="mod polkadot_node_subsystem::gen::futures::channel">channel</a></div><div class="desc docblock-short">Asynchronous channels.</div></li><li><div class="item-name"><a class="mod" href="executor/index.html" title="mod polkadot_node_subsystem::gen::futures::executor">executor</a></div><div class="desc docblock-short">Built-in executors and related tools.</div></li><li><div class="item-name"><a class="mod" href="io/index.html" title="mod polkadot_node_subsystem::gen::futures::io">io</a></div><div class="desc docblock-short">Asynchronous I/O.</div></li><li><div class="item-name"><a class="mod" href="lock/index.html" title="mod polkadot_node_subsystem::gen::futures::lock">lock</a></div><div class="desc docblock-short">Futures-powered synchronization primitives.</div></li><li><div class="item-name"><a class="mod" href="never/index.html" title="mod polkadot_node_subsystem::gen::futures::never">never</a></div><div class="desc docblock-short">This module contains the <code>Never</code> type.</div></li><li><div class="item-name"><a class="mod" href="prelude/index.html" title="mod polkadot_node_subsystem::gen::futures::prelude">prelude</a></div><div class="desc docblock-short">A “prelude” for crates using the <code>futures</code> crate.</div></li><li><div class="item-name"><a class="mod" href="task/index.html" title="mod polkadot_node_subsystem::gen::futures::task">task</a></div><div class="desc docblock-short">Tools for working with tasks.</div></li></ul><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.join.html" title="macro polkadot_node_subsystem::gen::futures::join">join</a></div><div class="desc docblock-short">Polls multiple futures simultaneously, returning a tuple
+of all results once complete.</div></li><li><div class="item-name"><a class="macro" href="macro.pending.html" title="macro polkadot_node_subsystem::gen::futures::pending">pending</a></div><div class="desc docblock-short">A macro which yields to the event loop once.</div></li><li><div class="item-name"><a class="macro" href="macro.pin_mut.html" title="macro polkadot_node_subsystem::gen::futures::pin_mut">pin_mut</a></div><div class="desc docblock-short">Pins a value on the stack.</div></li><li><div class="item-name"><a class="macro" href="macro.poll.html" title="macro polkadot_node_subsystem::gen::futures::poll">poll</a></div><div class="desc docblock-short">A macro which returns the result of polling a future once within the
+current <code>async</code> context.</div></li><li><div class="item-name"><a class="macro" href="macro.ready.html" title="macro polkadot_node_subsystem::gen::futures::ready">ready</a></div><div class="desc docblock-short">Extracts the successful type of a <code>Poll&lt;T&gt;</code>.</div></li><li><div class="item-name"><a class="macro" href="macro.select.html" title="macro polkadot_node_subsystem::gen::futures::select">select</a></div><div class="desc docblock-short">Polls multiple futures and streams simultaneously, executing the branch
+for the future that finishes first. If multiple futures are ready,
+one will be pseudo-randomly selected at runtime. Futures directly
+passed to <code>select!</code> must be <code>Unpin</code> and implement <code>FusedFuture</code>.</div></li><li><div class="item-name"><a class="macro" href="macro.select_biased.html" title="macro polkadot_node_subsystem::gen::futures::select_biased">select_biased</a></div><div class="desc docblock-short">Polls multiple futures and streams simultaneously, executing the branch
+for the future that finishes first. Unlike <a href="macro.select.html"><code>select!</code></a>, if multiple futures are ready,
+one will be selected in order of declaration. Futures directly
+passed to <code>select_biased!</code> must be <code>Unpin</code> and implement <code>FusedFuture</code>.</div></li><li><div class="item-name"><a class="macro" href="macro.stream_select.html" title="macro polkadot_node_subsystem::gen::futures::stream_select">stream_select</a></div><div class="desc docblock-short">Combines several streams, all producing the same <code>Item</code> type, into one stream.
+This is similar to <code>select_all</code> but does not require the streams to all be the same type.
+It also keeps the streams inline, and does not require <code>Box&lt;dyn Stream&gt;</code>s to be allocated.
+Streams passed to this macro must be <code>Unpin</code>.</div></li><li><div class="item-name"><a class="macro" href="macro.try_join.html" title="macro polkadot_node_subsystem::gen::futures::try_join">try_join</a></div><div class="desc docblock-short">Polls multiple futures simultaneously, resolving to a <a href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result"><code>Result</code></a> containing
+either a tuple of the successful outputs or an error.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.AsyncBufRead.html" title="trait polkadot_node_subsystem::gen::futures::AsyncBufRead">AsyncBufRead</a></div><div class="desc docblock-short">Read bytes asynchronously.</div></li><li><div class="item-name"><a class="trait" href="trait.AsyncBufReadExt.html" title="trait polkadot_node_subsystem::gen::futures::AsyncBufReadExt">AsyncBufReadExt</a></div><div class="desc docblock-short">An extension trait which adds utility methods to <code>AsyncBufRead</code> types.</div></li><li><div class="item-name"><a class="trait" href="trait.AsyncRead.html" title="trait polkadot_node_subsystem::gen::futures::AsyncRead">AsyncRead</a></div><div class="desc docblock-short">Read bytes asynchronously.</div></li><li><div class="item-name"><a class="trait" href="trait.AsyncReadExt.html" title="trait polkadot_node_subsystem::gen::futures::AsyncReadExt">AsyncReadExt</a></div><div class="desc docblock-short">An extension trait which adds utility methods to <code>AsyncRead</code> types.</div></li><li><div class="item-name"><a class="trait" href="trait.AsyncSeek.html" title="trait polkadot_node_subsystem::gen::futures::AsyncSeek">AsyncSeek</a></div><div class="desc docblock-short">Seek bytes asynchronously.</div></li><li><div class="item-name"><a class="trait" href="trait.AsyncSeekExt.html" title="trait polkadot_node_subsystem::gen::futures::AsyncSeekExt">AsyncSeekExt</a></div><div class="desc docblock-short">An extension trait which adds utility methods to <code>AsyncSeek</code> types.</div></li><li><div class="item-name"><a class="trait" href="trait.AsyncWrite.html" title="trait polkadot_node_subsystem::gen::futures::AsyncWrite">AsyncWrite</a></div><div class="desc docblock-short">Write bytes asynchronously.</div></li><li><div class="item-name"><a class="trait" href="trait.AsyncWriteExt.html" title="trait polkadot_node_subsystem::gen::futures::AsyncWriteExt">AsyncWriteExt</a></div><div class="desc docblock-short">An extension trait which adds utility methods to <code>AsyncWrite</code> types.</div></li><li><div class="item-name"><a class="trait" href="trait.Future.html" title="trait polkadot_node_subsystem::gen::futures::Future">Future</a></div><div class="desc docblock-short">A future represents an asynchronous computation obtained by use of <a href="../../std/keyword.async.html"><code>async</code></a>.</div></li><li><div class="item-name"><a class="trait" href="trait.FutureExt.html" title="trait polkadot_node_subsystem::gen::futures::FutureExt">FutureExt</a></div><div class="desc docblock-short">An extension trait for <code>Future</code>s that provides a variety of convenient
+adapters.</div></li><li><div class="item-name"><a class="trait" href="trait.Sink.html" title="trait polkadot_node_subsystem::gen::futures::Sink">Sink</a></div><div class="desc docblock-short">A <code>Sink</code> is a value into which other values can be sent, asynchronously.</div></li><li><div class="item-name"><a class="trait" href="trait.SinkExt.html" title="trait polkadot_node_subsystem::gen::futures::SinkExt">SinkExt</a></div><div class="desc docblock-short">An extension trait for <code>Sink</code>s that provides a variety of convenient
+combinator functions.</div></li><li><div class="item-name"><a class="trait" href="trait.Stream.html" title="trait polkadot_node_subsystem::gen::futures::Stream">Stream</a></div><div class="desc docblock-short">A stream of values produced asynchronously.</div></li><li><div class="item-name"><a class="trait" href="trait.StreamExt.html" title="trait polkadot_node_subsystem::gen::futures::StreamExt">StreamExt</a></div><div class="desc docblock-short">An extension trait for <code>Stream</code>s that provides a variety of convenient
+combinator functions.</div></li><li><div class="item-name"><a class="trait" href="trait.TryFuture.html" title="trait polkadot_node_subsystem::gen::futures::TryFuture">TryFuture</a></div><div class="desc docblock-short">A convenience for futures that return <code>Result</code> values that includes
+a variety of adapters tailored to such futures.</div></li><li><div class="item-name"><a class="trait" href="trait.TryFutureExt.html" title="trait polkadot_node_subsystem::gen::futures::TryFutureExt">TryFutureExt</a></div><div class="desc docblock-short">Adapters specific to <a href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result"><code>Result</code></a>-returning futures</div></li><li><div class="item-name"><a class="trait" href="trait.TryStream.html" title="trait polkadot_node_subsystem::gen::futures::TryStream">TryStream</a></div><div class="desc docblock-short">A convenience for streams that return <code>Result</code> values that includes
+a variety of adapters tailored to such futures.</div></li><li><div class="item-name"><a class="trait" href="trait.TryStreamExt.html" title="trait polkadot_node_subsystem::gen::futures::TryStreamExt">TryStreamExt</a></div><div class="desc docblock-short">Adapters specific to <code>Result</code>-returning streams</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

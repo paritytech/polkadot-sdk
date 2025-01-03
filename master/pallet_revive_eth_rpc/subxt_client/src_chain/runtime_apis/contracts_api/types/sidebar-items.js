@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["call","get_storage","instantiate","upload_code"],"struct":["Call","GetStorage","Instantiate","UploadCode"]};

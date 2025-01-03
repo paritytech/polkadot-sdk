@@ -1,0 +1,221 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Trait implementing how the storage optional value is converted into the queried type."><title>QueryKindTrait in frame_support::storage::types - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../frame_support/index.html">frame_support</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">QueryKindTrait</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Query">Query</a></li></ul><h3><a href="#required-associated-consts">Required Associated Constants</a></h3><ul class="block"><li><a href="#associatedconstant.METADATA">METADATA</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.from_optional_value_to_query">from_optional_value_to_query</a></li><li><a href="#tymethod.from_query_to_optional_value">from_query_to_optional_value</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In frame_support::storage::types</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../../index.html">frame_support</a>::<wbr><a href="../index.html">storage</a>::<wbr><a href="index.html">types</a>::<wbr><a class="trait" href="#">QueryKindTrait</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/frame_support/storage/types/mod.rs.html#57-70">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait QueryKindTrait&lt;Value, OnEmpty&gt; {
+    type <a href="#associatedtype.Query" class="associatedtype">Query</a>: FullCodec + 'static;
+
+    const <a href="#associatedconstant.METADATA" class="constant">METADATA</a>: <a class="enum" href="../../../sp_metadata_ir/types/enum.StorageEntryModifierIR.html" title="enum sp_metadata_ir::types::StorageEntryModifierIR">StorageEntryModifierIR</a>;
+
+    // Required methods
+    fn <a href="#tymethod.from_optional_value_to_query" class="fn">from_optional_value_to_query</a>(v: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Value&gt;) -&gt; Self::<a class="associatedtype" href="trait.QueryKindTrait.html#associatedtype.Query" title="type frame_support::storage::types::QueryKindTrait::Query">Query</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.from_query_to_optional_value" class="fn">from_query_to_optional_value</a>(v: Self::<a class="associatedtype" href="trait.QueryKindTrait.html#associatedtype.Query" title="type frame_support::storage::types::QueryKindTrait::Query">Query</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Value&gt;;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Trait implementing how the storage optional value is converted into the queried type.</p>
+<p>It is implemented most notable by:</p>
+<ul>
+<li><a href="struct.OptionQuery.html" title="struct frame_support::storage::types::OptionQuery"><code>OptionQuery</code></a> which converts an optional value to an optional value, used when querying
+storage returns an optional value.</li>
+<li><a href="struct.ResultQuery.html" title="struct frame_support::storage::types::ResultQuery"><code>ResultQuery</code></a> which converts an optional value to a result value, used when querying storage
+returns a result value.</li>
+<li><a href="struct.ValueQuery.html" title="struct frame_support::storage::types::ValueQuery"><code>ValueQuery</code></a> which converts an optional value to a value, used when querying storage returns
+a value.</li>
+</ul>
+<h3 id="example"><a class="doc-anchor" href="#example">§</a>Example</h3>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">pub fn </span>value_query_examples() {
+	<span class="doccomment">/// Custom default impl to be used with `ValueQuery`.
+	</span><span class="kw">struct </span>UniverseSecret;
+	<span class="kw">impl </span>Get&lt;u32&gt; <span class="kw">for </span>UniverseSecret {
+		<span class="kw">fn </span>get() -&gt; u32 {
+			<span class="number">42
+		</span>}
+	}
+
+	<span class="doccomment">/// Custom default impl to be used with `ResultQuery`.
+	</span><span class="kw">struct </span>GetDefaultForResult;
+	<span class="kw">impl </span>Get&lt;<span class="prelude-ty">Result</span>&lt;u32, ()&gt;&gt; <span class="kw">for </span>GetDefaultForResult {
+		<span class="kw">fn </span>get() -&gt; <span class="prelude-ty">Result</span>&lt;u32, ()&gt; {
+			<span class="prelude-val">Err</span>(())
+		}
+	}
+
+	<span class="kw">type </span>A = StorageValue&lt;Prefix, u32, ValueQuery&gt;;
+	<span class="kw">type </span>B = StorageValue&lt;Prefix, u32, OptionQuery&gt;;
+	<span class="kw">type </span>C = StorageValue&lt;Prefix, u32, ResultQuery&lt;()&gt;, GetDefaultForResult&gt;;
+	<span class="kw">type </span>D = StorageValue&lt;Prefix, u32, ValueQuery, UniverseSecret&gt;;
+
+	TestExternalities::default().execute_with(|| {
+		<span class="comment">// normal value query returns default
+		</span><span class="macro">assert_eq!</span>(A::get(), <span class="number">0</span>);
+
+		<span class="comment">// option query returns none
+		</span><span class="macro">assert_eq!</span>(B::get(), <span class="prelude-val">None</span>);
+
+		<span class="comment">// result query returns error
+		</span><span class="macro">assert_eq!</span>(C::get(), <span class="prelude-val">Err</span>(()));
+
+		<span class="comment">// value query with custom on empty returns 42
+		</span><span class="macro">assert_eq!</span>(D::get(), <span class="number">42</span>);
+	});
+}</code></pre></div>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.Query" class="method"><a class="src rightside" href="../../../src/frame_support/storage/types/mod.rs.html#62">source</a><h4 class="code-header">type <a href="#associatedtype.Query" class="associatedtype">Query</a>: FullCodec + 'static</h4></section></summary><div class="docblock"><p>Type returned on query</p>
+</div></details></div><h2 id="required-associated-consts" class="section-header">Required Associated Constants<a href="#required-associated-consts" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedconstant.METADATA" class="method"><a class="src rightside" href="../../../src/frame_support/storage/types/mod.rs.html#59">source</a><h4 class="code-header">const <a href="#associatedconstant.METADATA" class="constant">METADATA</a>: <a class="enum" href="../../../sp_metadata_ir/types/enum.StorageEntryModifierIR.html" title="enum sp_metadata_ir::types::StorageEntryModifierIR">StorageEntryModifierIR</a></h4></section></summary><div class="docblock"><p>Metadata for the storage kind.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.from_optional_value_to_query" class="method"><a class="src rightside" href="../../../src/frame_support/storage/types/mod.rs.html#66">source</a><h4 class="code-header">fn <a href="#tymethod.from_optional_value_to_query" class="fn">from_optional_value_to_query</a>(v: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Value&gt;) -&gt; Self::<a class="associatedtype" href="trait.QueryKindTrait.html#associatedtype.Query" title="type frame_support::storage::types::QueryKindTrait::Query">Query</a></h4></section></summary><div class="docblock"><p>Convert an optional value (i.e. some if trie contains the value or none otherwise) to the
+query.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.from_query_to_optional_value" class="method"><a class="src rightside" href="../../../src/frame_support/storage/types/mod.rs.html#69">source</a><h4 class="code-header">fn <a href="#tymethod.from_query_to_optional_value" class="fn">from_query_to_optional_value</a>(v: Self::<a class="associatedtype" href="trait.QueryKindTrait.html#associatedtype.Query" title="type frame_support::storage::types::QueryKindTrait::Query">Query</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Value&gt;</h4></section></summary><div class="docblock"><p>Convert a query to an optional value.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-QueryKindTrait%3CValue,+GetDefault%3E-for-OptionQuery" class="impl"><a class="src rightside" href="../../../src/frame_support/storage/types/mod.rs.html#77-93">source</a><a href="#impl-QueryKindTrait%3CValue,+GetDefault%3E-for-OptionQuery" class="anchor">§</a><h3 class="code-header">impl&lt;Value&gt; <a class="trait" href="trait.QueryKindTrait.html" title="trait frame_support::storage::types::QueryKindTrait">QueryKindTrait</a>&lt;Value, <a class="struct" href="../../pallet_prelude/struct.GetDefault.html" title="struct frame_support::pallet_prelude::GetDefault">GetDefault</a>&gt; for <a class="struct" href="struct.OptionQuery.html" title="struct frame_support::storage::types::OptionQuery">OptionQuery</a><div class="where">where
+    Value: FullCodec + 'static,</div></h3></section></summary><div class="impl-items"><section id="associatedconstant.METADATA-1" class="associatedconstant trait-impl"><a class="src rightside" href="../../../src/frame_support/storage/types/mod.rs.html#81">source</a><a href="#associatedconstant.METADATA-1" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.METADATA" class="constant">METADATA</a>: <a class="enum" href="../../../sp_metadata_ir/types/enum.StorageEntryModifierIR.html" title="enum sp_metadata_ir::types::StorageEntryModifierIR">StorageEntryModifierIR</a> = StorageEntryModifierIR::Optional</h4></section><section id="associatedtype.Query-1" class="associatedtype trait-impl"><a href="#associatedtype.Query-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Query" class="associatedtype">Query</a> = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Value&gt;</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-QueryKindTrait%3CValue,+OnEmpty%3E-for-ResultQuery%3CError%3E" class="impl"><a class="src rightside" href="../../../src/frame_support/storage/types/mod.rs.html#97-117">source</a><a href="#impl-QueryKindTrait%3CValue,+OnEmpty%3E-for-ResultQuery%3CError%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Value, Error, OnEmpty&gt; <a class="trait" href="trait.QueryKindTrait.html" title="trait frame_support::storage::types::QueryKindTrait">QueryKindTrait</a>&lt;Value, OnEmpty&gt; for <a class="struct" href="struct.ResultQuery.html" title="struct frame_support::storage::types::ResultQuery">ResultQuery</a>&lt;Error&gt;<div class="where">where
+    Value: FullCodec + 'static,
+    Error: FullCodec + 'static,
+    OnEmpty: <a class="trait" href="../../pallet_prelude/trait.Get.html" title="trait frame_support::pallet_prelude::Get">Get</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Value, Error&gt;&gt;,</div></h3></section></summary><div class="impl-items"><section id="associatedconstant.METADATA-2" class="associatedconstant trait-impl"><a class="src rightside" href="../../../src/frame_support/storage/types/mod.rs.html#103">source</a><a href="#associatedconstant.METADATA-2" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.METADATA" class="constant">METADATA</a>: <a class="enum" href="../../../sp_metadata_ir/types/enum.StorageEntryModifierIR.html" title="enum sp_metadata_ir::types::StorageEntryModifierIR">StorageEntryModifierIR</a> = StorageEntryModifierIR::Optional</h4></section><section id="associatedtype.Query-2" class="associatedtype trait-impl"><a href="#associatedtype.Query-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Query" class="associatedtype">Query</a> = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Value, Error&gt;</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-QueryKindTrait%3CValue,+OnEmpty%3E-for-ValueQuery" class="impl"><a class="src rightside" href="../../../src/frame_support/storage/types/mod.rs.html#121-137">source</a><a href="#impl-QueryKindTrait%3CValue,+OnEmpty%3E-for-ValueQuery" class="anchor">§</a><h3 class="code-header">impl&lt;Value, OnEmpty&gt; <a class="trait" href="trait.QueryKindTrait.html" title="trait frame_support::storage::types::QueryKindTrait">QueryKindTrait</a>&lt;Value, OnEmpty&gt; for <a class="struct" href="struct.ValueQuery.html" title="struct frame_support::storage::types::ValueQuery">ValueQuery</a><div class="where">where
+    Value: FullCodec + 'static,
+    OnEmpty: <a class="trait" href="../../pallet_prelude/trait.Get.html" title="trait frame_support::pallet_prelude::Get">Get</a>&lt;Value&gt;,</div></h3></section></summary><div class="impl-items"><section id="associatedconstant.METADATA-3" class="associatedconstant trait-impl"><a class="src rightside" href="../../../src/frame_support/storage/types/mod.rs.html#126">source</a><a href="#associatedconstant.METADATA-3" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.METADATA" class="constant">METADATA</a>: <a class="enum" href="../../../sp_metadata_ir/types/enum.StorageEntryModifierIR.html" title="enum sp_metadata_ir::types::StorageEntryModifierIR">StorageEntryModifierIR</a> = StorageEntryModifierIR::Default</h4></section><section id="associatedtype.Query-3" class="associatedtype trait-impl"><a href="#associatedtype.Query-3" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Query" class="associatedtype">Query</a> = Value</h4></section></div></details></div><script src="../../../trait.impl/frame_support/storage/types/trait.QueryKindTrait.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

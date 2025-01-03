@@ -1,0 +1,266 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Learn about the transaction extensions that form a part of extrinsics. Transaction extensions are, briefly, a means for different chains to extend the “basic” extrinsic format with custom data that can be checked by the runtime."><title>polkadot_sdk_docs::reference_docs::transaction_extensions - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.com/favicon.ico"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module transaction_extensions</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#modules">Modules</a></li></ul></section><h2><a href="../index.html">In polkadot_sdk_docs::reference_docs</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">reference_docs</a>::<wbr><a class="mod" href="#">transaction_extensions</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/reference_docs/transaction_extensions.rs.html#1-103">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn about the transaction extensions that form a part of extrinsics.
+Transaction extensions are, briefly, a means for different chains to extend the “basic”
+extrinsic format with custom data that can be checked by the runtime.</p>
+<h2 id="frame-provided-transaction-extensions"><a class="doc-anchor" href="#frame-provided-transaction-extensions">§</a>FRAME provided transaction extensions</h2>
+<p>FRAME by default already provides the following transaction extensions:</p>
+<ul>
+<li>
+<p><a href="../../../frame_system/extensions/check_genesis/struct.CheckGenesis.html" title="struct frame_system::extensions::check_genesis::CheckGenesis"><code>CheckGenesis</code></a>: Ensures that a transaction was sent for the same
+network. Determined based on genesis.</p>
+</li>
+<li>
+<p><a href="../../../frame_system/extensions/check_mortality/struct.CheckMortality.html" title="struct frame_system::extensions::check_mortality::CheckMortality"><code>CheckMortality</code></a>: Extends a transaction with a configurable
+mortality.</p>
+</li>
+<li>
+<p><a href="../../../frame_system/extensions/check_non_zero_sender/struct.CheckNonZeroSender.html" title="struct frame_system::extensions::check_non_zero_sender::CheckNonZeroSender"><code>CheckNonZeroSender</code></a>: Ensures that the sender of a
+transaction is not the <em>all zero account</em> (all bytes of the accountid are zero).</p>
+</li>
+<li>
+<p><a href="../../../frame_system/extensions/check_nonce/struct.CheckNonce.html" title="struct frame_system::extensions::check_nonce::CheckNonce"><code>CheckNonce</code></a>: Extends a transaction with a nonce to prevent replay
+of transactions and to provide ordering of transactions.</p>
+</li>
+<li>
+<p><a href="../../../frame_system/extensions/check_spec_version/struct.CheckSpecVersion.html" title="struct frame_system::extensions::check_spec_version::CheckSpecVersion"><code>CheckSpecVersion</code></a>: Ensures that a transaction was built for
+the currently active runtime.</p>
+</li>
+<li>
+<p><a href="../../../frame_system/extensions/check_tx_version/struct.CheckTxVersion.html" title="struct frame_system::extensions::check_tx_version::CheckTxVersion"><code>CheckTxVersion</code></a>: Ensures that the transaction signer used the
+correct encoding of the call.</p>
+</li>
+<li>
+<p><a href="../../../frame_system/extensions/check_weight/struct.CheckWeight.html" title="struct frame_system::extensions::check_weight::CheckWeight"><code>CheckWeight</code></a>: Ensures that the transaction fits into the block
+before dispatching it.</p>
+</li>
+<li>
+<p><a href="../../../pallet_transaction_payment/struct.ChargeTransactionPayment.html" title="struct pallet_transaction_payment::ChargeTransactionPayment"><code>ChargeTransactionPayment</code></a>: Charges
+transaction fees from the signer based on the weight of the call using the native token.</p>
+</li>
+<li>
+<p><a href="../../../pallet_asset_tx_payment/struct.ChargeAssetTxPayment.html" title="struct pallet_asset_tx_payment::ChargeAssetTxPayment"><code>ChargeAssetTxPayment</code></a>: Charges transaction
+fees from the signer based on the weight of the call using any supported asset (including the
+native token).</p>
+</li>
+<li>
+<p><a href="../../../pallet_asset_conversion_tx_payment/struct.ChargeAssetTxPayment.html" title="struct pallet_asset_conversion_tx_payment::ChargeAssetTxPayment"><code>ChargeAssetTxPayment</code>(using
+conversion)</a>: Charges transaction
+fees from the signer based on the weight of the call using any supported asset (including the
+native token). The asset is converted to the native token using a pool.</p>
+</li>
+<li>
+<p><a href="../../../pallet_skip_feeless_payment/struct.SkipCheckIfFeeless.html" title="struct pallet_skip_feeless_payment::SkipCheckIfFeeless"><code>SkipCheckIfFeeless</code></a>: Allows transactions
+to be processed without paying any fee. This requires that the <code>call</code> that should be
+dispatched is augmented with the <a href="../../../frame_support_procedural/attr.feeless_if.html" title="attr frame_support_procedural::feeless_if"><code>feeless_if</code></a>
+attribute.</p>
+</li>
+<li>
+<p><a href="../../../frame_metadata_hash_extension/struct.CheckMetadataHash.html" title="struct frame_metadata_hash_extension::CheckMetadataHash"><code>CheckMetadataHash</code></a>: Extends transactions
+to include the so-called metadata hash. This is required by chains to support the generic
+Ledger application and other similar offline wallets.</p>
+</li>
+<li>
+<p><a href="../../../cumulus_primitives_storage_weight_reclaim/struct.StorageWeightReclaim.html" title="struct cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim"><code>StorageWeightReclaim</code></a>: A
+transaction extension for parachains that reclaims unused storage weight after executing a
+transaction.</p>
+</li>
+</ul>
+<p>For more information about these extensions, follow the link to the type documentation.</p>
+<h2 id="building-a-custom-transaction-extension"><a class="doc-anchor" href="#building-a-custom-transaction-extension">§</a>Building a custom transaction extension</h2>
+<p>Defining a couple of very simple transaction extensions looks like the following:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub mod </span>transaction_extensions_example {
+	<span class="kw">use </span>codec::{Decode, Encode};
+	<span class="kw">use </span>scale_info::TypeInfo;
+	<span class="kw">use </span>sp_runtime::{
+		impl_tx_ext_default,
+		traits::{Dispatchable, TransactionExtension},
+		transaction_validity::TransactionValidityError,
+	};
+
+	<span class="comment">// This doesn't actually check anything, but simply allows
+	// some arbitrary `u32` to be added to the extrinsic payload
+	</span><span class="attr">#[derive(Debug, Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+	</span><span class="kw">pub struct </span>AddToPayload(<span class="kw">pub </span>u32);
+
+	<span class="kw">impl</span>&lt;Call: Dispatchable&gt; TransactionExtension&lt;Call&gt; <span class="kw">for </span>AddToPayload {
+		<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"AddToPayload"</span>;
+		<span class="kw">type </span>Implicit = ();
+		<span class="kw">type </span>Pre = ();
+		<span class="kw">type </span>Val = ();
+
+		<span class="macro">impl_tx_ext_default!</span>(Call; weight validate prepare);
+	}
+
+	<span class="comment">// This is the opposite; nothing will be added to the extrinsic payload,
+	// but the Implicit type (`1234u32`) will be added to the
+	// payload to be signed.
+	</span><span class="attr">#[derive(Debug, Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+	</span><span class="kw">pub struct </span>AddToSignaturePayload;
+
+	<span class="kw">impl</span>&lt;Call: Dispatchable&gt; TransactionExtension&lt;Call&gt; <span class="kw">for </span>AddToSignaturePayload {
+		<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"AddToSignaturePayload"</span>;
+		<span class="kw">type </span>Implicit = u32;
+
+		<span class="kw">fn </span>implicit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Implicit, TransactionValidityError&gt; {
+			<span class="prelude-val">Ok</span>(<span class="number">1234</span>)
+		}
+		<span class="kw">type </span>Pre = ();
+		<span class="kw">type </span>Val = ();
+
+		<span class="macro">impl_tx_ext_default!</span>(Call; weight validate prepare);
+	}
+}</code></pre></div>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="transaction_extensions_example/index.html" title="mod polkadot_sdk_docs::reference_docs::transaction_extensions::transaction_extensions_example">transaction_extensions_example</a></div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

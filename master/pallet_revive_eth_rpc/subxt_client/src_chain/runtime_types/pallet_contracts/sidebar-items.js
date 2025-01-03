@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Origin"],"mod":["pallet","primitives","schedule","storage","wasm"],"struct":["ApiVersion","Environment","EnvironmentType"]};

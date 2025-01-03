@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PRIMARY_GOVERNANCE_CHANNEL","ROC","SECONDARY_GOVERNANCE_CHANNEL"],"fn":["eth","gwei","meth","sibling_sovereign_account"],"mod":["inbound","location","operating_mode","outbound","pricing","ringbuffer"],"struct":["AllowSiblingsOnly","AssetMetadata","Channel","ChannelId","ParaId","SiblingParaId","U256"],"trait":["IsSystem","StaticLookup"]};

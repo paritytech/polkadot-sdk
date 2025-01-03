@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["Amount1Provided","Amount2Provided","LpToken","LpTokenMinted","MintTo","PoolId","Who"]};

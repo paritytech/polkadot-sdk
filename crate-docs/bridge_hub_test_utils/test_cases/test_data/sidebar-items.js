@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["initialization_data","make_complex_relayer_proofs","prepare_inbound_xcm"]};

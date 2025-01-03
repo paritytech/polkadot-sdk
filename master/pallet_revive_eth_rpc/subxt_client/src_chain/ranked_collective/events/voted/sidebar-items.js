@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["Poll","Tally","Vote","Who"]};

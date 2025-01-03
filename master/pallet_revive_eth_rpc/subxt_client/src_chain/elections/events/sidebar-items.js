@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["candidate_slashed","member_kicked","new_term","renounced","seat_holder_slashed"],"struct":["CandidateSlashed","ElectionError","EmptyTerm","MemberKicked","NewTerm","Renounced","SeatHolderSlashed"]};

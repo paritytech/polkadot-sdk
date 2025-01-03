@@ -1,0 +1,188 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Common runtime code for the Relay Chain, e.g. Rococo, Westend, Polkadot, Kusama …"><title>polkadot_runtime_common - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="polkadot_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../polkadot_runtime_common/index.html">polkadot_runtime_common</a><span class="version">7.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">polkadot_runtime_common</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/polkadot_runtime_common/lib.rs.html#17-285">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Common runtime code for the Relay Chain, e.g. Rococo, Westend, Polkadot, Kusama …</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.ToAuthor"><code>pub use impls::<a class="struct" href="impls/struct.ToAuthor.html" title="struct polkadot_runtime_common::impls::ToAuthor">ToAuthor</a>;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="assigned_slots/index.html" title="mod polkadot_runtime_common::assigned_slots">assigned_slots</a></div><div class="desc docblock-short">This pallet allows to assign permanent (long-lived) or temporary
+(short-lived) parachain slots to paras, leveraging the existing
+parachain slot lease mechanism. Temporary slots are given turns
+in a fair (though best-effort) manner.
+The dispatchables must be called from the configured origin
+(typically <code>Sudo</code> or a governance origin).
+This pallet should not be used on a production relay chain,
+only on a test relay chain (e.g. Rococo).</div></li><li><div class="item-name"><a class="mod" href="auctions/index.html" title="mod polkadot_runtime_common::auctions">auctions</a></div><div class="desc docblock-short">Auctioning system to determine the set of Parachains in operation. This includes logic for the
+auctioning mechanism and for reserving balance as part of the “payment”. Unreserving the balance
+happens elsewhere.</div></li><li><div class="item-name"><a class="mod" href="claims/index.html" title="mod polkadot_runtime_common::claims">claims</a></div><div class="desc docblock-short">Pallet to process claims from Ethereum addresses.</div></li><li><div class="item-name"><a class="mod" href="crowdloan/index.html" title="mod polkadot_runtime_common::crowdloan">crowdloan</a></div><div class="desc docblock-short">Parachain <code>Crowdloaning</code> pallet</div></li><li><div class="item-name"><a class="mod" href="elections/index.html" title="mod polkadot_runtime_common::elections">elections</a></div><div class="desc docblock-short">Code for elections.</div></li><li><div class="item-name"><a class="mod" href="identity_migrator/index.html" title="mod polkadot_runtime_common::identity_migrator">identity_migrator</a></div><div class="desc docblock-short">This pallet is designed to go into a source chain and destination chain to migrate data. The
+design motivations are:</div></li><li><div class="item-name"><a class="mod" href="impls/index.html" title="mod polkadot_runtime_common::impls">impls</a></div><div class="desc docblock-short">Auxiliary <code>struct</code>/<code>enum</code>s for polkadot runtime.</div></li><li><div class="item-name"><a class="mod" href="paras_registrar/index.html" title="mod polkadot_runtime_common::paras_registrar">paras_registrar</a></div><div class="desc docblock-short">Pallet to handle parachain registration and related fund management.
+In essence this is a simple wrapper around <code>paras</code>.</div></li><li><div class="item-name"><a class="mod" href="paras_sudo_wrapper/index.html" title="mod polkadot_runtime_common::paras_sudo_wrapper">paras_sudo_wrapper</a></div><div class="desc docblock-short">A simple wrapper allowing <code>Sudo</code> to call into <code>paras</code> routines.</div></li><li><div class="item-name"><a class="mod" href="purchase/index.html" title="mod polkadot_runtime_common::purchase">purchase</a></div><div class="desc docblock-short">Pallet to process purchase of DOTs.</div></li><li><div class="item-name"><a class="mod" href="slot_range/index.html" title="mod polkadot_runtime_common::slot_range">slot_range</a></div><div class="desc docblock-short">The <code>SlotRange</code> struct which succinctly handles the 36 values that
+represent all sub ranges between 0 and 7 inclusive.</div></li><li><div class="item-name"><a class="mod" href="slots/index.html" title="mod polkadot_runtime_common::slots">slots</a></div><div class="desc docblock-short">Parathread and parachains leasing system. Allows para IDs to be claimed, the code and data to be
+initialized and parachain slots (i.e. continuous scheduling) to be leased. Also allows for
+parachains and parathreads to be swapped.</div></li><li><div class="item-name"><a class="mod" href="traits/index.html" title="mod polkadot_runtime_common::traits">traits</a></div><div class="desc docblock-short">Traits used across pallets for Polkadot.</div></li><li><div class="item-name"><a class="mod" href="try_runtime/index.html" title="mod polkadot_runtime_common::try_runtime">try_runtime</a></div><div class="desc docblock-short">Common try-runtime only tests for runtimes.</div></li><li><div class="item-name"><a class="mod" href="xcm_sender/index.html" title="mod polkadot_runtime_common::xcm_sender">xcm_sender</a></div><div class="desc docblock-short">XCM sender for relay chain.</div></li></ul><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.impl_elections_weights.html" title="macro polkadot_runtime_common::impl_elections_weights">impl_elections_weights</a></div><div class="desc docblock-short">Implements the weight types for the elections module and a specific
+runtime.
+This macro should not be called directly; use
+<a href="macro.impl_runtime_weights.html" title="macro polkadot_runtime_common::impl_runtime_weights"><code>impl_runtime_weights</code></a> instead.</div></li><li><div class="item-name"><a class="macro" href="macro.impl_runtime_weights.html" title="macro polkadot_runtime_common::impl_runtime_weights">impl_runtime_weights</a></div><div class="desc docblock-short">Implements the weight types for a runtime.
+It expects the passed runtime constants to contain a <code>weights</code> module.
+The generated weight types were formerly part of the common
+runtime but are now runtime dependant.</div></li><li><div class="item-name"><a class="macro" href="macro.prod_or_fast.html" title="macro polkadot_runtime_common::prod_or_fast">prod_or_fast</a></div><div class="desc docblock-short">Macro to set a value (e.g. when using the <code>parameter_types</code> macro) to either a production value
+or to an environment variable or testing value (in case the <code>fast-runtime</code> feature is selected)
+or one of two testing values depending on feature.
+Note that the environment variable is evaluated <em>at compile time</em>.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.AdjustmentVariable.html" title="struct polkadot_runtime_common::AdjustmentVariable">AdjustmentVariable</a></div><div class="desc docblock-short">The adjustment variable of the runtime. Higher values will cause <code>TargetBlockFullness</code> to
+change the fees more rapidly.</div></li><li><div class="item-name"><a class="struct" href="struct.AssignmentSessionKeyPlaceholder.html" title="struct polkadot_runtime_common::AssignmentSessionKeyPlaceholder">AssignmentSessionKeyPlaceholder</a></div><div class="desc docblock-short">A placeholder since there is currently no provided session key handler for parachain validator
+keys.</div></li><li><div class="item-name"><a class="struct" href="struct.BalanceToU256.html" title="struct polkadot_runtime_common::BalanceToU256">BalanceToU256</a></div><div class="desc docblock-short">Convert a balance to an unsigned 256-bit number, use in nomination pools.</div></li><li><div class="item-name"><a class="struct" href="struct.BlockHashCount.html" title="struct polkadot_runtime_common::BlockHashCount">BlockHashCount</a></div></li><li><div class="item-name"><a class="struct" href="struct.BlockLength.html" title="struct polkadot_runtime_common::BlockLength">BlockLength</a></div><div class="desc docblock-short">Maximum length of block. Up to 5MB.</div></li><li><div class="item-name"><a class="struct" href="struct.MaximumMultiplier.html" title="struct polkadot_runtime_common::MaximumMultiplier">MaximumMultiplier</a></div><div class="desc docblock-short">The maximum amount of the multiplier.</div></li><li><div class="item-name"><a class="struct" href="struct.MinimumMultiplier.html" title="struct polkadot_runtime_common::MinimumMultiplier">MinimumMultiplier</a></div><div class="desc docblock-short">Minimum amount of the multiplier. This value cannot be too low. A test case should ensure
+that combined with <code>AdjustmentVariable</code>, we can recover from the minimum.
+See <code>multiplier_can_grow_from_zero</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.ParachainSessionKeyPlaceholder.html" title="struct polkadot_runtime_common::ParachainSessionKeyPlaceholder">ParachainSessionKeyPlaceholder</a></div><div class="desc docblock-short">A placeholder since there is currently no provided session key handler for parachain validator
+keys.</div></li><li><div class="item-name"><a class="struct" href="struct.StakingBenchmarkingConfig.html" title="struct polkadot_runtime_common::StakingBenchmarkingConfig">StakingBenchmarkingConfig</a></div><div class="desc docblock-short">A reasonable benchmarking config for staking pallet.</div></li><li><div class="item-name"><a class="struct" href="struct.TargetBlockFullness.html" title="struct polkadot_runtime_common::TargetBlockFullness">TargetBlockFullness</a></div><div class="desc docblock-short">The portion of the <code>NORMAL_DISPATCH_RATIO</code> that we adjust the fees with. Blocks filled less
+than this will decrease the weight and more will increase.</div></li><li><div class="item-name"><a class="struct" href="struct.U256ToBalance.html" title="struct polkadot_runtime_common::U256ToBalance">U256ToBalance</a></div><div class="desc docblock-short">Convert an unsigned 256-bit number to balance, use in nomination pools.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.BalancesCall.html" title="enum polkadot_runtime_common::BalancesCall">BalancesCall</a></div><div class="desc docblock-short">Contains a variant per dispatchable extrinsic that this pallet has.</div></li><li><div class="item-name"><a class="enum" href="enum.StakerStatus.html" title="enum polkadot_runtime_common::StakerStatus">StakerStatus</a></div><div class="desc docblock-short">Representation of the status of a staker.</div></li><li><div class="item-name"><a class="enum" href="enum.TimestampCall.html" title="enum polkadot_runtime_common::TimestampCall">TimestampCall</a></div><div class="desc docblock-short">Contains a variant per dispatchable extrinsic that this pallet has.</div></li></ul><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.AVERAGE_ON_INITIALIZE_RATIO.html" title="constant polkadot_runtime_common::AVERAGE_ON_INITIALIZE_RATIO">AVERAGE_ON_INITIALIZE_RATIO</a></div><div class="desc docblock-short">We assume that an on-initialize consumes 1% of the weight on average, hence a single extrinsic
+will not be allowed to consume more than <code>AvailableBlockRatio - 1%</code>.</div></li><li><div class="item-name"><a class="constant" href="constant.MAXIMUM_BLOCK_WEIGHT.html" title="constant polkadot_runtime_common::MAXIMUM_BLOCK_WEIGHT">MAXIMUM_BLOCK_WEIGHT</a></div><div class="desc docblock-short">We allow for 2 seconds of compute with a 6 second average block time.
+The storage proof size is not limited so far.</div></li><li><div class="item-name"><a class="constant" href="constant.NORMAL_DISPATCH_RATIO.html" title="constant polkadot_runtime_common::NORMAL_DISPATCH_RATIO">NORMAL_DISPATCH_RATIO</a></div><div class="desc docblock-short">We allow <code>Normal</code> extrinsics to fill up the block up to 75%, the rest can be used
+by  Operational  extrinsics.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Bounded.html" title="trait polkadot_runtime_common::Bounded">Bounded</a></div><div class="desc docblock-short">Numbers which have upper and lower bounds</div></li><li><div class="item-name"><a class="trait" href="trait.BuildStorage.html" title="trait polkadot_runtime_common::BuildStorage">BuildStorage</a></div><div class="desc docblock-short">Complex storage builder stuff.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.CurrencyToVote.html" title="type polkadot_runtime_common::CurrencyToVote">CurrencyToVote</a></div><div class="desc docblock-short">The type used for currency conversion.</div></li><li><div class="item-name"><a class="type" href="type.NegativeImbalance.html" title="type polkadot_runtime_common::NegativeImbalance">NegativeImbalance</a><span class="stab deprecated" title="">Deprecated</span></div></li><li><div class="item-name"><a class="type" href="type.SlowAdjustingFeeUpdate.html" title="type polkadot_runtime_common::SlowAdjustingFeeUpdate">SlowAdjustingFeeUpdate</a></div><div class="desc docblock-short">Parameterized slow adjusting fee updated based on
+<a href="https://research.web3.foundation/Polkadot/overview/token-economics#2-slow-adjusting-mechanism">https://research.web3.foundation/Polkadot/overview/token-economics#2-slow-adjusting-mechanism</a></div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

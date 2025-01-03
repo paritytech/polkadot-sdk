@@ -1,0 +1,190 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Relayer stake-and-slash mechanism."><title>StakeAndSlash in bp_relayers - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="bp_relayers" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../bp_relayers/index.html">bp_relayers</a><span class="version">0.7.0</span></h2></div><h2 class="location"><a href="#">StakeAndSlash</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.RequiredRegistrationLease">RequiredRegistrationLease</a></li><li><a href="#associatedtype.RequiredStake">RequiredStake</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.repatriate_reserved">repatriate_reserved</a></li><li><a href="#tymethod.reserve">reserve</a></li><li><a href="#tymethod.unreserve">unreserve</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-StakeAndSlash%3CAccountId,+BlockNumber,+Balance%3E-for-()">()</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In crate bp_relayers</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">bp_relayers</a>::<wbr><a class="trait" href="#">StakeAndSlash</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/bp_relayers/registration.rs.html#86-113">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait StakeAndSlash&lt;AccountId, BlockNumber, Balance&gt; {
+    type <a href="#associatedtype.RequiredStake" class="associatedtype">RequiredStake</a>: Get&lt;Balance&gt;;
+    type <a href="#associatedtype.RequiredRegistrationLease" class="associatedtype">RequiredRegistrationLease</a>: Get&lt;BlockNumber&gt;;
+
+    // Required methods
+    fn <a href="#tymethod.reserve" class="fn">reserve</a>(relayer: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>, amount: Balance) -&gt; DispatchResult;
+<span class="item-spacer"></span>    fn <a href="#tymethod.unreserve" class="fn">unreserve</a>(relayer: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>, amount: Balance) -&gt; Balance;
+<span class="item-spacer"></span>    fn <a href="#tymethod.repatriate_reserved" class="fn">repatriate_reserved</a>&lt;LaneId: Decode + Encode&gt;(
+        relayer: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        beneficiary: <a class="enum" href="enum.ExplicitOrAccountParams.html" title="enum bp_relayers::ExplicitOrAccountParams">ExplicitOrAccountParams</a>&lt;AccountId, LaneId&gt;,
+        amount: Balance,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Balance, DispatchError&gt;;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Relayer stake-and-slash mechanism.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.RequiredStake" class="method"><a class="src rightside" href="../src/bp_relayers/registration.rs.html#88">source</a><h4 class="code-header">type <a href="#associatedtype.RequiredStake" class="associatedtype">RequiredStake</a>: Get&lt;Balance&gt;</h4></section></summary><div class="docblock"><p>The stake that the relayer must have to have its transactions boosted.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.RequiredRegistrationLease" class="method"><a class="src rightside" href="../src/bp_relayers/registration.rs.html#96">source</a><h4 class="code-header">type <a href="#associatedtype.RequiredRegistrationLease" class="associatedtype">RequiredRegistrationLease</a>: Get&lt;BlockNumber&gt;</h4></section></summary><div class="docblock"><p>Required <strong>remaining</strong> registration lease to be able to get transaction priority boost.</p>
+<p>If the difference between registration’s <code>valid_till</code> and the current block number
+is less than the <code>RequiredRegistrationLease</code>, it becomes inactive and relayer transaction
+won’t get priority boost. This period exists, because priority is calculated when
+transaction is placed to the queue (and it is reevaluated periodically) and then some time
+may pass before transaction will be included into the block.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.reserve" class="method"><a class="src rightside" href="../src/bp_relayers/registration.rs.html#99">source</a><h4 class="code-header">fn <a href="#tymethod.reserve" class="fn">reserve</a>(relayer: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>, amount: Balance) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Reserve the given amount at relayer account.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.unreserve" class="method"><a class="src rightside" href="../src/bp_relayers/registration.rs.html#103">source</a><h4 class="code-header">fn <a href="#tymethod.unreserve" class="fn">unreserve</a>(relayer: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>, amount: Balance) -&gt; Balance</h4></section></summary><div class="docblock"><p><code>Unreserve</code> the given amount from relayer account.</p>
+<p>Returns amount that we have failed to <code>unreserve</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.repatriate_reserved" class="method"><a class="src rightside" href="../src/bp_relayers/registration.rs.html#108-112">source</a><h4 class="code-header">fn <a href="#tymethod.repatriate_reserved" class="fn">repatriate_reserved</a>&lt;LaneId: Decode + Encode&gt;(
+    relayer: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    beneficiary: <a class="enum" href="enum.ExplicitOrAccountParams.html" title="enum bp_relayers::ExplicitOrAccountParams">ExplicitOrAccountParams</a>&lt;AccountId, LaneId&gt;,
+    amount: Balance,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Balance, DispatchError&gt;</h4></section></summary><div class="docblock"><p>Slash up to <code>amount</code> from reserved balance of account <code>relayer</code> and send funds to given
+<code>beneficiary</code>.</p>
+<p>Returns <code>Ok(_)</code> with non-zero balance if we have failed to repatriate some portion of stake.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-StakeAndSlash%3CAccountId,+BlockNumber,+Balance%3E-for-()" class="impl"><a class="src rightside" href="../src/bp_relayers/registration.rs.html#115-138">source</a><a href="#impl-StakeAndSlash%3CAccountId,+BlockNumber,+Balance%3E-for-()" class="anchor">§</a><h3 class="code-header">impl&lt;AccountId, BlockNumber, Balance&gt; <a class="trait" href="trait.StakeAndSlash.html" title="trait bp_relayers::StakeAndSlash">StakeAndSlash</a>&lt;AccountId, BlockNumber, Balance&gt; for <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a><div class="where">where
+    Balance: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a> + <a class="trait" href="https://docs.rs/num-traits/0.2/num_traits/identities/trait.Zero.html" title="trait num_traits::identities::Zero">Zero</a>,
+    BlockNumber: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a>,</div></h3></section></summary><div class="impl-items"><section id="associatedtype.RequiredStake-1" class="associatedtype trait-impl"><a href="#associatedtype.RequiredStake-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.RequiredStake" class="associatedtype">RequiredStake</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h4></section><section id="associatedtype.RequiredRegistrationLease-1" class="associatedtype trait-impl"><a href="#associatedtype.RequiredRegistrationLease-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.RequiredRegistrationLease" class="associatedtype">RequiredRegistrationLease</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h4></section><section id="method.reserve" class="method trait-impl"><a class="src rightside" href="../src/bp_relayers/registration.rs.html#123-125">source</a><a href="#method.reserve" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.reserve" class="fn">reserve</a>(_relayer: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>, _amount: Balance) -&gt; DispatchResult</h4></section><section id="method.unreserve" class="method trait-impl"><a class="src rightside" href="../src/bp_relayers/registration.rs.html#127-129">source</a><a href="#method.unreserve" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.unreserve" class="fn">unreserve</a>(_relayer: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>, _amount: Balance) -&gt; Balance</h4></section><section id="method.repatriate_reserved" class="method trait-impl"><a class="src rightside" href="../src/bp_relayers/registration.rs.html#131-137">source</a><a href="#method.repatriate_reserved" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.repatriate_reserved" class="fn">repatriate_reserved</a>&lt;LaneId: Decode + Encode&gt;(
+    _relayer: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    _beneficiary: <a class="enum" href="enum.ExplicitOrAccountParams.html" title="enum bp_relayers::ExplicitOrAccountParams">ExplicitOrAccountParams</a>&lt;AccountId, LaneId&gt;,
+    _amount: Balance,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Balance, DispatchError&gt;</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/bp_relayers/registration/trait.StakeAndSlash.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

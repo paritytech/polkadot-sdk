@@ -1,0 +1,213 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Utility functions to interact with Substrate’s Base-16 Modified Merkle Patricia tree (“trie”)."><title>sp_trie - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sp_trie" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sp_trie/index.html">sp_trie</a><span class="version">29.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#statics">Statics</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">sp_trie</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/sp_trie/lib.rs.html#18-1125">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Utility functions to interact with Substrate’s Base-16 Modified Merkle Patricia tree (“trie”).</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="accessed_nodes_tracker/index.html" title="mod sp_trie::accessed_nodes_tracker">accessed_nodes_tracker</a></div><div class="desc docblock-short">Helpers for checking for duplicate nodes.</div></li><li><div class="item-name"><a class="mod" href="cache/index.html" title="mod sp_trie::cache">cache</a></div><div class="desc docblock-short">Trie Cache</div></li><li><div class="item-name"><a class="mod" href="nibble_ops/index.html" title="mod sp_trie::nibble_ops">nibble_ops</a></div><div class="desc docblock-short">Various re-exports from the <code>trie-db</code> crate.
+Utility methods to work on radix 16 nibble.</div></li><li><div class="item-name"><a class="mod" href="proof_size_extension/index.html" title="mod sp_trie::proof_size_extension">proof_size_extension</a></div><div class="desc docblock-short">Externalities extension that provides access to the current proof size
+of the underlying recorder.</div></li><li><div class="item-name"><a class="mod" href="recorder/index.html" title="mod sp_trie::recorder">recorder</a></div><div class="desc docblock-short">Trie recorder</div></li><li><div class="item-name"><a class="mod" href="recorder_ext/index.html" title="mod sp_trie::recorder_ext">recorder_ext</a></div><div class="desc docblock-short">Extension for the default recorder.</div></li><li><div class="item-name"><a class="mod" href="trie_types/index.html" title="mod sp_trie::trie_types">trie_types</a></div><div class="desc docblock-short">This module is for non generic definition of trie type.
+Only the <code>Hasher</code> trait is generic in this case.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.CompactProof.html" title="struct sp_trie::CompactProof">CompactProof</a></div><div class="desc docblock-short">Storage proof in compact form.</div></li><li><div class="item-name"><a class="struct" href="struct.HashKey.html" title="struct sp_trie::HashKey">HashKey</a></div><div class="desc docblock-short">Various re-exports from the <code>memory-db</code> crate.
+Key function that only uses the hash</div></li><li><div class="item-name"><a class="struct" href="struct.KeySpacedDB.html" title="struct sp_trie::KeySpacedDB">KeySpacedDB</a></div><div class="desc docblock-short"><code>HashDB</code> implementation that append a encoded prefix (unique id bytes) in addition to the
+prefix of every key value.</div></li><li><div class="item-name"><a class="struct" href="struct.KeySpacedDBMut.html" title="struct sp_trie::KeySpacedDBMut">KeySpacedDBMut</a></div><div class="desc docblock-short"><code>HashDBMut</code> implementation that append a encoded prefix (unique id bytes) in addition to the
+prefix of every key value.</div></li><li><div class="item-name"><a class="struct" href="struct.LayoutV0.html" title="struct sp_trie::LayoutV0">LayoutV0</a></div><div class="desc docblock-short">substrate trie layout</div></li><li><div class="item-name"><a class="struct" href="struct.LayoutV1.html" title="struct sp_trie::LayoutV1">LayoutV1</a></div><div class="desc docblock-short">substrate trie layout, with external value nodes.</div></li><li><div class="item-name"><a class="struct" href="struct.NodeCodec.html" title="struct sp_trie::NodeCodec">NodeCodec</a></div><div class="desc docblock-short">The Substrate format implementation of <code>NodeCodec</code>.
+Concrete implementation of a [<code>NodeCodecT</code>] with SCALE encoding.</div></li><li><div class="item-name"><a class="struct" href="struct.PrefixedKey.html" title="struct sp_trie::PrefixedKey">PrefixedKey</a></div><div class="desc docblock-short">Various re-exports from the <code>memory-db</code> crate.
+Key function that concatenates prefix and hash.</div></li><li><div class="item-name"><a class="struct" href="struct.Recorder.html" title="struct sp_trie::Recorder">Recorder</a></div><div class="desc docblock-short">Various re-exports from the <code>trie-db</code> crate.
+Records trie nodes as they pass it.</div></li><li><div class="item-name"><a class="struct" href="struct.StorageProof.html" title="struct sp_trie::StorageProof">StorageProof</a></div><div class="desc docblock-short">A proof that some set of key-value pairs are included in the storage trie. The proof contains
+the storage values so that the partial storage backend can be reconstructed by a verifier that
+does not already have access to the key-value pairs.</div></li><li><div class="item-name"><a class="struct" href="struct.TrieDBDoubleEndedIterator.html" title="struct sp_trie::TrieDBDoubleEndedIterator">TrieDBDoubleEndedIterator</a></div><div class="desc docblock-short">Various re-exports from the <code>trie-db</code> crate.
+Double ended iterator for going through all values in the trie in pre-order traversal order.</div></li><li><div class="item-name"><a class="struct" href="struct.TrieDBIterator.html" title="struct sp_trie::TrieDBIterator">TrieDBIterator</a></div><div class="desc docblock-short">Various re-exports from the <code>trie-db</code> crate.
+Iterator for going through all values in the trie in pre-order traversal order.</div></li><li><div class="item-name"><a class="struct" href="struct.TrieDBKeyDoubleEndedIterator.html" title="struct sp_trie::TrieDBKeyDoubleEndedIterator">TrieDBKeyDoubleEndedIterator</a></div><div class="desc docblock-short">Various re-exports from the <code>trie-db</code> crate.
+Double ended iterator for going through all of key with values in the trie in pre-order
+traversal order.</div></li><li><div class="item-name"><a class="struct" href="struct.TrieDBKeyIterator.html" title="struct sp_trie::TrieDBKeyIterator">TrieDBKeyIterator</a></div><div class="desc docblock-short">Various re-exports from the <code>trie-db</code> crate.
+Iterator for going through all of key with values in the trie in pre-order traversal order.</div></li><li><div class="item-name"><a class="struct" href="struct.TrieDBNodeDoubleEndedIterator.html" title="struct sp_trie::TrieDBNodeDoubleEndedIterator">TrieDBNodeDoubleEndedIterator</a></div><div class="desc docblock-short">Various re-exports from the <code>trie-db</code> crate.
+Double ended iterator for going through all nodes in the trie in pre-order traversal order.</div></li><li><div class="item-name"><a class="struct" href="struct.TrieDBRawIterator.html" title="struct sp_trie::TrieDBRawIterator">TrieDBRawIterator</a></div><div class="desc docblock-short">Various re-exports from the <code>trie-db</code> crate.
+Iterator for going through all nodes in the trie in pre-order traversal order.</div></li><li><div class="item-name"><a class="struct" href="struct.TrieStream.html" title="struct sp_trie::TrieStream">TrieStream</a></div><div class="desc docblock-short">The Substrate format implementation of <code>TrieStream</code>.
+Codec-flavored TrieStream.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.CompactProofError.html" title="enum sp_trie::CompactProofError">CompactProofError</a></div><div class="desc docblock-short">Trie codec reexport, mainly child trie support
+for trie compact proof.
+Error for trie node decoding.</div></li><li><div class="item-name"><a class="enum" href="enum.Error.html" title="enum sp_trie::Error">Error</a></div><div class="desc docblock-short">Our <code>NodeCodec</code>-specific error.
+Error type used for trie related errors.</div></li><li><div class="item-name"><a class="enum" href="enum.MerkleValue.html" title="enum sp_trie::MerkleValue">MerkleValue</a></div><div class="desc docblock-short">Either the <code>hash</code> or <code>value</code> of a node depending on its size.</div></li><li><div class="item-name"><a class="enum" href="enum.NodePlan.html" title="enum sp_trie::NodePlan">NodePlan</a></div><div class="desc docblock-short">Various re-exports from the <code>trie-db</code> crate.
+A <code>NodePlan</code> is a blueprint for decoding a node from a byte slice. The <code>NodePlan</code> is created
+by parsing an encoded node and can be reused multiple times. This is useful as a <code>Node</code> borrows
+from a byte slice and this struct does not.</div></li><li><div class="item-name"><a class="enum" href="enum.StorageProofError.html" title="enum sp_trie::StorageProofError">StorageProofError</a></div><div class="desc docblock-short">Error associated with the <code>storage_proof</code> module.</div></li><li><div class="item-name"><a class="enum" href="enum.ValuePlan.html" title="enum sp_trie::ValuePlan">ValuePlan</a></div><div class="desc docblock-short">Various re-exports from the <code>trie-db</code> crate.
+Plan for value representation in <code>NodePlan</code>.</div></li><li><div class="item-name"><a class="enum" href="enum.VerifyError.html" title="enum sp_trie::VerifyError">VerifyError</a></div><div class="desc docblock-short">Errors that may occur during proof verification. Most of the errors types simply indicate that
+the proof is invalid with respect to the statement being verified, and the exact error type can
+be used for debugging.</div></li></ul><h2 id="statics" class="section-header">Statics<a href="#statics" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="static" href="static.EMPTY_PREFIX.html" title="static sp_trie::EMPTY_PREFIX">EMPTY_PREFIX</a></div><div class="desc docblock-short">Various re-exports from the <code>hash-db</code> crate.
+An empty prefix constant.
+Can be use when the prefix is not use internally
+or for root nodes.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.AsHashDB.html" title="trait sp_trie::AsHashDB">AsHashDB</a></div><div class="desc docblock-short">Reexport from <code>hash_db</code>, with genericity set for <code>Hasher</code> trait.</div></li><li><div class="item-name"><a class="trait" href="trait.HashDBT.html" title="trait sp_trie::HashDBT">HashDBT</a></div><div class="desc docblock-short">Various re-exports from the <code>hash-db</code> crate.
+Trait modelling datastore keyed by a hash defined by the <code>Hasher</code>.</div></li><li><div class="item-name"><a class="trait" href="trait.KeyFunction.html" title="trait sp_trie::KeyFunction">KeyFunction</a></div><div class="desc docblock-short">Various re-exports from the <code>memory-db</code> crate.</div></li><li><div class="item-name"><a class="trait" href="trait.ProofSizeProvider.html" title="trait sp_trie::ProofSizeProvider">ProofSizeProvider</a></div><div class="desc docblock-short">Type that is able to provide a proof size estimation.</div></li><li><div class="item-name"><a class="trait" href="trait.Query.html" title="trait sp_trie::Query">Query</a></div><div class="desc docblock-short">Various re-exports from the <code>trie-db</code> crate.
+Description of what kind of query will be made to the trie.</div></li><li><div class="item-name"><a class="trait" href="trait.Trie.html" title="trait sp_trie::Trie">Trie</a></div><div class="desc docblock-short">Various re-exports from the <code>trie-db</code> crate.
+A key-value datastore implemented as a database-backed modified Merkle tree.</div></li><li><div class="item-name"><a class="trait" href="trait.TrieCache.html" title="trait sp_trie::TrieCache">TrieCache</a></div><div class="desc docblock-short">Various re-exports from the <code>trie-db</code> crate.
+A cache that can be used to speed-up certain operations when accessing the trie.</div></li><li><div class="item-name"><a class="trait" href="trait.TrieConfiguration.html" title="trait sp_trie::TrieConfiguration">TrieConfiguration</a></div><div class="desc docblock-short">Various re-exports from the <code>trie-db</code> crate.
+This trait associates a trie definition with preferred methods.
+It also contains own default implementations and can be
+used to allow switching implementation.</div></li><li><div class="item-name"><a class="trait" href="trait.TrieLayout.html" title="trait sp_trie::TrieLayout">TrieLayout</a></div><div class="desc docblock-short">Various re-exports from the <code>trie-db</code> crate.
+Trait with definition of trie layout.
+Contains all associated trait needed for
+a trie definition or implementation.</div></li><li><div class="item-name"><a class="trait" href="trait.TrieMut.html" title="trait sp_trie::TrieMut">TrieMut</a></div><div class="desc docblock-short">Various re-exports from the <code>trie-db</code> crate.
+A key-value datastore implemented as a database-backed modified Merkle tree.</div></li><li><div class="item-name"><a class="trait" href="trait.TrieRecorder.html" title="trait sp_trie::TrieRecorder">TrieRecorder</a></div><div class="desc docblock-short">Various re-exports from the <code>trie-db</code> crate.
+A trie recorder that can be used to record all kind of [<code>TrieAccess</code>]’s.</div></li><li><div class="item-name"><a class="trait" href="trait.TrieRecorderProvider.html" title="trait sp_trie::TrieRecorderProvider">TrieRecorderProvider</a></div><div class="desc docblock-short">Type that is able to provide a <a href="trait.TrieRecorder.html" title="trait sp_trie::TrieRecorder"><code>trie_db::TrieRecorder</code></a>.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.child_delta_trie_root.html" title="fn sp_trie::child_delta_trie_root">child_delta_trie_root</a></div><div class="desc docblock-short">Determine a child trie root given a hash DB and delta values. H is the default hasher,
+but a generic implementation may ignore this type parameter and use other hashers.</div></li><li><div class="item-name"><a class="fn" href="fn.child_trie_root.html" title="fn sp_trie::child_trie_root">child_trie_root</a></div><div class="desc docblock-short">Determine a child trie root given its ordered contents, closed form. H is the default hasher,
+but a generic implementation may ignore this type parameter and use other hashers.</div></li><li><div class="item-name"><a class="fn" href="fn.decode_compact.html" title="fn sp_trie::decode_compact">decode_compact</a></div><div class="desc docblock-short">Trie codec reexport, mainly child trie support
+for trie compact proof.
+Decode a compact proof.</div></li><li><div class="item-name"><a class="fn" href="fn.delta_trie_root.html" title="fn sp_trie::delta_trie_root">delta_trie_root</a></div><div class="desc docblock-short">Determine a trie root given a hash DB and delta values.</div></li><li><div class="item-name"><a class="fn" href="fn.empty_child_trie_root.html" title="fn sp_trie::empty_child_trie_root">empty_child_trie_root</a></div><div class="desc docblock-short">Determine the empty child trie root.</div></li><li><div class="item-name"><a class="fn" href="fn.empty_trie_root.html" title="fn sp_trie::empty_trie_root">empty_trie_root</a></div><div class="desc docblock-short">Determine the empty trie root.</div></li><li><div class="item-name"><a class="fn" href="fn.encode_compact.html" title="fn sp_trie::encode_compact">encode_compact</a></div><div class="desc docblock-short">Trie codec reexport, mainly child trie support
+for trie compact proof.
+Encode a compact proof.</div></li><li><div class="item-name"><a class="fn" href="fn.generate_trie_proof.html" title="fn sp_trie::generate_trie_proof">generate_trie_proof</a></div><div class="desc docblock-short">Create a proof for a subset of keys in a trie.</div></li><li><div class="item-name"><a class="fn" href="fn.prefixed_key.html" title="fn sp_trie::prefixed_key">prefixed_key</a></div><div class="desc docblock-short">Various re-exports from the <code>memory-db</code> crate.
+Derive a database key from hash value of the node (key) and  the node prefix.</div></li><li><div class="item-name"><a class="fn" href="fn.read_child_trie_first_descendant_value.html" title="fn sp_trie::read_child_trie_first_descendant_value">read_child_trie_first_descendant_value</a></div><div class="desc docblock-short">Read the <a href="enum.MerkleValue.html" title="enum sp_trie::MerkleValue"><code>trie_db::MerkleValue</code></a> of the node that is the closest descendant for
+the provided child key.</div></li><li><div class="item-name"><a class="fn" href="fn.read_child_trie_hash.html" title="fn sp_trie::read_child_trie_hash">read_child_trie_hash</a></div><div class="desc docblock-short">Read a hash from the child trie.</div></li><li><div class="item-name"><a class="fn" href="fn.read_child_trie_value.html" title="fn sp_trie::read_child_trie_value">read_child_trie_value</a></div><div class="desc docblock-short">Read a value from the child trie.</div></li><li><div class="item-name"><a class="fn" href="fn.read_child_trie_value_with.html" title="fn sp_trie::read_child_trie_value_with">read_child_trie_value_with</a></div><div class="desc docblock-short">Read a value from the child trie with given query.</div></li><li><div class="item-name"><a class="fn" href="fn.read_trie_first_descendant_value.html" title="fn sp_trie::read_trie_first_descendant_value">read_trie_first_descendant_value</a></div><div class="desc docblock-short">Read the <a href="enum.MerkleValue.html" title="enum sp_trie::MerkleValue"><code>trie_db::MerkleValue</code></a> of the node that is the closest descendant for
+the provided key.</div></li><li><div class="item-name"><a class="fn" href="fn.read_trie_value.html" title="fn sp_trie::read_trie_value">read_trie_value</a></div><div class="desc docblock-short">Read a value from the trie.</div></li><li><div class="item-name"><a class="fn" href="fn.read_trie_value_with.html" title="fn sp_trie::read_trie_value_with">read_trie_value_with</a></div><div class="desc docblock-short">Read a value from the trie with given Query.</div></li><li><div class="item-name"><a class="fn" href="fn.verify_trie_proof.html" title="fn sp_trie::verify_trie_proof">verify_trie_proof</a></div><div class="desc docblock-short">Verify a set of key-value pairs against a trie root and a proof.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.CError.html" title="type sp_trie::CError">CError</a></div><div class="desc docblock-short">Various re-exports from the <code>trie-db</code> crate.
+Alias accessor to <code>NodeCodec</code> associated <code>Error</code> type from a <code>TrieLayout</code>.</div></li><li><div class="item-name"><a class="type" href="type.DBValue.html" title="type sp_trie::DBValue">DBValue</a></div><div class="desc docblock-short">Various re-exports from the <code>trie-db</code> crate.
+Database value</div></li><li><div class="item-name"><a class="type" href="type.GenericMemoryDB.html" title="type sp_trie::GenericMemoryDB">GenericMemoryDB</a></div><div class="desc docblock-short">Reexport from <code>hash_db</code>, with genericity set for <code>Hasher</code> trait.</div></li><li><div class="item-name"><a class="type" href="type.HashDB.html" title="type sp_trie::HashDB">HashDB</a></div><div class="desc docblock-short">Reexport from <code>hash_db</code>, with genericity set for <code>Hasher</code> trait.</div></li><li><div class="item-name"><a class="type" href="type.Lookup.html" title="type sp_trie::Lookup">Lookup</a></div><div class="desc docblock-short">Querying interface, as in <code>trie_db</code> but less generic.</div></li><li><div class="item-name"><a class="type" href="type.MemoryDB.html" title="type sp_trie::MemoryDB">MemoryDB</a></div><div class="desc docblock-short">Reexport from <code>hash_db</code>, with genericity set for <code>Hasher</code> trait.
+This uses a noops <code>KeyFunction</code> (key addressing must be hashed or using
+an encoding scheme that avoid key conflict).</div></li><li><div class="item-name"><a class="type" href="type.PrefixedMemoryDB.html" title="type sp_trie::PrefixedMemoryDB">PrefixedMemoryDB</a></div><div class="desc docblock-short">Reexport from <code>hash_db</code>, with genericity set for <code>Hasher</code> trait.
+This uses a <code>KeyFunction</code> for prefixing keys internally (avoiding
+key conflict for non random keys).</div></li><li><div class="item-name"><a class="type" href="type.RawStorageProof.html" title="type sp_trie::RawStorageProof">RawStorageProof</a></div><div class="desc docblock-short">Raw storage proof type (just raw trie nodes).</div></li><li><div class="item-name"><a class="type" href="type.TrieDB.html" title="type sp_trie::TrieDB">TrieDB</a></div><div class="desc docblock-short">Persistent trie database read-access interface for a given hasher.</div></li><li><div class="item-name"><a class="type" href="type.TrieDBBuilder.html" title="type sp_trie::TrieDBBuilder">TrieDBBuilder</a></div><div class="desc docblock-short">Builder for creating a <a href="type.TrieDB.html" title="type sp_trie::TrieDB"><code>TrieDB</code></a>.</div></li><li><div class="item-name"><a class="type" href="type.TrieDBMut.html" title="type sp_trie::TrieDBMut">TrieDBMut</a></div><div class="desc docblock-short">Persistent trie database write-access interface for a given hasher.</div></li><li><div class="item-name"><a class="type" href="type.TrieDBMutBuilder.html" title="type sp_trie::TrieDBMutBuilder">TrieDBMutBuilder</a></div><div class="desc docblock-short">Builder for creating a <a href="type.TrieDBMut.html" title="type sp_trie::TrieDBMut"><code>TrieDBMut</code></a>.</div></li><li><div class="item-name"><a class="type" href="type.TrieError.html" title="type sp_trie::TrieError">TrieError</a></div><div class="desc docblock-short">TrieDB error over <code>TrieConfiguration</code> trait.</div></li><li><div class="item-name"><a class="type" href="type.TrieHash.html" title="type sp_trie::TrieHash">TrieHash</a></div><div class="desc docblock-short">Hash type for a trie layout.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

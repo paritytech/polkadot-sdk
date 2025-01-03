@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event"],"mod":["config_preludes","dispatchables","storage_types"],"struct":["GenesisConfig","Instance1","Pallet"],"trait":["BenchmarkHelper","Config","DefaultConfig"],"type":["Module","NextAssetId"]};

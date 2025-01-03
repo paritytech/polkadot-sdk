@@ -1,0 +1,235 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The glossary."><title>polkadot_sdk_docs::reference_docs::glossary - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.com/favicon.ico"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module glossary</a></h2><div class="sidebar-elems"><h2><a href="../index.html">In polkadot_sdk_docs::reference_docs</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">reference_docs</a>::<wbr><a class="mod" href="#">glossary</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/reference_docs/glossary.rs.html#1-120">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The glossary.</p>
+<h2 id="glossary"><a class="doc-anchor" href="#glossary">§</a>Glossary</h2><h5 id="state"><a class="doc-anchor" href="#state">§</a>State</h5>
+<p>The data around which the blockchain network wishes to come to consensus. Also
+referred to as “onchain data”, “onchain storage” or sometimes just “storage”. In UTXO based
+blockchains, is referred to as “ledger”.</p>
+<p><strong>Synonyms</strong>: Onchain data, Onchain storage, Storage, Ledger</p>
+<h5 id="state-transition-function"><a class="doc-anchor" href="#state-transition-function">§</a>State Transition Function</h5>
+<p>The WASM Blob that dictates how the blockchain should transition its state upon encountering new
+blocks.</p>
+<h5 id="host"><a class="doc-anchor" href="#host">§</a>Host</h5>
+<p>The environment that hosts and executes the <a href="#state-transition-function">state transition function’s WASM
+blob</a>.</p>
+<h5 id="node"><a class="doc-anchor" href="#node">§</a>Node</h5>
+<p>The full software artifact that contains the <a href="#host">host</a>, but importantly also all the other
+modules needed to be part of a blockchain network, such as peer-to-peer networking, database and
+such.</p>
+<p><strong>Synonyms</strong>: Client</p>
+<h5 id="light-node"><a class="doc-anchor" href="#light-node">§</a>Light Node</h5>
+<p>Same as <a href="#nodes">node</a>, but when capable of following the network only through listening to
+block headers. Usually capable of running in more constrained environments, such as an embedded
+device, phone, or a web browser.</p>
+<p><strong>Synonyms</strong>: Light Client</p>
+<h5 id="offchain"><a class="doc-anchor" href="#offchain">§</a>Offchain</h5>
+<p>Refers to operations conducted outside the blockchain’s consensus mechanism. They are essential
+for enhancing scalability and efficiency, enabling activities like data fetching and computation
+without bloating the blockchain state.</p>
+<h5 id="host-functions"><a class="doc-anchor" href="#host-functions">§</a>Host Functions:</h5>
+<p>Host functions are the node’s API, these are functions provided by the runtime environment (the
+<a href="#host">host</a>) to the Wasm runtime. These functions allow the Wasm code to interact with and
+perform operations on the <a href="#node">node</a>, like accessing the blockchain state.</p>
+<h5 id="runtime-api"><a class="doc-anchor" href="#runtime-api">§</a>Runtime API:</h5>
+<p>This is the API of the runtime, it acts as a communication bridge between the runtime and the
+node, serving as the exposed interface that facilitates their interactions.</p>
+<h5 id="dispatchable"><a class="doc-anchor" href="#dispatchable">§</a>Dispatchable:</h5>
+<p>Dispatchables are <a href="https://en.wikipedia.org/wiki/Function_object">function objects</a> that act as
+the entry points in <a href="../../../polkadot_sdk_frame/index.html" title="mod polkadot_sdk_frame">FRAME</a> pallets. They can be called by internal or external entities
+to interact with the blockchain’s state. They are a core aspect of the runtime logic, handling
+transactions and other state-changing operations.</p>
+<p><strong>Synonyms</strong>: Callable</p>
+<h5 id="extrinsic"><a class="doc-anchor" href="#extrinsic">§</a>Extrinsic</h5>
+<p>An extrinsic is a general term for a piece of data that is originated outside of the runtime,
+included into a block and leads to some action. This includes user-initiated transactions as
+well as inherents which are placed into the block by the block-builder.</p>
+<h5 id="pallet"><a class="doc-anchor" href="#pallet">§</a>Pallet</h5>
+<p>Similar to software modules in traditional programming, <a href="../../../polkadot_sdk_frame/index.html" title="mod polkadot_sdk_frame">FRAME</a> pallets in Substrate are
+modular components that encapsulate distinct functionalities or business logic. Just as
+libraries or modules are used to build and extend the capabilities of a software application,
+pallets are the foundational building blocks for constructing a blockchain’s runtime with frame.
+They enable the creation of customizable and upgradeable networks, offering a composable
+framework for a Substrate-based blockchain. Each pallet can be thought of as a plug-and-play
+module, enhancing the blockchain’s functionality in a cohesive and integrated manner.</p>
+<h5 id="full-node"><a class="doc-anchor" href="#full-node">§</a>Full Node</h5>
+<p>It is a node that prunes historical states, keeping only recent finalized block states to reduce
+storage needs. Full nodes provide current chain state access and allow direct submission and
+validation of extrinsics, maintaining network decentralization.</p>
+<h5 id="archive-node"><a class="doc-anchor" href="#archive-node">§</a>Archive Node</h5>
+<p>An archive node is a specialized node that maintains a complete history of all block states and
+transactions. Unlike a full node, it does not prune historical data, ensuring full access to the
+entire blockchain history. This makes it essential for detailed blockchain analysis and
+historical queries, but requires significantly more storage capacity.</p>
+<h5 id="validator"><a class="doc-anchor" href="#validator">§</a>Validator</h5>
+<p>A validator is a node that participates in the consensus mechanism of the network.
+Its role includes block production, transaction validation, network integrity and security
+maintenance.</p>
+<h5 id="collator"><a class="doc-anchor" href="#collator">§</a>Collator</h5>
+<p>A collator is a node that is responsible for producing candidate blocks for the validators.
+Collators are similar to validators on any other blockchain but, they do not need to provide
+security guarantees as the Relay Chain handles this.</p>
+<h5 id="parachain"><a class="doc-anchor" href="#parachain">§</a>Parachain</h5>
+<p>Short for “parallelized chain” a parachain is a specialized blockchain that runs in parallel to
+the Relay Chain (Polkadot, Kusama, etc.), benefiting from the shared security and
+interoperability features of it.</p>
+<p><strong>Synonyms</strong>: AppChain</p>
+<h5 id="pvf"><a class="doc-anchor" href="#pvf">§</a>PVF</h5>
+<p>The Parachain Validation Function (PVF) is the current runtime Wasm for a parachain that is
+stored on the Relay chain. It is an essential component in the Polkadot ecosystem, encapsulating
+the validation logic for each parachain. The PVF is executed by validators to verify the
+correctness of parachain blocks. This is critical for ensuring that each block follows the logic
+set by its respective parachain, thus maintaining the integrity and security of the entire
+network.</p>
+<p><strong>Synonyms</strong>: Parachain Validation Function</p>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

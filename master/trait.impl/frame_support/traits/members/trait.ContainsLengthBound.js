@@ -1,0 +1,4 @@
+(function() {var implementors = {
+"pallet_elections_phragmen":[["impl&lt;T: <a class=\"trait\" href=\"pallet_elections_phragmen/pallet/trait.Config.html\" title=\"trait pallet_elections_phragmen::pallet::Config\">Config</a>&gt; ContainsLengthBound for <a class=\"struct\" href=\"pallet_elections_phragmen/pallet/struct.Pallet.html\" title=\"struct pallet_elections_phragmen::pallet::Pallet\">Pallet</a>&lt;T&gt;"]],
+"pallet_membership":[["impl&lt;T: <a class=\"trait\" href=\"pallet_membership/pallet/trait.Config.html\" title=\"trait pallet_membership::pallet::Config\">Config</a>&gt; ContainsLengthBound for <a class=\"struct\" href=\"pallet_membership/pallet/struct.Pallet.html\" title=\"struct pallet_membership::pallet::Pallet\">Pallet</a>&lt;T&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

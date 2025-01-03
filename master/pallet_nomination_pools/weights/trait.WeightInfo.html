@@ -1,0 +1,592 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Weight functions needed for `pallet_nomination_pools`."><title>WeightInfo in pallet_nomination_pools::weights - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_nomination_pools" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_nomination_pools/index.html">pallet_nomination_pools</a><span class="version">25.0.0</span></h2></div><h2 class="location"><a href="#">WeightInfo</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.adjust_pool_deposit">adjust_pool_deposit</a></li><li><a href="#tymethod.apply_slash">apply_slash</a></li><li><a href="#tymethod.apply_slash_fail">apply_slash_fail</a></li><li><a href="#tymethod.bond_extra_other">bond_extra_other</a></li><li><a href="#tymethod.bond_extra_transfer">bond_extra_transfer</a></li><li><a href="#tymethod.chill">chill</a></li><li><a href="#tymethod.claim_commission">claim_commission</a></li><li><a href="#tymethod.claim_payout">claim_payout</a></li><li><a href="#tymethod.create">create</a></li><li><a href="#tymethod.join">join</a></li><li><a href="#tymethod.migrate_delegation">migrate_delegation</a></li><li><a href="#tymethod.nominate">nominate</a></li><li><a href="#tymethod.pool_migrate">pool_migrate</a></li><li><a href="#tymethod.pool_withdraw_unbonded">pool_withdraw_unbonded</a></li><li><a href="#tymethod.set_claim_permission">set_claim_permission</a></li><li><a href="#tymethod.set_commission">set_commission</a></li><li><a href="#tymethod.set_commission_change_rate">set_commission_change_rate</a></li><li><a href="#tymethod.set_commission_claim_permission">set_commission_claim_permission</a></li><li><a href="#tymethod.set_commission_max">set_commission_max</a></li><li><a href="#tymethod.set_configs">set_configs</a></li><li><a href="#tymethod.set_metadata">set_metadata</a></li><li><a href="#tymethod.set_state">set_state</a></li><li><a href="#tymethod.unbond">unbond</a></li><li><a href="#tymethod.update_roles">update_roles</a></li><li><a href="#tymethod.withdraw_unbonded_kill">withdraw_unbonded_kill</a></li><li><a href="#tymethod.withdraw_unbonded_update">withdraw_unbonded_update</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-WeightInfo-for-()">()</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In pallet_nomination_pools::weights</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">pallet_nomination_pools</a>::<wbr><a href="index.html">weights</a>::<wbr><a class="trait" href="#">WeightInfo</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/pallet_nomination_pools/weights.rs.html#51-78">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait WeightInfo {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 26 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.join" class="fn">join</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.bond_extra_transfer" class="fn">bond_extra_transfer</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.bond_extra_other" class="fn">bond_extra_other</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.claim_payout" class="fn">claim_payout</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.unbond" class="fn">unbond</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.pool_withdraw_unbonded" class="fn">pool_withdraw_unbonded</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.withdraw_unbonded_update" class="fn">withdraw_unbonded_update</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.withdraw_unbonded_kill" class="fn">withdraw_unbonded_kill</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.create" class="fn">create</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.nominate" class="fn">nominate</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_state" class="fn">set_state</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_metadata" class="fn">set_metadata</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_configs" class="fn">set_configs</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.update_roles" class="fn">update_roles</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.chill" class="fn">chill</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_commission" class="fn">set_commission</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_commission_max" class="fn">set_commission_max</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_commission_change_rate" class="fn">set_commission_change_rate</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_commission_claim_permission" class="fn">set_commission_claim_permission</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_claim_permission" class="fn">set_claim_permission</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.claim_commission" class="fn">claim_commission</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.adjust_pool_deposit" class="fn">adjust_pool_deposit</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.apply_slash" class="fn">apply_slash</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.apply_slash_fail" class="fn">apply_slash_fail</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.pool_migrate" class="fn">pool_migrate</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.migrate_delegation" class="fn">migrate_delegation</a>() -&gt; Weight;
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Weight functions needed for <code>pallet_nomination_pools</code>.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><section id="tymethod.join" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#52">source</a><h4 class="code-header">fn <a href="#tymethod.join" class="fn">join</a>() -&gt; Weight</h4></section><section id="tymethod.bond_extra_transfer" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#53">source</a><h4 class="code-header">fn <a href="#tymethod.bond_extra_transfer" class="fn">bond_extra_transfer</a>() -&gt; Weight</h4></section><section id="tymethod.bond_extra_other" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#54">source</a><h4 class="code-header">fn <a href="#tymethod.bond_extra_other" class="fn">bond_extra_other</a>() -&gt; Weight</h4></section><section id="tymethod.claim_payout" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#55">source</a><h4 class="code-header">fn <a href="#tymethod.claim_payout" class="fn">claim_payout</a>() -&gt; Weight</h4></section><section id="tymethod.unbond" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#56">source</a><h4 class="code-header">fn <a href="#tymethod.unbond" class="fn">unbond</a>() -&gt; Weight</h4></section><section id="tymethod.pool_withdraw_unbonded" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#57">source</a><h4 class="code-header">fn <a href="#tymethod.pool_withdraw_unbonded" class="fn">pool_withdraw_unbonded</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.withdraw_unbonded_update" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#58">source</a><h4 class="code-header">fn <a href="#tymethod.withdraw_unbonded_update" class="fn">withdraw_unbonded_update</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.withdraw_unbonded_kill" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#59">source</a><h4 class="code-header">fn <a href="#tymethod.withdraw_unbonded_kill" class="fn">withdraw_unbonded_kill</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.create" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#60">source</a><h4 class="code-header">fn <a href="#tymethod.create" class="fn">create</a>() -&gt; Weight</h4></section><section id="tymethod.nominate" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#61">source</a><h4 class="code-header">fn <a href="#tymethod.nominate" class="fn">nominate</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.set_state" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#62">source</a><h4 class="code-header">fn <a href="#tymethod.set_state" class="fn">set_state</a>() -&gt; Weight</h4></section><section id="tymethod.set_metadata" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#63">source</a><h4 class="code-header">fn <a href="#tymethod.set_metadata" class="fn">set_metadata</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.set_configs" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#64">source</a><h4 class="code-header">fn <a href="#tymethod.set_configs" class="fn">set_configs</a>() -&gt; Weight</h4></section><section id="tymethod.update_roles" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#65">source</a><h4 class="code-header">fn <a href="#tymethod.update_roles" class="fn">update_roles</a>() -&gt; Weight</h4></section><section id="tymethod.chill" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#66">source</a><h4 class="code-header">fn <a href="#tymethod.chill" class="fn">chill</a>() -&gt; Weight</h4></section><section id="tymethod.set_commission" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#67">source</a><h4 class="code-header">fn <a href="#tymethod.set_commission" class="fn">set_commission</a>() -&gt; Weight</h4></section><section id="tymethod.set_commission_max" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#68">source</a><h4 class="code-header">fn <a href="#tymethod.set_commission_max" class="fn">set_commission_max</a>() -&gt; Weight</h4></section><section id="tymethod.set_commission_change_rate" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#69">source</a><h4 class="code-header">fn <a href="#tymethod.set_commission_change_rate" class="fn">set_commission_change_rate</a>() -&gt; Weight</h4></section><section id="tymethod.set_commission_claim_permission" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#70">source</a><h4 class="code-header">fn <a href="#tymethod.set_commission_claim_permission" class="fn">set_commission_claim_permission</a>() -&gt; Weight</h4></section><section id="tymethod.set_claim_permission" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#71">source</a><h4 class="code-header">fn <a href="#tymethod.set_claim_permission" class="fn">set_claim_permission</a>() -&gt; Weight</h4></section><section id="tymethod.claim_commission" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#72">source</a><h4 class="code-header">fn <a href="#tymethod.claim_commission" class="fn">claim_commission</a>() -&gt; Weight</h4></section><section id="tymethod.adjust_pool_deposit" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#73">source</a><h4 class="code-header">fn <a href="#tymethod.adjust_pool_deposit" class="fn">adjust_pool_deposit</a>() -&gt; Weight</h4></section><section id="tymethod.apply_slash" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#74">source</a><h4 class="code-header">fn <a href="#tymethod.apply_slash" class="fn">apply_slash</a>() -&gt; Weight</h4></section><section id="tymethod.apply_slash_fail" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#75">source</a><h4 class="code-header">fn <a href="#tymethod.apply_slash_fail" class="fn">apply_slash_fail</a>() -&gt; Weight</h4></section><section id="tymethod.pool_migrate" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#76">source</a><h4 class="code-header">fn <a href="#tymethod.pool_migrate" class="fn">pool_migrate</a>() -&gt; Weight</h4></section><section id="tymethod.migrate_delegation" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#77">source</a><h4 class="code-header">fn <a href="#tymethod.migrate_delegation" class="fn">migrate_delegation</a>() -&gt; Weight</h4></section></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-WeightInfo-for-()" class="impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#735-1385">source</a><a href="#impl-WeightInfo-for-()" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.WeightInfo.html" title="trait pallet_nomination_pools::weights::WeightInfo">WeightInfo</a> for <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.join" class="method trait-impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#770-778">source</a><a href="#method.join" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.join" class="fn">join</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>NominationPools::MinJoinBond</code> (r:1 w:0)
+Proof: <code>NominationPools::MinJoinBond</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::PoolMembers</code> (r:1 w:1)
+Proof: <code>NominationPools::PoolMembers</code> (<code>max_values</code>: None, <code>max_size</code>: Some(237), added: 2712, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::BondedPools</code> (r:1 w:1)
+Proof: <code>NominationPools::BondedPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(254), added: 2729, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Bonded</code> (r:1 w:0)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Ledger</code> (r:1 w:1)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::RewardPools</code> (r:1 w:1)
+Proof: <code>NominationPools::RewardPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(92), added: 2567, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::GlobalMaxCommission</code> (r:1 w:0)
+Proof: <code>NominationPools::GlobalMaxCommission</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:2 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::MaxPoolMembersPerPool</code> (r:1 w:0)
+Proof: <code>NominationPools::MaxPoolMembersPerPool</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::MaxPoolMembers</code> (r:1 w:0)
+Proof: <code>NominationPools::MaxPoolMembers</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::CounterForPoolMembers</code> (r:1 w:1)
+Proof: <code>NominationPools::CounterForPoolMembers</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::VirtualStakers</code> (r:1 w:0)
+Proof: <code>Staking::VirtualStakers</code> (<code>max_values</code>: None, <code>max_size</code>: Some(40), added: 2515, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Locks</code> (r:1 w:1)
+Proof: <code>Balances::Locks</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1299), added: 3774, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Freezes</code> (r:1 w:0)
+Proof: <code>Balances::Freezes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(67), added: 2542, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListNodes</code> (r:3 w:3)
+Proof: <code>VoterList::ListNodes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(154), added: 2629, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListBags</code> (r:2 w:2)
+Proof: <code>VoterList::ListBags</code> (<code>max_values</code>: None, <code>max_size</code>: Some(82), added: 2557, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::TotalValueLocked</code> (r:1 w:1)
+Proof: <code>NominationPools::TotalValueLocked</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.bond_extra_transfer" class="method trait-impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#805-813">source</a><a href="#method.bond_extra_transfer" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.bond_extra_transfer" class="fn">bond_extra_transfer</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>NominationPools::PoolMembers</code> (r:1 w:1)
+Proof: <code>NominationPools::PoolMembers</code> (<code>max_values</code>: None, <code>max_size</code>: Some(237), added: 2712, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::BondedPools</code> (r:1 w:1)
+Proof: <code>NominationPools::BondedPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(254), added: 2729, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::RewardPools</code> (r:1 w:1)
+Proof: <code>NominationPools::RewardPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(92), added: 2567, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::GlobalMaxCommission</code> (r:1 w:0)
+Proof: <code>NominationPools::GlobalMaxCommission</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:3 w:2)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Bonded</code> (r:1 w:0)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Ledger</code> (r:1 w:1)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::VirtualStakers</code> (r:1 w:0)
+Proof: <code>Staking::VirtualStakers</code> (<code>max_values</code>: None, <code>max_size</code>: Some(40), added: 2515, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Locks</code> (r:1 w:1)
+Proof: <code>Balances::Locks</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1299), added: 3774, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Freezes</code> (r:1 w:0)
+Proof: <code>Balances::Freezes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(67), added: 2542, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListNodes</code> (r:3 w:3)
+Proof: <code>VoterList::ListNodes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(154), added: 2629, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListBags</code> (r:2 w:2)
+Proof: <code>VoterList::ListBags</code> (<code>max_values</code>: None, <code>max_size</code>: Some(82), added: 2557, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::TotalValueLocked</code> (r:1 w:1)
+Proof: <code>NominationPools::TotalValueLocked</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.bond_extra_other" class="method trait-impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#842-850">source</a><a href="#method.bond_extra_other" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.bond_extra_other" class="fn">bond_extra_other</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>NominationPools::ClaimPermissions</code> (r:1 w:0)
+Proof: <code>NominationPools::ClaimPermissions</code> (<code>max_values</code>: None, <code>max_size</code>: Some(41), added: 2516, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::PoolMembers</code> (r:1 w:1)
+Proof: <code>NominationPools::PoolMembers</code> (<code>max_values</code>: None, <code>max_size</code>: Some(237), added: 2712, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::BondedPools</code> (r:1 w:1)
+Proof: <code>NominationPools::BondedPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(254), added: 2729, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::RewardPools</code> (r:1 w:1)
+Proof: <code>NominationPools::RewardPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(92), added: 2567, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::GlobalMaxCommission</code> (r:1 w:0)
+Proof: <code>NominationPools::GlobalMaxCommission</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:3 w:3)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Bonded</code> (r:1 w:0)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Ledger</code> (r:1 w:1)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::VirtualStakers</code> (r:1 w:0)
+Proof: <code>Staking::VirtualStakers</code> (<code>max_values</code>: None, <code>max_size</code>: Some(40), added: 2515, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Locks</code> (r:1 w:1)
+Proof: <code>Balances::Locks</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1299), added: 3774, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Freezes</code> (r:1 w:0)
+Proof: <code>Balances::Freezes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(67), added: 2542, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListNodes</code> (r:3 w:3)
+Proof: <code>VoterList::ListNodes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(154), added: 2629, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListBags</code> (r:2 w:2)
+Proof: <code>VoterList::ListBags</code> (<code>max_values</code>: None, <code>max_size</code>: Some(82), added: 2557, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::TotalValueLocked</code> (r:1 w:1)
+Proof: <code>NominationPools::TotalValueLocked</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.claim_payout" class="method trait-impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#863-871">source</a><a href="#method.claim_payout" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.claim_payout" class="fn">claim_payout</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>NominationPools::ClaimPermissions</code> (r:1 w:0)
+Proof: <code>NominationPools::ClaimPermissions</code> (<code>max_values</code>: None, <code>max_size</code>: Some(41), added: 2516, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::PoolMembers</code> (r:1 w:1)
+Proof: <code>NominationPools::PoolMembers</code> (<code>max_values</code>: None, <code>max_size</code>: Some(237), added: 2712, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::BondedPools</code> (r:1 w:1)
+Proof: <code>NominationPools::BondedPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(254), added: 2729, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::RewardPools</code> (r:1 w:1)
+Proof: <code>NominationPools::RewardPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(92), added: 2567, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::GlobalMaxCommission</code> (r:1 w:0)
+Proof: <code>NominationPools::GlobalMaxCommission</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.unbond" class="method trait-impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#906-914">source</a><a href="#method.unbond" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.unbond" class="fn">unbond</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>NominationPools::PoolMembers</code> (r:1 w:1)
+Proof: <code>NominationPools::PoolMembers</code> (<code>max_values</code>: None, <code>max_size</code>: Some(237), added: 2712, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::BondedPools</code> (r:1 w:1)
+Proof: <code>NominationPools::BondedPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(254), added: 2729, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::RewardPools</code> (r:1 w:1)
+Proof: <code>NominationPools::RewardPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(92), added: 2567, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Bonded</code> (r:1 w:0)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Ledger</code> (r:1 w:1)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::GlobalMaxCommission</code> (r:1 w:0)
+Proof: <code>NominationPools::GlobalMaxCommission</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:2 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::CurrentEra</code> (r:1 w:0)
+Proof: <code>Staking::CurrentEra</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Nominators</code> (r:1 w:0)
+Proof: <code>Staking::Nominators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(558), added: 3033, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::MinNominatorBond</code> (r:1 w:0)
+Proof: <code>Staking::MinNominatorBond</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::VirtualStakers</code> (r:1 w:0)
+Proof: <code>Staking::VirtualStakers</code> (<code>max_values</code>: None, <code>max_size</code>: Some(40), added: 2515, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Locks</code> (r:1 w:1)
+Proof: <code>Balances::Locks</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1299), added: 3774, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Freezes</code> (r:1 w:0)
+Proof: <code>Balances::Freezes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(67), added: 2542, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListNodes</code> (r:3 w:3)
+Proof: <code>VoterList::ListNodes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(154), added: 2629, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListBags</code> (r:2 w:2)
+Proof: <code>VoterList::ListBags</code> (<code>max_values</code>: None, <code>max_size</code>: Some(82), added: 2557, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::SubPoolsStorage</code> (r:1 w:1)
+Proof: <code>NominationPools::SubPoolsStorage</code> (<code>max_values</code>: None, <code>max_size</code>: Some(24382), added: 26857, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::CounterForSubPoolsStorage</code> (r:1 w:1)
+Proof: <code>NominationPools::CounterForSubPoolsStorage</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.pool_withdraw_unbonded" class="method trait-impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#934-944">source</a><a href="#method.pool_withdraw_unbonded" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.pool_withdraw_unbonded" class="fn">pool_withdraw_unbonded</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>NominationPools::BondedPools</code> (r:1 w:0)
+Proof: <code>NominationPools::BondedPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(254), added: 2729, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Bonded</code> (r:1 w:0)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Ledger</code> (r:1 w:1)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::CurrentEra</code> (r:1 w:0)
+Proof: <code>Staking::CurrentEra</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::VirtualStakers</code> (r:1 w:0)
+Proof: <code>Staking::VirtualStakers</code> (<code>max_values</code>: None, <code>max_size</code>: Some(40), added: 2515, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Locks</code> (r:1 w:1)
+Proof: <code>Balances::Locks</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1299), added: 3774, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Freezes</code> (r:1 w:0)
+Proof: <code>Balances::Freezes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(67), added: 2542, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::ReversePoolIdLookup</code> (r:1 w:0)
+Proof: <code>NominationPools::ReversePoolIdLookup</code> (<code>max_values</code>: None, <code>max_size</code>: Some(44), added: 2519, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::TotalValueLocked</code> (r:1 w:1)
+Proof: <code>NominationPools::TotalValueLocked</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)
+The range of component <code>s</code> is <code>[0, 100]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.withdraw_unbonded_update" class="method trait-impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#974-984">source</a><a href="#method.withdraw_unbonded_update" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.withdraw_unbonded_update" class="fn">withdraw_unbonded_update</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>NominationPools::PoolMembers</code> (r:1 w:1)
+Proof: <code>NominationPools::PoolMembers</code> (<code>max_values</code>: None, <code>max_size</code>: Some(237), added: 2712, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::CurrentEra</code> (r:1 w:0)
+Proof: <code>Staking::CurrentEra</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::BondedPools</code> (r:1 w:1)
+Proof: <code>NominationPools::BondedPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(254), added: 2729, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::SubPoolsStorage</code> (r:1 w:1)
+Proof: <code>NominationPools::SubPoolsStorage</code> (<code>max_values</code>: None, <code>max_size</code>: Some(24382), added: 26857, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Bonded</code> (r:1 w:0)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Ledger</code> (r:1 w:1)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::VirtualStakers</code> (r:1 w:0)
+Proof: <code>Staking::VirtualStakers</code> (<code>max_values</code>: None, <code>max_size</code>: Some(40), added: 2515, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Locks</code> (r:1 w:1)
+Proof: <code>Balances::Locks</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1299), added: 3774, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Freezes</code> (r:1 w:0)
+Proof: <code>Balances::Freezes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(67), added: 2542, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::ReversePoolIdLookup</code> (r:1 w:0)
+Proof: <code>NominationPools::ReversePoolIdLookup</code> (<code>max_values</code>: None, <code>max_size</code>: Some(44), added: 2519, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::TotalValueLocked</code> (r:1 w:1)
+Proof: <code>NominationPools::TotalValueLocked</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::CounterForPoolMembers</code> (r:1 w:1)
+Proof: <code>NominationPools::CounterForPoolMembers</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::ClaimPermissions</code> (r:0 w:1)
+Proof: <code>NominationPools::ClaimPermissions</code> (<code>max_values</code>: None, <code>max_size</code>: Some(41), added: 2516, mode: <code>MaxEncodedLen</code>)
+The range of component <code>s</code> is <code>[0, 100]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.withdraw_unbonded_kill" class="method trait-impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#1034-1044">source</a><a href="#method.withdraw_unbonded_kill" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.withdraw_unbonded_kill" class="fn">withdraw_unbonded_kill</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>NominationPools::PoolMembers</code> (r:1 w:1)
+Proof: <code>NominationPools::PoolMembers</code> (<code>max_values</code>: None, <code>max_size</code>: Some(237), added: 2712, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::CurrentEra</code> (r:1 w:0)
+Proof: <code>Staking::CurrentEra</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::BondedPools</code> (r:1 w:1)
+Proof: <code>NominationPools::BondedPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(254), added: 2729, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::SubPoolsStorage</code> (r:1 w:1)
+Proof: <code>NominationPools::SubPoolsStorage</code> (<code>max_values</code>: None, <code>max_size</code>: Some(24382), added: 26857, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Bonded</code> (r:1 w:1)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Ledger</code> (r:1 w:1)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::SlashingSpans</code> (r:1 w:0)
+Proof: <code>Staking::SlashingSpans</code> (<code>max_values</code>: None, <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>Staking::VirtualStakers</code> (r:1 w:1)
+Proof: <code>Staking::VirtualStakers</code> (<code>max_values</code>: None, <code>max_size</code>: Some(40), added: 2515, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Locks</code> (r:2 w:1)
+Proof: <code>Balances::Locks</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1299), added: 3774, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Freezes</code> (r:2 w:1)
+Proof: <code>Balances::Freezes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(67), added: 2542, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:2 w:2)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Validators</code> (r:1 w:0)
+Proof: <code>Staking::Validators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(45), added: 2520, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Nominators</code> (r:1 w:0)
+Proof: <code>Staking::Nominators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(558), added: 3033, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::ReversePoolIdLookup</code> (r:1 w:1)
+Proof: <code>NominationPools::ReversePoolIdLookup</code> (<code>max_values</code>: None, <code>max_size</code>: Some(44), added: 2519, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::TotalValueLocked</code> (r:1 w:1)
+Proof: <code>NominationPools::TotalValueLocked</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::CounterForPoolMembers</code> (r:1 w:1)
+Proof: <code>NominationPools::CounterForPoolMembers</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::CounterForReversePoolIdLookup</code> (r:1 w:1)
+Proof: <code>NominationPools::CounterForReversePoolIdLookup</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::RewardPools</code> (r:1 w:1)
+Proof: <code>NominationPools::RewardPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(92), added: 2567, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::CounterForRewardPools</code> (r:1 w:1)
+Proof: <code>NominationPools::CounterForRewardPools</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::CounterForSubPoolsStorage</code> (r:1 w:1)
+Proof: <code>NominationPools::CounterForSubPoolsStorage</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::Metadata</code> (r:1 w:1)
+Proof: <code>NominationPools::Metadata</code> (<code>max_values</code>: None, <code>max_size</code>: Some(270), added: 2745, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::CounterForBondedPools</code> (r:1 w:1)
+Proof: <code>NominationPools::CounterForBondedPools</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Payee</code> (r:0 w:1)
+Proof: <code>Staking::Payee</code> (<code>max_values</code>: None, <code>max_size</code>: Some(73), added: 2548, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::ClaimPermissions</code> (r:0 w:1)
+Proof: <code>NominationPools::ClaimPermissions</code> (<code>max_values</code>: None, <code>max_size</code>: Some(41), added: 2516, mode: <code>MaxEncodedLen</code>)
+The range of component <code>s</code> is <code>[0, 100]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.create" class="method trait-impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#1091-1099">source</a><a href="#method.create" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.create" class="fn">create</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>NominationPools::LastPoolId</code> (r:1 w:1)
+Proof: <code>NominationPools::LastPoolId</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::MinNominatorBond</code> (r:1 w:0)
+Proof: <code>Staking::MinNominatorBond</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::MinCreateBond</code> (r:1 w:0)
+Proof: <code>NominationPools::MinCreateBond</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::MinJoinBond</code> (r:1 w:0)
+Proof: <code>NominationPools::MinJoinBond</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::MaxPools</code> (r:1 w:0)
+Proof: <code>NominationPools::MaxPools</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::CounterForBondedPools</code> (r:1 w:1)
+Proof: <code>NominationPools::CounterForBondedPools</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::PoolMembers</code> (r:1 w:1)
+Proof: <code>NominationPools::PoolMembers</code> (<code>max_values</code>: None, <code>max_size</code>: Some(237), added: 2712, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::MaxPoolMembersPerPool</code> (r:1 w:0)
+Proof: <code>NominationPools::MaxPoolMembersPerPool</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::MaxPoolMembers</code> (r:1 w:0)
+Proof: <code>NominationPools::MaxPoolMembers</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::CounterForPoolMembers</code> (r:1 w:1)
+Proof: <code>NominationPools::CounterForPoolMembers</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Bonded</code> (r:1 w:1)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:2 w:2)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Ledger</code> (r:1 w:1)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::VirtualStakers</code> (r:1 w:0)
+Proof: <code>Staking::VirtualStakers</code> (<code>max_values</code>: None, <code>max_size</code>: Some(40), added: 2515, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Locks</code> (r:2 w:1)
+Proof: <code>Balances::Locks</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1299), added: 3774, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Freezes</code> (r:2 w:1)
+Proof: <code>Balances::Freezes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(67), added: 2542, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::TotalValueLocked</code> (r:1 w:1)
+Proof: <code>NominationPools::TotalValueLocked</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::RewardPools</code> (r:1 w:1)
+Proof: <code>NominationPools::RewardPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(92), added: 2567, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::CounterForRewardPools</code> (r:1 w:1)
+Proof: <code>NominationPools::CounterForRewardPools</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::ReversePoolIdLookup</code> (r:1 w:1)
+Proof: <code>NominationPools::ReversePoolIdLookup</code> (<code>max_values</code>: None, <code>max_size</code>: Some(44), added: 2519, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::CounterForReversePoolIdLookup</code> (r:1 w:1)
+Proof: <code>NominationPools::CounterForReversePoolIdLookup</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::BondedPools</code> (r:1 w:1)
+Proof: <code>NominationPools::BondedPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(254), added: 2729, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Payee</code> (r:0 w:1)
+Proof: <code>Staking::Payee</code> (<code>max_values</code>: None, <code>max_size</code>: Some(73), added: 2548, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.nominate" class="method trait-impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#1131-1143">source</a><a href="#method.nominate" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.nominate" class="fn">nominate</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>NominationPools::BondedPools</code> (r:1 w:0)
+Proof: <code>NominationPools::BondedPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(254), added: 2729, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::PoolMembers</code> (r:1 w:0)
+Proof: <code>NominationPools::PoolMembers</code> (<code>max_values</code>: None, <code>max_size</code>: Some(237), added: 2712, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Bonded</code> (r:1 w:0)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Ledger</code> (r:1 w:0)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::MinNominatorBond</code> (r:1 w:0)
+Proof: <code>Staking::MinNominatorBond</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::MinCreateBond</code> (r:1 w:0)
+Proof: <code>NominationPools::MinCreateBond</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::MinJoinBond</code> (r:1 w:0)
+Proof: <code>NominationPools::MinJoinBond</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Nominators</code> (r:1 w:1)
+Proof: <code>Staking::Nominators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(558), added: 3033, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::MaxNominatorsCount</code> (r:1 w:0)
+Proof: <code>Staking::MaxNominatorsCount</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Validators</code> (r:17 w:0)
+Proof: <code>Staking::Validators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(45), added: 2520, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::CurrentEra</code> (r:1 w:0)
+Proof: <code>Staking::CurrentEra</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListNodes</code> (r:1 w:1)
+Proof: <code>VoterList::ListNodes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(154), added: 2629, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListBags</code> (r:1 w:1)
+Proof: <code>VoterList::ListBags</code> (<code>max_values</code>: None, <code>max_size</code>: Some(82), added: 2557, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::CounterForListNodes</code> (r:1 w:1)
+Proof: <code>VoterList::CounterForListNodes</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::CounterForNominators</code> (r:1 w:1)
+Proof: <code>Staking::CounterForNominators</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+The range of component <code>n</code> is <code>[1, 16]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_state" class="method trait-impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#1150-1158">source</a><a href="#method.set_state" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_state" class="fn">set_state</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>NominationPools::BondedPools</code> (r:1 w:1)
+Proof: <code>NominationPools::BondedPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(254), added: 2729, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Bonded</code> (r:1 w:0)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Ledger</code> (r:1 w:0)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_metadata" class="method trait-impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#1166-1176">source</a><a href="#method.set_metadata" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_metadata" class="fn">set_metadata</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>NominationPools::BondedPools</code> (r:1 w:0)
+Proof: <code>NominationPools::BondedPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(254), added: 2729, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::Metadata</code> (r:1 w:1)
+Proof: <code>NominationPools::Metadata</code> (<code>max_values</code>: None, <code>max_size</code>: Some(270), added: 2745, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::CounterForMetadata</code> (r:1 w:1)
+Proof: <code>NominationPools::CounterForMetadata</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+The range of component <code>n</code> is <code>[1, 256]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_configs" class="method trait-impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#1189-1196">source</a><a href="#method.set_configs" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_configs" class="fn">set_configs</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>NominationPools::MinJoinBond</code> (r:0 w:1)
+Proof: <code>NominationPools::MinJoinBond</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::MaxPoolMembers</code> (r:0 w:1)
+Proof: <code>NominationPools::MaxPoolMembers</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::MaxPoolMembersPerPool</code> (r:0 w:1)
+Proof: <code>NominationPools::MaxPoolMembersPerPool</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::MinCreateBond</code> (r:0 w:1)
+Proof: <code>NominationPools::MinCreateBond</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::GlobalMaxCommission</code> (r:0 w:1)
+Proof: <code>NominationPools::GlobalMaxCommission</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::MaxPools</code> (r:0 w:1)
+Proof: <code>NominationPools::MaxPools</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.update_roles" class="method trait-impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#1199-1207">source</a><a href="#method.update_roles" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.update_roles" class="fn">update_roles</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>NominationPools::BondedPools</code> (r:1 w:1)
+Proof: <code>NominationPools::BondedPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(254), added: 2729, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.chill" class="method trait-impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#1230-1238">source</a><a href="#method.chill" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.chill" class="fn">chill</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>NominationPools::BondedPools</code> (r:1 w:0)
+Proof: <code>NominationPools::BondedPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(254), added: 2729, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::PoolMembers</code> (r:1 w:0)
+Proof: <code>NominationPools::PoolMembers</code> (<code>max_values</code>: None, <code>max_size</code>: Some(237), added: 2712, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Bonded</code> (r:1 w:0)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Ledger</code> (r:1 w:0)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::MinNominatorBond</code> (r:1 w:0)
+Proof: <code>Staking::MinNominatorBond</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Validators</code> (r:1 w:0)
+Proof: <code>Staking::Validators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(45), added: 2520, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Nominators</code> (r:1 w:1)
+Proof: <code>Staking::Nominators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(558), added: 3033, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::CounterForNominators</code> (r:1 w:1)
+Proof: <code>Staking::CounterForNominators</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListNodes</code> (r:1 w:1)
+Proof: <code>VoterList::ListNodes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(154), added: 2629, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListBags</code> (r:1 w:1)
+Proof: <code>VoterList::ListBags</code> (<code>max_values</code>: None, <code>max_size</code>: Some(82), added: 2557, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::CounterForListNodes</code> (r:1 w:1)
+Proof: <code>VoterList::CounterForListNodes</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_commission" class="method trait-impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#1247-1255">source</a><a href="#method.set_commission" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_commission" class="fn">set_commission</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>NominationPools::BondedPools</code> (r:1 w:1)
+Proof: <code>NominationPools::BondedPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(254), added: 2729, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::RewardPools</code> (r:1 w:1)
+Proof: <code>NominationPools::RewardPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(92), added: 2567, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::GlobalMaxCommission</code> (r:1 w:0)
+Proof: <code>NominationPools::GlobalMaxCommission</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:0)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_commission_max" class="method trait-impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#1260-1268">source</a><a href="#method.set_commission_max" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_commission_max" class="fn">set_commission_max</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>NominationPools::BondedPools</code> (r:1 w:1)
+Proof: <code>NominationPools::BondedPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(254), added: 2729, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::GlobalMaxCommission</code> (r:1 w:0)
+Proof: <code>NominationPools::GlobalMaxCommission</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_commission_change_rate" class="method trait-impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#1271-1279">source</a><a href="#method.set_commission_change_rate" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_commission_change_rate" class="fn">set_commission_change_rate</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>NominationPools::BondedPools</code> (r:1 w:1)
+Proof: <code>NominationPools::BondedPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(254), added: 2729, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_commission_claim_permission" class="method trait-impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#1282-1290">source</a><a href="#method.set_commission_claim_permission" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_commission_claim_permission" class="fn">set_commission_claim_permission</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>NominationPools::BondedPools</code> (r:1 w:1)
+Proof: <code>NominationPools::BondedPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(254), added: 2729, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_claim_permission" class="method trait-impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#1295-1303">source</a><a href="#method.set_claim_permission" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_claim_permission" class="fn">set_claim_permission</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>NominationPools::PoolMembers</code> (r:1 w:0)
+Proof: <code>NominationPools::PoolMembers</code> (<code>max_values</code>: None, <code>max_size</code>: Some(237), added: 2712, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::ClaimPermissions</code> (r:1 w:1)
+Proof: <code>NominationPools::ClaimPermissions</code> (<code>max_values</code>: None, <code>max_size</code>: Some(41), added: 2516, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.claim_commission" class="method trait-impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#1312-1320">source</a><a href="#method.claim_commission" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.claim_commission" class="fn">claim_commission</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>NominationPools::BondedPools</code> (r:1 w:0)
+Proof: <code>NominationPools::BondedPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(254), added: 2729, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::RewardPools</code> (r:1 w:1)
+Proof: <code>NominationPools::RewardPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(92), added: 2567, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::GlobalMaxCommission</code> (r:1 w:0)
+Proof: <code>NominationPools::GlobalMaxCommission</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.adjust_pool_deposit" class="method trait-impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#1329-1337">source</a><a href="#method.adjust_pool_deposit" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.adjust_pool_deposit" class="fn">adjust_pool_deposit</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>NominationPools::BondedPools</code> (r:1 w:0)
+Proof: <code>NominationPools::BondedPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(254), added: 2729, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Freezes</code> (r:1 w:1)
+Proof: <code>Balances::Freezes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(67), added: 2542, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Locks</code> (r:1 w:0)
+Proof: <code>Balances::Locks</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1299), added: 3774, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.apply_slash" class="method trait-impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#1340-1347">source</a><a href="#method.apply_slash" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.apply_slash" class="fn">apply_slash</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>NominationPools::PoolMembers</code> (r:1 w:0)
+Proof: <code>NominationPools::PoolMembers</code> (<code>max_values</code>: None, <code>max_size</code>: Some(237), added: 2712, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.apply_slash_fail" class="method trait-impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#1350-1357">source</a><a href="#method.apply_slash_fail" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.apply_slash_fail" class="fn">apply_slash_fail</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>NominationPools::PoolMembers</code> (r:1 w:0)
+Proof: <code>NominationPools::PoolMembers</code> (<code>max_values</code>: None, <code>max_size</code>: Some(237), added: 2712, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.migrate_delegation" class="method trait-impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#1377-1384">source</a><a href="#method.migrate_delegation" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.migrate_delegation" class="fn">migrate_delegation</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>NominationPools::PoolMembers</code> (r:1 w:0)
+Proof: <code>NominationPools::PoolMembers</code> (<code>max_values</code>: None, <code>max_size</code>: Some(237), added: 2712, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::BondedPools</code> (r:1 w:0)
+Proof: <code>NominationPools::BondedPools</code> (<code>max_values</code>: None, <code>max_size</code>: Some(254), added: 2729, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Bonded</code> (r:1 w:0)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Ledger</code> (r:1 w:0)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::SubPoolsStorage</code> (r:1 w:0)
+Proof: <code>NominationPools::SubPoolsStorage</code> (<code>max_values</code>: None, <code>max_size</code>: Some(24382), added: 26857, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::MinJoinBond</code> (r:1 w:0)
+Proof: <code>NominationPools::MinJoinBond</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><section id="method.pool_migrate" class="method trait-impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#1358-1364">source</a><a href="#method.pool_migrate" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.pool_migrate" class="fn">pool_migrate</a>() -&gt; Weight</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-WeightInfo-for-SubstrateWeight%3CT%3E" class="impl"><a class="src rightside" href="../../src/pallet_nomination_pools/weights.rs.html#82-732">source</a><a href="#impl-WeightInfo-for-SubstrateWeight%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: Config&gt; <a class="trait" href="trait.WeightInfo.html" title="trait pallet_nomination_pools::weights::WeightInfo">WeightInfo</a> for <a class="struct" href="struct.SubstrateWeight.html" title="struct pallet_nomination_pools::weights::SubstrateWeight">SubstrateWeight</a>&lt;T&gt;</h3></section></div><script src="../../trait.impl/pallet_nomination_pools/weights/trait.WeightInfo.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

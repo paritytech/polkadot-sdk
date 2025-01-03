@@ -1,0 +1,175 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="State database maintenance. Handles canonicalization and pruning in the database."><title>sc_state_db - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sc_state_db" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sc_state_db/index.html">sc_state_db</a><span class="version">0.30.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">sc_state_db</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/sc_state_db/lib.rs.html#19-949">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>State database maintenance. Handles canonicalization and pruning in the database.</p>
+<h2 id="canonicalization"><a class="doc-anchor" href="#canonicalization">§</a>Canonicalization.</h2>
+<p>Canonicalization window tracks a tree of blocks identified by header hash. The in-memory
+overlay allows to get any trie node that was inserted in any of the blocks within the window.
+The overlay is journaled to the backing database and rebuilt on startup.
+There’s a limit of 32 blocks that may have the same block number in the canonicalization window.</p>
+<p>Canonicalization function selects one root from the top of the tree and discards all other roots
+and their subtrees. Upon canonicalization all trie nodes that were inserted in the block are
+added to the backing DB and block tracking is moved to the pruning window, where no forks are
+allowed.</p>
+<h2 id="canonicalization-vs-finality"><a class="doc-anchor" href="#canonicalization-vs-finality">§</a>Canonicalization vs Finality</h2>
+<p>Database engine uses a notion of canonicality, rather then finality. A canonical block may not
+be yet finalized from the perspective of the consensus engine, but it still can’t be reverted in
+the database. Most of the time during normal operation last canonical block is the same as last
+finalized. However if finality stall for a long duration for some reason, there’s only a certain
+number of blocks that can fit in the non-canonical overlay, so canonicalization of an
+unfinalized block may be forced.</p>
+<h2 id="pruning"><a class="doc-anchor" href="#pruning">§</a>Pruning.</h2>
+<p>See <code>RefWindow</code> for pruning algorithm details. <code>StateDb</code> prunes on each canonicalization until
+pruning constraints are satisfied.</p>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.ChangeSet.html" title="struct sc_state_db::ChangeSet">ChangeSet</a></div><div class="desc docblock-short">A set of state node changes.</div></li><li><div class="item-name"><a class="struct" href="struct.CommitSet.html" title="struct sc_state_db::CommitSet">CommitSet</a></div><div class="desc docblock-short">A set of changes to the backing database.</div></li><li><div class="item-name"><a class="struct" href="struct.Constraints.html" title="struct sc_state_db::Constraints">Constraints</a></div><div class="desc docblock-short">Pruning constraints. If none are specified pruning is</div></li><li><div class="item-name"><a class="struct" href="struct.StateDb.html" title="struct sc_state_db::StateDb">StateDb</a></div><div class="desc docblock-short">State DB maintenance. See module description.
+Can be shared across threads.</div></li><li><div class="item-name"><a class="struct" href="struct.StateDbSync.html" title="struct sc_state_db::StateDbSync">StateDbSync</a></div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.Error.html" title="enum sc_state_db::Error">Error</a></div><div class="desc docblock-short">Error type.</div></li><li><div class="item-name"><a class="enum" href="enum.IsPruned.html" title="enum sc_state_db::IsPruned">IsPruned</a></div><div class="desc docblock-short">The result return by <code>StateDb::is_pruned</code></div></li><li><div class="item-name"><a class="enum" href="enum.LastCanonicalized.html" title="enum sc_state_db::LastCanonicalized">LastCanonicalized</a></div><div class="desc docblock-short">Status information about the last canonicalized block.</div></li><li><div class="item-name"><a class="enum" href="enum.PinError.html" title="enum sc_state_db::PinError">PinError</a></div><div class="desc docblock-short">Pinning error type.</div></li><li><div class="item-name"><a class="enum" href="enum.PruningMode.html" title="enum sc_state_db::PruningMode">PruningMode</a></div><div class="desc docblock-short">Pruning mode.</div></li><li><div class="item-name"><a class="enum" href="enum.StateDbError.html" title="enum sc_state_db::StateDbError">StateDbError</a></div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Hash.html" title="trait sc_state_db::Hash">Hash</a></div><div class="desc docblock-short">Basic set of requirements for the Block hash and node key types.</div></li><li><div class="item-name"><a class="trait" href="trait.MetaDb.html" title="trait sc_state_db::MetaDb">MetaDb</a></div><div class="desc docblock-short">Backend database trait. Read-only.</div></li><li><div class="item-name"><a class="trait" href="trait.NodeDb.html" title="trait sc_state_db::NodeDb">NodeDb</a></div><div class="desc docblock-short">Backend database trait. Read-only.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.DBValue.html" title="type sc_state_db::DBValue">DBValue</a></div><div class="desc docblock-short">Database value type.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

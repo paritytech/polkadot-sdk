@@ -1,0 +1,230 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="An opaque index-based, NPoS solution type."><title>NposSolution in frame_election_provider_support::traits - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_election_provider_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../frame_election_provider_support/index.html">frame_election_provider_support</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">NposSolution</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Accuracy">Accuracy</a></li><li><a href="#associatedtype.TargetIndex">TargetIndex</a></li><li><a href="#associatedtype.VoterIndex">VoterIndex</a></li></ul><h3><a href="#required-associated-consts">Required Associated Constants</a></h3><ul class="block"><li><a href="#associatedconstant.LIMIT">LIMIT</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.edge_count">edge_count</a></li><li><a href="#tymethod.from_assignment">from_assignment</a></li><li><a href="#tymethod.into_assignment">into_assignment</a></li><li><a href="#tymethod.remove_voter">remove_voter</a></li><li><a href="#tymethod.unique_targets">unique_targets</a></li><li><a href="#tymethod.voter_count">voter_count</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.average_edge_count">average_edge_count</a></li><li><a href="#method.score">score</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In frame_election_provider_support::traits</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">frame_election_provider_support</a>::<wbr><a href="index.html">traits</a>::<wbr><a class="trait" href="#">NposSolution</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/frame_election_provider_support/traits.rs.html#29-126">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait NposSolution<div class="where">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + for&lt;'a&gt; <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;&amp;'a [<a class="type" href="../type.IndexAssignmentOf.html" title="type frame_election_provider_support::IndexAssignmentOf">IndexAssignmentOf</a>&lt;Self&gt;], Error = <a class="enum" href="../enum.Error.html" title="enum frame_election_provider_support::Error">Error</a>&gt;,</div>{
+    type <a href="#associatedtype.VoterIndex" class="associatedtype">VoterIndex</a>: UniqueSaturatedInto&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.TryInto.html" title="trait core::convert::TryInto">TryInto</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://docs.rs/num-traits/0.2/num_traits/bounds/trait.Bounded.html" title="trait num_traits::bounds::Bounded">Bounded</a> + <a class="trait" href="../trait.Encode.html" title="trait frame_election_provider_support::Encode">Encode</a> + TypeInfo;
+    type <a href="#associatedtype.TargetIndex" class="associatedtype">TargetIndex</a>: UniqueSaturatedInto&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.TryInto.html" title="trait core::convert::TryInto">TryInto</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://docs.rs/num-traits/0.2/num_traits/bounds/trait.Bounded.html" title="trait num_traits::bounds::Bounded">Bounded</a> + <a class="trait" href="../trait.Encode.html" title="trait frame_election_provider_support::Encode">Encode</a> + TypeInfo;
+    type <a href="#associatedtype.Accuracy" class="associatedtype">Accuracy</a>: <a class="trait" href="../trait.PerThing128.html" title="trait frame_election_provider_support::PerThing128">PerThing128</a>;
+
+    const <a href="#associatedconstant.LIMIT" class="constant">LIMIT</a>: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>;
+
+    // Required methods
+    fn <a href="#tymethod.voter_count" class="fn">voter_count</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.edge_count" class="fn">edge_count</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.unique_targets" class="fn">unique_targets</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;Self::<a class="associatedtype" href="trait.NposSolution.html#associatedtype.TargetIndex" title="type frame_election_provider_support::traits::NposSolution::TargetIndex">TargetIndex</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.remove_voter" class="fn">remove_voter</a>(&amp;mut self, to_remove: Self::<a class="associatedtype" href="trait.NposSolution.html#associatedtype.VoterIndex" title="type frame_election_provider_support::traits::NposSolution::VoterIndex">VoterIndex</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.from_assignment" class="fn">from_assignment</a>&lt;FV, FT, A&gt;(
+        assignments: &amp;[<a class="struct" href="../struct.Assignment.html" title="struct frame_election_provider_support::Assignment">Assignment</a>&lt;A, Self::<a class="associatedtype" href="trait.NposSolution.html#associatedtype.Accuracy" title="type frame_election_provider_support::traits::NposSolution::Accuracy">Accuracy</a>&gt;],
+        voter_index: FV,
+        target_index: FT,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, <a class="enum" href="../enum.Error.html" title="enum frame_election_provider_support::Error">Error</a>&gt;
+       <span class="where">where A: <a class="trait" href="../trait.IdentifierT.html" title="trait frame_election_provider_support::IdentifierT">IdentifierT</a>,
+             for&lt;'r&gt; FV: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;'r A</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.NposSolution.html#associatedtype.VoterIndex" title="type frame_election_provider_support::traits::NposSolution::VoterIndex">VoterIndex</a>&gt;,
+             for&lt;'r&gt; FT: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;'r A</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.NposSolution.html#associatedtype.TargetIndex" title="type frame_election_provider_support::traits::NposSolution::TargetIndex">TargetIndex</a>&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.into_assignment" class="fn">into_assignment</a>&lt;A: <a class="trait" href="../trait.IdentifierT.html" title="trait frame_election_provider_support::IdentifierT">IdentifierT</a>&gt;(
+        self,
+        voter_at: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(Self::<a class="associatedtype" href="trait.NposSolution.html#associatedtype.VoterIndex" title="type frame_election_provider_support::traits::NposSolution::VoterIndex">VoterIndex</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;A&gt;,
+        target_at: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(Self::<a class="associatedtype" href="trait.NposSolution.html#associatedtype.TargetIndex" title="type frame_election_provider_support::traits::NposSolution::TargetIndex">TargetIndex</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;A&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../struct.Assignment.html" title="struct frame_election_provider_support::Assignment">Assignment</a>&lt;A, Self::<a class="associatedtype" href="trait.NposSolution.html#associatedtype.Accuracy" title="type frame_election_provider_support::traits::NposSolution::Accuracy">Accuracy</a>&gt;&gt;, <a class="enum" href="../enum.Error.html" title="enum frame_election_provider_support::Error">Error</a>&gt;;
+
+    // Provided methods
+    fn <a href="#method.average_edge_count" class="fn">average_edge_count</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.score" class="fn">score</a>&lt;A, FS&gt;(
+        self,
+        stake_of: FS,
+        voter_at: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(Self::<a class="associatedtype" href="trait.NposSolution.html#associatedtype.VoterIndex" title="type frame_election_provider_support::traits::NposSolution::VoterIndex">VoterIndex</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;A&gt;,
+        target_at: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(Self::<a class="associatedtype" href="trait.NposSolution.html#associatedtype.TargetIndex" title="type frame_election_provider_support::traits::NposSolution::TargetIndex">TargetIndex</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;A&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;ElectionScore, <a class="enum" href="../enum.Error.html" title="enum frame_election_provider_support::Error">Error</a>&gt;
+       <span class="where">where for&lt;'r&gt; FS: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;'r A</a>) -&gt; <a class="type" href="../type.VoteWeight.html" title="type frame_election_provider_support::VoteWeight">VoteWeight</a>,
+             A: <a class="trait" href="../trait.IdentifierT.html" title="trait frame_election_provider_support::IdentifierT">IdentifierT</a></span> { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>An opaque index-based, NPoS solution type.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.VoterIndex" class="method"><a class="src rightside" href="../../src/frame_election_provider_support/traits.rs.html#37-45">source</a><h4 class="code-header">type <a href="#associatedtype.VoterIndex" class="associatedtype">VoterIndex</a>: UniqueSaturatedInto&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.TryInto.html" title="trait core::convert::TryInto">TryInto</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://docs.rs/num-traits/0.2/num_traits/bounds/trait.Bounded.html" title="trait num_traits::bounds::Bounded">Bounded</a> + <a class="trait" href="../trait.Encode.html" title="trait frame_election_provider_support::Encode">Encode</a> + TypeInfo</h4></section></summary><div class="docblock"><p>The voter type. Needs to be an index (convert to usize).</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.TargetIndex" class="method"><a class="src rightside" href="../../src/frame_election_provider_support/traits.rs.html#48-56">source</a><h4 class="code-header">type <a href="#associatedtype.TargetIndex" class="associatedtype">TargetIndex</a>: UniqueSaturatedInto&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.TryInto.html" title="trait core::convert::TryInto">TryInto</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://docs.rs/num-traits/0.2/num_traits/bounds/trait.Bounded.html" title="trait num_traits::bounds::Bounded">Bounded</a> + <a class="trait" href="../trait.Encode.html" title="trait frame_election_provider_support::Encode">Encode</a> + TypeInfo</h4></section></summary><div class="docblock"><p>The target type. Needs to be an index (convert to usize).</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Accuracy" class="method"><a class="src rightside" href="../../src/frame_election_provider_support/traits.rs.html#59">source</a><h4 class="code-header">type <a href="#associatedtype.Accuracy" class="associatedtype">Accuracy</a>: <a class="trait" href="../trait.PerThing128.html" title="trait frame_election_provider_support::PerThing128">PerThing128</a></h4></section></summary><div class="docblock"><p>The weight/accuracy type of each vote.</p>
+</div></details></div><h2 id="required-associated-consts" class="section-header">Required Associated Constants<a href="#required-associated-consts" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedconstant.LIMIT" class="method"><a class="src rightside" href="../../src/frame_election_provider_support/traits.rs.html#34">source</a><h4 class="code-header">const <a href="#associatedconstant.LIMIT" class="constant">LIMIT</a>: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a></h4></section></summary><div class="docblock"><p>The maximum number of votes that are allowed.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.voter_count" class="method"><a class="src rightside" href="../../src/frame_election_provider_support/traits.rs.html#64">source</a><h4 class="code-header">fn <a href="#tymethod.voter_count" class="fn">voter_count</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a></h4></section></summary><div class="docblock"><p>Get the length of all the voters that this type is encoding.</p>
+<p>This is basically the same as the number of assignments, or number of active voters.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.edge_count" class="method"><a class="src rightside" href="../../src/frame_election_provider_support/traits.rs.html#70">source</a><h4 class="code-header">fn <a href="#tymethod.edge_count" class="fn">edge_count</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a></h4></section></summary><div class="docblock"><p>Get the total count of edges.</p>
+<p>This is effectively in the range of {<a href="trait.NposSolution.html#tymethod.voter_count"><code>Self::voter_count</code></a>, <a href="trait.NposSolution.html#tymethod.voter_count"><code>Self::voter_count</code></a> *
+<a href="trait.NposSolution.html#associatedconstant.LIMIT"><code>Self::LIMIT</code></a>}.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.unique_targets" class="method"><a class="src rightside" href="../../src/frame_election_provider_support/traits.rs.html#76">source</a><h4 class="code-header">fn <a href="#tymethod.unique_targets" class="fn">unique_targets</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;Self::<a class="associatedtype" href="trait.NposSolution.html#associatedtype.TargetIndex" title="type frame_election_provider_support::traits::NposSolution::TargetIndex">TargetIndex</a>&gt;</h4></section></summary><div class="docblock"><p>Get the number of unique targets in the whole struct.</p>
+<p>Once presented with a list of winners, this set and the set of winners must be
+equal.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.remove_voter" class="method"><a class="src rightside" href="../../src/frame_election_provider_support/traits.rs.html#107">source</a><h4 class="code-header">fn <a href="#tymethod.remove_voter" class="fn">remove_voter</a>(&amp;mut self, to_remove: Self::<a class="associatedtype" href="trait.NposSolution.html#associatedtype.VoterIndex" title="type frame_election_provider_support::traits::NposSolution::VoterIndex">VoterIndex</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Remove a certain voter.</p>
+<p>This will only search until the first instance of <code>to_remove</code>, and return true. If
+no instance is found (no-op), then it returns false.</p>
+<p>In other words, if this return true, exactly <strong>one</strong> element must have been removed self.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.from_assignment" class="method"><a class="src rightside" href="../../src/frame_election_provider_support/traits.rs.html#110-118">source</a><h4 class="code-header">fn <a href="#tymethod.from_assignment" class="fn">from_assignment</a>&lt;FV, FT, A&gt;(
+    assignments: &amp;[<a class="struct" href="../struct.Assignment.html" title="struct frame_election_provider_support::Assignment">Assignment</a>&lt;A, Self::<a class="associatedtype" href="trait.NposSolution.html#associatedtype.Accuracy" title="type frame_election_provider_support::traits::NposSolution::Accuracy">Accuracy</a>&gt;],
+    voter_index: FV,
+    target_index: FT,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, <a class="enum" href="../enum.Error.html" title="enum frame_election_provider_support::Error">Error</a>&gt;<div class="where">where
+    A: <a class="trait" href="../trait.IdentifierT.html" title="trait frame_election_provider_support::IdentifierT">IdentifierT</a>,
+    for&lt;'r&gt; FV: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;'r A</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.NposSolution.html#associatedtype.VoterIndex" title="type frame_election_provider_support::traits::NposSolution::VoterIndex">VoterIndex</a>&gt;,
+    for&lt;'r&gt; FT: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;'r A</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.NposSolution.html#associatedtype.TargetIndex" title="type frame_election_provider_support::traits::NposSolution::TargetIndex">TargetIndex</a>&gt;,</div></h4></section></summary><div class="docblock"><p>Build self from a list of assignments.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.into_assignment" class="method"><a class="src rightside" href="../../src/frame_election_provider_support/traits.rs.html#121-125">source</a><h4 class="code-header">fn <a href="#tymethod.into_assignment" class="fn">into_assignment</a>&lt;A: <a class="trait" href="../trait.IdentifierT.html" title="trait frame_election_provider_support::IdentifierT">IdentifierT</a>&gt;(
+    self,
+    voter_at: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(Self::<a class="associatedtype" href="trait.NposSolution.html#associatedtype.VoterIndex" title="type frame_election_provider_support::traits::NposSolution::VoterIndex">VoterIndex</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;A&gt;,
+    target_at: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(Self::<a class="associatedtype" href="trait.NposSolution.html#associatedtype.TargetIndex" title="type frame_election_provider_support::traits::NposSolution::TargetIndex">TargetIndex</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;A&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../struct.Assignment.html" title="struct frame_election_provider_support::Assignment">Assignment</a>&lt;A, Self::<a class="associatedtype" href="trait.NposSolution.html#associatedtype.Accuracy" title="type frame_election_provider_support::traits::NposSolution::Accuracy">Accuracy</a>&gt;&gt;, <a class="enum" href="../enum.Error.html" title="enum frame_election_provider_support::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Convert self into a <code>Vec&lt;Assignment&lt;A, Self::Accuracy&gt;&gt;</code></p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.average_edge_count" class="method"><a class="src rightside" href="../../src/frame_election_provider_support/traits.rs.html#79-81">source</a><h4 class="code-header">fn <a href="#method.average_edge_count" class="fn">average_edge_count</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a></h4></section></summary><div class="docblock"><p>Get the average edge count.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.score" class="method"><a class="src rightside" href="../../src/frame_election_provider_support/traits.rs.html#84-99">source</a><h4 class="code-header">fn <a href="#method.score" class="fn">score</a>&lt;A, FS&gt;(
+    self,
+    stake_of: FS,
+    voter_at: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(Self::<a class="associatedtype" href="trait.NposSolution.html#associatedtype.VoterIndex" title="type frame_election_provider_support::traits::NposSolution::VoterIndex">VoterIndex</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;A&gt;,
+    target_at: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(Self::<a class="associatedtype" href="trait.NposSolution.html#associatedtype.TargetIndex" title="type frame_election_provider_support::traits::NposSolution::TargetIndex">TargetIndex</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;A&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;ElectionScore, <a class="enum" href="../enum.Error.html" title="enum frame_election_provider_support::Error">Error</a>&gt;<div class="where">where
+    for&lt;'r&gt; FS: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;'r A</a>) -&gt; <a class="type" href="../type.VoteWeight.html" title="type frame_election_provider_support::VoteWeight">VoteWeight</a>,
+    A: <a class="trait" href="../trait.IdentifierT.html" title="trait frame_election_provider_support::IdentifierT">IdentifierT</a>,</div></h4></section></summary><div class="docblock"><p>Compute the score of this solution type.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/frame_election_provider_support/traits/trait.NposSolution.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

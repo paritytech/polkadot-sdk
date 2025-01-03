@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["union_of"],"struct":["HoldConsideration"]};

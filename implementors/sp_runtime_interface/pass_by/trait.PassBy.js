@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"sp_io":[["impl&lt;T: Encode + Decode&gt; PassBy for <a class=\"struct\" href=\"sp_io/struct.Crossing.html\" title=\"struct sp_io::Crossing\">Crossing</a>&lt;T&gt;"],["impl PassBy for <a class=\"enum\" href=\"sp_io/enum.KillStorageResult.html\" title=\"enum sp_io::KillStorageResult\">KillStorageResult</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

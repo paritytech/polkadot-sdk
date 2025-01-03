@@ -1,0 +1,233 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Configuration trait of this pallet."><title>Config in pallet_democracy::pallet - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_democracy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_democracy/index.html">pallet_democracy</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">Config</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.BlacklistOrigin">BlacklistOrigin</a></li><li><a href="#associatedtype.CancelProposalOrigin">CancelProposalOrigin</a></li><li><a href="#associatedtype.CancellationOrigin">CancellationOrigin</a></li><li><a href="#associatedtype.CooloffPeriod">CooloffPeriod</a></li><li><a href="#associatedtype.Currency">Currency</a></li><li><a href="#associatedtype.EnactmentPeriod">EnactmentPeriod</a></li><li><a href="#associatedtype.ExternalDefaultOrigin">ExternalDefaultOrigin</a></li><li><a href="#associatedtype.ExternalMajorityOrigin">ExternalMajorityOrigin</a></li><li><a href="#associatedtype.ExternalOrigin">ExternalOrigin</a></li><li><a href="#associatedtype.FastTrackOrigin">FastTrackOrigin</a></li><li><a href="#associatedtype.FastTrackVotingPeriod">FastTrackVotingPeriod</a></li><li><a href="#associatedtype.InstantAllowed">InstantAllowed</a></li><li><a href="#associatedtype.InstantOrigin">InstantOrigin</a></li><li><a href="#associatedtype.LaunchPeriod">LaunchPeriod</a></li><li><a href="#associatedtype.MaxBlacklisted">MaxBlacklisted</a></li><li><a href="#associatedtype.MaxDeposits">MaxDeposits</a></li><li><a href="#associatedtype.MaxProposals">MaxProposals</a></li><li><a href="#associatedtype.MaxVotes">MaxVotes</a></li><li><a href="#associatedtype.MinimumDeposit">MinimumDeposit</a></li><li><a href="#associatedtype.PalletsOrigin">PalletsOrigin</a></li><li><a href="#associatedtype.Preimages">Preimages</a></li><li><a href="#associatedtype.RuntimeEvent">RuntimeEvent</a></li><li><a href="#associatedtype.Scheduler">Scheduler</a></li><li><a href="#associatedtype.Slash">Slash</a></li><li><a href="#associatedtype.SubmitOrigin">SubmitOrigin</a></li><li><a href="#associatedtype.VetoOrigin">VetoOrigin</a></li><li><a href="#associatedtype.VoteLockingPeriod">VoteLockingPeriod</a></li><li><a href="#associatedtype.VotingPeriod">VotingPeriod</a></li><li><a href="#associatedtype.WeightInfo">WeightInfo</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In pallet_democracy::pallet</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">pallet_democracy</a>::<wbr><a href="index.html">pallet</a>::<wbr><a class="trait" href="#">Config</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/pallet_democracy/lib.rs.html#223-346">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Config: Config + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 29 associated items</span></summary>    type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="../weights/trait.WeightInfo.html" title="trait pallet_democracy::weights::WeightInfo">WeightInfo</a>;
+    type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Event.html" title="enum pallet_democracy::pallet::Event">Event</a>&lt;Self&gt;&gt; + IsType&lt;&lt;Self as Config&gt;::RuntimeEvent&gt;;
+    type <a href="#associatedtype.Scheduler" class="associatedtype">Scheduler</a>: ScheduleNamed&lt;BlockNumberFor&lt;Self&gt;, <a class="type" href="../type.CallOf.html" title="type pallet_democracy::CallOf">CallOf</a>&lt;Self&gt;, Self::<a class="associatedtype" href="trait.Config.html#associatedtype.PalletsOrigin" title="type pallet_democracy::pallet::Config::PalletsOrigin">PalletsOrigin</a>, Hasher = Self::Hashing&gt;;
+    type <a href="#associatedtype.Preimages" class="associatedtype">Preimages</a>: QueryPreimage&lt;H = Self::Hashing&gt; + StorePreimage;
+    type <a href="#associatedtype.Currency" class="associatedtype">Currency</a>: ReservableCurrency&lt;Self::AccountId&gt; + LockableCurrency&lt;Self::AccountId, Moment = BlockNumberFor&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.EnactmentPeriod" class="associatedtype">EnactmentPeriod</a>: Get&lt;BlockNumberFor&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.LaunchPeriod" class="associatedtype">LaunchPeriod</a>: Get&lt;BlockNumberFor&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.VotingPeriod" class="associatedtype">VotingPeriod</a>: Get&lt;BlockNumberFor&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.VoteLockingPeriod" class="associatedtype">VoteLockingPeriod</a>: Get&lt;BlockNumberFor&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.MinimumDeposit" class="associatedtype">MinimumDeposit</a>: Get&lt;&lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait pallet_democracy::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type pallet_democracy::pallet::Config::Currency">Currency</a> as Currency&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::Balance&gt;;
+    type <a href="#associatedtype.InstantAllowed" class="associatedtype">InstantAllowed</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>&gt;;
+    type <a href="#associatedtype.FastTrackVotingPeriod" class="associatedtype">FastTrackVotingPeriod</a>: Get&lt;BlockNumberFor&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.CooloffPeriod" class="associatedtype">CooloffPeriod</a>: Get&lt;BlockNumberFor&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.MaxVotes" class="associatedtype">MaxVotes</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.MaxProposals" class="associatedtype">MaxProposals</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.MaxDeposits" class="associatedtype">MaxDeposits</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.MaxBlacklisted" class="associatedtype">MaxBlacklisted</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.ExternalOrigin" class="associatedtype">ExternalOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin&gt;;
+    type <a href="#associatedtype.ExternalMajorityOrigin" class="associatedtype">ExternalMajorityOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin&gt;;
+    type <a href="#associatedtype.ExternalDefaultOrigin" class="associatedtype">ExternalDefaultOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin&gt;;
+    type <a href="#associatedtype.SubmitOrigin" class="associatedtype">SubmitOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin, Success = Self::AccountId&gt;;
+    type <a href="#associatedtype.FastTrackOrigin" class="associatedtype">FastTrackOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin&gt;;
+    type <a href="#associatedtype.InstantOrigin" class="associatedtype">InstantOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin&gt;;
+    type <a href="#associatedtype.CancellationOrigin" class="associatedtype">CancellationOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin&gt;;
+    type <a href="#associatedtype.BlacklistOrigin" class="associatedtype">BlacklistOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin&gt;;
+    type <a href="#associatedtype.CancelProposalOrigin" class="associatedtype">CancelProposalOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin&gt;;
+    type <a href="#associatedtype.VetoOrigin" class="associatedtype">VetoOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin, Success = Self::AccountId&gt;;
+    type <a href="#associatedtype.PalletsOrigin" class="associatedtype">PalletsOrigin</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;RawOrigin&lt;Self::AccountId&gt;&gt;;
+    type <a href="#associatedtype.Slash" class="associatedtype">Slash</a>: OnUnbalanced&lt;&lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait pallet_democracy::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type pallet_democracy::pallet::Config::Currency">Currency</a> as Currency&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::NegativeImbalance&gt;;
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Configuration trait of this pallet.</p>
+<p>The main purpose of this trait is to act as an interface between this pallet and the runtime in
+which it is embedded in. A type, function, or constant in this trait is essentially left to be
+configured by the runtime that includes this pallet.</p>
+<p>Consequently, a runtime that wants to include this pallet must implement this trait.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><section id="associatedtype.WeightInfo" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#224">source</a><h4 class="code-header">type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="../weights/trait.WeightInfo.html" title="trait pallet_democracy::weights::WeightInfo">WeightInfo</a></h4></section><section id="associatedtype.RuntimeEvent" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#225">source</a><h4 class="code-header">type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Event.html" title="enum pallet_democracy::pallet::Event">Event</a>&lt;Self&gt;&gt; + IsType&lt;&lt;Self as Config&gt;::RuntimeEvent&gt;</h4></section><details class="toggle" open><summary><section id="associatedtype.Scheduler" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#228-233">source</a><h4 class="code-header">type <a href="#associatedtype.Scheduler" class="associatedtype">Scheduler</a>: ScheduleNamed&lt;BlockNumberFor&lt;Self&gt;, <a class="type" href="../type.CallOf.html" title="type pallet_democracy::CallOf">CallOf</a>&lt;Self&gt;, Self::<a class="associatedtype" href="trait.Config.html#associatedtype.PalletsOrigin" title="type pallet_democracy::pallet::Config::PalletsOrigin">PalletsOrigin</a>, Hasher = Self::Hashing&gt;</h4></section></summary><div class="docblock"><p>The Scheduler.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Preimages" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#236">source</a><h4 class="code-header">type <a href="#associatedtype.Preimages" class="associatedtype">Preimages</a>: QueryPreimage&lt;H = Self::Hashing&gt; + StorePreimage</h4></section></summary><div class="docblock"><p>The Preimage provider.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Currency" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#239-240">source</a><h4 class="code-header">type <a href="#associatedtype.Currency" class="associatedtype">Currency</a>: ReservableCurrency&lt;Self::AccountId&gt; + LockableCurrency&lt;Self::AccountId, Moment = BlockNumberFor&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>Currency type for this pallet.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.EnactmentPeriod" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#248">source</a><h4 class="code-header">type <a href="#associatedtype.EnactmentPeriod" class="associatedtype">EnactmentPeriod</a>: Get&lt;BlockNumberFor&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>The period between a proposal being approved and enacted.</p>
+<p>It should generally be a little more than the unstake period to ensure that
+voting stakers have an opportunity to remove themselves from the system in the case
+where they are on the losing side of a vote.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.LaunchPeriod" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#252">source</a><h4 class="code-header">type <a href="#associatedtype.LaunchPeriod" class="associatedtype">LaunchPeriod</a>: Get&lt;BlockNumberFor&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>How often (in blocks) new public referenda are launched.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.VotingPeriod" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#256">source</a><h4 class="code-header">type <a href="#associatedtype.VotingPeriod" class="associatedtype">VotingPeriod</a>: Get&lt;BlockNumberFor&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>How often (in blocks) to check for new votes.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.VoteLockingPeriod" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#263">source</a><h4 class="code-header">type <a href="#associatedtype.VoteLockingPeriod" class="associatedtype">VoteLockingPeriod</a>: Get&lt;BlockNumberFor&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>The minimum period of vote locking.</p>
+<p>It should be no shorter than enactment period to ensure that in the case of an approval,
+those successful voters are locked into the consequences that their votes entail.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MinimumDeposit" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#267">source</a><h4 class="code-header">type <a href="#associatedtype.MinimumDeposit" class="associatedtype">MinimumDeposit</a>: Get&lt;&lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait pallet_democracy::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type pallet_democracy::pallet::Config::Currency">Currency</a> as Currency&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::Balance&gt;</h4></section></summary><div class="docblock"><p>The minimum amount to be used as a deposit for a public referendum proposal.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.InstantAllowed" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#273">source</a><h4 class="code-header">type <a href="#associatedtype.InstantAllowed" class="associatedtype">InstantAllowed</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>&gt;</h4></section></summary><div class="docblock"><p>Indicator for whether an emergency origin is even allowed to happen. Some chains may
+want to set this permanently to <code>false</code>, others may want to condition it on things such
+as an upgrade having happened recently.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.FastTrackVotingPeriod" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#277">source</a><h4 class="code-header">type <a href="#associatedtype.FastTrackVotingPeriod" class="associatedtype">FastTrackVotingPeriod</a>: Get&lt;BlockNumberFor&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>Minimum voting period allowed for a fast-track referendum.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.CooloffPeriod" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#281">source</a><h4 class="code-header">type <a href="#associatedtype.CooloffPeriod" class="associatedtype">CooloffPeriod</a>: Get&lt;BlockNumberFor&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>Period in blocks where an external proposal may not be re-submitted after being vetoed.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxVotes" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#288">source</a><h4 class="code-header">type <a href="#associatedtype.MaxVotes" class="associatedtype">MaxVotes</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>The maximum number of votes for an account.</p>
+<p>Also used to compute weight, an overly big value can
+lead to extrinsic with very big weight: see <code>delegate</code> for instance.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxProposals" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#292">source</a><h4 class="code-header">type <a href="#associatedtype.MaxProposals" class="associatedtype">MaxProposals</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>The maximum number of public proposals that can exist at any time.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxDeposits" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#296">source</a><h4 class="code-header">type <a href="#associatedtype.MaxDeposits" class="associatedtype">MaxDeposits</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>The maximum number of deposits a public proposal may have at any time.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxBlacklisted" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#300">source</a><h4 class="code-header">type <a href="#associatedtype.MaxBlacklisted" class="associatedtype">MaxBlacklisted</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>The maximum number of items which can be blacklisted.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.ExternalOrigin" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#304">source</a><h4 class="code-header">type <a href="#associatedtype.ExternalOrigin" class="associatedtype">ExternalOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin&gt;</h4></section></summary><div class="docblock"><p>Origin from which the next tabled referendum may be forced. This is a normal
+“super-majority-required” referendum.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.ExternalMajorityOrigin" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#308">source</a><h4 class="code-header">type <a href="#associatedtype.ExternalMajorityOrigin" class="associatedtype">ExternalMajorityOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin&gt;</h4></section></summary><div class="docblock"><p>Origin from which the next tabled referendum may be forced; this allows for the tabling
+of a majority-carries referendum.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.ExternalDefaultOrigin" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#312">source</a><h4 class="code-header">type <a href="#associatedtype.ExternalDefaultOrigin" class="associatedtype">ExternalDefaultOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin&gt;</h4></section></summary><div class="docblock"><p>Origin from which the next tabled referendum may be forced; this allows for the tabling
+of a negative-turnout-bias (default-carries) referendum.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.SubmitOrigin" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#317">source</a><h4 class="code-header">type <a href="#associatedtype.SubmitOrigin" class="associatedtype">SubmitOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin, Success = Self::AccountId&gt;</h4></section></summary><div class="docblock"><p>Origin from which the new proposal can be made.</p>
+<p>The success variant is the account id of the depositor.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.FastTrackOrigin" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#322">source</a><h4 class="code-header">type <a href="#associatedtype.FastTrackOrigin" class="associatedtype">FastTrackOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin&gt;</h4></section></summary><div class="docblock"><p>Origin from which the next majority-carries (or more permissive) referendum may be
+tabled to vote according to the <code>FastTrackVotingPeriod</code> asynchronously in a similar
+manner to the emergency origin. It retains its threshold method.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.InstantOrigin" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#327">source</a><h4 class="code-header">type <a href="#associatedtype.InstantOrigin" class="associatedtype">InstantOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin&gt;</h4></section></summary><div class="docblock"><p>Origin from which the next majority-carries (or more permissive) referendum may be
+tabled to vote immediately and asynchronously in a similar manner to the emergency
+origin. It retains its threshold method.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.CancellationOrigin" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#330">source</a><h4 class="code-header">type <a href="#associatedtype.CancellationOrigin" class="associatedtype">CancellationOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin&gt;</h4></section></summary><div class="docblock"><p>Origin from which any referendum may be cancelled in an emergency.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.BlacklistOrigin" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#333">source</a><h4 class="code-header">type <a href="#associatedtype.BlacklistOrigin" class="associatedtype">BlacklistOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin&gt;</h4></section></summary><div class="docblock"><p>Origin from which proposals may be blacklisted.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.CancelProposalOrigin" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#336">source</a><h4 class="code-header">type <a href="#associatedtype.CancelProposalOrigin" class="associatedtype">CancelProposalOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin&gt;</h4></section></summary><div class="docblock"><p>Origin from which a proposal may be cancelled and its backers slashed.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.VetoOrigin" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#339">source</a><h4 class="code-header">type <a href="#associatedtype.VetoOrigin" class="associatedtype">VetoOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin, Success = Self::AccountId&gt;</h4></section></summary><div class="docblock"><p>Origin for anyone able to veto proposals.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.PalletsOrigin" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#342">source</a><h4 class="code-header">type <a href="#associatedtype.PalletsOrigin" class="associatedtype">PalletsOrigin</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;RawOrigin&lt;Self::AccountId&gt;&gt;</h4></section></summary><div class="docblock"><p>Overarching type of all pallets origins.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Slash" class="method"><a class="src rightside" href="../../src/pallet_democracy/lib.rs.html#345">source</a><h4 class="code-header">type <a href="#associatedtype.Slash" class="associatedtype">Slash</a>: OnUnbalanced&lt;&lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait pallet_democracy::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type pallet_democracy::pallet::Config::Currency">Currency</a> as Currency&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::NegativeImbalance&gt;</h4></section></summary><div class="docblock"><p>Handler for the unbalanced reduction when slashing a preimage deposit.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/pallet_democracy/pallet/trait.Config.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["election_finalized","phase_transitioned","rewarded","slashed","solution_stored"],"struct":["ElectionFailed","ElectionFinalized","PhaseTransitioned","Rewarded","Slashed","SolutionStored"]};

@@ -1,0 +1,240 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The SelectChain trait defines the strategy upon which the head is chosen if multiple forks are present for an opaque definition of “best” in the specific chain build."><title>SelectChain in cumulus_test_client::sp_consensus - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_test_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../cumulus_test_client/index.html">cumulus_test_client</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">SelectChain</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.best_chain">best_chain</a></li><li><a href="#tymethod.leaves">leaves</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.finality_target">finality_target</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-SelectChain%3CBlock%3E-for-LongestChain%3CB,+Block%3E">LongestChain&lt;B, Block&gt;</a></li><li><a href="#impl-SelectChain%3CBlock%3CHeader%3Cu32,+BlakeTwo256%3E,+OpaqueExtrinsic%3E%3E-for-SelectRelayChain%3CB%3E">SelectRelayChain&lt;B&gt;</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In cumulus_test_client::sp_consensus</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">cumulus_test_client</a>::<wbr><a href="index.html">sp_consensus</a>::<wbr><a class="trait" href="#">SelectChain</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/sp_consensus/select_chain.rs.html#36">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait SelectChain&lt;Block&gt;: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a><div class="where">where
+    Block: <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">Block</a>,</div>{
+    // Required methods
+    fn <a href="#tymethod.leaves" class="fn">leaves</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;&lt;Block as <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>&gt;, <a class="enum" href="enum.Error.html" title="enum cumulus_test_client::sp_consensus::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where 'life0: 'async_trait,
+             Self: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.best_chain" class="fn">best_chain</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;&lt;Block as <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Header" title="type sp_runtime::traits::Block::Header">Header</a>, <a class="enum" href="enum.Error.html" title="enum cumulus_test_client::sp_consensus::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where 'life0: 'async_trait,
+             Self: 'async_trait</span>;
+
+    // Provided method
+    fn <a href="#method.finality_target" class="fn">finality_target</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        base_hash: &lt;Block as <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
+        _maybe_max_number: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&lt;&lt;Block as <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Header" title="type sp_runtime::traits::Block::Header">Header</a> as <a class="trait" href="../../sp_runtime/traits/trait.Header.html" title="trait sp_runtime::traits::Header">Header</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.Header.html#associatedtype.Number" title="type sp_runtime::traits::Header::Number">Number</a>&gt;,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;&lt;Block as <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>, <a class="enum" href="enum.Error.html" title="enum cumulus_test_client::sp_consensus::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where 'life0: 'async_trait,
+             Self: 'async_trait</span> { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The SelectChain trait defines the strategy upon which the head is chosen
+if multiple forks are present for an opaque definition of “best” in the
+specific chain build.</p>
+<p>The Strategy can be customized for the two use cases of authoring new blocks
+upon the best chain or which fork to finalize. Unless implemented differently
+by default finalization methods fall back to use authoring, so as a minimum
+<code>_authoring</code>-functions must be implemented.</p>
+<p>Any particular user must make explicit, however, whether they intend to finalize
+or author through the using the right function call, as these might differ in
+some implementations.</p>
+<p>Non-deterministically finalizing chains may only use the <code>_authoring</code> functions.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.leaves" class="method"><a class="src rightside" href="../../src/sp_consensus/select_chain.rs.html#39">source</a><h4 class="code-header">fn <a href="#tymethod.leaves" class="fn">leaves</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;&lt;Block as <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>&gt;, <a class="enum" href="enum.Error.html" title="enum cumulus_test_client::sp_consensus::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    'life0: 'async_trait,
+    Self: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get all leaves of the chain, i.e. block hashes that have no children currently.
+Leaves that can never be finalized will not be returned.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.best_chain" class="method"><a class="src rightside" href="../../src/sp_consensus/select_chain.rs.html#44">source</a><h4 class="code-header">fn <a href="#tymethod.best_chain" class="fn">best_chain</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;&lt;Block as <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Header" title="type sp_runtime::traits::Block::Header">Header</a>, <a class="enum" href="enum.Error.html" title="enum cumulus_test_client::sp_consensus::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    'life0: 'async_trait,
+    Self: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Among those <code>leaves</code> deterministically pick one chain as the generally
+best chain to author new blocks upon and probably (but not necessarily)
+finalize.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.finality_target" class="method"><a class="src rightside" href="../../src/sp_consensus/select_chain.rs.html#35">source</a><h4 class="code-header">fn <a href="#method.finality_target" class="fn">finality_target</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    base_hash: &lt;Block as <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
+    _maybe_max_number: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&lt;&lt;Block as <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Header" title="type sp_runtime::traits::Block::Header">Header</a> as <a class="trait" href="../../sp_runtime/traits/trait.Header.html" title="trait sp_runtime::traits::Header">Header</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.Header.html#associatedtype.Number" title="type sp_runtime::traits::Header::Number">Number</a>&gt;,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;&lt;Block as <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>, <a class="enum" href="enum.Error.html" title="enum cumulus_test_client::sp_consensus::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    'life0: 'async_trait,
+    Self: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get the best descendent of <code>base_hash</code> that we should attempt to
+finalize next, if any. It is valid to return the given <code>base_hash</code>
+itself if no better descendent exists.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-SelectChain%3CBlock%3CHeader%3Cu32,+BlakeTwo256%3E,+OpaqueExtrinsic%3E%3E-for-SelectRelayChain%3CB%3E" class="impl"><a href="#impl-SelectChain%3CBlock%3CHeader%3Cu32,+BlakeTwo256%3E,+OpaqueExtrinsic%3E%3E-for-SelectRelayChain%3CB%3E" class="anchor">§</a><h3 class="code-header">impl&lt;B&gt; <a class="trait" href="trait.SelectChain.html" title="trait cumulus_test_client::sp_consensus::SelectChain">SelectChain</a>&lt;<a class="struct" href="../../sp_runtime/generic/block/struct.Block.html" title="struct sp_runtime::generic::block::Block">Block</a>&lt;<a class="struct" href="../../sp_runtime/generic/header/struct.Header.html" title="struct sp_runtime::generic::header::Header">Header</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="struct" href="../../sp_runtime/traits/struct.BlakeTwo256.html" title="struct sp_runtime::traits::BlakeTwo256">BlakeTwo256</a>&gt;, <a class="struct" href="../../sp_runtime/struct.OpaqueExtrinsic.html" title="struct sp_runtime::OpaqueExtrinsic">OpaqueExtrinsic</a>&gt;&gt; for SelectRelayChain&lt;B&gt;<div class="where">where
+    B: <a class="trait" href="../../sc_client_api/backend/trait.Backend.html" title="trait sc_client_api::backend::Backend">Backend</a>&lt;<a class="struct" href="../../sp_runtime/generic/block/struct.Block.html" title="struct sp_runtime::generic::block::Block">Block</a>&lt;<a class="struct" href="../../sp_runtime/generic/header/struct.Header.html" title="struct sp_runtime::generic::header::Header">Header</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="struct" href="../../sp_runtime/traits/struct.BlakeTwo256.html" title="struct sp_runtime::traits::BlakeTwo256">BlakeTwo256</a>&gt;, <a class="struct" href="../../sp_runtime/struct.OpaqueExtrinsic.html" title="struct sp_runtime::OpaqueExtrinsic">OpaqueExtrinsic</a>&gt;&gt; + 'static,</div></h3></section></summary><div class="impl-items"><section id="method.leaves" class="method trait-impl"><a href="#method.leaves" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.leaves" class="fn">leaves</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;H256&gt;, <a class="enum" href="enum.Error.html" title="enum cumulus_test_client::sp_consensus::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    'life0: 'async_trait,
+    SelectRelayChain&lt;B&gt;: 'async_trait,</div></h4></section><section id="method.best_chain" class="method trait-impl"><a href="#method.best_chain" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.best_chain" class="fn">best_chain</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../sp_runtime/generic/header/struct.Header.html" title="struct sp_runtime::generic::header::Header">Header</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="struct" href="../../sp_runtime/traits/struct.BlakeTwo256.html" title="struct sp_runtime::traits::BlakeTwo256">BlakeTwo256</a>&gt;, <a class="enum" href="enum.Error.html" title="enum cumulus_test_client::sp_consensus::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    'life0: 'async_trait,
+    SelectRelayChain&lt;B&gt;: 'async_trait,</div></h4></section><section id="method.finality_target-1" class="method trait-impl"><a href="#method.finality_target-1" class="anchor">§</a><h4 class="code-header">fn <a href="#method.finality_target" class="fn">finality_target</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    target_hash: H256,
+    maybe_max_number: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;H256, <a class="enum" href="enum.Error.html" title="enum cumulus_test_client::sp_consensus::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    'life0: 'async_trait,
+    SelectRelayChain&lt;B&gt;: 'async_trait,</div></h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-SelectChain%3CBlock%3E-for-LongestChain%3CB,+Block%3E" class="impl"><a class="src rightside" href="../../src/sc_consensus/longest_chain.rs.html#136-139">source</a><a href="#impl-SelectChain%3CBlock%3E-for-LongestChain%3CB,+Block%3E" class="anchor">§</a><h3 class="code-header">impl&lt;B, Block&gt; <a class="trait" href="trait.SelectChain.html" title="trait cumulus_test_client::sp_consensus::SelectChain">SelectChain</a>&lt;Block&gt; for <a class="struct" href="../../sc_consensus/longest_chain/struct.LongestChain.html" title="struct sc_consensus::longest_chain::LongestChain">LongestChain</a>&lt;B, Block&gt;<div class="where">where
+    B: <a class="trait" href="../../sc_client_api/backend/trait.Backend.html" title="trait sc_client_api::backend::Backend">Backend</a>&lt;Block&gt;,
+    Block: <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">Block</a>,</div></h3></section></summary><div class="impl-items"><section id="method.leaves-1" class="method trait-impl"><a class="src rightside" href="../../src/sc_consensus/longest_chain.rs.html#135">source</a><a href="#method.leaves-1" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.leaves" class="fn">leaves</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;&lt;Block as <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>&gt;, <a class="enum" href="enum.Error.html" title="enum cumulus_test_client::sp_consensus::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    'life0: 'async_trait,
+    <a class="struct" href="../../sc_consensus/longest_chain/struct.LongestChain.html" title="struct sc_consensus::longest_chain::LongestChain">LongestChain</a>&lt;B, Block&gt;: 'async_trait,</div></h4></section><section id="method.best_chain-1" class="method trait-impl"><a class="src rightside" href="../../src/sc_consensus/longest_chain.rs.html#135">source</a><a href="#method.best_chain-1" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.best_chain" class="fn">best_chain</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;&lt;Block as <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Header" title="type sp_runtime::traits::Block::Header">Header</a>, <a class="enum" href="enum.Error.html" title="enum cumulus_test_client::sp_consensus::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    'life0: 'async_trait,
+    <a class="struct" href="../../sc_consensus/longest_chain/struct.LongestChain.html" title="struct sc_consensus::longest_chain::LongestChain">LongestChain</a>&lt;B, Block&gt;: 'async_trait,</div></h4></section><section id="method.finality_target-2" class="method trait-impl"><a class="src rightside" href="../../src/sc_consensus/longest_chain.rs.html#135">source</a><a href="#method.finality_target-2" class="anchor">§</a><h4 class="code-header">fn <a href="#method.finality_target" class="fn">finality_target</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    base_hash: &lt;Block as <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
+    maybe_max_number: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&lt;&lt;Block as <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Header" title="type sp_runtime::traits::Block::Header">Header</a> as <a class="trait" href="../../sp_runtime/traits/trait.Header.html" title="trait sp_runtime::traits::Header">Header</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.Header.html#associatedtype.Number" title="type sp_runtime::traits::Header::Number">Number</a>&gt;,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;&lt;Block as <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>, <a class="enum" href="enum.Error.html" title="enum cumulus_test_client::sp_consensus::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    'life0: 'async_trait,
+    <a class="struct" href="../../sc_consensus/longest_chain/struct.LongestChain.html" title="struct sc_consensus::longest_chain::LongestChain">LongestChain</a>&lt;B, Block&gt;: 'async_trait,</div></h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/sp_consensus/select_chain/trait.SelectChain.js" data-ignore-extern-crates="polkadot_service,sc_consensus" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

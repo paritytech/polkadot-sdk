@@ -1,0 +1,162 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Extra transaction extension data that starts with `CommonTransactionExtra`."><title>SuffixedCommonTransactionExtension in bp_polkadot_core - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="bp_polkadot_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../bp_polkadot_core/index.html">bp_polkadot_core</a><span class="version">0.7.0</span></h2></div><h2 class="location"><a href="#">SuffixedCommonTransactionExtension</a></h2><div class="sidebar-elems"><section><h3><a href="#aliased-type">Aliased type</a></h3><h3><a href="#fields">Fields</a></h3><ul class="block field"><li><a href="#structfield.payload">payload</a></li></ul><h3><a href="#trait-implementations">Trait Implementations</a></h3><ul class="block trait-implementation"><li><a href="#impl-SuffixedCommonTransactionExtensionExt%3CSuffix%3E-for-GenericTransactionExtension%3C((GenericTransactionExtensionSchema%3C(),+()%3E,+GenericTransactionExtensionSchema%3C(),+u32%3E,+GenericTransactionExtensionSchema%3C(),+u32%3E,+GenericTransactionExtensionSchema%3C(),+%3CBlakeTwo256+as+Hasher%3E::Out%3E,+GenericTransactionExtensionSchema%3CEra,+%3CBlakeTwo256+as+Hasher%3E::Out%3E,+GenericTransactionExtensionSchema%3CCompact%3Cu32%3E,+()%3E,+GenericTransactionExtensionSchema%3C(),+()%3E,+GenericTransactionExtensionSchema%3CCompact%3Cu128%3E,+()%3E),+Suffix)%3E">SuffixedCommonTransactionExtensionExt&lt;Suffix&gt;</a></li></ul></section><h2><a href="index.html">In crate bp_polkadot_core</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Type Alias <a href="index.html">bp_polkadot_core</a>::<wbr><a class="type" href="#">SuffixedCommonTransactionExtension</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/bp_polkadot_core/lib.rs.html#294-295">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub type SuffixedCommonTransactionExtension&lt;Suffix&gt; = GenericTransactionExtension&lt;(<a class="type" href="type.CommonTransactionExtra.html" title="type bp_polkadot_core::CommonTransactionExtra">CommonTransactionExtra</a>, Suffix)&gt;;</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Extra transaction extension data that starts with <code>CommonTransactionExtra</code>.</p>
+</div></details><h2 id="aliased-type" class="small-section-header">Aliased Type<a href="#aliased-type" class="anchor">§</a></h2><pre class="rust item-decl"><code>struct SuffixedCommonTransactionExtension&lt;Suffix&gt; {
+    pub payload: &lt;((GenericTransactionExtensionSchema&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>, <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;, GenericTransactionExtensionSchema&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>, <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>&gt;, GenericTransactionExtensionSchema&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>, <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>&gt;, GenericTransactionExtensionSchema&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>, &lt;<a class="struct" href="../sp_runtime/traits/struct.BlakeTwo256.html" title="struct sp_runtime::traits::BlakeTwo256">BlakeTwo256</a> as Hasher&gt;::Out&gt;, GenericTransactionExtensionSchema&lt;<a class="enum" href="../sp_runtime/generic/era/enum.Era.html" title="enum sp_runtime::generic::era::Era">Era</a>, &lt;<a class="struct" href="../sp_runtime/traits/struct.BlakeTwo256.html" title="struct sp_runtime::traits::BlakeTwo256">BlakeTwo256</a> as Hasher&gt;::Out&gt;, GenericTransactionExtensionSchema&lt;Compact&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>&gt;, <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;, GenericTransactionExtensionSchema&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>, <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;, GenericTransactionExtensionSchema&lt;Compact&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u128.html">u128</a>&gt;, <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;), Suffix) as TransactionExtensionSchema&gt;::Payload,
+    /* private fields */
+}</code></pre><h2 id="fields" class="fields small-section-header">Fields<a href="#fields" class="anchor">§</a></h2><span id="structfield.payload" class="structfield small-section-header"><a href="#structfield.payload" class="anchor field">§</a><code>payload: &lt;((GenericTransactionExtensionSchema&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>, <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;, GenericTransactionExtensionSchema&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>, <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>&gt;, GenericTransactionExtensionSchema&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>, <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>&gt;, GenericTransactionExtensionSchema&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>, &lt;<a class="struct" href="../sp_runtime/traits/struct.BlakeTwo256.html" title="struct sp_runtime::traits::BlakeTwo256">BlakeTwo256</a> as Hasher&gt;::Out&gt;, GenericTransactionExtensionSchema&lt;<a class="enum" href="../sp_runtime/generic/era/enum.Era.html" title="enum sp_runtime::generic::era::Era">Era</a>, &lt;<a class="struct" href="../sp_runtime/traits/struct.BlakeTwo256.html" title="struct sp_runtime::traits::BlakeTwo256">BlakeTwo256</a> as Hasher&gt;::Out&gt;, GenericTransactionExtensionSchema&lt;Compact&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>&gt;, <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;, GenericTransactionExtensionSchema&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>, <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;, GenericTransactionExtensionSchema&lt;Compact&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u128.html">u128</a>&gt;, <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;), Suffix) as TransactionExtensionSchema&gt;::Payload</code></span><div class="docblock"><p>A payload that is included in the transaction.</p>
+</div><h2 id="trait-implementations" class="small-section-header">Trait Implementations<a href="#trait-implementations" class="anchor">§</a></h2><div id="trait-implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-SuffixedCommonTransactionExtensionExt%3CSuffix%3E-for-GenericTransactionExtension%3C((GenericTransactionExtensionSchema%3C(),+()%3E,+GenericTransactionExtensionSchema%3C(),+u32%3E,+GenericTransactionExtensionSchema%3C(),+u32%3E,+GenericTransactionExtensionSchema%3C(),+%3CBlakeTwo256+as+Hasher%3E::Out%3E,+GenericTransactionExtensionSchema%3CEra,+%3CBlakeTwo256+as+Hasher%3E::Out%3E,+GenericTransactionExtensionSchema%3CCompact%3Cu32%3E,+()%3E,+GenericTransactionExtensionSchema%3C(),+()%3E,+GenericTransactionExtensionSchema%3CCompact%3Cu128%3E,+()%3E),+Suffix)%3E" class="impl"><a class="src rightside" href="../src/bp_polkadot_core/lib.rs.html#317-370">source</a><a href="#impl-SuffixedCommonTransactionExtensionExt%3CSuffix%3E-for-GenericTransactionExtension%3C((GenericTransactionExtensionSchema%3C(),+()%3E,+GenericTransactionExtensionSchema%3C(),+u32%3E,+GenericTransactionExtensionSchema%3C(),+u32%3E,+GenericTransactionExtensionSchema%3C(),+%3CBlakeTwo256+as+Hasher%3E::Out%3E,+GenericTransactionExtensionSchema%3CEra,+%3CBlakeTwo256+as+Hasher%3E::Out%3E,+GenericTransactionExtensionSchema%3CCompact%3Cu32%3E,+()%3E,+GenericTransactionExtensionSchema%3C(),+()%3E,+GenericTransactionExtensionSchema%3CCompact%3Cu128%3E,+()%3E),+Suffix)%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Suffix&gt; <a class="trait" href="trait.SuffixedCommonTransactionExtensionExt.html" title="trait bp_polkadot_core::SuffixedCommonTransactionExtensionExt">SuffixedCommonTransactionExtensionExt</a>&lt;Suffix&gt; for <a class="type" href="type.SuffixedCommonTransactionExtension.html" title="type bp_polkadot_core::SuffixedCommonTransactionExtension">SuffixedCommonTransactionExtension</a>&lt;Suffix&gt;<span class="where fmt-newline">where
+    Suffix: TransactionExtensionSchema,</span></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.from_params" class="method trait-impl"><a class="src rightside" href="../src/bp_polkadot_core/lib.rs.html#322-359">source</a><a href="#method.from_params" class="anchor">§</a><h4 class="code-header">fn <a href="trait.SuffixedCommonTransactionExtensionExt.html#tymethod.from_params" class="fn">from_params</a>(
+    spec_version: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>,
+    transaction_version: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>,
+    era: TransactionEra&lt;<a class="type" href="type.BlockNumber.html" title="type bp_polkadot_core::BlockNumber">BlockNumber</a>, <a class="type" href="type.Hash.html" title="type bp_polkadot_core::Hash">Hash</a>&gt;,
+    genesis_hash: <a class="type" href="type.Hash.html" title="type bp_polkadot_core::Hash">Hash</a>,
+    nonce: <a class="type" href="type.Nonce.html" title="type bp_polkadot_core::Nonce">Nonce</a>,
+    tip: <a class="type" href="type.Balance.html" title="type bp_polkadot_core::Balance">Balance</a>,
+    extra: (Suffix::Payload, Suffix::Implicit)
+) -&gt; Self</h4></section></summary><div class='docblock'>Create signed extension from its components.</div></details><details class="toggle method-toggle" open><summary><section id="method.nonce" class="method trait-impl"><a class="src rightside" href="../src/bp_polkadot_core/lib.rs.html#361-364">source</a><a href="#method.nonce" class="anchor">§</a><h4 class="code-header">fn <a href="trait.SuffixedCommonTransactionExtensionExt.html#tymethod.nonce" class="fn">nonce</a>(&amp;self) -&gt; <a class="type" href="type.Nonce.html" title="type bp_polkadot_core::Nonce">Nonce</a></h4></section></summary><div class='docblock'>Return transaction nonce.</div></details><details class="toggle method-toggle" open><summary><section id="method.tip" class="method trait-impl"><a class="src rightside" href="../src/bp_polkadot_core/lib.rs.html#366-369">source</a><a href="#method.tip" class="anchor">§</a><h4 class="code-header">fn <a href="trait.SuffixedCommonTransactionExtensionExt.html#tymethod.tip" class="fn">tip</a>(&amp;self) -&gt; <a class="type" href="type.Balance.html" title="type bp_polkadot_core::Balance">Balance</a></h4></section></summary><div class='docblock'>Return transaction tip.</div></details></div></details></div><script src="../type.impl/bp_runtime/extensions/struct.GenericTransactionExtension.js" data-self-path="bp_polkadot_core::SuffixedCommonTransactionExtension" async></script></section></div></main></body></html>

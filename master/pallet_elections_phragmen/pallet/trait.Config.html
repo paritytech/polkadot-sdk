@@ -1,0 +1,208 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Configuration trait of this pallet."><title>Config in pallet_elections_phragmen::pallet - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_elections_phragmen" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_elections_phragmen/index.html">pallet_elections_phragmen</a><span class="version">29.0.0</span></h2></div><h2 class="location"><a href="#">Config</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.CandidacyBond">CandidacyBond</a></li><li><a href="#associatedtype.ChangeMembers">ChangeMembers</a></li><li><a href="#associatedtype.Currency">Currency</a></li><li><a href="#associatedtype.CurrencyToVote">CurrencyToVote</a></li><li><a href="#associatedtype.DesiredMembers">DesiredMembers</a></li><li><a href="#associatedtype.DesiredRunnersUp">DesiredRunnersUp</a></li><li><a href="#associatedtype.InitializeMembers">InitializeMembers</a></li><li><a href="#associatedtype.KickedMember">KickedMember</a></li><li><a href="#associatedtype.LoserCandidate">LoserCandidate</a></li><li><a href="#associatedtype.MaxCandidates">MaxCandidates</a></li><li><a href="#associatedtype.MaxVoters">MaxVoters</a></li><li><a href="#associatedtype.MaxVotesPerVoter">MaxVotesPerVoter</a></li><li><a href="#associatedtype.PalletId">PalletId</a></li><li><a href="#associatedtype.RuntimeEvent">RuntimeEvent</a></li><li><a href="#associatedtype.TermDuration">TermDuration</a></li><li><a href="#associatedtype.VotingBondBase">VotingBondBase</a></li><li><a href="#associatedtype.VotingBondFactor">VotingBondFactor</a></li><li><a href="#associatedtype.WeightInfo">WeightInfo</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In pallet_elections_phragmen::pallet</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">pallet_elections_phragmen</a>::<wbr><a href="index.html">pallet</a>::<wbr><a class="trait" href="#">Config</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/pallet_elections_phragmen/lib.rs.html#203-286">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Config: Config {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 18 associated items</span></summary>    type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Event.html" title="enum pallet_elections_phragmen::pallet::Event">Event</a>&lt;Self&gt;&gt; + IsType&lt;&lt;Self as Config&gt;::RuntimeEvent&gt;;
+    type <a href="#associatedtype.PalletId" class="associatedtype">PalletId</a>: Get&lt;LockIdentifier&gt;;
+    type <a href="#associatedtype.Currency" class="associatedtype">Currency</a>: LockableCurrency&lt;Self::AccountId, Moment = BlockNumberFor&lt;Self&gt;&gt; + ReservableCurrency&lt;Self::AccountId&gt;;
+    type <a href="#associatedtype.ChangeMembers" class="associatedtype">ChangeMembers</a>: ChangeMembers&lt;Self::AccountId&gt;;
+    type <a href="#associatedtype.InitializeMembers" class="associatedtype">InitializeMembers</a>: InitializeMembers&lt;Self::AccountId&gt;;
+    type <a href="#associatedtype.CurrencyToVote" class="associatedtype">CurrencyToVote</a>: CurrencyToVote&lt;&lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait pallet_elections_phragmen::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type pallet_elections_phragmen::pallet::Config::Currency">Currency</a> as Currency&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::Balance&gt;;
+    type <a href="#associatedtype.CandidacyBond" class="associatedtype">CandidacyBond</a>: Get&lt;&lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait pallet_elections_phragmen::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type pallet_elections_phragmen::pallet::Config::Currency">Currency</a> as Currency&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::Balance&gt;;
+    type <a href="#associatedtype.VotingBondBase" class="associatedtype">VotingBondBase</a>: Get&lt;&lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait pallet_elections_phragmen::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type pallet_elections_phragmen::pallet::Config::Currency">Currency</a> as Currency&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::Balance&gt;;
+    type <a href="#associatedtype.VotingBondFactor" class="associatedtype">VotingBondFactor</a>: Get&lt;&lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait pallet_elections_phragmen::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type pallet_elections_phragmen::pallet::Config::Currency">Currency</a> as Currency&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::Balance&gt;;
+    type <a href="#associatedtype.LoserCandidate" class="associatedtype">LoserCandidate</a>: OnUnbalanced&lt;&lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait pallet_elections_phragmen::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type pallet_elections_phragmen::pallet::Config::Currency">Currency</a> as Currency&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::NegativeImbalance&gt;;
+    type <a href="#associatedtype.KickedMember" class="associatedtype">KickedMember</a>: OnUnbalanced&lt;&lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait pallet_elections_phragmen::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type pallet_elections_phragmen::pallet::Config::Currency">Currency</a> as Currency&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::NegativeImbalance&gt;;
+    type <a href="#associatedtype.DesiredMembers" class="associatedtype">DesiredMembers</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.DesiredRunnersUp" class="associatedtype">DesiredRunnersUp</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.TermDuration" class="associatedtype">TermDuration</a>: Get&lt;BlockNumberFor&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.MaxCandidates" class="associatedtype">MaxCandidates</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.MaxVoters" class="associatedtype">MaxVoters</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.MaxVotesPerVoter" class="associatedtype">MaxVotesPerVoter</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="../weights/trait.WeightInfo.html" title="trait pallet_elections_phragmen::weights::WeightInfo">WeightInfo</a>;
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Configuration trait of this pallet.</p>
+<p>The main purpose of this trait is to act as an interface between this pallet and the runtime in
+which it is embedded in. A type, function, or constant in this trait is essentially left to be
+configured by the runtime that includes this pallet.</p>
+<p>Consequently, a runtime that wants to include this pallet must implement this trait.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><section id="associatedtype.RuntimeEvent" class="method"><a class="src rightside" href="../../src/pallet_elections_phragmen/lib.rs.html#204">source</a><h4 class="code-header">type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Event.html" title="enum pallet_elections_phragmen::pallet::Event">Event</a>&lt;Self&gt;&gt; + IsType&lt;&lt;Self as Config&gt;::RuntimeEvent&gt;</h4></section><details class="toggle" open><summary><section id="associatedtype.PalletId" class="method"><a class="src rightside" href="../../src/pallet_elections_phragmen/lib.rs.html#208">source</a><h4 class="code-header">type <a href="#associatedtype.PalletId" class="associatedtype">PalletId</a>: Get&lt;LockIdentifier&gt;</h4></section></summary><div class="docblock"><p>Identifier for the elections-phragmen pallet’s lock</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Currency" class="method"><a class="src rightside" href="../../src/pallet_elections_phragmen/lib.rs.html#211-212">source</a><h4 class="code-header">type <a href="#associatedtype.Currency" class="associatedtype">Currency</a>: LockableCurrency&lt;Self::AccountId, Moment = BlockNumberFor&lt;Self&gt;&gt; + ReservableCurrency&lt;Self::AccountId&gt;</h4></section></summary><div class="docblock"><p>The currency that people are electing with.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.ChangeMembers" class="method"><a class="src rightside" href="../../src/pallet_elections_phragmen/lib.rs.html#215">source</a><h4 class="code-header">type <a href="#associatedtype.ChangeMembers" class="associatedtype">ChangeMembers</a>: ChangeMembers&lt;Self::AccountId&gt;</h4></section></summary><div class="docblock"><p>What to do when the members change.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.InitializeMembers" class="method"><a class="src rightside" href="../../src/pallet_elections_phragmen/lib.rs.html#218">source</a><h4 class="code-header">type <a href="#associatedtype.InitializeMembers" class="associatedtype">InitializeMembers</a>: InitializeMembers&lt;Self::AccountId&gt;</h4></section></summary><div class="docblock"><p>What to do with genesis members</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.CurrencyToVote" class="method"><a class="src rightside" href="../../src/pallet_elections_phragmen/lib.rs.html#222">source</a><h4 class="code-header">type <a href="#associatedtype.CurrencyToVote" class="associatedtype">CurrencyToVote</a>: CurrencyToVote&lt;&lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait pallet_elections_phragmen::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type pallet_elections_phragmen::pallet::Config::Currency">Currency</a> as Currency&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::Balance&gt;</h4></section></summary><div class="docblock"><p>Convert a balance into a number used for election calculation.
+This must fit into a <code>u64</code> but is allowed to be sensibly lossy.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.CandidacyBond" class="method"><a class="src rightside" href="../../src/pallet_elections_phragmen/lib.rs.html#226">source</a><h4 class="code-header">type <a href="#associatedtype.CandidacyBond" class="associatedtype">CandidacyBond</a>: Get&lt;&lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait pallet_elections_phragmen::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type pallet_elections_phragmen::pallet::Config::Currency">Currency</a> as Currency&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::Balance&gt;</h4></section></summary><div class="docblock"><p>How much should be locked up in order to submit one’s candidacy.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.VotingBondBase" class="method"><a class="src rightside" href="../../src/pallet_elections_phragmen/lib.rs.html#233">source</a><h4 class="code-header">type <a href="#associatedtype.VotingBondBase" class="associatedtype">VotingBondBase</a>: Get&lt;&lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait pallet_elections_phragmen::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type pallet_elections_phragmen::pallet::Config::Currency">Currency</a> as Currency&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::Balance&gt;</h4></section></summary><div class="docblock"><p>Base deposit associated with voting.</p>
+<p>This should be sensibly high to economically ensure the pallet cannot be attacked by
+creating a gigantic number of votes.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.VotingBondFactor" class="method"><a class="src rightside" href="../../src/pallet_elections_phragmen/lib.rs.html#237">source</a><h4 class="code-header">type <a href="#associatedtype.VotingBondFactor" class="associatedtype">VotingBondFactor</a>: Get&lt;&lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait pallet_elections_phragmen::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type pallet_elections_phragmen::pallet::Config::Currency">Currency</a> as Currency&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::Balance&gt;</h4></section></summary><div class="docblock"><p>The amount of bond that need to be locked for each vote (32 bytes).</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.LoserCandidate" class="method"><a class="src rightside" href="../../src/pallet_elections_phragmen/lib.rs.html#240">source</a><h4 class="code-header">type <a href="#associatedtype.LoserCandidate" class="associatedtype">LoserCandidate</a>: OnUnbalanced&lt;&lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait pallet_elections_phragmen::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type pallet_elections_phragmen::pallet::Config::Currency">Currency</a> as Currency&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::NegativeImbalance&gt;</h4></section></summary><div class="docblock"><p>Handler for the unbalanced reduction when a candidate has lost (and is not a runner-up)</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.KickedMember" class="method"><a class="src rightside" href="../../src/pallet_elections_phragmen/lib.rs.html#243">source</a><h4 class="code-header">type <a href="#associatedtype.KickedMember" class="associatedtype">KickedMember</a>: OnUnbalanced&lt;&lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait pallet_elections_phragmen::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type pallet_elections_phragmen::pallet::Config::Currency">Currency</a> as Currency&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::NegativeImbalance&gt;</h4></section></summary><div class="docblock"><p>Handler for the unbalanced reduction when a member has been kicked.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.DesiredMembers" class="method"><a class="src rightside" href="../../src/pallet_elections_phragmen/lib.rs.html#247">source</a><h4 class="code-header">type <a href="#associatedtype.DesiredMembers" class="associatedtype">DesiredMembers</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>Number of members to elect.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.DesiredRunnersUp" class="method"><a class="src rightside" href="../../src/pallet_elections_phragmen/lib.rs.html#251">source</a><h4 class="code-header">type <a href="#associatedtype.DesiredRunnersUp" class="associatedtype">DesiredRunnersUp</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>Number of runners_up to keep.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.TermDuration" class="method"><a class="src rightside" href="../../src/pallet_elections_phragmen/lib.rs.html#257">source</a><h4 class="code-header">type <a href="#associatedtype.TermDuration" class="associatedtype">TermDuration</a>: Get&lt;BlockNumberFor&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>How long each seat is kept. This defines the next block number at which an election
+round will happen. If set to zero, no elections are ever triggered and the module will
+be in passive mode.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxCandidates" class="method"><a class="src rightside" href="../../src/pallet_elections_phragmen/lib.rs.html#266">source</a><h4 class="code-header">type <a href="#associatedtype.MaxCandidates" class="associatedtype">MaxCandidates</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>The maximum number of candidates in a phragmen election.</p>
+<p>Warning: This impacts the size of the election which is run onchain. Chose wisely, and
+consider how it will impact <code>T::WeightInfo::election_phragmen</code>.</p>
+<p>When this limit is reached no more candidates are accepted in the election.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxVoters" class="method"><a class="src rightside" href="../../src/pallet_elections_phragmen/lib.rs.html#275">source</a><h4 class="code-header">type <a href="#associatedtype.MaxVoters" class="associatedtype">MaxVoters</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>The maximum number of voters to allow in a phragmen election.</p>
+<p>Warning: This impacts the size of the election which is run onchain. Chose wisely, and
+consider how it will impact <code>T::WeightInfo::election_phragmen</code>.</p>
+<p>When the limit is reached the new voters are ignored.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxVotesPerVoter" class="method"><a class="src rightside" href="../../src/pallet_elections_phragmen/lib.rs.html#282">source</a><h4 class="code-header">type <a href="#associatedtype.MaxVotesPerVoter" class="associatedtype">MaxVotesPerVoter</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>Maximum numbers of votes per voter.</p>
+<p>Warning: This impacts the size of the election which is run onchain. Chose wisely, and
+consider how it will impact <code>T::WeightInfo::election_phragmen</code>.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.WeightInfo" class="method"><a class="src rightside" href="../../src/pallet_elections_phragmen/lib.rs.html#285">source</a><h4 class="code-header">type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="../weights/trait.WeightInfo.html" title="trait pallet_elections_phragmen::weights::WeightInfo">WeightInfo</a></h4></section></summary><div class="docblock"><p>Weight information for extrinsics in this pallet.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/pallet_elections_phragmen/pallet/trait.Config.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

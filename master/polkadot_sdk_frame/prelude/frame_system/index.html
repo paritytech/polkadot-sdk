@@ -1,0 +1,237 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="`frame_system`’s parent crate, which is mandatory in all pallets build with this crate."><title>polkadot_sdk_frame::prelude::frame_system - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_frame" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../crates.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../polkadot_sdk_frame/index.html">polkadot_sdk_frame</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section><h2><a href="../index.html">In polkadot_sdk_frame::prelude</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a href="../../index.html">polkadot_sdk_frame</a>::<wbr><a href="../index.html">prelude</a>::<wbr><a class="mod" href="#">frame_system</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p><code>frame_system</code>’s parent crate, which is mandatory in all pallets build with this crate.</p>
+<p>Conveniently, the keyword <code>frame_system</code> is in scope as one uses <code>use polkadot_sdk_frame::prelude::*</code></p>
+<h2 id="system-pallet"><a class="doc-anchor" href="#system-pallet">§</a>System Pallet</h2>
+<p>The System pallet provides low-level access to core types and cross-cutting utilities. It acts
+as the base layer for other pallets to interact with the Substrate framework components.</p>
+<ul>
+<li><a href="trait.Config.html" title="trait polkadot_sdk_frame::prelude::frame_system::Config"><code>Config</code></a></li>
+</ul>
+<h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3>
+<p>The System pallet defines the core data types used in a Substrate runtime. It also provides
+several utility functions (see <a href="struct.Pallet.html" title="struct polkadot_sdk_frame::prelude::frame_system::Pallet"><code>Pallet</code></a>) for other FRAME pallets.</p>
+<p>In addition, it manages the storage items for extrinsic data, indices, event records, and digest
+items, among other things that support the execution of the current block.</p>
+<p>It also handles low-level tasks like depositing logs, basic set up and take down of temporary
+storage entries, and access to previous block hashes.</p>
+<h3 id="interface"><a class="doc-anchor" href="#interface">§</a>Interface</h3><h4 id="dispatchable-functions"><a class="doc-anchor" href="#dispatchable-functions">§</a>Dispatchable Functions</h4>
+<p>The System pallet provides dispatchable functions that, with the exception of <code>remark</code>, manage
+low-level or privileged functionality of a Substrate-based runtime.</p>
+<ul>
+<li><code>remark</code>: Make some on-chain remark.</li>
+<li><code>set_heap_pages</code>: Set the number of pages in the WebAssembly environment’s heap.</li>
+<li><code>set_code</code>: Set the new runtime code.</li>
+<li><code>set_code_without_checks</code>: Set the new runtime code without any checks.</li>
+<li><code>set_storage</code>: Set some items of storage.</li>
+<li><code>kill_storage</code>: Kill some items from storage.</li>
+<li><code>kill_prefix</code>: Kill all storage items with a key that starts with the given prefix.</li>
+<li><code>remark_with_event</code>: Make some on-chain remark and emit an event.</li>
+<li><code>do_task</code>: Do some specified task.</li>
+<li><code>authorize_upgrade</code>: Authorize new runtime code.</li>
+<li><code>authorize_upgrade_without_checks</code>: Authorize new runtime code and an upgrade sans
+verification.</li>
+<li><code>apply_authorized_upgrade</code>: Provide new, already-authorized runtime code.</li>
+</ul>
+<h5 id="a-note-on-upgrades"><a class="doc-anchor" href="#a-note-on-upgrades">§</a>A Note on Upgrades</h5>
+<p>The pallet provides two primary means of upgrading the runtime, a single-phase means using
+<code>set_code</code> and a two-phase means using <code>authorize_upgrade</code> followed by
+<code>apply_authorized_upgrade</code>. The first will directly attempt to apply the provided <code>code</code>
+(application may have to be scheduled, depending on the context and implementation of the
+<code>OnSetCode</code> trait).</p>
+<p>The <code>authorize_upgrade</code> route allows the authorization of a runtime’s code hash. Once
+authorized, anyone may upload the correct runtime to apply the code. This pattern is useful when
+providing the runtime ahead of time may be unwieldy, for example when a large preimage (the
+code) would need to be stored on-chain or sent over a message transport protocol such as a
+bridge.</p>
+<p>The <code>*_without_checks</code> variants do not perform any version checks, so using them runs the risk
+of applying a downgrade or entirely other chain specification. They will still validate that the
+<code>code</code> meets the authorized hash.</p>
+<h4 id="public-functions"><a class="doc-anchor" href="#public-functions">§</a>Public Functions</h4>
+<p>See the <a href="struct.Pallet.html" title="struct polkadot_sdk_frame::prelude::frame_system::Pallet"><code>Pallet</code></a> struct for details of publicly available functions.</p>
+<h4 id="signed-extensions"><a class="doc-anchor" href="#signed-extensions">§</a>Signed Extensions</h4>
+<p>The System pallet defines the following extensions:</p>
+<ul>
+<li><a href="struct.CheckWeight.html" title="struct polkadot_sdk_frame::prelude::frame_system::CheckWeight"><code>CheckWeight</code></a>: Checks the weight and length of the block and ensure that it does not
+exceed the limits.</li>
+<li><a href="struct.CheckNonce.html" title="struct polkadot_sdk_frame::prelude::frame_system::CheckNonce"><code>CheckNonce</code></a>: Checks the nonce of the transaction. Contains a single payload of type
+<code>T::Nonce</code>.</li>
+<li><a href="struct.CheckEra.html" title="struct polkadot_sdk_frame::prelude::frame_system::CheckEra"><code>CheckEra</code></a>: Checks the era of the transaction. Contains a single payload of type <code>Era</code>.</li>
+<li><a href="struct.CheckGenesis.html" title="struct polkadot_sdk_frame::prelude::frame_system::CheckGenesis"><code>CheckGenesis</code></a>: Checks the provided genesis hash of the transaction. Must be a part of the
+signed payload of the transaction.</li>
+<li><a href="struct.CheckSpecVersion.html" title="struct polkadot_sdk_frame::prelude::frame_system::CheckSpecVersion"><code>CheckSpecVersion</code></a>: Checks that the runtime version is the same as the one used to sign
+the transaction.</li>
+<li><a href="struct.CheckTxVersion.html" title="struct polkadot_sdk_frame::prelude::frame_system::CheckTxVersion"><code>CheckTxVersion</code></a>: Checks that the transaction version is the same as the one used to sign
+the transaction.</li>
+</ul>
+<p>Look up the runtime aggregator file (e.g. <code>node/runtime</code>) to see the full list of signed
+extensions included in a chain.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="limits/index.html" title="mod polkadot_sdk_frame::prelude::frame_system::limits">limits</a></div><div class="desc docblock-short">Block resource limits configuration structures.</div></li><li><div class="item-name"><a class="mod" href="migrations/index.html" title="mod polkadot_sdk_frame::prelude::frame_system::migrations">migrations</a></div><div class="desc docblock-short">Migrate the reference counting state.</div></li><li><div class="item-name"><a class="mod" href="mocking/index.html" title="mod polkadot_sdk_frame::prelude::frame_system::mocking">mocking</a></div><div class="desc docblock-short">Provide types to help defining a mock environment when testing pallets.</div></li><li><div class="item-name"><a class="mod" href="offchain/index.html" title="mod polkadot_sdk_frame::prelude::frame_system::offchain">offchain</a></div><div class="desc docblock-short">Module helpers for off-chain calls.</div></li><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod polkadot_sdk_frame::prelude::frame_system::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="pallet_prelude/index.html" title="mod polkadot_sdk_frame::prelude::frame_system::pallet_prelude">pallet_prelude</a></div><div class="desc docblock-short">Prelude to be used alongside pallet macro, for ease of use.</div></li><li><div class="item-name"><a class="mod" href="weights/index.html" title="mod polkadot_sdk_frame::prelude::frame_system::weights">weights</a></div><div class="desc docblock-short">Autogenerated weights for <code>frame_system</code></div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.AccountInfo.html" title="struct polkadot_sdk_frame::prelude::frame_system::AccountInfo">AccountInfo</a></div><div class="desc docblock-short">Information of an account.</div></li><li><div class="item-name"><a class="struct" href="struct.ChainContext.html" title="struct polkadot_sdk_frame::prelude::frame_system::ChainContext">ChainContext</a></div></li><li><div class="item-name"><a class="struct" href="struct.CheckEra.html" title="struct polkadot_sdk_frame::prelude::frame_system::CheckEra">CheckEra</a></div><div class="desc docblock-short">Check for transaction mortality.</div></li><li><div class="item-name"><a class="struct" href="struct.CheckGenesis.html" title="struct polkadot_sdk_frame::prelude::frame_system::CheckGenesis">CheckGenesis</a></div><div class="desc docblock-short">Genesis hash check to provide replay protection between different networks.</div></li><li><div class="item-name"><a class="struct" href="struct.CheckMortality.html" title="struct polkadot_sdk_frame::prelude::frame_system::CheckMortality">CheckMortality</a></div><div class="desc docblock-short">Check for transaction mortality.</div></li><li><div class="item-name"><a class="struct" href="struct.CheckNonZeroSender.html" title="struct polkadot_sdk_frame::prelude::frame_system::CheckNonZeroSender">CheckNonZeroSender</a></div><div class="desc docblock-short">Check to ensure that the sender is not the zero address.</div></li><li><div class="item-name"><a class="struct" href="struct.CheckNonce.html" title="struct polkadot_sdk_frame::prelude::frame_system::CheckNonce">CheckNonce</a></div><div class="desc docblock-short">Nonce check and increment to give replay protection for transactions.</div></li><li><div class="item-name"><a class="struct" href="struct.CheckSpecVersion.html" title="struct polkadot_sdk_frame::prelude::frame_system::CheckSpecVersion">CheckSpecVersion</a></div><div class="desc docblock-short">Ensure the runtime version registered in the transaction is the same as at present.</div></li><li><div class="item-name"><a class="struct" href="struct.CheckTxVersion.html" title="struct polkadot_sdk_frame::prelude::frame_system::CheckTxVersion">CheckTxVersion</a></div><div class="desc docblock-short">Ensure the transaction version registered in the transaction is the same as at present.</div></li><li><div class="item-name"><a class="struct" href="struct.CheckWeight.html" title="struct polkadot_sdk_frame::prelude::frame_system::CheckWeight">CheckWeight</a></div><div class="desc docblock-short">Block resource (weight) limit check.</div></li><li><div class="item-name"><a class="struct" href="struct.CodeUpgradeAuthorization.html" title="struct polkadot_sdk_frame::prelude::frame_system::CodeUpgradeAuthorization">CodeUpgradeAuthorization</a></div><div class="desc docblock-short">Information needed when a new runtime binary is submitted and needs to be authorized before
+replacing the current runtime.</div></li><li><div class="item-name"><a class="struct" href="struct.Consumer.html" title="struct polkadot_sdk_frame::prelude::frame_system::Consumer">Consumer</a></div><div class="desc docblock-short">Event handler which registers a consumer when created.</div></li><li><div class="item-name"><a class="struct" href="struct.DispatchEventInfo.html" title="struct polkadot_sdk_frame::prelude::frame_system::DispatchEventInfo">DispatchEventInfo</a></div><div class="desc docblock-short">Information about the dispatch of a call, to be displayed in the
+<a href="enum.Event.html#variant.ExtrinsicSuccess" title="variant polkadot_sdk_frame::prelude::frame_system::Event::ExtrinsicSuccess"><code>ExtrinsicSuccess</code></a> and <a href="enum.Event.html#variant.ExtrinsicFailed" title="variant polkadot_sdk_frame::prelude::frame_system::Event::ExtrinsicFailed"><code>ExtrinsicFailed</code></a>
+events.</div></li><li><div class="item-name"><a class="struct" href="struct.EnsureNever.html" title="struct polkadot_sdk_frame::prelude::frame_system::EnsureNever">EnsureNever</a></div><div class="desc docblock-short">Always fail.</div></li><li><div class="item-name"><a class="struct" href="struct.EnsureNone.html" title="struct polkadot_sdk_frame::prelude::frame_system::EnsureNone">EnsureNone</a></div><div class="desc docblock-short">Ensure the origin is <code>None</code>. i.e. unsigned transaction.</div></li><li><div class="item-name"><a class="struct" href="struct.EnsureRoot.html" title="struct polkadot_sdk_frame::prelude::frame_system::EnsureRoot">EnsureRoot</a></div><div class="desc docblock-short">Ensure the origin is Root.</div></li><li><div class="item-name"><a class="struct" href="struct.EnsureRootWithSuccess.html" title="struct polkadot_sdk_frame::prelude::frame_system::EnsureRootWithSuccess">EnsureRootWithSuccess</a></div><div class="desc docblock-short">Ensure the origin is Root and return the provided <code>Success</code> value.</div></li><li><div class="item-name"><a class="struct" href="struct.EnsureSigned.html" title="struct polkadot_sdk_frame::prelude::frame_system::EnsureSigned">EnsureSigned</a></div><div class="desc docblock-short">Ensure the origin is any <code>Signed</code> origin.</div></li><li><div class="item-name"><a class="struct" href="struct.EnsureSignedBy.html" title="struct polkadot_sdk_frame::prelude::frame_system::EnsureSignedBy">EnsureSignedBy</a></div><div class="desc docblock-short">Ensure the origin is <code>Signed</code> origin from the given <code>AccountId</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.EnsureWithSuccess.html" title="struct polkadot_sdk_frame::prelude::frame_system::EnsureWithSuccess">EnsureWithSuccess</a></div><div class="desc docblock-short">Ensure the origin is provided <code>Ensure</code> origin and return the provided <code>Success</code> value.</div></li><li><div class="item-name"><a class="struct" href="struct.EventRecord.html" title="struct polkadot_sdk_frame::prelude::frame_system::EventRecord">EventRecord</a></div><div class="desc docblock-short">Record of an event happening.</div></li><li><div class="item-name"><a class="struct" href="struct.GenesisConfig.html" title="struct polkadot_sdk_frame::prelude::frame_system::GenesisConfig">GenesisConfig</a></div><div class="desc docblock-short">Can be used to configure the
+<a href="https://docs.substrate.io/build/genesis-configuration/">genesis state</a>
+of this pallet.</div></li><li><div class="item-name"><a class="struct" href="struct.LastRuntimeUpgradeInfo.html" title="struct polkadot_sdk_frame::prelude::frame_system::LastRuntimeUpgradeInfo">LastRuntimeUpgradeInfo</a></div><div class="desc docblock-short">Stores the <code>spec_version</code> and <code>spec_name</code> of when the last runtime upgrade
+happened.</div></li><li><div class="item-name"><a class="struct" href="struct.Pallet.html" title="struct polkadot_sdk_frame::prelude::frame_system::Pallet">Pallet</a></div><div class="desc docblock-short">The <code>Pallet</code> struct, the main type that implements traits and standalone
+functions within the pallet.</div></li><li><div class="item-name"><a class="struct" href="struct.Provider.html" title="struct polkadot_sdk_frame::prelude::frame_system::Provider">Provider</a></div><div class="desc docblock-short">Event handler which registers a provider when created.</div></li><li><div class="item-name"><a class="struct" href="struct.SelfSufficient.html" title="struct polkadot_sdk_frame::prelude::frame_system::SelfSufficient">SelfSufficient</a></div><div class="desc docblock-short">Event handler which registers a self-sufficient when created.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.Call.html" title="enum polkadot_sdk_frame::prelude::frame_system::Call">Call</a></div><div class="desc docblock-short">Contains a variant per dispatchable extrinsic that this pallet has.</div></li><li><div class="item-name"><a class="enum" href="enum.DecRefStatus.html" title="enum polkadot_sdk_frame::prelude::frame_system::DecRefStatus">DecRefStatus</a></div><div class="desc docblock-short">Some resultant status relevant to decrementing a provider/self-sufficient reference.</div></li><li><div class="item-name"><a class="enum" href="enum.Error.html" title="enum polkadot_sdk_frame::prelude::frame_system::Error">Error</a></div><div class="desc docblock-short">Error for the System pallet</div></li><li><div class="item-name"><a class="enum" href="enum.Event.html" title="enum polkadot_sdk_frame::prelude::frame_system::Event">Event</a></div><div class="desc docblock-short">Event for the System pallet.</div></li><li><div class="item-name"><a class="enum" href="enum.IncRefStatus.html" title="enum polkadot_sdk_frame::prelude::frame_system::IncRefStatus">IncRefStatus</a></div><div class="desc docblock-short">Some resultant status relevant to incrementing a provider/self-sufficient reference.</div></li><li><div class="item-name"><a class="enum" href="enum.Phase.html" title="enum polkadot_sdk_frame::prelude::frame_system::Phase">Phase</a></div><div class="desc docblock-short">A phase of a block’s execution.</div></li><li><div class="item-name"><a class="enum" href="enum.RawOrigin.html" title="enum polkadot_sdk_frame::prelude::frame_system::RawOrigin">RawOrigin</a></div><div class="desc docblock-short">Origin for the System pallet.</div></li><li><div class="item-name"><a class="enum" href="enum.RefStatus.html" title="enum polkadot_sdk_frame::prelude::frame_system::RefStatus">RefStatus</a></div><div class="desc docblock-short">Reference status; can be either referenced or unreferenced.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Config.html" title="trait polkadot_sdk_frame::prelude::frame_system::Config">Config</a></div><div class="desc docblock-short">Configuration trait of this pallet.</div></li><li><div class="item-name"><a class="trait" href="trait.ConsumerLimits.html" title="trait polkadot_sdk_frame::prelude::frame_system::ConsumerLimits">ConsumerLimits</a></div><div class="desc docblock-short">Numeric limits over the ability to add a consumer ref using <code>inc_consumers</code>.</div></li><li><div class="item-name"><a class="trait" href="trait.DefaultConfig.html" title="trait polkadot_sdk_frame::prelude::frame_system::DefaultConfig">DefaultConfig</a></div><div class="desc docblock-short">Based on <a href="trait.Config.html" title="trait polkadot_sdk_frame::prelude::frame_system::Config"><code>Config</code></a>. Auto-generated by
+<a href="../../../frame_support_procedural/attr.config.html" title="attr frame_support_procedural::config"><code>#[pallet::config(with_default)]</code></a>.
+Can be used in tandem with
+<a href="%60frame_support::register_default_config%60"><code>#[register_default_config]</code></a> and
+<a href="../../runtime/prelude/attr.derive_impl.html" title="attr polkadot_sdk_frame::runtime::prelude::derive_impl"><code>#[derive_impl]</code></a> to derive test config traits
+based on existing pallet config traits in a safe and developer-friendly way.</div></li><li><div class="item-name"><a class="trait" href="trait.ExtensionsWeightInfo.html" title="trait polkadot_sdk_frame::prelude::frame_system::ExtensionsWeightInfo">ExtensionsWeightInfo</a></div><div class="desc docblock-short">Weight functions needed for <code>frame_system_extensions</code>.</div></li><li><div class="item-name"><a class="trait" href="trait.SetCode.html" title="trait polkadot_sdk_frame::prelude::frame_system::SetCode">SetCode</a></div><div class="desc docblock-short">Do something when we should be setting the code.</div></li><li><div class="item-name"><a class="trait" href="trait.WeightInfo.html" title="trait polkadot_sdk_frame::prelude::frame_system::WeightInfo">WeightInfo</a></div><div class="desc docblock-short">Weight functions needed for <code>frame_system</code>.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.ensure_none.html" title="fn polkadot_sdk_frame::prelude::frame_system::ensure_none">ensure_none</a></div><div class="desc docblock-short">Ensure that the origin <code>o</code> represents an unsigned extrinsic. Returns <code>Ok</code> or an <code>Err</code> otherwise.</div></li><li><div class="item-name"><a class="fn" href="fn.ensure_root.html" title="fn polkadot_sdk_frame::prelude::frame_system::ensure_root">ensure_root</a></div><div class="desc docblock-short">Ensure that the origin <code>o</code> represents the root. Returns <code>Ok</code> or an <code>Err</code> otherwise.</div></li><li><div class="item-name"><a class="fn" href="fn.ensure_signed.html" title="fn polkadot_sdk_frame::prelude::frame_system::ensure_signed">ensure_signed</a></div><div class="desc docblock-short">Ensure that the origin <code>o</code> represents a signed extrinsic (i.e. transaction).
+Returns <code>Ok</code> with the account that signed the extrinsic or an <code>Err</code> otherwise.</div></li><li><div class="item-name"><a class="fn" href="fn.ensure_signed_or_root.html" title="fn polkadot_sdk_frame::prelude::frame_system::ensure_signed_or_root">ensure_signed_or_root</a></div><div class="desc docblock-short">Ensure that the origin <code>o</code> represents either a signed extrinsic (i.e. transaction) or the root.
+Returns <code>Ok</code> with the account that signed the extrinsic, <code>None</code> if it was root,  or an <code>Err</code>
+otherwise.</div></li><li><div class="item-name"><a class="fn" href="fn.extrinsics_data_root.html" title="fn polkadot_sdk_frame::prelude::frame_system::extrinsics_data_root">extrinsics_data_root</a></div><div class="desc docblock-short">Compute the trie root of a list of extrinsics.</div></li><li><div class="item-name"><a class="fn" href="fn.extrinsics_root.html" title="fn polkadot_sdk_frame::prelude::frame_system::extrinsics_root">extrinsics_root</a></div><div class="desc docblock-short">Compute the trie root of a list of extrinsics.</div></li><li><div class="item-name"><a class="fn" href="fn.split_inner.html" title="fn polkadot_sdk_frame::prelude::frame_system::split_inner">split_inner</a></div><div class="desc docblock-short">Split an <code>option</code> into two constituent options, as defined by a <code>splitter</code> function.</div></li><li><div class="item-name"><a class="fn" href="fn.unique.html" title="fn polkadot_sdk_frame::prelude::frame_system::unique">unique</a></div><div class="desc docblock-short">Returns a 32 byte datum which is guaranteed to be universally unique. <code>entropy</code> is provided
+as a facility to reduce the potential for precalculating results.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Account.html" title="type polkadot_sdk_frame::prelude::frame_system::Account">Account</a></div><div class="desc docblock-short">The full account information for a particular account ID.</div></li><li><div class="item-name"><a class="type" href="type.AllExtrinsicsLen.html" title="type polkadot_sdk_frame::prelude::frame_system::AllExtrinsicsLen">AllExtrinsicsLen</a></div><div class="desc docblock-short">Total length (in bytes) for all extrinsics put together, for the current block.</div></li><li><div class="item-name"><a class="type" href="type.BlockHash.html" title="type polkadot_sdk_frame::prelude::frame_system::BlockHash">BlockHash</a></div><div class="desc docblock-short">Map of block numbers to block hashes.</div></li><li><div class="item-name"><a class="type" href="type.BlockWeight.html" title="type polkadot_sdk_frame::prelude::frame_system::BlockWeight">BlockWeight</a></div><div class="desc docblock-short">The current weight for the block.</div></li><li><div class="item-name"><a class="type" href="type.ConsumedWeight.html" title="type polkadot_sdk_frame::prelude::frame_system::ConsumedWeight">ConsumedWeight</a></div><div class="desc docblock-short">An object to track the currently used extrinsic weight in a block.</div></li><li><div class="item-name"><a class="type" href="type.InherentsApplied.html" title="type polkadot_sdk_frame::prelude::frame_system::InherentsApplied">InherentsApplied</a></div><div class="desc docblock-short">Whether all inherents have been applied.</div></li><li><div class="item-name"><a class="type" href="type.Key.html" title="type polkadot_sdk_frame::prelude::frame_system::Key">Key</a></div></li><li><div class="item-name"><a class="type" href="type.KeyValue.html" title="type polkadot_sdk_frame::prelude::frame_system::KeyValue">KeyValue</a></div></li><li><div class="item-name"><a class="type" href="type.LastRuntimeUpgrade.html" title="type polkadot_sdk_frame::prelude::frame_system::LastRuntimeUpgrade">LastRuntimeUpgrade</a></div><div class="desc docblock-short">Stores the <code>spec_version</code> and <code>spec_name</code> of when the last runtime upgrade happened.</div></li><li><div class="item-name"><a class="type" href="type.Module.html" title="type polkadot_sdk_frame::prelude::frame_system::Module">Module</a><span class="stab deprecated" title="">Deprecated</span></div><div class="desc docblock-short">Type alias to <code>Pallet</code>, to be used by <code>construct_runtime</code>.</div></li><li><div class="item-name"><a class="type" href="type.Origin.html" title="type polkadot_sdk_frame::prelude::frame_system::Origin">Origin</a></div><div class="desc docblock-short">Exposed trait-generic origin type.</div></li><li><div class="item-name"><a class="type" href="type.RefCount.html" title="type polkadot_sdk_frame::prelude::frame_system::RefCount">RefCount</a></div><div class="desc docblock-short">Type used to encode the number of references an account has.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

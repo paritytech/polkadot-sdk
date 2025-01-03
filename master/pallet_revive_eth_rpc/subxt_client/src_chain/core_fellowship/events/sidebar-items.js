@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["active_changed","demoted","evidence_judged","imported","inducted","offboarded","params_changed","promoted","proven","requested","swapped"],"struct":["ActiveChanged","Demoted","EvidenceJudged","Imported","Inducted","Offboarded","ParamsChanged","Promoted","Proven","Requested","Swapped"]};

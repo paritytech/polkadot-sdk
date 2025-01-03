@@ -1,0 +1,272 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Assets Pallet"><title>pallet_assets - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_assets" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_assets/index.html">pallet_assets</a><span class="version">29.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">pallet_assets</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/pallet_assets/lib.rs.html#18-1841">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="assets-pallet"><a class="doc-anchor" href="#assets-pallet">§</a>Assets Pallet</h2>
+<p>A simple, secure module for dealing with sets of assets implementing
+<a href="frame_support::traits::fungible"><code>fungible</code></a> traits, via [<code>fungibles</code>] traits.</p>
+<p>The pallet makes heavy use of concepts such as Holds and Freezes from the
+[<code>frame_support::traits::fungible</code>] traits, therefore you should read and understand those docs
+as a prerequisite to understanding this pallet.</p>
+<p>See the <a href="../polkadot_sdk_docs/reference_docs/frame_tokens/index.html"><code>frame_tokens</code></a> reference docs for more information about the place of the
+Assets pallet in FRAME.</p>
+<h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3>
+<p>The Assets module provides functionality for asset management of fungible asset classes
+with a fixed supply, including:</p>
+<ul>
+<li>Asset Issuance (Minting)</li>
+<li>Asset Transferal</li>
+<li>Asset Freezing</li>
+<li>Asset Destruction (Burning)</li>
+<li>Delegated Asset Transfers (“Approval API”)</li>
+</ul>
+<p>To use it in your runtime, you need to implement the assets <a href="pallet/trait.Config.html" title="trait pallet_assets::pallet::Config"><code>Config</code></a>.</p>
+<p>The supported dispatchable functions are documented in the <a href="pallet/enum.Call.html" title="enum pallet_assets::pallet::Call"><code>Call</code></a> enum.</p>
+<h4 id="terminology"><a class="doc-anchor" href="#terminology">§</a>Terminology</h4>
+<ul>
+<li><strong>Admin</strong>: An account ID uniquely privileged to be able to unfreeze (thaw) an account and its
+assets, as well as forcibly transfer a particular class of assets between arbitrary accounts
+and reduce the balance of a particular class of assets of arbitrary accounts.</li>
+<li><strong>Asset issuance/minting</strong>: The creation of a new asset, whose total supply will belong to the
+account designated as the beneficiary of the asset. This is a privileged operation.</li>
+<li><strong>Asset transfer</strong>: The reduction of the balance of an asset of one account with the
+corresponding increase in the balance of another.</li>
+<li><strong>Asset destruction</strong>: The process of reducing the balance of an asset of one account. This is
+a privileged operation.</li>
+<li><strong>Fungible asset</strong>: An asset whose units are interchangeable.</li>
+<li><strong>Issuer</strong>: An account ID uniquely privileged to be able to mint a particular class of assets.</li>
+<li><strong>Freezer</strong>: An account ID uniquely privileged to be able to freeze an account from
+transferring a particular class of assets.</li>
+<li><strong>Freezing</strong>: Removing the possibility of an unpermissioned transfer of an asset from a
+particular account.</li>
+<li><strong>Non-fungible asset</strong>: An asset for which each unit has unique characteristics.</li>
+<li><strong>Owner</strong>: An account ID uniquely privileged to be able to destroy a particular asset class,
+or to set the Issuer, Freezer or Admin of that asset class.</li>
+<li><strong>Approval</strong>: The act of allowing an account the permission to transfer some balance of asset
+from the approving account into some third-party destination account.</li>
+<li><strong>Sufficiency</strong>: The idea of a minimum-balance of an asset being sufficient to allow the
+account’s existence on the system without requiring any other existential-deposit.</li>
+</ul>
+<h4 id="goals"><a class="doc-anchor" href="#goals">§</a>Goals</h4>
+<p>The assets system in Substrate is designed to make the following possible:</p>
+<ul>
+<li>Issue new assets in a permissioned or permissionless way, if permissionless, then with a
+deposit required.</li>
+<li>Allow accounts to be delegated the ability to transfer assets without otherwise existing
+on-chain (<em>approvals</em>).</li>
+<li>Move assets between accounts.</li>
+<li>Update an asset class’s total supply.</li>
+<li>Allow administrative activities by specially privileged accounts including freezing account
+balances and minting/burning assets.</li>
+</ul>
+<h3 id="interface"><a class="doc-anchor" href="#interface">§</a>Interface</h3><h4 id="permissionless-functions"><a class="doc-anchor" href="#permissionless-functions">§</a>Permissionless Functions</h4>
+<ul>
+<li><code>create</code>: Creates a new asset class, taking the required deposit.</li>
+<li><code>transfer</code>: Transfer sender’s assets to another account.</li>
+<li><code>transfer_keep_alive</code>: Transfer sender’s assets to another account, keeping the sender alive.</li>
+<li><code>approve_transfer</code>: Create or increase an delegated transfer.</li>
+<li><code>cancel_approval</code>: Rescind a previous approval.</li>
+<li><code>transfer_approved</code>: Transfer third-party’s assets to another account.</li>
+<li><code>touch</code>: Create an asset account for non-provider assets. Caller must place a deposit.</li>
+<li><code>refund</code>: Return the deposit (if any) of the caller’s asset account or a consumer reference
+(if any) of the caller’s account.</li>
+<li><code>refund_other</code>: Return the deposit (if any) of a specified asset account.</li>
+</ul>
+<h4 id="permissioned-functions"><a class="doc-anchor" href="#permissioned-functions">§</a>Permissioned Functions</h4>
+<ul>
+<li><code>force_create</code>: Creates a new asset class without taking any deposit.</li>
+<li><code>force_set_metadata</code>: Set the metadata of an asset class.</li>
+<li><code>force_clear_metadata</code>: Remove the metadata of an asset class.</li>
+<li><code>force_asset_status</code>: Alter an asset class’s attributes.</li>
+<li><code>force_cancel_approval</code>: Rescind a previous approval.</li>
+</ul>
+<h4 id="privileged-functions"><a class="doc-anchor" href="#privileged-functions">§</a>Privileged Functions</h4>
+<ul>
+<li><code>destroy</code>: Destroys an entire asset class; called by the asset class’s Owner.</li>
+<li><code>mint</code>: Increases the asset balance of an account; called by the asset class’s Issuer.</li>
+<li><code>burn</code>: Decreases the asset balance of an account; called by the asset class’s Admin.</li>
+<li><code>force_transfer</code>: Transfers between arbitrary accounts; called by the asset class’s Admin.</li>
+<li><code>freeze</code>: Disallows further <code>transfer</code>s from an account; called by the asset class’s Freezer.</li>
+<li><code>thaw</code>: Allows further <code>transfer</code>s to and from an account; called by the asset class’s Admin.</li>
+<li><code>transfer_ownership</code>: Changes an asset class’s Owner; called by the asset class’s Owner.</li>
+<li><code>set_team</code>: Changes an asset class’s Admin, Freezer and Issuer; called by the asset class’s
+Owner.</li>
+<li><code>set_metadata</code>: Set the metadata of an asset class; called by the asset class’s Owner.</li>
+<li><code>clear_metadata</code>: Remove the metadata of an asset class; called by the asset class’s Owner.</li>
+<li><code>touch_other</code>: Create an asset account for specified account. Caller must place a deposit;
+called by the asset class’s Freezer or Admin.</li>
+<li><code>block</code>: Disallows further <code>transfer</code>s to and from an account; called by the asset class’s
+Freezer.</li>
+</ul>
+<p>Please refer to the <a href="pallet/enum.Call.html" title="enum pallet_assets::pallet::Call"><code>Call</code></a> enum and its associated variants for documentation on each
+function.</p>
+<h4 id="public-functions"><a class="doc-anchor" href="#public-functions">§</a>Public Functions</h4><!-- Original author of descriptions: @gavofyork -->
+<ul>
+<li><code>balance</code> - Get the asset <code>id</code> balance of <code>who</code>.</li>
+<li><code>total_supply</code> - Get the total supply of an asset <code>id</code>.</li>
+</ul>
+<p>Please refer to the <a href="pallet/struct.Pallet.html" title="struct pallet_assets::pallet::Pallet"><code>Pallet</code></a> struct for details on publicly available functions.</p>
+<h4 id="callbacks"><a class="doc-anchor" href="#callbacks">§</a>Callbacks</h4>
+<p>Using <code>CallbackHandle</code> associated type, user can configure custom callback functions which are
+executed when new asset is created or an existing asset is destroyed.</p>
+<h3 id="related-modules"><a class="doc-anchor" href="#related-modules">§</a>Related Modules</h3>
+<ul>
+<li><a href="../frame_system/index.html"><code>System</code></a></li>
+<li><a href="../frame_support/index.html"><code>Support</code></a></li>
+</ul>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.WeightInfo"><code>pub use weights::<a class="trait" href="weights/trait.WeightInfo.html" title="trait pallet_assets::weights::WeightInfo">WeightInfo</a>;</code></div></li><li><div class="item-name"><code>pub use <a class="mod" href="pallet/index.html" title="mod pallet_assets::pallet">pallet</a>::*;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="benchmarking/index.html" title="mod pallet_assets::benchmarking">benchmarking</a></div><div class="desc docblock-short">Assets pallet benchmarking.</div></li><li><div class="item-name"><a class="mod" href="migration/index.html" title="mod pallet_assets::migration">migration</a></div></li><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod pallet_assets::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="weights/index.html" title="mod pallet_assets::weights">weights</a></div><div class="desc docblock-short">Autogenerated weights for <code>pallet_assets</code></div></li></ul><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro._runtime_benchmarks_enabled.html" title="macro pallet_assets::_runtime_benchmarks_enabled">_runtime_benchmarks_enabled</a></div></li><li><div class="item-name"><a class="macro" href="macro.runtime_benchmarks_enabled.html" title="macro pallet_assets::runtime_benchmarks_enabled">runtime_benchmarks_enabled</a></div><div class="desc docblock-short">Enable/disable the given code depending on
+<code>feature = "runtime-benchmarks"</code>
+being enabled for the crate or not.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Approval.html" title="struct pallet_assets::Approval">Approval</a></div><div class="desc docblock-short">Data concerning an approval.</div></li><li><div class="item-name"><a class="struct" href="struct.AssetAccount.html" title="struct pallet_assets::AssetAccount">AssetAccount</a></div></li><li><div class="item-name"><a class="struct" href="struct.AssetDetails.html" title="struct pallet_assets::AssetDetails">AssetDetails</a></div></li><li><div class="item-name"><a class="struct" href="struct.AssetMetadata.html" title="struct pallet_assets::AssetMetadata">AssetMetadata</a></div></li><li><div class="item-name"><a class="struct" href="struct.AutoIncAssetId.html" title="struct pallet_assets::AutoIncAssetId">AutoIncAssetId</a></div><div class="desc docblock-short">Auto-increment the <a href="pallet/type.NextAssetId.html" title="type pallet_assets::pallet::NextAssetId"><code>NextAssetId</code></a> when an asset is created.</div></li><li><div class="item-name"><a class="struct" href="struct.BalanceToAssetBalance.html" title="struct pallet_assets::BalanceToAssetBalance">BalanceToAssetBalance</a></div><div class="desc docblock-short">Converts a balance value into an asset balance based on the ratio between the fungible’s
+minimum balance and the minimum asset balance.</div></li><li><div class="item-name"><a class="struct" href="struct.ExtraMutator.html" title="struct pallet_assets::ExtraMutator">ExtraMutator</a></div><div class="desc docblock-short">A mutator type allowing inspection and possible modification of the extra “sidecar” data.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.AccountStatus.html" title="enum pallet_assets::AccountStatus">AccountStatus</a></div><div class="desc docblock-short">The status of an asset account.</div></li><li><div class="item-name"><a class="enum" href="enum.ConversionError.html" title="enum pallet_assets::ConversionError">ConversionError</a></div><div class="desc docblock-short">Possible errors when converting between external and asset balances.</div></li><li><div class="item-name"><a class="enum" href="enum.ExistenceReason.html" title="enum pallet_assets::ExistenceReason">ExistenceReason</a></div><div class="desc docblock-short">The reason for an account’s existence within an asset class.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.AssetsCallback.html" title="trait pallet_assets::AssetsCallback">AssetsCallback</a></div><div class="desc docblock-short">Trait with callbacks that are executed after successful asset creation or destruction.</div></li><li><div class="item-name"><a class="trait" href="trait.FrozenBalance.html" title="trait pallet_assets::FrozenBalance">FrozenBalance</a></div><div class="desc docblock-short">Trait for allowing a minimum balance on the account to be specified, beyond the
+<code>minimum_balance</code> of the asset. This is additive - the <code>minimum_balance</code> of the asset must be
+met <em>and then</em> anything here in addition.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["RING_VRF_DOMAIN_SIZE"],"fn":["make_revealed_key_seed","make_ticket_id","revealed_key_input","slot_claim_input","slot_claim_sign_data","ticket_body_sign_data","ticket_id_input"],"struct":["RingVerifierData","RingVrfSignature","VrfInput","VrfPreOutput","VrfSignData","VrfSignature"],"type":["RingContext","RingProver","RingVerifier"]};

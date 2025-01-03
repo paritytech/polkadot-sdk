@@ -1,0 +1,350 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Weight functions needed for `pallet_alliance`."><title>WeightInfo in pallet_alliance::weights - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_alliance" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_alliance/index.html">pallet_alliance</a><span class="version">27.0.0</span></h2></div><h2 class="location"><a href="#">WeightInfo</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.abdicate_fellow_status">abdicate_fellow_status</a></li><li><a href="#tymethod.add_unscrupulous_items">add_unscrupulous_items</a></li><li><a href="#tymethod.announce">announce</a></li><li><a href="#tymethod.close_approved">close_approved</a></li><li><a href="#tymethod.close_disapproved">close_disapproved</a></li><li><a href="#tymethod.close_early_approved">close_early_approved</a></li><li><a href="#tymethod.close_early_disapproved">close_early_disapproved</a></li><li><a href="#tymethod.disband">disband</a></li><li><a href="#tymethod.elevate_ally">elevate_ally</a></li><li><a href="#tymethod.give_retirement_notice">give_retirement_notice</a></li><li><a href="#tymethod.init_members">init_members</a></li><li><a href="#tymethod.join_alliance">join_alliance</a></li><li><a href="#tymethod.kick_member">kick_member</a></li><li><a href="#tymethod.nominate_ally">nominate_ally</a></li><li><a href="#tymethod.propose_proposed">propose_proposed</a></li><li><a href="#tymethod.remove_announcement">remove_announcement</a></li><li><a href="#tymethod.remove_unscrupulous_items">remove_unscrupulous_items</a></li><li><a href="#tymethod.retire">retire</a></li><li><a href="#tymethod.set_rule">set_rule</a></li><li><a href="#tymethod.vote">vote</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-WeightInfo-for-()">()</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In pallet_alliance::weights</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">pallet_alliance</a>::<wbr><a href="index.html">weights</a>::<wbr><a class="trait" href="#">WeightInfo</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/pallet_alliance/weights.rs.html#53-74">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait WeightInfo {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 20 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.propose_proposed" class="fn">propose_proposed</a>(b: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, m: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.vote" class="fn">vote</a>(m: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.close_early_disapproved" class="fn">close_early_disapproved</a>(m: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.close_early_approved" class="fn">close_early_approved</a>(b: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, m: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.close_disapproved" class="fn">close_disapproved</a>(m: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.close_approved" class="fn">close_approved</a>(b: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, m: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.init_members" class="fn">init_members</a>(m: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, z: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.disband" class="fn">disband</a>(x: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, y: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, z: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_rule" class="fn">set_rule</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.announce" class="fn">announce</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.remove_announcement" class="fn">remove_announcement</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.join_alliance" class="fn">join_alliance</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.nominate_ally" class="fn">nominate_ally</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.elevate_ally" class="fn">elevate_ally</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.give_retirement_notice" class="fn">give_retirement_notice</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.retire" class="fn">retire</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.kick_member" class="fn">kick_member</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.add_unscrupulous_items" class="fn">add_unscrupulous_items</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, l: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.remove_unscrupulous_items" class="fn">remove_unscrupulous_items</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, l: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.abdicate_fellow_status" class="fn">abdicate_fellow_status</a>() -&gt; Weight;
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Weight functions needed for <code>pallet_alliance</code>.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><section id="tymethod.propose_proposed" class="method"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#54">source</a><h4 class="code-header">fn <a href="#tymethod.propose_proposed" class="fn">propose_proposed</a>(b: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, m: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.vote" class="method"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#55">source</a><h4 class="code-header">fn <a href="#tymethod.vote" class="fn">vote</a>(m: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.close_early_disapproved" class="method"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#56">source</a><h4 class="code-header">fn <a href="#tymethod.close_early_disapproved" class="fn">close_early_disapproved</a>(m: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.close_early_approved" class="method"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#57">source</a><h4 class="code-header">fn <a href="#tymethod.close_early_approved" class="fn">close_early_approved</a>(b: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, m: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.close_disapproved" class="method"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#58">source</a><h4 class="code-header">fn <a href="#tymethod.close_disapproved" class="fn">close_disapproved</a>(m: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.close_approved" class="method"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#59">source</a><h4 class="code-header">fn <a href="#tymethod.close_approved" class="fn">close_approved</a>(b: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, m: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.init_members" class="method"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#60">source</a><h4 class="code-header">fn <a href="#tymethod.init_members" class="fn">init_members</a>(m: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, z: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.disband" class="method"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#61">source</a><h4 class="code-header">fn <a href="#tymethod.disband" class="fn">disband</a>(x: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, y: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, z: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.set_rule" class="method"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#62">source</a><h4 class="code-header">fn <a href="#tymethod.set_rule" class="fn">set_rule</a>() -&gt; Weight</h4></section><section id="tymethod.announce" class="method"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#63">source</a><h4 class="code-header">fn <a href="#tymethod.announce" class="fn">announce</a>() -&gt; Weight</h4></section><section id="tymethod.remove_announcement" class="method"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#64">source</a><h4 class="code-header">fn <a href="#tymethod.remove_announcement" class="fn">remove_announcement</a>() -&gt; Weight</h4></section><section id="tymethod.join_alliance" class="method"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#65">source</a><h4 class="code-header">fn <a href="#tymethod.join_alliance" class="fn">join_alliance</a>() -&gt; Weight</h4></section><section id="tymethod.nominate_ally" class="method"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#66">source</a><h4 class="code-header">fn <a href="#tymethod.nominate_ally" class="fn">nominate_ally</a>() -&gt; Weight</h4></section><section id="tymethod.elevate_ally" class="method"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#67">source</a><h4 class="code-header">fn <a href="#tymethod.elevate_ally" class="fn">elevate_ally</a>() -&gt; Weight</h4></section><section id="tymethod.give_retirement_notice" class="method"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#68">source</a><h4 class="code-header">fn <a href="#tymethod.give_retirement_notice" class="fn">give_retirement_notice</a>() -&gt; Weight</h4></section><section id="tymethod.retire" class="method"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#69">source</a><h4 class="code-header">fn <a href="#tymethod.retire" class="fn">retire</a>() -&gt; Weight</h4></section><section id="tymethod.kick_member" class="method"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#70">source</a><h4 class="code-header">fn <a href="#tymethod.kick_member" class="fn">kick_member</a>() -&gt; Weight</h4></section><section id="tymethod.add_unscrupulous_items" class="method"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#71">source</a><h4 class="code-header">fn <a href="#tymethod.add_unscrupulous_items" class="fn">add_unscrupulous_items</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, l: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.remove_unscrupulous_items" class="method"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#72">source</a><h4 class="code-header">fn <a href="#tymethod.remove_unscrupulous_items" class="fn">remove_unscrupulous_items</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, l: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.abdicate_fellow_status" class="method"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#73">source</a><h4 class="code-header">fn <a href="#tymethod.abdicate_fellow_status" class="fn">abdicate_fellow_status</a>() -&gt; Weight</h4></section></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-WeightInfo-for-()" class="impl"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#498-915">source</a><a href="#impl-WeightInfo-for-()" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.WeightInfo.html" title="trait pallet_alliance::weights::WeightInfo">WeightInfo</a> for <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.propose_proposed" class="method trait-impl"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#512-528">source</a><a href="#method.propose_proposed" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.propose_proposed" class="fn">propose_proposed</a>(b: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, m: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Alliance::Members</code> (r:1 w:0)
+Proof: <code>Alliance::Members</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3211), added: 5686, mode: <code>MaxEncodedLen</code>)
+Storage: <code>AllianceMotion::ProposalOf</code> (r:1 w:1)
+Proof: <code>AllianceMotion::ProposalOf</code> (<code>max_values</code>: None, <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>AllianceMotion::Proposals</code> (r:1 w:1)
+Proof: <code>AllianceMotion::Proposals</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>AllianceMotion::ProposalCount</code> (r:1 w:1)
+Proof: <code>AllianceMotion::ProposalCount</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>AllianceMotion::Voting</code> (r:0 w:1)
+Proof: <code>AllianceMotion::Voting</code> (<code>max_values</code>: None, <code>max_size</code>: None, mode: <code>Measured</code>)
+The range of component <code>b</code> is <code>[1, 1024]</code>.
+The range of component <code>m</code> is <code>[2, 100]</code>.
+The range of component <code>p</code> is <code>[1, 100]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.vote" class="method trait-impl"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#534-545">source</a><a href="#method.vote" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.vote" class="fn">vote</a>(m: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Alliance::Members</code> (r:1 w:0)
+Proof: <code>Alliance::Members</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3211), added: 5686, mode: <code>MaxEncodedLen</code>)
+Storage: <code>AllianceMotion::Voting</code> (r:1 w:1)
+Proof: <code>AllianceMotion::Voting</code> (<code>max_values</code>: None, <code>max_size</code>: None, mode: <code>Measured</code>)
+The range of component <code>m</code> is <code>[5, 100]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.close_early_disapproved" class="method trait-impl"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#558-572">source</a><a href="#method.close_early_disapproved" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.close_early_disapproved" class="fn">close_early_disapproved</a>(m: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Alliance::Members</code> (r:1 w:0)
+Proof: <code>Alliance::Members</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3211), added: 5686, mode: <code>MaxEncodedLen</code>)
+Storage: <code>AllianceMotion::Voting</code> (r:1 w:1)
+Proof: <code>AllianceMotion::Voting</code> (<code>max_values</code>: None, <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>AllianceMotion::Members</code> (r:1 w:0)
+Proof: <code>AllianceMotion::Members</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>AllianceMotion::Proposals</code> (r:1 w:1)
+Proof: <code>AllianceMotion::Proposals</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>AllianceMotion::ProposalOf</code> (r:0 w:1)
+Proof: <code>AllianceMotion::ProposalOf</code> (<code>max_values</code>: None, <code>max_size</code>: None, mode: <code>Measured</code>)
+The range of component <code>m</code> is <code>[4, 100]</code>.
+The range of component <code>p</code> is <code>[1, 100]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.close_early_approved" class="method trait-impl"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#590-606">source</a><a href="#method.close_early_approved" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.close_early_approved" class="fn">close_early_approved</a>(b: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, m: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Alliance::Members</code> (r:1 w:0)
+Proof: <code>Alliance::Members</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3211), added: 5686, mode: <code>MaxEncodedLen</code>)
+Storage: <code>AllianceMotion::Voting</code> (r:1 w:1)
+Proof: <code>AllianceMotion::Voting</code> (<code>max_values</code>: None, <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>AllianceMotion::Members</code> (r:1 w:0)
+Proof: <code>AllianceMotion::Members</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>AllianceMotion::ProposalOf</code> (r:1 w:1)
+Proof: <code>AllianceMotion::ProposalOf</code> (<code>max_values</code>: None, <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>SafeMode::EnteredUntil</code> (r:1 w:0)
+Proof: <code>SafeMode::EnteredUntil</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>TxPause::PausedCalls</code> (r:1 w:0)
+Proof: <code>TxPause::PausedCalls</code> (<code>max_values</code>: None, <code>max_size</code>: Some(532), added: 3007, mode: <code>MaxEncodedLen</code>)
+Storage: <code>AllianceMotion::Proposals</code> (r:1 w:1)
+Proof: <code>AllianceMotion::Proposals</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+The range of component <code>b</code> is <code>[1, 1024]</code>.
+The range of component <code>m</code> is <code>[4, 100]</code>.
+The range of component <code>p</code> is <code>[1, 100]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.close_disapproved" class="method trait-impl"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#621-635">source</a><a href="#method.close_disapproved" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.close_disapproved" class="fn">close_disapproved</a>(m: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Alliance::Members</code> (r:1 w:0)
+Proof: <code>Alliance::Members</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3211), added: 5686, mode: <code>MaxEncodedLen</code>)
+Storage: <code>AllianceMotion::Voting</code> (r:1 w:1)
+Proof: <code>AllianceMotion::Voting</code> (<code>max_values</code>: None, <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>AllianceMotion::Members</code> (r:1 w:0)
+Proof: <code>AllianceMotion::Members</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>AllianceMotion::Prime</code> (r:1 w:0)
+Proof: <code>AllianceMotion::Prime</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>AllianceMotion::Proposals</code> (r:1 w:1)
+Proof: <code>AllianceMotion::Proposals</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>AllianceMotion::ProposalOf</code> (r:0 w:1)
+Proof: <code>AllianceMotion::ProposalOf</code> (<code>max_values</code>: None, <code>max_size</code>: None, mode: <code>Measured</code>)
+The range of component <code>m</code> is <code>[2, 100]</code>.
+The range of component <code>p</code> is <code>[1, 100]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.close_approved" class="method trait-impl"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#651-667">source</a><a href="#method.close_approved" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.close_approved" class="fn">close_approved</a>(b: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, m: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, p: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Alliance::Members</code> (r:1 w:0)
+Proof: <code>Alliance::Members</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3211), added: 5686, mode: <code>MaxEncodedLen</code>)
+Storage: <code>AllianceMotion::Voting</code> (r:1 w:1)
+Proof: <code>AllianceMotion::Voting</code> (<code>max_values</code>: None, <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>AllianceMotion::Members</code> (r:1 w:0)
+Proof: <code>AllianceMotion::Members</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>AllianceMotion::Prime</code> (r:1 w:0)
+Proof: <code>AllianceMotion::Prime</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>AllianceMotion::Proposals</code> (r:1 w:1)
+Proof: <code>AllianceMotion::Proposals</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>AllianceMotion::ProposalOf</code> (r:0 w:1)
+Proof: <code>AllianceMotion::ProposalOf</code> (<code>max_values</code>: None, <code>max_size</code>: None, mode: <code>Measured</code>)
+The range of component <code>b</code> is <code>[1, 1024]</code>.
+The range of component <code>m</code> is <code>[5, 100]</code>.
+The range of component <code>p</code> is <code>[1, 100]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.init_members" class="method trait-impl"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#674-686">source</a><a href="#method.init_members" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.init_members" class="fn">init_members</a>(m: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, z: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Alliance::Members</code> (r:2 w:2)
+Proof: <code>Alliance::Members</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3211), added: 5686, mode: <code>MaxEncodedLen</code>)
+Storage: <code>AllianceMotion::Members</code> (r:1 w:1)
+Proof: <code>AllianceMotion::Members</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+The range of component <code>m</code> is <code>[1, 100]</code>.
+The range of component <code>z</code> is <code>[0, 100]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.disband" class="method trait-impl"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#702-723">source</a><a href="#method.disband" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.disband" class="fn">disband</a>(x: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, y: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, z: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Alliance::Members</code> (r:2 w:2)
+Proof: <code>Alliance::Members</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3211), added: 5686, mode: <code>MaxEncodedLen</code>)
+Storage: <code>AllianceMotion::Proposals</code> (r:1 w:0)
+Proof: <code>AllianceMotion::Proposals</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>Alliance::DepositOf</code> (r:200 w:50)
+Proof: <code>Alliance::DepositOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(64), added: 2539, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:50 w:50)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+Storage: <code>AllianceMotion::Members</code> (r:0 w:1)
+Proof: <code>AllianceMotion::Members</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>AllianceMotion::Prime</code> (r:0 w:1)
+Proof: <code>AllianceMotion::Prime</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+The range of component <code>x</code> is <code>[1, 100]</code>.
+The range of component <code>y</code> is <code>[0, 100]</code>.
+The range of component <code>z</code> is <code>[0, 50]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_rule" class="method trait-impl"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#726-733">source</a><a href="#method.set_rule" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_rule" class="fn">set_rule</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Alliance::Rule</code> (r:0 w:1)
+Proof: <code>Alliance::Rule</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(87), added: 582, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.announce" class="method trait-impl"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#736-744">source</a><a href="#method.announce" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.announce" class="fn">announce</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Alliance::Announcements</code> (r:1 w:1)
+Proof: <code>Alliance::Announcements</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(8702), added: 9197, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.remove_announcement" class="method trait-impl"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#747-755">source</a><a href="#method.remove_announcement" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.remove_announcement" class="fn">remove_announcement</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Alliance::Announcements</code> (r:1 w:1)
+Proof: <code>Alliance::Announcements</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(8702), added: 9197, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.join_alliance" class="method trait-impl"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#764-772">source</a><a href="#method.join_alliance" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.join_alliance" class="fn">join_alliance</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Alliance::Members</code> (r:3 w:1)
+Proof: <code>Alliance::Members</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3211), added: 5686, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Alliance::UnscrupulousAccounts</code> (r:1 w:0)
+Proof: <code>Alliance::UnscrupulousAccounts</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(3202), added: 3697, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Alliance::DepositOf</code> (r:0 w:1)
+Proof: <code>Alliance::DepositOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(64), added: 2539, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.nominate_ally" class="method trait-impl"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#777-785">source</a><a href="#method.nominate_ally" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.nominate_ally" class="fn">nominate_ally</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Alliance::Members</code> (r:3 w:1)
+Proof: <code>Alliance::Members</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3211), added: 5686, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Alliance::UnscrupulousAccounts</code> (r:1 w:0)
+Proof: <code>Alliance::UnscrupulousAccounts</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(3202), added: 3697, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.elevate_ally" class="method trait-impl"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#794-802">source</a><a href="#method.elevate_ally" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.elevate_ally" class="fn">elevate_ally</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Alliance::Members</code> (r:2 w:2)
+Proof: <code>Alliance::Members</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3211), added: 5686, mode: <code>MaxEncodedLen</code>)
+Storage: <code>AllianceMotion::Proposals</code> (r:1 w:0)
+Proof: <code>AllianceMotion::Proposals</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>AllianceMotion::Members</code> (r:0 w:1)
+Proof: <code>AllianceMotion::Members</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>AllianceMotion::Prime</code> (r:0 w:1)
+Proof: <code>AllianceMotion::Prime</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.give_retirement_notice" class="method trait-impl"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#813-821">source</a><a href="#method.give_retirement_notice" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.give_retirement_notice" class="fn">give_retirement_notice</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Alliance::Members</code> (r:4 w:2)
+Proof: <code>Alliance::Members</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3211), added: 5686, mode: <code>MaxEncodedLen</code>)
+Storage: <code>AllianceMotion::Proposals</code> (r:1 w:0)
+Proof: <code>AllianceMotion::Proposals</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>AllianceMotion::Members</code> (r:0 w:1)
+Proof: <code>AllianceMotion::Members</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>AllianceMotion::Prime</code> (r:0 w:1)
+Proof: <code>AllianceMotion::Prime</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>Alliance::RetiringMembers</code> (r:0 w:1)
+Proof: <code>Alliance::RetiringMembers</code> (<code>max_values</code>: None, <code>max_size</code>: Some(52), added: 2527, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.retire" class="method trait-impl"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#830-838">source</a><a href="#method.retire" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.retire" class="fn">retire</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Alliance::RetiringMembers</code> (r:1 w:1)
+Proof: <code>Alliance::RetiringMembers</code> (<code>max_values</code>: None, <code>max_size</code>: Some(52), added: 2527, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Alliance::Members</code> (r:1 w:1)
+Proof: <code>Alliance::Members</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3211), added: 5686, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Alliance::DepositOf</code> (r:1 w:1)
+Proof: <code>Alliance::DepositOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(64), added: 2539, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.kick_member" class="method trait-impl"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#851-859">source</a><a href="#method.kick_member" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.kick_member" class="fn">kick_member</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Alliance::Members</code> (r:3 w:1)
+Proof: <code>Alliance::Members</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3211), added: 5686, mode: <code>MaxEncodedLen</code>)
+Storage: <code>AllianceMotion::Proposals</code> (r:1 w:0)
+Proof: <code>AllianceMotion::Proposals</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>Alliance::DepositOf</code> (r:1 w:1)
+Proof: <code>Alliance::DepositOf</code> (<code>max_values</code>: None, <code>max_size</code>: Some(64), added: 2539, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+Storage: <code>AllianceMotion::Members</code> (r:0 w:1)
+Proof: <code>AllianceMotion::Members</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>AllianceMotion::Prime</code> (r:0 w:1)
+Proof: <code>AllianceMotion::Prime</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.add_unscrupulous_items" class="method trait-impl"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#866-878">source</a><a href="#method.add_unscrupulous_items" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.add_unscrupulous_items" class="fn">add_unscrupulous_items</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, l: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Alliance::UnscrupulousAccounts</code> (r:1 w:1)
+Proof: <code>Alliance::UnscrupulousAccounts</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(3202), added: 3697, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Alliance::UnscrupulousWebsites</code> (r:1 w:1)
+Proof: <code>Alliance::UnscrupulousWebsites</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(25702), added: 26197, mode: <code>MaxEncodedLen</code>)
+The range of component <code>n</code> is <code>[0, 100]</code>.
+The range of component <code>l</code> is <code>[0, 255]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.remove_unscrupulous_items" class="method trait-impl"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#885-897">source</a><a href="#method.remove_unscrupulous_items" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.remove_unscrupulous_items" class="fn">remove_unscrupulous_items</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, l: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Alliance::UnscrupulousAccounts</code> (r:1 w:1)
+Proof: <code>Alliance::UnscrupulousAccounts</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(3202), added: 3697, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Alliance::UnscrupulousWebsites</code> (r:1 w:1)
+Proof: <code>Alliance::UnscrupulousWebsites</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(25702), added: 26197, mode: <code>MaxEncodedLen</code>)
+The range of component <code>n</code> is <code>[0, 100]</code>.
+The range of component <code>l</code> is <code>[0, 255]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.abdicate_fellow_status" class="method trait-impl"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#906-914">source</a><a href="#method.abdicate_fellow_status" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.abdicate_fellow_status" class="fn">abdicate_fellow_status</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Alliance::Members</code> (r:3 w:2)
+Proof: <code>Alliance::Members</code> (<code>max_values</code>: None, <code>max_size</code>: Some(3211), added: 5686, mode: <code>MaxEncodedLen</code>)
+Storage: <code>AllianceMotion::Proposals</code> (r:1 w:0)
+Proof: <code>AllianceMotion::Proposals</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>AllianceMotion::Members</code> (r:0 w:1)
+Proof: <code>AllianceMotion::Members</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>AllianceMotion::Prime</code> (r:0 w:1)
+Proof: <code>AllianceMotion::Prime</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)</p>
+</div></details></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-WeightInfo-for-SubstrateWeight%3CT%3E" class="impl"><a class="src rightside" href="../../src/pallet_alliance/weights.rs.html#78-495">source</a><a href="#impl-WeightInfo-for-SubstrateWeight%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: Config&gt; <a class="trait" href="trait.WeightInfo.html" title="trait pallet_alliance::weights::WeightInfo">WeightInfo</a> for <a class="struct" href="struct.SubstrateWeight.html" title="struct pallet_alliance::weights::SubstrateWeight">SubstrateWeight</a>&lt;T&gt;</h3></section></div><script src="../../trait.impl/pallet_alliance/weights/trait.WeightInfo.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

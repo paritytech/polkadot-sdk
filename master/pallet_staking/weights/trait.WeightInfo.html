@@ -1,0 +1,599 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Weight functions needed for `pallet_staking`."><title>WeightInfo in pallet_staking::weights - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_staking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_staking/index.html">pallet_staking</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">WeightInfo</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.bond">bond</a></li><li><a href="#tymethod.bond_extra">bond_extra</a></li><li><a href="#tymethod.cancel_deferred_slash">cancel_deferred_slash</a></li><li><a href="#tymethod.chill">chill</a></li><li><a href="#tymethod.chill_other">chill_other</a></li><li><a href="#tymethod.deprecate_controller_batch">deprecate_controller_batch</a></li><li><a href="#tymethod.force_apply_min_commission">force_apply_min_commission</a></li><li><a href="#tymethod.force_new_era">force_new_era</a></li><li><a href="#tymethod.force_new_era_always">force_new_era_always</a></li><li><a href="#tymethod.force_no_eras">force_no_eras</a></li><li><a href="#tymethod.force_unstake">force_unstake</a></li><li><a href="#tymethod.get_npos_targets">get_npos_targets</a></li><li><a href="#tymethod.get_npos_voters">get_npos_voters</a></li><li><a href="#tymethod.kick">kick</a></li><li><a href="#tymethod.new_era">new_era</a></li><li><a href="#tymethod.nominate">nominate</a></li><li><a href="#tymethod.payout_stakers_alive_staked">payout_stakers_alive_staked</a></li><li><a href="#tymethod.reap_stash">reap_stash</a></li><li><a href="#tymethod.rebond">rebond</a></li><li><a href="#tymethod.restore_ledger">restore_ledger</a></li><li><a href="#tymethod.set_controller">set_controller</a></li><li><a href="#tymethod.set_invulnerables">set_invulnerables</a></li><li><a href="#tymethod.set_min_commission">set_min_commission</a></li><li><a href="#tymethod.set_payee">set_payee</a></li><li><a href="#tymethod.set_staking_configs_all_remove">set_staking_configs_all_remove</a></li><li><a href="#tymethod.set_staking_configs_all_set">set_staking_configs_all_set</a></li><li><a href="#tymethod.set_validator_count">set_validator_count</a></li><li><a href="#tymethod.unbond">unbond</a></li><li><a href="#tymethod.update_payee">update_payee</a></li><li><a href="#tymethod.validate">validate</a></li><li><a href="#tymethod.withdraw_unbonded_kill">withdraw_unbonded_kill</a></li><li><a href="#tymethod.withdraw_unbonded_update">withdraw_unbonded_update</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-WeightInfo-for-()">()</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In pallet_staking::weights</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">pallet_staking</a>::<wbr><a href="index.html">weights</a>::<wbr><a class="trait" href="#">WeightInfo</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/pallet_staking/weights.rs.html#53-86">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait WeightInfo {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 32 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.bond" class="fn">bond</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.bond_extra" class="fn">bond_extra</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.unbond" class="fn">unbond</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.withdraw_unbonded_update" class="fn">withdraw_unbonded_update</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.withdraw_unbonded_kill" class="fn">withdraw_unbonded_kill</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.validate" class="fn">validate</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.kick" class="fn">kick</a>(k: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.nominate" class="fn">nominate</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.chill" class="fn">chill</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_payee" class="fn">set_payee</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.update_payee" class="fn">update_payee</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_controller" class="fn">set_controller</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_validator_count" class="fn">set_validator_count</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.force_no_eras" class="fn">force_no_eras</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.force_new_era" class="fn">force_new_era</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.force_new_era_always" class="fn">force_new_era_always</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_invulnerables" class="fn">set_invulnerables</a>(v: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.deprecate_controller_batch" class="fn">deprecate_controller_batch</a>(i: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.force_unstake" class="fn">force_unstake</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.cancel_deferred_slash" class="fn">cancel_deferred_slash</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.payout_stakers_alive_staked" class="fn">payout_stakers_alive_staked</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.rebond" class="fn">rebond</a>(l: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.reap_stash" class="fn">reap_stash</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.new_era" class="fn">new_era</a>(v: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.get_npos_voters" class="fn">get_npos_voters</a>(v: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.get_npos_targets" class="fn">get_npos_targets</a>(v: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_staking_configs_all_set" class="fn">set_staking_configs_all_set</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_staking_configs_all_remove" class="fn">set_staking_configs_all_remove</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.chill_other" class="fn">chill_other</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.force_apply_min_commission" class="fn">force_apply_min_commission</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_min_commission" class="fn">set_min_commission</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.restore_ledger" class="fn">restore_ledger</a>() -&gt; Weight;
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Weight functions needed for <code>pallet_staking</code>.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><section id="tymethod.bond" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#54">source</a><h4 class="code-header">fn <a href="#tymethod.bond" class="fn">bond</a>() -&gt; Weight</h4></section><section id="tymethod.bond_extra" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#55">source</a><h4 class="code-header">fn <a href="#tymethod.bond_extra" class="fn">bond_extra</a>() -&gt; Weight</h4></section><section id="tymethod.unbond" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#56">source</a><h4 class="code-header">fn <a href="#tymethod.unbond" class="fn">unbond</a>() -&gt; Weight</h4></section><section id="tymethod.withdraw_unbonded_update" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#57">source</a><h4 class="code-header">fn <a href="#tymethod.withdraw_unbonded_update" class="fn">withdraw_unbonded_update</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.withdraw_unbonded_kill" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#58">source</a><h4 class="code-header">fn <a href="#tymethod.withdraw_unbonded_kill" class="fn">withdraw_unbonded_kill</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.validate" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#59">source</a><h4 class="code-header">fn <a href="#tymethod.validate" class="fn">validate</a>() -&gt; Weight</h4></section><section id="tymethod.kick" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#60">source</a><h4 class="code-header">fn <a href="#tymethod.kick" class="fn">kick</a>(k: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.nominate" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#61">source</a><h4 class="code-header">fn <a href="#tymethod.nominate" class="fn">nominate</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.chill" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#62">source</a><h4 class="code-header">fn <a href="#tymethod.chill" class="fn">chill</a>() -&gt; Weight</h4></section><section id="tymethod.set_payee" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#63">source</a><h4 class="code-header">fn <a href="#tymethod.set_payee" class="fn">set_payee</a>() -&gt; Weight</h4></section><section id="tymethod.update_payee" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#64">source</a><h4 class="code-header">fn <a href="#tymethod.update_payee" class="fn">update_payee</a>() -&gt; Weight</h4></section><section id="tymethod.set_controller" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#65">source</a><h4 class="code-header">fn <a href="#tymethod.set_controller" class="fn">set_controller</a>() -&gt; Weight</h4></section><section id="tymethod.set_validator_count" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#66">source</a><h4 class="code-header">fn <a href="#tymethod.set_validator_count" class="fn">set_validator_count</a>() -&gt; Weight</h4></section><section id="tymethod.force_no_eras" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#67">source</a><h4 class="code-header">fn <a href="#tymethod.force_no_eras" class="fn">force_no_eras</a>() -&gt; Weight</h4></section><section id="tymethod.force_new_era" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#68">source</a><h4 class="code-header">fn <a href="#tymethod.force_new_era" class="fn">force_new_era</a>() -&gt; Weight</h4></section><section id="tymethod.force_new_era_always" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#69">source</a><h4 class="code-header">fn <a href="#tymethod.force_new_era_always" class="fn">force_new_era_always</a>() -&gt; Weight</h4></section><section id="tymethod.set_invulnerables" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#70">source</a><h4 class="code-header">fn <a href="#tymethod.set_invulnerables" class="fn">set_invulnerables</a>(v: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.deprecate_controller_batch" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#71">source</a><h4 class="code-header">fn <a href="#tymethod.deprecate_controller_batch" class="fn">deprecate_controller_batch</a>(i: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.force_unstake" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#72">source</a><h4 class="code-header">fn <a href="#tymethod.force_unstake" class="fn">force_unstake</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.cancel_deferred_slash" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#73">source</a><h4 class="code-header">fn <a href="#tymethod.cancel_deferred_slash" class="fn">cancel_deferred_slash</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.payout_stakers_alive_staked" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#74">source</a><h4 class="code-header">fn <a href="#tymethod.payout_stakers_alive_staked" class="fn">payout_stakers_alive_staked</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.rebond" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#75">source</a><h4 class="code-header">fn <a href="#tymethod.rebond" class="fn">rebond</a>(l: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.reap_stash" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#76">source</a><h4 class="code-header">fn <a href="#tymethod.reap_stash" class="fn">reap_stash</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.new_era" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#77">source</a><h4 class="code-header">fn <a href="#tymethod.new_era" class="fn">new_era</a>(v: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.get_npos_voters" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#78">source</a><h4 class="code-header">fn <a href="#tymethod.get_npos_voters" class="fn">get_npos_voters</a>(v: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.get_npos_targets" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#79">source</a><h4 class="code-header">fn <a href="#tymethod.get_npos_targets" class="fn">get_npos_targets</a>(v: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section><section id="tymethod.set_staking_configs_all_set" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#80">source</a><h4 class="code-header">fn <a href="#tymethod.set_staking_configs_all_set" class="fn">set_staking_configs_all_set</a>() -&gt; Weight</h4></section><section id="tymethod.set_staking_configs_all_remove" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#81">source</a><h4 class="code-header">fn <a href="#tymethod.set_staking_configs_all_remove" class="fn">set_staking_configs_all_remove</a>() -&gt; Weight</h4></section><section id="tymethod.chill_other" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#82">source</a><h4 class="code-header">fn <a href="#tymethod.chill_other" class="fn">chill_other</a>() -&gt; Weight</h4></section><section id="tymethod.force_apply_min_commission" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#83">source</a><h4 class="code-header">fn <a href="#tymethod.force_apply_min_commission" class="fn">force_apply_min_commission</a>() -&gt; Weight</h4></section><section id="tymethod.set_min_commission" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#84">source</a><h4 class="code-header">fn <a href="#tymethod.set_min_commission" class="fn">set_min_commission</a>() -&gt; Weight</h4></section><section id="tymethod.restore_ledger" class="method"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#85">source</a><h4 class="code-header">fn <a href="#tymethod.restore_ledger" class="fn">restore_ledger</a>() -&gt; Weight</h4></section></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-WeightInfo-for-()" class="impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#840-1587">source</a><a href="#impl-WeightInfo-for-()" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.WeightInfo.html" title="trait pallet_staking::weights::WeightInfo">WeightInfo</a> for <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.bond" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#851-859">source</a><a href="#method.bond" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.bond" class="fn">bond</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::Bonded</code> (r:1 w:1)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Ledger</code> (r:1 w:1)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Locks</code> (r:1 w:1)
+Proof: <code>Balances::Locks</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1299), added: 3774, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Freezes</code> (r:1 w:0)
+Proof: <code>Balances::Freezes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(67), added: 2542, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Payee</code> (r:0 w:1)
+Proof: <code>Staking::Payee</code> (<code>max_values</code>: None, <code>max_size</code>: Some(73), added: 2548, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.bond_extra" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#872-880">source</a><a href="#method.bond_extra" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.bond_extra" class="fn">bond_extra</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::Bonded</code> (r:1 w:0)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Ledger</code> (r:1 w:1)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Locks</code> (r:1 w:1)
+Proof: <code>Balances::Locks</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1299), added: 3774, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Freezes</code> (r:1 w:0)
+Proof: <code>Balances::Freezes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(67), added: 2542, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListNodes</code> (r:3 w:3)
+Proof: <code>VoterList::ListNodes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(154), added: 2629, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListBags</code> (r:2 w:2)
+Proof: <code>VoterList::ListBags</code> (<code>max_values</code>: None, <code>max_size</code>: Some(82), added: 2557, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.unbond" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#899-907">source</a><a href="#method.unbond" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.unbond" class="fn">unbond</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::Ledger</code> (r:1 w:1)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Bonded</code> (r:1 w:0)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Nominators</code> (r:1 w:0)
+Proof: <code>Staking::Nominators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(558), added: 3033, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::MinNominatorBond</code> (r:1 w:0)
+Proof: <code>Staking::MinNominatorBond</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::CurrentEra</code> (r:1 w:0)
+Proof: <code>Staking::CurrentEra</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Locks</code> (r:1 w:1)
+Proof: <code>Balances::Locks</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1299), added: 3774, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Freezes</code> (r:1 w:0)
+Proof: <code>Balances::Freezes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(67), added: 2542, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListNodes</code> (r:3 w:3)
+Proof: <code>VoterList::ListNodes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(154), added: 2629, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListBags</code> (r:2 w:2)
+Proof: <code>VoterList::ListBags</code> (<code>max_values</code>: None, <code>max_size</code>: Some(82), added: 2557, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.withdraw_unbonded_update" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#921-931">source</a><a href="#method.withdraw_unbonded_update" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.withdraw_unbonded_update" class="fn">withdraw_unbonded_update</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::Ledger</code> (r:1 w:1)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Bonded</code> (r:1 w:0)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::CurrentEra</code> (r:1 w:0)
+Proof: <code>Staking::CurrentEra</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Locks</code> (r:1 w:1)
+Proof: <code>Balances::Locks</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1299), added: 3774, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Freezes</code> (r:1 w:0)
+Proof: <code>Balances::Freezes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(67), added: 2542, mode: <code>MaxEncodedLen</code>)
+Storage: <code>NominationPools::ReversePoolIdLookup</code> (r:1 w:0)
+Proof: <code>NominationPools::ReversePoolIdLookup</code> (<code>max_values</code>: None, <code>max_size</code>: Some(44), added: 2519, mode: <code>MaxEncodedLen</code>)
+The range of component <code>s</code> is <code>[0, 100]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.withdraw_unbonded_kill" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#961-973">source</a><a href="#method.withdraw_unbonded_kill" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.withdraw_unbonded_kill" class="fn">withdraw_unbonded_kill</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::Ledger</code> (r:1 w:1)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Bonded</code> (r:1 w:1)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::CurrentEra</code> (r:1 w:0)
+Proof: <code>Staking::CurrentEra</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::SlashingSpans</code> (r:1 w:1)
+Proof: <code>Staking::SlashingSpans</code> (<code>max_values</code>: None, <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>Balances::Locks</code> (r:1 w:1)
+Proof: <code>Balances::Locks</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1299), added: 3774, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Freezes</code> (r:1 w:0)
+Proof: <code>Balances::Freezes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(67), added: 2542, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Validators</code> (r:1 w:0)
+Proof: <code>Staking::Validators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(45), added: 2520, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Nominators</code> (r:1 w:1)
+Proof: <code>Staking::Nominators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(558), added: 3033, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::CounterForNominators</code> (r:1 w:1)
+Proof: <code>Staking::CounterForNominators</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListNodes</code> (r:2 w:2)
+Proof: <code>VoterList::ListNodes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(154), added: 2629, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListBags</code> (r:1 w:1)
+Proof: <code>VoterList::ListBags</code> (<code>max_values</code>: None, <code>max_size</code>: Some(82), added: 2557, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::CounterForListNodes</code> (r:1 w:1)
+Proof: <code>VoterList::CounterForListNodes</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Payee</code> (r:0 w:1)
+Proof: <code>Staking::Payee</code> (<code>max_values</code>: None, <code>max_size</code>: Some(73), added: 2548, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::SpanSlash</code> (r:0 w:100)
+Proof: <code>Staking::SpanSlash</code> (<code>max_values</code>: None, <code>max_size</code>: Some(76), added: 2551, mode: <code>MaxEncodedLen</code>)
+The range of component <code>s</code> is <code>[0, 100]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.validate" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#996-1004">source</a><a href="#method.validate" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.validate" class="fn">validate</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::Ledger</code> (r:1 w:0)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Bonded</code> (r:1 w:0)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::MinValidatorBond</code> (r:1 w:0)
+Proof: <code>Staking::MinValidatorBond</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::MinCommission</code> (r:1 w:0)
+Proof: <code>Staking::MinCommission</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Validators</code> (r:1 w:1)
+Proof: <code>Staking::Validators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(45), added: 2520, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::MaxValidatorsCount</code> (r:1 w:0)
+Proof: <code>Staking::MaxValidatorsCount</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Nominators</code> (r:1 w:0)
+Proof: <code>Staking::Nominators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(558), added: 3033, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListNodes</code> (r:1 w:1)
+Proof: <code>VoterList::ListNodes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(154), added: 2629, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListBags</code> (r:1 w:1)
+Proof: <code>VoterList::ListBags</code> (<code>max_values</code>: None, <code>max_size</code>: Some(82), added: 2557, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::CounterForListNodes</code> (r:1 w:1)
+Proof: <code>VoterList::CounterForListNodes</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::CounterForValidators</code> (r:1 w:1)
+Proof: <code>Staking::CounterForValidators</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.kick" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#1012-1024">source</a><a href="#method.kick" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.kick" class="fn">kick</a>(k: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::Ledger</code> (r:1 w:0)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Bonded</code> (r:1 w:0)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Nominators</code> (r:128 w:128)
+Proof: <code>Staking::Nominators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(558), added: 3033, mode: <code>MaxEncodedLen</code>)
+The range of component <code>k</code> is <code>[1, 128]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.nominate" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#1048-1060">source</a><a href="#method.nominate" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.nominate" class="fn">nominate</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::Ledger</code> (r:1 w:0)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Bonded</code> (r:1 w:0)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::MinNominatorBond</code> (r:1 w:0)
+Proof: <code>Staking::MinNominatorBond</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Nominators</code> (r:1 w:1)
+Proof: <code>Staking::Nominators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(558), added: 3033, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::MaxNominatorsCount</code> (r:1 w:0)
+Proof: <code>Staking::MaxNominatorsCount</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Validators</code> (r:17 w:0)
+Proof: <code>Staking::Validators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(45), added: 2520, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::CurrentEra</code> (r:1 w:0)
+Proof: <code>Staking::CurrentEra</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListNodes</code> (r:2 w:2)
+Proof: <code>VoterList::ListNodes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(154), added: 2629, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListBags</code> (r:1 w:1)
+Proof: <code>VoterList::ListBags</code> (<code>max_values</code>: None, <code>max_size</code>: Some(82), added: 2557, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::CounterForListNodes</code> (r:1 w:1)
+Proof: <code>VoterList::CounterForListNodes</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::CounterForNominators</code> (r:1 w:1)
+Proof: <code>Staking::CounterForNominators</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+The range of component <code>n</code> is <code>[1, 16]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.chill" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#1077-1085">source</a><a href="#method.chill" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.chill" class="fn">chill</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::Ledger</code> (r:1 w:0)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Bonded</code> (r:1 w:0)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Validators</code> (r:1 w:0)
+Proof: <code>Staking::Validators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(45), added: 2520, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Nominators</code> (r:1 w:1)
+Proof: <code>Staking::Nominators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(558), added: 3033, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::CounterForNominators</code> (r:1 w:1)
+Proof: <code>Staking::CounterForNominators</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListNodes</code> (r:2 w:2)
+Proof: <code>VoterList::ListNodes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(154), added: 2629, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListBags</code> (r:1 w:1)
+Proof: <code>VoterList::ListBags</code> (<code>max_values</code>: None, <code>max_size</code>: Some(82), added: 2557, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::CounterForListNodes</code> (r:1 w:1)
+Proof: <code>VoterList::CounterForListNodes</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_payee" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#1092-1100">source</a><a href="#method.set_payee" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_payee" class="fn">set_payee</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::Ledger</code> (r:1 w:0)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Bonded</code> (r:1 w:0)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Payee</code> (r:0 w:1)
+Proof: <code>Staking::Payee</code> (<code>max_values</code>: None, <code>max_size</code>: Some(73), added: 2548, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.update_payee" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#1107-1115">source</a><a href="#method.update_payee" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.update_payee" class="fn">update_payee</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::Ledger</code> (r:1 w:0)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Bonded</code> (r:1 w:0)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Payee</code> (r:1 w:1)
+Proof: <code>Staking::Payee</code> (<code>max_values</code>: None, <code>max_size</code>: Some(73), added: 2548, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_controller" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#1120-1128">source</a><a href="#method.set_controller" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_controller" class="fn">set_controller</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::Bonded</code> (r:1 w:1)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Ledger</code> (r:2 w:2)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_validator_count" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#1131-1138">source</a><a href="#method.set_validator_count" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_validator_count" class="fn">set_validator_count</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::ValidatorCount</code> (r:0 w:1)
+Proof: <code>Staking::ValidatorCount</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.force_no_eras" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#1141-1148">source</a><a href="#method.force_no_eras" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.force_no_eras" class="fn">force_no_eras</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::ForceEra</code> (r:0 w:1)
+Proof: <code>Staking::ForceEra</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(1), added: 496, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.force_new_era" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#1151-1158">source</a><a href="#method.force_new_era" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.force_new_era" class="fn">force_new_era</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::ForceEra</code> (r:0 w:1)
+Proof: <code>Staking::ForceEra</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(1), added: 496, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.force_new_era_always" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#1161-1168">source</a><a href="#method.force_new_era_always" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.force_new_era_always" class="fn">force_new_era_always</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::ForceEra</code> (r:0 w:1)
+Proof: <code>Staking::ForceEra</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(1), added: 496, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_invulnerables" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#1172-1181">source</a><a href="#method.set_invulnerables" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_invulnerables" class="fn">set_invulnerables</a>(v: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::Invulnerables</code> (r:0 w:1)
+Proof: <code>Staking::Invulnerables</code> (<code>max_values</code>: Some(1), <code>max_size</code>: None, mode: <code>Measured</code>)
+The range of component <code>v</code> is <code>[0, 1000]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.deprecate_controller_batch" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#1189-1200">source</a><a href="#method.deprecate_controller_batch" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.deprecate_controller_batch" class="fn">deprecate_controller_batch</a>(i: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::Ledger</code> (r:11800 w:11800)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Bonded</code> (r:5900 w:5900)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Payee</code> (r:5900 w:0)
+Proof: <code>Staking::Payee</code> (<code>max_values</code>: None, <code>max_size</code>: Some(73), added: 2548, mode: <code>MaxEncodedLen</code>)
+The range of component <code>i</code> is <code>[0, 5900]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.force_unstake" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#1230-1242">source</a><a href="#method.force_unstake" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.force_unstake" class="fn">force_unstake</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::SlashingSpans</code> (r:1 w:1)
+Proof: <code>Staking::SlashingSpans</code> (<code>max_values</code>: None, <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>Staking::Bonded</code> (r:1 w:1)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Ledger</code> (r:1 w:1)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Locks</code> (r:1 w:1)
+Proof: <code>Balances::Locks</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1299), added: 3774, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Freezes</code> (r:1 w:0)
+Proof: <code>Balances::Freezes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(67), added: 2542, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Validators</code> (r:1 w:0)
+Proof: <code>Staking::Validators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(45), added: 2520, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Nominators</code> (r:1 w:1)
+Proof: <code>Staking::Nominators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(558), added: 3033, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::CounterForNominators</code> (r:1 w:1)
+Proof: <code>Staking::CounterForNominators</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListNodes</code> (r:2 w:2)
+Proof: <code>VoterList::ListNodes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(154), added: 2629, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListBags</code> (r:1 w:1)
+Proof: <code>VoterList::ListBags</code> (<code>max_values</code>: None, <code>max_size</code>: Some(82), added: 2557, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::CounterForListNodes</code> (r:1 w:1)
+Proof: <code>VoterList::CounterForListNodes</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Payee</code> (r:0 w:1)
+Proof: <code>Staking::Payee</code> (<code>max_values</code>: None, <code>max_size</code>: Some(73), added: 2548, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::SpanSlash</code> (r:0 w:100)
+Proof: <code>Staking::SpanSlash</code> (<code>max_values</code>: None, <code>max_size</code>: Some(76), added: 2551, mode: <code>MaxEncodedLen</code>)
+The range of component <code>s</code> is <code>[0, 100]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.cancel_deferred_slash" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#1246-1256">source</a><a href="#method.cancel_deferred_slash" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.cancel_deferred_slash" class="fn">cancel_deferred_slash</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::UnappliedSlashes</code> (r:1 w:1)
+Proof: <code>Staking::UnappliedSlashes</code> (<code>max_values</code>: None, <code>max_size</code>: None, mode: <code>Measured</code>)
+The range of component <code>s</code> is <code>[1, 1000]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.payout_stakers_alive_staked" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#1286-1299">source</a><a href="#method.payout_stakers_alive_staked" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.payout_stakers_alive_staked" class="fn">payout_stakers_alive_staked</a>(n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::Bonded</code> (r:257 w:0)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Ledger</code> (r:257 w:257)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::ErasStakersClipped</code> (r:1 w:0)
+Proof: <code>Staking::ErasStakersClipped</code> (<code>max_values</code>: None, <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>Staking::ErasStakersOverview</code> (r:1 w:0)
+Proof: <code>Staking::ErasStakersOverview</code> (<code>max_values</code>: None, <code>max_size</code>: Some(92), added: 2567, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::ClaimedRewards</code> (r:1 w:1)
+Proof: <code>Staking::ClaimedRewards</code> (<code>max_values</code>: None, <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>Staking::CurrentEra</code> (r:1 w:0)
+Proof: <code>Staking::CurrentEra</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::ErasValidatorReward</code> (r:1 w:0)
+Proof: <code>Staking::ErasValidatorReward</code> (<code>max_values</code>: None, <code>max_size</code>: Some(28), added: 2503, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Locks</code> (r:257 w:257)
+Proof: <code>Balances::Locks</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1299), added: 3774, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Freezes</code> (r:257 w:0)
+Proof: <code>Balances::Freezes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(67), added: 2542, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:257 w:257)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::ErasStakersPaged</code> (r:1 w:0)
+Proof: <code>Staking::ErasStakersPaged</code> (<code>max_values</code>: None, <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>Staking::ErasRewardPoints</code> (r:1 w:0)
+Proof: <code>Staking::ErasRewardPoints</code> (<code>max_values</code>: None, <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>Staking::ErasValidatorPrefs</code> (r:1 w:0)
+Proof: <code>Staking::ErasValidatorPrefs</code> (<code>max_values</code>: None, <code>max_size</code>: Some(57), added: 2532, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Payee</code> (r:257 w:0)
+Proof: <code>Staking::Payee</code> (<code>max_values</code>: None, <code>max_size</code>: Some(73), added: 2548, mode: <code>MaxEncodedLen</code>)
+The range of component <code>n</code> is <code>[0, 256]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.rebond" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#1313-1323">source</a><a href="#method.rebond" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.rebond" class="fn">rebond</a>(l: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::Ledger</code> (r:1 w:1)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Bonded</code> (r:1 w:0)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Locks</code> (r:1 w:1)
+Proof: <code>Balances::Locks</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1299), added: 3774, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Freezes</code> (r:1 w:0)
+Proof: <code>Balances::Freezes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(67), added: 2542, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListNodes</code> (r:3 w:3)
+Proof: <code>VoterList::ListNodes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(154), added: 2629, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListBags</code> (r:2 w:2)
+Proof: <code>VoterList::ListBags</code> (<code>max_values</code>: None, <code>max_size</code>: Some(82), added: 2557, mode: <code>MaxEncodedLen</code>)
+The range of component <code>l</code> is <code>[1, 32]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.reap_stash" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#1351-1363">source</a><a href="#method.reap_stash" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.reap_stash" class="fn">reap_stash</a>(s: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::Bonded</code> (r:1 w:1)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Ledger</code> (r:1 w:1)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::SlashingSpans</code> (r:1 w:1)
+Proof: <code>Staking::SlashingSpans</code> (<code>max_values</code>: None, <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>Balances::Locks</code> (r:1 w:1)
+Proof: <code>Balances::Locks</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1299), added: 3774, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Freezes</code> (r:1 w:0)
+Proof: <code>Balances::Freezes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(67), added: 2542, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Validators</code> (r:1 w:0)
+Proof: <code>Staking::Validators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(45), added: 2520, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Nominators</code> (r:1 w:1)
+Proof: <code>Staking::Nominators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(558), added: 3033, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::CounterForNominators</code> (r:1 w:1)
+Proof: <code>Staking::CounterForNominators</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListNodes</code> (r:2 w:2)
+Proof: <code>VoterList::ListNodes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(154), added: 2629, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListBags</code> (r:1 w:1)
+Proof: <code>VoterList::ListBags</code> (<code>max_values</code>: None, <code>max_size</code>: Some(82), added: 2557, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::CounterForListNodes</code> (r:1 w:1)
+Proof: <code>VoterList::CounterForListNodes</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Payee</code> (r:0 w:1)
+Proof: <code>Staking::Payee</code> (<code>max_values</code>: None, <code>max_size</code>: Some(73), added: 2548, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::SpanSlash</code> (r:0 w:100)
+Proof: <code>Staking::SpanSlash</code> (<code>max_values</code>: None, <code>max_size</code>: Some(76), added: 2551, mode: <code>MaxEncodedLen</code>)
+The range of component <code>s</code> is <code>[1, 100]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.new_era" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#1400-1417">source</a><a href="#method.new_era" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.new_era" class="fn">new_era</a>(v: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>VoterList::CounterForListNodes</code> (r:1 w:0)
+Proof: <code>VoterList::CounterForListNodes</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListBags</code> (r:200 w:0)
+Proof: <code>VoterList::ListBags</code> (<code>max_values</code>: None, <code>max_size</code>: Some(82), added: 2557, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListNodes</code> (r:110 w:0)
+Proof: <code>VoterList::ListNodes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(154), added: 2629, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Bonded</code> (r:110 w:0)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Ledger</code> (r:110 w:0)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Nominators</code> (r:110 w:0)
+Proof: <code>Staking::Nominators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(558), added: 3033, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Validators</code> (r:11 w:0)
+Proof: <code>Staking::Validators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(45), added: 2520, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::CounterForValidators</code> (r:1 w:0)
+Proof: <code>Staking::CounterForValidators</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::ValidatorCount</code> (r:1 w:0)
+Proof: <code>Staking::ValidatorCount</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::MinimumValidatorCount</code> (r:1 w:0)
+Proof: <code>Staking::MinimumValidatorCount</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::CurrentEra</code> (r:1 w:1)
+Proof: <code>Staking::CurrentEra</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::ErasValidatorPrefs</code> (r:0 w:10)
+Proof: <code>Staking::ErasValidatorPrefs</code> (<code>max_values</code>: None, <code>max_size</code>: Some(57), added: 2532, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::ErasStakersPaged</code> (r:0 w:10)
+Proof: <code>Staking::ErasStakersPaged</code> (<code>max_values</code>: None, <code>max_size</code>: None, mode: <code>Measured</code>)
+Storage: <code>Staking::ErasStakersOverview</code> (r:0 w:10)
+Proof: <code>Staking::ErasStakersOverview</code> (<code>max_values</code>: None, <code>max_size</code>: Some(92), added: 2567, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::ErasTotalStake</code> (r:0 w:1)
+Proof: <code>Staking::ErasTotalStake</code> (<code>max_values</code>: None, <code>max_size</code>: Some(28), added: 2503, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::ErasStartSessionIndex</code> (r:0 w:1)
+Proof: <code>Staking::ErasStartSessionIndex</code> (<code>max_values</code>: None, <code>max_size</code>: Some(16), added: 2491, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::MinimumActiveStake</code> (r:0 w:1)
+Proof: <code>Staking::MinimumActiveStake</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)
+The range of component <code>v</code> is <code>[1, 10]</code>.
+The range of component <code>n</code> is <code>[0, 100]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.get_npos_voters" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#1436-1452">source</a><a href="#method.get_npos_voters" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.get_npos_voters" class="fn">get_npos_voters</a>(v: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>VoterList::CounterForListNodes</code> (r:1 w:0)
+Proof: <code>VoterList::CounterForListNodes</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListBags</code> (r:200 w:0)
+Proof: <code>VoterList::ListBags</code> (<code>max_values</code>: None, <code>max_size</code>: Some(82), added: 2557, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListNodes</code> (r:2000 w:0)
+Proof: <code>VoterList::ListNodes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(154), added: 2629, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Bonded</code> (r:2000 w:0)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Ledger</code> (r:2000 w:0)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Nominators</code> (r:2000 w:0)
+Proof: <code>Staking::Nominators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(558), added: 3033, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Validators</code> (r:1000 w:0)
+Proof: <code>Staking::Validators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(45), added: 2520, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::MinimumActiveStake</code> (r:0 w:1)
+Proof: <code>Staking::MinimumActiveStake</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)
+The range of component <code>v</code> is <code>[500, 1000]</code>.
+The range of component <code>n</code> is <code>[500, 1000]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.get_npos_targets" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#1458-1469">source</a><a href="#method.get_npos_targets" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.get_npos_targets" class="fn">get_npos_targets</a>(v: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::CounterForValidators</code> (r:1 w:0)
+Proof: <code>Staking::CounterForValidators</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Validators</code> (r:1001 w:0)
+Proof: <code>Staking::Validators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(45), added: 2520, mode: <code>MaxEncodedLen</code>)
+The range of component <code>v</code> is <code>[500, 1000]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_staking_configs_all_set" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#1484-1491">source</a><a href="#method.set_staking_configs_all_set" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_staking_configs_all_set" class="fn">set_staking_configs_all_set</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::MinCommission</code> (r:0 w:1)
+Proof: <code>Staking::MinCommission</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::MinValidatorBond</code> (r:0 w:1)
+Proof: <code>Staking::MinValidatorBond</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::MaxValidatorsCount</code> (r:0 w:1)
+Proof: <code>Staking::MaxValidatorsCount</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::MaxStakedRewards</code> (r:0 w:1)
+Proof: <code>Staking::MaxStakedRewards</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(1), added: 496, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::ChillThreshold</code> (r:0 w:1)
+Proof: <code>Staking::ChillThreshold</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(1), added: 496, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::MaxNominatorsCount</code> (r:0 w:1)
+Proof: <code>Staking::MaxNominatorsCount</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::MinNominatorBond</code> (r:0 w:1)
+Proof: <code>Staking::MinNominatorBond</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_staking_configs_all_remove" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#1506-1513">source</a><a href="#method.set_staking_configs_all_remove" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_staking_configs_all_remove" class="fn">set_staking_configs_all_remove</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::MinCommission</code> (r:0 w:1)
+Proof: <code>Staking::MinCommission</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::MinValidatorBond</code> (r:0 w:1)
+Proof: <code>Staking::MinValidatorBond</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::MaxValidatorsCount</code> (r:0 w:1)
+Proof: <code>Staking::MaxValidatorsCount</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::MaxStakedRewards</code> (r:0 w:1)
+Proof: <code>Staking::MaxStakedRewards</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(1), added: 496, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::ChillThreshold</code> (r:0 w:1)
+Proof: <code>Staking::ChillThreshold</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(1), added: 496, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::MaxNominatorsCount</code> (r:0 w:1)
+Proof: <code>Staking::MaxNominatorsCount</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::MinNominatorBond</code> (r:0 w:1)
+Proof: <code>Staking::MinNominatorBond</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.chill_other" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#1536-1544">source</a><a href="#method.chill_other" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.chill_other" class="fn">chill_other</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::Bonded</code> (r:1 w:0)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Ledger</code> (r:1 w:0)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Nominators</code> (r:1 w:1)
+Proof: <code>Staking::Nominators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(558), added: 3033, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::ChillThreshold</code> (r:1 w:0)
+Proof: <code>Staking::ChillThreshold</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(1), added: 496, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::MaxNominatorsCount</code> (r:1 w:0)
+Proof: <code>Staking::MaxNominatorsCount</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::CounterForNominators</code> (r:1 w:1)
+Proof: <code>Staking::CounterForNominators</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::MinNominatorBond</code> (r:1 w:0)
+Proof: <code>Staking::MinNominatorBond</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(16), added: 511, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Validators</code> (r:1 w:0)
+Proof: <code>Staking::Validators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(45), added: 2520, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListNodes</code> (r:2 w:2)
+Proof: <code>VoterList::ListNodes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(154), added: 2629, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::ListBags</code> (r:1 w:1)
+Proof: <code>VoterList::ListBags</code> (<code>max_values</code>: None, <code>max_size</code>: Some(82), added: 2557, mode: <code>MaxEncodedLen</code>)
+Storage: <code>VoterList::CounterForListNodes</code> (r:1 w:1)
+Proof: <code>VoterList::CounterForListNodes</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.force_apply_min_commission" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#1549-1557">source</a><a href="#method.force_apply_min_commission" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.force_apply_min_commission" class="fn">force_apply_min_commission</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::MinCommission</code> (r:1 w:0)
+Proof: <code>Staking::MinCommission</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Validators</code> (r:1 w:1)
+Proof: <code>Staking::Validators</code> (<code>max_values</code>: None, <code>max_size</code>: Some(45), added: 2520, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_min_commission" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#1560-1567">source</a><a href="#method.set_min_commission" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_min_commission" class="fn">set_min_commission</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Staking::MinCommission</code> (r:0 w:1)
+Proof: <code>Staking::MinCommission</code> (<code>max_values</code>: Some(1), <code>max_size</code>: Some(4), added: 499, mode: <code>MaxEncodedLen</code>)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.restore_ledger" class="method trait-impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#1578-1586">source</a><a href="#method.restore_ledger" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.restore_ledger" class="fn">restore_ledger</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: <code>Balances::Locks</code> (r:1 w:1)
+Proof: <code>Balances::Locks</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1299), added: 3774, mode: <code>MaxEncodedLen</code>)
+Storage: <code>System::Account</code> (r:1 w:1)
+Proof: <code>System::Account</code> (<code>max_values</code>: None, <code>max_size</code>: Some(128), added: 2603, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Bonded</code> (r:1 w:1)
+Proof: <code>Staking::Bonded</code> (<code>max_values</code>: None, <code>max_size</code>: Some(72), added: 2547, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Staking::Ledger</code> (r:1 w:1)
+Proof: <code>Staking::Ledger</code> (<code>max_values</code>: None, <code>max_size</code>: Some(1091), added: 3566, mode: <code>MaxEncodedLen</code>)
+Storage: <code>Balances::Freezes</code> (r:1 w:0)
+Proof: <code>Balances::Freezes</code> (<code>max_values</code>: None, <code>max_size</code>: Some(67), added: 2542, mode: <code>MaxEncodedLen</code>)</p>
+</div></details></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-WeightInfo-for-SubstrateWeight%3CT%3E" class="impl"><a class="src rightside" href="../../src/pallet_staking/weights.rs.html#90-837">source</a><a href="#impl-WeightInfo-for-SubstrateWeight%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T: Config&gt; <a class="trait" href="trait.WeightInfo.html" title="trait pallet_staking::weights::WeightInfo">WeightInfo</a> for <a class="struct" href="struct.SubstrateWeight.html" title="struct pallet_staking::weights::SubstrateWeight">SubstrateWeight</a>&lt;T&gt;</h3></section></div><script src="../../trait.impl/pallet_staking/weights/trait.WeightInfo.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

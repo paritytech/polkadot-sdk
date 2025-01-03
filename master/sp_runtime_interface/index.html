@@ -1,0 +1,230 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Substrate runtime interface"><title>sp_runtime_interface - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sp_runtime_interface" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sp_runtime_interface/index.html">sp_runtime_interface</a><span class="version">24.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li><li><a href="#attributes">Attribute Macros</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">sp_runtime_interface</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/sp_runtime_interface/lib.rs.html#18-413">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Substrate runtime interface</p>
+<p>This crate provides types, traits and macros around runtime interfaces. A runtime interface is
+a fixed interface between a Substrate runtime and a Substrate node. For a native runtime the
+interface maps to a direct function call of the implementation. For a wasm runtime the interface
+maps to an external function call. These external functions are exported by the wasm executor
+and they map to the same implementation as the native calls.</p>
+<h2 id="using-a-type-in-a-runtime-interface"><a class="doc-anchor" href="#using-a-type-in-a-runtime-interface">§</a>Using a type in a runtime interface</h2>
+<p>Any type that should be used in a runtime interface as argument or return value needs to
+implement <a href="trait.RIType.html" title="trait sp_runtime_interface::RIType"><code>RIType</code></a>. The associated type
+<a href="./trait.RIType.html#associatedtype.FFIType"><code>FFIType</code></a> is the type that is used in the FFI
+function to represent the actual type. For example <code>[T]</code> is represented by an <code>u64</code>. The slice
+pointer and the length will be mapped to an <code>u64</code> value. For more information see this
+<a href="#ffi-type-and-conversion">table</a>. The FFI function definition is used when calling from the
+wasm runtime into the node.</p>
+<p>Traits are used to convert from a type to the corresponding
+<a href="./trait.RIType.html#associatedtype.FFIType"><code>RIType::FFIType</code></a>.
+Depending on where and how a type should be used in a function signature, a combination of the
+following traits need to be implemented:</p>
+<!-- markdown-link-check-enable -->
+<ol>
+<li>Pass as function argument: <a href="wasm/trait.IntoFFIValue.html" title="trait sp_runtime_interface::wasm::IntoFFIValue"><code>wasm::IntoFFIValue</code></a> and <a href="host/trait.FromFFIValue.html" title="trait sp_runtime_interface::host::FromFFIValue"><code>host::FromFFIValue</code></a></li>
+<li>As function return value: <a href="wasm/trait.FromFFIValue.html" title="trait sp_runtime_interface::wasm::FromFFIValue"><code>wasm::FromFFIValue</code></a> and <a href="host/trait.IntoFFIValue.html" title="trait sp_runtime_interface::host::IntoFFIValue"><code>host::IntoFFIValue</code></a></li>
+<li>Pass as mutable function argument: <a href="host/trait.IntoPreallocatedFFIValue.html" title="trait sp_runtime_interface::host::IntoPreallocatedFFIValue"><code>host::IntoPreallocatedFFIValue</code></a></li>
+</ol>
+<p>The traits are implemented for most of the common types like <code>[T]</code>, <code>Vec&lt;T&gt;</code>, arrays and
+primitive types.</p>
+<p>For custom types, we provide the <a href="./pass_by#PassBy"><code>PassBy</code></a> trait and strategies that define
+how a type is passed between the wasm runtime and the node. Each strategy also provides a derive
+macro to simplify the implementation.</p>
+<h2 id="performance"><a class="doc-anchor" href="#performance">§</a>Performance</h2>
+<p>To not waste any more performance when calling into the node, not all types are SCALE encoded
+when being passed as arguments between the wasm runtime and the node. For most types that
+are raw bytes like <code>Vec&lt;u8&gt;</code>, <code>[u8]</code> or <code>[u8; N]</code> we pass them directly, without SCALE encoding
+them in front of. The implementation of <a href="trait.RIType.html" title="trait sp_runtime_interface::RIType"><code>RIType</code></a> each type provides more information on how
+the data is passed.</p>
+<h2 id="declaring-a-runtime-interface"><a class="doc-anchor" href="#declaring-a-runtime-interface">§</a>Declaring a runtime interface</h2>
+<p>Declaring a runtime interface is similar to declaring a trait in Rust:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[sp_runtime_interface::runtime_interface]
+</span><span class="kw">trait </span>RuntimeInterface {
+    <span class="kw">fn </span>some_function(value: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
+        value.iter().all(|v| <span class="kw-2">*</span>v &gt; <span class="number">125</span>)
+    }
+}</code></pre></div>
+<p>For more information on declaring a runtime interface, see
+<a href="./attr.runtime_interface.html"><code>#[runtime_interface]</code></a>.</p>
+<h2 id="ffi-type-and-conversion"><a class="doc-anchor" href="#ffi-type-and-conversion">§</a>FFI type and conversion</h2>
+<p>The following table documents how values of types are passed between the wasm and
+the host side and how they are converted into the corresponding type.</p>
+<div><table><thead><tr><th>Type</th><th>FFI type</th><th>Conversion</th></tr></thead><tbody>
+<tr><td><code>u8</code></td><td><code>u32</code></td><td>zero-extended to 32-bits</td></tr>
+<tr><td><code>u16</code></td><td><code>u32</code></td><td>zero-extended to 32-bits</td></tr>
+<tr><td><code>u32</code></td><td><code>u32</code></td><td><code>Identity</code></td></tr>
+<tr><td><code>u64</code></td><td><code>u64</code></td><td><code>Identity</code></td></tr>
+<tr><td><code>i128</code></td><td><code>u32</code></td><td><code>v.as_ptr()</code> (pointer to a 16 byte array)</td></tr>
+<tr><td><code>i8</code></td><td><code>i32</code></td><td>sign-extended to 32-bits</td></tr>
+<tr><td><code>i16</code></td><td><code>i32</code></td><td>sign-extended to 32-bits</td></tr>
+<tr><td><code>i32</code></td><td><code>i32</code></td><td><code>Identity</code></td></tr>
+<tr><td><code>i64</code></td><td><code>i64</code></td><td><code>Identity</code></td></tr>
+<tr><td><code>u128</code></td><td><code>u32</code></td><td><code>v.as_ptr()</code> (pointer to a 16 byte array)</td></tr>
+<tr><td><code>bool</code></td><td><code>u32</code></td><td><code>if v { 1 } else { 0 }</code></td></tr>
+<tr><td><code>&amp;str</code></td><td><code>u64</code></td><td><code>v.len() 32bit &lt;&lt; 32 | v.as_ptr() 32bit</code></td></tr>
+<tr><td><code>&amp;[u8]</code></td><td><code>u64</code></td><td><code>v.len() 32bit &lt;&lt; 32 | v.as_ptr() 32bit</code></td></tr>
+<tr><td><code>Vec&lt;u8&gt;</code></td><td><code>u64</code></td><td><code>v.len() 32bit &lt;&lt; 32 | v.as_ptr() 32bit</code></td></tr>
+<tr><td><code>Vec&lt;T&gt; where T: Encode</code></td><td><code>u64</code></td><td><code>let e = v.encode();</code><br><br><code>e.len() 32bit &lt;&lt; 32 | e.as_ptr() 32bit</code></td></tr>
+<tr><td><code>&amp;[T] where T: Encode</code></td><td><code>u64</code></td><td><code>let e = v.encode();</code><br><br><code>e.len() 32bit &lt;&lt; 32 | e.as_ptr() 32bit</code></td></tr>
+<tr><td><code>[u8; N]</code></td><td><code>u32</code></td><td><code>v.as_ptr()</code></td></tr>
+<tr><td><code>*const T</code></td><td><code>u32</code></td><td><code>Identity</code></td></tr>
+<tr><td><code>Option&lt;T&gt;</code></td><td><code>u64</code></td><td><code>let e = v.encode();</code><br><br><code>e.len() 32bit &lt;&lt; 32 | e.as_ptr() 32bit</code></td></tr>
+<tr><td><a href="./pass_by#Inner"><code>T where T: PassBy&lt;PassBy=Inner&gt;</code></a></td><td>Depends on inner</td><td>Depends on inner</td></tr>
+<tr><td><a href="./pass_by#Codec"><code>T where T: PassBy&lt;PassBy=Codec&gt;</code></a></td><td><code>u64</code></td><td><code>v.len() 32bit &lt;&lt; 32 |v.as_ptr() 32bit</code></td></tr>
+</tbody></table>
+</div>
+<p><code>Identity</code> means that the value is converted directly into the corresponding FFI type.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="host/index.html" title="mod sp_runtime_interface::host">host</a></div><div class="desc docblock-short">Traits required by the runtime interface from the host side.</div></li><li><div class="item-name"><a class="mod" href="pass_by/index.html" title="mod sp_runtime_interface::pass_by">pass_by</a></div><div class="desc docblock-short">Provides the <a href="pass_by/trait.PassBy.html" title="trait sp_runtime_interface::pass_by::PassBy"><code>PassBy</code></a> trait to simplify the implementation of the
+runtime interface traits for custom types.</div></li><li><div class="item-name"><a class="mod" href="wasm/index.html" title="mod sp_runtime_interface::wasm">wasm</a></div><div class="desc docblock-short">Traits required by the runtime interface from the wasm side.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.RIType.html" title="trait sp_runtime_interface::RIType">RIType</a></div><div class="desc docblock-short">Something that can be used by the runtime interface as type to communicate between wasm and the
+host.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.pack_ptr_and_len.html" title="fn sp_runtime_interface::pack_ptr_and_len">pack_ptr_and_len</a></div><div class="desc docblock-short">Pack a pointer and length into an <code>u64</code>.</div></li><li><div class="item-name"><a class="fn" href="fn.unpack_ptr_and_len.html" title="fn sp_runtime_interface::unpack_ptr_and_len">unpack_ptr_and_len</a></div><div class="desc docblock-short">Unpacks an <code>u64</code> into the pointer and length.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Pointer.html" title="type sp_runtime_interface::Pointer">Pointer</a></div><div class="desc docblock-short">A pointer that can be used in a runtime interface function signature.</div></li></ul><h2 id="attributes" class="section-header">Attribute Macros<a href="#attributes" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="attr" href="attr.runtime_interface.html" title="attr sp_runtime_interface::runtime_interface">runtime_interface</a></div><div class="desc docblock-short">Attribute macro for transforming a trait declaration into a runtime interface.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

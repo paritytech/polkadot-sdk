@@ -1,0 +1,345 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="An extended externalities for offchain workers."><title>Externalities in sp_runtime::offchain - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../sp_runtime/index.html">sp_runtime</a><span class="version">31.0.1</span></h2></div><h2 class="location"><a href="#">Externalities</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.http_request_add_header">http_request_add_header</a></li><li><a href="#tymethod.http_request_start">http_request_start</a></li><li><a href="#tymethod.http_request_write_body">http_request_write_body</a></li><li><a href="#tymethod.http_response_headers">http_response_headers</a></li><li><a href="#tymethod.http_response_read_body">http_response_read_body</a></li><li><a href="#tymethod.http_response_wait">http_response_wait</a></li><li><a href="#tymethod.is_validator">is_validator</a></li><li><a href="#tymethod.network_state">network_state</a></li><li><a href="#tymethod.random_seed">random_seed</a></li><li><a href="#tymethod.set_authorized_nodes">set_authorized_nodes</a></li><li><a href="#tymethod.sleep_until">sleep_until</a></li><li><a href="#tymethod.timestamp">timestamp</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-Externalities-for-Box%3CT%3E">Box&lt;T&gt;</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In sp_runtime::offchain</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">sp_runtime</a>::<wbr><a href="index.html">offchain</a>::<wbr><a class="trait" href="#">Externalities</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Externalities: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> {
+    // Required methods
+    fn <a href="#tymethod.is_validator" class="fn">is_validator</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.network_state" class="fn">network_state</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.OpaqueNetworkState.html" title="struct sp_runtime::offchain::OpaqueNetworkState">OpaqueNetworkState</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.timestamp" class="fn">timestamp</a>(&amp;mut self) -&gt; <a class="struct" href="struct.Timestamp.html" title="struct sp_runtime::offchain::Timestamp">Timestamp</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.sleep_until" class="fn">sleep_until</a>(&amp;mut self, deadline: <a class="struct" href="struct.Timestamp.html" title="struct sp_runtime::offchain::Timestamp">Timestamp</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.random_seed" class="fn">random_seed</a>(&amp;mut self) -&gt; [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.array.html">32</a>];
+<span class="item-spacer"></span>    fn <a href="#tymethod.http_request_start" class="fn">http_request_start</a>(
+        &amp;mut self,
+        method: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>,
+        uri: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>,
+        meta: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.HttpRequestId.html" title="struct sp_runtime::offchain::HttpRequestId">HttpRequestId</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.http_request_add_header" class="fn">http_request_add_header</a>(
+        &amp;mut self,
+        request_id: <a class="struct" href="struct.HttpRequestId.html" title="struct sp_runtime::offchain::HttpRequestId">HttpRequestId</a>,
+        name: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>,
+        value: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.http_request_write_body" class="fn">http_request_write_body</a>(
+        &amp;mut self,
+        request_id: <a class="struct" href="struct.HttpRequestId.html" title="struct sp_runtime::offchain::HttpRequestId">HttpRequestId</a>,
+        chunk: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+        deadline: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.Timestamp.html" title="struct sp_runtime::offchain::Timestamp">Timestamp</a>&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.HttpError.html" title="enum sp_runtime::offchain::HttpError">HttpError</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.http_response_wait" class="fn">http_response_wait</a>(
+        &amp;mut self,
+        ids: &amp;[<a class="struct" href="struct.HttpRequestId.html" title="struct sp_runtime::offchain::HttpRequestId">HttpRequestId</a>],
+        deadline: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.Timestamp.html" title="struct sp_runtime::offchain::Timestamp">Timestamp</a>&gt;,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="enum.HttpRequestStatus.html" title="enum sp_runtime::offchain::HttpRequestStatus">HttpRequestStatus</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.http_response_headers" class="fn">http_response_headers</a>(
+        &amp;mut self,
+        request_id: <a class="struct" href="struct.HttpRequestId.html" title="struct sp_runtime::offchain::HttpRequestId">HttpRequestId</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;)&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.http_response_read_body" class="fn">http_response_read_body</a>(
+        &amp;mut self,
+        request_id: <a class="struct" href="struct.HttpRequestId.html" title="struct sp_runtime::offchain::HttpRequestId">HttpRequestId</a>,
+        buffer: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+        deadline: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.Timestamp.html" title="struct sp_runtime::offchain::Timestamp">Timestamp</a>&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>, <a class="enum" href="enum.HttpError.html" title="enum sp_runtime::offchain::HttpError">HttpError</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_authorized_nodes" class="fn">set_authorized_nodes</a>(
+        &amp;mut self,
+        nodes: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;OpaquePeerId&gt;,
+        authorized_only: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>,
+    );
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>An extended externalities for offchain workers.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.is_validator" class="method"><h4 class="code-header">fn <a href="#tymethod.is_validator" class="fn">is_validator</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns if the local node is a potential validator.</p>
+<p>Even if this function returns <code>true</code>, it does not mean that any keys are configured
+and that the validator is registered in the chain.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.network_state" class="method"><h4 class="code-header">fn <a href="#tymethod.network_state" class="fn">network_state</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.OpaqueNetworkState.html" title="struct sp_runtime::offchain::OpaqueNetworkState">OpaqueNetworkState</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Returns information about the local node’s network state.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.timestamp" class="method"><h4 class="code-header">fn <a href="#tymethod.timestamp" class="fn">timestamp</a>(&amp;mut self) -&gt; <a class="struct" href="struct.Timestamp.html" title="struct sp_runtime::offchain::Timestamp">Timestamp</a></h4></section></summary><div class="docblock"><p>Returns current UNIX timestamp (in millis)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.sleep_until" class="method"><h4 class="code-header">fn <a href="#tymethod.sleep_until" class="fn">sleep_until</a>(&amp;mut self, deadline: <a class="struct" href="struct.Timestamp.html" title="struct sp_runtime::offchain::Timestamp">Timestamp</a>)</h4></section></summary><div class="docblock"><p>Pause the execution until <code>deadline</code> is reached.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.random_seed" class="method"><h4 class="code-header">fn <a href="#tymethod.random_seed" class="fn">random_seed</a>(&amp;mut self) -&gt; [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.array.html">32</a>]</h4></section></summary><div class="docblock"><p>Returns a random seed.</p>
+<p>This is a truly random non deterministic seed generated by host environment.
+Obviously fine in the off-chain worker context.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.http_request_start" class="method"><h4 class="code-header">fn <a href="#tymethod.http_request_start" class="fn">http_request_start</a>(
+    &amp;mut self,
+    method: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>,
+    uri: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>,
+    meta: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.HttpRequestId.html" title="struct sp_runtime::offchain::HttpRequestId">HttpRequestId</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Initiates a http request given HTTP verb and the URL.</p>
+<p>Meta is a future-reserved field containing additional, parity-scale-codec encoded
+parameters. Returns the id of newly started request.</p>
+<p>Returns an error if:</p>
+<ul>
+<li>No new request identifier could be allocated.</li>
+<li>The method or URI contain invalid characters.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.http_request_add_header" class="method"><h4 class="code-header">fn <a href="#tymethod.http_request_add_header" class="fn">http_request_add_header</a>(
+    &amp;mut self,
+    request_id: <a class="struct" href="struct.HttpRequestId.html" title="struct sp_runtime::offchain::HttpRequestId">HttpRequestId</a>,
+    name: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>,
+    value: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Append header to the request.</p>
+<p>Calling this function multiple times with the same header name continues appending new
+headers. In other words, headers are never replaced.</p>
+<p>Returns an error if:</p>
+<ul>
+<li>The request identifier is invalid.</li>
+<li>You have called <code>http_request_write_body</code> on that request.</li>
+<li>The name or value contain invalid characters.</li>
+</ul>
+<p>An error doesn’t poison the request, and you can continue as if the call had never been
+made.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.http_request_write_body" class="method"><h4 class="code-header">fn <a href="#tymethod.http_request_write_body" class="fn">http_request_write_body</a>(
+    &amp;mut self,
+    request_id: <a class="struct" href="struct.HttpRequestId.html" title="struct sp_runtime::offchain::HttpRequestId">HttpRequestId</a>,
+    chunk: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+    deadline: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.Timestamp.html" title="struct sp_runtime::offchain::Timestamp">Timestamp</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.HttpError.html" title="enum sp_runtime::offchain::HttpError">HttpError</a>&gt;</h4></section></summary><div class="docblock"><p>Write a chunk of request body.</p>
+<p>Calling this function with a non-empty slice may or may not start the
+HTTP request. Calling this function with an empty chunks finalizes the
+request and always starts it. It is no longer valid to write more data
+afterwards.
+Passing <code>None</code> as deadline blocks forever.</p>
+<p>Returns an error if:</p>
+<ul>
+<li>The request identifier is invalid.</li>
+<li><code>http_response_wait</code> has already been called on this request.</li>
+<li>The deadline is reached.</li>
+<li>An I/O error has happened, for example the remote has closed our request. The request is
+then considered invalid.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.http_response_wait" class="method"><h4 class="code-header">fn <a href="#tymethod.http_response_wait" class="fn">http_response_wait</a>(
+    &amp;mut self,
+    ids: &amp;[<a class="struct" href="struct.HttpRequestId.html" title="struct sp_runtime::offchain::HttpRequestId">HttpRequestId</a>],
+    deadline: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.Timestamp.html" title="struct sp_runtime::offchain::Timestamp">Timestamp</a>&gt;,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="enum.HttpRequestStatus.html" title="enum sp_runtime::offchain::HttpRequestStatus">HttpRequestStatus</a>&gt;</h4></section></summary><div class="docblock"><p>Block and wait for the responses for given requests.</p>
+<p>Returns a vector of request statuses (the len is the same as ids).
+Note that if deadline is not provided the method will block indefinitely,
+otherwise unready responses will produce <code>DeadlineReached</code> status.</p>
+<p>If a response returns an <code>IoError</code>, it is then considered destroyed.
+Its id is then invalid.</p>
+<p>Passing <code>None</code> as deadline blocks forever.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.http_response_headers" class="method"><h4 class="code-header">fn <a href="#tymethod.http_response_headers" class="fn">http_response_headers</a>(
+    &amp;mut self,
+    request_id: <a class="struct" href="struct.HttpRequestId.html" title="struct sp_runtime::offchain::HttpRequestId">HttpRequestId</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;)&gt;</h4></section></summary><div class="docblock"><p>Read all response headers.</p>
+<p>Returns a vector of pairs <code>(HeaderKey, HeaderValue)</code>.</p>
+<p>Dispatches the request if it hasn’t been done yet. It is no longer
+valid to modify the headers or write data to the request.</p>
+<p>Returns an empty list if the identifier is unknown/invalid, hasn’t
+received a response, or has finished.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.http_response_read_body" class="method"><h4 class="code-header">fn <a href="#tymethod.http_response_read_body" class="fn">http_response_read_body</a>(
+    &amp;mut self,
+    request_id: <a class="struct" href="struct.HttpRequestId.html" title="struct sp_runtime::offchain::HttpRequestId">HttpRequestId</a>,
+    buffer: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+    deadline: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.Timestamp.html" title="struct sp_runtime::offchain::Timestamp">Timestamp</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>, <a class="enum" href="enum.HttpError.html" title="enum sp_runtime::offchain::HttpError">HttpError</a>&gt;</h4></section></summary><div class="docblock"><p>Read a chunk of body response to given buffer.</p>
+<p>Dispatches the request if it hasn’t been done yet. It is no longer
+valid to modify the headers or write data to the request.</p>
+<p>Returns the number of bytes written or an error in case a deadline
+is reached or server closed the connection.
+Passing <code>None</code> as a deadline blocks forever.</p>
+<p>If <code>Ok(0)</code> or <code>Err(IoError)</code> is returned, the request is considered
+destroyed. Doing another read or getting the response’s headers, for
+example, is then invalid.</p>
+<p>Returns an error if:</p>
+<ul>
+<li>The request identifier is invalid.</li>
+<li>The deadline is reached.</li>
+<li>An I/O error has happened, for example the remote has closed our request. The request is
+then considered invalid.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.set_authorized_nodes" class="method"><h4 class="code-header">fn <a href="#tymethod.set_authorized_nodes" class="fn">set_authorized_nodes</a>(
+    &amp;mut self,
+    nodes: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;OpaquePeerId&gt;,
+    authorized_only: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>,
+)</h4></section></summary><div class="docblock"><p>Set the authorized nodes from runtime.</p>
+<p>In a permissioned network, the connections between nodes need to reach a
+consensus between participants.</p>
+<ul>
+<li><code>nodes</code>: a set of nodes which are allowed to connect for the local node.
+each one is identified with an <code>OpaquePeerId</code>, here it just use plain bytes
+without any encoding. Invalid <code>OpaquePeerId</code>s are silently ignored.</li>
+<li><code>authorized_only</code>: if true, only the authorized nodes are allowed to connect,
+otherwise unauthorized nodes can also be connected through other mechanism.</li>
+</ul>
+</div></details></div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-Externalities-for-Box%3CT%3E" class="impl"><a href="#impl-Externalities-for-Box%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.Externalities.html" title="trait sp_runtime::offchain::Externalities">Externalities</a> for <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="trait.Externalities.html" title="trait sp_runtime::offchain::Externalities">Externalities</a> + ?<a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h3></section></summary><div class="impl-items"><section id="method.is_validator" class="method trait-impl"><a href="#method.is_validator" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.is_validator" class="fn">is_validator</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></h4></section><section id="method.network_state" class="method trait-impl"><a href="#method.network_state" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.network_state" class="fn">network_state</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.OpaqueNetworkState.html" title="struct sp_runtime::offchain::OpaqueNetworkState">OpaqueNetworkState</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;</h4></section><section id="method.timestamp" class="method trait-impl"><a href="#method.timestamp" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.timestamp" class="fn">timestamp</a>(&amp;mut self) -&gt; <a class="struct" href="struct.Timestamp.html" title="struct sp_runtime::offchain::Timestamp">Timestamp</a></h4></section><section id="method.sleep_until" class="method trait-impl"><a href="#method.sleep_until" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.sleep_until" class="fn">sleep_until</a>(&amp;mut self, deadline: <a class="struct" href="struct.Timestamp.html" title="struct sp_runtime::offchain::Timestamp">Timestamp</a>)</h4></section><section id="method.random_seed" class="method trait-impl"><a href="#method.random_seed" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.random_seed" class="fn">random_seed</a>(&amp;mut self) -&gt; [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.array.html">32</a>]</h4></section><section id="method.http_request_start" class="method trait-impl"><a href="#method.http_request_start" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.http_request_start" class="fn">http_request_start</a>(
+    &amp;mut self,
+    method: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>,
+    uri: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>,
+    meta: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.HttpRequestId.html" title="struct sp_runtime::offchain::HttpRequestId">HttpRequestId</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;</h4></section><section id="method.http_request_add_header" class="method trait-impl"><a href="#method.http_request_add_header" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.http_request_add_header" class="fn">http_request_add_header</a>(
+    &amp;mut self,
+    request_id: <a class="struct" href="struct.HttpRequestId.html" title="struct sp_runtime::offchain::HttpRequestId">HttpRequestId</a>,
+    name: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>,
+    value: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;</h4></section><section id="method.http_request_write_body" class="method trait-impl"><a href="#method.http_request_write_body" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.http_request_write_body" class="fn">http_request_write_body</a>(
+    &amp;mut self,
+    request_id: <a class="struct" href="struct.HttpRequestId.html" title="struct sp_runtime::offchain::HttpRequestId">HttpRequestId</a>,
+    chunk: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+    deadline: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.Timestamp.html" title="struct sp_runtime::offchain::Timestamp">Timestamp</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.HttpError.html" title="enum sp_runtime::offchain::HttpError">HttpError</a>&gt;</h4></section><section id="method.http_response_wait" class="method trait-impl"><a href="#method.http_response_wait" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.http_response_wait" class="fn">http_response_wait</a>(
+    &amp;mut self,
+    ids: &amp;[<a class="struct" href="struct.HttpRequestId.html" title="struct sp_runtime::offchain::HttpRequestId">HttpRequestId</a>],
+    deadline: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.Timestamp.html" title="struct sp_runtime::offchain::Timestamp">Timestamp</a>&gt;,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="enum.HttpRequestStatus.html" title="enum sp_runtime::offchain::HttpRequestStatus">HttpRequestStatus</a>&gt;</h4></section><section id="method.http_response_headers" class="method trait-impl"><a href="#method.http_response_headers" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.http_response_headers" class="fn">http_response_headers</a>(
+    &amp;mut self,
+    request_id: <a class="struct" href="struct.HttpRequestId.html" title="struct sp_runtime::offchain::HttpRequestId">HttpRequestId</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;)&gt;</h4></section><section id="method.http_response_read_body" class="method trait-impl"><a href="#method.http_response_read_body" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.http_response_read_body" class="fn">http_response_read_body</a>(
+    &amp;mut self,
+    request_id: <a class="struct" href="struct.HttpRequestId.html" title="struct sp_runtime::offchain::HttpRequestId">HttpRequestId</a>,
+    buffer: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+    deadline: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.Timestamp.html" title="struct sp_runtime::offchain::Timestamp">Timestamp</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>, <a class="enum" href="enum.HttpError.html" title="enum sp_runtime::offchain::HttpError">HttpError</a>&gt;</h4></section><section id="method.set_authorized_nodes" class="method trait-impl"><a href="#method.set_authorized_nodes" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.set_authorized_nodes" class="fn">set_authorized_nodes</a>(
+    &amp;mut self,
+    nodes: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;OpaquePeerId&gt;,
+    authorized_only: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>,
+)</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-Externalities-for-TestOffchainExt" class="impl"><a href="#impl-Externalities-for-TestOffchainExt" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.Externalities.html" title="trait sp_runtime::offchain::Externalities">Externalities</a> for <a class="struct" href="testing/struct.TestOffchainExt.html" title="struct sp_runtime::offchain::testing::TestOffchainExt">TestOffchainExt</a></h3></section><section id="impl-Externalities-for-LimitedExternalities%3CT%3E" class="impl"><a href="#impl-Externalities-for-LimitedExternalities%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.Externalities.html" title="trait sp_runtime::offchain::Externalities">Externalities</a> for <a class="struct" href="struct.LimitedExternalities.html" title="struct sp_runtime::offchain::LimitedExternalities">LimitedExternalities</a>&lt;T&gt;<div class="where">where
+    T: <a class="trait" href="trait.Externalities.html" title="trait sp_runtime::offchain::Externalities">Externalities</a>,</div></h3></section></div><script src="../../trait.impl/sp_core/offchain/trait.Externalities.js" data-ignore-extern-crates="alloc,sp_core" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

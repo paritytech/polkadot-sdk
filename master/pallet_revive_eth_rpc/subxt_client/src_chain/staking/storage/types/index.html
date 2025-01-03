@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `types` mod in crate `pallet_revive_eth_rpc`."><title>pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../../../" data-static-root-path="../../../../../../static.files/" data-current-crate="pallet_revive_eth_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../../../pallet_revive_eth_rpc/index.html">pallet_revive_eth_rpc</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">Module types</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#modules">Modules</a></li></ul></section><h2><a href="../index.html">In pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../../../../index.html">pallet_revive_eth_rpc</a>::<wbr><a href="../../../../index.html">subxt_client</a>::<wbr><a href="../../../index.html">src_chain</a>::<wbr><a href="../../index.html">staking</a>::<wbr><a href="../index.html">storage</a>::<wbr><a class="mod" href="#">types</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../../../../src/pallet_revive_eth_rpc/subxt_client.rs.html#22-49">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="active_era/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::active_era">active_era</a></div></li><li><div class="item-name"><a class="mod" href="bonded/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::bonded">bonded</a></div></li><li><div class="item-name"><a class="mod" href="bonded_eras/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::bonded_eras">bonded_eras</a></div></li><li><div class="item-name"><a class="mod" href="canceled_slash_payout/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::canceled_slash_payout">canceled_slash_payout</a></div></li><li><div class="item-name"><a class="mod" href="chill_threshold/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::chill_threshold">chill_threshold</a></div></li><li><div class="item-name"><a class="mod" href="claimed_rewards/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::claimed_rewards">claimed_rewards</a></div></li><li><div class="item-name"><a class="mod" href="counter_for_nominators/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::counter_for_nominators">counter_for_nominators</a></div></li><li><div class="item-name"><a class="mod" href="counter_for_validators/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::counter_for_validators">counter_for_validators</a></div></li><li><div class="item-name"><a class="mod" href="counter_for_virtual_stakers/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::counter_for_virtual_stakers">counter_for_virtual_stakers</a></div></li><li><div class="item-name"><a class="mod" href="current_era/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::current_era">current_era</a></div></li><li><div class="item-name"><a class="mod" href="current_planned_session/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::current_planned_session">current_planned_session</a></div></li><li><div class="item-name"><a class="mod" href="disabled_validators/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::disabled_validators">disabled_validators</a></div></li><li><div class="item-name"><a class="mod" href="eras_reward_points/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::eras_reward_points">eras_reward_points</a></div></li><li><div class="item-name"><a class="mod" href="eras_stakers/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::eras_stakers">eras_stakers</a></div></li><li><div class="item-name"><a class="mod" href="eras_stakers_clipped/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::eras_stakers_clipped">eras_stakers_clipped</a></div></li><li><div class="item-name"><a class="mod" href="eras_stakers_overview/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::eras_stakers_overview">eras_stakers_overview</a></div></li><li><div class="item-name"><a class="mod" href="eras_stakers_paged/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::eras_stakers_paged">eras_stakers_paged</a></div></li><li><div class="item-name"><a class="mod" href="eras_start_session_index/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::eras_start_session_index">eras_start_session_index</a></div></li><li><div class="item-name"><a class="mod" href="eras_total_stake/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::eras_total_stake">eras_total_stake</a></div></li><li><div class="item-name"><a class="mod" href="eras_validator_prefs/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::eras_validator_prefs">eras_validator_prefs</a></div></li><li><div class="item-name"><a class="mod" href="eras_validator_reward/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::eras_validator_reward">eras_validator_reward</a></div></li><li><div class="item-name"><a class="mod" href="force_era/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::force_era">force_era</a></div></li><li><div class="item-name"><a class="mod" href="invulnerables/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::invulnerables">invulnerables</a></div></li><li><div class="item-name"><a class="mod" href="ledger/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::ledger">ledger</a></div></li><li><div class="item-name"><a class="mod" href="max_nominators_count/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::max_nominators_count">max_nominators_count</a></div></li><li><div class="item-name"><a class="mod" href="max_staked_rewards/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::max_staked_rewards">max_staked_rewards</a></div></li><li><div class="item-name"><a class="mod" href="max_validators_count/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::max_validators_count">max_validators_count</a></div></li><li><div class="item-name"><a class="mod" href="min_commission/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::min_commission">min_commission</a></div></li><li><div class="item-name"><a class="mod" href="min_nominator_bond/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::min_nominator_bond">min_nominator_bond</a></div></li><li><div class="item-name"><a class="mod" href="min_validator_bond/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::min_validator_bond">min_validator_bond</a></div></li><li><div class="item-name"><a class="mod" href="minimum_active_stake/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::minimum_active_stake">minimum_active_stake</a></div></li><li><div class="item-name"><a class="mod" href="minimum_validator_count/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::minimum_validator_count">minimum_validator_count</a></div></li><li><div class="item-name"><a class="mod" href="nominator_slash_in_era/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::nominator_slash_in_era">nominator_slash_in_era</a></div></li><li><div class="item-name"><a class="mod" href="nominators/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::nominators">nominators</a></div></li><li><div class="item-name"><a class="mod" href="payee/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::payee">payee</a></div></li><li><div class="item-name"><a class="mod" href="slash_reward_fraction/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::slash_reward_fraction">slash_reward_fraction</a></div></li><li><div class="item-name"><a class="mod" href="slashing_spans/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::slashing_spans">slashing_spans</a></div></li><li><div class="item-name"><a class="mod" href="span_slash/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::span_slash">span_slash</a></div></li><li><div class="item-name"><a class="mod" href="unapplied_slashes/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::unapplied_slashes">unapplied_slashes</a></div></li><li><div class="item-name"><a class="mod" href="validator_count/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::validator_count">validator_count</a></div></li><li><div class="item-name"><a class="mod" href="validator_slash_in_era/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::validator_slash_in_era">validator_slash_in_era</a></div></li><li><div class="item-name"><a class="mod" href="validators/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::validators">validators</a></div></li><li><div class="item-name"><a class="mod" href="virtual_stakers/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking::storage::types::virtual_stakers">virtual_stakers</a></div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

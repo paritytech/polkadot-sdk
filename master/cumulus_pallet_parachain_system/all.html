@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="List of all items in this crate"><title>List of all items in this crate</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="cumulus_pallet_parachain_system" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod sys"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../cumulus_pallet_parachain_system/index.html">cumulus_pallet_parachain_system</a><span class="version">0.7.0</span></h2></div><div class="sidebar-elems"><section><ul class="block"><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><h1>List of all items</h1><h3 id="structs">Structs</h3><ul class="all-items"><li><a href="struct.AnyRelayNumber.html">AnyRelayNumber</a></li><li><a href="struct.DefaultCoreSelector.html">DefaultCoreSelector</a></li><li><a href="struct.LookaheadCoreSelector.html">LookaheadCoreSelector</a></li><li><a href="struct.ParachainSetCode.html">ParachainSetCode</a></li><li><a href="struct.RelayChainState.html">RelayChainState</a></li><li><a href="struct.RelayNumberMonotonicallyIncreases.html">RelayNumberMonotonicallyIncreases</a></li><li><a href="struct.RelayNumberStrictlyIncreases.html">RelayNumberStrictlyIncreases</a></li><li><a href="struct.RelaychainDataProvider.html">RelaychainDataProvider</a></li><li><a href="consensus_hook/struct.ExpectParentIncluded.html">consensus_hook::ExpectParentIncluded</a></li><li><a href="consensus_hook/struct.FixedCapacityUnincludedSegment.html">consensus_hook::FixedCapacityUnincludedSegment</a></li><li><a href="consensus_hook/struct.UnincludedSegmentCapacity.html">consensus_hook::UnincludedSegmentCapacity</a></li><li><a href="migration/struct.Migration.html">migration::Migration</a></li><li><a href="pallet/struct.GenesisConfig.html">pallet::GenesisConfig</a></li><li><a href="pallet/struct.Pallet.html">pallet::Pallet</a></li><li><a href="pallet/struct.UpwardInitialDeliveryFeeFactor.html">pallet::UpwardInitialDeliveryFeeFactor</a></li><li><a href="pallet/storage_types/struct.AggregatedUnincludedSegment.html">pallet::storage_types::AggregatedUnincludedSegment</a></li><li><a href="pallet/storage_types/struct.AnnouncedHrmpMessagesPerCandidate.html">pallet::storage_types::AnnouncedHrmpMessagesPerCandidate</a></li><li><a href="pallet/storage_types/struct.CustomValidationHeadData.html">pallet::storage_types::CustomValidationHeadData</a></li><li><a href="pallet/storage_types/struct.DidSetValidationCode.html">pallet::storage_types::DidSetValidationCode</a></li><li><a href="pallet/storage_types/struct.HostConfiguration.html">pallet::storage_types::HostConfiguration</a></li><li><a href="pallet/storage_types/struct.HrmpOutboundMessages.html">pallet::storage_types::HrmpOutboundMessages</a></li><li><a href="pallet/storage_types/struct.HrmpWatermark.html">pallet::storage_types::HrmpWatermark</a></li><li><a href="pallet/storage_types/struct.LastDmqMqcHead.html">pallet::storage_types::LastDmqMqcHead</a></li><li><a href="pallet/storage_types/struct.LastHrmpMqcHeads.html">pallet::storage_types::LastHrmpMqcHeads</a></li><li><a href="pallet/storage_types/struct.LastRelayChainBlockNumber.html">pallet::storage_types::LastRelayChainBlockNumber</a></li><li><a href="pallet/storage_types/struct.NewValidationCode.html">pallet::storage_types::NewValidationCode</a></li><li><a href="pallet/storage_types/struct.PendingUpwardMessages.html">pallet::storage_types::PendingUpwardMessages</a></li><li><a href="pallet/storage_types/struct.PendingValidationCode.html">pallet::storage_types::PendingValidationCode</a></li><li><a href="pallet/storage_types/struct.ProcessedDownwardMessages.html">pallet::storage_types::ProcessedDownwardMessages</a></li><li><a href="pallet/storage_types/struct.RelayStateProof.html">pallet::storage_types::RelayStateProof</a></li><li><a href="pallet/storage_types/struct.RelevantMessagingState.html">pallet::storage_types::RelevantMessagingState</a></li><li><a href="pallet/storage_types/struct.ReservedDmpWeightOverride.html">pallet::storage_types::ReservedDmpWeightOverride</a></li><li><a href="pallet/storage_types/struct.ReservedXcmpWeightOverride.html">pallet::storage_types::ReservedXcmpWeightOverride</a></li><li><a href="pallet/storage_types/struct.UnincludedSegment.html">pallet::storage_types::UnincludedSegment</a></li><li><a href="pallet/storage_types/struct.UpgradeGoAhead.html">pallet::storage_types::UpgradeGoAhead</a></li><li><a href="pallet/storage_types/struct.UpgradeRestrictionSignal.html">pallet::storage_types::UpgradeRestrictionSignal</a></li><li><a href="pallet/storage_types/struct.UpwardDeliveryFeeFactor.html">pallet::storage_types::UpwardDeliveryFeeFactor</a></li><li><a href="pallet/storage_types/struct.UpwardMessages.html">pallet::storage_types::UpwardMessages</a></li><li><a href="pallet/storage_types/struct.ValidationData.html">pallet::storage_types::ValidationData</a></li><li><a href="relay_state_snapshot/struct.MessagingStateSnapshot.html">relay_state_snapshot::MessagingStateSnapshot</a></li><li><a href="relay_state_snapshot/struct.RelayChainStateProof.html">relay_state_snapshot::RelayChainStateProof</a></li><li><a href="relay_state_snapshot/struct.RelayDispatchQueueRemainingCapacity.html">relay_state_snapshot::RelayDispatchQueueRemainingCapacity</a></li><li><a href="weights/struct.SubstrateWeight.html">weights::SubstrateWeight</a></li></ul><h3 id="enums">Enums</h3><ul class="all-items"><li><a href="pallet/enum.Call.html">pallet::Call</a></li><li><a href="pallet/enum.Error.html">pallet::Error</a></li><li><a href="pallet/enum.Event.html">pallet::Event</a></li><li><a href="relay_state_snapshot/enum.Error.html">relay_state_snapshot::Error</a></li><li><a href="relay_state_snapshot/enum.ReadEntryErr.html">relay_state_snapshot::ReadEntryErr</a></li></ul><h3 id="traits">Traits</h3><ul class="all-items"><li><a href="trait.CheckAssociatedRelayNumber.html">CheckAssociatedRelayNumber</a></li><li><a href="trait.CheckInherents.html">CheckInherents</a></li><li><a href="trait.OnSystemEvent.html">OnSystemEvent</a></li><li><a href="trait.RelaychainStateProvider.html">RelaychainStateProvider</a></li><li><a href="trait.SelectCore.html">SelectCore</a></li><li><a href="consensus_hook/trait.ConsensusHook.html">consensus_hook::ConsensusHook</a></li><li><a href="pallet/trait.Config.html">pallet::Config</a></li><li><a href="weights/trait.WeightInfo.html">weights::WeightInfo</a></li></ul><h3 id="macros">Macros</h3><ul class="all-items"><li><a href="macro.register_validate_block.html">register_validate_block</a></li></ul><h3 id="functions">Functions</h3><ul class="all-items"><li><a href="pallet/fn.__type_value_for_upward_initial_delivery_fee_factor.html">pallet::__type_value_for_upward_initial_delivery_fee_factor</a></li><li><a href="pallet/dispatchables/fn.set_validation_data.html">pallet::dispatchables::set_validation_data</a></li><li><a href="pallet/dispatchables/fn.sudo_send_upward_message.html">pallet::dispatchables::sudo_send_upward_message</a></li></ul><h3 id="types">Type Aliases</h3><ul class="all-items"><li><a href="type.MaxDmpMessageLenOf.html">MaxDmpMessageLenOf</a></li><li><a href="type.RelaychainBlockNumberProvider.html">RelaychainBlockNumberProvider</a></li><li><a href="consensus_hook/type.RequireParentIncluded.html">consensus_hook::RequireParentIncluded</a></li><li><a href="pallet/type.AggregatedUnincludedSegment.html">pallet::AggregatedUnincludedSegment</a></li><li><a href="pallet/type.AnnouncedHrmpMessagesPerCandidate.html">pallet::AnnouncedHrmpMessagesPerCandidate</a></li><li><a href="pallet/type.CustomValidationHeadData.html">pallet::CustomValidationHeadData</a></li><li><a href="pallet/type.DidSetValidationCode.html">pallet::DidSetValidationCode</a></li><li><a href="pallet/type.HostConfiguration.html">pallet::HostConfiguration</a></li><li><a href="pallet/type.HrmpOutboundMessages.html">pallet::HrmpOutboundMessages</a></li><li><a href="pallet/type.HrmpWatermark.html">pallet::HrmpWatermark</a></li><li><a href="pallet/type.LastDmqMqcHead.html">pallet::LastDmqMqcHead</a></li><li><a href="pallet/type.LastHrmpMqcHeads.html">pallet::LastHrmpMqcHeads</a></li><li><a href="pallet/type.LastRelayChainBlockNumber.html">pallet::LastRelayChainBlockNumber</a></li><li><a href="pallet/type.Module.html">pallet::Module</a></li><li><a href="pallet/type.NewValidationCode.html">pallet::NewValidationCode</a></li><li><a href="pallet/type.PendingUpwardMessages.html">pallet::PendingUpwardMessages</a></li><li><a href="pallet/type.PendingValidationCode.html">pallet::PendingValidationCode</a></li><li><a href="pallet/type.ProcessedDownwardMessages.html">pallet::ProcessedDownwardMessages</a></li><li><a href="pallet/type.RelayStateProof.html">pallet::RelayStateProof</a></li><li><a href="pallet/type.RelevantMessagingState.html">pallet::RelevantMessagingState</a></li><li><a href="pallet/type.ReservedDmpWeightOverride.html">pallet::ReservedDmpWeightOverride</a></li><li><a href="pallet/type.ReservedXcmpWeightOverride.html">pallet::ReservedXcmpWeightOverride</a></li><li><a href="pallet/type.UnincludedSegment.html">pallet::UnincludedSegment</a></li><li><a href="pallet/type.UpgradeGoAhead.html">pallet::UpgradeGoAhead</a></li><li><a href="pallet/type.UpgradeRestrictionSignal.html">pallet::UpgradeRestrictionSignal</a></li><li><a href="pallet/type.UpwardDeliveryFeeFactor.html">pallet::UpwardDeliveryFeeFactor</a></li><li><a href="pallet/type.UpwardMessages.html">pallet::UpwardMessages</a></li><li><a href="pallet/type.ValidationData.html">pallet::ValidationData</a></li></ul><h3 id="constants">Constants</h3><ul class="all-items"><li><a href="migration/constant.STORAGE_VERSION.html">migration::STORAGE_VERSION</a></li><li><a href="ump_constants/constant.EXPONENTIAL_FEE_BASE.html">ump_constants::EXPONENTIAL_FEE_BASE</a></li><li><a href="ump_constants/constant.MESSAGE_SIZE_FEE_BASE.html">ump_constants::MESSAGE_SIZE_FEE_BASE</a></li><li><a href="ump_constants/constant.THRESHOLD_FACTOR.html">ump_constants::THRESHOLD_FACTOR</a></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

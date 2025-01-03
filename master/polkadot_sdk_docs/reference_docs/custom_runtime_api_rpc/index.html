@@ -1,0 +1,261 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Learn about how to create custom RPC endpoints and runtime APIs."><title>polkadot_sdk_docs::reference_docs::custom_runtime_api_rpc - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.com/favicon.ico"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module custom_runtime_api_rpc</a></h2><div class="sidebar-elems"><h2><a href="../index.html">In polkadot_sdk_docs::reference_docs</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">reference_docs</a>::<wbr><a class="mod" href="#">custom_runtime_api_rpc</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/reference_docs/custom_runtime_api_rpc.rs.html#1-77">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn about how to create custom RPC endpoints and runtime APIs.</p>
+<h2 id="custom-rpc-dos-and-donts"><a class="doc-anchor" href="#custom-rpc-dos-and-donts">§</a>Custom RPC do’s and don’ts</h2>
+<p><strong>TLDR:</strong> Don’t create new custom RPCs. Instead, rely on custom Runtime APIs, combined with
+<code>state_call</code>.</p>
+<h3 id="background"><a class="doc-anchor" href="#background">§</a>Background</h3>
+<p>Polkadot-SDK offers the ability to query and subscribe storages directly. However what it does
+not have is <a href="https://github.com/paritytech/polkadot-sdk/issues/216">view functions</a>. This is an
+essential feature to avoid duplicated logic between runtime and the client SDK. Custom RPC was
+used as a solution. It allow the RPC node to expose new RPCs that clients can be used to query
+computed properties.</p>
+<h3 id="problems-with-custom-rpc"><a class="doc-anchor" href="#problems-with-custom-rpc">§</a>Problems with Custom RPC</h3>
+<p>Unfortunately, custom RPC comes with many problems. To list a few:</p>
+<ul>
+<li>It is offchain logic executed by the RPC node and therefore the client has to trust the RPC
+node.</li>
+<li>To upgrade or add a new RPC logic, the RPC node has to be upgraded. This can cause significant
+trouble when the RPC infrastructure is decentralized as we will need to coordinate multiple
+parties to upgrade the RPC nodes.</li>
+<li>A lot of boilerplate code is required to add custom RPC.</li>
+<li>It prevents dApps from using a light client or an alternative client.</li>
+<li>It makes ecosystem tooling integration much more complicated. For example, dApps will not
+be able to use <a href="https://github.com/AcalaNetwork/chopsticks">Chopsticks</a> for testing as
+Chopsticks will not have the custom RPC implementation.</li>
+<li>Poorly implemented custom RPC can be a DoS vector.</li>
+</ul>
+<p>Hence, we should avoid custom RPC.</p>
+<h3 id="alternatives"><a class="doc-anchor" href="#alternatives">§</a>Alternatives</h3>
+<p>Generally, <a href="../../../sc_rpc/state/trait.StateBackend.html#tymethod.call" title="method sc_rpc::state::StateBackend::call"><code>sc_rpc::state::StateBackend::call</code></a> aka. <code>state_call</code> should be used instead of
+custom RPC.</p>
+<p>Usually, each custom RPC comes with a corresponding runtime API which implements the business
+logic. So instead of invoke the custom RPC, we can use <code>state_call</code> to invoke the runtime API
+directly. This is a trivial change on the dApp and no change on the runtime side. We may remove
+the custom RPC from the node side if wanted.</p>
+<p>There are some other cases that a simple runtime API is not enough. For example, implementation
+of Ethereum RPC requires an additional offchain database to index transactions. In this
+particular case, we can have the RPC implemented on another client.</p>
+<p>For example, the Acala EVM+ RPC are implemented by
+<a href="https://github.com/AcalaNetwork/bodhi.js/tree/master/packages/eth-rpc-adapter">eth-rpc-adapter</a>.
+Alternatively, the <a href="https://github.com/polkadot-evm/frontier">Frontier</a> project  also provided
+Ethereum RPC compatibility directly in the node-side software.</p>
+<h3 id="create-a-new-runtime-api"><a class="doc-anchor" href="#create-a-new-runtime-api">§</a>Create a new Runtime API</h3>
+<p>For example, let’s take a look at the process through which the account nonce can be queried
+through an RPC. First, a new runtime-api needs to be declared:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">sp_api::decl_runtime_apis!</span> {
+	<span class="doccomment">/// The API to query account nonce.
+	</span><span class="kw">pub trait </span>AccountNonceApi&lt;AccountId, Nonce&gt; <span class="kw">where
+		</span>AccountId: codec::Codec,
+		Nonce: codec::Codec,
+	{
+		<span class="doccomment">/// Get current account nonce of given `AccountId`.
+		</span><span class="kw">fn </span>account_nonce(account: AccountId) -&gt; Nonce;
+	}
+}</code></pre></div>
+<p>This API is implemented at the runtime level, always inside <a href="../../../sp_api_proc_macro/macro.impl_runtime_apis.html" title="macro sp_api_proc_macro::impl_runtime_apis"><code>sp_api::impl_runtime_apis!</code></a>.</p>
+<p>As noted, this is already enough to make this API usable via <code>state_call</code>.</p>
+<h3 id="create-a-new-custom-rpc-legacy"><a class="doc-anchor" href="#create-a-new-custom-rpc-legacy">§</a>Create a new custom RPC (Legacy)</h3>
+<p>Should you wish to implement the legacy approach of exposing this runtime-api as a custom
+RPC-api, then a custom RPC server has to be defined.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[rpc(client, server)]
+</span><span class="kw">pub trait </span>SystemApi&lt;BlockHash, AccountId, Nonce&gt; {
+	<span class="doccomment">/// Returns the next valid index (aka nonce) for given account.
+	///
+	/// This method takes into consideration all pending transactions
+	/// currently in the pool and if no transactions are found in the pool
+	/// it fallbacks to query the index from the runtime (aka. state nonce).
+	</span><span class="attr">#[method(name = <span class="string">"system_accountNextIndex"</span>, aliases = [<span class="string">"account_nextIndex"</span>]</span>)]
+	<span class="kw">async fn </span>nonce(<span class="kw-2">&amp;</span><span class="self">self</span>, account: AccountId) -&gt; RpcResult&lt;Nonce&gt;;
+
+	<span class="doccomment">/// Dry run an extrinsic at a given block. Return SCALE encoded ApplyExtrinsicResult.
+	</span><span class="attr">#[method(name = <span class="string">"system_dryRun"</span>, aliases = [<span class="string">"system_dryRunAt"</span>]</span>, with_extensions)]
+	<span class="kw">async fn </span>dry_run(<span class="kw-2">&amp;</span><span class="self">self</span>, extrinsic: Bytes, at: <span class="prelude-ty">Option</span>&lt;BlockHash&gt;) -&gt; RpcResult&lt;Bytes&gt;;
+}</code></pre></div>
+<h3 id="add-a-new-rpc-to-the-node-legacy"><a class="doc-anchor" href="#add-a-new-rpc-to-the-node-legacy">§</a>Add a new RPC to the node (Legacy)</h3>
+<p>Finally, this custom RPC needs to be integrated into the node side. This is usually done in a
+<code>rpc.rs</code> in a typical template, as follows:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub fn </span>create_full&lt;C, P&gt;(
+	deps: FullDeps&lt;C, P&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;RpcModule&lt;()&gt;, Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;&gt;
+<span class="kw">where
+	</span>C: Send
+		+ Sync
+		+ <span class="lifetime">'static
+		</span>+ sp_api::ProvideRuntimeApi&lt;OpaqueBlock&gt;
+		+ HeaderBackend&lt;OpaqueBlock&gt;
+		+ HeaderMetadata&lt;OpaqueBlock, Error = BlockChainError&gt;
+		+ <span class="lifetime">'static</span>,
+	C::Api: sp_block_builder::BlockBuilder&lt;OpaqueBlock&gt;,
+	C::Api: substrate_frame_rpc_system::AccountNonceApi&lt;OpaqueBlock, AccountId, Nonce&gt;,
+	P: TransactionPool + <span class="lifetime">'static</span>,
+{
+	<span class="kw">use </span>polkadot_sdk::substrate_frame_rpc_system::{System, SystemApiServer};
+	<span class="kw">let </span><span class="kw-2">mut </span>module = RpcModule::new(());
+	<span class="kw">let </span>FullDeps { client, pool } = deps;
+
+	module.merge(System::new(client.clone(), pool.clone()).into_rpc())<span class="question-mark">?</span>;
+
+	<span class="prelude-val">Ok</span>(module)
+}</code></pre></div>
+<h3 id="future"><a class="doc-anchor" href="#future">§</a>Future</h3>
+<ul>
+<li><a href="https://forum.polkadot.network/t/cross-consensus-query-language-xcq/7583">XCQ</a> will be a good
+solution for most of the query needs.</li>
+<li><a href="https://github.com/paritytech/json-rpc-interface-spec">New JSON-RPC Specification</a></li>
+</ul>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

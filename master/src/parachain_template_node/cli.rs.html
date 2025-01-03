@@ -1,0 +1,378 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `templates/parachain/node/src/cli.rs`."><title>cli.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="parachain_template_node" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<a href="#2" id="2">2</a>
+<a href="#3" id="3">3</a>
+<a href="#4" id="4">4</a>
+<a href="#5" id="5">5</a>
+<a href="#6" id="6">6</a>
+<a href="#7" id="7">7</a>
+<a href="#8" id="8">8</a>
+<a href="#9" id="9">9</a>
+<a href="#10" id="10">10</a>
+<a href="#11" id="11">11</a>
+<a href="#12" id="12">12</a>
+<a href="#13" id="13">13</a>
+<a href="#14" id="14">14</a>
+<a href="#15" id="15">15</a>
+<a href="#16" id="16">16</a>
+<a href="#17" id="17">17</a>
+<a href="#18" id="18">18</a>
+<a href="#19" id="19">19</a>
+<a href="#20" id="20">20</a>
+<a href="#21" id="21">21</a>
+<a href="#22" id="22">22</a>
+<a href="#23" id="23">23</a>
+<a href="#24" id="24">24</a>
+<a href="#25" id="25">25</a>
+<a href="#26" id="26">26</a>
+<a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
+<a href="#40" id="40">40</a>
+<a href="#41" id="41">41</a>
+<a href="#42" id="42">42</a>
+<a href="#43" id="43">43</a>
+<a href="#44" id="44">44</a>
+<a href="#45" id="45">45</a>
+<a href="#46" id="46">46</a>
+<a href="#47" id="47">47</a>
+<a href="#48" id="48">48</a>
+<a href="#49" id="49">49</a>
+<a href="#50" id="50">50</a>
+<a href="#51" id="51">51</a>
+<a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>polkadot_sdk::<span class="kw-2">*</span>;
+<span class="kw">use </span>std::path::PathBuf;
+
+<span class="doccomment">/// Sub-commands supported by the collator.
+</span><span class="attr">#[allow(clippy::large_enum_variant)]
+#[derive(Debug, clap::Subcommand)]
+</span><span class="kw">pub enum </span>Subcommand {
+	<span class="doccomment">/// Build a chain specification.
+	</span>BuildSpec(sc_cli::BuildSpecCmd),
+
+	<span class="doccomment">/// Validate blocks.
+	</span>CheckBlock(sc_cli::CheckBlockCmd),
+
+	<span class="doccomment">/// Export blocks.
+	</span>ExportBlocks(sc_cli::ExportBlocksCmd),
+
+	<span class="doccomment">/// Export the state of a given block into a chain spec.
+	</span>ExportState(sc_cli::ExportStateCmd),
+
+	<span class="doccomment">/// Import blocks.
+	</span>ImportBlocks(sc_cli::ImportBlocksCmd),
+
+	<span class="doccomment">/// Revert the chain to a previous state.
+	</span>Revert(sc_cli::RevertCmd),
+
+	<span class="doccomment">/// Remove the whole chain.
+	</span>PurgeChain(cumulus_client_cli::PurgeChainCmd),
+
+	<span class="doccomment">/// Export the genesis head data of the parachain.
+	///
+	/// Head data is the encoded block header.
+	</span><span class="attr">#[command(alias = <span class="string">"export-genesis-state"</span>)]
+	</span>ExportGenesisHead(cumulus_client_cli::ExportGenesisHeadCommand),
+
+	<span class="doccomment">/// Export the genesis wasm of the parachain.
+	</span>ExportGenesisWasm(cumulus_client_cli::ExportGenesisWasmCommand),
+
+	<span class="doccomment">/// Sub-commands concerned with benchmarking.
+	/// The pallet benchmarking moved to the `pallet` sub-command.
+	</span><span class="attr">#[command(subcommand)]
+	</span>Benchmark(frame_benchmarking_cli::BenchmarkCmd),
+}
+
+<span class="kw">const </span>AFTER_HELP_EXAMPLE: <span class="kw-2">&amp;</span>str = <span class="macro">color_print::cstr!</span>(
+	<span class="string">r#"&lt;bold&gt;&lt;underline&gt;Examples:&lt;/&gt;&lt;/&gt;
+   &lt;bold&gt;parachain-template-node build-spec --disable-default-bootnode &gt; plain-parachain-chainspec.json&lt;/&gt;
+           Export a chainspec for a local testnet in json format.
+   &lt;bold&gt;parachain-template-node --chain plain-parachain-chainspec.json --tmp -- --chain rococo-local&lt;/&gt;
+           Launch a full node with chain specification loaded from plain-parachain-chainspec.json.
+   &lt;bold&gt;parachain-template-node&lt;/&gt;
+           Launch a full node with default parachain &lt;italic&gt;local-testnet&lt;/&gt; and relay chain &lt;italic&gt;rococo-local&lt;/&gt;.
+   &lt;bold&gt;parachain-template-node --collator&lt;/&gt;
+           Launch a collator with default parachain &lt;italic&gt;local-testnet&lt;/&gt; and relay chain &lt;italic&gt;rococo-local&lt;/&gt;.
+ "#
+</span>);
+<span class="attr">#[derive(Debug, clap::Parser)]
+#[command(
+	propagate_version = <span class="bool-val">true</span>,
+	args_conflicts_with_subcommands = <span class="bool-val">true</span>,
+	subcommand_negates_reqs = <span class="bool-val">true
+</span>)]
+#[clap(after_help = AFTER_HELP_EXAMPLE)]
+</span><span class="kw">pub struct </span>Cli {
+	<span class="attr">#[command(subcommand)]
+	</span><span class="kw">pub </span>subcommand: <span class="prelude-ty">Option</span>&lt;Subcommand&gt;,
+
+	<span class="attr">#[command(flatten)]
+	</span><span class="kw">pub </span>run: cumulus_client_cli::RunCmd,
+
+	<span class="doccomment">/// Disable automatic hardware benchmarks.
+	///
+	/// By default these benchmarks are automatically ran at startup and measure
+	/// the CPU speed, the memory bandwidth and the disk speed.
+	///
+	/// The results are then printed out in the logs, and also sent as part of
+	/// telemetry, if telemetry is enabled.
+	</span><span class="attr">#[arg(long)]
+	</span><span class="kw">pub </span>no_hardware_benchmarks: bool,
+
+	<span class="doccomment">/// Relay chain arguments
+	</span><span class="attr">#[arg(raw = <span class="bool-val">true</span>)]
+	</span><span class="kw">pub </span>relay_chain_args: Vec&lt;String&gt;,
+}
+
+<span class="attr">#[derive(Debug)]
+</span><span class="kw">pub struct </span>RelayChainCli {
+	<span class="doccomment">/// The actual relay chain cli object.
+	</span><span class="kw">pub </span>base: polkadot_cli::RunCmd,
+
+	<span class="doccomment">/// Optional chain id that should be passed to the relay chain.
+	</span><span class="kw">pub </span>chain_id: <span class="prelude-ty">Option</span>&lt;String&gt;,
+
+	<span class="doccomment">/// The base path that should be used by the relay chain.
+	</span><span class="kw">pub </span>base_path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+}
+
+<span class="kw">impl </span>RelayChainCli {
+	<span class="doccomment">/// Parse the relay chain CLI parameters using the para chain `Configuration`.
+	</span><span class="kw">pub fn </span>new&lt;<span class="lifetime">'a</span>&gt;(
+		para_config: <span class="kw-2">&amp;</span>sc_service::Configuration,
+		relay_chain_args: <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>String&gt;,
+	) -&gt; <span class="self">Self </span>{
+		<span class="kw">let </span>extension = <span class="kw">crate</span>::chain_spec::Extensions::try_get(<span class="kw-2">&amp;*</span>para_config.chain_spec);
+		<span class="kw">let </span>chain_id = extension.map(|e| e.relay_chain.clone());
+		<span class="kw">let </span>base_path = para_config.base_path.path().join(<span class="string">"polkadot"</span>);
+		<span class="self">Self </span>{
+			base_path: <span class="prelude-val">Some</span>(base_path),
+			chain_id,
+			base: clap::Parser::parse_from(relay_chain_args),
+		}
+	}
+}
+</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

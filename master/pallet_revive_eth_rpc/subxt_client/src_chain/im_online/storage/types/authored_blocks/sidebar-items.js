@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["AuthoredBlocks","Param0","Param1"]};

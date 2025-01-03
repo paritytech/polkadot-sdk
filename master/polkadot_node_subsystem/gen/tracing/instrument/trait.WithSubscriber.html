@@ -1,0 +1,213 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Extension trait allowing futures to be instrumented with a `tracing` `Subscriber`."><title>WithSubscriber in polkadot_node_subsystem::gen::tracing::instrument - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="polkadot_node_subsystem" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../polkadot_node_subsystem/index.html">polkadot_node_subsystem</a><span class="version">7.0.0</span></h2></div><h2 class="location"><a href="#">WithSubscriber</a></h2><div class="sidebar-elems"><section><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.with_current_subscriber">with_current_subscriber</a></li><li><a href="#method.with_subscriber">with_subscriber</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In polkadot_node_subsystem::gen::tracing::instrument</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../../../index.html">polkadot_node_subsystem</a>::<wbr><a href="../../index.html">gen</a>::<wbr><a href="../index.html">tracing</a>::<wbr><a href="index.html">instrument</a>::<wbr><a class="trait" href="#">WithSubscriber</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait WithSubscriber: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> {
+    // Provided methods
+    fn <a href="#method.with_subscriber" class="fn">with_subscriber</a>&lt;S&gt;(self, subscriber: S) -&gt; <a class="struct" href="struct.WithDispatch.html" title="struct polkadot_node_subsystem::gen::tracing::instrument::WithDispatch">WithDispatch</a>&lt;Self&gt; <a href="#" class="tooltip" data-notable-ty="WithDispatch&lt;Self&gt;">ⓘ</a>
+       <span class="where">where S: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="../struct.Dispatch.html" title="struct polkadot_node_subsystem::gen::tracing::Dispatch">Dispatch</a>&gt;</span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.with_current_subscriber" class="fn">with_current_subscriber</a>(self) -&gt; <a class="struct" href="struct.WithDispatch.html" title="struct polkadot_node_subsystem::gen::tracing::instrument::WithDispatch">WithDispatch</a>&lt;Self&gt; <a href="#" class="tooltip" data-notable-ty="WithDispatch&lt;Self&gt;">ⓘ</a> { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Extension trait allowing futures to be instrumented with
+a <code>tracing</code> <a href="../trait.Subscriber.html" title="trait polkadot_node_subsystem::gen::tracing::Subscriber"><code>Subscriber</code></a>.</p>
+</div></details><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.with_subscriber" class="method"><h4 class="code-header">fn <a href="#method.with_subscriber" class="fn">with_subscriber</a>&lt;S&gt;(self, subscriber: S) -&gt; <a class="struct" href="struct.WithDispatch.html" title="struct polkadot_node_subsystem::gen::tracing::instrument::WithDispatch">WithDispatch</a>&lt;Self&gt; <a href="#" class="tooltip" data-notable-ty="WithDispatch&lt;Self&gt;">ⓘ</a><div class="where">where
+    S: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="../struct.Dispatch.html" title="struct polkadot_node_subsystem::gen::tracing::Dispatch">Dispatch</a>&gt;,</div></h4></section></summary><div class="docblock"><p>Attaches the provided <a href="../trait.Subscriber.html" title="trait polkadot_node_subsystem::gen::tracing::Subscriber"><code>Subscriber</code></a> to this type, returning a
+<a href="struct.WithDispatch.html" title="struct polkadot_node_subsystem::gen::tracing::instrument::WithDispatch"><code>WithDispatch</code></a> wrapper.</p>
+<p>The attached <a href="../trait.Subscriber.html" title="trait polkadot_node_subsystem::gen::tracing::Subscriber"><code>Subscriber</code></a> will be set as the <a href="../dispatcher/index.html#setting-the-default-subscriber" title="mod polkadot_node_subsystem::gen::tracing::dispatcher">default</a> when the returned
+<a href="../../trait.Future.html" title="trait polkadot_node_subsystem::gen::Future"><code>Future</code></a> is polled.</p>
+<h5 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h5>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>tracing::instrument::WithSubscriber;
+
+<span class="comment">// Set the default `Subscriber`
+</span><span class="kw">let </span>_default = tracing::subscriber::set_default(MySubscriber::default());
+
+<span class="macro">tracing::info!</span>(<span class="string">"this event will be recorded by the default `Subscriber`"</span>);
+
+<span class="comment">// Create a different `Subscriber` and attach it to a future.
+</span><span class="kw">let </span>other_subscriber = MyOtherSubscriber::default();
+<span class="kw">let </span>future = <span class="kw">async </span>{
+    <span class="macro">tracing::info!</span>(<span class="string">"this event will be recorded by the other `Subscriber`"</span>);
+    <span class="comment">// ...
+</span>};
+
+future
+    <span class="comment">// Attach the other `Subscriber` to the future before awaiting it
+    </span>.with_subscriber(other_subscriber)
+    .<span class="kw">await</span>;
+
+<span class="comment">// Once the future has completed, we return to the default `Subscriber`.
+</span><span class="macro">tracing::info!</span>(<span class="string">"this event will be recorded by the default `Subscriber`"</span>);</code></pre></div>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.with_current_subscriber" class="method"><h4 class="code-header">fn <a href="#method.with_current_subscriber" class="fn">with_current_subscriber</a>(self) -&gt; <a class="struct" href="struct.WithDispatch.html" title="struct polkadot_node_subsystem::gen::tracing::instrument::WithDispatch">WithDispatch</a>&lt;Self&gt; <a href="#" class="tooltip" data-notable-ty="WithDispatch&lt;Self&gt;">ⓘ</a></h4></section></summary><div class="docblock"><p>Attaches the current <a href="../dispatcher/index.html#setting-the-default-subscriber" title="mod polkadot_node_subsystem::gen::tracing::dispatcher">default</a> <a href="../trait.Subscriber.html" title="trait polkadot_node_subsystem::gen::tracing::Subscriber"><code>Subscriber</code></a> to this type, returning a
+<a href="struct.WithDispatch.html" title="struct polkadot_node_subsystem::gen::tracing::instrument::WithDispatch"><code>WithDispatch</code></a> wrapper.</p>
+<p>The attached <code>Subscriber</code> will be set as the <a href="../dispatcher/index.html#setting-the-default-subscriber" title="mod polkadot_node_subsystem::gen::tracing::dispatcher">default</a> when the returned
+<a href="../../trait.Future.html" title="trait polkadot_node_subsystem::gen::Future"><code>Future</code></a> is polled.</p>
+<p>This can be used to propagate the current dispatcher context when
+spawning a new future that may run on a different thread.</p>
+<h5 id="examples-1"><a class="doc-anchor" href="#examples-1">§</a>Examples</h5>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>tracing::instrument::WithSubscriber;
+
+<span class="comment">// Using `set_default` (rather than `set_global_default`) sets the
+// default `Subscriber` for *this* thread only.
+</span><span class="kw">let </span>_default = tracing::subscriber::set_default(MySubscriber::default());
+
+<span class="kw">let </span>future = <span class="kw">async </span>{
+    <span class="comment">// ...
+</span>};
+
+<span class="comment">// If a multi-threaded async runtime is in use, this spawned task may
+// run on a different thread, in a different default `Subscriber`'s context.
+</span>tokio::spawn(future);
+
+<span class="comment">// However, calling `with_current_subscriber` on the future before
+// spawning it, ensures that the current thread's default `Subscriber` is
+// propagated to the spawned task, regardless of where it executes:
+</span>tokio::spawn(future.with_current_subscriber());</code></pre></div>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-WithSubscriber-for-T" class="impl"><a href="#impl-WithSubscriber-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="trait.WithSubscriber.html" title="trait polkadot_node_subsystem::gen::tracing::instrument::WithSubscriber">WithSubscriber</a> for T</h3></section></div><script src="../../../../trait.impl/tracing/instrument/trait.WithSubscriber.js" async></script><script type="text/json" id="notable-traits-data">{"WithDispatch<Self>":"<h3>Notable traits for <code><a class=\"struct\" href=\"struct.WithDispatch.html\" title=\"struct polkadot_node_subsystem::gen::tracing::instrument::WithDispatch\">WithDispatch</a>&lt;T&gt;</code></h3><pre><code><div class=\"where\">impl&lt;T&gt; <a class=\"trait\" href=\"../../trait.Future.html\" title=\"trait polkadot_node_subsystem::gen::Future\">Future</a> for <a class=\"struct\" href=\"struct.WithDispatch.html\" title=\"struct polkadot_node_subsystem::gen::tracing::instrument::WithDispatch\">WithDispatch</a>&lt;T&gt;<div class=\"where\">where\n    T: <a class=\"trait\" href=\"../../trait.Future.html\" title=\"trait polkadot_node_subsystem::gen::Future\">Future</a>,</div></div><div class=\"where\">    type <a href=\"../../trait.Future.html#associatedtype.Output\" class=\"associatedtype\">Output</a> = &lt;T as <a class=\"trait\" href=\"../../trait.Future.html\" title=\"trait polkadot_node_subsystem::gen::Future\">Future</a>&gt;::<a class=\"associatedtype\" href=\"../../trait.Future.html#associatedtype.Output\" title=\"type polkadot_node_subsystem::gen::Future::Output\">Output</a>;</div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

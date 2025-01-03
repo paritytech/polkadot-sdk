@@ -1,0 +1,215 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Configuration trait of this pallet."><title>Config in pallet_bridge_parachains::pallet - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_bridge_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_bridge_parachains/index.html">pallet_bridge_parachains</a><span class="version">0.7.0</span></h2></div><h2 class="location"><a href="#">Config</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.BridgesGrandpaPalletInstance">BridgesGrandpaPalletInstance</a></li><li><a href="#associatedtype.HeadsToKeep">HeadsToKeep</a></li><li><a href="#associatedtype.MaxParaHeadDataSize">MaxParaHeadDataSize</a></li><li><a href="#associatedtype.ParaStoredHeaderDataBuilder">ParaStoredHeaderDataBuilder</a></li><li><a href="#associatedtype.ParasPalletName">ParasPalletName</a></li><li><a href="#associatedtype.RuntimeEvent">RuntimeEvent</a></li><li><a href="#associatedtype.WeightInfo">WeightInfo</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In pallet_bridge_parachains::pallet</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">pallet_bridge_parachains</a>::<wbr><a href="index.html">pallet</a>::<wbr><a class="trait" href="#">Config</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/pallet_bridge_parachains/lib.rs.html#182-254">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Config&lt;I: 'static = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;: <a class="trait" href="trait.BoundedBridgeGrandpaConfig.html" title="trait pallet_bridge_parachains::pallet::BoundedBridgeGrandpaConfig">BoundedBridgeGrandpaConfig</a>&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.BridgesGrandpaPalletInstance" title="type pallet_bridge_parachains::pallet::Config::BridgesGrandpaPalletInstance">BridgesGrandpaPalletInstance</a>&gt; {
+    type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Event.html" title="enum pallet_bridge_parachains::pallet::Event">Event</a>&lt;Self, I&gt;&gt; + IsType&lt;&lt;Self as Config&gt;::RuntimeEvent&gt;;
+    type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="../weights_ext/trait.WeightInfoExt.html" title="trait pallet_bridge_parachains::weights_ext::WeightInfoExt">WeightInfoExt</a>;
+    type <a href="#associatedtype.BridgesGrandpaPalletInstance" class="associatedtype">BridgesGrandpaPalletInstance</a>: 'static;
+    type <a href="#associatedtype.ParasPalletName" class="associatedtype">ParasPalletName</a>: Get&lt;&amp;'static <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>&gt;;
+    type <a href="#associatedtype.ParaStoredHeaderDataBuilder" class="associatedtype">ParaStoredHeaderDataBuilder</a>: ParaStoredHeaderDataBuilder;
+    type <a href="#associatedtype.HeadsToKeep" class="associatedtype">HeadsToKeep</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.MaxParaHeadDataSize" class="associatedtype">MaxParaHeadDataSize</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Configuration trait of this pallet.</p>
+<p>The main purpose of this trait is to act as an interface between this pallet and the runtime in
+which it is embedded in. A type, function, or constant in this trait is essentially left to be
+configured by the runtime that includes this pallet.</p>
+<p>Consequently, a runtime that wants to include this pallet must implement this trait.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.RuntimeEvent" class="method"><a class="src rightside" href="../../src/pallet_bridge_parachains/lib.rs.html#186-187">source</a><h4 class="code-header">type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Event.html" title="enum pallet_bridge_parachains::pallet::Event">Event</a>&lt;Self, I&gt;&gt; + IsType&lt;&lt;Self as Config&gt;::RuntimeEvent&gt;</h4></section></summary><div class="docblock"><p>The overarching event type.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.WeightInfo" class="method"><a class="src rightside" href="../../src/pallet_bridge_parachains/lib.rs.html#189">source</a><h4 class="code-header">type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="../weights_ext/trait.WeightInfoExt.html" title="trait pallet_bridge_parachains::weights_ext::WeightInfoExt">WeightInfoExt</a></h4></section></summary><div class="docblock"><p>Benchmarks results from runtime we’re plugged into.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.BridgesGrandpaPalletInstance" class="method"><a class="src rightside" href="../../src/pallet_bridge_parachains/lib.rs.html#210">source</a><h4 class="code-header">type <a href="#associatedtype.BridgesGrandpaPalletInstance" class="associatedtype">BridgesGrandpaPalletInstance</a>: 'static</h4></section></summary><div class="docblock"><p>Instance of bridges GRANDPA pallet (within this runtime) that this pallet is linked to.</p>
+<p>The GRANDPA pallet instance must be configured to import headers of relay chain that
+we’re interested in.</p>
+<p>The associated GRANDPA pallet is also used to configure free parachain heads
+submissions. The parachain head submission will be free if:</p>
+<ol>
+<li>
+<p>the submission contains exactly one parachain head update that succeeds;</p>
+</li>
+<li>
+<p>the difference between relay chain block numbers, used to prove new parachain head
+and previous best parachain head is larger than the <code>FreeHeadersInterval</code>, configured
+at the associated GRANDPA pallet;</p>
+</li>
+<li>
+<p>there are slots for free submissions, remaining at the block. This is also configured
+at the associated GRANDPA pallet using <code>MaxFreeHeadersPerBlock</code> parameter.</p>
+</li>
+</ol>
+<p>First parachain head submission is also free for the submitted, if free submissions
+are yet accepted to this block.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.ParasPalletName" class="method"><a class="src rightside" href="../../src/pallet_bridge_parachains/lib.rs.html#218">source</a><h4 class="code-header">type <a href="#associatedtype.ParasPalletName" class="associatedtype">ParasPalletName</a>: Get&lt;&amp;'static <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>&gt;</h4></section></summary><div class="docblock"><p>Name of the original <code>paras</code> pallet in the <code>construct_runtime!()</code> call at the bridged
+chain.</p>
+<p>Please keep in mind that this should be the name of the <code>runtime_parachains::paras</code>
+pallet from polkadot repository, not the <code>pallet-bridge-parachains</code>.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.ParaStoredHeaderDataBuilder" class="method"><a class="src rightside" href="../../src/pallet_bridge_parachains/lib.rs.html#231">source</a><h4 class="code-header">type <a href="#associatedtype.ParaStoredHeaderDataBuilder" class="associatedtype">ParaStoredHeaderDataBuilder</a>: ParaStoredHeaderDataBuilder</h4></section></summary><div class="docblock"><p>Parachain head data builder.</p>
+<p>We never store parachain heads here, since they may be too big (e.g. because of large
+digest items). Instead we’re using the same approach as <code>pallet-bridge-grandpa</code>
+pallet - we are only storing <code>bp_messages::StoredHeaderData</code> (number and state root),
+which is enough for our applications. However, we work with different parachains here
+and they can use different primitives (for block numbers and hash). So we can’t store
+it directly. Instead, we’re storing <code>bp_messages::StoredHeaderData</code> in SCALE-encoded
+form, wrapping it into <code>bp_parachains::ParaStoredHeaderData</code>.</p>
+<p>This builder helps to convert from <code>HeadData</code> to <code>bp_parachains::ParaStoredHeaderData</code>.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.HeadsToKeep" class="method"><a class="src rightside" href="../../src/pallet_bridge_parachains/lib.rs.html#241">source</a><h4 class="code-header">type <a href="#associatedtype.HeadsToKeep" class="associatedtype">HeadsToKeep</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>Maximal number of single parachain heads to keep in the storage.</p>
+<p>The setting is there to prevent growing the on-chain state indefinitely. Note
+the setting does not relate to parachain block numbers - we will simply keep as much
+items in the storage, so it doesn’t guarantee any fixed timeframe for heads.</p>
+<p>Incautious change of this constant may lead to orphan entries in the runtime storage.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxParaHeadDataSize" class="method"><a class="src rightside" href="../../src/pallet_bridge_parachains/lib.rs.html#253">source</a><h4 class="code-header">type <a href="#associatedtype.MaxParaHeadDataSize" class="associatedtype">MaxParaHeadDataSize</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>Maximal size (in bytes) of the SCALE-encoded parachain head data
+(<code>bp_parachains::ParaStoredHeaderData</code>).</p>
+<p>Keep in mind that the size of any tracked parachain header data must not exceed this
+value. So if you’re going to track multiple parachains, one of which is using large
+hashes, you shall choose this maximal value.</p>
+<p>There’s no mandatory headers in this pallet, so it can’t stall if there’s some header
+that exceeds this bound.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/pallet_bridge_parachains/pallet/trait.Config.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

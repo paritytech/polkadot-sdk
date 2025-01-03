@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["member_added","member_exchanged","member_removed","rank_changed","voted"],"struct":["MemberAdded","MemberExchanged","MemberRemoved","RankChanged","Voted"]};

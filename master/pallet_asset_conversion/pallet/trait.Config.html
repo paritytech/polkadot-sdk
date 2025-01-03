@@ -1,0 +1,202 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Configuration trait of this pallet."><title>Config in pallet_asset_conversion::pallet - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_asset_conversion" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_asset_conversion/index.html">pallet_asset_conversion</a><span class="version">10.0.0</span></h2></div><h2 class="location"><a href="#">Config</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.AssetKind">AssetKind</a></li><li><a href="#associatedtype.Assets">Assets</a></li><li><a href="#associatedtype.Balance">Balance</a></li><li><a href="#associatedtype.BenchmarkHelper">BenchmarkHelper</a></li><li><a href="#associatedtype.HigherPrecisionBalance">HigherPrecisionBalance</a></li><li><a href="#associatedtype.LPFee">LPFee</a></li><li><a href="#associatedtype.LiquidityWithdrawalFee">LiquidityWithdrawalFee</a></li><li><a href="#associatedtype.MaxSwapPathLength">MaxSwapPathLength</a></li><li><a href="#associatedtype.MintMinLiquidity">MintMinLiquidity</a></li><li><a href="#associatedtype.PalletId">PalletId</a></li><li><a href="#associatedtype.PoolAssetId">PoolAssetId</a></li><li><a href="#associatedtype.PoolAssets">PoolAssets</a></li><li><a href="#associatedtype.PoolId">PoolId</a></li><li><a href="#associatedtype.PoolLocator">PoolLocator</a></li><li><a href="#associatedtype.PoolSetupFee">PoolSetupFee</a></li><li><a href="#associatedtype.PoolSetupFeeAsset">PoolSetupFeeAsset</a></li><li><a href="#associatedtype.PoolSetupFeeTarget">PoolSetupFeeTarget</a></li><li><a href="#associatedtype.RuntimeEvent">RuntimeEvent</a></li><li><a href="#associatedtype.WeightInfo">WeightInfo</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In pallet_asset_conversion::pallet</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">pallet_asset_conversion</a>::<wbr><a href="index.html">pallet</a>::<wbr><a class="trait" href="#">Config</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/pallet_asset_conversion/lib.rs.html#114-198">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Config: Config {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 19 associated items</span></summary>    type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Event.html" title="enum pallet_asset_conversion::pallet::Event">Event</a>&lt;Self&gt;&gt; + IsType&lt;&lt;Self as Config&gt;::RuntimeEvent&gt;;
+    type <a href="#associatedtype.Balance" class="associatedtype">Balance</a>: Balance;
+    type <a href="#associatedtype.HigherPrecisionBalance" class="associatedtype">HigherPrecisionBalance</a>: IntegerSquareRoot + <a class="trait" href="https://docs.rs/num-traits/0.2/num_traits/identities/trait.One.html" title="trait num_traits::identities::One">One</a> + Ensure + <a class="trait" href="https://docs.rs/num-traits/0.2/num_traits/sign/trait.Unsigned.html" title="trait num_traits::sign::Unsigned">Unsigned</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type pallet_asset_conversion::pallet::Config::Balance">Balance</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.TryInto.html" title="trait core::convert::TryInto">TryInto</a>&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type pallet_asset_conversion::pallet::Config::Balance">Balance</a>&gt;;
+    type <a href="#associatedtype.AssetKind" class="associatedtype">AssetKind</a>: Parameter + MaxEncodedLen;
+    type <a href="#associatedtype.Assets" class="associatedtype">Assets</a>: Inspect&lt;Self::AccountId, AssetId = Self::<a class="associatedtype" href="trait.Config.html#associatedtype.AssetKind" title="type pallet_asset_conversion::pallet::Config::AssetKind">AssetKind</a>, Balance = Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type pallet_asset_conversion::pallet::Config::Balance">Balance</a>&gt; + Mutate&lt;Self::AccountId&gt; + AccountTouch&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.AssetKind" title="type pallet_asset_conversion::pallet::Config::AssetKind">AssetKind</a>, Self::AccountId, Balance = Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type pallet_asset_conversion::pallet::Config::Balance">Balance</a>&gt; + Balanced&lt;Self::AccountId&gt; + Refund&lt;Self::AccountId, AssetId = Self::<a class="associatedtype" href="trait.Config.html#associatedtype.AssetKind" title="type pallet_asset_conversion::pallet::Config::AssetKind">AssetKind</a>&gt;;
+    type <a href="#associatedtype.PoolId" class="associatedtype">PoolId</a>: Parameter + MaxEncodedLen + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a>;
+    type <a href="#associatedtype.PoolLocator" class="associatedtype">PoolLocator</a>: <a class="trait" href="../trait.PoolLocator.html" title="trait pallet_asset_conversion::PoolLocator">PoolLocator</a>&lt;Self::AccountId, Self::<a class="associatedtype" href="trait.Config.html#associatedtype.AssetKind" title="type pallet_asset_conversion::pallet::Config::AssetKind">AssetKind</a>, Self::<a class="associatedtype" href="trait.Config.html#associatedtype.PoolId" title="type pallet_asset_conversion::pallet::Config::PoolId">PoolId</a>&gt;;
+    type <a href="#associatedtype.PoolAssetId" class="associatedtype">PoolAssetId</a>: AssetId + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.PartialOrd.html" title="trait core::cmp::PartialOrd">PartialOrd</a> + Incrementable + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.PoolAssets" class="associatedtype">PoolAssets</a>: Inspect&lt;Self::AccountId, AssetId = Self::<a class="associatedtype" href="trait.Config.html#associatedtype.PoolAssetId" title="type pallet_asset_conversion::pallet::Config::PoolAssetId">PoolAssetId</a>, Balance = Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type pallet_asset_conversion::pallet::Config::Balance">Balance</a>&gt; + Create&lt;Self::AccountId&gt; + Mutate&lt;Self::AccountId&gt; + AccountTouch&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.PoolAssetId" title="type pallet_asset_conversion::pallet::Config::PoolAssetId">PoolAssetId</a>, Self::AccountId, Balance = Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type pallet_asset_conversion::pallet::Config::Balance">Balance</a>&gt; + Refund&lt;Self::AccountId, AssetId = Self::<a class="associatedtype" href="trait.Config.html#associatedtype.PoolAssetId" title="type pallet_asset_conversion::pallet::Config::PoolAssetId">PoolAssetId</a>&gt;;
+    type <a href="#associatedtype.LPFee" class="associatedtype">LPFee</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.PoolSetupFee" class="associatedtype">PoolSetupFee</a>: Get&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type pallet_asset_conversion::pallet::Config::Balance">Balance</a>&gt;;
+    type <a href="#associatedtype.PoolSetupFeeAsset" class="associatedtype">PoolSetupFeeAsset</a>: Get&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.AssetKind" title="type pallet_asset_conversion::pallet::Config::AssetKind">AssetKind</a>&gt;;
+    type <a href="#associatedtype.PoolSetupFeeTarget" class="associatedtype">PoolSetupFeeTarget</a>: OnUnbalanced&lt;<a class="type" href="../type.CreditOf.html" title="type pallet_asset_conversion::CreditOf">CreditOf</a>&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.LiquidityWithdrawalFee" class="associatedtype">LiquidityWithdrawalFee</a>: Get&lt;Permill&gt;;
+    type <a href="#associatedtype.MintMinLiquidity" class="associatedtype">MintMinLiquidity</a>: Get&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type pallet_asset_conversion::pallet::Config::Balance">Balance</a>&gt;;
+    type <a href="#associatedtype.MaxSwapPathLength" class="associatedtype">MaxSwapPathLength</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.PalletId" class="associatedtype">PalletId</a>: Get&lt;PalletId&gt;;
+    type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="../weights/trait.WeightInfo.html" title="trait pallet_asset_conversion::weights::WeightInfo">WeightInfo</a>;
+    type <a href="#associatedtype.BenchmarkHelper" class="associatedtype">BenchmarkHelper</a>: <a class="trait" href="../trait.BenchmarkHelper.html" title="trait pallet_asset_conversion::BenchmarkHelper">BenchmarkHelper</a>&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.AssetKind" title="type pallet_asset_conversion::pallet::Config::AssetKind">AssetKind</a>&gt;;
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Configuration trait of this pallet.</p>
+<p>The main purpose of this trait is to act as an interface between this pallet and the runtime in
+which it is embedded in. A type, function, or constant in this trait is essentially left to be
+configured by the runtime that includes this pallet.</p>
+<p>Consequently, a runtime that wants to include this pallet must implement this trait.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.RuntimeEvent" class="method"><a class="src rightside" href="../../src/pallet_asset_conversion/lib.rs.html#116">source</a><h4 class="code-header">type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Event.html" title="enum pallet_asset_conversion::pallet::Event">Event</a>&lt;Self&gt;&gt; + IsType&lt;&lt;Self as Config&gt;::RuntimeEvent&gt;</h4></section></summary><div class="docblock"><p>Overarching event type.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Balance" class="method"><a class="src rightside" href="../../src/pallet_asset_conversion/lib.rs.html#119">source</a><h4 class="code-header">type <a href="#associatedtype.Balance" class="associatedtype">Balance</a>: Balance</h4></section></summary><div class="docblock"><p>The type in which the assets for swapping are measured.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.HigherPrecisionBalance" class="method"><a class="src rightside" href="../../src/pallet_asset_conversion/lib.rs.html#122-128">source</a><h4 class="code-header">type <a href="#associatedtype.HigherPrecisionBalance" class="associatedtype">HigherPrecisionBalance</a>: IntegerSquareRoot + <a class="trait" href="https://docs.rs/num-traits/0.2/num_traits/identities/trait.One.html" title="trait num_traits::identities::One">One</a> + Ensure + <a class="trait" href="https://docs.rs/num-traits/0.2/num_traits/sign/trait.Unsigned.html" title="trait num_traits::sign::Unsigned">Unsigned</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type pallet_asset_conversion::pallet::Config::Balance">Balance</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.TryInto.html" title="trait core::convert::TryInto">TryInto</a>&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type pallet_asset_conversion::pallet::Config::Balance">Balance</a>&gt;</h4></section></summary><div class="docblock"><p>A type used for calculations concerning the <code>Balance</code> type to avoid possible overflows.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.AssetKind" class="method"><a class="src rightside" href="../../src/pallet_asset_conversion/lib.rs.html#132">source</a><h4 class="code-header">type <a href="#associatedtype.AssetKind" class="associatedtype">AssetKind</a>: Parameter + MaxEncodedLen</h4></section></summary><div class="docblock"><p>Type of asset class, sourced from <a href="trait.Config.html#associatedtype.Assets" title="associated type pallet_asset_conversion::pallet::Config::Assets"><code>Config::Assets</code></a>, utilized to offer liquidity to a
+pool.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Assets" class="method"><a class="src rightside" href="../../src/pallet_asset_conversion/lib.rs.html#135-139">source</a><h4 class="code-header">type <a href="#associatedtype.Assets" class="associatedtype">Assets</a>: Inspect&lt;Self::AccountId, AssetId = Self::<a class="associatedtype" href="trait.Config.html#associatedtype.AssetKind" title="type pallet_asset_conversion::pallet::Config::AssetKind">AssetKind</a>, Balance = Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type pallet_asset_conversion::pallet::Config::Balance">Balance</a>&gt; + Mutate&lt;Self::AccountId&gt; + AccountTouch&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.AssetKind" title="type pallet_asset_conversion::pallet::Config::AssetKind">AssetKind</a>, Self::AccountId, Balance = Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type pallet_asset_conversion::pallet::Config::Balance">Balance</a>&gt; + Balanced&lt;Self::AccountId&gt; + Refund&lt;Self::AccountId, AssetId = Self::<a class="associatedtype" href="trait.Config.html#associatedtype.AssetKind" title="type pallet_asset_conversion::pallet::Config::AssetKind">AssetKind</a>&gt;</h4></section></summary><div class="docblock"><p>Registry of assets utilized for providing liquidity to pools.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.PoolId" class="method"><a class="src rightside" href="../../src/pallet_asset_conversion/lib.rs.html#142">source</a><h4 class="code-header">type <a href="#associatedtype.PoolId" class="associatedtype">PoolId</a>: Parameter + MaxEncodedLen + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a></h4></section></summary><div class="docblock"><p>Liquidity pool identifier.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.PoolLocator" class="method"><a class="src rightside" href="../../src/pallet_asset_conversion/lib.rs.html#148">source</a><h4 class="code-header">type <a href="#associatedtype.PoolLocator" class="associatedtype">PoolLocator</a>: <a class="trait" href="../trait.PoolLocator.html" title="trait pallet_asset_conversion::PoolLocator">PoolLocator</a>&lt;Self::AccountId, Self::<a class="associatedtype" href="trait.Config.html#associatedtype.AssetKind" title="type pallet_asset_conversion::pallet::Config::AssetKind">AssetKind</a>, Self::<a class="associatedtype" href="trait.Config.html#associatedtype.PoolId" title="type pallet_asset_conversion::pallet::Config::PoolId">PoolId</a>&gt;</h4></section></summary><div class="docblock"><p>Provides means to resolve the <a href="trait.Config.html#associatedtype.PoolId" title="associated type pallet_asset_conversion::pallet::Config::PoolId"><code>Config::PoolId</code></a> and it’s <code>AccountId</code> from a pair
+of <a href="trait.Config.html#associatedtype.AssetKind" title="associated type pallet_asset_conversion::pallet::Config::AssetKind"><code>Config::AssetKind</code></a>s.</p>
+<p>Examples: <a href="../struct.WithFirstAsset.html" title="struct pallet_asset_conversion::WithFirstAsset"><code>crate::types::WithFirstAsset</code></a>, <a href="../struct.Ascending.html" title="struct pallet_asset_conversion::Ascending"><code>crate::types::Ascending</code></a>.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.PoolAssetId" class="method"><a class="src rightside" href="../../src/pallet_asset_conversion/lib.rs.html#151">source</a><h4 class="code-header">type <a href="#associatedtype.PoolAssetId" class="associatedtype">PoolAssetId</a>: AssetId + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.PartialOrd.html" title="trait core::cmp::PartialOrd">PartialOrd</a> + Incrementable + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>Asset class for the lp tokens from <a href="trait.Config.html#associatedtype.PoolAssets"><code>Self::PoolAssets</code></a>.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.PoolAssets" class="method"><a class="src rightside" href="../../src/pallet_asset_conversion/lib.rs.html#155-159">source</a><h4 class="code-header">type <a href="#associatedtype.PoolAssets" class="associatedtype">PoolAssets</a>: Inspect&lt;Self::AccountId, AssetId = Self::<a class="associatedtype" href="trait.Config.html#associatedtype.PoolAssetId" title="type pallet_asset_conversion::pallet::Config::PoolAssetId">PoolAssetId</a>, Balance = Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type pallet_asset_conversion::pallet::Config::Balance">Balance</a>&gt; + Create&lt;Self::AccountId&gt; + Mutate&lt;Self::AccountId&gt; + AccountTouch&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.PoolAssetId" title="type pallet_asset_conversion::pallet::Config::PoolAssetId">PoolAssetId</a>, Self::AccountId, Balance = Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type pallet_asset_conversion::pallet::Config::Balance">Balance</a>&gt; + Refund&lt;Self::AccountId, AssetId = Self::<a class="associatedtype" href="trait.Config.html#associatedtype.PoolAssetId" title="type pallet_asset_conversion::pallet::Config::PoolAssetId">PoolAssetId</a>&gt;</h4></section></summary><div class="docblock"><p>Registry for the lp tokens. Ideally only this pallet should have create permissions on
+the assets.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.LPFee" class="method"><a class="src rightside" href="../../src/pallet_asset_conversion/lib.rs.html#163">source</a><h4 class="code-header">type <a href="#associatedtype.LPFee" class="associatedtype">LPFee</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>A % the liquidity providers will take of every swap. Represents 10ths of a percent.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.PoolSetupFee" class="method"><a class="src rightside" href="../../src/pallet_asset_conversion/lib.rs.html#167">source</a><h4 class="code-header">type <a href="#associatedtype.PoolSetupFee" class="associatedtype">PoolSetupFee</a>: Get&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type pallet_asset_conversion::pallet::Config::Balance">Balance</a>&gt;</h4></section></summary><div class="docblock"><p>A one-time fee to setup the pool.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.PoolSetupFeeAsset" class="method"><a class="src rightside" href="../../src/pallet_asset_conversion/lib.rs.html#171">source</a><h4 class="code-header">type <a href="#associatedtype.PoolSetupFeeAsset" class="associatedtype">PoolSetupFeeAsset</a>: Get&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.AssetKind" title="type pallet_asset_conversion::pallet::Config::AssetKind">AssetKind</a>&gt;</h4></section></summary><div class="docblock"><p>Asset class from <a href="trait.Config.html#associatedtype.Assets" title="associated type pallet_asset_conversion::pallet::Config::Assets"><code>Config::Assets</code></a> used to pay the <a href="trait.Config.html#associatedtype.PoolSetupFee" title="associated type pallet_asset_conversion::pallet::Config::PoolSetupFee"><code>Config::PoolSetupFee</code></a>.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.PoolSetupFeeTarget" class="method"><a class="src rightside" href="../../src/pallet_asset_conversion/lib.rs.html#174">source</a><h4 class="code-header">type <a href="#associatedtype.PoolSetupFeeTarget" class="associatedtype">PoolSetupFeeTarget</a>: OnUnbalanced&lt;<a class="type" href="../type.CreditOf.html" title="type pallet_asset_conversion::CreditOf">CreditOf</a>&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>Handler for the <a href="trait.Config.html#associatedtype.PoolSetupFee" title="associated type pallet_asset_conversion::pallet::Config::PoolSetupFee"><code>Config::PoolSetupFee</code></a>.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.LiquidityWithdrawalFee" class="method"><a class="src rightside" href="../../src/pallet_asset_conversion/lib.rs.html#178">source</a><h4 class="code-header">type <a href="#associatedtype.LiquidityWithdrawalFee" class="associatedtype">LiquidityWithdrawalFee</a>: Get&lt;Permill&gt;</h4></section></summary><div class="docblock"><p>A fee to withdraw the liquidity.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MintMinLiquidity" class="method"><a class="src rightside" href="../../src/pallet_asset_conversion/lib.rs.html#182">source</a><h4 class="code-header">type <a href="#associatedtype.MintMinLiquidity" class="associatedtype">MintMinLiquidity</a>: Get&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type pallet_asset_conversion::pallet::Config::Balance">Balance</a>&gt;</h4></section></summary><div class="docblock"><p>The minimum LP token amount that could be minted. Ameliorates rounding errors.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxSwapPathLength" class="method"><a class="src rightside" href="../../src/pallet_asset_conversion/lib.rs.html#186">source</a><h4 class="code-header">type <a href="#associatedtype.MaxSwapPathLength" class="associatedtype">MaxSwapPathLength</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>The max number of hops in a swap.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.PalletId" class="method"><a class="src rightside" href="../../src/pallet_asset_conversion/lib.rs.html#190">source</a><h4 class="code-header">type <a href="#associatedtype.PalletId" class="associatedtype">PalletId</a>: Get&lt;PalletId&gt;</h4></section></summary><div class="docblock"><p>The pallet’s id, used for deriving its sovereign account ID.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.WeightInfo" class="method"><a class="src rightside" href="../../src/pallet_asset_conversion/lib.rs.html#193">source</a><h4 class="code-header">type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="../weights/trait.WeightInfo.html" title="trait pallet_asset_conversion::weights::WeightInfo">WeightInfo</a></h4></section></summary><div class="docblock"><p>Weight information for extrinsics in this pallet.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.BenchmarkHelper" class="method"><a class="src rightside" href="../../src/pallet_asset_conversion/lib.rs.html#197">source</a><h4 class="code-header">type <a href="#associatedtype.BenchmarkHelper" class="associatedtype">BenchmarkHelper</a>: <a class="trait" href="../trait.BenchmarkHelper.html" title="trait pallet_asset_conversion::BenchmarkHelper">BenchmarkHelper</a>&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.AssetKind" title="type pallet_asset_conversion::pallet::Config::AssetKind">AssetKind</a>&gt;</h4></section></summary><div class="docblock"><p>The benchmarks need a way to create asset ids from u32s.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/pallet_asset_conversion/pallet/trait.Config.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

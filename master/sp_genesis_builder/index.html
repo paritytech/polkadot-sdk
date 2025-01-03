@@ -1,0 +1,199 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Substrate genesis config builder."><title>sp_genesis_builder - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sp_genesis_builder" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sp_genesis_builder/index.html">sp_genesis_builder</a><span class="version">0.8.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">sp_genesis_builder</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/sp_genesis_builder/lib.rs.html#18-133">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="substrate-genesis-config-builder"><a class="doc-anchor" href="#substrate-genesis-config-builder">§</a>Substrate genesis config builder.</h2>
+<p>This crate contains <a href="trait.GenesisBuilder.html" title="trait sp_genesis_builder::GenesisBuilder"><code>GenesisBuilder</code></a>, a runtime-api to be implemented by runtimes, in order to
+express their genesis state.</p>
+<p>The overall flow of the methods in <a href="trait.GenesisBuilder.html" title="trait sp_genesis_builder::GenesisBuilder"><code>GenesisBuilder</code></a> is as follows:</p>
+<ol>
+<li><a href="trait.GenesisBuilder.html#method.preset_names" title="method sp_genesis_builder::GenesisBuilder::preset_names"><code>GenesisBuilder::preset_names</code></a>: A runtime exposes a number of different
+<code>RuntimeGenesisConfig</code> variations, each of which is called a <code>preset</code>, and is identified by a
+<a href="type.PresetId.html" title="type sp_genesis_builder::PresetId"><code>PresetId</code></a>. All runtimes are encouraged to expose at least <a href="constant.DEV_RUNTIME_PRESET.html" title="constant sp_genesis_builder::DEV_RUNTIME_PRESET"><code>DEV_RUNTIME_PRESET</code></a> and
+<a href="constant.LOCAL_TESTNET_RUNTIME_PRESET.html" title="constant sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET"><code>LOCAL_TESTNET_RUNTIME_PRESET</code></a> presets for consistency.</li>
+<li><a href="trait.GenesisBuilder.html#method.get_preset" title="method sp_genesis_builder::GenesisBuilder::get_preset"><code>GenesisBuilder::get_preset</code></a>: Given a <code>PresetId</code>, this the runtime returns the JSON blob
+representation of the <code>RuntimeGenesisConfig</code> for that preset. This JSON blob is often mixed
+into the broader <code>chain_spec</code>. If <code>None</code> is given, <a href="trait.GenesisBuilder.html#method.get_preset" title="method sp_genesis_builder::GenesisBuilder::get_preset"><code>GenesisBuilder::get_preset</code></a> provides a
+JSON represention of the default <code>RuntimeGenesisConfig</code> (by simply serializing the
+<code>RuntimeGenesisConfig::default()</code> value into JSON format). This is used as a base for
+applying patches / presets.</li>
+<li><a href="trait.GenesisBuilder.html#method.build_state" title="method sp_genesis_builder::GenesisBuilder::build_state"><code>GenesisBuilder::build_state</code></a>: Given a JSON blob, this method should deserialize it and
+enact it (using <code>frame_support::traits::BuildGenesisConfig</code> for Frame-based runtime),
+essentially writing it to the state.</li>
+</ol>
+<p>The first two flows are often done in between a runtime, and the <code>chain_spec_builder</code> binary.
+The latter is used when a new blockchain is launched to enact and store the genesis state. See
+the documentation of <code>chain_spec_builder</code> for more info.</p>
+<h3 id="patching"><a class="doc-anchor" href="#patching">§</a>Patching</h3>
+<p>The runtime may provide a number of partial predefined <code>RuntimeGenesisConfig</code> configurations in
+the form of patches which shall be applied on top of the default <code>RuntimeGenesisConfig</code>. The
+patch is a JSON blob, which essentially comprises the list of key-value pairs that are to be
+customized in the default runtime genesis config. These predefined configurations are referred
+to as presets.</p>
+<p>This allows the runtime to provide a number of predefined configs (e.g. for different testnets
+or development) without necessarily to leak the runtime types outside itself (e.g. node or
+chain-spec related tools).</p>
+<h3 id="frame-vs-non-frame"><a class="doc-anchor" href="#frame-vs-non-frame">§</a>FRAME vs. non-FRAME</h3>
+<p>For FRAME based runtimes <a href="trait.GenesisBuilder.html" title="trait sp_genesis_builder::GenesisBuilder"><code>GenesisBuilder</code></a> provides means to interact with
+<code>RuntimeGenesisConfig</code>.</p>
+<p>For non-FRAME runtimes this interface is intended to build genesis state of the runtime basing
+on some input arbitrary bytes array. This documentation uses term <code>RuntimeGenesisConfig</code>, which
+for non-FRAME runtimes may be understood as the “runtime-side entity representing initial
+runtime genesis configuration”. The representation of the preset is an arbitrary <code>Vec&lt;u8&gt;</code> and
+does not necessarily have to represent a JSON blob.</p>
+<h3 id="genesis-block-state"><a class="doc-anchor" href="#genesis-block-state">§</a>Genesis Block State</h3>
+<p>Providing externalities with an empty storage and putting <code>RuntimeGenesisConfig</code> into storage
+(by calling <code>build_state</code>) allows to construct the raw storage of <code>RuntimeGenesisConfig</code>
+which is the foundation for genesis block.</p>
+</div></details><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.DEV_RUNTIME_PRESET.html" title="constant sp_genesis_builder::DEV_RUNTIME_PRESET">DEV_RUNTIME_PRESET</a></div><div class="desc docblock-short">The default <code>development</code> preset used to communicate with the runtime via
+<a href="trait.GenesisBuilder.html" title="trait sp_genesis_builder::GenesisBuilder"><code>GenesisBuilder</code></a> interface.</div></li><li><div class="item-name"><a class="constant" href="constant.LOCAL_TESTNET_RUNTIME_PRESET.html" title="constant sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET">LOCAL_TESTNET_RUNTIME_PRESET</a></div><div class="desc docblock-short">The default <code>local_testnet</code> preset used to communicate with the runtime via
+<a href="trait.GenesisBuilder.html" title="trait sp_genesis_builder::GenesisBuilder"><code>GenesisBuilder</code></a> interface.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.GenesisBuilder.html" title="trait sp_genesis_builder::GenesisBuilder">GenesisBuilder</a></div><div class="desc docblock-short">API to interact with <code>RuntimeGenesisConfig</code> for the runtime</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.PresetId.html" title="type sp_genesis_builder::PresetId">PresetId</a></div><div class="desc docblock-short">The type representing preset ID.</div></li><li><div class="item-name"><a class="type" href="type.Result.html" title="type sp_genesis_builder::Result">Result</a></div><div class="desc docblock-short">The result type alias, used in build methods. <code>Err</code> contains formatted error message.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

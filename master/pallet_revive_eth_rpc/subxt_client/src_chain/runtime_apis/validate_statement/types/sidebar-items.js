@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["validate_statement"],"struct":["ValidateStatement"]};

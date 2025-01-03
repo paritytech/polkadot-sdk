@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `events` mod in crate `pallet_revive_eth_rpc`."><title>pallet_revive_eth_rpc::subxt_client::src_chain::identity::events - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="pallet_revive_eth_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../../pallet_revive_eth_rpc/index.html">pallet_revive_eth_rpc</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">Module events</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li></ul></section><h2><a href="../index.html">In pallet_revive_eth_rpc::subxt_client::src_chain::identity</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../../../index.html">pallet_revive_eth_rpc</a>::<wbr><a href="../../../index.html">subxt_client</a>::<wbr><a href="../../index.html">src_chain</a>::<wbr><a href="../index.html">identity</a>::<wbr><a class="mod" href="#">events</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../../../src/pallet_revive_eth_rpc/subxt_client.rs.html#22-49">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="authority_added/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::authority_added">authority_added</a></div></li><li><div class="item-name"><a class="mod" href="authority_removed/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::authority_removed">authority_removed</a></div></li><li><div class="item-name"><a class="mod" href="dangling_username_removed/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::dangling_username_removed">dangling_username_removed</a></div></li><li><div class="item-name"><a class="mod" href="identity_cleared/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::identity_cleared">identity_cleared</a></div></li><li><div class="item-name"><a class="mod" href="identity_killed/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::identity_killed">identity_killed</a></div></li><li><div class="item-name"><a class="mod" href="identity_set/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::identity_set">identity_set</a></div></li><li><div class="item-name"><a class="mod" href="judgement_given/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::judgement_given">judgement_given</a></div></li><li><div class="item-name"><a class="mod" href="judgement_requested/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::judgement_requested">judgement_requested</a></div></li><li><div class="item-name"><a class="mod" href="judgement_unrequested/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::judgement_unrequested">judgement_unrequested</a></div></li><li><div class="item-name"><a class="mod" href="preapproval_expired/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::preapproval_expired">preapproval_expired</a></div></li><li><div class="item-name"><a class="mod" href="primary_username_set/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::primary_username_set">primary_username_set</a></div></li><li><div class="item-name"><a class="mod" href="registrar_added/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::registrar_added">registrar_added</a></div></li><li><div class="item-name"><a class="mod" href="sub_identities_set/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::sub_identities_set">sub_identities_set</a></div></li><li><div class="item-name"><a class="mod" href="sub_identity_added/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::sub_identity_added">sub_identity_added</a></div></li><li><div class="item-name"><a class="mod" href="sub_identity_removed/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::sub_identity_removed">sub_identity_removed</a></div></li><li><div class="item-name"><a class="mod" href="sub_identity_renamed/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::sub_identity_renamed">sub_identity_renamed</a></div></li><li><div class="item-name"><a class="mod" href="sub_identity_revoked/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::sub_identity_revoked">sub_identity_revoked</a></div></li><li><div class="item-name"><a class="mod" href="username_killed/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::username_killed">username_killed</a></div></li><li><div class="item-name"><a class="mod" href="username_queued/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::username_queued">username_queued</a></div></li><li><div class="item-name"><a class="mod" href="username_removed/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::username_removed">username_removed</a></div></li><li><div class="item-name"><a class="mod" href="username_set/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::username_set">username_set</a></div></li><li><div class="item-name"><a class="mod" href="username_unbound/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::username_unbound">username_unbound</a></div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.AuthorityAdded.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::AuthorityAdded">AuthorityAdded</a></div></li><li><div class="item-name"><a class="struct" href="struct.AuthorityRemoved.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::AuthorityRemoved">AuthorityRemoved</a></div></li><li><div class="item-name"><a class="struct" href="struct.DanglingUsernameRemoved.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::DanglingUsernameRemoved">DanglingUsernameRemoved</a></div></li><li><div class="item-name"><a class="struct" href="struct.IdentityCleared.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::IdentityCleared">IdentityCleared</a></div></li><li><div class="item-name"><a class="struct" href="struct.IdentityKilled.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::IdentityKilled">IdentityKilled</a></div></li><li><div class="item-name"><a class="struct" href="struct.IdentitySet.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::IdentitySet">IdentitySet</a></div></li><li><div class="item-name"><a class="struct" href="struct.JudgementGiven.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::JudgementGiven">JudgementGiven</a></div></li><li><div class="item-name"><a class="struct" href="struct.JudgementRequested.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::JudgementRequested">JudgementRequested</a></div></li><li><div class="item-name"><a class="struct" href="struct.JudgementUnrequested.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::JudgementUnrequested">JudgementUnrequested</a></div></li><li><div class="item-name"><a class="struct" href="struct.PreapprovalExpired.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::PreapprovalExpired">PreapprovalExpired</a></div></li><li><div class="item-name"><a class="struct" href="struct.PrimaryUsernameSet.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::PrimaryUsernameSet">PrimaryUsernameSet</a></div></li><li><div class="item-name"><a class="struct" href="struct.RegistrarAdded.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::RegistrarAdded">RegistrarAdded</a></div></li><li><div class="item-name"><a class="struct" href="struct.SubIdentitiesSet.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::SubIdentitiesSet">SubIdentitiesSet</a></div></li><li><div class="item-name"><a class="struct" href="struct.SubIdentityAdded.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::SubIdentityAdded">SubIdentityAdded</a></div></li><li><div class="item-name"><a class="struct" href="struct.SubIdentityRemoved.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::SubIdentityRemoved">SubIdentityRemoved</a></div></li><li><div class="item-name"><a class="struct" href="struct.SubIdentityRenamed.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::SubIdentityRenamed">SubIdentityRenamed</a></div></li><li><div class="item-name"><a class="struct" href="struct.SubIdentityRevoked.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::SubIdentityRevoked">SubIdentityRevoked</a></div></li><li><div class="item-name"><a class="struct" href="struct.UsernameKilled.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::UsernameKilled">UsernameKilled</a></div></li><li><div class="item-name"><a class="struct" href="struct.UsernameQueued.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::UsernameQueued">UsernameQueued</a></div></li><li><div class="item-name"><a class="struct" href="struct.UsernameRemoved.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::UsernameRemoved">UsernameRemoved</a></div></li><li><div class="item-name"><a class="struct" href="struct.UsernameSet.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::UsernameSet">UsernameSet</a></div></li><li><div class="item-name"><a class="struct" href="struct.UsernameUnbound.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::identity::events::UsernameUnbound">UsernameUnbound</a></div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

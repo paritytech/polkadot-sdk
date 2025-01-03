@@ -1,0 +1,202 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A interface for looking up preimages from their hash on chain."><title>QueryPreimage in frame_support::traits - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../frame_support/index.html">frame_support</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">QueryPreimage</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.H">H</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.fetch">fetch</a></li><li><a href="#tymethod.is_requested">is_requested</a></li><li><a href="#tymethod.len">len</a></li><li><a href="#tymethod.request">request</a></li><li><a href="#tymethod.unrequest">unrequest</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.drop">drop</a></li><li><a href="#method.have">have</a></li><li><a href="#method.hold">hold</a></li><li><a href="#method.peek">peek</a></li><li><a href="#method.pick">pick</a></li><li><a href="#method.realize">realize</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-QueryPreimage-for-()">()</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In frame_support::traits</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">frame_support</a>::<wbr><a href="index.html">traits</a>::<wbr><a class="trait" href="#">QueryPreimage</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/frame_support/traits/preimages.rs.html#133-223">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait QueryPreimage {
+    type <a href="#associatedtype.H" class="associatedtype">H</a>: <a class="trait" href="../../sp_runtime/traits/trait.Hash.html" title="trait sp_runtime::traits::Hash">Hash</a>;
+
+    // Required methods
+    fn <a href="#tymethod.len" class="fn">len</a>(hash: &amp;&lt;Self::<a class="associatedtype" href="trait.QueryPreimage.html#associatedtype.H" title="type frame_support::traits::QueryPreimage::H">H</a> as Hasher&gt;::Out) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.fetch" class="fn">fetch</a>(hash: &amp;&lt;Self::<a class="associatedtype" href="trait.QueryPreimage.html#associatedtype.H" title="type frame_support::traits::QueryPreimage::H">H</a> as Hasher&gt;::Out, len: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;) -&gt; <a class="type" href="type.FetchResult.html" title="type frame_support::traits::FetchResult">FetchResult</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.is_requested" class="fn">is_requested</a>(hash: &amp;&lt;Self::<a class="associatedtype" href="trait.QueryPreimage.html#associatedtype.H" title="type frame_support::traits::QueryPreimage::H">H</a> as Hasher&gt;::Out) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.request" class="fn">request</a>(hash: &amp;&lt;Self::<a class="associatedtype" href="trait.QueryPreimage.html#associatedtype.H" title="type frame_support::traits::QueryPreimage::H">H</a> as Hasher&gt;::Out);
+<span class="item-spacer"></span>    fn <a href="#tymethod.unrequest" class="fn">unrequest</a>(hash: &amp;&lt;Self::<a class="associatedtype" href="trait.QueryPreimage.html#associatedtype.H" title="type frame_support::traits::QueryPreimage::H">H</a> as Hasher&gt;::Out);
+
+    // Provided methods
+    fn <a href="#method.hold" class="fn">hold</a>&lt;T&gt;(bounded: &amp;<a class="enum" href="enum.Bounded.html" title="enum frame_support::traits::Bounded">Bounded</a>&lt;T, Self::<a class="associatedtype" href="trait.QueryPreimage.html#associatedtype.H" title="type frame_support::traits::QueryPreimage::H">H</a>&gt;) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.drop" class="fn">drop</a>&lt;T&gt;(bounded: &amp;<a class="enum" href="enum.Bounded.html" title="enum frame_support::traits::Bounded">Bounded</a>&lt;T, Self::<a class="associatedtype" href="trait.QueryPreimage.html#associatedtype.H" title="type frame_support::traits::QueryPreimage::H">H</a>&gt;) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.have" class="fn">have</a>&lt;T&gt;(bounded: &amp;<a class="enum" href="enum.Bounded.html" title="enum frame_support::traits::Bounded">Bounded</a>&lt;T, Self::<a class="associatedtype" href="trait.QueryPreimage.html#associatedtype.H" title="type frame_support::traits::QueryPreimage::H">H</a>&gt;) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.pick" class="fn">pick</a>&lt;T&gt;(hash: &lt;Self::<a class="associatedtype" href="trait.QueryPreimage.html#associatedtype.H" title="type frame_support::traits::QueryPreimage::H">H</a> as Hasher&gt;::Out, len: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; <a class="enum" href="enum.Bounded.html" title="enum frame_support::traits::Bounded">Bounded</a>&lt;T, Self::<a class="associatedtype" href="trait.QueryPreimage.html#associatedtype.H" title="type frame_support::traits::QueryPreimage::H">H</a>&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.peek" class="fn">peek</a>&lt;T: <a class="trait" href="../pallet_prelude/trait.Decode.html" title="trait frame_support::pallet_prelude::Decode">Decode</a>&gt;(
+        bounded: &amp;<a class="enum" href="enum.Bounded.html" title="enum frame_support::traits::Bounded">Bounded</a>&lt;T, Self::<a class="associatedtype" href="trait.QueryPreimage.html#associatedtype.H" title="type frame_support::traits::QueryPreimage::H">H</a>&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(T, <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;), <a class="enum" href="../pallet_prelude/enum.DispatchError.html" title="enum frame_support::pallet_prelude::DispatchError">DispatchError</a>&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.realize" class="fn">realize</a>&lt;T: <a class="trait" href="../pallet_prelude/trait.Decode.html" title="trait frame_support::pallet_prelude::Decode">Decode</a>&gt;(
+        bounded: &amp;<a class="enum" href="enum.Bounded.html" title="enum frame_support::traits::Bounded">Bounded</a>&lt;T, Self::<a class="associatedtype" href="trait.QueryPreimage.html#associatedtype.H" title="type frame_support::traits::QueryPreimage::H">H</a>&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(T, <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;), <a class="enum" href="../pallet_prelude/enum.DispatchError.html" title="enum frame_support::pallet_prelude::DispatchError">DispatchError</a>&gt; { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A interface for looking up preimages from their hash on chain.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.H" class="method"><a class="src rightside" href="../../src/frame_support/traits/preimages.rs.html#135">source</a><h4 class="code-header">type <a href="#associatedtype.H" class="associatedtype">H</a>: <a class="trait" href="../../sp_runtime/traits/trait.Hash.html" title="trait sp_runtime::traits::Hash">Hash</a></h4></section></summary><div class="docblock"><p>The hasher used in the runtime.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.len" class="method"><a class="src rightside" href="../../src/frame_support/traits/preimages.rs.html#138">source</a><h4 class="code-header">fn <a href="#tymethod.len" class="fn">len</a>(hash: &amp;&lt;Self::<a class="associatedtype" href="trait.QueryPreimage.html#associatedtype.H" title="type frame_support::traits::QueryPreimage::H">H</a> as Hasher&gt;::Out) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>Returns whether a preimage exists for a given hash and if so its length.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.fetch" class="method"><a class="src rightside" href="../../src/frame_support/traits/preimages.rs.html#141">source</a><h4 class="code-header">fn <a href="#tymethod.fetch" class="fn">fetch</a>(hash: &amp;&lt;Self::<a class="associatedtype" href="trait.QueryPreimage.html#associatedtype.H" title="type frame_support::traits::QueryPreimage::H">H</a> as Hasher&gt;::Out, len: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;) -&gt; <a class="type" href="type.FetchResult.html" title="type frame_support::traits::FetchResult">FetchResult</a></h4></section></summary><div class="docblock"><p>Returns the preimage for a given hash. If given, <code>len</code> must be the size of the preimage.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.is_requested" class="method"><a class="src rightside" href="../../src/frame_support/traits/preimages.rs.html#144">source</a><h4 class="code-header">fn <a href="#tymethod.is_requested" class="fn">is_requested</a>(hash: &amp;&lt;Self::<a class="associatedtype" href="trait.QueryPreimage.html#associatedtype.H" title="type frame_support::traits::QueryPreimage::H">H</a> as Hasher&gt;::Out) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns whether a preimage request exists for a given hash.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.request" class="method"><a class="src rightside" href="../../src/frame_support/traits/preimages.rs.html#148">source</a><h4 class="code-header">fn <a href="#tymethod.request" class="fn">request</a>(hash: &amp;&lt;Self::<a class="associatedtype" href="trait.QueryPreimage.html#associatedtype.H" title="type frame_support::traits::QueryPreimage::H">H</a> as Hasher&gt;::Out)</h4></section></summary><div class="docblock"><p>Request that someone report a preimage. Providers use this to optimise the economics for
+preimage reporting.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.unrequest" class="method"><a class="src rightside" href="../../src/frame_support/traits/preimages.rs.html#151">source</a><h4 class="code-header">fn <a href="#tymethod.unrequest" class="fn">unrequest</a>(hash: &amp;&lt;Self::<a class="associatedtype" href="trait.QueryPreimage.html#associatedtype.H" title="type frame_support::traits::QueryPreimage::H">H</a> as Hasher&gt;::Out)</h4></section></summary><div class="docblock"><p>Cancel a previous preimage request.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.hold" class="method"><a class="src rightside" href="../../src/frame_support/traits/preimages.rs.html#154-160">source</a><h4 class="code-header">fn <a href="#method.hold" class="fn">hold</a>&lt;T&gt;(bounded: &amp;<a class="enum" href="enum.Bounded.html" title="enum frame_support::traits::Bounded">Bounded</a>&lt;T, Self::<a class="associatedtype" href="trait.QueryPreimage.html#associatedtype.H" title="type frame_support::traits::QueryPreimage::H">H</a>&gt;)</h4></section></summary><div class="docblock"><p>Request that the data required for decoding the given <code>bounded</code> value is made available.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.drop" class="method"><a class="src rightside" href="../../src/frame_support/traits/preimages.rs.html#164-170">source</a><h4 class="code-header">fn <a href="#method.drop" class="fn">drop</a>&lt;T&gt;(bounded: &amp;<a class="enum" href="enum.Bounded.html" title="enum frame_support::traits::Bounded">Bounded</a>&lt;T, Self::<a class="associatedtype" href="trait.QueryPreimage.html#associatedtype.H" title="type frame_support::traits::QueryPreimage::H">H</a>&gt;)</h4></section></summary><div class="docblock"><p>No longer request that the data required for decoding the given <code>bounded</code> value is made
+available.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.have" class="method"><a class="src rightside" href="../../src/frame_support/traits/preimages.rs.html#174-180">source</a><h4 class="code-header">fn <a href="#method.have" class="fn">have</a>&lt;T&gt;(bounded: &amp;<a class="enum" href="enum.Bounded.html" title="enum frame_support::traits::Bounded">Bounded</a>&lt;T, Self::<a class="associatedtype" href="trait.QueryPreimage.html#associatedtype.H" title="type frame_support::traits::QueryPreimage::H">H</a>&gt;) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Check to see if all data required for the given <code>bounded</code> value is available for its
+decoding.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.pick" class="method"><a class="src rightside" href="../../src/frame_support/traits/preimages.rs.html#187-190">source</a><h4 class="code-header">fn <a href="#method.pick" class="fn">pick</a>&lt;T&gt;(hash: &lt;Self::<a class="associatedtype" href="trait.QueryPreimage.html#associatedtype.H" title="type frame_support::traits::QueryPreimage::H">H</a> as Hasher&gt;::Out, len: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; <a class="enum" href="enum.Bounded.html" title="enum frame_support::traits::Bounded">Bounded</a>&lt;T, Self::<a class="associatedtype" href="trait.QueryPreimage.html#associatedtype.H" title="type frame_support::traits::QueryPreimage::H">H</a>&gt;</h4></section></summary><div class="docblock"><p>Create a <code>Bounded</code> instance based on the <code>hash</code> and <code>len</code> of the encoded value.</p>
+<p>It also directly requests the given <code>hash</code> using <a href="trait.QueryPreimage.html#tymethod.request"><code>Self::request</code></a>.</p>
+<p>This may not be <code>peek</code>-able or <code>realize</code>-able.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.peek" class="method"><a class="src rightside" href="../../src/frame_support/traits/preimages.rs.html#197-211">source</a><h4 class="code-header">fn <a href="#method.peek" class="fn">peek</a>&lt;T: <a class="trait" href="../pallet_prelude/trait.Decode.html" title="trait frame_support::pallet_prelude::Decode">Decode</a>&gt;(
+    bounded: &amp;<a class="enum" href="enum.Bounded.html" title="enum frame_support::traits::Bounded">Bounded</a>&lt;T, Self::<a class="associatedtype" href="trait.QueryPreimage.html#associatedtype.H" title="type frame_support::traits::QueryPreimage::H">H</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(T, <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;), <a class="enum" href="../pallet_prelude/enum.DispatchError.html" title="enum frame_support::pallet_prelude::DispatchError">DispatchError</a>&gt;</h4></section></summary><div class="docblock"><p>Convert the given <code>bounded</code> instance back into its original instance, also returning the
+exact size of its encoded form if it needed to be looked-up from a stored preimage).</p>
+<p>NOTE: This does not remove any data needed for realization. If you will no longer use the
+<code>bounded</code>, call <code>realize</code> instead or call <code>drop</code> afterwards.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.realize" class="method"><a class="src rightside" href="../../src/frame_support/traits/preimages.rs.html#216-222">source</a><h4 class="code-header">fn <a href="#method.realize" class="fn">realize</a>&lt;T: <a class="trait" href="../pallet_prelude/trait.Decode.html" title="trait frame_support::pallet_prelude::Decode">Decode</a>&gt;(
+    bounded: &amp;<a class="enum" href="enum.Bounded.html" title="enum frame_support::traits::Bounded">Bounded</a>&lt;T, Self::<a class="associatedtype" href="trait.QueryPreimage.html#associatedtype.H" title="type frame_support::traits::QueryPreimage::H">H</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(T, <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;), <a class="enum" href="../pallet_prelude/enum.DispatchError.html" title="enum frame_support::pallet_prelude::DispatchError">DispatchError</a>&gt;</h4></section></summary><div class="docblock"><p>Convert the given <code>bounded</code> value back into its original instance. If successful,
+<code>drop</code> any data backing it. This will not break the realisability of independently
+created instances of <code>Bounded</code> which happen to have identical data.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-QueryPreimage-for-()" class="impl"><a class="src rightside" href="../../src/frame_support/traits/preimages.rs.html#263-277">source</a><a href="#impl-QueryPreimage-for-()" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.QueryPreimage.html" title="trait frame_support::traits::QueryPreimage">QueryPreimage</a> for <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><section id="associatedtype.H-1" class="associatedtype trait-impl"><a href="#associatedtype.H-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.H" class="associatedtype">H</a> = <a class="struct" href="../../sp_runtime/traits/struct.BlakeTwo256.html" title="struct sp_runtime::traits::BlakeTwo256">BlakeTwo256</a></h4></section><section id="method.len" class="method trait-impl"><a class="src rightside" href="../../src/frame_support/traits/preimages.rs.html#266-268">source</a><a href="#method.len" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.len" class="fn">len</a>(_: &amp;H256) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section><section id="method.fetch" class="method trait-impl"><a class="src rightside" href="../../src/frame_support/traits/preimages.rs.html#269-271">source</a><a href="#method.fetch" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.fetch" class="fn">fetch</a>(_: &amp;H256, _: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;) -&gt; <a class="type" href="type.FetchResult.html" title="type frame_support::traits::FetchResult">FetchResult</a></h4></section><section id="method.is_requested" class="method trait-impl"><a class="src rightside" href="../../src/frame_support/traits/preimages.rs.html#272-274">source</a><a href="#method.is_requested" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.is_requested" class="fn">is_requested</a>(_: &amp;H256) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></h4></section><section id="method.request" class="method trait-impl"><a class="src rightside" href="../../src/frame_support/traits/preimages.rs.html#275">source</a><a href="#method.request" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.request" class="fn">request</a>(_: &amp;H256)</h4></section><section id="method.unrequest" class="method trait-impl"><a class="src rightside" href="../../src/frame_support/traits/preimages.rs.html#276">source</a><a href="#method.unrequest" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.unrequest" class="fn">unrequest</a>(_: &amp;H256)</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/frame_support/traits/preimages/trait.QueryPreimage.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

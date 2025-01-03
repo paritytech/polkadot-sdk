@@ -1,0 +1,175 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Substrate state machine implementation."><title>sp_state_machine - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sp_state_machine" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sp_state_machine/index.html">sp_state_machine</a><span class="version">0.35.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">sp_state_machine</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/sp_state_machine/lib.rs.html#18-2033">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Substrate state machine implementation.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.Backend"><code>pub use crate::backend::<a class="trait" href="backend/trait.Backend.html" title="trait sp_state_machine::backend::Backend">Backend</a>;</code></div></li><li><div class="item-name" id="reexport.BackendTransaction"><code>pub use crate::backend::<a class="type" href="backend/type.BackendTransaction.html" title="type sp_state_machine::backend::BackendTransaction">BackendTransaction</a>;</code></div></li><li><div class="item-name" id="reexport.IterArgs"><code>pub use crate::backend::<a class="struct" href="backend/struct.IterArgs.html" title="struct sp_state_machine::backend::IterArgs">IterArgs</a>;</code></div></li><li><div class="item-name" id="reexport.KeysIter"><code>pub use crate::backend::<a class="struct" href="backend/struct.KeysIter.html" title="struct sp_state_machine::backend::KeysIter">KeysIter</a>;</code></div></li><li><div class="item-name" id="reexport.PairsIter"><code>pub use crate::backend::<a class="struct" href="backend/struct.PairsIter.html" title="struct sp_state_machine::backend::PairsIter">PairsIter</a>;</code></div></li><li><div class="item-name" id="reexport.StorageIterator"><code>pub use crate::backend::<a class="trait" href="backend/trait.StorageIterator.html" title="trait sp_state_machine::backend::StorageIterator">StorageIterator</a>;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="backend/index.html" title="mod sp_state_machine::backend">backend</a></div><div class="desc docblock-short">State machine backends. These manage the code and storage of contracts.</div></li><li><div class="item-name"><a class="mod" href="fuzzing/index.html" title="mod sp_state_machine::fuzzing">fuzzing</a></div><div class="desc docblock-short">State machine fuzzing implementation, behind <code>fuzzing</code> feature.</div></li></ul><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.debug.html" title="macro sp_state_machine::debug">debug</a></div><div class="desc docblock-short">Logs a message at the debug level.</div></li><li><div class="item-name"><a class="macro" href="macro.log_error.html" title="macro sp_state_machine::log_error">log_error</a></div><div class="desc docblock-short">Logs a message at the error level.</div></li><li><div class="item-name"><a class="macro" href="macro.trace.html" title="macro sp_state_machine::trace">trace</a></div><div class="desc docblock-short">Constructs an event at the trace level.</div></li><li><div class="item-name"><a class="macro" href="macro.warn.html" title="macro sp_state_machine::warn">warn</a></div><div class="desc docblock-short">Logs a message at the warn level.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.BasicExternalities.html" title="struct sp_state_machine::BasicExternalities">BasicExternalities</a></div><div class="desc docblock-short">Simple Map-based Externalities impl.</div></li><li><div class="item-name"><a class="struct" href="struct.CompactProof.html" title="struct sp_state_machine::CompactProof">CompactProof</a></div><div class="desc docblock-short">Storage proof in compact form.</div></li><li><div class="item-name"><a class="struct" href="struct.Ext.html" title="struct sp_state_machine::Ext">Ext</a></div><div class="desc docblock-short">Wraps a read-only backend, call executor, and current overlayed changes.</div></li><li><div class="item-name"><a class="struct" href="struct.KeyValueStates.html" title="struct sp_state_machine::KeyValueStates">KeyValueStates</a></div><div class="desc docblock-short">Multiple key value state.
+States are ordered by root storage key.</div></li><li><div class="item-name"><a class="struct" href="struct.KeyValueStorageLevel.html" title="struct sp_state_machine::KeyValueStorageLevel">KeyValueStorageLevel</a></div><div class="desc docblock-short">A key value state at any storage level.</div></li><li><div class="item-name"><a class="struct" href="struct.LayoutV0.html" title="struct sp_state_machine::LayoutV0">LayoutV0</a></div><div class="desc docblock-short">substrate trie layout</div></li><li><div class="item-name"><a class="struct" href="struct.LayoutV1.html" title="struct sp_state_machine::LayoutV1">LayoutV1</a></div><div class="desc docblock-short">substrate trie layout, with external value nodes.</div></li><li><div class="item-name"><a class="struct" href="struct.OffchainOverlayedChanges.html" title="struct sp_state_machine::OffchainOverlayedChanges">OffchainOverlayedChanges</a></div><div class="desc docblock-short">In-memory storage for offchain workers recoding changes for the actual offchain storage
+implementation.</div></li><li><div class="item-name"><a class="struct" href="struct.OverlayedChanges.html" title="struct sp_state_machine::OverlayedChanges">OverlayedChanges</a></div><div class="desc docblock-short">The set of changes that are overlaid onto the backend.</div></li><li><div class="item-name"><a class="struct" href="struct.ReadOnlyExternalities.html" title="struct sp_state_machine::ReadOnlyExternalities">ReadOnlyExternalities</a></div><div class="desc docblock-short">Simple read-only externalities for any backend.</div></li><li><div class="item-name"><a class="struct" href="struct.StateMachine.html" title="struct sp_state_machine::StateMachine">StateMachine</a></div><div class="desc docblock-short">The substrate state machine.</div></li><li><div class="item-name"><a class="struct" href="struct.StateMachineStats.html" title="struct sp_state_machine::StateMachineStats">StateMachineStats</a></div><div class="desc docblock-short">Accumulated usage statistics specific to state machine
+crate.</div></li><li><div class="item-name"><a class="struct" href="struct.StorageChanges.html" title="struct sp_state_machine::StorageChanges">StorageChanges</a></div><div class="desc docblock-short">A storage changes structure that can be generated by the data collected in <a href="struct.OverlayedChanges.html" title="struct sp_state_machine::OverlayedChanges"><code>OverlayedChanges</code></a>.</div></li><li><div class="item-name"><a class="struct" href="struct.StorageProof.html" title="struct sp_state_machine::StorageProof">StorageProof</a></div><div class="desc docblock-short">A proof that some set of key-value pairs are included in the storage trie. The proof contains
+the storage values so that the partial storage backend can be reconstructed by a verifier that
+does not already have access to the key-value pairs.</div></li><li><div class="item-name"><a class="struct" href="struct.TestExternalities.html" title="struct sp_state_machine::TestExternalities">TestExternalities</a></div><div class="desc docblock-short">Simple HashMap-based Externalities impl.</div></li><li><div class="item-name"><a class="struct" href="struct.TrieBackend.html" title="struct sp_state_machine::TrieBackend">TrieBackend</a></div><div class="desc docblock-short">Patricia trie-based backend. Transaction type is an overlay of changes to commit.</div></li><li><div class="item-name"><a class="struct" href="struct.TrieBackendBuilder.html" title="struct sp_state_machine::TrieBackendBuilder">TrieBackendBuilder</a></div><div class="desc docblock-short">Builder for creating a <a href="struct.TrieBackend.html" title="struct sp_state_machine::TrieBackend"><code>TrieBackend</code></a>.</div></li><li><div class="item-name"><a class="struct" href="struct.UsageInfo.html" title="struct sp_state_machine::UsageInfo">UsageInfo</a></div><div class="desc docblock-short">Usage statistics for state backend.</div></li><li><div class="item-name"><a class="struct" href="struct.UsageUnit.html" title="struct sp_state_machine::UsageUnit">UsageUnit</a></div><div class="desc docblock-short">Measured count of operations and total bytes.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.BackendTrustLevel.html" title="enum sp_state_machine::BackendTrustLevel">BackendTrustLevel</a></div><div class="desc docblock-short">Storage backend trust level.</div></li><li><div class="item-name"><a class="enum" href="enum.ExecutionError.html" title="enum sp_state_machine::ExecutionError">ExecutionError</a></div><div class="desc docblock-short">Externalities Error.</div></li><li><div class="item-name"><a class="enum" href="enum.IndexOperation.html" title="enum sp_state_machine::IndexOperation">IndexOperation</a></div><div class="desc docblock-short">Transaction index operation.</div></li></ul><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.MAX_NESTED_TRIE_DEPTH.html" title="constant sp_state_machine::MAX_NESTED_TRIE_DEPTH">MAX_NESTED_TRIE_DEPTH</a></div><div class="desc docblock-short">State machine only allows a single level
+of child trie.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Error.html" title="trait sp_state_machine::Error">Error</a></div><div class="desc docblock-short">State Machine Error bound.</div></li><li><div class="item-name"><a class="trait" href="trait.InspectState.html" title="trait sp_state_machine::InspectState">InspectState</a></div><div class="desc docblock-short">Trait for inspecting state in any backend.</div></li><li><div class="item-name"><a class="trait" href="trait.Storage.html" title="trait sp_state_machine::Storage">Storage</a></div><div class="desc docblock-short">Patricia trie-based storage trait.</div></li><li><div class="item-name"><a class="trait" href="trait.TrieBackendStorage.html" title="trait sp_state_machine::TrieBackendStorage">TrieBackendStorage</a></div><div class="desc docblock-short">Key-value pairs storage that is used by trie backend essence.</div></li><li><div class="item-name"><a class="trait" href="trait.TrieCacheProvider.html" title="trait sp_state_machine::TrieCacheProvider">TrieCacheProvider</a></div><div class="desc docblock-short">A provider of trie caches that are compatible with [<code>trie_db::TrieDB</code>].</div></li><li><div class="item-name"><a class="trait" href="trait.TrieMut.html" title="trait sp_state_machine::TrieMut">TrieMut</a></div><div class="desc docblock-short">A key-value datastore implemented as a database-backed modified Merkle tree.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.create_proof_check_backend.html" title="fn sp_state_machine::create_proof_check_backend">create_proof_check_backend</a></div><div class="desc docblock-short">Create a backend used for checking the proof, using <code>H</code> as hasher.</div></li><li><div class="item-name"><a class="fn" href="fn.execution_proof_check.html" title="fn sp_state_machine::execution_proof_check">execution_proof_check</a></div><div class="desc docblock-short">Check execution proof, generated by <code>prove_execution</code> call.</div></li><li><div class="item-name"><a class="fn" href="fn.execution_proof_check_on_trie_backend.html" title="fn sp_state_machine::execution_proof_check_on_trie_backend">execution_proof_check_on_trie_backend</a></div><div class="desc docblock-short">Check execution proof on proving backend, generated by <code>prove_execution</code> call.</div></li><li><div class="item-name"><a class="fn" href="fn.new_in_mem.html" title="fn sp_state_machine::new_in_mem">new_in_mem</a></div><div class="desc docblock-short">Create a new empty instance of in-memory backend.</div></li><li><div class="item-name"><a class="fn" href="fn.prove_child_read.html" title="fn sp_state_machine::prove_child_read">prove_child_read</a></div><div class="desc docblock-short">Generate child storage read proof.</div></li><li><div class="item-name"><a class="fn" href="fn.prove_child_read_on_trie_backend.html" title="fn sp_state_machine::prove_child_read_on_trie_backend">prove_child_read_on_trie_backend</a></div><div class="desc docblock-short">Generate storage read proof on pre-created trie backend.</div></li><li><div class="item-name"><a class="fn" href="fn.prove_execution.html" title="fn sp_state_machine::prove_execution">prove_execution</a></div><div class="desc docblock-short">Prove execution using the given state backend, overlayed changes, and call executor.</div></li><li><div class="item-name"><a class="fn" href="fn.prove_execution_on_trie_backend.html" title="fn sp_state_machine::prove_execution_on_trie_backend">prove_execution_on_trie_backend</a></div><div class="desc docblock-short">Prove execution using the given trie backend, overlayed changes, and call executor.
+Produces a state-backend-specific “transaction” which can be used to apply the changes
+to the backing store, such as the disk.
+Execution proof is the set of all ‘touched’ storage DBValues from the backend.</div></li><li><div class="item-name"><a class="fn" href="fn.prove_range_read_with_child_with_size.html" title="fn sp_state_machine::prove_range_read_with_child_with_size">prove_range_read_with_child_with_size</a></div><div class="desc docblock-short">Generate range storage read proof, with child tries
+content.
+A size limit is applied to the proof with the
+exception that <code>start_at</code> and its following element
+are always part of the proof.
+If a key different than <code>start_at</code> is a child trie root,
+the child trie content will be included in the proof.</div></li><li><div class="item-name"><a class="fn" href="fn.prove_range_read_with_child_with_size_on_trie_backend.html" title="fn sp_state_machine::prove_range_read_with_child_with_size_on_trie_backend">prove_range_read_with_child_with_size_on_trie_backend</a></div><div class="desc docblock-short">Generate range storage read proof, with child tries
+content.
+See <code>prove_range_read_with_child_with_size</code>.</div></li><li><div class="item-name"><a class="fn" href="fn.prove_range_read_with_size.html" title="fn sp_state_machine::prove_range_read_with_size">prove_range_read_with_size</a></div><div class="desc docblock-short">Generate range storage read proof.</div></li><li><div class="item-name"><a class="fn" href="fn.prove_range_read_with_size_on_trie_backend.html" title="fn sp_state_machine::prove_range_read_with_size_on_trie_backend">prove_range_read_with_size_on_trie_backend</a></div><div class="desc docblock-short">Generate range storage read proof on an existing trie backend.</div></li><li><div class="item-name"><a class="fn" href="fn.prove_read.html" title="fn sp_state_machine::prove_read">prove_read</a></div><div class="desc docblock-short">Generate storage read proof.</div></li><li><div class="item-name"><a class="fn" href="fn.prove_read_on_trie_backend.html" title="fn sp_state_machine::prove_read_on_trie_backend">prove_read_on_trie_backend</a></div><div class="desc docblock-short">Generate storage read proof on pre-created trie backend.</div></li><li><div class="item-name"><a class="fn" href="fn.read_child_proof_check.html" title="fn sp_state_machine::read_child_proof_check">read_child_proof_check</a></div><div class="desc docblock-short">Check child storage read proof, generated by <code>prove_child_read</code> call.</div></li><li><div class="item-name"><a class="fn" href="fn.read_child_proof_check_on_proving_backend.html" title="fn sp_state_machine::read_child_proof_check_on_proving_backend">read_child_proof_check_on_proving_backend</a></div><div class="desc docblock-short">Check child storage read proof on pre-created proving backend.</div></li><li><div class="item-name"><a class="fn" href="fn.read_proof_check.html" title="fn sp_state_machine::read_proof_check">read_proof_check</a></div><div class="desc docblock-short">Check storage read proof, generated by <code>prove_read</code> call.</div></li><li><div class="item-name"><a class="fn" href="fn.read_proof_check_on_proving_backend.html" title="fn sp_state_machine::read_proof_check_on_proving_backend">read_proof_check_on_proving_backend</a></div><div class="desc docblock-short">Check storage read proof on pre-created proving backend.</div></li><li><div class="item-name"><a class="fn" href="fn.read_range_proof_check.html" title="fn sp_state_machine::read_range_proof_check">read_range_proof_check</a></div><div class="desc docblock-short">Check child storage range proof, generated by <code>prove_range_read_with_size</code> call.</div></li><li><div class="item-name"><a class="fn" href="fn.read_range_proof_check_on_proving_backend.html" title="fn sp_state_machine::read_range_proof_check_on_proving_backend">read_range_proof_check_on_proving_backend</a></div><div class="desc docblock-short">Check storage range proof on pre-created proving backend.</div></li><li><div class="item-name"><a class="fn" href="fn.read_range_proof_check_with_child.html" title="fn sp_state_machine::read_range_proof_check_with_child">read_range_proof_check_with_child</a></div><div class="desc docblock-short">Check storage range proof with child trie included, generated by
+<code>prove_range_read_with_child_with_size</code> call.</div></li><li><div class="item-name"><a class="fn" href="fn.read_range_proof_check_with_child_on_proving_backend.html" title="fn sp_state_machine::read_range_proof_check_with_child_on_proving_backend">read_range_proof_check_with_child_on_proving_backend</a></div><div class="desc docblock-short">Check storage range proof on pre-created proving backend.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.ChildStorageCollection.html" title="type sp_state_machine::ChildStorageCollection">ChildStorageCollection</a></div><div class="desc docblock-short">In memory arrays of storage values for multiple child tries.</div></li><li><div class="item-name"><a class="type" href="type.DBValue.html" title="type sp_state_machine::DBValue">DBValue</a></div><div class="desc docblock-short">Database value</div></li><li><div class="item-name"><a class="type" href="type.DefaultError.html" title="type sp_state_machine::DefaultError">DefaultError</a></div><div class="desc docblock-short">Default error type to use with state machine trie backend.</div></li><li><div class="item-name"><a class="type" href="type.DefaultHandler.html" title="type sp_state_machine::DefaultHandler">DefaultHandler</a></div><div class="desc docblock-short">Default handler of the execution manager.</div></li><li><div class="item-name"><a class="type" href="type.InMemoryBackend.html" title="type sp_state_machine::InMemoryBackend">InMemoryBackend</a></div><div class="desc docblock-short">Trie backend with in-memory storage.</div></li><li><div class="item-name"><a class="type" href="type.MemoryDB.html" title="type sp_state_machine::MemoryDB">MemoryDB</a></div><div class="desc docblock-short">Reexport from <code>hash_db</code>, with genericity set for <code>Hasher</code> trait.
+This uses a noops <code>KeyFunction</code> (key addressing must be hashed or using
+an encoding scheme that avoid key conflict).</div></li><li><div class="item-name"><a class="type" href="type.OffchainChangesCollection.html" title="type sp_state_machine::OffchainChangesCollection">OffchainChangesCollection</a></div><div class="desc docblock-short">In memory array of storage values.</div></li><li><div class="item-name"><a class="type" href="type.StorageCollection.html" title="type sp_state_machine::StorageCollection">StorageCollection</a></div><div class="desc docblock-short">In memory array of storage values.</div></li><li><div class="item-name"><a class="type" href="type.StorageKey.html" title="type sp_state_machine::StorageKey">StorageKey</a></div><div class="desc docblock-short">Storage key.</div></li><li><div class="item-name"><a class="type" href="type.StorageValue.html" title="type sp_state_machine::StorageValue">StorageValue</a></div><div class="desc docblock-short">Storage value.</div></li><li><div class="item-name"><a class="type" href="type.TrieDBMutV0.html" title="type sp_state_machine::TrieDBMutV0">TrieDBMutV0</a></div><div class="desc docblock-short">Persistent trie database write-access interface for a given hasher.</div></li><li><div class="item-name"><a class="type" href="type.TrieDBMutV1.html" title="type sp_state_machine::TrieDBMutV1">TrieDBMutV1</a></div><div class="desc docblock-short">Persistent trie database write-access interface for a given hasher.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>
