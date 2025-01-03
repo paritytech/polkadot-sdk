@@ -25,8 +25,7 @@ fn main() {
 		.set_file_name("wasm_binary_spec_version_incremented.rs")
 		.build();
 
-	WasmBuilder::new()
-		.with_current_project()
+	WasmBuilder::init_with_defaults()
 		.enable_feature("elastic-scaling")
 		.import_memory()
 		.set_file_name("wasm_binary_elastic_scaling_mvp.rs")
