@@ -421,7 +421,7 @@ impl ShouldExecute for AllowHrmpNotificationsFromRelayChain {
 	) -> Result<(), ProcessMessageError> {
 		tracing::trace!(
 			target: "xcm::barriers",
-			?origin, ?instructions, ?_max_weight, ?_properties,
+			?origin, ?instructions, max_weight = ?_max_weight, properties = ?_properties,
 			"AllowHrmpNotificationsFromRelayChain"
 		);
 		// accept only the Relay Chain
