@@ -248,7 +248,7 @@ impl<
 	}
 
 	fn refund_weight(&mut self, weight: Weight, context: &XcmContext) -> Option<Asset> {
-		tracing::trace!(target: "xcm::weight", ?weight, ?context, "UsingComponents::refund_weight available weight: {:?}, available amount: {:?}", self.0, self.1);
+		tracing::trace!(target: "xcm::weight", ?weight, ?context, available_weight = ?self.0, available_amount = ?self.1, "UsingComponents::refund_weight");
 		let weight = weight.min(self.0);
 		let amount = WeightToFee::weight_to_fee(&weight);
 		self.0 -= weight;
