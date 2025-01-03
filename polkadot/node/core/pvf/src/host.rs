@@ -27,6 +27,7 @@ use crate::{
 	prepare, Priority, SecurityStatus, ValidationError, LOG_TARGET,
 };
 use always_assert::never;
+use codec::{Decode, Encode};
 use futures::{
 	channel::{mpsc, oneshot},
 	Future, FutureExt, SinkExt, StreamExt,
@@ -36,12 +37,13 @@ use polkadot_node_core_pvf_common::{
 	prepare::PrepareSuccess,
 	pvf::PvfPrepData,
 };
-use polkadot_node_primitives::PoV;
+use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT};
 use polkadot_node_subsystem::{
 	messages::PvfExecKind, ActiveLeavesUpdate, SubsystemError, SubsystemResult,
 };
-use polkadot_parachain_primitives::primitives::ValidationResult;
+use polkadot_parachain_primitives::primitives::{ValidationParams, ValidationResult};
 use polkadot_primitives::{Hash, PersistedValidationData};
+use sp_maybe_compressed_blob::{blob_type, MaybeCompressedBlobType};
 use std::{
 	collections::HashMap,
 	path::PathBuf,
@@ -568,6 +570,54 @@ async fn handle_execute_pvf(
 	inputs: ExecutePvfInputs,
 ) -> Result<(), Fatal> {
 	let ExecutePvfInputs { pvf, exec_timeout, pvd, pov, priority, exec_kind, result_tx } = inputs;
+
+	// A YOLO PVM execution interface
+
+	let code = pvf.maybe_compressed_code();
+	if matches!(blob_type(&code).map_err(|_| Fatal)?, MaybeCompressedBlobType::Pvm) {
+		gum::warn!(
+			target: LOG_TARGET,
+			?pvf,
+			"handle_execute_pvf: Executing with YOLO PVM executor interface 🤟",
+		);
+		let raw_block_data =
+			sp_maybe_compressed_blob::decompress(&pov.block_data.0, POV_BOMB_LIMIT)
+				.map_err(|_| Fatal)?;
+		let params = ValidationParams {
+			parent_head: pvd.parent_head.clone(),
+			block_data: polkadot_node_primitives::BlockData(raw_block_data.to_vec()),
+			relay_parent_number: pvd.relay_parent_number,
+			relay_parent_storage_root: pvd.relay_parent_storage_root,
+		};
+		let params = Arc::new(params.encode());
+
+		let code = sp_maybe_compressed_blob::decompress(&code, VALIDATION_CODE_BOMB_LIMIT)
+			.map_err(|_| Fatal)?;
+		let res = unsafe {
+			polkadot_node_core_pvf_common::executor_interface::execute_artifact(
+				&code,
+				&pvf.executor_params(),
+				&params,
+			)
+		};
+
+		let vres = match res {
+			Ok(bytes) => match ValidationResult::decode(&mut &bytes[..]) {
+				Ok(r) => Ok(r),
+				Err(e) => Err(ValidationError::Invalid(
+					crate::InvalidCandidate::WorkerReportedInvalid(e.to_string()),
+				)),
+			},
+			Err(e) => Err(ValidationError::Invalid(
+				crate::InvalidCandidate::WorkerReportedInvalid(e.to_string()),
+			)),
+		};
+
+		result_tx.send(vres).map_err(|_| Fatal)?;
+
+		return Ok(());
+	}
+
 	let artifact_id = ArtifactId::from_pvf_prep_data(&pvf);
 	let executor_params = (*pvf.executor_params()).clone();
 
