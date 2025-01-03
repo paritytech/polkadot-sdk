@@ -890,7 +890,6 @@ where
 			BalanceOf::<T>::max_value(),
 			false,
 			true,
-			true,
 		)?
 		else {
 			return Ok(None);
@@ -926,7 +925,6 @@ where
 		deposit_limit: BalanceOf<T>,
 		read_only: bool,
 		origin_is_caller: bool,
-		is_root: bool,
 	) -> Result<Option<(Frame<T>, E)>, ExecError> {
 		let (account_id, contract_info, executable, delegate, entry_point) = match frame_args {
 			FrameArgs::Call { dest, cached_info, delegated_call } => {
@@ -987,9 +985,9 @@ where
 		let nested_gas;
 		let nested_storage;
 
-		if is_root {
-			nested_gas = gas_meter.take_all();
-			nested_storage = storage_meter.take_all();
+		if origin_is_caller {
+			nested_gas = gas_meter.nested_take_all();
+			nested_storage = storage_meter.nested_take_all();
 		} else {
 			nested_gas = gas_meter.nested(gas_limit);
 			nested_storage = storage_meter.nested(deposit_limit);
@@ -1049,7 +1047,6 @@ where
 			nested_storage,
 			deposit_limit,
 			read_only,
-			false,
 			false,
 		)? {
 			self.frames.try_push(frame).map_err(|_| Error::<T>::MaxCallDepthReached)?;
@@ -1129,17 +1126,6 @@ where
 			// Avoid useless work that would be reverted anyways.
 			if output.did_revert() {
 				return Ok(output);
-			}
-
-			// Storage limit is normally enforced as late as possible (when the last frame returns)
-			// so that the ordering of storage accesses does not matter.
-			// (However, if a special limit was set for a sub-call, it should be enforced right
-			// after the sub-call returned. See below for this case of enforcement).
-			if self.frames.is_empty() {
-				let frame = &mut self.first_frame;
-				frame.contract_info.load(&frame.account_id);
-				let contract = frame.contract_info.as_contract();
-				frame.nested_storage.enforce_limit(contract)?;
 			}
 
 			let frame = self.top_frame_mut();

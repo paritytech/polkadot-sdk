@@ -344,7 +344,11 @@ where
 		}
 	}
 
-	pub(crate) fn take_all(&self) -> RawMeter<T, E, Nested> {
+	/// Create a new storage meter using the calling meter's available limit.
+	///
+	/// This should only be used by the primordial frame in a sequence of calls - every subsequent
+	/// frame should use [`nested`](Self::nested)
+	pub fn nested_take_all(&self) -> RawMeter<T, E, Nested> {
 		RawMeter { limit: self.available(), ..Default::default() }
 	}
 }

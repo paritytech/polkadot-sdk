@@ -168,7 +168,11 @@ impl<T: Config> GasMeter<T> {
 		}
 	}
 
-	pub(crate) fn take_all(&mut self) -> Self {
+	/// Create a new gas meter by removing *all* the gas from the current meter.
+	///
+	/// This should only be used by the primordial frame in a sequence of calls - every subsequent
+	/// frame should use [`nested`](Self::nested).
+	pub fn nested_take_all(&mut self) -> Self {
 		let gas_left = self.gas_left;
 		self.gas_left -= gas_left;
 		GasMeter::new(gas_left)
