@@ -2455,7 +2455,6 @@ mod sanitizers {
 	mod candidates {
 		use crate::{
 			mock::{set_disabled_validators, RuntimeOrigin},
-			scheduler::common::Assignment,
 			util::{make_persisted_validation_data, make_persisted_validation_data_with_parent},
 		};
 		use alloc::collections::vec_deque::VecDeque;
@@ -2799,7 +2798,7 @@ mod sanitizers {
 			shared::Pallet::<Test>::add_allowed_relay_parent(
 				relay_parent,
 				Default::default(),
-				scheduler::ClaimQueue::<Test>::get()
+				scheduler::Pallet::<Test>::claim_queue()
 					.into_iter()
 					.map(|(core_index, paras)| {
 						(core_index, paras.into_iter().map(|e| e.para_id()).collect())
@@ -3335,7 +3334,7 @@ mod sanitizers {
 			shared::Pallet::<Test>::add_allowed_relay_parent(
 				relay_parent,
 				Default::default(),
-				scheduler::ClaimQueue::<Test>::get()
+				scheduler::Pallet::<Test>::claim_queue()
 					.into_iter()
 					.map(|(core_index, paras)| {
 						(core_index, paras.into_iter().map(|e| e.para_id()).collect())
