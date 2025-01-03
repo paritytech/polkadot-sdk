@@ -90,22 +90,55 @@ impl<'a> DummyCrate<'a> {
 		fs::create_dir_all(project_dir.join("src")).expect("Creating src dir does not fail; qed");
 
 		let manifest_path = project_dir.join("Cargo.toml");
-		write_file_if_changed(
-			&manifest_path,
-			r#"
-				[package]
-				name = "dummy-crate"
-				version = "1.0.0"
-				edition = "2021"
+		match target {
+			RuntimeTarget::Wasm => {
+				write_file_if_changed(
+					&manifest_path,
+					r#"
+						[package]
+						name = "dummy-crate"
+						version = "1.0.0"
+						edition = "2021"
 
-				[workspace]
-			"#,
-		);
+						[lib]
+						crate-type = ["cdylib"]
 
-		write_file_if_changed(
-			project_dir.join("src/main.rs"),
-			"#![allow(missing_docs)] fn main() {}",
-		);
+						[workspace]
+					"#,
+				);
+
+				write_file_if_changed(
+					project_dir.join("src/lib.rs"),
+					r#"
+						#![no_std]
+
+						#[panic_handler]
+						fn panic(_: &core::panic::PanicInfo<'_>) -> ! {
+							loop {}
+						}
+					"#,
+				);
+			},
+			RuntimeTarget::Riscv => {
+				write_file_if_changed(
+					&manifest_path,
+					r#"
+						[package]
+						name = "dummy-crate"
+						version = "1.0.0"
+						edition = "2021"
+
+						[workspace]
+					"#,
+				);
+
+				write_file_if_changed(
+					project_dir.join("src/main.rs"),
+					"#![allow(missing_docs)] fn main() {}",
+				);
+			},
+		}
+
 		DummyCrate { cargo_command, temp, manifest_path, target }
 	}
 
@@ -115,7 +148,7 @@ impl<'a> DummyCrate<'a> {
 		// by accident - it can happen in some CI environments.
 		cmd.current_dir(&self.temp);
 		cmd.arg(subcommand)
-			.arg(format!("--target={}", self.target.rustc_target()))
+			.arg(format!("--target={}", self.target.rustc_target(self.cargo_command)))
 			.args(&["--manifest-path", &self.manifest_path.display().to_string()]);
 
 		if super::color_output_enabled() {
@@ -172,7 +205,10 @@ impl<'a> DummyCrate<'a> {
 fn check_wasm_toolchain_installed(
 	cargo_command: CargoCommand,
 ) -> Result<CargoCommandVersioned, String> {
-	let dummy_crate = DummyCrate::new(&cargo_command, RuntimeTarget::Wasm);
+	let target = RuntimeTarget::Wasm;
+	let rustc_target = target.rustc_target(&cargo_command);
+
+	let dummy_crate = DummyCrate::new(&cargo_command, target);
 
 	if let Err(error) = dummy_crate.try_build() {
 		let toolchain = dummy_crate.get_toolchain().unwrap_or("<unknown>".to_string());
@@ -181,9 +217,9 @@ fn check_wasm_toolchain_installed(
 		);
 		return match error {
 			None => Err(basic_error_message),
-			Some(error) if error.contains("the `wasm32-unknown-unknown` target may not be installed") => {
-				Err(colorize_error_message(&format!("Cannot compile the WASM runtime: the `wasm32-unknown-unknown` target is not installed!\n\
-				                         You can install it with `rustup target add wasm32-unknown-unknown --toolchain {toolchain}` if you're using `rustup`.")))
+			Some(error) if error.contains(&format!("the `{rustc_target}` target may not be installed")) => {
+				Err(colorize_error_message(&format!("Cannot compile the WASM runtime: the `{rustc_target}` target is not installed!\n\
+				                         You can install it with `rustup target add {rustc_target} --toolchain {toolchain}` if you're using `rustup`.")))
 			},
 			// Apparently this can happen when we're running on a non Tier 1 platform.
 			Some(ref error) if error.contains("linker `rust-lld` not found") =>
@@ -203,7 +239,7 @@ fn check_wasm_toolchain_installed(
 
 	let target = RuntimeTarget::new();
 	assert!(target == RuntimeTarget::Wasm);
-	if target.rustc_target_build_std().is_some() {
+	if target.rustc_target_build_std(&cargo_command).is_some() {
 		if let Some(sysroot) = dummy_crate.get_sysroot() {
 			let src_path =
 				Path::new(sysroot.trim()).join("lib").join("rustlib").join("src").join("rust");

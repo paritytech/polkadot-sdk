@@ -60,7 +60,7 @@ impl Payload {
 	pub fn get_all_raw<'a>(
 		&'a self,
 		id: &'a BeefyPayloadId,
-	) -> impl Iterator<Item = &Vec<u8>> + 'a {
+	) -> impl Iterator<Item = &'a Vec<u8>> + 'a {
 		self.0
 			.iter()
 			.filter_map(move |probe| if &probe.0 != id { return None } else { Some(&probe.1) })
