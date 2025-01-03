@@ -17,13 +17,11 @@
 
 //! Tests regarding the functionality of the dispatchables/extrinsics.
 
-use super::*;
-use crate::{
+use super::{
 	AdjustmentDirection::{Decrease as Dec, Increase as Inc},
-	Event,
+	*,
 };
-use frame_support::traits::{fungible::Unbalanced, tokens::Preservation::Expendable};
-use fungible::{hold::Mutate as HoldMutate, Inspect, Mutate};
+use frame::traits::fungible::{Mutate, MutateHold};
 
 /// Alice account ID for more readable tests.
 const ALICE: u64 = 1;
@@ -75,7 +73,7 @@ fn balance_transfer_works() {
 fn force_transfer_works() {
 	ExtBuilder::default().build_and_execute_with(|| {
 		let _ = Balances::mint_into(&1, 111);
-		assert_noop!(Balances::force_transfer(Some(2).into(), 1, 2, 69), BadOrigin,);
+		assert_noop!(Balances::force_transfer(Some(2).into(), 1, 2, 69), BadOrigin);
 		assert_ok!(Balances::force_transfer(RawOrigin::Root.into(), 1, 2, 69));
 		assert_eq!(Balances::total_balance(&1), 42);
 		assert_eq!(Balances::total_balance(&2), 69);
@@ -222,7 +220,7 @@ fn upgrade_accounts_should_work() {
 			assert_eq!(System::providers(&7), 1);
 			assert_eq!(System::consumers(&7), 1);
 
-			<Balances as frame_support::traits::ReservableCurrency<_>>::unreserve(&7, 5);
+			<Balances as ReservableCurrency<_>>::unreserve(&7, 5);
 			assert_ok!(<Balances as fungible::Mutate<_>>::transfer(&7, &1, 10, Expendable));
 			assert_eq!(Balances::total_balance(&7), 0);
 			assert_eq!(System::providers(&7), 0);
@@ -320,8 +318,8 @@ fn force_adjust_total_issuance_rejects_more_than_inactive() {
 		assert_eq!(Balances::active_issuance(), 48);
 
 		// Works with up to 48:
-		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Dec, 40),);
-		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Dec, 8),);
+		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Dec, 40));
+		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Dec, 8));
 		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), 16);
 		assert_eq!(Balances::active_issuance(), 0);
 		// Errors with more than 48:
@@ -330,7 +328,7 @@ fn force_adjust_total_issuance_rejects_more_than_inactive() {
 			Error::<Test>::IssuanceDeactivated,
 		);
 		// Increasing again increases the inactive issuance:
-		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Inc, 10),);
+		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Inc, 10));
 		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), 26);
 		assert_eq!(Balances::active_issuance(), 10);
 	});

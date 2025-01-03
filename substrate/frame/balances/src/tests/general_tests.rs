@@ -17,19 +17,9 @@
 
 #![cfg(test)]
 
-use crate::{
-	system::AccountInfo,
-	tests::{ensure_ti_valid, Balances, ExtBuilder, System, Test, TestId, UseSystem},
-	AccountData, ExtraFlags, TotalIssuance,
-};
-use frame_support::{
-	assert_noop, assert_ok, hypothetically,
-	traits::{
-		fungible::{Mutate, MutateHold},
-		tokens::Precision,
-	},
-};
-use sp_runtime::DispatchError;
+use super::*;
+use frame::traits::fungible::{Mutate, MutateHold};
+use frame_system::AccountInfo;
 
 /// There are some accounts that have one consumer ref too few. These accounts are at risk of losing
 /// their held (reserved) balance. They do not just lose it - it is also not accounted for in the
