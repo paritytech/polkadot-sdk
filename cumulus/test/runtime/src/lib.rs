@@ -318,7 +318,10 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber =
 		cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
+	#[cfg(feature = "ump-signals")]
 	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
+	#[cfg(not(feature = "ump-signals"))]
+	type SelectCore = ();
 }
 
 impl parachain_info::Config for Runtime {}
@@ -537,7 +540,7 @@ impl_runtime_apis! {
 	}
 
 	impl cumulus_primitives_core::GetCoreSelectorApi<Block> for Runtime {
-		fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
+		fn core_selector() -> Option<(CoreSelector, ClaimQueueOffset)> {
 			ParachainSystem::core_selector()
 		}
 	}

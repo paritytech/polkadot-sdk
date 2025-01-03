@@ -219,13 +219,20 @@ where
 {
 	let runtime_api = para_client.runtime_api();
 
-	if runtime_api.has_api::<dyn GetCoreSelectorApi<Block>>(parent_hash)? {
-		Ok(runtime_api.core_selector(parent_hash)?)
-	} else {
-		let next_block_number: U256 = (parent_number + One::one()).into();
+	let next_block_number: U256 = (parent_number + One::one()).into();
+	// If the runtime API does not support the core selector API, fallback to some default
+	// values.
+	let fallback_core_selector =
+		(CoreSelector(next_block_number.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET));
 
-		// If the runtime API does not support the core selector API, fallback to some default
-		// values.
-		Ok((CoreSelector(next_block_number.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)))
-	}
+	let maybe_api_version =
+		runtime_api.api_version::<dyn GetCoreSelectorApi<Block>>(parent_hash)?;
+
+	Ok(match maybe_api_version {
+		Some(api_version) if api_version >= 2 =>
+			runtime_api.core_selector(parent_hash)?.unwrap_or(fallback_core_selector),
+		#[allow(deprecated)]
+		Some(_) => runtime_api.core_selector_before_version_2(parent_hash)?,
+		None => fallback_core_selector,
+	})
 }
