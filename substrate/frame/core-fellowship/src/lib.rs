@@ -802,6 +802,7 @@ impl<T: Config<I>, I: 'static>
 	pallet_ranked_collective::BenchmarkSetup<<T as frame_system::Config>::AccountId> for Pallet<T, I>
 {
 	fn ensure_member(who: &<T as frame_system::Config>::AccountId) {
+		#[allow(deprecated)]
 		Self::import(frame_system::RawOrigin::Signed(who.clone()).into()).unwrap();
 	}
 }

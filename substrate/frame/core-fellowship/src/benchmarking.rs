@@ -50,6 +50,7 @@ mod benchmarks {
 		for _ in 0..rank {
 			T::Members::promote(&member)?;
 		}
+		#[allow(deprecated)]
 		CoreFellowship::<T, I>::import(RawOrigin::Signed(member.clone()).into())?;
 		Ok(member)
 	}
