@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "-- sqlite\n\t\t\t\tINSERT INTO transaction_hashes (transaction_hash, block_hash, transaction_index)\n\t\t\t\tVALUES ($1, $2, $3)\n\n\t\t\t\tON CONFLICT(transaction_hash) DO UPDATE SET\n\t\t\t\tblock_hash = EXCLUDED.block_hash,\n\t\t\t\ttransaction_index = EXCLUDED.transaction_index\n\t\t\t\t",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "09ed5df8505cfa966474d57456a81605402995b8c528d1008a6d087c7a221eab"
+}

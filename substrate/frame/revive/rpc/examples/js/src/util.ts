@@ -1,10 +1,10 @@
-import { spawn, spawnSync, Subprocess } from 'bun'
+import { spawnSync } from 'bun'
 import { resolve } from 'path'
 import { readFileSync } from 'fs'
 import { createWalletClient, defineChain, Hex, http, publicActions } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import { privateKeyToAccount, nonceManager } from 'viem/accounts'
 
-export function getByteCode(name: string, evm: boolean): Hex {
+export function getByteCode(name: string, evm: boolean = false): Hex {
 	const bytecode = evm ? readFileSync(`evm/${name}.bin`) : readFileSync(`pvm/${name}.polkavm`)
 	return `0x${Buffer.from(bytecode).toString('hex')}`
 }
@@ -14,6 +14,8 @@ export type JsonRpcError = {
 	message: string
 	data: Hex
 }
+
+export const polkadotSdkPath = resolve(__dirname, '../../../../../../..')
 
 export function killProcessOnPort(port: number) {
 	// Check which process is using the specified port
@@ -76,13 +78,22 @@ export async function createEnv(name: 'geth' | 'kitchensink') {
 
 	const accountWallet = createWalletClient({
 		account: privateKeyToAccount(
-			'0xa872f6cbd25a0e04a08b1e21098017a9e6194d101d75e13111f71410c59cd57f'
+			'0x5fb92d6e98884f76de468fa3f6278f8807c48bebc13595d45af5bdc4da702133',
+			{ nonceManager }
 		),
 		transport,
 		chain,
 	}).extend(publicActions)
 
 	return { serverWallet, accountWallet, evm: name == 'geth' }
+}
+
+export function wait(ms: number) {
+	return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+export function timeout(ms: number) {
+	return new Promise((_resolve, reject) => setTimeout(() => reject(new Error('timeout hit')), ms))
 }
 
 // wait for http request to return 200
@@ -119,59 +130,4 @@ export function waitForHealth(url: string) {
 			}
 		}, 1000)
 	})
-}
-
-export const procs: Subprocess[] = []
-const polkadotSdkPath = resolve(__dirname, '../../../../../../..')
-if (!process.env.USE_LIVE_SERVERS) {
-	procs.push(
-		// Run geth on port 8546
-		await (async () => {
-			killProcessOnPort(8546)
-			const proc = spawn(
-				'geth --http --http.api web3,eth,debug,personal,net --http.port 8546 --dev --verbosity 0'.split(
-					' '
-				),
-				{ stdout: Bun.file('/tmp/geth.out.log'), stderr: Bun.file('/tmp/geth.err.log') }
-			)
-
-			await waitForHealth('http://localhost:8546').catch()
-			return proc
-		})(),
-		//Run the substate node
-		(() => {
-			killProcessOnPort(9944)
-			return spawn(
-				[
-					'./target/debug/substrate-node',
-					'--dev',
-					'-l=error,evm=debug,sc_rpc_server=info,runtime::revive=debug',
-				],
-				{
-					stdout: Bun.file('/tmp/kitchensink.out.log'),
-					stderr: Bun.file('/tmp/kitchensink.err.log'),
-					cwd: polkadotSdkPath,
-				}
-			)
-		})(),
-		// Run eth-rpc on 8545
-		await (async () => {
-			killProcessOnPort(8545)
-			const proc = spawn(
-				[
-					'./target/debug/eth-rpc',
-					'--dev',
-					'--node-rpc-url=ws://localhost:9944',
-					'-l=rpc-metrics=debug,eth-rpc=debug',
-				],
-				{
-					stdout: Bun.file('/tmp/eth-rpc.out.log'),
-					stderr: Bun.file('/tmp/eth-rpc.err.log'),
-					cwd: polkadotSdkPath,
-				}
-			)
-			await waitForHealth('http://localhost:8545').catch()
-			return proc
-		})()
-	)
 }
