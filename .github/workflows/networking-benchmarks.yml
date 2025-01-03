@@ -19,7 +19,7 @@ jobs:
     uses: ./.github/workflows/reusable-preflight.yml
 
   build:
-    timeout-minutes: 80
+    timeout-minutes: 30
     needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER_BENCHMARK }}
     container:
@@ -40,7 +40,7 @@ jobs:
         id: run-benchmarks
         run: |
           mkdir -p ./charts
-          forklift cargo bench -p sc-network --bench ${{ matrix.features.bench }} -- --output-format bencher | grep "^test" | tee ./charts/networking-bench.txt || echo "Benchmarks failed"
+          forklift cargo bench -p sc-network --bench ${{ matrix.features.bench }} -- --output-format bencher | grep "^test" | tee ./charts/${{ matrix.features.bench }}.txt || echo "Benchmarks failed"
           ls -lsa ./charts
 
       - name: Upload artifacts
