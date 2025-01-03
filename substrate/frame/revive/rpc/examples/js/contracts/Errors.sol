@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-contract ErrorTester {
+contract Errors {
 	bool public state;
 
 	// Payable function that can be used to test insufficient funds errors

@@ -20,6 +20,7 @@ use bitflags::bitflags;
 bitflags! {
 	/// Flags used by a contract to customize exit behaviour.
 	#[cfg_attr(feature = "scale", derive(codec::Encode, codec::Decode, scale_info::TypeInfo))]
+	#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 	#[derive(Default)]
 	pub struct ReturnFlags: u32 {
 		/// If this bit is set all changes made by the contract execution are rolled back.

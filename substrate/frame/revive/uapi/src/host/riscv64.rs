@@ -109,7 +109,6 @@ mod sys {
 			out_ptr: *mut u8,
 			out_len_ptr: *mut u32,
 		) -> ReturnCode;
-		pub fn debug_message(str_ptr: *const u8, str_len: u32) -> ReturnCode;
 		pub fn call_runtime(call_ptr: *const u8, call_len: u32) -> ReturnCode;
 		pub fn ecdsa_recover(
 			signature_ptr: *const u8,
@@ -515,12 +514,6 @@ impl HostFn for HostFnImpl {
 	fn contains_storage(flags: StorageFlags, key: &[u8]) -> Option<u32> {
 		let ret_code =
 			unsafe { sys::contains_storage(flags.bits(), key.as_ptr(), key.len() as u32) };
-		ret_code.into()
-	}
-
-	#[unstable_hostfn]
-	fn debug_message(str: &[u8]) -> Result {
-		let ret_code = unsafe { sys::debug_message(str.as_ptr(), str.len() as u32) };
 		ret_code.into()
 	}
 

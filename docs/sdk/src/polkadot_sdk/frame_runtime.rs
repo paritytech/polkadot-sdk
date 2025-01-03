@@ -57,6 +57,7 @@
 //! The following example showcases a minimal pallet.
 #![doc = docify::embed!("src/polkadot_sdk/frame_runtime.rs", pallet)]
 //!
+//! ## Runtime
 //!
 //! A runtime is a collection of pallets that are amalgamated together. Each pallet typically has
 //! some configurations (exposed as a `trait Config`) that needs to be *specified* in the runtime.

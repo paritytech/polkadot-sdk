@@ -12,15 +12,15 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-parking_lot = { workspace = true, default-features = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 futures = { workspace = true }
+parking_lot = { workspace = true, default-features = true }
 tracing = { workspace = true, default-features = true }
 
 # Substrate
 sc-client-api = { workspace = true, default-features = true }
-sp-consensus = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 
@@ -48,5 +48,5 @@ polkadot-node-subsystem-test-helpers = { workspace = true }
 
 # Cumulus
 cumulus-test-client = { workspace = true }
-cumulus-test-runtime = { workspace = true }
 cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
+cumulus-test-runtime = { workspace = true }

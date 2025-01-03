@@ -6,68 +6,76 @@ import {
 	waitForHealth,
 	polkadotSdkPath,
 } from './util.ts'
-import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test'
+import { afterAll, afterEach, describe, expect, test } from 'bun:test'
 import { encodeFunctionData, Hex, parseEther } from 'viem'
-import { ErrorTesterAbi } from '../abi/ErrorTester'
-import { FlipperCallerAbi } from '../abi/FlipperCaller'
-import { FlipperAbi } from '../abi/Flipper'
+import {  ErrorsAbi } from '../abi/Errors'
+import { TracingCallerAbi } from '../abi/TracingCaller.ts'
+import { TracingCalleeAbi } from '../abi/TracingCallee.ts'
 import { Subprocess, spawn } from 'bun'
 
 const procs: Subprocess[] = []
-beforeAll(async () => {
-	if (!process.env.USE_LIVE_SERVERS) {
-		procs.push(
-			// Run geth on port 8546
-			await (async () => {
-				killProcessOnPort(8546)
-				const proc = spawn(
-					'geth --http --http.api web3,eth,debug,personal,net --http.port 8546 --dev --verbosity 0'.split(
-						' '
-					),
-					{ stdout: Bun.file('/tmp/geth.out.log'), stderr: Bun.file('/tmp/geth.err.log') }
-				)
+if (process.env.START_GETH) {
+	procs.push(
+		// Run geth on port 8546
+		await (async () => {
+			killProcessOnPort(8546)
+			const proc = spawn(
+				'geth --http --http.api web3,eth,debug,personal,net --http.port 8546 --dev --verbosity 0'.split(
+					' '
+				),
+				{ stdout: Bun.file('/tmp/geth.out.log'), stderr: Bun.file('/tmp/geth.err.log') }
+			)
 
-				await waitForHealth('http://localhost:8546').catch()
-				return proc
-			})(),
-			//Run the substate node
-			(() => {
-				killProcessOnPort(9944)
-				return spawn(
-					[
-						'./target/debug/substrate-node',
-						'--dev',
-						'-l=error,evm=debug,sc_rpc_server=info,runtime::revive=debug',
-					],
-					{
-						stdout: Bun.file('/tmp/kitchensink.out.log'),
-						stderr: Bun.file('/tmp/kitchensink.err.log'),
-						cwd: polkadotSdkPath,
-					}
-				)
-			})(),
-			// Run eth-rpc on 8545
-			await (async () => {
-				killProcessOnPort(8545)
-				const proc = spawn(
-					[
-						'./target/debug/eth-rpc',
-						'--dev',
-						'--node-rpc-url=ws://localhost:9944',
-						'-l=rpc-metrics=debug,eth-rpc=debug',
-					],
-					{
-						stdout: Bun.file('/tmp/eth-rpc.out.log'),
-						stderr: Bun.file('/tmp/eth-rpc.err.log'),
-						cwd: polkadotSdkPath,
-					}
-				)
-				await waitForHealth('http://localhost:8545').catch()
-				return proc
-			})()
-		)
-	}
-})
+			await waitForHealth('http://localhost:8546').catch()
+			return proc
+		})()
+	)
+}
+
+if (process.env.START_SUBSTRATE_NODE) {
+	procs.push(
+		//Run the substate node
+		(() => {
+			killProcessOnPort(9944)
+			return spawn(
+				[
+					'./target/debug/substrate-node',
+					'--dev',
+					'-l=error,evm=debug,sc_rpc_server=info,runtime::revive=debug',
+				],
+				{
+					stdout: Bun.file('/tmp/kitchensink.out.log'),
+					stderr: Bun.file('/tmp/kitchensink.err.log'),
+					cwd: polkadotSdkPath,
+				}
+			)
+		})()
+	)
+}
+
+if (process.env.START_ETH_RPC) {
+	// Run eth-rpc on 8545
+	procs.push(
+		await (async () => {
+			killProcessOnPort(8545)
+			const proc = spawn(
+				[
+					'./target/debug/eth-rpc',
+					'--dev',
+					'--node-rpc-url=ws://localhost:9944',
+					'-l=rpc-metrics=debug,eth-rpc=debug',
+				],
+				{
+					stdout: Bun.file('/tmp/eth-rpc.out.log'),
+					stderr: Bun.file('/tmp/eth-rpc.err.log'),
+					cwd: polkadotSdkPath,
+				}
+			)
+			await waitForHealth('http://localhost:8545').catch()
+			return proc
+		})()
+	)
+}
 
 afterEach(() => {
 	jsonRpcErrors.length = 0
@@ -77,55 +85,37 @@ afterAll(async () => {
 	procs.forEach((proc) => proc.kill())
 })
 
-const envs = await Promise.all([createEnv('geth'), createEnv('kitchensink')])
+const envs = await Promise.all([
+	...(process.env.USE_GETH ? [createEnv('geth')] : []),
+	...(process.env.USE_KITCHENSINK ? [createEnv('kitchensink')] : []),
+])
 
 for (const env of envs) {
 	describe(env.serverWallet.chain.name, () => {
-		let errorTesterAddr: Hex = '0x'
-		let flipperAddr: Hex = '0x'
-		let flipperCallerAddr: Hex = '0x'
-		beforeAll(async () => {
-			{
+		const getErrorTesterAddr = (() => {
+			let contractAddress: Hex = '0x'
+			return async () => {
+				if (contractAddress !== '0x') {
+					return contractAddress
+				}
 				const hash = await env.serverWallet.deployContract({
-					abi: ErrorTesterAbi,
-					bytecode: getByteCode('errorTester', env.evm),
+					abi: ErrorsAbi,
+					bytecode: getByteCode('ErrorTester', env.evm),
 				})
 				const deployReceipt = await env.serverWallet.waitForTransactionReceipt({ hash })
 				if (!deployReceipt.contractAddress)
 					throw new Error('Contract address should be set')
-				errorTesterAddr = deployReceipt.contractAddress
+				contractAddress = deployReceipt.contractAddress
+				return contractAddress
 			}
-
-			{
-				const hash = await env.serverWallet.deployContract({
-					abi: FlipperAbi,
-					bytecode: getByteCode('flipper', env.evm),
-				})
-				const deployReceipt = await env.serverWallet.waitForTransactionReceipt({ hash })
-				if (!deployReceipt.contractAddress)
-					throw new Error('Contract address should be set')
-				flipperAddr = deployReceipt.contractAddress
-			}
-
-			{
-				const hash = await env.serverWallet.deployContract({
-					abi: FlipperCallerAbi,
-					args: [flipperAddr],
-					bytecode: getByteCode('flipperCaller', env.evm),
-				})
-				const deployReceipt = await env.serverWallet.waitForTransactionReceipt({ hash })
-				if (!deployReceipt.contractAddress)
-					throw new Error('Contract address should be set')
-				flipperCallerAddr = deployReceipt.contractAddress
-			}
-		})
+		})()
 
 		test('triggerAssertError', async () => {
 			expect.assertions(3)
 			try {
 				await env.accountWallet.readContract({
-					address: errorTesterAddr,
-					abi: ErrorTesterAbi,
+					address: await getErrorTesterAddr(),
+					abi: ErrorsAbi,
 					functionName: 'triggerAssertError',
 				})
 			} catch (err) {
@@ -142,8 +132,8 @@ for (const env of envs) {
 			expect.assertions(3)
 			try {
 				await env.accountWallet.readContract({
-					address: errorTesterAddr,
-					abi: ErrorTesterAbi,
+					address: await getErrorTesterAddr(),
+					abi: ErrorsAbi,
 					functionName: 'triggerRevertError',
 				})
 			} catch (err) {
@@ -160,8 +150,8 @@ for (const env of envs) {
 			expect.assertions(3)
 			try {
 				await env.accountWallet.readContract({
-					address: errorTesterAddr,
-					abi: ErrorTesterAbi,
+					address: await getErrorTesterAddr(),
+					abi: ErrorsAbi,
 					functionName: 'triggerDivisionByZero',
 				})
 			} catch (err) {
@@ -180,8 +170,8 @@ for (const env of envs) {
 			expect.assertions(3)
 			try {
 				await env.accountWallet.readContract({
-					address: errorTesterAddr,
-					abi: ErrorTesterAbi,
+					address: await getErrorTesterAddr(),
+					abi: ErrorsAbi,
 					functionName: 'triggerOutOfBoundsError',
 				})
 			} catch (err) {
@@ -200,8 +190,8 @@ for (const env of envs) {
 			expect.assertions(3)
 			try {
 				await env.accountWallet.readContract({
-					address: errorTesterAddr,
-					abi: ErrorTesterAbi,
+					address: await getErrorTesterAddr(),
+					abi: ErrorsAbi,
 					functionName: 'triggerCustomError',
 				})
 			} catch (err) {
@@ -218,8 +208,8 @@ for (const env of envs) {
 			expect.assertions(3)
 			try {
 				await env.accountWallet.simulateContract({
-					address: errorTesterAddr,
-					abi: ErrorTesterAbi,
+					address: await getErrorTesterAddr(),
+					abi: ErrorsAbi,
 					functionName: 'valueMatch',
 					value: parseEther('10'),
 					args: [parseEther('10')],
@@ -251,8 +241,8 @@ for (const env of envs) {
 			expect.assertions(3)
 			try {
 				await env.accountWallet.estimateContractGas({
-					address: errorTesterAddr,
-					abi: ErrorTesterAbi,
+					address: await getErrorTesterAddr(),
+					abi: ErrorsAbi,
 					functionName: 'valueMatch',
 					value: parseEther('10'),
 					args: [parseEther('10')],
@@ -269,8 +259,8 @@ for (const env of envs) {
 			expect.assertions(3)
 			try {
 				await env.accountWallet.estimateContractGas({
-					address: errorTesterAddr,
-					abi: ErrorTesterAbi,
+					address: await getErrorTesterAddr(),
+					abi: ErrorsAbi,
 					functionName: 'valueMatch',
 					value: parseEther('10'),
 					args: [parseEther('10')],
@@ -287,8 +277,8 @@ for (const env of envs) {
 			expect.assertions(3)
 			try {
 				await env.serverWallet.estimateContractGas({
-					address: errorTesterAddr,
-					abi: ErrorTesterAbi,
+					address: await getErrorTesterAddr(),
+					abi: ErrorsAbi,
 					functionName: 'valueMatch',
 					value: parseEther('11'),
 					args: [parseEther('10')],
@@ -319,8 +309,8 @@ for (const env of envs) {
 				expect(balance).toBe(0n)
 
 				await env.accountWallet.estimateContractGas({
-					address: errorTesterAddr,
-					abi: ErrorTesterAbi,
+					address: await getErrorTesterAddr(),
+					abi: ErrorsAbi,
 					functionName: 'setState',
 					args: [true],
 				})
@@ -337,7 +327,7 @@ for (const env of envs) {
 			expect(balance).toBe(0n)
 
 			const data = encodeFunctionData({
-				abi: ErrorTesterAbi,
+				abi: ErrorsAbi,
 				functionName: 'setState',
 				args: [true],
 			})
@@ -348,10 +338,73 @@ for (const env of envs) {
 					{
 						data,
 						from: env.accountWallet.account.address,
-						to: errorTesterAddr,
+						to: await getErrorTesterAddr(),
 					},
 				],
 			})
+		})
+
+		test.only('tracing', async () => {
+			const calleeAddress = await (async () => {
+				const hash = await env.serverWallet.deployContract({
+					abi: TracingCalleeAbi,
+					bytecode: getByteCode('TracingCallee', env.evm),
+				})
+				const receipt = await env.serverWallet.waitForTransactionReceipt({
+					hash,
+				})
+				return receipt.contractAddress!
+			})()
+
+			console.error('Callee address:', calleeAddress)
+
+			const callerAddress = await (async () => {
+				const hash = await env.serverWallet.deployContract({
+					abi: TracingCallerAbi,
+					args: [calleeAddress],
+					bytecode: getByteCode('TracingCaller', env.evm),
+				})
+				const receipt = await env.serverWallet.waitForTransactionReceipt({
+					hash,
+				})
+				return receipt.contractAddress!
+			})()
+
+			console.error('Caller address:', callerAddress)
+			const txHash = await (async () => {
+				const { request } = await env.serverWallet.simulateContract({
+					address: callerAddress,
+					abi: TracingCallerAbi,
+					functionName: 'start',
+					args: [2n],
+				})
+
+				const hash = await env.serverWallet.writeContract(request)
+				await env.serverWallet.waitForTransactionReceipt({ hash })
+
+				return hash
+			})()
+			console.error('Tx hash:', txHash)
+			const res = await env.debugClient.traceTransaction(txHash)
+
+			//let data = encodeFunctionData({
+			//	abi: TracingCallerAbi,
+			//	functionName: 'start',
+			//	args: [2n],
+			//})
+			//
+			//const res = await env.debugClient.traceCall({
+			//	account: env.accountWallet.account,
+			//	data,
+			//	to: callerAddress,
+			//})
+
+			console.error(res)
+			Bun.write('/tmp/tracing.json', JSON.stringify(res, null, 2))
+			//console.error('Transaction hash:', txHash)
+			//const res = await env.debugClient.traceTransaction(txHash)
+			//// serialize the result to
+			//console.error(res)
 		})
 	})
 }

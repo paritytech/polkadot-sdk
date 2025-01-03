@@ -16,6 +16,8 @@
 // limitations under the License.
 //! JSON-RPC methods and types, for Ethereum.
 
+mod hex_serde;
+
 mod byte;
 pub use byte::*;
 
@@ -24,6 +26,9 @@ pub use rlp;
 
 mod type_id;
 pub use type_id::*;
+
+mod debug_rpc_types;
+pub use debug_rpc_types::*;
 
 mod rpc_types;
 mod rpc_types_gen;
