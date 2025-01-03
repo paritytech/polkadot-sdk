@@ -3551,28 +3551,24 @@ fn deposit_limit_in_nested_instantiate() {
 		//
 		// Provided the limit is set to be 1 Balance less,
 		// this call should fail on the return from the caller contract.
-		assert_err_ignore_postinfo!(
-			builder::call(addr_caller)
-				.origin(RuntimeOrigin::signed(BOB))
-				.storage_deposit_limit(callee_info_len + 2 + ED + 1)
-				.data((0u32, &code_hash_callee, U256::from(0u64)).encode())
-				.build(),
-			<Error<Test>>::StorageDepositLimitExhausted,
-		);
+		let ret = builder::bare_call(addr_caller)
+			.origin(RuntimeOrigin::signed(BOB))
+			.storage_deposit_limit(DepositLimit::Balance(callee_info_len + 2 + ED + 1))
+			.data((0u32, &code_hash_callee, U256::from(u64::MAX)).encode())
+			.build_and_unwrap_result();
+		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
 		// The charges made on instantiation should be rolled back.
 		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), 1_000_000);
 
 		// Now we give enough limit for the instantiation itself, but require for 1 more storage
 		// byte in the constructor. Hence +1 Balance to the limit is needed. This should fail on
 		// the return from constructor.
-		assert_err_ignore_postinfo!(
-			builder::call(addr_caller)
-				.origin(RuntimeOrigin::signed(BOB))
-				.storage_deposit_limit(callee_info_len + 2 + ED + 2)
-				.data((1u32, &code_hash_callee, U256::from(0u64)).encode())
-				.build(),
-			<Error<Test>>::StorageDepositLimitExhausted,
-		);
+		let ret = builder::bare_call(addr_caller)
+			.origin(RuntimeOrigin::signed(BOB))
+			.storage_deposit_limit(DepositLimit::Balance(callee_info_len + 2 + ED + 2))
+			.data((1u32, &code_hash_callee, U256::from(0u64)).encode())
+			.build_and_unwrap_result();
+		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
 		// The charges made on the instantiation should be rolled back.
 		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), 1_000_000);
 
