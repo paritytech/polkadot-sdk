@@ -200,6 +200,8 @@ impl From<DispatchError> for BenchmarkError {
 pub struct BenchmarkConfig {
 	/// The encoded name of the pallet to benchmark.
 	pub pallet: Vec<u8>,
+	/// The encoded name of the pallet instance to benchmark.
+	pub instance: Vec<u8>,
 	/// The encoded name of the benchmark/extrinsic to run.
 	pub benchmark: Vec<u8>,
 	/// The selected component values to use when running the benchmark.
@@ -229,6 +231,7 @@ pub struct BenchmarkMetadata {
 
 sp_api::decl_runtime_apis! {
 	/// Runtime api for benchmarking a FRAME runtime.
+	#[api_version(2)]
 	pub trait Benchmark {
 		/// Get the benchmark metadata available for this runtime.
 		///

@@ -116,3 +116,13 @@ pub fn get_elastic_scaling_chain_spec(id: Option<ParaId>) -> ChainSpec {
 			.expect("WASM binary was not built, please build it!"),
 	)
 }
+
+/// Get the chain spec for a specific parachain ID.
+pub fn get_elastic_scaling_mvp_chain_spec(id: Option<ParaId>) -> ChainSpec {
+	get_chain_spec_with_extra_endowed(
+		id,
+		Default::default(),
+		cumulus_test_runtime::elastic_scaling_mvp::WASM_BINARY
+			.expect("WASM binary was not built, please build it!"),
+	)
+}

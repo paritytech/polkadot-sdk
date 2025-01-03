@@ -5,6 +5,8 @@ version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -21,27 +23,28 @@ is_executable = { optional = true, workspace = true }
 pin-project = { workspace = true }
 rand = { workspace = true, default-features = true }
 slotmap = { workspace = true }
+strum = { features = ["derive"], workspace = true, default-features = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { features = ["fs", "process"], workspace = true, default-features = true }
-strum = { features = ["derive"], workspace = true, default-features = true }
 
 codec = { features = [
 	"derive",
 ], workspace = true }
 
-polkadot-parachain-primitives = { workspace = true, default-features = true }
 polkadot-core-primitives = { workspace = true, default-features = true }
 polkadot-node-core-pvf-common = { workspace = true, default-features = true }
 polkadot-node-metrics = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
+polkadot-parachain-primitives = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 
+polkadot-node-core-pvf-execute-worker = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-pvf-prepare-worker = { optional = true, workspace = true, default-features = true }
+sc-tracing = { workspace = true }
 sp-core = { workspace = true, default-features = true }
 sp-maybe-compressed-blob = { optional = true, workspace = true, default-features = true }
-polkadot-node-core-pvf-prepare-worker = { optional = true, workspace = true, default-features = true }
-polkadot-node-core-pvf-execute-worker = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
