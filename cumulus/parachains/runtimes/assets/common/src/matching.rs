@@ -116,7 +116,10 @@ impl<
 		if !expected_origin.eq(&origin) {
 			tracing::trace!(
 				target: "xcm::contains",
-				"RemoteAssetFromLocation asset: {asset:?}, origin: {origin:?} is not from expected {expected_origin:?}"
+				?asset,
+				?origin,
+				?expected_origin,
+				"RemoteAssetFromLocation: Asset is not from expected origin"
 			);
 			return false;
 		} else {
