@@ -131,7 +131,7 @@ where
 		view: Arc<View<Api>>,
 		finish_revalidation_worker_channels: FinishRevalidationWorkerChannels<Api>,
 	) {
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
 			"revalidation_queue::revalidate_view: Sending view to revalidation queue at {}",
 			view.at.hash
@@ -142,7 +142,7 @@ where
 				view,
 				finish_revalidation_worker_channels,
 			)) {
-				log::warn!(target: LOG_TARGET, "revalidation_queue::revalidate_view: Failed to update background worker: {:?}", e);
+				tracing::warn!(target: LOG_TARGET, "revalidation_queue::revalidate_view: Failed to update background worker: {:?}", e);
 			}
 		} else {
 			view.revalidate(finish_revalidation_worker_channels).await
@@ -161,7 +161,7 @@ where
 		mempool: Arc<TxMemPool<Api, Block>>,
 		finalized_hash: HashAndNumber<Block>,
 	) {
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
 			"Sent mempool to revalidation queue at hash: {:?}",
 			finalized_hash
@@ -171,7 +171,7 @@ where
 			if let Err(e) =
 				to_worker.unbounded_send(WorkerPayload::RevalidateMempool(mempool, finalized_hash))
 			{
-				log::warn!(target: LOG_TARGET, "Failed to update background worker: {:?}", e);
+				tracing::warn!(target: LOG_TARGET, "Failed to update background worker: {:?}", e);
 			}
 		} else {
 			mempool.revalidate(finalized_hash).await
