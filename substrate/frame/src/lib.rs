@@ -325,6 +325,11 @@ pub mod testing_prelude {
 
 	pub use frame_system::{self, mocking::*};
 
+	pub use sp_core::offchain::{
+		testing::{TestOffchainExt, TestTransactionPoolExt},
+		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
+	};
+
 	#[deprecated(note = "Use `frame::testing_prelude::TestExternalities` instead.")]
 	pub use sp_io::TestExternalities;
 
@@ -554,10 +559,6 @@ pub mod cryptography {
 
 pub mod offchain {
 	pub use frame_system::offchain::{CreateInherent, SubmitTransaction};
-	pub use sp_core::offchain::{
-		testing::{TestOffchainExt, TestTransactionPoolExt},
-		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
-	};
 	pub use sp_io::offchain;
 	pub use sp_runtime::offchain::storage::{
 		MutateStorageError, StorageRetrievalError, StorageValueRef,
@@ -565,7 +566,14 @@ pub mod offchain {
 }
 
 pub mod session {
-	pub use frame_support::traits::{EstimateNextSessionRotation, OneSessionHandler};
+	pub use frame_support::traits::{
+		EstimateNextSessionRotation, OneSessionHandler, ValidatorSet,
+		ValidatorSetWithIdentification,
+	};
+	pub use sp_staking::{
+		offence::{Kind, Offence, OffenceError, ReportOffence},
+		SessionIndex,
+	};
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,

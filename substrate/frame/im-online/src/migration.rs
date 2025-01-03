@@ -19,7 +19,7 @@
 
 use super::*;
 use alloc::vec::Vec;
-use frame::{testing_prelude::*, traits::WrapperOpaque};
+use frame::traits::WrapperOpaque;
 
 /// The log target.
 const TARGET: &str = "runtime::im-online::migration::v1";
@@ -36,7 +36,7 @@ mod v0 {
 		pub external_addresses: Vec<Vec<u8>>,
 	}
 
-	#[storage_alias]
+	#[frame::storage_alias]
 	pub(super) type ReceivedHeartbeats<T: Config> = StorageDoubleMap<
 		Pallet<T>,
 		Twox64Concat,
@@ -130,6 +130,7 @@ pub fn clear_offchain_storage(validator_set_size: u32) {
 mod test {
 	use super::*;
 	use crate::mock::{new_test_ext, Runtime as T};
+	use frame::testing_prelude::*;
 
 	#[test]
 	fn migration_works() {

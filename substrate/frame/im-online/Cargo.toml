@@ -21,7 +21,6 @@ log = { workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
 frame = { workspace = true, features = ["experimental", "runtime"] }
 pallet-authorship = { workspace = true }
-sp-staking = { features = ["serde"], workspace = true }
 
 [dev-dependencies]
 pallet-session = { workspace = true, default-features = true }
@@ -35,11 +34,9 @@ std = [
 	"pallet-authorship/std",
 	"pallet-session/std",
 	"scale-info/std",
-	"sp-staking/std",
 ]
 runtime-benchmarks = [
 	"frame/runtime-benchmarks",
-	"sp-staking/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame/try-runtime",

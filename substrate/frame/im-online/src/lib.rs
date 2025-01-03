@@ -85,16 +85,10 @@ extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame::{
-	prelude::*,
-	traits::{ValidatorSet, ValidatorSetWithIdentification},
-};
+use frame::prelude::*;
 pub use pallet::*;
 use scale_info::TypeInfo;
-use sp_staking::{
-	offence::{Kind, Offence, ReportOffence},
-	SessionIndex,
-};
+
 pub use weights::WeightInfo;
 
 pub mod sr25519 {

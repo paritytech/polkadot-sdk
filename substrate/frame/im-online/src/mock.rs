@@ -21,10 +21,6 @@
 
 use frame::testing_prelude::*;
 use pallet_session::historical as pallet_session_historical;
-use sp_staking::{
-	offence::{OffenceError, ReportOffence},
-	SessionIndex,
-};
 
 use crate as imonline;
 use crate::Config;

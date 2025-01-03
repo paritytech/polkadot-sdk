@@ -42,6 +42,7 @@ sp-block-builder = { optional = true, workspace = true }
 sp-transaction-pool = { optional = true, workspace = true }
 sp-offchain = { optional = true, workspace = true }
 sp-session = { optional = true, workspace = true }
+sp-staking = { optional = true, workspace = true }
 sp-consensus-aura = { optional = true, workspace = true }
 sp-consensus-grandpa = { optional = true, workspace = true }
 sp-genesis-builder = { optional = true, workspace = true }
@@ -82,6 +83,7 @@ runtime = [
 	"sp-keyring",
 	"sp-offchain",
 	"sp-session",
+	"sp-staking",
 	"sp-storage",
 	"sp-transaction-pool",
 	"sp-version",
@@ -110,6 +112,7 @@ std = [
 	"sp-keyring?/std",
 	"sp-offchain?/std",
 	"sp-runtime/std",
+	"sp-staking?/std",
 	"sp-session?/std",
 	"sp-storage/std",
 	"sp-transaction-pool?/std",
@@ -121,6 +124,7 @@ runtime-benchmarks = [
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-executive/try-runtime",
