@@ -11,6 +11,25 @@ export const TracingCallerAbi = [
     type: "constructor",
   },
   {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "value",
+        type: "uint256",
+      },
+      {
+        indexed: false,
+        internalType: "string",
+        name: "message",
+        type: "string",
+      },
+    ],
+    name: "TraceEvent",
+    type: "event",
+  },
+  {
     inputs: [],
     name: "callee",
     outputs: [

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 contract TracingCaller {
+	event TraceEvent(uint256 value, string message);
     address public callee;
 
     constructor(address _callee) {
@@ -11,13 +12,15 @@ contract TracingCaller {
 
     function start(uint256 counter) external {
         if (counter == 0) {
-			uint256 a = 1;
-			uint256 b = 0;
-			uint256 c = a / b;
+			// uint256 a = 1;
+			// uint256 b = 0;
+			// uint256 c = a / b;
 			return;
         }
 
+        emit TraceEvent(counter, "before");
         TracingCallee(callee).consumeGas();
+		emit TraceEvent(counter, "after");
 
         try TracingCallee(callee).failingFunction() {
         } catch {

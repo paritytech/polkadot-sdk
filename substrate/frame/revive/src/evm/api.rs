@@ -16,6 +16,8 @@
 // limitations under the License.
 //! JSON-RPC methods and types, for Ethereum.
 
+mod hex_serde;
+
 mod byte;
 pub use byte::*;
 

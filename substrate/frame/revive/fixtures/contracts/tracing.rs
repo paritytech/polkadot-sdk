@@ -34,6 +34,8 @@ pub extern "C" fn call() {
 
 	let next_input = (calls_left - 1).to_le_bytes();
 
+	api::deposit_event(&[], b"before");
+
 	// Call the callee
 	api::call(
 		uapi::CallFlags::empty(),
@@ -46,6 +48,8 @@ pub extern "C" fn call() {
 		None,
 	)
 	.unwrap();
+
+	api::deposit_event(&[], b"after");
 
 	if calls_left == 0 {
 		return

@@ -16,14 +16,14 @@
 // limitations under the License.
 
 pub use crate::{
-	evm::{CallTrace, CallType, Traces},
+	evm::{CallLog, CallTrace, CallType, Traces},
 	exec::{ExecResult, ExportedFunction},
 	primitives::ExecReturnValue,
 	BalanceOf,
 };
 use crate::{Config, DispatchError, GasMeter, LOG_TARGET};
 use alloc::vec::Vec;
-use sp_core::{H160, U256};
+use sp_core::{H160, H256, U256};
 
 /// Umbrella trait for all interfaces that serves for debugging.
 pub trait Debugger<T: Config>: CallInterceptor<T> {}
@@ -51,6 +51,9 @@ pub trait Tracing<T: Config>: Default {
 		gas_meter: &GasMeter<T>,
 	);
 
+	/// Record a log event
+	fn log_event(&mut self, event: &H160, topics: &[H256], data: &[u8]);
+
 	/// Called after a contract call is executed
 	fn exit_child_span(&mut self, output: &ExecReturnValue, gas_meter: &GasMeter<T>);
 
@@ -60,8 +63,8 @@ pub trait Tracing<T: Config>: Default {
 
 impl Tracer {
 	/// Creates a new [`Tracer::CallTracer`].
-	pub fn new_call_tracer() -> Self {
-		Tracer::CallTracer(CallTracer::default())
+	pub fn new_call_tracer(with_log: bool) -> Self {
+		Tracer::CallTracer(CallTracer::new(with_log))
 	}
 
 	/// Returns the call tracer if it is enabled.
@@ -114,6 +117,17 @@ where
 		}
 	}
 
+	fn log_event(&mut self, event: &H160, topics: &[H256], data: &[u8]) {
+		match self {
+			Tracer::CallTracer(tracer) => {
+				<CallTracer as Tracing<T>>::log_event(tracer, event, topics, data);
+			},
+			Tracer::Disabled => {
+				log::trace!(target: LOG_TARGET, "event {event:?} topics: {topics:?} data: {data:?}");
+			},
+		}
+	}
+
 	fn exit_child_span(&mut self, output: &ExecReturnValue, gas_meter: &GasMeter<T>) {
 		match self {
 			Tracer::CallTracer(tracer) => {
@@ -143,6 +157,14 @@ pub struct CallTracer {
 	pub traces: Vec<CallTrace>,
 	/// Stack of indices to the current active traces
 	current_stack: Vec<usize>,
+	/// whether or not to capture logs
+	with_log: bool,
+}
+
+impl CallTracer {
+	pub fn new(with_log: bool) -> Self {
+		Self { traces: Vec::new(), current_stack: Vec::new(), with_log }
+	}
 }
 
 impl<T: Config> Tracing<T> for CallTracer
@@ -180,6 +202,25 @@ where
 		// Push the index onto the stack of the current active trace
 		self.current_stack.push(self.traces.len() - 1);
 	}
+
+	fn log_event(&mut self, address: &H160, topics: &[H256], data: &[u8]) {
+		if !self.with_log {
+			return;
+		}
+
+		let current_index = self.current_stack.last().unwrap();
+		let position = self.traces[*current_index].calls.len() as u32;
+		let log = CallLog {
+			address: *address,
+			topics: topics.to_vec(),
+			data: data.to_vec().into(),
+			position,
+		};
+
+		let current_index = *self.current_stack.last().unwrap();
+		self.traces[current_index].logs.push(log);
+	}
+
 	fn exit_child_span(&mut self, output: &ExecReturnValue, gas_meter: &GasMeter<T>) {
 		// Set the output of the current trace
 		let current_index = self.current_stack.pop().unwrap();

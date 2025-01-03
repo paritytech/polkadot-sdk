@@ -1734,11 +1734,9 @@ where
 	}
 
 	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) {
-		Contracts::<Self::T>::deposit_event(Event::ContractEmitted {
-			contract: T::AddressMapper::to_address(self.account_id()),
-			data,
-			topics,
-		});
+		let contract = T::AddressMapper::to_address(self.account_id());
+		<Tracer as Tracing<T>>::log_event(self.tracer, &contract, &topics, &data);
+		Contracts::<Self::T>::deposit_event(Event::ContractEmitted { contract, data, topics });
 	}
 
 	fn block_number(&self) -> U256 {

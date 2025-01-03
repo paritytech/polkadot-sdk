@@ -4842,75 +4842,104 @@ fn tracing_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(addr).data((3u32, addr_callee).encode()).build();
-		println!("{}", serde_json::to_string_pretty(&result.traces).unwrap());
-
-		let traces = result.traces.map(|_| Weight::default(), |res| res);
-
-		assert_eq!(
-			traces,
-			Traces::CallTraces(vec![CallTrace {
-				from: ALICE_ADDR,
-				to: addr,
-				input: (3u32, addr_callee).encode(),
-				call_type: Call,
-				calls: vec![
-					CallTrace {
-						from: addr,
-						to: addr_callee,
-						input: 2u32.encode(),
-						call_type: Call,
-						..Default::default()
+		let tracer_options = vec![
+			(false, vec![]),
+			(
+				true,
+				vec![
+					CallLog {
+						address: addr,
+						topics: Default::default(),
+						data: b"before".to_vec().into(),
+						position: 0,
 					},
-					CallTrace {
-						from: addr,
-						to: addr,
-						input: (2u32, addr_callee).encode(),
-						call_type: Call,
-						calls: vec![
-							CallTrace {
-								from: addr,
-								to: addr_callee,
-								input: 1u32.encode(),
-								call_type: Call,
-								..Default::default()
-							},
-							CallTrace {
-								from: addr,
-								to: addr,
-								input: (1u32, addr_callee).encode(),
-								call_type: Call,
-								calls: vec![
-									CallTrace {
-										from: addr,
-										to: addr_callee,
-										input: 0u32.encode(),
-										call_type: Call,
-										..Default::default()
-									},
-									CallTrace {
-										from: addr,
-										to: addr,
-										input: (0u32, addr_callee).encode(),
-										call_type: Call,
-										calls: vec![CallTrace {
-											from: addr,
-											to: addr_callee,
-											input: vec![255, 255, 255, 255,],
-											call_type: Call,
-											..Default::default()
-										}],
-										..Default::default()
-									},
-								],
-								..Default::default()
-							},
-						],
-						..Default::default()
+					CallLog {
+						address: addr,
+						topics: Default::default(),
+						data: b"after".to_vec().into(),
+						position: 1,
 					},
 				],
-				..Default::default()
-			},])
-		);
+			),
+		];
+
+		for (with_logs, logs) in tracer_options {
+			let result = builder::bare_call(addr)
+				.data((3u32, addr_callee).encode())
+				.tracer(Tracer::new_call_tracer(with_logs))
+				.build();
+
+			let traces = result.traces.map(|_| Weight::default(), |res| res);
+
+			assert_eq!(
+				traces,
+				Traces::CallTraces(vec![CallTrace {
+					from: ALICE_ADDR,
+					to: addr,
+					input: (3u32, addr_callee).encode(),
+					call_type: Call,
+					logs: logs.clone(),
+					calls: vec![
+						CallTrace {
+							from: addr,
+							to: addr_callee,
+							input: 2u32.encode(),
+							call_type: Call,
+							..Default::default()
+						},
+						CallTrace {
+							from: addr,
+							to: addr,
+							input: (2u32, addr_callee).encode(),
+							call_type: Call,
+							logs: logs.clone(),
+							calls: vec![
+								CallTrace {
+									from: addr,
+									to: addr_callee,
+									input: 1u32.encode(),
+									call_type: Call,
+									..Default::default()
+								},
+								CallTrace {
+									from: addr,
+									to: addr,
+									input: (1u32, addr_callee).encode(),
+									call_type: Call,
+									logs: logs.clone(),
+									calls: vec![
+										CallTrace {
+											from: addr,
+											to: addr_callee,
+											input: 0u32.encode(),
+											call_type: Call,
+											..Default::default()
+										},
+										CallTrace {
+											from: addr,
+											to: addr,
+											input: (0u32, addr_callee).encode(),
+											call_type: Call,
+											logs: logs.clone(),
+											calls: vec![CallTrace {
+												from: addr,
+												to: addr_callee,
+												input: vec![255, 255, 255, 255,],
+												call_type: Call,
+												..Default::default()
+											}],
+											..Default::default()
+										},
+									],
+									..Default::default()
+								},
+							],
+							..Default::default()
+						},
+					],
+					..Default::default()
+				},])
+			);
+		}
 	});
 }

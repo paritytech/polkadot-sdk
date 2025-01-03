@@ -17,10 +17,8 @@
 
 use super::{deposit_limit, GAS_LIMIT};
 use crate::{
-	address::AddressMapper,
-	debug::{CallTracer, Tracer},
-	AccountIdOf, BalanceOf, Code, Config, ContractResult, DepositLimit, ExecReturnValue,
-	InstantiateReturnValue, OriginFor, Pallet, Weight,
+	address::AddressMapper, debug::Tracer, AccountIdOf, BalanceOf, Code, Config, ContractResult,
+	DepositLimit, ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet, Weight,
 };
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
 use paste::paste;
@@ -164,7 +162,7 @@ builder!(
 			code,
 			data: vec![],
 			salt: Some([0; 32]),
-			tracer: Tracer::CallTracer(CallTracer::default()),
+			tracer: Tracer::Disabled,
 		}
 	}
 );
@@ -217,7 +215,7 @@ builder!(
 			gas_limit: GAS_LIMIT,
 			storage_deposit_limit: DepositLimit::Balance(deposit_limit::<T>()),
 			data: vec![],
-			tracer: Tracer::CallTracer(CallTracer::default()),
+			tracer: Tracer::Disabled,
 		}
 	}
 );

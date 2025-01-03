@@ -1,16 +1,10 @@
 #![allow(missing_docs)]
-use crate::{ExecReturnValue, Weight};
+use crate::{evm::Bytes, ExecReturnValue, Weight};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_core::{H160, H256, U256};
-
-/// A tracer that can be used to debug a transaction.
-#[derive(Debug, Clone, Encode, Decode, Serialize, Deserialize)]
-pub enum Tracer {
-	CallTracer,
-}
 
 /// The type of call that was executed.
 #[derive(
@@ -90,6 +84,25 @@ where
 	/// List of sub-calls.
 	#[serde(skip_serializing_if = "Vec::is_empty")]
 	pub calls: Vec<CallTrace<Gas, Output>>,
+	/// List of logs emitted during the call.
+	#[serde(skip_serializing_if = "Vec::is_empty")]
+	pub logs: Vec<CallLog>,
+}
+
+/// log
+#[derive(
+	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
+)]
+pub struct CallLog {
+	pub address: H160,
+	#[serde(skip_serializing_if = "Bytes::is_empty")]
+	pub data: Bytes,
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
+	pub topics: Vec<H256>,
+	// Position of the log relative to subcalls within the same trace
+	// See https://github.com/ethereum/go-ethereum/pull/28389 for details
+	#[serde(with = "super::hex_serde")]
+	pub position: u32,
 }
 
 impl<Gas, Output> CallTrace<Gas, Output>
@@ -116,6 +129,7 @@ where
 			gas_used: gas_mapper(self.gas_used),
 			output: output_mapper(self.output),
 			calls: self.calls.into_iter().map(|call| call.map(gas_mapper, output_mapper)).collect(),
+			logs: self.logs,
 		}
 	}
 }

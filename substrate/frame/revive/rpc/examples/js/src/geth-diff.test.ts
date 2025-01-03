@@ -371,32 +371,33 @@ for (const env of envs) {
 			})()
 
 			console.error('Caller address:', callerAddress)
-			//const txHash = await (async () => {
-			//	const { request } = await env.serverWallet.simulateContract({
-			//		address: callerAddress,
-			//		abi: TracingCallerAbi,
-			//		functionName: 'start',
-			//		args: [2n],
-			//	})
-			//
-			//	const hash = await env.serverWallet.writeContract(request)
-			//	await env.serverWallet.waitForTransactionReceipt({ hash })
-			//
-			//
-			//	return hash
-			//})()
+			const txHash = await (async () => {
+				const { request } = await env.serverWallet.simulateContract({
+					address: callerAddress,
+					abi: TracingCallerAbi,
+					functionName: 'start',
+					args: [2n],
+				})
 
-			let data = encodeFunctionData({
-				abi: TracingCallerAbi,
-				functionName: 'start',
-				args: [2n],
-			})
+				const hash = await env.serverWallet.writeContract(request)
+				await env.serverWallet.waitForTransactionReceipt({ hash })
 
-			const res = await env.debugClient.traceCall({
-				account: env.accountWallet.account,
-				data,
-				to: callerAddress,
-			})
+				return hash
+			})()
+			console.error('Tx hash:', txHash)
+			const res = await env.debugClient.traceTransaction(txHash)
+
+			//let data = encodeFunctionData({
+			//	abi: TracingCallerAbi,
+			//	functionName: 'start',
+			//	args: [2n],
+			//})
+			//
+			//const res = await env.debugClient.traceCall({
+			//	account: env.accountWallet.account,
+			//	data,
+			//	to: callerAddress,
+			//})
 
 			console.error(res)
 			Bun.write('/tmp/tracing.json', JSON.stringify(res, null, 2))
