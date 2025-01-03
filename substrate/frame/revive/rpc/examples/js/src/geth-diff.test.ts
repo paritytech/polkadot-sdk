@@ -8,7 +8,7 @@ import {
 } from './util.ts'
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test'
 import { encodeFunctionData, Hex, parseEther } from 'viem'
-import { ErrorTesterAbi } from '../abi/ErrorTester'
+import { ErrorsAbi } from '../abi/Errors'
 import { FlipperCallerAbi } from '../abi/FlipperCaller'
 import { FlipperAbi } from '../abi/Flipper'
 import { Subprocess, spawn } from 'bun'
@@ -81,19 +81,19 @@ const envs = await Promise.all([createEnv('geth'), createEnv('kitchensink')])
 
 for (const env of envs) {
 	describe(env.serverWallet.chain.name, () => {
-		let errorTesterAddr: Hex = '0x'
+		let errorsAddr: Hex = '0x'
 		let flipperAddr: Hex = '0x'
 		let flipperCallerAddr: Hex = '0x'
 		beforeAll(async () => {
 			{
 				const hash = await env.serverWallet.deployContract({
-					abi: ErrorTesterAbi,
-					bytecode: getByteCode('errorTester', env.evm),
+					abi: ErrorsAbi,
+					bytecode: getByteCode('errors', env.evm),
 				})
 				const deployReceipt = await env.serverWallet.waitForTransactionReceipt({ hash })
 				if (!deployReceipt.contractAddress)
 					throw new Error('Contract address should be set')
-				errorTesterAddr = deployReceipt.contractAddress
+				errorsAddr = deployReceipt.contractAddress
 			}
 
 			{
@@ -124,8 +124,8 @@ for (const env of envs) {
 			expect.assertions(3)
 			try {
 				await env.accountWallet.readContract({
-					address: errorTesterAddr,
-					abi: ErrorTesterAbi,
+					address: errorsAddr,
+					abi: ErrorsAbi,
 					functionName: 'triggerAssertError',
 				})
 			} catch (err) {
@@ -142,8 +142,8 @@ for (const env of envs) {
 			expect.assertions(3)
 			try {
 				await env.accountWallet.readContract({
-					address: errorTesterAddr,
-					abi: ErrorTesterAbi,
+					address: errorsAddr,
+					abi: ErrorsAbi,
 					functionName: 'triggerRevertError',
 				})
 			} catch (err) {
@@ -160,8 +160,8 @@ for (const env of envs) {
 			expect.assertions(3)
 			try {
 				await env.accountWallet.readContract({
-					address: errorTesterAddr,
-					abi: ErrorTesterAbi,
+					address: errorsAddr,
+					abi: ErrorsAbi,
 					functionName: 'triggerDivisionByZero',
 				})
 			} catch (err) {
@@ -180,8 +180,8 @@ for (const env of envs) {
 			expect.assertions(3)
 			try {
 				await env.accountWallet.readContract({
-					address: errorTesterAddr,
-					abi: ErrorTesterAbi,
+					address: errorsAddr,
+					abi: ErrorsAbi,
 					functionName: 'triggerOutOfBoundsError',
 				})
 			} catch (err) {
@@ -200,8 +200,8 @@ for (const env of envs) {
 			expect.assertions(3)
 			try {
 				await env.accountWallet.readContract({
-					address: errorTesterAddr,
-					abi: ErrorTesterAbi,
+					address: errorsAddr,
+					abi: ErrorsAbi,
 					functionName: 'triggerCustomError',
 				})
 			} catch (err) {
@@ -218,8 +218,8 @@ for (const env of envs) {
 			expect.assertions(3)
 			try {
 				await env.accountWallet.simulateContract({
-					address: errorTesterAddr,
-					abi: ErrorTesterAbi,
+					address: errorsAddr,
+					abi: ErrorsAbi,
 					functionName: 'valueMatch',
 					value: parseEther('10'),
 					args: [parseEther('10')],
@@ -251,8 +251,8 @@ for (const env of envs) {
 			expect.assertions(3)
 			try {
 				await env.accountWallet.estimateContractGas({
-					address: errorTesterAddr,
-					abi: ErrorTesterAbi,
+					address: errorsAddr,
+					abi: ErrorsAbi,
 					functionName: 'valueMatch',
 					value: parseEther('10'),
 					args: [parseEther('10')],
@@ -269,8 +269,8 @@ for (const env of envs) {
 			expect.assertions(3)
 			try {
 				await env.accountWallet.estimateContractGas({
-					address: errorTesterAddr,
-					abi: ErrorTesterAbi,
+					address: errorsAddr,
+					abi: ErrorsAbi,
 					functionName: 'valueMatch',
 					value: parseEther('10'),
 					args: [parseEther('10')],
@@ -287,8 +287,8 @@ for (const env of envs) {
 			expect.assertions(3)
 			try {
 				await env.serverWallet.estimateContractGas({
-					address: errorTesterAddr,
-					abi: ErrorTesterAbi,
+					address: errorsAddr,
+					abi: ErrorsAbi,
 					functionName: 'valueMatch',
 					value: parseEther('11'),
 					args: [parseEther('10')],
@@ -319,8 +319,8 @@ for (const env of envs) {
 				expect(balance).toBe(0n)
 
 				await env.accountWallet.estimateContractGas({
-					address: errorTesterAddr,
-					abi: ErrorTesterAbi,
+					address: errorsAddr,
+					abi: ErrorsAbi,
 					functionName: 'setState',
 					args: [true],
 				})
@@ -337,7 +337,7 @@ for (const env of envs) {
 			expect(balance).toBe(0n)
 
 			const data = encodeFunctionData({
-				abi: ErrorTesterAbi,
+				abi: ErrorsAbi,
 				functionName: 'setState',
 				args: [true],
 			})
@@ -348,7 +348,7 @@ for (const env of envs) {
 					{
 						data,
 						from: env.accountWallet.account.address,
-						to: errorTesterAddr,
+						to: errorsAddr,
 					},
 				],
 			})
