@@ -648,7 +648,7 @@ pub mod pallet {
 					);
 					let validation_code = <PendingValidationCode<T>>::take();
 
-					frame_system::Pallet::<T>::update_code_in_storage(&validation_code);
+					frame_system::Pallet::<T>::update_pending_code_in_storage(&validation_code);
 					<T::OnSystemEvent as OnSystemEvent>::on_validation_code_applied();
 					Self::deposit_event(Event::ValidationFunctionApplied {
 						relay_chain_block_num: vfp.relay_parent_number,
@@ -768,8 +768,8 @@ pub mod pallet {
 	/// applied.
 	///
 	/// As soon as the relay chain gives us the go-ahead signal, we will overwrite the
-	/// [`:code`][sp_core::storage::well_known_keys::CODE] which will result the next block process
-	/// with the new validation code. This concludes the upgrade process.
+	/// [`:pending_code`][sp_core::storage::well_known_keys::PENDING_CODE] which will result the
+	/// next block to be processed with the new validation code. This concludes the upgrade process.
 	#[pallet::storage]
 	pub type PendingValidationCode<T: Config> = StorageValue<_, Vec<u8>, ValueQuery>;
 

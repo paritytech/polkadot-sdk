@@ -471,6 +471,10 @@ mod tests {
 
 		// Should return an error, as it was not included while building the proof.
 		assert!(backend
+			.storage(sp_core::storage::well_known_keys::PENDING_CODE)
+			.unwrap_err()
+			.contains("Trie lookup error: Database missing expected key"));
+		assert!(backend
 			.storage(sp_core::storage::well_known_keys::CODE)
 			.unwrap_err()
 			.contains("Trie lookup error: Database missing expected key"));
