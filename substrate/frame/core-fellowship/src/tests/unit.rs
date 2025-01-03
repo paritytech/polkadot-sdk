@@ -17,6 +17,8 @@
 
 //! The crate's tests.
 
+#![allow(deprecated)]
+
 use std::collections::BTreeMap;
 
 use core::cell::RefCell;

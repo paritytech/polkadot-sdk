@@ -597,6 +597,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::import())]
 		#[pallet::call_index(8)]
 		#[deprecated = "Use `import_member` instead"]
+		#[allow(deprecated)] // Otherwise FRAME will complain about using something deprecated.
 		pub fn import(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			Self::do_import(who)?;

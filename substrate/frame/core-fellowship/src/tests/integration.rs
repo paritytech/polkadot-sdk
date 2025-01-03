@@ -17,6 +17,8 @@
 
 //! Integration test together with the ranked-collective pallet.
 
+#![allow(deprecated)]
+
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, hypothetically, hypothetically_ok, ord_parameter_types,
 	pallet_prelude::Weight,
