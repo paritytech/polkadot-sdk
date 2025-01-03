@@ -301,7 +301,7 @@ impl<WaivedLocations: Contains<Location>, FeeHandler: HandleFee> FeeManager
 	}
 
 	fn handle_fee(fee: Assets, context: Option<&XcmContext>, reason: FeeReason) {
-		log::info!(target: "xcm::handle_fee", "handle fee: {:?}, with reason: {:?}", &fee, &reason);
+		log::info!(target: "xcm::handle_fee", "handle fee: {fee:?}, with reason: {reason:?}");
 		FeeHandler::handle_fee(fee, context, reason);
 	}
 }
