@@ -34,7 +34,7 @@ use libp2p::{
 	},
 	Multiaddr, PeerId,
 };
-use log::warn;
+use log::{debug, warn};
 
 use codec::DecodeAll;
 use sc_network_common::role::Roles;
@@ -52,6 +52,9 @@ pub use notifications::{notification_service, NotificationsSink, ProtocolHandleP
 mod notifications;
 
 pub mod message;
+
+// Log target for this file.
+const LOG_TARGET: &str = "sub-libp2p";
 
 /// Maximum size used for notifications in the block announce and transaction protocols.
 // Must be equal to `max(MAX_BLOCK_ANNOUNCE_SIZE, MAX_TRANSACTIONS_SIZE)`.
@@ -124,6 +127,10 @@ impl<B: BlockT> Protocol<B> {
 				handle.set_metrics(notification_metrics.clone());
 			});
 
+			protocol_configs.iter().enumerate().for_each(|(i, (p, _, _))| {
+				debug!(target: LOG_TARGET, "Notifications protocol {:?}: {}", SetId::from(i), p.name);
+			});
+
 			(
 				Notifications::new(
 					protocol_controller_handles,
@@ -164,7 +171,7 @@ impl<B: BlockT> Protocol<B> {
 		{
 			self.behaviour.disconnect_peer(peer_id, SetId::from(position));
 		} else {
-			warn!(target: "sub-libp2p", "disconnect_peer() with invalid protocol name")
+			warn!(target: LOG_TARGET, "disconnect_peer() with invalid protocol name")
 		}
 	}
 
