@@ -1206,6 +1206,18 @@ fn leases_are_limited() {
 }
 
 #[test]
+fn remove_lease_works() {
+	TestExt::new().execute_with(|| {
+		Leases::<Test>::put(
+			BoundedVec::try_from(vec![LeaseRecordItem { task: 1u32, until: 10u32 }]).unwrap(),
+		);
+		assert_noop!(Broker::do_remove_lease(2), Error::<Test>::LeaseNotFound);
+		assert_ok!(Broker::do_remove_lease(1));
+		assert_noop!(Broker::do_remove_lease(1), Error::<Test>::LeaseNotFound);
+	});
+}
+
+#[test]
 fn purchase_requires_valid_status_and_sale_info() {
 	TestExt::new().execute_with(|| {
 		assert_noop!(Broker::do_purchase(1, 100), Error::<Test>::Uninitialized);

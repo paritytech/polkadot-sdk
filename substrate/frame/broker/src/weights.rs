@@ -53,6 +53,7 @@ pub trait WeightInfo {
 	fn reserve() -> Weight;
 	fn unreserve() -> Weight;
 	fn set_lease() -> Weight;
+	fn remove_lease() -> Weight;
 	fn start_sales(n: u32, ) -> Weight;
 	fn purchase() -> Weight;
 	fn renew() -> Weight;
@@ -557,6 +558,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 245_000 picoseconds.
 		Weight::from_parts(290_000, 0)
 	}
+
+	fn remove_lease() -> Weight {
+		Weight::from_parts(1, 1)
+	}
 }
 
 // For backwards compatibility and tests.
@@ -1030,5 +1035,9 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 245_000 picoseconds.
 		Weight::from_parts(290_000, 0)
+	}
+
+	fn remove_lease() -> Weight {
+		Weight::from_parts(1, 1)
 	}
 }

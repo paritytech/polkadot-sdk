@@ -91,6 +91,15 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	pub(crate) fn do_remove_lease(task: TaskId) -> DispatchResult {
+		let mut r = Leases::<T>::get();
+		let i = r.iter().position(|lease| lease.task == task).ok_or(Error::<T>::LeaseNotFound)?;
+		r.remove(i);
+		Leases::<T>::put(r);
+		Self::deposit_event(Event::<T>::LeaseRemoved { task });
+		Ok(())
+	}
+
 	pub(crate) fn do_start_sales(
 		end_price: BalanceOf<T>,
 		extra_cores: CoreIndex,
