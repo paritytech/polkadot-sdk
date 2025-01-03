@@ -281,7 +281,7 @@ impl<T: Contains<Location>> ShouldExecute for AllowUnpaidExecutionFrom<T> {
 	) -> Result<(), ProcessMessageError> {
 		tracing::trace!(
 			target: "xcm::barriers",
-			?origin, ?instructions, ?_max_weight, ?_properties,
+			?origin, ?instructions, max_weight = ?_max_weight, properties = ?_properties,
 			"AllowUnpaidExecutionFrom"
 		);
 		ensure!(T::contains(origin), ProcessMessageError::Unsupported);
