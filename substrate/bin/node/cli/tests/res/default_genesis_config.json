@@ -30,7 +30,6 @@
     "stakers": [],
     "minNominatorBond": 0,
     "minValidatorBond": 0,
-    "maxValidatorCount": null,
     "maxNominatorCount": null
   },
   "session": {

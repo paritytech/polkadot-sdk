@@ -28,7 +28,9 @@ use frame_support::{
 	traits::{ConstU32, ConstU64, Hooks, OneSessionHandler},
 };
 use pallet_staking::StakerStatus;
-use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
+use sp_runtime::{
+	curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BoundedVec, BuildStorage,
+};
 use sp_staking::{EraIndex, SessionIndex};
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -121,6 +123,7 @@ parameter_types! {
 	pub static SessionsPerEra: SessionIndex = 3;
 	pub static SlashDeferDuration: EraIndex = 0;
 	pub const BondingDuration: EraIndex = 3;
+	pub const MaxBondedEras: u32 = (BondingDuration::get() as u32) + 1;
 	pub static LedgerSlashPerEra: (BalanceOf<Test>, BTreeMap<EraIndex, BalanceOf<Test>>) = (Zero::zero(), BTreeMap::new());
 }
 
@@ -133,6 +136,7 @@ impl pallet_staking::Config for Test {
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type BondingDuration = BondingDuration;
+	type MaxBondedEras = MaxBondedEras;
 	type SessionInterface = Self;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
@@ -179,7 +183,7 @@ impl Config for Test {
 pub struct ExtBuilder {
 	validator_count: u32,
 	minimum_validator_count: u32,
-	invulnerables: Vec<AccountId>,
+	invulnerables: BoundedVec<AccountId, <Test as pallet_staking::Config>::MaxInvulnerables>,
 	balance_factor: Balance,
 }
 
@@ -188,7 +192,7 @@ impl Default for ExtBuilder {
 		Self {
 			validator_count: 2,
 			minimum_validator_count: 0,
-			invulnerables: vec![],
+			invulnerables: BoundedVec::new(),
 			balance_factor: 1,
 		}
 	}
