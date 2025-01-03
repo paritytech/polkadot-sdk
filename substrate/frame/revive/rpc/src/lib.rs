@@ -148,31 +148,12 @@ impl EthRpcServer for EthRpcServerImpl {
 
 	async fn send_raw_transaction(&self, transaction: Bytes) -> RpcResult<H256> {
 		let hash = H256(keccak_256(&transaction.0));
-
-		let tx = TransactionSigned::decode(&transaction.0).map_err(|err| {
-			log::debug!(target: LOG_TARGET, "Failed to decode transaction: {err:?}");
-			EthRpcError::from(err)
-		})?;
-
-		let eth_addr = tx.recover_eth_address().map_err(|err| {
-			log::debug!(target: LOG_TARGET, "Failed to recover eth address: {err:?}");
-			EthRpcError::InvalidSignature
-		})?;
-
-		let tx = GenericTransaction::from_signed(tx, Some(eth_addr));
-
-		// Dry run the transaction to get the weight limit and storage deposit limit
-		let dry_run = self.client.dry_run(tx, BlockTag::Latest.into()).await?;
-
-		let call = subxt_client::tx().revive().eth_transact(
-			transaction.0,
-			dry_run.gas_required.into(),
-			dry_run.storage_deposit,
-		);
+		let call = subxt_client::tx().revive().eth_transact(transaction.0);
 		self.client.submit(call).await.map_err(|err| {
 			log::debug!(target: LOG_TARGET, "submit call failed: {err:?}");
 			err
 		})?;
+
 		log::debug!(target: LOG_TARGET, "send_raw_transaction hash: {hash:?}");
 		Ok(hash)
 	}
