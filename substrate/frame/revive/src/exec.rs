@@ -25,7 +25,7 @@ use crate::{
 	storage::{self, meter::Diff, WriteOutcome},
 	transient_storage::TransientStorage,
 	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, DebugBuffer, Error,
-	Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, LOG_TARGET,
+	Event, ExecStack, ImmutableData, ImmutableDataOf, Pallet as Contracts, WasmBlob, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -36,7 +36,7 @@ use frame_support::{
 	storage::{with_transaction, TransactionOutcome},
 	traits::{
 		fungible::{Inspect, Mutate},
-		tokens::{Fortitude, Preservation},
+		tokens::{Balance, Fortitude, Preservation},
 		Contains, OriginTrait, Time,
 	},
 	weights::Weight,
@@ -1839,29 +1839,48 @@ where
 	///
 	/// The `set_code_hash` contract API stays disabled until this change is implemented.
 	fn set_code_hash(&mut self, hash: H256) -> DispatchResult {
-		let frame = top_frame_mut!(self);
-
-		let info = frame.contract_info();
-
-		let prev_hash = info.code_hash;
-		info.code_hash = hash;
-
 		let code_info = CodeInfoOf::<T>::get(hash).ok_or(Error::<T>::CodeNotFound)?;
+
+		let mut gas_meter = GasMeter::<T>::new(self.gas_meter().gas_left());
+		let executable = WasmBlob::<T>::from_storage(hash, &mut gas_meter)
+			.map_err(|_| <Error<T>>::CodeNotFound)?;
+
+		let frame = self.top_frame();
+		let account_id = frame.account_id.clone();
+		let address = T::AddressMapper::to_address(&account_id);
+		let current_immutable =
+			ImmutableDataOf::<T>::get(&address).ok_or(Error::<T>::ImmutableDataNotFound)?;
+
+		// Run the constructor of the new code to check compatibility with current immutable data
+		let result = executable
+			.execute(self, ExportedFunction::Constructor, current_immutable.to_vec())
+			.map_err(|e| e.error)?;
+
+		if result.did_revert() {
+			return Err(Error::<T>::IncompatibleImmutableData.into());
+		}
+
+		let frame = self.top_frame_mut();
+		let info = frame.contract_info();
+		let prev_hash = info.code_hash;
 
 		let old_base_deposit = info.storage_base_deposit();
 		let new_base_deposit = info.update_base_deposit(&code_info);
 		let deposit = StorageDeposit::Charge(new_base_deposit)
 			.saturating_sub(&StorageDeposit::Charge(old_base_deposit));
 
+		ExecStack::<T, WasmBlob<T>>::increment_refcount(hash)?;
+		ExecStack::<T, WasmBlob<T>>::decrement_refcount(prev_hash);
+		info.code_hash = hash;
+
 		frame.nested_storage.charge_deposit(frame.account_id.clone(), deposit);
 
-		Self::increment_refcount(hash)?;
-		Self::decrement_refcount(prev_hash);
 		Contracts::<Self::T>::deposit_event(Event::ContractCodeUpdated {
 			contract: T::AddressMapper::to_address(&frame.account_id),
 			new_code_hash: hash,
 			old_code_hash: prev_hash,
 		});
+
 		Ok(())
 	}
 
@@ -5075,5 +5094,112 @@ mod tests {
 				Ok(_)
 			);
 		});
+	}
+
+	mod code_hash_update {
+		use super::*;
+		use core::assert_eq;
+
+		#[test]
+		fn set_code_hash_checks_compatibility_of_new_code_with_immutable_data() {
+			use pallet_revive_fixtures::compile_module;
+
+			parameter_types! {
+				static SomeImmutableData: Vec<u8> = vec![2];
+			}
+
+			let set_code_hash = MockLoader::insert(Call, |ctx, _| {
+				let code_hash = H256::from_slice(&ctx.input_data);
+				ctx.ext
+					.set_code_hash(code_hash)
+					.map(|_| ExecReturnValue::default())
+					.map_err(Into::into)
+			});
+
+			ExtBuilder::default().build().execute_with(|| {
+				place_contract(&CHARLIE, set_code_hash);
+
+				let owner = ALICE;
+				let (code, _) = compile_module("noop").unwrap();
+				let code_blob = WasmBlob::from_code(code, owner.clone());
+				assert_ok!(code_blob.clone());
+				let mut code_blob: WasmBlob<Test> = code_blob.unwrap();
+				let deposit = code_blob.store_code(true);
+				assert_ok!(deposit);
+				let new_code_hash = *code_blob.code_hash();
+				place_contract(&BOB, new_code_hash);
+
+				<ImmutableDataOf<Test>>::insert::<_, ImmutableData>(
+					CHARLIE_ADDR,
+					SomeImmutableData::get().try_into().unwrap(),
+				);
+
+				// with enough balance to cover storage deposits
+				set_balance(&ALICE, 1_000_000);
+				let origin = Origin::from_account_id(ALICE);
+				// with sufficient storage deposit limit
+				let mut storage_meter = storage::meter::Meter::new(&origin, 1_000_000, 0).unwrap();
+
+				assert_ok!(MockStack::run_call(
+					origin.clone(),
+					CHARLIE_ADDR,
+					&mut GasMeter::<Test>::new(GAS_LIMIT),
+					&mut storage_meter,
+					U256::zero(),
+					new_code_hash.as_bytes().to_vec(),
+					false,
+					None,
+				));
+
+				assert_eq!(
+					ContractInfoOf::<Test>::get(&CHARLIE_ADDR).unwrap().code_hash,
+					new_code_hash
+				);
+			});
+		}
+
+		#[test]
+		fn set_code_hash_fails_if_new_code_cannot_be_found() {
+			ExtBuilder::default().build().execute_with(|| {
+				let code_hash_1 = MockLoader::insert(Constructor, |ctx, _| {
+					ctx.ext.set_immutable_data(vec![1, 2, 3].try_into().unwrap())?;
+					exec_success()
+				});
+
+				let set_code_hash = MockLoader::insert(Call, |ctx, _| {
+					let code_hash = H256::from_slice(&ctx.input_data);
+					ctx.ext
+						.set_code_hash(code_hash)
+						.map(|_| ExecReturnValue::default())
+						.map_err(Into::into)
+				});
+
+				place_contract(&BOB, code_hash_1);
+				place_contract(&CHARLIE, set_code_hash);
+
+				let origin = Origin::from_account_id(ALICE);
+				let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+
+				assert_eq!(
+					MockStack::run_call(
+						origin.clone(),
+						CHARLIE_ADDR,
+						&mut GasMeter::<Test>::new(GAS_LIMIT),
+						&mut storage_meter,
+						U256::zero(),
+						code_hash_1.as_bytes().to_vec(),
+						false,
+						None,
+					),
+					Err(ExecError {
+						error: Error::<Test>::CodeNotFound.into(),
+						origin: ErrorOrigin::Callee,
+					})
+				);
+
+				let contract = ContractInfoOf::<Test>::get(&BOB_ADDR).unwrap();
+				assert_eq!(contract.code_hash, code_hash_1);
+			});
+		}
 	}
 }
