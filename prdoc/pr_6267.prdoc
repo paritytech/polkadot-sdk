@@ -15,6 +15,8 @@ doc:
       manner.
 
 crates:
+  - name: substrate-test-runtime
+    bump: minor
   - name: pallet-vesting
     bump: minor
   - name: pallet-utility
@@ -99,6 +101,10 @@ crates:
     bump: minor
   - name: pallet-alliance
     bump: minor
+  - name: node-testing
+    bump: minor
+  - name: xcm-simulator-fuzzer
+    bump: minor
   - name: xcm-simulator-fuzzer
     bump: minor
   - name: xcm-simulator-example
@@ -109,7 +115,35 @@ crates:
     bump: minor
   - name: pallet-xcm
     bump: minor
+  - name: xcm-docs
+    bump: minor
   - name: polkadot-runtime-common
+    bump: minor
+  - name: parachains-runtimes-test-utils
+    bump: minor
+  - name: westend-emulated-chain
+    bump: minor
+  - name: rococo-emulated-chain
+    bump: minor
+  - name: penpal-emulated-chain
+    bump: minor
+  - name: people-westend-emulated-chain
+    bump: minor
+  - namne: people-rococo-emulated-chain
+    bump: minor
+  - name: coretime-westend-emulated-chain
+    bump: minor
+  - name: coretime-rococo-emulated-chain
+    bump: minor
+  - name: collectives-westend-emulated-chain
+    bump: minor
+  - name: bridge-hub-westend-emulated-chain
+    bump: minor
+  - name: bridge-hub-rococo-emulated-chain
+    bump: minor
+  - name: asset-hub-westend-emulated-chain
+    bump: minor
+  - name: asset-hub-rococo-emulated-chain
     bump: minor
   - name: pallet-collator-selection
     bump: minor
