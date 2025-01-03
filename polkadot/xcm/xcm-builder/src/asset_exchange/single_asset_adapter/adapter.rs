@@ -87,7 +87,7 @@ where
 					target: "xcm::SingleAssetExchangeAdapter::exchange_asset",
 					?want_asset,
 					?error,
-					"Could not map XCM asset want to FRAME asset. Error"
+					"Could not map XCM asset want to FRAME asset."
 				);
 				give.clone()
 			})?;
