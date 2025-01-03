@@ -60,7 +60,7 @@ impl<
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		Assets::transfer(asset_id, &source, &dest, amount, Preserve)
 			.map_err(|e| {
-				tracing::error!(target: "xcm::fungibles_adapter", ?e, ?amount, "Failed to transfer asset internally");
+				tracing::error!(target: "xcm::fungibles_adapter", error = ?e, ?amount, "Failed to transfer asset internally");
 				XcmError::FailedToTransactAsset(e.into())
 			})?;
 		Ok(what.clone().into())
@@ -209,7 +209,7 @@ impl<
 	fn can_check_in(_origin: &Location, what: &Asset, _context: &XcmContext) -> XcmResult {
 		tracing::trace!(
 			target: "xcm::fungibles_adapter",
-			?_origin, ?what,
+			origin = ?_origin, ?what,
 			"can_check_in",
 		);
 		// Check we handle this asset.
@@ -226,7 +226,7 @@ impl<
 	fn check_in(_origin: &Location, what: &Asset, _context: &XcmContext) {
 		tracing::trace!(
 			target: "xcm::fungibles_adapter",
-			?_origin, ?what,
+			origin = ?_origin, ?what,
 			"check_in",
 		);
 		if let Ok((asset_id, amount)) = Matcher::matches_fungibles(what) {
@@ -243,7 +243,7 @@ impl<
 	fn can_check_out(_origin: &Location, what: &Asset, _context: &XcmContext) -> XcmResult {
 		tracing::trace!(
 			target: "xcm::fungibles_adapter",
-			?_origin, ?what,
+			origin = ?_origin, ?what,
 			"can_check_out",
 		);
 		// Check we handle this asset.
@@ -260,7 +260,7 @@ impl<
 	fn check_out(_dest: &Location, what: &Asset, _context: &XcmContext) {
 		tracing::trace!(
 			target: "xcm::fungibles_adapter",
-			?_dest, ?what,
+			dest = ?_dest, ?what,
 			"check_out",
 		);
 		if let Ok((asset_id, amount)) = Matcher::matches_fungibles(what) {
