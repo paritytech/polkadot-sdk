@@ -17,22 +17,16 @@
 
 //! Tests for pallet-assets-freezer.
 
-use crate::mock::*;
+use crate::mock::{self, *};
 
 use codec::Compact;
-use frame_support::{
-	assert_ok, assert_storage_noop,
-	traits::{
-		fungibles::{Inspect, InspectFreeze, MutateFreeze},
-		tokens::{Fortitude, Preservation},
-	},
-};
+use frame::testing_prelude::*;
 use pallet_assets::FrozenBalance;
 
 const WHO: AccountId = 1;
-const ASSET_ID: AssetId = 1;
+const ASSET_ID: mock::AssetId = 1;
 
-fn test_set_freeze(id: DummyFreezeReason, amount: Balance) {
+fn test_set_freeze(id: DummyFreezeReason, amount: mock::Balance) {
 	let mut freezes = Freezes::<Test>::get(ASSET_ID, WHO);
 
 	if let Some(i) = freezes.iter_mut().find(|l| l.id == id) {
@@ -281,8 +275,6 @@ mod impl_mutate_freeze {
 }
 
 mod with_pallet_assets {
-	use frame_support::assert_noop;
-
 	use super::*;
 
 	#[test]

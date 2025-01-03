@@ -222,6 +222,11 @@ pub mod prelude {
 	/// All hashing related things
 	pub use super::hashing::*;
 
+	pub use super::utility::*;
+
+	/// All account related things.
+	pub use super::account::*;
+
 	/// All arithmetic types and traits used for safe math.
 	pub use super::arithmetic::*;
 
@@ -232,11 +237,12 @@ pub mod prelude {
 		Saturating, StaticLookup, TrailingZeroInput,
 	};
 
-	/// Other runtime types and traits
+	/// Bounded storage related types.
+	pub use sp_runtime::{BoundedSlice, BoundedVec};
+
+	/// Other error/result types for runtime
 	#[doc(no_inline)]
-	pub use sp_runtime::{
-		BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
-	};
+	pub use sp_runtime::{DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError};
 }
 
 #[cfg(any(feature = "try-runtime", test))]
@@ -319,7 +325,7 @@ pub mod testing_prelude {
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{
 		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok,
-		assert_storage_noop, storage_alias,
+		assert_storage_noop, ensure, storage_alias,
 	};
 
 	pub use frame_system::{self, mocking::*};
@@ -543,6 +549,23 @@ pub mod derive {
 pub mod hashing {
 	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
+}
+
+/// All account management related traits.
+///
+/// This is already part of the [`prelude`].
+pub mod account {
+	pub use frame_support::traits::{
+		AsEnsureOriginWithArg, ChangeMembers, EitherOfDiverse, InitializeMembers,
+	};
+	pub use sp_runtime::traits::{IdentifyAccount, IdentityLookup};
+}
+
+/// Utility traits not tied to any direct operation in the runtime.
+///
+/// This is already part of the [`prelude`]..
+pub mod utility {
+	pub use frame_support::traits::{Everything, VariantCount, VariantCountOf};
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
