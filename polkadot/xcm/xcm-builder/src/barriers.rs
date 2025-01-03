@@ -41,7 +41,10 @@ impl ShouldExecute for TakeWeightCredit {
 	) -> Result<(), ProcessMessageError> {
 		tracing::trace!(
 			target: "xcm::barriers",
-			?_origin, ?_instructions, ?max_weight, ?properties,
+			origin = ?_origin,
+			instructions = ?_instructions,
+			?max_weight,
+			?properties,
 			"TakeWeightCredit"
 		);
 		properties.weight_credit = properties
@@ -70,7 +73,10 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 	) -> Result<(), ProcessMessageError> {
 		tracing::trace!(
 			target: "xcm::barriers",
-			?origin, ?instructions, ?max_weight, ?_properties,
+			?origin,
+			?instructions,
+			?max_weight,
+			properties = ?_properties,
 			"AllowTopLevelPaidExecutionFrom",
 		);
 
@@ -175,7 +181,10 @@ impl<InnerBarrier: ShouldExecute, LocalUniversal: Get<InteriorLocation>, MaxPref
 	) -> Result<(), ProcessMessageError> {
 		tracing::trace!(
 			target: "xcm::barriers",
-			?origin, ?instructions, ?max_weight, ?properties,
+			?origin,
+			?instructions,
+			?max_weight,
+			?properties,
 			"WithComputedOrigin"
 		);
 		let mut actual_origin = origin.clone();
@@ -232,7 +241,10 @@ impl<InnerBarrier: ShouldExecute> ShouldExecute for TrailingSetTopicAsId<InnerBa
 	) -> Result<(), ProcessMessageError> {
 		tracing::trace!(
 			target: "xcm::barriers",
-			?origin, ?instructions, ?max_weight, ?properties,
+			?origin,
+			?instructions,
+			?max_weight,
+			?properties,
 			"TrailingSetTopicAsId"
 		);
 		let until = if let Some(SetTopic(t)) = instructions.last() {
