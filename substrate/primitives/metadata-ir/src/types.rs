@@ -181,8 +181,13 @@ pub struct ExtrinsicMetadataIR<T: Form = MetaForm> {
 	/// The type of the outermost Extra/Extensions enum.
 	// TODO: metadata-v16: remove this, the `implicit` type can be found in `extensions::implicit`.
 	pub extra_ty: T::Type,
-	/// The transaction extensions in the order they appear in the extrinsic.
+	/// The transaction extensions in the order they appear in the extrinsic for the version 0.
 	pub extensions: Vec<TransactionExtensionMetadataIR<T>>,
+	/// The transaction extensions for each version as a list of index in reference to items in
+	/// `extensions_in_versions` field.
+	pub extensions_by_version: BTreeMap<u8, Vec<u32>>,
+	/// The list of all transaction extensions used in `extensions_by_version`.
+	pub extensions_in_versions: Vec<TransactionExtensionMetadataIR<T>>,
 }
 
 impl IntoPortable for ExtrinsicMetadataIR {
@@ -197,6 +202,8 @@ impl IntoPortable for ExtrinsicMetadataIR {
 			signature_ty: registry.register_type(&self.signature_ty),
 			extra_ty: registry.register_type(&self.extra_ty),
 			extensions: registry.map_into_portable(self.extensions),
+			extensions_by_version: self.extensions_by_version,
+			extensions_in_versions: registry.map_into_portable(self.extensions_in_versions),
 		}
 	}
 }

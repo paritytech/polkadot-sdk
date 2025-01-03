@@ -17,6 +17,10 @@
 
 //! The transaction extension trait.
 
+use super::{
+	DispatchInfoOf, DispatchOriginOf, Dispatchable, ExtensionPostDispatchWeightHandler,
+	PostDispatchInfoOf, RefundWeight,
+};
 use crate::{
 	scale_info::{MetaType, StaticTypeInfo},
 	transaction_validity::{
@@ -26,16 +30,9 @@ use crate::{
 };
 use codec::{Codec, Decode, Encode};
 use impl_trait_for_tuples::impl_for_tuples;
-#[doc(hidden)]
-pub use sp_std::marker::PhantomData;
 use sp_std::{self, fmt::Debug, prelude::*};
 use sp_weights::Weight;
 use tuplex::{PopFront, PushBack};
-
-use super::{
-	DispatchInfoOf, DispatchOriginOf, Dispatchable, ExtensionPostDispatchWeightHandler,
-	PostDispatchInfoOf, RefundWeight,
-};
 
 mod as_transaction_extension;
 mod dispatch_transaction;

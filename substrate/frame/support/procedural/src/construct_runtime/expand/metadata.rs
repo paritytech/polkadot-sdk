@@ -115,6 +115,20 @@ pub fn expand_runtime_metadata(
 
 				use #scrate::__private::metadata_ir::InternalImplRuntimeApis;
 
+
+				let mut versioned_extensions_metadata =
+					#scrate::sp_runtime::traits::VersTxExtLineMetadataBuilder::new();
+
+				<
+					<
+						#extrinsic as #scrate::sp_runtime::traits::ExtrinsicMetadata
+					>::TransactionExtensionsVersions
+					as
+					#scrate::sp_runtime::traits::VersTxExtLine::<
+						<#runtime as #system_path::Config>::RuntimeCall
+					>
+				>::build_metadata(&mut versioned_extensions_metadata);
+
 				#scrate::__private::metadata_ir::MetadataIR {
 					pallets: #scrate::__private::vec![ #(#pallets),* ],
 					extrinsic: #scrate::__private::metadata_ir::ExtrinsicMetadataIR {
@@ -133,6 +147,15 @@ pub fn expand_runtime_metadata(
 									<#runtime as #system_path::Config>::RuntimeCall
 								>
 							>::metadata()
+								.into_iter()
+								.map(|meta| #scrate::__private::metadata_ir::TransactionExtensionMetadataIR {
+									identifier: meta.identifier,
+									ty: meta.ty,
+									implicit: meta.implicit,
+								})
+								.collect(),
+						extensions_by_version: versioned_extensions_metadata.by_version,
+						extensions_in_versions: versioned_extensions_metadata.in_versions
 								.into_iter()
 								.map(|meta| #scrate::__private::metadata_ir::TransactionExtensionMetadataIR {
 									identifier: meta.identifier,
