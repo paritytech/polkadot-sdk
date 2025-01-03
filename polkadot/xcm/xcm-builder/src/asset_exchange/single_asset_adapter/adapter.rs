@@ -109,7 +109,7 @@ where
 				tracing::error!(
 					target: "xcm::SingleAssetExchangeAdapter::exchange_asset",
 					?error,
-					"Could not perform the swap, error"
+					"Could not perform the swap"
 				);
 				drop(credit_in);
 				give.clone()
