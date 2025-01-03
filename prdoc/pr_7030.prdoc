@@ -17,7 +17,8 @@ doc:
       Can be used to induct an arbitrary collective member and is callable by any signed origin. Pays no fees upon success.  
       This is useful in the case that members did not induct themselves and are idling on their rank.
 
-
 crates:
 - name: pallet-core-fellowship
   bump: major
+- name: collectives-westend-runtime
+  bump: patch
