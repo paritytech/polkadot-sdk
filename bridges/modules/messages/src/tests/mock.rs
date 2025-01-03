@@ -461,9 +461,12 @@ pub fn inbound_unrewarded_relayers_state(lane: TestLaneIdType) -> UnrewardedRela
 /// Return test externalities to use in tests.
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
-	pallet_balances::GenesisConfig::<TestRuntime> { balances: vec![(ENDOWED_ACCOUNT, 1_000_000)], ..Default::default() }
-		.assimilate_storage(&mut t)
-		.unwrap();
+	pallet_balances::GenesisConfig::<TestRuntime> {
+		balances: vec![(ENDOWED_ACCOUNT, 1_000_000)],
+		..Default::default()
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
 	sp_io::TestExternalities::new(t)
 }
 

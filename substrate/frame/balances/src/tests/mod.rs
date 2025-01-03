@@ -34,7 +34,7 @@ use frame_support::{
 use frame_system::{self as system, RawOrigin};
 use pallet_transaction_payment::{ChargeTransactionPayment, FungibleAdapter, Multiplier};
 use scale_info::TypeInfo;
-use sp_core::hexdisplay::HexDisplay;
+use sp_core::{hexdisplay::HexDisplay, sr25519::Pair as SrPair, Pair};
 use sp_io;
 use sp_runtime::{
 	traits::{BadOrigin, Zero},
@@ -42,7 +42,6 @@ use sp_runtime::{
 	TokenError,
 };
 use std::collections::BTreeSet;
-use sp_core::{sr25519::Pair as SrPair, Pair};
 
 mod currency_tests;
 mod dispatchable_tests;

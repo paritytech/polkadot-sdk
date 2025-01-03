@@ -152,7 +152,11 @@ pub mod weights;
 
 extern crate alloc;
 
-use alloc::vec::Vec;
+use alloc::{
+	format,
+	string::{String, ToString},
+	vec::Vec,
+};
 use codec::{Codec, MaxEncodedLen};
 use core::{cmp, fmt::Debug, mem, result};
 use frame_support::{
@@ -173,6 +177,7 @@ use frame_support::{
 use frame_system as system;
 pub use impl_currency::{NegativeImbalance, PositiveImbalance};
 use scale_info::TypeInfo;
+use sp_core::{sr25519::Pair as SrPair, Pair};
 use sp_runtime::{
 	traits::{
 		AtLeast32BitUnsigned, CheckedAdd, CheckedSub, MaybeSerializeDeserialize, Saturating,
@@ -180,8 +185,6 @@ use sp_runtime::{
 	},
 	ArithmeticError, DispatchError, FixedPointOperand, Perbill, RuntimeDebug, TokenError,
 };
-use sp_core::{sr25519::Pair as SrPair, Pair};
-use alloc::{format, string::{String, ToString}};
 
 pub use types::{
 	AccountData, AdjustmentDirection, BalanceLock, DustCleaner, ExtraFlags, Reasons, ReserveData,
@@ -508,6 +511,12 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
 		pub balances: Vec<(T::AccountId, T::Balance)>,
+		/// Derived development accounts:
+		/// - `u32`: The number of development accounts to generate.
+		/// - `T::Balance`: The initial balance assigned to each development account.
+		/// - `Option<String>`: An optional derivation string template.
+		///   - Must include `{}` as a placeholder for account indices.
+		///   - Defaults to `"//Sender/{}`" if `None`.
 		pub dev_accounts: (u32, T::Balance, Option<String>),
 	}
 
@@ -515,7 +524,11 @@ pub mod pallet {
 		fn default() -> Self {
 			Self {
 				balances: Default::default(),
-				dev_accounts: (One::one(), <T as Config<I>>::ExistentialDeposit::get(), Some("//Sender/{}".to_string())),
+				dev_accounts: (
+					One::one(),
+					<T as Config<I>>::ExistentialDeposit::get(),
+					Some("//Sender/{}".to_string()),
+				),
 			}
 		}
 	}
@@ -555,7 +568,7 @@ pub mod pallet {
 				Pallet::<T, I>::derive_dev_account(num_accounts, balance, derivation_string);
 			} else {
 				// Derivation string is missing, using default..
-				Pallet::<T, I>::derive_dev_account(num_accounts, balance, derivation.as_deref().unwrap_or("//Sender/{}"));
+				Pallet::<T, I>::derive_dev_account(num_accounts, balance, "//Sender/{}");
 			}
 
 			for &(ref who, free) in self.balances.iter() {
@@ -1286,7 +1299,7 @@ pub mod pallet {
 				// Replace "{}" in the derivation string with the index.
 				let derivation_string = derivation.replace("{}", &index.to_string());
 
-				// Attempt to create the key pair from the derivation string with error handling.
+				// Generate the key pair from the derivation string using sr25519.
 				let pair: SrPair = Pair::from_string(&derivation_string, None)
 					.expect(&format!("Failed to parse derivation string: {derivation_string}"));
 
@@ -1294,13 +1307,11 @@ pub mod pallet {
 				let who = T::AccountId::decode(&mut &pair.public().encode()[..])
 					.expect(&format!("Failed to decode public key from pair: {:?}", pair.public()));
 
-				frame_system::Pallet::<T>::inc_providers(&who);
-				// Insert the account into the store and ensure it succeeds(uri).
-				assert!(T::AccountStore::insert(
-					&who,
-					AccountData { free: balance, ..Default::default() }
-				)
-				.is_ok());
+				// Set the balance for the generated account.
+				Self::mutate_account_handling_dust(&who, |account| {
+					account.free = balance;
+				})
+				.expect(&format!("Failed to add account to keystore: {:?}", who));
 			}
 		}
 	}

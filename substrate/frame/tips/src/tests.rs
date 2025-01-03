@@ -180,7 +180,10 @@ impl Config<Instance1> for Test {
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
 		system: frame_system::GenesisConfig::default(),
-		balances: pallet_balances::GenesisConfig { balances: vec![(0, 100), (1, 98), (2, 1)], ..Default::default() },
+		balances: pallet_balances::GenesisConfig {
+			balances: vec![(0, 100), (1, 98), (2, 1)],
+			..Default::default()
+		},
 		treasury: Default::default(),
 		treasury_1: Default::default(),
 	}

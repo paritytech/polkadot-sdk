@@ -1297,9 +1297,12 @@ mod mock {
 			frame_system::GenesisConfig::<Test>::default()
 				.assimilate_storage(&mut custom_storage)
 				.unwrap();
-			pallet_balances::GenesisConfig::<Test> { balances: vec![(1, 1000)], ..Default::default() }
-				.assimilate_storage(&mut custom_storage)
-				.unwrap();
+			pallet_balances::GenesisConfig::<Test> {
+				balances: vec![(1, 1000)],
+				..Default::default()
+			}
+			.assimilate_storage(&mut custom_storage)
+			.unwrap();
 		}
 
 		sp_tracing::try_init_simple();

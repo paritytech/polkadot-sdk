@@ -187,7 +187,10 @@ impl ExtBuilder {
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
 			system: frame_system::GenesisConfig::default(),
-			balances: pallet_balances::GenesisConfig { balances: vec![(0, 100), (1, 98), (2, 1)], ..Default::default() },
+			balances: pallet_balances::GenesisConfig {
+				balances: vec![(0, 100), (1, 98), (2, 1)],
+				..Default::default()
+			},
 			treasury: Default::default(),
 			treasury_1: Default::default(),
 		}
@@ -338,9 +341,12 @@ fn treasury_account_doesnt_get_deleted() {
 #[allow(deprecated)]
 fn inexistent_account_works() {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	pallet_balances::GenesisConfig::<Test> { balances: vec![(0, 100), (1, 99), (2, 1)], ..Default::default() }
-		.assimilate_storage(&mut t)
-		.unwrap();
+	pallet_balances::GenesisConfig::<Test> {
+		balances: vec![(0, 100), (1, 99), (2, 1)],
+		..Default::default()
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
 	// Treasury genesis config is not build thus treasury account does not exist
 	let mut t: sp_io::TestExternalities = t.into();
 
