@@ -1149,7 +1149,7 @@ fn delegate_call() {
 
 		assert_ok!(builder::call(caller_addr)
 			.value(1337)
-			.data((callee_addr, 0u64, 0u64).encode())
+			.data((callee_addr, u64::MAX, u64::MAX).encode())
 			.build());
 	});
 }
@@ -3453,13 +3453,13 @@ fn deposit_limit_in_nested_calls() {
 
 		// We do not remove any storage but add a storage item of 12 bytes in the caller
 		// contract. This would cost 12 + 2 = 14 Balance.
-		// The nested call doesn't get a special limit, which is set by passing 0 to it.
+		// The nested call doesn't get a special limit, which is set by passing `u64::MAX` to it.
 		// This should fail as the specified parent's limit is less than the cost: 13 <
 		// 14.
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller)
 				.storage_deposit_limit(13)
-				.data((100u32, &addr_callee, U256::from(0u64)).encode())
+				.data((100u32, &addr_callee, U256::from(u64::MAX)).encode())
 				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
@@ -3467,13 +3467,13 @@ fn deposit_limit_in_nested_calls() {
 		// Now we specify the parent's limit high enough to cover the caller's storage
 		// additions. However, we use a single byte more in the callee, hence the storage
 		// deposit should be 15 Balance.
-		// The nested call doesn't get a special limit, which is set by passing 0 to it.
+		// The nested call doesn't get a special limit, which is set by passing `u64::MAX` to it.
 		// This should fail as the specified parent's limit is less than the cost: 14
 		// < 15.
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller)
 				.storage_deposit_limit(14)
-				.data((101u32, &addr_callee, U256::from(0u64)).encode())
+				.data((101u32, &addr_callee, U256::from(u64::MAX)).encode())
 				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
@@ -3495,7 +3495,7 @@ fn deposit_limit_in_nested_calls() {
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller)
 				.storage_deposit_limit(0)
-				.data((87u32, &addr_callee, U256::from(0u64)).encode())
+				.data((87u32, &addr_callee, U256::from(u64::MAX)).encode())
 				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
