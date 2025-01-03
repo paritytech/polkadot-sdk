@@ -21,3 +21,5 @@ crates:
   bump: major
 - name: pallet-skip-feeless-payment
   bump: major
+- name: frame-system
+  bump: major
