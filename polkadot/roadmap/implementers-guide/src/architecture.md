@@ -93,7 +93,7 @@ Runtime logic is divided up into Modules and APIs. Modules encapsulate particula
 consist of storage, routines, and entry-points. Routines are invoked by entry points, by other modules, upon block
 initialization or closing. Routines can read and alter the storage of the module. Entry-points are the means by which
 new information is introduced to a module and can limit the origins (user, root, parachain) that they accept being
-called by. Each block in the blockchain contains a set of Extrinsics. Each extrinsic targets a a specific entry point to
+called by. Each block in the blockchain contains a set of Extrinsics. Each extrinsic targets a specific entry point to
 trigger and which data should be passed to it. Runtime APIs provide a means for Node-side behavior to extract meaningful
 information from the state of a single fork.
 
