@@ -125,7 +125,9 @@ impl<
 		} else {
 			tracing::trace!(
 				target: "xcm::contains",
-				"RemoteAssetFromLocation asset: {asset:?}, origin: {origin:?}",
+				?asset,
+				?origin,
+				"RemoteAssetFromLocation",
 			);
 		}
 
