@@ -12,6 +12,6 @@ crates:
     bump: minor
   - name: assets-common
     bump: minor
-  - bridge-hub-westend-runtime
+  - name: bridge-hub-westend-runtime
     bump: minor
     
