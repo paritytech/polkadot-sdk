@@ -1,11 +1,16 @@
 #![allow(missing_docs)]
 use crate::{evm::Bytes, ExecReturnValue, Weight};
-use alloc::vec::Vec;
+use alloc::{string::String, vec::Vec};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_core::{H160, H256, U256};
 
+/// Tracer configuration used to trace calls.
+#[derive(Debug, Clone, Encode, Decode, Serialize, Deserialize)]
+pub enum TracerConfig {
+	CallTracer { with_logs: bool },
+}
 /// The type of call that was executed.
 #[derive(
 	Default, TypeInfo, Encode, Decode, Serialize, Deserialize, Eq, PartialEq, Clone, Debug,

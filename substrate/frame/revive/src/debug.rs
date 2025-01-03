@@ -22,7 +22,7 @@ pub use crate::{
 	BalanceOf,
 };
 use crate::{Config, DispatchError, GasMeter, LOG_TARGET};
-use alloc::vec::Vec;
+use alloc::{format, vec::Vec};
 use sp_core::{H160, H256, U256};
 
 /// Umbrella trait for all interfaces that serves for debugging.

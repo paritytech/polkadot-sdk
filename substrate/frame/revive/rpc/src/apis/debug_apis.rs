@@ -15,7 +15,7 @@ pub trait DebugRpc {
 	async fn trace_block_by_number(
 		&self,
 		block: Option<BlockNumberOrTag>,
-		tracer: Tracer,
+		tracer_config: TracerConfig,
 	) -> RpcResult<Vec<TransactionTrace>>;
 
 	/// Returns a transaction's traces by replaying it. This method provides a detailed
@@ -30,6 +30,6 @@ pub trait DebugRpc {
 	async fn trace_transaction(
 		&self,
 		transaction_hash: H256,
-		tracer: Tracer,
+		tracer_config: TracerConfig,
 	) -> RpcResult<CallTrace>;
 }
