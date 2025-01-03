@@ -19,7 +19,7 @@ jobs:
     uses: ./.github/workflows/reusable-preflight.yml
 
   build:
-    timeout-minutes: 30
+    timeout-minutes: 50
     needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER_BENCHMARK }}
     container:
