@@ -362,7 +362,7 @@ impl<ResponseHandler: OnResponse> ShouldExecute for AllowKnownQueryResponses<Res
 	) -> Result<(), ProcessMessageError> {
 		tracing::trace!(
 			target: "xcm::barriers",
-			?origin, ?instructions, ?_max_weight, ?_properties,
+			?origin, ?instructions, max_weight = ?_max_weight, properties = ?_properties,
 			"AllowKnownQueryResponses"
 		);
 		instructions
