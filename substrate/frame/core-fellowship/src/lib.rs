@@ -21,6 +21,7 @@
 //! This only handles members of non-zero rank.
 //!
 //! # Process Flow
+//!
 //! - Begin with a call to `induct`, where some privileged origin (perhaps a pre-existing member of
 //!   `rank > 1`) is able to make a candidate from an account and introduce it to be tracked in this
 //!   pallet in order to allow evidence to be submitted and promotion voted on.
@@ -36,8 +37,9 @@
 //!   `bump` to demote the candidate by one rank.
 //! - If a candidate fails to be promoted to a member within the `offboard_timeout` period, then
 //!   anyone may call `bump` to remove the account's candidacy.
-//! - Pre-existing members may call `import` to have their rank recognised and be inducted into this
-//!   pallet (to gain a salary and allow for eventual promotion).
+//! - Pre-existing members may call `import_member` on themselves (formerly `import`) to have their
+//!   rank recognised and be inducted into this pallet (to gain a salary and allow for eventual
+//!   promotion).
 //! - If, externally to this pallet, a member or candidate has their rank removed completely, then
 //!   `offboard` may be called to remove them entirely from this pallet.
 //!
