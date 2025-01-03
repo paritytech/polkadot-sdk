@@ -16,7 +16,6 @@ codec = { features = ["derive"], workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
-log = { workspace = true }
 pallet-asset-conversion = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
@@ -24,6 +23,7 @@ sp-arithmetic = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-weights = { workspace = true }
+tracing = { workspace = true }
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
 
@@ -65,7 +65,6 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"pallet-asset-conversion/std",
 	"pallet-transaction-payment/std",
 	"polkadot-parachain-primitives/std",
@@ -75,6 +74,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-weights/std",
+	"tracing/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]

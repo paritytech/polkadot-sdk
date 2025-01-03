@@ -33,7 +33,7 @@ impl<IsForeign: ContainsPair<Location, Location>> ContainsPair<Asset, Location>
 	for IsForeignConcreteAsset<IsForeign>
 {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
-		log::trace!(target: "xcm::contains", "IsForeignConcreteAsset asset: {:?}, origin: {:?}", asset, origin);
+		tracing::trace!(target: "xcm::contains", ?asset, ?origin, "IsForeignConcreteAsset");
 		matches!(asset.id, AssetId(ref id) if IsForeign::contains(id, origin))
 	}
 }
@@ -86,11 +86,7 @@ impl<
 		match ensure_is_remote(universal_source.clone(), a.clone()) {
 			Ok((network_id, _)) => network_id == ExpectedNetworkId::get(),
 			Err(e) => {
-				log::trace!(
-					target: "xcm::contains",
-					"FromNetwork origin: {:?} is not remote to the universal_source: {:?} {:?}",
-					a, universal_source, e
-				);
+				tracing::trace!(target: "xcm::contains", global_location = ?a, ?universal_source, error = ?e, "FromNetwork origin is not remote to the universal_source");
 				false
 			},
 		}
@@ -118,15 +114,20 @@ impl<
 		let expected_origin = OriginLocation::get();
 		// ensure `origin` is expected `OriginLocation`
 		if !expected_origin.eq(&origin) {
-			log::trace!(
+			tracing::trace!(
 				target: "xcm::contains",
-				"RemoteAssetFromLocation asset: {asset:?}, origin: {origin:?} is not from expected {expected_origin:?}"
+				?asset,
+				?origin,
+				?expected_origin,
+				"RemoteAssetFromLocation: Asset is not from expected origin"
 			);
 			return false;
 		} else {
-			log::trace!(
+			tracing::trace!(
 				target: "xcm::contains",
-				"RemoteAssetFromLocation asset: {asset:?}, origin: {origin:?}",
+				?asset,
+				?origin,
+				"RemoteAssetFromLocation",
 			);
 		}
 

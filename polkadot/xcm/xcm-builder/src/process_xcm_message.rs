@@ -48,15 +48,16 @@ impl<
 		id: &mut XcmHash,
 	) -> Result<bool, ProcessMessageError> {
 		let versioned_message = VersionedXcm::<Call>::decode(&mut &message[..]).map_err(|e| {
-			log::trace!(
+			tracing::trace!(
 				target: LOG_TARGET,
-				"`VersionedXcm` failed to decode: {e:?}",
+				?e,
+				"`VersionedXcm` failed to decode",
 			);
 
 			ProcessMessageError::Corrupt
 		})?;
 		let message = Xcm::<Call>::try_from(versioned_message).map_err(|_| {
-			log::trace!(
+			tracing::trace!(
 				target: LOG_TARGET,
 				"Failed to convert `VersionedXcm` into `xcm::prelude::Xcm`!",
 			);
@@ -64,7 +65,7 @@ impl<
 			ProcessMessageError::Unsupported
 		})?;
 		let pre = XcmExecutor::prepare(message).map_err(|_| {
-			log::trace!(
+			tracing::trace!(
 				target: LOG_TARGET,
 				"Failed to prepare message.",
 			);
@@ -74,7 +75,7 @@ impl<
 		// The worst-case weight:
 		let required = pre.weight_of();
 		if !meter.can_consume(required) {
-			log::trace!(
+			tracing::trace!(
 				target: LOG_TARGET,
 				"Xcm required {required} more than remaining {}",
 				meter.remaining(),
@@ -86,14 +87,14 @@ impl<
 		let (consumed, result) = match XcmExecutor::execute(origin.into(), pre, id, Weight::zero())
 		{
 			Outcome::Complete { used } => {
-				log::trace!(
+				tracing::trace!(
 					target: LOG_TARGET,
 					"XCM message execution complete, used weight: {used}",
 				);
 				(used, Ok(true))
 			},
 			Outcome::Incomplete { used, error } => {
-				log::trace!(
+				tracing::trace!(
 					target: LOG_TARGET,
 					"XCM message execution incomplete, used weight: {used}, error: {error:?}",
 				);
@@ -101,7 +102,7 @@ impl<
 			},
 			// In the error-case we assume the worst case and consume all possible weight.
 			Outcome::Error { error } => {
-				log::trace!(
+				tracing::trace!(
 					target: LOG_TARGET,
 					"XCM message execution error: {error:?}",
 				);

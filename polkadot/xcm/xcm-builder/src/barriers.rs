@@ -39,10 +39,13 @@ impl ShouldExecute for TakeWeightCredit {
 		max_weight: Weight,
 		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::barriers",
-			"TakeWeightCredit origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
-			_origin, _instructions, max_weight, properties,
+			origin = ?_origin,
+			instructions = ?_instructions,
+			?max_weight,
+			?properties,
+			"TakeWeightCredit"
 		);
 		properties.weight_credit = properties
 			.weight_credit
@@ -68,10 +71,13 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 		max_weight: Weight,
 		_properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::barriers",
-			"AllowTopLevelPaidExecutionFrom origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
-			origin, instructions, max_weight, _properties,
+			?origin,
+			?instructions,
+			?max_weight,
+			properties = ?_properties,
+			"AllowTopLevelPaidExecutionFrom",
 		);
 
 		ensure!(T::contains(origin), ProcessMessageError::Unsupported);
@@ -173,10 +179,13 @@ impl<InnerBarrier: ShouldExecute, LocalUniversal: Get<InteriorLocation>, MaxPref
 		max_weight: Weight,
 		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::barriers",
-			"WithComputedOrigin origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
-			origin, instructions, max_weight, properties,
+			?origin,
+			?instructions,
+			?max_weight,
+			?properties,
+			"WithComputedOrigin"
 		);
 		let mut actual_origin = origin.clone();
 		let skipped = Cell::new(0usize);
@@ -230,10 +239,13 @@ impl<InnerBarrier: ShouldExecute> ShouldExecute for TrailingSetTopicAsId<InnerBa
 		max_weight: Weight,
 		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::barriers",
-			"TrailingSetTopicAsId origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
-			origin, instructions, max_weight, properties,
+			?origin,
+			?instructions,
+			?max_weight,
+			?properties,
+			"TrailingSetTopicAsId"
 		);
 		let until = if let Some(SetTopic(t)) = instructions.last() {
 			properties.message_id = Some(*t);
@@ -279,10 +291,10 @@ impl<T: Contains<Location>> ShouldExecute for AllowUnpaidExecutionFrom<T> {
 		_max_weight: Weight,
 		_properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::barriers",
-			"AllowUnpaidExecutionFrom origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
-			origin, instructions, _max_weight, _properties,
+			?origin, ?instructions, max_weight = ?_max_weight, properties = ?_properties,
+			"AllowUnpaidExecutionFrom"
 		);
 		ensure!(T::contains(origin), ProcessMessageError::Unsupported);
 		Ok(())
@@ -301,10 +313,10 @@ impl<T: Contains<Location>> ShouldExecute for AllowExplicitUnpaidExecutionFrom<T
 		max_weight: Weight,
 		_properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::barriers",
-			"AllowExplicitUnpaidExecutionFrom origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
-			origin, instructions, max_weight, _properties,
+			?origin, ?instructions, ?max_weight, properties = ?_properties,
+			"AllowExplicitUnpaidExecutionFrom",
 		);
 		ensure!(T::contains(origin), ProcessMessageError::Unsupported);
 		instructions.matcher().match_next_inst(|inst| match inst {
@@ -360,10 +372,10 @@ impl<ResponseHandler: OnResponse> ShouldExecute for AllowKnownQueryResponses<Res
 		_max_weight: Weight,
 		_properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::barriers",
-			"AllowKnownQueryResponses origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
-			origin, instructions, _max_weight, _properties,
+			?origin, ?instructions, max_weight = ?_max_weight, properties = ?_properties,
+			"AllowKnownQueryResponses"
 		);
 		instructions
 			.matcher()
@@ -388,10 +400,10 @@ impl<T: Contains<Location>> ShouldExecute for AllowSubscriptionsFrom<T> {
 		_max_weight: Weight,
 		_properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::barriers",
-			"AllowSubscriptionsFrom origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
-			origin, instructions, _max_weight, _properties,
+			?origin, ?instructions, max_weight = ?_max_weight, properties = ?_properties,
+			"AllowSubscriptionsFrom",
 		);
 		ensure!(T::contains(origin), ProcessMessageError::Unsupported);
 		instructions
@@ -419,10 +431,10 @@ impl ShouldExecute for AllowHrmpNotificationsFromRelayChain {
 		_max_weight: Weight,
 		_properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::barriers",
-			"AllowHrmpNotificationsFromRelayChain origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
-			origin, instructions, _max_weight, _properties,
+			?origin, ?instructions, max_weight = ?_max_weight, properties = ?_properties,
+			"AllowHrmpNotificationsFromRelayChain"
 		);
 		// accept only the Relay Chain
 		ensure!(matches!(origin.unpack(), (1, [])), ProcessMessageError::Unsupported);
@@ -489,7 +501,7 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 				ReserveAssetDeposited { .. }
 					if matches!(origin, Location { parents: 1, interior: Here }) =>
 				{
-					log::warn!(
+					tracing::warn!(
 						target: "xcm::barrier",
 						"Unexpected ReserveAssetDeposited from the Relay Chain",
 					);
