@@ -78,7 +78,7 @@ mod rep {
 	pub const ANY_TRANSACTION: Rep = Rep::new(-(1 << 4), "Any transaction");
 	/// Reputation change when a peer sends us any transaction that is not invalid.
 	pub const ANY_TRANSACTION_REFUND: Rep = Rep::new(1 << 4, "Any transaction (refund)");
-	/// Reputation change when a peer sends us an transaction that we didn't know about.
+	/// Reputation change when a peer sends us a transaction that we didn't know about.
 	pub const GOOD_TRANSACTION: Rep = Rep::new(1 << 7, "Good transaction");
 	/// Reputation change when a peer sends us a bad transaction.
 	pub const BAD_TRANSACTION: Rep = Rep::new(-(1 << 12), "Bad transaction");
