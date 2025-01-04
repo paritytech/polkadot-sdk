@@ -36,7 +36,7 @@ pub struct GenerateKeyCmdCommon {
 	file: Option<PathBuf>,
 
 	/// The output is in raw binary format.
-	/// If not given, the output is written as an hex encoded string.
+	/// If not given, the output is written as a hex encoded string.
 	#[arg(long)]
 	bin: bool,
 }
