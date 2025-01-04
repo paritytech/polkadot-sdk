@@ -93,7 +93,15 @@ where
 mod tests {
 	use super::*;
 	use crate::mock::{new_test_ext, Test, CALL};
+<<<<<<< HEAD
 	use frame_support::{assert_noop, assert_ok};
+=======
+	use frame_support::{assert_ok, dispatch::DispatchInfo};
+	use sp_runtime::{
+		traits::{AsTransactionAuthorizedOrigin, DispatchTransaction, TxBaseImplication},
+		transaction_validity::{TransactionSource::External, TransactionValidityError},
+	};
+>>>>>>> b5a5ac4 (Make `TransactionExtension` tuple of tuple transparent for implication (#7028))
 
 	#[test]
 	fn zero_account_ban_works() {
@@ -104,7 +112,30 @@ mod tests {
 				CheckNonZeroSender::<Test>::new().validate(&0, CALL, &info, len),
 				InvalidTransaction::BadSigner
 			);
+<<<<<<< HEAD
 			assert_ok!(CheckNonZeroSender::<Test>::new().validate(&1, CALL, &info, len));
+=======
+			assert_ok!(CheckNonZeroSender::<Test>::new().validate_only(
+				Some(1).into(),
+				CALL,
+				&info,
+				len,
+				External,
+				0,
+			));
+		})
+	}
+
+	#[test]
+	fn unsigned_origin_works() {
+		new_test_ext().execute_with(|| {
+			let info = DispatchInfo::default();
+			let len = 0_usize;
+			let (_, _, origin) = CheckNonZeroSender::<Test>::new()
+				.validate(None.into(), CALL, &info, len, (), &TxBaseImplication(CALL), External)
+				.unwrap();
+			assert!(!origin.is_transaction_authorized());
+>>>>>>> b5a5ac4 (Make `TransactionExtension` tuple of tuple transparent for implication (#7028))
 		})
 	}
 }
