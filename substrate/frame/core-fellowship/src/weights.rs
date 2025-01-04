@@ -61,6 +61,7 @@ pub trait WeightInfo {
 	fn promote_fast(r: u32, ) -> Weight;
 	fn offboard() -> Weight;
 	fn import() -> Weight;
+	fn import_member() -> Weight;
 	fn approve() -> Weight;
 	fn submit_evidence() -> Weight;
 }
@@ -237,6 +238,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `RankedCollective::Members` (r:1 w:0)
 	/// Proof: `RankedCollective::Members` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)
 	fn import() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `313`
+		//  Estimated: `3514`
+		// Minimum execution time: 16_534_000 picoseconds.
+		Weight::from_parts(17_046_000, 3514)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	// todo
+	fn import_member() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `313`
 		//  Estimated: `3514`
@@ -446,6 +457,16 @@ impl WeightInfo for () {
 	/// Storage: `RankedCollective::Members` (r:1 w:0)
 	/// Proof: `RankedCollective::Members` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)
 	fn import() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `313`
+		//  Estimated: `3514`
+		// Minimum execution time: 16_534_000 picoseconds.
+		Weight::from_parts(17_046_000, 3514)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	// todo
+	fn import_member() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `313`
 		//  Estimated: `3514`
