@@ -53,7 +53,7 @@ pub trait UnlockConfig<I>: 'static {
 	/// Should match the currency type previously used for the pallet, if applicable.
 	type DataDepositPerByte: Get<BalanceOf<Self, I>>;
 	/// The name of the pallet as previously configured in
-	/// [`construct_runtime!`](frame_support::construct_runtime).
+	/// [`construct_runtime!`](construct_runtime).
 	type PalletName: Get<&'static str>;
 	/// The DB weight as configured in the runtime to calculate the correct weight.
 	type DbWeight: Get<weights::RuntimeDbWeight>;

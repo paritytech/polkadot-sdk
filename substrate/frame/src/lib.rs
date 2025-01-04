@@ -204,8 +204,8 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::traits::{
-		Contains, EstimateNextSessionRotation, Everything, InsideBoth, InstanceFilter, IsSubType, OnRuntimeUpgrade,
-		VariantCount, VariantCountOf, OneSessionHandler,
+		Contains, EstimateNextSessionRotation, Everything, InsideBoth, InstanceFilter, IsSubType,
+		OnRuntimeUpgrade, OneSessionHandler, VariantCount, VariantCountOf,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -238,7 +238,8 @@ pub mod prelude {
 
 	/// Other runtime types and traits
 	#[doc(no_inline)]
-	pub use sp_runtime::{BoundToRuntimeAppPublic,
+	pub use sp_runtime::{
+		BoundToRuntimeAppPublic,
 		DispatchError::{self, BadOrigin},
 		DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
 	};
