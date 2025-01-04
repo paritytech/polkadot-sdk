@@ -80,6 +80,7 @@ jobs:
       - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
       - name: check toml format
         run: |
+          taplo --version
           taplo format --check --config .config/taplo.toml
           echo "Please run `taplo format --config .config/taplo.toml` to fix any toml formatting issues"
   check-workspace:
