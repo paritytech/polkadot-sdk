@@ -1609,6 +1609,9 @@ impl pallet_opf::Config for Runtime {
 	/// Pot PalletId
 	type PotId = PotId;
 
+	/// A reason for placing a hold on funds.
+	type RuntimeHoldReason = RuntimeHoldReason;
+
 	/// Maximum number of whitelisted projects
 	type MaxProjects = MaxProjects;
 

@@ -47,7 +47,7 @@ pub fn run_to_block(n: BlockNumberFor<Test>) {
 fn project_registration_works() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Opf::register_project(RawOrigin::Root.into(), BOB));
-		let project_list = WhiteListedProjectAccounts::<Test>::get().to_vec();
-		assert_eq!(project_list.len(), 1);
+		let project_list = WhiteListedProjectAccounts::<Test>::get(BOB);
+		assert!(project_list.is_some());
 	})
 }

@@ -42,8 +42,14 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Type to access the Balances Pallet.
-		type NativeBalance: fungible::Inspect<Self::AccountId> + fungible::Mutate<Self::AccountId>;
+		type NativeBalance: fungible::Inspect<Self::AccountId>
+		+ fungible::Mutate<Self::AccountId>
+		+ fungible::hold::Inspect<Self::AccountId>
+		+ fungible::hold::Mutate<Self::AccountId, Reason = Self::RuntimeHoldReason>
+		+ fungible::freeze::Inspect<Self::AccountId>
+		+ fungible::freeze::Mutate<Self::AccountId>;
 
+		type RuntimeHoldReason: From<HoldReason>;
 		/// Provider for the block number.
 		type BlockNumberProvider: BlockNumberProvider;
 
@@ -78,9 +84,17 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 	}
 
+	/// A reason for placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// Funds are held for a given buffer time before payment
+		#[codec(index = 0)]
+		FundsReserved,
+	}
+
 	/// Number of Voting Rounds executed so far
 	#[pallet::storage]
-	pub type VotingRoundNumber<T: Config> = StorageValue<_, u32, ValueQuery>;
+	pub type NextVotingRoundNumber<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// Returns Infos about a Voting Round agains the Voting Round index
 	#[pallet::storage]
@@ -95,7 +109,7 @@ pub mod pallet {
 	/// List of Whitelisted Project registered
 	#[pallet::storage]
 	pub type WhiteListedProjectAccounts<T: Config> =
-		StorageValue<_, BoundedVec<ProjectInfo<T>, T::MaxProjects>, ValueQuery>;
+	CountedStorageMap<_, Twox64Concat, ProjectId<T>, ProjectInfo<T>, OptionQuery>;
 
 	/// Returns (positive_funds,negative_funds) of Whitelisted Project accounts
 	#[pallet::storage]
@@ -229,7 +243,6 @@ pub mod pallet {
 		/// ## Events
 		/// Emits [`Event::<T>::Projectlisted`].
 		#[pallet::call_index(0)]
-		#[transactional]
 		pub fn register_project(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
 			let _caller = ensure_root(origin)?;
 			let when = T::BlockNumberProvider::current_block_number();
@@ -308,16 +321,14 @@ pub mod pallet {
 			let _caller = ensure_signed(origin)?;
 			let now = T::BlockNumberProvider::current_block_number();
 			let info = Spends::<T>::get(&project_id).ok_or(Error::<T>::InexistentSpend)?;
-			match now {
-				_ if now >= info.expire => {
+			if now >= info.expire {
 					Spends::<T>::remove(&project_id);
 					Self::deposit_event(Event::ExpiredClaim {
 						expired_when: info.expire,
 						project_id,
 					});
 					Ok(())
-				},
-				_ if now >= info.expire => {
+				} else if now < info.expire {
 					// transfer the funds
 					Self::spend(info.amount, project_id.clone())?;
 
@@ -327,8 +338,8 @@ pub mod pallet {
 						project_id,
 					});
 					Ok(())
-				},
-				_ => Err(DispatchError::Other("Not Claiming Period")),
+				} else {
+				Err(DispatchError::Other("Not Claiming Period"))
 			}
 		}
 	}

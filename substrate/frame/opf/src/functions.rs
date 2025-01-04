@@ -53,7 +53,7 @@ impl<T: Config> Pallet<T> {
 	// Voting Period checks
 	pub fn period_check() -> DispatchResult {
 		// Get current voting round & check if we are in voting period or not
-		let current_round_index = VotingRoundNumber::<T>::get().saturating_sub(1);
+		let current_round_index = NextVotingRoundNumber::<T>::get().saturating_sub(1);
 		let round = VotingRounds::<T>::get(current_round_index).ok_or(Error::<T>::NoRoundFound)?;
 		let now = T::BlockNumberProvider::current_block_number();
 		ensure!(now < round.round_ending_block, Error::<T>::VotingRoundOver);
@@ -61,11 +61,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn unlist_project(project_id: ProjectId<T>) -> DispatchResult {
-		WhiteListedProjectAccounts::<T>::mutate(|value| {
-			let mut val = value.clone();
-			val.retain(|x| x.project_id != project_id);
-			*value = val;
-		});
+		WhiteListedProjectAccounts::<T>::remove(&project_id);
 
 		Ok(())
 	}
@@ -73,8 +69,9 @@ impl<T: Config> Pallet<T> {
 	// The total reward to be distributed is a portion or inflation, determined in another pallet
 	// Reward calculation is executed within the Voting period
 	pub fn calculate_rewards(total_reward: BalanceOf<T>) -> DispatchResult {
-		let projects = WhiteListedProjectAccounts::<T>::get();
-		let round_number = VotingRoundNumber::<T>::get().saturating_sub(1);
+		let projects: Vec<ProjectId<T>> = WhiteListedProjectAccounts::<T>::iter_keys().collect();
+		//if projects.is_empty() { return Ok(()) }
+		let round_number = NextVotingRoundNumber::<T>::get().saturating_sub(1);
 		let round = VotingRounds::<T>::get(round_number).ok_or(Error::<T>::NoRoundFound)?;
 		if projects.clone().len() > 0 as usize {
 			let total_positive_votes_amount = round.total_positive_votes_amount;
@@ -85,10 +82,9 @@ impl<T: Config> Pallet<T> {
 
 			// for each project, calculate the percentage of votes, the amount to be distributed,
 			// and then populate the storage Projects
-			for project in projects {
-				let project_id = &project.project_id;
-				if ProjectFunds::<T>::contains_key(project_id) {
-					let funds = ProjectFunds::<T>::get(project_id);
+			for project_id in projects {
+				if ProjectFunds::<T>::contains_key(&project_id) {
+					let funds = ProjectFunds::<T>::get(&project_id);
 					let project_positive_reward = funds[0];
 					let project_negative_reward = funds[1];
 
@@ -102,7 +98,7 @@ impl<T: Config> Pallet<T> {
 
 						// Send calculated reward for reward distribution
 						let project_info = ProjectInfo {
-							project_id: project.project_id.clone(),
+							project_id: project_id.clone(),
 							submission_block: when,
 							amount: final_amount,
 						};
@@ -111,7 +107,7 @@ impl<T: Config> Pallet<T> {
 						let _ = SpendInfo::<T>::new(&project_info);
 
 						Self::deposit_event(Event::<T>::ProjectFundingAccepted {
-							project_id: project.project_id,
+							project_id: project_id.clone(),
 							when,
 							round_number,
 							amount: project_info.amount,
@@ -119,7 +115,7 @@ impl<T: Config> Pallet<T> {
 					} else {
 						Self::deposit_event(Event::<T>::ProjectFundingRejected {
 							when,
-							project_id: project.project_id,
+							project_id: project_id.clone(),
 						})
 					}
 				}
@@ -138,13 +134,13 @@ impl<T: Config> Pallet<T> {
 		if meter.try_consume(max_block_weight).is_err() {
 			return meter.consumed();
 		}
-		let mut round_index = VotingRoundNumber::<T>::get();
+		let mut round_index = NextVotingRoundNumber::<T>::get();
 
 		// No active round?
 		if round_index == 0 {
 			// Start the first voting round
 			let _round0 = VotingRoundInfo::<T>::new();
-			round_index = VotingRoundNumber::<T>::get();
+			round_index = NextVotingRoundNumber::<T>::get();
 		}
 
 		let current_round_index = round_index.saturating_sub(1);
@@ -154,8 +150,7 @@ impl<T: Config> Pallet<T> {
 
 		// Conditions for reward distribution preparations are:
 		// - We are at the end of voting_round period
-
-		if now == round_ending_block {
+		if now >= round_ending_block {
 			// prepare reward distribution
 			// for now we are using the temporary-constant reward.
 			let _ = Self::calculate_rewards(T::TemporaryRewards::get())

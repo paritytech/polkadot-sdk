@@ -248,6 +248,7 @@ impl pallet_opf::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type NativeBalance = Balances;
 	type PotId = PotId;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type MaxProjects = MaxProjects;
 	type VotingPeriod = VotingPeriod;
 	type ClaimingPeriod = VotingPeriod;

@@ -129,13 +129,10 @@ impl<T: Config> ProjectInfo<T> {
 	pub fn new(project_id: ProjectId<T>) {
 		let submission_block = T::BlockNumberProvider::current_block_number();
 		let amount = Zero::zero();
-		let project_info = ProjectInfo { project_id, submission_block, amount };
-		WhiteListedProjectAccounts::<T>::mutate(|project| {
-			let _ = project
-				.try_push(project_info.clone())
-				.map_err(|_| Error::<T>::MaximumProjectsNumber);
-		});
+		let project_info = ProjectInfo { project_id: project_id.clone(), submission_block, amount };
+		WhiteListedProjectAccounts::<T>::insert(project_id, project_info);
 	}
+
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
@@ -158,8 +155,11 @@ pub struct VoteInfo<T: Config> {
 // If no conviction, user's funds are released at the end of the voting round
 impl<T: Config> VoteInfo<T> {
 	pub fn funds_unlock(&mut self) {
-		//let conviction_coeff = <u8 as From<Conviction>>::from(self.conviction);
-		let funds_unlock_block = self.round.round_ending_block;
+		let conviction_coeff = <u8 as From<Conviction>>::from(self.conviction);
+		let funds_unlock_block = self
+			.round
+			.round_ending_block
+			.saturating_add(T::VoteValidityPeriod::get().saturating_mul(conviction_coeff.into()));
 		self.funds_unlock_block = funds_unlock_block;
 	}
 }
@@ -193,11 +193,8 @@ impl<T: Config> VotingRoundInfo<T> {
 		let round_starting_block = T::BlockNumberProvider::current_block_number();
 		let round_ending_block = round_starting_block
 			.clone()
-			.checked_add(&T::VotingPeriod::get())
-			.expect("Invalid Result");
-		let round_number = VotingRoundNumber::<T>::get();
-		let new_number = round_number.checked_add(1).expect("Invalid Result");
-		VotingRoundNumber::<T>::put(new_number);
+			.saturating_add(T::VotingPeriod::get());  
+			let round_number = NextVotingRoundNumber::<T>::mutate(|n| { let res = *n; *n = n.saturating_add(1); res });
 		let total_positive_votes_amount = BalanceOf::<T>::zero();
 		let total_negative_votes_amount = BalanceOf::<T>::zero();
 
