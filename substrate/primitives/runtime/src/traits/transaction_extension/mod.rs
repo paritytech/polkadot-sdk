@@ -43,6 +43,12 @@ mod dispatch_transaction;
 pub use as_transaction_extension::AsTransactionExtension;
 pub use dispatch_transaction::DispatchTransaction;
 
+/// Provides `Sealed` trait.
+mod private {
+	/// Special trait that prevents the implementation of some traits outside of this crate.
+	pub trait Sealed {}
+}
+
 /// The base implication in a transaction.
 ///
 /// This struct is used to represent the base implication in the transaction, that is
@@ -59,6 +65,8 @@ impl<T: Encode> Implication for TxBaseImplication<T> {
 		ImplicationParts { base: self, explicit: &(), implicit: &() }
 	}
 }
+
+impl<T> private::Sealed for TxBaseImplication<T> {}
 
 /// The implication in a transaction.
 ///
@@ -83,6 +91,8 @@ impl<Base: Encode, Explicit: Encode, Implicit: Encode> Implication
 	}
 }
 
+impl<Base, Explicit, Implicit> private::Sealed for ImplicationParts<Base, Explicit, Implicit> {}
+
 /// Interface of implications in the transaction extension pipeline.
 ///
 /// Implications can be encoded, this is useful for checking signature on the implications.
@@ -91,7 +101,7 @@ impl<Base: Encode, Explicit: Encode, Implicit: Encode> Implication
 ///
 /// The concept of implication in the transaction extension pipeline is explained in the trait
 /// documentation: [`TransactionExtension`].
-pub trait Implication: Encode {
+pub trait Implication: Encode + private::Sealed {
 	/// Destructure the implication into its parts.
 	fn parts(&self) -> ImplicationParts<&impl Encode, &impl Encode, &impl Encode>;
 }
