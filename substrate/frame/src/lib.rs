@@ -204,13 +204,17 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::traits::{
-		Contains, Everything, InsideBoth, InstanceFilter, IsSubType, OnRuntimeUpgrade,
-		VariantCount, VariantCountOf,
+		Contains, EstimateNextSessionRotation, Everything, InsideBoth, InstanceFilter, IsSubType, OnRuntimeUpgrade,
+		VariantCount, VariantCountOf, OneSessionHandler,
 	};
 
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
 	pub use frame_system::pallet_prelude::*;
+
+	/// Transaction related helpers to submit transactions.
+	#[doc(no_inline)]
+	pub use frame_system::offchain::*;
 
 	/// All FRAME-relevant derive macros.
 	#[doc(no_inline)]
@@ -219,11 +223,11 @@ pub mod prelude {
 	/// All hashing related things
 	pub use super::hashing::*;
 
-	/// All arithmetic types used for safe math.
-	pub use super::arithmetic::*;
-
 	/// All account related things.
 	pub use super::account::*;
+
+	/// All arithmetic types and traits used for safe math.
+	pub use super::arithmetic::*;
 
 	/// Runtime traits
 	#[doc(no_inline)]
@@ -232,9 +236,9 @@ pub mod prelude {
 		Saturating, StaticLookup, TrailingZeroInput,
 	};
 
-	/// Other error/result types for runtime
+	/// Other runtime types and traits
 	#[doc(no_inline)]
-	pub use sp_runtime::{
+	pub use sp_runtime::{BoundToRuntimeAppPublic,
 		DispatchError::{self, BadOrigin},
 		DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
 	};
@@ -414,7 +418,7 @@ pub mod runtime {
 			LOCAL_TESTNET_RUNTIME_PRESET,
 		};
 		pub use sp_inherents::{CheckInherentsResult, InherentData};
-		pub use sp_keyring::AccountKeyring;
+		pub use sp_keyring::Sr25519Keyring;
 		pub use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode};
 	}
 
@@ -532,6 +536,8 @@ pub mod traits {
 }
 
 /// The arithmetic types used for safe math.
+///
+/// This is already part of the [`prelude`].
 pub mod arithmetic {
 	pub use sp_arithmetic::{traits::*, *};
 }
