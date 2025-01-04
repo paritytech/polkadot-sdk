@@ -53,7 +53,7 @@ use sp_core::{
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
-	traits::{BadOrigin, Convert, Dispatchable, Saturating, Zero},
+	traits::{BadOrigin, Bounded, Convert, Dispatchable, Saturating, Zero},
 	DispatchError, SaturatedConversion,
 };
 
@@ -885,9 +885,9 @@ where
 			args,
 			value,
 			gas_meter,
-			Weight::zero(),
+			Weight::max_value(),
 			storage_meter,
-			BalanceOf::<T>::zero(),
+			BalanceOf::<T>::max_value(),
 			false,
 			true,
 		)?
@@ -982,14 +982,25 @@ where
 			},
 		};
 
+		let nested_gas;
+		let nested_storage;
+
+		if origin_is_caller {
+			nested_gas = gas_meter.nested_take_all();
+			nested_storage = storage_meter.nested_take_all();
+		} else {
+			nested_gas = gas_meter.nested(gas_limit);
+			nested_storage = storage_meter.nested(deposit_limit);
+		}
+
 		let frame = Frame {
 			delegate,
 			value_transferred,
 			contract_info: CachedContract::Cached(contract_info),
 			account_id,
 			entry_point,
-			nested_gas: gas_meter.nested(gas_limit),
-			nested_storage: storage_meter.nested(deposit_limit),
+			nested_gas,
+			nested_storage,
 			allows_reentry: true,
 			read_only,
 			last_frame_output: Default::default(),
@@ -1117,17 +1128,6 @@ where
 				return Ok(output);
 			}
 
-			// Storage limit is normally enforced as late as possible (when the last frame returns)
-			// so that the ordering of storage accesses does not matter.
-			// (However, if a special limit was set for a sub-call, it should be enforced right
-			// after the sub-call returned. See below for this case of enforcement).
-			if self.frames.is_empty() {
-				let frame = &mut self.first_frame;
-				frame.contract_info.load(&frame.account_id);
-				let contract = frame.contract_info.as_contract();
-				frame.nested_storage.enforce_limit(contract)?;
-			}
-
 			let frame = self.top_frame_mut();
 
 			// If a special limit was set for the sub-call, we enforce it here.
@@ -1135,7 +1135,7 @@ where
 			let contract = frame.contract_info.as_contract();
 			frame
 				.nested_storage
-				.enforce_subcall_limit(contract)
+				.enforce_limit(contract)
 				.map_err(|e| ExecError { error: e, origin: ErrorOrigin::Callee })?;
 
 			let account_id = T::AddressMapper::to_address(&frame.account_id);
@@ -3098,8 +3098,8 @@ mod tests {
 				let (address, output) = ctx
 					.ext
 					.instantiate(
-						Weight::zero(),
-						U256::zero(),
+						Weight::MAX,
+						U256::from(u64::MAX),
 						dummy_ch,
 						<Test as Config>::Currency::minimum_balance().into(),
 						vec![],
@@ -3802,8 +3802,8 @@ mod tests {
 		let succ_fail_code = MockLoader::insert(Constructor, move |ctx, _| {
 			ctx.ext
 				.instantiate(
-					Weight::zero(),
-					U256::zero(),
+					Weight::MAX,
+					U256::from(u64::MAX),
 					fail_code,
 					ctx.ext.minimum_balance() * 100,
 					vec![],
@@ -3819,8 +3819,8 @@ mod tests {
 			let addr = ctx
 				.ext
 				.instantiate(
-					Weight::zero(),
-					U256::zero(),
+					Weight::MAX,
+					U256::from(u64::MAX),
 					success_code,
 					ctx.ext.minimum_balance() * 100,
 					vec![],
@@ -4597,7 +4597,7 @@ mod tests {
 				// Successful instantiation should set the output
 				let address = ctx
 					.ext
-					.instantiate(Weight::zero(), U256::zero(), ok_ch, value, vec![], None)
+					.instantiate(Weight::MAX, U256::from(u64::MAX), ok_ch, value, vec![], None)
 					.unwrap();
 				assert_eq!(
 					ctx.ext.last_frame_output(),
@@ -4607,8 +4607,8 @@ mod tests {
 				// Balance transfers should reset the output
 				ctx.ext
 					.call(
-						Weight::zero(),
-						U256::zero(),
+						Weight::MAX,
+						U256::from(u64::MAX),
 						&address,
 						U256::from(1),
 						vec![],
@@ -4827,7 +4827,7 @@ mod tests {
 
 				// Constructors can not access the immutable data
 				ctx.ext
-					.instantiate(Weight::zero(), U256::zero(), dummy_ch, value, vec![], None)
+					.instantiate(Weight::MAX, U256::from(u64::MAX), dummy_ch, value, vec![], None)
 					.unwrap();
 
 				exec_success()
@@ -4944,7 +4944,7 @@ mod tests {
 			move |ctx, _| {
 				let value = <Test as Config>::Currency::minimum_balance().into();
 				ctx.ext
-					.instantiate(Weight::zero(), U256::zero(), dummy_ch, value, vec![], None)
+					.instantiate(Weight::MAX, U256::from(u64::MAX), dummy_ch, value, vec![], None)
 					.unwrap();
 
 				exec_success()
@@ -4989,7 +4989,7 @@ mod tests {
 			move |ctx, _| {
 				let value = <Test as Config>::Currency::minimum_balance().into();
 				ctx.ext
-					.instantiate(Weight::zero(), U256::zero(), dummy_ch, value, vec![], None)
+					.instantiate(Weight::MAX, U256::from(u64::MAX), dummy_ch, value, vec![], None)
 					.unwrap();
 
 				exec_success()
