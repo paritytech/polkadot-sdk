@@ -229,14 +229,6 @@ pub mod prelude {
 	/// Bounded storage related types.
 	pub use sp_runtime::{BoundedSlice, BoundedVec};
 
-	/// Currency related traits and types.
-	pub use frame_support::traits::{
-		BalanceStatus::{self, Reserved},
-		Currency,
-		ExistenceRequirement::KeepAlive,
-		ReservableCurrency,
-	};
-
 	pub use super::account::*;
 
 	/// Other error/result types for runtime

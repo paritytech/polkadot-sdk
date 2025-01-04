@@ -29,7 +29,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use codec::Codec;
-use frame::prelude::*;
+use frame::{prelude::*, traits::{BalanceStatus::Reserved, Currency, ReservableCurrency}};
 pub use weights::WeightInfo;
 
 type BalanceOf<T> =
