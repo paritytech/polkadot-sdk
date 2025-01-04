@@ -487,7 +487,7 @@ pub trait TransactionExtension<Call: Dispatchable>:
 #[macro_export]
 macro_rules! impl_tx_ext_default {
 	($call:ty ; , $( $rest:tt )*) => {
-		impl_tx_ext_default!{$call ; $( $rest )*}
+		$crate::impl_tx_ext_default!{$call ; $( $rest )*}
 	};
 	($call:ty ; validate $( $rest:tt )*) => {
 		fn validate(
@@ -502,7 +502,7 @@ macro_rules! impl_tx_ext_default {
 		) -> $crate::traits::ValidateResult<Self::Val, $call> {
 			Ok((Default::default(), Default::default(), origin))
 		}
-		impl_tx_ext_default!{$call ; $( $rest )*}
+		$crate::impl_tx_ext_default!{$call ; $( $rest )*}
 	};
 	($call:ty ; prepare $( $rest:tt )*) => {
 		fn prepare(
@@ -515,13 +515,13 @@ macro_rules! impl_tx_ext_default {
 		) -> Result<Self::Pre, $crate::transaction_validity::TransactionValidityError> {
 			Ok(Default::default())
 		}
-		impl_tx_ext_default!{$call ; $( $rest )*}
+		$crate::impl_tx_ext_default!{$call ; $( $rest )*}
 	};
 	($call:ty ; weight $( $rest:tt )*) => {
 		fn weight(&self, _call: &$call) -> $crate::Weight {
 			$crate::Weight::zero()
 		}
-		impl_tx_ext_default!{$call ; $( $rest )*}
+		$crate::impl_tx_ext_default!{$call ; $( $rest )*}
 	};
 	($call:ty ;) => {};
 }

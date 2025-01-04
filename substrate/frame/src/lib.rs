@@ -495,6 +495,7 @@ pub mod runtime {
 			frame_system::CheckEra<T>,
 			frame_system::CheckNonce<T>,
 			frame_system::CheckWeight<T>,
+			frame_system::WeightReclaim<T>,
 		);
 	}
 

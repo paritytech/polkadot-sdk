@@ -120,20 +120,22 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 pub type BlockId = generic::BlockId<Block>;
 
 /// The TransactionExtension to the basic transaction logic.
-pub type TxExtension = (
-	frame_system::CheckNonZeroSender<Runtime>,
-	frame_system::CheckSpecVersion<Runtime>,
-	frame_system::CheckTxVersion<Runtime>,
-	frame_system::CheckGenesis<Runtime>,
-	frame_system::CheckEra<Runtime>,
-	frame_system::CheckNonce<Runtime>,
-	frame_system::CheckWeight<Runtime>,
-	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-	BridgeRejectObsoleteHeadersAndMessages,
-	(bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages,),
-	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
-	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim<Runtime>,
-);
+pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
+	Runtime,
+	(
+		frame_system::CheckNonZeroSender<Runtime>,
+		frame_system::CheckSpecVersion<Runtime>,
+		frame_system::CheckTxVersion<Runtime>,
+		frame_system::CheckGenesis<Runtime>,
+		frame_system::CheckEra<Runtime>,
+		frame_system::CheckNonce<Runtime>,
+		frame_system::CheckWeight<Runtime>,
+		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+		BridgeRejectObsoleteHeadersAndMessages,
+		(bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages,),
+		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+	),
+>;
 
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
@@ -297,6 +299,10 @@ impl frame_system::Config for Runtime {
 	/// The action to take on a Runtime Upgrade
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+}
+
+impl cumulus_pallet_weight_reclaim::Config for Runtime {
+	type WeightInfo = weights::cumulus_pallet_weight_reclaim::WeightInfo<Runtime>;
 }
 
 impl pallet_timestamp::Config for Runtime {
@@ -532,6 +538,7 @@ construct_runtime!(
 		ParachainSystem: cumulus_pallet_parachain_system = 1,
 		Timestamp: pallet_timestamp = 2,
 		ParachainInfo: parachain_info = 3,
+		WeightReclaim: cumulus_pallet_weight_reclaim = 4,
 
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
@@ -622,6 +629,7 @@ mod benches {
 		[snowbridge_pallet_outbound_queue, EthereumOutboundQueue]
 		[snowbridge_pallet_system, EthereumSystem]
 		[snowbridge_pallet_ethereum_client, EthereumBeaconClient]
+		[cumulus_pallet_weight_reclaim, WeightReclaim]
 	);
 }
 
@@ -1369,40 +1377,43 @@ mod tests {
 		use bp_polkadot_core::SuffixedCommonTransactionExtensionExt;
 
 		sp_io::TestExternalities::default().execute_with(|| {
-            frame_system::BlockHash::<Runtime>::insert(BlockNumber::zero(), Hash::default());
-            let payload: TxExtension = (
-                frame_system::CheckNonZeroSender::new(),
-                frame_system::CheckSpecVersion::new(),
-                frame_system::CheckTxVersion::new(),
-                frame_system::CheckGenesis::new(),
-                frame_system::CheckEra::from(Era::Immortal),
-                frame_system::CheckNonce::from(10),
-                frame_system::CheckWeight::new(),
-                pallet_transaction_payment::ChargeTransactionPayment::from(10),
-                BridgeRejectObsoleteHeadersAndMessages,
-                (
-                    bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages::default(),
-                ),
+			frame_system::BlockHash::<Runtime>::insert(BlockNumber::zero(), Hash::default());
+			let payload: TxExtension = (
+				frame_system::CheckNonZeroSender::new(),
+				frame_system::CheckSpecVersion::new(),
+				frame_system::CheckTxVersion::new(),
+				frame_system::CheckGenesis::new(),
+				frame_system::CheckEra::from(Era::Immortal),
+				frame_system::CheckNonce::from(10),
+				frame_system::CheckWeight::new(),
+				pallet_transaction_payment::ChargeTransactionPayment::from(10),
+				BridgeRejectObsoleteHeadersAndMessages,
+				(
+					bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages::default(),
+				),
 				frame_metadata_hash_extension::CheckMetadataHash::new(false),
-                cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
-            );
+			).into();
 
-            {
-                let bh_indirect_payload = bp_bridge_hub_westend::TransactionExtension::from_params(
-                    VERSION.spec_version,
-                    VERSION.transaction_version,
-                    bp_runtime::TransactionEra::Immortal,
-                    System::block_hash(BlockNumber::zero()),
-                    10,
-                    10,
-                    (((), ()), ((), ())),
-                );
-                assert_eq!(payload.encode().split_last().unwrap().1, bh_indirect_payload.encode());
-                assert_eq!(
-                    TxExtension::implicit(&payload).unwrap().encode().split_last().unwrap().1,
-                    sp_runtime::traits::TransactionExtension::<RuntimeCall>::implicit(&bh_indirect_payload).unwrap().encode()
-                )
-            }
-        });
+			{
+				let bh_indirect_payload = bp_bridge_hub_westend::TransactionExtension::from_params(
+					VERSION.spec_version,
+					VERSION.transaction_version,
+					bp_runtime::TransactionEra::Immortal,
+					System::block_hash(BlockNumber::zero()),
+					10,
+					10,
+					(((), ()), ((), ())),
+				);
+				assert_eq!(payload.encode().split_last().unwrap().1, bh_indirect_payload.encode());
+				assert_eq!(
+					TxExtension::implicit(&payload).unwrap().encode().split_last().unwrap().1,
+					sp_runtime::traits::TransactionExtension::<RuntimeCall>::implicit(
+						&bh_indirect_payload
+					)
+					.unwrap()
+					.encode()
+				)
+			}
+		});
 	}
 }

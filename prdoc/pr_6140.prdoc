@@ -1,0 +1,95 @@
+title: Accurate weight reclaim with frame_system::WeightReclaim and cumulus `StorageWeightReclaim` transaction extensions
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Since the introduction of transaction extension, the transaction extension weight is no longer part of base extrinsic weight. As a consequence some weight of transaction extensions are missed when calculating post dispatch weight and reclaiming unused block weight.
+
+      For solo chains, in order to reclaim the weight accurately `frame_system::WeightReclaim` transaction extension must be used at the end of the transaction extension pipeline.
+
+      For para chains `StorageWeightReclaim` in `cumulus-primitives-storage-weight-reclaim` is deprecated.
+      A new transaction extension `StorageWeightReclaim` in `cumulus-pallet-weight-reclaim` is introduced.
+      `StorageWeightReclaim` is meant to be used as a wrapping of the whole transaction extension pipeline, and will take into account all proof size accurately.
+
+      The new wrapping transaction extension is used like this:
+      ```rust
+      /// The TransactionExtension to the basic transaction logic.
+      pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
+             Runtime,
+             (
+                     frame_system::CheckNonZeroSender<Runtime>,
+                     frame_system::CheckSpecVersion<Runtime>,
+                     frame_system::CheckTxVersion<Runtime>,
+                     frame_system::CheckGenesis<Runtime>,
+                     frame_system::CheckEra<Runtime>,
+                     frame_system::CheckNonce<Runtime>,
+                     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+                     BridgeRejectObsoleteHeadersAndMessages,
+                     (bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages,),
+                     frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+                     frame_system::CheckWeight<Runtime>,
+             ),
+      >;
+      ```
+
+      NOTE: prior to transaction extension, `StorageWeightReclaim` also missed the some proof size used by other transaction extension prior to itself. This is also fixed by the wrapping `StorageWeightReclaim`.
+
+crates:
+- name: cumulus-primitives-storage-weight-reclaim
+  bump: minor
+- name: sp-runtime
+  bump: patch
+- name: polkadot-sdk
+  bump: minor
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: bridge-hub-rococo-runtime
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: coretime-rococo-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: people-rococo-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: contracts-rococo-runtime
+  bump: major
+- name: frame-support
+  bump: minor
+- name: frame-executive
+  bump: patch
+- name: frame-system
+  bump: major
+- name: staging-xcm-builder
+  bump: patch
+- name: xcm-runtime-apis
+  bump: patch
+- name: cumulus-pallet-weight-reclaim
+  bump: major
+- name: polkadot-service
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: frame-metadata-hash-extension
+  bump: patch
+- name: frame-system-benchmarking
+  bump: major
+- name: polkadot-sdk-frame
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: cumulus-pov-validator
+  bump: patch
+- name: penpal-runtime
+  bump: major
+- name: glutton-westend-runtime
+  bump: major
+- name: rococo-parachain-runtime
+  bump: major
