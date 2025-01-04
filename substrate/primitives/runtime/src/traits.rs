@@ -52,6 +52,15 @@ use std::fmt::Display;
 #[cfg(feature = "std")]
 use std::str::FromStr;
 
+<<<<<<< HEAD:substrate/primitives/runtime/src/traits.rs
+=======
+pub mod transaction_extension;
+pub use transaction_extension::{
+	DispatchTransaction, Implication, ImplicationParts, TransactionExtension,
+	TransactionExtensionMetadata, TxBaseImplication, ValidateResult,
+};
+
+>>>>>>> b5a5ac44 (Make `TransactionExtension` tuple of tuple transparent for implication (#7028)):substrate/primitives/runtime/src/traits/mod.rs
 /// A lazy value.
 pub trait Lazy<T: ?Sized> {
 	/// Get a reference to the underlying value.

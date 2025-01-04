@@ -43,8 +43,16 @@ use frame_support::{
 };
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
+<<<<<<< HEAD
 	traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
 	transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
+=======
+	traits::{
+		DispatchInfoOf, DispatchOriginOf, Implication, PostDispatchInfoOf, TransactionExtension,
+		ValidateResult,
+	},
+	transaction_validity::TransactionValidityError,
+>>>>>>> b5a5ac44 (Make `TransactionExtension` tuple of tuple transparent for implication (#7028))
 };
 
 #[cfg(test)]
@@ -129,9 +137,18 @@ where
 		call: &Self::Call,
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
+<<<<<<< HEAD
 	) -> TransactionValidity {
 		if call.is_feeless(&<T as frame_system::Config>::RuntimeOrigin::signed(who.clone())) {
 			Ok(ValidTransaction::default())
+=======
+		self_implicit: S::Implicit,
+		inherited_implication: &impl Implication,
+		source: TransactionSource,
+	) -> ValidateResult<Self::Val, T::RuntimeCall> {
+		if call.is_feeless(&origin) {
+			Ok((Default::default(), Skip(origin.caller().clone()), origin))
+>>>>>>> b5a5ac44 (Make `TransactionExtension` tuple of tuple transparent for implication (#7028))
 		} else {
 			self.0.validate(who, call, info, len)
 		}
