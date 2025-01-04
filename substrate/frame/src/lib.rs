@@ -203,7 +203,10 @@ pub mod prelude {
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{Contains, EstimateNextSessionRotation, IsSubType, OnRuntimeUpgrade, OriginTrait};
+	pub use frame_support::traits::{
+		Contains, EstimateNextSessionRotation, IsSubType, OnRuntimeUpgrade, OneSessionHandler,
+		OriginTrait,
+	};
 
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
