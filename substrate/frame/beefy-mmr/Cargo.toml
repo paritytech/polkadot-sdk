@@ -13,22 +13,22 @@ workspace = true
 
 [dependencies]
 array-bytes = { optional = true, workspace = true, default-features = true }
-codec = { features = ["derive"], workspace = true }
-log = { workspace = true }
-scale-info = { features = ["derive"], workspace = true }
-serde = { optional = true, workspace = true, default-features = true }
 binary-merkle-tree = { workspace = true }
+codec = { features = ["derive"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+log = { workspace = true }
 pallet-beefy = { workspace = true }
 pallet-mmr = { workspace = true }
 pallet-session = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+serde = { optional = true, workspace = true, default-features = true }
+sp-api = { workspace = true }
 sp-consensus-beefy = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-sp-api = { workspace = true }
 sp-state-machine = { workspace = true }
 
 [dev-dependencies]

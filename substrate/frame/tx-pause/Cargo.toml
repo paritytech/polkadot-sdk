@@ -20,13 +20,13 @@ docify = { workspace = true }
 frame = { workspace = true, features = ["experimental", "runtime"] }
 scale-info = { features = ["derive"], workspace = true }
 pallet-balances = { optional = true, workspace = true }
-pallet-utility = { optional = true, workspace = true }
 pallet-proxy = { optional = true, workspace = true }
+pallet-utility = { optional = true, workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
-pallet-utility = { workspace = true, default-features = true }
 pallet-proxy = { workspace = true, default-features = true }
+pallet-utility = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
