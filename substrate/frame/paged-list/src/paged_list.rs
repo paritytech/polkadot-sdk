@@ -440,6 +440,7 @@ mod tests {
 	#[test]
 	fn simple_drain_works() {
 		TestExternalities::default().execute_with(|| {
+			let _g = StorageNoopGuard::default(); // All in all a No-Op
 			List::append_many(0..1000);
 
 			assert_eq!(List::as_drained_vec(), (0..1000).collect::<Vec<_>>());
