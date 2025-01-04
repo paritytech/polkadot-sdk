@@ -26,7 +26,7 @@ use scale_info::TypeInfo;
 /// Extension that, if enabled, validates a signature type against the payload constructed from the
 /// call and the rest of the transaction extension pipeline. This extension provides the
 /// functionality that traditionally signed transactions had with the implicit signature checking
-/// implemented in [`Checkable`](sp_runtime::traits::Checkable). It is meant to be placed ahead of
+/// implemented in [`Checkable`](frame::traits::Checkable). It is meant to be placed ahead of
 /// any other extensions that do authorization work in the [`TransactionExtension`] pipeline.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
