@@ -67,9 +67,9 @@ impl<T: Encode> Implication for TxBaseImplication<T> {
 #[derive(Encode)]
 pub struct ImplicationParts<Base, Explicit, Implicit> {
 	/// The base implication, that is implication not part of any transaction extension, usually
-	/// the call and the transaction extension version,
+	/// the call and the transaction extension version.
 	pub base: Base,
-	/// The explicit implication in transaction extensions,
+	/// The explicit implication in transaction extensions.
 	pub explicit: Explicit,
 	/// The implicit implication in transaction extensions.
 	pub implicit: Implicit,
@@ -762,7 +762,7 @@ mod test {
 							assert_implications.push(i);
 						}
 					}
-					assert_eq!(inherited_implication.encode(), assert_implications,);
+					assert_eq!(inherited_implication.encode(), assert_implications);
 
 					*counter += 2;
 				});
