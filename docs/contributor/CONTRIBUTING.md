@@ -136,7 +136,7 @@ with the mentor offering their support on that larger task.
 ### Issues
 
 If what you are looking for is an answer rather than proposing a new feature or fix, search
-[https://substrate.stackexchange.com](https://substrate.stackexchange.com/) to see if an post already exists, and ask if
+[https://substrate.stackexchange.com](https://substrate.stackexchange.com/) to see if a post already exists, and ask if
 not. Please do not file support issues here.
 
 Before opening a new issue search to see if a similar one already exists and leave a comment that you also experienced
