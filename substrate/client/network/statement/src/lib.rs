@@ -75,7 +75,7 @@ mod rep {
 	pub const ANY_STATEMENT: Rep = Rep::new(-(1 << 4), "Any statement");
 	/// Reputation change when a peer sends us any statement that is not invalid.
 	pub const ANY_STATEMENT_REFUND: Rep = Rep::new(1 << 4, "Any statement (refund)");
-	/// Reputation change when a peer sends us an statement that we didn't know about.
+	/// Reputation change when a peer sends us a statement that we didn't know about.
 	pub const GOOD_STATEMENT: Rep = Rep::new(1 << 7, "Good statement");
 	/// Reputation change when a peer sends us a bad statement.
 	pub const BAD_STATEMENT: Rep = Rep::new(-(1 << 12), "Bad statement");
