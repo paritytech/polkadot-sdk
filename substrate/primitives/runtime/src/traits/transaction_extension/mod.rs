@@ -99,6 +99,9 @@ impl<Base, Explicit, Implicit> private::Sealed for ImplicationParts<Base, Explic
 /// Implications can be split into parts, this allow to destructure and restructure the
 /// implications, this is useful for nested pipeline.
 ///
+/// This trait is sealed, consider using [`TxBaseImplication`] and [`ImplicationParts`]
+/// implementations.
+///
 /// The concept of implication in the transaction extension pipeline is explained in the trait
 /// documentation: [`TransactionExtension`].
 pub trait Implication: Encode + private::Sealed {
