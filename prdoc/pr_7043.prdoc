@@ -1,0 +1,21 @@
+title: Remove usage of `sp-std` from Substrate
+author: conr2d
+topic: runtime
+
+crates:
+  - name: frame-support
+    bump: none
+  - name: frame-support-procedural
+    bump: none
+  - name: frame-system
+    bump: none
+  - name: pallet-contracts
+    bump: none
+  - name: pallet-contracts-proc-macro
+    bump: none
+  - name: pallet-revive
+    bump: none
+  - name: pallet-revive-proc-macro
+    bump: none
+  - name: sp-runtime
+    bump: none
