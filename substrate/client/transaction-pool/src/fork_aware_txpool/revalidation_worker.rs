@@ -133,8 +133,8 @@ where
 	) {
 		tracing::trace!(
 			target: LOG_TARGET,
-			"revalidation_queue::revalidate_view: Sending view to revalidation queue at {}",
-			view.at.hash
+			view_at_hash = ?view.at.hash,
+			"revalidation_queue::revalidate_view: Sending view to revalidation queue"
 		);
 
 		if let Some(ref to_worker) = self.background {
@@ -142,7 +142,11 @@ where
 				view,
 				finish_revalidation_worker_channels,
 			)) {
-				tracing::warn!(target: LOG_TARGET, "revalidation_queue::revalidate_view: Failed to update background worker: {:?}", e);
+				tracing::warn!(
+					target: LOG_TARGET,
+					error = ?e,
+					"revalidation_queue::revalidate_view: Failed to update background worker"
+				);
 			}
 		} else {
 			view.revalidate(finish_revalidation_worker_channels).await
@@ -163,15 +167,19 @@ where
 	) {
 		tracing::trace!(
 			target: LOG_TARGET,
-			"Sent mempool to revalidation queue at hash: {:?}",
-			finalized_hash
+			finalized_hash = ?finalized_hash,
+			"Sent mempool to revalidation queue"
 		);
 
 		if let Some(ref to_worker) = self.background {
 			if let Err(e) =
 				to_worker.unbounded_send(WorkerPayload::RevalidateMempool(mempool, finalized_hash))
 			{
-				tracing::warn!(target: LOG_TARGET, "Failed to update background worker: {:?}", e);
+				tracing::warn!(
+					target: LOG_TARGET,
+					error = ?e,
+					"Failed to update background worker"
+				);
 			}
 		} else {
 			mempool.revalidate(finalized_hash).await

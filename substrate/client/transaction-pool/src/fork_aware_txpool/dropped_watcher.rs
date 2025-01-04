@@ -275,8 +275,7 @@ where
 						return Some(DroppedTransaction::new_enforced_by_limts(tx_hash))
 					}
 				} else {
-					let tx_hash_string = format!("{:?}", tx_hash);
-					debug!(tx_hash_string, "dropped_watcher: removing (non-tracked) tx");
+					debug!(target: LOG_TARGET, ?tx_hash, "dropped_watcher: removing (non-tracked) tx");
 					return Some(DroppedTransaction::new_enforced_by_limts(tx_hash))
 				}
 			},

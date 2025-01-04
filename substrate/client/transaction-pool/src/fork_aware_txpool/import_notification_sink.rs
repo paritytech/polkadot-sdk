@@ -105,21 +105,29 @@ where
 		let output_stream = futures::stream::unfold(ctx, |mut ctx| async move {
 			loop {
 				tokio::select! {
-					biased;
-					cmd = ctx.command_receiver.next() => {
-						match cmd? {
-							Command::AddView(key,stream) => {
-								trace!(target: LOG_TARGET,"Command::AddView {key:?}");
-								ctx.stream_map.insert(key,stream);
-							},
-						}
-					},
+									biased;
+									cmd = ctx.command_receiver.next() => {
+										match cmd? {
+											Command::AddView(key,stream) => {
+												trace!(
+					target: LOG_TARGET,
+					key = ?key,
+					"Command::AddView"
+				);
+												ctx.stream_map.insert(key,stream);
+											},
+										}
+									},
 
-					Some(event) = next_event(&mut ctx.stream_map) => {
-						trace!(target: LOG_TARGET, "import_notification_sink: select_next_some -> {:?}", event);
-						return Some((event.1, ctx));
-					}
-				}
+									Some(event) = next_event(&mut ctx.stream_map) => {
+										trace!(
+					target: LOG_TARGET,
+					event = ?event,
+					"import_notification_sink: select_next_some"
+				);
+										return Some((event.1, ctx));
+									}
+								}
 			}
 		})
 		.boxed();
@@ -179,9 +187,17 @@ where
 				async move {
 					if already_notified_items.write().insert(event.clone()) {
 						external_sinks.write().retain_mut(|sink| {
-							trace!(target: LOG_TARGET, "[{:?}] import_sink_worker sending out imported", event);
+							trace!(
+								target: LOG_TARGET,
+								event = ?event,
+								"import_sink_worker sending out imported"
+							);
 							if let Err(e) = sink.try_send(event.clone()) {
-								trace!(target: LOG_TARGET, "import_sink_worker sending message failed: {e}");
+								trace!(
+									target: LOG_TARGET,
+									error = %e,
+									"import_sink_worker sending message failed"
+								);
 								false
 							} else {
 								true
@@ -203,7 +219,12 @@ where
 			.controller
 			.unbounded_send(Command::AddView(key.clone(), view))
 			.map_err(|e| {
-				trace!(target: LOG_TARGET, "add_view {key:?} send message failed: {e}");
+				trace!(
+					target: LOG_TARGET,
+					key = ?key,
+					error = %e,
+					"add_view send message failed"
+				);
 			});
 	}
 

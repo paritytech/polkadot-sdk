@@ -182,9 +182,14 @@ where
 		hash: BlockHash<ChainApi>,
 	) -> Option<TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>>> {
 		trace!(
-			target: LOG_TARGET, "[{:?}] mvl handle event from {hash:?}: {status:?} views:{:?}", self.tx_hash,
-			self.status_stream_map.keys().collect::<Vec<_>>()
+			target: LOG_TARGET,
+			tx_hash = ?self.tx_hash,
+			hash = ?hash,
+			status = ?status,
+			views = ?self.status_stream_map.keys().collect::<Vec<_>>(),
+			"mvl handle event"
 		);
+
 		match status {
 			TransactionStatus::Future => {
 				self.views_keeping_tx_valid.insert(hash);
@@ -238,8 +243,9 @@ where
 		);
 		trace!(
 			target: LOG_TARGET,
-			"[{:?}] got invalidate_transaction: views:{:?}", self.tx_hash,
-			self.status_stream_map.keys().collect::<Vec<_>>()
+			tx_hash = ?self.tx_hash,
+			views = ?self.status_stream_map.keys().collect::<Vec<_>>(),
+			"got invalidate_transaction"
 		);
 		if self.views_keeping_tx_valid.is_disjoint(&keys) {
 			self.terminate = true;
@@ -261,7 +267,13 @@ where
 	/// the stream map.
 	fn add_stream(&mut self, block_hash: BlockHash<ChainApi>, stream: TxStatusStream<ChainApi>) {
 		self.status_stream_map.insert(block_hash, stream);
-		trace!(target: LOG_TARGET, "[{:?}] AddView view: {:?} views:{:?}", self.tx_hash, block_hash, self.status_stream_map.keys().collect::<Vec<_>>());
+		trace!(
+			target: LOG_TARGET,
+			tx_hash = ?self.tx_hash,
+			block_hash = ?block_hash,
+			views = ?self.status_stream_map.keys().collect::<Vec<_>>(),
+			"AddView view"
+		);
 	}
 
 	/// Removes an existing transaction status stream.
@@ -271,7 +283,13 @@ where
 	fn remove_view(&mut self, block_hash: BlockHash<ChainApi>) {
 		self.status_stream_map.remove(&block_hash);
 		self.views_keeping_tx_valid.remove(&block_hash);
-		trace!(target: LOG_TARGET, "[{:?}] RemoveView view: {:?} views:{:?}", self.tx_hash, block_hash, self.status_stream_map.keys().collect::<Vec<_>>());
+		trace!(
+			target: LOG_TARGET,
+			tx_hash = ?self.tx_hash,
+			block_hash = ?block_hash,
+			views = ?self.status_stream_map.keys().collect::<Vec<_>>(),
+			"RemoveView view"
+		);
 	}
 }
 
@@ -306,8 +324,11 @@ where
 			return None
 		}
 
-		trace!(target: LOG_TARGET, "[{:?}] create_external_watcher_for_tx", tx_hash);
-
+		trace!(
+			target: LOG_TARGET,
+			tx_hash = ?tx_hash,
+			"create_external_watcher_for_tx"
+		);
 		let (tx, rx) = mpsc::tracing_unbounded("txpool-multi-view-listener", 32);
 		controllers.insert(tx_hash, tx);
 
@@ -323,14 +344,21 @@ where
 						biased;
 						Some((view_hash, status)) =  next_event(&mut ctx.status_stream_map) => {
 							if let Some(new_status) = ctx.handle(status, view_hash) {
-								trace!(target: LOG_TARGET, "[{:?}] mvl sending out: {new_status:?}", ctx.tx_hash);
-								return Some((new_status, ctx))
+								trace!(
+									target: LOG_TARGET,
+									tx_hash = ?ctx.tx_hash,
+									new_status = ?new_status,
+									"mvl sending out"
+								);
+							return Some((new_status, ctx))
 							}
 						},
 						cmd = ctx.command_receiver.next() => {
-							trace!(target: LOG_TARGET, "[{:?}] select::rx views:{:?}",
-								ctx.tx_hash,
-								ctx.status_stream_map.keys().collect::<Vec<_>>()
+							trace!(
+								target: LOG_TARGET,
+								tx_hash = ?ctx.tx_hash,
+								views = ?ctx.status_stream_map.keys().collect::<Vec<_>>(),
+								"select::rx"
 							);
 							match cmd? {
 								ControllerCommand::AddViewStream(h,stream) => {
@@ -341,26 +369,52 @@ where
 								},
 								ControllerCommand::TransactionInvalidated => {
 									if ctx.handle_invalidate_transaction() {
-										trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Invalid", ctx.tx_hash);
+										trace!(
+											target: LOG_TARGET,
+											tx_hash = ?ctx.tx_hash,
+											status = "Invalid",
+											"mvl sending out"
+										);
 										return Some((TransactionStatus::Invalid, ctx))
 									}
 								},
 								ControllerCommand::FinalizeTransaction(block, index) => {
-									trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Finalized", ctx.tx_hash);
+									trace!(
+										target: LOG_TARGET,
+										tx_hash = ?ctx.tx_hash,
+										status = "Finalized",
+										"mvl sending out"
+									);
 									ctx.terminate = true;
 									return Some((TransactionStatus::Finalized((block, index)), ctx))
 								},
 								ControllerCommand::TransactionBroadcasted(peers) => {
-									trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Broadcasted", ctx.tx_hash);
+									trace!(
+										target: LOG_TARGET,
+										tx_hash = ?ctx.tx_hash,
+										status = "Broadcasted",
+										"mvl sending out"
+									);
 									return Some((TransactionStatus::Broadcast(peers), ctx))
 								},
 								ControllerCommand::TransactionDropped(DroppedReason::LimitsEnforced) => {
-									trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Dropped", ctx.tx_hash);
+									trace!(
+										target: LOG_TARGET,
+										tx_hash = ?ctx.tx_hash,
+										status = "Dropped",
+										"mvl sending out"
+									);
 									ctx.terminate = true;
 									return Some((TransactionStatus::Dropped, ctx))
 								},
 								ControllerCommand::TransactionDropped(DroppedReason::Usurped(by)) => {
-									trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Usurped({:?})", ctx.tx_hash, by);
+									trace!(
+										target: LOG_TARGET,
+										tx_hash = ?ctx.tx_hash,
+										status = "Usurped",
+										by = ?by,
+										"mvl sending out"
+									);
 									ctx.terminate = true;
 									return Some((TransactionStatus::Usurped(by), ctx))
 								},
@@ -390,7 +444,12 @@ where
 				.get_mut()
 				.unbounded_send(ControllerCommand::AddViewStream(block_hash, stream))
 			{
-				trace!(target: LOG_TARGET, "[{:?}] add_view_watcher_for_tx: send message failed: {:?}", tx_hash, e);
+				trace!(
+					target: LOG_TARGET,
+					tx_hash = ?tx_hash,
+					error = ?e,
+					"add_view_watcher_for_tx: send message failed"
+				);
 				tx.remove();
 			}
 		}
@@ -405,7 +464,12 @@ where
 			sender
 				.unbounded_send(ControllerCommand::RemoveViewStream(block_hash))
 				.map_err(|e| {
-					trace!(target: LOG_TARGET, "[{:?}] remove_view: send message failed: {:?}", tx_hash, e);
+					trace!(
+						target: LOG_TARGET,
+						tx_hash = ?tx_hash,
+						error = ?e,
+						"remove_view: send message failed"
+					);
 					e
 				})
 				.is_ok()
@@ -423,11 +487,20 @@ where
 		let mut controllers = self.controllers.write();
 		invalid_hashes.iter().for_each(|tx_hash| {
 			if let Entry::Occupied(mut tx) = controllers.entry(*tx_hash) {
-				trace!(target: LOG_TARGET, "[{:?}] invalidate_transaction", tx_hash);
+				trace!(
+					target: LOG_TARGET,
+					tx_hash = ?tx_hash,
+					"invalidate_transaction"
+				);
 				if let Err(e) =
 					tx.get_mut().unbounded_send(ControllerCommand::TransactionInvalidated)
 				{
-					trace!(target: LOG_TARGET, "[{:?}] invalidate_transaction: send message failed: {:?}", tx_hash, e);
+					trace!(
+						target: LOG_TARGET,
+						tx_hash = ?tx_hash,
+						error = ?e,
+						"invalidate_transaction: send message failed"
+					);
 					tx.remove();
 				}
 			}
@@ -445,9 +518,20 @@ where
 		let mut controllers = self.controllers.write();
 		propagated.into_iter().for_each(|(tx_hash, peers)| {
 			if let Entry::Occupied(mut tx) = controllers.entry(tx_hash) {
-				trace!(target: LOG_TARGET, "[{:?}] transaction_broadcasted", tx_hash);
-				if let Err(e) = tx.get_mut().unbounded_send(ControllerCommand::TransactionBroadcasted(peers)) {
-					trace!(target: LOG_TARGET, "[{:?}] transactions_broadcasted: send message failed: {:?}", tx_hash, e);
+				trace!(
+					target: LOG_TARGET,
+					tx_hash = ?tx_hash,
+					"transaction_broadcasted"
+				);
+				if let Err(e) =
+					tx.get_mut().unbounded_send(ControllerCommand::TransactionBroadcasted(peers))
+				{
+					trace!(
+						target: LOG_TARGET,
+						tx_hash = ?tx_hash,
+						error = ?e,
+						"transactions_broadcasted: send message failed"
+					);
 					tx.remove();
 				}
 			}
@@ -460,12 +544,25 @@ where
 	/// transaction prompting and external `Broadcasted` event.
 	pub(crate) fn transaction_dropped(&self, dropped: DroppedTransaction<ExtrinsicHash<ChainApi>>) {
 		let mut controllers = self.controllers.write();
-		debug!(target: LOG_TARGET, "mvl::transaction_dropped: {:?}", dropped);
+		debug!(
+			target: LOG_TARGET,
+			dropped = ?dropped,
+			"mvl::transaction_dropped"
+		);
 		if let Some(tx) = controllers.remove(&dropped.tx_hash) {
 			let DroppedTransaction { tx_hash, reason } = dropped;
-			debug!(target: LOG_TARGET, "[{:?}] transaction_dropped", tx_hash);
+			debug!(
+				target: LOG_TARGET,
+				tx_hash = ?tx_hash,
+				"transaction_dropped"
+			);
 			if let Err(e) = tx.unbounded_send(ControllerCommand::TransactionDropped(reason)) {
-				trace!(target: LOG_TARGET, "[{:?}] transaction_dropped: send message failed: {:?}", tx_hash, e);
+				trace!(
+					target: LOG_TARGET,
+					tx_hash = ?tx_hash,
+					error = ?e,
+					"transaction_dropped: send message failed"
+				);
 			};
 		}
 	}
@@ -481,9 +578,18 @@ where
 	) {
 		let mut controllers = self.controllers.write();
 		if let Some(tx) = controllers.remove(&tx_hash) {
-			trace!(target: LOG_TARGET, "[{:?}] finalize_transaction", tx_hash);
+			trace!(
+				target: LOG_TARGET,
+				tx_hash = ?tx_hash,
+				"finalize_transaction"
+			);
 			if let Err(e) = tx.unbounded_send(ControllerCommand::FinalizeTransaction(block, idx)) {
-				trace!(target: LOG_TARGET, "[{:?}] finalize_transaction: send message failed: {:?}", tx_hash, e);
+				trace!(
+					target: LOG_TARGET,
+					tx_hash = ?tx_hash,
+					error = ?e,
+					"finalize_transaction: send message failed"
+				);
 			}
 		};
 	}

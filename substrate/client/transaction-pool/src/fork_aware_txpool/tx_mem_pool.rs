@@ -295,8 +295,12 @@ where
 				Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(hash)).into()),
 			(false, _) => Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped.into()),
 		};
-		tracing::trace!(target: LOG_TARGET, "[{:?}] mempool::try_insert: {:?}", hash, result.as_ref().map(|r| r.hash));
-
+		tracing::trace!(
+			target: LOG_TARGET,
+			hash = ?hash,
+			result_hash = ?result.as_ref().map(|r| r.hash),
+			"mempool::try_insert"
+		);
 		result
 	}
 
@@ -335,7 +339,11 @@ where
 		&self,
 		dropped: &ExtrinsicHash<ChainApi>,
 	) -> Option<Arc<TxInMemPool<ChainApi, Block>>> {
-		tracing::debug!(target: LOG_TARGET, "[{:?}] mempool::remove_dropped_transaction", dropped);
+		tracing::debug!(
+			target: LOG_TARGET,
+			dropped = ?dropped,
+			"mempool::remove_dropped_transaction"
+		);
 		self.transactions.write().remove(dropped)
 	}
 
@@ -371,7 +379,11 @@ where
 	///
 	/// Returns a vector of invalid transaction hashes.
 	async fn revalidate_inner(&self, finalized_block: HashAndNumber<Block>) -> Vec<Block::Hash> {
-		tracing::trace!(target: LOG_TARGET, "mempool::revalidate at:{finalized_block:?}");
+		tracing::trace!(
+			target: LOG_TARGET,
+			finalized_block = ?finalized_block,
+			"mempool::revalidate"
+		);
 		let start = Instant::now();
 
 		let (count, input) = {
@@ -416,9 +428,9 @@ where
 				Ok(Err(TransactionValidityError::Invalid(_))) => {
 					tracing::trace!(
 						target: LOG_TARGET,
-						"[{:?}]: Purging: invalid: {:?}",
-						xt_hash,
-						validation_result,
+						xt_hash = ?xt_hash,
+						validation_result = ?validation_result,
+						"Purging: invalid"
 					);
 					Some(xt_hash)
 				},
@@ -427,7 +439,12 @@ where
 
 		tracing::debug!(
 			target: LOG_TARGET,
-			"mempool::revalidate: at {finalized_block:?} count:{input_len}/{count} invalid_hashes:{} took {duration:?}", invalid_hashes.len(),
+			finalized_block = ?finalized_block,
+			input_len = input_len,
+			count = count,
+			invalid_hashes = invalid_hashes.len(),
+			duration = ?duration,
+			"mempool::revalidate"
 		);
 
 		invalid_hashes
@@ -438,7 +455,11 @@ where
 		&self,
 		finalized_xts: &Vec<ExtrinsicHash<ChainApi>>,
 	) {
-		tracing::debug!(target: LOG_TARGET, "purge_finalized_transactions count:{:?}", finalized_xts.len());
+		tracing::debug!(
+			target: LOG_TARGET,
+			count = finalized_xts.len(),
+			"purge_finalized_transactions"
+		);
 		log_xt_trace!(target: LOG_TARGET, finalized_xts, "[{:?}] purged finalized transactions");
 		let mut transactions = self.transactions.write();
 		finalized_xts.iter().for_each(|t| {
@@ -449,7 +470,11 @@ where
 	/// Revalidates transactions in the memory pool against a given finalized block and removes
 	/// invalid ones.
 	pub(super) async fn revalidate(&self, finalized_block: HashAndNumber<Block>) {
-		tracing::trace!(target: LOG_TARGET, "purge_transactions at:{:?}", finalized_block);
+		tracing::trace!(
+			target: LOG_TARGET,
+			finalized_block = ?finalized_block,
+			"purge_transactions"
+		);
 		let invalid_hashes = self.revalidate_inner(finalized_block.clone()).await;
 
 		self.metrics.report(|metrics| {
