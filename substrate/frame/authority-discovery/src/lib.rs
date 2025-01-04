@@ -27,7 +27,6 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use frame::{
-	deps::frame_support::WeakBoundedVec,
 	prelude::*,
 	traits::{Get, OneSessionHandler},
 };
@@ -171,16 +170,7 @@ mod tests {
 	use super::*;
 	use crate as pallet_authority_discovery;
 	use alloc::vec;
-	use frame::{
-		arithmetic::Perbill,
-		deps::sp_runtime::KeyTypeId,
-		runtime::{
-			prelude::{construct_runtime, derive_impl, parameter_types},
-			testing_prelude::BuildStorage,
-		},
-		testing_prelude::TestExternalities,
-		traits::{ConstU32, ConvertInto, IdentityLookup, OpaqueKeys},
-	};
+	use frame::testing_prelude::*
 	use sp_application_crypto::Pair;
 	use sp_authority_discovery::AuthorityPair;
 

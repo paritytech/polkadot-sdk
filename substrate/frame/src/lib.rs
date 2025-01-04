@@ -223,6 +223,9 @@ pub mod prelude {
 		Saturating, StaticLookup, TrailingZeroInput,
 	};
 
+	/// Bounded storage related types.
+	pub use sp_runtime::{BoundedSlice, BoundedVec, WeakBoundedVec};
+
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
 	pub use sp_runtime::{DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError};
