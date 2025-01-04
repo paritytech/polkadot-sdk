@@ -446,7 +446,7 @@ where
 			%best_number,
 			block_number = %header.number(),
 			"Skipping importing block as new best block, because there already exists a \
-			 best block with an higher number",
+			 best block with a higher number",
 		);
 		return
 	}
