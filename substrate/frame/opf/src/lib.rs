@@ -41,6 +41,9 @@ pub mod pallet {
 	pub trait Config: frame_system::Config + Referenda::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
+		/// The admin origin that can list and un-list whitelisted projects.
+		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
 		/// Type to access the Balances Pallet.
 		type NativeBalance: fungible::Inspect<Self::AccountId>
 		+ fungible::Mutate<Self::AccountId>
@@ -244,7 +247,7 @@ pub mod pallet {
 		/// Emits [`Event::<T>::Projectlisted`].
 		#[pallet::call_index(0)]
 		pub fn register_project(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
-			let _caller = ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			let when = T::BlockNumberProvider::current_block_number();
 			ProjectInfo::<T>::new(project_id.clone());
 			Self::deposit_event(Event::Projectlisted { when, project_id });
@@ -275,7 +278,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			project_id: ProjectId<T>,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			let when = T::BlockNumberProvider::current_block_number();
 			Self::unlist_project(project_id.clone())?;
 			Self::deposit_event(Event::<T>::ProjectUnlisted { when, project_id });

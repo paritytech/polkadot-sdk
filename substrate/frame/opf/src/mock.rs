@@ -246,6 +246,7 @@ parameter_types! {
 }
 impl pallet_opf::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type NativeBalance = Balances;
 	type PotId = PotId;
 	type RuntimeHoldReason = RuntimeHoldReason;
