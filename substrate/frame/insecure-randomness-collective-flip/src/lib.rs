@@ -71,7 +71,7 @@
 use safe_mix::TripletMix;
 
 use codec::Encode;
-use frame::prelude::*;
+use frame::{prelude::*, traits::Randomness};
 
 const RANDOM_MATERIAL_LEN: u32 = 81;
 

@@ -226,9 +226,6 @@ pub mod prelude {
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
 	pub use sp_runtime::{DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError};
-
-	/// Provide randomness to your runtime.
-	pub use frame_support::traits::Randomness;
 }
 
 #[cfg(any(feature = "try-runtime", test))]
