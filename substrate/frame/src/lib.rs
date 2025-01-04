@@ -202,9 +202,10 @@ pub mod prelude {
 
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
-	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
+	pub use frame_support::dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::traits::{
 		Contains, EstimateNextSessionRotation, IsSubType, OnRuntimeUpgrade, OneSessionHandler,
+		OriginTrait,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -219,8 +220,13 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use super::derive::*;
 
-	/// All hashing related things
-	pub use super::hashing::*;
+	/// All crypto related things.
+	pub use super::cryptography::*;
+
+	/// All account related things.
+	pub use super::account::*;
+
+	pub use crate::transaction::*;
 
 	/// All arithmetic types and traits used for safe math.
 	pub use super::arithmetic::*;
@@ -375,7 +381,7 @@ pub mod runtime {
 		};
 
 		/// Used for simple fee calculation.
-		pub use frame_support::weights::{self, FixedFee, NoFee};
+		pub use frame_support::weights::{self, FixedFee, NoFee, Weight};
 
 		/// Primary types used to parameterize `EnsureOrigin` and `EnsureRootWithArg`.
 		pub use frame_system::{
@@ -504,7 +510,7 @@ pub mod runtime {
 	#[cfg(feature = "std")]
 	pub mod testing_prelude {
 		pub use sp_core::storage::Storage;
-		pub use sp_runtime::BuildStorage;
+		pub use sp_runtime::{testing::UintAuthorityId, BuildStorage};
 	}
 }
 
@@ -540,9 +546,36 @@ pub mod derive {
 	pub use sp_runtime::RuntimeDebug;
 }
 
-pub mod hashing {
-	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
-	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
+pub mod cryptography {
+	pub use sp_core::{
+		crypto::{VrfPublic, VrfSecret, Wraps},
+		hashing::*,
+		Pair, H160, H256, H512, U256, U512,
+	};
+	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256, Verify};
+}
+
+/// All account management related traits.
+///
+/// This is already part of the [`prelude`].
+pub mod account {
+	pub use frame_support::traits::{ChangeMembers, EitherOfDiverse, InitializeMembers};
+	pub use sp_runtime::traits::IdentifyAccount;
+}
+
+/// Systems involved in transaction fulfilment.
+///
+/// This is already part of the [`prelude`].
+pub mod transaction {
+	pub use sp_runtime::{
+		generic::ExtensionVersion,
+		impl_tx_ext_default,
+		traits::{
+			AsTransactionAuthorizedOrigin, DispatchTransaction, TransactionExtension,
+			ValidateResult,
+		},
+		transaction_validity::{InvalidTransaction, ValidTransaction},
+	};
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
