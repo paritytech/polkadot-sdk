@@ -203,7 +203,10 @@ pub mod prelude {
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{Contains, IsSubType, OnRuntimeUpgrade};
+	pub use frame_support::traits::{
+		Contains, Everything, InsideBoth, InstanceFilter, IsSubType, OnRuntimeUpgrade,
+		VariantCount, VariantCountOf,
+	};
 
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
@@ -227,15 +230,6 @@ pub mod prelude {
 	pub use sp_runtime::traits::{
 		BlockNumberProvider, Bounded, DispatchInfoOf, Dispatchable, SaturatedConversion,
 		Saturating, StaticLookup, TrailingZeroInput,
-	};
-
-	/// Currency related traits.
-	pub use frame_support::traits::{
-		tokens::{PayFromAccount, UnityAssetBalanceConversion},
-		BalanceStatus::{self, Reserved},
-		Currency,
-		ExistenceRequirement::KeepAlive,
-		LockableCurrency, OnUnbalanced, ReservableCurrency,
 	};
 
 	/// Other error/result types for runtime
@@ -570,14 +564,6 @@ pub mod account {
 		SortedMembers,
 	};
 	pub use sp_runtime::traits::{AccountIdConversion, IdentifyAccount, IdentityLookup};
-}
-
-/// Utility traits not tied to any direct operation(i.e. currency, account management e.t.c.) in the
-/// runtime.
-pub mod utility {
-	pub use frame_support::traits::{
-		Everything, InsideBoth, InstanceFilter, VariantCount, VariantCountOf,
-	};
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,

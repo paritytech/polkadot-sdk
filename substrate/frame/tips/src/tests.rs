@@ -20,7 +20,10 @@
 #![cfg(test)]
 use super::*;
 use crate::{self as pallet_tips, Event as TipEvent};
-use frame::testing_prelude::*;
+use frame::{
+	testing_prelude::*,
+	traits::tokens::{PayFromAccount, UnityAssetBalanceConversion},
+};
 
 type Block = MockBlock<Test>;
 
@@ -178,6 +181,7 @@ pub fn new_test_ext() -> TestExternalities {
 pub fn build_and_execute(test: impl FnOnce() -> ()) {
 	new_test_ext().execute_with(|| {
 		test();
+		#[cfg(feature = "try-runtime")]
 		Tips::do_try_state().expect("All invariants must hold after a test");
 	});
 }
@@ -604,6 +608,7 @@ fn report_awesome_and_tip_works_second_instance() {
 }
 
 #[test]
+#[cfg(feature = "try-runtime")]
 fn equal_entries_invariant() {
 	new_test_ext().execute_with(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -635,6 +640,7 @@ fn equal_entries_invariant() {
 }
 
 #[test]
+#[cfg(feature = "try-runtime")]
 fn finders_fee_invariant() {
 	new_test_ext().execute_with(|| {
 		// Breaks invariant by having a zero deposit.
@@ -653,6 +659,7 @@ fn finders_fee_invariant() {
 }
 
 #[test]
+#[cfg(feature = "try-runtime")]
 fn reasons_invariant() {
 	new_test_ext().execute_with(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);

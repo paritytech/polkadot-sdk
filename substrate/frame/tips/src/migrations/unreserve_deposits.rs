@@ -20,7 +20,10 @@
 
 use alloc::collections::btree_map::BTreeMap;
 use core::iter::Sum;
-use frame::runtime::prelude::*;
+use frame::{
+	runtime::prelude::*,
+	traits::{Currency, LockableCurrency, ReservableCurrency},
+};
 
 #[cfg(feature = "try-runtime")]
 use frame::try_runtime::TryRuntimeError;

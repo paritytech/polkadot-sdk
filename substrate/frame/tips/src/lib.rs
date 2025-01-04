@@ -63,13 +63,16 @@ pub mod weights;
 extern crate alloc;
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
-use frame::prelude::*;
-
-pub use pallet::*;
-pub use weights::WeightInfo;
+use frame::{
+	prelude::*,
+	traits::{Currency, ExistenceRequirement::KeepAlive, OnUnbalanced, ReservableCurrency},
+};
 
 #[cfg(feature = "try-runtime")]
 use frame::try_runtime::TryRuntimeError;
+
+pub use pallet::*;
+pub use weights::WeightInfo;
 
 const LOG_TARGET: &str = "runtime::tips";
 
@@ -636,7 +639,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// 1. The number of entries in `Tips` should be equal to `Reasons`.
 	/// 2. Reasons exists for each Tip[`OpenTip.reason`].
 	/// 3. If `OpenTip.finders_fee` is true, then OpenTip.deposit should be greater than zero.
-	#[cfg(any(feature = "try-runtime", test))]
+	#[cfg(feature = "try-runtime")]
 	pub fn do_try_state() -> Result<(), TryRuntimeError> {
 		let reasons = Reasons::<T, I>::iter_keys().collect::<Vec<_>>();
 		let tips = Tips::<T, I>::iter_keys().collect::<Vec<_>>();
