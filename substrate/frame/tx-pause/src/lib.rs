@@ -78,7 +78,10 @@ pub mod weights;
 extern crate alloc;
 
 use alloc::vec::Vec;
-use frame::{prelude::*, traits::{TransactionPause, TransactionPauseError}};
+use frame::{
+	prelude::*,
+	traits::{TransactionPause, TransactionPauseError},
+};
 pub use pallet::*;
 pub use weights::*;
 
