@@ -203,11 +203,17 @@ pub mod prelude {
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{DispatchResult, GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{Contains, IsSubType, OnRuntimeUpgrade};
+	pub use frame_support::traits::{
+		Contains, EstimateNextSessionRotation, IsSubType, OnRuntimeUpgrade, OneSessionHandler,
+	};
 
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
 	pub use frame_system::pallet_prelude::*;
+
+	/// Transaction related helpers to submit transactions.
+	#[doc(no_inline)]
+	pub use frame_system::offchain::*;
 
 	/// All FRAME-relevant derive macros.
 	#[doc(no_inline)]
@@ -216,7 +222,7 @@ pub mod prelude {
 	/// All hashing related things
 	pub use super::hashing::*;
 
-	/// All arithmetic types used for safe math.
+	/// All arithmetic types and traits used for safe math.
 	pub use super::arithmetic::*;
 
 	/// Runtime traits
@@ -229,11 +235,11 @@ pub mod prelude {
 	/// Bounded storage related types.
 	pub use sp_runtime::{BoundedSlice, BoundedVec};
 
-	/// Other error/result types for runtime
+	/// Other runtime types and traits
 	#[doc(no_inline)]
 	pub use sp_runtime::{
 		DispatchError::{self, BadOrigin},
-		DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
+		BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
 	};
 }
 
@@ -523,6 +529,8 @@ pub mod traits {
 }
 
 /// The arithmetic types used for safe math.
+///
+/// This is already part of the [`prelude`].
 pub mod arithmetic {
 	pub use sp_arithmetic::{traits::*, *};
 	pub use sp_runtime::ArithmeticError;
