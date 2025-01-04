@@ -61,3 +61,35 @@ crates:
   bump: major
 - name: contracts-rococo-runtime
   bump: major
+- name: frame-support
+  bump: minor
+- name: frame-executive
+  bump: patch
+- name: frame-system
+  bump: major
+- name: staging-xcm-builder
+  bump: patch
+- name: xcm-runtime-apis
+  bump: patch
+- name: cumulus-pallet-weight-reclaim
+  bump: major
+- name: polkadot-service
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: frame-metadata-hash-extension
+  bump: patch
+- name: frame-system-benchmarking
+  bump: major
+- name: polkadot-sdk-frame
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: cumulus-pov-validator
+  bump: patch
+- name: penpal-runtime
+  bump: major
+- name: glutton-westend-runtime
+  bump: major
+- name: rococo-parachain-runtime
+  bump: major
