@@ -203,7 +203,10 @@ pub mod prelude {
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{Contains, IsSubType, OnRuntimeUpgrade};
+	pub use frame_support::traits::{
+		Contains, Everything, InsideBoth, InstanceFilter, IsSubType, OnRuntimeUpgrade,
+		VariantCount, VariantCountOf,
+	};
 
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
@@ -217,8 +220,6 @@ pub mod prelude {
 	pub use super::hashing::*;
 
 	pub use crate::transaction::*;
-
-	pub use super::utility::*;
 
 	/// Runtime traits
 	#[doc(no_inline)]
@@ -540,9 +541,7 @@ pub mod hashing {
 ///
 /// This is already part of the [`prelude`].
 pub mod transaction {
-	pub use frame_support::traits::{
-		CallMetadata, GetCallMetadata,
-	};
+	pub use frame_support::traits::{CallMetadata, GetCallMetadata};
 	pub use sp_runtime::{
 		generic::ExtensionVersion,
 		impl_tx_ext_default,
@@ -551,13 +550,6 @@ pub mod transaction {
 			ValidateResult,
 		},
 		transaction_validity::{InvalidTransaction, ValidTransaction},
-	};
-}
-
-/// Utility traits not tied to any direct operation in the runtime.
-pub mod utility {
-	pub use frame_support::traits::{
-		Everything, InsideBoth, InstanceFilter, VariantCount, VariantCountOf,
 	};
 }
 
