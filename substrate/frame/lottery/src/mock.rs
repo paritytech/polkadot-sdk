@@ -22,7 +22,7 @@ use crate as pallet_lottery;
 
 use frame::testing_prelude::*;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
 construct_runtime!(
 	pub enum Test
@@ -68,7 +68,7 @@ impl Config for Test {
 pub type SystemCall = frame_system::Call<Test>;
 pub type BalancesCall = pallet_balances::Call<Test>;
 
-pub fn new_test_ext() -> frame::deps::sp_io::TestExternalities {
+pub fn new_test_ext() -> TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(1, 100), (2, 100), (3, 100), (4, 100), (5, 100)],

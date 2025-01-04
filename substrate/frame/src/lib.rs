@@ -229,11 +229,6 @@ pub mod prelude {
 	/// Bounded storage related types.
 	pub use sp_runtime::{BoundedSlice, BoundedVec};
 
-	/// Currency related traits.
-	pub use frame_support::traits::{
-		Currency, ExistenceRequirement::KeepAlive, ReservableCurrency,
-	};
-
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
 	pub use sp_runtime::{

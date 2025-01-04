@@ -60,7 +60,10 @@ use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode};
 use frame::{
 	runtime::prelude::*,
-	traits::{AccountIdConversion, Randomness},
+	traits::{
+		AccountIdConversion, Currency, ExistenceRequirement::KeepAlive, Randomness,
+		ReservableCurrency,
+	},
 };
 pub use pallet::*;
 pub use weights::WeightInfo;
