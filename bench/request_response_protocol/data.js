@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1735947394670,
+  "lastUpdate": 1735960737292,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -143,6 +143,78 @@ window.BENCHMARK_DATA = {
             "name": "request_response_benchmark/large_payload/libp2p/serially/128MB",
             "value": 2169025360,
             "range": "± 170481694",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gui.thiolliere@gmail.com",
+            "name": "Guillaume Thiolliere",
+            "username": "gui1117"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b5a5ac4487890046d226bedb0238eaccb423ae42",
+          "message": "Make `TransactionExtension` tuple of tuple transparent for implication (#7028)\n\nCurrently `(A, B, C)` and `((A, B), C)` change the order of implications\nin the transaction extension pipeline. This order is not accessible in\nthe metadata, because the metadata is just a vector of transaction\nextension, the nested structure is not visible.\n\nThis PR make the implementation for tuple of `TransactionExtension`\nbetter for tuple of tuple. `(A, B, C)` and `((A, B), C)` don't change\nthe implication for the validation A.\n\nThis is a breaking change but only when using the trait\n`TransactionExtension` the code implementing the trait is not breaking\n(surprising rust behavior but fine).\n\n---------\n\nCo-authored-by: command-bot <>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2025-01-04T02:03:30Z",
+          "tree_id": "7ceca99999c8a5065cee89a611c7b74b87f097cd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b5a5ac4487890046d226bedb0238eaccb423ae42"
+        },
+        "date": 1735960720711,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_benchmark/small_payload/libp2p/serially/64B",
+            "value": 17906473,
+            "range": "± 402710",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_benchmark/small_payload/libp2p/serially/512B",
+            "value": 18028249,
+            "range": "± 376977",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_benchmark/small_payload/libp2p/serially/4KB",
+            "value": 19607414,
+            "range": "± 347759",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_benchmark/small_payload/libp2p/serially/64KB",
+            "value": 23842723,
+            "range": "± 674082",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_benchmark/large_payload/libp2p/serially/256KB",
+            "value": 5669355,
+            "range": "± 326213",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_benchmark/large_payload/libp2p/serially/2MB",
+            "value": 33259681,
+            "range": "± 1448902",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_benchmark/large_payload/libp2p/serially/16MB",
+            "value": 254199472,
+            "range": "± 17716451",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_benchmark/large_payload/libp2p/serially/128MB",
+            "value": 2206601933,
+            "range": "± 183595326",
             "unit": "ns/iter"
           }
         ]
