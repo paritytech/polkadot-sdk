@@ -39,7 +39,7 @@ pub struct InspectNodeKeyCmd {
 	file: Option<PathBuf>,
 
 	/// The input is in raw binary format.
-	/// If not given, the input is read as an hex encoded string.
+	/// If not given, the input is read as a hex encoded string.
 	#[arg(long)]
 	bin: bool,
 
