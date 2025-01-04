@@ -204,7 +204,8 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{DispatchResult, GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::traits::{
-		Contains, EstimateNextSessionRotation, IsSubType, OnRuntimeUpgrade, OneSessionHandler, UnfilteredDispatchable,
+		Contains, EstimateNextSessionRotation, IsSubType, OnRuntimeUpgrade, OneSessionHandler,
+		UnfilteredDispatchable,
 	};
 
 	/// Pallet prelude of `frame-system`.
