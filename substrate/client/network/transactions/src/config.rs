@@ -22,8 +22,7 @@ use futures::prelude::*;
 use sc_network::MAX_RESPONSE_SIZE;
 use sc_network_common::ExHashT;
 use sp_runtime::traits::Block as BlockT;
-use std::{collections::HashMap, future::Future, pin::Pin, time};
-use std::sync::Arc;
+use std::{collections::HashMap, future::Future, pin::Pin, sync::Arc, time};
 
 /// Interval at which we propagate transactions;
 pub(crate) const PROPAGATE_TIMEOUT: time::Duration = time::Duration::from_millis(2900);
@@ -58,7 +57,7 @@ pub type TransactionImportFuture = Pin<Box<dyn Future<Output = TransactionImport
 /// Transaction pool interface
 pub trait TransactionPool<H: ExHashT, B: BlockT>: Send + Sync {
 	/// Get transactions from the pool that are ready to be propagated.
-	fn transactions(&self) -> Vec<(H, B::Extrinsic)>;
+	fn transactions(&self) -> Vec<(H, Arc<B::Extrinsic>)>;
 	/// Get hash of transaction.
 	fn hash_of(&self, transaction: &Arc<B::Extrinsic>) -> H;
 	/// Import a transaction into the pool.
@@ -80,15 +79,15 @@ pub trait TransactionPool<H: ExHashT, B: BlockT>: Send + Sync {
 pub struct EmptyTransactionPool;
 
 impl<H: ExHashT + Default, B: BlockT> TransactionPool<H, B> for EmptyTransactionPool {
-	fn transactions(&self) -> Vec<(H, B::Extrinsic)> {
+	fn transactions(&self) -> Vec<(H, Arc<B::Extrinsic>)> {
 		Vec::new()
 	}
 
-	fn hash_of(&self, _transaction: &B::Extrinsic) -> H {
+	fn hash_of(&self, _transaction: &Arc<B::Extrinsic>) -> H {
 		Default::default()
 	}
 
-	fn import(&self, _transaction: B::Extrinsic) -> TransactionImportFuture {
+	fn import(&self, _transaction: Arc<B::Extrinsic>) -> TransactionImportFuture {
 		Box::pin(future::ready(TransactionImport::KnownGood))
 	}
 

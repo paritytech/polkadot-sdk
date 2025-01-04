@@ -420,7 +420,7 @@ where
 					break
 				}
 
-				let hash = self.transaction_pool.hash_of(&t);
+				let hash = self.transaction_pool.hash_of(&Arc::new(t.clone()));
 				peer.known_transactions.insert(hash.clone());
 
 				self.network.report_peer(who, rep::ANY_TRANSACTION);
@@ -428,7 +428,7 @@ where
 				match self.pending_transactions_peers.entry(hash.clone()) {
 					Entry::Vacant(entry) => {
 						self.pending_transactions.push(PendingTransaction {
-							validation: self.transaction_pool.import(t),
+							validation: self.transaction_pool.import(Arc::new(t)),
 							tx_hash: hash,
 						});
 						entry.insert(vec![who]);
@@ -460,7 +460,8 @@ where
 
 		debug!(target: LOG_TARGET, "Propagating transaction [{:?}]", hash);
 		if let Some(transaction) = self.transaction_pool.transaction(hash) {
-			let propagated_to = self.do_propagate_transactions(&[(hash.clone(), transaction)]);
+			let propagated_to =
+				self.do_propagate_transactions(&[(hash.clone(), Arc::new(transaction))]);
 			self.transaction_pool.on_broadcasted(propagated_to);
 		} else {
 			debug!(target: "sync", "Propagating transaction failure [{:?}]", hash);
@@ -469,7 +470,7 @@ where
 
 	fn do_propagate_transactions(
 		&mut self,
-		transactions: &[(H, B::Extrinsic)],
+		transactions: &[(H, Arc<B::Extrinsic>)],
 	) -> HashMap<H, Vec<String>> {
 		let mut propagated_to = HashMap::<_, Vec<_>>::new();
 		let mut propagated_transactions = 0;

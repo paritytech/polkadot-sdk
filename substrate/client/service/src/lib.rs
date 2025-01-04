@@ -474,7 +474,7 @@ impl<C, P> TransactionPoolAdapter<C, P> {
 /// Get transactions for propagation.
 ///
 /// Function extracted to simplify the test and prevent creating `ServiceFactory`.
-fn transactions_to_propagate<Pool, B, H, E>(pool: &Pool) -> Vec<(H, B::Extrinsic)>
+fn transactions_to_propagate<Pool, B, H, E>(pool: &Pool) -> Vec<(H, Arc<B::Extrinsic>)>
 where
 	Pool: TransactionPool<Block = B, Hash = H, Error = E>,
 	B: BlockT,
@@ -485,7 +485,7 @@ where
 		.filter(|t| t.is_propagable())
 		.map(|t| {
 			let hash = t.hash().clone();
-			let ex: B::Extrinsic = (**t.data()).clone();
+			let ex = t.data().clone();
 			(hash, ex)
 		})
 		.collect()
@@ -506,15 +506,15 @@ where
 	H: std::hash::Hash + Eq + sp_runtime::traits::Member + sp_runtime::traits::MaybeSerialize,
 	E: 'static + IntoPoolError + From<sc_transaction_pool_api::error::Error>,
 {
-	fn transactions(&self) -> Vec<(H, B::Extrinsic)> {
+	fn transactions(&self) -> Vec<(H, Arc<B::Extrinsic>)> {
 		transactions_to_propagate(&*self.pool)
 	}
 
-	fn hash_of(&self, transaction: &B::Extrinsic) -> H {
-		self.pool.hash_of(transaction)
+	fn hash_of(&self, transaction: &Arc<B::Extrinsic>) -> H {
+		self.pool.hash_of(transaction.as_ref())
 	}
 
-	fn import(&self, transaction: B::Extrinsic) -> TransactionImportFuture {
+	fn import(&self, transaction: Arc<B::Extrinsic>) -> TransactionImportFuture {
 		let encoded = transaction.encode();
 		let uxt = match Decode::decode(&mut &encoded[..]) {
 			Ok(uxt) => uxt,
@@ -614,6 +614,6 @@ mod tests {
 
 		// then
 		assert_eq!(transactions.len(), 1);
-		assert!(TransferData::try_from(&transactions[0].1).is_ok());
+		assert!(TransferData::try_from(&*transactions[0].1).is_ok());
 	}
 }
