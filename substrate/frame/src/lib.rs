@@ -204,7 +204,8 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::traits::{
-		Contains, EstimateNextSessionRotation, IsSubType, OnRuntimeUpgrade, OneSessionHandler,
+		Contains, EstimateNextSessionRotation, Everything, InsideBoth, InstanceFilter, IsSubType,
+		OnRuntimeUpgrade, OneSessionHandler, VariantCount, VariantCountOf,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -221,6 +222,8 @@ pub mod prelude {
 
 	/// All hashing related things
 	pub use super::hashing::*;
+
+	pub use crate::transaction::*;
 
 	/// All arithmetic types and traits used for safe math.
 	pub use super::arithmetic::*;
@@ -543,6 +546,22 @@ pub mod derive {
 pub mod hashing {
 	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
+}
+
+// Systems involved in transaction execution in the runtime.
+///
+/// This is already part of the [`prelude`].
+pub mod transaction {
+	pub use frame_support::traits::{CallMetadata, GetCallMetadata};
+	pub use sp_runtime::{
+		generic::ExtensionVersion,
+		impl_tx_ext_default,
+		traits::{
+			AsTransactionAuthorizedOrigin, DispatchTransaction, TransactionExtension,
+			ValidateResult,
+		},
+		transaction_validity::{InvalidTransaction, ValidTransaction},
+	};
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
