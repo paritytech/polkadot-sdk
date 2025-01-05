@@ -145,7 +145,7 @@
   {
     "name": "glutton-westend",
     "package": "glutton-westend-runtime",
-    "path": "cumulus/parachains/runtimes/gluttons/glutton-westend",
+    "path": "cumulus/parachains/runtimes/glutton/glutton-westend",
     "header": "cumulus/file_header.txt",
     "template": "cumulus/templates/xcm-bench-template.hbs",
     "bench_features": "runtime-benchmarks",
