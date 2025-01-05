@@ -22,8 +22,14 @@
 use super::*;
 use crate as pallet_safe_mode;
 
-use frame::{deps::sp_io, testing_prelude::*};
-use frame::traits::{BlakeTwo256, IdentityLookup, ConstU64, Everything, InsideBoth, InstanceFilter, IsInVec, SafeModeNotify};
+use frame::{
+	deps::sp_io,
+	testing_prelude::*,
+	traits::{
+		BlakeTwo256, ConstU64, Everything, IdentityLookup, InsideBoth, InstanceFilter, IsInVec,
+		SafeModeNotify,
+	},
+};
 // use frame_support::{
 // 	derive_impl, parameter_types,
 // 	traits::{ConstU64, Everything, InsideBoth, InstanceFilter, IsInVec, SafeModeNotify},

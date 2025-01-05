@@ -76,6 +76,9 @@ mod tests;
 pub mod weights;
 
 use frame::{
+	// This is here because of the defensive! macro, can be removed once the macro is changed to
+	// not require frame_support
+	deps::frame_support,
 	prelude::*,
 	traits::{
 		fungible::{
