@@ -23,7 +23,6 @@ use super::*;
 use crate as pallet_safe_mode;
 
 use frame::{
-	deps::sp_io,
 	testing_prelude::*,
 	traits::{
 		BlakeTwo256, ConstU64, Everything, IdentityLookup, InsideBoth, InstanceFilter, IsInVec,
@@ -234,7 +233,7 @@ frame_support::construct_runtime!(
 pub const BAL_ACC0: u64 = 1234;
 pub const BAL_ACC1: u64 = 5678;
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	pallet_balances::GenesisConfig::<Test> {
@@ -247,7 +246,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-	let mut ext = sp_io::TestExternalities::new(t);
+	let mut ext = TestExternalities::new(t);
 	ext.execute_with(|| {
 		System::set_block_number(1);
 	});
