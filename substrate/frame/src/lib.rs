@@ -203,7 +203,10 @@ pub mod prelude {
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{Contains, IsSubType, OnRuntimeUpgrade};
+	pub use frame_support::traits::{
+		Contains, EitherOf, IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade,
+	};
+	pub use frame_support::{defensive_assert, defensive};
 
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
@@ -220,12 +223,12 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
 		BlockNumberProvider, Bounded, DispatchInfoOf, Dispatchable, SaturatedConversion,
-		Saturating, StaticLookup, TrailingZeroInput,
+		Saturating, StaticLookup, TrailingZeroInput, ReduceBy, Convert, ReplaceWithDefault,
 	};
-
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
-	pub use sp_runtime::{DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError};
+	pub use sp_runtime::{DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError
+	};
 }
 
 #[cfg(any(feature = "try-runtime", test))]

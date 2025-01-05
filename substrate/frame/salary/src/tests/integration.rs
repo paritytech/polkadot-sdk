@@ -20,19 +20,18 @@
 use crate as pallet_salary;
 use crate::*;
 
-use crate::tests::integration::sp_api_hidden_includes_construct_runtime::hidden_include::hypothetically;
+use frame::deps::frame_support::hypothetically;
 use frame::{
 	deps::{
 		sp_io::{self, MultiRemovalResults},
 		sp_runtime,
 	},
 	prelude::*,
-	runtime::prelude::*,
+	runtime_prelude::*,
 	testing_prelude::*,
-	traits::{ConstU64, Convert, EitherOf, MapSuccess, NoOpPoll, ReduceBy, ReplaceWithDefault},
+	traits::Convert,
 };
 use pallet_ranked_collective::{EnsureRanked, Geometric};
-use sp_core::{ConstU16, Get};
 
 type Rank = u16;
 type Block = frame_system::mocking::MockBlock<Test>;
