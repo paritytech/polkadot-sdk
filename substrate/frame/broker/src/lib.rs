@@ -49,6 +49,7 @@ pub use types::*;
 
 extern crate alloc;
 
+type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 /// The log target for this pallet.
 const LOG_TARGET: &str = "runtime::broker";
 
@@ -948,6 +949,30 @@ pub mod pallet {
 		pub fn swap_leases(origin: OriginFor<T>, id: TaskId, other: TaskId) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_swap_leases(id, other)?;
+			Ok(())
+		}
+
+		#[pallet::call_index(100)]
+		pub fn force_transfer(
+			origin: OriginFor<T>,
+			region_id: RegionId,
+			new_owner: AccountIdLookupOf<T>,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			let new_owner = T::Lookup::lookup(new_owner)?;
+			let mut region = Regions::<T>::get(&region_id).ok_or(Error::<T>::UnknownRegion)?;
+
+			let old_owner = region.owner;
+			region.owner = Some(new_owner);
+			Regions::<T>::insert(&region_id, &region);
+			let duration = region.end.saturating_sub(region_id.begin);
+			Self::deposit_event(Event::Transferred {
+				region_id,
+				old_owner,
+				owner: region.owner,
+				duration,
+			});
+
 			Ok(())
 		}
 	}
