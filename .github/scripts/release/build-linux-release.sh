@@ -3,6 +3,8 @@
 # This is used to build our binaries:
 # - polkadot
 # - polkadot-parachain
+# - polkadot-omni-node 
+#
 # set -e
 
 BIN=$1
@@ -21,7 +23,7 @@ time cargo build --profile $PROFILE --locked --verbose --bin $BIN --package $PAC
 echo "Artifact target: $ARTIFACTS"
 
 cp ./target/$PROFILE/$BIN "$ARTIFACTS"
-pushd "$ARTIFACTS" > /dev/nul
+pushd "$ARTIFACTS" > /dev/null
 sha256sum "$BIN" | tee "$BIN.sha256"
 
 EXTRATAG="$($ARTIFACTS/$BIN --version |

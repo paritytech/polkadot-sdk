@@ -298,18 +298,14 @@ pub fn generate_impl_runtime_metadata(impls: &[ItemImpl]) -> Result<TokenStream2
 	// Therefore, the `Deref` trait will resolve the `runtime_metadata` from `impl_runtime_apis!`
 	// when both macros are called; and will resolve an empty `runtime_metadata` when only the
 	// `construct_runtime!` is called.
-
 	Ok(quote!(
 		#crate_::frame_metadata_enabled! {
 			#[doc(hidden)]
-			trait InternalImplRuntimeApis {
-				#[inline(always)]
+			impl #crate_::metadata_ir::InternalImplRuntimeApis for #runtime_name {
 				fn runtime_metadata(&self) -> #crate_::vec::Vec<#crate_::metadata_ir::RuntimeApiMetadataIR> {
 					#crate_::vec![ #( #metadata, )* ]
 				}
 			}
-			#[doc(hidden)]
-			impl InternalImplRuntimeApis for #runtime_name {}
 		}
 	))
 }
