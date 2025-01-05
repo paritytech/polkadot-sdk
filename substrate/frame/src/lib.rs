@@ -240,8 +240,9 @@ pub mod prelude {
 	/// Other runtime types and traits
 	#[doc(no_inline)]
 	pub use sp_runtime::{
+		BoundToRuntimeAppPublic,
 		DispatchError::{self, BadOrigin},
-		BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
+		DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
 	};
 }
 
