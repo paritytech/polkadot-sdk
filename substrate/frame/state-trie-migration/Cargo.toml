@@ -29,7 +29,6 @@ substrate-state-trie-migration-rpc = { optional = true, workspace = true, defaul
 parking_lot = { workspace = true, default-features = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -39,7 +38,6 @@ std = [
 	"pallet-balances/std",
 	"scale-info/std",
 	"frame/std",
-	"sp-tracing/std",
 ]
 runtime-benchmarks = [
 	"frame/runtime-benchmarks",

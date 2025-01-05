@@ -204,7 +204,6 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::traits::{Contains, IsSubType, OnRuntimeUpgrade};
-	pub use frame_support::defensive;
 
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]

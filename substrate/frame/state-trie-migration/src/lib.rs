@@ -80,17 +80,17 @@ pub mod pallet {
 	use alloc::{vec, vec::Vec};
 	use core::ops::Deref;
 
-
-	use frame::prelude::*;
-	use frame::traits::{
-				fungible::{hold::Balanced, Inspect, InspectHold, Mutate, MutateHold},
-				tokens::{Fortitude, Precision},
-				Get,
-			};
-
-			use frame::deps::sp_core::{
-		hexdisplay::HexDisplay, storage::well_known_keys::DEFAULT_CHILD_STORAGE_KEY_PREFIX,
+	use frame::{
+		deps::frame_support,
+		prelude::*,
+		traits::{
+			fungible::{hold::Balanced, Inspect, InspectHold, Mutate, MutateHold},
+			tokens::{Fortitude, Precision},
+			Get,
+		},
 	};
+
+	use frame::runtime::prelude::storage::child::get;
 
 	pub(crate) type BalanceOf<T> =
 		<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -304,7 +304,7 @@ pub mod pallet {
 		///
 		/// It updates the dynamic counters.
 		fn migrate_child(&mut self) -> Result<(), Error<T>> {
-			use frame::deps::sp_io::default_child_storage as child_io;
+			use default_child_storage as child_io;
 			let (maybe_current_child, child_root) = match (&self.progress_child, &self.progress_top)
 			{
 				(Progress::LastKey(last_child), Progress::LastKey(last_top)) => {
@@ -356,7 +356,7 @@ pub mod pallet {
 			let maybe_current_top = match &self.progress_top {
 				Progress::LastKey(last_top) => {
 					let maybe_top: Option<BoundedVec<u8, T::MaxKeyLen>> =
-						if let Some(next) = frame::deps::sp_io::storage::next_key(last_top) {
+						if let Some(next) = next_key(last_top) {
 							Some(next.try_into().map_err(|_| Error::<T>::KeyTooLong)?)
 						} else {
 							None
@@ -373,8 +373,8 @@ pub mod pallet {
 			};
 
 			if let Some(current_top) = maybe_current_top.as_ref() {
-				let added_size = if let Some(data) = frame::deps::sp_io::storage::get(current_top) {
-					frame::deps::sp_io::storage::set(current_top, &data);
+				let added_size = if let Some(data) = get(current_top) {
+					set(current_top, &data);
 					data.len() as u32
 				} else {
 					Zero::zero()
@@ -714,9 +714,9 @@ pub mod pallet {
 
 			let mut dyn_size = 0u32;
 			for key in &keys {
-				if let Some(data) = frame::deps::sp_io::storage::get(key) {
+				if let Some(data) = get(key) {
 					dyn_size = dyn_size.saturating_add(data.len() as u32);
-					frame::deps::sp_io::storage::set(key, &data);
+					set(key, &data);
 				}
 			}
 
@@ -760,7 +760,7 @@ pub mod pallet {
 			child_keys: Vec<Vec<u8>>,
 			total_size: u32,
 		) -> DispatchResultWithPostInfo {
-			use frame::deps::sp_io::default_child_storage as child_io;
+			use default_child_storage as child_io;
 			let who = T::SignedFilter::ensure_origin(origin)?;
 
 			// ensure they can pay more than the fee.
@@ -897,7 +897,8 @@ pub mod pallet {
 
 		/// Convert a child root key, aka. "Child-bearing top key" into the proper format.
 		fn transform_child_key(root: &Vec<u8>) -> Option<&[u8]> {
-			use frame::deps::sp_core::storage::{ChildType, PrefixedStorageKey};
+			use ChildType;
+			use PrefixedStorageKey;
 			match ChildType::from_prefixed_key(PrefixedStorageKey::new_ref(root)) {
 				Some((ChildType::ParentKeyId, root)) => Some(root),
 				_ => None,
@@ -951,8 +952,12 @@ pub mod pallet {
 mod benchmarks {
 	use super::{pallet::Pallet as StateTrieMigration, *};
 	//use frame::benchmarking::prelude::*;
-	use frame::benchmarking::prelude::{v1::benchmarks, *};
-	use frame::traits::fungible::{Inspect, Mutate};
+	use frame::{
+		benchmarking::prelude::{v1::benchmarks, *},
+		traits::fungible::{Inspect, Mutate},
+	};
+
+	use frame::runtime::prelude::storage::child::get;
 
 	// The size of the key seemingly makes no difference in the read/write time, so we make it
 	// constant.
@@ -1016,7 +1021,7 @@ mod benchmarks {
 			let stash = set_balance_for_deposit::<T>(&caller, null.item);
 			// for tests, we need to make sure there is _something_ in storage that is being
 			// migrated.
-			frame::deps::sp_io::storage::set(b"foo", vec![1u8;33].as_ref());
+			set(b"foo", vec![1u8;33].as_ref());
 		}: {
 			assert!(
 				StateTrieMigration::<T>::migrate_custom_top(
@@ -1058,7 +1063,7 @@ mod benchmarks {
 			let stash = set_balance_for_deposit::<T>(&caller, 1);
 			// for tests, we need to make sure there is _something_ in storage that is being
 			// migrated.
-			frame::deps::sp_io::default_child_storage::set(b"top", b"foo", vec![1u8;33].as_ref());
+			default_child_storage::set(b"top", b"foo", vec![1u8;33].as_ref());
 		}: {
 			assert!(
 				StateTrieMigration::<T>::migrate_custom_child(
@@ -1079,17 +1084,17 @@ mod benchmarks {
 			let v in 1 .. (4 * 1024 * 1024);
 
 			let value = alloc::vec![1u8; v as usize];
-			frame::deps::sp_io::storage::set(KEY, &value);
+			set(KEY, &value);
 		}: {
-			let data = frame::deps::sp_io::storage::get(KEY).unwrap();
-			frame::deps::sp_io::storage::set(KEY, &data);
-			let _next = frame::deps::sp_io::storage::next_key(KEY);
+			let data = get(KEY).unwrap();
+			set(KEY, &data);
+			let _next = next_key(KEY);
 			assert_eq!(data, value);
 		}
 
 		impl_benchmark_test_suite!(
 			StateTrieMigration,
-			crate::mock::new_test_ext(sp_runtime::StateVersion::V0, true, None, None),
+			crate::mock::new_test_ext(StateVersion::V0, true, None, None),
 			crate::mock::Test
 		);
 	}
@@ -1101,12 +1106,15 @@ mod mock {
 	use crate as pallet_state_trie_migration;
 	use alloc::{vec, vec::Vec};
 
-	use frame::benchmarking::prelude::*;
+	use frame::{
+		runtime::{prelude::storage::child::ChildInfo, testing_prelude::Storage},
+		testing_prelude::*,
+	};
 
 	type Block = frame_system::mocking::MockBlockU32<Test>;
 
 	// Configure a mock runtime to test the pallet.
-	frame_support::construct_runtime!(
+	construct_runtime!(
 		pub enum Test
 		{
 			System: frame_system,
@@ -1180,9 +1188,9 @@ mod mock {
 		with_pallets: bool,
 		custom_keys: Option<Vec<(Vec<u8>, Vec<u8>)>>,
 		custom_child: Option<Vec<(Vec<u8>, Vec<u8>, Vec<u8>)>>,
-	) -> frame::deps::sp_io::TestExternalities {
-		let minimum_size = frame::deps::sp_core::storage::TRIE_VALUE_NODE_THRESHOLD as usize + 1;
-		let mut custom_storage = frame::deps::sp_core::storage::Storage {
+	) -> TestExternalities {
+		let minimum_size = TRIE_VALUE_NODE_THRESHOLD as usize + 1;
+		let mut custom_storage = Storage {
 			top: vec![
 				(b"key1".to_vec(), vec![1u8; minimum_size + 1]), // 6b657931
 				(b"key2".to_vec(), vec![1u8; minimum_size + 2]), // 6b657931
@@ -1276,9 +1284,8 @@ mod mock {
 #[cfg(test)]
 mod test {
 	use super::{mock::*, *};
-	use frame::benchmarking::prelude::*;
-	// use frame_support::assert_ok;
-	// use sp_runtime::{bounded_vec, traits::Bounded, StateVersion};
+	use crate::test::storage::child::StateVersion;
+	use frame::{arithmetic::Bounded, testing_prelude::*};
 
 	#[test]
 	fn fails_if_no_migration() {
@@ -1471,7 +1478,7 @@ mod test {
 			assert_err!(
 				StateTrieMigration::continue_migrate(
 					RuntimeOrigin::signed(1),
-					MigrationLimits { item: 5, size: sp_runtime::traits::Bounded::max_value() },
+					MigrationLimits { item: 5, size: Bounded::max_value() },
 					Bounded::max_value(),
 					MigrationProcess::<Test>::get()
 				),
@@ -1564,7 +1571,7 @@ mod test {
 
 	#[test]
 	fn custom_migrate_top_works() {
-		let correct_witness = 3 + frame::deps::sp_core::storage::TRIE_VALUE_NODE_THRESHOLD * 3 + 1 + 2 + 3;
+		let correct_witness = 3 + TRIE_VALUE_NODE_THRESHOLD * 3 + 1 + 2 + 3;
 		new_test_ext(StateVersion::V0, true, None, None).execute_with(|| {
 			assert_ok!(StateTrieMigration::migrate_custom_top(
 				RuntimeOrigin::signed(1),
@@ -1650,18 +1657,8 @@ mod test {
 pub(crate) mod remote_tests {
 	use crate::{AutoLimits, MigrationLimits, Pallet as StateTrieMigration, LOG_TARGET};
 	use codec::Encode;
-	use frame::benchmarking::prelude::*;
-	// use frame_support::{
-	// 	traits::{Get, Hooks},
-	// 	weights::Weight,
-	// };
-	// use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System};
+	use frame::testing_prelude::*;
 	use remote_externalities::Mode;
-	// use frame::deps::sp_core::H256;
-	// use sp_runtime::{
-	// 	traits::{Block as BlockT, HashingFor, Header as _, One, Zero},
-	// 	DeserializeOwned,
-	// };
 	use thousands::Separable;
 
 	#[allow(dead_code)]
@@ -1697,7 +1694,7 @@ pub(crate) mod remote_tests {
 	{
 		let mut ext = remote_externalities::Builder::<Block>::new()
 			.mode(mode)
-			.overwrite_state_version(frame::deps::sp_core::storage::StateVersion::V0)
+			.overwrite_state_version(StateVersion::V0)
 			.build()
 			.await
 			.unwrap();
@@ -1710,7 +1707,7 @@ pub(crate) mod remote_tests {
 
 		let mut duration: BlockNumberFor<Runtime> = Zero::zero();
 		// set the version to 1, as if the upgrade happened.
-		ext.state_version = frame::deps::sp_core::storage::StateVersion::V1;
+		ext.state_version = StateVersion::V1;
 
 		let status =
 			substrate_state_trie_migration_rpc::migration_status(&ext.as_backend()).unwrap();
@@ -1787,13 +1784,13 @@ mod remote_tests_local {
 		remote_tests::run_with_limits,
 		*,
 	};
+	use frame::testing_prelude::*;
 	use remote_externalities::{Mode, OfflineConfig, OnlineConfig, SnapshotConfig};
-	use sp_runtime::traits::Bounded;
 	use std::env::var as env_var;
 
 	// we only use the hash type from this, so using the mock should be fine.
-	type Extrinsic = sp_runtime::testing::TestXt<MockCall, ()>;
-	type Block = sp_runtime::testing::Block<Extrinsic>;
+	type Extrinsic = testing::TestXt<MockCall, ()>;
+	type Block = testing::Block<Extrinsic>;
 
 	#[tokio::test]
 	async fn on_initialize_migration() {

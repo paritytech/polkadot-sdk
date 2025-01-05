@@ -15336,7 +15336,6 @@ dependencies = [
  "polkadot-sdk-frame 0.1.0",
  "scale-info",
  "serde",
- "sp-tracing 16.0.0",
  "substrate-state-trie-migration-rpc",
  "thousands",
  "tokio",
