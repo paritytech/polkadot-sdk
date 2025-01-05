@@ -121,7 +121,7 @@ pub struct ProjectInfo<T: Config> {
 	/// Block at which the project was submitted for reward distribution
 	pub submission_block: ProvidedBlockNumberFor<T>,
 
-	/// Amount to be lock & pay for this project
+	/// Amount to be locked & payed for this project
 	pub amount: BalanceOf<T>,
 }
 

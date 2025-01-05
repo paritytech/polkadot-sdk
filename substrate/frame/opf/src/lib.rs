@@ -159,6 +159,9 @@ pub mod pallet {
 		/// Project added to whitelisted projects list
 		Projectlisted { when: ProvidedBlockNumberFor<T>, project_id: ProjectId<T> },
 
+		/// Several projects added to whitelisted projects list
+		Projectslisted { when: ProvidedBlockNumberFor<T>, projects_id: Vec<ProjectId<T>> },
+
 		/// Project removed from whitelisted projects list
 		ProjectUnlisted { when: ProvidedBlockNumberFor<T>, project_id: ProjectId<T> },
 
@@ -231,14 +234,14 @@ pub mod pallet {
 		///
 		/// ## Dispatch Origin
 		///
-		/// Must be signed
+		/// Must be AdminOrigin
 		///
 		/// ## Details
 		///
-		/// From this extrinsic only Root can register project.
+		/// From this extrinsic only AdminOrigin can register project.
 		///
 		/// ### Parameters
-		/// - `project_id`: The account that will receive the reward.
+		/// - `project_id`: The account that might be funded.
 		///
 		/// ### Errors
 		/// - [`Error::<T>::MaximumProjectsNumber`]: Maximum number of project subscriptions reached
@@ -251,6 +254,36 @@ pub mod pallet {
 			let when = T::BlockNumberProvider::current_block_number();
 			ProjectInfo::<T>::new(project_id.clone());
 			Self::deposit_event(Event::Projectlisted { when, project_id });
+			Ok(())
+		}
+
+		/// OPF Projects registration
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be AdminOrigin
+		///
+		/// ## Details
+		///
+		/// From this extrinsic only AdminOrigin can register project.
+		///
+		/// ### Parameters
+		/// - `projects_id`: The accounts that might be funded.
+		///
+		/// ### Errors
+		/// - [`Error::<T>::MaximumProjectsNumber`]: Maximum number of project subscriptions reached
+		///  
+		/// ## Events
+		/// Emits [`Event::<T>::Projectslisted`].
+		#[pallet::call_index(1)]
+		pub fn register_projects_batch(origin: OriginFor<T>, projects_id: Vec<ProjectId<T>>) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			let when = T::BlockNumberProvider::current_block_number();
+			for project_id in &projects_id{
+				ProjectInfo::<T>::new(project_id.clone());
+			}
+			
+			Self::deposit_event(Event::Projectslisted { when, projects_id });
 			Ok(())
 		}
 
@@ -272,7 +305,7 @@ pub mod pallet {
 		///  
 		/// ## Events
 		/// Emits [`Event::<T>::ProjectUnlisted`].
-		#[pallet::call_index(1)]
+		#[pallet::call_index(2)]
 		#[transactional]
 		pub fn unregister_project(
 			origin: OriginFor<T>,
@@ -286,13 +319,13 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(2)]
+		#[pallet::call_index(3)]
 		#[transactional]
 		pub fn vote(origin: OriginFor<T>) -> DispatchResult {
 			Ok(())
 		}
 
-		#[pallet::call_index(3)]
+		#[pallet::call_index(4)]
 		#[transactional]
 		pub fn remove_vote(origin: OriginFor<T>) -> DispatchResult {
 			Ok(())
@@ -318,7 +351,7 @@ pub mod pallet {
 		///  
 		/// ## Events
 		/// Emits [`Event::<T>::RewardClaimed`] if successful for a positive approval.
-		#[pallet::call_index(4)]
+		#[pallet::call_index(5)]
 		#[transactional]
 		pub fn claim_reward_for(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;
@@ -333,13 +366,13 @@ pub mod pallet {
 					Ok(())
 				} else if now < info.expire {
 					// transfer the funds
-					Self::spend(info.amount, project_id.clone())?;
-
+					Self::spend(info.amount, project_id.clone())?;					
 					Self::deposit_event(Event::RewardClaimed {
 						when: now,
 						amount: info.amount,
-						project_id,
+						project_id: project_id.clone(),
 					});
+					Self::unlist_project(project_id)?;
 					Ok(())
 				} else {
 				Err(DispatchError::Other("Not Claiming Period"))
