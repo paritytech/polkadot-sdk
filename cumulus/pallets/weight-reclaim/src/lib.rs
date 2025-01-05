@@ -37,7 +37,7 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension},
+	traits::{DispatchInfoOf, Dispatchable, Implication, PostDispatchInfoOf, TransactionExtension},
 	transaction_validity::{TransactionSource, TransactionValidityError, ValidTransaction},
 	DispatchResult,
 };
@@ -158,7 +158,7 @@ where
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		self_implicit: Self::Implicit,
-		inherited_implication: &impl Encode,
+		inherited_implication: &impl Implication,
 		source: TransactionSource,
 	) -> Result<(ValidTransaction, Self::Val, T::RuntimeOrigin), TransactionValidityError> {
 		let proof_size = get_proof_size();
