@@ -22,14 +22,14 @@
 use core::marker::PhantomData;
 
 use frame::{
-	hashing::blake2_256,
 	prelude::*,
 	traits::{
 		tokens::{GetSalary, Pay, PaymentStatus},
 		RankedMembers, RankedMembersSwapHandler,
 	},
 };
-use frame_support::{defensive, dispatch::DispatchResultWithPostInfo, ensure};
+use frame::arithmetic::Perbill;
+
 
 #[cfg(test)]
 mod tests;
@@ -70,8 +70,8 @@ pub enum ClaimState<Balance, Id> {
 	Attempted { registered: Option<Balance>, id: Id, amount: Balance },
 }
 
-use frame::deps::frame_support;
 use ClaimState::*;
+use frame::deps::frame_support;
 
 /// The status of a single payee/claimant.
 #[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
@@ -82,7 +82,7 @@ pub struct ClaimantStatus<CycleIndex, Balance, Id> {
 	status: ClaimState<Balance, Id>,
 }
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
 	use frame::prelude::*;
@@ -464,7 +464,7 @@ impl<T: Config<I>, I: 'static>
 		}
 
 		let Some(claimant) = Claimant::<T, I>::take(who) else {
-			frame_support::defensive!("Claimant should exist when swapping");
+			frame::prelude::defensive!("Claimant should exist when swapping");
 			return;
 		};
 
