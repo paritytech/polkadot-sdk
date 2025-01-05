@@ -24,12 +24,9 @@ pallet-utility = { optional = true, workspace = true }
 pallet-proxy = { optional = true, workspace = true }
 
 [dev-dependencies]
-sp-core = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-utility = { workspace = true, default-features = true }
 pallet-proxy = { workspace = true, default-features = true }
-frame-support = { features = ["experimental"], workspace = true, default-features = true }
 
 [features]
 default = ["std"]
