@@ -57,6 +57,7 @@ pub trait WeightInfo {
 	fn purchase() -> Weight;
 	fn renew() -> Weight;
 	fn transfer() -> Weight;
+	fn force_transfer() -> Weight;
 	fn partition() -> Weight;
 	fn interlace() -> Weight;
 	fn assign() -> Weight;
@@ -201,6 +202,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(25_080_000, 3551)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	fn force_transfer() -> Weight {
+		Weight::from_parts(1, 1)
 	}
 	/// Storage: `Broker::Regions` (r:1 w:2)
 	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
@@ -658,6 +662,9 @@ impl WeightInfo for () {
 		Weight::from_parts(25_080_000, 3551)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn force_transfer() -> Weight {
+		Weight::from_parts(1, 1)
 	}
 	/// Storage: `Broker::Regions` (r:1 w:2)
 	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)

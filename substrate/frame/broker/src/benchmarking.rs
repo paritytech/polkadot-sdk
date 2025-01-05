@@ -1163,6 +1163,43 @@ mod benches {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn force_transfer() -> Result<(), BenchmarkError> {
+		setup_and_start_sale::<T>()?;
+
+		advance_to::<T>(2);
+
+		let caller: T::AccountId = whitelisted_caller();
+		let admin_origin =
+			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		T::Currency::set_balance(
+			&caller.clone(),
+			T::Currency::minimum_balance().saturating_add(10_000_000u32.into()),
+		);
+
+		let region = Broker::<T>::do_purchase(caller.clone(), 10_000_000u32.into())
+			.expect("Offer not high enough for configuration.");
+
+		let recipient: T::AccountId = account("recipient", 0, SEED);
+		let recipient_lookup = T::Lookup::unlookup(recipient.clone());
+
+		#[extrinsic_call]
+		_(admin_origin as T::RuntimeOrigin, region, recipient_lookup.clone());
+
+		assert_last_event::<T>(
+			Event::Transferred {
+				region_id: region,
+				old_owner: Some(caller),
+				owner: Some(recipient),
+				duration: 3u32.into(),
+			}
+			.into(),
+		);
+
+		Ok(())
+	}
+
 	// Implements a test for each benchmark. Execute with:
 	// `cargo test -p pallet-broker --features runtime-benchmarks`.
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

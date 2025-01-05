@@ -45,6 +45,7 @@ pub use weights::WeightInfo;
 pub use adapt_price::*;
 pub use core_mask::*;
 pub use coretime_interface::*;
+use sp_runtime::traits::StaticLookup;
 pub use types::*;
 
 extern crate alloc;
@@ -944,15 +945,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(99)]
-		#[pallet::weight(T::WeightInfo::swap_leases())]
-		pub fn swap_leases(origin: OriginFor<T>, id: TaskId, other: TaskId) -> DispatchResult {
-			T::AdminOrigin::ensure_origin_or_root(origin)?;
-			Self::do_swap_leases(id, other)?;
-			Ok(())
-		}
-
-		#[pallet::call_index(100)]
+		#[pallet::call_index(25)]
 		pub fn force_transfer(
 			origin: OriginFor<T>,
 			region_id: RegionId,
@@ -960,19 +953,15 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			let new_owner = T::Lookup::lookup(new_owner)?;
-			let mut region = Regions::<T>::get(&region_id).ok_or(Error::<T>::UnknownRegion)?;
+			Self::do_transfer(region_id, None, new_owner)?;
+			Ok(())
+		}
 
-			let old_owner = region.owner;
-			region.owner = Some(new_owner);
-			Regions::<T>::insert(&region_id, &region);
-			let duration = region.end.saturating_sub(region_id.begin);
-			Self::deposit_event(Event::Transferred {
-				region_id,
-				old_owner,
-				owner: region.owner,
-				duration,
-			});
-
+		#[pallet::call_index(99)]
+		#[pallet::weight(T::WeightInfo::swap_leases())]
+		pub fn swap_leases(origin: OriginFor<T>, id: TaskId, other: TaskId) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_swap_leases(id, other)?;
 			Ok(())
 		}
 	}
