@@ -20,7 +20,6 @@
 use super::*;
 use alloc::vec;
 
-use crate::frame_system::EventRecord;
 use frame::{
 	benchmarking::prelude::{v1::benchmarks, *},
 	traits::{schedule::Priority, BoundedInline},
@@ -33,7 +32,7 @@ use frame::{
 // 	weights::WeightMeter,
 // };
 // use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
-// use frame_system::{Call as SystemCall, EventRecord};
+// use frame_system::{Call as Call, EventRecord};
 use crate::Pallet as Scheduler;
 
 const SEED: u32 = 0;
@@ -99,7 +98,7 @@ fn make_task<T: Config>(
 
 fn bounded<T: Config>(len: u32) -> Option<BoundedCallOf<T>> {
 	let call =
-		<<T as Config>::RuntimeCall>::from(SystemCall::remark { remark: vec![0; len as usize] });
+		<<T as Config>::RuntimeCall>::from(remark { remark: vec![0; len as usize] });
 	T::Preimages::bound(call).ok()
 }
 
@@ -245,7 +244,7 @@ benchmarks! {
 		let periodic = Some((BlockNumberFor::<T>::one(), 100));
 		let priority = 0;
 		// Essentially a no-op call.
-		let call = Box::new(SystemCall::set_storage { items: vec![] }.into());
+		let call = Box::new(set_storage { items: vec![] }.into());
 
 		fill_schedule::<T>(when, s)?;
 	}: _(RawOrigin::Root, when, periodic, priority, call)
@@ -288,7 +287,7 @@ benchmarks! {
 		let periodic = Some((BlockNumberFor::<T>::one(), 100));
 		let priority = 0;
 		// Essentially a no-op call.
-		let call = Box::new(SystemCall::set_storage { items: vec![] }.into());
+		let call = Box::new(set_storage { items: vec![] }.into());
 
 		fill_schedule::<T>(when, s)?;
 	}: _(RawOrigin::Root, id, when, periodic, priority, call)

@@ -232,7 +232,7 @@ pub mod pallet {
 
 	/// `system::Config` should always be included in our implied traits.
 	#[pallet::config]
-	pub trait Config: frame::deps::frame_system::Config {
+	pub trait Config: frame_system::Config {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -645,7 +645,7 @@ impl<T: Config> Pallet<T> {
 								priority: schedule.priority,
 								call,
 								maybe_periodic: schedule.maybe_periodic,
-								origin: RawOrigin::Root.into(),
+								origin: system::RawOrigin::Root.into(),
 								_phantom: Default::default(),
 							})
 						})
