@@ -5,6 +5,8 @@ description = "Constants used throughout the Rococo network."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [package.metadata.polkadot-sdk]
 exclude-from-umbrella = true
@@ -18,9 +20,9 @@ smallvec = { workspace = true, default-features = true }
 frame-support = { workspace = true }
 polkadot-primitives = { workspace = true }
 polkadot-runtime-common = { workspace = true }
+sp-core = { workspace = true }
 sp-runtime = { workspace = true }
 sp-weights = { workspace = true }
-sp-core = { workspace = true }
 
 xcm = { workspace = true }
 xcm-builder = { workspace = true }

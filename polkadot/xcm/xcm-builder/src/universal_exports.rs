@@ -68,25 +68,36 @@ impl<Exporter: ExportXcm, UniversalLocation: Get<InteriorLocation>> SendXcm
 
 	fn validate(
 		dest: &mut Option<Location>,
-		xcm: &mut Option<Xcm<()>>,
+		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<Exporter::Ticket> {
-		let d = dest.take().ok_or(MissingArgument)?;
+		// This `clone` ensures that `dest` is not consumed in any case.
+		let d = dest.clone().take().ok_or(MissingArgument)?;
 		let universal_source = UniversalLocation::get();
-		let devolved = match ensure_is_remote(universal_source.clone(), d) {
-			Ok(x) => x,
-			Err(d) => {
-				*dest = Some(d);
-				return Err(NotApplicable)
-			},
-		};
-		let (network, destination) = devolved;
-		let xcm = xcm.take().ok_or(SendError::MissingArgument)?;
-		validate_export::<Exporter>(network, 0, universal_source, destination, xcm)
+		let devolved = ensure_is_remote(universal_source.clone(), d).map_err(|_| NotApplicable)?;
+		let (remote_network, remote_location) = devolved;
+		let xcm = msg.take().ok_or(MissingArgument)?;
+
+		validate_export::<Exporter>(
+			remote_network,
+			0,
+			universal_source,
+			remote_location,
+			xcm.clone(),
+		)
+		.inspect_err(|err| {
+			if let NotApplicable = err {
+				// We need to make sure that msg is not consumed in case of `NotApplicable`.
+				*msg = Some(xcm);
+			}
+		})
 	}
 
 	fn deliver(ticket: Exporter::Ticket) -> Result<XcmHash, SendError> {
 		Exporter::deliver(ticket)
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery(_: Option<Location>) {}
 }
 
 pub trait ExporterFor {
@@ -95,7 +106,7 @@ pub trait ExporterFor {
 	///
 	/// The payment is specified from the local context, not the bridge chain. This is the
 	/// total amount to withdraw in to Holding and should cover both payment for the execution on
-	/// the bridge chain as well as payment for the use of the `ExportMessage` instruction.
+	/// the bridge chain and payment for the use of the `ExportMessage` instruction.
 	fn exporter_for(
 		network: &NetworkId,
 		remote_location: &InteriorLocation,
@@ -205,7 +216,8 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 		dest: &mut Option<Location>,
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<Router::Ticket> {
-		let d = dest.clone().ok_or(MissingArgument)?;
+		// This `clone` ensures that `dest` is not consumed in any case.
+		let d = dest.clone().take().ok_or(MissingArgument)?;
 		let devolved = ensure_is_remote(UniversalLocation::get(), d).map_err(|_| NotApplicable)?;
 		let (remote_network, remote_location) = devolved;
 		let xcm = msg.take().ok_or(MissingArgument)?;
@@ -216,7 +228,7 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 		else {
 			// We need to make sure that msg is not consumed in case of `NotApplicable`.
 			*msg = Some(xcm);
-			return Err(SendError::NotApplicable)
+			return Err(NotApplicable)
 		};
 		ensure!(maybe_payment.is_none(), Unroutable);
 
@@ -232,16 +244,30 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 		// export for free. Common-good chains will typically be afforded this.
 		let mut message = Xcm(vec![
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-			ExportMessage { network: remote_network, destination: remote_location, xcm },
+			ExportMessage {
+				network: remote_network,
+				destination: remote_location,
+				xcm: xcm.clone(),
+			},
 		]);
 		if let Some(forward_id) = maybe_forward_id {
 			message.0.push(SetTopic(forward_id));
 		}
-		validate_send::<Router>(bridge, message)
+		validate_send::<Router>(bridge, message).inspect_err(|err| {
+			if let NotApplicable = err {
+				// We need to make sure that msg is not consumed in case of `NotApplicable`.
+				*msg = Some(xcm);
+			}
+		})
 	}
 
 	fn deliver(validation: Self::Ticket) -> Result<XcmHash, SendError> {
 		Router::deliver(validation)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery(location: Option<Location>) {
+		Router::ensure_successful_delivery(location);
 	}
 }
 
@@ -272,9 +298,9 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 		dest: &mut Option<Location>,
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<Router::Ticket> {
-		let d = dest.as_ref().ok_or(MissingArgument)?;
-		let devolved =
-			ensure_is_remote(UniversalLocation::get(), d.clone()).map_err(|_| NotApplicable)?;
+		// This `clone` ensures that `dest` is not consumed in any case.
+		let d = dest.clone().take().ok_or(MissingArgument)?;
+		let devolved = ensure_is_remote(UniversalLocation::get(), d).map_err(|_| NotApplicable)?;
 		let (remote_network, remote_location) = devolved;
 		let xcm = msg.take().ok_or(MissingArgument)?;
 
@@ -284,7 +310,7 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 		else {
 			// We need to make sure that msg is not consumed in case of `NotApplicable`.
 			*msg = Some(xcm);
-			return Err(SendError::NotApplicable)
+			return Err(NotApplicable)
 		};
 
 		// `xcm` should already end with `SetTopic` - if it does, then extract and derive into
@@ -296,8 +322,11 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 
 		let local_from_bridge =
 			UniversalLocation::get().invert_target(&bridge).map_err(|_| Unroutable)?;
-		let export_instruction =
-			ExportMessage { network: remote_network, destination: remote_location, xcm };
+		let export_instruction = ExportMessage {
+			network: remote_network,
+			destination: remote_location,
+			xcm: xcm.clone(),
+		};
 
 		let mut message = Xcm(if let Some(ref payment) = maybe_payment {
 			let fees = payment
@@ -325,7 +354,12 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 
 		// We then send a normal message to the bridge asking it to export the prepended
 		// message to the remote chain.
-		let (v, mut cost) = validate_send::<Router>(bridge, message)?;
+		let (v, mut cost) = validate_send::<Router>(bridge, message).inspect_err(|err| {
+			if let NotApplicable = err {
+				// We need to make sure that msg is not consumed in case of `NotApplicable`.
+				*msg = Some(xcm);
+			}
+		})?;
 		if let Some(bridge_payment) = maybe_payment {
 			cost.push(bridge_payment);
 		}
@@ -334,6 +368,11 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 
 	fn deliver(ticket: Router::Ticket) -> Result<XcmHash, SendError> {
 		Router::deliver(ticket)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery(location: Option<Location>) {
+		Router::ensure_successful_delivery(location);
 	}
 }
 
@@ -476,10 +515,10 @@ impl<
 			let Location { parents, interior: mut junctions } = BridgedNetwork::get();
 			match junctions.take_first() {
 				Some(GlobalConsensus(network)) => (network, parents),
-				_ => return Err(SendError::NotApplicable),
+				_ => return Err(NotApplicable),
 			}
 		};
-		ensure!(&network == &bridged_network, SendError::NotApplicable);
+		ensure!(&network == &bridged_network, NotApplicable);
 		// We don't/can't use the `channel` for this adapter.
 		let dest = destination.take().ok_or(SendError::MissingArgument)?;
 
@@ -496,7 +535,7 @@ impl<
 				},
 				Err((dest, _)) => {
 					*destination = Some(dest);
-					return Err(SendError::NotApplicable)
+					return Err(NotApplicable)
 				},
 			};
 
@@ -540,6 +579,10 @@ impl<
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use frame_support::{
+		assert_err, assert_ok,
+		traits::{Contains, Equals},
+	};
 
 	#[test]
 	fn ensure_is_remote_works() {
@@ -564,19 +607,49 @@ mod tests {
 		assert_eq!(x, Err((Parent, Polkadot, Parachain(1000)).into()));
 	}
 
-	pub struct OkSender;
-	impl SendXcm for OkSender {
+	pub struct OkFor<Filter>(PhantomData<Filter>);
+	impl<Filter: Contains<Location>> SendXcm for OkFor<Filter> {
 		type Ticket = ();
 
 		fn validate(
-			_destination: &mut Option<Location>,
+			destination: &mut Option<Location>,
 			_message: &mut Option<Xcm<()>>,
 		) -> SendResult<Self::Ticket> {
-			Ok(((), Assets::new()))
+			if let Some(d) = destination.as_ref() {
+				if Filter::contains(&d) {
+					return Ok(((), Assets::new()))
+				}
+			}
+			Err(NotApplicable)
 		}
 
 		fn deliver(_ticket: Self::Ticket) -> Result<XcmHash, SendError> {
 			Ok([0; 32])
+		}
+
+		#[cfg(feature = "runtime-benchmarks")]
+		fn ensure_successful_delivery(_: Option<Location>) {}
+	}
+	impl<Filter: Contains<(NetworkId, InteriorLocation)>> ExportXcm for OkFor<Filter> {
+		type Ticket = ();
+
+		fn validate(
+			network: NetworkId,
+			_: u32,
+			_: &mut Option<InteriorLocation>,
+			destination: &mut Option<InteriorLocation>,
+			_: &mut Option<Xcm<()>>,
+		) -> SendResult<Self::Ticket> {
+			if let Some(d) = destination.as_ref() {
+				if Filter::contains(&(network, d.clone())) {
+					return Ok(((), Assets::new()))
+				}
+			}
+			Err(NotApplicable)
+		}
+
+		fn deliver(_ticket: Self::Ticket) -> Result<XcmHash, SendError> {
+			Ok([1; 32])
 		}
 	}
 
@@ -598,46 +671,168 @@ mod tests {
 	}
 
 	#[test]
-	fn remote_exporters_does_not_consume_dest_or_msg_on_not_applicable() {
+	fn local_exporters_works() {
 		frame_support::parameter_types! {
 			pub Local: NetworkId = ByGenesis([0; 32]);
 			pub UniversalLocation: InteriorLocation = [GlobalConsensus(Local::get()), Parachain(1234)].into();
 			pub DifferentRemote: NetworkId = ByGenesis([22; 32]);
-			// no routers
-			pub BridgeTable: Vec<NetworkExportTableItem> = vec![];
+			pub RemoteDestination: Junction = Parachain(9657);
+			pub RoutableBridgeFilter: (NetworkId, InteriorLocation) = (DifferentRemote::get(), RemoteDestination::get().into());
 		}
+		type RoutableBridgeExporter = OkFor<Equals<RoutableBridgeFilter>>;
+		type NotApplicableBridgeExporter = OkFor<()>;
+		assert_ok!(validate_export::<RoutableBridgeExporter>(
+			DifferentRemote::get(),
+			0,
+			UniversalLocation::get(),
+			RemoteDestination::get().into(),
+			Xcm::default()
+		));
+		assert_err!(
+			validate_export::<NotApplicableBridgeExporter>(
+				DifferentRemote::get(),
+				0,
+				UniversalLocation::get(),
+				RemoteDestination::get().into(),
+				Xcm::default()
+			),
+			NotApplicable
+		);
 
-		// check with local destination (should be remote)
+		// 1. check with local destination (should be remote)
 		let local_dest: Location = (Parent, Parachain(5678)).into();
 		assert!(ensure_is_remote(UniversalLocation::get(), local_dest.clone()).is_err());
 
+		// UnpaidLocalExporter
 		ensure_validate_does_not_consume_dest_or_msg::<
-			UnpaidRemoteExporter<NetworkExportTable<BridgeTable>, OkSender, UniversalLocation>,
+			UnpaidLocalExporter<RoutableBridgeExporter, UniversalLocation>,
 		>(local_dest.clone(), |result| assert_eq!(Err(NotApplicable), result));
 
+		// 2. check with not applicable from the inner router (using `NotApplicableBridgeSender`)
+		let remote_dest: Location =
+			(Parent, Parent, DifferentRemote::get(), RemoteDestination::get()).into();
+		assert!(ensure_is_remote(UniversalLocation::get(), remote_dest.clone()).is_ok());
+
+		// UnpaidLocalExporter
+		ensure_validate_does_not_consume_dest_or_msg::<
+			UnpaidLocalExporter<NotApplicableBridgeExporter, UniversalLocation>,
+		>(remote_dest.clone(), |result| assert_eq!(Err(NotApplicable), result));
+
+		// 3. Ok - deliver
+		// UnpaidRemoteExporter
+		assert_ok!(send_xcm::<UnpaidLocalExporter<RoutableBridgeExporter, UniversalLocation>>(
+			remote_dest,
+			Xcm::default()
+		));
+	}
+
+	#[test]
+	fn remote_exporters_works() {
+		frame_support::parameter_types! {
+			pub Local: NetworkId = ByGenesis([0; 32]);
+			pub UniversalLocation: InteriorLocation = [GlobalConsensus(Local::get()), Parachain(1234)].into();
+			pub DifferentRemote: NetworkId = ByGenesis([22; 32]);
+			pub RoutableBridge: Location = Location::new(1, Parachain(9657));
+			// not routable
+			pub NotApplicableBridgeTable: Vec<NetworkExportTableItem> = vec![];
+			// routable
+			pub RoutableBridgeTable: Vec<NetworkExportTableItem> = vec![
+				NetworkExportTableItem::new(
+					DifferentRemote::get(),
+					None,
+					RoutableBridge::get(),
+					None
+				)
+			];
+		}
+		type RoutableBridgeSender = OkFor<Equals<RoutableBridge>>;
+		type NotApplicableBridgeSender = OkFor<()>;
+		assert_ok!(validate_send::<RoutableBridgeSender>(RoutableBridge::get(), Xcm::default()));
+		assert_err!(
+			validate_send::<NotApplicableBridgeSender>(RoutableBridge::get(), Xcm::default()),
+			NotApplicable
+		);
+
+		// 1. check with local destination (should be remote)
+		let local_dest: Location = (Parent, Parachain(5678)).into();
+		assert!(ensure_is_remote(UniversalLocation::get(), local_dest.clone()).is_err());
+
+		// UnpaidRemoteExporter
+		ensure_validate_does_not_consume_dest_or_msg::<
+			UnpaidRemoteExporter<
+				NetworkExportTable<RoutableBridgeTable>,
+				RoutableBridgeSender,
+				UniversalLocation,
+			>,
+		>(local_dest.clone(), |result| assert_eq!(Err(NotApplicable), result));
+		// SovereignPaidRemoteExporter
 		ensure_validate_does_not_consume_dest_or_msg::<
 			SovereignPaidRemoteExporter<
-				NetworkExportTable<BridgeTable>,
-				OkSender,
+				NetworkExportTable<RoutableBridgeTable>,
+				RoutableBridgeSender,
 				UniversalLocation,
 			>,
 		>(local_dest, |result| assert_eq!(Err(NotApplicable), result));
 
-		// check with not applicable destination
+		// 2. check with not applicable destination (`NotApplicableBridgeTable`)
 		let remote_dest: Location = (Parent, Parent, DifferentRemote::get()).into();
 		assert!(ensure_is_remote(UniversalLocation::get(), remote_dest.clone()).is_ok());
 
+		// UnpaidRemoteExporter
 		ensure_validate_does_not_consume_dest_or_msg::<
-			UnpaidRemoteExporter<NetworkExportTable<BridgeTable>, OkSender, UniversalLocation>,
+			UnpaidRemoteExporter<
+				NetworkExportTable<NotApplicableBridgeTable>,
+				RoutableBridgeSender,
+				UniversalLocation,
+			>,
 		>(remote_dest.clone(), |result| assert_eq!(Err(NotApplicable), result));
-
+		// SovereignPaidRemoteExporter
 		ensure_validate_does_not_consume_dest_or_msg::<
 			SovereignPaidRemoteExporter<
-				NetworkExportTable<BridgeTable>,
-				OkSender,
+				NetworkExportTable<NotApplicableBridgeTable>,
+				RoutableBridgeSender,
 				UniversalLocation,
 			>,
 		>(remote_dest, |result| assert_eq!(Err(NotApplicable), result));
+
+		// 3. check with not applicable from the inner router (using `NotApplicableBridgeSender`)
+		let remote_dest: Location = (Parent, Parent, DifferentRemote::get()).into();
+		assert!(ensure_is_remote(UniversalLocation::get(), remote_dest.clone()).is_ok());
+
+		// UnpaidRemoteExporter
+		ensure_validate_does_not_consume_dest_or_msg::<
+			UnpaidRemoteExporter<
+				NetworkExportTable<RoutableBridgeTable>,
+				NotApplicableBridgeSender,
+				UniversalLocation,
+			>,
+		>(remote_dest.clone(), |result| assert_eq!(Err(NotApplicable), result));
+		// SovereignPaidRemoteExporter
+		ensure_validate_does_not_consume_dest_or_msg::<
+			SovereignPaidRemoteExporter<
+				NetworkExportTable<RoutableBridgeTable>,
+				NotApplicableBridgeSender,
+				UniversalLocation,
+			>,
+		>(remote_dest.clone(), |result| assert_eq!(Err(NotApplicable), result));
+
+		// 4. Ok - deliver
+		// UnpaidRemoteExporter
+		assert_ok!(send_xcm::<
+			UnpaidRemoteExporter<
+				NetworkExportTable<RoutableBridgeTable>,
+				RoutableBridgeSender,
+				UniversalLocation,
+			>,
+		>(remote_dest.clone(), Xcm::default()));
+		// SovereignPaidRemoteExporter
+		assert_ok!(send_xcm::<
+			SovereignPaidRemoteExporter<
+				NetworkExportTable<RoutableBridgeTable>,
+				RoutableBridgeSender,
+				UniversalLocation,
+			>,
+		>(remote_dest, Xcm::default()));
 	}
 
 	#[test]

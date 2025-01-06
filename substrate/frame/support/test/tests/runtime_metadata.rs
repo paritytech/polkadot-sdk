@@ -80,34 +80,39 @@ sp_api::decl_runtime_apis! {
 	}
 }
 
-sp_api::impl_runtime_apis! {
-	impl self::Api<Block> for Runtime {
-		fn test(_data: u64) {
-			unimplemented!()
+// Module to emulate having the implementation in a different file.
+mod apis {
+	use super::{Block, BlockT, Runtime};
+
+	sp_api::impl_runtime_apis! {
+		impl crate::Api<Block> for Runtime {
+			fn test(_data: u64) {
+				unimplemented!()
+			}
+
+			fn something_with_block(_: Block) -> Block {
+				unimplemented!()
+			}
+
+			fn function_with_two_args(_: u64, _: Block) {
+				unimplemented!()
+			}
+
+			fn same_name() {}
+
+			fn wild_card(_: u32) {}
 		}
 
-		fn something_with_block(_: Block) -> Block {
-			unimplemented!()
-		}
-
-		fn function_with_two_args(_: u64, _: Block) {
-			unimplemented!()
-		}
-
-		fn same_name() {}
-
-		fn wild_card(_: u32) {}
-	}
-
-	impl sp_api::Core<Block> for Runtime {
-		fn version() -> sp_version::RuntimeVersion {
-			unimplemented!()
-		}
-		fn execute_block(_: Block) {
-			unimplemented!()
-		}
-		fn initialize_block(_: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
-			unimplemented!()
+		impl sp_api::Core<Block> for Runtime {
+			fn version() -> sp_version::RuntimeVersion {
+				unimplemented!()
+			}
+			fn execute_block(_: Block) {
+				unimplemented!()
+			}
+			fn initialize_block(_: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
+				unimplemented!()
+			}
 		}
 	}
 }

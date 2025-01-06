@@ -238,27 +238,52 @@ fn basic_stuff() {
 fn basic_voting_works() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(2, 5)));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
+			who: 1,
+			vote: aye(2, 5),
+		}));
 		assert_eq!(tally(3), Tally::from_parts(10, 0, 2));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, nay(2, 5)));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
+			who: 1,
+			vote: nay(2, 5),
+		}));
 		assert_eq!(tally(3), Tally::from_parts(0, 10, 0));
 		assert_eq!(Balances::usable_balance(1), 8);
 
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(5, 1)));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
+			who: 1,
+			vote: aye(5, 1),
+		}));
 		assert_eq!(tally(3), Tally::from_parts(5, 0, 5));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, nay(5, 1)));
 		assert_eq!(tally(3), Tally::from_parts(0, 5, 0));
 		assert_eq!(Balances::usable_balance(1), 5);
 
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(10, 0)));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
+			who: 1,
+			vote: aye(10, 0),
+		}));
 		assert_eq!(tally(3), Tally::from_parts(1, 0, 10));
+
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, nay(10, 0)));
 		assert_eq!(tally(3), Tally::from_parts(0, 1, 0));
 		assert_eq!(Balances::usable_balance(1), 0);
 
 		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), None, 3));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::VoteRemoved {
+			who: 1,
+			vote: nay(10, 0),
+		}));
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 0));
 
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), class(3), 1));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::VoteUnlocked {
+			who: 1,
+			class: class(3),
+		}));
 		assert_eq!(Balances::usable_balance(1), 10);
 	});
 }
@@ -267,15 +292,32 @@ fn basic_voting_works() {
 fn split_voting_works() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, split(10, 0)));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
+			who: 1,
+			vote: split(10, 0),
+		}));
 		assert_eq!(tally(3), Tally::from_parts(1, 0, 10));
+
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, split(5, 5)));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
+			who: 1,
+			vote: split(5, 5),
+		}));
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 5));
 		assert_eq!(Balances::usable_balance(1), 0);
 
 		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), None, 3));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::VoteRemoved {
+			who: 1,
+			vote: split(5, 5),
+		}));
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 0));
 
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), class(3), 1));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::VoteUnlocked {
+			who: 1,
+			class: class(3),
+		}));
 		assert_eq!(Balances::usable_balance(1), 10);
 	});
 }
@@ -284,25 +326,48 @@ fn split_voting_works() {
 fn abstain_voting_works() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, split_abstain(0, 0, 10)));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
+			who: 1,
+			vote: split_abstain(0, 0, 10),
+		}));
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 10));
-		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 3, split_abstain(0, 0, 20)));
-		assert_eq!(tally(3), Tally::from_parts(0, 0, 30));
-		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 3, split_abstain(10, 0, 10)));
-		assert_eq!(tally(3), Tally::from_parts(1, 0, 30));
+
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(6), 3, split_abstain(10, 0, 20)));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
+			who: 6,
+			vote: split_abstain(10, 0, 20),
+		}));
+		assert_eq!(tally(3), Tally::from_parts(1, 0, 40));
+
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(6), 3, split_abstain(0, 0, 40)));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
+			who: 6,
+			vote: split_abstain(0, 0, 40),
+		}));
+
+		assert_eq!(tally(3), Tally::from_parts(0, 0, 50));
 		assert_eq!(Balances::usable_balance(1), 0);
-		assert_eq!(Balances::usable_balance(2), 0);
+		assert_eq!(Balances::usable_balance(6), 20);
 
 		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), None, 3));
-		assert_eq!(tally(3), Tally::from_parts(1, 0, 20));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::VoteRemoved {
+			who: 1,
+			vote: split_abstain(0, 0, 10),
+		}));
+		assert_eq!(tally(3), Tally::from_parts(0, 0, 40));
 
-		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(2), None, 3));
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(6), Some(class(3)), 3));
+		System::assert_last_event(tests::RuntimeEvent::Voting(Event::VoteRemoved {
+			who: 6,
+			vote: split_abstain(0, 0, 40),
+		}));
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 0));
 
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), class(3), 1));
 		assert_eq!(Balances::usable_balance(1), 10);
 
-		assert_ok!(Voting::unlock(RuntimeOrigin::signed(2), class(3), 2));
-		assert_eq!(Balances::usable_balance(2), 20);
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(6), class(3), 6));
+		assert_eq!(Balances::usable_balance(6), 60);
 	});
 }
 
