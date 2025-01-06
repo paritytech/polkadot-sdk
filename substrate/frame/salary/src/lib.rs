@@ -72,7 +72,7 @@ pub enum ClaimState<Balance, Id> {
 
 use ClaimState::*;
 //https://github.com/paritytech/polkadot-sdk/issues/7054 frame_support needs to be used until this issue is resolved
-use frame::deps::frame_support;
+// use frame::deps::frame_support;
 
 /// The status of a single payee/claimant.
 #[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
