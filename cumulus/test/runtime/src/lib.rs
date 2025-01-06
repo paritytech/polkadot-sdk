@@ -232,6 +232,10 @@ impl frame_system::Config for Runtime {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
+impl cumulus_pallet_weight_reclaim::Config for Runtime {
+	type WeightInfo = ();
+}
+
 parameter_types! {
 	pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
 	pub const PotId: PalletId = PalletId(*b"PotStake");
@@ -350,6 +354,7 @@ construct_runtime! {
 		Glutton: pallet_glutton,
 		Aura: pallet_aura,
 		AuraExt: cumulus_pallet_aura_ext,
+		WeightReclaim: cumulus_pallet_weight_reclaim,
 	}
 }
 
@@ -380,16 +385,18 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// The extension to the basic transaction logic.
-pub type TxExtension = (
-	frame_system::CheckNonZeroSender<Runtime>,
-	frame_system::CheckSpecVersion<Runtime>,
-	frame_system::CheckGenesis<Runtime>,
-	frame_system::CheckEra<Runtime>,
-	frame_system::CheckNonce<Runtime>,
-	frame_system::CheckWeight<Runtime>,
-	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim<Runtime>,
-);
+pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
+	Runtime,
+	(
+		frame_system::CheckNonZeroSender<Runtime>,
+		frame_system::CheckSpecVersion<Runtime>,
+		frame_system::CheckGenesis<Runtime>,
+		frame_system::CheckEra<Runtime>,
+		frame_system::CheckNonce<Runtime>,
+		frame_system::CheckWeight<Runtime>,
+		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	),
+>;
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
