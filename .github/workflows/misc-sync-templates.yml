@@ -21,6 +21,10 @@ on:
       stable_release_branch:
         description: 'Stable release branch, e.g. stable2407'
         required: true
+      debug:
+        description: Enable runner debug logging
+        required: false
+        default: false
 
 jobs:
   sync-templates:
@@ -116,7 +120,7 @@ jobs:
           mv Cargo.temp ./templates/${{ matrix.template }}/Cargo.toml
         working-directory: polkadot-sdk
       - name: Print the result Cargo.tomls for debugging
-        if: runner.debug == '1'
+        if: ${{ github.event.inputs.debug }}
         run: find . -type f -name 'Cargo.toml' -exec cat {} \;
         working-directory: polkadot-sdk/templates/${{ matrix.template }}/
 
