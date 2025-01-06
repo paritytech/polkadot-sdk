@@ -115,11 +115,7 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 		.storages
 		.iter()
 		.map(|storage| {
-			storage
-				.attrs
-				.iter()
-				.filter(|attr| attr.path().is_ident("allow"))
-				.collect::<Vec<_>>()
+			crate::deprecation::extract_allow_attrs(&storage.attrs)
 		})
 		.collect::<Vec<_>>();
 	// Depending on the flag `without_storage_info` and the storage attribute `unbounded`, we use

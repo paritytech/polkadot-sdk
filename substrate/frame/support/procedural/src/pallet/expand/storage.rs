@@ -518,7 +518,6 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 							pub fn #getter<KArg>(k: KArg) -> #query where
 								KArg: #frame_support::__private::codec::EncodeLike<#key>,
 							{
-								#(#maybe_allow_attrs)*
 								<
 									#full_ident as #frame_support::storage::StorageMap<#key, #value>
 								>::get(k)
@@ -548,7 +547,6 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 							{
 								// NOTE: we can't use any trait here because CountedStorageMap
 								// doesn't implement any.
-								#(#maybe_allow_attrs)*
 								<#full_ident>::get(k)
 							}
 						}
@@ -575,7 +573,6 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 								KArg1: #frame_support::__private::codec::EncodeLike<#key1>,
 								KArg2: #frame_support::__private::codec::EncodeLike<#key2>,
 							{
-								#(#maybe_allow_attrs)*
 								<
 									#full_ident as
 									#frame_support::storage::StorageDoubleMap<#key1, #key2, #value>
@@ -608,7 +605,6 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 								>
 									+ #frame_support::storage::types::TupleToEncodedIter,
 							{
-								#(#maybe_allow_attrs)*
 								<
 									#full_ident as
 									#frame_support::storage::StorageNMap<#keygen, #value>
@@ -643,7 +639,6 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 							{
 								// NOTE: we can't use any trait here because CountedStorageNMap
 								// doesn't implement any.
-								#(#maybe_allow_attrs)*
 								<#full_ident>::get(key)
 							}
 						}

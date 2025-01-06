@@ -16,7 +16,6 @@
 // limitations under the License.
 
 use crate::deprecation::extract_allow_attrs;
-
 use super::helper;
 use quote::ToTokens;
 use syn::{spanned::Spanned, Fields};
