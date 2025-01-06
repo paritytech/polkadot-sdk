@@ -387,6 +387,7 @@ zombienet-polkadot-elastic-scaling-doesnt-break-parachains:
       artifacts: true
   before_script:
     - !reference [ ".zombienet-polkadot-common", "before_script" ]
+    - export X_INFRA_INSTANCE=spot # use spot by default
   variables:
     KUBERNETES_CPU_REQUEST: "1"
   script:
@@ -404,6 +405,7 @@ zombienet-polkadot-elastic-scaling-basic-3cores:
   before_script:
     - !reference [ ".zombienet-polkadot-common", "before_script" ]
     - export CUMULUS_IMAGE="${COL_IMAGE}"
+    - export X_INFRA_INSTANCE=spot # use spot by default
   script:
     # we want to use `--no-capture` in zombienet tests.
     - unset NEXTEST_FAILURE_OUTPUT
@@ -420,6 +422,7 @@ zombienet-polkadot-functional-sync-backing:
     - !reference [ ".zombienet-polkadot-common", "before_script" ]
     # Hardcoded to an old polkadot-parachain image, pre async backing.
     - export CUMULUS_IMAGE="docker.io/paritypr/polkadot-parachain-debug:master-99623e62"
+    - export X_INFRA_INSTANCE=spot # use spot by default
   script:
     # we want to use `--no-capture` in zombienet tests.
     - unset NEXTEST_FAILURE_OUTPUT
@@ -434,6 +437,7 @@ zombienet-polkadot-functional-async-backing-6-seconds-rate:
       artifacts: true
   before_script:
     - !reference [ ".zombienet-polkadot-common", "before_script" ]
+    - export X_INFRA_INSTANCE=spot # use spot by default
   script:
     # we want to use `--no-capture` in zombienet tests.
     - unset NEXTEST_FAILURE_OUTPUT
