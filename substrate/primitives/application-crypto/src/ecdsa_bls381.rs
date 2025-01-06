@@ -44,7 +44,13 @@ impl RuntimePublic for Public {
 	}
 
 	fn generate_pair(key_type: KeyTypeId, seed: Option<Vec<u8>>) -> Self {
-		sp_io::crypto::ecdsa_bls381_generate(key_type, seed)
+		let tuple = sp_io::crypto::ecdsa_bls381_generate(key_type, seed);
+		let ecdsa_pub = tuple.0;
+		let bls381_pub = tuple.1;
+		let mut combined_pub_raw = [0u8; ecdsa_bls381::PUBLIC_KEY_LEN];
+		combined_pub_raw[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].copy_from_slice(ecdsa_pub.as_ref());
+		combined_pub_raw[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].copy_from_slice(bls381_pub.as_ref());
+		Self::from_raw(combined_pub_raw)
 	}
 
 	/// Dummy implementation. Returns `None`.
@@ -124,3 +130,38 @@ fn combine_pop(
 	combined_pop_raw[ecdsa::SIGNATURE_SERIALIZED_SIZE..].copy_from_slice(bls381_pop.as_ref());
 	Some(combined_pop_raw)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sp_core::ecdsa;
+    use sp_core::bls381;
+    use sp_core::crypto::Pair;
+
+    /// Helper function to generate test public keys for ECDSA and BLS381
+    fn generate_test_keys() -> ([u8; ecdsa::PUBLIC_KEY_SERIALIZED_SIZE], [u8; bls381::PUBLIC_KEY_SERIALIZED_SIZE]) {
+        let ecdsa_pair = ecdsa::Pair::generate().0;
+        let bls381_pair = bls381::Pair::generate().0;
+
+        let ecdsa_pub = ecdsa_pair.public();
+        let bls381_pub = bls381_pair.public();
+
+        (
+            ecdsa_pub.to_raw_vec().try_into().unwrap(),
+            bls381_pub.to_raw_vec().try_into().unwrap(),
+        )
+    }
+
+    #[test]
+    fn test_split_pub_key_bytes() {
+        let (ecdsa_pub, bls381_pub) = generate_test_keys();
+        let mut combined_pub_key = Vec::new();
+        combined_pub_key.extend_from_slice(&ecdsa_pub);
+        combined_pub_key.extend_from_slice(&bls381_pub);
+
+        let result = split_pub_key_bytes(&combined_pub_key).unwrap();
+        assert_eq!(result.0, ecdsa_pub, "ECDSA public key does not match");
+        assert_eq!(result.1, bls381_pub, "BLS381 public key does not match");
+    }
+}
+

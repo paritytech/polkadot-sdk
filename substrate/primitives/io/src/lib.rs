@@ -1247,12 +1247,20 @@ pub trait Crypto {
 		&mut self,
 		id: KeyTypeId,
 		seed: Option<Vec<u8>>,
-	) -> ecdsa_bls381::Public {
+	) -> (ecdsa::Public, bls381::Public) {
 		let seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect("Seed is valid utf8!"));
-		self.extension::<KeystoreExt>()
+
+		let ecdsa_pub = self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
-			.ecdsa_bls381_generate_new(id, seed)
-			.expect("`ecdsa_bls381_generate` failed")
+			.ecdsa_generate_new(id, seed)
+			.expect("`ecdsa_bls381_generate` failed");
+
+		let bls_pub = self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.bls381_generate_new(id, seed)
+			.expect("`ecdsa_bls381_generate` failed");
+
+		(ecdsa_pub, bls_pub)
 	}
 
 	/// Generate a `bandersnatch` key pair for the given key type using an optional
