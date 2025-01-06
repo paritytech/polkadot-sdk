@@ -40,7 +40,7 @@ pub trait WeightInfo {
 
 /// Weights for pallet_template using the Substrate node and recommended hardware.
 #[cfg_attr(
-    feature = "std",
+    not(feature = "std"),
     deprecated(
         note = "SubstrateWeight is auto-generated and should not be used in production. Replace it with hand-tuned weights."
     )
