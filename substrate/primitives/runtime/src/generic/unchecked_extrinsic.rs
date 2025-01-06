@@ -67,9 +67,16 @@ impl<Address: TypeInfo, Signature: TypeInfo, Extension: TypeInfo> SignaturePaylo
 
 /// A "header" for extrinsics leading up to the call itself. Determines the type of extrinsic and
 /// holds any necessary specialized data.
+///
+/// Bare extrinsics and signed extrinsics are extended with the transaction extension version 0,
+/// specified by the generic parameter `ExtensionV0`.
+///
+/// General extrinsics support multiple transaction extension version, specified by both
+/// `ExtensionV0` and `ExtensionOtherVersions`, by default `ExtensionOtherVersions` is set to
+/// invalid version, making `ExtensionV0` the only supported version. If you want to support more
+/// versions, you need to specify the `ExtensionOtherVersions` parameter.
 #[derive(Eq, PartialEq, Clone)]
 pub enum Preamble<Address, Signature, ExtensionV0, ExtensionOtherVersions = InvalidVersion> {
-	// TODO TODO: if we bounds version trait then we can get rid of the ExtensionVersion field
 	/// An extrinsic without a signature or any extension. This means it's either an inherent or
 	/// an old-school "Unsigned" (we don't use that terminology any more since it's confusable with
 	/// the general transaction which is without a signature but does have an extension).
@@ -207,16 +214,33 @@ where
 /// An extrinsic is formally described as any external data that is originating from the outside of
 /// the runtime and fed into the runtime as a part of the block-body.
 ///
-/// Inherents are special types of extrinsics that are placed into the block by the block-builder.
-/// They are unsigned because the assertion is that they are "inherently true" by virtue of getting
-/// past all validators.
+/// Prerequisite concepts: Inherents vs Transactions
+/// * Inherents are special types of extrinsics that are placed into the block by the block-builder.
+///   They are unsigned because the assertion is that they are "inherently true" by virtue of getting
+///   past all validators.
+/// * Transactions are all other statements provided by external entities that the chain deems values
+///   and decided to include in the block. This value is typically in the form of fee payment, but it
+///   could in principle be any other interaction. Transactions are either signed or unsigned. A
+///   sensible transaction pool should ensure that only transactions that are worthwhile are
+///   considered for block-building.
 ///
-/// Transactions are all other statements provided by external entities that the chain deems values
-/// and decided to include in the block. This value is typically in the form of fee payment, but it
-/// could in principle be any other interaction. Transactions are either signed or unsigned. A
-/// sensible transaction pool should ensure that only transactions that are worthwhile are
-/// considered for block-building.
-#[cfg_attr(all(feature = "std", not(windows)), doc = simple_mermaid::mermaid!("../../docs/mermaid/extrinsics.mmd"))]
+/// Types of extrinsics:
+/// - **Bare**: An extrinsic without a signature or any additional data. After being checked, bare
+///   extrinsics can be applied, the apply logic is extended with `ExtensionV0`.
+///   Bare extrinsics are typically used for inherent extrinsics.
+///   Bare extrinsics are also used for some unsigned transactions, this feature will be deprecated,
+///   see [transaction horizon](https://github.com/paritytech/polkadot-sdk/issues/2415).
+/// - **Signed**: An extrinsic with a signature and extended with transaction extension
+///   `ExtensionV0`. (transaction extension: [`TransactionExtension`]).
+/// - **General**: An extrinsic extended with a versioned transaction extension. The transaction
+///   extension is specified by both `ExtensionV0` and `ExtensionOtherVersions`. By default,
+///   `ExtensionOtherVersions` is set to invalid version, making `ExtensionV0` the only supported
+///   version.
+///   General transaction is a generalization of signed transaction that doesn't hardcode a
+///   signature, instead signature is to be set and checked by a transaction extension.
+///
+/// #[cfg_attr(all(feature = "std", not(windows)), doc = simple_mermaid::mermaid!("../../docs/mermaid/extrinsics.mmd"))]
+///
 /// This type is by no means enforced within Substrate, but given its genericness, it is highly
 /// likely that for most use-cases it will suffice. Thus, the encoding of this type will dictate
 /// exactly what bytes should be sent to a runtime to transact with it.
@@ -224,6 +248,42 @@ where
 /// This can be checked using [`Checkable`], yielding a [`CheckedExtrinsic`], which is the
 /// counterpart of this type after its signature (and other non-negotiable validity checks) have
 /// passed.
+///
+/// # Usage:
+///
+/// Usage with multiple version for general transaction.
+/// ```
+/// use sp_runtime::{
+///     generic::UncheckedExtrinsic,
+///     traits::{MultiVersion, TxExtLineAtVers},
+/// };
+///
+/// struct Signature; // Some signature scheme.
+/// struct Call; // Some call type.
+/// struct AccountId; // Type for account identifier that can sign a transaction.
+///
+/// // Some implementation of `TransactionExtension`.
+/// struct PaymentExt;
+/// struct PaymentV2Ext;
+/// struct SigV2Ext;
+/// struct NonceExt;
+/// struct NonceV2Ext;
+///
+/// // Definition of the extrinsic.
+/// type ExtensionV0 = (SigV2Ext, NonceExt, PaymentExt);
+/// type ExtensionV1 = TxExtLineAtVers<1, (SigV2Ext, NonceExt, PaymentV2Ext)>;
+/// type ExtensionV2 = TxExtLineAtVers<2, (SigV2Ext, NonceV2Ext, PaymentV2Ext)>;
+///
+/// type OtherVersions = MultiVersion<ExtensionV1, ExtensionV2>;
+///
+/// type Extrinsic = UncheckedExtrinsic<
+///     AccountId,
+///     Call,
+///     Signature,
+///     ExtensionV0,
+///     OtherVersions,
+/// >;
+/// ```
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct UncheckedExtrinsic<
 	Address,
@@ -239,9 +299,6 @@ pub struct UncheckedExtrinsic<
 	pub function: Call,
 }
 
-// TODO TODO: 2 possible implementation:
-// 1. a new generic for the multi version extension.
-// 2. no new generic, the multi version extension defines what is ExtensionV0.
 /// Manual [`TypeInfo`] implementation because of custom encoding. The data is a valid encoded
 /// `Vec<u8>`, but requires some logic to extract the signature and payload.
 ///
@@ -413,7 +470,6 @@ where
 	}
 }
 
-// TODO TODO: metadata
 impl<Address, Call: Dispatchable, Signature, ExtensionV0, ExtensionOtherVersions> ExtrinsicMetadata
 	for UncheckedExtrinsic<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions>
 {

@@ -37,6 +37,14 @@ const EXTENSION_V0_VERSION: ExtensionVersion = 0;
 
 /// The kind of extrinsic this is, including any fields required of that kind. This is basically
 /// the full extrinsic except the `Call`.
+///
+/// Bare extrinsics and signed extrinsics are extended with the transaction extension version 0,
+/// specified by the generic parameter `ExtensionV0`.
+///
+/// General extrinsics support multiple transaction extension version, specified by both
+/// `ExtensionV0` and `ExtensionOtherVersions`, by default `ExtensionOtherVersions` is set to
+/// invalid version, making `ExtensionV0` the only supported version. If you want to support more
+/// versions, you need to specify the `ExtensionOtherVersions` parameter.
 #[derive(PartialEq, Eq, Clone, RuntimeDebug)]
 pub enum ExtrinsicFormat<AccountId, ExtensionV0, ExtensionOtherVersions = InvalidVersion> {
 	/// Extrinsic is bare; it must pass either the bare forms of `TransactionExtension` or
@@ -55,6 +63,14 @@ pub enum ExtrinsicFormat<AccountId, ExtensionV0, ExtensionOtherVersions = Invali
 ///
 /// This is typically passed into [`traits::Applyable::apply`], which should execute
 /// [`CheckedExtrinsic::function`], alongside all other bits and bobs.
+///
+/// Bare extrinsics and signed extrinsics are extended with the transaction extension version 0,
+/// specified by the generic parameter `ExtensionV0`.
+///
+/// General extrinsics support multiple transaction extension version, specified by both
+/// `ExtensionV0` and `ExtensionOtherVersions`, by default `ExtensionOtherVersions` is set to
+/// invalid version, making `ExtensionV0` the only supported version. If you want to support more
+/// versions, you need to specify the `ExtensionOtherVersions` parameter.
 #[derive(PartialEq, Eq, Clone, RuntimeDebug)]
 pub struct CheckedExtrinsic<AccountId, Call, ExtensionV0, ExtensionOtherVersions = InvalidVersion> {
 	/// Who this purports to be from and the number of extrinsics have come before
@@ -136,6 +152,8 @@ impl<AccountId, Call, ExtensionV0, ExtensionOtherVersions>
 where
 	Call: Dispatchable,
 	ExtensionV0: TransactionExtension<Call>,
+	// TODO TODO: redo the bound directly on the generic used to make it clearer that it is
+	// implemented on AlwaysInvalid
 	ExtensionVariant<ExtensionV0, ExtensionOtherVersions>: VersTxExtLineWeight<Call>,
 {
 	/// Returns the weight of the extension of this transaction, if present. If the transaction
