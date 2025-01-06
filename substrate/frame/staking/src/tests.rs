@@ -8718,6 +8718,33 @@ fn do_not_reenable_higher_offenders_mock() {
 		});
 }
 
+#[test]
+fn can_stake_reserve_balances() {
+	use frame_support::traits::{
+		fungible::Inspect,
+		tokens::{Fortitude, Preservation},
+	};
+
+	ExtBuilder::default().build_and_execute(|| {
+		// account 1 have 10 tokens
+
+		// reserve 5
+		let _ = Balances::reserve(&1, 5);
+
+		// check transferable balance = 10 - 5 - ED = 4
+		assert_eq!(Balances::reducible_balance(&1, Preservation::Expendable, Fortitude::Polite), 4);
+
+		// stake all tokens
+		assert_ok!(Staking::bond(RuntimeOrigin::signed(1), 10, RewardDestination::Staked));
+
+		// all 10 is staked
+		assert_eq!(Staking::ledger(1.into()).unwrap().active, 10);
+
+		// check transferable balance
+		assert_eq!(Balances::reducible_balance(&1, Preservation::Expendable, Fortitude::Polite), 0);
+	});
+}
+
 #[cfg(all(feature = "try-runtime", test))]
 mod migration_tests {
 	use super::*;

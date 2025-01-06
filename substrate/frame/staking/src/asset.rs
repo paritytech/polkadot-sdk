@@ -41,7 +41,7 @@ pub fn total_balance<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
 ///
 /// This includes balance free to stake along with any balance that is already staked.
 pub fn stakeable_balance<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
-	T::Currency::free_balance(who)
+	T::Currency::total_balance(who)
 }
 
 /// Balance of `who` that is currently at stake.
