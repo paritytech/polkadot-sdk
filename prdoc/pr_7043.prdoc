@@ -1,21 +1,36 @@
 title: Remove usage of `sp-std` from Substrate
-author: conr2d
-topic: runtime
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
 
+    This PR removes usage of deprecated `sp-std` from Substrate. (following PR of #5010)
+
+    ## Integration
+
+    This PR doesn't remove re-exported `sp_std` from any crates yet, so downstream projects using re-exported `sp_std` will not be affected.
+
+    ## Review Notes
+
+    The existing code using `sp-std` is refactored to use `alloc` and `core` directly. The key-value maps are instantiated from a vector of tuples directly instead of using `sp_std::map!` macro.
+
+    `sp_std::Writer` is a helper type to use `Vec<u8>` with `core::fmt::Write` trait. This PR copied it into `sp-runtime`, because all crates using `sp_std::Writer` (including `sp-runtime` itself, `frame-support`, etc.) depend on `sp-runtime`.
+
+    If this PR is merged, I would write following PRs to remove remaining usage of `sp-std` from `bridges` and `cumulus`.
 crates:
-  - name: frame-support
-    bump: none
-  - name: frame-support-procedural
-    bump: none
-  - name: frame-system
-    bump: none
-  - name: pallet-contracts
-    bump: none
-  - name: pallet-contracts-proc-macro
-    bump: none
-  - name: pallet-revive
-    bump: none
-  - name: pallet-revive-proc-macro
-    bump: none
-  - name: sp-runtime
-    bump: none
+- name: pallet-contracts
+  bump: patch
+- name: pallet-revive
+  bump: patch
+- name: sp-runtime
+  bump: patch
+- name: frame-support-procedural
+  bump: patch
+- name: frame-system
+  bump: patch
+- name: pallet-contracts-proc-macro
+  bump: patch
+- name: pallet-revive-proc-macro
+  bump: patch
+- name: frame-support
+  bump: patch
