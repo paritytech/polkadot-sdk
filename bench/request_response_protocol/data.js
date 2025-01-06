@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736173110772,
+  "lastUpdate": 1736178136703,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -503,6 +503,78 @@ window.BENCHMARK_DATA = {
             "name": "request_response_benchmark/large_payload/libp2p/serially/128MB",
             "value": 2004721601,
             "range": "± 169827432",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "oliver.tale-yazdi@parity.io",
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "568231a9a85d94954c002532a0f4351a3bb59e83",
+          "message": "[core-fellowship] Add permissionless import_member (#7030)\n\nChanges:\n- Add call `import_member` to the core-fellowship pallet.\n- Move common logic between `import` and `import_member` into\n`do_import`.\n\n## `import_member`\n\nCan be used to induct an arbitrary collective member and is callable by\nany signed origin. Pays no fees upon success.\nThis is useful in the case that members did not induct themselves and\nare idling on their rank.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: command-bot <>",
+          "timestamp": "2025-01-06T13:52:07Z",
+          "tree_id": "d1e2d74ae5b93d0e9604eeeaca75c9b9d82569a9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/568231a9a85d94954c002532a0f4351a3bb59e83"
+        },
+        "date": 1736178119494,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_benchmark/small_payload/libp2p/serially/64B",
+            "value": 18128978,
+            "range": "± 434166",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_benchmark/small_payload/libp2p/serially/512B",
+            "value": 18306660,
+            "range": "± 686358",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_benchmark/small_payload/libp2p/serially/4KB",
+            "value": 18926907,
+            "range": "± 421995",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_benchmark/small_payload/libp2p/serially/64KB",
+            "value": 23033271,
+            "range": "± 426547",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_benchmark/large_payload/libp2p/serially/256KB",
+            "value": 5222637,
+            "range": "± 140025",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_benchmark/large_payload/libp2p/serially/2MB",
+            "value": 30113118,
+            "range": "± 811958",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_benchmark/large_payload/libp2p/serially/16MB",
+            "value": 237846203,
+            "range": "± 18053490",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_benchmark/large_payload/libp2p/serially/128MB",
+            "value": 2073830289,
+            "range": "± 115973754",
             "unit": "ns/iter"
           }
         ]
