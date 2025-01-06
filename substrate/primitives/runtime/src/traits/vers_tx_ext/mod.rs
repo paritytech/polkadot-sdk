@@ -153,3 +153,62 @@ impl VersTxExtLineMetadataBuilder {
 		self.by_version.insert(ext_version, ext_item_indices);
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use scale_info::meta_type;
+
+	#[test]
+	fn test_metadata_builder() {
+		let mut builder = VersTxExtLineMetadataBuilder::new();
+
+		let ext_item_a = TransactionExtensionMetadata {
+			identifier: "ExtensionA",
+			ty: meta_type::<u64>(),
+			implicit: meta_type::<(u32, u8)>(),
+		};
+		let ext_item_b = TransactionExtensionMetadata {
+			identifier: "ExtensionB",
+			ty: meta_type::<bool>(),
+			implicit: meta_type::<String>(),
+		};
+
+		// Push version 1 with ExtensionA.
+		builder.push_versioned_extension(1, vec![ext_item_a.clone()]);
+		// Push version 2 with ExtensionB, then ExtensionA again.
+		builder.push_versioned_extension(2, vec![ext_item_b.clone(), ext_item_a.clone()]);
+
+		// We now expect:
+		// - `by_version` to have two entries: {1: [<indices>], 2: [<indices>]}.
+		// - `in_versions` to contain ExtensionA and ExtensionB in some order.
+
+		// Check that by_version now has 2 distinct versions defined.
+		assert_eq!(builder.by_version.len(), 2);
+
+		// Verify version 1 entries.
+		{
+			let v1_indices = builder.by_version.get(&1).expect("Version 1 must be present");
+			assert_eq!(v1_indices.len(), 1, "Version 1 should have exactly one extension");
+			// Since we only ever added ExtensionA for version 1, it must match.
+			assert_eq!(builder.in_versions[v1_indices[0] as usize].identifier, "ExtensionA");
+		}
+
+		// Verify version 2 entries.
+		{
+			let v2_indices = builder.by_version.get(&2).expect("Version 2 must be present");
+			assert_eq!(v2_indices.len(), 2, "Version 2 should have exactly two extensions");
+			// For version 2, we pushed B then A, so the index order should reflect that:
+			//   - ExtensionB is new, so it should get appended at the end of `in_versions`.
+			//   - ExtensionA was seen previously, so it should reuse the earlier index.
+
+			// First index for version 2 should point to "ExtensionB".
+			assert_eq!(builder.in_versions[v2_indices[0] as usize].identifier, "ExtensionB");
+			// Second index for version 2 should point back to "ExtensionA".
+			assert_eq!(builder.in_versions[v2_indices[1] as usize].identifier, "ExtensionA");
+		}
+
+		// There should be exactly 2 unique entries in `in_versions`: [ExtensionA, ExtensionB].
+		assert_eq!(builder.in_versions.len(), 2);
+	}
+}

@@ -398,10 +398,8 @@ impl<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions> GetDispatchI
 where
 	Call: GetDispatchInfo + Dispatchable,
 	ExtensionV0: TransactionExtension<Call>,
-	sp_runtime::traits::ExtensionVariant<
-		ExtensionV0,
-		ExtensionOtherVersions,
-	>: sp_runtime::traits::VersTxExtLineWeight<Call>,
+	sp_runtime::traits::ExtensionVariant<ExtensionV0, ExtensionOtherVersions>:
+		sp_runtime::traits::VersTxExtLineWeight<Call>,
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
 		let mut info = self.function.get_dispatch_info();
@@ -416,10 +414,8 @@ impl<AccountId, Call, ExtensionV0, ExtensionOtherVersions> GetDispatchInfo
 where
 	Call: GetDispatchInfo + Dispatchable,
 	ExtensionV0: TransactionExtension<Call>,
-	sp_runtime::traits::ExtensionVariant<
-		ExtensionV0,
-		ExtensionOtherVersions,
-	>: sp_runtime::traits::VersTxExtLineWeight<Call>,
+	sp_runtime::traits::ExtensionVariant<ExtensionV0, ExtensionOtherVersions>:
+		sp_runtime::traits::VersTxExtLineWeight<Call>,
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
 		let mut info = self.function.get_dispatch_info();

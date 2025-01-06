@@ -216,13 +216,13 @@ where
 ///
 /// Prerequisite concepts: Inherents vs Transactions
 /// * Inherents are special types of extrinsics that are placed into the block by the block-builder.
-///   They are unsigned because the assertion is that they are "inherently true" by virtue of getting
-///   past all validators.
-/// * Transactions are all other statements provided by external entities that the chain deems values
-///   and decided to include in the block. This value is typically in the form of fee payment, but it
-///   could in principle be any other interaction. Transactions are either signed or unsigned. A
-///   sensible transaction pool should ensure that only transactions that are worthwhile are
-///   considered for block-building.
+///   They are unsigned because the assertion is that they are "inherently true" by virtue of
+///   getting past all validators.
+/// * Transactions are all other statements provided by external entities that the chain deems
+///   values and decided to include in the block. This value is typically in the form of fee
+///   payment, but it could in principle be any other interaction. Transactions are either signed or
+///   unsigned. A sensible transaction pool should ensure that only transactions that are worthwhile
+///   are considered for block-building.
 ///
 /// Types of extrinsics:
 /// - **Bare**: An extrinsic without a signature or any additional data. After being checked, bare
@@ -235,8 +235,7 @@ where
 /// - **General**: An extrinsic extended with a versioned transaction extension. The transaction
 ///   extension is specified by both `ExtensionV0` and `ExtensionOtherVersions`. By default,
 ///   `ExtensionOtherVersions` is set to invalid version, making `ExtensionV0` the only supported
-///   version.
-///   General transaction is a generalization of signed transaction that doesn't hardcode a
+///   version. General transaction is a generalization of signed transaction that doesn't hardcode a
 ///   signature, instead signature is to be set and checked by a transaction extension.
 ///
 /// #[cfg_attr(all(feature = "std", not(windows)), doc = simple_mermaid::mermaid!("../../docs/mermaid/extrinsics.mmd"))]

@@ -99,10 +99,12 @@ impl<Address, Signature, E: EthExtra> ExtrinsicMetadata
 		E::Extension,
 	>::VERSIONS;
 	type TransactionExtensions = E::Extension;
-	type TransactionExtensionsVersions = <
-		generic::UncheckedExtrinsic::<Address, CallOf<E::Config>, Signature, E::Extension>
-		as ExtrinsicMetadata
-	>::TransactionExtensionsVersions;
+	type TransactionExtensionsVersions = <generic::UncheckedExtrinsic<
+		Address,
+		CallOf<E::Config>,
+		Signature,
+		E::Extension,
+	> as ExtrinsicMetadata>::TransactionExtensionsVersions;
 }
 
 impl<Address: TypeInfo, Signature: TypeInfo, E: EthExtra> ExtrinsicCall

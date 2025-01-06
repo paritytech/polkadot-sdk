@@ -31,7 +31,7 @@ use scale_info::TypeInfo;
 use sp_weights::Weight;
 
 /// A transaction extension pipeline defined for a single version.
-#[derive(Encode, Clone, Debug, TypeInfo)]
+#[derive(Encode, Clone, Debug, TypeInfo, PartialEq, Eq)]
 pub struct TxExtLineAtVers<const VERSION: u8, Extension> {
 	/// The transaction extension pipeline for the version `VERSION`.
 	pub extension: Extension,
@@ -102,5 +102,203 @@ impl<const VERSION: u8, Call: Dispatchable, Extension: TransactionExtension<Call
 {
 	fn weight(&self, call: &Call) -> Weight {
 		self.extension.weight(call)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::{
+		traits::{
+			Dispatchable, Implication, TransactionExtension, TransactionSource, ValidateResult,
+		},
+		transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
+		DispatchError,
+	};
+	use codec::{Decode, Encode};
+	use sp_weights::Weight;
+
+	// --- Mock types ---
+
+	/// A mock call type implementing Dispatchable
+	#[derive(Clone, Debug, Encode, Decode, PartialEq, Eq)]
+	pub struct MockCall(pub u64);
+	#[derive(Debug)]
+	pub struct MockOrigin(pub u64);
+
+	impl AsTransactionAuthorizedOrigin for MockOrigin {
+		fn is_transaction_authorized(&self) -> bool {
+			true
+		}
+	}
+
+	impl Dispatchable for MockCall {
+		type RuntimeOrigin = MockOrigin;
+		type Config = ();
+		type Info = ();
+		type PostInfo = ();
+
+		fn dispatch(
+			self,
+			origin: Self::RuntimeOrigin,
+		) -> crate::DispatchResultWithInfo<Self::PostInfo> {
+			if origin.0 == 0 {
+				return Err(DispatchError::Other("origin is 0").into())
+			}
+			Ok(Default::default())
+		}
+	}
+
+	// A trivial extension that sets a known weight and does minimal logic.
+	// We simply store an integer "token" and do check logic on it.
+	#[derive(PartialEq, Eq, Clone, Debug, Encode, Decode, TypeInfo)]
+	pub struct SimpleExtension {
+		/// The token for validation logic
+		pub token: u32,
+		/// The "weight" that this extension claims to cost.
+		pub w: u64,
+	}
+
+	impl TransactionExtension<MockCall> for SimpleExtension {
+		const IDENTIFIER: &'static str = "SimpleExtension";
+
+		type Implicit = ();
+		fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+			Ok(())
+		}
+
+		type Val = ();
+		type Pre = ();
+
+		fn weight(&self, _call: &MockCall) -> Weight {
+			Weight::from_parts(self.w, 0)
+		}
+
+		fn validate(
+			&self,
+			origin: MockOrigin,
+			_call: &MockCall,
+			_info: &DispatchInfoOf<MockCall>,
+			_len: usize,
+			_self_implicit: Self::Implicit,
+			_inherited_implication: &impl Implication,
+			_source: TransactionSource,
+		) -> ValidateResult<Self::Val, MockCall> {
+			// any origin is permitted, but if `token == 0` => invalid
+			if self.token == 0 {
+				Err(InvalidTransaction::Custom(1).into())
+			} else {
+				Ok((ValidTransaction::default(), (), origin))
+			}
+		}
+
+		fn prepare(
+			self,
+			_val: Self::Val,
+			_origin: &MockOrigin,
+			_call: &MockCall,
+			_info: &DispatchInfoOf<MockCall>,
+			_len: usize,
+		) -> Result<Self::Pre, TransactionValidityError> {
+			Ok(())
+		}
+	}
+
+	// This type represents the versioned extension pipeline for version=3.
+	pub type ExtV3 = TxExtLineAtVers<3, SimpleExtension>;
+
+	// This type represents the versioned extension pipeline for version=10.
+	pub type ExtV10 = TxExtLineAtVers<10, SimpleExtension>;
+
+	// --- Tests ---
+
+	#[test]
+	fn decode_with_correct_version_succeeds() {
+		let ext_v3 = ExtV3 { extension: SimpleExtension { token: 55, w: 1234 } };
+		let encoded = ext_v3.encode();
+
+		let decoded = <ExtV3 as DecodeWithVersion>::decode_with_version(3, &mut &encoded[..])
+			.expect("should decode fine with matching version");
+		assert_eq!(decoded.extension.token, 55);
+		assert_eq!(decoded.extension.w, 1234);
+	}
+
+	#[test]
+	fn decode_with_incorrect_version_fails() {
+		let ext_v3 = ExtV3 { extension: SimpleExtension { token: 55, w: 1234 } };
+		let encoded = ext_v3.encode();
+
+		// Attempt decode with version=10
+		let decode_err = <ExtV3 as DecodeWithVersion>::decode_with_version(10, &mut &encoded[..])
+			.expect_err("should fail decode due to invalid version");
+		let decode_err_str = format!("{}", decode_err);
+		assert!(decode_err_str.contains("Invalid extension version"));
+	}
+
+	#[test]
+	fn version_is_correct() {
+		let ext_v3 = ExtV3 { extension: SimpleExtension { token: 55, w: 1234 } };
+		assert_eq!(ext_v3.version(), 3);
+
+		let ext_v10 = ExtV10 { extension: SimpleExtension { token: 1, w: 1 } };
+		assert_eq!(ext_v10.version(), 10);
+	}
+
+	#[test]
+	fn pipeline_functions_work() {
+		let ext_v3 = ExtV3 { extension: SimpleExtension { token: 999, w: 50 } };
+
+		// test "weight" function
+		let call = MockCall(0x_f00);
+		assert_eq!(ext_v3.weight(&call).ref_time(), 50);
+
+		// test validating logic
+		{
+			// token = 0 => invalid
+			let invalid_ext_v3 = ExtV3 { extension: SimpleExtension { token: 0, w: 10 } };
+			let validity = invalid_ext_v3.validate_only(
+				MockOrigin(1),
+				&call,
+				&Default::default(),
+				0,
+				TransactionSource::External,
+			);
+			assert_eq!(
+				validity,
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(1)))
+			);
+		}
+
+		// ok scenario: token != 0 => OK
+		let validity_ok = ext_v3.validate_only(
+			MockOrigin(2),
+			&call,
+			&Default::default(),
+			0,
+			TransactionSource::Local,
+		);
+		assert!(validity_ok.is_ok());
+		let valid = validity_ok.unwrap();
+		assert_eq!(valid, ValidTransaction::default());
+	}
+
+	#[test]
+	fn dispatch_transaction_works() {
+		// This extension is valid => token=1
+		let ext_v3 = ExtV3 { extension: SimpleExtension { token: 1, w: 10 } };
+		let call = MockCall(123);
+		let info = Default::default();
+		let len = 0usize;
+
+		// dispatch => OK
+		let res = ext_v3.clone().dispatch_transaction(MockOrigin(1), call.clone(), &info, len);
+		let outcome = res.expect("valid since token=1 and origin=Some");
+		assert!(outcome.is_ok(), "actual dispatch of call");
+		assert_eq!(outcome.unwrap(), ());
+
+		// but if origin is None => the underlying call fails
+		let res_fail = ext_v3.dispatch_transaction(MockOrigin(0), call, &info, len);
+		let block_err = res_fail.expect("valid").expect_err("should fail");
+		assert_eq!(block_err.error, DispatchError::Other("origin is 0"));
 	}
 }

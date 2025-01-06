@@ -524,6 +524,7 @@ macro_rules! impl_tx_ext_default {
 }
 
 /// Information about a [`TransactionExtension`] for the runtime metadata.
+#[derive(Clone)]
 pub struct TransactionExtensionMetadata {
 	/// The unique identifier of the [`TransactionExtension`].
 	pub identifier: &'static str,

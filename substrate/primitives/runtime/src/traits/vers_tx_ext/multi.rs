@@ -54,7 +54,7 @@ impl<const VERSION: u8, Extension> MultiVersionItem for TxExtLineAtVers<VERSION,
 ///
 /// TODO TODO: example
 #[allow(private_interfaces)]
-#[derive(Clone, Debug, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub enum MultiVersion<A, B = InvalidVersion> {
 	/// The first aggregated transaction extension pipeline of a specific version.
 	A(A),
@@ -167,5 +167,309 @@ where
 			MultiVersion::A(a) => a.dispatch_transaction(origin, call, info, len),
 			MultiVersion::B(b) => b.dispatch_transaction(origin, call, info, len),
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::{
+		traits::{
+			AsTransactionAuthorizedOrigin, DecodeWithVersion, DispatchInfoOf, Dispatchable,
+			Implication, TransactionExtension, TransactionSource, ValidateResult, VersTxExtLine,
+			VersTxExtLineVersion, VersTxExtLineWeight,
+		},
+		transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
+		DispatchError,
+	};
+	use codec::{Decode, Encode};
+	use core::fmt::Debug;
+	use scale_info::TypeInfo;
+	use sp_weights::Weight;
+
+	// --------------------------------------------------------
+	// A mock call type and origin used for testing
+	// --------------------------------------------------------
+	#[derive(Clone, Debug, Encode, Decode, PartialEq, Eq, TypeInfo)]
+	pub struct MockCall(pub u32);
+
+	#[derive(Clone, Debug)]
+	pub struct MockOrigin(pub u8);
+
+	impl AsTransactionAuthorizedOrigin for MockOrigin {
+		fn is_transaction_authorized(&self) -> bool {
+			// Let's say any origin != 0 is authorized
+			self.0 != 0
+		}
+	}
+
+	impl Dispatchable for MockCall {
+		type RuntimeOrigin = MockOrigin;
+		type Config = ();
+		type Info = ();
+		type PostInfo = ();
+
+		fn dispatch(
+			self,
+			origin: Self::RuntimeOrigin,
+		) -> crate::DispatchResultWithInfo<Self::PostInfo> {
+			// If the origin is 0, dispatch fails.
+			// Also, if the call is 0, dispatch fails.
+			if origin.0 == 0 {
+				return Err(DispatchError::Other("Unauthorized origin=0").into());
+			}
+			if self.0 == 0 {
+				return Err(DispatchError::Other("call=0").into());
+			}
+			Ok(Default::default())
+		}
+	}
+
+	// --------------------------------------------------------
+	// Let's define two single-version pipelines with versions 4 and 7
+	// --------------------------------------------------------
+
+	// A single-version extension pipeline that "succeeds" only if token != 0
+	#[derive(Clone, Debug, Encode, Decode, PartialEq, Eq, TypeInfo)]
+	pub struct SimpleExtensionV4 {
+		pub token: u8,
+		pub declared_weight: u64,
+	}
+
+	impl TransactionExtension<MockCall> for SimpleExtensionV4 {
+		const IDENTIFIER: &'static str = "SimpleExtV4";
+		type Implicit = ();
+		type Val = ();
+		type Pre = ();
+
+		fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+			Ok(())
+		}
+
+		fn weight(&self, _call: &MockCall) -> Weight {
+			Weight::from_parts(self.declared_weight, 0)
+		}
+
+		fn validate(
+			&self,
+			origin: MockOrigin,
+			_call: &MockCall,
+			_info: &DispatchInfoOf<MockCall>,
+			_len: usize,
+			_self_implicit: Self::Implicit,
+			_inherited_implication: &impl Implication,
+			_source: TransactionSource,
+		) -> ValidateResult<Self::Val, MockCall> {
+			if self.token == 0 {
+				Err(InvalidTransaction::Custom(44).into())
+			} else {
+				Ok((ValidTransaction::default(), (), origin))
+			}
+		}
+
+		fn prepare(
+			self,
+			_val: Self::Val,
+			_origin: &MockOrigin,
+			_call: &MockCall,
+			_info: &DispatchInfoOf<MockCall>,
+			_len: usize,
+		) -> Result<Self::Pre, TransactionValidityError> {
+			Ok(())
+		}
+	}
+
+	pub type PipelineV4 = TxExtLineAtVers<4, SimpleExtensionV4>;
+
+	// Another single-version extension pipeline, version=7
+	#[derive(Clone, Debug, Encode, Decode, PartialEq, Eq, TypeInfo)]
+	pub struct SimpleExtensionV7 {
+		pub token: u8,
+		pub declared_weight: u64,
+	}
+
+	impl TransactionExtension<MockCall> for SimpleExtensionV7 {
+		const IDENTIFIER: &'static str = "SimpleExtV7";
+		type Implicit = ();
+		type Val = ();
+		type Pre = ();
+
+		fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+			Ok(())
+		}
+
+		fn weight(&self, _call: &MockCall) -> Weight {
+			Weight::from_parts(self.declared_weight, 0)
+		}
+
+		fn validate(
+			&self,
+			origin: MockOrigin,
+			_call: &MockCall,
+			_info: &DispatchInfoOf<MockCall>,
+			_len: usize,
+			_self_implicit: Self::Implicit,
+			_inherited_implication: &impl Implication,
+			_source: TransactionSource,
+		) -> ValidateResult<Self::Val, MockCall> {
+			if self.token == 0 {
+				Err(InvalidTransaction::Custom(77).into())
+			} else {
+				Ok((ValidTransaction::default(), (), origin))
+			}
+		}
+
+		fn prepare(
+			self,
+			_val: Self::Val,
+			_origin: &MockOrigin,
+			_call: &MockCall,
+			_info: &DispatchInfoOf<MockCall>,
+			_len: usize,
+		) -> Result<Self::Pre, TransactionValidityError> {
+			Ok(())
+		}
+	}
+
+	pub type PipelineV7 = TxExtLineAtVers<7, SimpleExtensionV7>;
+
+	// --------------------------------------------------------
+	// Our MultiVersion definition under test
+	// --------------------------------------------------------
+
+	pub type MyMultiExt = MultiVersion<PipelineV4, PipelineV7>;
+
+	// --------------------------------------------------------
+	// Actual tests
+	// --------------------------------------------------------
+
+	#[test]
+	fn decode_with_version_works_for_known_versions() {
+		// Build a pipeline for version=4
+		let pipeline_v4 = PipelineV4::new(SimpleExtensionV4 { token: 99, declared_weight: 123 });
+		let encoded_v4 = pipeline_v4.encode();
+		let decoded_v4 = MyMultiExt::decode_with_version(4, &mut &encoded_v4[..])
+			.expect("decode with version=4");
+		let expected_v4 = MultiVersion::A(pipeline_v4);
+		assert_eq!(decoded_v4, expected_v4);
+
+		// Build a pipeline for version=7
+		let pipeline_v7 = PipelineV7::new(SimpleExtensionV7 { token: 55, declared_weight: 777 });
+		let encoded_v7 = pipeline_v7.encode();
+		let decoded_v7 = MyMultiExt::decode_with_version(7, &mut &encoded_v7[..])
+			.expect("decode with version=7");
+		let expected_v7 = MultiVersion::B(pipeline_v7);
+		assert_eq!(decoded_v7, expected_v7);
+	}
+
+	#[test]
+	fn decode_with_unknown_version_fails() {
+		let pipeline_v4 = PipelineV4::new(SimpleExtensionV4 { token: 1, declared_weight: 100 });
+		let encoded_v4 = pipeline_v4.encode();
+
+		// Attempt decode with version=123 => fails
+		let decode_err = MyMultiExt::decode_with_version(123, &mut &encoded_v4[..])
+			.expect_err("decode must fail with unknown version=123");
+		assert!(format!("{}", decode_err).contains("Invalid extension version"));
+	}
+
+	#[test]
+	fn version_is_correct() {
+		// The variant "A" is always the first in our MultiVersion and is version=4
+		let multi_a =
+			MyMultiExt::A(PipelineV4::new(SimpleExtensionV4 { token: 1, declared_weight: 10 }));
+		assert_eq!(multi_a.version(), 4);
+
+		// The variant "B" is version=7
+		let multi_b =
+			MyMultiExt::B(PipelineV7::new(SimpleExtensionV7 { token: 2, declared_weight: 20 }));
+		assert_eq!(multi_b.version(), 7);
+	}
+
+	#[test]
+	fn weight_check_works() {
+		let multi_a =
+			MyMultiExt::A(PipelineV4::new(SimpleExtensionV4 { token: 1, declared_weight: 500 }));
+		let multi_b =
+			MyMultiExt::B(PipelineV7::new(SimpleExtensionV7 { token: 1, declared_weight: 999 }));
+
+		let call = MockCall(0);
+		assert_eq!(multi_a.weight(&call).ref_time(), 500);
+		assert_eq!(multi_b.weight(&call).ref_time(), 999);
+	}
+
+	#[test]
+	fn validate_only_logic_works() {
+		// A with token=0 => invalid
+		let invalid_a =
+			MyMultiExt::A(PipelineV4::new(SimpleExtensionV4 { token: 0, declared_weight: 123 }));
+		let call = MockCall(42);
+		let validity = invalid_a.validate_only(
+			MockOrigin(42),
+			&call,
+			&Default::default(),
+			0,
+			TransactionSource::Local,
+		);
+		assert_eq!(
+			validity,
+			Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(44)))
+		);
+
+		// B with token=0 => invalid
+		let invalid_b =
+			MyMultiExt::B(PipelineV7::new(SimpleExtensionV7 { token: 0, declared_weight: 456 }));
+		let validity_b = invalid_b.validate_only(
+			MockOrigin(42),
+			&call,
+			&Default::default(),
+			0,
+			TransactionSource::Local,
+		);
+		assert_eq!(
+			validity_b,
+			Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(77)))
+		);
+
+		// A with token=some => ok
+		let valid_a =
+			MyMultiExt::A(PipelineV4::new(SimpleExtensionV4 { token: 55, declared_weight: 10 }));
+		let result_ok_a = valid_a.validate_only(
+			MockOrigin(1),
+			&call,
+			&Default::default(),
+			0,
+			TransactionSource::External,
+		);
+		assert!(result_ok_a.is_ok(), "valid scenario for pipeline A");
+	}
+
+	#[test]
+	fn dispatch_transaction_works() {
+		// "A" with token != 0 => valid
+		let pipeline_a = PipelineV4::new(SimpleExtensionV4 { token: 33, declared_weight: 1 });
+		let multi_a = MyMultiExt::A(pipeline_a);
+		let call_good = MockCall(42);
+		let result = multi_a
+			.dispatch_transaction(MockOrigin(9), call_good.clone(), &Default::default(), 0)
+			.expect("Should not fail validity");
+		assert!(result.is_ok(), "Dispatch with origin=9 is ok if call != 0");
+		assert_eq!(result.unwrap(), ());
+
+		// but call=0 => dispatch fails
+		let fail_res =
+			MyMultiExt::A(PipelineV4::new(SimpleExtensionV4 { token: 1, declared_weight: 10 }))
+				.dispatch_transaction(MockOrigin(9), MockCall(0), &Default::default(), 0)
+				.expect("Should be a valid transaction from viewpoint of extension");
+		let block_err = fail_res.expect_err("actual dispatch error");
+		assert_eq!(block_err.error, DispatchError::Other("call=0"));
+
+		// "B" scenario
+		let pipeline_b = PipelineV7::new(SimpleExtensionV7 { token: 2, declared_weight: 99 });
+		let multi_b = MyMultiExt::B(pipeline_b);
+		let outcome_ok = multi_b
+			.dispatch_transaction(MockOrigin(1), call_good, &Default::default(), 0)
+			.expect("Should pass validity");
+		assert!(outcome_ok.is_ok());
 	}
 }
