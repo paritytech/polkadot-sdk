@@ -56,7 +56,8 @@ use std::str::FromStr;
 pub mod transaction_extension;
 pub mod vers_tx_ext;
 pub use transaction_extension::{
-	DispatchTransaction, TransactionExtension, TransactionExtensionMetadata, ValidateResult,
+	DispatchTransaction, Implication, ImplicationParts, TransactionExtension,
+	TransactionExtensionMetadata, TxBaseImplication, ValidateResult,
 };
 pub use vers_tx_ext::*;
 
