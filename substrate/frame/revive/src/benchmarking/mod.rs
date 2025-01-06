@@ -1715,7 +1715,7 @@ mod benchmarks {
 		let value_bytes = Into::<U256>::into(value).encode();
 		let value_len = value_bytes.len() as u32;
 
-		let deposit: BalanceOf<T> = 0u32.into();
+		let deposit: BalanceOf<T> = u32::MAX.into();
 		let deposit_bytes = Into::<U256>::into(deposit).encode();
 		let deposit_len = deposit_bytes.len() as u32;
 
