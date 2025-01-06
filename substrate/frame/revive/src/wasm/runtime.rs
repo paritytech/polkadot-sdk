@@ -1005,7 +1005,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		let callee = memory.read_h160(callee_ptr)?;
 		let deposit_limit =
-			if deposit_ptr == SENTINEL { U256::zero() } else { memory.read_u256(deposit_ptr)? };
+			if deposit_ptr == SENTINEL { U256::from(u64::MAX) } else { memory.read_u256(deposit_ptr)? };
 
 		let input_data = if flags.contains(CallFlags::CLONE_INPUT) {
 			let input = self.input_data.as_ref().ok_or(Error::<E::T>::InputForwarded)?;
@@ -1092,7 +1092,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.charge_gas(RuntimeCosts::Instantiate { input_data_len })?;
 		let deposit_limit: U256 =
-			if deposit_ptr == SENTINEL { U256::zero() } else { memory.read_u256(deposit_ptr)? };
+			if deposit_ptr == SENTINEL { U256::from(u64::MAX) } else { memory.read_u256(deposit_ptr)? };
 		let value = memory.read_u256(value_ptr)?;
 		let code_hash = memory.read_h256(code_hash_ptr)?;
 		let input_data = memory.read(input_data_ptr, input_data_len)?;
