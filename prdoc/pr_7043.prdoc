@@ -12,9 +12,10 @@ doc:
 
     ## Review Notes
 
-    The existing code using `sp-std` is refactored to use `alloc` and `core` directly. The key-value maps are instantiated from a vector of tuples directly instead of using `sp_std::map!` macro.
+    The existing code using `sp-std` is refactored to use `alloc` and `core` directly. The key-value maps are instantiated from an array of tuples directly instead of using `sp_std::map!` macro.
 
-    `sp_std::Writer` is a helper type to use `Vec<u8>` with `core::fmt::Write` trait. This PR replaces usages with `alloc::string::String`.
+    This PR replaces `sp_std::Writer`, a helper type for using `Vec<u8>` with `core::fmt::Write` trait, with `alloc::string::String`.
+
 crates:
 - name: pallet-contracts
   bump: patch
