@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736173086868,
+  "lastUpdate": 1736178111886,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -1511,6 +1511,222 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/large_payload/litep2p/with_backpressure/128MB",
             "value": 3036323015,
             "range": "± 18669648",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "oliver.tale-yazdi@parity.io",
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "568231a9a85d94954c002532a0f4351a3bb59e83",
+          "message": "[core-fellowship] Add permissionless import_member (#7030)\n\nChanges:\n- Add call `import_member` to the core-fellowship pallet.\n- Move common logic between `import` and `import_member` into\n`do_import`.\n\n## `import_member`\n\nCan be used to induct an arbitrary collective member and is callable by\nany signed origin. Pays no fees upon success.\nThis is useful in the case that members did not induct themselves and\nare idling on their rank.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: command-bot <>",
+          "timestamp": "2025-01-06T13:52:07Z",
+          "tree_id": "d1e2d74ae5b93d0e9604eeeaca75c9b9d82569a9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/568231a9a85d94954c002532a0f4351a3bb59e83"
+        },
+        "date": 1736178094735,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/small_payload/libp2p/serially/64B",
+            "value": 4090792,
+            "range": "± 81701",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/small_payload/libp2p/with_backpressure/64B",
+            "value": 309648,
+            "range": "± 16803",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/small_payload/libp2p/serially/512B",
+            "value": 4051604,
+            "range": "± 154752",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/small_payload/libp2p/with_backpressure/512B",
+            "value": 397445,
+            "range": "± 14795",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/small_payload/libp2p/serially/4KB",
+            "value": 4710195,
+            "range": "± 121127",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/small_payload/libp2p/with_backpressure/4KB",
+            "value": 847450,
+            "range": "± 42654",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/small_payload/libp2p/serially/64KB",
+            "value": 9968301,
+            "range": "± 342537",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/small_payload/libp2p/with_backpressure/64KB",
+            "value": 4586250,
+            "range": "± 174715",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/small_payload/litep2p/serially/64B",
+            "value": 3319024,
+            "range": "± 220213",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/small_payload/litep2p/with_backpressure/64B",
+            "value": 1571194,
+            "range": "± 45141",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/small_payload/litep2p/serially/512B",
+            "value": 3326287,
+            "range": "± 181630",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/small_payload/litep2p/with_backpressure/512B",
+            "value": 1563890,
+            "range": "± 59133",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/small_payload/litep2p/serially/4KB",
+            "value": 3602093,
+            "range": "± 101809",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/small_payload/litep2p/with_backpressure/4KB",
+            "value": 1892136,
+            "range": "± 78813",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/small_payload/litep2p/serially/64KB",
+            "value": 7836004,
+            "range": "± 233502",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/small_payload/litep2p/with_backpressure/64KB",
+            "value": 4871388,
+            "range": "± 326632",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/large_payload/libp2p/serially/256KB",
+            "value": 4407396,
+            "range": "± 223825",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/large_payload/libp2p/with_backpressure/256KB",
+            "value": 3901972,
+            "range": "± 178398",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/large_payload/libp2p/serially/2MB",
+            "value": 34640600,
+            "range": "± 1344764",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/large_payload/libp2p/with_backpressure/2MB",
+            "value": 29580566,
+            "range": "± 917696",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/large_payload/libp2p/serially/16MB",
+            "value": 271870468,
+            "range": "± 11949353",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/large_payload/libp2p/with_backpressure/16MB",
+            "value": 275158562,
+            "range": "± 13354818",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/large_payload/libp2p/serially/128MB",
+            "value": 3296898431,
+            "range": "± 39312735",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/large_payload/libp2p/with_backpressure/128MB",
+            "value": 2023906261,
+            "range": "± 29906929",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/large_payload/litep2p/serially/256KB",
+            "value": 4217090,
+            "range": "± 293165",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/large_payload/litep2p/with_backpressure/256KB",
+            "value": 4367271,
+            "range": "± 235475",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/large_payload/litep2p/serially/2MB",
+            "value": 38466227,
+            "range": "± 1184383",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/large_payload/litep2p/with_backpressure/2MB",
+            "value": 37935309,
+            "range": "± 1408587",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/large_payload/litep2p/serially/16MB",
+            "value": 332026838,
+            "range": "± 3695866",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/large_payload/litep2p/with_backpressure/16MB",
+            "value": 351125623,
+            "range": "± 14905931",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/large_payload/litep2p/serially/128MB",
+            "value": 3890996261,
+            "range": "± 83933683",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/large_payload/litep2p/with_backpressure/128MB",
+            "value": 3192131201,
+            "range": "± 77317458",
             "unit": "ns/iter"
           }
         ]
