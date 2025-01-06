@@ -18,7 +18,6 @@
 //! Contains the [`OverheadCmd`] as entry point for the CLI to execute
 //! the *overhead* benchmarks.
 
-use super::runtime_utilities::*;
 use crate::{
 	extrinsic::{
 		bench::{Benchmark, BenchmarkParams as ExtrinsicBenchmarkParams},
@@ -37,7 +36,7 @@ use crate::{
 	},
 };
 use clap::{error::ErrorKind, Args, CommandFactory, Parser};
-use codec::Encode;
+use codec::{Decode, Encode};
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use fake_runtime_api::RuntimeApi as FakeRuntimeApi;
 use frame_support::Deserialize;
@@ -50,6 +49,7 @@ use sc_cli::{CliConfiguration, Database, ImportParams, Result, SharedParams};
 use sc_client_api::{execution_extensions::ExecutionExtensions, UsageProvider};
 use sc_client_db::{BlocksPruning, DatabaseSettings};
 use sc_executor::WasmExecutor;
+use sc_runtime_utilities::fetch_latest_metadata_from_code_blob;
 use sc_service::{new_client, new_db_backend, BasePath, ClientConfig, TFullClient, TaskManager};
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -317,7 +317,7 @@ impl OverheadCmd {
 					Some(self.params.genesis_builder_preset.clone()),
 				),
 				self.params.para_id,
-			))
+			));
 		};
 
 		Err("Neither a runtime nor a chain-spec were specified".to_string().into())
@@ -335,7 +335,7 @@ impl OverheadCmd {
 				ErrorKind::MissingRequiredArgument,
 				"Provide either a runtime via `--runtime` or a chain spec via `--chain`"
 					.to_string(),
-			))
+			));
 		}
 
 		match self.params.genesis_builder {
@@ -344,7 +344,7 @@ impl OverheadCmd {
 					return Err((
 						ErrorKind::MissingRequiredArgument,
 						"Provide a chain spec via `--chain`.".to_string(),
-					))
+					));
 				},
 			_ => {},
 		};
@@ -400,8 +400,12 @@ impl OverheadCmd {
 			.with_allow_missing_host_functions(true)
 			.build();
 
-		let metadata =
-			fetch_latest_metadata_from_code_blob(&executor, state_handler.get_code_bytes()?)?;
+		let opaque_metadata =
+			fetch_latest_metadata_from_code_blob(&executor, state_handler.get_code_bytes()?)
+				.map_err(|_| {
+					<&str as Into<sc_cli::Error>>::into("Unable to fetch latest stable metadata")
+				})?;
+		let metadata = subxt::Metadata::decode(&mut (*opaque_metadata).as_slice())?;
 
 		// At this point we know what kind of chain we are dealing with.
 		let chain_type = identify_chain(&metadata, para_id);
@@ -682,6 +686,7 @@ mod tests {
 		OverheadCmd,
 	};
 	use clap::Parser;
+	use codec::Decode;
 	use sc_executor::WasmExecutor;
 
 	#[test]
@@ -690,8 +695,9 @@ mod tests {
 		let code_bytes = westend_runtime::WASM_BINARY
 			.expect("To run this test, build the wasm binary of westend-runtime")
 			.to_vec();
-		let metadata =
+		let opaque_metadata =
 			super::fetch_latest_metadata_from_code_blob(&executor, code_bytes.into()).unwrap();
+		let metadata = subxt::Metadata::decode(&mut (*opaque_metadata).as_slice()).unwrap();
 		let chain_type = identify_chain(&metadata, None);
 		assert_eq!(chain_type, ChainType::Relaychain);
 		assert_eq!(chain_type.requires_proof_recording(), false);
@@ -703,8 +709,9 @@ mod tests {
 		let code_bytes = cumulus_test_runtime::WASM_BINARY
 			.expect("To run this test, build the wasm binary of cumulus-test-runtime")
 			.to_vec();
-		let metadata =
+		let opaque_metadata =
 			super::fetch_latest_metadata_from_code_blob(&executor, code_bytes.into()).unwrap();
+		let metadata = subxt::Metadata::decode(&mut (*opaque_metadata).as_slice()).unwrap();
 		let chain_type = identify_chain(&metadata, Some(100));
 		assert_eq!(chain_type, ChainType::Parachain(100));
 		assert!(chain_type.requires_proof_recording());
@@ -717,8 +724,9 @@ mod tests {
 		let code_bytes = substrate_test_runtime::WASM_BINARY
 			.expect("To run this test, build the wasm binary of substrate-test-runtime")
 			.to_vec();
-		let metadata =
+		let opaque_metadata =
 			super::fetch_latest_metadata_from_code_blob(&executor, code_bytes.into()).unwrap();
+		let metadata = subxt::Metadata::decode(&mut (*opaque_metadata).as_slice()).unwrap();
 		let chain_type = identify_chain(&metadata, None);
 		assert_eq!(chain_type, ChainType::Unknown);
 		assert_eq!(chain_type.requires_proof_recording(), false);
