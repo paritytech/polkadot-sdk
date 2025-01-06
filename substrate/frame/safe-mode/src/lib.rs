@@ -86,7 +86,7 @@ use frame::{
 			hold::{Inspect, Mutate},
 		},
 		tokens::{Fortitude, Precision},
-		CallMetadata, GetCallMetadata, SafeModeNotify, Defensive,
+		CallMetadata, Defensive, GetCallMetadata, SafeModeNotify,
 	},
 };
 

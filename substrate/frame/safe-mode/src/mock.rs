@@ -24,9 +24,7 @@ use crate as pallet_safe_mode;
 
 use frame::{
 	testing_prelude::*,
-	traits::{
-		Everything, IdentityLookup, InsideBoth, InstanceFilter, IsInVec,
-	},
+	traits::{Everything, IdentityLookup, InsideBoth, InstanceFilter, IsInVec},
 };
 // use frame_support::{
 // 	derive_impl, parameter_types,
