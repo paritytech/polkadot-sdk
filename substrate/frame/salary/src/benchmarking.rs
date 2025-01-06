@@ -22,9 +22,8 @@
 use super::*;
 use crate::Pallet as Salary;
 
-#[allow(deprecated)]
-use frame::benchmarking::prelude::*;
-use frame::deps::sp_core::Get;
+use frame::{benchmarking::prelude::*,
+			deps::sp_core::Get};
 const SEED: u32 = 0;
 
 fn ensure_member_with_salary<T: Config<I>, I: 'static>(who: &T::AccountId) {

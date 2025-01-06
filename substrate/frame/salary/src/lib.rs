@@ -71,6 +71,7 @@ pub enum ClaimState<Balance, Id> {
 }
 
 use ClaimState::*;
+//https://github.com/paritytech/polkadot-sdk/issues/7054 frame_support needs to be used until this issue is resolved
 use frame::deps::frame_support;
 
 /// The status of a single payee/claimant.
@@ -464,7 +465,7 @@ impl<T: Config<I>, I: 'static>
 		}
 
 		let Some(claimant) = Claimant::<T, I>::take(who) else {
-			frame::prelude::defensive!("Claimant should exist when swapping");
+			defensive!("Claimant should exist when swapping");
 			return;
 		};
 
