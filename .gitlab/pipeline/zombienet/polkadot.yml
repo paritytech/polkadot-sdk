@@ -345,6 +345,8 @@ zombienet-polkadot-malus-0001-dispute-valid:
       --local-dir="${LOCAL_DIR}/integrationtests"
       --test="0001-dispute-valid-block.zndsl"
 
+# sdk tests
+
 .zombienet-polkadot-coretime-revenue:
   extends:
     - .zombienet-polkadot-common
@@ -370,6 +372,7 @@ zombienet-polkadot-elastic-scaling-slot-based-3cores:
     - !reference [ ".zombienet-polkadot-common", "before_script" ]
     - export POLKADOT_IMAGE="${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
     - export CUMULUS_IMAGE="docker.io/paritypr/test-parachain:${PIPELINE_IMAGE_TAG}"
+    - export X_INFRA_INSTANCE=spot # use spot by default
   script:
     # we want to use `--no-capture` in zombienet tests.
     - unset NEXTEST_FAILURE_OUTPUT
