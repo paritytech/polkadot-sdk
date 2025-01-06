@@ -1,0 +1,210 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Configuration trait of this pallet."><title>Config in pallet_nomination_pools::pallet - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_nomination_pools" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_nomination_pools/index.html">pallet_nomination_pools</a><span class="version">25.0.0</span></h2></div><h2 class="location"><a href="#">Config</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.AdminOrigin">AdminOrigin</a></li><li><a href="#associatedtype.BalanceToU256">BalanceToU256</a></li><li><a href="#associatedtype.Currency">Currency</a></li><li><a href="#associatedtype.MaxMetadataLen">MaxMetadataLen</a></li><li><a href="#associatedtype.MaxPointsToBalance">MaxPointsToBalance</a></li><li><a href="#associatedtype.MaxUnbonding">MaxUnbonding</a></li><li><a href="#associatedtype.PalletId">PalletId</a></li><li><a href="#associatedtype.PostUnbondingPoolsWindow">PostUnbondingPoolsWindow</a></li><li><a href="#associatedtype.RewardCounter">RewardCounter</a></li><li><a href="#associatedtype.RuntimeEvent">RuntimeEvent</a></li><li><a href="#associatedtype.RuntimeFreezeReason">RuntimeFreezeReason</a></li><li><a href="#associatedtype.StakeAdapter">StakeAdapter</a></li><li><a href="#associatedtype.U256ToBalance">U256ToBalance</a></li><li><a href="#associatedtype.WeightInfo">WeightInfo</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In pallet_nomination_pools::pallet</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">pallet_nomination_pools</a>::<wbr><a href="index.html">pallet</a>::<wbr><a class="trait" href="#">Config</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/pallet_nomination_pools/lib.rs.html#1579-1653">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Config: Config {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 14 associated items</span></summary>    type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Event.html" title="enum pallet_nomination_pools::pallet::Event">Event</a>&lt;Self&gt;&gt; + IsType&lt;&lt;Self as Config&gt;::RuntimeEvent&gt;;
+    type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="../weights/trait.WeightInfo.html" title="trait pallet_nomination_pools::weights::WeightInfo">WeightInfo</a>;
+    type <a href="#associatedtype.Currency" class="associatedtype">Currency</a>: Mutate&lt;Self::AccountId&gt; + MutateFreeze&lt;Self::AccountId, Id = Self::<a class="associatedtype" href="trait.Config.html#associatedtype.RuntimeFreezeReason" title="type pallet_nomination_pools::pallet::Config::RuntimeFreezeReason">RuntimeFreezeReason</a>&gt;;
+    type <a href="#associatedtype.RuntimeFreezeReason" class="associatedtype">RuntimeFreezeReason</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.FreezeReason.html" title="enum pallet_nomination_pools::pallet::FreezeReason">FreezeReason</a>&gt;;
+    type <a href="#associatedtype.RewardCounter" class="associatedtype">RewardCounter</a>: FixedPointNumber + MaxEncodedLen + TypeInfo + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a> + FullCodec;
+    type <a href="#associatedtype.PalletId" class="associatedtype">PalletId</a>: Get&lt;PalletId&gt;;
+    type <a href="#associatedtype.MaxPointsToBalance" class="associatedtype">MaxPointsToBalance</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;;
+    type <a href="#associatedtype.MaxUnbonding" class="associatedtype">MaxUnbonding</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.BalanceToU256" class="associatedtype">BalanceToU256</a>: Convert&lt;<a class="type" href="../type.BalanceOf.html" title="type pallet_nomination_pools::BalanceOf">BalanceOf</a>&lt;Self&gt;, U256&gt;;
+    type <a href="#associatedtype.U256ToBalance" class="associatedtype">U256ToBalance</a>: Convert&lt;U256, <a class="type" href="../type.BalanceOf.html" title="type pallet_nomination_pools::BalanceOf">BalanceOf</a>&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.StakeAdapter" class="associatedtype">StakeAdapter</a>: <a class="trait" href="../adapter/trait.StakeStrategy.html" title="trait pallet_nomination_pools::adapter::StakeStrategy">StakeStrategy</a>&lt;AccountId = Self::AccountId, Balance = <a class="type" href="../type.BalanceOf.html" title="type pallet_nomination_pools::BalanceOf">BalanceOf</a>&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.PostUnbondingPoolsWindow" class="associatedtype">PostUnbondingPoolsWindow</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.MaxMetadataLen" class="associatedtype">MaxMetadataLen</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.AdminOrigin" class="associatedtype">AdminOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin&gt;;
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Configuration trait of this pallet.</p>
+<p>The main purpose of this trait is to act as an interface between this pallet and the runtime in
+which it is embedded in. A type, function, or constant in this trait is essentially left to be
+configured by the runtime that includes this pallet.</p>
+<p>Consequently, a runtime that wants to include this pallet must implement this trait.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.RuntimeEvent" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/lib.rs.html#1581">source</a><h4 class="code-header">type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Event.html" title="enum pallet_nomination_pools::pallet::Event">Event</a>&lt;Self&gt;&gt; + IsType&lt;&lt;Self as Config&gt;::RuntimeEvent&gt;</h4></section></summary><div class="docblock"><p>The overarching event type.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.WeightInfo" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/lib.rs.html#1584">source</a><h4 class="code-header">type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="../weights/trait.WeightInfo.html" title="trait pallet_nomination_pools::weights::WeightInfo">WeightInfo</a></h4></section></summary><div class="docblock"><p>Weight information for extrinsics in this pallet.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Currency" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/lib.rs.html#1587-1588">source</a><h4 class="code-header">type <a href="#associatedtype.Currency" class="associatedtype">Currency</a>: Mutate&lt;Self::AccountId&gt; + MutateFreeze&lt;Self::AccountId, Id = Self::<a class="associatedtype" href="trait.Config.html#associatedtype.RuntimeFreezeReason" title="type pallet_nomination_pools::pallet::Config::RuntimeFreezeReason">RuntimeFreezeReason</a>&gt;</h4></section></summary><div class="docblock"><p>The currency type used for nomination pool.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.RuntimeFreezeReason" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/lib.rs.html#1591">source</a><h4 class="code-header">type <a href="#associatedtype.RuntimeFreezeReason" class="associatedtype">RuntimeFreezeReason</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.FreezeReason.html" title="enum pallet_nomination_pools::pallet::FreezeReason">FreezeReason</a>&gt;</h4></section></summary><div class="docblock"><p>The overarching freeze reason.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.RewardCounter" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/lib.rs.html#1605">source</a><h4 class="code-header">type <a href="#associatedtype.RewardCounter" class="associatedtype">RewardCounter</a>: FixedPointNumber + MaxEncodedLen + TypeInfo + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a> + FullCodec</h4></section></summary><div class="docblock"><p>The type that is used for reward counter.</p>
+<p>The arithmetic of the reward counter might saturate based on the size of the
+<code>Currency::Balance</code>. If this happens, operations fails. Nonetheless, this type should be
+chosen such that this failure almost never happens, as if it happens, the pool basically
+needs to be dismantled (or all pools migrated to a larger <code>RewardCounter</code> type, which is
+a PITA to do).</p>
+<p>See the inline code docs of <code>Member::pending_rewards</code> and <code>RewardPool::update_recorded</code>
+for example analysis. A [<code>sp_runtime::FixedU128</code>] should be fine for chains with balance
+types similar to that of Polkadot and Kusama, in the absence of severe slashing (or
+prevented via a reasonable <code>MaxPointsToBalance</code>), for many many years to come.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.PalletId" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/lib.rs.html#1609">source</a><h4 class="code-header">type <a href="#associatedtype.PalletId" class="associatedtype">PalletId</a>: Get&lt;PalletId&gt;</h4></section></summary><div class="docblock"><p>The nomination pool’s pallet id.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxPointsToBalance" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/lib.rs.html#1624">source</a><h4 class="code-header">type <a href="#associatedtype.MaxPointsToBalance" class="associatedtype">MaxPointsToBalance</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;</h4></section></summary><div class="docblock"><p>The maximum pool points-to-balance ratio that an <code>open</code> pool can have.</p>
+<p>This is important in the event slashing takes place and the pool’s points-to-balance
+ratio becomes disproportional.</p>
+<p>Moreover, this relates to the <code>RewardCounter</code> type as well, as the arithmetic operations
+are a function of number of points, and by setting this value to e.g. 10, you ensure
+that the total number of points in the system are at most 10 times the total_issuance of
+the chain, in the absolute worse case.</p>
+<p>For a value of 10, the threshold would be a pool points-to-balance ratio of 10:1.
+Such a scenario would also be the equivalent of the pool being 90% slashed.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxUnbonding" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/lib.rs.html#1628">source</a><h4 class="code-header">type <a href="#associatedtype.MaxUnbonding" class="associatedtype">MaxUnbonding</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>The maximum number of simultaneous unbonding chunks that can exist per member.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.BalanceToU256" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/lib.rs.html#1631">source</a><h4 class="code-header">type <a href="#associatedtype.BalanceToU256" class="associatedtype">BalanceToU256</a>: Convert&lt;<a class="type" href="../type.BalanceOf.html" title="type pallet_nomination_pools::BalanceOf">BalanceOf</a>&lt;Self&gt;, U256&gt;</h4></section></summary><div class="docblock"><p>Infallible method for converting <code>Currency::Balance</code> to <code>U256</code>.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.U256ToBalance" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/lib.rs.html#1634">source</a><h4 class="code-header">type <a href="#associatedtype.U256ToBalance" class="associatedtype">U256ToBalance</a>: Convert&lt;U256, <a class="type" href="../type.BalanceOf.html" title="type pallet_nomination_pools::BalanceOf">BalanceOf</a>&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>Infallible method for converting <code>U256</code> to <code>Currency::Balance</code>.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.StakeAdapter" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/lib.rs.html#1639">source</a><h4 class="code-header">type <a href="#associatedtype.StakeAdapter" class="associatedtype">StakeAdapter</a>: <a class="trait" href="../adapter/trait.StakeStrategy.html" title="trait pallet_nomination_pools::adapter::StakeStrategy">StakeStrategy</a>&lt;AccountId = Self::AccountId, Balance = <a class="type" href="../type.BalanceOf.html" title="type pallet_nomination_pools::BalanceOf">BalanceOf</a>&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>The interface for nominating.</p>
+<p>Note: Switching to a new <a href="../adapter/trait.StakeStrategy.html" title="trait pallet_nomination_pools::adapter::StakeStrategy"><code>StakeStrategy</code></a> might require a migration of the storage.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.PostUnbondingPoolsWindow" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/lib.rs.html#1646">source</a><h4 class="code-header">type <a href="#associatedtype.PostUnbondingPoolsWindow" class="associatedtype">PostUnbondingPoolsWindow</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>The amount of eras a <code>SubPools::with_era</code> pool can exist before it gets merged into the
+<code>SubPools::no_era</code> pool. In other words, this is the amount of eras a member will be
+able to withdraw from an unbonding pool which is guaranteed to have the correct ratio of
+points to balance; once the <code>with_era</code> pool is merged into the <code>no_era</code> pool, the ratio
+can become skewed due to some slashed ratio getting merged in at some point.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxMetadataLen" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/lib.rs.html#1649">source</a><h4 class="code-header">type <a href="#associatedtype.MaxMetadataLen" class="associatedtype">MaxMetadataLen</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>The maximum length, in bytes, that a pools metadata maybe.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.AdminOrigin" class="method"><a class="src rightside" href="../../src/pallet_nomination_pools/lib.rs.html#1652">source</a><h4 class="code-header">type <a href="#associatedtype.AdminOrigin" class="associatedtype">AdminOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin&gt;</h4></section></summary><div class="docblock"><p>The origin that can manage pool configurations.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-Config-for-Runtime" class="impl"><a class="src rightside" href="../../src/pallet_nomination_pools/mock.rs.html#290-305">source</a><a href="#impl-Config-for-Runtime" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.Config.html" title="trait pallet_nomination_pools::pallet::Config">Config</a> for <a class="struct" href="../mock/struct.Runtime.html" title="struct pallet_nomination_pools::mock::Runtime">Runtime</a></h3></section></summary><div class="impl-items"><section id="associatedtype.RuntimeEvent-1" class="associatedtype trait-impl"><a href="#associatedtype.RuntimeEvent-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a> = <a class="enum" href="../mock/enum.RuntimeEvent.html" title="enum pallet_nomination_pools::mock::RuntimeEvent">RuntimeEvent</a></h4></section><section id="associatedtype.WeightInfo-1" class="associatedtype trait-impl"><a href="#associatedtype.WeightInfo-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h4></section><section id="associatedtype.Currency-1" class="associatedtype trait-impl"><a href="#associatedtype.Currency-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Currency" class="associatedtype">Currency</a> = Pallet&lt;<a class="struct" href="../mock/struct.Runtime.html" title="struct pallet_nomination_pools::mock::Runtime">Runtime</a>&gt;</h4></section><section id="associatedtype.RuntimeFreezeReason-1" class="associatedtype trait-impl"><a href="#associatedtype.RuntimeFreezeReason-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.RuntimeFreezeReason" class="associatedtype">RuntimeFreezeReason</a> = <a class="enum" href="../mock/enum.RuntimeFreezeReason.html" title="enum pallet_nomination_pools::mock::RuntimeFreezeReason">RuntimeFreezeReason</a></h4></section><section id="associatedtype.RewardCounter-1" class="associatedtype trait-impl"><a href="#associatedtype.RewardCounter-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.RewardCounter" class="associatedtype">RewardCounter</a> = FixedU128</h4></section><section id="associatedtype.BalanceToU256-1" class="associatedtype trait-impl"><a href="#associatedtype.BalanceToU256-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.BalanceToU256" class="associatedtype">BalanceToU256</a> = <a class="struct" href="../mock/struct.BalanceToU256.html" title="struct pallet_nomination_pools::mock::BalanceToU256">BalanceToU256</a></h4></section><section id="associatedtype.U256ToBalance-1" class="associatedtype trait-impl"><a href="#associatedtype.U256ToBalance-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.U256ToBalance" class="associatedtype">U256ToBalance</a> = <a class="struct" href="../mock/struct.U256ToBalance.html" title="struct pallet_nomination_pools::mock::U256ToBalance">U256ToBalance</a></h4></section><section id="associatedtype.StakeAdapter-1" class="associatedtype trait-impl"><a href="#associatedtype.StakeAdapter-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.StakeAdapter" class="associatedtype">StakeAdapter</a> = <a class="struct" href="../adapter/struct.TransferStake.html" title="struct pallet_nomination_pools::adapter::TransferStake">TransferStake</a>&lt;<a class="struct" href="../mock/struct.Runtime.html" title="struct pallet_nomination_pools::mock::Runtime">Runtime</a>, <a class="struct" href="../mock/struct.StakingMock.html" title="struct pallet_nomination_pools::mock::StakingMock">StakingMock</a>&gt;</h4></section><section id="associatedtype.PostUnbondingPoolsWindow-1" class="associatedtype trait-impl"><a href="#associatedtype.PostUnbondingPoolsWindow-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.PostUnbondingPoolsWindow" class="associatedtype">PostUnbondingPoolsWindow</a> = <a class="struct" href="../mock/struct.PostUnbondingPoolsWindow.html" title="struct pallet_nomination_pools::mock::PostUnbondingPoolsWindow">PostUnbondingPoolsWindow</a></h4></section><section id="associatedtype.PalletId-1" class="associatedtype trait-impl"><a href="#associatedtype.PalletId-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.PalletId" class="associatedtype">PalletId</a> = <a class="struct" href="../mock/struct.PoolsPalletId.html" title="struct pallet_nomination_pools::mock::PoolsPalletId">PoolsPalletId</a></h4></section><section id="associatedtype.MaxMetadataLen-1" class="associatedtype trait-impl"><a href="#associatedtype.MaxMetadataLen-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.MaxMetadataLen" class="associatedtype">MaxMetadataLen</a> = <a class="struct" href="../mock/struct.MaxMetadataLen.html" title="struct pallet_nomination_pools::mock::MaxMetadataLen">MaxMetadataLen</a></h4></section><section id="associatedtype.MaxUnbonding-1" class="associatedtype trait-impl"><a href="#associatedtype.MaxUnbonding-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.MaxUnbonding" class="associatedtype">MaxUnbonding</a> = <a class="struct" href="../mock/struct.MaxUnbonding.html" title="struct pallet_nomination_pools::mock::MaxUnbonding">MaxUnbonding</a></h4></section><section id="associatedtype.MaxPointsToBalance-1" class="associatedtype trait-impl"><a href="#associatedtype.MaxPointsToBalance-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.MaxPointsToBalance" class="associatedtype">MaxPointsToBalance</a> = ConstU8&lt;10&gt;</h4></section><section id="associatedtype.AdminOrigin-1" class="associatedtype trait-impl"><a href="#associatedtype.AdminOrigin-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.AdminOrigin" class="associatedtype">AdminOrigin</a> = EnsureSignedBy&lt;<a class="struct" href="../mock/struct.Admin.html" title="struct pallet_nomination_pools::mock::Admin">Admin</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u128.html">u128</a>&gt;</h4></section></div></details></div><script src="../../trait.impl/pallet_nomination_pools/pallet/trait.Config.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,164 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Substrate CLI library."><title>sc_cli - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sc_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sc_cli/index.html">sc_cli</a><span class="version">0.36.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">sc_cli</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/sc_cli/lib.rs.html#19-252">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Substrate CLI library.</p>
+<p>To see a full list of commands available, see <a href="commands/index.html" title="mod sc_cli::commands"><code>commands</code></a>.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.clap"><code>pub use clap;</code></div></li><li><div class="item-name"><code>pub use <a class="mod" href="arg_enums/index.html" title="mod sc_cli::arg_enums">arg_enums</a>::*;</code></div></li><li><div class="item-name"><code>pub use <a class="mod" href="commands/index.html" title="mod sc_cli::commands">commands</a>::*;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="arg_enums/index.html" title="mod sc_cli::arg_enums">arg_enums</a></div><div class="desc docblock-short">Definitions of [<code>ValueEnum</code>] types.</div></li><li><div class="item-name"><a class="mod" href="commands/index.html" title="mod sc_cli::commands">commands</a></div><div class="desc docblock-short">Various subcommands that can be included in a substrate-based chain’s CLI.</div></li></ul><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.with_crypto_scheme.html" title="macro sc_cli::with_crypto_scheme">with_crypto_scheme</a></div><div class="desc docblock-short">Allows for calling $method with appropriate crypto impl.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.BlockNumberOrHash.html" title="struct sc_cli::BlockNumberOrHash">BlockNumberOrHash</a></div><div class="desc docblock-short">Wrapper type that is either a <code>Hash</code> or the number of a <code>Block</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.CryptoSchemeFlag.html" title="struct sc_cli::CryptoSchemeFlag">CryptoSchemeFlag</a></div><div class="desc docblock-short">Optional flag for specifying crypto algorithm</div></li><li><div class="item-name"><a class="struct" href="struct.DatabaseParams.html" title="struct sc_cli::DatabaseParams">DatabaseParams</a></div><div class="desc docblock-short">Parameters for database</div></li><li><div class="item-name"><a class="struct" href="struct.ExecutionStrategiesParams.html" title="struct sc_cli::ExecutionStrategiesParams">ExecutionStrategiesParams</a></div><div class="desc docblock-short">Execution strategies parameters.</div></li><li><div class="item-name"><a class="struct" href="struct.GenericNumber.html" title="struct sc_cli::GenericNumber">GenericNumber</a></div><div class="desc docblock-short">Wrapper type of <code>String</code> that holds an unsigned integer of arbitrary size, formatted as a
+decimal.</div></li><li><div class="item-name"><a class="struct" href="struct.ImportParams.html" title="struct sc_cli::ImportParams">ImportParams</a></div><div class="desc docblock-short">Parameters for block import.</div></li><li><div class="item-name"><a class="struct" href="struct.KeystoreParams.html" title="struct sc_cli::KeystoreParams">KeystoreParams</a></div><div class="desc docblock-short">Parameters of the keystore</div></li><li><div class="item-name"><a class="struct" href="struct.LoggerBuilder.html" title="struct sc_cli::LoggerBuilder">LoggerBuilder</a></div><div class="desc docblock-short">A builder that is used to initialize the global logger.</div></li><li><div class="item-name"><a class="struct" href="struct.MessageParams.html" title="struct sc_cli::MessageParams">MessageParams</a></div><div class="desc docblock-short">Params to configure how a message should be passed into a command.</div></li><li><div class="item-name"><a class="struct" href="struct.MixnetParams.html" title="struct sc_cli::MixnetParams">MixnetParams</a></div><div class="desc docblock-short">Parameters used to create the mixnet configuration.</div></li><li><div class="item-name"><a class="struct" href="struct.NetworkParams.html" title="struct sc_cli::NetworkParams">NetworkParams</a></div><div class="desc docblock-short">Parameters used to create the network configuration.</div></li><li><div class="item-name"><a class="struct" href="struct.NetworkSchemeFlag.html" title="struct sc_cli::NetworkSchemeFlag">NetworkSchemeFlag</a></div><div class="desc docblock-short">Optional flag for specifying network scheme</div></li><li><div class="item-name"><a class="struct" href="struct.NodeKeyParams.html" title="struct sc_cli::NodeKeyParams">NodeKeyParams</a></div><div class="desc docblock-short">Parameters used to create the <code>NodeKeyConfig</code>, which determines the keypair
+used for libp2p networking.</div></li><li><div class="item-name"><a class="struct" href="struct.OffchainWorkerParams.html" title="struct sc_cli::OffchainWorkerParams">OffchainWorkerParams</a></div><div class="desc docblock-short">Offchain worker related parameters.</div></li><li><div class="item-name"><a class="struct" href="struct.OutputTypeFlag.html" title="struct sc_cli::OutputTypeFlag">OutputTypeFlag</a></div><div class="desc docblock-short">Optional flag for specifying output type</div></li><li><div class="item-name"><a class="struct" href="struct.PrometheusParams.html" title="struct sc_cli::PrometheusParams">PrometheusParams</a></div><div class="desc docblock-short">Parameters used to config prometheus.</div></li><li><div class="item-name"><a class="struct" href="struct.PruningParams.html" title="struct sc_cli::PruningParams">PruningParams</a></div><div class="desc docblock-short">Parameters to define the pruning mode</div></li><li><div class="item-name"><a class="struct" href="struct.RpcEndpoint.html" title="struct sc_cli::RpcEndpoint">RpcEndpoint</a></div><div class="desc docblock-short">Represent a single RPC endpoint with its configuration.</div></li><li><div class="item-name"><a class="struct" href="struct.RpcParams.html" title="struct sc_cli::RpcParams">RpcParams</a></div><div class="desc docblock-short">Parameters of RPC.</div></li><li><div class="item-name"><a class="struct" href="struct.Runner.html" title="struct sc_cli::Runner">Runner</a></div><div class="desc docblock-short">A Substrate CLI runtime that can be used to run a node or a command</div></li><li><div class="item-name"><a class="struct" href="struct.RuntimeParams.html" title="struct sc_cli::RuntimeParams">RuntimeParams</a></div><div class="desc docblock-short">Parameters used to config runtime.</div></li><li><div class="item-name"><a class="struct" href="struct.RuntimeVersion.html" title="struct sc_cli::RuntimeVersion">RuntimeVersion</a></div><div class="desc docblock-short">Runtime version.
+This should not be thought of as classic Semver (major/minor/tiny).
+This triplet have different semantics and mis-interpretation could cause problems.
+In particular: bug fixes should result in an increment of <code>spec_version</code> and possibly
+<code>authoring_version</code>, absolutely not <code>impl_version</code> since they change the semantics of the
+runtime.</div></li><li><div class="item-name"><a class="struct" href="struct.SharedParams.html" title="struct sc_cli::SharedParams">SharedParams</a></div><div class="desc docblock-short">Shared parameters used by all <code>CoreParams</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.Signals.html" title="struct sc_cli::Signals">Signals</a></div><div class="desc docblock-short">Abstraction over OS signals to handle the shutdown of the node smoothly.</div></li><li><div class="item-name"><a class="struct" href="struct.TelemetryParams.html" title="struct sc_cli::TelemetryParams">TelemetryParams</a></div><div class="desc docblock-short">Parameters used to config telemetry.</div></li><li><div class="item-name"><a class="struct" href="struct.TransactionPoolParams.html" title="struct sc_cli::TransactionPoolParams">TransactionPoolParams</a></div><div class="desc docblock-short">Parameters used to create the pool configuration.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.DatabasePruningMode.html" title="enum sc_cli::DatabasePruningMode">DatabasePruningMode</a></div><div class="desc docblock-short">Specifies the pruning mode of the database.</div></li><li><div class="item-name"><a class="enum" href="enum.Error.html" title="enum sc_cli::Error">Error</a></div><div class="desc docblock-short">Error type for the CLI.</div></li><li><div class="item-name"><a class="enum" href="enum.Role.html" title="enum sc_cli::Role">Role</a></div><div class="desc docblock-short">Role of the local node.</div></li><li><div class="item-name"><a class="enum" href="enum.TransactionPoolType.html" title="enum sc_cli::TransactionPoolType">TransactionPoolType</a></div><div class="desc docblock-short">Type of transaction pool to be used</div></li></ul><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.RPC_DEFAULT_MAX_CONNECTIONS.html" title="constant sc_cli::RPC_DEFAULT_MAX_CONNECTIONS">RPC_DEFAULT_MAX_CONNECTIONS</a></div><div class="desc docblock-short">The default concurrent connection limit.</div></li><li><div class="item-name"><a class="constant" href="constant.RPC_DEFAULT_MAX_REQUEST_SIZE_MB.html" title="constant sc_cli::RPC_DEFAULT_MAX_REQUEST_SIZE_MB">RPC_DEFAULT_MAX_REQUEST_SIZE_MB</a></div><div class="desc docblock-short">The default max request size in MB.</div></li><li><div class="item-name"><a class="constant" href="constant.RPC_DEFAULT_MAX_RESPONSE_SIZE_MB.html" title="constant sc_cli::RPC_DEFAULT_MAX_RESPONSE_SIZE_MB">RPC_DEFAULT_MAX_RESPONSE_SIZE_MB</a></div><div class="desc docblock-short">The default max response size in MB.</div></li><li><div class="item-name"><a class="constant" href="constant.RPC_DEFAULT_MAX_SUBS_PER_CONN.html" title="constant sc_cli::RPC_DEFAULT_MAX_SUBS_PER_CONN">RPC_DEFAULT_MAX_SUBS_PER_CONN</a></div><div class="desc docblock-short">The default max number of subscriptions per connection.</div></li><li><div class="item-name"><a class="constant" href="constant.RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN.html" title="constant sc_cli::RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN">RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN</a></div><div class="desc docblock-short">The default number of messages the RPC server
+is allowed to keep in memory per connection.</div></li><li><div class="item-name"><a class="constant" href="constant.RPC_DEFAULT_PORT.html" title="constant sc_cli::RPC_DEFAULT_PORT">RPC_DEFAULT_PORT</a></div><div class="desc docblock-short">The default port.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.ChainSpec.html" title="trait sc_cli::ChainSpec">ChainSpec</a></div><div class="desc docblock-short">Common interface of a chain specification.</div></li><li><div class="item-name"><a class="trait" href="trait.CliConfiguration.html" title="trait sc_cli::CliConfiguration">CliConfiguration</a></div><div class="desc docblock-short">A trait that allows converting an object to a Configuration</div></li><li><div class="item-name"><a class="trait" href="trait.DefaultConfigurationValues.html" title="trait sc_cli::DefaultConfigurationValues">DefaultConfigurationValues</a></div><div class="desc docblock-short">Default configuration values used by Substrate</div></li><li><div class="item-name"><a class="trait" href="trait.SubstrateCli.html" title="trait sc_cli::SubstrateCli">SubstrateCli</a></div><div class="desc docblock-short">Substrate client CLI</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.build_runtime.html" title="fn sc_cli::build_runtime">build_runtime</a></div><div class="desc docblock-short">Build a tokio runtime with all features.</div></li><li><div class="item-name"><a class="fn" href="fn.generate_node_name.html" title="fn sc_cli::generate_node_name">generate_node_name</a></div><div class="desc docblock-short">Generate a valid random name for the node</div></li><li><div class="item-name"><a class="fn" href="fn.parse_ss58_address_format.html" title="fn sc_cli::parse_ss58_address_format">parse_ss58_address_format</a></div><div class="desc docblock-short">Parse Ss58AddressFormat</div></li><li><div class="item-name"><a class="fn" href="fn.print_node_infos.html" title="fn sc_cli::print_node_infos">print_node_infos</a></div><div class="desc docblock-short">Log information about the node itself.</div></li><li><div class="item-name"><a class="fn" href="fn.secret_string_from_str.html" title="fn sc_cli::secret_string_from_str">secret_string_from_str</a></div><div class="desc docblock-short">Parse a secret string, returning a displayable error.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Result.html" title="type sc_cli::Result">Result</a></div><div class="desc docblock-short">Result type alias for the CLI.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["register_token","send_token","send_token_to_penpal"]};

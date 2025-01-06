@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["OldRequestStatus","RequestStatus"],"mod":["pallet"]};

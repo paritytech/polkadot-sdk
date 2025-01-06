@@ -1,0 +1,454 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Contains macros, structs, and traits associated with v2 of the pallet benchmarking syntax."><title>pallet_staking::benchmarking::v1::v2 - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="pallet_staking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../pallet_staking/index.html">pallet_staking</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">Module v2</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#attributes">Attribute Macros</a></li></ul></section><h2><a href="../index.html">In pallet_staking::benchmarking::v1</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../../index.html">pallet_staking</a>::<wbr><a href="../../index.html">benchmarking</a>::<wbr><a href="../index.html">v1</a>::<wbr><a class="mod" href="#">v2</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Contains macros, structs, and traits associated with v2 of the pallet benchmarking syntax.</p>
+<p>The <a href="attr.benchmarks.html" title="attr pallet_staking::benchmarking::v1::v2::benchmarks"><code>v2::benchmarks</code></a> and <a href="attr.instance_benchmarks.html" title="attr pallet_staking::benchmarking::v1::v2::instance_benchmarks"><code>v2::instance_benchmarks</code></a> macros can be used to designate a
+module as a benchmarking module that can contain benchmarks and benchmark tests. The
+<code>#[benchmarks]</code> variant will set up a regular, non-instance benchmarking module, and the
+<code>#[instance_benchmarks]</code> variant will set up the module in instance benchmarking mode.</p>
+<p>Benchmarking modules should be gated behind a <code>#[cfg(feature = "runtime-benchmarks")]</code>
+feature gate to ensure benchmarking code that is only compiled when the
+<code>runtime-benchmarks</code> feature is enabled is not referenced.</p>
+<p>The following is the general syntax for a benchmarks (or instance benchmarks) module:</p>
+<h3 id="general-syntax"><a class="doc-anchor" href="#general-syntax">§</a>General Syntax</h3>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#![cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+
+</span><span class="kw">use super</span>::{mock_helpers::<span class="kw-2">*</span>, Pallet <span class="kw">as </span>MyPallet};
+<span class="kw">use </span>frame_benchmarking::v2::<span class="kw-2">*</span>;
+
+<span class="attr">#[benchmarks]
+</span><span class="kw">mod </span>benchmarks {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+	<span class="attr">#[benchmark]
+	</span><span class="kw">fn </span>bench_name_1(x: Linear&lt;<span class="number">7</span>, <span class="number">1_000</span>&gt;, y: Linear&lt;<span class="number">1_000</span>, <span class="number">100_0000</span>&gt;) {
+		<span class="comment">// setup code
+		</span><span class="kw">let </span>z = x + y;
+		<span class="kw">let </span>caller = whitelisted_caller();
+
+		<span class="attr">#[extrinsic_call]
+		</span>extrinsic_name(SystemOrigin::Signed(caller), other, arguments);
+
+		<span class="comment">// verification code
+		</span><span class="macro">assert_eq!</span>(MyPallet::&lt;T&gt;::my_var(), z);
+	}
+
+	<span class="attr">#[benchmark]
+	</span><span class="kw">fn </span>bench_name_2() {
+		<span class="comment">// setup code
+		</span><span class="kw">let </span>caller = whitelisted_caller();
+
+		<span class="attr">#[block]
+		</span>{
+			something(some, thing);
+			my_extrinsic(RawOrigin::Signed(caller), some, argument);
+			something_else(foo, bar);
+		}
+
+		<span class="comment">// verification code
+		</span><span class="macro">assert_eq!</span>(MyPallet::&lt;T&gt;::something(), <span class="number">37</span>);
+	}
+}</code></pre></div>
+<h3 id="benchmark-definitions"><a class="doc-anchor" href="#benchmark-definitions">§</a>Benchmark Definitions</h3>
+<p>Within a <code>#[benchmarks]</code> or <code>#[instance_benchmarks]</code> module, you can define individual
+benchmarks using the <code>#[benchmark]</code> attribute, as shown in the example above.</p>
+<p>The <code>#[benchmark]</code> attribute expects a function definition with a blank return type (or a
+return type compatible with <code>Result&lt;(), BenchmarkError&gt;</code>, as discussed below) and zero or
+more arguments whose names are valid <a href="../../enum.BenchmarkParameter.html" title="enum pallet_staking::benchmarking::BenchmarkParameter">BenchmarkParameter</a>
+parameters, such as <code>x</code>, <code>y</code>, <code>a</code>, <code>b</code>, etc., and whose param types must implement
+<a href="trait.ParamRange.html" title="trait pallet_staking::benchmarking::v1::v2::ParamRange">ParamRange</a>. At the moment the only valid type that implements
+<a href="trait.ParamRange.html" title="trait pallet_staking::benchmarking::v1::v2::ParamRange">ParamRange</a> is <a href="struct.Linear.html" title="struct pallet_staking::benchmarking::v1::v2::Linear">Linear</a>.</p>
+<p>The valid syntax for defining a <a href="struct.Linear.html" title="struct pallet_staking::benchmarking::v1::v2::Linear">Linear</a> is <code>Linear&lt;A, B&gt;</code> where <code>A</code>, and <code>B</code>
+are valid integer literals (that fit in a <code>u32</code>), such that <code>B</code> &gt;= <code>A</code>.</p>
+<p>Anywhere within a benchmark function you may use the generic <code>T: Config</code> parameter as well
+as <code>I</code> in the case of an <code>#[instance_benchmarks]</code> module. You should not add these to the
+function signature as this will be handled automatically for you based on whether this is a
+<code>#[benchmarks]</code> or <code>#[instance_benchmarks]</code> module and whatever <a href="#where-clause">where clause</a>
+you have defined for the module. You should not manually add any generics to the
+signature of your benchmark function.</p>
+<p>Also note that the <code>// setup code</code> and <code>// verification code</code> comments shown above are not
+required and are included simply for demonstration purposes.</p>
+<h4 id="extrinsic_call-and-block"><a class="doc-anchor" href="#extrinsic_call-and-block">§</a><code>#[extrinsic_call]</code> and <code>#[block]</code></h4>
+<p>Within the benchmark function body, either an <code>#[extrinsic_call]</code> or a <code>#[block]</code>
+annotation is required. These attributes should be attached to a block (shown in
+<code>bench_name_2</code> above) or a one-line function call (shown in <code>bench_name_1</code> above, in <code>syn</code>
+parlance this should be an <code>ExprCall</code>), respectively.</p>
+<p>The <code>#[block]</code> syntax is broad and will benchmark any code contained within the block the
+attribute is attached to. If <code>#[block]</code> is attached to something other than a block, a
+compiler error will be emitted.</p>
+<p>The one-line <code>#[extrinsic_call]</code> syntax must consist of a function call to an extrinsic,
+where the first argument is the origin. If <code>#[extrinsic_call]</code> is attached to an item that
+doesn’t meet these requirements, a compiler error will be emitted.</p>
+<p>As a short-hand, you may substitute the name of the extrinsic call with <code>_</code>, such as the
+following:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[extrinsic_call]
+</span><span class="kw">_</span>(RawOrigin::Signed(whitelisted_caller()), <span class="number">0u32</span>.into(), <span class="number">0</span>);</code></pre></div>
+<p>The underscore will be substituted with the name of the benchmark  (i.e. the name of the
+function in the benchmark function definition).</p>
+<p>In case of a <code>force_origin</code> where you want to elevate the privileges of the provided origin,
+this is the general syntax:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[extrinsic_call]
+</span><span class="kw">_</span>(force_origin <span class="kw">as </span>T::RuntimeOrigin, <span class="number">0u32</span>.into(), <span class="number">0</span>);</code></pre></div>
+<p>Regardless of whether <code>#[extrinsic_call]</code> or <code>#[block]</code> is used, this attribute also serves
+the purpose of designating the boundary between the setup code portion of the benchmark
+(everything before the <code>#[extrinsic_call]</code> or <code>#[block]</code> attribute) and the verification
+stage (everything after the item that the <code>#[extrinsic_call]</code> or <code>#[block]</code> attribute is
+attached to). The setup code section should contain any code that needs to execute before
+the measured portion of the benchmark executes. The verification section is where you can
+perform assertions to verify that the extrinsic call (or whatever is happening in your
+block, if you used the <code>#[block]</code> syntax) executed successfully.</p>
+<p>Note that neither <code>#[extrinsic_call]</code> nor <code>#[block]</code> are real attribute macros and are
+instead consumed by the outer macro pattern as part of the enclosing benchmark function
+definition. This is why we are able to use <code>#[extrinsic_call]</code> and <code>#[block]</code> within a
+function definition even though this behavior has not been stabilized
+yet—<code>#[extrinsic_call]</code> and <code>#[block]</code> are parsed and consumed as part of the benchmark
+definition parsing code, so they never expand as their own attribute macros.</p>
+<h4 id="optional-attributes"><a class="doc-anchor" href="#optional-attributes">§</a>Optional Attributes</h4>
+<p>The keywords <code>extra</code> and <code>skip_meta</code> can be provided as optional arguments to the
+<code>#[benchmark]</code> attribute, i.e. <code>#[benchmark(extra, skip_meta)]</code>. Including either of these
+will enable the <code>extra</code> or <code>skip_meta</code> option, respectively. These options enable the same
+behavior they did in the old benchmarking syntax in <code>frame_benchmarking</code>, namely:</p>
+<h5 id="extra"><a class="doc-anchor" href="#extra">§</a><code>extra</code></h5>
+<p>Specifies that this benchmark should not normally run. To run benchmarks marked with
+<code>extra</code>, you will need to invoke the <code>frame-benchmarking-cli</code> with <code>--extra</code>.</p>
+<h5 id="skip_meta"><a class="doc-anchor" href="#skip_meta">§</a><code>skip_meta</code></h5>
+<p>Specifies that the benchmarking framework should not analyze the storage keys that the
+benchmarked code read or wrote. This useful to suppress the prints in the form of unknown
+0x… in case a storage key that does not have metadata. Note that this skips the analysis of
+all accesses, not just ones without metadata.</p>
+<h3 id="where-clause"><a class="doc-anchor" href="#where-clause">§</a>Where Clause</h3>
+<p>Some pallets require a where clause specifying constraints on their generics to make
+writing benchmarks feasible. To accommodate this situation, you can provide such a where
+clause as the (only) argument to the <code>#[benchmarks]</code> or <code>#[instance_benchmarks]</code> attribute
+macros. Below is an example of this taken from the <code>message-queue</code> pallet.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[benchmarks(
+	<span class="kw">where
+		</span>&lt;&lt;T <span class="kw">as </span>Config&gt;::MessageProcessor <span class="kw">as </span>ProcessMessage&gt;::Origin: From&lt;u32&gt; + PartialEq,
+		&lt;T <span class="kw">as </span>Config&gt;::Size: From&lt;u32&gt;,
+)]
+</span><span class="kw">mod </span>benchmarks {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="comment">// ...
+</span>}</code></pre></div>
+<h3 id="benchmark-tests"><a class="doc-anchor" href="#benchmark-tests">§</a>Benchmark Tests</h3>
+<p>Benchmark tests can be generated using the old syntax in <code>frame_benchmarking</code>,
+including the <code>frame_benchmarking::impl_benchmark_test_suite</code> macro.</p>
+<p>An example is shown below (taken from the <code>message-queue</code> pallet’s <code>benchmarking</code> module):</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[benchmarks]
+</span><span class="kw">mod </span>benchmarks {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="comment">// ...
+	</span><span class="macro">impl_benchmark_test_suite!</span>(
+		MessageQueue,
+		<span class="kw">crate</span>::mock::new_test_ext::&lt;<span class="kw">crate</span>::integration_test::Test&gt;(),
+		<span class="kw">crate</span>::integration_test::Test
+	);
+}</code></pre></div>
+<h3 id="benchmark-function-generation"><a class="doc-anchor" href="#benchmark-function-generation">§</a>Benchmark Function Generation</h3>
+<p>The benchmark function definition that you provide is used to automatically create a number
+of impls and structs required by the benchmarking engine. Additionally, a benchmark
+function is also generated that resembles the function definition you provide, with a few
+modifications:</p>
+<ol>
+<li>The function name is transformed from i.e. <code>original_name</code> to <code>_original_name</code> so as not to
+collide with the struct <code>original_name</code> that is created for some of the benchmarking engine
+impls.</li>
+<li>Appropriate <code>T: Config</code> and <code>I</code> (if this is an instance benchmark) generics are added to the
+function automatically during expansion, so you should not add these manually on your
+function definition (but you may make use of <code>T</code> and <code>I</code> anywhere within your benchmark
+function, in any of the three sections (setup, call, verification).</li>
+<li>Arguments such as <code>u: Linear&lt;10, 100&gt;</code> are converted to <code>u: u32</code> to make the function
+directly callable.</li>
+<li>A <code>verify: bool</code> param is added as the last argument. Specifying <code>true</code> will result in the
+verification section of your function executing, while a value of <code>false</code> will skip
+verification.</li>
+<li>If you specify a return type on the function definition, it must conform to the <a href="#support-for-result-benchmarkerror-and-the--operator">rules
+below</a>, and the last statement of the
+function definition must resolve to something compatible with <code>Result&lt;(), BenchmarkError&gt;</code>.</li>
+</ol>
+<p>The reason we generate an actual function as part of the expansion is to allow the compiler
+to enforce several constraints that would otherwise be difficult to enforce and to reduce
+developer confusion (especially regarding the use of the <code>?</code> operator, as covered below).</p>
+<p>Note that any attributes, comments, and doc comments attached to your benchmark function
+definition are also carried over onto the resulting benchmark function and the struct for
+that benchmark. As a result you should be careful about what attributes you attach here as
+they will be replicated in multiple places.</p>
+<h4 id="support-for-result-benchmarkerror-and-the--operator"><a class="doc-anchor" href="#support-for-result-benchmarkerror-and-the--operator">§</a>Support for <code>Result&lt;(), BenchmarkError&gt;</code> and the <code>?</code> operator</h4>
+<p>You may optionally specify <code>Result&lt;(), BenchmarkError&gt;</code> as the return type of your
+benchmark function definition. If you do so, you must return a compatible <code>Result&lt;(), BenchmarkError&gt;</code> as the <em>last statement</em> of your benchmark function definition. You may
+also use the <code>?</code> operator throughout your benchmark function definition if you choose to
+follow this route. See the example below:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#![cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+
+</span><span class="kw">use super</span>::{mock_helpers::<span class="kw-2">*</span>, Pallet <span class="kw">as </span>MyPallet};
+<span class="kw">use </span>frame_benchmarking::v2::<span class="kw-2">*</span>;
+
+<span class="attr">#[benchmarks]
+</span><span class="kw">mod </span>benchmarks {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+	<span class="attr">#[benchmark]
+	</span><span class="kw">fn </span>bench_name(x: Linear&lt;<span class="number">5</span>, <span class="number">25</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+		<span class="comment">// setup code
+		</span><span class="kw">let </span>z = x + <span class="number">4</span>;
+		<span class="kw">let </span>caller = whitelisted_caller();
+
+		<span class="comment">// note we can make use of the ? operator here because of the return type
+		</span>something(z)<span class="question-mark">?</span>;
+
+		<span class="attr">#[extrinsic_call]
+		</span>extrinsic_name(SystemOrigin::Signed(caller), other, arguments);
+
+		<span class="comment">// verification code
+		</span><span class="macro">assert_eq!</span>(MyPallet::&lt;T&gt;::my_var(), z);
+
+		<span class="comment">// we must return a valid `Result&lt;(), BenchmarkError&gt;` as the last line of our benchmark
+		// function definition. This line is not included as part of the verification code that
+		// appears above it.
+		</span><span class="prelude-val">Ok</span>(())
+	}
+}</code></pre></div>
+<h3 id="migrate-from-v1-to-v2"><a class="doc-anchor" href="#migrate-from-v1-to-v2">§</a>Migrate from v1 to v2</h3>
+<p>To migrate your code from benchmarking v1 to benchmarking v2, you may follow these
+steps:</p>
+<ol>
+<li>Change the import from <code>frame_benchmarking::v1::</code> to <code>frame_benchmarking::v2::*</code>, or
+<code>frame::benchmarking::prelude::*</code> under the umbrella crate;</li>
+<li>Move the code inside the v1 <code>benchmarks! { ... }</code> block to the v2 benchmarks module <code>mod benchmarks { ... }</code> under the benchmarks macro (<code>#[benchmarks]</code> for a regular module, or
+<code>#[instance_benchmarks]</code> to set up the module in instance benchmarking mode);</li>
+<li>Turn each v1 benchmark into a function inside the v2 benchmarks module with the same name,
+having either a blank return type or a return type compatible with <code>Result&lt;(), BenchmarkError&gt;</code>. For instance, <code>foo { ... }</code> can become <code>fn foo() -&gt; Result&lt;(), BenchmarkError&gt;</code>. More in detail:
+<ol>
+<li>Move all the v1 complexity parameters as <a href="trait.ParamRange.html" title="trait pallet_staking::benchmarking::v1::v2::ParamRange">ParamRange</a> arguments to the
+v2 function, and their setup code to the body of the function. For instance, <code>let y in 0 .. 10 =&gt; setup(y)?;</code> from v1 will give a <code>y: Linear&lt;0, 10&gt;</code> argument to the corresponding
+function in v2, while <code>setup(y)?;</code> will be moved to the body of the function;</li>
+<li>Move all the v1 setup code to the body of the v2 function;</li>
+<li>Move the benchmarked code to the body of the v2 function under the appropriate macro
+attribute: <code>#[extrinsic_call]</code> for extrinsic pallet calls and <code>#[block]</code> for blocks of
+code;</li>
+<li>Move the v1 verify code block to the body of the v2 function, after the
+<code>#[extrinsic_call]</code> or <code>#[block]</code> attribute.</li>
+<li>If the function returns a <code>Result&lt;(), BenchmarkError&gt;</code>, end with <code>Ok(())</code>.</li>
+</ol>
+</li>
+</ol>
+<p>As for tests, the code is the same as v1 (see <a href="#benchmark-tests">Benchmark Tests</a>).</p>
+<p>As an example migration, the following v1 code</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#![cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+
+</span><span class="kw">use </span>frame_benchmarking::v1::<span class="kw-2">*</span>;
+
+<span class="macro">benchmarks!</span> {
+
+  <span class="comment">// first dispatchable: this is a user dispatchable and operates on a `u8` vector of
+  // size `l`
+  </span>foo {
+    <span class="kw">let </span>caller = funded_account::&lt;T&gt;(<span class="string">b"caller"</span>, <span class="number">0</span>);
+    <span class="kw">let </span>l <span class="kw">in </span><span class="number">1 </span>.. <span class="number">10_000 </span>=&gt; initialize_l(l);
+  }: {
+    <span class="kw">_</span>(RuntimeOrigin::Signed(caller), <span class="macro">vec!</span>[<span class="number">0u8</span>; l])
+  } verify {
+    assert_last_event::&lt;T&gt;(Event::FooExecuted { result: <span class="prelude-val">Ok</span>(()) }.into());
+  }
+}</code></pre></div>
+<p>would become the following v2 code:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#![cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+
+</span><span class="kw">use </span>frame_benchmarking::v2::<span class="kw-2">*</span>;
+
+<span class="attr">#[benchmarks]
+</span><span class="kw">mod </span>benchmarks {
+  <span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+  <span class="comment">// first dispatchable: foo; this is a user dispatchable and operates on a `u8` vector of
+  // size `l`
+  </span><span class="attr">#[benchmark]
+  </span><span class="kw">fn </span>foo(l: Linear&lt;<span class="number">1 </span>.. <span class="number">10_000</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+    <span class="kw">let </span>caller = funded_account::&lt;T&gt;(<span class="string">b"caller"</span>, <span class="number">0</span>);
+    initialize_l(l);
+
+    <span class="attr">#[extrinsic_call]
+    </span><span class="kw">_</span>(RuntimeOrigin::Signed(caller), <span class="macro">vec!</span>[<span class="number">0u8</span>; l]);
+     
+    <span class="comment">// Everything onwards will be treated as test.
+    </span>assert_last_event::&lt;T&gt;(Event::FooExecuted { result: <span class="prelude-val">Ok</span>(()) }.into());
+    <span class="prelude-val">Ok</span>(())
+  }
+}</code></pre></div>
+</div></details><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.add_benchmark.html" title="macro pallet_staking::benchmarking::v1::v2::add_benchmark">add_benchmark</a></div><div class="desc docblock-short">This macro adds pallet benchmarks to a <code>Vec&lt;BenchmarkBatch&gt;</code> object.</div></li><li><div class="item-name"><a class="macro" href="macro.assert_impl_all.html" title="macro pallet_staking::benchmarking::v1::v2::assert_impl_all">assert_impl_all</a></div><div class="desc docblock-short">Asserts that the type implements <em>all</em> of the given traits.</div></li><li><div class="item-name"><a class="macro" href="macro.assert_type_eq_all.html" title="macro pallet_staking::benchmarking::v1::v2::assert_type_eq_all">assert_type_eq_all</a></div><div class="desc docblock-short">Asserts that <em>all</em> types in a list are equal to each other.</div></li><li><div class="item-name"><a class="macro" href="macro.benchmarks_instance.html" title="macro pallet_staking::benchmarking::v1::v2::benchmarks_instance">benchmarks_instance</a></div><div class="desc docblock-short">Same as <a href="../macro.benchmarks.html" title="macro pallet_staking::benchmarking::v1::benchmarks"><code>benchmarks</code></a> but for instantiable module.</div></li><li><div class="item-name"><a class="macro" href="macro.benchmarks_instance_pallet.html" title="macro pallet_staking::benchmarking::v1::v2::benchmarks_instance_pallet">benchmarks_instance_pallet</a></div><div class="desc docblock-short">Same as <a href="../macro.benchmarks.html" title="macro pallet_staking::benchmarking::v1::benchmarks"><code>benchmarks</code></a> but for instantiable pallet declared <a href="../../../../frame_support_procedural/attr.pallet.html" title="attr frame_support_procedural::pallet"><code>frame_support::pallet</code></a>.</div></li><li><div class="item-name"><a class="macro" href="macro.define_benchmarks.html" title="macro pallet_staking::benchmarking::v1::v2::define_benchmarks">define_benchmarks</a></div><div class="desc docblock-short">Defines pallet configs that <code>add_benchmarks</code> and <code>list_benchmarks</code> use.
+Should be preferred instead of having a repetitive list of configs
+in <code>add_benchmark</code> and <code>list_benchmark</code>.</div></li><li><div class="item-name"><a class="macro" href="macro.impl_benchmark_test_suite.html" title="macro pallet_staking::benchmarking::v1::v2::impl_benchmark_test_suite">impl_benchmark_test_suite</a></div><div class="desc docblock-short">This creates a test suite which runs the module’s benchmarks.</div></li><li><div class="item-name"><a class="macro" href="macro.list_benchmark.html" title="macro pallet_staking::benchmarking::v1::v2::list_benchmark">list_benchmark</a></div><div class="desc docblock-short">This macro allows users to easily generate a list of benchmarks for the pallets configured
+in the runtime.</div></li><li><div class="item-name"><a class="macro" href="macro.validate_pov_mode.html" title="macro pallet_staking::benchmarking::v1::v2::validate_pov_mode">validate_pov_mode</a></div><div class="desc docblock-short">Validates the passed <code>pov_mode</code>s.</div></li><li><div class="item-name"><a class="macro" href="macro.whitelist.html" title="macro pallet_staking::benchmarking::v1::v2::whitelist">whitelist</a></div><div class="desc docblock-short">Whitelist the given account.</div></li><li><div class="item-name"><a class="macro" href="macro.whitelist_account.html" title="macro pallet_staking::benchmarking::v1::v2::whitelist_account">whitelist_account</a></div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Analysis.html" title="struct pallet_staking::benchmarking::v1::v2::Analysis">Analysis</a></div></li><li><div class="item-name"><a class="struct" href="struct.BenchmarkBatch.html" title="struct pallet_staking::benchmarking::v1::v2::BenchmarkBatch">BenchmarkBatch</a></div><div class="desc docblock-short">The results of a single of benchmark.</div></li><li><div class="item-name"><a class="struct" href="struct.BenchmarkBatchSplitResults.html" title="struct pallet_staking::benchmarking::v1::v2::BenchmarkBatchSplitResults">BenchmarkBatchSplitResults</a></div><div class="desc docblock-short">The results of a single of benchmark, where time and db results are separated.</div></li><li><div class="item-name"><a class="struct" href="struct.BenchmarkConfig.html" title="struct pallet_staking::benchmarking::v1::v2::BenchmarkConfig">BenchmarkConfig</a></div><div class="desc docblock-short">Configuration used to setup and run runtime benchmarks.</div></li><li><div class="item-name"><a class="struct" href="struct.BenchmarkList.html" title="struct pallet_staking::benchmarking::v1::v2::BenchmarkList">BenchmarkList</a></div><div class="desc docblock-short">A list of benchmarks available for a particular pallet and instance.</div></li><li><div class="item-name"><a class="struct" href="struct.BenchmarkMetadata.html" title="struct pallet_staking::benchmarking::v1::v2::BenchmarkMetadata">BenchmarkMetadata</a></div></li><li><div class="item-name"><a class="struct" href="struct.BenchmarkRecording.html" title="struct pallet_staking::benchmarking::v1::v2::BenchmarkRecording">BenchmarkRecording</a></div><div class="desc docblock-short">Records the time and proof size of a single benchmark iteration.</div></li><li><div class="item-name"><a class="struct" href="struct.BenchmarkResult.html" title="struct pallet_staking::benchmarking::v1::v2::BenchmarkResult">BenchmarkResult</a></div><div class="desc docblock-short">Result from running benchmarks on a FRAME pallet.
+Contains duration of the function call in nanoseconds along with the benchmark parameters
+used for that benchmark result.</div></li><li><div class="item-name"><a class="struct" href="struct.Linear.html" title="struct pallet_staking::benchmarking::v1::v2::Linear">Linear</a></div><div class="desc docblock-short">Used by the new benchmarking code to specify that a benchmarking variable is linear
+over some specified range, i.e. <code>Linear&lt;0, 1_000&gt;</code> means that the corresponding variable
+is allowed to range from <code>0</code> to <code>1000</code>, inclusive.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.AnalysisChoice.html" title="enum pallet_staking::benchmarking::v1::v2::AnalysisChoice">AnalysisChoice</a></div></li><li><div class="item-name"><a class="enum" href="enum.BenchmarkError.html" title="enum pallet_staking::benchmarking::v1::v2::BenchmarkError">BenchmarkError</a></div><div class="desc docblock-short">Possible errors returned from the benchmarking pipeline.</div></li><li><div class="item-name"><a class="enum" href="enum.BenchmarkParameter.html" title="enum pallet_staking::benchmarking::v1::v2::BenchmarkParameter">BenchmarkParameter</a></div><div class="desc docblock-short">An alphabet of possible parameters to use for benchmarking.</div></li><li><div class="item-name"><a class="enum" href="enum.BenchmarkSelector.html" title="enum pallet_staking::benchmarking::v1::v2::BenchmarkSelector">BenchmarkSelector</a></div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Benchmark.html" title="trait pallet_staking::benchmarking::v1::v2::Benchmark">Benchmark</a></div><div class="desc docblock-short">Runtime api for benchmarking a FRAME runtime.</div></li><li><div class="item-name"><a class="trait" href="trait.Benchmarking.html" title="trait pallet_staking::benchmarking::v1::v2::Benchmarking">Benchmarking</a></div><div class="desc docblock-short">The pallet benchmarking trait.</div></li><li><div class="item-name"><a class="trait" href="trait.BenchmarkingSetup.html" title="trait pallet_staking::benchmarking::v1::v2::BenchmarkingSetup">BenchmarkingSetup</a></div><div class="desc docblock-short">The required setup for creating a benchmark.</div></li><li><div class="item-name"><a class="trait" href="trait.ParamRange.html" title="trait pallet_staking::benchmarking::v1::v2::ParamRange">ParamRange</a></div><div class="desc docblock-short">Trait that must be implemented by all structs that can be used as parameter range types
+in the new benchmarking code (i.e. <code>Linear&lt;0, 1_000&gt;</code>). Right now there is just
+<a href="struct.Linear.html" title="struct pallet_staking::benchmarking::v1::v2::Linear"><code>Linear</code></a> but this could later be extended to support additional non-linear parameter
+ranges.</div></li><li><div class="item-name"><a class="trait" href="trait.Recording.html" title="trait pallet_staking::benchmarking::v1::v2::Recording">Recording</a></div><div class="desc docblock-short">The recording trait used to mark the start and end of a benchmark.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.account.html" title="fn pallet_staking::benchmarking::v1::v2::account">account</a></div><div class="desc docblock-short">Grab an account, seeded by a name and index.</div></li><li><div class="item-name"><a class="fn" href="fn.show_benchmark_debug_info.html" title="fn pallet_staking::benchmarking::v1::v2::show_benchmark_debug_info">show_benchmark_debug_info</a></div><div class="desc docblock-short">show error message and debugging info for the case of an error happening
+during a benchmark</div></li><li><div class="item-name"><a class="fn" href="fn.whitelisted_caller.html" title="fn pallet_staking::benchmarking::v1::v2::whitelisted_caller">whitelisted_caller</a></div><div class="desc docblock-short">This caller account is automatically whitelisted for DB reads/writes by the benchmarking macro.</div></li></ul><h2 id="attributes" class="section-header">Attribute Macros<a href="#attributes" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="attr" href="attr.benchmark.html" title="attr pallet_staking::benchmarking::v1::v2::benchmark">benchmark</a></div><div class="desc docblock-short">An attribute macro used to declare a benchmark within a benchmarking module. Must be
+attached to a function definition containing an <code>#[extrinsic_call]</code> or <code>#[block]</code>
+attribute.</div></li><li><div class="item-name"><a class="attr" href="attr.benchmarks.html" title="attr pallet_staking::benchmarking::v1::v2::benchmarks">benchmarks</a></div><div class="desc docblock-short">An attribute macro that can be attached to a (non-empty) module declaration. Doing so will
+designate that module as a benchmarking module.</div></li><li><div class="item-name"><a class="attr" href="attr.block.html" title="attr pallet_staking::benchmarking::v1::v2::block">block</a></div><div class="desc docblock-short">An attribute macro used to specify that a block should be the measured portion of the
+enclosing benchmark function, This attribute is also used as a boundary designating where
+the benchmark setup code ends, and the benchmark verification code begins.</div></li><li><div class="item-name"><a class="attr" href="attr.extrinsic_call.html" title="attr pallet_staking::benchmarking::v1::v2::extrinsic_call">extrinsic_call</a></div><div class="desc docblock-short">An attribute macro used to specify the extrinsic call inside a benchmark function, and also
+used as a boundary designating where the benchmark setup code ends, and the benchmark
+verification code begins.</div></li><li><div class="item-name"><a class="attr" href="attr.instance_benchmarks.html" title="attr pallet_staking::benchmarking::v1::v2::instance_benchmarks">instance_benchmarks</a></div><div class="desc docblock-short">An attribute macro that can be attached to a (non-empty) module declaration. Doing so will
+designate that module as an instance benchmarking module.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

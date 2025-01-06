@@ -1,0 +1,163 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Aura (Authority-round) consensus in substrate."><title>sc_consensus_aura - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sc_consensus_aura" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sc_consensus_aura/index.html">sc_consensus_aura</a><span class="version">0.34.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">sc_consensus_aura</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/sc_consensus_aura/lib.rs.html#19-883">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Aura (Authority-round) consensus in substrate.</p>
+<p>Aura works by having a list of authorities A who are expected to roughly
+agree on the current time. Time is divided up into discrete slots of t
+seconds each. For each slot s, the author of that slot is A[s % |A|].</p>
+<p>The author is allowed to issue one block but not more during that slot,
+and it will be built upon the longest valid chain that has been seen.</p>
+<p>Blocks from future steps will be either deferred or rejected depending on how
+far in the future they are.</p>
+<p>NOTE: Aura itself is designed to be generic over the crypto used.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.find_pre_digest"><code>pub use crate::standalone::<a class="fn" href="standalone/fn.find_pre_digest.html" title="fn sc_consensus_aura::standalone::find_pre_digest">find_pre_digest</a>;</code></div></li><li><div class="item-name" id="reexport.slot_duration"><code>pub use crate::standalone::<a class="fn" href="standalone/fn.slot_duration.html" title="fn sc_consensus_aura::standalone::slot_duration">slot_duration</a>;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="standalone/index.html" title="mod sc_consensus_aura::standalone">standalone</a></div><div class="desc docblock-short">Standalone functions used within the implementation of Aura.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.AuraVerifier.html" title="struct sc_consensus_aura::AuraVerifier">AuraVerifier</a></div><div class="desc docblock-short">A verifier for Aura blocks.</div></li><li><div class="item-name"><a class="struct" href="struct.BuildAuraWorkerParams.html" title="struct sc_consensus_aura::BuildAuraWorkerParams">BuildAuraWorkerParams</a></div><div class="desc docblock-short">Parameters of <a href="fn.build_aura_worker.html" title="fn sc_consensus_aura::build_aura_worker"><code>build_aura_worker</code></a>.</div></li><li><div class="item-name"><a class="struct" href="struct.BuildVerifierParams.html" title="struct sc_consensus_aura::BuildVerifierParams">BuildVerifierParams</a></div><div class="desc docblock-short">Parameters of <a href="fn.build_verifier.html" title="fn sc_consensus_aura::build_verifier"><code>build_verifier</code></a>.</div></li><li><div class="item-name"><a class="struct" href="struct.ImportQueueParams.html" title="struct sc_consensus_aura::ImportQueueParams">ImportQueueParams</a></div><div class="desc docblock-short">Parameters of <a href="fn.import_queue.html" title="fn sc_consensus_aura::import_queue"><code>import_queue</code></a>.</div></li><li><div class="item-name"><a class="struct" href="struct.InherentDataProvider.html" title="struct sc_consensus_aura::InherentDataProvider">InherentDataProvider</a></div><div class="desc docblock-short">Provides the slot duration inherent data for <code>Aura</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.SlotDuration.html" title="struct sc_consensus_aura::SlotDuration">SlotDuration</a></div><div class="desc docblock-short">A slot duration defined in milliseconds.</div></li><li><div class="item-name"><a class="struct" href="struct.SlotProportion.html" title="struct sc_consensus_aura::SlotProportion">SlotProportion</a></div><div class="desc docblock-short">A unit type wrapper to express the proportion of a slot.</div></li><li><div class="item-name"><a class="struct" href="struct.StartAuraParams.html" title="struct sc_consensus_aura::StartAuraParams">StartAuraParams</a></div><div class="desc docblock-short">Parameters of <a href="fn.start_aura.html" title="fn sc_consensus_aura::start_aura"><code>start_aura</code></a>.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.CheckForEquivocation.html" title="enum sc_consensus_aura::CheckForEquivocation">CheckForEquivocation</a></div><div class="desc docblock-short">Should we check for equivocation of a block author?</div></li><li><div class="item-name"><a class="enum" href="enum.CompatibilityMode.html" title="enum sc_consensus_aura::CompatibilityMode">CompatibilityMode</a></div><div class="desc docblock-short">Run <code>AURA</code> in a compatibility mode.</div></li><li><div class="item-name"><a class="enum" href="enum.ConsensusLog.html" title="enum sc_consensus_aura::ConsensusLog">ConsensusLog</a></div><div class="desc docblock-short">An consensus log item for Aura.</div></li><li><div class="item-name"><a class="enum" href="enum.Error.html" title="enum sc_consensus_aura::Error">Error</a></div><div class="desc docblock-short">Aura Errors</div></li></ul><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.AURA_ENGINE_ID.html" title="constant sc_consensus_aura::AURA_ENGINE_ID">AURA_ENGINE_ID</a></div><div class="desc docblock-short">The <code>ConsensusEngineId</code> of AuRa.</div></li><li><div class="item-name"><a class="constant" href="constant.INHERENT_IDENTIFIER.html" title="constant sc_consensus_aura::INHERENT_IDENTIFIER">INHERENT_IDENTIFIER</a></div><div class="desc docblock-short">The Aura inherent identifier.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.AuraApi.html" title="trait sc_consensus_aura::AuraApi">AuraApi</a></div><div class="desc docblock-short">API necessary for block authorship with aura.</div></li><li><div class="item-name"><a class="trait" href="trait.CompatibleDigestItem.html" title="trait sc_consensus_aura::CompatibleDigestItem">CompatibleDigestItem</a></div><div class="desc docblock-short">A digest item which is usable with aura consensus.</div></li><li><div class="item-name"><a class="trait" href="trait.SyncOracle.html" title="trait sc_consensus_aura::SyncOracle">SyncOracle</a></div><div class="desc docblock-short">An oracle for when major synchronization work is being undertaken.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.build_aura_worker.html" title="fn sc_consensus_aura::build_aura_worker">build_aura_worker</a></div><div class="desc docblock-short">Build the aura worker.</div></li><li><div class="item-name"><a class="fn" href="fn.build_verifier.html" title="fn sc_consensus_aura::build_verifier">build_verifier</a></div><div class="desc docblock-short">Build the <a href="struct.AuraVerifier.html" title="struct sc_consensus_aura::AuraVerifier"><code>AuraVerifier</code></a></div></li><li><div class="item-name"><a class="fn" href="fn.import_queue.html" title="fn sc_consensus_aura::import_queue">import_queue</a></div><div class="desc docblock-short">Start an import queue for the Aura consensus algorithm.</div></li><li><div class="item-name"><a class="fn" href="fn.start_aura.html" title="fn sc_consensus_aura::start_aura">start_aura</a></div><div class="desc docblock-short">Start the aura worker. The returned future should be run in a futures executor.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.AuraInherent.html" title="type sc_consensus_aura::AuraInherent">AuraInherent</a></div><div class="desc docblock-short">The type of the Aura inherent.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["make_checkpoint","make_execution_header_update","make_finalized_header_update","make_sync_committee_update"]};

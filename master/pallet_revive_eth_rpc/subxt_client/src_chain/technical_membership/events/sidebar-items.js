@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Dummy","KeyChanged","MemberAdded","MemberRemoved","MembersReset","MembersSwapped"]};

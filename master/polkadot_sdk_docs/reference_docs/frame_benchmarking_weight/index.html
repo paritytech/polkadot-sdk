@@ -1,0 +1,306 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Learn about benchmarking and weight."><title>polkadot_sdk_docs::reference_docs::frame_benchmarking_weight - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.com/favicon.ico"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module frame_benchmarking_weight</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#modules">Modules</a></li></ul></section><h2><a href="../index.html">In polkadot_sdk_docs::reference_docs</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">reference_docs</a>::<wbr><a class="mod" href="#">frame_benchmarking_weight</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/reference_docs/frame_benchmarking_weight.rs.html#1-212">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn about benchmarking and weight.</p>
+<h2 id="frame-benchmarking-and-weights"><a class="doc-anchor" href="#frame-benchmarking-and-weights">§</a>FRAME Benchmarking and Weights.</h2>
+<p>This reference doc explores the concept of weights within Polkadot-SDK runtimes, and more
+specifically how FRAME-based runtimes handle it.</p>
+<h3 id="metering"><a class="doc-anchor" href="#metering">§</a>Metering</h3>
+<p>The existence of “weight” as a concept in Polkadot-SDK is a direct consequence of the usage of
+WASM as a virtual machine. Unlike a metered virtual machine like EVM, where every instruction
+can have a (fairly) deterministic “cost” (also known as “gas price”) associated with it, WASM is
+a stack machine with more complex instruction set, and more unpredictable execution times. This
+means that unlike EVM, it is not possible to implement a “metering” system in WASM. A metering
+system is one in which instructions are executed one by one, and the cost/gas is stored in an
+accumulator. The execution may then halt once a gas limit is reached.</p>
+<p>In Polkadot-SDK, the WASM runtime is not assumed to be metered.</p>
+<h3 id="trusted-code"><a class="doc-anchor" href="#trusted-code">§</a>Trusted Code</h3>
+<p>Another important difference is that EVM is mostly used to express smart contracts, which are
+foreign and untrusted codes from the perspective of the blockchain executing them. In such
+cases, metering is crucial, in order to ensure a malicious code cannot consume more gas than
+expected.</p>
+<p>This assumption does not hold about the runtime of Polkadot-SDK-based blockchains. The runtime
+is trusted code, and it is assumed to be written by the same team/developers who are running the
+blockchain itself. Therefore, this assumption of “untrusted foreign code” does not hold.</p>
+<p>This is why the runtime can opt for a more performant, more flexible virtual machine like WASM,
+and get away without having metering.</p>
+<h3 id="benchmarking"><a class="doc-anchor" href="#benchmarking">§</a>Benchmarking</h3>
+<p>With the matter of untrusted code execution out of the way, the need for strict metering goes
+out of the way. Yet, it would still be very beneficial for block producers to be able to know an
+upper bound on how much resources a operation is going to consume before actually executing that
+operation. This is why FRAME has a toolkit for benchmarking pallets: So that this upper bound
+can be empirically determined.</p>
+<blockquote>
+<p>Note: Benchmarking is a static analysis: It is all about knowing the upper bound of how much
+resources an operation takes statically, without actually executing it. In the context of
+FRAME extrinsics, this static-ness is expressed by the keyword “pre-dispatch”.</p>
+</blockquote>
+<p>To understand why this upper bound is needed, consider the following: A block producer knows
+they have 20ms left to finish producing their block, and wishes to include more transactions in
+the block. Yet, in a metered environment, it would not know which transaction is likely to fit
+the 20ms. In a benchmarked environment, it can examine the transactions for their upper bound,
+and include the ones that are known to fit based on the worst case.</p>
+<p>The benchmarking code can be written as a part of FRAME pallet, using the macros provided in
+<a href="../../../frame_benchmarking/index.html" title="mod frame_benchmarking"><code>frame_benchmarking</code></a>. See any of the existing pallets in <code>polkadot-sdk</code>, or the pallets in our
+<a href="../../polkadot_sdk/templates/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::templates"><code>crate::polkadot_sdk::templates</code></a> for examples.</p>
+<h3 id="weight"><a class="doc-anchor" href="#weight">§</a>Weight</h3>
+<p>Finally, <a href="../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight"><code>sp_weights::Weight</code></a> is the output of the benchmarking process. It is a
+two-dimensional data structure that demonstrates the resources consumed by a given block of
+code (for example, a transaction). The two dimensions are:</p>
+<ul>
+<li>reference time: The time consumed in pico-seconds, on a reference hardware.</li>
+<li>proof size: The amount of storage proof necessary to re-execute the block of code. This is
+mainly needed for parachain &lt;&gt; relay-chain verification.</li>
+</ul>
+<h3 id="how-to-write-benchmarks-worst-case"><a class="doc-anchor" href="#how-to-write-benchmarks-worst-case">§</a>How To Write Benchmarks: Worst Case</h3>
+<p>The most important detail about writing benchmarking code is that it must be written such that
+it captures the worst case execution of any block of code.</p>
+<p>Consider:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::weight(<span class="number">10_000</span>)]
+</span><span class="kw">pub fn </span>simple_transfer(
+	origin: OriginFor&lt;T&gt;,
+	destination: T::AccountId,
+	amount: u32,
+) -&gt; DispatchResult {
+	<span class="kw">let </span>destination_exists = <span class="macro">todo!</span>();
+	<span class="kw">if </span>destination_exists {
+		<span class="comment">// simpler code path
+	</span>} <span class="kw">else </span>{
+		<span class="comment">// more complex code path
+	</span>}
+	<span class="prelude-val">Ok</span>(())
+}</code></pre></div>
+<p>If this block of code is to be benchmarked, then the benchmarking code must be written such that
+it captures the worst case.</p>
+<h3 id="gluing-pallet-benchmarking-with-runtime"><a class="doc-anchor" href="#gluing-pallet-benchmarking-with-runtime">§</a>Gluing Pallet Benchmarking with Runtime</h3>
+<p>FRAME pallets are mandated to provide their own benchmarking code. Runtimes contain the
+boilerplate needed to run these benchmarking (see <a href="#running-benchmarks">Running Benchmarks
+below</a>). The outcome of running these benchmarks are meant to be fed back
+into the pallet via a conventional <code>trait WeightInfo</code> on <code>Config</code>:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub trait </span>WeightInfo {
+	<span class="kw">fn </span>simple_transfer() -&gt; Weight;
+}</code></pre></div>
+<p>Then, individual functions of this trait are the final values that we assigned to the
+<a href="../../../frame_support_procedural/attr.weight.html" title="attr frame_support_procedural::weight"><code>frame::pallet_macros::weight</code></a> attribute:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::weight(T::WeightInfo::simple_transfer())]
+</span><span class="kw">pub fn </span>simple_transfer_2(
+	origin: OriginFor&lt;T&gt;,
+	destination: T::AccountId,
+	amount: u32,
+) -&gt; DispatchResult {
+	<span class="kw">let </span>destination_exists = <span class="macro">todo!</span>();
+	<span class="kw">if </span>destination_exists {
+		<span class="comment">// simpler code path
+	</span>} <span class="kw">else </span>{
+		<span class="comment">// more complex code path
+	</span>}
+	<span class="prelude-val">Ok</span>(())
+}</code></pre></div>
+<h3 id="manual-refund"><a class="doc-anchor" href="#manual-refund">§</a>Manual Refund</h3>
+<p>Back to the assumption of writing benchmarks for worst case: Sometimes, the pre-dispatch weight
+significantly differ from the post-dispatch actual weight consumed. This can be expressed with
+the following FRAME syntax:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::weight(T::WeightInfo::simple_transfer())]
+</span><span class="kw">pub fn </span>simple_transfer_3(
+	origin: OriginFor&lt;T&gt;,
+	destination: T::AccountId,
+	amount: u32,
+) -&gt; DispatchResultWithPostInfo {
+	<span class="comment">// ^^ Notice the new return type
+	</span><span class="kw">let </span>destination_exists = <span class="macro">todo!</span>();
+	<span class="kw">if </span>destination_exists {
+		<span class="comment">// simpler code path
+		// Note that need for .into(), to convert `()` to `PostDispatchInfo`
+		// See: https://paritytech.github.io/polkadot-sdk/master/frame_support/dispatch/struct.PostDispatchInfo.html#impl-From%3C()%3E-for-PostDispatchInfo
+		</span><span class="prelude-val">Ok</span>(().into())
+	} <span class="kw">else </span>{
+		<span class="comment">// more complex code path
+		</span><span class="kw">let </span>actual_weight =
+			<span class="macro">todo!</span>(<span class="string">"this can likely come from another benchmark that is NOT the worst case"</span>);
+		<span class="kw">let </span>pays_fee = <span class="macro">todo!</span>(<span class="string">"You can set this to `Pays::Yes` or `Pays::No` to change if this transaction should pay fees"</span>);
+		<span class="prelude-val">Ok</span>(frame::deps::frame_support::dispatch::PostDispatchInfo {
+			actual_weight: <span class="prelude-val">Some</span>(actual_weight),
+			pays_fee,
+		})
+	}
+}</code></pre></div>
+<h3 id="running-benchmarks"><a class="doc-anchor" href="#running-benchmarks">§</a>Running Benchmarks</h3>
+<p>Two ways exist to run the benchmarks of a runtime.</p>
+<ol>
+<li>The old school way: Most Polkadot-SDK based nodes (such as the ones integrated in
+<a href="../../polkadot_sdk/templates/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::templates"><code>templates</code></a>) have an a <code>benchmark</code> subcommand integrated into themselves.</li>
+<li>The more <a href="../omni_node/index.html" title="mod polkadot_sdk_docs::reference_docs::omni_node"><code>crate::reference_docs::omni_node</code></a> compatible way of running the benchmarks would
+be using <a href="https://crates.io/crates/frame-omni-bencher"><code>frame-omni-bencher</code></a> CLI, which only relies on a runtime.</li>
+</ol>
+<p>Note that by convention, the runtime and pallets always have their benchmarking code feature
+gated as behind <code>runtime-benchmarks</code>. So, the runtime should be compiled with <code>--features runtime-benchmarks</code>.</p>
+<h3 id="automatic-refund-of-proof_size"><a class="doc-anchor" href="#automatic-refund-of-proof_size">§</a>Automatic Refund of <code>proof_size</code>.</h3>
+<p>A new feature in FRAME allows the runtime to be configured for “automatic refund” of the proof
+size weight. This is very useful for maximizing the throughput of parachains. Please see:
+<a href="../../guides/enable_pov_reclaim/index.html" title="mod polkadot_sdk_docs::guides::enable_pov_reclaim"><code>crate::guides::enable_pov_reclaim</code></a>.</p>
+<h3 id="summary"><a class="doc-anchor" href="#summary">§</a>Summary</h3>
+<p>Polkadot-SDK runtimes use a more performant VM, namely WASM, which does not have metering. In
+return they have to be benchmarked to provide an upper bound on the resources they consume. This
+upper bound is represented as <a href="../../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight"><code>sp_weights::Weight</code></a>.</p>
+<h3 id="future-polkavm"><a class="doc-anchor" href="#future-polkavm">§</a>Future: PolkaVM</h3>
+<p>With the transition of Polkadot relay chain to <a href="https://graypaper.com">JAM</a>, a set of new features are being
+introduced, one of which being a new virtual machine named <a href="https://github.com/koute/polkavm">PolkaVM</a> that is as flexible as
+WASM, but also capable of metering. This might alter the future of benchmarking in FRAME and
+Polkadot-SDK, rendering them not needed anymore once PolkaVM is fully integrated into
+Polkadot-sdk. For a basic explanation of JAM and PolkaVM, see <a href="https://blog.kianenigma.com/posts/tech/demystifying-jam/#pvm">here</a>.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_benchmarking_weight::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

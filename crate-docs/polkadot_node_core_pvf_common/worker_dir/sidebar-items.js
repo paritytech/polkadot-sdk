@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["execute_artifact","prepare_tmp_artifact"]};

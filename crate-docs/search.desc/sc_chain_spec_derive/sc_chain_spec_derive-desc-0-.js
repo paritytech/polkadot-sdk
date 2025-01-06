@@ -1,0 +1,1 @@
+searchState.loadedDescShard("sc_chain_spec_derive", 0, "Macros to derive chain spec extension traits …")

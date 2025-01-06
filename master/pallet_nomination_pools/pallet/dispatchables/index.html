@@ -1,0 +1,171 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Auto-generated docs-only module listing all defined dispatchables for this pallet."><title>pallet_nomination_pools::pallet::dispatchables - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pallet_nomination_pools" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../pallet_nomination_pools/index.html">pallet_nomination_pools</a><span class="version">25.0.0</span></h2></div><h2 class="location"><a href="#">Module dispatchables</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#functions">Functions</a></li></ul></section><h2><a href="../index.html">In pallet_nomination_pools::pallet</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">pallet_nomination_pools</a>::<wbr><a href="../index.html">pallet</a>::<wbr><a class="mod" href="#">dispatchables</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/pallet_nomination_pools/lib.rs.html#1564">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Auto-generated docs-only module listing all defined dispatchables for this pallet.</p>
+<h2 id="warning-doc-only"><a class="doc-anchor" href="#warning-doc-only">§</a>Warning: Doc-Only</h2>
+<p>Members of this module cannot be used directly and are only provided for documentation
+purposes. To see the real version of each dispatchable, look for them in <a href="../struct.Pallet.html" title="struct pallet_nomination_pools::pallet::Pallet"><code>Pallet</code></a> or
+<a href="../enum.Call.html" title="enum pallet_nomination_pools::pallet::Call"><code>Call</code></a>.</p>
+</div></details><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.adjust_pool_deposit.html" title="fn pallet_nomination_pools::pallet::dispatchables::adjust_pool_deposit">adjust_pool_deposit</a></div><div class="desc docblock-short">Top up the deficit or withdraw the excess ED from the pool.</div></li><li><div class="item-name"><a class="fn" href="fn.apply_slash.html" title="fn pallet_nomination_pools::pallet::dispatchables::apply_slash">apply_slash</a></div><div class="desc docblock-short">Apply a pending slash on a member.</div></li><li><div class="item-name"><a class="fn" href="fn.bond_extra.html" title="fn pallet_nomination_pools::pallet::dispatchables::bond_extra">bond_extra</a></div><div class="desc docblock-short">Bond <code>extra</code> more funds from <code>origin</code> into the pool to which they already belong.</div></li><li><div class="item-name"><a class="fn" href="fn.bond_extra_other.html" title="fn pallet_nomination_pools::pallet::dispatchables::bond_extra_other">bond_extra_other</a></div><div class="desc docblock-short"><code>origin</code> bonds funds from <code>extra</code> for some pool member <code>member</code> into their respective
+pools.</div></li><li><div class="item-name"><a class="fn" href="fn.chill.html" title="fn pallet_nomination_pools::pallet::dispatchables::chill">chill</a></div><div class="desc docblock-short">Chill on behalf of the pool.</div></li><li><div class="item-name"><a class="fn" href="fn.claim_commission.html" title="fn pallet_nomination_pools::pallet::dispatchables::claim_commission">claim_commission</a></div><div class="desc docblock-short">Claim pending commission.</div></li><li><div class="item-name"><a class="fn" href="fn.claim_payout.html" title="fn pallet_nomination_pools::pallet::dispatchables::claim_payout">claim_payout</a></div><div class="desc docblock-short">A bonded member can use this to claim their payout based on the rewards that the pool
+has accumulated since their last claimed payout (OR since joining if this is their first
+time claiming rewards). The payout will be transferred to the member’s account.</div></li><li><div class="item-name"><a class="fn" href="fn.claim_payout_other.html" title="fn pallet_nomination_pools::pallet::dispatchables::claim_payout_other">claim_payout_other</a></div><div class="desc docblock-short"><code>origin</code> can claim payouts on some pool member <code>other</code>’s behalf.</div></li><li><div class="item-name"><a class="fn" href="fn.create.html" title="fn pallet_nomination_pools::pallet::dispatchables::create">create</a></div><div class="desc docblock-short">Create a new delegation pool.</div></li><li><div class="item-name"><a class="fn" href="fn.create_with_pool_id.html" title="fn pallet_nomination_pools::pallet::dispatchables::create_with_pool_id">create_with_pool_id</a></div><div class="desc docblock-short">Create a new delegation pool with a previously used pool id</div></li><li><div class="item-name"><a class="fn" href="fn.join.html" title="fn pallet_nomination_pools::pallet::dispatchables::join">join</a></div><div class="desc docblock-short">Stake funds with a pool. The amount to bond is transferred from the member to the pool
+account and immediately increases the pools bond.</div></li><li><div class="item-name"><a class="fn" href="fn.migrate_delegation.html" title="fn pallet_nomination_pools::pallet::dispatchables::migrate_delegation">migrate_delegation</a></div><div class="desc docblock-short">Migrates delegated funds from the pool account to the <code>member_account</code>.</div></li><li><div class="item-name"><a class="fn" href="fn.migrate_pool_to_delegate_stake.html" title="fn pallet_nomination_pools::pallet::dispatchables::migrate_pool_to_delegate_stake">migrate_pool_to_delegate_stake</a></div><div class="desc docblock-short">Migrate pool from <a href="../../adapter/enum.StakeStrategyType.html#variant.Transfer" title="variant pallet_nomination_pools::adapter::StakeStrategyType::Transfer"><code>adapter::StakeStrategyType::Transfer</code></a> to
+<a href="../../adapter/enum.StakeStrategyType.html#variant.Delegate" title="variant pallet_nomination_pools::adapter::StakeStrategyType::Delegate"><code>adapter::StakeStrategyType::Delegate</code></a>.</div></li><li><div class="item-name"><a class="fn" href="fn.nominate.html" title="fn pallet_nomination_pools::pallet::dispatchables::nominate">nominate</a></div><div class="desc docblock-short">Nominate on behalf of the pool.</div></li><li><div class="item-name"><a class="fn" href="fn.pool_withdraw_unbonded.html" title="fn pallet_nomination_pools::pallet::dispatchables::pool_withdraw_unbonded">pool_withdraw_unbonded</a></div><div class="desc docblock-short">Call <code>withdraw_unbonded</code> for the pools account. This call can be made by any account.</div></li><li><div class="item-name"><a class="fn" href="fn.set_claim_permission.html" title="fn pallet_nomination_pools::pallet::dispatchables::set_claim_permission">set_claim_permission</a></div><div class="desc docblock-short">Allows a pool member to set a claim permission to allow or disallow permissionless
+bonding and withdrawing.</div></li><li><div class="item-name"><a class="fn" href="fn.set_commission.html" title="fn pallet_nomination_pools::pallet::dispatchables::set_commission">set_commission</a></div><div class="desc docblock-short">Set the commission of a pool.
+Both a commission percentage and a commission payee must be provided in the <code>current</code>
+tuple. Where a <code>current</code> of <code>None</code> is provided, any current commission will be removed.</div></li><li><div class="item-name"><a class="fn" href="fn.set_commission_change_rate.html" title="fn pallet_nomination_pools::pallet::dispatchables::set_commission_change_rate">set_commission_change_rate</a></div><div class="desc docblock-short">Set the commission change rate for a pool.</div></li><li><div class="item-name"><a class="fn" href="fn.set_commission_claim_permission.html" title="fn pallet_nomination_pools::pallet::dispatchables::set_commission_claim_permission">set_commission_claim_permission</a></div><div class="desc docblock-short">Set or remove a pool’s commission claim permission.</div></li><li><div class="item-name"><a class="fn" href="fn.set_commission_max.html" title="fn pallet_nomination_pools::pallet::dispatchables::set_commission_max">set_commission_max</a></div><div class="desc docblock-short">Set the maximum commission of a pool.</div></li><li><div class="item-name"><a class="fn" href="fn.set_configs.html" title="fn pallet_nomination_pools::pallet::dispatchables::set_configs">set_configs</a></div><div class="desc docblock-short">Update configurations for the nomination pools. The origin for this call must be
+<a href="../trait.Config.html#associatedtype.AdminOrigin" title="associated type pallet_nomination_pools::pallet::Config::AdminOrigin"><code>Config::AdminOrigin</code></a>.</div></li><li><div class="item-name"><a class="fn" href="fn.set_metadata.html" title="fn pallet_nomination_pools::pallet::dispatchables::set_metadata">set_metadata</a></div><div class="desc docblock-short">Set a new metadata for the pool.</div></li><li><div class="item-name"><a class="fn" href="fn.set_state.html" title="fn pallet_nomination_pools::pallet::dispatchables::set_state">set_state</a></div><div class="desc docblock-short">Set a new state for the pool.</div></li><li><div class="item-name"><a class="fn" href="fn.unbond.html" title="fn pallet_nomination_pools::pallet::dispatchables::unbond">unbond</a></div><div class="desc docblock-short">Unbond up to <code>unbonding_points</code> of the <code>member_account</code>’s funds from the pool. It
+implicitly collects the rewards one last time, since not doing so would mean some
+rewards would be forfeited.</div></li><li><div class="item-name"><a class="fn" href="fn.update_roles.html" title="fn pallet_nomination_pools::pallet::dispatchables::update_roles">update_roles</a></div><div class="desc docblock-short">Update the roles of the pool.</div></li><li><div class="item-name"><a class="fn" href="fn.withdraw_unbonded.html" title="fn pallet_nomination_pools::pallet::dispatchables::withdraw_unbonded">withdraw_unbonded</a></div><div class="desc docblock-short">Withdraw unbonded funds from <code>member_account</code>. If no bonded funds can be unbonded, an
+error is returned.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

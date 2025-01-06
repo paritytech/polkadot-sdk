@@ -1,0 +1,114 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="An introduction to the Polkadot SDK. Read this module to learn about the structure of the SDK, the tools that are provided as a part of it, and to gain a high level understanding of each."><title>developer_hub::polkadot_sdk - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="developer_hub" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../developer_hub/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../../developer_hub/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2 class="location"><a href="#">Module polkadot_sdk</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#modules">Modules</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">developer_hub</a>::<wbr><a class="mod" href="#">polkadot_sdk</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/developer_hub/polkadot_sdk/mod.rs.html#1-124">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>An introduction to the Polkadot SDK. Read this module to learn about the structure of the SDK,
+the tools that are provided as a part of it, and to gain a high level understanding of each.</p>
+<h2 id="polkadot-sdk"><a href="#polkadot-sdk">Polkadot SDK</a></h2>
+<p>The <a href="https://github.com/paritytech/polkadot-sdk">Polkadot SDK repository</a> provides all the
+resources needed to start building on the <a href="https://polkadot.network">Polkadot network</a>, a
+multi-chain blockchain platform that enables different blockchains to interoperate and share
+information in a secure and scalable way.</p>
+<p><a href="https://substrate.stackexchange.com/"><img src="https://img.shields.io/badge/StackExchange-Polkadot%20and%20Substrate-222222?logo=stackexchange" alt="StackExchange" /></a></p>
+<p><a href="https://github.com/Awsmdot/awesome-dot"><img src="https://img.shields.io/badge/polkadot-awesome-e6007a?logo=polkadot" alt="awesomeDot" /></a>
+<a href="https://wiki.polkadot.network/"><img src="https://img.shields.io/badge/polkadot-wiki-e6007a?logo=polkadot" alt="awesomeDot" /></a>
+<a href="https://forum.polkadot.network/"><img src="https://img.shields.io/badge/polkadot-forum-e6007a?logo=polkadot" alt="awesomeDot" /></a></p>
+<p><a href="https://github.com/polkadot-fellows/rfcs"><img src="https://img.shields.io/badge/fellowship-RFCs-e6007a?logo=polkadot" alt="RFCs" /></a>
+<a href="https://github.com/polkadot-fellows/runtimes"><img src="https://img.shields.io/badge/fellowship-runtimes-e6007a?logo=polkadot" alt="Runtime" /></a>
+<a href="https://github.com/polkadot-fellows/manifesto"><img src="https://img.shields.io/badge/fellowship-manifesto-e6007a?logo=polkadot" alt="Manifesto" /></a></p>
+<h3 id="getting-started"><a href="#getting-started">Getting Started</a></h3>
+<p>The primary way to get started with the Polkadot SDK is to start writing a Substrate-based
+runtime using FRAME. See:</p>
+<ol start="0">
+<li><a href="polkadot/index.html" title="mod developer_hub::polkadot_sdk::polkadot"><code>polkadot</code></a>, to understand what is Polkadot as a development platform.</li>
+<li><a href="substrate/index.html" title="mod developer_hub::polkadot_sdk::substrate"><code>substrate</code></a>, for an overview of what Substrate is.</li>
+<li>Jump right into <a href="frame_runtime/index.html" title="mod developer_hub::polkadot_sdk::frame_runtime"><code>frame</code></a> to learn about how to write a FRAME-based blockchain runtime.</li>
+<li>Continue with the <a href="../index.html#getting-started" title="mod developer_hub"><code>developer_hub</code>’s “getting started”</a>.</li>
+</ol>
+<h3 id="structure"><a href="#structure">Structure</a></h3>
+<p>This repository is a nested
+<a href="https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html">workspace</a>, containing the
+following major software artifacts:</p>
+<h5 id="substrate"><a href="#substrate">Substrate</a></h5>
+<p><a href="https://github.com/paritytech/polkadot-sdk/blob/master/substrate/LICENSE-APACHE2"><img src="https://img.shields.io/badge/License-GPL3%2FApache2.0-blue" alt="Substrate-license" /></a>
+<a href="https://github.com/paritytech/polkadot-sdk/blob/master/substrate/frame"><img src="https://img.shields.io/badge/github-substrate-2324CC85" alt="GitHub Repo" /></a></p>
+<p><a href="substrate/index.html" title="mod developer_hub::polkadot_sdk::substrate"><code>substrate</code></a> is the base blockchain framework used to power the Polkadot SDK. It is a full
+toolkit to create sovereign blockchains, including but not limited to those who connect to
+Polkadot as parachains.</p>
+<h5 id="frame"><a href="#frame">FRAME</a></h5>
+<p><a href="https://github.com/paritytech/polkadot-sdk/blob/master/substrate/LICENSE-APACHE2"><img src="https://img.shields.io/badge/License-Apache2.0-blue" alt="Substrate-license" /></a>
+<a href="https://github.com/paritytech/polkadot-sdk/blob/master/substrate/frame"><img src="https://img.shields.io/badge/github-frame-2324CC85" alt="GitHub Repo" /></a></p>
+<p><a href="frame_runtime/index.html" title="mod developer_hub::polkadot_sdk::frame_runtime"><code>frame</code></a> is the framework used to create Substrate-based runtimes. Learn more</p>
+<h5 id="cumulus"><a href="#cumulus">Cumulus</a></h5>
+<p><a href="https://github.com/paritytech/polkadot-sdk/blob/master/cumulus/LICENSE"><img src="https://img.shields.io/badge/License-GPL3-blue" alt="Cumulus-license" /></a>
+<a href="https://github.com/paritytech/polkadot-sdk/blob/master/substrate/cumulus"><img src="https://img.shields.io/badge/github-cumulus-white" alt="GitHub Repo" /></a></p>
+<p><a href="cumulus/index.html" title="mod developer_hub::polkadot_sdk::cumulus"><code>cumulus</code></a> transforms FRAME-based runtimes into Polkadot-compatible parachain runtimes, and
+substrate-based client into Polkadot-compatible collators.</p>
+<h5 id="polkadot"><a href="#polkadot">Polkadot</a></h5>
+<p><a href="https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/LICENSE"><img src="https://img.shields.io/badge/License-GPL3-blue" alt="Polkadot-license" /></a>
+<a href="https://github.com/paritytech/polkadot-sdk/blob/master/substrate/polkadot"><img src="https://img.shields.io/badge/github-polkadot-e6007a?logo=polkadot" alt="GitHub Repo" /></a></p>
+<p>Recall from <a href="substrate/index.html#architecture" title="mod developer_hub::polkadot_sdk::substrate">Substrate’s architecture</a> that any
+substrate-based chain is composed of two parts: A client, and a runtime.</p>
+<p><a href="polkadot/index.html" title="mod developer_hub::polkadot_sdk::polkadot"><code>polkadot</code></a> is an implementation of a Polkadot client in Rust, by <code>@paritytech</code>. The Polkadot
+runtimes are located under the <code>fellowship/runtime</code> repository.</p>
+<blockquote>
+<p><a href="polkadot/index.html" title="mod developer_hub::polkadot_sdk::polkadot"><code>polkadot</code></a> contains useful links to further learn about Polkadot, <strong>but is in general not
+part of the SDK</strong>, as it is rarely used by developers who wish to build on top of Polkadot.</p>
+</blockquote>
+<h4 id="summary"><a href="#summary">Summary</a></h4>
+<p>The following diagram summarizes how components of the Polkadot-SDK work together:</p>
+<pre class="mermaid" style="text-align:center;background: transparent;">
+flowchart LR
+    subgraph Parachain[A Polkadot Parachain]
+        ParachainCollator[Parachain Collator]
+        ParachainRuntime[Parachain Runtime]
+    end
+
+    subgraph Polkadot[The Polkadot Relay Chain]
+        PolkadotClinet[Polkadot Clinet]
+        PolkadotRuntime[Polkadot Runtime]
+    end
+
+    subgraph SubstrateChain[A Substrate-based blockchain]
+        Clinet
+        Runtime
+    end
+
+    FRAME1[FRAME] -.-> Runtime
+    FRAME2[FRAME] -.-> PolkadotRuntime
+    FRAME3[FRAME] -.-> ParachainRuntime
+
+    Substrate1[Substrate Client Libraries] -.-> Clinet
+    Substrate2[Substrate Client Libraries] -.-> PolkadotClinet
+    Substrate3[Substrate Client Libraries] -.-> ParachainCollator
+
+    Cumulus1[Cumulus Runtime Pallets/Libraries] -.-> ParachainRuntime
+    Cumulus2[Cumulus Client Libraries] -.-> ParachainCollator
+
+</pre><script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";var doc_theme = localStorage.getItem("rustdoc-theme");if (doc_theme === "dark" || doc_theme === "ayu") mermaid.initialize({theme: "dark"});</script>
+<ol>
+<li>A Substrate-based chain is a blockchain composed of a “Runtime” and a “Client”. As noted
+above, the “Runtime” is the application logic of the blockchain, and the “Client” is
+everything else. See <a href="../reference_docs/wasm_meta_protocol/index.html" title="mod developer_hub::reference_docs::wasm_meta_protocol"><code>reference_docs::wasm_meta_protocol</code></a> for an in-depth explanation of
+this. The former is built with <a href="frame_runtime/index.html" title="mod developer_hub::polkadot_sdk::frame_runtime"><code>frame</code></a>, and the latter is built with Substrate client
+libraries.</li>
+<li>Polkadot is itself a Substrate-based chain, composed of the the exact same two components.
+The Polkadot client code is in <a href="polkadot/index.html" title="mod developer_hub::polkadot_sdk::polkadot"><code>polkadot</code></a>, and the Polkadot runtimes are controlled by the
+Polkadot Fellowship.</li>
+<li>A parachain is a “special” Substrate based chain, whereby both the client and the runtime
+components have became “Polkadot-aware” using Cumulus.</li>
+</ol>
+<h3 id="history"><a href="#history">History</a></h3>
+<p>Substrate, Polkadot and Cumulus used to each have their own repository, each of which is now
+archived. For historical context about how they merged into this mono-repo, see:</p>
+<ul>
+<li><a href="https://polkadot-public.notion.site/Polkadot-SDK-FAQ-fbc4cecc2c46443fb37b9eeec2f0d85f">https://polkadot-public.notion.site/Polkadot-SDK-FAQ-fbc4cecc2c46443fb37b9eeec2f0d85f</a></li>
+<li><a href="https://forum.polkadot.network/t/psa-parity-is-currently-working-on-merging-the-polkadot-stack-repositories-into-one-single-repository/2883">https://forum.polkadot.network/t/psa-parity-is-currently-working-on-merging-the-polkadot-stack-repositories-into-one-single-repository/2883</a></li>
+</ul>
+<h3 id="notable-upstream-crates"><a href="#notable-upstream-crates">Notable Upstream Crates:</a></h3>
+<ul>
+<li><a href="https://github.com/paritytech/parity-scale-codec"><code>parity-scale-codec</code></a></li>
+<li><a href="https://github.com/paritytech/parity-db"><code>parity-db</code></a></li>
+<li><a href="https://github.com/paritytech/trie"><code>trie</code></a></li>
+<li><a href="https://github.com/paritytech/parity-common"><code>parity-common</code></a></li>
+</ul>
+</div></details><h2 id="modules" class="small-section-header"><a href="#modules">Modules</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="cumulus/index.html" title="mod developer_hub::polkadot_sdk::cumulus">cumulus</a></div><div class="desc docblock-short">Lean about Cumulus, the framework that transforms <a href="substrate/index.html" title="mod developer_hub::polkadot_sdk::substrate"><code>substrate</code></a>-based chains into
+<a href="polkadot/index.html" title="mod developer_hub::polkadot_sdk::polkadot"><code>polkadot</code></a>-enabled parachains.</div></li><li><div class="item-name"><a class="mod" href="frame_runtime/index.html" title="mod developer_hub::polkadot_sdk::frame_runtime">frame_runtime</a></div><div class="desc docblock-short">Learn about FRAME, the framework used to build Substrate runtimes.</div></li><li><div class="item-name"><a class="mod" href="polkadot/index.html" title="mod developer_hub::polkadot_sdk::polkadot">polkadot</a></div><div class="desc docblock-short">Learn about Polkadot as a platform.</div></li><li><div class="item-name"><a class="mod" href="smart_contracts/index.html" title="mod developer_hub::polkadot_sdk::smart_contracts">smart_contracts</a></div><div class="desc docblock-short">Learn about different ways through which smart contracts can be utilized on top of Substrate,
+and in the Polkadot ecosystem.
+Under Construction</div></li><li><div class="item-name"><a class="mod" href="substrate/index.html" title="mod developer_hub::polkadot_sdk::substrate">substrate</a></div><div class="desc docblock-short">Learn about Substrate, the main blockchain framework used in the Polkadot ecosystem.</div></li><li><div class="item-name"><a class="mod" href="templates/index.html" title="mod developer_hub::polkadot_sdk::templates">templates</a></div><div class="desc docblock-short">Index of all the templates that can act as an initial scaffold for a new project.</div></li><li><div class="item-name"><a class="mod" href="xcm/index.html" title="mod developer_hub::polkadot_sdk::xcm">xcm</a></div><div class="desc docblock-short">Learn about XCM, the de-facto communication language between different consensus systems.</div></li></ul></section></div></main></body></html>

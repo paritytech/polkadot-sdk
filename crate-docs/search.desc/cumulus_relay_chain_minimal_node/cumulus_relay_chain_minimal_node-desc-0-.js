@@ -1,0 +1,1 @@
+searchState.loadedDescShard("cumulus_relay_chain_minimal_node", 0, "Approval voting configuration parameters\nReturns the argument unchanged.\nGet a mutable reference to the inner from the outer.\nGet a reference to the inner from the outer.\nCalls <code>U::from(self)</code>.")

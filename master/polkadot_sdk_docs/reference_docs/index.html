@@ -1,0 +1,191 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Reference documents covering in-depth topics across the Polkadot SDK. It is suggested to read these on-demand, while you are going through the `guides` or other content."><title>polkadot_sdk_docs::reference_docs - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="icon" href="https://polkadot.com/favicon.ico"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt="logo"></a><h2><a href="../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module reference_docs</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#modules">Modules</a></li></ul></section><h2><a href="../index.html">In crate polkadot_sdk_docs</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">polkadot_sdk_docs</a>::<wbr><a class="mod" href="#">reference_docs</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/polkadot_sdk_docs/reference_docs/mod.rs.html#1-113">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Reference documents covering in-depth topics across the Polkadot SDK. It is suggested to read
+these on-demand, while you are going through the <a href="../guides/index.html" title="mod polkadot_sdk_docs::guides"><code>guides</code></a> or other content.</p>
+<h2 id="polkadot-sdk-reference-docs"><a class="doc-anchor" href="#polkadot-sdk-reference-docs">§</a>Polkadot SDK Reference Docs.</h2>
+<p>This is the entry point for all reference documents that enhance one’s learning experience in
+the Polkadot SDK.</p>
+<p>Note that this module also contains the <a href="glossary/index.html" title="mod polkadot_sdk_docs::reference_docs::glossary">glossary</a>.</p>
+<h3 id="what-is-a-reference-document"><a class="doc-anchor" href="#what-is-a-reference-document">§</a>What is a “reference document”?</h3>
+<p>First, see <a href="../meta_contributing/index.html#why-rust-docs" title="mod polkadot_sdk_docs::meta_contributing">why we use rust-docs for everything</a> and our
+documentation <a href="../meta_contributing/index.html#principles" title="mod polkadot_sdk_docs::meta_contributing">principles</a>. We acknowledge that as much of
+the crucial information should be embedded in the low level rust-docs. Then, high level
+scenarios should be covered in <a href="../guides/index.html" title="mod polkadot_sdk_docs::guides"><code>crate::guides</code></a>. Finally, we acknowledge that there is a
+category of information that is:</p>
+<ol>
+<li>Crucial to know.</li>
+<li>Is too high level to be in the rust-doc of any one <code>type</code>, <code>trait</code> or <code>fn</code>.</li>
+<li>Is too low level to be encompassed in a <a href="../guides/index.html" title="mod polkadot_sdk_docs::guides"><code>crate::guides</code></a>.</li>
+</ol>
+<p>We call this class of documents “reference documents”. Our goal should be to minimize the number
+of “reference” docs, as they incur maintenance burden.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="blockchain_state_machines/index.html" title="mod polkadot_sdk_docs::reference_docs::blockchain_state_machines">blockchain_state_machines</a></div><div class="desc docblock-short">Learn about the way Substrate and FRAME view their blockchains as state machines.</div></li><li><div class="item-name"><a class="mod" href="chain_spec_genesis/index.html" title="mod polkadot_sdk_docs::reference_docs::chain_spec_genesis">chain_spec_genesis</a></div><div class="desc docblock-short">Learn about chain specification file and the genesis state of the blockchain.</div></li><li><div class="item-name"><a class="mod" href="cli/index.html" title="mod polkadot_sdk_docs::reference_docs::cli">cli</a></div><div class="desc docblock-short">Learn about Substrate’s CLI, and how it can be extended.</div></li><li><div class="item-name"><a class="mod" href="custom_host_functions/index.html" title="mod polkadot_sdk_docs::reference_docs::custom_host_functions">custom_host_functions</a></div><div class="desc docblock-short">Learn about how to add custom host functions to the node.</div></li><li><div class="item-name"><a class="mod" href="custom_runtime_api_rpc/index.html" title="mod polkadot_sdk_docs::reference_docs::custom_runtime_api_rpc">custom_runtime_api_rpc</a></div><div class="desc docblock-short">Learn about how to create custom RPC endpoints and runtime APIs.</div></li><li><div class="item-name"><a class="mod" href="defensive_programming/index.html" title="mod polkadot_sdk_docs::reference_docs::defensive_programming">defensive_programming</a></div><div class="desc docblock-short">Learn about how to write safe and defensive code in your FRAME runtime.
+<a href="https://en.wikipedia.org/wiki/Defensive_programming">Defensive programming</a> is a design paradigm that enables a program to continue
+running despite unexpected behavior, input, or events that may arise in runtime.
+Usually, unforeseen circumstances may cause the program to stop or, in the Rust context,
+<code>panic!</code>. Defensive practices allow for these circumstances to be accounted for ahead of time
+and for them to be handled gracefully, which is in line with the intended fault-tolerant and
+deterministic nature of blockchains.</div></li><li><div class="item-name"><a class="mod" href="development_environment_advice/index.html" title="mod polkadot_sdk_docs::reference_docs::development_environment_advice">development_environment_advice</a></div><div class="desc docblock-short">Advice for configuring your development environment for Substrate development.</div></li><li><div class="item-name"><a class="mod" href="extrinsic_encoding/index.html" title="mod polkadot_sdk_docs::reference_docs::extrinsic_encoding">extrinsic_encoding</a></div><div class="desc docblock-short">Learn about how extrinsics are encoded to be transmitted to a node and stored in blocks.</div></li><li><div class="item-name"><a class="mod" href="fee_less_runtime/index.html" title="mod polkadot_sdk_docs::reference_docs::fee_less_runtime">fee_less_runtime</a></div><div class="desc docblock-short">Learn about how to make a pallet/runtime that is fee-less and instead uses another mechanism to
+control usage and sybil attacks.</div></li><li><div class="item-name"><a class="mod" href="frame_benchmarking_weight/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_benchmarking_weight">frame_benchmarking_weight</a></div><div class="desc docblock-short">Learn about benchmarking and weight.</div></li><li><div class="item-name"><a class="mod" href="frame_logging/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_logging">frame_logging</a></div><div class="desc docblock-short">Learn about how to do logging in FRAME-based runtimes.</div></li><li><div class="item-name"><a class="mod" href="frame_offchain_workers/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_offchain_workers">frame_offchain_workers</a></div><div class="desc docblock-short">Learn about the offchain workers, how they function, and how to use them, as provided by the
+<a href="../../polkadot_sdk_frame/index.html" title="mod polkadot_sdk_frame"><code>frame</code></a> APIs.</div></li><li><div class="item-name"><a class="mod" href="frame_origin/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_origin">frame_origin</a></div><div class="desc docblock-short">Learn about <em>Origins</em>, a topic in FRAME that enables complex account abstractions to be built.</div></li><li><div class="item-name"><a class="mod" href="frame_pallet_coupling/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_pallet_coupling">frame_pallet_coupling</a></div><div class="desc docblock-short">Learn about the different ways through which multiple <a href="../../polkadot_sdk_frame/index.html" title="mod polkadot_sdk_frame"><code>frame</code></a> pallets can be combined to work
+together.</div></li><li><div class="item-name"><a class="mod" href="frame_runtime_types/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_runtime_types">frame_runtime_types</a></div><div class="desc docblock-short">Learn about composite enums and other runtime level types, such as <code>RuntimeEvent</code> and
+<code>RuntimeCall</code>.</div></li><li><div class="item-name"><a class="mod" href="frame_runtime_upgrades_and_migrations/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_runtime_upgrades_and_migrations">frame_runtime_upgrades_and_migrations</a></div><div class="desc docblock-short">Learn about Runtime Upgrades and best practices for writing Migrations.</div></li><li><div class="item-name"><a class="mod" href="frame_storage_derives/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_storage_derives">frame_storage_derives</a></div><div class="desc docblock-short">Learn about the details of what derives are needed for a type to be store-able in <code>frame</code>
+storage.</div></li><li><div class="item-name"><a class="mod" href="frame_system_accounts/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_system_accounts">frame_system_accounts</a></div><div class="desc docblock-short">Learn about how frame-system handles <code>account-ids</code>, nonces, consumers and providers.</div></li><li><div class="item-name"><a class="mod" href="frame_tokens/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_tokens">frame_tokens</a></div><div class="desc docblock-short">Learn about the token-related logic in FRAME and how to apply it to your use case.</div></li><li><div class="item-name"><a class="mod" href="glossary/index.html" title="mod polkadot_sdk_docs::reference_docs::glossary">glossary</a></div><div class="desc docblock-short">The glossary.</div></li><li><div class="item-name"><a class="mod" href="metadata/index.html" title="mod polkadot_sdk_docs::reference_docs::metadata">metadata</a></div><div class="desc docblock-short">Learn about metadata, the main means through which an upgradeable runtime communicates its
+properties to the outside world.</div></li><li><div class="item-name"><a class="mod" href="omni_node/index.html" title="mod polkadot_sdk_docs::reference_docs::omni_node">omni_node</a></div><div class="desc docblock-short">The <a href="https://crates.io/crates/polkadot-omni-node"><code>polkadot-omni-node</code></a> and its related binaries.</div></li><li><div class="item-name"><a class="mod" href="runtime_vs_smart_contract/index.html" title="mod polkadot_sdk_docs::reference_docs::runtime_vs_smart_contract">runtime_vs_smart_contract</a></div><div class="desc docblock-short">Learn about the differences between smart contracts and a FRAME-based runtime. They are both
+“code stored onchain”, but how do they differ?</div></li><li><div class="item-name"><a class="mod" href="signed_extensions/index.html" title="mod polkadot_sdk_docs::reference_docs::signed_extensions">signed_extensions</a></div><div class="desc docblock-short">Deprecated in favor of transaction extensions.
+<code>SignedExtension</code>s are deprecated in favor of
+<a href="transaction_extensions/index.html" title="mod polkadot_sdk_docs::reference_docs::transaction_extensions"><code>TransactionExtension</code>s</a>.</div></li><li><div class="item-name"><a class="mod" href="trait_based_programming/index.html" title="mod polkadot_sdk_docs::reference_docs::trait_based_programming">trait_based_programming</a></div><div class="desc docblock-short">Learn how Substrate and FRAME use traits and associated types to make modules generic in a
+type-safe manner.</div></li><li><div class="item-name"><a class="mod" href="transaction_extensions/index.html" title="mod polkadot_sdk_docs::reference_docs::transaction_extensions">transaction_extensions</a></div><div class="desc docblock-short">Learn about the transaction extensions that form a part of extrinsics.
+Transaction extensions are, briefly, a means for different chains to extend the “basic”
+extrinsic format with custom data that can be checked by the runtime.</div></li><li><div class="item-name"><a class="mod" href="umbrella_crate/index.html" title="mod polkadot_sdk_docs::reference_docs::umbrella_crate">umbrella_crate</a></div><div class="desc docblock-short">Learn about the Polkadot Umbrella crate that re-exports all other crates.</div></li><li><div class="item-name"><a class="mod" href="wasm_meta_protocol/index.html" title="mod polkadot_sdk_docs::reference_docs::wasm_meta_protocol">wasm_meta_protocol</a></div><div class="desc docblock-short">Learn about the WASM meta-protocol of all Substrate-based chains.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DispatchClass","Pays","RawOrigin"],"struct":["PerDispatchClass","PostDispatchInfo"]};

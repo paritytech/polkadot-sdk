@@ -1,0 +1,1 @@
+searchState.loadedDescShard("pallet_nomination_pools_benchmarking", 0, "Benchmarks for the nomination pools coupled with the …\nBenchmarks for the nomination pools coupled with the …\nReturns the argument unchanged.\nGet a mutable reference to the inner from the outer.\nGet a reference to the inner from the outer.\nCalls <code>U::from(self)</code>.")

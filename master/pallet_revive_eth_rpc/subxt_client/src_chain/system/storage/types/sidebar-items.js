@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["account","all_extrinsics_len","authorized_upgrade","block_hash","block_weight","digest","event_count","event_topics","events","execution_phase","extrinsic_count","extrinsic_data","inherents_applied","last_runtime_upgrade","number","parent_hash","upgraded_to_triple_ref_count","upgraded_to_u32_ref_count"]};

@@ -1,0 +1,168 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="`cumulus-pallet-parachain-system` is a base pallet for Cumulus-based parachains."><title>cumulus_pallet_parachain_system - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="cumulus_pallet_parachain_system" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../cumulus_pallet_parachain_system/index.html">cumulus_pallet_parachain_system</a><span class="version">0.7.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">cumulus_pallet_parachain_system</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/cumulus_pallet_parachain_system/lib.rs.html#17-1786">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p><code>cumulus-pallet-parachain-system</code> is a base pallet for Cumulus-based parachains.</p>
+<p>This pallet handles low-level details of being a parachain. Its responsibilities include:</p>
+<ul>
+<li>ingestion of the parachain validation data;</li>
+<li>ingestion and dispatch of incoming downward and lateral messages;</li>
+<li>coordinating upgrades with the Relay Chain; and</li>
+<li>communication of parachain outputs, such as sent messages, signaling an upgrade, etc.</li>
+</ul>
+<p>Users must ensure that they register this pallet as an inherent provider.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.WeightInfo"><code>pub use weights::<a class="trait" href="weights/trait.WeightInfo.html" title="trait cumulus_pallet_parachain_system::weights::WeightInfo">WeightInfo</a>;</code></div></li><li><div class="item-name" id="reexport.ConsensusHook"><code>pub use consensus_hook::<a class="trait" href="consensus_hook/trait.ConsensusHook.html" title="trait cumulus_pallet_parachain_system::consensus_hook::ConsensusHook">ConsensusHook</a>;</code></div></li><li><div class="item-name" id="reexport.ExpectParentIncluded"><code>pub use consensus_hook::<a class="struct" href="consensus_hook/struct.ExpectParentIncluded.html" title="struct cumulus_pallet_parachain_system::consensus_hook::ExpectParentIncluded">ExpectParentIncluded</a>;</code></div></li><li><div class="item-name" id="reexport.MessagingStateSnapshot"><code>pub use relay_state_snapshot::<a class="struct" href="relay_state_snapshot/struct.MessagingStateSnapshot.html" title="struct cumulus_pallet_parachain_system::relay_state_snapshot::MessagingStateSnapshot">MessagingStateSnapshot</a>;</code></div></li><li><div class="item-name" id="reexport.RelayChainStateProof"><code>pub use relay_state_snapshot::<a class="struct" href="relay_state_snapshot/struct.RelayChainStateProof.html" title="struct cumulus_pallet_parachain_system::relay_state_snapshot::RelayChainStateProof">RelayChainStateProof</a>;</code></div></li><li><div class="item-name"><code>pub use <a class="mod" href="pallet/index.html" title="mod cumulus_pallet_parachain_system::pallet">pallet</a>::*;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="consensus_hook/index.html" title="mod cumulus_pallet_parachain_system::consensus_hook">consensus_hook</a></div><div class="desc docblock-short">The definition of a <a href="consensus_hook/trait.ConsensusHook.html" title="trait cumulus_pallet_parachain_system::consensus_hook::ConsensusHook"><code>ConsensusHook</code></a> trait for consensus logic to manage the backlog
+of parachain blocks ready to submit to the relay chain, as well as some basic implementations.</div></li><li><div class="item-name"><a class="mod" href="migration/index.html" title="mod cumulus_pallet_parachain_system::migration">migration</a></div></li><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod cumulus_pallet_parachain_system::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="relay_state_snapshot/index.html" title="mod cumulus_pallet_parachain_system::relay_state_snapshot">relay_state_snapshot</a></div><div class="desc docblock-short">Relay chain state proof provides means for accessing part of relay chain storage for reads.</div></li><li><div class="item-name"><a class="mod" href="ump_constants/index.html" title="mod cumulus_pallet_parachain_system::ump_constants">ump_constants</a></div></li><li><div class="item-name"><a class="mod" href="validate_block/index.html" title="mod cumulus_pallet_parachain_system::validate_block">validate_block</a></div><div class="desc docblock-short">A module that enables a runtime to work as parachain.</div></li><li><div class="item-name"><a class="mod" href="weights/index.html" title="mod cumulus_pallet_parachain_system::weights">weights</a></div><div class="desc docblock-short">Autogenerated weights for cumulus_pallet_parachain_system</div></li></ul><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.register_validate_block.html" title="macro cumulus_pallet_parachain_system::register_validate_block">register_validate_block</a></div><div class="desc docblock-short">Register the <code>validate_block</code> function that is used by parachains to validate blocks on a
+validator.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.AnyRelayNumber.html" title="struct cumulus_pallet_parachain_system::AnyRelayNumber">AnyRelayNumber</a></div><div class="desc docblock-short">Provides an implementation of <a href="trait.CheckAssociatedRelayNumber.html" title="trait cumulus_pallet_parachain_system::CheckAssociatedRelayNumber"><code>CheckAssociatedRelayNumber</code></a>.</div></li><li><div class="item-name"><a class="struct" href="struct.DefaultCoreSelector.html" title="struct cumulus_pallet_parachain_system::DefaultCoreSelector">DefaultCoreSelector</a></div><div class="desc docblock-short">The default core selection policy.</div></li><li><div class="item-name"><a class="struct" href="struct.LookaheadCoreSelector.html" title="struct cumulus_pallet_parachain_system::LookaheadCoreSelector">LookaheadCoreSelector</a></div><div class="desc docblock-short">Core selection policy that builds on claim queue offset 1.</div></li><li><div class="item-name"><a class="struct" href="struct.ParachainSetCode.html" title="struct cumulus_pallet_parachain_system::ParachainSetCode">ParachainSetCode</a></div><div class="desc docblock-short">Type that implements <code>SetCode</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.RelayChainState.html" title="struct cumulus_pallet_parachain_system::RelayChainState">RelayChainState</a></div><div class="desc docblock-short">Holds the most recent relay-parent state root and block number of the current parachain block.</div></li><li><div class="item-name"><a class="struct" href="struct.RelayNumberMonotonicallyIncreases.html" title="struct cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases">RelayNumberMonotonicallyIncreases</a></div><div class="desc docblock-short">Provides an implementation of <a href="trait.CheckAssociatedRelayNumber.html" title="trait cumulus_pallet_parachain_system::CheckAssociatedRelayNumber"><code>CheckAssociatedRelayNumber</code></a>.</div></li><li><div class="item-name"><a class="struct" href="struct.RelayNumberStrictlyIncreases.html" title="struct cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases">RelayNumberStrictlyIncreases</a></div><div class="desc docblock-short">Provides an implementation of <a href="trait.CheckAssociatedRelayNumber.html" title="trait cumulus_pallet_parachain_system::CheckAssociatedRelayNumber"><code>CheckAssociatedRelayNumber</code></a>.</div></li><li><div class="item-name"><a class="struct" href="struct.RelaychainDataProvider.html" title="struct cumulus_pallet_parachain_system::RelaychainDataProvider">RelaychainDataProvider</a></div><div class="desc docblock-short">Implements [<code>BlockNumberProvider</code>] and <a href="trait.RelaychainStateProvider.html" title="trait cumulus_pallet_parachain_system::RelaychainStateProvider"><code>RelaychainStateProvider</code></a> that returns relevant relay
+data fetched from validation data.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.CheckAssociatedRelayNumber.html" title="trait cumulus_pallet_parachain_system::CheckAssociatedRelayNumber">CheckAssociatedRelayNumber</a></div><div class="desc docblock-short">Something that can check the associated relay block number.</div></li><li><div class="item-name"><a class="trait" href="trait.CheckInherents.html" title="trait cumulus_pallet_parachain_system::CheckInherents">CheckInherents</a><span class="stab deprecated" title="">Deprecated</span></div><div class="desc docblock-short">Something that can check the inherents of a block.</div></li><li><div class="item-name"><a class="trait" href="trait.OnSystemEvent.html" title="trait cumulus_pallet_parachain_system::OnSystemEvent">OnSystemEvent</a></div><div class="desc docblock-short">Something that should be informed about system related events.</div></li><li><div class="item-name"><a class="trait" href="trait.RelaychainStateProvider.html" title="trait cumulus_pallet_parachain_system::RelaychainStateProvider">RelaychainStateProvider</a></div><div class="desc docblock-short">This exposes the <a href="struct.RelayChainState.html" title="struct cumulus_pallet_parachain_system::RelayChainState"><code>RelayChainState</code></a> to other runtime modules.</div></li><li><div class="item-name"><a class="trait" href="trait.SelectCore.html" title="trait cumulus_pallet_parachain_system::SelectCore">SelectCore</a></div><div class="desc docblock-short">Trait for selecting the next core to build the candidate for.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.MaxDmpMessageLenOf.html" title="type cumulus_pallet_parachain_system::MaxDmpMessageLenOf">MaxDmpMessageLenOf</a></div><div class="desc docblock-short">The max length of a DMP message.</div></li><li><div class="item-name"><a class="type" href="type.RelaychainBlockNumberProvider.html" title="type cumulus_pallet_parachain_system::RelaychainBlockNumberProvider">RelaychainBlockNumberProvider</a><span class="stab deprecated" title="">Deprecated</span></div><div class="desc docblock-short">Implements [<code>BlockNumberProvider</code>] that returns relay chain block number fetched from validation
+data.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

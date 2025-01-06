@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["LOG_TARGET"],"enum":["RewardsAccountOwner"],"mod":["benchmarking","extension","migration","pallet","weights"],"struct":["DeliveryConfirmationPaymentsAdapter","PayRewardFromAccount","RewardsAccountParams","StakeAndSlashNamed"],"trait":["WeightInfoExt"]};

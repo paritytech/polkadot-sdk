@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["Decimals","Id","Name","Symbol"]};

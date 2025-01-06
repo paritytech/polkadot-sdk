@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"pallet_example_mbm":[["impl&lt;T: <a class=\"trait\" href=\"pallet_example_mbm/pallet/trait.Config.html\" title=\"trait pallet_example_mbm::pallet::Config\">Config</a>, W: <a class=\"trait\" href=\"pallet_example_mbm/migrations/v1/weights/trait.WeightInfo.html\" title=\"trait pallet_example_mbm::migrations::v1::weights::WeightInfo\">WeightInfo</a>&gt; SteppedMigration for <a class=\"struct\" href=\"pallet_example_mbm/migrations/v1/struct.LazyMigrationV1.html\" title=\"struct pallet_example_mbm::migrations::v1::LazyMigrationV1\">LazyMigrationV1</a>&lt;T, W&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

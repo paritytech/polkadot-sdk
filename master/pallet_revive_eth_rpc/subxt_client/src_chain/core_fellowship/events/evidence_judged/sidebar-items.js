@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["Evidence","NewRank","OldRank","Who","Wish"]};

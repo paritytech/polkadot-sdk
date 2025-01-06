@@ -1,0 +1,163 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Cryptographic utilities."><title>sp_core::crypto - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../sp_core/index.html">sp_core</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">Module crypto</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li><li><a href="#derives">Derive Macros</a></li></ul></section><h2><a href="../index.html">In crate sp_core</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">sp_core</a>::<wbr><a class="mod" href="#">crypto</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/sp_core/crypto.rs.html#18-1467">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Cryptographic utilities.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.CryptoBytes"><code>pub use crate::crypto_bytes::<a class="struct" href="../crypto_bytes/struct.CryptoBytes.html" title="struct sp_core::crypto_bytes::CryptoBytes">CryptoBytes</a>;</code></div></li><li><div class="item-name" id="reexport.PublicBytes"><code>pub use crate::crypto_bytes::<a class="type" href="../crypto_bytes/type.PublicBytes.html" title="type sp_core::crypto_bytes::PublicBytes">PublicBytes</a>;</code></div></li><li><div class="item-name" id="reexport.SignatureBytes"><code>pub use crate::crypto_bytes::<a class="type" href="../crypto_bytes/type.SignatureBytes.html" title="type sp_core::crypto_bytes::SignatureBytes">SignatureBytes</a>;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="key_types/index.html" title="mod sp_core::crypto::key_types">key_types</a></div><div class="desc docblock-short">Known key types; this also functions as a global registry of key types for projects wishing to
+avoid collisions with each other.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.AccountId32.html" title="struct sp_core::crypto::AccountId32">AccountId32</a></div><div class="desc docblock-short">An opaque 32-byte cryptographic identifier.</div></li><li><div class="item-name"><a class="struct" href="struct.AddressUri.html" title="struct sp_core::crypto::AddressUri">AddressUri</a></div><div class="desc docblock-short">A container for results of parsing the address uri string.</div></li><li><div class="item-name"><a class="struct" href="struct.CryptoTypeId.html" title="struct sp_core::crypto::CryptoTypeId">CryptoTypeId</a></div><div class="desc docblock-short">An identifier for a specific cryptographic algorithm used by a key pair</div></li><li><div class="item-name"><a class="struct" href="struct.KeyTypeId.html" title="struct sp_core::crypto::KeyTypeId">KeyTypeId</a></div><div class="desc docblock-short">An identifier for a type of cryptographic key.</div></li><li><div class="item-name"><a class="struct" href="struct.SecretUri.html" title="struct sp_core::crypto::SecretUri">SecretUri</a></div><div class="desc docblock-short">A secret uri (<code>SURI</code>) that can be used to generate a key pair.</div></li><li><div class="item-name"><a class="struct" href="struct.Ss58AddressFormat.html" title="struct sp_core::crypto::Ss58AddressFormat">Ss58AddressFormat</a></div><div class="desc docblock-short">A custom address format. See also <a href="enum.Ss58AddressFormatRegistry.html" title="enum sp_core::crypto::Ss58AddressFormatRegistry"><code>Ss58AddressFormatRegistry</code></a></div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.AddressUriError.html" title="enum sp_core::crypto::AddressUriError">AddressUriError</a></div><div class="desc docblock-short">Errors that are possible during parsing the address URI.</div></li><li><div class="item-name"><a class="enum" href="enum.DeriveError.html" title="enum sp_core::crypto::DeriveError">DeriveError</a></div><div class="desc docblock-short">An error when deriving a key.</div></li><li><div class="item-name"><a class="enum" href="enum.DeriveJunction.html" title="enum sp_core::crypto::DeriveJunction">DeriveJunction</a></div><div class="desc docblock-short">A since derivation junction description. It is the single parameter used when creating
+a new secret key from an existing secret key and, in the case of <code>SoftRaw</code> and <code>SoftIndex</code>
+a new public key from an existing public key.</div></li><li><div class="item-name"><a class="enum" href="enum.PublicError.html" title="enum sp_core::crypto::PublicError">PublicError</a></div><div class="desc docblock-short">An error type for SS58 decoding.</div></li><li><div class="item-name"><a class="enum" href="enum.SecretStringError.html" title="enum sp_core::crypto::SecretStringError">SecretStringError</a></div><div class="desc docblock-short">An error with the interpretation of a secret.</div></li><li><div class="item-name"><a class="enum" href="enum.Ss58AddressFormatRegistry.html" title="enum sp_core::crypto::Ss58AddressFormatRegistry">Ss58AddressFormatRegistry</a></div><div class="desc docblock-short">A known address (sub)format/network ID for SS58.</div></li></ul><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.DEV_ADDRESS.html" title="constant sp_core::crypto::DEV_ADDRESS">DEV_ADDRESS</a></div><div class="desc docblock-short">The address of the associated root phrase for our publicly known keys.</div></li><li><div class="item-name"><a class="constant" href="constant.DEV_PHRASE.html" title="constant sp_core::crypto::DEV_PHRASE">DEV_PHRASE</a></div><div class="desc docblock-short">The root phrase for our publicly known keys.</div></li><li><div class="item-name"><a class="constant" href="constant.JUNCTION_ID_LEN.html" title="constant sp_core::crypto::JUNCTION_ID_LEN">JUNCTION_ID_LEN</a></div><div class="desc docblock-short">The length of the junction identifier. Note that this is also referred to as the
+<code>CHAIN_CODE_LENGTH</code> in the context of Schnorrkel.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.ByteArray.html" title="trait sp_core::crypto::ByteArray">ByteArray</a></div><div class="desc docblock-short">Trait used for types that are really just a fixed-length array.</div></li><li><div class="item-name"><a class="trait" href="trait.CryptoType.html" title="trait sp_core::crypto::CryptoType">CryptoType</a></div><div class="desc docblock-short">Type which has a particular kind of crypto associated with it.</div></li><li><div class="item-name"><a class="trait" href="trait.Derive.html" title="trait sp_core::crypto::Derive">Derive</a></div><div class="desc docblock-short">Derivable key trait.</div></li><li><div class="item-name"><a class="trait" href="trait.ExposeSecret.html" title="trait sp_core::crypto::ExposeSecret">ExposeSecret</a></div><div class="desc docblock-short">Expose a reference to an inner secret</div></li><li><div class="item-name"><a class="trait" href="trait.FromEntropy.html" title="trait sp_core::crypto::FromEntropy">FromEntropy</a></div><div class="desc docblock-short">Create random values of <code>Self</code> given a stream of entropy.</div></li><li><div class="item-name"><a class="trait" href="trait.IsWrappedBy.html" title="trait sp_core::crypto::IsWrappedBy">IsWrappedBy</a></div><div class="desc docblock-short">One type is wrapped by another.</div></li><li><div class="item-name"><a class="trait" href="trait.Pair.html" title="trait sp_core::crypto::Pair">Pair</a></div><div class="desc docblock-short">Trait suitable for typical cryptographic PKI key pair type.</div></li><li><div class="item-name"><a class="trait" href="trait.Public.html" title="trait sp_core::crypto::Public">Public</a></div><div class="desc docblock-short">Trait suitable for cryptographic public keys.</div></li><li><div class="item-name"><a class="trait" href="trait.Signature.html" title="trait sp_core::crypto::Signature">Signature</a></div><div class="desc docblock-short">Trait suitable for cryptographic signatures.</div></li><li><div class="item-name"><a class="trait" href="trait.Ss58Codec.html" title="trait sp_core::crypto::Ss58Codec">Ss58Codec</a></div><div class="desc docblock-short">Key that can be encoded to/from SS58.</div></li><li><div class="item-name"><a class="trait" href="trait.UncheckedFrom.html" title="trait sp_core::crypto::UncheckedFrom">UncheckedFrom</a></div><div class="desc docblock-short">Similar to <code>From</code>, except that the onus is on the part of the caller to ensure
+that data passed in makes sense. Basically, you’re not guaranteed to get anything
+sensible out.</div></li><li><div class="item-name"><a class="trait" href="trait.UncheckedInto.html" title="trait sp_core::crypto::UncheckedInto">UncheckedInto</a></div><div class="desc docblock-short">The counterpart to <code>UncheckedFrom</code>.</div></li><li><div class="item-name"><a class="trait" href="trait.VrfCrypto.html" title="trait sp_core::crypto::VrfCrypto">VrfCrypto</a></div><div class="desc docblock-short">Trait grouping types shared by a VRF signer and verifiers.</div></li><li><div class="item-name"><a class="trait" href="trait.VrfPublic.html" title="trait sp_core::crypto::VrfPublic">VrfPublic</a></div><div class="desc docblock-short">VRF Public Key.</div></li><li><div class="item-name"><a class="trait" href="trait.VrfSecret.html" title="trait sp_core::crypto::VrfSecret">VrfSecret</a></div><div class="desc docblock-short">VRF Secret Key.</div></li><li><div class="item-name"><a class="trait" href="trait.Wraps.html" title="trait sp_core::crypto::Wraps">Wraps</a></div><div class="desc docblock-short">Opposite of <code>IsWrappedBy</code> - denotes a type which is a simple wrapper around another type.</div></li><li><div class="item-name"><a class="trait" href="trait.Zeroize.html" title="trait sp_core::crypto::Zeroize">Zeroize</a></div><div class="desc docblock-short">Trait to zeroize a memory buffer.
+Trait for securely erasing values from memory.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.default_ss58_version.html" title="fn sp_core::crypto::default_ss58_version">default_ss58_version</a></div><div class="desc docblock-short">Returns default SS58 format used by the current active process.</div></li><li><div class="item-name"><a class="fn" href="fn.from_known_address_format.html" title="fn sp_core::crypto::from_known_address_format">from_known_address_format</a></div><div class="desc docblock-short">const function to convert <a href="struct.Ss58AddressFormat.html" title="struct sp_core::crypto::Ss58AddressFormat"><code>Ss58AddressFormat</code></a> to u16</div></li><li><div class="item-name"><a class="fn" href="fn.get_public_from_string_or_panic.html" title="fn sp_core::crypto::get_public_from_string_or_panic">get_public_from_string_or_panic</a></div><div class="desc docblock-short">Interprets the string <code>s</code> in order to generate a public key without password.</div></li><li><div class="item-name"><a class="fn" href="fn.set_default_ss58_version.html" title="fn sp_core::crypto::set_default_ss58_version">set_default_ss58_version</a></div><div class="desc docblock-short">Set the default SS58 “version”.</div></li><li><div class="item-name"><a class="fn" href="fn.unwrap_or_default_ss58_version.html" title="fn sp_core::crypto::unwrap_or_default_ss58_version">unwrap_or_default_ss58_version</a></div><div class="desc docblock-short">Returns either the input address format or the default.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Dummy.html" title="type sp_core::crypto::Dummy">Dummy</a></div><div class="desc docblock-short">Dummy cryptography. Doesn’t do anything.</div></li><li><div class="item-name"><a class="type" href="type.SecretString.html" title="type sp_core::crypto::SecretString">SecretString</a></div><div class="desc docblock-short">Secret strings</div></li></ul><h2 id="derives" class="section-header">Derive Macros<a href="#derives" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="derive" href="derive.Zeroize.html" title="derive sp_core::crypto::Zeroize">Zeroize</a></div><div class="desc docblock-short">Trait to zeroize a memory buffer.
+Derive the <code>Zeroize</code> trait.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

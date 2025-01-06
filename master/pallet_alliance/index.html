@@ -1,0 +1,213 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Alliance Pallet"><title>pallet_alliance - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_alliance" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_alliance/index.html">pallet_alliance</a><span class="version">27.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">pallet_alliance</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/pallet_alliance/lib.rs.html#18-1114">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="alliance-pallet"><a class="doc-anchor" href="#alliance-pallet">§</a>Alliance Pallet</h2>
+<p>The Alliance Pallet provides a collective that curates a list of accounts and URLs, deemed by
+the voting members to be unscrupulous actors. The Alliance</p>
+<ul>
+<li>provides a set of ethics against bad behavior, and</li>
+<li>provides recognition and influence for those teams that contribute something back to the
+ecosystem.</li>
+</ul>
+<h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3>
+<p>The network initializes the Alliance via a Root call. After that, anyone with an approved
+identity and website can join as an Ally. The <code>MembershipManager</code> origin can elevate Allies to
+Fellows, giving them voting rights within the Alliance.</p>
+<p>Voting members of the Alliance maintain a list of accounts and websites. Members can also vote
+to update the Alliance’s rule and make announcements.</p>
+<h4 id="terminology"><a class="doc-anchor" href="#terminology">§</a>Terminology</h4>
+<ul>
+<li>Rule: The IPFS CID (hash) of the Alliance rules for the community to read and the Alliance
+members to enforce. Similar to a Charter or Code of Conduct.</li>
+<li>Announcement: An IPFS CID of some content that the Alliance want to announce.</li>
+<li>Member: An account that is already in the group of the Alliance, including two types: Fellow,
+or Ally. A member can also be kicked by the <code>MembershipManager</code> origin or retire by itself.</li>
+<li>Fellow: An account who is elevated from Ally by other Fellows.</li>
+<li>Ally: An account who would like to join the Alliance. To become a voting member (Fellow), it
+will need approval from the <code>MembershipManager</code> origin. Any account can join as an Ally either
+by placing a deposit or by nomination from a voting member.</li>
+<li>Unscrupulous List: A list of bad websites and addresses; items can be added or removed by
+voting members.</li>
+</ul>
+<h3 id="interface"><a class="doc-anchor" href="#interface">§</a>Interface</h3><h4 id="dispatchable-functions"><a class="doc-anchor" href="#dispatchable-functions">§</a>Dispatchable Functions</h4><h5 id="for-general-users"><a class="doc-anchor" href="#for-general-users">§</a>For General Users</h5>
+<ul>
+<li><code>join_alliance</code> - Join the Alliance as an Ally. This requires a slashable deposit.</li>
+</ul>
+<h5 id="for-members-all"><a class="doc-anchor" href="#for-members-all">§</a>For Members (All)</h5>
+<ul>
+<li><code>give_retirement_notice</code> - Give a retirement notice and start a retirement period required to
+pass in order to retire.</li>
+<li><code>retire</code> - Retire from the Alliance and release the caller’s deposit.</li>
+</ul>
+<h5 id="for-voting-members"><a class="doc-anchor" href="#for-voting-members">§</a>For Voting Members</h5>
+<ul>
+<li><code>propose</code> - Propose a motion.</li>
+<li><code>vote</code> - Vote on a motion.</li>
+<li><code>close</code> - Close a motion with enough votes or that has expired.</li>
+<li><code>set_rule</code> - Initialize or update the Alliance’s rule by IPFS CID.</li>
+<li><code>announce</code> - Make announcement by IPFS CID.</li>
+<li><code>nominate_ally</code> - Nominate a non-member to become an Ally, without deposit.</li>
+<li><code>elevate_ally</code> - Approve an ally to become a Fellow.</li>
+<li><code>kick_member</code> - Kick a member and slash its deposit.</li>
+<li><code>add_unscrupulous_items</code> - Add some items, either accounts or websites, to the list of
+unscrupulous items.</li>
+<li><code>remove_unscrupulous_items</code> - Remove some items from the list of unscrupulous items.</li>
+<li><code>abdicate_fellow_status</code> - Abdicate one’s voting rights, demoting themself to Ally.</li>
+</ul>
+<h5 id="root-calls"><a class="doc-anchor" href="#root-calls">§</a>Root Calls</h5>
+<ul>
+<li><code>init_members</code> - Initialize the Alliance, onboard fellows and allies.</li>
+<li><code>disband</code> - Disband the Alliance, remove all active members and unreserve deposits.</li>
+</ul>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><code>pub use <a class="mod" href="pallet/index.html" title="mod pallet_alliance::pallet">pallet</a>::*;</code></div></li><li><div class="item-name"><code>pub use <a class="mod" href="weights/index.html" title="mod pallet_alliance::weights">weights</a>::*;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="migration/index.html" title="mod pallet_alliance::migration">migration</a></div></li><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod pallet_alliance::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="weights/index.html" title="mod pallet_alliance::weights">weights</a></div><div class="desc docblock-short">Autogenerated weights for <code>pallet_alliance</code></div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Cid.html" title="struct pallet_alliance::Cid">Cid</a></div><div class="desc docblock-short">Representation of a CID.</div></li><li><div class="item-name"><a class="struct" href="struct.DisbandWitness.html" title="struct pallet_alliance::DisbandWitness">DisbandWitness</a></div><div class="desc docblock-short">Witness data for the <code>disband</code> call.</div></li><li><div class="item-name"><a class="struct" href="struct.Multihash.html" title="struct pallet_alliance::Multihash">Multihash</a></div><div class="desc docblock-short">A Multihash instance that only supports the basic functionality and no hashing.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.MemberRole.html" title="enum pallet_alliance::MemberRole">MemberRole</a></div><div class="desc docblock-short">The various roles that a member can hold.</div></li><li><div class="item-name"><a class="enum" href="enum.UnscrupulousItem.html" title="enum pallet_alliance::UnscrupulousItem">UnscrupulousItem</a></div><div class="desc docblock-short">The type of item that may be deemed unscrupulous.</div></li><li><div class="item-name"><a class="enum" href="enum.Version.html" title="enum pallet_alliance::Version">Version</a></div><div class="desc docblock-short">The version of the CID.</div></li></ul><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.LOG_TARGET.html" title="constant pallet_alliance::LOG_TARGET">LOG_TARGET</a></div><div class="desc docblock-short">The log target of this pallet.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.IdentityVerifier.html" title="trait pallet_alliance::IdentityVerifier">IdentityVerifier</a></div><div class="desc docblock-short">Interface required for identity verification.</div></li><li><div class="item-name"><a class="trait" href="trait.ProposalProvider.html" title="trait pallet_alliance::ProposalProvider">ProposalProvider</a></div><div class="desc docblock-short">The provider of a collective action interface, for example an instance of <code>pallet-collective</code>.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.ProposalIndex.html" title="type pallet_alliance::ProposalIndex">ProposalIndex</a></div><div class="desc docblock-short">Simple index type for proposal counting.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>
