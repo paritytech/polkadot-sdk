@@ -1130,8 +1130,9 @@ where
 
 			let frame = self.top_frame_mut();
 
-			// If a special limit was set for the sub-call, we enforce it here.
-			// The sub-call will be rolled back in case the limit is exhausted.
+			// The storage deposit is only charged at the end of every call stack.
+			// To make sure that no sub call uses more than it is allowed to,
+			// the limit is manually enforced here.
 			let contract = frame.contract_info.as_contract();
 			frame
 				.nested_storage

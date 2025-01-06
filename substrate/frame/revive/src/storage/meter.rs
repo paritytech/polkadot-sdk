@@ -120,10 +120,8 @@ pub struct RawMeter<T: Config, E, S: State + Default + Debug> {
 	/// We only have one charge per contract hence the size of this vector is
 	/// limited by the maximum call depth.
 	charges: Vec<Charge<T>>,
-	/// We store the nested state to determine if it has a special limit for sub-call.
-	_nested: PhantomData<S>,
 	/// Type parameter only used in impls.
-	_phantom: PhantomData<E>,
+	_phantom: PhantomData<(E, S)>,
 }
 
 /// This type is used to describe a storage change when charging from the meter.
@@ -481,12 +479,6 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 
 	/// [`Self::charge`] does not enforce the storage limit since we want to do this check as late
 	/// as possible to allow later refunds to offset earlier charges.
-	///
-	/// # Note
-	///
-	/// We normally need to call this **once** for every call stack and not for every cross contract
-	/// call. However, if a dedicated limit is specified for a sub-call, this needs to be called
-	/// once the sub-call has returned.
 	pub fn enforce_limit(
 		&mut self,
 		info: Option<&mut ContractInfo<T>>,
