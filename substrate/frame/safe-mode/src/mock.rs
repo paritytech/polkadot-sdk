@@ -25,8 +25,7 @@ use crate as pallet_safe_mode;
 use frame::{
 	testing_prelude::*,
 	traits::{
-		BlakeTwo256, ConstU64, Everything, IdentityLookup, InsideBoth, InstanceFilter, IsInVec,
-		SafeModeNotify,
+		Everything, IdentityLookup, InsideBoth, InstanceFilter, IsInVec,
 	},
 };
 // use frame_support::{
