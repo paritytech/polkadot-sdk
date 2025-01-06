@@ -132,7 +132,7 @@ const MAX_APPROVAL_COALESCE_WAIT_TICKS: Tick = 12;
 // being trigger, we won't trigger the assignment at restart because we don't have
 // an wakeup schedule for it.
 // The solution, is to always schedule a wake up after the restart and let the
-// process_wakeup decided if the assignment needs to be triggered.
+// process_wakeup to decide if the assignment needs to be triggered.
 // We need to have a delay after restart to give time to the node to catch up with
 // messages and not trigger its assignment unnecessarily, because it hasn't seen
 // the assignments from the other validators.
