@@ -22,9 +22,9 @@
 use super::*;
 use crate::Pallet as Salary;
 
-use sp_core::Get;
 #[allow(deprecated)]
 use frame::benchmarking::v1::*;
+use sp_core::Get;
 const SEED: u32 = 0;
 
 fn ensure_member_with_salary<T: Config<I>, I: 'static>(who: &T::AccountId) {
@@ -36,7 +36,7 @@ fn ensure_member_with_salary<T: Config<I>, I: 'static>(who: &T::AccountId) {
 	for _ in 0..255 {
 		let r = T::Members::rank_of(who).expect("prior guard ensures `who` is a member; qed");
 		if !T::Salary::get_salary(r, &who).is_zero() {
-			break
+			break;
 		}
 		T::Members::promote(who).unwrap();
 	}

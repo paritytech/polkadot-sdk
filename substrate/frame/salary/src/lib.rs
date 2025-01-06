@@ -21,13 +21,6 @@
 
 use core::marker::PhantomData;
 
-
-use frame_support::{
-	defensive,
-	dispatch::DispatchResultWithPostInfo,
-	ensure,
-
-};
 use frame::{
 	hashing::blake2_256,
 	prelude::*,
@@ -36,6 +29,7 @@ use frame::{
 		RankedMembers, RankedMembersSwapHandler,
 	},
 };
+use frame_support::{defensive, dispatch::DispatchResultWithPostInfo, ensure};
 
 #[cfg(test)]
 mod tests;
@@ -76,8 +70,8 @@ pub enum ClaimState<Balance, Id> {
 	Attempted { registered: Option<Balance>, id: Id, amount: Balance },
 }
 
-use ClaimState::*;
 use frame::deps::frame_support;
+use ClaimState::*;
 
 /// The status of a single payee/claimant.
 #[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
@@ -91,8 +85,7 @@ pub struct ClaimantStatus<CycleIndex, Balance, Id> {
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{dispatch::Pays, pallet_prelude::*};
-	use frame_system::pallet_prelude::*;
+	use frame::prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
@@ -463,11 +456,11 @@ impl<T: Config<I>, I: 'static>
 	) {
 		if who == new_who {
 			defensive!("Should not try to swap with self");
-			return
+			return;
 		}
 		if Claimant::<T, I>::contains_key(new_who) {
 			defensive!("Should not try to overwrite existing claimant");
-			return
+			return;
 		}
 
 		let Some(claimant) = Claimant::<T, I>::take(who) else {
