@@ -14,9 +14,7 @@ doc:
 
     The existing code using `sp-std` is refactored to use `alloc` and `core` directly. The key-value maps are instantiated from a vector of tuples directly instead of using `sp_std::map!` macro.
 
-    `sp_std::Writer` is a helper type to use `Vec<u8>` with `core::fmt::Write` trait. This PR copied it into `sp-runtime`, because all crates using `sp_std::Writer` (including `sp-runtime` itself, `frame-support`, etc.) depend on `sp-runtime`.
-
-    If this PR is merged, I would write following PRs to remove remaining usage of `sp-std` from `bridges` and `cumulus`.
+    `sp_std::Writer` is a helper type to use `Vec<u8>` with `core::fmt::Write` trait. This PR replaces usages with `alloc::string::String`.
 crates:
 - name: pallet-contracts
   bump: patch
