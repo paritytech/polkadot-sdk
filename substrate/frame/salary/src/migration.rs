@@ -53,20 +53,76 @@ pub mod v1 {
 	/// if sticking with local block number as the provider.
 	pub trait ConvertBlockNumber<L, N> {
 		/// Simply converts the type from L to N
+		///
+		/// # Example Usage
+		///
+		/// ```rust,ignore
+		/// // Let's say both L and N are u32, then a simple identity will suffice.
+		/// fn convert(local: u32) -> u32 {
+		/// 		local
+		/// }
+		///
+		/// // But if L is u64 and N is u32, or some other problematic variation,
+		/// // you may need to do some checks.
+		/// fn convert(local: u64) -> u32 {
+		/// 	let new = u32::try_from(local);
+		/// 	match new {
+		///    		Ok(v) => v,
+		///    		Err(_) => u32::MAX // Or likely some custom logic.
+		/// 		}
+		/// }
+		/// ```
 		fn convert(local: L) -> N;
 
 		/// Converts to the new type and finds the equivalent moment in time as relative to the new
 		/// block provider
 		///
 		/// For instance - if your new version uses the relay chain number, you'll want to
-		/// use relay current - ((current local - local) * equivalent_block_duration)
+		/// use relay current - ((current local - local) * equivalent_block_duration).
+		/// Note: This assumes consistent block times on both local chain and relay.
+		///
+		/// # Example usage
+		///
+		/// ```rust,ignore
+		/// // Let's say you are a parachain and switching block providers to the relay chain.
+		/// // This will return what the relay block number was at the moment the previous provider's
+		/// // number was `local`.
+		/// fn equivalent_moment_in_time(local: u32) -> u32 {
+		/// 	// How long it's been since 'local'.
+		/// 	let curr_block_number = System::block_number();
+		/// 	let local_duration = curr_block_number.saturating_sub(local);
+		/// 	// How many blocks that is in relay block time.
+		/// 	let relay_duration = Self::equivalent_block_duration(local_duration);
+		/// 	// What the relay block number must have been at that moment.
+		/// 	let relay_block_number = ParachainSystem::last_relay_block_number();
+		/// 	relay_block_number.saturating_sub(relay_duration)
+		/// }
+		/// ```
 		fn equivalent_moment_in_time(local: L) -> N;
 
-		/// Returns the equivalent time duration as the previous type when represented as the new
-		/// type
+		/// Returns the equivalent number of new blocks it would take to fulfill the same
+		/// amount of time in seconds as the old blocks.
 		///
 		/// For instance - If you previously had 12s blocks and are now following the relay chain's
-		/// 6, one local block is equivalent to 2 relay blocks in duration
+		/// 6, one local block is equivalent to 2 relay blocks in duration.
+		///
+		///     6s         6s
+		/// |---------||---------|
+		///
+		///          12s
+		/// |--------------------|
+		///
+		/// ^ Two 6s blocks passed per one 12s block.
+		///  
+		/// # Example Usage
+		///
+		/// ```rust,ignore
+		/// // If your previous provider updated the block number every 12 seconds and
+		/// // your new updates every 6 - 2 new blocks would have taken place per one old block.
+		/// fn equivalent_block_duration(local: u32) -> u32 {
+		/// 	local * 2
+		/// }
+		/// ```
 		fn equivalent_block_duration(local: L) -> N;
 	}
 
