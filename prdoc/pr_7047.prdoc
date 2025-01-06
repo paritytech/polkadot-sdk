@@ -1,0 +1,13 @@
+title: Allow use reserved balances for staking
+doc:
+- audience:
+  - Runtime Dev
+  - Runtime User
+  description: |-
+    Allow reserved balances to be used for staking.
+
+    Previously there is an inconsistency that reserved balances cannot be used for staking, but can be transferred out if staked balances is greater than reserved amount. Effectively allow reserved balances to be used for staking.
+
+crates:
+- name: pallet-staking
+  bump: minor
