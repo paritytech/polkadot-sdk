@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["glutton_config","glutton_development_config","glutton_genesis","glutton_local_config"],"type":["GluttonChainSpec"]};

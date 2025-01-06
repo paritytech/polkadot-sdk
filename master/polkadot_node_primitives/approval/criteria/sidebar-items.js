@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["InvalidAssignmentReason"],"struct":["Config","InvalidAssignment","OurAssignment"],"trait":["AssignmentCriteria"]};

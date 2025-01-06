@@ -1,0 +1,258 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Construct a runtime, with the given name and the given pallets."><title>construct_runtime in frame_support - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc macro"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../frame_support/index.html">frame_support</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Macro <a href="index.html">frame_support</a>::<wbr><a class="macro" href="#">construct_runtime</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/frame_support_procedural/lib.rs.html#192">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>construct_runtime!() { <span class="comment">/* proc-macro */</span> }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Construct a runtime, with the given name and the given pallets.</p>
+<p>NOTE: A new version of this macro is available at <code>frame_support::runtime</code>. This macro will
+soon be deprecated. Please use the new macro instead.</p>
+<p>The parameters here are specific types for <code>Block</code>, <code>NodeBlock</code>, and <code>UncheckedExtrinsic</code>
+and the pallets that are used by the runtime.
+<code>Block</code> is the block type that is used in the runtime and <code>NodeBlock</code> is the block type
+that is used in the node. For instance they can differ in the extrinsics type.</p>
+<h2 id="example"><a class="doc-anchor" href="#example">§</a>Example:</h2>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">construct_runtime!</span>(
+    <span class="kw">pub enum </span>Runtime <span class="kw">where
+        </span>Block = Block,
+        NodeBlock = node::Block,
+        UncheckedExtrinsic = UncheckedExtrinsic
+    {
+        System: frame_system::{Pallet, Call, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">0</span>,
+        Test: path::to::test::{Pallet, Call} = <span class="number">1</span>,
+
+        <span class="comment">// Pallets with instances.
+        </span>Test2_Instance1: test2::&lt;Instance1&gt;::{Pallet, Call, Storage, Event&lt;T, I&gt;, Config&lt;T, I&gt;, Origin&lt;T, I&gt;},
+        Test2_DefaultInstance: test2::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;, Origin&lt;T&gt;} = <span class="number">4</span>,
+
+        <span class="comment">// Pallets declared with `pallet` attribute macro: no need to define the parts
+        </span>Test3_Instance1: test3::&lt;Instance1&gt;,
+        Test3_DefaultInstance: test3,
+
+        <span class="comment">// with `exclude_parts` keyword some part can be excluded.
+        </span>Test4_Instance1: test4::&lt;Instance1&gt; exclude_parts { Call, Origin },
+        Test4_DefaultInstance: test4 exclude_parts { Storage },
+
+        <span class="comment">// with `use_parts` keyword, a subset of the pallet parts can be specified.
+        </span>Test4_Instance1: test4::&lt;Instance1&gt; use_parts { Pallet, Call},
+        Test4_DefaultInstance: test4 use_parts { Pallet },
+    }
+)</code></pre></div>
+<p>Each pallet is declared as such:</p>
+<ul>
+<li>
+<p><code>Identifier</code>: name given to the pallet that uniquely identifies it.</p>
+</li>
+<li>
+<p><code>:</code>: colon separator</p>
+</li>
+<li>
+<p><code>path::to::pallet</code>: identifiers separated by colons which declare the path to a pallet
+definition.</p>
+</li>
+<li>
+<p><code>::&lt;InstanceN&gt;</code> optional: specify the instance of the pallet to use. If not specified it will
+use the default instance (or the only instance in case of non-instantiable pallets).</p>
+</li>
+<li>
+<p><code>::{ Part1, Part2&lt;T&gt;, .. }</code> optional if pallet declared with <code>frame_support::pallet</code>: Comma
+separated parts declared with their generic. If a pallet is declared with
+<code>frame_support::pallet</code> macro then the parts can be automatically derived if not explicitly
+provided. We provide support for the following module parts in a pallet:</p>
+<ul>
+<li><code>Pallet</code> - Required for all pallets</li>
+<li><code>Call</code> - If the pallet has callable functions</li>
+<li><code>Storage</code> - If the pallet uses storage</li>
+<li><code>Event</code> or <code>Event&lt;T&gt;</code> (if the event is generic) - If the pallet emits events</li>
+<li><code>Origin</code> or <code>Origin&lt;T&gt;</code> (if the origin is generic) - If the pallet has instantiable origins</li>
+<li><code>Config</code> or <code>Config&lt;T&gt;</code> (if the config is generic) - If the pallet builds the genesis
+storage with <code>GenesisConfig</code></li>
+<li><code>Inherent</code> - If the pallet provides/can check inherents.</li>
+<li><code>ValidateUnsigned</code> - If the pallet validates unsigned extrinsics.</li>
+</ul>
+<p>It is important to list these parts here to export them correctly in the metadata or to make
+the pallet usable in the runtime.</p>
+</li>
+<li>
+<p><code>exclude_parts { Part1, Part2 }</code> optional: comma separated parts without generics. I.e. one of
+<code>Pallet</code>, <code>Call</code>, <code>Storage</code>, <code>Event</code>, <code>Origin</code>, <code>Config</code>, <code>Inherent</code>, <code>ValidateUnsigned</code>. It
+is incompatible with <code>use_parts</code>. This specifies the part to exclude. In order to select
+subset of the pallet parts.</p>
+<p>For example excluding the part <code>Call</code> can be useful if the runtime doesn’t want to make the
+pallet calls available.</p>
+</li>
+<li>
+<p><code>use_parts { Part1, Part2 }</code> optional: comma separated parts without generics. I.e. one of
+<code>Pallet</code>, <code>Call</code>, <code>Storage</code>, <code>Event</code>, <code>Origin</code>, <code>Config</code>, <code>Inherent</code>, <code>ValidateUnsigned</code>. It
+is incompatible with <code>exclude_parts</code>. This specifies the part to use. In order to select a
+subset of the pallet parts.</p>
+<p>For example not using the part <code>Call</code> can be useful if the runtime doesn’t want to make the
+pallet calls available.</p>
+</li>
+<li>
+<p><code>= $n</code> optional: number to define at which index the pallet variants in <code>OriginCaller</code>, <code>Call</code>
+and <code>Event</code> are encoded, and to define the ModuleToIndex value.</p>
+<p>if <code>= $n</code> is not given, then index is resolved in the same way as fieldless enum in Rust
+(i.e. incrementally from previous index):</p>
+<div class="example-wrap"><pre class="language-nocompile"><code>pallet1 .. = 2,
+pallet2 .., // Here pallet2 is given index 3
+pallet3 .. = 0,
+pallet4 .., // Here pallet4 is given index 1
+</code></pre></div></li>
+</ul>
+<h2 id="note"><a class="doc-anchor" href="#note">§</a>Note</h2>
+<p>The population of the genesis storage depends on the order of pallets. So, if one of your
+pallets depends on another pallet, the pallet that is depended upon needs to come before
+the pallet depending on it.</p>
+<h2 id="type-definitions"><a class="doc-anchor" href="#type-definitions">§</a>Type definitions</h2>
+<ul>
+<li>The macro generates a type alias for each pallet to their <code>Pallet</code>. E.g. <code>type System = frame_system::Pallet&lt;Runtime&gt;</code></li>
+</ul>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

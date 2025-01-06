@@ -1,0 +1,344 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/snowbridge/pallets/inbound-queue/fixtures/src/send_token_to_penpal.rs`."><title>send_token_to_penpal.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="snowbridge_pallet_inbound_queue_fixtures" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<a href="#2" id="2">2</a>
+<a href="#3" id="3">3</a>
+<a href="#4" id="4">4</a>
+<a href="#5" id="5">5</a>
+<a href="#6" id="6">6</a>
+<a href="#7" id="7">7</a>
+<a href="#8" id="8">8</a>
+<a href="#9" id="9">9</a>
+<a href="#10" id="10">10</a>
+<a href="#11" id="11">11</a>
+<a href="#12" id="12">12</a>
+<a href="#13" id="13">13</a>
+<a href="#14" id="14">14</a>
+<a href="#15" id="15">15</a>
+<a href="#16" id="16">16</a>
+<a href="#17" id="17">17</a>
+<a href="#18" id="18">18</a>
+<a href="#19" id="19">19</a>
+<a href="#20" id="20">20</a>
+<a href="#21" id="21">21</a>
+<a href="#22" id="22">22</a>
+<a href="#23" id="23">23</a>
+<a href="#24" id="24">24</a>
+<a href="#25" id="25">25</a>
+<a href="#26" id="26">26</a>
+<a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
+<a href="#40" id="40">40</a>
+<a href="#41" id="41">41</a>
+<a href="#42" id="42">42</a>
+<a href="#43" id="43">43</a>
+<a href="#44" id="44">44</a>
+<a href="#45" id="45">45</a>
+<a href="#46" id="46">46</a>
+<a href="#47" id="47">47</a>
+<a href="#48" id="48">48</a>
+<a href="#49" id="49">49</a>
+<a href="#50" id="50">50</a>
+<a href="#51" id="51">51</a>
+<a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+</pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
+// Generated, do not edit!
+// See ethereum client README.md for instructions to generate
+
+</span><span class="kw">use </span>hex_literal::hex;
+<span class="kw">use </span>snowbridge_beacon_primitives::{
+	types::deneb, AncestryProof, BeaconHeader, ExecutionProof, VersionedExecutionPayloadHeader,
+};
+<span class="kw">use </span>snowbridge_core::inbound::{InboundQueueFixture, Log, Message, Proof};
+<span class="kw">use </span>sp_core::U256;
+<span class="kw">use </span>sp_std::vec;
+
+<span class="kw">pub fn </span>make_send_token_to_penpal_message() -&gt; InboundQueueFixture {
+	InboundQueueFixture {
+        message: Message {
+            event_log: 	Log {
+                address: <span class="macro">hex!</span>(<span class="string">"eda338e4dc46038493b885327842fd3e301cab39"</span>).into(),
+                topics: <span class="macro">vec!</span>[
+                    <span class="macro">hex!</span>(<span class="string">"7153f9357c8ea496bba60bf82e67143e27b64462b49041f8e689e1b05728f84f"</span>).into(),
+                    <span class="macro">hex!</span>(<span class="string">"c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539"</span>).into(),
+                    <span class="macro">hex!</span>(<span class="string">"be323bced46a1a49c8da2ab62ad5e974fd50f1dabaeed70b23ca5bcf14bfe4aa"</span>).into(),
+                ],
+                data: <span class="macro">hex!</span>(<span class="string">"00000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000007300a736aa00000000000187d1f7fdfee7f651fabc8bfcb6e086c278b77a7d01d00700001cbd2d43530a44705ad088af313e18f80b53ef16b36177cd4b77b846f2a5f07c00286bee000000000000000000000000000064a7b3b6e00d000000000000000000e40b5402000000000000000000000000000000000000000000000000"</span>).into(),
+            },
+            proof: Proof {
+                receipt_proof: (<span class="macro">vec!</span>[
+                    <span class="macro">hex!</span>(<span class="string">"106f1eaeac04e469da0020ad5c8a72af66323638bd3f561a3c8236063202c120"</span>).to_vec(),
+                ], <span class="macro">vec!</span>[
+                    <span class="macro">hex!</span>(<span class="string">"f90471822080b9046b02f904670183017d9cb9010000800000000000008000000000000000000000000000004000000000000000000400000000004000000000001000000010000000000000000000001008000000000000000000000001000008000040000000000000000000000000008000080000000000200000000000000000000000000100000000000000000010000000000000020000000000000000000000000000003000000000080018000000000000000000040004000021000000002000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000200820000000000f9035cf89b9487d1f7fdfee7f651fabc8bfcb6e086c278b77a7df863a0ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa000000000000000000000000090a987b944cb1dcce5564e5fdecd7a54d3de27fea000000000000000000000000057a2d4ff0c3866d96556884bf09fecdd7ccd530ca00000000000000000000000000000000000000000000000000de0b6b3a7640000f9015d94eda338e4dc46038493b885327842fd3e301cab39f884a024c5d2de620c6e25186ae16f6919eba93b6e2c1a33857cc419d9f3a00d6967e9a000000000000000000000000087d1f7fdfee7f651fabc8bfcb6e086c278b77a7da000000000000000000000000090a987b944cb1dcce5564e5fdecd7a54d3de27fea000000000000000000000000000000000000000000000000000000000000007d0b8c000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000de0b6b3a76400000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000201cbd2d43530a44705ad088af313e18f80b53ef16b36177cd4b77b846f2a5f07cf9015c94eda338e4dc46038493b885327842fd3e301cab39f863a07153f9357c8ea496bba60bf82e67143e27b64462b49041f8e689e1b05728f84fa0c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539a0be323bced46a1a49c8da2ab62ad5e974fd50f1dabaeed70b23ca5bcf14bfe4aab8e000000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000007300a736aa00000000000187d1f7fdfee7f651fabc8bfcb6e086c278b77a7d01d00700001cbd2d43530a44705ad088af313e18f80b53ef16b36177cd4b77b846f2a5f07c00286bee000000000000000000000000000064a7b3b6e00d000000000000000000e40b5402000000000000000000000000000000000000000000000000"</span>).to_vec(),
+                ]),
+                execution_proof: ExecutionProof {
+                    header: BeaconHeader {
+                        slot: <span class="number">4235</span>,
+                        proposer_index: <span class="number">4</span>,
+                        parent_root: <span class="macro">hex!</span>(<span class="string">"1b31e6264c19bcad120e434e0aede892e7d7c8ed80ab505cb593d9a4a16bc566"</span>).into(),
+                        state_root: <span class="macro">hex!</span>(<span class="string">"725f51771a0ecf72c647a283ab814ca088f998eb8c203181496b0b8e01f624fa"</span>).into(),
+                        body_root: <span class="macro">hex!</span>(<span class="string">"6f1c326d192e7e97e21e27b16fd7f000b8fa09b435ff028849927e382302b0ce"</span>).into(),
+                    },
+                        ancestry_proof: <span class="prelude-val">Some</span>(AncestryProof {
+                        header_branch: <span class="macro">vec!</span>[
+                            <span class="macro">hex!</span>(<span class="string">"1b31e6264c19bcad120e434e0aede892e7d7c8ed80ab505cb593d9a4a16bc566"</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">"335eb186c077fa7053ec96dcc5d34502c997713d2d5bc4eb74842118d8cd5a64"</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">"326607faf2a7dfc9cfc4b6895f8f3d92a659552deb2c8fd1e892ec00c86c734c"</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">"4e20002125d7b6504df7c774f3f48e018e1e6762d03489149670a8335bba1425"</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">"e76af5cd61aade5aec8282b6f1df9046efa756b0466bba5e49032410f7739a1b"</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">"ee4dcd9527712116380cddafd120484a3bedf867225bbb86850b84decf6da730"</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">"e4687a07421d3150439a2cd2f09f3b468145d75b359a2e5fa88dfbec51725b15"</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">"38eaa78978e95759aa9b6f8504a8dbe36151f20ae41907e6a1ea165700ceefcd"</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">"1c1b071ec6f13e15c47d07d1bfbcc9135d6a6c819e68e7e6078a2007418c1a23"</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">"0b3ad7ad193c691c8c4ba1606ad2a90482cd1d033c7db58cfe739d0e20431e9e"</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">"ffff0ad7e659772f9534c195c815efc4014ef1e1daed4404c06385d11192e92b"</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">"6cf04127db05441cd833107a52be852868890e4317e6a02ab47683aa75964220"</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">"b2ffec5f2c14640305dd941330f09216c53b99d198e93735a400a6d3a4de191f"</span>).into(),
+                        ],
+                        finalized_block_root: <span class="macro">hex!</span>(<span class="string">"08be7a59e947f08cd95c4ef470758730bf9e3b0db0824cb663ea541c39b0e65c"</span>).into(),
+                        }),
+                    execution_header: VersionedExecutionPayloadHeader::Deneb(deneb::ExecutionPayloadHeader {
+                        parent_hash: <span class="macro">hex!</span>(<span class="string">"5d1186ae041f58785edb2f01248e95832f2e5e5d6c4eb8f7ff2f58980bfc2de9"</span>).into(),
+                        fee_recipient: <span class="macro">hex!</span>(<span class="string">"0000000000000000000000000000000000000000"</span>).into(),
+                        state_root: <span class="macro">hex!</span>(<span class="string">"2a66114d20e93082c8e9b47c8d401a937013487d757c9c2f3123cf43dc1f656d"</span>).into(),
+                        receipts_root: <span class="macro">hex!</span>(<span class="string">"106f1eaeac04e469da0020ad5c8a72af66323638bd3f561a3c8236063202c120"</span>).into(),
+                        logs_bloom: <span class="macro">hex!</span>(<span class="string">"00800000000000008000000000000000000000000000004000000000000000000400000000004000000000001000000010000000000000000000001008000000000000000000000001000008000040000000000000000000000000008000080000000000200000000000000000000000000100000000000000000010000000000000020000000000000000000000000000003000000000080018000000000000000000040004000021000000002000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000200820000000000"</span>).into(),
+                        prev_randao: <span class="macro">hex!</span>(<span class="string">"92e063c7e369b74149fdd1d7132ed2f635a19b9d8bff57637b8ee4736576426e"</span>).into(),
+                        block_number: <span class="number">4235</span>,
+                        gas_limit: <span class="number">30000000</span>,
+                        gas_used: <span class="number">97692</span>,
+                        timestamp: <span class="number">1710556655</span>,
+                        extra_data: <span class="macro">hex!</span>(<span class="string">"d983010d0b846765746888676f312e32312e368664617277696e"</span>).into(),
+                        base_fee_per_gas: U256::from(<span class="number">7u64</span>),
+                        block_hash: <span class="macro">hex!</span>(<span class="string">"ce24fe3047aa20a8f222cd1d04567c12b39455400d681141962c2130e690953f"</span>).into(),
+                        transactions_root: <span class="macro">hex!</span>(<span class="string">"0c8388731de94771777c60d452077065354d90d6e5088db61fc6a134684195cc"</span>).into(),
+                        withdrawals_root: <span class="macro">hex!</span>(<span class="string">"792930bbd5baac43bcc798ee49aa8185ef76bb3b44ba62b91d86ae569e4bb535"</span>).into(),
+                        blob_gas_used: <span class="number">0</span>,
+                        excess_blob_gas: <span class="number">0</span>,
+                    }),
+                    execution_branch: <span class="macro">vec!</span>[
+                            <span class="macro">hex!</span>(<span class="string">"99d397fa180078e66cd3a3b77bcb07553052f4e21d447167f3a406f663b14e6a"</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">"b46f0c01805fe212e15907981b757e6c496b0cb06664224655613dcec82505bb"</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">"db56114e00fdd4c1f85c892bf35ac9a89289aaecb1ebd0a96cde606a748b5d71"</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">"53ddf17147819c1abb918178b0230d965d1bc2c0d389f45e91e54cb1d2d468aa"</span>).into(),
+                    ],
+                }
+            },
+        },
+        finalized_header: BeaconHeader {
+            slot: <span class="number">4672</span>,
+            proposer_index: <span class="number">4</span>,
+            parent_root: <span class="macro">hex!</span>(<span class="string">"951233bf9f4bddfb2fa8f54e3bd0c7883779ef850e13e076baae3130dd7732db"</span>).into(),
+            state_root: <span class="macro">hex!</span>(<span class="string">"4d303003b8cb097cbcc14b0f551ee70dac42de2c1cc2f4acfca7058ca9713291"</span>).into(),
+            body_root: <span class="macro">hex!</span>(<span class="string">"664d13952b6f369bf4cf3af74d067ec33616eb57ed3a8a403fd5bae4fbf737dd"</span>).into(),
+        },
+        block_roots_root: <span class="macro">hex!</span>(<span class="string">"af71048297c070e6539cf3b9b90ae07d86d363454606bc239734629e6b49b983"</span>).into(),
+    }
+}
+</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

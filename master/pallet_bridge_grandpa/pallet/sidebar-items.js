@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event"],"fn":["on_free_header_imported"],"mod":["dispatchables","storage_types"],"struct":["GenesisConfig","Instance1","MaybeHeadersToKeep","Pallet"],"trait":["Config"],"type":["BestFinalized","CurrentAuthoritySet","FreeHeadersRemaining","ImportedHeaders","Module","PalletOperatingMode","PalletOwner"]};

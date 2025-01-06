@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["configuration","current_epoch","current_epoch_start","generate_key_ownership_proof","next_epoch","submit_report_equivocation_unsigned_extrinsic"],"struct":["Configuration","CurrentEpoch","CurrentEpochStart","GenerateKeyOwnershipProof","NextEpoch","SubmitReportEquivocationUnsignedExtrinsic"]};

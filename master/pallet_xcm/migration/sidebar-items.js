@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["data","v1"],"struct":["MigrateToLatestXcmVersion"]};

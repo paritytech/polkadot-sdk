@@ -1,0 +1,176 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The configuration for `UnreserveDeposits`."><title>UnlockConfig in pallet_tips::migrations::unreserve_deposits - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pallet_tips" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../pallet_tips/index.html">pallet_tips</a><span class="version">27.0.0</span></h2></div><h2 class="location"><a href="#">UnlockConfig</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.AccountId">AccountId</a></li><li><a href="#associatedtype.BlockNumber">BlockNumber</a></li><li><a href="#associatedtype.Currency">Currency</a></li><li><a href="#associatedtype.DataDepositPerByte">DataDepositPerByte</a></li><li><a href="#associatedtype.DbWeight">DbWeight</a></li><li><a href="#associatedtype.Hash">Hash</a></li><li><a href="#associatedtype.PalletName">PalletName</a></li><li><a href="#associatedtype.TipReportDepositBase">TipReportDepositBase</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In pallet_tips::migrations::unreserve_deposits</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../../index.html">pallet_tips</a>::<wbr><a href="../index.html">migrations</a>::<wbr><a href="index.html">unreserve_deposits</a>::<wbr><a class="trait" href="#">UnlockConfig</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/pallet_tips/migrations/unreserve_deposits.rs.html#39-63">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait UnlockConfig&lt;I&gt;: 'static {
+    type <a href="#associatedtype.Hash" class="associatedtype">Hash</a>: Parameter;
+    type <a href="#associatedtype.AccountId" class="associatedtype">AccountId</a>: Parameter + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a>;
+    type <a href="#associatedtype.Currency" class="associatedtype">Currency</a>: LockableCurrency&lt;Self::<a class="associatedtype" href="trait.UnlockConfig.html#associatedtype.AccountId" title="type pallet_tips::migrations::unreserve_deposits::UnlockConfig::AccountId">AccountId</a>&gt; + ReservableCurrency&lt;Self::<a class="associatedtype" href="trait.UnlockConfig.html#associatedtype.AccountId" title="type pallet_tips::migrations::unreserve_deposits::UnlockConfig::AccountId">AccountId</a>&gt;;
+    type <a href="#associatedtype.TipReportDepositBase" class="associatedtype">TipReportDepositBase</a>: Get&lt;&lt;&lt;Self as <a class="trait" href="trait.UnlockConfig.html" title="trait pallet_tips::migrations::unreserve_deposits::UnlockConfig">UnlockConfig</a>&lt;I&gt;&gt;::<a class="associatedtype" href="trait.UnlockConfig.html#associatedtype.Currency" title="type pallet_tips::migrations::unreserve_deposits::UnlockConfig::Currency">Currency</a> as Currency&lt;&lt;Self as <a class="trait" href="trait.UnlockConfig.html" title="trait pallet_tips::migrations::unreserve_deposits::UnlockConfig">UnlockConfig</a>&lt;I&gt;&gt;::<a class="associatedtype" href="trait.UnlockConfig.html#associatedtype.AccountId" title="type pallet_tips::migrations::unreserve_deposits::UnlockConfig::AccountId">AccountId</a>&gt;&gt;::Balance&gt;;
+    type <a href="#associatedtype.DataDepositPerByte" class="associatedtype">DataDepositPerByte</a>: Get&lt;&lt;&lt;Self as <a class="trait" href="trait.UnlockConfig.html" title="trait pallet_tips::migrations::unreserve_deposits::UnlockConfig">UnlockConfig</a>&lt;I&gt;&gt;::<a class="associatedtype" href="trait.UnlockConfig.html#associatedtype.Currency" title="type pallet_tips::migrations::unreserve_deposits::UnlockConfig::Currency">Currency</a> as Currency&lt;&lt;Self as <a class="trait" href="trait.UnlockConfig.html" title="trait pallet_tips::migrations::unreserve_deposits::UnlockConfig">UnlockConfig</a>&lt;I&gt;&gt;::<a class="associatedtype" href="trait.UnlockConfig.html#associatedtype.AccountId" title="type pallet_tips::migrations::unreserve_deposits::UnlockConfig::AccountId">AccountId</a>&gt;&gt;::Balance&gt;;
+    type <a href="#associatedtype.PalletName" class="associatedtype">PalletName</a>: Get&lt;&amp;'static <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>&gt;;
+    type <a href="#associatedtype.DbWeight" class="associatedtype">DbWeight</a>: Get&lt;RuntimeDbWeight&gt;;
+    type <a href="#associatedtype.BlockNumber" class="associatedtype">BlockNumber</a>: Parameter + <a class="trait" href="https://docs.rs/num-traits/0.2/num_traits/identities/trait.Zero.html" title="trait num_traits::identities::Zero">Zero</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The configuration for <a href="struct.UnreserveDeposits.html" title="struct pallet_tips::migrations::unreserve_deposits::UnreserveDeposits"><code>UnreserveDeposits</code></a>.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.Hash" class="method"><a class="src rightside" href="../../../src/pallet_tips/migrations/unreserve_deposits.rs.html#41">source</a><h4 class="code-header">type <a href="#associatedtype.Hash" class="associatedtype">Hash</a>: Parameter</h4></section></summary><div class="docblock"><p>The hash used in the runtime.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.AccountId" class="method"><a class="src rightside" href="../../../src/pallet_tips/migrations/unreserve_deposits.rs.html#43">source</a><h4 class="code-header">type <a href="#associatedtype.AccountId" class="associatedtype">AccountId</a>: Parameter + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a></h4></section></summary><div class="docblock"><p>The account ID used in the runtime.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Currency" class="method"><a class="src rightside" href="../../../src/pallet_tips/migrations/unreserve_deposits.rs.html#47">source</a><h4 class="code-header">type <a href="#associatedtype.Currency" class="associatedtype">Currency</a>: LockableCurrency&lt;Self::<a class="associatedtype" href="trait.UnlockConfig.html#associatedtype.AccountId" title="type pallet_tips::migrations::unreserve_deposits::UnlockConfig::AccountId">AccountId</a>&gt; + ReservableCurrency&lt;Self::<a class="associatedtype" href="trait.UnlockConfig.html#associatedtype.AccountId" title="type pallet_tips::migrations::unreserve_deposits::UnlockConfig::AccountId">AccountId</a>&gt;</h4></section></summary><div class="docblock"><p>The currency type used in the runtime.</p>
+<p>Should match the currency type previously used for the pallet, if applicable.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.TipReportDepositBase" class="method"><a class="src rightside" href="../../../src/pallet_tips/migrations/unreserve_deposits.rs.html#51">source</a><h4 class="code-header">type <a href="#associatedtype.TipReportDepositBase" class="associatedtype">TipReportDepositBase</a>: Get&lt;&lt;&lt;Self as <a class="trait" href="trait.UnlockConfig.html" title="trait pallet_tips::migrations::unreserve_deposits::UnlockConfig">UnlockConfig</a>&lt;I&gt;&gt;::<a class="associatedtype" href="trait.UnlockConfig.html#associatedtype.Currency" title="type pallet_tips::migrations::unreserve_deposits::UnlockConfig::Currency">Currency</a> as Currency&lt;&lt;Self as <a class="trait" href="trait.UnlockConfig.html" title="trait pallet_tips::migrations::unreserve_deposits::UnlockConfig">UnlockConfig</a>&lt;I&gt;&gt;::<a class="associatedtype" href="trait.UnlockConfig.html#associatedtype.AccountId" title="type pallet_tips::migrations::unreserve_deposits::UnlockConfig::AccountId">AccountId</a>&gt;&gt;::Balance&gt;</h4></section></summary><div class="docblock"><p>Base deposit to report a tip.</p>
+<p>Should match the currency type previously used for the pallet, if applicable.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.DataDepositPerByte" class="method"><a class="src rightside" href="../../../src/pallet_tips/migrations/unreserve_deposits.rs.html#55">source</a><h4 class="code-header">type <a href="#associatedtype.DataDepositPerByte" class="associatedtype">DataDepositPerByte</a>: Get&lt;&lt;&lt;Self as <a class="trait" href="trait.UnlockConfig.html" title="trait pallet_tips::migrations::unreserve_deposits::UnlockConfig">UnlockConfig</a>&lt;I&gt;&gt;::<a class="associatedtype" href="trait.UnlockConfig.html#associatedtype.Currency" title="type pallet_tips::migrations::unreserve_deposits::UnlockConfig::Currency">Currency</a> as Currency&lt;&lt;Self as <a class="trait" href="trait.UnlockConfig.html" title="trait pallet_tips::migrations::unreserve_deposits::UnlockConfig">UnlockConfig</a>&lt;I&gt;&gt;::<a class="associatedtype" href="trait.UnlockConfig.html#associatedtype.AccountId" title="type pallet_tips::migrations::unreserve_deposits::UnlockConfig::AccountId">AccountId</a>&gt;&gt;::Balance&gt;</h4></section></summary><div class="docblock"><p>Deposit per byte to report a tip.</p>
+<p>Should match the currency type previously used for the pallet, if applicable.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.PalletName" class="method"><a class="src rightside" href="../../../src/pallet_tips/migrations/unreserve_deposits.rs.html#58">source</a><h4 class="code-header">type <a href="#associatedtype.PalletName" class="associatedtype">PalletName</a>: Get&lt;&amp;'static <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>&gt;</h4></section></summary><div class="docblock"><p>The name of the pallet as previously configured in
+<a href="../../../frame_support_procedural/macro.construct_runtime.html" title="macro frame_support_procedural::construct_runtime"><code>construct_runtime!</code></a>.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.DbWeight" class="method"><a class="src rightside" href="../../../src/pallet_tips/migrations/unreserve_deposits.rs.html#60">source</a><h4 class="code-header">type <a href="#associatedtype.DbWeight" class="associatedtype">DbWeight</a>: Get&lt;RuntimeDbWeight&gt;</h4></section></summary><div class="docblock"><p>The DB weight as configured in the runtime to calculate the correct weight.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.BlockNumber" class="method"><a class="src rightside" href="../../../src/pallet_tips/migrations/unreserve_deposits.rs.html#62">source</a><h4 class="code-header">type <a href="#associatedtype.BlockNumber" class="associatedtype">BlockNumber</a>: Parameter + <a class="trait" href="https://docs.rs/num-traits/0.2/num_traits/identities/trait.Zero.html" title="trait num_traits::identities::Zero">Zero</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a></h4></section></summary><div class="docblock"><p>The block number as configured in the runtime.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../../trait.impl/pallet_tips/migrations/unreserve_deposits/trait.UnlockConfig.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

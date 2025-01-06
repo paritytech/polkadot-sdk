@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["metrics_prefix","run"],"struct":["ClientState","ClientsState","MessageDeliveryParams","MessageDetails","MessageProofParameters","NoncesSubmitArtifacts","Params"],"trait":["BatchTransaction","SourceClient","TargetClient"],"type":["MessageDetailsMap","SourceClientState","TargetClientState"]};

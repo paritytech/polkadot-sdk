@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Error","PostErr","RemoteErr","TopologyErr"],"fn":["peers_set_config","protocol_name","run"],"struct":["Api","ApiBackend","Config","CoreConfig","SubstrateConfig"],"type":["KxSecret"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["CallHash","Cancelling","Multisig","Timepoint"]};

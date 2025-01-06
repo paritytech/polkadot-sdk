@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["MixnodesErr","SessionPhase"],"mod":["app"],"struct":["Mixnode","SessionStatus"]};

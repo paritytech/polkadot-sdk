@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["multisig_approval","multisig_cancelled","multisig_executed","new_multisig"],"struct":["MultisigApproval","MultisigCancelled","MultisigExecuted","NewMultisig"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CallInfo"],"struct":["BaseMessagesProofInfo","CallHelper","ReceiveMessagesDeliveryProofInfo","ReceiveMessagesProofInfo","UnrewardedRelayerOccupation"],"trait":["MessagesCallSubType"]};

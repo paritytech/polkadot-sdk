@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AssetTraps","CurrentMigration","LockedFungibles","Queries","QueryCounter","RecordedXcm","RemoteLockedFungibles","SafeXcmVersion","ShouldRecordXcm","SupportedVersion","VersionDiscoveryQueue","VersionNotifiers","VersionNotifyTargets","XcmExecutionSuspended"]};

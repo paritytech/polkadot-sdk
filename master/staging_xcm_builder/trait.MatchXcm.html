@@ -1,0 +1,224 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API that allows to pattern-match against anything that is contained within an XCM."><title>MatchXcm in staging_xcm_builder - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="staging_xcm_builder" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../staging_xcm_builder/index.html">staging_xcm_builder</a><span class="version">7.0.0</span></h2></div><h2 class="location"><a href="#">MatchXcm</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Error">Error</a></li><li><a href="#associatedtype.Inst">Inst</a></li><li><a href="#associatedtype.Loc">Loc</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.assert_remaining_insts">assert_remaining_insts</a></li><li><a href="#tymethod.match_next_inst">match_next_inst</a></li><li><a href="#tymethod.match_next_inst_while">match_next_inst_while</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.skip_inst_while">skip_inst_while</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In crate staging_xcm_builder</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">staging_xcm_builder</a>::<wbr><a class="trait" href="#">MatchXcm</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/staging_xcm_builder/matcher.rs.html#67-113">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait MatchXcm {
+    type <a href="#associatedtype.Inst" class="associatedtype">Inst</a>;
+    type <a href="#associatedtype.Loc" class="associatedtype">Loc</a>;
+    type <a href="#associatedtype.Error" class="associatedtype">Error</a>;
+
+    // Required methods
+    fn <a href="#tymethod.assert_remaining_insts" class="fn">assert_remaining_insts</a>(self, n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, Self::<a class="associatedtype" href="trait.MatchXcm.html#associatedtype.Error" title="type staging_xcm_builder::MatchXcm::Error">Error</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a></span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.match_next_inst" class="fn">match_next_inst</a>&lt;F&gt;(self, f: F) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, Self::<a class="associatedtype" href="trait.MatchXcm.html#associatedtype.Error" title="type staging_xcm_builder::MatchXcm::Error">Error</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
+             F: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.FnMut.html" title="trait core::ops::function::FnMut">FnMut</a>(&amp;mut Self::<a class="associatedtype" href="trait.MatchXcm.html#associatedtype.Inst" title="type staging_xcm_builder::MatchXcm::Inst">Inst</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, Self::<a class="associatedtype" href="trait.MatchXcm.html#associatedtype.Error" title="type staging_xcm_builder::MatchXcm::Error">Error</a>&gt;</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.match_next_inst_while" class="fn">match_next_inst_while</a>&lt;C, F&gt;(
+        self,
+        cond: C,
+        f: F,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, Self::<a class="associatedtype" href="trait.MatchXcm.html#associatedtype.Error" title="type staging_xcm_builder::MatchXcm::Error">Error</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
+             C: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(&amp;Self::<a class="associatedtype" href="trait.MatchXcm.html#associatedtype.Inst" title="type staging_xcm_builder::MatchXcm::Inst">Inst</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>,
+             F: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.FnMut.html" title="trait core::ops::function::FnMut">FnMut</a>(&amp;mut Self::<a class="associatedtype" href="trait.MatchXcm.html#associatedtype.Inst" title="type staging_xcm_builder::MatchXcm::Inst">Inst</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/ops/control_flow/enum.ControlFlow.html" title="enum core::ops::control_flow::ControlFlow">ControlFlow</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;, Self::<a class="associatedtype" href="trait.MatchXcm.html#associatedtype.Error" title="type staging_xcm_builder::MatchXcm::Error">Error</a>&gt;</span>;
+
+    // Provided method
+    fn <a href="#method.skip_inst_while" class="fn">skip_inst_while</a>&lt;C&gt;(self, cond: C) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, Self::<a class="associatedtype" href="trait.MatchXcm.html#associatedtype.Error" title="type staging_xcm_builder::MatchXcm::Error">Error</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
+             C: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(&amp;Self::<a class="associatedtype" href="trait.MatchXcm.html#associatedtype.Inst" title="type staging_xcm_builder::MatchXcm::Inst">Inst</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></span> { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>API that allows to pattern-match against anything that is contained within an XCM.</p>
+<p>The intended usage of the matcher API is to enable the ability to chain successive methods of
+this trait together, along with the ? operator for the purpose of facilitating the writing,
+maintenance and auditability of XCM barriers.</p>
+<p>Example:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>frame_support::traits::ProcessMessageError;
+<span class="kw">use </span>xcm::latest::Instruction;
+<span class="kw">use </span>staging_xcm_builder::{CreateMatcher, MatchXcm};
+
+<span class="kw">let </span><span class="kw-2">mut </span>msg = [Instruction::&lt;()&gt;::ClearOrigin];
+<span class="kw">let </span>res = msg
+	.matcher()
+	.assert_remaining_insts(<span class="number">1</span>)<span class="question-mark">?
+	</span>.match_next_inst(|inst| <span class="kw">match </span>inst {
+		Instruction::&lt;()&gt;::ClearOrigin =&gt; <span class="prelude-val">Ok</span>(()),
+		<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(ProcessMessageError::BadFormat),
+	});
+<span class="macro">assert!</span>(res.is_ok());
+
+<span class="prelude-val">Ok</span>::&lt;(), ProcessMessageError&gt;(())</code></pre></div>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.Inst" class="method"><a class="src rightside" href="../src/staging_xcm_builder/matcher.rs.html#69">source</a><h4 class="code-header">type <a href="#associatedtype.Inst" class="associatedtype">Inst</a></h4></section></summary><div class="docblock"><p>The concrete instruction type. Necessary to specify as it changes between XCM versions.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Loc" class="method"><a class="src rightside" href="../src/staging_xcm_builder/matcher.rs.html#71">source</a><h4 class="code-header">type <a href="#associatedtype.Loc" class="associatedtype">Loc</a></h4></section></summary><div class="docblock"><p>The <code>Location</code> type. Necessary to specify as it changes between XCM versions.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Error" class="method"><a class="src rightside" href="../src/staging_xcm_builder/matcher.rs.html#73">source</a><h4 class="code-header">type <a href="#associatedtype.Error" class="associatedtype">Error</a></h4></section></summary><div class="docblock"><p>The error type to throw when errors happen during matching.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.assert_remaining_insts" class="method"><a class="src rightside" href="../src/staging_xcm_builder/matcher.rs.html#77-79">source</a><h4 class="code-header">fn <a href="#tymethod.assert_remaining_insts" class="fn">assert_remaining_insts</a>(self, n: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.usize.html">usize</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, Self::<a class="associatedtype" href="trait.MatchXcm.html#associatedtype.Error" title="type staging_xcm_builder::MatchXcm::Error">Error</a>&gt;<div class="where">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h4></section></summary><div class="docblock"><p>Returns success if the number of instructions that still have not been iterated over
+equals <code>n</code>, otherwise returns an error.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.match_next_inst" class="method"><a class="src rightside" href="../src/staging_xcm_builder/matcher.rs.html#87-90">source</a><h4 class="code-header">fn <a href="#tymethod.match_next_inst" class="fn">match_next_inst</a>&lt;F&gt;(self, f: F) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, Self::<a class="associatedtype" href="trait.MatchXcm.html#associatedtype.Error" title="type staging_xcm_builder::MatchXcm::Error">Error</a>&gt;<div class="where">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
+    F: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.FnMut.html" title="trait core::ops::function::FnMut">FnMut</a>(&amp;mut Self::<a class="associatedtype" href="trait.MatchXcm.html#associatedtype.Inst" title="type staging_xcm_builder::MatchXcm::Inst">Inst</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, Self::<a class="associatedtype" href="trait.MatchXcm.html#associatedtype.Error" title="type staging_xcm_builder::MatchXcm::Error">Error</a>&gt;,</div></h4></section></summary><div class="docblock"><p>Accepts a closure <code>f</code> that contains an argument signifying the next instruction to be
+iterated over. The closure can then be used to check whether the instruction matches a
+given condition, and can also be used to mutate the fields of an instruction.</p>
+<p>The closure <code>f</code> returns success when the instruction passes the condition, otherwise it
+returns an error, which will ultimately be returned by this function.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.match_next_inst_while" class="method"><a class="src rightside" href="../src/staging_xcm_builder/matcher.rs.html#98-102">source</a><h4 class="code-header">fn <a href="#tymethod.match_next_inst_while" class="fn">match_next_inst_while</a>&lt;C, F&gt;(self, cond: C, f: F) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, Self::<a class="associatedtype" href="trait.MatchXcm.html#associatedtype.Error" title="type staging_xcm_builder::MatchXcm::Error">Error</a>&gt;<div class="where">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
+    C: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(&amp;Self::<a class="associatedtype" href="trait.MatchXcm.html#associatedtype.Inst" title="type staging_xcm_builder::MatchXcm::Inst">Inst</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>,
+    F: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.FnMut.html" title="trait core::ops::function::FnMut">FnMut</a>(&amp;mut Self::<a class="associatedtype" href="trait.MatchXcm.html#associatedtype.Inst" title="type staging_xcm_builder::MatchXcm::Inst">Inst</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/ops/control_flow/enum.ControlFlow.html" title="enum core::ops::control_flow::ControlFlow">ControlFlow</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;, Self::<a class="associatedtype" href="trait.MatchXcm.html#associatedtype.Error" title="type staging_xcm_builder::MatchXcm::Error">Error</a>&gt;,</div></h4></section></summary><div class="docblock"><p>Attempts to continuously iterate through the instructions while applying <code>f</code> to each of
+them, until either the last instruction or <code>cond</code> returns false.</p>
+<p>If <code>f</code> returns an error, then iteration halts and the function returns that error.
+Otherwise, <code>f</code> returns a <code>ControlFlow</code> which signifies whether the iteration breaks or
+continues.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.skip_inst_while" class="method"><a class="src rightside" href="../src/staging_xcm_builder/matcher.rs.html#106-112">source</a><h4 class="code-header">fn <a href="#method.skip_inst_while" class="fn">skip_inst_while</a>&lt;C&gt;(self, cond: C) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, Self::<a class="associatedtype" href="trait.MatchXcm.html#associatedtype.Error" title="type staging_xcm_builder::MatchXcm::Error">Error</a>&gt;<div class="where">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
+    C: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(&amp;Self::<a class="associatedtype" href="trait.MatchXcm.html#associatedtype.Inst" title="type staging_xcm_builder::MatchXcm::Inst">Inst</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>,</div></h4></section></summary><div class="docblock"><p>Iterate instructions forward until <code>cond</code> returns false. When there are no more instructions
+to be read, an error is returned.</p>
+</div></details></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-MatchXcm-for-Matcher%3C'a,+Call%3E" class="impl"><a class="src rightside" href="../src/staging_xcm_builder/matcher.rs.html#125-174">source</a><a href="#impl-MatchXcm-for-Matcher%3C'a,+Call%3E" class="anchor">§</a><h3 class="code-header">impl&lt;'a, Call&gt; <a class="trait" href="trait.MatchXcm.html" title="trait staging_xcm_builder::MatchXcm">MatchXcm</a> for <a class="struct" href="struct.Matcher.html" title="struct staging_xcm_builder::Matcher">Matcher</a>&lt;'a, Call&gt;</h3></section></summary><div class="impl-items"><section id="associatedtype.Error-1" class="associatedtype trait-impl"><a href="#associatedtype.Error-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Error" class="associatedtype">Error</a> = ProcessMessageError</h4></section><section id="associatedtype.Inst-1" class="associatedtype trait-impl"><a href="#associatedtype.Inst-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Inst" class="associatedtype">Inst</a> = <a class="enum" href="test_utils/enum.Instruction.html" title="enum staging_xcm_builder::test_utils::Instruction">Instruction</a>&lt;Call&gt;</h4></section><section id="associatedtype.Loc-1" class="associatedtype trait-impl"><a href="#associatedtype.Loc-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Loc" class="associatedtype">Loc</a> = <a class="struct" href="test_utils/struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a></h4></section></div></details></div><script src="../trait.impl/staging_xcm_builder/matcher/trait.MatchXcm.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

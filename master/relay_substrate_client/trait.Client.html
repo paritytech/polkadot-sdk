@@ -1,0 +1,609 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Relay uses the `Client` to communicate with the node, connected to Substrate chain `C`."><title>Client in relay_substrate_client - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="relay_substrate_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../relay_substrate_client/index.html">relay_substrate_client</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">Client</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.best_finalized_header_hash">best_finalized_header_hash</a></li><li><a href="#tymethod.best_header">best_header</a></li><li><a href="#tymethod.block_by_hash">block_by_hash</a></li><li><a href="#tymethod.can_start_version_guard">can_start_version_guard</a></li><li><a href="#tymethod.ensure_synced">ensure_synced</a></li><li><a href="#tymethod.estimate_extrinsic_weight">estimate_extrinsic_weight</a></li><li><a href="#tymethod.generate_grandpa_key_ownership_proof">generate_grandpa_key_ownership_proof</a></li><li><a href="#tymethod.genesis_hash">genesis_hash</a></li><li><a href="#tymethod.header_by_hash">header_by_hash</a></li><li><a href="#tymethod.header_hash_by_number">header_hash_by_number</a></li><li><a href="#tymethod.pending_extrinsics">pending_extrinsics</a></li><li><a href="#tymethod.prove_storage">prove_storage</a></li><li><a href="#tymethod.raw_state_call">raw_state_call</a></li><li><a href="#tymethod.raw_storage_value">raw_storage_value</a></li><li><a href="#tymethod.reconnect">reconnect</a></li><li><a href="#tymethod.runtime_version">runtime_version</a></li><li><a href="#tymethod.simple_runtime_version">simple_runtime_version</a></li><li><a href="#tymethod.submit_and_watch_signed_extrinsic">submit_and_watch_signed_extrinsic</a></li><li><a href="#tymethod.submit_signed_extrinsic">submit_signed_extrinsic</a></li><li><a href="#tymethod.submit_unsigned_extrinsic">submit_unsigned_extrinsic</a></li><li><a href="#tymethod.subscribe_beefy_finality_justifications">subscribe_beefy_finality_justifications</a></li><li><a href="#tymethod.subscribe_best_headers">subscribe_best_headers</a></li><li><a href="#tymethod.subscribe_finalized_headers">subscribe_finalized_headers</a></li><li><a href="#tymethod.subscribe_grandpa_finality_justifications">subscribe_grandpa_finality_justifications</a></li><li><a href="#tymethod.token_decimals">token_decimals</a></li><li><a href="#tymethod.validate_transaction">validate_transaction</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.best_finalized_header">best_finalized_header</a></li><li><a href="#method.best_finalized_header_number">best_finalized_header_number</a></li><li><a href="#method.best_header_hash">best_header_hash</a></li><li><a href="#method.header_by_number">header_by_number</a></li><li><a href="#method.state_call">state_call</a></li><li><a href="#method.storage_double_map_value">storage_double_map_value</a></li><li><a href="#method.storage_map_value">storage_map_value</a></li><li><a href="#method.storage_value">storage_value</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In crate relay_substrate_client</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">relay_substrate_client</a>::<wbr><a class="trait" href="#">Client</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/relay_substrate_client/client/traits.rs.html#40-234">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Client&lt;C: <a class="trait" href="trait.Chain.html" title="trait relay_substrate_client::Chain">Chain</a>&gt;: 'static + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 34 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.ensure_synced" class="fn">ensure_synced</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.reconnect" class="fn">reconnect</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.genesis_hash" class="fn">genesis_hash</a>(&amp;self) -&gt; <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.header_hash_by_number" class="fn">header_hash_by_number</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        number: <a class="type" href="type.BlockNumberOf.html" title="type relay_substrate_client::BlockNumberOf">BlockNumberOf</a>&lt;C&gt;,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.header_by_hash" class="fn">header_by_hash</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        hash: <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="type" href="type.HeaderOf.html" title="type relay_substrate_client::HeaderOf">HeaderOf</a>&lt;C&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.block_by_hash" class="fn">block_by_hash</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        hash: <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="type" href="type.SignedBlockOf.html" title="type relay_substrate_client::SignedBlockOf">SignedBlockOf</a>&lt;C&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.best_finalized_header_hash" class="fn">best_finalized_header_hash</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.best_header" class="fn">best_header</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="type" href="type.HeaderOf.html" title="type relay_substrate_client::HeaderOf">HeaderOf</a>&lt;C&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.subscribe_best_headers" class="fn">subscribe_best_headers</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="struct" href="struct.Subscription.html" title="struct relay_substrate_client::Subscription">Subscription</a>&lt;<a class="type" href="type.HeaderOf.html" title="type relay_substrate_client::HeaderOf">HeaderOf</a>&lt;C&gt;&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.subscribe_finalized_headers" class="fn">subscribe_finalized_headers</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="struct" href="struct.Subscription.html" title="struct relay_substrate_client::Subscription">Subscription</a>&lt;<a class="type" href="type.HeaderOf.html" title="type relay_substrate_client::HeaderOf">HeaderOf</a>&lt;C&gt;&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.subscribe_grandpa_finality_justifications" class="fn">subscribe_grandpa_finality_justifications</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="struct" href="struct.Subscription.html" title="struct relay_substrate_client::Subscription">Subscription</a>&lt;Bytes&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where C: <a class="trait" href="trait.ChainWithGrandpa.html" title="trait relay_substrate_client::ChainWithGrandpa">ChainWithGrandpa</a>,
+             Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.generate_grandpa_key_ownership_proof" class="fn">generate_grandpa_key_ownership_proof</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;,
+        set_id: SetId,
+        authority_id: AuthorityId,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;OpaqueKeyOwnershipProof&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.subscribe_beefy_finality_justifications" class="fn">subscribe_beefy_finality_justifications</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="struct" href="struct.Subscription.html" title="struct relay_substrate_client::Subscription">Subscription</a>&lt;Bytes&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.token_decimals" class="fn">token_decimals</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u64.html">u64</a>&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.runtime_version" class="fn">runtime_version</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;RuntimeVersion&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.simple_runtime_version" class="fn">simple_runtime_version</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="struct" href="struct.SimpleRuntimeVersion.html" title="struct relay_substrate_client::SimpleRuntimeVersion">SimpleRuntimeVersion</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.can_start_version_guard" class="fn">can_start_version_guard</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.raw_storage_value" class="fn">raw_storage_value</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;,
+        storage_key: StorageKey,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;StorageData&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.pending_extrinsics" class="fn">pending_extrinsics</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;Bytes&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.submit_unsigned_extrinsic" class="fn">submit_unsigned_extrinsic</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        transaction: Bytes,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.submit_signed_extrinsic" class="fn">submit_signed_extrinsic</a>&lt;'life0, 'life1, 'async_trait&gt;(
+        &amp;'life0 self,
+        signer: &amp;'life1 <a class="type" href="type.AccountKeyPairOf.html" title="type relay_substrate_client::AccountKeyPairOf">AccountKeyPairOf</a>&lt;C&gt;,
+        prepare_extrinsic: impl 'async_trait + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(<a class="type" href="type.HeaderIdOf.html" title="type relay_substrate_client::HeaderIdOf">HeaderIdOf</a>&lt;C&gt;, <a class="type" href="type.NonceOf.html" title="type relay_substrate_client::NonceOf">NonceOf</a>&lt;C&gt;) -&gt; <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="struct" href="struct.UnsignedTransaction.html" title="struct relay_substrate_client::UnsignedTransaction">UnsignedTransaction</a>&lt;C&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where C: <a class="trait" href="trait.ChainWithTransactions.html" title="trait relay_substrate_client::ChainWithTransactions">ChainWithTransactions</a>,
+             <a class="type" href="type.AccountIdOf.html" title="type relay_substrate_client::AccountIdOf">AccountIdOf</a>&lt;C&gt;: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;&lt;<a class="type" href="type.AccountKeyPairOf.html" title="type relay_substrate_client::AccountKeyPairOf">AccountKeyPairOf</a>&lt;C&gt; as Pair&gt;::Public&gt;,
+             Self: 'async_trait,
+             'life0: 'async_trait,
+             'life1: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.submit_and_watch_signed_extrinsic" class="fn">submit_and_watch_signed_extrinsic</a>&lt;'life0, 'life1, 'async_trait&gt;(
+        &amp;'life0 self,
+        signer: &amp;'life1 <a class="type" href="type.AccountKeyPairOf.html" title="type relay_substrate_client::AccountKeyPairOf">AccountKeyPairOf</a>&lt;C&gt;,
+        prepare_extrinsic: impl 'async_trait + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(<a class="type" href="type.HeaderIdOf.html" title="type relay_substrate_client::HeaderIdOf">HeaderIdOf</a>&lt;C&gt;, <a class="type" href="type.NonceOf.html" title="type relay_substrate_client::NonceOf">NonceOf</a>&lt;C&gt;) -&gt; <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="struct" href="struct.UnsignedTransaction.html" title="struct relay_substrate_client::UnsignedTransaction">UnsignedTransaction</a>&lt;C&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="struct" href="struct.TransactionTracker.html" title="struct relay_substrate_client::TransactionTracker">TransactionTracker</a>&lt;C, Self&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where C: <a class="trait" href="trait.ChainWithTransactions.html" title="trait relay_substrate_client::ChainWithTransactions">ChainWithTransactions</a>,
+             <a class="type" href="type.AccountIdOf.html" title="type relay_substrate_client::AccountIdOf">AccountIdOf</a>&lt;C&gt;: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;&lt;<a class="type" href="type.AccountKeyPairOf.html" title="type relay_substrate_client::AccountKeyPairOf">AccountKeyPairOf</a>&lt;C&gt; as Pair&gt;::Public&gt;,
+             Self: 'async_trait,
+             'life0: 'async_trait,
+             'life1: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.validate_transaction" class="fn">validate_transaction</a>&lt;'life0, 'async_trait, SignedTransaction&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;,
+        transaction: SignedTransaction,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;TransactionValidity&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where SignedTransaction: 'async_trait + Encode + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static,
+             Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.estimate_extrinsic_weight" class="fn">estimate_extrinsic_weight</a>&lt;'life0, 'async_trait, SignedTransaction&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;,
+        transaction: SignedTransaction,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;Weight&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where SignedTransaction: 'async_trait + Encode + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static,
+             Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.raw_state_call" class="fn">raw_state_call</a>&lt;'life0, 'async_trait, Args&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;,
+        method: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>,
+        arguments: Args,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;Bytes&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Args: 'async_trait + Encode + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>,
+             Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.prove_storage" class="fn">prove_storage</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;,
+        keys: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;StorageKey&gt;,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;(StorageProof, <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;)&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+
+    // Provided methods
+    fn <a href="#method.header_by_number" class="fn">header_by_number</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        number: <a class="type" href="type.BlockNumberOf.html" title="type relay_substrate_client::BlockNumberOf">BlockNumberOf</a>&lt;C&gt;,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="type" href="type.HeaderOf.html" title="type relay_substrate_client::HeaderOf">HeaderOf</a>&lt;C&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.best_finalized_header_number" class="fn">best_finalized_header_number</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="type" href="type.BlockNumberOf.html" title="type relay_substrate_client::BlockNumberOf">BlockNumberOf</a>&lt;C&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.best_finalized_header" class="fn">best_finalized_header</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="type" href="type.HeaderOf.html" title="type relay_substrate_client::HeaderOf">HeaderOf</a>&lt;C&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.best_header_hash" class="fn">best_header_hash</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.storage_value" class="fn">storage_value</a>&lt;'life0, 'async_trait, T&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;,
+        storage_key: StorageKey,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;T&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where T: 'async_trait + Decode + 'static,
+             Self: 'async_trait,
+             'life0: 'async_trait</span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.storage_map_value" class="fn">storage_map_value</a>&lt;'life0, 'life1, 'life2, 'async_trait, T&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;,
+        pallet_prefix: &amp;'life1 <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>,
+        storage_key: &amp;'life2 T::Key,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;T::Value&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where T: 'async_trait + StorageMapKeyProvider,
+             Self: 'async_trait,
+             'life0: 'async_trait,
+             'life1: 'async_trait,
+             'life2: 'async_trait</span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.storage_double_map_value" class="fn">storage_double_map_value</a>&lt;'life0, 'life1, 'life2, 'life3, 'async_trait, T&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;,
+        pallet_prefix: &amp;'life1 <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>,
+        key1: &amp;'life2 T::Key1,
+        key2: &amp;'life3 T::Key2,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;T::Value&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where T: 'async_trait + StorageDoubleMapKeyProvider,
+             Self: 'async_trait,
+             'life0: 'async_trait,
+             'life1: 'async_trait,
+             'life2: 'async_trait,
+             'life3: 'async_trait</span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.state_call" class="fn">state_call</a>&lt;'life0, 'async_trait, Args, Ret&gt;(
+        &amp;'life0 self,
+        at: <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;,
+        method: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>,
+        arguments: Args,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;Ret&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Args: 'async_trait + Encode + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>,
+             Ret: 'async_trait + Decode,
+             Self: 'async_trait,
+             'life0: 'async_trait</span> { ... }
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Relay uses the <code>Client</code> to communicate with the node, connected to Substrate
+chain <code>C</code>.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.ensure_synced" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#43">source</a><h4 class="code-header">fn <a href="#tymethod.ensure_synced" class="fn">ensure_synced</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Returns error if client has no connected peers or it believes it is far
+behind the chain tip.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.reconnect" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#45">source</a><h4 class="code-header">fn <a href="#tymethod.reconnect" class="fn">reconnect</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Reconnects the client.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.genesis_hash" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#48">source</a><h4 class="code-header">fn <a href="#tymethod.genesis_hash" class="fn">genesis_hash</a>(&amp;self) -&gt; <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;</h4></section></summary><div class="docblock"><p>Return hash of the genesis block.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.header_hash_by_number" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#50">source</a><h4 class="code-header">fn <a href="#tymethod.header_hash_by_number" class="fn">header_hash_by_number</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    number: <a class="type" href="type.BlockNumberOf.html" title="type relay_substrate_client::BlockNumberOf">BlockNumberOf</a>&lt;C&gt;,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get header hash by number.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.header_by_hash" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#52">source</a><h4 class="code-header">fn <a href="#tymethod.header_by_hash" class="fn">header_by_hash</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    hash: <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="type" href="type.HeaderOf.html" title="type relay_substrate_client::HeaderOf">HeaderOf</a>&lt;C&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get header by hash.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.block_by_hash" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#58">source</a><h4 class="code-header">fn <a href="#tymethod.block_by_hash" class="fn">block_by_hash</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    hash: <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="type" href="type.SignedBlockOf.html" title="type relay_substrate_client::SignedBlockOf">SignedBlockOf</a>&lt;C&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get block by hash.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.best_finalized_header_hash" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#61">source</a><h4 class="code-header">fn <a href="#tymethod.best_finalized_header_hash" class="fn">best_finalized_header_hash</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get best finalized header hash.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.best_header" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#72">source</a><h4 class="code-header">fn <a href="#tymethod.best_header" class="fn">best_header</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="type" href="type.HeaderOf.html" title="type relay_substrate_client::HeaderOf">HeaderOf</a>&lt;C&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get best header.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.subscribe_best_headers" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#79">source</a><h4 class="code-header">fn <a href="#tymethod.subscribe_best_headers" class="fn">subscribe_best_headers</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="struct" href="struct.Subscription.html" title="struct relay_substrate_client::Subscription">Subscription</a>&lt;<a class="type" href="type.HeaderOf.html" title="type relay_substrate_client::HeaderOf">HeaderOf</a>&lt;C&gt;&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Subscribe to new best headers.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.subscribe_finalized_headers" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#81">source</a><h4 class="code-header">fn <a href="#tymethod.subscribe_finalized_headers" class="fn">subscribe_finalized_headers</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="struct" href="struct.Subscription.html" title="struct relay_substrate_client::Subscription">Subscription</a>&lt;<a class="type" href="type.HeaderOf.html" title="type relay_substrate_client::HeaderOf">HeaderOf</a>&lt;C&gt;&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Subscribe to new finalized headers.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.subscribe_grandpa_finality_justifications" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#84-86">source</a><h4 class="code-header">fn <a href="#tymethod.subscribe_grandpa_finality_justifications" class="fn">subscribe_grandpa_finality_justifications</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="struct" href="struct.Subscription.html" title="struct relay_substrate_client::Subscription">Subscription</a>&lt;Bytes&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    C: <a class="trait" href="trait.ChainWithGrandpa.html" title="trait relay_substrate_client::ChainWithGrandpa">ChainWithGrandpa</a>,
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Subscribe to GRANDPA finality justifications.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.generate_grandpa_key_ownership_proof" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#88-93">source</a><h4 class="code-header">fn <a href="#tymethod.generate_grandpa_key_ownership_proof" class="fn">generate_grandpa_key_ownership_proof</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;,
+    set_id: SetId,
+    authority_id: AuthorityId,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;OpaqueKeyOwnershipProof&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Generates a proof of key ownership for the given authority in the given set.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.subscribe_beefy_finality_justifications" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#96">source</a><h4 class="code-header">fn <a href="#tymethod.subscribe_beefy_finality_justifications" class="fn">subscribe_beefy_finality_justifications</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="struct" href="struct.Subscription.html" title="struct relay_substrate_client::Subscription">Subscription</a>&lt;Bytes&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Subscribe to BEEFY finality justifications.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.token_decimals" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#99">source</a><h4 class="code-header">fn <a href="#tymethod.token_decimals" class="fn">token_decimals</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u64.html">u64</a>&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Return <code>tokenDecimals</code> property from the set of chain properties.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.runtime_version" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#101">source</a><h4 class="code-header">fn <a href="#tymethod.runtime_version" class="fn">runtime_version</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;RuntimeVersion&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get runtime version of the connected chain.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.simple_runtime_version" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#103">source</a><h4 class="code-header">fn <a href="#tymethod.simple_runtime_version" class="fn">simple_runtime_version</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="struct" href="struct.SimpleRuntimeVersion.html" title="struct relay_substrate_client::SimpleRuntimeVersion">SimpleRuntimeVersion</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get partial runtime version, to use when signing transactions.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.can_start_version_guard" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#109">source</a><h4 class="code-header">fn <a href="#tymethod.can_start_version_guard" class="fn">can_start_version_guard</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns <code>true</code> if version guard can be started.</p>
+<p>There’s no reason to run version guard when version mode is set to <code>Auto</code>. It can
+lead to relay shutdown when chain is upgraded, even though we have explicitly
+said that we don’t want to shutdown.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.raw_storage_value" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#112-116">source</a><h4 class="code-header">fn <a href="#tymethod.raw_storage_value" class="fn">raw_storage_value</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;,
+    storage_key: StorageKey,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;StorageData&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Read raw value from runtime storage.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.pending_extrinsics" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#159">source</a><h4 class="code-header">fn <a href="#tymethod.pending_extrinsics" class="fn">pending_extrinsics</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;Bytes&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Returns pending extrinsics from transaction pool.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.submit_unsigned_extrinsic" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#163">source</a><h4 class="code-header">fn <a href="#tymethod.submit_unsigned_extrinsic" class="fn">submit_unsigned_extrinsic</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    transaction: Bytes,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Submit unsigned extrinsic for inclusion in a block.</p>
+<p>Note: The given transaction needs to be SCALE encoded beforehand.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.submit_signed_extrinsic" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#171-180">source</a><h4 class="code-header">fn <a href="#tymethod.submit_signed_extrinsic" class="fn">submit_signed_extrinsic</a>&lt;'life0, 'life1, 'async_trait&gt;(
+    &amp;'life0 self,
+    signer: &amp;'life1 <a class="type" href="type.AccountKeyPairOf.html" title="type relay_substrate_client::AccountKeyPairOf">AccountKeyPairOf</a>&lt;C&gt;,
+    prepare_extrinsic: impl 'async_trait + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(<a class="type" href="type.HeaderIdOf.html" title="type relay_substrate_client::HeaderIdOf">HeaderIdOf</a>&lt;C&gt;, <a class="type" href="type.NonceOf.html" title="type relay_substrate_client::NonceOf">NonceOf</a>&lt;C&gt;) -&gt; <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="struct" href="struct.UnsignedTransaction.html" title="struct relay_substrate_client::UnsignedTransaction">UnsignedTransaction</a>&lt;C&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    C: <a class="trait" href="trait.ChainWithTransactions.html" title="trait relay_substrate_client::ChainWithTransactions">ChainWithTransactions</a>,
+    <a class="type" href="type.AccountIdOf.html" title="type relay_substrate_client::AccountIdOf">AccountIdOf</a>&lt;C&gt;: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;&lt;<a class="type" href="type.AccountKeyPairOf.html" title="type relay_substrate_client::AccountKeyPairOf">AccountKeyPairOf</a>&lt;C&gt; as Pair&gt;::Public&gt;,
+    Self: 'async_trait,
+    'life0: 'async_trait,
+    'life1: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Submit an extrinsic signed by given account.</p>
+<p>All calls of this method are synchronized, so there can’t be more than one active
+<code>submit_signed_extrinsic()</code> call. This guarantees that no nonces collision may happen
+if all client instances are clones of the same initial <code>Client</code>.</p>
+<p>Note: The given transaction needs to be SCALE encoded beforehand.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.submit_and_watch_signed_extrinsic" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#183-192">source</a><h4 class="code-header">fn <a href="#tymethod.submit_and_watch_signed_extrinsic" class="fn">submit_and_watch_signed_extrinsic</a>&lt;'life0, 'life1, 'async_trait&gt;(
+    &amp;'life0 self,
+    signer: &amp;'life1 <a class="type" href="type.AccountKeyPairOf.html" title="type relay_substrate_client::AccountKeyPairOf">AccountKeyPairOf</a>&lt;C&gt;,
+    prepare_extrinsic: impl 'async_trait + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(<a class="type" href="type.HeaderIdOf.html" title="type relay_substrate_client::HeaderIdOf">HeaderIdOf</a>&lt;C&gt;, <a class="type" href="type.NonceOf.html" title="type relay_substrate_client::NonceOf">NonceOf</a>&lt;C&gt;) -&gt; <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="struct" href="struct.UnsignedTransaction.html" title="struct relay_substrate_client::UnsignedTransaction">UnsignedTransaction</a>&lt;C&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="struct" href="struct.TransactionTracker.html" title="struct relay_substrate_client::TransactionTracker">TransactionTracker</a>&lt;C, Self&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    C: <a class="trait" href="trait.ChainWithTransactions.html" title="trait relay_substrate_client::ChainWithTransactions">ChainWithTransactions</a>,
+    <a class="type" href="type.AccountIdOf.html" title="type relay_substrate_client::AccountIdOf">AccountIdOf</a>&lt;C&gt;: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;&lt;<a class="type" href="type.AccountKeyPairOf.html" title="type relay_substrate_client::AccountKeyPairOf">AccountKeyPairOf</a>&lt;C&gt; as Pair&gt;::Public&gt;,
+    Self: 'async_trait,
+    'life0: 'async_trait,
+    'life1: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Does exactly the same as <code>submit_signed_extrinsic</code>, but keeps watching for extrinsic status
+after submission.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.validate_transaction" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#194-198">source</a><h4 class="code-header">fn <a href="#tymethod.validate_transaction" class="fn">validate_transaction</a>&lt;'life0, 'async_trait, SignedTransaction&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;,
+    transaction: SignedTransaction,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;TransactionValidity&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    SignedTransaction: 'async_trait + Encode + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static,
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Validate transaction at given block.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.estimate_extrinsic_weight" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#200-204">source</a><h4 class="code-header">fn <a href="#tymethod.estimate_extrinsic_weight" class="fn">estimate_extrinsic_weight</a>&lt;'life0, 'async_trait, SignedTransaction&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;,
+    transaction: SignedTransaction,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;Weight&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    SignedTransaction: 'async_trait + Encode + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static,
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Returns weight of the given transaction.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.raw_state_call" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#207-212">source</a><h4 class="code-header">fn <a href="#tymethod.raw_state_call" class="fn">raw_state_call</a>&lt;'life0, 'async_trait, Args&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;,
+    method: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>,
+    arguments: Args,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;Bytes&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Args: 'async_trait + Encode + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>,
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Execute runtime call at given block.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.prove_storage" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#229-233">source</a><h4 class="code-header">fn <a href="#tymethod.prove_storage" class="fn">prove_storage</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;,
+    keys: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;StorageKey&gt;,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;(StorageProof, <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;)&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Returns storage proof of given storage keys and state root.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.header_by_number" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#54-56">source</a><h4 class="code-header">fn <a href="#method.header_by_number" class="fn">header_by_number</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    number: <a class="type" href="type.BlockNumberOf.html" title="type relay_substrate_client::BlockNumberOf">BlockNumberOf</a>&lt;C&gt;,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="type" href="type.HeaderOf.html" title="type relay_substrate_client::HeaderOf">HeaderOf</a>&lt;C&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get header by number.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.best_finalized_header_number" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#63-65">source</a><h4 class="code-header">fn <a href="#method.best_finalized_header_number" class="fn">best_finalized_header_number</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="type" href="type.BlockNumberOf.html" title="type relay_substrate_client::BlockNumberOf">BlockNumberOf</a>&lt;C&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get best finalized header number.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.best_finalized_header" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#67-69">source</a><h4 class="code-header">fn <a href="#method.best_finalized_header" class="fn">best_finalized_header</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="type" href="type.HeaderOf.html" title="type relay_substrate_client::HeaderOf">HeaderOf</a>&lt;C&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get best finalized header.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.best_header_hash" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#74-76">source</a><h4 class="code-header">fn <a href="#method.best_header_hash" class="fn">best_header_hash</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get best header hash.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.storage_value" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#118-131">source</a><h4 class="code-header">fn <a href="#method.storage_value" class="fn">storage_value</a>&lt;'life0, 'async_trait, T&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;,
+    storage_key: StorageKey,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;T&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    T: 'async_trait + Decode + 'static,
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Read and decode value from runtime storage.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.storage_map_value" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#136-143">source</a><h4 class="code-header">fn <a href="#method.storage_map_value" class="fn">storage_map_value</a>&lt;'life0, 'life1, 'life2, 'async_trait, T&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;,
+    pallet_prefix: &amp;'life1 <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>,
+    storage_key: &amp;'life2 T::Key,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;T::Value&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    T: 'async_trait + StorageMapKeyProvider,
+    Self: 'async_trait,
+    'life0: 'async_trait,
+    'life1: 'async_trait,
+    'life2: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Read and decode value from runtime storage map.</p>
+<p><code>pallet_prefix</code> is the name of the pallet (used in <code>construct_runtime</code>), which
+“contains” the storage map.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.storage_double_map_value" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#148-156">source</a><h4 class="code-header">fn <a href="#method.storage_double_map_value" class="fn">storage_double_map_value</a>&lt;'life0, 'life1, 'life2, 'life3, 'async_trait, T&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;,
+    pallet_prefix: &amp;'life1 <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.str.html">str</a>,
+    key1: &amp;'life2 T::Key1,
+    key2: &amp;'life3 T::Key2,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;T::Value&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    T: 'async_trait + StorageDoubleMapKeyProvider,
+    Self: 'async_trait,
+    'life0: 'async_trait,
+    'life1: 'async_trait,
+    'life2: 'async_trait,
+    'life3: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Read and decode value from runtime storage double map.</p>
+<p><code>pallet_prefix</code> is the name of the pallet (used in <code>construct_runtime</code>), which
+“contains” the storage double map.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.state_call" class="method"><a class="src rightside" href="../src/relay_substrate_client/client/traits.rs.html#215-226">source</a><h4 class="code-header">fn <a href="#method.state_call" class="fn">state_call</a>&lt;'life0, 'async_trait, Args, Ret&gt;(
+    &amp;'life0 self,
+    at: <a class="type" href="type.HashOf.html" title="type relay_substrate_client::HashOf">HashOf</a>&lt;C&gt;,
+    method: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>,
+    arguments: Args,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="type" href="type.Result.html" title="type relay_substrate_client::Result">Result</a>&lt;Ret&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Args: 'async_trait + Encode + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>,
+    Ret: 'async_trait + Decode,
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Execute runtime call at given block, provided the input and output types.
+It also performs the input encode and output decode.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/relay_substrate_client/client/traits/trait.Client.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

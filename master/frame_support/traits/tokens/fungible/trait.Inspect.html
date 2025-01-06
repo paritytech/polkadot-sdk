@@ -1,0 +1,234 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Trait for providing balance-inspection access to a fungible asset."><title>Inspect in frame_support::traits::tokens::fungible - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../frame_support/index.html">frame_support</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">Inspect</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Balance">Balance</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.balance">balance</a></li><li><a href="#tymethod.can_deposit">can_deposit</a></li><li><a href="#tymethod.can_withdraw">can_withdraw</a></li><li><a href="#tymethod.minimum_balance">minimum_balance</a></li><li><a href="#tymethod.reducible_balance">reducible_balance</a></li><li><a href="#tymethod.total_balance">total_balance</a></li><li><a href="#tymethod.total_issuance">total_issuance</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.active_issuance">active_issuance</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-Inspect%3CAccountId%3E-for-()">()</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In frame_support::traits::tokens::fungible</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../../../index.html">frame_support</a>::<wbr><a href="../../index.html">traits</a>::<wbr><a href="../index.html">tokens</a>::<wbr><a href="index.html">fungible</a>::<wbr><a class="trait" href="#">Inspect</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../../src/frame_support/traits/tokens/fungible/regular.rs.html#46-109">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Inspect&lt;AccountId&gt;: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> {
+    type <a href="#associatedtype.Balance" class="associatedtype">Balance</a>: <a class="trait" href="../trait.Balance.html" title="trait frame_support::traits::tokens::Balance">Balance</a>;
+
+    // Required methods
+    fn <a href="#tymethod.total_issuance" class="fn">total_issuance</a>() -&gt; Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.minimum_balance" class="fn">minimum_balance</a>() -&gt; Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.total_balance" class="fn">total_balance</a>(who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.balance" class="fn">balance</a>(who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.reducible_balance" class="fn">reducible_balance</a>(
+        who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        preservation: <a class="enum" href="../enum.Preservation.html" title="enum frame_support::traits::tokens::Preservation">Preservation</a>,
+        force: <a class="enum" href="../enum.Fortitude.html" title="enum frame_support::traits::tokens::Fortitude">Fortitude</a>,
+    ) -&gt; Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.can_deposit" class="fn">can_deposit</a>(
+        who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>,
+        provenance: <a class="enum" href="../enum.Provenance.html" title="enum frame_support::traits::tokens::Provenance">Provenance</a>,
+    ) -&gt; <a class="enum" href="../enum.DepositConsequence.html" title="enum frame_support::traits::tokens::DepositConsequence">DepositConsequence</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.can_withdraw" class="fn">can_withdraw</a>(
+        who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+        amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>,
+    ) -&gt; <a class="enum" href="../enum.WithdrawConsequence.html" title="enum frame_support::traits::tokens::WithdrawConsequence">WithdrawConsequence</a>&lt;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>&gt;;
+
+    // Provided method
+    fn <a href="#method.active_issuance" class="fn">active_issuance</a>() -&gt; Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a> { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Trait for providing balance-inspection access to a fungible asset.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.Balance" class="method"><a class="src rightside" href="../../../../src/frame_support/traits/tokens/fungible/regular.rs.html#48">source</a><h4 class="code-header">type <a href="#associatedtype.Balance" class="associatedtype">Balance</a>: <a class="trait" href="../trait.Balance.html" title="trait frame_support::traits::tokens::Balance">Balance</a></h4></section></summary><div class="docblock"><p>Scalar type for representing balance of an account.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.total_issuance" class="method"><a class="src rightside" href="../../../../src/frame_support/traits/tokens/fungible/regular.rs.html#51">source</a><h4 class="code-header">fn <a href="#tymethod.total_issuance" class="fn">total_issuance</a>() -&gt; Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a></h4></section></summary><div class="docblock"><p>The total amount of issuance in the system.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.minimum_balance" class="method"><a class="src rightside" href="../../../../src/frame_support/traits/tokens/fungible/regular.rs.html#60">source</a><h4 class="code-header">fn <a href="#tymethod.minimum_balance" class="fn">minimum_balance</a>() -&gt; Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a></h4></section></summary><div class="docblock"><p>The minimum balance any single account may have.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.total_balance" class="method"><a class="src rightside" href="../../../../src/frame_support/traits/tokens/fungible/regular.rs.html#73">source</a><h4 class="code-header">fn <a href="#tymethod.total_balance" class="fn">total_balance</a>(who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a></h4></section></summary><div class="docblock"><p>Get the total amount of funds whose ultimate beneficial ownership can be determined as
+<code>who</code>.</p>
+<p>This may include funds which are wholly inaccessible to <code>who</code>, either temporarily or even
+indefinitely.</p>
+<p>For the amount of the balance which is currently free to be removed from the account without
+error, use <a href="trait.Inspect.html#tymethod.reducible_balance" title="associated function frame_support::traits::tokens::fungible::Inspect::reducible_balance"><code>Inspect::reducible_balance</code></a>.</p>
+<p>For the amount of the balance which may eventually be free to be removed from the account,
+use <code>balance()</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.balance" class="method"><a class="src rightside" href="../../../../src/frame_support/traits/tokens/fungible/regular.rs.html#80">source</a><h4 class="code-header">fn <a href="#tymethod.balance" class="fn">balance</a>(who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a></h4></section></summary><div class="docblock"><p>Get the balance of <code>who</code> which does not include funds which are exclusively allocated to
+subsystems of the chain (“on hold” or “reserved”).</p>
+<p>In general this isn’t especially useful outside of tests, and for practical purposes, you’ll
+want to use <a href="trait.Inspect.html#tymethod.reducible_balance" title="associated function frame_support::traits::tokens::fungible::Inspect::reducible_balance"><code>Inspect::reducible_balance</code></a>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.reducible_balance" class="method"><a class="src rightside" href="../../../../src/frame_support/traits/tokens/fungible/regular.rs.html#88-92">source</a><h4 class="code-header">fn <a href="#tymethod.reducible_balance" class="fn">reducible_balance</a>(
+    who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    preservation: <a class="enum" href="../enum.Preservation.html" title="enum frame_support::traits::tokens::Preservation">Preservation</a>,
+    force: <a class="enum" href="../enum.Fortitude.html" title="enum frame_support::traits::tokens::Fortitude">Fortitude</a>,
+) -&gt; Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a></h4></section></summary><div class="docblock"><p>Get the maximum amount that <code>who</code> can withdraw/transfer successfully based on whether the
+account should be kept alive (<code>preservation</code>) or whether we are willing to force the
+reduction and potentially go below user-level restrictions on the minimum amount of the
+account.</p>
+<p>Always less than or equal to <a href="trait.Inspect.html#tymethod.balance" title="associated function frame_support::traits::tokens::fungible::Inspect::balance"><code>Inspect::balance</code></a>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.can_deposit" class="method"><a class="src rightside" href="../../../../src/frame_support/traits/tokens/fungible/regular.rs.html#100-104">source</a><h4 class="code-header">fn <a href="#tymethod.can_deposit" class="fn">can_deposit</a>(
+    who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>,
+    provenance: <a class="enum" href="../enum.Provenance.html" title="enum frame_support::traits::tokens::Provenance">Provenance</a>,
+) -&gt; <a class="enum" href="../enum.DepositConsequence.html" title="enum frame_support::traits::tokens::DepositConsequence">DepositConsequence</a></h4></section></summary><div class="docblock"><p>Returns <code>true</code> if the balance of <code>who</code> may be increased by <code>amount</code>.</p>
+<ul>
+<li><code>who</code>: The account of which the balance should be increased by <code>amount</code>.</li>
+<li><code>amount</code>: How much should the balance be increased?</li>
+<li><code>provenance</code>: Will <code>amount</code> be minted to deposit it into <code>account</code> or is it already in the
+system?</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.can_withdraw" class="method"><a class="src rightside" href="../../../../src/frame_support/traits/tokens/fungible/regular.rs.html#108">source</a><h4 class="code-header">fn <a href="#tymethod.can_withdraw" class="fn">can_withdraw</a>(
+    who: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    amount: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>,
+) -&gt; <a class="enum" href="../enum.WithdrawConsequence.html" title="enum frame_support::traits::tokens::WithdrawConsequence">WithdrawConsequence</a>&lt;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>&gt;</h4></section></summary><div class="docblock"><p>Returns <code>Success</code> if the balance of <code>who</code> may be decreased by <code>amount</code>, otherwise
+the consequence.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.active_issuance" class="method"><a class="src rightside" href="../../../../src/frame_support/traits/tokens/fungible/regular.rs.html#55-57">source</a><h4 class="code-header">fn <a href="#method.active_issuance" class="fn">active_issuance</a>() -&gt; Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a></h4></section></summary><div class="docblock"><p>The total amount of issuance in the system excluding those which are controlled by the
+system.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-Inspect%3CAccountId%3E-for-()" class="impl"><a class="src rightside" href="../../../../src/frame_support/traits/tokens/fungible/regular.rs.html#545-568">source</a><a href="#impl-Inspect%3CAccountId%3E-for-()" class="anchor">§</a><h3 class="code-header">impl&lt;AccountId&gt; <a class="trait" href="trait.Inspect.html" title="trait frame_support::traits::tokens::fungible::Inspect">Inspect</a>&lt;AccountId&gt; for <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h3></section></summary><div class="docblock"><p>Dummy implementation of <a href="trait.Inspect.html" title="trait frame_support::traits::tokens::fungible::Inspect"><code>Inspect</code></a></p>
+</div><div class="impl-items"><section id="associatedtype.Balance-1" class="associatedtype trait-impl"><a href="#associatedtype.Balance-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Balance" class="associatedtype">Balance</a> = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a></h4></section><section id="method.total_issuance" class="method trait-impl"><a class="src rightside" href="../../../../src/frame_support/traits/tokens/fungible/regular.rs.html#547-549">source</a><a href="#method.total_issuance" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.total_issuance" class="fn">total_issuance</a>() -&gt; Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a></h4></section><section id="method.minimum_balance" class="method trait-impl"><a class="src rightside" href="../../../../src/frame_support/traits/tokens/fungible/regular.rs.html#550-552">source</a><a href="#method.minimum_balance" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.minimum_balance" class="fn">minimum_balance</a>() -&gt; Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a></h4></section><section id="method.total_balance" class="method trait-impl"><a class="src rightside" href="../../../../src/frame_support/traits/tokens/fungible/regular.rs.html#553-555">source</a><a href="#method.total_balance" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.total_balance" class="fn">total_balance</a>(_: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a></h4></section><section id="method.balance" class="method trait-impl"><a class="src rightside" href="../../../../src/frame_support/traits/tokens/fungible/regular.rs.html#556-558">source</a><a href="#method.balance" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.balance" class="fn">balance</a>(_: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a></h4></section><section id="method.reducible_balance" class="method trait-impl"><a class="src rightside" href="../../../../src/frame_support/traits/tokens/fungible/regular.rs.html#559-561">source</a><a href="#method.reducible_balance" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.reducible_balance" class="fn">reducible_balance</a>(
+    _: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    _: <a class="enum" href="../enum.Preservation.html" title="enum frame_support::traits::tokens::Preservation">Preservation</a>,
+    _: <a class="enum" href="../enum.Fortitude.html" title="enum frame_support::traits::tokens::Fortitude">Fortitude</a>,
+) -&gt; Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a></h4></section><section id="method.can_deposit" class="method trait-impl"><a class="src rightside" href="../../../../src/frame_support/traits/tokens/fungible/regular.rs.html#562-564">source</a><a href="#method.can_deposit" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.can_deposit" class="fn">can_deposit</a>(
+    _: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    _: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>,
+    _: <a class="enum" href="../enum.Provenance.html" title="enum frame_support::traits::tokens::Provenance">Provenance</a>,
+) -&gt; <a class="enum" href="../enum.DepositConsequence.html" title="enum frame_support::traits::tokens::DepositConsequence">DepositConsequence</a></h4></section><section id="method.can_withdraw" class="method trait-impl"><a class="src rightside" href="../../../../src/frame_support/traits/tokens/fungible/regular.rs.html#565-567">source</a><a href="#method.can_withdraw" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.can_withdraw" class="fn">can_withdraw</a>(
+    _: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;AccountId</a>,
+    _: Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>,
+) -&gt; <a class="enum" href="../enum.WithdrawConsequence.html" title="enum frame_support::traits::tokens::WithdrawConsequence">WithdrawConsequence</a>&lt;Self::<a class="associatedtype" href="trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungible::Inspect::Balance">Balance</a>&gt;</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-Inspect%3CAccountId%3E-for-ItemOf%3CF,+A,+AccountId%3E" class="impl"><a class="src rightside" href="../../../../src/frame_support/traits/tokens/fungible/item_of.rs.html#45-84">source</a><a href="#impl-Inspect%3CAccountId%3E-for-ItemOf%3CF,+A,+AccountId%3E" class="anchor">§</a><h3 class="code-header">impl&lt;F: <a class="trait" href="../fungibles/trait.Inspect.html" title="trait frame_support::traits::tokens::fungibles::Inspect">Inspect</a>&lt;AccountId&gt;, A: <a class="trait" href="../../../pallet_prelude/trait.Get.html" title="trait frame_support::pallet_prelude::Get">Get</a>&lt;&lt;F as <a class="trait" href="../fungibles/trait.Inspect.html" title="trait frame_support::traits::tokens::fungibles::Inspect">Inspect</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="../fungibles/trait.Inspect.html#associatedtype.AssetId" title="type frame_support::traits::tokens::fungibles::Inspect::AssetId">AssetId</a>&gt;, AccountId&gt; <a class="trait" href="trait.Inspect.html" title="trait frame_support::traits::tokens::fungible::Inspect">Inspect</a>&lt;AccountId&gt; for <a class="struct" href="struct.ItemOf.html" title="struct frame_support::traits::tokens::fungible::ItemOf">ItemOf</a>&lt;F, A, AccountId&gt;</h3></section></summary><div class="impl-items"><section id="associatedtype.Balance-2" class="associatedtype trait-impl"><a href="#associatedtype.Balance-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Balance" class="associatedtype">Balance</a> = &lt;F as <a class="trait" href="../fungibles/trait.Inspect.html" title="trait frame_support::traits::tokens::fungibles::Inspect">Inspect</a>&lt;AccountId&gt;&gt;::<a class="associatedtype" href="../fungibles/trait.Inspect.html#associatedtype.Balance" title="type frame_support::traits::tokens::fungibles::Inspect::Balance">Balance</a></h4></section></div></details></div><script src="../../../../trait.impl/frame_support/traits/tokens/fungible/regular/trait.Inspect.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

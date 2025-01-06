@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AvailabilityBitfieldRecord","AvailabilityBitfields_Storage_Instance","CandidatePendingAvailability","PendingAvailabilityCommitments_Storage_Instance","PendingAvailability_Storage_Instance"],"type":["AvailabilityBitfields","PendingAvailability","PendingAvailabilityCommitments"]};

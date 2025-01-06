@@ -1,0 +1,205 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Target client used in equivocation detection loop."><title>TargetClient in equivocation_detector - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="equivocation_detector" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../equivocation_detector/index.html">equivocation_detector</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">TargetClient</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.best_finalized_header_number">best_finalized_header_number</a></li><li><a href="#tymethod.best_synced_header_hash">best_synced_header_hash</a></li><li><a href="#tymethod.finality_verification_context">finality_verification_context</a></li><li><a href="#tymethod.synced_headers_finality_info">synced_headers_finality_info</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In crate equivocation_detector</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">equivocation_detector</a>::<wbr><a class="trait" href="#">TargetClient</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/equivocation_detector/lib.rs.html#71-94">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait TargetClient&lt;P: <a class="trait" href="trait.EquivocationDetectionPipeline.html" title="trait equivocation_detector::EquivocationDetectionPipeline">EquivocationDetectionPipeline</a>&gt;: <a class="trait" href="../relay_utils/relay_loop/trait.Client.html" title="trait relay_utils::relay_loop::Client">RelayClient</a> {
+    // Required methods
+    fn <a href="#tymethod.best_finalized_header_number" class="fn">best_finalized_header_number</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;P::<a class="associatedtype" href="trait.EquivocationDetectionPipeline.html#associatedtype.TargetNumber" title="type equivocation_detector::EquivocationDetectionPipeline::TargetNumber">TargetNumber</a>, Self::<a class="associatedtype" href="../relay_utils/relay_loop/trait.Client.html#associatedtype.Error" title="type relay_utils::relay_loop::Client::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.best_synced_header_hash" class="fn">best_synced_header_hash</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: P::<a class="associatedtype" href="trait.EquivocationDetectionPipeline.html#associatedtype.TargetNumber" title="type equivocation_detector::EquivocationDetectionPipeline::TargetNumber">TargetNumber</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;P::<a class="associatedtype" href="../finality_relay/base/trait.FinalityPipeline.html#associatedtype.Hash" title="type finality_relay::base::FinalityPipeline::Hash">Hash</a>&gt;, Self::<a class="associatedtype" href="../relay_utils/relay_loop/trait.Client.html#associatedtype.Error" title="type relay_utils::relay_loop::Client::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.finality_verification_context" class="fn">finality_verification_context</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: P::<a class="associatedtype" href="trait.EquivocationDetectionPipeline.html#associatedtype.TargetNumber" title="type equivocation_detector::EquivocationDetectionPipeline::TargetNumber">TargetNumber</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;P::<a class="associatedtype" href="trait.EquivocationDetectionPipeline.html#associatedtype.FinalityVerificationContext" title="type equivocation_detector::EquivocationDetectionPipeline::FinalityVerificationContext">FinalityVerificationContext</a>, Self::<a class="associatedtype" href="../relay_utils/relay_loop/trait.Client.html#associatedtype.Error" title="type relay_utils::relay_loop::Client::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.synced_headers_finality_info" class="fn">synced_headers_finality_info</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        at: P::<a class="associatedtype" href="trait.EquivocationDetectionPipeline.html#associatedtype.TargetNumber" title="type equivocation_detector::EquivocationDetectionPipeline::TargetNumber">TargetNumber</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;HeaderFinalityInfo&lt;&lt;P as <a class="trait" href="../finality_relay/base/trait.FinalityPipeline.html" title="trait finality_relay::base::FinalityPipeline">FinalityPipeline</a>&gt;::<a class="associatedtype" href="../finality_relay/base/trait.FinalityPipeline.html#associatedtype.FinalityProof" title="type finality_relay::base::FinalityPipeline::FinalityProof">FinalityProof</a>, &lt;P as <a class="trait" href="trait.EquivocationDetectionPipeline.html" title="trait equivocation_detector::EquivocationDetectionPipeline">EquivocationDetectionPipeline</a>&gt;::<a class="associatedtype" href="trait.EquivocationDetectionPipeline.html#associatedtype.FinalityVerificationContext" title="type equivocation_detector::EquivocationDetectionPipeline::FinalityVerificationContext">FinalityVerificationContext</a>&gt;&gt;, Self::<a class="associatedtype" href="../relay_utils/relay_loop/trait.Client.html#associatedtype.Error" title="type relay_utils::relay_loop::Client::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Target client used in equivocation detection loop.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.best_finalized_header_number" class="method"><a class="src rightside" href="../src/equivocation_detector/lib.rs.html#73">source</a><h4 class="code-header">fn <a href="#tymethod.best_finalized_header_number" class="fn">best_finalized_header_number</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;P::<a class="associatedtype" href="trait.EquivocationDetectionPipeline.html#associatedtype.TargetNumber" title="type equivocation_detector::EquivocationDetectionPipeline::TargetNumber">TargetNumber</a>, Self::<a class="associatedtype" href="../relay_utils/relay_loop/trait.Client.html#associatedtype.Error" title="type relay_utils::relay_loop::Client::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get the best finalized header number.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.best_synced_header_hash" class="method"><a class="src rightside" href="../src/equivocation_detector/lib.rs.html#76-79">source</a><h4 class="code-header">fn <a href="#tymethod.best_synced_header_hash" class="fn">best_synced_header_hash</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: P::<a class="associatedtype" href="trait.EquivocationDetectionPipeline.html#associatedtype.TargetNumber" title="type equivocation_detector::EquivocationDetectionPipeline::TargetNumber">TargetNumber</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;P::<a class="associatedtype" href="../finality_relay/base/trait.FinalityPipeline.html#associatedtype.Hash" title="type finality_relay::base::FinalityPipeline::Hash">Hash</a>&gt;, Self::<a class="associatedtype" href="../relay_utils/relay_loop/trait.Client.html#associatedtype.Error" title="type relay_utils::relay_loop::Client::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get the hash of the best source header known by the target at the provided block number.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.finality_verification_context" class="method"><a class="src rightside" href="../src/equivocation_detector/lib.rs.html#83-86">source</a><h4 class="code-header">fn <a href="#tymethod.finality_verification_context" class="fn">finality_verification_context</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: P::<a class="associatedtype" href="trait.EquivocationDetectionPipeline.html#associatedtype.TargetNumber" title="type equivocation_detector::EquivocationDetectionPipeline::TargetNumber">TargetNumber</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;P::<a class="associatedtype" href="trait.EquivocationDetectionPipeline.html#associatedtype.FinalityVerificationContext" title="type equivocation_detector::EquivocationDetectionPipeline::FinalityVerificationContext">FinalityVerificationContext</a>, Self::<a class="associatedtype" href="../relay_utils/relay_loop/trait.Client.html#associatedtype.Error" title="type relay_utils::relay_loop::Client::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get the data stored by the target at the specified block for validating source finality
+proofs.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.synced_headers_finality_info" class="method"><a class="src rightside" href="../src/equivocation_detector/lib.rs.html#90-93">source</a><h4 class="code-header">fn <a href="#tymethod.synced_headers_finality_info" class="fn">synced_headers_finality_info</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    at: P::<a class="associatedtype" href="trait.EquivocationDetectionPipeline.html#associatedtype.TargetNumber" title="type equivocation_detector::EquivocationDetectionPipeline::TargetNumber">TargetNumber</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;HeaderFinalityInfo&lt;&lt;P as <a class="trait" href="../finality_relay/base/trait.FinalityPipeline.html" title="trait finality_relay::base::FinalityPipeline">FinalityPipeline</a>&gt;::<a class="associatedtype" href="../finality_relay/base/trait.FinalityPipeline.html#associatedtype.FinalityProof" title="type finality_relay::base::FinalityPipeline::FinalityProof">FinalityProof</a>, &lt;P as <a class="trait" href="trait.EquivocationDetectionPipeline.html" title="trait equivocation_detector::EquivocationDetectionPipeline">EquivocationDetectionPipeline</a>&gt;::<a class="associatedtype" href="trait.EquivocationDetectionPipeline.html#associatedtype.FinalityVerificationContext" title="type equivocation_detector::EquivocationDetectionPipeline::FinalityVerificationContext">FinalityVerificationContext</a>&gt;&gt;, Self::<a class="associatedtype" href="../relay_utils/relay_loop/trait.Client.html#associatedtype.Error" title="type relay_utils::relay_loop::Client::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get the finality info associated to the source headers synced with the target chain at the
+specified block.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/equivocation_detector/trait.TargetClient.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,489 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Learn about how extrinsics are encoded to be transmitted to a node and stored in blocks."><title>polkadot_sdk_docs::reference_docs::extrinsic_encoding - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.com/favicon.ico"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module extrinsic_encoding</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#modules">Modules</a></li></ul></section><h2><a href="../index.html">In polkadot_sdk_docs::reference_docs</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">reference_docs</a>::<wbr><a class="mod" href="#">extrinsic_encoding</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/reference_docs/extrinsic_encoding.rs.html#1-333">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn about how extrinsics are encoded to be transmitted to a node and stored in blocks.</p>
+<h2 id="constructing-and-signing-extrinsics"><a class="doc-anchor" href="#constructing-and-signing-extrinsics">§</a>Constructing and Signing Extrinsics</h2>
+<p>Extrinsics are payloads that are stored in blocks which are responsible for altering the state
+of a blockchain via the <a href="../blockchain_state_machines/index.html" title="mod polkadot_sdk_docs::reference_docs::blockchain_state_machines"><em>state transition
+function</em></a>.</p>
+<p>Substrate is configurable enough that extrinsics can take any format. In practice, runtimes
+tend to use our <a href="../../../sp_runtime/generic/unchecked_extrinsic/struct.UncheckedExtrinsic.html" title="struct sp_runtime::generic::unchecked_extrinsic::UncheckedExtrinsic"><code>sp_runtime::generic::UncheckedExtrinsic</code></a> type to represent extrinsics,
+because it’s generic enough to cater for most (if not all) use cases. In Polkadot, this is
+configured <a href="https://github.com/polkadot-fellows/runtimes/blob/94b2798b69ba6779764e20a50f056e48db78ebef/relay/polkadot/src/lib.rs#L1478">here</a>
+at the time of writing.</p>
+<p>What follows is a description of how extrinsics based on this
+<a href="../../../sp_runtime/generic/unchecked_extrinsic/struct.UncheckedExtrinsic.html" title="struct sp_runtime::generic::unchecked_extrinsic::UncheckedExtrinsic"><code>sp_runtime::generic::UncheckedExtrinsic</code></a> type are encoded into bytes. Specifically, we are
+looking at how extrinsics with a format version of 5 are encoded. This version is itself a part
+of the payload, and if it changes, it indicates that something about the encoding may have
+changed.</p>
+<h2 id="encoding-an-extrinsic"><a class="doc-anchor" href="#encoding-an-extrinsic">§</a>Encoding an Extrinsic</h2>
+<p>At a high level, all extrinsics compatible with <a href="../../../sp_runtime/generic/unchecked_extrinsic/struct.UncheckedExtrinsic.html" title="struct sp_runtime::generic::unchecked_extrinsic::UncheckedExtrinsic"><code>sp_runtime::generic::UncheckedExtrinsic</code></a>
+are formed from concatenating some details together, as in the following pseudo-code:</p>
+<div class="example-wrap"><pre class="language-text"><code>extrinsic_bytes = concat(
+    compact_encoded_length,
+    version_and_extrinsic_type,
+	maybe_extension_data,
+    call_data
+)
+</code></pre></div>
+<p>For clarity, the actual implementation in Substrate looks like this:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl</span>&lt;Address, Call, Signature, Extension&gt; Encode
+	<span class="kw">for </span>UncheckedExtrinsic&lt;Address, Call, Signature, Extension&gt;
+<span class="kw">where
+	</span>Preamble&lt;Address, Signature, Extension&gt;: Encode,
+	Call: Encode,
+	Extension: Encode,
+{
+	<span class="kw">fn </span>encode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
+		<span class="kw">let </span><span class="kw-2">mut </span>tmp = <span class="self">self</span>.preamble.encode();
+		<span class="self">self</span>.function.encode_to(<span class="kw-2">&amp;mut </span>tmp);
+
+		<span class="kw">let </span>compact_len = codec::Compact::&lt;u32&gt;(tmp.len() <span class="kw">as </span>u32);
+
+		<span class="comment">// Allocate the output buffer with the correct length
+		</span><span class="kw">let </span><span class="kw-2">mut </span>output = Vec::with_capacity(compact_len.size_hint() + tmp.len());
+
+		compact_len.encode_to(<span class="kw-2">&amp;mut </span>output);
+		output.extend(tmp);
+
+		output
+	}
+}</code></pre></div>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl</span>&lt;Address, Call, Signature, Extra&gt; Encode
+	<span class="kw">for </span>UncheckedExtrinsicV4&lt;Address, Call, Signature, Extra&gt;
+<span class="kw">where
+	</span>Address: Encode,
+	Signature: Encode,
+	Call: Encode,
+	Extra: Encode,
+{
+	<span class="kw">fn </span>encode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
+		<span class="kw">let </span><span class="kw-2">mut </span>tmp = Vec::with_capacity(sp_std::mem::size_of::&lt;<span class="self">Self</span>&gt;());
+
+		<span class="comment">// 1 byte version id.
+		</span><span class="kw">match </span><span class="self">self</span>.signature.as_ref() {
+			<span class="prelude-val">Some</span>(s) =&gt; {
+				tmp.push(<span class="number">4u8 </span>| <span class="number">0b1000_0000</span>);
+				s.encode_to(<span class="kw-2">&amp;mut </span>tmp);
+			},
+			<span class="prelude-val">None </span>=&gt; {
+				tmp.push(<span class="number">4u8 </span>&amp; <span class="number">0b0111_1111</span>);
+			},
+		}
+		<span class="self">self</span>.function.encode_to(<span class="kw-2">&amp;mut </span>tmp);
+
+		<span class="kw">let </span>compact_len = codec::Compact::&lt;u32&gt;(tmp.len() <span class="kw">as </span>u32);
+
+		<span class="comment">// Allocate the output buffer with the correct length
+		</span><span class="kw">let </span><span class="kw-2">mut </span>output = Vec::with_capacity(compact_len.size_hint() + tmp.len());
+
+		compact_len.encode_to(<span class="kw-2">&amp;mut </span>output);
+		output.extend(tmp);
+
+		output
+	}
+}</code></pre></div>
+<p>Let’s look at how each of these details is constructed:</p>
+<h3 id="compact_encoded_length"><a class="doc-anchor" href="#compact_encoded_length">§</a>compact_encoded_length</h3>
+<p>This is a [SCALE compact encoded][frame::deps::codec::Compact] integer which is equal to the
+length, in bytes, of the rest of the extrinsic details.</p>
+<p>To obtain this value, we must encode and concatenate together the rest of the extrinsic details
+first, and then obtain the byte length of these. We can then compact encode that length, and
+prepend it to the rest of the details.</p>
+<h3 id="version_and_maybe_signature"><a class="doc-anchor" href="#version_and_maybe_signature">§</a>version_and_maybe_signature</h3>
+<p>If the extrinsic is <em>unsigned</em>, then <code>version_and_maybe_signature</code> will be just one byte
+denoting the <em>transaction protocol version</em>, which is 4 (or <code>0b0000_0100</code>).</p>
+<p>If the extrinsic is <em>signed</em> (all extrinsics submitted from users must be signed), then
+<code>version_and_maybe_signature</code> is obtained by concatenating some details together, ie:</p>
+<div class="example-wrap"><pre class="language-text"><code>version_and_maybe_signature = concat(
+    version_and_signed,
+    from_address,
+    signature,
+    transaction_extensions_extra,
+)
+</code></pre></div>
+<p>Each of the details to be concatenated together is explained below:</p>
+<h3 id="version_and_extrinsic_type"><a class="doc-anchor" href="#version_and_extrinsic_type">§</a>version_and_extrinsic_type</h3>
+<p>This byte has 2 components:</p>
+<ul>
+<li>the 2 most significant bits represent the extrinsic type:
+<ul>
+<li>bare - <code>0b00</code></li>
+<li>signed - <code>0b10</code></li>
+<li>general - <code>0b01</code></li>
+</ul>
+</li>
+<li>the 6 least significant bits represent the extrinsic format version (currently 5)</li>
+</ul>
+<h4 id="bare-extrinsics"><a class="doc-anchor" href="#bare-extrinsics">§</a>Bare extrinsics</h4>
+<p>If the extrinsic is <em>bare</em>, then <code>version_and_extrinsic_type</code> will be just the <em>transaction
+protocol version</em>, which is 5 (or <code>0b0000_0101</code>). Bare extrinsics do not carry any other
+extension data, so <code>maybe_extension_data</code> would not be included in the payload and the
+<code>version_and_extrinsic_type</code> would always be followed by the encoded call bytes.</p>
+<h4 id="signed-extrinsics"><a class="doc-anchor" href="#signed-extrinsics">§</a>Signed extrinsics</h4>
+<p>If the extrinsic is <em>signed</em> (all extrinsics submitted from users used to be signed up until
+version 4), then <code>version_and_extrinsic_type</code> is obtained by having a MSB of <code>1</code> on the
+<em>transaction protocol version</em> byte (which translates to <code>0b1000_0101</code>).</p>
+<p>Additionally, <em>signed</em> extrinsics also carry with them address and signature information encoded
+as follows:</p>
+<h5 id="from_address"><a class="doc-anchor" href="#from_address">§</a>from_address</h5>
+<p>This is the [SCALE encoded][frame::deps::codec] address of the sender of the extrinsic. The
+address is the first generic parameter of <a href="../../../sp_runtime/generic/unchecked_extrinsic/struct.UncheckedExtrinsic.html" title="struct sp_runtime::generic::unchecked_extrinsic::UncheckedExtrinsic"><code>sp_runtime::generic::UncheckedExtrinsic</code></a>, and so
+can vary from chain to chain.</p>
+<p>The address type used on the Polkadot relay chain is <a href="../../../sp_runtime/multiaddress/enum.MultiAddress.html" title="enum sp_runtime::multiaddress::MultiAddress"><code>sp_runtime::MultiAddress&lt;AccountId32&gt;</code></a>,
+where <code>AccountId32</code> is defined <a href="../../../sp_core/crypto/struct.AccountId32.html" title="struct sp_core::crypto::AccountId32">here</a>. When constructing a
+signed extrinsic to be submitted to a Polkadot node, you’ll always use the
+<a href="../../../sp_runtime/multiaddress/enum.MultiAddress.html#variant.Id" title="variant sp_runtime::multiaddress::MultiAddress::Id"><code>sp_runtime::MultiAddress::Id</code></a> variant to wrap your <code>AccountId32</code>.</p>
+<h5 id="signature"><a class="doc-anchor" href="#signature">§</a>signature</h5>
+<p>This is the [SCALE encoded][frame::deps::codec] signature. The signature type is configured via
+the third generic parameter of <a href="../../../sp_runtime/generic/unchecked_extrinsic/struct.UncheckedExtrinsic.html" title="struct sp_runtime::generic::unchecked_extrinsic::UncheckedExtrinsic"><code>sp_runtime::generic::UncheckedExtrinsic</code></a>, which determines the
+shape of the signature and signing algorithm that should be used.</p>
+<p>The signature is obtained by signing the <em>signed payload</em> bytes (see below on how this is
+constructed) using the private key associated with the address and correct algorithm.</p>
+<p>The signature type used on the Polkadot relay chain is <a href="../../../sp_runtime/enum.MultiSignature.html" title="enum sp_runtime::MultiSignature"><code>sp_runtime::MultiSignature</code></a>; the
+variants there are the types of signature that can be provided.</p>
+<h4 id="general-extrinsics"><a class="doc-anchor" href="#general-extrinsics">§</a>General extrinsics</h4>
+<p>If the extrinsic is <em>general</em> (it doesn’t carry a signature in the payload, only extension
+data), then <code>version_and_extrinsic_type</code> is obtained by logical OR between the general
+transaction type bits and the <em>transaction protocol version</em> byte (which translates to
+<code>0b0100_0101</code>).</p>
+<h4 id="transaction_extensions_extra"><a class="doc-anchor" href="#transaction_extensions_extra">§</a>transaction_extensions_extra</h4>
+<p>This is the concatenation of the [SCALE encoded][frame::deps::codec] bytes representing first a
+single byte describing the extension version (this is bumped whenever a change occurs in the
+transaction extension pipeline) followed by the bytes of each of the <a href="../../../sp_runtime/traits/transaction_extension/trait.TransactionExtension.html" title="trait sp_runtime::traits::transaction_extension::TransactionExtension"><em>transaction
+extensions</em></a>, and are configured by the fourth generic
+parameter of <a href="../../../sp_runtime/generic/unchecked_extrinsic/struct.UncheckedExtrinsic.html" title="struct sp_runtime::generic::unchecked_extrinsic::UncheckedExtrinsic"><code>sp_runtime::generic::UncheckedExtrinsic</code></a>. Learn more about transaction
+extensions <a href="../transaction_extensions/index.html" title="mod polkadot_sdk_docs::reference_docs::transaction_extensions">here</a>.</p>
+<p>When it comes to constructing an extrinsic, each transaction extension has two things that we
+are interested in here:</p>
+<ul>
+<li>The actual SCALE encoding of the transaction extension type itself; this is what will form our
+<code>transaction_extensions_extra</code> bytes.</li>
+<li>An <code>Implicit</code> type. This is SCALE encoded into the <code>transaction_extensions_implicit</code> data (see
+below).</li>
+</ul>
+<p>Either (or both) of these can encode to zero bytes.</p>
+<p>Each chain configures the set of transaction extensions that it uses in its runtime
+configuration. At the time of writing, Polkadot configures them
+<a href="https://github.com/polkadot-fellows/runtimes/blob/1dc04eb954eadf8aadb5d83990b89662dbb5a074/relay/polkadot/src/lib.rs#L1432C25-L1432C25">here</a>.
+Some of the common transaction extensions are defined
+<a href="../../../frame_system/index.html#transaction-extensions" title="mod frame_system">here</a>.</p>
+<p>Information about exactly which transaction extensions are present on a chain and in what order
+is also a part of the metadata for the chain. For V15 metadata, it can be [found
+here][frame::deps::frame_support::__private::metadata::v15::ExtrinsicMetadata].</p>
+<h3 id="call_data"><a class="doc-anchor" href="#call_data">§</a>call_data</h3>
+<p>This is the main payload of the extrinsic, which is used to determine how the chain’s state is
+altered. This is defined by the second generic parameter of
+<a href="../../../sp_runtime/generic/unchecked_extrinsic/struct.UncheckedExtrinsic.html" title="struct sp_runtime::generic::unchecked_extrinsic::UncheckedExtrinsic"><code>sp_runtime::generic::UncheckedExtrinsic</code></a>.</p>
+<p>A call can be anything that implements [<code>Encode</code>][frame::deps::codec::Encode]. In FRAME-based
+runtimes, a call is represented as an enum of enums, where the outer enum represents the FRAME
+pallet being called, and the inner enum represents the call being made within that pallet, and
+any arguments to it. Read more about the call enum
+<a href="../frame_runtime_types/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_runtime_types">here</a>.</p>
+<p>FRAME <code>Call</code> enums are automatically generated, and end up looking something like this:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub mod </span>call_data {
+	<span class="kw">use </span>codec::{Decode, Encode};
+	<span class="kw">use </span>sp_runtime::{traits::Dispatchable, DispatchResultWithInfo};
+
+	<span class="comment">// The outer enum composes calls within
+	// different pallets together. We have two
+	// pallets, "PalletA" and "PalletB".
+	</span><span class="attr">#[derive(Encode, Decode, Clone)]
+	</span><span class="kw">pub enum </span>Call {
+		<span class="attr">#[codec(index = <span class="number">0</span>)]
+		</span>PalletA(PalletACall),
+		<span class="attr">#[codec(index = <span class="number">7</span>)]
+		</span>PalletB(PalletBCall),
+	}
+
+	<span class="comment">// An inner enum represents the calls within
+	// a specific pallet. "PalletA" has one call,
+	// "Foo".
+	</span><span class="attr">#[derive(Encode, Decode, Clone)]
+	</span><span class="kw">pub enum </span>PalletACall {
+		<span class="attr">#[codec(index = <span class="number">0</span>)]
+		</span>Foo(String),
+	}
+
+	<span class="attr">#[derive(Encode, Decode, Clone)]
+	</span><span class="kw">pub enum </span>PalletBCall {
+		<span class="attr">#[codec(index = <span class="number">0</span>)]
+		</span>Bar(String),
+	}
+
+	<span class="kw">impl </span>Dispatchable <span class="kw">for </span>Call {
+		<span class="kw">type </span>RuntimeOrigin = ();
+		<span class="kw">type </span>Config = ();
+		<span class="kw">type </span>Info = ();
+		<span class="kw">type </span>PostInfo = ();
+		<span class="kw">fn </span>dispatch(<span class="self">self</span>, _origin: <span class="self">Self</span>::RuntimeOrigin) -&gt; DispatchResultWithInfo&lt;<span class="self">Self</span>::PostInfo&gt; {
+			<span class="prelude-val">Ok</span>(())
+		}
+	}
+}</code></pre></div>
+<p>In pseudo-code, this <code>Call</code> enum encodes equivalently to:</p>
+<div class="example-wrap"><pre class="language-text"><code>call_data = concat(
+    pallet_index,
+    call_index,
+    call_args
+)
+</code></pre></div>
+<ul>
+<li><code>pallet_index</code> is a single byte denoting the index of the pallet that we are calling into, and
+is what the tag of the outermost enum will encode to.</li>
+<li><code>call_index</code> is a single byte denoting the index of the call that we are making the pallet,
+and is what the tag of the inner enum will encode to.</li>
+<li><code>call_args</code> are the SCALE encoded bytes for each of the arguments that the call expects, and
+are typically provided as values to the inner enum.</li>
+</ul>
+<p>Information about the pallets that exist for a chain (including their indexes), the calls
+available in each pallet (including their indexes), and the arguments required for each call can
+be found in the metadata for the chain. For V15 metadata, this information [is
+here][frame::deps::frame_support::__private::metadata::v15::PalletMetadata].</p>
+<h2 id="the-signed-payload-format"><a class="doc-anchor" href="#the-signed-payload-format">§</a>The Signed Payload Format</h2>
+<p>All <em>signed</em> extrinsics submitted to a node from the outside world (also known as
+<em>transactions</em>) need to be <em>signed</em>. The data that needs to be signed for some extrinsic is
+called the <em>signed payload</em>, and its shape is described by the following pseudo-code:</p>
+<div class="example-wrap"><pre class="language-text"><code>signed_payload = blake2_256(
+	concat(
+    	call_data,
+    	transaction_extensions_extra,
+    	transaction_extensions_implicit,
+	)
+)
+</code></pre></div>
+<p>The bytes representing <code>call_data</code> and <code>transaction_extensions_extra</code> can be obtained as
+descibed above. <code>transaction_extensions_implicit</code> is constructed by SCALE encoding the
+<a href="../../../sp_runtime/traits/transaction_extension/trait.TransactionExtension.html#associatedtype.Implicit" title="associated type sp_runtime::traits::transaction_extension::TransactionExtension::Implicit">“implicit” data</a> for each transaction
+extension that the chain is using, in order.</p>
+<p>Once we’ve concatenated those together, we hash the result using a Blake2 256bit hasher.</p>
+<p>The <a href="../../../sp_runtime/generic/unchecked_extrinsic/struct.SignedPayload.html" title="struct sp_runtime::generic::unchecked_extrinsic::SignedPayload"><code>sp_runtime::generic::SignedPayload</code></a> type takes care of assembling the correct payload for
+us, given <code>call_data</code> and a tuple of transaction extensions.</p>
+<h2 id="the-general-transaction-format"><a class="doc-anchor" href="#the-general-transaction-format">§</a>The General Transaction Format</h2>
+<p>A General transaction does not have a signature method hardcoded in the check logic of the
+extrinsic, such as a traditionally signed transaction. Instead, general transactions should have
+one or more extensions in the transaction extension pipeline that auhtorize origins in some way,
+one of which could be the traditional signature check that happens for all signed transactions
+in the <a href="../../../sp_runtime/traits/trait.Checkable.html" title="trait sp_runtime::traits::Checkable">Checkable</a> implementation of
+<a href="../../../sp_runtime/generic/unchecked_extrinsic/struct.UncheckedExtrinsic.html" title="struct sp_runtime::generic::unchecked_extrinsic::UncheckedExtrinsic">UncheckedExtrinsic</a>. Therefore, it is up to each
+extension to define the format of the payload it will try to check and authorize the right
+origin type. For an example, look into the <a href="../../../pallet_example_authorization_tx_extension/extensions/index.html" title="mod pallet_example_authorization_tx_extension::extensions">authorization example pallet
+extensions</a></p>
+<h2 id="example-encoding"><a class="doc-anchor" href="#example-encoding">§</a>Example Encoding</h2>
+<p>Using <a href="../../../sp_runtime/generic/unchecked_extrinsic/struct.UncheckedExtrinsic.html" title="struct sp_runtime::generic::unchecked_extrinsic::UncheckedExtrinsic"><code>sp_runtime::generic::UncheckedExtrinsic</code></a>, we can construct and encode an extrinsic as
+follows:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub mod </span>encoding_example {
+	<span class="kw">use </span><span class="kw">super</span>::call_data::{Call, PalletACall};
+	<span class="kw">use </span><span class="kw">crate</span>::reference_docs::transaction_extensions::transaction_extensions_example;
+	<span class="kw">use </span>codec::Encode;
+	<span class="kw">use </span>sp_core::crypto::AccountId32;
+	<span class="kw">use </span>sp_keyring::sr25519::Keyring;
+	<span class="kw">use </span>sp_runtime::{
+		generic::{SignedPayload, UncheckedExtrinsic},
+		MultiAddress, MultiSignature,
+	};
+
+	<span class="comment">// Define some transaction extensions to use. We'll use a couple of examples
+	// from the transaction extensions reference doc.
+	</span><span class="kw">type </span>TransactionExtensions = (
+		transaction_extensions_example::AddToPayload,
+		transaction_extensions_example::AddToSignaturePayload,
+	);
+
+	<span class="comment">// We'll use `UncheckedExtrinsic` to encode our extrinsic for us. We set
+	// the address and signature type to those used on Polkadot, use our custom
+	// `Call` type, and use our custom set of `TransactionExtensions`.
+	</span><span class="kw">type </span>Extrinsic = UncheckedExtrinsic&lt;
+		MultiAddress&lt;AccountId32, ()&gt;,
+		Call,
+		MultiSignature,
+		TransactionExtensions,
+	&gt;;
+
+	<span class="kw">pub fn </span>encode_demo_extrinsic() -&gt; Vec&lt;u8&gt; {
+		<span class="comment">// The "from" address will be our Alice dev account.
+		</span><span class="kw">let </span>from_address = MultiAddress::&lt;AccountId32, ()&gt;::Id(Keyring::Alice.to_account_id());
+
+		<span class="comment">// We provide some values for our expected transaction extensions.
+		</span><span class="kw">let </span>transaction_extensions = (
+			transaction_extensions_example::AddToPayload(<span class="number">1</span>),
+			transaction_extensions_example::AddToSignaturePayload,
+		);
+
+		<span class="comment">// Construct our call data:
+		</span><span class="kw">let </span>call_data = Call::PalletA(PalletACall::Foo(<span class="string">"Hello"</span>.to_string()));
+
+		<span class="comment">// The signed payload. This takes care of encoding the call_data,
+		// transaction_extensions_extra and transaction_extensions_implicit, and hashing
+		// the result if it's &gt; 256 bytes:
+		</span><span class="kw">let </span>signed_payload = SignedPayload::new(call_data.clone(), transaction_extensions.clone());
+
+		<span class="comment">// Sign the signed payload with our Alice dev account's private key,
+		// and wrap the signature into the expected type:
+		</span><span class="kw">let </span>signature = {
+			<span class="kw">let </span>sig = Keyring::Alice.sign(<span class="kw-2">&amp;</span>signed_payload.encode());
+			MultiSignature::Sr25519(sig)
+		};
+
+		<span class="comment">// Now, we can build and encode our extrinsic:
+		</span><span class="kw">let </span>ext = Extrinsic::new_signed(call_data, from_address, signature, transaction_extensions);
+
+		<span class="kw">let </span>encoded_ext = ext.encode();
+		encoded_ext
+	}
+}</code></pre></div>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="call_data/index.html" title="mod polkadot_sdk_docs::reference_docs::extrinsic_encoding::call_data">call_data</a></div></li><li><div class="item-name"><a class="mod" href="encoding_example/index.html" title="mod polkadot_sdk_docs::reference_docs::extrinsic_encoding::encoding_example">encoding_example</a></div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

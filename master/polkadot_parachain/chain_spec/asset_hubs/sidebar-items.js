@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["asset_hub_rococo_development_config","asset_hub_rococo_genesis_config","asset_hub_rococo_like_development_config","asset_hub_rococo_like_local_config","asset_hub_rococo_local_config","asset_hub_westend_config","asset_hub_westend_development_config","asset_hub_westend_local_config"]};

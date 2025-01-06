@@ -1,0 +1,163 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Auto-generated docs-only module listing all defined dispatchables for this pallet."><title>pallet_alliance::pallet::dispatchables - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pallet_alliance" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../pallet_alliance/index.html">pallet_alliance</a><span class="version">27.0.0</span></h2></div><h2 class="location"><a href="#">Module dispatchables</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#functions">Functions</a></li></ul></section><h2><a href="../index.html">In pallet_alliance::pallet</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">pallet_alliance</a>::<wbr><a href="../index.html">pallet</a>::<wbr><a class="mod" href="#">dispatchables</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/pallet_alliance/lib.rs.html#218">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Auto-generated docs-only module listing all defined dispatchables for this pallet.</p>
+<h2 id="warning-doc-only"><a class="doc-anchor" href="#warning-doc-only">§</a>Warning: Doc-Only</h2>
+<p>Members of this module cannot be used directly and are only provided for documentation
+purposes. To see the real version of each dispatchable, look for them in <a href="../struct.Pallet.html" title="struct pallet_alliance::pallet::Pallet"><code>Pallet</code></a> or
+<a href="../enum.Call.html" title="enum pallet_alliance::pallet::Call"><code>Call</code></a>.</p>
+</div></details><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.abdicate_fellow_status.html" title="fn pallet_alliance::pallet::dispatchables::abdicate_fellow_status">abdicate_fellow_status</a></div><div class="desc docblock-short">Abdicate one’s position as a voting member and just be an Ally. May be used by Fellows
+who do not want to leave the Alliance but do not have the capacity to participate
+operationally for some time.</div></li><li><div class="item-name"><a class="fn" href="fn.add_unscrupulous_items.html" title="fn pallet_alliance::pallet::dispatchables::add_unscrupulous_items">add_unscrupulous_items</a></div><div class="desc docblock-short">Add accounts or websites to the list of unscrupulous items.</div></li><li><div class="item-name"><a class="fn" href="fn.announce.html" title="fn pallet_alliance::pallet::dispatchables::announce">announce</a></div><div class="desc docblock-short">Make an announcement of a new IPFS CID about alliance issues.</div></li><li><div class="item-name"><a class="fn" href="fn.close.html" title="fn pallet_alliance::pallet::dispatchables::close">close</a></div><div class="desc docblock-short">Close a vote that is either approved, disapproved, or whose voting period has ended.</div></li><li><div class="item-name"><a class="fn" href="fn.disband.html" title="fn pallet_alliance::pallet::dispatchables::disband">disband</a></div><div class="desc docblock-short">Disband the Alliance, remove all active members and unreserve deposits.</div></li><li><div class="item-name"><a class="fn" href="fn.elevate_ally.html" title="fn pallet_alliance::pallet::dispatchables::elevate_ally">elevate_ally</a></div><div class="desc docblock-short">Elevate an Ally to Fellow.</div></li><li><div class="item-name"><a class="fn" href="fn.give_retirement_notice.html" title="fn pallet_alliance::pallet::dispatchables::give_retirement_notice">give_retirement_notice</a></div><div class="desc docblock-short">As a member, give a retirement notice and start a retirement period required to pass in
+order to retire.</div></li><li><div class="item-name"><a class="fn" href="fn.init_members.html" title="fn pallet_alliance::pallet::dispatchables::init_members">init_members</a></div><div class="desc docblock-short">Initialize the Alliance, onboard fellows and allies.</div></li><li><div class="item-name"><a class="fn" href="fn.join_alliance.html" title="fn pallet_alliance::pallet::dispatchables::join_alliance">join_alliance</a></div><div class="desc docblock-short">Submit oneself for candidacy. A fixed deposit is reserved.</div></li><li><div class="item-name"><a class="fn" href="fn.kick_member.html" title="fn pallet_alliance::pallet::dispatchables::kick_member">kick_member</a></div><div class="desc docblock-short">Kick a member from the Alliance and slash its deposit.</div></li><li><div class="item-name"><a class="fn" href="fn.nominate_ally.html" title="fn pallet_alliance::pallet::dispatchables::nominate_ally">nominate_ally</a></div><div class="desc docblock-short">A Fellow can nominate someone to join the alliance as an Ally. There is no deposit
+required from the nominator or nominee.</div></li><li><div class="item-name"><a class="fn" href="fn.propose.html" title="fn pallet_alliance::pallet::dispatchables::propose">propose</a></div><div class="desc docblock-short">Add a new proposal to be voted on.</div></li><li><div class="item-name"><a class="fn" href="fn.remove_announcement.html" title="fn pallet_alliance::pallet::dispatchables::remove_announcement">remove_announcement</a></div><div class="desc docblock-short">Remove an announcement.</div></li><li><div class="item-name"><a class="fn" href="fn.remove_unscrupulous_items.html" title="fn pallet_alliance::pallet::dispatchables::remove_unscrupulous_items">remove_unscrupulous_items</a></div><div class="desc docblock-short">Deem some items no longer unscrupulous.</div></li><li><div class="item-name"><a class="fn" href="fn.retire.html" title="fn pallet_alliance::pallet::dispatchables::retire">retire</a></div><div class="desc docblock-short">As a member, retire from the Alliance and unreserve the deposit.</div></li><li><div class="item-name"><a class="fn" href="fn.set_rule.html" title="fn pallet_alliance::pallet::dispatchables::set_rule">set_rule</a></div><div class="desc docblock-short">Set a new IPFS CID to the alliance rule.</div></li><li><div class="item-name"><a class="fn" href="fn.vote.html" title="fn pallet_alliance::pallet::dispatchables::vote">vote</a></div><div class="desc docblock-short">Add an aye or nay vote for the sender to the given proposal.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

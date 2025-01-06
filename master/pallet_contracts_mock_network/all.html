@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="List of all items in this crate"><title>List of all items in this crate</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_contracts_mock_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod sys"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_contracts_mock_network/index.html">pallet_contracts_mock_network</a><span class="version">3.0.0</span></h2></div><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><h1>List of all items</h1><h3 id="structs">Structs</h3><ul class="all-items"><li><a href="struct.MockNet.html">MockNet</a></li><li><a href="struct.ParaA.html">ParaA</a></li><li><a href="struct.ParachainXcmRouter.html">ParachainXcmRouter</a></li><li><a href="struct.Relay.html">Relay</a></li><li><a href="struct.RelayChainXcmRouter.html">RelayChainXcmRouter</a></li><li><a href="mocks/msg_queue/pallet/struct.Pallet.html">mocks::msg_queue::pallet::Pallet</a></li><li><a href="mocks/msg_queue/pallet/storage_types/struct.ParachainId.html">mocks::msg_queue::pallet::storage_types::ParachainId</a></li><li><a href="mocks/msg_queue/pallet/storage_types/struct.ReceivedDmp.html">mocks::msg_queue::pallet::storage_types::ReceivedDmp</a></li><li><a href="mocks/relay_message_queue/struct.MessageProcessor.html">mocks::relay_message_queue::MessageProcessor</a></li><li><a href="mocks/relay_message_queue/struct.MessageQueueHeapSize.html">mocks::relay_message_queue::MessageQueueHeapSize</a></li><li><a href="mocks/relay_message_queue/struct.MessageQueueMaxStale.html">mocks::relay_message_queue::MessageQueueMaxStale</a></li><li><a href="mocks/relay_message_queue/struct.MessageQueueServiceWeight.html">mocks::relay_message_queue::MessageQueueServiceWeight</a></li><li><a href="parachain/struct.ApprovalDeposit.html">parachain::ApprovalDeposit</a></li><li><a href="parachain/struct.AssetAccountDeposit.html">parachain::AssetAccountDeposit</a></li><li><a href="parachain/struct.AssetDeposit.html">parachain::AssetDeposit</a></li><li><a href="parachain/struct.AssetsStringLimit.html">parachain::AssetsStringLimit</a></li><li><a href="parachain/struct.CheckingAccount.html">parachain::CheckingAccount</a></li><li><a href="parachain/struct.ExistentialDeposit.html">parachain::ExistentialDeposit</a></li><li><a href="parachain/struct.ForeignPrefix.html">parachain::ForeignPrefix</a></li><li><a href="parachain/struct.FromLocationToAsset.html">parachain::FromLocationToAsset</a></li><li><a href="parachain/struct.KsmLocation.html">parachain::KsmLocation</a></li><li><a href="parachain/struct.MaxAssetsIntoHolding.html">parachain::MaxAssetsIntoHolding</a></li><li><a href="parachain/struct.MaxInstructions.html">parachain::MaxInstructions</a></li><li><a href="parachain/struct.MaxLocks.html">parachain::MaxLocks</a></li><li><a href="parachain/struct.MaxReserves.html">parachain::MaxReserves</a></li><li><a href="parachain/struct.MetadataDepositBase.html">parachain::MetadataDepositBase</a></li><li><a href="parachain/struct.MetadataDepositPerByte.html">parachain::MetadataDepositPerByte</a></li><li><a href="parachain/struct.NftCollectionOne.html">parachain::NftCollectionOne</a></li><li><a href="parachain/struct.NftCollectionOneForRelay.html">parachain::NftCollectionOneForRelay</a></li><li><a href="parachain/struct.PalletInfo.html">parachain::PalletInfo</a></li><li><a href="parachain/struct.ParentRelay.html">parachain::ParentRelay</a></li><li><a href="parachain/struct.RelayNativeAsset.html">parachain::RelayNativeAsset</a></li><li><a href="parachain/struct.RelayNativeAssetForRelay.html">parachain::RelayNativeAssetForRelay</a></li><li><a href="parachain/struct.RelayNetwork.html">parachain::RelayNetwork</a></li><li><a href="parachain/struct.RemoveItemsLimit.html">parachain::RemoveItemsLimit</a></li><li><a href="parachain/struct.ReservedDmpWeight.html">parachain::ReservedDmpWeight</a></li><li><a href="parachain/struct.ReservedXcmpWeight.html">parachain::ReservedXcmpWeight</a></li><li><a href="parachain/struct.Runtime.html">parachain::Runtime</a></li><li><a href="parachain/struct.RuntimeGenesisConfig.html">parachain::RuntimeGenesisConfig</a></li><li><a href="parachain/struct.RuntimeOrigin.html">parachain::RuntimeOrigin</a></li><li><a href="parachain/struct.ThisParachain.html">parachain::ThisParachain</a></li><li><a href="parachain/struct.TokenLocation.html">parachain::TokenLocation</a></li><li><a href="parachain/struct.TokensPerSecondPerMegabyte.html">parachain::TokensPerSecondPerMegabyte</a></li><li><a href="parachain/struct.TrustedLockPairs.html">parachain::TrustedLockPairs</a></li><li><a href="parachain/struct.TrustedLockerCase.html">parachain::TrustedLockerCase</a></li><li><a href="parachain/struct.UniversalLocation.html">parachain::UniversalLocation</a></li><li><a href="parachain/struct.XcmConfig.html">parachain::XcmConfig</a></li><li><a href="parachain/struct.XcmInstructionWeight.html">parachain::XcmInstructionWeight</a></li><li><a href="relay_chain/struct.ChildrenParachains.html">relay_chain::ChildrenParachains</a></li><li><a href="relay_chain/struct.ExistentialDeposit.html">relay_chain::ExistentialDeposit</a></li><li><a href="relay_chain/struct.MaxAssetsIntoHolding.html">relay_chain::MaxAssetsIntoHolding</a></li><li><a href="relay_chain/struct.MaxInstructions.html">relay_chain::MaxInstructions</a></li><li><a href="relay_chain/struct.MaxLocks.html">relay_chain::MaxLocks</a></li><li><a href="relay_chain/struct.MaxReserves.html">relay_chain::MaxReserves</a></li><li><a href="relay_chain/struct.PalletInfo.html">relay_chain::PalletInfo</a></li><li><a href="relay_chain/struct.RelayNetwork.html">relay_chain::RelayNetwork</a></li><li><a href="relay_chain/struct.Runtime.html">relay_chain::Runtime</a></li><li><a href="relay_chain/struct.RuntimeGenesisConfig.html">relay_chain::RuntimeGenesisConfig</a></li><li><a href="relay_chain/struct.RuntimeOrigin.html">relay_chain::RuntimeOrigin</a></li><li><a href="relay_chain/struct.TokenLocation.html">relay_chain::TokenLocation</a></li><li><a href="relay_chain/struct.TokensPerSecondPerMegabyte.html">relay_chain::TokensPerSecondPerMegabyte</a></li><li><a href="relay_chain/struct.UnitWeightCost.html">relay_chain::UnitWeightCost</a></li><li><a href="relay_chain/struct.UniversalLocation.html">relay_chain::UniversalLocation</a></li><li><a href="relay_chain/struct.XcmConfig.html">relay_chain::XcmConfig</a></li><li><a href="relay_chain/struct.XcmInstructionWeight.html">relay_chain::XcmInstructionWeight</a></li></ul><h3 id="enums">Enums</h3><ul class="all-items"><li><a href="mocks/msg_queue/pallet/enum.Call.html">mocks::msg_queue::pallet::Call</a></li><li><a href="mocks/msg_queue/pallet/enum.Event.html">mocks::msg_queue::pallet::Event</a></li><li><a href="parachain/enum.OriginCaller.html">parachain::OriginCaller</a></li><li><a href="parachain/enum.RuntimeCall.html">parachain::RuntimeCall</a></li><li><a href="parachain/enum.RuntimeError.html">parachain::RuntimeError</a></li><li><a href="parachain/enum.RuntimeEvent.html">parachain::RuntimeEvent</a></li><li><a href="parachain/enum.RuntimeFreezeReason.html">parachain::RuntimeFreezeReason</a></li><li><a href="parachain/enum.RuntimeHoldReason.html">parachain::RuntimeHoldReason</a></li><li><a href="parachain/enum.RuntimeLockId.html">parachain::RuntimeLockId</a></li><li><a href="parachain/enum.RuntimeSlashReason.html">parachain::RuntimeSlashReason</a></li><li><a href="parachain/enum.RuntimeTask.html">parachain::RuntimeTask</a></li><li><a href="relay_chain/enum.OriginCaller.html">relay_chain::OriginCaller</a></li><li><a href="relay_chain/enum.RuntimeCall.html">relay_chain::RuntimeCall</a></li><li><a href="relay_chain/enum.RuntimeError.html">relay_chain::RuntimeError</a></li><li><a href="relay_chain/enum.RuntimeEvent.html">relay_chain::RuntimeEvent</a></li><li><a href="relay_chain/enum.RuntimeFreezeReason.html">relay_chain::RuntimeFreezeReason</a></li><li><a href="relay_chain/enum.RuntimeHoldReason.html">relay_chain::RuntimeHoldReason</a></li><li><a href="relay_chain/enum.RuntimeLockId.html">relay_chain::RuntimeLockId</a></li><li><a href="relay_chain/enum.RuntimeSlashReason.html">relay_chain::RuntimeSlashReason</a></li><li><a href="relay_chain/enum.RuntimeTask.html">relay_chain::RuntimeTask</a></li></ul><h3 id="traits">Traits</h3><ul class="all-items"><li><a href="trait.TestExt.html">TestExt</a></li><li><a href="mocks/msg_queue/pallet/trait.Config.html">mocks::msg_queue::pallet::Config</a></li></ul><h3 id="functions">Functions</h3><ul class="all-items"><li><a href="fn.para_ext.html">para_ext</a></li><li><a href="parachain/fn.estimate_fee_for_weight.html">parachain::estimate_fee_for_weight</a></li><li><a href="parachain/fn.estimate_message_fee.html">parachain::estimate_message_fee</a></li><li><a href="parachain/fn.estimate_weight.html">parachain::estimate_weight</a></li><li><a href="fn.parachain_account_sovereign_account_id.html">parachain_account_sovereign_account_id</a></li><li><a href="fn.parachain_sovereign_account_id.html">parachain_sovereign_account_id</a></li><li><a href="fn.relay_ext.html">relay_ext</a></li><li><a href="fn.relay_sovereign_account_id.html">relay_sovereign_account_id</a></li></ul><h3 id="types">Type Aliases</h3><ul class="all-items"><li><a href="type.ParachainBalances.html">ParachainBalances</a></li><li><a href="type.ParachainPalletXcm.html">ParachainPalletXcm</a></li><li><a href="mocks/msg_queue/pallet/type.MessageId.html">mocks::msg_queue::pallet::MessageId</a></li><li><a href="mocks/msg_queue/pallet/type.Module.html">mocks::msg_queue::pallet::Module</a></li><li><a href="parachain/type.AllPalletsWithSystem.html">parachain::AllPalletsWithSystem</a></li><li><a href="parachain/type.AllPalletsWithoutSystem.html">parachain::AllPalletsWithoutSystem</a></li><li><a href="parachain/type.AssetTransactors.html">parachain::AssetTransactors</a></li><li><a href="parachain/type.Assets.html">parachain::Assets</a></li><li><a href="parachain/type.AssetsConfig.html">parachain::AssetsConfig</a></li><li><a href="parachain/type.Balances.html">parachain::Balances</a></li><li><a href="parachain/type.BalancesConfig.html">parachain::BalancesConfig</a></li><li><a href="parachain/type.Barrier.html">parachain::Barrier</a></li><li><a href="parachain/type.Contracts.html">parachain::Contracts</a></li><li><a href="parachain/type.ForeignAssetsTransactor.html">parachain::ForeignAssetsTransactor</a></li><li><a href="parachain/type.LocalBalancesTransactor.html">parachain::LocalBalancesTransactor</a></li><li><a href="parachain/type.LocalOriginToLocation.html">parachain::LocalOriginToLocation</a></li><li><a href="parachain/type.MsgQueue.html">parachain::MsgQueue</a></li><li><a href="parachain/type.PolkadotXcm.html">parachain::PolkadotXcm</a></li><li><a href="parachain/type.PolkadotXcmConfig.html">parachain::PolkadotXcmConfig</a></li><li><a href="parachain/type.SovereignAccountOf.html">parachain::SovereignAccountOf</a></li><li><a href="parachain/type.System.html">parachain::System</a></li><li><a href="parachain/type.SystemConfig.html">parachain::SystemConfig</a></li><li><a href="parachain/type.Timestamp.html">parachain::Timestamp</a></li><li><a href="parachain/type.TrustedReserves.html">parachain::TrustedReserves</a></li><li><a href="parachain/type.TrustedTeleporters.html">parachain::TrustedTeleporters</a></li><li><a href="parachain/type.XcmOriginToCallOrigin.html">parachain::XcmOriginToCallOrigin</a></li><li><a href="parachain/type.XcmRouter.html">parachain::XcmRouter</a></li><li><a href="primitives/type.AccountId.html">primitives::AccountId</a></li><li><a href="primitives/type.AssetIdForAssets.html">primitives::AssetIdForAssets</a></li><li><a href="primitives/type.Balance.html">primitives::Balance</a></li><li><a href="relay_chain/type.AllPalletsWithSystem.html">relay_chain::AllPalletsWithSystem</a></li><li><a href="relay_chain/type.AllPalletsWithoutSystem.html">relay_chain::AllPalletsWithoutSystem</a></li><li><a href="relay_chain/type.AssetTransactors.html">relay_chain::AssetTransactors</a></li><li><a href="relay_chain/type.Balances.html">relay_chain::Balances</a></li><li><a href="relay_chain/type.BalancesConfig.html">relay_chain::BalancesConfig</a></li><li><a href="relay_chain/type.Barrier.html">relay_chain::Barrier</a></li><li><a href="relay_chain/type.LocalBalancesTransactor.html">relay_chain::LocalBalancesTransactor</a></li><li><a href="relay_chain/type.LocalOriginToLocation.html">relay_chain::LocalOriginToLocation</a></li><li><a href="relay_chain/type.MessageQueue.html">relay_chain::MessageQueue</a></li><li><a href="relay_chain/type.ParasOrigin.html">relay_chain::ParasOrigin</a></li><li><a href="relay_chain/type.SovereignAccountOf.html">relay_chain::SovereignAccountOf</a></li><li><a href="relay_chain/type.System.html">relay_chain::System</a></li><li><a href="relay_chain/type.SystemConfig.html">relay_chain::SystemConfig</a></li><li><a href="relay_chain/type.XcmPallet.html">relay_chain::XcmPallet</a></li><li><a href="relay_chain/type.XcmPalletConfig.html">relay_chain::XcmPalletConfig</a></li><li><a href="relay_chain/type.XcmRouter.html">relay_chain::XcmRouter</a></li></ul><h3 id="constants">Constants</h3><ul class="all-items"><li><a href="constant.ADMIN.html">ADMIN</a></li><li><a href="constant.ALICE.html">ALICE</a></li><li><a href="constant.BOB.html">BOB</a></li><li><a href="constant.EXT_PARAA.html">EXT_PARAA</a></li><li><a href="constant.EXT_RELAY.html">EXT_RELAY</a></li><li><a href="constant.INITIAL_BALANCE.html">INITIAL_BALANCE</a></li><li><a href="primitives/constant.CENTS.html">primitives::CENTS</a></li><li><a href="primitives/constant.UNITS.html">primitives::UNITS</a></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>
