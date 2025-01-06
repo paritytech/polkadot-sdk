@@ -37,9 +37,12 @@ impl StorageCmd {
 		<<B as BlockT>::Header as HeaderT>::Number: From<u32>,
 	{
 		let mut record = BenchRecord::default();
-		let best_hash = client.usage_info().chain.best_hash;
+		let (best_hash, best_number) = {
+			let chain = client.usage_info().chain;
+			(chain.best_hash, chain.best_number)
+		};
 
-		info!("Preparing keys from block {}", best_hash);
+		info!("Preparing keys from block {:?}/{:?}", best_number, best_hash);
 		// Load all keys and randomly shuffle them.
 		let mut keys: Vec<_> = client.storage_keys(best_hash, None, None)?.collect();
 		let (mut rng, _) = new_rng(None);

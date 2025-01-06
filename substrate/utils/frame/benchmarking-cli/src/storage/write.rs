@@ -54,12 +54,15 @@ impl StorageCmd {
 		// Store the time that it took to write each value.
 		let mut record = BenchRecord::default();
 
-		let best_hash = client.usage_info().chain.best_hash;
+		let (best_hash, best_number) = {
+			let chain = client.usage_info().chain;
+			(chain.best_hash, chain.best_number)
+		};
 		let header = client.header(best_hash)?.ok_or("Header not found")?;
 		let original_root = *header.state_root();
 		let trie = DbStateBuilder::<HashingFor<Block>>::new(storage.clone(), original_root).build();
 
-		info!("Preparing keys from block {}", best_hash);
+		info!("Preparing keys from block {:?}/{:?}", best_number, best_hash);
 		// Load all KV pairs and randomly shuffle them.
 		let mut kvs: Vec<_> = trie.pairs(Default::default())?.collect();
 		let (mut rng, _) = new_rng(None);
