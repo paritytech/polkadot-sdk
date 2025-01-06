@@ -2,19 +2,10 @@ title: Avoid incomplete block import pipeline with full verifying import queue
 doc:
 - audience: Node Dev
   description: |-
-    ## Problem
-    In the parachain template we use the [fully verifying import queue
-    ](https://github.com/paritytech/polkadot-sdk/blob/3d9eddbeb262277c79f2b93b9efb5af95a3a35a8/cumulus/client/consensus/aura/src/equivocation_import_queue.rs#L224-L224) which does extra equivocation checks.
+    When warp syncing a node using the equivocation checking verifier, we now properly set the fork_choice rule.
+    Affected are mostly nodes that are derived from the parachain template. Omni-node is not affected.
 
-    However, when we import a warp synced block with state, we don't set a fork choice, leading to an incomplete block import pipeline and error here: https://github.com/paritytech/polkadot-sdk/blob/3d9eddbeb262277c79f2b93b9efb5af95a3a35a8/substrate/client/service/src/client/client.rs#L488-L488
-
-    This renders warp sync useless for chains using this import queue.
-
-    ## Fix
-    The fix is to always import a block with state as best block, as we already do in the normal Aura Verifier.
-    In a follow up we should also take another look into unifying the usage of the different import queues.
-
-    fixes https://github.com/paritytech/project-mythical/issues/256
+    The prevents the error `ClientImport("Incomplete block import pipeline.")` after state sync.
 crates:
 - name: cumulus-client-consensus-aura
   bump: patch
