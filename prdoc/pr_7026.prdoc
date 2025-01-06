@@ -6,7 +6,7 @@ title: "[pallet-broker] add extrinsic to remove a lease"
 doc:
   - audience: Runtime User
     description: |
-      A new `remove_lease` extrinsic is introduced to allow a lease to be removed immediately.
+      A new `remove_lease` extrinsic is introduced to the broker pallet to allow a lease to be removed by the root origin.
 
 crates:
   - name: pallet-broker
