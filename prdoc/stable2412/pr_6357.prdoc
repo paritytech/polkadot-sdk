@@ -1,0 +1,20 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: New runtime api that returns the associated pool accounts with a nomination pool.
+
+doc:
+  - audience: Runtime User
+    description: |
+      Each nomination pool has two associated pot accounts: the bonded account, where funds are pooled for staking, and
+      the reward account. This update introduces a runtime api that clients can query to retrieve these accounts.
+
+crates:
+  - name: westend-runtime
+    bump: minor
+  - name: kitchensink-runtime
+    bump: minor
+  - name: pallet-nomination-pools
+    bump: minor
+  - name: pallet-nomination-pools-runtime-api
+    bump: minor

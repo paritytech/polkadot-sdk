@@ -44,8 +44,9 @@ pub use sp_arithmetic::traits::{
 use sp_core::{self, storage::StateVersion, Hasher, RuntimeDebug, TypeId, U256};
 #[doc(hidden)]
 pub use sp_core::{
-	parameter_types, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128,
-	ConstU16, ConstU32, ConstU64, ConstU8, Get, GetDefault, TryCollect, TypedGet,
+	parameter_types, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstInt,
+	ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, ConstUint, Get, GetDefault, TryCollect,
+	TypedGet,
 };
 #[cfg(feature = "std")]
 use std::fmt::Display;
@@ -54,7 +55,8 @@ use std::str::FromStr;
 
 pub mod transaction_extension;
 pub use transaction_extension::{
-	DispatchTransaction, TransactionExtension, TransactionExtensionMetadata, ValidateResult,
+	DispatchTransaction, Implication, ImplicationParts, TransactionExtension,
+	TransactionExtensionMetadata, TxBaseImplication, ValidateResult,
 };
 
 /// A lazy value.
@@ -1409,10 +1411,10 @@ impl SignaturePayload for () {
 
 /// Implementor is an [`Extrinsic`] and provides metadata about this extrinsic.
 pub trait ExtrinsicMetadata {
-	/// The format version of the `Extrinsic`.
+	/// The format versions of the `Extrinsic`.
 	///
-	/// By format is meant the encoded representation of the `Extrinsic`.
-	const VERSION: u8;
+	/// By format we mean the encoded representation of the `Extrinsic`.
+	const VERSIONS: &'static [u8];
 
 	/// Transaction extensions attached to this `Extrinsic`.
 	type TransactionExtensions;
@@ -2348,7 +2350,8 @@ pub trait BlockNumberProvider {
 		+ TypeInfo
 		+ Debug
 		+ MaxEncodedLen
-		+ Copy;
+		+ Copy
+		+ EncodeLike;
 
 	/// Returns the current block number.
 	///

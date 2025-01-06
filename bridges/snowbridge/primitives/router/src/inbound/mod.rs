@@ -7,7 +7,7 @@ mod tests;
 
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
-use frame_support::{traits::tokens::Balance as BalanceT, weights::Weight, PalletError};
+use frame_support::{traits::tokens::Balance as BalanceT, PalletError};
 use scale_info::TypeInfo;
 use snowbridge_core::TokenId;
 use sp_core::{Get, RuntimeDebug, H160, H256};
@@ -279,7 +279,7 @@ where
 			// Call create_asset on foreign assets pallet.
 			Transact {
 				origin_kind: OriginKind::Xcm,
-				require_weight_at_most: Weight::from_parts(400_000_000, 8_000),
+				fallback_max_weight: Some(Weight::from_parts(400_000_000, 8_000)),
 				call: (
 					create_call_index,
 					asset_id,
@@ -358,7 +358,9 @@ where
 					}])),
 					// Perform a deposit reserve to send to destination chain.
 					DepositReserveAsset {
-						assets: Definite(vec![dest_para_fee_asset.clone(), asset].into()),
+						// Send over assets and unspent fees, XCM delivery fee will be charged from
+						// here.
+						assets: Wild(AllCounted(2)),
 						dest: Location::new(1, [Parachain(dest_para_id)]),
 						xcm: vec![
 							// Buy execution on target.

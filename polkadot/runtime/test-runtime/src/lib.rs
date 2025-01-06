@@ -80,7 +80,6 @@ use sp_consensus_beefy::ecdsa_crypto::{AuthorityId as BeefyId, Signature as Beef
 use sp_core::{ConstU32, OpaqueMetadata};
 use sp_mmr_primitives as mmr;
 use sp_runtime::{
-	create_runtime_str,
 	curve::PiecewiseLinear,
 	generic, impl_opaque_keys,
 	traits::{
@@ -94,7 +93,7 @@ use sp_staking::SessionIndex;
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use xcm::v4::{Assets, InteriorLocation, Location, SendError, SendResult, SendXcm, XcmHash};
+use xcm::latest::{Assets, InteriorLocation, Location, SendError, SendResult, SendXcm, XcmHash};
 
 pub use pallet_balances::Call as BalancesCall;
 #[cfg(feature = "std")]
@@ -119,8 +118,8 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 /// Runtime version (Test).
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("polkadot-test-runtime"),
-	impl_name: create_runtime_str!("parity-polkadot-test-runtime"),
+	spec_name: alloc::borrow::Cow::Borrowed("polkadot-test-runtime"),
+	impl_name: alloc::borrow::Cow::Borrowed("parity-polkadot-test-runtime"),
 	authoring_version: 2,
 	spec_version: 1056,
 	impl_version: 0,
@@ -396,7 +395,7 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = polkadot_runtime_common::StakingBenchmarkingConfig;
 	type EventListeners = ();
 	type WeightInfo = ();
-	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
+	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy;
 }
 
 parameter_types! {
@@ -444,6 +443,7 @@ where
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+			frame_system::WeightReclaim::<Runtime>::new(),
 		)
 			.into();
 		let raw_payload = SignedPayload::new(call, tx_ext)
@@ -641,7 +641,7 @@ impl SendXcm for DummyXcmSender {
 	type Ticket = ();
 	fn validate(
 		_: &mut Option<Location>,
-		_: &mut Option<xcm::v4::Xcm<()>>,
+		_: &mut Option<xcm::latest::Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
 		Ok(((), Assets::new()))
 	}
@@ -835,6 +835,7 @@ pub type TxExtension = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	frame_system::WeightReclaim<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =

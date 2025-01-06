@@ -1,0 +1,12 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+title: '[pallet-revive] add support for all eth tx types'
+doc:
+- audience: Runtime Dev
+  description: Add support for 1559, 4844, and 2930 transaction types
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor
+- name: pallet-revive
+  bump: minor
+

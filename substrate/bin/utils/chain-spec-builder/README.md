@@ -99,6 +99,8 @@ bash!(
 )
 ```
 
+Refer to [*patch file*](#patch-file) for some details on the patch file format.
+
 _Note:_ [`GenesisBuilder::get_preset`](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset)
 and
 [`GenesisBuilder::build_state`](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.build_state)
@@ -114,6 +116,8 @@ bash!(
 )
 ```
 
+Refer to [*full config file*](#full-genesis-config-file) for some details on the full file format.
+
 _Note_: [`GenesisBuilder::build_state`](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.build_state)
 runtime function is called.
 
@@ -125,6 +129,8 @@ bash!(
 )
 ```
 
+Refer to [*patch file*](#patch-file) for some details on the patch file format.
+
 ### Generate human readable chain spec using provided full genesis config
 
 ```rust,ignore
@@ -132,6 +138,44 @@ bash!(
 	chain-spec-builder -c "/dev/stdout" create -r $runtime_path full "tests/input/full.json"
 )
 ```
+
+Refer to [*full config file*](#full-genesis-config-file) for some details on the full file format.
+
+
+## Patch and full genesis config files
+This section provides details on the files that can be used with `create patch` or `create full` subcommands.
+
+### Patch file
+The patch file for genesis config contains the key-value pairs valid for given runtime, that needs to be customized,
+	e.g:
+```ignore
+{
+	"balances": {
+		"balances": [
+			[
+				"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
+			    1000000000000000
+			],
+			[
+				"5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y",
+			     1000000000000000
+			],
+			[
+				"5CcjiSgG2KLuKAsqkE2Nak1S2FbAcMr5SxRASUuwR3zSNV2b",
+			    5000000000000000
+			]
+		]
+	},
+	"sudo": {
+		"key": "5Ff3iXP75ruzroPWRP2FYBHWnmGGBSb63857BgnzCoXNxfPo"
+	}
+}
+```
+The rest of genesis config keys will be initialized with default values.
+
+### Full genesis config file
+The full genesis config file must contain values for *all* the keys present in the genesis config for given runtime. The
+format of the file is similar to patch format. Example is not provided here as it heavily depends on the runtime.
 
 ### Extra tools
 

@@ -84,6 +84,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub mod migrations;
 mod tests;
@@ -105,7 +106,9 @@ use sp_runtime::{
 use frame_support::{dispatch::DispatchResultWithPostInfo, traits::EnsureOrigin};
 
 use frame_support::pallet_prelude::*;
-use frame_system::pallet_prelude::*;
+use frame_system::pallet_prelude::{
+	ensure_signed, BlockNumberFor as SystemBlockNumberFor, OriginFor,
+};
 use scale_info::TypeInfo;
 pub use weights::WeightInfo;
 
@@ -119,6 +122,9 @@ type PositiveImbalanceOf<T, I = ()> = pallet_treasury::PositiveImbalanceOf<T, I>
 pub type BountyIndex = u32;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
+
+type BlockNumberFor<T, I = ()> =
+	<<T as pallet_treasury::Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// A bounty proposal.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -188,8 +194,11 @@ pub trait ChildBountyManager<Balance> {
 	/// Get the active child bounties for a parent bounty.
 	fn child_bounties_count(bounty_id: BountyIndex) -> BountyIndex;
 
-	/// Get total curator fees of children-bounty curators.
+	/// Take total curator fees of children-bounty curators.
 	fn children_curator_fees(bounty_id: BountyIndex) -> Balance;
+
+	/// Hook called when a parent bounty is removed.
+	fn bounty_removed(bounty_id: BountyIndex);
 }
 
 #[frame_support::pallet]
@@ -210,11 +219,11 @@ pub mod pallet {
 
 		/// The delay period for which a bounty beneficiary need to wait before claim the payout.
 		#[pallet::constant]
-		type BountyDepositPayoutDelay: Get<BlockNumberFor<Self>>;
+		type BountyDepositPayoutDelay: Get<BlockNumberFor<Self, I>>;
 
 		/// Bounty duration in blocks.
 		#[pallet::constant]
-		type BountyUpdatePeriod: Get<BlockNumberFor<Self>>;
+		type BountyUpdatePeriod: Get<BlockNumberFor<Self, I>>;
 
 		/// The curator deposit is calculated as a percentage of the curator fee.
 		///
@@ -323,7 +332,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		BountyIndex,
-		Bounty<T::AccountId, BalanceOf<T, I>, BlockNumberFor<T>>,
+		Bounty<T::AccountId, BalanceOf<T, I>, BlockNumberFor<T, I>>,
 	>;
 
 	/// The description of each bounty.
@@ -679,6 +688,7 @@ pub mod pallet {
 					*maybe_bounty = None;
 
 					BountyDescriptions::<T, I>::remove(bounty_id);
+					T::ChildBountyManager::bounty_removed(bounty_id);
 
 					Self::deposit_event(Event::<T, I>::BountyClaimed {
 						index: bounty_id,
@@ -776,7 +786,9 @@ pub mod pallet {
 						AllowDeath,
 					); // should not fail
 					debug_assert!(res.is_ok());
+
 					*maybe_bounty = None;
+					T::ChildBountyManager::bounty_removed(bounty_id);
 
 					Self::deposit_event(Event::<T, I>::BountyCanceled { index: bounty_id });
 					Ok(Some(<T as Config<I>>::WeightInfo::close_bounty_active()).into())
@@ -870,9 +882,9 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+	impl<T: Config<I>, I: 'static> Hooks<SystemBlockNumberFor<T>> for Pallet<T, I> {
 		#[cfg(feature = "try-runtime")]
-		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+		fn try_state(_n: SystemBlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()
 		}
 	}
@@ -922,7 +934,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Get the block number used in the treasury pallet.
 	///
 	/// It may be configured to use the relay chain block number on a parachain.
-	pub fn treasury_block_number() -> BlockNumberFor<T> {
+	pub fn treasury_block_number() -> BlockNumberFor<T, I> {
 		<T as pallet_treasury::Config<I>>::BlockNumberProvider::current_block_number()
 	}
 
@@ -1054,4 +1066,6 @@ impl<Balance: Zero> ChildBountyManager<Balance> for () {
 	fn children_curator_fees(_bounty_id: BountyIndex) -> Balance {
 		Zero::zero()
 	}
+
+	fn bounty_removed(_bounty_id: BountyIndex) {}
 }

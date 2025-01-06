@@ -25,7 +25,7 @@ use alloc::vec;
 use frame_support::build_struct_json_patch;
 use serde_json::{json, to_string, Value};
 use sp_application_crypto::Ss58Codec;
-use sp_keyring::AccountKeyring;
+use sp_keyring::Sr25519Keyring;
 
 /// A demo preset with strings only.
 pub const PRESET_1: &str = "preset_1";
@@ -70,7 +70,7 @@ fn preset_2() -> Value {
 			some_integer: 200,
 			some_enum: FooEnum::Data2(SomeFooData2 { values: vec![0x0c, 0x10] })
 		},
-		bar: BarConfig { initial_account: Some(AccountKeyring::Ferdie.public().into()) },
+		bar: BarConfig { initial_account: Some(Sr25519Keyring::Ferdie.public().into()) },
 	})
 }
 
@@ -80,7 +80,7 @@ fn preset_2() -> Value {
 fn preset_3() -> Value {
 	json!({
 		"bar": {
-			"initialAccount": AccountKeyring::Alice.public().to_ss58check(),
+			"initialAccount": Sr25519Keyring::Alice.public().to_ss58check(),
 		},
 		"foo": {
 			"someEnum": FooEnum::Data1(
@@ -121,12 +121,12 @@ fn preset_invalid() -> Value {
 /// If no preset with given `id` exits `None` is returned.
 #[docify::export]
 pub fn get_builtin_preset(id: &sp_genesis_builder::PresetId) -> Option<alloc::vec::Vec<u8>> {
-	let preset = match id.try_into() {
-		Ok(PRESET_1) => preset_1(),
-		Ok(PRESET_2) => preset_2(),
-		Ok(PRESET_3) => preset_3(),
-		Ok(PRESET_4) => preset_4(),
-		Ok(PRESET_INVALID) => preset_invalid(),
+	let preset = match id.as_ref() {
+		PRESET_1 => preset_1(),
+		PRESET_2 => preset_2(),
+		PRESET_3 => preset_3(),
+		PRESET_4 => preset_4(),
+		PRESET_INVALID => preset_invalid(),
 		_ => return None,
 	};
 
