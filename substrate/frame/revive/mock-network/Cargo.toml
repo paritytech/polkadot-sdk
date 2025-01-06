@@ -18,9 +18,9 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-assets = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
+pallet-message-queue = { workspace = true, default-features = true }
 pallet-revive = { workspace = true, default-features = true }
 pallet-revive-uapi = { workspace = true }
-pallet-message-queue = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 pallet-xcm = { workspace = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }
@@ -38,8 +38,8 @@ xcm-simulator = { workspace = true, default-features = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-pretty_assertions = { workspace = true }
 pallet-revive-fixtures = { workspace = true }
+pretty_assertions = { workspace = true }
 
 [features]
 default = ["std"]

@@ -80,7 +80,7 @@
 //! should disincentivize would-be attackers from trying to maliciously recover
 //! accounts.
 //!
-//! The recovery deposit can always be claimed by the account which is trying to
+//! The recovery deposit can always be claimed by the account which is trying
 //! to be recovered. In the case of a malicious recovery attempt, the account
 //! owner who still has access to their account can claim the deposit and
 //! essentially punish the malicious user.
@@ -156,7 +156,10 @@ use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{CheckedAdd, CheckedMul, Dispatchable, SaturatedConversion, StaticLookup},
+	traits::{
+		BlockNumberProvider, CheckedAdd, CheckedMul, Dispatchable, SaturatedConversion,
+		StaticLookup,
+	},
 	RuntimeDebug,
 };
 
@@ -178,11 +181,12 @@ mod mock;
 mod tests;
 pub mod weights;
 
+type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-
+type BlockNumberFromProviderOf<T> =
+	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 type FriendsOf<T> = BoundedVec<<T as frame_system::Config>::AccountId, <T as Config>::MaxFriends>;
-type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 /// An active recovery process.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Default, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -190,7 +194,7 @@ pub struct ActiveRecovery<BlockNumber, Balance, Friends> {
 	/// The block number when the recovery process started.
 	created: BlockNumber,
 	/// The amount held in reserve of the `depositor`,
-	/// To be returned once this recovery process is closed.
+	/// to be returned once this recovery process is closed.
 	deposit: Balance,
 	/// The friends which have vouched so far. Always sorted.
 	friends: Friends,
@@ -235,6 +239,9 @@ pub mod pallet {
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>;
+
+		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		type BlockNumberProvider: BlockNumberProvider;
 
 		/// The currency mechanism.
 		type Currency: ReservableCurrency<Self::AccountId>;
@@ -339,7 +346,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		T::AccountId,
-		RecoveryConfig<BlockNumberFor<T>, BalanceOf<T>, FriendsOf<T>>,
+		RecoveryConfig<BlockNumberFromProviderOf<T>, BalanceOf<T>, FriendsOf<T>>,
 	>;
 
 	/// Active recovery attempts.
@@ -354,7 +361,7 @@ pub mod pallet {
 		T::AccountId,
 		Twox64Concat,
 		T::AccountId,
-		ActiveRecovery<BlockNumberFor<T>, BalanceOf<T>, FriendsOf<T>>,
+		ActiveRecovery<BlockNumberFromProviderOf<T>, BalanceOf<T>, FriendsOf<T>>,
 	>;
 
 	/// The list of allowed proxy accounts.
@@ -445,7 +452,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			friends: Vec<T::AccountId>,
 			threshold: u16,
-			delay_period: BlockNumberFor<T>,
+			delay_period: BlockNumberFromProviderOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			// Check account is not already set up for recovery
@@ -511,7 +518,7 @@ pub mod pallet {
 			T::Currency::reserve(&who, recovery_deposit)?;
 			// Create an active recovery status
 			let recovery_status = ActiveRecovery {
-				created: <frame_system::Pallet<T>>::block_number(),
+				created: T::BlockNumberProvider::current_block_number(),
 				deposit: recovery_deposit,
 				friends: Default::default(),
 			};
@@ -596,7 +603,7 @@ pub mod pallet {
 				Self::active_recovery(&account, &who).ok_or(Error::<T>::NotStarted)?;
 			ensure!(!Proxy::<T>::contains_key(&who), Error::<T>::AlreadyProxy);
 			// Make sure the delay period has passed
-			let current_block_number = <frame_system::Pallet<T>>::block_number();
+			let current_block_number = T::BlockNumberProvider::current_block_number();
 			let recoverable_block_number = active_recovery
 				.created
 				.checked_add(&recovery_config.delay_period)
