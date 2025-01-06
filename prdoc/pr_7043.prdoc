@@ -33,3 +33,19 @@ crates:
   bump: patch
 - name: frame-support
   bump: patch
+- name: sc-sysinfo
+  bump: patch
+- name: pallet-bags-list-remote-tests
+  bump: patch
+- name: pallet-election-provider-e2e-test
+  bump: patch
+- name: pallet-nft-fractionalization
+  bump: patch
+- name: pallet-nomination-pools-test-delegate-stake
+  bump: patch
+- name: pallet-nomination-pools-test-transfer-stake
+  bump: patch
+- name: pallet-root-offences
+  bump: patch
+- name: pallet-uniques
+  bump: patch
