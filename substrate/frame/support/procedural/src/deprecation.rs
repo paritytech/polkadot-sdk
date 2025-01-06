@@ -182,7 +182,5 @@ pub fn variant_index_for_deprecation(index: u8, item: &Variant) -> u8 {
 
 /// collect all of the `allow` attributes on the item
 pub fn extract_allow_attrs(items: &[syn::Attribute]) -> impl Iterator<Item = &syn::Attribute> {
-	items
-		.iter()
-		.filter(|attr| attr.path().is_ident("allow"))
+	items.iter().filter(|attr| attr.path().is_ident("allow"))
 }

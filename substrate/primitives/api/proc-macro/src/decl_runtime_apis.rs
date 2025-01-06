@@ -529,10 +529,7 @@ fn generate_runtime_info_impl(trait_: &ItemTrait, version: u32) -> TokenStream {
 		let ident = &t.ident;
 		quote! { #ident }
 	});
-	let maybe_allow_attrs = trait_
-		.attrs
-		.iter()
-		.filter(|attr| attr.path().is_ident("allow"));
+	let maybe_allow_attrs = trait_.attrs.iter().filter(|attr| attr.path().is_ident("allow"));
 
 	quote!(
 		#crate_::std_enabled! {
