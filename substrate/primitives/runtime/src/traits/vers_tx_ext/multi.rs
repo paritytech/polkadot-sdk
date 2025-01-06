@@ -46,128 +46,167 @@ impl<const VERSION: u8, Extension> MultiVersionItem for TxExtLineAtVers<VERSION,
 	const VERSION: Option<u8> = Some(VERSION);
 }
 
-/// An implementation of [`VersTxExtLine`] that aggregated multiple transaction extension pipeline
-/// of different versions.
-///
-/// Each variant have its own version, duplicated version must be avoided, only the first used
-/// version will be effective other duplicated version will be ignored.
-///
-/// TODO TODO: example
-#[allow(private_interfaces)]
-#[derive(PartialEq, Eq, Clone, Debug, TypeInfo)]
-pub enum MultiVersion<A, B = InvalidVersion> {
-	/// The first aggregated transaction extension pipeline of a specific version.
-	A(A),
-	/// The second aggregated transaction extension pipeline of a specific version.
-	B(B),
+macro_rules! declare_multi_version_enum {
+	($( $variant:tt, )*) => {
+
+		/// An implementation of [`VersTxExtLine`] that aggregate multiple versioned transaction
+		/// extension pipeline.
+		///
+		/// It is an enum where each variant have its own version, duplicated version must be
+		/// avoided, only the first used version will be effective other duplicated version will be
+		/// ignored.
+		///
+		/// Versioned transaction extension pipelines are configured using the generic parameters.
+		///
+		/// # Example
+		///
+		/// ```
+		/// use sp_runtime::traits::{MultiVersion, TxExtLineAtVers};
+		///
+		/// struct PaymentExt;
+		/// struct PaymentExtV2;
+		/// struct NonceExt;
+		///
+		/// type ExtV1 = TxExtLineAtVers<1, (NonceExt, PaymentExt)>;
+		/// type ExtV4 = TxExtLineAtVers<4, (NonceExt, PaymentExtV2)>;
+		///
+		/// /// The transaction extension pipeline that supports both version 1 and 4.
+		/// type TransactionExtension = MultiVersion<ExtV1, ExtV4>;
+		/// ```
+		#[allow(private_interfaces)]
+		#[derive(PartialEq, Eq, Clone, Debug, TypeInfo)]
+		pub enum MultiVersion<
+			$(
+				$variant = InvalidVersion,
+			)*
+		> {
+			$(
+				/// The transaction extension pipeline of a specific version.
+				$variant($variant),
+			)*
+		}
+
+		impl<$( $variant: VersTxExtLineVersion, )*> VersTxExtLineVersion for MultiVersion<$( $variant, )*> {
+			fn version(&self) -> u8 {
+				match self {
+					$(
+						MultiVersion::$variant(v) => v.version(),
+					)*
+				}
+			}
+		}
+
+		impl<$( $variant: Encode, )*> Encode for MultiVersion<$( $variant, )*> {
+			fn size_hint(&self) -> usize {
+				match self {
+					$(
+						MultiVersion::$variant(v) => v.size_hint(),
+					)*
+				}
+			}
+			fn encode(&self) -> Vec<u8> {
+				match self {
+					$(
+						MultiVersion::$variant(v) => v.encode(),
+					)*
+				}
+			}
+			fn encode_to<CodecOutput: codec::Output + ?Sized>(&self, dest: &mut CodecOutput) {
+				match self {
+					$(
+						MultiVersion::$variant(v) => v.encode_to(dest),
+					)*
+				}
+			}
+			fn encoded_size(&self) -> usize {
+				match self {
+					$(
+						MultiVersion::$variant(v) => v.encoded_size(),
+					)*
+				}
+			}
+			fn using_encoded<FunctionResult, Function: FnOnce(&[u8]) -> FunctionResult>(
+				&self,
+				f: Function
+			) -> FunctionResult {
+				match self {
+					$(
+						MultiVersion::$variant(v) => v.using_encoded(f),
+					)*
+				}
+			}
+		}
+
+		impl<$( $variant: DecodeWithVersion + MultiVersionItem, )*>
+			DecodeWithVersion for MultiVersion<$( $variant, )*>
+		{
+			fn decode_with_version<CodecInput: codec::Input>(
+				extension_version: u8,
+				input: &mut CodecInput,
+			) -> Result<Self, codec::Error> {
+				$(
+					if $variant::VERSION == Some(extension_version) {
+						return Ok(MultiVersion::$variant($variant::decode_with_version(extension_version, input)?));
+					}
+				)*
+
+				Err(codec::Error::from("Invalid extension version"))
+			}
+		}
+
+		impl<$( $variant: VersTxExtLineWeight<Call> + MultiVersionItem, )* Call: Dispatchable>
+			VersTxExtLineWeight<Call> for MultiVersion<$( $variant, )*>
+		{
+			fn weight(&self, call: &Call) -> Weight {
+				match self {
+					$(
+						MultiVersion::$variant(v) => v.weight(call),
+					)*
+				}
+			}
+		}
+
+		impl<$( $variant: VersTxExtLine<Call> + MultiVersionItem, )* Call: Dispatchable>
+			VersTxExtLine<Call> for MultiVersion<$( $variant, )*>
+		{
+			fn build_metadata(builder: &mut VersTxExtLineMetadataBuilder) {
+				$(
+					$variant::build_metadata(builder);
+				)*
+			}
+			fn validate_only(
+				&self,
+				origin: DispatchOriginOf<Call>,
+				call: &Call,
+				info: &DispatchInfoOf<Call>,
+				len: usize,
+				source: TransactionSource,
+			) -> Result<ValidTransaction, TransactionValidityError> {
+				match self {
+					$(
+						MultiVersion::$variant(v) => v.validate_only(origin, call, info, len, source),
+					)*
+				}
+			}
+			fn dispatch_transaction(
+				self,
+				origin: DispatchOriginOf<Call>,
+				call: Call,
+				info: &DispatchInfoOf<Call>,
+				len: usize,
+			) -> crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Call>> {
+				match self {
+					$(
+						MultiVersion::$variant(v) => v.dispatch_transaction(origin, call, info, len),
+					)*
+				}
+			}
+		}
+	};
 }
 
-impl<A: VersTxExtLineVersion, B: VersTxExtLineVersion> VersTxExtLineVersion for MultiVersion<A, B> {
-	fn version(&self) -> u8 {
-		match self {
-			MultiVersion::A(a) => a.version(),
-			MultiVersion::B(b) => b.version(),
-		}
-	}
-}
-
-impl<A: Encode, B: Encode> Encode for MultiVersion<A, B> {
-	fn size_hint(&self) -> usize {
-		match self {
-			MultiVersion::A(a) => a.size_hint(),
-			MultiVersion::B(b) => b.size_hint(),
-		}
-	}
-	fn encode(&self) -> Vec<u8> {
-		match self {
-			MultiVersion::A(a) => a.encode(),
-			MultiVersion::B(b) => b.encode(),
-		}
-	}
-	fn encode_to<T: codec::Output + ?Sized>(&self, dest: &mut T) {
-		match self {
-			MultiVersion::A(a) => a.encode_to(dest),
-			MultiVersion::B(b) => b.encode_to(dest),
-		}
-	}
-	fn encoded_size(&self) -> usize {
-		match self {
-			MultiVersion::A(a) => a.encoded_size(),
-			MultiVersion::B(b) => b.encoded_size(),
-		}
-	}
-	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		match self {
-			MultiVersion::A(a) => a.using_encoded(f),
-			MultiVersion::B(b) => b.using_encoded(f),
-		}
-	}
-}
-
-impl<A: DecodeWithVersion + MultiVersionItem, B: DecodeWithVersion + MultiVersionItem>
-	DecodeWithVersion for MultiVersion<A, B>
-{
-	fn decode_with_version<I: codec::Input>(
-		extension_version: u8,
-		input: &mut I,
-	) -> Result<Self, codec::Error> {
-		if A::VERSION == Some(extension_version) {
-			Ok(MultiVersion::A(A::decode_with_version(extension_version, input)?))
-		} else if B::VERSION == Some(extension_version) {
-			Ok(MultiVersion::B(B::decode_with_version(extension_version, input)?))
-		} else {
-			Err(codec::Error::from("Invalid extension version"))
-		}
-	}
-}
-
-impl<A, B, Call: Dispatchable> VersTxExtLineWeight<Call> for MultiVersion<A, B>
-where
-	A: VersTxExtLineWeight<Call> + MultiVersionItem,
-	B: VersTxExtLineWeight<Call> + MultiVersionItem,
-{
-	fn weight(&self, call: &Call) -> Weight {
-		match self {
-			MultiVersion::A(a) => a.weight(call),
-			MultiVersion::B(b) => b.weight(call),
-		}
-	}
-}
-
-impl<A, B, Call: Dispatchable> VersTxExtLine<Call> for MultiVersion<A, B>
-where
-	A: VersTxExtLine<Call> + MultiVersionItem,
-	B: VersTxExtLine<Call> + MultiVersionItem,
-{
-	fn build_metadata(builder: &mut VersTxExtLineMetadataBuilder) {
-		A::build_metadata(builder);
-		B::build_metadata(builder);
-	}
-	fn validate_only(
-		&self,
-		origin: DispatchOriginOf<Call>,
-		call: &Call,
-		info: &DispatchInfoOf<Call>,
-		len: usize,
-		source: TransactionSource,
-	) -> Result<ValidTransaction, TransactionValidityError> {
-		match self {
-			MultiVersion::A(a) => a.validate_only(origin, call, info, len, source),
-			MultiVersion::B(b) => b.validate_only(origin, call, info, len, source),
-		}
-	}
-	fn dispatch_transaction(
-		self,
-		origin: DispatchOriginOf<Call>,
-		call: Call,
-		info: &DispatchInfoOf<Call>,
-		len: usize,
-	) -> crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Call>> {
-		match self {
-			MultiVersion::A(a) => a.dispatch_transaction(origin, call, info, len),
-			MultiVersion::B(b) => b.dispatch_transaction(origin, call, info, len),
-		}
-	}
+declare_multi_version_enum! {
+	A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
 }
 
 #[cfg(test)]
