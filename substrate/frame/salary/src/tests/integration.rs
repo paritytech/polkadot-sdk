@@ -20,7 +20,6 @@
 use crate as pallet_salary;
 use crate::*;
 
-use frame::deps::frame_support::hypothetically;
 use frame::{
 	deps::{
 		sp_io::{self, MultiRemovalResults},
@@ -194,7 +193,7 @@ fn swap_exhaustive_works() {
 
 			// The events mess up the storage root:
 			System::reset_events();
-			sp_io::storage::root(frame::deps::sp_runtime::StateVersion::V1)
+			sp_io::storage::root(sp_runtime::StateVersion::V1)
 		});
 
 		let root_swap = hypothetically!({

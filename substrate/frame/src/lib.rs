@@ -311,7 +311,7 @@ pub mod testing_prelude {
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{
 		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok,
-		assert_storage_noop, storage_alias,
+		assert_storage_noop, storage_alias, construct_runtime
 	};
 
 	pub use frame_system::{self, mocking::*};
@@ -497,6 +497,7 @@ pub mod runtime {
 	pub mod testing_prelude {
 		pub use sp_core::storage::Storage;
 		pub use sp_runtime::BuildStorage;
+		pub use sp_runtime::DispatchError::Unavailable;
 	}
 }
 
