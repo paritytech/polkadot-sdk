@@ -428,7 +428,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 		};
 
 		// Extracts #[allow] attributes, necessary so that we don't run into compiler warnings
-		let maybe_allow_attrs = extract_allow_attrs(&storage.attrs);
+		let maybe_allow_attrs: Vec<&syn::Attribute> = extract_allow_attrs(&storage.attrs).collect();
 
 		entries_builder.push(quote::quote_spanned!(storage.attr_span =>
 			#(#cfg_attrs)*
@@ -452,7 +452,8 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 			let completed_where_clause =
 				super::merge_where_clauses(&[&storage.where_clause, &def.config.where_clause]);
 			// Extracts #[allow] attributes, necessary so that we don't run into compiler warnings
-			let maybe_allow_attrs = extract_allow_attrs(&storage.attrs);
+			let maybe_allow_attrs: Vec<&syn::Attribute> =
+				extract_allow_attrs(&storage.attrs).collect();
 			let ident = &storage.ident;
 			let gen = &def.type_use_generics(storage.attr_span);
 			let type_impl_gen = &def.type_impl_generics(storage.attr_span);
@@ -490,7 +491,6 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 							#[doc = #getter_doc_line]
 							#(#maybe_allow_attrs)*
 							pub fn #getter() -> #query {
-								#(#maybe_allow_attrs)*
 								<
 									#full_ident as #frame_support::storage::StorageValue<#value>
 								>::get()

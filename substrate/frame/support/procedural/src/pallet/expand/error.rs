@@ -117,9 +117,6 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 		Err(e) => return e.into_compile_error(),
 	};
 
-	// Extracts #[allow] attributes, necessary so that we don't run into compiler warnings
-	let maybe_allow_attrs = extract_allow_attrs(&error_item.attrs);
-
 	// derive TypeInfo for error metadata
 	error_item.attrs.push(syn::parse_quote! {
 		#[derive(
@@ -138,6 +135,9 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 			#[doc = "The `Error` enum of this pallet."]
 		));
 	}
+
+	// Extracts #[allow] attributes, necessary so that we don't run into compiler warnings
+	let maybe_allow_attrs: Vec<&syn::Attribute> = extract_allow_attrs(&error_item.attrs).collect();
 
 	quote::quote_spanned!(error.attr_span =>
 		#(#maybe_allow_attrs)*

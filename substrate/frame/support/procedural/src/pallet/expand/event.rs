@@ -115,9 +115,6 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 			.push(syn::parse_quote!(#[doc = "The `Event` enum of this pallet"]));
 	}
 
-	// Extracts #[allow] attributes, necessary so that we don't run into compiler warnings
-	let maybe_allow_attrs = extract_allow_attrs(&event_item.attrs);
-
 	// derive some traits because system event require Clone, FullCodec, Eq, PartialEq and Debug
 	event_item.attrs.push(syn::parse_quote!(
 		#[derive(
@@ -137,6 +134,10 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 	event_item.attrs.push(syn::parse_quote!(
 		#[scale_info(skip_type_params(#event_use_gen), capture_docs = #capture_docs)]
 	));
+
+	// Extracts #[allow] attributes, necessary so that we don't run into compiler warnings
+	let maybe_allow_attrs: Vec<syn::Attribute> =
+		extract_allow_attrs(&event_item.attrs).cloned().collect();
 
 	let deposit_event = if let Some(deposit_event) = &event.deposit_event {
 		let event_use_gen = &event.gen_kind.type_use_gen(event.attr_span);
