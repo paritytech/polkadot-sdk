@@ -674,6 +674,7 @@ where
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
 			frame_metadata_hash_extension::CheckMetadataHash::new(true),
+			frame_system::WeightReclaim::<Runtime>::new(),
 		)
 			.into();
 		let raw_payload = SignedPayload::new(call, tx_ext)
@@ -1616,6 +1617,7 @@ pub type TxExtension = (
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+	frame_system::WeightReclaim<Runtime>,
 );
 
 /// Unchecked extrinsic type as expected by this runtime.
