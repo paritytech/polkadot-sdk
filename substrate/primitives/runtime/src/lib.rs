@@ -1051,29 +1051,6 @@ pub use alloc::borrow::Cow;
 #[deprecated = "Use String or Cow<'static, str> instead"]
 pub type RuntimeString = alloc::string::String;
 
-/// A target for `core::write!` macro - constructs a string in memory.
-#[derive(Default)]
-pub struct Writer(vec::Vec<u8>);
-
-impl core::fmt::Write for Writer {
-	fn write_str(&mut self, s: &str) -> core::fmt::Result {
-		self.0.extend(s.as_bytes());
-		Ok(())
-	}
-}
-
-impl Writer {
-	/// Access the content of this `Writer` e.g. for printout
-	pub fn inner(&self) -> &Vec<u8> {
-		&self.0
-	}
-
-	/// Convert into the content of this `Writer`
-	pub fn into_inner(self) -> Vec<u8> {
-		self.0
-	}
-}
-
 #[cfg(test)]
 mod tests {
 	use crate::traits::BlakeTwo256;

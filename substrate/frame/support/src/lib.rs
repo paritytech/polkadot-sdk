@@ -65,7 +65,7 @@ pub mod __private {
 	pub use sp_runtime::{bounded_btree_map, bounded_vec};
 	pub use sp_runtime::{
 		traits::{AsSystemOriginSigner, AsTransactionAuthorizedOrigin, Dispatchable},
-		DispatchError, RuntimeDebug, StateVersion, TransactionOutcome, Writer,
+		DispatchError, RuntimeDebug, StateVersion, TransactionOutcome,
 	};
 	#[cfg(feature = "std")]
 	pub use sp_state_machine::BasicExternalities;
@@ -502,7 +502,7 @@ macro_rules! runtime_print {
 	($($arg:tt)+) => {
 		{
 			use core::fmt::Write;
-			let mut w = $crate::__private::Writer::default();
+			let mut w = $crate::__private::sp_std::Writer::default();
 			let _ = core::write!(&mut w, $($arg)+);
 			$crate::__private::sp_io::misc::print_utf8(&w.inner())
 		}

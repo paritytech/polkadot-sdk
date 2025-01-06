@@ -54,7 +54,7 @@ impl log::Log for RuntimeLogger {
 
 	fn log(&self, record: &log::Record) {
 		use core::fmt::Write;
-		let mut w = crate::Writer::default();
+		let mut w = sp_std::Writer::default();
 		let _ = ::core::write!(&mut w, "{}", record.args());
 
 		sp_io::logging::log(record.level().into(), record.target(), w.inner());
