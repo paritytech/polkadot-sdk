@@ -28,10 +28,8 @@ use codec::{Decode, Encode, EncodeLike, FullCodec};
 use core::marker::PhantomData;
 
 use frame::{
-	deps::{frame_support},
-	runtime::prelude::storage::StoragePrefixedContainer,
-	testing_prelude::*,
-	traits::{Saturating, StorageInstance},
+	runtime::prelude::storage::StoragePrefixedContainer, testing_prelude::*,
+	traits::StorageInstance,
 };
 
 pub type PageIndex = u32;
@@ -187,8 +185,7 @@ impl<V: FullCodec> Page<V> {
 		value_index: ValueIndex,
 	) -> Option<Self> {
 		let key = page_key::<Prefix>(index);
-		let values = get(&key)
-			.and_then(|raw| alloc::vec::Vec::<V>::decode(&mut &raw[..]).ok())?;
+		let values = get(&key).and_then(|raw| alloc::vec::Vec::<V>::decode(&mut &raw[..]).ok())?;
 		if values.is_empty() {
 			// Don't create empty pages.
 			return None

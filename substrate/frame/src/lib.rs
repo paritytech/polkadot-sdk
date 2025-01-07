@@ -205,6 +205,7 @@ pub mod prelude {
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::traits::{
 		Contains, EstimateNextSessionRotation, IsSubType, OnRuntimeUpgrade, OneSessionHandler,
+		PalletInfoAccess,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -228,8 +229,8 @@ pub mod prelude {
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, DispatchInfoOf, Dispatchable, SaturatedConversion,
-		Saturating, StaticLookup, TrailingZeroInput,
+		BlockNumberProvider, Bounded, DispatchInfoOf, Dispatchable, IdentityLookup,
+		SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
 	};
 
 	/// Other runtime types and traits
@@ -319,7 +320,7 @@ pub mod testing_prelude {
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{
 		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok,
-		assert_storage_noop, defensive, storage_alias, StorageNoopGuard
+		assert_storage_noop, defensive, storage_alias, StorageNoopGuard,
 	};
 
 	pub use frame_system::{self, mocking::*};
@@ -330,7 +331,7 @@ pub mod testing_prelude {
 	pub use sp_io::TestExternalities as TestState;
 
 	pub use sp_io::storage::*;
-  
+
 	/// Commonly used runtime traits for testing.
 	pub use sp_runtime::traits::BadOrigin;
 }
