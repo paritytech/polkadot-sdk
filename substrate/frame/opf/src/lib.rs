@@ -289,7 +289,11 @@ pub mod pallet {
 				let call0: <T as Config>::RuntimeCall = crate::Call::<T>::on_registration {project_id: project_id.clone()}.into();
 				let call = <T as Config>::RuntimeCall::convert(call0);
 				let call_f = T::Preimages::bound(call).unwrap();
-				Democracy::Pallet::<T>::propose(origin.clone(), call_f, T::MinimumDeposit::get())?;
+				let call_hash = call_f.hash();
+				let threshold = Democracy::VoteThreshold::SimpleMajority;
+				Democracy::Pallet::<T>::propose(origin.clone(), call_f.clone(), T::MinimumDeposit::get())?;
+				Democracy::Pallet::<T>::internal_start_referendum(call_f,threshold, Zero::zero());
+
 			}
 			
 			Self::deposit_event(Event::Projectslisted { when, projects_id });

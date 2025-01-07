@@ -55,5 +55,8 @@ fn project_registration_works() {
 		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch));
 		let project_list = WhiteListedProjectAccounts::<Test>::get(BOB);
 		assert!(project_list.is_some());
+		// we should have 3 referendum started
+		assert_eq!(pallet_democracy::PublicProps::<Test>::get().len(), 3);
+		assert_eq!(pallet_democracy::ReferendumCount::<Test>::get(), 3);
 	})
 }
