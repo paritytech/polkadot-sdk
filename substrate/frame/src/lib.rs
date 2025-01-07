@@ -265,7 +265,7 @@ pub mod benchmarking {
 		pub use frame_benchmarking::benchmarking::*;
 		// The system origin, which is very often needed in benchmarking code. Might be tricky only
 		// if the pallet defines its own `#[pallet::origin]` and call it `RawOrigin`.
-		pub use frame_system::RawOrigin;
+		pub use frame_system::{Pallet as System, RawOrigin};
 	}
 
 	#[deprecated(
@@ -322,7 +322,7 @@ pub mod testing_prelude {
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{
 		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok,
-		assert_storage_noop, storage_alias,
+		assert_storage_noop, storage_alias, hypothetically, traits::tokens::ConvertRank,
 	};
 
 	pub use frame_system::{self, mocking::*};
