@@ -488,6 +488,7 @@ fn fork_from_state(
 }
 
 /// Keeps a per leaf state of the claim queue for multiple forks.
+#[derive(Default)]
 pub struct PerLeafClaimQueueState {
 	/// The state of the claim queue per leaf
 	leaves: HashMap<Hash, ClaimQueueState>,

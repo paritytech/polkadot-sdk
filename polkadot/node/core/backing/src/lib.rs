@@ -1109,26 +1109,21 @@ async fn handle_active_leaves_update<Context>(
 		};
 
 		if let Some(per) = per {
-			let empty_cq = VecDeque::new();
-			let maybe_claim_queue = if let Some(core_idx) = per.assigned_core {
-				per.claim_queue.0.get(&core_idx)
-			} else {
-				None
-			}
-			.unwrap_or(&empty_cq);
-
 			gum::trace!(
 				target: LOG_TARGET,
 				?maybe_new,
-				maybe_assigned_core=?per.assigned_core,
-				?maybe_claim_queue,
 				?parent_hash,
 				"Inserting new leaf in claim queue state"
 			);
 
-			state.claim_queue_state.iter_mut().for_each(|(_, cq)| {
-				cq.add_leaf(&maybe_new, maybe_claim_queue, &parent_hash);
-			});
+			for (core_idx, cq) in &per.claim_queue.0 {
+				state.claim_queue_state.entry(*core_idx).or_default().add_leaf(
+					&maybe_new,
+					cq,
+					&parent_hash,
+				)
+			}
+
 			state.per_relay_parent.insert(maybe_new, per);
 		}
 	}
@@ -2178,19 +2173,24 @@ async fn handle_second_message<Context>(
 
 	let relay_parent = candidate.descriptor().relay_parent();
 
-	let cq = if let Some(cq) = state.per_relay_parent.get(&relay_parent).and_then(|rp_state| {
-		rp_state
-			.assigned_core
-			.and_then(|core_idx| state.claim_queue_state.get_mut(&core_idx))
-	}) {
-		cq
-	} else {
-		return Ok(false)
-	};
+	let claim_queue_for_core =
+		match get_claim_queue_state_for_the_assigned_core(&relay_parent, state) {
+			Ok(cq_state) => cq_state,
+			Err(err) => {
+				gum::warn!(
+					target: LOG_TARGET,
+					?candidate_hash,
+					?relay_parent,
+					?err,
+					"Can't second candidate due to claim queue state error",
+				);
+				return Ok(false)
+			},
+		};
 
 	// `claim_seconded_slot` will upgrade any pending claims to seconded (if collator protocol V2+
 	// was used) or make a new claim (if collator protocol V1 was used).
-	if !cq.claim_seconded_slot(
+	if !claim_queue_for_core.claim_seconded_slot(
 		&candidate_hash,
 		&candidate.descriptor.relay_parent(),
 		&candidate.descriptor.para_id(),
@@ -2444,4 +2444,40 @@ fn claim_slot_for_seconded_statement(
 	}
 
 	return Ok(())
+}
+
+#[derive(thiserror::Error, Debug)]
+enum GetClaimQueueStateError {
+	#[error("can't find relay parent state for relay parent {0}")]
+	RelayParentNotKnown(Hash),
+	#[error("no core assigned")]
+	NoCoreAssigned,
+	#[error("can't find claim queue state for {0:?}")]
+	NoClaimQueueState(CoreIndex),
+}
+
+fn get_claim_queue_state_for_the_assigned_core<'a>(
+	relay_parent: &Hash,
+	state: &'a mut State,
+) -> Result<&'a mut PerLeafClaimQueueState, GetClaimQueueStateError> {
+	let rp_state = if let Some(rp_state) = state.per_relay_parent.get(&relay_parent) {
+		rp_state
+	} else {
+		return Err(GetClaimQueueStateError::RelayParentNotKnown(*relay_parent))
+	};
+
+	let assigned_core_idx = if let Some(core) = rp_state.assigned_core {
+		core
+	} else {
+		return Err(GetClaimQueueStateError::NoCoreAssigned)
+	};
+
+	let claim_queue_for_core = if let Some(cq) = state.claim_queue_state.get_mut(&assigned_core_idx)
+	{
+		cq
+	} else {
+		return Err(GetClaimQueueStateError::NoClaimQueueState(assigned_core_idx))
+	};
+
+	Ok(claim_queue_for_core)
 }
