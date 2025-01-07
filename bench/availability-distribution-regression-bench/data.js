@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736194774874,
+  "lastUpdate": 1736240337639,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -45925,6 +45925,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.024487721633333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "conr2d@proton.me",
+            "name": "Jeeyong Um",
+            "username": "conr2d"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c139739868eddbda495d642219a57602f63c18f5",
+          "message": "Remove usage of `sp-std` from Substrate (#7043)\n\n# Description\n\nThis PR removes usage of deprecated `sp-std` from Substrate. (following\nPR of #5010)\n\n## Integration\n\nThis PR doesn't remove re-exported `sp_std` from any crates yet, so\ndownstream projects using re-exported `sp_std` will not be affected.\n\n## Review Notes\n\nThe existing code using `sp-std` is refactored to use `alloc` and `core`\ndirectly. The key-value maps are instantiated from a vector of tuples\ndirectly instead of using `sp_std::map!` macro.\n\n`sp_std::Writer` is a helper type to use `Vec<u8>` with\n`core::fmt::Write` trait. This PR copied it into `sp-runtime`, because\nall crates using `sp_std::Writer` (including `sp-runtime` itself,\n`frame-support`, etc.) depend on `sp-runtime`.\n\nIf this PR is merged, I would write following PRs to remove remaining\nusage of `sp-std` from `bridges` and `cumulus`.\n\n---------\n\nCo-authored-by: command-bot <>\nCo-authored-by: Guillaume Thiolliere <guillaume.thiolliere@parity.io>\nCo-authored-by: Bastian Köcher <info@kchr.de>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2025-01-07T07:57:06Z",
+          "tree_id": "e2af4afb74389012a6222e82ffced1d704f0788c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c139739868eddbda495d642219a57602f63c18f5"
+        },
+        "date": 1736240320675,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.016109424866666663,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.008935390720000085,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02459643093333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.17750378677999992,
             "unit": "seconds"
           }
         ]
