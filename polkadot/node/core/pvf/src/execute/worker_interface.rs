@@ -66,7 +66,7 @@ pub async fn spawn(
 		.await
 		.map_err(|error| {
 			let err = SpawnErr::Handshake { err: error.to_string() };
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				worker_pid = %idle_worker.pid,
 				"failed to send a handshake to the spawned worker: {}",
@@ -129,7 +129,7 @@ pub async fn start_work(
 ) -> Result<Response, Error> {
 	let IdleWorker { mut stream, pid, worker_dir } = worker;
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		worker_pid = %pid,
 		?worker_dir,
@@ -140,7 +140,7 @@ pub async fn start_work(
 
 	with_worker_dir_setup(worker_dir, pid, &artifact.path, |worker_dir| async move {
 		send_request(&mut stream, pvd, pov, execution_timeout).await.map_err(|error| {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				worker_pid = %pid,
 				validation_code_hash = ?artifact.id.code_hash,
@@ -167,7 +167,7 @@ pub async fn start_work(
 						)
 							.await,
 					Err(error) => {
-						gum::warn!(
+						sp_tracing::warn!(
 							target: LOG_TARGET,
 							worker_pid = %pid,
 							validation_code_hash = ?artifact.id.code_hash,
@@ -180,7 +180,7 @@ pub async fn start_work(
 				}
 			},
 			_ = Delay::new(timeout).fuse() => {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					worker_pid = %pid,
 					validation_code_hash = ?artifact.id.code_hash,
@@ -213,7 +213,7 @@ async fn handle_result(
 	if let Ok(WorkerResponse { duration, .. }) = worker_result {
 		if duration > execution_timeout {
 			// The job didn't complete within the timeout.
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				worker_pid,
 				"execute job took {}ms cpu time, exceeded execution timeout {}ms.",
@@ -249,7 +249,7 @@ where
 	// original filename.
 	let link_path = worker_dir::execute_artifact(worker_dir.path());
 	if let Err(err) = tokio::fs::hard_link(artifact_path, link_path).await {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			worker_pid = %pid,
 			?worker_dir,
@@ -264,7 +264,7 @@ where
 
 	// Try to clear the worker dir.
 	if let Err(err) = clear_worker_dir_path(&worker_dir_path) {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			worker_pid = %pid,
 			?worker_dir_path,

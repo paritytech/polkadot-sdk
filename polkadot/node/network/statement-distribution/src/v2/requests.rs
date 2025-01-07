@@ -269,7 +269,7 @@ impl RequestManager {
 			}
 		}
 
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			"Requests remaining after cleanup: {}",
 			self.by_priority.len(),
@@ -340,7 +340,7 @@ impl RequestManager {
 		for (i, (_priority, id)) in self.by_priority.iter().enumerate() {
 			let entry = match self.requests.get_mut(&id) {
 				None => {
-					gum::error!(
+					sp_tracing::error!(
 						target: LOG_TARGET,
 						identifier = ?id,
 						"Missing entry for priority queue member",
@@ -374,7 +374,7 @@ impl RequestManager {
 				Some(t) => t,
 			};
 
-			gum::debug!(
+			sp_tracing::debug!(
 				target: crate::LOG_TARGET,
 				candidate_hash = ?id.candidate_hash,
 				peer = ?target,
@@ -615,7 +615,7 @@ impl UnhandledResponse {
 
 		let complete_response = match response {
 			Err(RequestError::InvalidResponse(e)) => {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					err = ?e,
 					peer = ?requested_peer,
@@ -629,7 +629,7 @@ impl UnhandledResponse {
 				}
 			},
 			Err(e @ RequestError::NetworkError(_) | e @ RequestError::Canceled(_)) => {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					err = ?e,
 					peer = ?requested_peer,
@@ -684,7 +684,7 @@ fn validate_complete_response(
 	// sanity check bitmask size. this is based entirely on
 	// local logic here.
 	if !unwanted_mask.has_len(group.len()) {
-		gum::error!(
+		sp_tracing::error!(
 			target: LOG_TARGET,
 			group_len = group.len(),
 			"Logic bug: group size != sent bitmask len"
@@ -733,7 +733,7 @@ fn validate_complete_response(
 		if !allow_v2_descriptors &&
 			response.candidate_receipt.descriptor.version() == CandidateDescriptorVersion::V2
 		{
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				?candidate_hash,
 				peer = ?requested_peer,
@@ -743,7 +743,7 @@ fn validate_complete_response(
 		}
 		// Validate the core index.
 		if let Err(err) = response.candidate_receipt.check_core_index(transposed_cq) {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				?candidate_hash,
 				?err,
@@ -758,7 +758,7 @@ fn validate_complete_response(
 		if let Some(candidate_session_index) = response.candidate_receipt.descriptor.session_index()
 		{
 			if candidate_session_index != session {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					peer = ?requested_peer,

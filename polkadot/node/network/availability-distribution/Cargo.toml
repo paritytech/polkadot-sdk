@@ -28,6 +28,7 @@ sc-network = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 sp-core = { features = ["std"], workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]

@@ -113,7 +113,7 @@ impl MockNetworkBridgeTx {
 				orchestra::FromOrchestra::Communication { msg } => match msg {
 					NetworkBridgeTxMessage::SendRequests(requests, _if_disconnected) => {
 						for request in requests {
-							gum::debug!(target: LOG_TARGET, request = ?request, "Processing request");
+							sp_tracing::debug!(target: LOG_TARGET, request = ?request, "Processing request");
 							let peer_id = match request.authority_id() {
 								Some(v) => v.clone(),
 								None => self

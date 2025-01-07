@@ -185,7 +185,7 @@ where
 			match log_error(self.run_inner().await) {
 				Ok(()) => {},
 				Err(fatal) => {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						error = ?fatal,
 						"Shutting down"
@@ -303,7 +303,7 @@ where
 
 		// Queue request:
 		if let Err((authority_id, req)) = self.peer_queues.push_req(authority_id, req) {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				?authority_id,
 				?peer,
@@ -362,7 +362,7 @@ where
 		match self.batches.find_batch(candidate_hash, candidate_receipt)? {
 			FoundBatch::Created(batch) => {
 				// There was no entry yet - start import immediately:
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					?peer,
@@ -376,7 +376,7 @@ where
 				self.start_import(import).await;
 			},
 			FoundBatch::Found(batch) => {
-				gum::trace!(target: LOG_TARGET, ?candidate_hash, "Batch exists - batching request");
+				sp_tracing::trace!(target: LOG_TARGET, ?candidate_hash, "Batch exists - batching request");
 				let batch_result =
 					batch.add_votes(valid_vote, invalid_vote, peer, pending_response);
 
@@ -388,7 +388,7 @@ where
 					// that honest node. Given that we already have a rate limit, if a validator
 					// chooses to waste available rate with redundant votes - so be it. The actual
 					// dispute resolution is unaffected.
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						?peer,
 						"Peer sent completely redundant votes within a single batch - that looks fishy!",
@@ -424,7 +424,7 @@ where
 		let PreparedImport { candidate_receipt, statements, requesters } = import;
 		let (session_index, candidate_hash) = match statements.iter().next() {
 			None => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					candidate_hash = ?candidate_receipt.hash(),
 					"Not importing empty batch"

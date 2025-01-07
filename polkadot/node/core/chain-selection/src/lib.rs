@@ -214,9 +214,9 @@ impl Error {
 	fn trace(&self) {
 		match self {
 			// don't spam the log with spurious errors
-			Self::Oneshot(_) => gum::debug!(target: LOG_TARGET, err = ?self),
+			Self::Oneshot(_) => sp_tracing::debug!(target: LOG_TARGET, err = ?self),
 			// it's worth reporting otherwise
-			_ => gum::warn!(target: LOG_TARGET, err = ?self),
+			_ => sp_tracing::warn!(target: LOG_TARGET, err = ?self),
 		}
 	}
 }
@@ -242,7 +242,7 @@ impl Clock for SystemClock {
 		match SystemTime::now().duration_since(UNIX_EPOCH) {
 			Ok(d) => d.as_secs(),
 			Err(e) => {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					err = ?e,
 					"Current time is before unix epoch. Validation will not work correctly."
@@ -400,7 +400,7 @@ async fn run<Context, B>(
 				break
 			},
 			Ok(()) => {
-				gum::info!(target: LOG_TARGET, "received `Conclude` signal, exiting");
+				sp_tracing::info!(target: LOG_TARGET, "received `Conclude` signal, exiting");
 				break
 			},
 		}
@@ -498,7 +498,7 @@ async fn fetch_finalized(
 	let number = match number_rx.await? {
 		Ok(number) => number,
 		Err(err) => {
-			gum::warn!(target: LOG_TARGET, ?err, "Fetching finalized number failed");
+			sp_tracing::warn!(target: LOG_TARGET, ?err, "Fetching finalized number failed");
 			return Ok(None)
 		},
 	};
@@ -509,11 +509,11 @@ async fn fetch_finalized(
 
 	match hash_rx.await? {
 		Err(err) => {
-			gum::warn!(target: LOG_TARGET, number, ?err, "Fetching finalized block number failed");
+			sp_tracing::warn!(target: LOG_TARGET, number, ?err, "Fetching finalized block number failed");
 			Ok(None)
 		},
 		Ok(None) => {
-			gum::warn!(target: LOG_TARGET, number, "Missing hash for finalized block number");
+			sp_tracing::warn!(target: LOG_TARGET, number, "Missing hash for finalized block number");
 			Ok(None)
 		},
 		Ok(Some(h)) => Ok(Some((h, number))),
@@ -528,7 +528,7 @@ async fn fetch_header(
 	sender.send_message(ChainApiMessage::BlockHeader(hash, tx)).await;
 
 	Ok(rx.await?.unwrap_or_else(|err| {
-		gum::warn!(target: LOG_TARGET, ?hash, ?err, "Missing hash for finalized block number");
+		sp_tracing::warn!(target: LOG_TARGET, ?hash, ?err, "Missing hash for finalized block number");
 		None
 	}))
 }
@@ -543,7 +543,7 @@ async fn fetch_block_weight(
 	let res = rx.await?;
 
 	Ok(res.unwrap_or_else(|err| {
-		gum::warn!(target: LOG_TARGET, ?hash, ?err, "Missing hash for finalized block number");
+		sp_tracing::warn!(target: LOG_TARGET, ?hash, ?err, "Missing hash for finalized block number");
 		None
 	}))
 }
@@ -567,7 +567,7 @@ async fn handle_active_leaf(
 
 	let header = match fetch_header(sender, hash).await? {
 		None => {
-			gum::warn!(target: LOG_TARGET, ?hash, "Missing header for new head");
+			sp_tracing::warn!(target: LOG_TARGET, ?hash, "Missing header for new head");
 			return Ok(Vec::new())
 		},
 		Some(h) => h,
@@ -589,7 +589,7 @@ async fn handle_active_leaf(
 	for (hash, header) in new_blocks.into_iter().rev() {
 		let weight = match fetch_block_weight(sender, hash).await? {
 			None => {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					?hash,
 					"Missing block weight for new head. Skipping chain.",
@@ -629,7 +629,7 @@ fn extract_reversion_logs(header: &Header) -> Vec<BlockNumber> {
 		.enumerate()
 		.filter_map(|(i, d)| match ConsensusLog::from_digest_item(d) {
 			Err(e) => {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					err = ?e,
 					index = i,
@@ -641,7 +641,7 @@ fn extract_reversion_logs(header: &Header) -> Vec<BlockNumber> {
 			},
 			Ok(Some(ConsensusLog::Revert(b))) if b <= number => Some(b),
 			Ok(Some(ConsensusLog::Revert(b))) => {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					revert_target = b,
 					block_number = number,

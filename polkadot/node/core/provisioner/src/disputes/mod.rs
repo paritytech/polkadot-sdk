@@ -39,7 +39,7 @@ async fn request_votes(
 	match rx.await {
 		Ok(v) => v,
 		Err(oneshot::Canceled) => {
-			gum::warn!(target: LOG_TARGET, "Unable to query candidate votes");
+			sp_tracing::warn!(target: LOG_TARGET, "Unable to query candidate votes");
 			Vec::new()
 		},
 	}

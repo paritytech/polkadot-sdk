@@ -41,7 +41,7 @@ use crate::{worker::WorkerInfo, LOG_TARGET};
 /// Require env vars to have been removed when spawning the process, to prevent malicious code from
 /// accessing them.
 pub fn check_env_vars_were_cleared(worker_info: &WorkerInfo) -> bool {
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		?worker_info,
 		"clearing env vars in worker",
@@ -62,7 +62,7 @@ pub fn check_env_vars_were_cleared(worker_info: &WorkerInfo) -> bool {
 			continue
 		}
 
-		gum::error!(
+		sp_tracing::error!(
 			target: LOG_TARGET,
 			?worker_info,
 			?key,

@@ -166,7 +166,7 @@ impl ClaimQueueState {
 	}
 
 	pub(crate) fn claim_at(&mut self, relay_parent: &Hash, para_id: &ParaId) -> bool {
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			?para_id,
 			?relay_parent,
@@ -176,7 +176,7 @@ impl ClaimQueueState {
 	}
 
 	pub(crate) fn can_claim_at(&mut self, relay_parent: &Hash, para_id: &ParaId) -> bool {
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			?para_id,
 			?relay_parent,
@@ -193,7 +193,7 @@ impl ClaimQueueState {
 		let window = self.get_window(relay_parent);
 
 		for w in window {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?para_id,
 				?relay_parent,

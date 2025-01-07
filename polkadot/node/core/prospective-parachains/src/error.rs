@@ -65,7 +65,7 @@ pub fn log_error(result: Result<()>, ctx: &'static str) -> FatalResult<()> {
 	match result.into_nested()? {
 		Ok(()) => Ok(()),
 		Err(jfyi) => {
-			gum::debug!(target: LOG_TARGET, error = ?jfyi, ctx);
+			sp_tracing::debug!(target: LOG_TARGET, error = ?jfyi, ctx);
 			Ok(())
 		},
 	}

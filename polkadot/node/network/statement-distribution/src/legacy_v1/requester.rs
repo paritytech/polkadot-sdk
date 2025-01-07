@@ -83,7 +83,7 @@ pub async fn fetch(
 	mut sender: mpsc::Sender<RequesterMessage>,
 	metrics: Metrics,
 ) {
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		?candidate_hash,
 		?relay_parent,
@@ -106,7 +106,7 @@ pub async fn fetch(
 				.feed(RequesterMessage::SendRequest(Requests::StatementFetchingV1(outgoing)))
 				.await
 			{
-				gum::info!(
+				sp_tracing::info!(
 					target: LOG_TARGET,
 					?err,
 					"Sending request failed, node might be shutting down - exiting."
@@ -125,7 +125,7 @@ pub async fn fetch(
 						if let Err(err) =
 							sender.feed(RequesterMessage::ReportPeer(peer, COST_WRONG_HASH)).await
 						{
-							gum::warn!(
+							sp_tracing::warn!(
 								target: LOG_TARGET,
 								?err,
 								"Sending reputation change failed: This should not happen."
@@ -145,7 +145,7 @@ pub async fn fetch(
 						})
 						.await
 					{
-						gum::warn!(
+						sp_tracing::warn!(
 							target: LOG_TARGET,
 							?err,
 							"Sending task response failed: This should not happen."
@@ -158,7 +158,7 @@ pub async fn fetch(
 					return
 				},
 				Err(err) => {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						?err,
 						"Receiving response failed with error - trying next peer."
@@ -177,7 +177,7 @@ pub async fn fetch(
 		// All our peers failed us - try getting new ones before trying again:
 		match try_get_new_peers(relay_parent, candidate_hash, &mut sender).await {
 			Ok(Some(mut peers)) => {
-				gum::trace!(target: LOG_TARGET, ?peers, "Received new peers.");
+				sp_tracing::trace!(target: LOG_TARGET, ?peers, "Received new peers.");
 				// New arrivals will be tried first:
 				new_peers.append(&mut peers);
 			},
@@ -205,7 +205,7 @@ async fn try_get_new_peers(
 		.send(RequesterMessage::GetMorePeers { relay_parent, candidate_hash, tx })
 		.await
 	{
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?err,
 			"Failed sending background task message, subsystem probably moved on."
@@ -215,7 +215,7 @@ async fn try_get_new_peers(
 
 	match rx.timeout(RETRY_TIMEOUT).await.transpose() {
 		Err(_) => {
-			gum::debug!(target: LOG_TARGET, "Failed fetching more peers.");
+			sp_tracing::debug!(target: LOG_TARGET, "Failed fetching more peers.");
 			Err(())
 		},
 		Ok(val) => Ok(val),

@@ -23,6 +23,7 @@ polkadot-overseer = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 
 sp-keystore = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 
 [dev-dependencies]
 futures-timer = { workspace = true }

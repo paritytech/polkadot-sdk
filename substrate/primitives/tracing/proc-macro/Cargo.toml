@@ -1,0 +1,35 @@
+[package]
+name = "sp-tracing-proc-macro"
+version = "13.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Macro for defining a runtime version."
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { features = ["extra-traits", "full"], workspace = true }
+quote = { workspace = true }
+proc-macro2 = { workspace = true }
+proc-macro-crate = { workspace = true }
+expander = { workspace = true }
+
+[dev-dependencies]
+assert_matches = { workspace = true }
+
+
+[features]
+default = []
+# write the expanded version to a `gum.[a-f0-9]{10}.rs`
+# in the `OUT_DIR` as defined by `cargo` for the `expander` crate.
+expand = []

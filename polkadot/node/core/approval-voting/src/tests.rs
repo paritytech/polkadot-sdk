@@ -595,7 +595,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 }
 
 async fn overseer_send(overseer: &mut VirtualOverseer, msg: FromOrchestra<ApprovalVotingMessage>) {
-	gum::trace!("Sending message:\n{:?}", &msg);
+	sp_tracing::trace!("Sending message:\n{:?}", &msg);
 	overseer
 		.send(msg)
 		.timeout(TIMEOUT)
@@ -608,7 +608,7 @@ async fn overseer_recv(overseer: &mut VirtualOverseer) -> AllMessages {
 		.await
 		.expect(&format!("{:?} is enough to receive messages.", TIMEOUT));
 
-	gum::trace!("Received message:\n{:?}", &msg);
+	sp_tracing::trace!("Received message:\n{:?}", &msg);
 
 	msg
 }
@@ -617,7 +617,7 @@ async fn overseer_recv_with_timeout(
 	overseer: &mut VirtualOverseer,
 	timeout: Duration,
 ) -> Option<AllMessages> {
-	gum::trace!("Waiting for message...");
+	sp_tracing::trace!("Waiting for message...");
 	overseer.recv().timeout(timeout).await
 }
 
@@ -3050,7 +3050,7 @@ fn subsystem_doesnt_distribute_duplicate_compact_assignments() {
 
 		// Activate the wakeup present above, and sleep to allow process_wakeups to execute..
 		assert_eq!(Some(2), clock.inner.lock().next_wakeup());
-		gum::trace!("clock \n{:?}\n", clock.inner.lock());
+		sp_tracing::trace!("clock \n{:?}\n", clock.inner.lock());
 
 		clock.inner.lock().wakeup_all(100);
 

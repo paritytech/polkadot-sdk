@@ -188,7 +188,7 @@ fn reconstructed_data_matches_root(
 	let chunks = match obtain_chunks_v1(n_validators, data) {
 		Ok(chunks) => chunks,
 		Err(e) => {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				err = ?e,
 				"Failed to obtain chunks",
@@ -222,7 +222,7 @@ impl Future for RecoveryHandle {
 
 		// these are reverse order, so remove is fine.
 		for index in indices_to_remove {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				candidate_hash = ?self.candidate_hash,
 				"Receiver for available data dropped.",
@@ -232,7 +232,7 @@ impl Future for RecoveryHandle {
 		}
 
 		if self.awaiting.is_empty() {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				candidate_hash = ?self.candidate_hash,
 				"All receivers for available data dropped.",
@@ -430,7 +430,7 @@ async fn handle_recover<Context>(
 								small_pov_size = pov_size_estimate < fetch_chunks_threshold;
 
 								if small_pov_size {
-									gum::trace!(
+									sp_tracing::trace!(
 										target: LOG_TARGET,
 										?candidate_hash,
 										pov_size_estimate,
@@ -737,7 +737,7 @@ impl AvailabilityRecoverySubsystem {
 									&mut state,
 									signal,
 								).await {
-									gum::debug!(target: LOG_TARGET, "subsystem concluded");
+									sp_tracing::debug!(target: LOG_TARGET, "subsystem concluded");
 									return Ok(());
 								} else {
 									Ok(())
@@ -775,7 +775,7 @@ impl AvailabilityRecoverySubsystem {
 					match in_req {
 						Ok(req) => {
 							if bypass_availability_store {
-								gum::debug!(
+								sp_tracing::debug!(
 									target: LOG_TARGET,
 									"Skipping request to availability-store.",
 								);
@@ -861,7 +861,7 @@ impl ThreadPoolBuilder {
 			if let Err(e) = ctx
 				.spawn_blocking("erasure-task", Box::pin(erasure_task_thread(metrics.clone(), rx)))
 			{
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					err = ?e,
 					index,
@@ -909,7 +909,7 @@ async fn erasure_task_thread(
 				let _ = sender.send(maybe_data);
 			},
 			None => {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					"Erasure task channel closed. Node shutting down ?",
 				);

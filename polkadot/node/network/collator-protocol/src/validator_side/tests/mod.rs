@@ -256,7 +256,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 const TIMEOUT: Duration = Duration::from_millis(200);
 
 async fn overseer_send(overseer: &mut VirtualOverseer, msg: CollatorProtocolMessage) {
-	gum::trace!("Sending message:\n{:?}", &msg);
+	sp_tracing::trace!("Sending message:\n{:?}", &msg);
 	overseer
 		.send(FromOrchestra::Communication { msg })
 		.timeout(TIMEOUT)
@@ -269,7 +269,7 @@ async fn overseer_recv(overseer: &mut VirtualOverseer) -> AllMessages {
 		.await
 		.expect(&format!("{:?} is enough to receive messages.", TIMEOUT));
 
-	gum::trace!("Received message:\n{:?}", &msg);
+	sp_tracing::trace!("Received message:\n{:?}", &msg);
 
 	msg
 }
@@ -278,7 +278,7 @@ async fn overseer_recv_with_timeout(
 	overseer: &mut VirtualOverseer,
 	timeout: Duration,
 ) -> Option<AllMessages> {
-	gum::trace!("Waiting for message...");
+	sp_tracing::trace!("Waiting for message...");
 	overseer.recv().timeout(timeout).await
 }
 
@@ -1106,7 +1106,7 @@ fn delay_reputation_change() {
 		loop {
 			match overseer_recv(&mut virtual_overseer).await {
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::DisconnectPeer(_, _)) => {
-					gum::trace!("`Disconnecting inactive peer` message skipped");
+					sp_tracing::trace!("`Disconnecting inactive peer` message skipped");
 					continue
 				},
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(

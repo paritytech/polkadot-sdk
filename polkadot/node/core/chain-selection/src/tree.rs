@@ -141,7 +141,7 @@ fn propagate_viability_update(
 			BlockEntryRef::Explicit(entry) => entry,
 			BlockEntryRef::Hash(hash) => match backend.load_block_entry(&hash)? {
 				None => {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						block_hash = ?hash,
 						"Missing expected block entry"
@@ -364,7 +364,7 @@ fn apply_reversions(
 	for revert_number in reversions {
 		let maybe_block_entry = load_ancestor(backend, &block_entry, revert_number)?;
 		if let Some(entry) = &maybe_block_entry {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?revert_number,
 				revert_hash = ?entry.block_hash,
@@ -392,7 +392,7 @@ pub(crate) fn apply_single_reversion(
 	revert_hash: Hash,
 	revert_number: BlockNumber,
 ) -> Result<(), Error> {
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		?revert_number,
 		?revert_hash,
@@ -420,7 +420,7 @@ fn revert_single_block_entry_if_present(
 ) -> Result<(), Error> {
 	match maybe_block_entry {
 		None => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				?maybe_revert_hash,
 				revert_target = revert_number,
@@ -432,7 +432,7 @@ fn revert_single_block_entry_if_present(
 			);
 		},
 		Some(mut block_entry) => {
-			gum::info!(
+			sp_tracing::info!(
 				target: LOG_TARGET,
 				?maybe_revert_hash,
 				revert_target = revert_number,
@@ -536,7 +536,7 @@ pub(super) fn finalize_block<'a, B: Backend + 'a>(
 
 			propagate_viability_update(&mut backend, child)?;
 		} else {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				?finalized_hash,
 				finalized_number,
@@ -571,7 +571,7 @@ pub(super) fn approve_block(
 			backend.write_block_entry(entry);
 		}
 	} else {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			block_hash = ?approved_hash,
 			"Missing entry for freshly-approved block. Ignoring"
@@ -602,7 +602,7 @@ pub(super) fn detect_stagnant<'a, B: 'a + Backend>(
 
 	// As this is in ascending order, only the earliest stagnant
 	// blocks will involve heavy viability propagations.
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		?up_to,
 		?min_ts,
@@ -621,7 +621,7 @@ pub(super) fn detect_stagnant<'a, B: 'a + Backend>(
 					entry.viability.approval = Approval::Stagnant;
 				}
 				let is_viable = entry.viability.is_viable();
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?block_hash,
 					?timestamp,
@@ -636,7 +636,7 @@ pub(super) fn detect_stagnant<'a, B: 'a + Backend>(
 					backend.write_block_entry(entry);
 				}
 			} else {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?block_hash,
 					?timestamp,
@@ -666,7 +666,7 @@ pub(super) fn prune_only_stagnant<'a, B: 'a + Backend>(
 		n => (stagnant_up_to[0].0, stagnant_up_to[n - 1].0),
 	};
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		?up_to,
 		?min_ts,

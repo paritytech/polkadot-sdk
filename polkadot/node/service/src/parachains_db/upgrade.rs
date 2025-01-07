@@ -158,27 +158,27 @@ fn version_file_path(path: &Path) -> PathBuf {
 }
 
 fn migrate_from_version_0_to_1(path: &Path, db_kind: DatabaseKind) -> Result<Version, Error> {
-	gum::info!(target: LOG_TARGET, "Migrating parachains db from version 0 to version 1 ...");
+	sp_tracing::info!(target: LOG_TARGET, "Migrating parachains db from version 0 to version 1 ...");
 
 	match db_kind {
 		DatabaseKind::ParityDB => paritydb_migrate_from_version_0_to_1(path),
 		DatabaseKind::RocksDB => rocksdb_migrate_from_version_0_to_1(path),
 	}
 	.and_then(|result| {
-		gum::info!(target: LOG_TARGET, "Migration complete! ");
+		sp_tracing::info!(target: LOG_TARGET, "Migration complete! ");
 		Ok(result)
 	})
 }
 
 fn migrate_from_version_1_to_2(path: &Path, db_kind: DatabaseKind) -> Result<Version, Error> {
-	gum::info!(target: LOG_TARGET, "Migrating parachains db from version 1 to version 2 ...");
+	sp_tracing::info!(target: LOG_TARGET, "Migrating parachains db from version 1 to version 2 ...");
 
 	match db_kind {
 		DatabaseKind::ParityDB => paritydb_migrate_from_version_1_to_2(path),
 		DatabaseKind::RocksDB => rocksdb_migrate_from_version_1_to_2(path),
 	}
 	.and_then(|result| {
-		gum::info!(target: LOG_TARGET, "Migration complete! ");
+		sp_tracing::info!(target: LOG_TARGET, "Migration complete! ");
 		Ok(result)
 	})
 }
@@ -195,7 +195,7 @@ fn migrate_from_version_3_or_4_to_5<F>(
 where
 	F: Fn(Arc<dyn Database>, ApprovalDbConfig) -> ApprovalDbResult<()>,
 {
-	gum::info!(target: LOG_TARGET, "Migrating parachains db from version 3 to version 4 ...");
+	sp_tracing::info!(target: LOG_TARGET, "Migrating parachains db from version 3 to version 4 ...");
 
 	let approval_db_config =
 		ApprovalDbConfig { col_approval_data: super::REAL_COLUMNS.col_approval_data };
@@ -227,18 +227,18 @@ where
 		},
 	};
 
-	gum::info!(target: LOG_TARGET, "Migration complete! ");
+	sp_tracing::info!(target: LOG_TARGET, "Migration complete! ");
 	Ok(CURRENT_VERSION)
 }
 
 fn migrate_from_version_2_to_3(path: &Path, db_kind: DatabaseKind) -> Result<Version, Error> {
-	gum::info!(target: LOG_TARGET, "Migrating parachains db from version 2 to version 3 ...");
+	sp_tracing::info!(target: LOG_TARGET, "Migrating parachains db from version 2 to version 3 ...");
 	match db_kind {
 		DatabaseKind::ParityDB => paritydb_migrate_from_version_2_to_3(path),
 		DatabaseKind::RocksDB => rocksdb_migrate_from_version_2_to_3(path),
 	}
 	.and_then(|result| {
-		gum::info!(target: LOG_TARGET, "Migration complete! ");
+		sp_tracing::info!(target: LOG_TARGET, "Migration complete! ");
 		Ok(result)
 	})
 }
@@ -310,7 +310,7 @@ fn paritydb_fix_columns(
 			.filter_map(|(idx, opts)| {
 				let changed = opts != options.columns[idx];
 				if changed {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						"Column {} will be cleared. Old options: {:?}, New options: {:?}",
 						idx,
@@ -325,7 +325,7 @@ fn paritydb_fix_columns(
 			.collect::<Vec<_>>();
 
 		if columns_to_clear.len() > 0 {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				"Database column changes detected, need to cleanup {} columns.",
 				columns_to_clear.len()
@@ -333,7 +333,7 @@ fn paritydb_fix_columns(
 		}
 
 		for column in columns_to_clear {
-			gum::debug!(target: LOG_TARGET, "Clearing column {}", column,);
+			sp_tracing::debug!(target: LOG_TARGET, "Clearing column {}", column,);
 			parity_db::clear_column(path, column.try_into().expect("Invalid column ID"))
 				.map_err(|e| other_io_error(format!("Error clearing column {:?}", e)))?;
 		}

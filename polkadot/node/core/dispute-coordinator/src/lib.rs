@@ -30,7 +30,7 @@ use std::sync::Arc;
 use error::FatalError;
 use futures::FutureExt;
 
-use gum::CandidateHash;
+use polkadot_primitives::CandidateHash;
 use sc_keystore::LocalKeystore;
 
 use polkadot_node_primitives::{
@@ -295,7 +295,7 @@ impl DisputeCoordinatorSubsystem {
 				.into_iter()
 				.flatten(),
 			Err(e) => {
-				gum::error!(target: LOG_TARGET, "Failed initial load of recent disputes: {:?}", e);
+				sp_tracing::error!(target: LOG_TARGET, "Failed initial load of recent disputes: {:?}", e);
 				return Err(e.into())
 			},
 		};
@@ -314,7 +314,7 @@ impl DisputeCoordinatorSubsystem {
 				.get_session_info_by_index(ctx.sender(), initial_head.hash, idx)
 				.await
 			{
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					leaf_hash = ?initial_head.hash,
 					session_idx = idx,
@@ -349,7 +349,7 @@ impl DisputeCoordinatorSubsystem {
 			.await
 			{
 				None => {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						session,
 						"We are lacking a `SessionInfo` for handling db votes on startup."
@@ -365,7 +365,7 @@ impl DisputeCoordinatorSubsystem {
 					Ok(Some(votes)) => votes.into(),
 					Ok(None) => continue,
 					Err(e) => {
-						gum::error!(
+						sp_tracing::error!(
 							target: LOG_TARGET,
 							"Failed initial load of candidate votes: {:?}",
 							e
@@ -381,7 +381,7 @@ impl DisputeCoordinatorSubsystem {
 				scraper.is_candidate_included(&vote_state.votes().candidate_receipt.hash());
 
 			if potential_spam {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?session,
 					?candidate_hash,
@@ -392,7 +392,7 @@ impl DisputeCoordinatorSubsystem {
 			} else {
 				// Participate if need be:
 				if vote_state.own_vote_missing() {
-					gum::trace!(
+					sp_tracing::trace!(
 						target: LOG_TARGET,
 						?session,
 						?candidate_hash,
@@ -411,7 +411,7 @@ impl DisputeCoordinatorSubsystem {
 				}
 				// Else make sure our own vote is distributed:
 				else {
-					gum::trace!(
+					sp_tracing::trace!(
 						target: LOG_TARGET,
 						?session,
 						?candidate_hash,
@@ -454,7 +454,7 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> Result<Option<Activa
 			// hour old database state, we should rather cancel contained oneshots and delay
 			// finality until we are fully functional.
 			{
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					?msg,
 					"Received msg before first active leaves update. This is not expected - message will be dropped."
@@ -480,7 +480,7 @@ pub fn is_potential_spam(
 	let all_invalid_votes_disabled = vote_state.invalid_votes_all_disabled(is_disabled);
 	let ignore_disabled = !is_confirmed && all_invalid_votes_disabled;
 
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		?candidate_hash,
 		?is_disputed,
@@ -509,7 +509,7 @@ async fn send_dispute_messages<Context>(
 		let public_key = if let Some(key) = env.session_info().validators.get(*validator_index) {
 			key.clone()
 		} else {
-			gum::error!(
+			sp_tracing::error!(
 				target: LOG_TARGET,
 				?validator_index,
 				session_index = ?env.session_index(),
@@ -527,7 +527,7 @@ async fn send_dispute_messages<Context>(
 		let our_vote_signed = match our_vote_signed {
 			Ok(signed) => signed,
 			Err(()) => {
-				gum::error!(
+				sp_tracing::error!(
 					target: LOG_TARGET,
 					"Checking our own signature failed - db corruption?"
 				);
@@ -541,7 +541,7 @@ async fn send_dispute_messages<Context>(
 			*validator_index,
 		) {
 			Err(err) => {
-				gum::debug!(target: LOG_TARGET, ?err, "Creating dispute message failed.");
+				sp_tracing::debug!(target: LOG_TARGET, ?err, "Creating dispute message failed.");
 				continue
 			},
 			Ok(dispute_message) => dispute_message,

@@ -110,7 +110,7 @@ impl BitfieldGossipMessage {
 			None => {
 				never!("Peers should only have supported protocol versions.");
 
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					version = ?recipient_version,
 					"Unknown protocol version provided for message recipient"
@@ -252,7 +252,7 @@ impl BitfieldDistribution {
 					let message = match message {
 						Ok(message) => message,
 						Err(err) => {
-							gum::error!(
+							sp_tracing::error!(
 								target: LOG_TARGET,
 								?err,
 								"Failed to receive a message from Overseer, exiting"
@@ -268,7 +268,7 @@ impl BitfieldDistribution {
 									signed_availability,
 								),
 						} => {
-							gum::trace!(target: LOG_TARGET, ?relay_parent, "Processing DistributeBitfield");
+							sp_tracing::trace!(target: LOG_TARGET, ?relay_parent, "Processing DistributeBitfield");
 							handle_bitfield_distribution(
 								&mut ctx,
 								state,
@@ -282,7 +282,7 @@ impl BitfieldDistribution {
 						FromOrchestra::Communication {
 							msg: BitfieldDistributionMessage::NetworkBridgeUpdate(event),
 						} => {
-							gum::trace!(target: LOG_TARGET, "Processing NetworkMessage");
+							sp_tracing::trace!(target: LOG_TARGET, "Processing NetworkMessage");
 							// a network message was received
 							handle_network_msg(&mut ctx, state, &self.metrics, event, rng).await;
 						},
@@ -295,7 +295,7 @@ impl BitfieldDistribution {
 							if let Some(activated) = activated {
 								let relay_parent = activated.hash;
 
-								gum::trace!(target: LOG_TARGET, ?relay_parent, "activated");
+								sp_tracing::trace!(target: LOG_TARGET, ?relay_parent, "activated");
 
 								// query validator set and signing context per relay_parent once only
 								match query_basics(&mut ctx, relay_parent).await {
@@ -311,17 +311,17 @@ impl BitfieldDistribution {
 										);
 									},
 									Err(err) => {
-										gum::warn!(target: LOG_TARGET, ?err, "query_basics has failed");
+										sp_tracing::warn!(target: LOG_TARGET, ?err, "query_basics has failed");
 									},
 									_ => {},
 								}
 							}
 						},
 						FromOrchestra::Signal(OverseerSignal::BlockFinalized(hash, number)) => {
-							gum::trace!(target: LOG_TARGET, ?hash, %number, "block finalized");
+							sp_tracing::trace!(target: LOG_TARGET, ?hash, %number, "block finalized");
 						},
 						FromOrchestra::Signal(OverseerSignal::Conclude) => {
-							gum::info!(target: LOG_TARGET, "Conclude");
+							sp_tracing::info!(target: LOG_TARGET, "Conclude");
 							return
 						},
 					}
@@ -339,7 +339,7 @@ async fn modify_reputation(
 	peer: PeerId,
 	rep: Rep,
 ) {
-	gum::trace!(target: LOG_TARGET, ?relay_parent, ?rep, %peer, "reputation change");
+	sp_tracing::trace!(target: LOG_TARGET, ?relay_parent, ?rep, %peer, "reputation change");
 
 	reputation.modify(sender, peer, rep).await;
 }
@@ -362,7 +362,7 @@ async fn handle_bitfield_distribution<Context>(
 	let job_data: &mut _ = if let Some(ref mut job_data) = job_data {
 		job_data
 	} else {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?relay_parent,
 			"Not supposed to work on relay parent related data",
@@ -374,7 +374,7 @@ async fn handle_bitfield_distribution<Context>(
 	let session_idx = job_data.signing_context.session_index;
 	let validator_set = &job_data.validator_set;
 	if validator_set.is_empty() {
-		gum::debug!(target: LOG_TARGET, ?relay_parent, "validator set is empty");
+		sp_tracing::debug!(target: LOG_TARGET, ?relay_parent, "validator set is empty");
 		return
 	}
 
@@ -382,7 +382,7 @@ async fn handle_bitfield_distribution<Context>(
 	let validator = if let Some(validator) = validator_set.get(validator_index.0 as usize) {
 		validator.clone()
 	} else {
-		gum::debug!(target: LOG_TARGET, validator_index = ?validator_index.0, "Could not find a validator for index");
+		sp_tracing::debug!(target: LOG_TARGET, validator_index = ?validator_index.0, "Could not find a validator for index");
 		return
 	};
 
@@ -474,7 +474,7 @@ async fn relay_message<Context>(
 	});
 
 	if interested_peers.is_empty() {
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			?relay_parent,
 			"no peers are interested in gossip for relay parent",
@@ -539,7 +539,7 @@ async fn process_incoming_peer_message<Context>(
 		)) => (relay_parent, bitfield),
 	};
 
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		peer = %origin,
 		?relay_parent,
@@ -578,7 +578,7 @@ async fn process_incoming_peer_message<Context>(
 
 	let validator_set = &job_data.validator_set;
 	if validator_set.is_empty() {
-		gum::trace!(target: LOG_TARGET, ?relay_parent, ?origin, "Validator set is empty",);
+		sp_tracing::trace!(target: LOG_TARGET, ?relay_parent, ?origin, "Validator set is empty",);
 		modify_reputation(
 			&mut state.reputation,
 			ctx.sender(),
@@ -615,7 +615,7 @@ async fn process_incoming_peer_message<Context>(
 	if !received_set.contains(&validator) {
 		received_set.insert(validator.clone());
 	} else {
-		gum::trace!(target: LOG_TARGET, ?validator_index, ?origin, "Duplicate message");
+		sp_tracing::trace!(target: LOG_TARGET, ?validator_index, ?origin, "Duplicate message");
 		modify_reputation(
 			&mut state.reputation,
 			ctx.sender(),
@@ -631,7 +631,7 @@ async fn process_incoming_peer_message<Context>(
 
 	// relay a message received from a validator at most _once_
 	if let Some(old_message) = one_per_validator.get(&validator) {
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			?validator_index,
 			"already received a message for validator",
@@ -710,7 +710,7 @@ async fn handle_network_msg<Context>(
 
 	match bridge_message {
 		NetworkBridgeEvent::PeerConnected(peer, role, version, _) => {
-			gum::trace!(target: LOG_TARGET, ?peer, ?role, "Peer connected");
+			sp_tracing::trace!(target: LOG_TARGET, ?peer, ?role, "Peer connected");
 			// insert if none already present
 			state
 				.peer_data
@@ -718,7 +718,7 @@ async fn handle_network_msg<Context>(
 				.or_insert_with(|| PeerData { view: View::default(), version });
 		},
 		NetworkBridgeEvent::PeerDisconnected(peer) => {
-			gum::trace!(target: LOG_TARGET, ?peer, "Peer disconnected");
+			sp_tracing::trace!(target: LOG_TARGET, ?peer, "Peer disconnected");
 			// get rid of superfluous data
 			state.peer_data.remove(&peer);
 		},
@@ -737,7 +737,7 @@ async fn handle_network_msg<Context>(
 
 			let newly_added = current_topology.local_grid_neighbors().peers_diff(&prev_neighbors);
 
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				?session_index,
 				newly_added_peers = ?newly_added.len(),
@@ -763,13 +763,13 @@ async fn handle_network_msg<Context>(
 			}
 		},
 		NetworkBridgeEvent::PeerViewChange(peer_id, new_view) => {
-			gum::trace!(target: LOG_TARGET, ?peer_id, ?new_view, "Peer view change");
+			sp_tracing::trace!(target: LOG_TARGET, ?peer_id, ?new_view, "Peer view change");
 			if state.peer_data.get(&peer_id).is_some() {
 				handle_peer_view_change(ctx, state, peer_id, new_view, rng).await;
 			}
 		},
 		NetworkBridgeEvent::OurViewChange(new_view) => {
-			gum::trace!(target: LOG_TARGET, ?new_view, "Our view change");
+			sp_tracing::trace!(target: LOG_TARGET, ?new_view, "Our view change");
 			handle_our_view_change(state, new_view);
 		},
 		NetworkBridgeEvent::PeerMessage(remote, message) =>
@@ -791,7 +791,7 @@ fn handle_our_view_change(state: &mut ProtocolState, view: OurView) {
 		if !state.per_relay_parent.contains_key(&added) {
 			// Is guaranteed to be handled in `ActiveHead` update
 			// so this should never happen.
-			gum::error!(
+			sp_tracing::error!(
 				target: LOG_TARGET,
 				%added,
 				"Our view contains {}, but not in active heads",
@@ -820,7 +820,7 @@ async fn handle_peer_view_change<Context>(
 ) {
 	let peer_data = match state.peer_data.get_mut(&origin) {
 		None => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				peer = ?origin,
 				"Attempted to update peer view for unknown peer."
@@ -843,7 +843,7 @@ async fn handle_peer_view_change<Context>(
 		);
 
 	if !lucky {
-		gum::trace!(target: LOG_TARGET, ?origin, "Peer view change is ignored");
+		sp_tracing::trace!(target: LOG_TARGET, ?origin, "Peer view change is ignored");
 		return
 	}
 
@@ -888,7 +888,7 @@ async fn send_tracked_gossip_message<Context>(
 		return
 	};
 
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		?dest,
 		?validator,
@@ -944,7 +944,7 @@ async fn query_basics<Context>(
 		(Ok(validators), Ok(session_index)) =>
 			Ok(Some((validators, SigningContext { parent_hash: relay_parent, session_index }))),
 		(Err(err), _) | (_, Err(err)) => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				?relay_parent,
 				?err,

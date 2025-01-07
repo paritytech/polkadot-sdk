@@ -1450,7 +1450,7 @@ fn receiving_large_statement_from_one_sends_to_another_and_to_candidate_backing(
 					)),
 				)
 			) => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					?recipients,
 					"Recipients received"
@@ -1961,7 +1961,7 @@ fn delay_reputation_changes() {
 					)),
 				)
 			) => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					?recipients,
 					"Recipients received"
@@ -2319,7 +2319,7 @@ fn share_prioritizes_backing_group() {
 					)),
 				)
 			) => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					?recipients,
 					"Recipients received"

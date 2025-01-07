@@ -175,7 +175,7 @@ where
 					match result {
 						Ok(message) => message,
 						Err(e) => {
-							gum::debug!(
+							sp_tracing::debug!(
 								target: LOG_TARGET,
 								err = ?e,
 								"Failed to receive a message from Overseer, exiting",
@@ -192,11 +192,11 @@ where
 					activated,
 					..
 				})) => {
-					gum::trace!(target: LOG_TARGET, "active leaves signal");
+					sp_tracing::trace!(target: LOG_TARGET, "active leaves signal");
 
 					let leaves = activated.into_iter().map(|a| a.hash);
 					if let Err(e) = self.handle_active_leaves(ctx.sender(), leaves).await {
-						gum::debug!(target: LOG_TARGET, error = ?e);
+						sp_tracing::debug!(target: LOG_TARGET, error = ?e);
 					}
 				},
 				FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, _number)) => {},
@@ -239,7 +239,7 @@ where
 				let session_info = match session_info {
 					Some(s) => s,
 					None => {
-						gum::warn!(
+						sp_tracing::warn!(
 							relay_parent = ?leaf,
 							session_index = self.last_session_index,
 							"Failed to get session info.",
@@ -253,7 +253,7 @@ where
 				// successfully gotten the `SessionInfo`.
 				let is_new_session = maybe_new_session.is_some();
 				if is_new_session {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						%session_index,
 						"New session detected",
@@ -326,7 +326,7 @@ where
 
 		match authority_check_result.as_ref() {
 			Ok(index) => {
-				gum::trace!(target: LOG_TARGET, "We are now an authority",);
+				sp_tracing::trace!(target: LOG_TARGET, "We are now an authority",);
 				self.metrics.on_is_authority();
 
 				// The subset of authorities participating in parachain consensus.
@@ -336,15 +336,15 @@ where
 				// if our index is in this set to avoid searching for the keys.
 				// https://github.com/paritytech/polkadot/blob/a52dca2be7840b23c19c153cf7e110b1e3e475f8/runtime/parachains/src/configuration.rs#L148
 				if *index < parachain_validators_this_session {
-					gum::trace!(target: LOG_TARGET, "We are now a parachain validator",);
+					sp_tracing::trace!(target: LOG_TARGET, "We are now a parachain validator",);
 					self.metrics.on_is_parachain_validator();
 				} else {
-					gum::trace!(target: LOG_TARGET, "We are no longer a parachain validator",);
+					sp_tracing::trace!(target: LOG_TARGET, "We are no longer a parachain validator",);
 					self.metrics.on_is_not_parachain_validator();
 				}
 			},
 			Err(util::Error::NotAValidator) => {
-				gum::trace!(target: LOG_TARGET, "We are no longer an authority",);
+				sp_tracing::trace!(target: LOG_TARGET, "We are no longer an authority",);
 				self.metrics.on_is_not_authority();
 				self.metrics.on_is_not_parachain_validator();
 			},
@@ -371,7 +371,7 @@ where
 				resolved.insert(authority, addrs);
 			} else {
 				failures += 1;
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					"Couldn't resolve addresses of authority: {:?}",
 					authority
@@ -410,7 +410,7 @@ where
 				None => changed.push(new_addresses.clone()),
 			}
 		}
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			num_changed = ?changed.len(),
 			?changed,
@@ -440,7 +440,7 @@ where
 		let (validator_addrs, resolved, failures) = self.resolve_authorities(authorities).await;
 
 		self.resolved_authorities = resolved;
-		gum::debug!(target: LOG_TARGET, %num, "Issuing a connection request");
+		sp_tracing::debug!(target: LOG_TARGET, %num, "Issuing a connection request");
 
 		sender
 			.send_message(NetworkBridgeTxMessage::ConnectToResolvedValidators {
@@ -456,7 +456,7 @@ where
 			match self.failure_start {
 				None => self.failure_start = Some(timestamp),
 				Some(first) if first.elapsed() >= LOW_CONNECTIVITY_WARN_DELAY => {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						connected = ?(num - failures),
 						target = ?num,
@@ -464,7 +464,7 @@ where
 					);
 				},
 				Some(_) => {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						connected = ?(num - failures),
 						target = ?num,
@@ -497,7 +497,7 @@ where
 				.flat_map(|addr| parse_addr(addr).ok().map(|(p, _)| p))
 				.collect::<HashSet<_>>();
 
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?peer_ids,
 				?authority,
@@ -599,13 +599,13 @@ where
 		// we already know it is broken.
 		// https://github.com/paritytech/polkadot/issues/3921
 		if connected_ratio <= LOW_CONNECTIVITY_WARN_THRESHOLD {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				"Connectivity seems low, we are only connected to {}% of available validators (see debug logs for details)", connected_ratio
 			);
 		}
 		let pretty = PrettyAuthorities(unconnected_authorities);
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?connected_ratio,
 			?absolute_connected,
@@ -622,7 +622,7 @@ async fn authorities_past_present_future(
 	relay_parent: Hash,
 ) -> Result<Vec<AuthorityDiscoveryId>, util::Error> {
 	let authorities = util::request_authorities(relay_parent, sender).await.await??;
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		authority_count = ?authorities.len(),
 		"Determined past/present/future authorities",

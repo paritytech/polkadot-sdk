@@ -244,7 +244,7 @@ impl GridNeighbors {
 			(true, false) => RequiredRouting::GridY, // messages from X go to Y
 			(false, true) => RequiredRouting::GridX, // messages from Y go to X
 			(true, true) => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					?originator,
 					"Grid topology is unexpected, play it safe and send to X AND Y"

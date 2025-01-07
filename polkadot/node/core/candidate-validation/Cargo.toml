@@ -15,7 +15,6 @@ workspace = true
 async-trait = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum = { workspace = true, default-features = true }
 
 codec = { features = ["bit-vec", "derive"], workspace = true }
 sp-application-crypto = { workspace = true }

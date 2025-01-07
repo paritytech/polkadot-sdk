@@ -15,7 +15,6 @@ workspace = true
 async-trait = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum = { workspace = true }
 itertools = { workspace = true }
 thiserror = { workspace = true }
 
@@ -34,6 +33,7 @@ sp-application-crypto = { workspace = true, default-features = false, features =
 sp-consensus = { workspace = true, default-features = false }
 sp-consensus-slots = { workspace = true, default-features = false }
 sp-runtime = { workspace = true, default-features = false }
+sp-tracing = { workspace = true, default-features = true }
 
 rand = { workspace = true }
 rand_chacha = { workspace = true }

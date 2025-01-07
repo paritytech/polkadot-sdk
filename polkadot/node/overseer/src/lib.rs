@@ -231,7 +231,7 @@ impl Handle {
 	/// Most basic operation, to stop a server.
 	async fn send_and_log_error(&mut self, event: Event) {
 		if self.0.send(event).await.is_err() {
-			gum::info!(target: LOG_TARGET, "Failed to send an event to Overseer");
+			sp_tracing::info!(target: LOG_TARGET, "Failed to send an event to Overseer");
 		}
 	}
 }
@@ -690,7 +690,7 @@ where
 			Ok(memory_stats) =>
 				Box::new(move |metrics: &OverseerMetrics| match memory_stats.snapshot() {
 					Ok(memory_stats_snapshot) => {
-						gum::trace!(
+						sp_tracing::trace!(
 							target: LOG_TARGET,
 							"memory_stats: {:?}",
 							&memory_stats_snapshot
@@ -698,10 +698,10 @@ where
 						metrics.memory_stats_snapshot(memory_stats_snapshot);
 					},
 					Err(e) =>
-						gum::debug!(target: LOG_TARGET, "Failed to obtain memory stats: {:?}", e),
+						sp_tracing::debug!(target: LOG_TARGET, "Failed to obtain memory stats: {:?}", e),
 				}),
 			Err(_) => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					"Memory allocation tracking is not supported by the allocator.",
 				);
@@ -751,7 +751,7 @@ where
 	/// Logging any errors.
 	pub async fn run(self) {
 		if let Err(err) = self.run_inner().await {
-			gum::error!(target: LOG_TARGET, ?err, "Overseer exited with error");
+			sp_tracing::error!(target: LOG_TARGET, ?err, "Overseer exited with error");
 		}
 	}
 
@@ -793,7 +793,7 @@ where
 					}
 				},
 				res = self.running_subsystems.select_next_some() => {
-					gum::error!(
+					sp_tracing::error!(
 						target: LOG_TARGET,
 						subsystem = ?res,
 						"subsystem finished unexpectedly",
@@ -878,7 +878,7 @@ where
 
 		self.metrics.on_head_activated();
 		if let Some(listeners) = self.activation_external_listeners.remove(hash) {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				relay_parent = ?hash,
 				"Leaf got activated, notifying external listeners"
@@ -909,7 +909,7 @@ where
 		match request {
 			ExternalRequest::WaitForActivation { hash, response_channel } => {
 				if self.active_leaves.get(&hash).is_some() {
-					gum::trace!(
+					sp_tracing::trace!(
 						target: LOG_TARGET,
 						relay_parent = ?hash,
 						"Leaf was already ready - answering `WaitForActivation`"
@@ -917,7 +917,7 @@ where
 					// it's fine if the listener is no longer interested
 					let _ = response_channel.send(Ok(()));
 				} else {
-					gum::trace!(
+					sp_tracing::trace!(
 						target: LOG_TARGET,
 						relay_parent = ?hash,
 						"Leaf not yet ready - queuing `WaitForActivation` sender"

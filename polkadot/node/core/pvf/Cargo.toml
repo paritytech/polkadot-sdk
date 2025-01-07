@@ -18,7 +18,6 @@ blake3 = { workspace = true }
 cfg-if = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum = { workspace = true, default-features = true }
 is_executable = { optional = true, workspace = true }
 pin-project = { workspace = true }
 rand = { workspace = true, default-features = true }
@@ -28,9 +27,7 @@ tempfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { features = ["fs", "process"], workspace = true, default-features = true }
 
-codec = { features = [
-	"derive",
-], workspace = true }
+codec = { features = ["derive"], workspace = true }
 
 polkadot-core-primitives = { workspace = true, default-features = true }
 polkadot-node-core-pvf-common = { workspace = true, default-features = true }
@@ -58,7 +55,9 @@ polkadot-node-core-pvf-common = { features = ["test-utils"], workspace = true, d
 polkadot-node-subsystem-test-helpers = { workspace = true }
 # For benches and integration tests, depend on ourselves with the test-utils
 # feature.
-polkadot-node-core-pvf = { features = ["test-utils"], workspace = true, default-features = true }
+polkadot-node-core-pvf = { features = [
+	"test-utils",
+], workspace = true, default-features = true }
 rococo-runtime = { workspace = true }
 
 test-parachain-adder = { workspace = true }

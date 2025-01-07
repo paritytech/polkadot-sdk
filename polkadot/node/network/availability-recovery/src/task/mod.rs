@@ -121,7 +121,7 @@ where
 				Ok(Some(data)) => return Some(data),
 				Ok(None) => {},
 				Err(oneshot::Canceled) => {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						candidate_hash = ?self.params.candidate_hash,
 						"Failed to reach the availability store",
@@ -148,7 +148,7 @@ where
 			let display_name = current_strategy.display_name();
 			let strategy_type = current_strategy.strategy_type();
 
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				candidate_hash = ?self.params.candidate_hash,
 				"Starting `{}` strategy",
@@ -160,7 +160,7 @@ where
 			match res {
 				Err(RecoveryError::Unavailable) =>
 					if self.strategies.front().is_some() {
-						gum::debug!(
+						sp_tracing::debug!(
 							target: LOG_TARGET,
 							candidate_hash = ?self.params.candidate_hash,
 							"Recovery strategy `{}` did not conclude. Trying the next one.",
@@ -184,7 +184,7 @@ where
 		}
 
 		// We have no other strategies to try.
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			candidate_hash = ?self.params.candidate_hash,
 			"Recovery of available data failed.",

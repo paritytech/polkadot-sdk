@@ -219,7 +219,7 @@ fn handle_to_pool(
 ) {
 	match to_pool {
 		ToPool::Spawn => {
-			gum::debug!(target: LOG_TARGET, "spawning a new prepare worker");
+			sp_tracing::debug!(target: LOG_TARGET, "spawning a new prepare worker");
 			metrics.prepare_worker().on_begin_spawn();
 			mux.push(
 				spawn_worker_task(
@@ -261,7 +261,7 @@ fn handle_to_pool(
 			}
 		},
 		ToPool::Kill(worker) => {
-			gum::debug!(target: LOG_TARGET, ?worker, "killing prepare worker");
+			sp_tracing::debug!(target: LOG_TARGET, ?worker, "killing prepare worker");
 			// It may be absent if it were previously already removed by `purge_dead`.
 			let _ = attempt_retire(metrics, spawned, worker);
 		},
@@ -289,7 +289,7 @@ async fn spawn_worker_task(
 		{
 			Ok((idle, handle)) => break PoolEvent::Spawn(idle, handle),
 			Err(err) => {
-				gum::warn!(target: LOG_TARGET, "failed to spawn a prepare worker: {:?}", err);
+				sp_tracing::warn!(target: LOG_TARGET, "failed to spawn a prepare worker: {:?}", err);
 
 				// Assume that the failure intermittent and retry after a delay.
 				Delay::new(Duration::from_secs(3)).await;

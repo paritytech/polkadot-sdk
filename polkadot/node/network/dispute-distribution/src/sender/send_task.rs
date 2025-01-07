@@ -147,7 +147,7 @@ impl<M: 'static + Send + Sync> SendTask<M> {
 			.collect();
 
 		// Get rid of dead/irrelevant tasks/statuses:
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			already_running_deliveries = ?self.deliveries.len(),
 			"Cleaning up deliveries"
@@ -155,7 +155,7 @@ impl<M: 'static + Send + Sync> SendTask<M> {
 		self.deliveries.retain(|k, _| new_authorities.contains(k));
 
 		// Start any new tasks that are needed:
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			new_and_failed_authorities = ?add_authorities.len(),
 			overall_authority_set_size = ?new_authorities.len(),
@@ -167,7 +167,7 @@ impl<M: 'static + Send + Sync> SendTask<M> {
 				.await?;
 
 		let was_empty = new_statuses.is_empty();
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			sent_requests = ?new_statuses.len(),
 			"Requests dispatched."
@@ -190,7 +190,7 @@ impl<M: 'static + Send + Sync> SendTask<M> {
 	pub fn on_finished_send(&mut self, authority: &AuthorityDiscoveryId, result: TaskResult) {
 		match result {
 			TaskResult::Failed(err) => {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?authority,
 					candidate_hash = %self.request.0.candidate_receipt.hash(),
@@ -207,7 +207,7 @@ impl<M: 'static + Send + Sync> SendTask<M> {
 					None => {
 						// Can happen when a sending became irrelevant while the response was
 						// already queued.
-						gum::debug!(
+						sp_tracing::debug!(
 							target: LOG_TARGET,
 							candidate = ?self.request.0.candidate_receipt.hash(),
 							?authority,
@@ -321,7 +321,7 @@ async fn wait_response_task<M: 'static + Send + Sync>(
 			TaskFinish { candidate_hash, receiver, result: TaskResult::Succeeded },
 	};
 	if let Err(err) = tx.send_message(msg).await {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			%err,
 			"Failed to notify subsystem about dispute sending result."

@@ -181,7 +181,7 @@ async fn handle_validation_message<AD>(
 			let role = match network_service.peer_role(peer, handshake) {
 				Some(role) => ObservedRole::from(role),
 				None => {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						?peer,
 						"Failed to determine peer role for validation protocol",
@@ -197,7 +197,7 @@ async fn handle_validation_message<AD>(
 				if let Some(fallback) = negotiated_fallback {
 					match peerset_protocol_names.try_get_protocol(&fallback) {
 						None => {
-							gum::debug!(
+							sp_tracing::debug!(
 								target: LOG_TARGET,
 								fallback = &*fallback,
 								?peer,
@@ -209,7 +209,7 @@ async fn handle_validation_message<AD>(
 						},
 						Some((p2, v2)) => {
 							if p2 != peer_set {
-								gum::debug!(
+								sp_tracing::debug!(
 									target: LOG_TARGET,
 									fallback = &*fallback,
 									fallback_peerset = ?p2,
@@ -234,7 +234,7 @@ async fn handle_validation_message<AD>(
 					notification_sinks.lock().insert((peer_set, peer), sink);
 				},
 				None => {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						peerset = ?peer_set,
 						version = %version,
@@ -246,7 +246,7 @@ async fn handle_validation_message<AD>(
 				},
 			}
 
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				action = "PeerConnected",
 				peer_set = ?peer_set,
@@ -311,7 +311,7 @@ async fn handle_validation_message<AD>(
 		NotificationEvent::NotificationStreamClosed { peer } => {
 			let (peer_set, version) = (PeerSet::Validation, PeerSet::Validation.get_main_version());
 
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				action = "PeerDisconnected",
 				?peer_set,
@@ -352,7 +352,7 @@ async fn handle_validation_message<AD>(
 				versions
 			};
 
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				action = "PeerMessage",
 				peerset = ?PeerSet::Validation,
@@ -386,7 +386,7 @@ async fn handle_validation_message<AD>(
 					metrics,
 				)
 			} else {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					version = ?expected_versions[PeerSet::Validation],
 					"Major logic bug. Peer somehow has unsupported validation protocol version."
@@ -447,7 +447,7 @@ async fn handle_collation_message<AD>(
 			let role = match network_service.peer_role(peer, handshake) {
 				Some(role) => ObservedRole::from(role),
 				None => {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						?peer,
 						"Failed to determine peer role for validation protocol",
@@ -463,7 +463,7 @@ async fn handle_collation_message<AD>(
 				if let Some(fallback) = negotiated_fallback {
 					match peerset_protocol_names.try_get_protocol(&fallback) {
 						None => {
-							gum::debug!(
+							sp_tracing::debug!(
 								target: LOG_TARGET,
 								fallback = &*fallback,
 								?peer,
@@ -475,7 +475,7 @@ async fn handle_collation_message<AD>(
 						},
 						Some((p2, v2)) => {
 							if p2 != peer_set {
-								gum::debug!(
+								sp_tracing::debug!(
 									target: LOG_TARGET,
 									fallback = &*fallback,
 									fallback_peerset = ?p2,
@@ -501,7 +501,7 @@ async fn handle_collation_message<AD>(
 					notification_sinks.lock().insert((peer_set, peer), sink);
 				},
 				None => {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						peer_set = ?peer_set,
 						version = %version,
@@ -513,7 +513,7 @@ async fn handle_collation_message<AD>(
 				},
 			}
 
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				action = "PeerConnected",
 				peer_set = ?peer_set,
@@ -570,7 +570,7 @@ async fn handle_collation_message<AD>(
 		NotificationEvent::NotificationStreamClosed { peer } => {
 			let (peer_set, version) = (PeerSet::Collation, PeerSet::Collation.get_main_version());
 
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				action = "PeerDisconnected",
 				?peer_set,
@@ -607,7 +607,7 @@ async fn handle_collation_message<AD>(
 				versions
 			};
 
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				action = "PeerMessage",
 				peerset = ?PeerSet::Collation,
@@ -633,7 +633,7 @@ async fn handle_collation_message<AD>(
 						metrics,
 					)
 				} else {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						version = ?expected_versions[PeerSet::Collation],
 						"Major logic bug. Peer somehow has unsupported collation protocol version."
@@ -717,7 +717,7 @@ where
 		let addr = get_peer_id_by_authority_id(ads, discovery_id.clone()).await;
 		if addr.is_none() {
 			// See on why is not good in https://github.com/paritytech/polkadot-sdk/issues/2138
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				?validator_index,
 				"Could not determine peer_id for validator, let the team know in \n
@@ -763,7 +763,7 @@ where
 						shuffled_indices,
 					},
 			} => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					action = "NewGossipTopology",
 					?session,
@@ -788,7 +788,7 @@ where
 			FromOrchestra::Communication {
 				msg: NetworkBridgeRxMessage::UpdatedAuthorityIds { peer_id, authority_ids },
 			} => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					action = "UpdatedAuthorityIds",
 					?peer_id,
@@ -810,7 +810,7 @@ where
 			FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
 			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(active_leaves)) => {
 				let ActiveLeavesUpdate { activated, deactivated } = active_leaves;
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					action = "ActiveLeaves",
 					has_activated = activated.is_some(),
@@ -851,7 +851,7 @@ where
 				}
 			},
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, number)) => {
-				gum::trace!(target: LOG_TARGET, action = "BlockFinalized");
+				sp_tracing::trace!(target: LOG_TARGET, action = "BlockFinalized");
 
 				debug_assert!(finalized_number < number);
 

@@ -67,7 +67,7 @@ impl<N: Network, AD: AuthorityDiscovery> Service<N, AD> {
 		let removed = peers_to_remove.len();
 		state.previously_requested = new_peer_ids;
 
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?peer_set,
 			?num_peers,
@@ -86,7 +86,7 @@ impl<N: Network, AD: AuthorityDiscovery> Service<N, AD> {
 			)
 			.await
 		{
-			gum::warn!(target: LOG_TARGET, err = ?e, "AuthorityDiscoveryService returned an invalid multiaddress");
+			sp_tracing::warn!(target: LOG_TARGET, err = ?e, "AuthorityDiscoveryService returned an invalid multiaddress");
 		}
 
 		network_service
@@ -105,7 +105,7 @@ impl<N: Network, AD: AuthorityDiscovery> Service<N, AD> {
 
 		state.previously_requested.extend(new_peer_ids);
 
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?peer_set,
 			?num_peers,
@@ -124,7 +124,7 @@ impl<N: Network, AD: AuthorityDiscovery> Service<N, AD> {
 			)
 			.await
 		{
-			gum::warn!(target: LOG_TARGET, err = ?e, "AuthorityDiscoveryService returned an invalid multiaddress");
+			sp_tracing::warn!(target: LOG_TARGET, err = ?e, "AuthorityDiscoveryService returned an invalid multiaddress");
 		}
 
 		network_service
@@ -158,7 +158,7 @@ impl<N: Network, AD: AuthorityDiscovery> Service<N, AD> {
 				newly_requested.extend(addresses);
 			} else {
 				failed_to_resolve += 1;
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					"Authority Discovery couldn't resolve {:?}",
 					authority
@@ -166,7 +166,7 @@ impl<N: Network, AD: AuthorityDiscovery> Service<N, AD> {
 			}
 		}
 
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?peer_set,
 			?requested,

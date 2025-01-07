@@ -15,7 +15,6 @@ workspace = true
 bitvec = { features = ["alloc"], workspace = true }
 fatality = { workspace = true }
 futures = { workspace = true }
-gum = { workspace = true, default-features = true }
 polkadot-erasure-coding = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }

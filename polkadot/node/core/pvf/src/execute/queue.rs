@@ -341,7 +341,7 @@ impl Queue {
 
 				let Some(job) = queue.remove(index) else { continue };
 				let _ = job.result_tx.send(Err(ValidationError::ExecutionDeadline));
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					?priority,
 					exec_kind = ?job.exec_kind,
@@ -381,7 +381,7 @@ fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 				result_tx,
 				exec_kind,
 			} = pending_execution_request;
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				validation_code_hash = ?artifact.id.code_hash,
 				"enqueueing an artifact for execution",
@@ -429,7 +429,7 @@ fn handle_worker_spawned(
 		executor_params_hash: job.executor_params.hash(),
 	});
 
-	gum::debug!(target: LOG_TARGET, ?worker, "execute worker spawned");
+	sp_tracing::debug!(target: LOG_TARGET, ?worker, "execute worker spawned");
 
 	assign(queue, worker, job);
 }
@@ -541,7 +541,7 @@ async fn handle_job_finish(
 		queue.metrics.observe_pov_size(pov_size as usize, false)
 	}
 	if let Err(ref err) = result {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			?artifact_id,
 			?worker,
@@ -550,7 +550,7 @@ async fn handle_job_finish(
 			err
 		);
 	} else {
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			?artifact_id,
 			?worker,
@@ -594,7 +594,7 @@ async fn handle_job_finish(
 
 fn spawn_extra_worker(queue: &mut Queue, job: ExecuteJob) {
 	queue.metrics.execute_worker().on_begin_spawn();
-	gum::debug!(target: LOG_TARGET, "spawning an extra worker");
+	sp_tracing::debug!(target: LOG_TARGET, "spawning an extra worker");
 
 	queue.mux.push(
 		spawn_worker_task(
@@ -640,7 +640,7 @@ async fn spawn_worker_task(
 		{
 			Ok((idle, handle)) => break QueueEvent::Spawn(idle, handle, job),
 			Err(err) => {
-				gum::warn!(target: LOG_TARGET, "failed to spawn an execute worker: {:?}", err);
+				sp_tracing::warn!(target: LOG_TARGET, "failed to spawn an execute worker: {:?}", err);
 
 				// Assume that the failure is intermittent and retry after a delay.
 				Delay::new(Duration::from_secs(3)).await;
@@ -654,7 +654,7 @@ async fn spawn_worker_task(
 /// The worker must be running and idle. The job and the worker must share the same execution
 /// environment parameter set.
 fn assign(queue: &mut Queue, worker: Worker, job: ExecuteJob) {
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		validation_code_hash = ?job.artifact.id,
 		?worker,
@@ -791,7 +791,7 @@ impl Unscheduled {
 	}
 
 	fn select_next_priority(&self) -> Priority {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			unscheduled = ?self.unscheduled.iter().map(|(p, q)| (*p, q.len())).collect::<HashMap<Priority, usize>>(),
 			counter = ?self.counter,
@@ -806,7 +806,7 @@ impl Unscheduled {
 					.unwrap_or(Priority::Backing)
 			});
 
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?priority,
 			"Selected next execution priority",
@@ -854,7 +854,7 @@ impl Unscheduled {
 
 		let has_reached_threshold = count * 100 / total_scheduled_at_priority_or_lower >= threshold;
 
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?priority,
 			?count,
@@ -874,7 +874,7 @@ impl Unscheduled {
 		if self.counter.values().sum::<usize>() >= Self::SCHEDULING_WINDOW_SIZE {
 			self.reset_counter();
 		}
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?priority,
 			"Job marked as scheduled",

@@ -154,7 +154,7 @@ impl PeerMessagesGenerator {
 			return path.to_path_buf();
 		}
 
-		gum::info!("Generate message because file does not exist");
+		sp_tracing::info!("Generate message because file does not exist");
 		let delta_to_first_slot_under_test = Timestamp::new(BUFFER_FOR_GENERATION_MILLIS);
 		let initial_slot = Slot::from_timestamp(
 			(*Timestamp::current() - *delta_to_first_slot_under_test).into(),
@@ -169,7 +169,7 @@ impl PeerMessagesGenerator {
 			initial_slot,
 		);
 
-		gum::info!(target: LOG_TARGET, "Generate messages");
+		sp_tracing::info!(target: LOG_TARGET, "Generate messages");
 		let topology = generate_topology(test_authorities);
 
 		let random_samplings = random_samplings_to_node(
@@ -240,7 +240,7 @@ impl PeerMessagesGenerator {
 			})
 			.collect_vec();
 
-		gum::info!("Generated a number of {:} unique messages", all_messages.len());
+		sp_tracing::info!("Generated a number of {:} unique messages", all_messages.len());
 
 		let generated_state = GeneratedState { all_messages: Some(all_messages), initial_slot };
 

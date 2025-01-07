@@ -537,7 +537,7 @@ impl BlockEntry {
 				None => {
 					// This should never happen, but if it happens, it means the subsystem is
 					// broken.
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						hash = ?entry.assignment.block_hash,
 						?claimed_candidate_index,
@@ -736,7 +736,7 @@ impl State {
 	) {
 		match event {
 			NetworkBridgeEvent::PeerConnected(peer_id, role, version, authority_ids) => {
-				gum::trace!(target: LOG_TARGET, ?peer_id, ?role, ?authority_ids, "Peer connected");
+				sp_tracing::trace!(target: LOG_TARGET, ?peer_id, ?role, ?authority_ids, "Peer connected");
 				if let Some(authority_ids) = authority_ids {
 					self.topologies.update_authority_ids(peer_id, &authority_ids);
 				}
@@ -746,7 +746,7 @@ impl State {
 					.or_insert(PeerEntry { view: Default::default(), version });
 			},
 			NetworkBridgeEvent::PeerDisconnected(peer_id) => {
-				gum::trace!(target: LOG_TARGET, ?peer_id, "Peer disconnected");
+				sp_tracing::trace!(target: LOG_TARGET, ?peer_id, "Peer disconnected");
 				self.peer_views.remove(&peer_id);
 				self.blocks.iter_mut().for_each(|(_hash, entry)| {
 					entry.known_by.remove(&peer_id);
@@ -765,7 +765,7 @@ impl State {
 				self.handle_peer_view_change(network_sender, metrics, peer_id, view, rng).await;
 			},
 			NetworkBridgeEvent::OurViewChange(view) => {
-				gum::trace!(target: LOG_TARGET, ?view, "Own view change");
+				sp_tracing::trace!(target: LOG_TARGET, ?view, "Own view change");
 				for head in view.iter() {
 					if !self.blocks.contains_key(head) {
 						self.pending_known.entry(*head).or_default();
@@ -775,7 +775,7 @@ impl State {
 				self.pending_known.retain(|h, _| {
 					let live = view.contains(h);
 					if !live {
-						gum::trace!(
+						sp_tracing::trace!(
 							target: LOG_TARGET,
 							block_hash = ?h,
 							"Cleaning up stale pending messages",
@@ -800,7 +800,7 @@ impl State {
 				.await;
 			},
 			NetworkBridgeEvent::UpdatedAuthorityIds(peer_id, authority_ids) => {
-				gum::debug!(target: LOG_TARGET, ?peer_id, ?authority_ids, "Update Authority Ids");
+				sp_tracing::debug!(target: LOG_TARGET, ?peer_id, ?authority_ids, "Update Authority Ids");
 				// If we learn about a new PeerId for an authority ids we need to try to route the
 				// messages that should have sent to that validator according to the topology.
 				if self.topologies.update_authority_ids(peer_id, &authority_ids) {
@@ -856,7 +856,7 @@ impl State {
 	) {
 		let mut new_hashes = HashSet::new();
 
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			"Got new blocks {:?}",
 			metas.iter().map(|m| (m.hash, m.number)).collect::<Vec<_>>(),
@@ -924,7 +924,7 @@ impl State {
 			let to_import = pending_now_known
 				.into_iter()
 				.inspect(|h| {
-					gum::trace!(
+					sp_tracing::trace!(
 						target: LOG_TARGET,
 						block_hash = ?h,
 						"Extracting pending messages for new block"
@@ -935,7 +935,7 @@ impl State {
 				.collect::<Vec<_>>();
 
 			if !to_import.is_empty() {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					num = to_import.len(),
 					"Processing pending assignment/approvals",
@@ -1038,7 +1038,7 @@ impl State {
 				let block_hash = &assignment.block_hash;
 				let validator_index = assignment.validator;
 
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					%peer_id,
 					?block_hash,
@@ -1084,7 +1084,7 @@ impl State {
 		approvals: Vec<IndirectSignedApprovalVoteV2>,
 		session_info_provider: &mut RuntimeInfo,
 	) {
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			peer_id = %peer_id,
 			num = approvals.len(),
@@ -1095,7 +1095,7 @@ impl State {
 				let block_hash = approval_vote.block_hash;
 				let validator_index = approval_vote.validator;
 
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					%peer_id,
 					?block_hash,
@@ -1146,7 +1146,7 @@ impl State {
 	{
 		match msg {
 			Versioned::V3(protocol_v3::ApprovalDistributionMessage::Assignments(assignments)) => {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					peer_id = %peer_id,
 					num = assignments.len(),
@@ -1171,7 +1171,7 @@ impl State {
 			},
 			Versioned::V1(protocol_v1::ApprovalDistributionMessage::Assignments(assignments)) |
 			Versioned::V2(protocol_v2::ApprovalDistributionMessage::Assignments(assignments)) => {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					peer_id = %peer_id,
 					num = assignments.len(),
@@ -1239,7 +1239,7 @@ impl State {
 	) where
 		R: CryptoRng + Rng,
 	{
-		gum::trace!(target: LOG_TARGET, ?view, "Peer view change");
+		sp_tracing::trace!(target: LOG_TARGET, ?view, "Peer view change");
 		let finalized_number = view.finalized_number;
 
 		let (old_view, protocol_version) =
@@ -1247,7 +1247,7 @@ impl State {
 				(Some(std::mem::replace(&mut peer_entry.view, view.clone())), peer_entry.version)
 			} else {
 				// This shouldn't happen, but if it does we assume protocol version 1.
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					?peer_id,
 					?view,
@@ -1373,7 +1373,7 @@ impl State {
 			Some(entry) => entry,
 			None => {
 				if let Some(peer_id) = source.peer_id() {
-					gum::trace!(
+					sp_tracing::trace!(
 						target: LOG_TARGET,
 						?peer_id,
 						hash = ?block_hash,
@@ -1388,7 +1388,7 @@ impl State {
 							COST_UNEXPECTED_MESSAGE,
 						)
 						.await;
-						gum::debug!(target: LOG_TARGET, "Received assignment for invalid block");
+						sp_tracing::debug!(target: LOG_TARGET, "Received assignment for invalid block");
 						metrics.on_assignment_recent_outdated();
 					}
 				}
@@ -1418,7 +1418,7 @@ impl State {
 								entry,
 								peer_id,
 							) {
-								gum::debug!(
+								sp_tracing::debug!(
 									target: LOG_TARGET,
 									?peer_id,
 									?message_subject,
@@ -1436,7 +1436,7 @@ impl State {
 
 							metrics.on_assignment_duplicate();
 						} else {
-							gum::trace!(
+							sp_tracing::trace!(
 								target: LOG_TARGET,
 								?peer_id,
 								hash = ?block_hash,
@@ -1449,7 +1449,7 @@ impl State {
 					}
 				},
 				hash_map::Entry::Vacant(_) => {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						?peer_id,
 						?message_subject,
@@ -1476,7 +1476,7 @@ impl State {
 				)
 				.await;
 				if let Some(peer_knowledge) = entry.known_by.get_mut(&peer_id) {
-					gum::trace!(target: LOG_TARGET, ?peer_id, ?message_subject, "Known assignment");
+					sp_tracing::trace!(target: LOG_TARGET, ?peer_id, ?message_subject, "Known assignment");
 					peer_knowledge.received.insert(message_subject, message_kind);
 				}
 				metrics.on_assignment_good_known();
@@ -1500,7 +1500,7 @@ impl State {
 						current_tranche + TICK_TOO_FAR_IN_FUTURE as DelayTranche;
 
 					if checked_assignment.tranche() >= too_far_in_future {
-						gum::debug!(
+						sp_tracing::debug!(
 							target: LOG_TARGET,
 							hash = ?block_hash,
 							?peer_id,
@@ -1537,7 +1537,7 @@ impl State {
 					}
 				},
 				Err(error) => {
-					gum::info!(
+					sp_tracing::info!(
 						target: LOG_TARGET,
 						hash = ?block_hash,
 						?peer_id,
@@ -1558,14 +1558,14 @@ impl State {
 		} else {
 			if !entry.knowledge.insert(message_subject.clone(), message_kind) {
 				// if we already imported an assignment, there is no need to distribute it again
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					?message_subject,
 					"Importing locally an already known assignment",
 				);
 				return
 			} else {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					?message_subject,
 					"Importing locally a new assignment",
@@ -1662,7 +1662,7 @@ impl State {
 		}
 
 		if !peers.is_empty() {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?block_hash,
 				?claimed_candidate_indices,
@@ -1758,7 +1758,7 @@ impl State {
 	) -> bool {
 		for message_subject in assignments_knowledge_key {
 			if !entry.knowledge.contains(&message_subject.0, message_subject.1) {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?peer_id,
 					?message_subject,
@@ -1787,7 +1787,7 @@ impl State {
 							entry,
 							peer_id,
 						) {
-							gum::trace!(
+							sp_tracing::trace!(
 								target: LOG_TARGET,
 								?peer_id,
 								?approval_knowledge_key,
@@ -1807,7 +1807,7 @@ impl State {
 				}
 			},
 			hash_map::Entry::Vacant(_) => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					?peer_id,
 					?approval_knowledge_key,
@@ -1827,7 +1827,7 @@ impl State {
 			}
 
 			// We already processed this approval no need to continue.
-			gum::trace!(target: LOG_TARGET, ?peer_id, ?approval_knowledge_key, "Known approval");
+			sp_tracing::trace!(target: LOG_TARGET, ?peer_id, ?approval_knowledge_key, "Known approval");
 			metrics.on_approval_good_known();
 			modify_reputation(reputation, network_sender, peer_id, BENEFIT_VALID_MESSAGE).await;
 			false
@@ -1858,7 +1858,7 @@ impl State {
 			_ => {
 				if let Some(peer_id) = source.peer_id() {
 					if !self.recent_outdated_blocks.is_recent_outdated(&block_hash) {
-						gum::debug!(
+						sp_tracing::debug!(
 							target: LOG_TARGET,
 							?peer_id,
 							?block_hash,
@@ -1940,7 +1940,7 @@ impl State {
 					)
 					.await;
 
-					gum::info!(
+					sp_tracing::info!(
 						target: LOG_TARGET,
 						?peer_id,
 						?err,
@@ -1956,13 +1956,13 @@ impl State {
 				.insert(approval_knwowledge_key.0.clone(), approval_knwowledge_key.1)
 			{
 				// if we already imported all approvals, there is no need to distribute it again
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					"Importing locally an already known approval",
 				);
 				return
 			} else {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					"Importing locally a new approval",
 				);
@@ -1972,7 +1972,7 @@ impl State {
 		let (required_routing, peers_randomly_routed_to) = match entry.note_approval(vote.clone()) {
 			Ok(required_routing) => required_routing,
 			Err(err) => {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					hash = ?block_hash,
 					validator_index = ?vote.validator,
@@ -2030,7 +2030,7 @@ impl State {
 
 		if !peers.is_empty() {
 			let approvals = vec![vote];
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?block_hash,
 				local = source.peer_id().is_none(),
@@ -2094,7 +2094,7 @@ impl State {
 		for (hash, index) in indices {
 			let block_entry = match self.blocks.get(&hash) {
 				None => {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						?hash,
 						"`get_approval_signatures`: could not find block entry for given hash!"
@@ -2229,7 +2229,7 @@ impl State {
 		}
 
 		if !assignments_to_send.is_empty() {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?peer_id,
 				?protocol_version,
@@ -2246,7 +2246,7 @@ impl State {
 		}
 
 		if !approvals_to_send.is_empty() {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?peer_id,
 				?protocol_version,
@@ -2289,7 +2289,7 @@ impl State {
 
 		// Trigger on approval checking lag.
 		if !self.aggression_config.should_trigger_aggression(age) {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				approval_checking_lag = self.approval_checking_lag,
 				age,
@@ -2297,7 +2297,7 @@ impl State {
 			);
 			return
 		}
-		gum::debug!(target: LOG_TARGET, min_age, max_age, "Aggression enabled",);
+		sp_tracing::debug!(target: LOG_TARGET, min_age, max_age, "Aggression enabled",);
 
 		adjust_required_routing_and_propagate(
 			network_sender,
@@ -2336,7 +2336,7 @@ impl State {
 						knowledge.sent = Knowledge::default();
 					}
 					block_entry.last_resent_at_block_number = Some(max_age);
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						block_number = ?block_entry.number,
 						?max_age,
@@ -2367,7 +2367,7 @@ impl State {
 			|required_routing, local, _| {
 				// It's a bit surprising not to have a topology at this age.
 				if *required_routing == RequiredRouting::PendingTopology {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						lag = ?self.approval_checking_lag,
 						"Encountered old block pending gossip topology",
@@ -2425,7 +2425,7 @@ impl State {
 				// Punish the peer for the invalid message.
 				modify_reputation(&mut self.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)
 					.await;
-				gum::debug!(target: LOG_TARGET, block_hash = ?cert.block_hash, ?candidate_index, validator_index = ?cert.validator, kind = ?cert.cert.kind, "Bad assignment v1, invalid candidate index");
+				sp_tracing::debug!(target: LOG_TARGET, block_hash = ?cert.block_hash, ?candidate_index, validator_index = ?cert.validator, kind = ?cert.cert.kind, "Bad assignment v1, invalid candidate index");
 			} else {
 				sanitized_assignments.push((cert.into(), candidate_index.into()))
 			}
@@ -2469,7 +2469,7 @@ impl State {
 				modify_reputation(&mut self.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)
 					.await;
 				for candidate_index in candidate_bitfield.iter_ones() {
-					gum::debug!(target: LOG_TARGET, block_hash = ?cert.block_hash, ?candidate_index, validator_index = ?cert.validator, "Bad assignment v2, oversized bitfield");
+					sp_tracing::debug!(target: LOG_TARGET, block_hash = ?cert.block_hash, ?candidate_index, validator_index = ?cert.validator, "Bad assignment v2, oversized bitfield");
 				}
 			} else {
 				sanitized_assignments.push((cert, candidate_bitfield))
@@ -2492,7 +2492,7 @@ impl State {
 				// Punish the peer for the invalid message.
 				modify_reputation(&mut self.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)
 					.await;
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					block_hash = ?approval.block_hash,
 					candidate_index = ?approval.candidate_index,
@@ -2519,7 +2519,7 @@ impl State {
 				// Punish the peer for the invalid message.
 				modify_reputation(&mut self.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)
 					.await;
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					block_hash = ?approval.block_hash,
 					candidate_indices_len = ?approval.candidate_indices.len(),
@@ -2641,7 +2641,7 @@ async fn adjust_required_routing_and_propagate<
 			.await;
 		} else {
 			// This should never happen.
-			gum::warn!(target: LOG_TARGET, ?peer, "Unknown protocol version for peer",);
+			sp_tracing::warn!(target: LOG_TARGET, ?peer, "Unknown protocol version for peer",);
 		}
 	}
 
@@ -2655,7 +2655,7 @@ async fn adjust_required_routing_and_propagate<
 			.await;
 		} else {
 			// This should never happen.
-			gum::warn!(target: LOG_TARGET, ?peer, "Unknown protocol version for peer",);
+			sp_tracing::warn!(target: LOG_TARGET, ?peer, "Unknown protocol version for peer",);
 		}
 	}
 }
@@ -2667,7 +2667,7 @@ async fn modify_reputation(
 	peer_id: PeerId,
 	rep: Rep,
 ) {
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		reputation = ?rep,
 		?peer_id,
@@ -2748,7 +2748,7 @@ impl ApprovalDistribution {
 					let message = match message {
 						Ok(message) => message,
 						Err(e) => {
-							gum::debug!(target: LOG_TARGET, err = ?e, "Failed to receive a message from Overseer, exiting");
+							sp_tracing::debug!(target: LOG_TARGET, err = ?e, "Failed to receive a message from Overseer, exiting");
 							return
 						},
 					};
@@ -2795,14 +2795,14 @@ impl ApprovalDistribution {
 				)
 				.await,
 			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(_update)) => {
-				gum::trace!(target: LOG_TARGET, "active leaves signal (ignored)");
+				sp_tracing::trace!(target: LOG_TARGET, "active leaves signal (ignored)");
 				// the relay chain blocks relevant to the approval subsystems
 				// are those that are available, but not finalized yet
 				// activated and deactivated heads hence are irrelevant to this subsystem, other
 				// than for tracing purposes.
 			},
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, number)) => {
-				gum::trace!(target: LOG_TARGET, number = %number, "finalized signal");
+				sp_tracing::trace!(target: LOG_TARGET, number = %number, "finalized signal");
 				state.handle_block_finalized(network_sender, &self.metrics, number).await;
 			},
 			FromOrchestra::Signal(OverseerSignal::Conclude) => return true,
@@ -2858,7 +2858,7 @@ impl ApprovalDistribution {
 					.await;
 			},
 			ApprovalDistributionMessage::DistributeAssignment(cert, candidate_indices) => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					?candidate_indices,
 					block_hash = ?cert.block_hash,
@@ -2883,7 +2883,7 @@ impl ApprovalDistribution {
 					.await;
 			},
 			ApprovalDistributionMessage::DistributeApproval(vote) => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					"Distributing our approval vote on candidate (block={}, index={:?})",
 					vote.block_hash,
@@ -2905,14 +2905,14 @@ impl ApprovalDistribution {
 			ApprovalDistributionMessage::GetApprovalSignatures(indices, tx) => {
 				let sigs = state.get_approval_signatures(indices);
 				if let Err(_) = tx.send(sigs) {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						"Sending back approval signatures failed, oneshot got closed"
 					);
 				}
 			},
 			ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag) => {
-				gum::debug!(target: LOG_TARGET, lag, "Received `ApprovalCheckingLagUpdate`");
+				sp_tracing::debug!(target: LOG_TARGET, lag, "Received `ApprovalCheckingLagUpdate`");
 				state.approval_checking_lag = lag;
 			},
 		}

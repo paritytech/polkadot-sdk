@@ -132,7 +132,7 @@ impl<M: 'static + Send + Sync> DisputeSender<M> {
 		let candidate_hash = req.0.candidate_receipt.hash();
 		match self.disputes.entry(candidate_hash) {
 			Entry::Occupied(_) => {
-				gum::trace!(target: LOG_TARGET, ?candidate_hash, "Dispute sending already active.");
+				sp_tracing::trace!(target: LOG_TARGET, ?candidate_hash, "Dispute sending already active.");
 				return Ok(())
 			},
 			Entry::Vacant(vacant) => {
@@ -169,7 +169,7 @@ impl<M: 'static + Send + Sync> DisputeSender<M> {
 				let task = match self.disputes.get_mut(&candidate_hash) {
 					None => {
 						// Can happen when a dispute ends, with messages still in queue:
-						gum::trace!(
+						sp_tracing::trace!(
 							target: LOG_TARGET,
 							?result,
 							"Received `FromSendingTask::Finished` for non existing dispute."
@@ -220,7 +220,7 @@ impl<M: 'static + Send + Sync> DisputeSender<M> {
 					let result =
 						tx.send_message(DisputeSenderMessage::ActiveDisputesReady(result)).await;
 					if let Err(err) = result {
-						gum::debug!(
+						sp_tracing::debug!(
 							target: LOG_TARGET,
 							?err,
 							"Sending `DisputeSenderMessage` from background task failed."
@@ -235,7 +235,7 @@ impl<M: 'static + Send + Sync> DisputeSender<M> {
 				let have_new_sessions = state.have_new_sessions || have_new_sessions;
 				let new_state = WaitForActiveDisputesState { have_new_sessions };
 				self.waiting_for_active_disputes = Some(new_state);
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					"Dispute coordinator slow? We are still waiting for data on next active leaves update."
 				);
@@ -335,7 +335,7 @@ impl RateLimit {
 			let old_limit = Pin::new(&mut self.limit);
 			match old_limit.poll(cx) {
 				Poll::Pending => {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						?occasion,
 						?candidate_hash,
@@ -370,7 +370,7 @@ async fn get_active_session_indices<Context>(
 		if let Err(err) =
 			runtime.get_session_info_by_index(ctx.sender(), *head, session_index).await
 		{
-			gum::debug!(target: LOG_TARGET, ?err, ?session_index, "Can't cache SessionInfo");
+			sp_tracing::debug!(target: LOG_TARGET, ?err, ?session_index, "Can't cache SessionInfo");
 		}
 		indices.insert(session_index, *head);
 	}
