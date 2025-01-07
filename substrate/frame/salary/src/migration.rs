@@ -20,6 +20,11 @@
 use super::*;
 use frame_support::{pallet_prelude::*, storage_alias, traits::UncheckedOnRuntimeUpgrade};
 
+#[cfg(feature = "try-runtime")]
+use alloc::vec::Vec;
+#[cfg(feature = "try-runtime")]
+use sp_runtime::TryRuntimeError;
+
 mod v0 {
 	use super::*;
 	use frame_system::pallet_prelude::BlockNumberFor as LocalBlockNumberFor;
@@ -133,7 +138,7 @@ pub mod v1 {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 			let status_exists = v0::Status::<T, I>::exists();
-			let claimant_count = v0::Claimant::<T, I>::iter().count();
+			let claimant_count = v0::Claimant::<T, I>::iter().count() as u32;
 			Ok((status_exists, claimant_count).encode())
 		}
 
@@ -169,14 +174,13 @@ pub mod v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
-			let (status_existed, pre_claimaint_count): (
-				v0::StatusOf<T, I>,
-				v0::ClaimantStatusOf<T, I>,
-			) = Decode::decode(&mut &state[..]).expect("pre_upgrade provides a valid state; qed");
+			let (status_existed, pre_claimaint_count): (bool, u32) =
+				Decode::decode(&mut &state[..]).expect("pre_upgrade provides a valid state; qed");
 
 			ensure!(crate::Status::<T, I>::exists() == status_existed, "The Status' storage existence should remain the same before and after the upgrade.");
+			let post_claimant_count = crate::Claimant::<T, I>::iter().count() as u32;
 			ensure!(
-				crate::Claimant::<T, I>::iter().count() == pre_claimaint_count,
+				post_claimant_count == pre_claimaint_count,
 				"The Claimant count should remain the same before and after the upgrade."
 			);
 			Ok(())
