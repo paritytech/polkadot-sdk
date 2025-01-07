@@ -59,7 +59,7 @@ pub mod v1 {
 		/// ```rust,ignore
 		/// // Let's say both L and N are u32, then a simple identity will suffice.
 		/// fn convert(local: u32) -> u32 {
-		/// 		local
+		/// 	local
 		/// }
 		///
 		/// // But if L is u64 and N is u32, or some other problematic variation,
@@ -74,7 +74,7 @@ pub mod v1 {
 		/// ```
 		fn convert(local: L) -> N;
 
-		/// Converts to the new type and finds the equivalent moment in time as relative to the new
+		/// Converts to the new type and finds the equivalent moment in time as from the view of the new
 		/// block provider
 		///
 		/// For instance - if your new version uses the relay chain number, you'll want to
@@ -86,19 +86,19 @@ pub mod v1 {
 		/// ```rust,ignore
 		/// // Let's say you are a parachain and switching block providers to the relay chain.
 		/// // This will return what the relay block number was at the moment the previous provider's
-		/// // number was `local`.
-		/// fn equivalent_moment_in_time(local: u32) -> u32 {
-		/// 	// How long it's been since 'local'.
+		/// // number was `local_moment`.
+		/// fn equivalent_moment_in_time(local_moment: u32) -> u32 {
+		/// 	// How long it's been since 'local_moment' from the parachains pov.
 		/// 	let curr_block_number = System::block_number();
-		/// 	let local_duration = curr_block_number.saturating_sub(local);
-		/// 	// How many blocks that is in relay block time.
+		/// 	let local_duration = curr_block_number.saturating_sub(local_moment);
+		/// 	// How many blocks that is from the relay's pov.
 		/// 	let relay_duration = Self::equivalent_block_duration(local_duration);
-		/// 	// What the relay block number must have been at that moment.
+		/// 	// What the relay block number must have been at 'local_moment'.
 		/// 	let relay_block_number = ParachainSystem::last_relay_block_number();
 		/// 	relay_block_number.saturating_sub(relay_duration)
 		/// }
 		/// ```
-		fn equivalent_moment_in_time(local: L) -> N;
+		fn equivalent_moment_in_time(local_moment: L) -> N;
 
 		/// Returns the equivalent number of new blocks it would take to fulfill the same
 		/// amount of time in seconds as the old blocks.
@@ -112,18 +112,17 @@ pub mod v1 {
 		///          12s
 		/// |--------------------|
 		///
-		/// ^ Two 6s blocks passed per one 12s block.
+		/// ^ Two 6s relay blocks passed per one 12s local block.
 		///  
 		/// # Example Usage
 		///
 		/// ```rust,ignore
-		/// // If your previous provider updated the block number every 12 seconds and
-		/// // your new updates every 6 - 2 new blocks would have taken place per one old block.
-		/// fn equivalent_block_duration(local: u32) -> u32 {
-		/// 	local * 2
+		/// // Following the scenerio above.
+		/// fn equivalent_block_duration(local_duration: u32) -> u32 {
+		/// 	local_duration.saturating_mul(2)
 		/// }
 		/// ```
-		fn equivalent_block_duration(local: L) -> N;
+		fn equivalent_block_duration(local_duration: L) -> N;
 	}
 
 	pub struct MigrateToV1<T, BC, I = ()>(PhantomData<(T, BC, I)>);
@@ -131,6 +130,13 @@ pub mod v1 {
 	where
 		BC: ConvertBlockNumber<LocalBlockNumberFor<T>, NewBlockNumberFor<T, I>>,
 	{
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			let status_exists = v0::Status::<T, I>::exists();
+			let claimant_count = v0::Claimant::<T, I>::iter().count();
+			Ok((status_exists, claimant_count).encode())
+		}
+
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
 			let mut transactions = 0;
 
@@ -160,6 +166,17 @@ pub mod v1 {
 
 			T::DbWeight::get().reads_writes(transactions, transactions)
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			let (status_existed, pre_claimaint_count) : (v0::StatusOf<T, I>, v0::ClaimantStatusOf<T, I>) =
+			Decode::decode(&mut &state[..]).expect("pre_upgrade provides a valid state; qed");
+			
+			ensure!(crate::Status::<T, I>::exists() == status_existed, "The Status' storage existence should remain the same before and after the upgrade.");
+			ensure!(crate::Claimant::<T, I>::iter().count() == pre_claimaint_count, "The Claimant count should remain the same before and after the upgrade.");
+			Ok(())
+		}
+
 	}
 }
 

@@ -794,9 +794,9 @@ impl pallet_salary::migration::v1::ConvertBlockNumber<SalaryLocalBlockNumber, Sa
 
 	/// The equivalent moment in time from the perspective of the relay chain, starting from a
 	/// local moment in time (system block number)
-	fn equivalent_moment_in_time(local: SalaryLocalBlockNumber) -> SalaryNewBlockNumber {
+	fn equivalent_moment_in_time(local_moment: SalaryLocalBlockNumber) -> SalaryNewBlockNumber {
 		let block_number = System::block_number();
-		let local_duration = block_number.saturating_sub(local);
+		let local_duration = block_number.saturating_sub(local_moment);
 		let relay_duration = Self::equivalent_block_duration(local_duration); //6s to 6s
 		let relay_block_number = ParachainSystem::last_relay_block_number();
 		relay_block_number.saturating_sub(relay_duration)
@@ -805,8 +805,8 @@ impl pallet_salary::migration::v1::ConvertBlockNumber<SalaryLocalBlockNumber, Sa
 	/// The equivalent duration from the perspective of the relay chain, starting from
 	/// a local duration (number of block). Identity function for Westend, since both
 	/// relay and collectives chain run 6s block times
-	fn equivalent_block_duration(local: SalaryLocalBlockNumber) -> SalaryNewBlockNumber {
-		local
+	fn equivalent_block_duration(local_duration: SalaryLocalBlockNumber) -> SalaryNewBlockNumber {
+		local_duration
 	}
 }
 
