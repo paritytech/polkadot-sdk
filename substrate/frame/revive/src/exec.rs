@@ -298,7 +298,7 @@ pub trait Ext: sealing::Sealed {
 	fn code_hash(&self, address: &H160) -> H256;
 
 	/// Returns the code size of the contract at the given `address` or zero.
-	fn code_size(&self, address: &H160) -> U256;
+	fn code_size(&self, address: &H160) -> u64;
 
 	/// Returns the code hash of the contract being executed.
 	fn own_code_hash(&mut self) -> &H256;
@@ -1068,7 +1068,7 @@ where
 
 		self.transient_storage.start_transaction();
 
-		let do_transaction = || {
+		let do_transaction = || -> ExecResult {
 			let caller = self.caller();
 			let frame = top_frame_mut!(self);
 
@@ -1107,11 +1107,8 @@ where
 			let call_span = T::Debug::new_call_span(&contract_address, entry_point, &input_data);
 
 			let output = T::Debug::intercept_call(&contract_address, entry_point, &input_data)
-				.unwrap_or_else(|| {
-					executable
-						.execute(self, entry_point, input_data)
-						.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })
-				})?;
+				.unwrap_or_else(|| executable.execute(self, entry_point, input_data))
+				.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })?;
 
 			call_span.after_call(&output);
 
@@ -1136,7 +1133,10 @@ where
 			// If a special limit was set for the sub-call, we enforce it here.
 			// The sub-call will be rolled back in case the limit is exhausted.
 			let contract = frame.contract_info.as_contract();
-			frame.nested_storage.enforce_subcall_limit(contract)?;
+			frame
+				.nested_storage
+				.enforce_subcall_limit(contract)
+				.map_err(|e| ExecError { error: e, origin: ErrorOrigin::Callee })?;
 
 			let account_id = T::AddressMapper::to_address(&frame.account_id);
 			match (entry_point, delegated_code_hash) {
@@ -1663,7 +1663,7 @@ where
 			})
 	}
 
-	fn code_size(&self, address: &H160) -> U256 {
+	fn code_size(&self, address: &H160) -> u64 {
 		<ContractInfoOf<T>>::get(&address)
 			.and_then(|contract| CodeInfoOf::<T>::get(contract.code_hash))
 			.map(|info| info.code_len())
@@ -3412,7 +3412,7 @@ mod tests {
 					true,
 					false
 				),
-				<Error<Test>>::TransferFailed
+				<Error<Test>>::TransferFailed,
 			);
 			exec_success()
 		});

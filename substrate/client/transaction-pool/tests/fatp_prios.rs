@@ -26,7 +26,7 @@ use sc_transaction_pool::ChainApi;
 use sc_transaction_pool_api::{
 	error::Error as TxPoolError, MaintainedTransactionPool, TransactionPool, TransactionStatus,
 };
-use substrate_test_runtime_client::AccountKeyring::*;
+use substrate_test_runtime_client::Sr25519Keyring::*;
 use substrate_test_runtime_transaction_pool::uxt;
 #[test]
 fn fatp_prio_ready_higher_evicts_lower() {

@@ -1,0 +1,13 @@
+title: Refactor `pallet-revive-uapi` pallet
+doc:
+- audience: Runtime Dev
+  description: Puts unstable host functions in `uapi` under
+    `unstable-api` feature while moving those functions after
+    stable functions.
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive-uapi
+  bump: major
