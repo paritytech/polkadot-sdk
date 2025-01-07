@@ -181,7 +181,6 @@ where
 		}
 
 		let mut commands: Vec<Command> = Vec::new();
-		let mut weth_amount = 0;
 
 		// ENA transfer commands
 		if let Some(enas) = enas {
@@ -206,10 +205,6 @@ where
 
 				// transfer amount must be greater than 0.
 				ensure!(amount > 0, ZeroAssetTransfer);
-
-				if token == WETHAddress::get() {
-					weth_amount = amount;
-				}
 
 				commands.push(Command::UnlockNativeToken { token, recipient, amount });
 			}
@@ -251,9 +246,6 @@ where
 			let transact =
 				TransactInfo::decode_all(&mut transact_call.clone().into_encoded().as_slice())
 					.map_err(|_| TransactDecodeFailed)?;
-			if transact.value > 0 {
-				ensure!(weth_amount > transact.value, CallContractValueInsufficient);
-			}
 			commands.push(Command::CallContract {
 				target: transact.target,
 				data: transact.data,
