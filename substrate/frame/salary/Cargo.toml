@@ -25,17 +25,17 @@ frame = { workspace = true, features = ["experimental", "runtime"] }
 [features]
 default = ["std"]
 std = [
-   "codec/std",
-   "log/std",
-   "pallet-ranked-collective/std",
-   "scale-info/std",
-   "frame/std",
+    "codec/std",
+    "log/std",
+    "pallet-ranked-collective/std",
+    "scale-info/std",
+    "frame/std",
 ]
 runtime-benchmarks = [
-   "pallet-ranked-collective/runtime-benchmarks",
-   "frame/runtime-benchmarks",
+    "pallet-ranked-collective/runtime-benchmarks",
+    "frame/runtime-benchmarks",
 ]
 try-runtime = [
-   "pallet-ranked-collective?/try-runtime",
-   "frame/try-runtime",
+    "pallet-ranked-collective?/try-runtime",
+    "frame/try-runtime",
 ]
