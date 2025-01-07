@@ -41,10 +41,6 @@ pub mod v1 {
 		fn convert_block_number_to_relay_height(
 			block_number: SystemBlockNumberFor<T>,
 		) -> BlockNumberFor<T>;
-
-		fn convert_block_lenght_to_relay_length(
-			block_number: SystemBlockNumberFor<T>,
-		) -> BlockNumberFor<T>;
 	}
 
 	pub struct MigrateToRBN<T, BlockConversion>(PhantomData<T>, PhantomData<BlockConversion>);
