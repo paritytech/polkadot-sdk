@@ -1,6 +1,6 @@
 [package]
 name = "pallet-example-frame-crate"
-version = "0.0.1"
+version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition.workspace = true
 license = "MIT-0"
@@ -18,7 +18,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-
 frame = { features = ["experimental", "runtime"], workspace = true }
 
 

@@ -8,14 +8,11 @@ description = "People Rococo emulated chain"
 publish = false
 
 [dependencies]
-
-# Substrate
-sp-core = { workspace = true }
-frame-support = { workspace = true }
-
-# Cumulus
-parachains-common = { workspace = true, default-features = true }
-cumulus-primitives-core = { workspace = true }
-emulated-integration-tests-common = { workspace = true }
-people-rococo-runtime = { workspace = true }
+sp-core.workspace = true
+frame-support.workspace = true
+parachains-common.workspace = true
+parachains-common.default-features = true
+cumulus-primitives-core.workspace = true
+emulated-integration-tests-common.workspace = true
+people-rococo-runtime.workspace = true
 testnet-parachains-constants = { features = ["rococo"], workspace = true, default-features = true }

@@ -17,7 +17,8 @@ async-trait = { workspace = true }
 backoff = { workspace = true }
 console = { workspace = true }
 isahc = { workspace = true }
-sp-tracing = { workspace = true, default-features = true }
+sp-tracing.workspace = true
+sp-tracing.default-features = true
 futures = { workspace = true }
 jsonpath_lib = { workspace = true }
 log = { workspace = true }
@@ -28,12 +29,9 @@ sysinfo = { workspace = true }
 time = { features = ["formatting", "local-offset", "std"], workspace = true }
 tokio = { features = ["rt"], workspace = true, default-features = true }
 thiserror = { workspace = true }
-
-# Bridge dependencies
-
-bp-runtime = { workspace = true, default-features = true }
-
-# Substrate dependencies
-
-sp-runtime = { workspace = true, default-features = true }
-prometheus-endpoint = { workspace = true, default-features = true }
+bp-runtime.workspace = true
+bp-runtime.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+prometheus-endpoint.workspace = true
+prometheus-endpoint.default-features = true

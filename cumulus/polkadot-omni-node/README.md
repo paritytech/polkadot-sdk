@@ -63,3 +63,8 @@ polkadot-omni-node --dev --chain <chain_spec.json>
 * [`polkadot-sdk-parachain-template`](https://github.com/paritytech/polkadot-sdk-parachain-template)
 * [`frame-omni-bencher`](https://crates.io/crates/frame-omni-bencher)
 * [`staging-chain-spec-builder`](https://crates.io/crates/staging-chain-spec-builder)
+
+
+## Release
+
+Polkadot SDK Stable 2412
