@@ -27,7 +27,6 @@ pallet-example-single-block-migrations = { workspace = true }
 pallet-example-split = { workspace = true }
 pallet-example-tasks = { workspace = true }
 pallet-example-view-functions = { workspace = true }
-pallet-example-authorization-tx-extension = { workspace = true }
 
 [features]
 default = ["std"]
