@@ -335,14 +335,14 @@ where
 		let stream_map = futures::stream::unfold(ctx, |mut ctx| async move {
 			loop {
 				if let Some(dropped) = ctx.get_pending_dropped_transaction() {
-					debug!("dropped_watcher: sending out (pending): {dropped:?}");
+					trace!("dropped_watcher: sending out (pending): {dropped:?}");
 					return Some((dropped, ctx));
 				}
 				tokio::select! {
 					biased;
 					Some(event) = next_event(&mut ctx.stream_map) => {
 						if let Some(dropped) = ctx.handle_event(event.0, event.1) {
-							debug!("dropped_watcher: sending out: {dropped:?}");
+							trace!("dropped_watcher: sending out: {dropped:?}");
 							return Some((dropped, ctx));
 						}
 					},

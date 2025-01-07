@@ -1369,7 +1369,6 @@ where
 				);
 			}
 
-			// todo: add to pending_replacements - make sure it will not sneak back via cloned view
 			return Ok(insertion_info)
 		}
 

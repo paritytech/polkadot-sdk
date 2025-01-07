@@ -804,8 +804,8 @@ where
 	///
 	/// A `listener_action` callback function is invoked for every transaction that is removed,
 	/// providing a reference to the pool's listener and the hash of the removed transaction. This
-	/// allows to trigger the required events. Note listener may be called multiple times for the
-	/// same hash.
+	/// allows to trigger the required events. Note that listener may be called multiple times for
+	/// the same hash.
 	///
 	/// Function will also schedule view pre-insertion actions to ensure that transactions will be
 	/// removed from newly created view.
