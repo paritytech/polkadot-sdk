@@ -22,13 +22,18 @@ pub(crate) const LOG_TARGET: &str = "tests::e2e-epm";
 
 use frame_support::{assert_err, assert_noop, assert_ok};
 use mock::*;
+use pallet_balances::BalanceLock;
+use pallet_democracy::{AccountVote, BoundedCallOf, Conviction, Vote, VoteThreshold};
 use pallet_timestamp::Now;
-use sp_core::Get;
-use sp_runtime::Perbill;
+use pallet_vesting::VestingInfo;
+use sp_core::{ConstU32, Get};
+use sp_runtime::{Perbill, WeakBoundedVec};
 
 use crate::mock::RuntimeOrigin;
 
 use pallet_election_provider_multi_phase::CurrentPhase;
+
+use frame_support::traits::StorePreimage;
 
 // syntactic sugar for logging.
 #[macro_export]
@@ -434,5 +439,125 @@ fn automatic_unbonding_pools() {
 		assert_eq!(Balances::free_balance(3), init_free_balance_3);
 
 		assert_eq!(TotalValueLocked::<Runtime>::get(), init_tvl);
+	});
+}
+
+fn set_balance_proposal(value: u64) -> BoundedCallOf<Runtime> {
+	let inner = pallet_balances::Call::force_set_balance { who: 42, new_free: value };
+	let outer = RuntimeCall::Balances(inner);
+	Preimage::bound(outer).unwrap()
+}
+
+#[test]
+fn funds_used_for_voting_can_be_staked() {
+	execute_with(ExtBuilder::default().build(), || {
+		// GIVEN
+		// A referendum exists that is in progress
+		let referendum = Democracy::internal_start_referendum(
+			set_balance_proposal(2),
+			VoteThreshold::SuperMajorityApprove,
+			0,
+		);
+
+		// User 1 votes in the referendum with all his funds
+		assert!(Balances::free_balance(1) != 0);
+		let balance_in_vote = Balances::free_balance(1);
+		let vote = AccountVote::Standard {
+			vote: Vote { aye: true, conviction: Conviction::Locked1x },
+			balance: balance_in_vote,
+		};
+		assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), referendum, vote));
+
+		// WHEN
+		// User 1 wants to stake all his funds, so those that were used in voting
+		let result = Staking::bond(
+			RuntimeOrigin::signed(1),
+			balance_in_vote,
+			pallet_staking::RewardDestination::Account(1),
+		);
+
+		// THEN
+		// User's funds are successfuly staked
+		assert_ok!(result);
+		assert_eq!(
+			Balances::reserved_balance(1),
+			balance_in_vote - mock::ExistentialDeposit::get()
+		);
+		assert_eq!(Balances::free_balance(1), mock::ExistentialDeposit::get());
+		assert_eq!(
+			pallet_balances::Locks::<Runtime>::get(&1).to_vec().get(0).unwrap().amount,
+			balance_in_vote
+		);
+	});
+}
+
+#[test]
+fn funds_staked_can_be_used_for_voting() {
+	execute_with(ExtBuilder::default().build(), || {
+		// GIVEN
+		// A referendum exists that is in progress
+		let referendum = Democracy::internal_start_referendum(
+			set_balance_proposal(2),
+			VoteThreshold::SuperMajorityApprove,
+			0,
+		);
+
+		// User 1 stakes all his funds
+		let total_balance = Balances::free_balance(1);
+		assert_ok!(Staking::bond(
+			RuntimeOrigin::signed(1),
+			total_balance,
+			pallet_staking::RewardDestination::Account(1),
+		));
+
+		// WHEN
+		// User 1 wants to vote with a portion of his funds (so with tokens that are currently
+		// staked)
+		let vote = AccountVote::Standard {
+			vote: Vote { aye: true, conviction: Conviction::Locked1x },
+			balance: total_balance,
+		};
+		assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), referendum, vote));
+
+		// THEN
+		// User's funds are successfuly used to vote in referendum
+		assert_eq!(Balances::reserved_balance(1), total_balance - mock::ExistentialDeposit::get());
+		assert_eq!(Balances::free_balance(1), mock::ExistentialDeposit::get());
+		assert_eq!(
+			pallet_balances::Locks::<Runtime>::get(&1).to_vec().get(0).unwrap().amount,
+			total_balance
+		);
+	});
+}
+
+#[test]
+fn funds_being_vested_can_be_staked() {
+	execute_with(ExtBuilder::default().build(), || {
+		// GIVEN
+		// All the funds of user A are being vested
+		let balance_being_vested = Balances::free_balance(&2);
+		let user2_vesting_schedule = VestingInfo::new(balance_being_vested, 2, 0);
+		assert_eq!(Vesting::vesting(2).unwrap().to_vec(), vec![user2_vesting_schedule]);
+
+		// WHEN
+		// User A wants to stake some of his funds, so those that are being vested
+		let result = Staking::bond(
+			RuntimeOrigin::signed(2),
+			balance_being_vested,
+			pallet_staking::RewardDestination::Account(2),
+		);
+
+		// THEN
+		// User's funds are successfuly staked
+		assert_ok!(result);
+		assert_eq!(
+			Balances::reserved_balance(2),
+			balance_being_vested - mock::ExistentialDeposit::get()
+		);
+		assert_eq!(Balances::free_balance(2), mock::ExistentialDeposit::get());
+		assert_eq!(
+			pallet_balances::Locks::<Runtime>::get(&2).to_vec().get(0).unwrap().amount,
+			balance_being_vested
+		);
 	});
 }

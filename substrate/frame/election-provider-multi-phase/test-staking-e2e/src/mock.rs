@@ -19,12 +19,12 @@
 
 use frame_support::{
 	assert_ok, parameter_types, traits,
-	traits::{Hooks, UnfilteredDispatchable, VariantCountOf},
+	traits::{Hooks, UnfilteredDispatchable, VariantCountOf, WithdrawReasons},
 	weights::constants,
 	PalletId,
 };
-use frame_system::EnsureRoot;
-use sp_core::{ConstU32, Get};
+use frame_system::{EnsureRoot, EnsureSigned};
+use sp_core::{ConstBool, ConstU32, ConstU64, Get};
 use sp_npos_elections::{ElectionScore, VoteWeight};
 use sp_runtime::{
 	offchain::{
@@ -32,7 +32,7 @@ use sp_runtime::{
 		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
 	},
 	testing,
-	traits::Zero,
+	traits::{ConvertInto, Zero},
 	transaction_validity, BuildStorage, PerU16, Perbill, Percent,
 };
 use sp_staking::{
@@ -54,9 +54,10 @@ use pallet_staking::{ActiveEra, CurrentEra, ErasStartSessionIndex, StakerStatus}
 use parking_lot::RwLock;
 use std::sync::Arc;
 
-use frame_support::derive_impl;
-
 use crate::{log, log_current_time};
+use frame_support::{derive_impl, traits::EqualPrivilegeOnly};
+
+use sp_runtime::traits::Identity;
 
 pub const INIT_TIMESTAMP: BlockNumber = 30_000;
 pub const BLOCK_TIME: BlockNumber = 1000;
@@ -76,6 +77,10 @@ frame_support::construct_runtime!(
 		Session: pallet_session,
 		Historical: pallet_session::historical,
 		Timestamp: pallet_timestamp,
+		Preimage: pallet_preimage,
+		Scheduler: pallet_scheduler,
+		Democracy: pallet_democracy,
+		Vesting: pallet_vesting,
 	}
 );
 
@@ -86,6 +91,80 @@ pub(crate) type Balance = u64;
 pub(crate) type VoterIndex = u16;
 pub(crate) type TargetIndex = u16;
 pub(crate) type Moment = u32;
+
+impl pallet_preimage::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type Currency = Balances;
+	type ManagerOrigin = EnsureRoot<Self::AccountId>;
+	type Consideration = ();
+}
+
+parameter_types! {
+	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * BlockWeights::get().max_block;
+}
+
+impl pallet_scheduler::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeOrigin = RuntimeOrigin;
+	type PalletsOrigin = OriginCaller;
+	type RuntimeCall = RuntimeCall;
+	type MaximumWeight = MaximumSchedulerWeight;
+	type ScheduleOrigin = EnsureRoot<Self::AccountId>;
+	type MaxScheduledPerBlock = ConstU32<100>;
+	type WeightInfo = ();
+	type OriginPrivilegeCmp = EqualPrivilegeOnly;
+	type Preimages = Preimage;
+}
+
+impl pallet_democracy::Config for Runtime {
+	type WeightInfo = ();
+	type RuntimeEvent = RuntimeEvent;
+	type Scheduler = Scheduler;
+	type Currency = Balances;
+	type EnactmentPeriod = ConstU32<2>;
+	type LaunchPeriod = ConstU32<2>;
+	type VotingPeriod = ConstU32<2>;
+	type VoteLockingPeriod = ConstU32<3>;
+	type FastTrackVotingPeriod = ConstU32<2>;
+	type MinimumDeposit = ConstU64<1>;
+	type MaxDeposits = ConstU32<1000>;
+	type MaxBlacklisted = ConstU32<5>;
+	type SubmitOrigin = EnsureSigned<Self::AccountId>;
+	type ExternalOrigin = EnsureSigned<Self::AccountId>;
+	type ExternalMajorityOrigin = EnsureSigned<Self::AccountId>;
+	type ExternalDefaultOrigin = EnsureSigned<Self::AccountId>;
+	type FastTrackOrigin = EnsureSigned<Self::AccountId>;
+	type CancellationOrigin = EnsureSigned<Self::AccountId>;
+	type BlacklistOrigin = EnsureRoot<Self::AccountId>;
+	type CancelProposalOrigin = EnsureRoot<Self::AccountId>;
+	type VetoOrigin = EnsureSigned<Self::AccountId>;
+	type CooloffPeriod = ConstU32<2>;
+	type Slash = ();
+	type InstantOrigin = EnsureSigned<Self::AccountId>;
+	type InstantAllowed = ConstBool<true>;
+	type MaxVotes = ConstU32<100>;
+	type PalletsOrigin = OriginCaller;
+	type MaxProposals = ConstU32<100>;
+	type Preimages = Preimage;
+}
+
+parameter_types! {
+	pub const MinVestedTransfer: u64 = 1;
+	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
+		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
+}
+
+impl pallet_vesting::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type BlockNumberToBalance = ConvertInto;
+	type MinVestedTransfer = MinVestedTransfer;
+	type WeightInfo = ();
+	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+	type BlockNumberProvider = System;
+	const MAX_VESTING_SCHEDULES: u32 = 28;
+}
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
@@ -608,6 +687,9 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut storage);
 
+		let _ = pallet_vesting::GenesisConfig::<Runtime> { vesting: vec![(2, 0, 10, 0)] }
+			.assimilate_storage(&mut storage);
+
 		let mut ext = sp_io::TestExternalities::from(storage);
 
 		// We consider all test to start after timestamp is initialized This must be ensured by
@@ -617,6 +699,8 @@ impl ExtBuilder {
 			Session::on_initialize(1);
 			<Staking as Hooks<u32>>::on_initialize(1);
 			Timestamp::set_timestamp(INIT_TIMESTAMP);
+			Vesting::on_initialize(1);
+			Democracy::on_initialize(1);
 		});
 
 		ext
