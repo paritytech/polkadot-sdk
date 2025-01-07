@@ -11,7 +11,7 @@ use codec::Decode;
 use frame_support::pallet_prelude::{Encode, TypeInfo};
 
 sol! {
-	event InboundMessageDispatched(uint64 indexed nonce, bool success, bytes32 indexed reward_address);
+	event InboundMessageDispatched(uint64 indexed nonce, bool success, bytes32 reward_address);
 }
 
 /// An inbound message that has had its outer envelope decoded.
