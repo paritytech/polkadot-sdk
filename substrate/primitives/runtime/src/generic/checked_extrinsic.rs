@@ -152,9 +152,7 @@ impl<AccountId, Call, ExtensionV0, ExtensionOtherVersions>
 where
 	Call: Dispatchable,
 	ExtensionV0: TransactionExtension<Call>,
-	// TODO TODO: redo the bound directly on the generic used to make it clearer that it is
-	// implemented on AlwaysInvalid
-	ExtensionVariant<ExtensionV0, ExtensionOtherVersions>: VersTxExtLineWeight<Call>,
+	ExtensionOtherVersions: VersTxExtLineWeight<Call>
 {
 	/// Returns the weight of the extension of this transaction, if present. If the transaction
 	/// doesn't use any extension, the weight returned is equal to zero.

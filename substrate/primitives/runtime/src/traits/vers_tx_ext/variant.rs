@@ -158,7 +158,7 @@ where
 }
 
 impl<
-		Call: Dispatchable + Encode,
+		Call: Dispatchable,
 		ExtensionV0: TransactionExtension<Call>,
 		ExtensionOtherVersions: VersTxExtLineWeight<Call>,
 	> VersTxExtLineWeight<Call> for ExtensionVariant<ExtensionV0, ExtensionOtherVersions>
