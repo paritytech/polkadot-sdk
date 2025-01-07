@@ -19,7 +19,7 @@
 
 use super::types::{
 	ExtrinsicMetadataIR, MetadataIR, OuterEnumsIR, PalletMetadataIR, RuntimeApiMetadataIR,
-	RuntimeApiMethodMetadataIR, RuntimeApiMethodParamMetadataIR, SignedExtensionMetadataIR,
+	RuntimeApiMethodMetadataIR, RuntimeApiMethodParamMetadataIR, TransactionExtensionMetadataIR,
 };
 
 use frame_metadata::v15::{
