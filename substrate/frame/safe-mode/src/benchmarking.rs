@@ -18,7 +18,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::{Pallet as SafeMode, *};
-use frame::{benchmarking::prelude::*, traits::UnfilteredDispatchable};
+use frame::benchmarking::prelude::*;
 
 #[benchmarks(where T::Currency: fungible::Mutate<T::AccountId>)]
 mod benchmarks {

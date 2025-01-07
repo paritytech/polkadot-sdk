@@ -76,18 +76,8 @@ mod tests;
 pub mod weights;
 
 use frame::{
-	// This is here because of the defensive! macro, can be removed once the macro is changed to
-	// not require frame_support
-	deps::frame_support,
 	prelude::*,
-	traits::{
-		fungible::{
-			self,
-			hold::{Inspect, Mutate},
-		},
-		tokens::{Fortitude, Precision},
-		CallMetadata, Defensive, GetCallMetadata, SafeModeNotify,
-	},
+	traits::{fungible, CallMetadata, GetCallMetadata, SafeModeNotify},
 };
 
 pub use pallet::*;

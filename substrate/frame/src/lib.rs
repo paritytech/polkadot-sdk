@@ -204,7 +204,10 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::traits::{
-		Contains, EstimateNextSessionRotation, IsSubType, OnRuntimeUpgrade, OneSessionHandler,
+		fungible::hold::{Inspect, Mutate},
+		tokens::{Fortitude, Precision},
+		Contains, Defensive, EstimateNextSessionRotation, IsSubType, OnRuntimeUpgrade,
+		OneSessionHandler, UnfilteredDispatchable,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -228,8 +231,8 @@ pub mod prelude {
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, DispatchInfoOf, Dispatchable, SaturatedConversion,
-		Saturating, StaticLookup, TrailingZeroInput,
+		BlockNumberProvider, Bounded, DispatchInfoOf, Dispatchable, IdentityLookup,
+		SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
 	};
 
 	/// Other runtime types and traits
@@ -321,6 +324,8 @@ pub mod testing_prelude {
 		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok,
 		assert_storage_noop, storage_alias,
 	};
+
+	pub use frame_support::traits::Everything;
 
 	pub use frame_system::{self, mocking::*};
 
