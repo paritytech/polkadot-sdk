@@ -7716,7 +7716,6 @@ dependencies = [
  "sp-externalities 0.25.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
- "sp-std 14.0.0",
  "sp-version 29.0.0",
  "sp-weights 27.0.0",
  "substrate-test-runtime-client",
@@ -12264,7 +12263,6 @@ dependencies = [
  "pallet-staking 28.0.0",
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
- "sp-std 14.0.0",
  "sp-storage 19.0.0",
  "sp-tracing 16.0.0",
 ]
@@ -12860,7 +12858,6 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
- "sp-std 14.0.0",
  "sp-tracing 16.0.0",
  "staging-xcm 7.0.0",
  "staging-xcm-builder 7.0.0",
@@ -13245,7 +13242,6 @@ dependencies = [
  "sp-npos-elections 26.0.0",
  "sp-runtime 31.0.1",
  "sp-staking 26.0.0",
- "sp-std 14.0.0",
  "sp-tracing 16.0.0",
 ]
 
@@ -14050,7 +14046,6 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
- "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -14325,7 +14320,6 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-staking 26.0.0",
- "sp-std 14.0.0",
  "sp-tracing 16.0.0",
 ]
 
@@ -14349,7 +14343,6 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-staking 26.0.0",
- "sp-std 14.0.0",
  "sp-tracing 16.0.0",
 ]
 
@@ -14763,7 +14756,6 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
- "sp-std 14.0.0",
  "sp-tracing 16.0.0",
  "staging-xcm 7.0.0",
  "staging-xcm-builder 7.0.0",
@@ -14988,7 +14980,6 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-staking 26.0.0",
- "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -15834,7 +15825,6 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
- "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -23538,7 +23528,6 @@ dependencies = [
  "sp-crypto-hashing 0.1.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
- "sp-std 14.0.0",
 ]
 
 [[package]]
