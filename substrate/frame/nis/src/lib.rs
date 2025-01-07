@@ -321,6 +321,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type ThawThrottle: Get<(Perquintill, BlockNumberFor<Self>)>;
 
+		/// Provider for the block number.
 		type BlockNumberProvider: BlockNumberProvider<BlockNumber: Default>;
 
 		/// Setup the state for benchmarking.
