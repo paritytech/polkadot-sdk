@@ -18,6 +18,7 @@
 
 use polkadot_node_core_pvf_common::prepare::MemoryStats;
 use polkadot_node_metrics::metrics::{self, prometheus};
+use polkadot_node_subsystem::messages::PvfExecKind;
 
 /// Validation host metrics.
 #[derive(Default, Clone)]
@@ -120,6 +121,13 @@ impl Metrics {
 				.observe(pov_size as f64);
 		}
 	}
+
+	/// When preparation pipeline concluded working on an item.
+	pub(crate) fn on_execute_kind(&self, kind: PvfExecKind) {
+		if let Some(metrics) = &self.0 {
+			metrics.exec_kind_selected.with_label_values(&[kind.as_str()]).inc();
+		}
+	}
 }
 
 #[derive(Clone)]
@@ -146,6 +154,7 @@ struct MetricsInner {
 	preparation_peak_tracked_allocation: prometheus::Histogram,
 	pov_size: prometheus::HistogramVec,
 	code_size: prometheus::Histogram,
+	exec_kind_selected: prometheus::CounterVec<prometheus::U64>,
 }
 
 impl metrics::Metrics for Metrics {
@@ -366,6 +375,16 @@ impl metrics::Metrics for Metrics {
 						prometheus::exponential_buckets(16384.0, 2.0, 10)
 							.expect("arguments are always valid; qed"),
 					),
+				)?,
+				registry,
+			)?,
+			exec_kind_selected: prometheus::register(
+				prometheus::CounterVec::new(
+					prometheus::Opts::new(
+						"polkadot_pvf_exec_kind_selected",
+						"The total number of selected execute kinds",
+					),
+					&["priority"],
 				)?,
 				registry,
 			)?,

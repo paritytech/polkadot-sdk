@@ -141,6 +141,10 @@ pub use cumulus_pallet_session_benchmarking;
 #[cfg(feature = "cumulus-pallet-solo-to-para")]
 pub use cumulus_pallet_solo_to_para;
 
+/// pallet and transaction extensions for accurate proof size reclaim.
+#[cfg(feature = "cumulus-pallet-weight-reclaim")]
+pub use cumulus_pallet_weight_reclaim;
+
 /// Pallet for stuff specific to parachains' usage of XCM.
 #[cfg(feature = "cumulus-pallet-xcm")]
 pub use cumulus_pallet_xcm;
@@ -580,9 +584,9 @@ pub use pallet_remark;
 #[cfg(feature = "pallet-revive")]
 pub use pallet_revive;
 
-/// Fixtures for testing and benchmarking.
-#[cfg(feature = "pallet-revive-fixtures")]
-pub use pallet_revive_fixtures;
+/// An Ethereum JSON-RPC server for pallet-revive.
+#[cfg(feature = "pallet-revive-eth-rpc")]
+pub use pallet_revive_eth_rpc;
 
 /// A mock network for testing pallet-revive.
 #[cfg(feature = "pallet-revive-mock-network")]
@@ -704,6 +708,10 @@ pub use pallet_uniques;
 /// FRAME utilities pallet.
 #[cfg(feature = "pallet-utility")]
 pub use pallet_utility;
+
+/// FRAME verify signature pallet.
+#[cfg(feature = "pallet-verify-signature")]
+pub use pallet_verify_signature;
 
 /// FRAME pallet for manage vesting.
 #[cfg(feature = "pallet-vesting")]
@@ -1114,6 +1122,10 @@ pub use sc_rpc_server;
 /// Substrate RPC interface v2.
 #[cfg(feature = "sc-rpc-spec-v2")]
 pub use sc_rpc_spec_v2;
+
+/// Substrate client utilities for frame runtime functions calls.
+#[cfg(feature = "sc-runtime-utilities")]
+pub use sc_runtime_utilities;
 
 /// Substrate service. Starts a thread that spins up the network, client, and extrinsic pool.
 /// Manages communication between them.

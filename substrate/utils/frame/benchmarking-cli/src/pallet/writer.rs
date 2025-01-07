@@ -484,9 +484,6 @@ pub(crate) fn write_results(
 			benchmarks: results.clone(),
 		};
 
-		let file_path = fs::canonicalize(&file_path).map_err(|e| {
-			format!("Could not get absolute path for: {:?}. Error: {:?}", &file_path, e)
-		})?;
 		let mut output_file = fs::File::create(&file_path).map_err(|e| {
 			format!("Could not write weight file to: {:?}. Error: {:?}", &file_path, e)
 		})?;

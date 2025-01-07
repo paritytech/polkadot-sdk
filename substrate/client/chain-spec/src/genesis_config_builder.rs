@@ -142,11 +142,9 @@ where
 	/// The patching process modifies the default `RuntimeGenesisConfig` according to the following
 	/// rules:
 	/// 1. Existing keys in the default configuration will be overridden by the corresponding values
-	///    in the patch.
+	///    in the patch (also applies to `null` values).
 	/// 2. If a key exists in the patch but not in the default configuration, it will be added to
 	///    the resulting `RuntimeGenesisConfig`.
-	/// 3. Keys in the default configuration that have null values in the patch will be removed from
-	///    the resulting `RuntimeGenesisConfig`. This is helpful for changing enum variant value.
 	///
 	/// Please note that the patch may contain full `RuntimeGenesisConfig`.
 	pub fn get_storage_for_patch(&self, patch: Value) -> core::result::Result<Storage, String> {

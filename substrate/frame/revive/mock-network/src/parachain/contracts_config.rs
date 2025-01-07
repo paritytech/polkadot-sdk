@@ -20,7 +20,7 @@ use frame_support::derive_impl;
 
 #[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
 impl pallet_revive::Config for Runtime {
-	type AddressMapper = pallet_revive::DefaultAddressMapper;
+	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type Currency = Balances;
 	type Time = super::Timestamp;
 	type Xcm = pallet_xcm::Pallet<Self>;

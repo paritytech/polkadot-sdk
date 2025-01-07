@@ -17,9 +17,9 @@
 
 use super::{deposit_limit, GAS_LIMIT};
 use crate::{
-	address::AddressMapper, AccountIdOf, BalanceOf, Code, CollectEvents, Config,
-	ContractExecResult, ContractInstantiateResult, DebugInfo, EventRecordOf, ExecReturnValue,
-	InstantiateReturnValue, OriginFor, Pallet, Weight,
+	address::AddressMapper, AccountIdOf, BalanceOf, Code, CollectEvents, Config, ContractResult,
+	DebugInfo, DepositLimit, EventRecordOf, ExecReturnValue, InstantiateReturnValue, OriginFor,
+	Pallet, Weight,
 };
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
 use paste::paste;
@@ -134,13 +134,13 @@ builder!(
 		origin: OriginFor<T>,
 		value: BalanceOf<T>,
 		gas_limit: Weight,
-		storage_deposit_limit: BalanceOf<T>,
+		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
 		debug: DebugInfo,
 		collect_events: CollectEvents,
-	) -> ContractInstantiateResult<BalanceOf<T>, EventRecordOf<T>>;
+	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>, EventRecordOf<T>>;
 
 	/// Build the instantiate call and unwrap the result.
 	pub fn build_and_unwrap_result(self) -> InstantiateReturnValue {
@@ -160,7 +160,7 @@ builder!(
 			origin,
 			value: 0u32.into(),
 			gas_limit: GAS_LIMIT,
-			storage_deposit_limit: deposit_limit::<T>(),
+			storage_deposit_limit: DepositLimit::Balance(deposit_limit::<T>()),
 			code,
 			data: vec![],
 			salt: Some([0; 32]),
@@ -199,11 +199,11 @@ builder!(
 		dest: H160,
 		value: BalanceOf<T>,
 		gas_limit: Weight,
-		storage_deposit_limit: BalanceOf<T>,
+		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		data: Vec<u8>,
 		debug: DebugInfo,
 		collect_events: CollectEvents,
-	) -> ContractExecResult<BalanceOf<T>, EventRecordOf<T>>;
+	) -> ContractResult<ExecReturnValue, BalanceOf<T>, EventRecordOf<T>>;
 
 	/// Build the call and unwrap the result.
 	pub fn build_and_unwrap_result(self) -> ExecReturnValue {
@@ -217,7 +217,7 @@ builder!(
 			dest,
 			value: 0u32.into(),
 			gas_limit: GAS_LIMIT,
-			storage_deposit_limit: deposit_limit::<T>(),
+			storage_deposit_limit: DepositLimit::Balance(deposit_limit::<T>()),
 			data: vec![],
 			debug: DebugInfo::UnsafeDebug,
 			collect_events: CollectEvents::Skip,

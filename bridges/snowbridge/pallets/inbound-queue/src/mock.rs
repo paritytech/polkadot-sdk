@@ -19,7 +19,10 @@ use sp_runtime::{
 	BuildStorage, FixedU128, MultiSignature,
 };
 use sp_std::{convert::From, default::Default};
-use xcm::{latest::SendXcm, prelude::*};
+use xcm::{
+	latest::{SendXcm, WESTEND_GENESIS_HASH},
+	prelude::*,
+};
 use xcm_executor::AssetsInHolding;
 
 use crate::{self as inbound_queue};
@@ -113,8 +116,8 @@ parameter_types! {
 	pub const InitialFund: u128 = 1_000_000_000_000;
 	pub const InboundQueuePalletInstance: u8 = 80;
 	pub UniversalLocation: InteriorLocation =
-		[GlobalConsensus(Westend), Parachain(1002)].into();
-	pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(Westend),Parachain(1000)]);
+		[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1002)].into();
+	pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),Parachain(1000)]);
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -243,20 +246,6 @@ impl inbound_queue::Config for Test {
 	type LengthToFee = IdentityFee<u128>;
 	type MaxMessageSize = ConstU32<1024>;
 	type AssetTransactor = SuccessfulTransactor;
-}
-
-pub fn last_events(n: usize) -> Vec<RuntimeEvent> {
-	frame_system::Pallet::<Test>::events()
-		.into_iter()
-		.rev()
-		.take(n)
-		.rev()
-		.map(|e| e.event)
-		.collect()
-}
-
-pub fn expect_events(e: Vec<RuntimeEvent>) {
-	assert_eq!(last_events(e.len()), e);
 }
 
 pub fn setup() {
