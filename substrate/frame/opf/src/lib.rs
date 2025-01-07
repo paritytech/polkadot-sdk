@@ -20,7 +20,7 @@
 pub use pallet::*;
 mod functions;
 mod types;
-pub use pallet_referenda as Referenda;
+pub use pallet_democracy as Democracy;
 pub use types::*;
 
 #[cfg(test)]
@@ -38,9 +38,13 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + Referenda::Config {
+	pub trait Config: frame_system::Config + Democracy::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
+		type RuntimeCall: Convert<<Self as Config>::RuntimeCall, <Self as frame_system::Config>::RuntimeCall>
+						+ Parameter
+						+ UnfilteredDispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
+						+ From<Call<Self>>
+						+ GetDispatchInfo;
 		/// The admin origin that can list and un-list whitelisted projects.
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
@@ -219,6 +223,8 @@ pub mod pallet {
 		MaximumProjectsNumber,
 		/// Another project has already been submitted under the same project_id
 		SubmittedProjectId,
+		/// Project batch already submitted
+		BatchAlreadySubmitted
 	}
 
 	#[pallet::hooks]
@@ -230,32 +236,6 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// OPF Projects registration
-		///
-		/// ## Dispatch Origin
-		///
-		/// Must be AdminOrigin
-		///
-		/// ## Details
-		///
-		/// From this extrinsic only AdminOrigin can register project.
-		///
-		/// ### Parameters
-		/// - `project_id`: The account that might be funded.
-		///
-		/// ### Errors
-		/// - [`Error::<T>::MaximumProjectsNumber`]: Maximum number of project subscriptions reached
-		///  
-		/// ## Events
-		/// Emits [`Event::<T>::Projectlisted`].
-		#[pallet::call_index(0)]
-		pub fn register_project(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
-			T::AdminOrigin::ensure_origin_or_root(origin)?;
-			let when = T::BlockNumberProvider::current_block_number();
-			ProjectInfo::<T>::new(project_id.clone());
-			Self::deposit_event(Event::Projectlisted { when, project_id });
-			Ok(())
-		}
 
 		/// OPF Projects registration
 		///
@@ -277,10 +257,39 @@ pub mod pallet {
 		/// Emits [`Event::<T>::Projectslisted`].
 		#[pallet::call_index(1)]
 		pub fn register_projects_batch(origin: OriginFor<T>, projects_id: Vec<ProjectId<T>>) -> DispatchResult {
-			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			//T::AdminOrigin::ensure_origin_or_root(origin.clone())?;
+			let who = T::SubmitOrigin::ensure_origin(origin.clone())?;
+			// Only 1 batch submission per round
+			let mut round_index = NextVotingRoundNumber::<T>::get();
+
+		// No active round?
+		if round_index == 0 {
+			// Start the first voting round
+			let _round0 = VotingRoundInfo::<T>::new();
+			round_index = NextVotingRoundNumber::<T>::get();
+		}
+
+		let current_round_index = round_index.saturating_sub(1);
+
+			let round_infos = VotingRounds::<T>::get(current_round_index).expect("InvalidResult");
+			// Check no Project batch has been submitted yet
+			ensure!(round_infos.batch_submitted == false, Error::<T>::BatchAlreadySubmitted);
+			let round_ending_block = round_infos.round_ending_block;
+
+			// If current voting round is over, start a new one
 			let when = T::BlockNumberProvider::current_block_number();
+			if when >= round_ending_block {
+				// Create a new round.
+			let _new_round = VotingRoundInfo::<T>::new();
+			}
+
 			for project_id in &projects_id{
 				ProjectInfo::<T>::new(project_id.clone());
+				// Prepare the proposal call
+				let call0: <T as Config>::RuntimeCall = crate::Call::<T>::on_registration {project_id: project_id.clone()}.into();
+				let call = <T as Config>::RuntimeCall::convert(call0);
+				let call_f = T::Preimages::bound(call).unwrap();
+				Democracy::Pallet::<T>::propose(origin.clone(), call_f, T::MinimumDeposit::get())?;
 			}
 			
 			Self::deposit_event(Event::Projectslisted { when, projects_id });
@@ -377,6 +386,15 @@ pub mod pallet {
 				} else {
 				Err(DispatchError::Other("Not Claiming Period"))
 			}
+		}
+
+		#[pallet::call_index(6)]
+		#[transactional]
+		pub fn on_registration(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
+			// prepare reward distribution
+			// for now we are using the temporary-constant reward.
+			let _ = Self::calculate_rewards(T::TemporaryRewards::get())?;
+			Ok(())
 		}
 	}
 }

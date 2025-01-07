@@ -32,6 +32,11 @@ pub fn next_block() {
 	);
 }
 
+pub fn project_list() -> Vec<ProjectId<Test>>{
+	vec![ALICE, BOB, DAVE]
+	
+}
+
 pub fn run_to_block(n: BlockNumberFor<Test>) {
 	while <Test as Config>::BlockNumberProvider::current_block_number() < n {
 		if <Test as Config>::BlockNumberProvider::current_block_number() > 1 {
@@ -46,7 +51,8 @@ pub fn run_to_block(n: BlockNumberFor<Test>) {
 #[test]
 fn project_registration_works() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Opf::register_project(RawOrigin::Root.into(), BOB));
+		let batch = project_list();
+		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch));
 		let project_list = WhiteListedProjectAccounts::<Test>::get(BOB);
 		assert!(project_list.is_some());
 	})

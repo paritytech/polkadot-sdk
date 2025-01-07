@@ -21,6 +21,8 @@ pub use super::*;
 
 pub use frame_support::{
 	pallet_prelude::*,
+	traits::UnfilteredDispatchable,
+	dispatch::GetDispatchInfo,
 	traits::{
 		fungible,
 		fungible::{Inspect, Mutate, MutateHold},
@@ -186,14 +188,16 @@ pub struct VotingRoundInfo<T: Config> {
 	pub round_ending_block: ProvidedBlockNumberFor<T>,
 	pub total_positive_votes_amount: BalanceOf<T>,
 	pub total_negative_votes_amount: BalanceOf<T>,
+	pub batch_submitted: bool,
 }
 
 impl<T: Config> VotingRoundInfo<T> {
 	pub fn new() -> Self {
 		let round_starting_block = T::BlockNumberProvider::current_block_number();
+		let batch_submitted = false;
 		let round_ending_block = round_starting_block
 			.clone()
-			.saturating_add(T::VotingPeriod::get());  
+			.saturating_add(<T as Config>::VotingPeriod::get());  
 			let round_number = NextVotingRoundNumber::<T>::mutate(|n| { let res = *n; *n = n.saturating_add(1); res });
 		let total_positive_votes_amount = BalanceOf::<T>::zero();
 		let total_negative_votes_amount = BalanceOf::<T>::zero();
@@ -209,6 +213,7 @@ impl<T: Config> VotingRoundInfo<T> {
 			round_ending_block,
 			total_positive_votes_amount,
 			total_negative_votes_amount,
+			batch_submitted,
 		};
 		VotingRounds::<T>::insert(round_number, round_infos.clone());
 		round_infos

@@ -22,7 +22,7 @@ frame-support = { workspace = true, default-features = false }
 frame-system = { workspace = true, default-features = false }
 log = { workspace = true }
 pallet-conviction-voting = { workspace = true, default-features = false }
-pallet-referenda = { workspace = true, default-features = true }
+pallet-democracy = { workspace = true, default-features = true }
 pallet-scheduler = { workspace = true, default-features = false }
 scale-info = { features = [
 	"derive",
@@ -52,8 +52,8 @@ runtime-benchmarks = [
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-conviction-voting/runtime-benchmarks",
+	"pallet-democracy/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
-	"pallet-referenda/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
@@ -71,8 +71,8 @@ std = [
 	"pallet-assets/std",
 	"pallet-balances/std",
 	"pallet-conviction-voting/std",
+	"pallet-democracy/std",
 	"pallet-preimage/std",
-	"pallet-referenda/std",
 	"pallet-scheduler/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
@@ -89,8 +89,8 @@ try-runtime = [
 	"pallet-assets/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-conviction-voting/try-runtime",
+	"pallet-democracy/try-runtime",
 	"pallet-preimage/try-runtime",
-	"pallet-referenda/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",

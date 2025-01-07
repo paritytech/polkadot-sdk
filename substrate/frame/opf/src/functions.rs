@@ -150,14 +150,8 @@ impl<T: Config> Pallet<T> {
 
 		// Conditions for reward distribution preparations are:
 		// - We are at the end of voting_round period
-		if now >= round_ending_block {
-			// prepare reward distribution
-			// for now we are using the temporary-constant reward.
-			let _ = Self::calculate_rewards(T::TemporaryRewards::get())
-				.map_err(|_| Error::<T>::FailedRewardCalculation);
-
-			// Create a new round.
-			let _new_round = VotingRoundInfo::<T>::new();
+		if now > round_ending_block {
+			
 			// Clear ProjectFunds storage
 			ProjectFunds::<T>::drain();
 			// Emmit events

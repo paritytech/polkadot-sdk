@@ -1593,7 +1593,6 @@ impl pallet_offences::Config for Runtime {
 parameter_types! {
 	// Id of the treasury
 	pub const PotId: PalletId = PalletId(*b"py/potid");
-	pub const VotingPeriod:BlockNumber = 30 * DAYS;
 	pub const ClaimingPeriod: BlockNumber = 7 * DAYS;
 	pub const VoteValidityPeriod: BlockNumber = 7 * DAYS;
 	pub const MaxProjects:u32 = 50;
@@ -1605,6 +1604,7 @@ parameter_types! {
 }
 impl pallet_opf::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
 	type NativeBalance = Balances;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	/// Pot PalletId
