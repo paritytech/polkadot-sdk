@@ -38,6 +38,6 @@ polkadot-primitives-test-helpers = { workspace = true }
 assert_matches = { workspace = true }
 schnorrkel = { workspace = true }
 # rand_core should match schnorrkel
-log = { workspace = true, default-features = true }
+rand_core = { workspace = true }
 rand_chacha = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }

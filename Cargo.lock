@@ -17350,7 +17350,7 @@ dependencies = [
  "sp-application-crypto 30.0.0",
  "sp-authority-discovery 26.0.0",
  "sp-core 28.0.0",
- "sp-tracing 16.0.0",
+ "tracing-gum",
 ]
 
 [[package]]
@@ -17376,6 +17376,7 @@ dependencies = [
  "sp-keyring 31.0.0",
  "sp-keystore 0.34.0",
  "sp-tracing 16.0.0",
+ "tracing-gum",
 ]
 
 [[package]]
@@ -17608,6 +17609,7 @@ dependencies = [
  "sp-keyring 31.0.0",
  "sp-keystore 0.34.0",
  "sp-tracing 16.0.0",
+ "tracing-gum",
 ]
 
 [[package]]
@@ -17635,8 +17637,8 @@ dependencies = [
  "sp-consensus",
  "sp-core 28.0.0",
  "sp-keyring 31.0.0",
- "sp-tracing 16.0.0",
  "thiserror 1.0.69",
+ "tracing-gum",
 ]
 
 [[package]]
@@ -17813,7 +17815,6 @@ dependencies = [
  "polkadot-primitives 7.0.0",
  "polkadot-primitives-test-helpers",
  "sp-keystore 0.34.0",
- "sp-tracing 16.0.0",
  "thiserror 1.0.69",
  "wasm-timer",
 ]
@@ -17843,7 +17844,6 @@ dependencies = [
  "sp-keyring 31.0.0",
  "sp-keystore 0.34.0",
  "sp-maybe-compressed-blob 11.0.0",
- "sp-tracing 16.0.0",
 ]
 
 [[package]]
@@ -17883,7 +17883,6 @@ dependencies = [
  "polkadot-node-subsystem-util",
  "polkadot-primitives 7.0.0",
  "sp-core 28.0.0",
- "sp-tracing 16.0.0",
  "thiserror 1.0.69",
 ]
 
@@ -17968,7 +17967,6 @@ dependencies = [
  "schnellru",
  "sp-application-crypto 30.0.0",
  "sp-keystore 0.34.0",
- "sp-tracing 16.0.0",
  "thiserror 1.0.69",
 ]
 
@@ -18009,7 +18007,6 @@ dependencies = [
  "slotmap",
  "sp-core 28.0.0",
  "sp-maybe-compressed-blob 11.0.0",
- "sp-tracing 16.0.0",
  "strum 0.26.3",
  "tempfile",
  "test-parachain-adder",
@@ -18082,7 +18079,7 @@ dependencies = [
  "polkadot-parachain-primitives 6.0.0",
  "polkadot-primitives 7.0.0",
  "sp-maybe-compressed-blob 11.0.0",
- "sp-tracing 16.0.0",
+ "tracing-gum",
 ]
 
 [[package]]
@@ -18302,9 +18299,9 @@ dependencies = [
  "sp-application-crypto 30.0.0",
  "sp-core 28.0.0",
  "sp-keystore 0.34.0",
- "sp-tracing 16.0.0",
  "tempfile",
  "thiserror 1.0.69",
+ "tracing-gum",
 ]
 
 [[package]]
@@ -19902,6 +19899,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "tikv-jemallocator",
  "tokio",
+ "tracing-gum",
 ]
 
 [[package]]
@@ -19961,7 +19959,6 @@ dependencies = [
  "rand",
  "sp-core 28.0.0",
  "sp-keystore 0.34.0",
- "sp-tracing 16.0.0",
  "substrate-build-script-utils",
  "tracing-gum",
 ]
@@ -32454,10 +32451,10 @@ dependencies = [
  "reqwest 0.12.9",
  "serde",
  "serde_json",
- "sp-tracing 16.0.0",
  "thiserror 1.0.69",
  "tokio",
  "tokio-tungstenite",
+ "tracing-gum",
  "url",
 ]
 

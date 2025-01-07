@@ -15,7 +15,6 @@ workspace = true
 bitvec = { workspace = true, default-features = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum = { workspace = true, default-features = true }
 kvdb = { workspace = true }
 thiserror = { workspace = true }
 
