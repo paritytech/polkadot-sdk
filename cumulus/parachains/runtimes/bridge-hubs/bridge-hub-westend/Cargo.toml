@@ -119,26 +119,12 @@ snowbridge-runtime-common = { workspace = true }
 snowbridge-system-runtime-api = { workspace = true }
 
 
-# Ethereum Bridge (Snowbridge)
-snowbridge-beacon-primitives = { path = "../../../../../bridges/snowbridge/primitives/beacon", default-features = false }
-snowbridge-pallet-system = { path = "../../../../../bridges/snowbridge/pallets/system", default-features = false }
-snowbridge-system-runtime-api = { path = "../../../../../bridges/snowbridge/pallets/system/runtime-api", default-features = false }
-snowbridge-core = { path = "../../../../../bridges/snowbridge/primitives/core", default-features = false }
-snowbridge-pallet-ethereum-client = { path = "../../../../../bridges/snowbridge/pallets/ethereum-client", default-features = false }
-snowbridge-pallet-inbound-queue = { path = "../../../../../bridges/snowbridge/pallets/inbound-queue", default-features = false }
-snowbridge-pallet-outbound-queue = { path = "../../../../../bridges/snowbridge/pallets/outbound-queue", default-features = false }
-snowbridge-outbound-queue-runtime-api = { path = "../../../../../bridges/snowbridge/pallets/outbound-queue/runtime-api", default-features = false }
-snowbridge-router-primitives = { path = "../../../../../bridges/snowbridge/primitives/router", default-features = false }
-snowbridge-runtime-common = { path = "../../../../../bridges/snowbridge/runtime/runtime-common", default-features = false }
-
-
 [dev-dependencies]
 bridge-hub-test-utils = { workspace = true, default-features = true }
 bridge-runtime-common = { features = ["integrity-test"], workspace = true, default-features = true }
 pallet-bridge-relayers = { features = ["integrity-test"], workspace = true }
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
 snowbridge-runtime-test-common = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -211,7 +197,6 @@ std = [
 	"snowbridge-pallet-system/std",
 	"snowbridge-router-primitives/std",
 	"snowbridge-runtime-common/std",
-	"snowbridge-runtime-test-common/std",
 	"snowbridge-system-runtime-api/std",
 	"sp-api/std",
 	"sp-block-builder/std",

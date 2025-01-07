@@ -549,7 +549,7 @@ fn charge_fee_for_create_agent() {
 		assert_ok!(EthereumSystem::create_agent(origin.clone()));
 		let fee_charged = initial_sovereign_balance - Balances::balance(&sovereign_account);
 
-		assert_ok!(EthereumSystem::create_channel(origin, OperatingMode::Normal,));
+		assert_ok!(EthereumSystem::create_channel(origin, OperatingMode::Normal));
 
 		// assert sovereign_balance decreased by (fee.base_fee + fee.delivery_fee)
 		let message = Message {

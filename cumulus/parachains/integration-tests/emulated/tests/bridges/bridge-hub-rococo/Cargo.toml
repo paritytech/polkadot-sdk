@@ -38,8 +38,6 @@ pallet-xcm-bridge-hub = { workspace = true }
 cumulus-pallet-xcmp-queue = { workspace = true }
 emulated-integration-tests-common = { workspace = true }
 parachains-common = { workspace = true, default-features = true }
-bridge-hub-rococo-runtime = { workspace = true }
-asset-hub-rococo-runtime = { workspace = true }
 rococo-system-emulated-network = { workspace = true }
 rococo-westend-system-emulated-network = { workspace = true }
 testnet-parachains-constants = { features = ["rococo", "westend"], workspace = true, default-features = true }
