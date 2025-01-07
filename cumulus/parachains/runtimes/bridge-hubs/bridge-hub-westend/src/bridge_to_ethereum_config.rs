@@ -145,6 +145,36 @@ parameter_types! {
 	};
 }
 
+/**
+Mekong Electra fork versions
+pub const ChainForkVersions: ForkVersions = ForkVersions {
+		genesis: Fork {
+			version: [16,99,118,36], // 0x10637624
+			epoch: 0,
+		},
+		altair: Fork {
+			version: [32,99,118,36], // 0x20637624
+			epoch: 0,
+		},
+		bellatrix: Fork {
+			version: [48,99,118,36], // 0x30637624
+			epoch: 0,
+		},
+		capella: Fork {
+			version: [64,99,118,36], // 0x40637624
+			epoch: 0,
+		},
+		deneb: Fork {
+			version: [80,99,118,36], // 0x50637624
+			epoch: 0,
+		},
+		electra: Fork {
+			version: [96,99,118,36], // 0x60637624
+			epoch: 256,
+		},
+	};
+**/
+
 #[cfg(not(any(feature = "std", feature = "fast-runtime", feature = "runtime-benchmarks", test)))]
 parameter_types! {
 	pub const ChainForkVersions: ForkVersions = ForkVersions {

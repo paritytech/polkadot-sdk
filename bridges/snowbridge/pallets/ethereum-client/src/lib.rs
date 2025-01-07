@@ -358,9 +358,9 @@ pub mod pallet {
 			let finalized_root_g_index = Self::finalized_root_gindex_at_slot(
 				update.attested_header.slot,
 				fork_versions.clone(),
-			); // TODO check attested / finalized header slot
-	  // Verify that the `finality_branch`, if present, confirms `finalized_header` to match
-	  // the finalized checkpoint root saved in the state of `attested_header`.
+			);
+			// Verify that the `finality_branch`, if present, confirms `finalized_header` to match
+			// the finalized checkpoint root saved in the state of `attested_header`.
 			let finalized_block_root: H256 = update
 				.finalized_header
 				.hash_tree_root()
