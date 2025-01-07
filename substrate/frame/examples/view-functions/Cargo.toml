@@ -15,18 +15,18 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
+frame-metadata = { features = ["current"], workspace = true }
 log = { workspace = true }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
-frame-metadata = { features = ["current"], workspace = true }
 
 frame-support = { path = "../../support", default-features = false }
 frame-system = { path = "../../system", default-features = false }
 
+sp-core = { default-features = false, path = "../../../primitives/core" }
 sp-io = { path = "../../../primitives/io", default-features = false }
 sp-metadata-ir = { path = "../../../primitives/metadata-ir", default-features = false }
 sp-runtime = { path = "../../../primitives/runtime", default-features = false }
 sp-std = { path = "../../../primitives/std", default-features = false }
-sp-core = { default-features = false, path = "../../../primitives/core" }
 
 frame-benchmarking = { path = "../../benchmarking", default-features = false, optional = true }
 
@@ -46,6 +46,8 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"sp-metadata-ir/std",
+	"frame-metadata/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

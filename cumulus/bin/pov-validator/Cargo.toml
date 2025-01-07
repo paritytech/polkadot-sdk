@@ -19,8 +19,8 @@ sc-executor.workspace = true
 sp-core.workspace = true
 sp-io.workspace = true
 sp-maybe-compressed-blob.workspace = true
-tracing-subscriber.workspace = true
 tracing.workspace = true
+tracing-subscriber.workspace = true
 
 [lints]
 workspace = true

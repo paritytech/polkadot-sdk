@@ -362,6 +362,7 @@ members = [
 	"substrate/frame/examples/single-block-migrations",
 	"substrate/frame/examples/split",
 	"substrate/frame/examples/tasks",
+	"substrate/frame/examples/view-functions",
 	"substrate/frame/executive",
 	"substrate/frame/fast-unstake",
 	"substrate/frame/glutton",
