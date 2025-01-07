@@ -28,7 +28,6 @@ use crate::{
 	evm::{runtime::GAS_PRICE, CallTrace, CallTracer, CallType, GenericTransaction},
 	exec::Key,
 	limits,
-	primitives::CodeUploadReturnValue,
 	storage::DeletionQueueManager,
 	test_utils::*,
 	tests::test_utils::{get_contract, get_contract_checked},
@@ -57,7 +56,7 @@ use frame_support::{
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, FixedFee, IdentityFee, Weight, WeightMeter},
 };
 use frame_system::{EventRecord, Phase};
-use pallet_revive_fixtures::{bench::dummy_unique, compile_module};
+use pallet_revive_fixtures::compile_module;
 use pallet_revive_uapi::ReturnErrorCode as RuntimeReturnCode;
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
 use pretty_assertions::{assert_eq, assert_ne};
@@ -100,7 +99,7 @@ macro_rules! assert_refcount {
 }
 
 pub mod test_utils {
-	use super::{Contracts, DepositPerByte, DepositPerItem, Test};
+	use super::{CodeHashLockupDepositPercent, Contracts, DepositPerByte, DepositPerItem, Test};
 	use crate::{
 		address::AddressMapper, exec::AccountIdOf, BalanceOf, CodeInfo, CodeInfoOf, Config,
 		ContractInfo, ContractInfoOf, PristineCode,
@@ -138,20 +137,26 @@ pub mod test_utils {
 	pub fn get_code_deposit(code_hash: &sp_core::H256) -> BalanceOf<Test> {
 		crate::CodeInfoOf::<Test>::get(code_hash).unwrap().deposit()
 	}
-	pub fn contract_info_storage_deposit(addr: &H160) -> BalanceOf<Test> {
+	pub fn lockup_deposit(code_hash: &sp_core::H256) -> BalanceOf<Test> {
+		CodeHashLockupDepositPercent::get().mul_ceil(get_code_deposit(code_hash)).into()
+	}
+	pub fn contract_base_deposit(addr: &H160) -> BalanceOf<Test> {
 		let contract_info = self::get_contract(&addr);
 		let info_size = contract_info.encoded_size() as u64;
-		let info_deposit = DepositPerByte::get()
+		let code_deposit = CodeHashLockupDepositPercent::get()
+			.mul_ceil(get_code_deposit(&contract_info.code_hash));
+		let deposit = DepositPerByte::get()
 			.saturating_mul(info_size)
-			.saturating_add(DepositPerItem::get());
+			.saturating_add(DepositPerItem::get())
+			.saturating_add(code_deposit);
 		let immutable_size = contract_info.immutable_data_len() as u64;
 		if immutable_size > 0 {
 			let immutable_deposit = DepositPerByte::get()
 				.saturating_mul(immutable_size)
 				.saturating_add(DepositPerItem::get());
-			info_deposit.saturating_add(immutable_deposit)
+			deposit.saturating_add(immutable_deposit)
 		} else {
-			info_deposit
+			deposit
 		}
 	}
 	pub fn expected_deposit(code_len: usize) -> u64 {
@@ -435,7 +440,7 @@ impl pallet_dummy::Config for Test {}
 parameter_types! {
 	pub static DepositPerByte: BalanceOf<Test> = 1;
 	pub const DepositPerItem: BalanceOf<Test> = 2;
-	pub static CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
+	pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
 	pub static ChainId: u64 = 448;
 }
 
@@ -1187,7 +1192,7 @@ fn transfer_expendable_cannot_kill_account() {
 
 		assert_eq!(
 			test_utils::get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account),
-			test_utils::contract_info_storage_deposit(&addr)
+			test_utils::contract_base_deposit(&addr)
 		);
 
 		// Some or the total balance is held, so it can't be transferred.
@@ -1229,7 +1234,7 @@ fn cannot_self_destruct_through_draining() {
 		// Make sure the account wasn't remove by sending all free balance away.
 		assert_eq!(
 			<Test as Config>::Currency::total_balance(&account),
-			value + test_utils::contract_info_storage_deposit(&addr) + min_balance,
+			value + test_utils::contract_base_deposit(&addr) + min_balance,
 		);
 	});
 }
@@ -1243,7 +1248,7 @@ fn cannot_self_destruct_through_storage_refund_after_price_change() {
 
 		// Instantiate the BOB contract.
 		let contract = builder::bare_instantiate(Code::Upload(wasm)).build_and_unwrap_contract();
-		let info_deposit = test_utils::contract_info_storage_deposit(&contract.addr);
+		let info_deposit = test_utils::contract_base_deposit(&contract.addr);
 
 		// Check that the contract has been instantiated and has the minimum balance
 		assert_eq!(get_contract(&contract.addr).total_deposit(), info_deposit);
@@ -2572,7 +2577,7 @@ fn instantiate_with_zero_balance_works() {
 		assert_eq!(<Test as Config>::Currency::free_balance(&account_id), min_balance);
 		assert_eq!(
 			<Test as Config>::Currency::total_balance(&account_id),
-			min_balance + test_utils::contract_info_storage_deposit(&addr)
+			min_balance + test_utils::contract_base_deposit(&addr)
 		);
 
 		assert_eq!(
@@ -2629,7 +2634,7 @@ fn instantiate_with_below_existential_deposit_works() {
 		assert_eq!(<Test as Config>::Currency::free_balance(&account_id), min_balance + value);
 		assert_eq!(
 			<Test as Config>::Currency::total_balance(&account_id),
-			min_balance + value + test_utils::contract_info_storage_deposit(&addr)
+			min_balance + value + test_utils::contract_base_deposit(&addr)
 		);
 
 		assert_eq!(
@@ -2682,7 +2687,7 @@ fn storage_deposit_works() {
 		let Contract { addr, account_id } =
 			builder::bare_instantiate(Code::Upload(wasm)).build_and_unwrap_contract();
 
-		let mut deposit = test_utils::contract_info_storage_deposit(&addr);
+		let mut deposit = test_utils::contract_base_deposit(&addr);
 
 		// Drop previous events
 		initialize_block(2);
@@ -2744,7 +2749,7 @@ fn storage_deposit_callee_works() {
 		assert_eq!(test_utils::get_balance(&account_id), min_balance);
 		assert_eq!(
 			callee.total_deposit(),
-			deposit + test_utils::contract_info_storage_deposit(&addr_callee)
+			deposit + test_utils::contract_base_deposit(&addr_callee)
 		);
 	});
 }
@@ -2828,7 +2833,7 @@ fn slash_cannot_kill_account() {
 		// Drop previous events
 		initialize_block(2);
 
-		let info_deposit = test_utils::contract_info_storage_deposit(&addr);
+		let info_deposit = test_utils::contract_base_deposit(&addr);
 
 		assert_eq!(
 			test_utils::get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id),
@@ -2967,7 +2972,7 @@ fn storage_deposit_limit_is_enforced() {
 		let Contract { addr, account_id } =
 			builder::bare_instantiate(Code::Upload(wasm)).build_and_unwrap_contract();
 
-		let info_deposit = test_utils::contract_info_storage_deposit(&addr);
+		let info_deposit = test_utils::contract_base_deposit(&addr);
 		// Check that the BOB contract has been instantiated and has the minimum balance
 		assert_eq!(get_contract(&addr).total_deposit(), info_deposit);
 		assert_eq!(
@@ -3113,73 +3118,82 @@ fn deposit_limit_in_nested_instantiate() {
 			.data(vec![0, 0, 0, 0])
 			.build_and_unwrap_contract();
 
-		let callee_info_len = ContractInfoOf::<Test>::get(&addr).unwrap().encoded_size() as u64;
-
-		// We don't set a special deposit limit for the nested instantiation.
+		// This is the deposit we expect to be charged just for instantiatiting the callee.
 		//
-		// The deposit limit set for the parent is insufficient for the instantiation, which
-		// requires:
-		// - callee_info_len + 2 for storing the new contract info,
-		// - ED for deployed contract account,
+		// - callee_info_len + 2 for storing the new contract info
+		// - the deposit for depending on a code hash
+		// - ED for deployed contract account
 		// - 2 for the storage item of 0 bytes being created in the callee constructor
-		// or (callee_info_len + 2 + ED + 2) Balance in total.
+		let callee_min_deposit = {
+			let callee_info_len = ContractInfoOf::<Test>::get(&addr).unwrap().encoded_size() as u64;
+			let code_deposit = test_utils::lockup_deposit(&code_hash_callee);
+			callee_info_len + code_deposit + 2 + ED + 2
+		};
+
+		// The parent just stores an item of the passed size so at least
+		// we need to pay for the item itself.
+		let caller_min_deposit = callee_min_deposit + 2;
+
+		// Fail in callee.
 		//
-		// Provided the limit is set to be 1 Balance less,
-		// this call should fail on the return from the caller contract.
+		// We still fail in the sub call because we enforce limits on return from a contract.
+		// Sub calls return first to they are checked first.
 		let ret = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
-			.storage_deposit_limit(DepositLimit::Balance(callee_info_len + 2 + ED + 1))
-			.data((0u32, &code_hash_callee, &U256::MAX.to_little_endian()).encode())
+			.storage_deposit_limit(DepositLimit::Balance(0))
+			.data((100u32, &code_hash_callee, &U256::MAX.to_little_endian()).encode())
 			.build_and_unwrap_result();
 		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
 		// The charges made on instantiation should be rolled back.
 		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), 1_000_000);
 
-		// Now we give enough limit for the instantiation itself, but require for 1 more storage
-		// byte in the constructor. Hence +1 Balance to the limit is needed. This should fail on
-		// the return from constructor.
+		// Fail in the caller.
+		//
+		// For that we need to supply enough storage deposit so that the sub call
+		// succeeds but the parent call runs out of storage.
 		let ret = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
-			.storage_deposit_limit(DepositLimit::Balance(callee_info_len + 2 + ED + 2))
-			.data((1u32, &code_hash_callee, U256::from(0u64)).encode())
+			.storage_deposit_limit(DepositLimit::Balance(callee_min_deposit))
+			.data((0u32, &code_hash_callee, &U256::MAX.to_little_endian()).encode())
+			.build();
+		assert_err!(ret.result, <Error<Test>>::StorageDepositLimitExhausted);
+		// The charges made on the instantiation should be rolled back.
+		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), 1_000_000);
+
+		// Fail in the callee with bytes.
+		//
+		// Same as above but stores one byte in both caller and callee.
+		let ret = builder::bare_call(addr_caller)
+			.origin(RuntimeOrigin::signed(BOB))
+			.storage_deposit_limit(DepositLimit::Balance(caller_min_deposit + 1))
+			.data((1u32, &code_hash_callee, U256::from(callee_min_deposit)).encode())
 			.build_and_unwrap_result();
 		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
 		// The charges made on the instantiation should be rolled back.
 		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), 1_000_000);
 
-		// Now we set enough limit in parent call, but an insufficient limit for child
-		// instantiate. This should fail during the charging for the instantiation in
-		// `RawMeter::charge_instantiate()`
+		// Fail in the caller with bytes.
+		//
+		// Same as above but stores one byte in both caller and callee.
 		let ret = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
-			.storage_deposit_limit(DepositLimit::Balance(callee_info_len + 2 + ED + 2))
-			.data((0u32, &code_hash_callee, U256::from(callee_info_len + 2 + ED + 1)).encode())
-			.build_and_unwrap_result();
-		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
-		// The charges made on the instantiation should be rolled back.
-		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), 1_000_000);
-
-		// Same as above but requires for single added storage
-		// item of 1 byte to be covered by the limit, which implies 3 more Balance.
-		// Now we set enough limit for the parent call, but insufficient limit for child
-		// instantiate. This should fail right after the constructor execution.
-		let ret = builder::bare_call(addr_caller)
-			.origin(RuntimeOrigin::signed(BOB))
-			.storage_deposit_limit(DepositLimit::Balance(callee_info_len + 2 + ED + 3)) // enough parent limit
-			.data((1u32, &code_hash_callee, U256::from(callee_info_len + 2 + ED + 2)).encode())
-			.build_and_unwrap_result();
-		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
+			.storage_deposit_limit(DepositLimit::Balance(callee_min_deposit + 1))
+			.data((1u32, &code_hash_callee, U256::from(callee_min_deposit + 1)).encode())
+			.build();
+		assert_err!(ret.result, <Error<Test>>::StorageDepositLimitExhausted);
 		// The charges made on the instantiation should be rolled back.
 		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), 1_000_000);
 
 		// Set enough deposit limit for the child instantiate. This should succeed.
 		let result = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
-			.storage_deposit_limit((callee_info_len + 2 + ED + 4 + 2).into())
-			.data((1u32, &code_hash_callee, U256::from(callee_info_len + 2 + ED + 3 + 2)).encode())
+			.storage_deposit_limit((caller_min_deposit + 2).into())
+			.data((1u32, &code_hash_callee, U256::from(callee_min_deposit + 1)).encode())
 			.build();
 
 		let returned = result.result.unwrap();
+		assert!(!returned.did_revert());
+
 		// All balance of the caller except ED has been transferred to the callee.
 		// No deposit has been taken from it.
 		assert_eq!(<Test as Config>::Currency::free_balance(&caller_id), ED);
@@ -3189,17 +3203,12 @@ fn deposit_limit_in_nested_instantiate() {
 		// 10_000 should be sent to callee from the caller contract, plus ED to be sent from the
 		// origin.
 		assert_eq!(<Test as Config>::Currency::free_balance(&callee_account_id), 10_000 + ED);
-		// The origin should be charged with:
-		//  - callee instantiation deposit = (callee_info_len + 2)
-		//  - callee account ED
-		//  - for writing an item of 1 byte to storage = 3 Balance
-		//  - Immutable data storage item deposit
+		// The origin should be charged with what the outer call consumed
 		assert_eq!(
 			<Test as Config>::Currency::free_balance(&BOB),
-			1_000_000 - (callee_info_len + 2 + ED + 3)
+			1_000_000 - (caller_min_deposit + 2),
 		);
-		// Check that deposit due to be charged still includes these 3 Balance
-		assert_eq!(result.storage_deposit.charge_or_zero(), (callee_info_len + 2 + ED + 3))
+		assert_eq!(result.storage_deposit.charge_or_zero(), (caller_min_deposit + 2))
 	});
 }
 
@@ -3216,7 +3225,7 @@ fn deposit_limit_honors_liquidity_restrictions() {
 		let Contract { addr, account_id } =
 			builder::bare_instantiate(Code::Upload(wasm)).build_and_unwrap_contract();
 
-		let info_deposit = test_utils::contract_info_storage_deposit(&addr);
+		let info_deposit = test_utils::contract_base_deposit(&addr);
 		// Check that the contract has been instantiated and has the minimum balance
 		assert_eq!(get_contract(&addr).total_deposit(), info_deposit);
 		assert_eq!(
@@ -3255,7 +3264,7 @@ fn deposit_limit_honors_existential_deposit() {
 		let Contract { addr, account_id } =
 			builder::bare_instantiate(Code::Upload(wasm)).build_and_unwrap_contract();
 
-		let info_deposit = test_utils::contract_info_storage_deposit(&addr);
+		let info_deposit = test_utils::contract_base_deposit(&addr);
 
 		// Check that the contract has been instantiated and has the minimum balance
 		assert_eq!(get_contract(&addr).total_deposit(), info_deposit);
@@ -3289,7 +3298,7 @@ fn deposit_limit_honors_min_leftover() {
 		let Contract { addr, account_id } =
 			builder::bare_instantiate(Code::Upload(wasm)).build_and_unwrap_contract();
 
-		let info_deposit = test_utils::contract_info_storage_deposit(&addr);
+		let info_deposit = test_utils::contract_base_deposit(&addr);
 
 		// Check that the contract has been instantiated and has the minimum balance and the
 		// storage deposit
@@ -3317,193 +3326,9 @@ fn deposit_limit_honors_min_leftover() {
 }
 
 #[test]
-fn locking_delegate_dependency_works() {
-	// set hash lock up deposit to 30%, to test deposit calculation.
-	CODE_HASH_LOCKUP_DEPOSIT_PERCENT.with(|c| *c.borrow_mut() = Perbill::from_percent(30));
-
-	let (wasm_caller, self_code_hash) = compile_module("locking_delegate_dependency").unwrap();
-	let callee_codes: Vec<_> =
-		(0..limits::DELEGATE_DEPENDENCIES + 1).map(|idx| dummy_unique(idx)).collect();
-	let callee_hashes: Vec<_> = callee_codes
-		.iter()
-		.map(|c| sp_core::H256(sp_io::hashing::keccak_256(c)))
-		.collect();
-
-	let hash2addr = |code_hash: &H256| {
-		let mut addr = H160::zero();
-		addr.as_bytes_mut().copy_from_slice(&code_hash.as_ref()[..20]);
-		addr
-	};
-
-	// Define inputs with various actions to test locking / unlocking delegate_dependencies.
-	// See the contract for more details.
-	let noop_input = (0u32, callee_hashes[0]);
-	let lock_delegate_dependency_input = (1u32, callee_hashes[0]);
-	let unlock_delegate_dependency_input = (2u32, callee_hashes[0]);
-	let terminate_input = (3u32, callee_hashes[0]);
-
-	// Instantiate the caller contract with the given input.
-	let instantiate = |input: &(u32, H256)| {
-		let (action, code_hash) = input;
-		builder::bare_instantiate(Code::Upload(wasm_caller.clone()))
-			.origin(RuntimeOrigin::signed(ALICE_FALLBACK))
-			.data((action, hash2addr(code_hash), code_hash).encode())
-			.build()
-	};
-
-	// Call contract with the given input.
-	let call = |addr_caller: &H160, input: &(u32, H256)| {
-		let (action, code_hash) = input;
-		builder::bare_call(*addr_caller)
-			.origin(RuntimeOrigin::signed(ALICE_FALLBACK))
-			.data((action, hash2addr(code_hash), code_hash).encode())
-			.build()
-	};
-	const ED: u64 = 2000;
-	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
-		let _ = Balances::set_balance(&ALICE_FALLBACK, 1_000_000);
-
-		// Instantiate with lock_delegate_dependency should fail since the code is not yet on
-		// chain.
-		assert_err!(
-			instantiate(&lock_delegate_dependency_input).result,
-			Error::<Test>::CodeNotFound
-		);
-
-		// Upload all the delegated codes (they all have the same size)
-		let mut deposit = Default::default();
-		for code in callee_codes.iter() {
-			let CodeUploadReturnValue { deposit: deposit_per_code, code_hash } =
-				Contracts::bare_upload_code(
-					RuntimeOrigin::signed(ALICE_FALLBACK),
-					code.clone(),
-					deposit_limit::<Test>(),
-				)
-				.unwrap();
-			deposit = deposit_per_code;
-			// Mock contract info by using first 20 bytes of code_hash as address.
-			let addr = hash2addr(&code_hash);
-			ContractInfoOf::<Test>::set(&addr, ContractInfo::new(&addr, 0, code_hash).ok());
-		}
-
-		// Instantiate should now work.
-		let addr_caller = instantiate(&lock_delegate_dependency_input).result.unwrap().addr;
-		let caller_account_id = <Test as Config>::AddressMapper::to_account_id(&addr_caller);
-
-		// There should be a dependency and a deposit.
-		let contract = test_utils::get_contract(&addr_caller);
-
-		let dependency_deposit = &CodeHashLockupDepositPercent::get().mul_ceil(deposit);
-		assert_eq!(
-			contract.delegate_dependencies().get(&callee_hashes[0]),
-			Some(dependency_deposit)
-		);
-		assert_eq!(
-			test_utils::get_balance_on_hold(
-				&HoldReason::StorageDepositReserve.into(),
-				&caller_account_id
-			),
-			dependency_deposit + contract.storage_base_deposit()
-		);
-
-		// Removing the code should fail, since we have added a dependency.
-		assert_err!(
-			Contracts::remove_code(RuntimeOrigin::signed(ALICE_FALLBACK), callee_hashes[0]),
-			<Error<Test>>::CodeInUse
-		);
-
-		// Locking an already existing dependency should fail.
-		assert_err!(
-			call(&addr_caller, &lock_delegate_dependency_input).result,
-			Error::<Test>::DelegateDependencyAlreadyExists
-		);
-
-		// Locking self should fail.
-		assert_err!(
-			builder::bare_call(addr_caller)
-				.origin(RuntimeOrigin::signed(ALICE_FALLBACK))
-				.data((1u32, &addr_caller, self_code_hash).encode())
-				.build()
-				.result,
-			Error::<Test>::CannotAddSelfAsDelegateDependency
-		);
-
-		// Locking more than the maximum allowed delegate_dependencies should fail.
-		for hash in &callee_hashes[1..callee_hashes.len() - 1] {
-			call(&addr_caller, &(1u32, *hash)).result.unwrap();
-		}
-		assert_err!(
-			call(&addr_caller, &(1u32, *callee_hashes.last().unwrap())).result,
-			Error::<Test>::MaxDelegateDependenciesReached
-		);
-
-		// Unlocking all dependency should work.
-		for hash in &callee_hashes[..callee_hashes.len() - 1] {
-			call(&addr_caller, &(2u32, *hash)).result.unwrap();
-		}
-
-		// Dependency should be removed, and deposit should be returned.
-		let contract = test_utils::get_contract(&addr_caller);
-		assert!(contract.delegate_dependencies().is_empty());
-		assert_eq!(
-			test_utils::get_balance_on_hold(
-				&HoldReason::StorageDepositReserve.into(),
-				&caller_account_id
-			),
-			contract.storage_base_deposit()
-		);
-
-		// Removing a nonexistent dependency should fail.
-		assert_err!(
-			call(&addr_caller, &unlock_delegate_dependency_input).result,
-			Error::<Test>::DelegateDependencyNotFound
-		);
-
-		// Locking a dependency with a storage limit too low should fail.
-		assert_err!(
-			builder::bare_call(addr_caller)
-				.storage_deposit_limit((dependency_deposit - 1).into())
-				.data((1u32, hash2addr(&callee_hashes[0]), callee_hashes[0]).encode())
-				.build()
-				.result,
-			Error::<Test>::StorageDepositLimitExhausted
-		);
-
-		// Since we unlocked the dependency we should now be able to remove the code.
-		assert_ok!(Contracts::remove_code(RuntimeOrigin::signed(ALICE_FALLBACK), callee_hashes[0]));
-
-		// Calling should fail since the delegated contract is not on chain anymore.
-		assert_err!(call(&addr_caller, &noop_input).result, Error::<Test>::CodeNotFound);
-
-		// Add the dependency back.
-		Contracts::upload_code(
-			RuntimeOrigin::signed(ALICE_FALLBACK),
-			callee_codes[0].clone(),
-			deposit_limit::<Test>(),
-		)
-		.unwrap();
-		call(&addr_caller, &lock_delegate_dependency_input).result.unwrap();
-
-		// Call terminate should work, and return the deposit.
-		let balance_before = test_utils::get_balance(&ALICE_FALLBACK);
-		assert_ok!(call(&addr_caller, &terminate_input).result);
-		assert_eq!(
-			test_utils::get_balance(&ALICE_FALLBACK),
-			ED + balance_before + contract.storage_base_deposit() + dependency_deposit
-		);
-
-		// Terminate should also remove the dependency, so we can remove the code.
-		assert_ok!(Contracts::remove_code(RuntimeOrigin::signed(ALICE_FALLBACK), callee_hashes[0]));
-	});
-}
-
-#[test]
 fn native_dependency_deposit_works() {
 	let (wasm, code_hash) = compile_module("set_code_hash").unwrap();
 	let (dummy_wasm, dummy_code_hash) = compile_module("dummy").unwrap();
-
-	// Set hash lock up deposit to 30%, to test deposit calculation.
-	CODE_HASH_LOCKUP_DEPOSIT_PERCENT.with(|c| *c.borrow_mut() = Perbill::from_percent(30));
 
 	// Test with both existing and uploaded code
 	for code in [Code::Upload(wasm.clone()), Code::Existing(code_hash)] {
@@ -3538,33 +3363,34 @@ fn native_dependency_deposit_works() {
 
 			let addr = res.result.unwrap().addr;
 			let account_id = <Test as Config>::AddressMapper::to_account_id(&addr);
-			let base_deposit = test_utils::contract_info_storage_deposit(&addr);
+			let base_deposit = test_utils::contract_base_deposit(&addr);
 			let upload_deposit = test_utils::get_code_deposit(&code_hash);
 			let extra_deposit = add_upload_deposit.then(|| upload_deposit).unwrap_or_default();
 
-			// Check initial storage_deposit
-			// The base deposit should be: contract_info_storage_deposit + 30% * deposit
-			let deposit =
-				extra_deposit + base_deposit + lockup_deposit_percent.mul_ceil(upload_deposit);
-
-			assert_eq!(res.storage_deposit.charge_or_zero(), deposit + Contracts::min_balance());
+			assert_eq!(
+				res.storage_deposit.charge_or_zero(),
+				extra_deposit + base_deposit + Contracts::min_balance()
+			);
 
 			// call set_code_hash
 			builder::bare_call(addr)
 				.data(dummy_code_hash.encode())
 				.build_and_unwrap_result();
 
-			// Check updated storage_deposit
-			let code_deposit = test_utils::get_code_deposit(&dummy_code_hash);
-			let deposit = base_deposit + lockup_deposit_percent.mul_ceil(code_deposit);
-			assert_eq!(test_utils::get_contract(&addr).storage_base_deposit(), deposit);
+			// Check updated storage_deposit due to code size changes
+			let deposit_diff = lockup_deposit_percent
+				.mul_ceil(test_utils::get_code_deposit(&code_hash)) -
+				lockup_deposit_percent.mul_ceil(test_utils::get_code_deposit(&dummy_code_hash));
+			let new_base_deposit = test_utils::contract_base_deposit(&addr);
+			assert_ne!(deposit_diff, 0);
+			assert_eq!(base_deposit - new_base_deposit, deposit_diff);
 
 			assert_eq!(
 				test_utils::get_balance_on_hold(
 					&HoldReason::StorageDepositReserve.into(),
 					&account_id
 				),
-				deposit
+				new_base_deposit
 			);
 		});
 	}
@@ -4158,15 +3984,21 @@ fn immutable_data_works() {
 			.data(data.to_vec())
 			.build_and_unwrap_contract();
 
+		let contract = test_utils::get_contract(&addr);
+		let account = <Test as Config>::AddressMapper::to_account_id(&addr);
+		let actual_deposit =
+			test_utils::get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account);
+
+		assert_eq!(contract.immutable_data_len(), data.len() as u32);
+
 		// Storing immmutable data charges storage deposit; verify it explicitly.
+		assert_eq!(actual_deposit, test_utils::contract_base_deposit(&addr));
+
+		// make sure it is also recorded in the base deposit
 		assert_eq!(
-			test_utils::get_balance_on_hold(
-				&HoldReason::StorageDepositReserve.into(),
-				&<Test as Config>::AddressMapper::to_account_id(&addr)
-			),
-			test_utils::contract_info_storage_deposit(&addr)
+			test_utils::get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account),
+			contract.storage_base_deposit(),
 		);
-		assert_eq!(test_utils::get_contract(&addr).immutable_data_len(), data.len() as u32);
 
 		// Call the contract: Asserts the input to equal the immutable data
 		assert_ok!(builder::call(addr).data(data.to_vec()).build());

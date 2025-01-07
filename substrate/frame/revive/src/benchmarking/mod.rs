@@ -24,7 +24,7 @@ mod code;
 use self::{call_builder::CallSetup, code::WasmModule};
 use crate::{
 	evm::runtime::GAS_PRICE,
-	exec::{Key, MomentOf},
+	exec::{Ext, Key, MomentOf},
 	limits,
 	storage::WriteOutcome,
 	Pallet as Contracts, *,
@@ -1011,23 +1011,10 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_terminate(
-		n: Linear<0, { limits::DELEGATE_DEPENDENCIES }>,
-	) -> Result<(), BenchmarkError> {
+	fn seal_terminate() -> Result<(), BenchmarkError> {
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
-		let caller = whitelisted_caller();
-		T::Currency::set_balance(&caller, caller_funding::<T>());
-		let origin = RawOrigin::Signed(caller);
-		let storage_deposit = default_deposit_limit::<T>();
 
 		build_runtime!(runtime, memory: [beneficiary.encode(),]);
-
-		(0..n).for_each(|i| {
-			let new_code = WasmModule::dummy_unique(65 + i);
-			Contracts::<T>::bare_upload_code(origin.clone().into(), new_code.code, storage_deposit)
-				.unwrap();
-			runtime.ext().lock_delegate_dependency(new_code.hash).unwrap();
-		});
 
 		let result;
 		#[block]
@@ -1924,43 +1911,6 @@ mod benchmarks {
 		#[block]
 		{
 			result = runtime.bench_set_code_hash(memory.as_mut_slice(), 0);
-		}
-
-		assert_ok!(result);
-		Ok(())
-	}
-
-	#[benchmark(pov_mode = Measured)]
-	fn lock_delegate_dependency() -> Result<(), BenchmarkError> {
-		let code_hash = Contract::<T>::with_index(1, WasmModule::dummy_unique(1), vec![])?
-			.info()?
-			.code_hash;
-
-		build_runtime!(runtime, memory: [ code_hash.encode(),]);
-
-		let result;
-		#[block]
-		{
-			result = runtime.bench_lock_delegate_dependency(memory.as_mut_slice(), 0);
-		}
-
-		assert_ok!(result);
-		Ok(())
-	}
-
-	#[benchmark]
-	fn unlock_delegate_dependency() -> Result<(), BenchmarkError> {
-		let code_hash = Contract::<T>::with_index(1, WasmModule::dummy_unique(1), vec![])?
-			.info()?
-			.code_hash;
-
-		build_runtime!(runtime, memory: [ code_hash.encode(),]);
-		runtime.bench_lock_delegate_dependency(memory.as_mut_slice(), 0).unwrap();
-
-		let result;
-		#[block]
-		{
-			result = runtime.bench_unlock_delegate_dependency(memory.as_mut_slice(), 0);
 		}
 
 		assert_ok!(result);

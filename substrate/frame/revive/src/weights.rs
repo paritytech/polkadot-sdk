@@ -95,7 +95,7 @@ pub trait WeightInfo {
 	fn seal_call_data_load() -> Weight;
 	fn seal_call_data_copy(n: u32, ) -> Weight;
 	fn seal_return(n: u32, ) -> Weight;
-	fn seal_terminate(n: u32, ) -> Weight;
+	fn seal_terminate() -> Weight;
 	fn seal_deposit_event(t: u32, n: u32, ) -> Weight;
 	fn get_storage_empty() -> Weight;
 	fn get_storage_full() -> Weight;
@@ -127,8 +127,6 @@ pub trait WeightInfo {
 	fn seal_ecdsa_recover() -> Weight;
 	fn seal_ecdsa_to_eth_address() -> Weight;
 	fn seal_set_code_hash() -> Weight;
-	fn lock_delegate_dependency() -> Weight;
-	fn unlock_delegate_dependency() -> Weight;
 	fn instr(r: u32, ) -> Weight;
 }
 
@@ -626,19 +624,15 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Revive::ImmutableDataOf` (r:0 w:1)
 	/// Proof: `Revive::ImmutableDataOf` (`max_values`: None, `max_size`: Some(4118), added: 6593, mode: `Measured`)
 	/// The range of component `n` is `[0, 32]`.
-	fn seal_terminate(n: u32, ) -> Weight {
+	fn seal_terminate() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `322 + n * (88 ±0)`
 		//  Estimated: `3787 + n * (2563 ±0)`
 		// Minimum execution time: 21_920_000 picoseconds.
 		Weight::from_parts(21_725_868, 3787)
 			// Standard Error: 11_165
-			.saturating_add(Weight::from_parts(4_317_986, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(3_u64))
-			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(n.into())))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
-			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
-			.saturating_add(Weight::from_parts(0, 2563).saturating_mul(n.into()))
 	}
 	/// The range of component `t` is `[0, 4]`.
 	/// The range of component `n` is `[0, 448]`.
@@ -992,28 +986,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `3765`
 		// Minimum execution time: 17_657_000 picoseconds.
 		Weight::from_parts(18_419_000, 3765)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Revive::CodeInfoOf` (r:1 w:1)
-	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(96), added: 2571, mode: `Measured`)
-	fn lock_delegate_dependency() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `338`
-		//  Estimated: `3803`
-		// Minimum execution time: 13_650_000 picoseconds.
-		Weight::from_parts(14_209_000, 3803)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Revive::CodeInfoOf` (r:1 w:1)
-	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(96), added: 2571, mode: `MaxEncodedLen`)
-	fn unlock_delegate_dependency() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `338`
-		//  Estimated: `3561`
-		// Minimum execution time: 12_341_000 picoseconds.
-		Weight::from_parts(13_011_000, 3561)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -1522,19 +1494,15 @@ impl WeightInfo for () {
 	/// Storage: `Revive::ImmutableDataOf` (r:0 w:1)
 	/// Proof: `Revive::ImmutableDataOf` (`max_values`: None, `max_size`: Some(4118), added: 6593, mode: `Measured`)
 	/// The range of component `n` is `[0, 32]`.
-	fn seal_terminate(n: u32, ) -> Weight {
+	fn seal_terminate() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `322 + n * (88 ±0)`
 		//  Estimated: `3787 + n * (2563 ±0)`
 		// Minimum execution time: 21_920_000 picoseconds.
 		Weight::from_parts(21_725_868, 3787)
 			// Standard Error: 11_165
-			.saturating_add(Weight::from_parts(4_317_986, 0).saturating_mul(n.into()))
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
-			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(n.into())))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
-			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(n.into())))
-			.saturating_add(Weight::from_parts(0, 2563).saturating_mul(n.into()))
 	}
 	/// The range of component `t` is `[0, 4]`.
 	/// The range of component `n` is `[0, 448]`.
@@ -1888,28 +1856,6 @@ impl WeightInfo for () {
 		//  Estimated: `3765`
 		// Minimum execution time: 17_657_000 picoseconds.
 		Weight::from_parts(18_419_000, 3765)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Revive::CodeInfoOf` (r:1 w:1)
-	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(96), added: 2571, mode: `Measured`)
-	fn lock_delegate_dependency() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `338`
-		//  Estimated: `3803`
-		// Minimum execution time: 13_650_000 picoseconds.
-		Weight::from_parts(14_209_000, 3803)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Revive::CodeInfoOf` (r:1 w:1)
-	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(96), added: 2571, mode: `MaxEncodedLen`)
-	fn unlock_delegate_dependency() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `338`
-		//  Estimated: `3561`
-		// Minimum execution time: 12_341_000 picoseconds.
-		Weight::from_parts(13_011_000, 3561)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}

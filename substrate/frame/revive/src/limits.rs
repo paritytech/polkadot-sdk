@@ -43,9 +43,6 @@ pub const CALL_STACK_DEPTH: u32 = 5;
 /// We set it to the same limit that ethereum has. It is unlikely to change.
 pub const NUM_EVENT_TOPICS: u32 = 4;
 
-/// The maximum number of code hashes a contract can lock.
-pub const DELEGATE_DEPENDENCIES: u32 = 32;
-
 /// Maximum size of events (including topics) and storage values.
 pub const PAYLOAD_BYTES: u32 = 448;
 

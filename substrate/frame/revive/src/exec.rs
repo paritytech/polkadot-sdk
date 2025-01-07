@@ -32,7 +32,6 @@ use core::{fmt::Debug, marker::PhantomData, mem};
 use frame_support::{
 	crypto::ecdsa::ECDSAExt,
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},
-	ensure,
 	storage::{with_transaction, TransactionOutcome},
 	traits::{
 		fungible::{Inspect, Mutate},
@@ -49,7 +48,7 @@ use frame_system::{
 use sp_core::{
 	ecdsa::Public as ECDSAPublic,
 	sr25519::{Public as SR25519Public, Signature as SR25519Signature},
-	ConstU32, Get, H160, H256, U256,
+	ConstU32, H160, H256, U256,
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
@@ -323,6 +322,12 @@ pub trait Ext: sealing::Sealed {
 		<Self::T as Config>::AddressMapper::to_address(self.account_id())
 	}
 
+	/// Get the length of the immutable data.
+	///
+	/// This query is free as it does not need to load the immutable data from storage.
+	/// Useful when we need a constant time lookup of the length.
+	fn immutable_data_len(&mut self) -> u32;
+
 	/// Returns the immutable data of the current contract.
 	///
 	/// Returns `Err(InvalidImmutableAccess)` if called from a constructor.
@@ -405,51 +410,6 @@ pub trait Ext: sealing::Sealed {
 
 	/// Sets new code hash and immutable data for an existing contract.
 	fn set_code_hash(&mut self, hash: H256) -> DispatchResult;
-
-	/// Returns the number of times the specified contract exists on the call stack. Delegated calls
-	/// Increment the reference count of a of a stored code by one.
-	///
-	/// # Errors
-	///
-	/// [`Error::CodeNotFound`] is returned if no stored code found having the specified
-	/// `code_hash`.
-	fn increment_refcount(code_hash: H256) -> DispatchResult;
-
-	/// Decrement the reference count of a stored code by one.
-	///
-	/// # Note
-	///
-	/// A contract whose reference count dropped to zero isn't automatically removed. A
-	/// `remove_code` transaction must be submitted by the original uploader to do so.
-	fn decrement_refcount(code_hash: H256);
-
-	/// Adds a delegate dependency to [`ContractInfo`]'s `delegate_dependencies` field.
-	///
-	/// This ensures that the delegated contract is not removed while it is still in use. It
-	/// increases the reference count of the code hash and charges a fraction (see
-	/// [`Config::CodeHashLockupDepositPercent`]) of the code deposit.
-	///
-	/// # Errors
-	///
-	/// - [`Error::MaxDelegateDependenciesReached`]
-	/// - [`Error::CannotAddSelfAsDelegateDependency`]
-	/// - [`Error::DelegateDependencyAlreadyExists`]
-	fn lock_delegate_dependency(&mut self, code_hash: H256) -> DispatchResult;
-
-	/// Removes a delegate dependency from [`ContractInfo`]'s `delegate_dependencies` field.
-	///
-	/// This is the counterpart of [`Self::lock_delegate_dependency`]. It decreases the reference
-	/// count and refunds the deposit that was charged by [`Self::lock_delegate_dependency`].
-	///
-	/// # Errors
-	///
-	/// - [`Error::DelegateDependencyNotFound`]
-	fn unlock_delegate_dependency(&mut self, code_hash: &H256) -> DispatchResult;
-
-	/// Returns the number of locked delegate dependencies.
-	///
-	/// Note: Requires &mut self to access the contract info.
-	fn locked_delegate_dependencies_count(&mut self) -> usize;
 
 	/// Check if running in read-only context.
 	fn is_read_only(&self) -> bool;
@@ -1061,23 +1021,33 @@ where
 			let value_transferred = frame.value_transferred;
 			let account_id = &frame.account_id.clone();
 
-			// We need to charge the storage deposit before the initial transfer so that
-			// it can create the account in case the initial transfer is < ed.
+			// We need to make sure that the contract's account exists before calling its
+			// constructor.
 			if entry_point == ExportedFunction::Constructor {
 				// Root origin can't be used to instantiate a contract, so it is safe to assume that
 				// if we reached this point the origin has an associated account.
 				let origin = &self.origin.account_id()?;
 
-				frame.nested_storage.charge_instantiate(
-					origin,
-					&account_id,
-					frame.contract_info.get(&account_id),
-					executable.code_info(),
-					self.skip_transfer,
-				)?;
+				let ed = <Contracts<T>>::min_balance();
+				frame.nested_storage.record_charge(&StorageDeposit::Charge(ed));
+				if self.skip_transfer {
+					T::Currency::set_balance(account_id, ed);
+				} else {
+					T::Currency::transfer(origin, account_id, ed, Preservation::Preserve)?;
+				}
+
+				// A consumer is added at account creation and removed it on termination, otherwise
+				// the runtime could remove the account. As long as a contract exists its
+				// account must exist. With the consumer, a correct runtime cannot remove the
+				// account.
+				<System<T>>::inc_consumers(&frame.account_id)?;
+
 				// Needs to be incremented before calling into the code so that it is visible
 				// in case of recursion.
 				<System<T>>::inc_account_nonce(caller.account_id()?);
+
+				// The incremented refcount should be visible to the constructor.
+				<CodeInfo<T>>::increment_refcount(*executable.code_hash())?;
 			}
 
 			// Every non delegate call or instantiate also optionally transfers the balance.
@@ -1094,6 +1064,7 @@ where
 
 			let contract_address = T::AddressMapper::to_address(account_id);
 			let maybe_caller_address = caller.account_id().map(T::AddressMapper::to_address);
+			let code_deposit = executable.code_info().deposit();
 
 			if_tracing(|tracer| {
 				tracer.enter_child_span(
@@ -1128,6 +1099,15 @@ where
 
 			let frame = self.top_frame_mut();
 
+			// The deposit we charge for a contract depends on the size of the immutable data.
+			// Hence we need to delay charging the base deposit after execution.
+			if entry_point == ExportedFunction::Constructor {
+				let deposit = frame.contract_info().update_base_deposit(code_deposit);
+				frame
+					.nested_storage
+					.charge_deposit(frame.account_id.clone(), StorageDeposit::Charge(deposit));
+			}
+
 			// The storage deposit is only charged at the end of every call stack.
 			// To make sure that no sub call uses more than it is allowed to,
 			// the limit is manually enforced here.
@@ -1136,13 +1116,6 @@ where
 				.nested_storage
 				.enforce_limit(contract)
 				.map_err(|e| ExecError { error: e, origin: ErrorOrigin::Callee })?;
-
-			// It is not allowed to terminate a contract inside its constructor.
-			if entry_point == ExportedFunction::Constructor &&
-				matches!(frame.contract_info, CachedContract::Terminated)
-			{
-				return Err(Error::<T>::TerminatedInConstructor.into());
-			}
 
 			Ok(output)
 		};
@@ -1531,6 +1504,9 @@ where
 			return Err(Error::<T>::TerminatedWhileReentrant.into());
 		}
 		let frame = self.top_frame_mut();
+		if frame.entry_point == ExportedFunction::Constructor {
+			return Err(Error::<T>::TerminatedInConstructor.into());
+		}
 		let info = frame.terminate();
 		let beneficiary_account = T::AddressMapper::to_account_id(beneficiary);
 		frame.nested_storage.terminate(&info, beneficiary_account);
@@ -1539,14 +1515,7 @@ where
 		let account_address = T::AddressMapper::to_address(&frame.account_id);
 		ContractInfoOf::<T>::remove(&account_address);
 		ImmutableDataOf::<T>::remove(&account_address);
-		Self::decrement_refcount(info.code_hash);
-
-		for (code_hash, deposit) in info.delegate_dependencies() {
-			Self::decrement_refcount(*code_hash);
-			frame
-				.nested_storage
-				.charge_deposit(frame.account_id.clone(), StorageDeposit::Refund(*deposit));
-		}
+		<CodeInfo<T>>::decrement_refcount(info.code_hash);
 
 		Ok(())
 	}
@@ -1652,6 +1621,10 @@ where
 		self.caller_is_origin() && self.origin == Origin::Root
 	}
 
+	fn immutable_data_len(&mut self) -> u32 {
+		self.top_frame_mut().contract_info().immutable_data_len()
+	}
+
 	fn get_immutable_data(&mut self) -> Result<ImmutableData, DispatchError> {
 		if self.top_frame().entry_point == ExportedFunction::Constructor {
 			return Err(Error::<T>::InvalidImmutableAccess.into());
@@ -1668,17 +1641,12 @@ where
 	}
 
 	fn set_immutable_data(&mut self, data: ImmutableData) -> Result<(), DispatchError> {
-		if self.top_frame().entry_point == ExportedFunction::Call {
+		let frame = self.top_frame_mut();
+		if frame.entry_point == ExportedFunction::Call || data.is_empty() {
 			return Err(Error::<T>::InvalidImmutableAccess.into());
 		}
-
-		let account_id = self.account_id().clone();
-		let len = data.len() as u32;
-		let amount = self.top_frame_mut().contract_info().set_immutable_data_len(len)?;
-		self.top_frame_mut().nested_storage.charge_deposit(account_id.clone(), amount);
-
-		<ImmutableDataOf<T>>::insert(T::AddressMapper::to_address(&account_id), &data);
-
+		frame.contract_info().set_immutable_data_len(data.len() as u32);
+		<ImmutableDataOf<T>>::insert(T::AddressMapper::to_address(&frame.account_id), &data);
 		Ok(())
 	}
 
@@ -1796,66 +1764,15 @@ where
 		let code_info = CodeInfoOf::<T>::get(hash).ok_or(Error::<T>::CodeNotFound)?;
 
 		let old_base_deposit = info.storage_base_deposit();
-		let new_base_deposit = info.update_base_deposit(&code_info);
+		let new_base_deposit = info.update_base_deposit(code_info.deposit());
 		let deposit = StorageDeposit::Charge(new_base_deposit)
 			.saturating_sub(&StorageDeposit::Charge(old_base_deposit));
 
 		frame.nested_storage.charge_deposit(frame.account_id.clone(), deposit);
 
-		Self::increment_refcount(hash)?;
-		Self::decrement_refcount(prev_hash);
+		<CodeInfo<T>>::increment_refcount(hash)?;
+		<CodeInfo<T>>::decrement_refcount(prev_hash);
 		Ok(())
-	}
-
-	fn increment_refcount(code_hash: H256) -> DispatchResult {
-		<CodeInfoOf<Self::T>>::mutate(code_hash, |existing| -> Result<(), DispatchError> {
-			if let Some(info) = existing {
-				*info.refcount_mut() = info.refcount().saturating_add(1);
-				Ok(())
-			} else {
-				Err(Error::<T>::CodeNotFound.into())
-			}
-		})
-	}
-
-	fn decrement_refcount(code_hash: H256) {
-		<CodeInfoOf<T>>::mutate(code_hash, |existing| {
-			if let Some(info) = existing {
-				*info.refcount_mut() = info.refcount().saturating_sub(1);
-			}
-		});
-	}
-
-	fn lock_delegate_dependency(&mut self, code_hash: H256) -> DispatchResult {
-		let frame = self.top_frame_mut();
-		let info = frame.contract_info.get(&frame.account_id);
-		ensure!(code_hash != info.code_hash, Error::<T>::CannotAddSelfAsDelegateDependency);
-
-		let code_info = CodeInfoOf::<T>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
-		let deposit = T::CodeHashLockupDepositPercent::get().mul_ceil(code_info.deposit());
-
-		info.lock_delegate_dependency(code_hash, deposit)?;
-		Self::increment_refcount(code_hash)?;
-		frame
-			.nested_storage
-			.charge_deposit(frame.account_id.clone(), StorageDeposit::Charge(deposit));
-		Ok(())
-	}
-
-	fn unlock_delegate_dependency(&mut self, code_hash: &H256) -> DispatchResult {
-		let frame = self.top_frame_mut();
-		let info = frame.contract_info.get(&frame.account_id);
-
-		let deposit = info.unlock_delegate_dependency(code_hash)?;
-		Self::decrement_refcount(*code_hash);
-		frame
-			.nested_storage
-			.charge_deposit(frame.account_id.clone(), StorageDeposit::Refund(deposit));
-		Ok(())
-	}
-
-	fn locked_delegate_dependencies_count(&mut self) -> usize {
-		self.top_frame_mut().contract_info().delegate_dependencies_count()
 	}
 
 	fn is_read_only(&self) -> bool {
@@ -1932,7 +1849,7 @@ mod tests {
 	#[derive(Clone)]
 	struct MockExecutable {
 		func: Rc<dyn for<'a> Fn(MockCtx<'a>, &Self) -> ExecResult + 'static>,
-		func_type: ExportedFunction,
+		constructor: Rc<dyn for<'a> Fn(MockCtx<'a>, &Self) -> ExecResult + 'static>,
 		code_hash: H256,
 		code_info: CodeInfo<Test>,
 	}
@@ -1956,11 +1873,44 @@ mod tests {
 				// Generate code hashes from contract index value.
 				let hash = H256(keccak_256(&loader.counter.to_le_bytes()));
 				loader.counter += 1;
+				if func_type == ExportedFunction::Constructor {
+					loader.map.insert(
+						hash,
+						MockExecutable {
+							func: Rc::new(|_, _| exec_success()),
+							constructor: Rc::new(f),
+							code_hash: hash,
+							code_info: CodeInfo::<Test>::new(ALICE),
+						},
+					);
+				} else {
+					loader.map.insert(
+						hash,
+						MockExecutable {
+							func: Rc::new(f),
+							constructor: Rc::new(|_, _| exec_success()),
+							code_hash: hash,
+							code_info: CodeInfo::<Test>::new(ALICE),
+						},
+					);
+				}
+				hash
+			})
+		}
+
+		fn insert_both(
+			constructor: impl Fn(MockCtx, &MockExecutable) -> ExecResult + 'static,
+			call: impl Fn(MockCtx, &MockExecutable) -> ExecResult + 'static,
+		) -> H256 {
+			Loader::mutate(|loader| {
+				// Generate code hashes from contract index value.
+				let hash = H256(keccak_256(&loader.counter.to_le_bytes()));
+				loader.counter += 1;
 				loader.map.insert(
 					hash,
 					MockExecutable {
-						func: Rc::new(f),
-						func_type,
+						func: Rc::new(call),
+						constructor: Rc::new(constructor),
 						code_hash: hash,
 						code_info: CodeInfo::<Test>::new(ALICE),
 					},
@@ -1986,9 +1936,6 @@ mod tests {
 			function: ExportedFunction,
 			input_data: Vec<u8>,
 		) -> ExecResult {
-			if let Constructor = function {
-				E::increment_refcount(self.code_hash).unwrap();
-			}
 			// # Safety
 			//
 			// We know that we **always** call execute with a `MockStack` in this test.
@@ -1999,10 +1946,10 @@ mod tests {
 			// `E: Ext`. However, `MockExecutable` can't be generic over `E` as it would
 			// constitute a cycle.
 			let ext = unsafe { mem::transmute(ext) };
-			if function == self.func_type {
-				(self.func)(MockCtx { ext, input_data }, &self)
+			if function == ExportedFunction::Constructor {
+				(self.constructor)(MockCtx { ext, input_data }, &self)
 			} else {
-				exec_success()
+				(self.func)(MockCtx { ext, input_data }, &self)
 			}
 		}
 
@@ -3156,7 +3103,7 @@ mod tests {
 	#[test]
 	fn termination_from_instantiate_fails() {
 		let terminate_ch = MockLoader::insert(Constructor, |ctx, _| {
-			ctx.ext.terminate(&ALICE_ADDR).unwrap();
+			ctx.ext.terminate(&ALICE_ADDR)?;
 			exec_success()
 		});
 
@@ -3184,7 +3131,10 @@ mod tests {
 						Some(&[0; 32]),
 						false,
 					),
-					Err(Error::<Test>::TerminatedInConstructor.into())
+					Err(ExecError {
+						error: Error::<Test>::TerminatedInConstructor.into(),
+						origin: ErrorOrigin::Callee
+					})
 				);
 
 				assert_eq!(&events(), &[]);
@@ -4696,41 +4646,46 @@ mod tests {
 	}
 
 	#[test]
-	fn immutable_data_set_works_only_once() {
-		let dummy_ch = MockLoader::insert(Constructor, move |ctx, _| {
-			// Calling `set_immutable_data` the first time should work
-			assert_ok!(ctx.ext.set_immutable_data(vec![0, 1, 2, 3].try_into().unwrap()));
-			// Calling `set_immutable_data` the second time should error out
-			assert_eq!(
-				ctx.ext.set_immutable_data(vec![0, 1, 2, 3].try_into().unwrap()),
-				Err(Error::<Test>::InvalidImmutableAccess.into())
-			);
-			exec_success()
-		});
-		let instantiator_ch = MockLoader::insert(Call, {
+	fn immutable_data_set_overrides() {
+		let hash = MockLoader::insert_both(
 			move |ctx, _| {
-				let value = <Test as Config>::Currency::minimum_balance().into();
-				ctx.ext
-					.instantiate(Weight::MAX, U256::MAX, dummy_ch, value, vec![], None)
-					.unwrap();
-
+				// Calling `set_immutable_data` the first time should work
+				assert_ok!(ctx.ext.set_immutable_data(vec![0, 1, 2, 3].try_into().unwrap()));
+				// Calling `set_immutable_data` the second time overrides the original one
+				assert_ok!(ctx.ext.set_immutable_data(vec![7, 5].try_into().unwrap()));
 				exec_success()
-			}
-		});
+			},
+			move |ctx, _| {
+				assert_eq!(ctx.ext.get_immutable_data().unwrap().into_inner(), vec![7, 5]);
+				exec_success()
+			},
+		);
 		ExtBuilder::default()
 			.with_code_hashes(MockLoader::code_hashes())
 			.existential_deposit(15)
 			.build()
 			.execute_with(|| {
 				set_balance(&ALICE, 1000);
-				set_balance(&BOB, 100);
-				place_contract(&BOB, instantiator_ch);
 				let origin = Origin::from_account_id(ALICE);
 				let mut storage_meter = storage::meter::Meter::new(&origin, 200, 0).unwrap();
+				let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
+
+				let addr = MockStack::run_instantiate(
+					ALICE,
+					MockExecutable::from_storage(hash, &mut gas_meter).unwrap(),
+					&mut gas_meter,
+					&mut storage_meter,
+					U256::zero(),
+					vec![],
+					None,
+					false,
+				)
+				.unwrap()
+				.0;
 
 				MockStack::run_call(
 					origin,
-					BOB_ADDR,
+					addr,
 					&mut GasMeter::<Test>::new(GAS_LIMIT),
 					&mut storage_meter,
 					U256::zero(),
