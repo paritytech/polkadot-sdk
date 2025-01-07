@@ -27,7 +27,7 @@
 #![no_main]
 
 use common::{input, u256_bytes};
-use uapi::{HostFn, HostFnImpl as api};
+use uapi::{HostFn, HostFnImpl as api, U64_MAX_AS_U256};
 
 const INPUT_BUF_SIZE: usize = 128;
 static INPUT_DATA: [u8; INPUT_BUF_SIZE] = [0xFF; INPUT_BUF_SIZE];
@@ -80,8 +80,16 @@ fn assert_return_data_size_of(expected: u64) {
 
 /// Assert the return data to be reset after a balance transfer.
 fn assert_balance_transfer_does_reset() {
-	api::call(uapi::CallFlags::empty(), &[0u8; 20], u64::MAX, u64::MAX, None, &u256_bytes(128), &[], None)
-		.unwrap();
+	api::call(
+		uapi::CallFlags::empty(),
+		&[0u8; 20],
+		u64::MAX,
+		u64::MAX,
+		&U64_MAX_AS_U256,
+		&u256_bytes(128),
+		&[],
+		None
+	).unwrap();
 	assert_return_data_size_of(0);
 }
 
@@ -113,7 +121,7 @@ pub extern "C" fn call() {
 			code_hash,
 			u64::MAX,
 			u64::MAX,
-			None,
+			&U64_MAX_AS_U256,
 			&[0; 32],
 			&construct_input(exit_flag),
 			Some(&mut address_buf),
@@ -127,7 +135,7 @@ pub extern "C" fn call() {
 			address_buf,
 			u64::MAX,
 			u64::MAX,
-			None,
+			&U64_MAX_AS_U256,
 			&[0; 32],
 			&construct_input(exit_flag),
 			None,

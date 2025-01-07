@@ -19,7 +19,7 @@
 #![no_main]
 
 use common::input;
-use uapi::{HostFn, HostFnImpl as api, StorageFlags};
+use uapi::{HostFn, HostFnImpl as api, StorageFlags, U64_MAX_AS_U256};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -46,7 +46,15 @@ pub extern "C" fn call() {
 	assert!(value[0] == 2u8);
 
 	let input = [0u8; 0];
-	api::delegate_call(uapi::CallFlags::empty(), address, ref_time, proof_size, None, &input, None).unwrap();
+	api::delegate_call(
+		uapi::CallFlags::empty(),
+		address,
+		ref_time,
+		proof_size,
+		&U64_MAX_AS_U256,
+		&input,
+		None
+	).unwrap();
 
 	api::get_storage(StorageFlags::empty(), &key, value).unwrap();
 	assert!(value[0] == 1u8);

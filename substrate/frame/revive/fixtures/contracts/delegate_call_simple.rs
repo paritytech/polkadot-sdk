@@ -19,7 +19,7 @@
 #![no_main]
 
 use common::input;
-use uapi::{HostFn, HostFnImpl as api};
+use uapi::{HostFn, HostFnImpl as api, U64_MAX_AS_U256};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -32,5 +32,13 @@ pub extern "C" fn call() {
 
 	// Delegate call into passed address.
 	let input = [0u8; 0];
-	api::delegate_call(uapi::CallFlags::empty(), address, u64::MAX, u64::MAX, None, &input, None).unwrap();
+	api::delegate_call(
+		uapi::CallFlags::empty(),
+		address,
+		u64::MAX,
+		u64::MAX,
+		&U64_MAX_AS_U256,
+		&input,
+		None
+	).unwrap();
 }
