@@ -217,40 +217,6 @@ impl ClaimQueueState {
 		)
 	}
 
-	/// Looks for a pending claim for `candidate_hash` at `relay_parent` and upgrades it to
-	/// seconded.
-	pub fn upgrade_pending_claims(
-		&mut self,
-		relay_parent: &Hash,
-		candidate_hash: &CandidateHash,
-	) -> bool {
-		gum::trace!(
-			target: LOG_TARGET,
-			?relay_parent,
-			?candidate_hash,
-			"upgrade_pending_claims"
-		);
-
-		if !self
-			.candidates
-			.get(&relay_parent)
-			.map(|canidates| canidates.contains(candidate_hash))
-			.unwrap_or(false)
-		{
-			// Unknown candidate, no need to look in state.
-			return false;
-		}
-
-		for w in self.get_window(relay_parent) {
-			if w.claimed == ClaimState::Pending(*candidate_hash) {
-				w.claimed = ClaimState::Seconded(*candidate_hash);
-				return true;
-			}
-		}
-
-		return false;
-	}
-
 	/// If there is a pending claim for the candidate at `relay_parent` it is upgraded to seconded.
 	/// Otherwise a new claim is made.
 	pub fn claim_seconded_at(
@@ -610,23 +576,6 @@ impl PerLeafClaimQueueState {
 		result
 	}
 
-	/// Claims a slot in pending state for a candidate at each leaf. Returns true if the claim was
-	/// successful for at least one leaf or there already is a claim for the candidate.
-	pub fn claim_pending_slot(
-		&mut self,
-		candidate_hash: &CandidateHash,
-		relay_parent: &Hash,
-		para_id: &ParaId,
-	) -> bool {
-		let mut result = false;
-		for (_, state) in &mut self.leaves {
-			if state.claim_pending_at(relay_parent, para_id, *candidate_hash) {
-				result = true;
-			}
-		}
-		result
-	}
-
 	/// Claims a slot in pending state for a candidate at a concrete leaf.
 	pub fn claim_pending_slot_at_leaf(
 		&mut self,
@@ -669,20 +618,6 @@ impl PerLeafClaimQueueState {
 		result
 	}
 
-	/// Upgrade the pending claims for `candidate_hash` at each leaf to seconded
-	pub fn upgrade_pending_claims_to_seconded(
-		&mut self,
-		candidate_hash: &CandidateHash,
-		relay_parent: &Hash,
-	) -> bool {
-		let mut result = false;
-		for (_, state) in &mut self.leaves {
-			if state.upgrade_pending_claims(relay_parent, candidate_hash) {
-				result = true;
-			}
-		}
-		result
-	}
 	/// Returns claimed slots at a relay parent. As there can be multiple forks per relay parent,
 	/// the longest one is returned.
 	pub fn get_pending_slots_at(&mut self, relay_parent: &Hash) -> VecDeque<ParaId> {
@@ -1915,71 +1850,6 @@ mod test {
 		}
 
 		#[test]
-		fn upgrade_pending_claims_works() {
-			let mut state = ClaimQueueState::new();
-			let relay_parent_a = Hash::from_low_u64_be(1);
-			let para_id = ParaId::new(1);
-			let claim_queue = VecDeque::from(vec![para_id]);
-
-			state.add_leaf(&relay_parent_a, &claim_queue);
-
-			let candidate_a1 = CandidateHash(Hash::from_low_u64_be(101));
-			let candidate_a2 = CandidateHash(Hash::from_low_u64_be(102));
-			assert!(state.claim_pending_at(&relay_parent_a, &para_id, candidate_a1));
-			assert!(!state.claim_pending_at(&relay_parent_a, &para_id, candidate_a2));
-
-			assert_eq!(
-				state.block_state,
-				VecDeque::from(vec![ClaimInfo {
-					hash: Some(relay_parent_a),
-					claim: Some(para_id),
-					claim_queue_len: 1,
-					claimed: ClaimState::Pending(candidate_a1),
-				},])
-			);
-			assert!(state.future_blocks.is_empty());
-			assert_eq!(
-				state.candidates,
-				HashMap::from_iter([(relay_parent_a, HashSet::from_iter(vec![candidate_a1]))])
-			);
-
-			// Upgrade the claim to seconded
-			assert!(state.upgrade_pending_claims(&relay_parent_a, &candidate_a1));
-			assert!(!state.upgrade_pending_claims(&relay_parent_a, &candidate_a2));
-			assert!(state.claim_pending_at(&relay_parent_a, &para_id, candidate_a1));
-			// subsequent calls are no-ops but return false
-			assert!(!state.upgrade_pending_claims(&relay_parent_a, &candidate_a1));
-			assert!(!state.claim_pending_at(&relay_parent_a, &para_id, candidate_a2));
-			assert_eq!(
-				state.block_state,
-				VecDeque::from(vec![ClaimInfo {
-					hash: Some(relay_parent_a),
-					claim: Some(para_id),
-					claim_queue_len: 1,
-					claimed: ClaimState::Seconded(candidate_a1),
-				},])
-			);
-			assert!(state.future_blocks.is_empty());
-
-			// Release the claim
-			assert!(state.release_claim(&candidate_a1));
-			assert_eq!(
-				state.block_state,
-				VecDeque::from(vec![ClaimInfo {
-					hash: Some(relay_parent_a),
-					claim: Some(para_id),
-					claim_queue_len: 1,
-					claimed: ClaimState::Free,
-				},])
-			);
-			assert!(state.future_blocks.is_empty());
-			assert_eq!(
-				state.candidates,
-				HashMap::from_iter([(relay_parent_a, HashSet::from_iter(vec![]))])
-			);
-		}
-
-		#[test]
 		fn claim_seconded_at_works() {
 			let mut state = ClaimQueueState::new();
 			let relay_parent_a = Hash::from_low_u64_be(1);
@@ -2468,9 +2338,16 @@ mod test {
 			let relay_parent_a = Hash::from_low_u64_be(1);
 			let candidate_a = CandidateHash(Hash::from_low_u64_be(101));
 
-			assert!(state.claim_pending_slot(&candidate_a, &relay_parent_a, &para_id));
+			assert!(state.claim_pending_slot_at_leaf(
+				&relay_parent_b,
+				&candidate_a,
+				&relay_parent_a,
+				&para_id
+			));
+			// todo: this is not good, we get a pending slot at specific leaf but the target relay
+			// parent exists in multiple leaves. Can I improve it?
 			assert_eq!(state.get_pending_slots_at(&relay_parent_a), vec![para_id]);
-			assert!(state.upgrade_pending_claims_to_seconded(&candidate_a, &relay_parent_a));
+			assert!(state.claim_seconded_slot(&candidate_a, &relay_parent_a, &para_id));
 			assert!(state.get_pending_slots_at(&relay_parent_a).is_empty());
 			assert!(!state.has_free_slot_for_para_id(&relay_parent_a, &para_id));
 
@@ -2544,8 +2421,8 @@ mod test {
 			assert!(state.has_free_slot_for_para_id(&relay_parent_a, &para_id));
 
 			// Claim a slot at the common ancestor (rpa) and rp b
-			assert!(state.claim_pending_slot(&candidate_a, &relay_parent_a, &para_id));
-			assert!(state.claim_pending_slot(&candidate_b, &relay_parent_b, &para_id));
+			assert!(state.claim_seconded_slot(&candidate_a, &relay_parent_a, &para_id));
+			assert!(state.claim_seconded_slot(&candidate_b, &relay_parent_b, &para_id));
 
 			// now try adding another candidate at the common ancestor at both leaves. It should
 			// fail for b and succeed for c
@@ -2584,8 +2461,8 @@ mod test {
 			let candidate_c = CandidateHash(Hash::from_low_u64_be(103));
 
 			// Claim a slot at the common ancestor (rpa) for two candidates
-			assert!(state.claim_pending_slot(&candidate_a, &relay_parent_a, &para_id));
-			assert!(state.claim_pending_slot(&candidate_b, &relay_parent_a, &para_id));
+			assert!(state.claim_seconded_slot(&candidate_a, &relay_parent_a, &para_id));
+			assert!(state.claim_seconded_slot(&candidate_b, &relay_parent_a, &para_id));
 
 			// now try adding another candidate at the common ancestor at both leaves. It should
 			// fail for both
