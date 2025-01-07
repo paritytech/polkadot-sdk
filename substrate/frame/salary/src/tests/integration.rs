@@ -18,9 +18,14 @@
 //! The crate's tests.
 
 use crate as pallet_salary;
-use crate::*;
+use crate::{
+	tests::integration::sp_api_hidden_includes_construct_runtime::hidden_include::sp_runtime, *,
+};
 use frame::{
-	deps::sp_io::{self, MultiRemovalResults},
+	deps::{
+		sp_io::{self, MultiRemovalResults},
+		sp_runtime::StateVersion,
+	},
 	testing_prelude::*,
 };
 use pallet_ranked_collective::{EnsureRanked, Geometric};
