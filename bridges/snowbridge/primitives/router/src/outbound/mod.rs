@@ -26,7 +26,7 @@ pub struct EthereumBlobExporter<
 	OutboundQueue,
 	AgentHashedDescription,
 	ConvertAssetId,
-	AssetHubParaId,
+	WhitelistedParaId,
 >(
 	PhantomData<(
 		UniversalLocation,
@@ -34,7 +34,7 @@ pub struct EthereumBlobExporter<
 		OutboundQueue,
 		AgentHashedDescription,
 		ConvertAssetId,
-		AssetHubParaId,
+		WhitelistedParaId,
 	)>,
 );
 
@@ -44,7 +44,7 @@ impl<
 		OutboundQueue,
 		AgentHashedDescription,
 		ConvertAssetId,
-		AssetHubParaId,
+		WhitelistedParaId,
 	> ExportXcm
 	for EthereumBlobExporter<
 		UniversalLocation,
@@ -52,7 +52,7 @@ impl<
 		OutboundQueue,
 		AgentHashedDescription,
 		ConvertAssetId,
-		AssetHubParaId,
+		WhitelistedParaId,
 	>
 where
 	UniversalLocation: Get<InteriorLocation>,
@@ -60,7 +60,7 @@ where
 	OutboundQueue: SendMessage<Balance = u128>,
 	AgentHashedDescription: ConvertLocation<H256>,
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
-	AssetHubParaId: Get<ParaId>,
+	WhitelistedParaId: Get<ParaId>,
 {
 	type Ticket = (Vec<u8>, XcmHash);
 
@@ -106,7 +106,7 @@ where
 
 		// Check the location here can only be AssetHub sovereign
 		let para_id = match local_sub.as_slice() {
-			[Parachain(para_id)] if ParaId::from(*para_id) == AssetHubParaId::get() => *para_id,
+			[Parachain(para_id)] if ParaId::from(*para_id) == WhitelistedParaId::get() => *para_id,
 			_ => {
 				log::debug!(target: "xcm::ethereum_blob_exporter", "only supports Asset Hub root location as the universal source '{local_sub:?}'.");
 				return Err(SendError::NotApplicable);
