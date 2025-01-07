@@ -291,10 +291,9 @@ mod tests {
 		let len = 0usize;
 
 		// dispatch => OK
-		let res = ext_v3.clone().dispatch_transaction(MockOrigin(1), call.clone(), &info, len);
-		let outcome = res.expect("valid since token=1 and origin=Some");
-		assert!(outcome.is_ok(), "actual dispatch of call");
-		assert_eq!(outcome.unwrap(), ());
+		ext_v3.clone().dispatch_transaction(MockOrigin(1), call.clone(), &info, len)
+			.expect("valid dispatch")
+			.expect("should be OK");
 
 		// but if origin is None => the underlying call fails
 		let res_fail = ext_v3.dispatch_transaction(MockOrigin(0), call, &info, len);

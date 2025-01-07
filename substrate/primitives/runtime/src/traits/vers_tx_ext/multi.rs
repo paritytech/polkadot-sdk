@@ -489,11 +489,10 @@ mod tests {
 		let pipeline_a = PipelineV4::new(SimpleExtensionV4 { token: 33, declared_weight: 1 });
 		let multi_a = MyMultiExt::A(pipeline_a);
 		let call_good = MockCall(42);
-		let result = multi_a
+		multi_a
 			.dispatch_transaction(MockOrigin(9), call_good.clone(), &Default::default(), 0)
-			.expect("Should not fail validity");
-		assert!(result.is_ok(), "Dispatch with origin=9 is ok if call != 0");
-		assert_eq!(result.unwrap(), ());
+			.expect("Should not fail validity")
+			.expect("Success");
 
 		// but call=0 => dispatch fails
 		let fail_res =
