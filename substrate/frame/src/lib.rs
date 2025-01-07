@@ -330,6 +330,9 @@ pub mod testing_prelude {
 	pub use sp_io::TestExternalities as TestState;
 
 	pub use sp_io::storage::*;
+  
+	/// Commonly used runtime traits for testing.
+	pub use sp_runtime::traits::BadOrigin;
 }
 
 /// All of the types and tools needed to build FRAME-based runtimes.
@@ -497,6 +500,7 @@ pub mod runtime {
 			frame_system::CheckEra<T>,
 			frame_system::CheckNonce<T>,
 			frame_system::CheckWeight<T>,
+			frame_system::WeightReclaim<T>,
 		);
 	}
 

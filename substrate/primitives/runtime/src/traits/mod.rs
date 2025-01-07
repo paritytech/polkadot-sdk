@@ -1710,7 +1710,7 @@ pub trait SignedExtension:
 	/// This method provides a default implementation that returns a vec containing a single
 	/// [`TransactionExtensionMetadata`].
 	fn metadata() -> Vec<TransactionExtensionMetadata> {
-		sp_std::vec![TransactionExtensionMetadata {
+		alloc::vec![TransactionExtensionMetadata {
 			identifier: Self::IDENTIFIER,
 			ty: scale_info::meta_type::<Self>(),
 			implicit: scale_info::meta_type::<Self::AdditionalSigned>()
