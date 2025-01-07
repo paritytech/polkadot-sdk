@@ -242,6 +242,7 @@ struct PerRelayParentState {
 	n_cores: u32,
 	/// Claim queue state. If the runtime API is not available, it'll be populated with info from
 	/// availability cores.
+	// TODO: remove this
 	claim_queue: ClaimQueueSnapshot,
 	/// The validator index -> group mapping at this relay parent.
 	validator_to_group: Arc<IndexedVec<ValidatorIndex, Option<GroupIndex>>>,
@@ -432,7 +433,7 @@ struct State {
 	/// The utility for managing the implicit and explicit views in a consistent way.
 	implicit_view: ImplicitView,
 	/// The state of the claim queue, per leaf.
-	claim_queue_state: PerLeafClaimQueueState,
+	claim_queue_state: HashMap<CoreIndex, PerLeafClaimQueueState>,
 	/// State tracked for all relay-parents backing work is ongoing for. This includes
 	/// all active leaves.
 	per_relay_parent: HashMap<Hash, PerRelayParentState>,
@@ -458,7 +459,7 @@ impl State {
 	) -> Self {
 		State {
 			implicit_view: ImplicitView::default(),
-			claim_queue_state: PerLeafClaimQueueState::new(),
+			claim_queue_state: HashMap::default(),
 			per_relay_parent: HashMap::default(),
 			per_candidate: HashMap::new(),
 			per_session_cache: PerSessionCache::default(),
@@ -511,10 +512,14 @@ async fn run_iteration<Context>(
 					).await {
 						Ok(true) => {},
 						Ok(false) => {
-							state.claim_queue_state.release_claims_for_candidate(&candidate_hash);
+							state.claim_queue_state.iter_mut().for_each(|(_, cq)| {
+								cq.release_claims_for_candidate(&candidate_hash);
+							});
 						}
 						Err(e) => {
-							state.claim_queue_state.release_claims_for_candidate(&candidate_hash);
+							state.claim_queue_state.iter_mut().for_each(|(_, cq)| {
+								cq.release_claims_for_candidate(&candidate_hash);
+							});
 							return Err(e)
 						},
 					}
@@ -962,10 +967,14 @@ async fn handle_communication<Context>(
 			{
 				Ok(true) => {},
 				Ok(false) => {
-					state.claim_queue_state.release_claims_for_candidate(&candidate_hash);
+					state.claim_queue_state.iter_mut().for_each(|(_, cq)| {
+						cq.release_claims_for_candidate(&candidate_hash);
+					});
 				},
 				Err(e) => {
-					state.claim_queue_state.release_claims_for_candidate(&candidate_hash);
+					state.claim_queue_state.iter_mut().for_each(|(_, cq)| {
+						cq.release_claims_for_candidate(&candidate_hash);
+					});
 					return Err(e)
 				},
 			}
@@ -979,16 +988,15 @@ async fn handle_communication<Context>(
 			handle_can_second_request(ctx, state, request, tx).await,
 		CandidateBackingMessage::DropClaims(claims) =>
 			for candidate_hash in claims {
-				state.claim_queue_state.release_claims_for_candidate(&candidate_hash);
+				state.claim_queue_state.iter_mut().for_each(|(_, cq)| {
+					cq.release_claims_for_candidate(&candidate_hash);
+				});
 			},
 		CandidateBackingMessage::ClaimedSlots(relay_parent, tx) => {
-			let res = state.claim_queue_state.get_pending_slots_at(&relay_parent);
-			tx.send(res).map_err(|_| Error::SendClaimedSlots)?
+			handle_claimed_slots(&relay_parent, state, tx)?;
 		},
-		CandidateBackingMessage::CanClaim(relay_parent, para_id, tx) => {
-			let res = state.claim_queue_state.has_free_slot_for_para_id(&relay_parent, &para_id);
-			tx.send(res).map_err(|_| Error::SendCanClaim)?
-		},
+		CandidateBackingMessage::CanClaim(relay_parent, para_id, tx) =>
+			handle_can_claim(&relay_parent, &para_id, state, tx)?,
 	}
 
 	Ok(())
@@ -1011,9 +1019,9 @@ async fn handle_active_leaves_update<Context>(
 
 	for deactivated in update.deactivated {
 		let removed = state.implicit_view.deactivate_leaf(deactivated);
-		state
-			.claim_queue_state
-			.remove_pruned_ancestors(&HashSet::from_iter(removed.iter().copied()));
+		state.claim_queue_state.iter_mut().for_each(|(_, cq)| {
+			cq.remove_pruned_ancestors(&HashSet::from_iter(removed.iter().copied()));
+		});
 	}
 
 	// clean up `per_relay_parent` according to ancestry
@@ -1118,7 +1126,9 @@ async fn handle_active_leaves_update<Context>(
 				"Inserting new leaf in claim queue state"
 			);
 
-			state.claim_queue_state.add_leaf(&maybe_new, maybe_claim_queue, &parent_hash);
+			state.claim_queue_state.iter_mut().for_each(|(_, cq)| {
+				cq.add_leaf(&maybe_new, maybe_claim_queue, &parent_hash);
+			});
 			state.per_relay_parent.insert(maybe_new, per);
 		}
 	}
@@ -1443,13 +1453,21 @@ async fn handle_can_second_request<Context>(
 		let candidate_hash = hypothetical_candidate.candidate_hash();
 		let candidate_relay_parent = hypothetical_candidate.relay_parent();
 		let candidate_para_id = hypothetical_candidate.candidate_para();
-		let result = seconding_sanity_check(
-			ctx,
-			&state.implicit_view,
-			hypothetical_candidate,
-			&mut state.claim_queue_state,
-		)
-		.await;
+
+		let cq = if let Some(core_index) = state
+			.per_relay_parent
+			.get(&relay_parent)
+			.and_then(|rp_state| rp_state.assigned_core)
+			.and_then(|assigned_core| state.claim_queue_state.get_mut(&assigned_core))
+		{
+			core_index
+		} else {
+			let _ = tx.send(false);
+			return
+		};
+
+		let result =
+			seconding_sanity_check(ctx, &state.implicit_view, hypothetical_candidate, cq).await;
 
 		match result {
 			SecondingAllowed::No => false,
@@ -1459,7 +1477,7 @@ async fn handle_can_second_request<Context>(
 				// only make claims at the leaves at which we can second the candidate. Calling
 				// `claim_pending_slot` here might make unnecessary claims.
 				for leaf in leaves.iter() {
-					let res = state.claim_queue_state.claim_pending_slot_at_leaf(
+					let res = cq.claim_pending_slot_at_leaf(
 						&leaf,
 						&candidate_hash,
 						&candidate_relay_parent,
@@ -1510,6 +1528,15 @@ async fn handle_validated_candidate_command<Context>(
 							persisted_validation_data,
 						} = outputs;
 
+						let cq_state = if let Some(cq) = rp_state
+							.assigned_core
+							.and_then(|core_idx| state.claim_queue_state.get_mut(&core_idx))
+						{
+							cq
+						} else {
+							return Ok(false)
+						};
+
 						if rp_state.issued_statements.contains(&candidate_hash) {
 							return Ok(true)
 						}
@@ -1531,7 +1558,7 @@ async fn handle_validated_candidate_command<Context>(
 							ctx,
 							&state.implicit_view,
 							hypothetical_candidate,
-							&mut state.claim_queue_state,
+							cq_state,
 						)
 						.await
 						{
@@ -1548,7 +1575,6 @@ async fn handle_validated_candidate_command<Context>(
 							ctx,
 							rp_state,
 							&mut state.per_candidate,
-							&mut state.claim_queue_state,
 							statement,
 							state.keystore.clone(),
 							metrics,
@@ -1588,19 +1614,6 @@ async fn handle_validated_candidate_command<Context>(
 
 							rp_state.issued_statements.insert(candidate_hash);
 
-							// A claim should have been made with `CanSecond` if collator protocol
-							// V2+ was used
-							if !state.claim_queue_state.upgrade_pending_claims_to_seconded(
-								&candidate_hash,
-								&candidate.descriptor.relay_parent(),
-							) {
-								gum::warn!(
-									target: LOG_TARGET,
-									?candidate_hash,
-									"Can't find pending claims for a just validated candidate. This should never happen.",
-								);
-							}
-
 							metrics.on_candidate_seconded();
 							ctx.send_message(CollatorProtocolMessage::Seconded(
 								rp_state.parent,
@@ -1630,7 +1643,6 @@ async fn handle_validated_candidate_command<Context>(
 								ctx,
 								rp_state,
 								&mut state.per_candidate,
-								&mut state.claim_queue_state,
 								statement,
 								state.keystore.clone(),
 								metrics,
@@ -1716,7 +1728,6 @@ async fn import_statement<Context>(
 	rp_state: &mut PerRelayParentState,
 	per_candidate: &mut HashMap<CandidateHash, PerCandidateState>,
 	statement: &SignedFullStatementWithPVD,
-	claim_queue_state: &mut PerLeafClaimQueueState,
 ) -> Result<Option<TableSummary>, Error> {
 	let candidate_hash = statement.payload().candidate_hash();
 
@@ -1742,29 +1753,6 @@ async fn import_statement<Context>(
 	// our active leaves.
 	if let StatementWithPVD::Seconded(candidate, pvd) = statement.payload() {
 		if !per_candidate.contains_key(&candidate_hash) {
-			// claim a seconded slot at all possible paths, if the candidate core matches the core
-			// we are assigned on
-			if rp_state.assigned_core.is_some() &&
-				rp_state.assigned_core == candidate.descriptor.core_index()
-			{
-				if !claim_queue_state.claim_seconded_slot(
-					&candidate_hash,
-					&candidate.descriptor.relay_parent(),
-					&candidate.descriptor.para_id(),
-				) {
-					gum::debug!(
-						target: LOG_TARGET,
-						?candidate_hash,
-						relay_parent=?candidate.descriptor.relay_parent(),
-						para_id=?candidate.descriptor.para_id(),
-						assigned_core=?rp_state.assigned_core,
-						candidate_core=?candidate.descriptor.core_index(),
-						"Failed to claim slot for candidate"
-					);
-					return Err(Error::NoFreeSlotInClaimQueue)
-				}
-			}
-
 			let (tx, rx) = oneshot::channel();
 			ctx.send_message(ProspectiveParachainsMessage::IntroduceSecondedCandidate(
 				IntroduceSecondedCandidateRequest {
@@ -1899,15 +1887,12 @@ async fn sign_import_and_distribute_statement<Context>(
 	ctx: &mut Context,
 	rp_state: &mut PerRelayParentState,
 	per_candidate: &mut HashMap<CandidateHash, PerCandidateState>,
-	claim_queue_state: &mut PerLeafClaimQueueState,
 	statement: StatementWithPVD,
 	keystore: KeystorePtr,
 	metrics: &Metrics,
 ) -> Result<Option<SignedFullStatementWithPVD>, Error> {
 	if let Some(signed_statement) = sign_statement(&*rp_state, statement, keystore, metrics) {
-		let summary =
-			import_statement(ctx, rp_state, per_candidate, &signed_statement, claim_queue_state)
-				.await?;
+		let summary = import_statement(ctx, rp_state, per_candidate, &signed_statement).await?;
 
 		// `Share` must always be sent before `Backed`. We send the latter in
 		// `post_import_statement_action` below.
@@ -2053,14 +2038,9 @@ async fn maybe_validate_and_import<Context>(
 		return Ok(())
 	}
 
-	let res = import_statement(
-		ctx,
-		rp_state,
-		&mut state.per_candidate,
-		&statement,
-		&mut state.claim_queue_state,
-	)
-	.await;
+	claim_slot_for_seconded_statement(&statement, rp_state, &mut state.claim_queue_state)?;
+
+	let res = import_statement(ctx, rp_state, &mut state.per_candidate, &statement).await;
 
 	// if we get an Error::RejectedByProspectiveParachains,
 	// we will do nothing.
@@ -2084,6 +2064,7 @@ async fn maybe_validate_and_import<Context>(
 
 		let candidate_hash = summary.candidate;
 
+		// Only validate candidates originating from our validator group
 		if Some(summary.group_id) != rp_state.assigned_core {
 			return Ok(())
 		}
@@ -2197,9 +2178,19 @@ async fn handle_second_message<Context>(
 
 	let relay_parent = candidate.descriptor().relay_parent();
 
-	// A claim should have been mande with `CanSecond` if collator protocol V2+ was used. To handle
-	// V1 too we redo the claim here (which will be a no-op if there already is a pending claim).
-	if !state.claim_queue_state.claim_pending_slot(
+	let cq = if let Some(cq) = state.per_relay_parent.get(&relay_parent).and_then(|rp_state| {
+		rp_state
+			.assigned_core
+			.and_then(|core_idx| state.claim_queue_state.get_mut(&core_idx))
+	}) {
+		cq
+	} else {
+		return Ok(false)
+	};
+
+	// `claim_seconded_slot` will upgrade any pending claims to seconded (if collator protocol V2+
+	// was used) or make a new claim (if collator protocol V1 was used).
+	if !cq.claim_seconded_slot(
 		&candidate_hash,
 		&candidate.descriptor.relay_parent(),
 		&candidate.descriptor.para_id(),
@@ -2361,4 +2352,96 @@ fn handle_get_backable_candidates_message(
 
 	tx.send(backed).map_err(|data| Error::Send(data))?;
 	Ok(())
+}
+
+fn handle_claimed_slots(
+	relay_parent: &Hash,
+	state: &mut State,
+	tx: oneshot::Sender<VecDeque<ParaId>>,
+) -> Result<(), Error> {
+	let maybe_assigned_core = state
+		.per_relay_parent
+		.get(&relay_parent)
+		.and_then(|rp_state: &PerRelayParentState| rp_state.assigned_core);
+
+	let res = if let Some(core_index) = maybe_assigned_core {
+		state
+			.claim_queue_state
+			.get_mut(&core_index)
+			.map(|cq_state| cq_state.get_pending_slots_at(relay_parent))
+			.unwrap_or_default()
+	} else {
+		VecDeque::new()
+	};
+
+	tx.send(res).map_err(|_| Error::SendClaimedSlots)
+}
+
+fn handle_can_claim(
+	relay_parent: &Hash,
+	para_id: &ParaId,
+	state: &mut State,
+	tx: oneshot::Sender<bool>,
+) -> Result<(), Error> {
+	let maybe_assigned_core = state
+		.per_relay_parent
+		.get(&relay_parent)
+		.and_then(|rp_state: &PerRelayParentState| rp_state.assigned_core);
+
+	let res = if let Some(core_index) = maybe_assigned_core {
+		state
+			.claim_queue_state
+			.get_mut(&core_index)
+			.map(|cq_state| cq_state.has_free_slot_for_para_id(relay_parent, para_id))
+			.unwrap_or_default()
+	} else {
+		false
+	};
+
+	tx.send(res).map_err(|_| Error::SendClaimedSlots)
+}
+
+fn claim_slot_for_seconded_statement(
+	statement: &SignedFullStatementWithPVD,
+	rp_state: &mut PerRelayParentState,
+	claim_queue_state: &mut HashMap<CoreIndex, PerLeafClaimQueueState>,
+) -> Result<(), Error> {
+	if let StatementWithPVD::Seconded(candidate, _) = statement.payload() {
+		let candidate_hash = statement.payload().candidate_hash();
+
+		let core = core_index_from_statement(
+			&rp_state.validator_to_group,
+			&rp_state.group_rotation_info,
+			rp_state.n_cores,
+			&rp_state.claim_queue,
+			statement,
+		)
+		.ok_or(Error::CoreIndexUnavailable)?;
+
+		// claim a seconded slot at all possible paths
+		if !claim_queue_state
+			.get_mut(&core)
+			.map(|claim_queue_state| {
+				claim_queue_state.claim_seconded_slot(
+					&candidate_hash,
+					&candidate.descriptor.relay_parent(),
+					&candidate.descriptor.para_id(),
+				)
+			})
+			.unwrap_or(false)
+		{
+			gum::debug!(
+				target: LOG_TARGET,
+				?candidate_hash,
+				relay_parent=?candidate.descriptor.relay_parent(),
+				para_id=?candidate.descriptor.para_id(),
+				assigned_core=?rp_state.assigned_core,
+				candidate_core=?candidate.descriptor.core_index(),
+				"Failed to claim slot for candidate"
+			);
+			return Err(Error::NoFreeSlotInClaimQueue)
+		}
+	}
+
+	return Ok(())
 }
