@@ -22,14 +22,13 @@
 use core::marker::PhantomData;
 
 use frame::{
+	arithmetic::Perbill,
 	prelude::*,
 	traits::{
 		tokens::{GetSalary, Pay, PaymentStatus},
 		RankedMembers, RankedMembersSwapHandler,
 	},
 };
-use frame::arithmetic::Perbill;
-
 
 #[cfg(test)]
 mod tests;
@@ -71,8 +70,6 @@ pub enum ClaimState<Balance, Id> {
 }
 
 use ClaimState::*;
-//https://github.com/paritytech/polkadot-sdk/issues/7054 frame_support needs to be used until this issue is resolved
-// use frame::deps::frame_support;
 
 /// The status of a single payee/claimant.
 #[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
@@ -86,7 +83,6 @@ pub struct ClaimantStatus<CycleIndex, Balance, Id> {
 #[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame::prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);

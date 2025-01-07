@@ -204,10 +204,10 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::traits::{
-		Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade, OneSessionHandler,
+		tokens::ConvertRank, Contains, EitherOf, EstimateNextSessionRotation, IsSubType,
+		MapSuccess, NoOpPoll, OnRuntimeUpgrade, OneSessionHandler,
 	};
-	pub use frame_support::{defensive_assert, defensive};
-
+	pub use frame_support::{defensive, defensive_assert};
 
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
@@ -230,12 +230,13 @@ pub mod prelude {
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, DispatchInfoOf, Dispatchable, SaturatedConversion,
-		Saturating, StaticLookup, TrailingZeroInput, ReduceBy, Convert, ReplaceWithDefault,
+		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
+		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
 	};
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
-	pub use sp_runtime::{BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
+	pub use sp_runtime::{
+		BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
 	};
 }
 
@@ -319,7 +320,7 @@ pub mod testing_prelude {
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{
 		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok,
-		assert_storage_noop, storage_alias, construct_runtime
+		assert_storage_noop, construct_runtime, storage_alias,
 	};
 
 	pub use frame_system::{self, mocking::*};
@@ -505,8 +506,7 @@ pub mod runtime {
 	#[cfg(feature = "std")]
 	pub mod testing_prelude {
 		pub use sp_core::storage::Storage;
-		pub use sp_runtime::BuildStorage;
-		pub use sp_runtime::DispatchError::Unavailable;
+		pub use sp_runtime::{BuildStorage, DispatchError::Unavailable};
 	}
 }
 

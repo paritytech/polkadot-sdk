@@ -20,10 +20,7 @@
 use std::collections::BTreeMap;
 
 use core::cell::RefCell;
-use frame::{
-	testing_prelude::*,
-	traits::{tokens::ConvertRank, ConstU64},
-};
+use frame::testing_prelude::*;
 
 use crate as pallet_salary;
 use crate::*;
