@@ -1065,11 +1065,11 @@ dependencies = [
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "cumulus-primitives-utility 0.7.0",
  "frame-benchmarking 28.0.0",
  "frame-executive 28.0.0",
@@ -1201,11 +1201,11 @@ dependencies = [
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "cumulus-primitives-utility 0.7.0",
  "frame-benchmarking 28.0.0",
  "frame-executive 28.0.0",
@@ -2756,11 +2756,11 @@ dependencies = [
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "cumulus-primitives-utility 0.7.0",
  "frame-benchmarking 28.0.0",
  "frame-executive 28.0.0",
@@ -2995,11 +2995,11 @@ dependencies = [
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "cumulus-primitives-utility 0.7.0",
  "frame-benchmarking 28.0.0",
  "frame-executive 28.0.0",
@@ -3695,11 +3695,11 @@ dependencies = [
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "cumulus-primitives-utility 0.7.0",
  "frame-benchmarking 28.0.0",
  "frame-executive 28.0.0",
@@ -3983,11 +3983,11 @@ dependencies = [
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "cumulus-primitives-utility 0.7.0",
  "frame-benchmarking 28.0.0",
  "frame-executive 28.0.0",
@@ -4136,11 +4136,11 @@ dependencies = [
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "cumulus-primitives-utility 0.7.0",
  "frame-benchmarking 28.0.0",
  "frame-executive 28.0.0",
@@ -4237,11 +4237,11 @@ dependencies = [
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "cumulus-primitives-utility 0.7.0",
  "frame-benchmarking 28.0.0",
  "frame-executive 28.0.0",
@@ -5111,6 +5111,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-pallet-weight-reclaim"
+version = "1.0.0"
+dependencies = [
+ "cumulus-primitives-proof-size-hostfunction 0.2.0",
+ "cumulus-primitives-storage-weight-reclaim 1.0.0",
+ "derivative",
+ "docify",
+ "frame-benchmarking 28.0.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-trie 29.0.0",
+]
+
+[[package]]
 name = "cumulus-pallet-xcm"
 version = "0.7.0"
 dependencies = [
@@ -5560,10 +5579,10 @@ dependencies = [
 name = "cumulus-test-client"
 version = "0.1.0"
 dependencies = [
+ "cumulus-pallet-weight-reclaim",
  "cumulus-primitives-core 0.7.0",
  "cumulus-primitives-parachain-inherent 0.7.0",
  "cumulus-primitives-proof-size-hostfunction 0.2.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "cumulus-test-relay-sproof-builder 0.7.0",
  "cumulus-test-runtime",
  "cumulus-test-service",
@@ -5625,9 +5644,9 @@ version = "0.1.0"
 dependencies = [
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "frame-executive 28.0.0",
  "frame-support 28.0.0",
  "frame-system 28.0.0",
@@ -5679,8 +5698,8 @@ dependencies = [
  "cumulus-client-pov-recovery",
  "cumulus-client-service",
  "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-primitives-core 0.7.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "cumulus-relay-chain-inprocess-interface",
  "cumulus-relay-chain-interface",
  "cumulus-relay-chain-minimal-node",
@@ -7794,7 +7813,6 @@ dependencies = [
  "sp-externalities 0.25.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
- "sp-std 14.0.0",
  "sp-version 29.0.0",
  "sp-weights 27.0.0",
  "substrate-test-runtime-client",
@@ -12584,7 +12602,6 @@ dependencies = [
  "pallet-staking 28.0.0",
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
- "sp-std 14.0.0",
  "sp-storage 19.0.0",
  "sp-tracing 16.0.0",
 ]
@@ -13180,7 +13197,6 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
- "sp-std 14.0.0",
  "sp-tracing 16.0.0",
  "staging-xcm 7.0.0",
  "staging-xcm-builder 7.0.0",
@@ -13565,7 +13581,6 @@ dependencies = [
  "sp-npos-elections 26.0.0",
  "sp-runtime 31.0.1",
  "sp-staking 26.0.0",
- "sp-std 14.0.0",
  "sp-tracing 16.0.0",
 ]
 
@@ -14261,18 +14276,13 @@ dependencies = [
 name = "pallet-mixnet"
 version = "0.4.0"
 dependencies = [
- "frame-benchmarking 28.0.0",
- "frame-support 28.0.0",
- "frame-system 28.0.0",
  "log",
  "parity-scale-codec",
+ "polkadot-sdk-frame 0.1.0",
  "scale-info",
  "serde",
  "sp-application-crypto 30.0.0",
- "sp-arithmetic 23.0.0",
- "sp-io 30.0.0",
  "sp-mixnet 0.4.0",
- "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -14375,7 +14385,6 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
- "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -14650,7 +14659,6 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-staking 26.0.0",
- "sp-std 14.0.0",
  "sp-tracing 16.0.0",
 ]
 
@@ -14674,7 +14682,6 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-staking 26.0.0",
- "sp-std 14.0.0",
  "sp-tracing 16.0.0",
 ]
 
@@ -15088,7 +15095,6 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
- "sp-std 14.0.0",
  "sp-tracing 16.0.0",
  "staging-xcm 7.0.0",
  "staging-xcm-builder 7.0.0",
@@ -15313,7 +15319,6 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-staking 26.0.0",
- "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -16159,7 +16164,6 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
- "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -16981,11 +16985,11 @@ dependencies = [
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "cumulus-primitives-utility 0.7.0",
  "enumflags2",
  "frame-benchmarking 28.0.0",
@@ -17084,11 +17088,11 @@ dependencies = [
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "cumulus-primitives-utility 0.7.0",
  "enumflags2",
  "frame-benchmarking 28.0.0",
@@ -18888,6 +18892,7 @@ dependencies = [
  "cumulus-pallet-parachain-system-proc-macro 0.6.0",
  "cumulus-pallet-session-benchmarking 9.0.0",
  "cumulus-pallet-solo-to-para 0.7.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "cumulus-ping 0.7.0",
@@ -19476,8 +19481,8 @@ dependencies = [
  "cumulus-client-service",
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-primitives-proof-size-hostfunction 0.2.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "docify",
  "frame-benchmarking 28.0.0",
  "frame-executive 28.0.0",
@@ -21670,12 +21675,12 @@ version = "0.6.0"
 dependencies = [
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "cumulus-ping 0.7.0",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "cumulus-primitives-utility 0.7.0",
  "frame-benchmarking 28.0.0",
  "frame-executive 28.0.0",
@@ -23890,7 +23895,6 @@ dependencies = [
  "sp-crypto-hashing 0.1.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
- "sp-std 14.0.0",
 ]
 
 [[package]]

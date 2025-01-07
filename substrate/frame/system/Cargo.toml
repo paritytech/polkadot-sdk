@@ -26,7 +26,6 @@ serde = { features = ["alloc", "derive"], workspace = true }
 sp-core = { features = ["serde"], workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
-sp-std = { workspace = true }
 sp-version = { features = ["serde"], workspace = true }
 sp-weights = { features = ["serde"], workspace = true }
 
@@ -47,7 +46,6 @@ std = [
 	"sp-externalities/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-version/std",
 	"sp-weights/std",
 ]
