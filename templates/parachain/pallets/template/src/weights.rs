@@ -42,7 +42,7 @@ pub trait WeightInfo {
 #[cfg_attr(
     not(feature = "std"),
     deprecated(
-        note = "SubstrateWeight is auto-generated and should not be used in production. Replace it with hand-tuned weights."
+        note = "SubstrateWeight is auto-generated and should not be used in production. Replace it with runtime benchmarked weights."
     )
 )]
 pub struct SubstrateWeight<T>(PhantomData<T>);
