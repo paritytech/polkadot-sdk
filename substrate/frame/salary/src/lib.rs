@@ -21,7 +21,6 @@
 
 use core::marker::PhantomData;
 use frame::{
-	arithmetic::Perbill,
 	prelude::*,
 	traits::{
 		tokens::{GetSalary, Pay, PaymentStatus},
