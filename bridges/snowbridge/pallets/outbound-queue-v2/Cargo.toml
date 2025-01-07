@@ -15,31 +15,31 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-serde = { features = ["alloc", "derive"], workspace = true }
+alloy-core = { workspace = true, features = ["sol-types"] }
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-alloy-core = { workspace = true, features = ["sol-types"] }
+serde = { features = ["alloc", "derive"], workspace = true }
 
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-sp-core = { workspace = true }
-sp-std = { workspace = true }
-sp-runtime = { workspace = true }
-sp-io = { workspace = true }
 sp-arithmetic = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
 
 bridge-hub-common = { workspace = true }
 
-snowbridge-core = { workspace = true }
 ethabi = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
+snowbridge-core = { workspace = true }
 snowbridge-merkle-tree = { workspace = true }
-snowbridge-outbound-router-primitives = { workspace = true }
 snowbridge-outbound-primitives = { workspace = true }
+snowbridge-outbound-router-primitives = { workspace = true }
 xcm = { workspace = true }
-xcm-executor = { workspace = true }
 xcm-builder = { workspace = true }
+xcm-executor = { workspace = true }
 
 [dev-dependencies]
 pallet-message-queue = { workspace = true }
@@ -82,6 +82,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
