@@ -214,7 +214,9 @@ impl ApprovalEntry {
 				self.tranches.len() - 1
 			},
 		};
-
+		// We already know already if we seen already an assignment from this validator
+		// and since this function is on the hot path we can avoid going through tranches
+		// if the assignment is not a duplicate.
 		if !is_duplicate ||
 			!self.tranches[idx]
 				.assignments
