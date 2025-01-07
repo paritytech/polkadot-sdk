@@ -7,7 +7,7 @@ mod tests;
 
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
-use frame_support::{traits::tokens::Balance as BalanceT, weights::Weight, PalletError};
+use frame_support::{traits::tokens::Balance as BalanceT, PalletError};
 use scale_info::TypeInfo;
 use snowbridge_core::TokenId;
 use sp_core::{Get, RuntimeDebug, H160, H256};
@@ -102,14 +102,14 @@ pub struct MessageToXcm<
 	AccountId,
 	Balance,
 	ConvertAssetId,
-	UniversalLocation,
+	EthereumUniversalLocation,
 	GlobalAssetHubLocation,
 > where
 	CreateAssetCall: Get<CallIndex>,
 	CreateAssetDeposit: Get<u128>,
 	Balance: BalanceT,
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
-	UniversalLocation: Get<InteriorLocation>,
+	EthereumUniversalLocation: Get<InteriorLocation>,
 	GlobalAssetHubLocation: Get<Location>,
 {
 	_phantom: PhantomData<(
@@ -119,7 +119,7 @@ pub struct MessageToXcm<
 		AccountId,
 		Balance,
 		ConvertAssetId,
-		UniversalLocation,
+		EthereumUniversalLocation,
 		GlobalAssetHubLocation,
 	)>,
 }
@@ -156,7 +156,7 @@ impl<
 		AccountId,
 		Balance,
 		ConvertAssetId,
-		UniversalLocation,
+		EthereumUniversalLocation,
 		GlobalAssetHubLocation,
 	> ConvertMessage
 	for MessageToXcm<
@@ -166,7 +166,7 @@ impl<
 		AccountId,
 		Balance,
 		ConvertAssetId,
-		UniversalLocation,
+		EthereumUniversalLocation,
 		GlobalAssetHubLocation,
 	>
 where
@@ -176,7 +176,7 @@ where
 	Balance: BalanceT + From<u128>,
 	AccountId: Into<[u8; 32]>,
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
-	UniversalLocation: Get<InteriorLocation>,
+	EthereumUniversalLocation: Get<InteriorLocation>,
 	GlobalAssetHubLocation: Get<Location>,
 {
 	type Balance = Balance;
@@ -215,7 +215,7 @@ impl<
 		AccountId,
 		Balance,
 		ConvertAssetId,
-		UniversalLocation,
+		EthereumUniversalLocation,
 		GlobalAssetHubLocation,
 	>
 	MessageToXcm<
@@ -225,7 +225,7 @@ impl<
 		AccountId,
 		Balance,
 		ConvertAssetId,
-		UniversalLocation,
+		EthereumUniversalLocation,
 		GlobalAssetHubLocation,
 	>
 where
@@ -235,7 +235,7 @@ where
 	Balance: BalanceT + From<u128>,
 	AccountId: Into<[u8; 32]>,
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
-	UniversalLocation: Get<InteriorLocation>,
+	EthereumUniversalLocation: Get<InteriorLocation>,
 	GlobalAssetHubLocation: Get<Location>,
 {
 	fn convert_register_token(
@@ -251,9 +251,9 @@ where
 		let total_amount = fee + CreateAssetDeposit::get();
 		let total: Asset = (Location::parent(), total_amount).into();
 
-		let bridge_location: Location = (Parent, Parent, GlobalConsensus(network)).into();
+		let bridge_location = Location::new(2, GlobalConsensus(network));
 
-		let owner = GlobalConsensusEthereumConvertsFor::<[u8; 32]>::from_chain_id(&chain_id);
+		let owner = EthereumLocationsConverterFor::<[u8; 32]>::from_chain_id(&chain_id);
 		let asset_id = Self::convert_token_address(network, token);
 		let create_call_index: [u8; 2] = CreateAssetCall::get();
 		let inbound_queue_pallet_index = InboundQueuePalletInstance::get();
@@ -264,15 +264,22 @@ where
 			// Pay for execution.
 			BuyExecution { fees: xcm_fee, weight_limit: Unlimited },
 			// Fund the snowbridge sovereign with the required deposit for creation.
-			DepositAsset { assets: Definite(deposit.into()), beneficiary: bridge_location },
-			// Only our inbound-queue pallet is allowed to invoke `UniversalOrigin`
+			DepositAsset { assets: Definite(deposit.into()), beneficiary: bridge_location.clone() },
+			// This `SetAppendix` ensures that `xcm_fee` not spent by `Transact` will be
+			// deposited to snowbridge sovereign, instead of being trapped, regardless of
+			// `Transact` success or not.
+			SetAppendix(Xcm(vec![
+				RefundSurplus,
+				DepositAsset { assets: AllCounted(1).into(), beneficiary: bridge_location },
+			])),
+			// Only our inbound-queue pallet is allowed to invoke `UniversalOrigin`.
 			DescendOrigin(PalletInstance(inbound_queue_pallet_index).into()),
 			// Change origin to the bridge.
 			UniversalOrigin(GlobalConsensus(network)),
 			// Call create_asset on foreign assets pallet.
 			Transact {
 				origin_kind: OriginKind::Xcm,
-				require_weight_at_most: Weight::from_parts(400_000_000, 8_000),
+				fallback_max_weight: Some(Weight::from_parts(400_000_000, 8_000)),
 				call: (
 					create_call_index,
 					asset_id,
@@ -282,12 +289,10 @@ where
 					.encode()
 					.into(),
 			},
-			RefundSurplus,
-			// Clear the origin so that remaining assets in holding
-			// are claimable by the physical origin (BridgeHub)
-			ClearOrigin,
 			// Forward message id to Asset Hub
 			SetTopic(message_id.into()),
+			// Once the program ends here, appendix program will run, which will deposit any
+			// leftover fee to snowbridge sovereign.
 		]
 		.into();
 
@@ -342,108 +347,25 @@ where
 		match dest_para_id {
 			Some(dest_para_id) => {
 				let dest_para_fee_asset: Asset = (Location::parent(), dest_para_fee).into();
+				let bridge_location = Location::new(2, GlobalConsensus(network));
 
 				instructions.extend(vec![
+					// After program finishes deposit any leftover assets to the snowbridge
+					// sovereign.
+					SetAppendix(Xcm(vec![DepositAsset {
+						assets: Wild(AllCounted(2)),
+						beneficiary: bridge_location,
+					}])),
 					// Perform a deposit reserve to send to destination chain.
 					DepositReserveAsset {
-						assets: Definite(vec![dest_para_fee_asset.clone(), asset.clone()].into()),
+						// Send over assets and unspent fees, XCM delivery fee will be charged from
+						// here.
+						assets: Wild(AllCounted(2)),
 						dest: Location::new(1, [Parachain(dest_para_id)]),
 						xcm: vec![
 							// Buy execution on target.
 							BuyExecution { fees: dest_para_fee_asset, weight_limit: Unlimited },
-							// Deposit asset to beneficiary.
-							DepositAsset { assets: Definite(asset.into()), beneficiary },
-							// Forward message id to destination parachain.
-							SetTopic(message_id.into()),
-						]
-						.into(),
-					},
-				]);
-			},
-			None => {
-				instructions.extend(vec![
-					// Deposit both asset and fees to beneficiary so the fees will not get
-					// trapped. Another benefit is when fees left more than ED on AssetHub could be
-					// used to create the beneficiary account in case it does not exist.
-					DepositAsset { assets: Wild(AllCounted(2)), beneficiary },
-				]);
-			},
-		}
-
-		// Forward message id to Asset Hub.
-		instructions.push(SetTopic(message_id.into()));
-
-		(instructions.into(), total_fees.into())
-	}
-
-	// Convert ERC20 token address to a location that can be understood by Assets Hub.
-	fn convert_token_address(network: NetworkId, token: H160) -> Location {
-		Location::new(
-			2,
-			[GlobalConsensus(network), AccountKey20 { network: None, key: token.into() }],
-		)
-	}
-
-	fn convert_send_native_token(
-		message_id: H256,
-		chain_id: u64,
-		token_id: TokenId,
-		destination: Destination,
-		amount: u128,
-		asset_hub_fee: u128,
-	) -> Result<(Xcm<()>, Balance), ConvertMessageError> {
-		let network = Ethereum { chain_id };
-		let asset_hub_fee_asset: Asset = (Location::parent(), asset_hub_fee).into();
-
-		let (dest_para_id, beneficiary, dest_para_fee) = match destination {
-			// Final destination is a 32-byte account on AssetHub
-			Destination::AccountId32 { id } =>
-				(None, Location::new(0, [AccountId32 { network: None, id }]), 0),
-			// Final destination is a 32-byte account on a sibling of AssetHub
-			Destination::ForeignAccountId32 { para_id, id, fee } =>
-				(Some(para_id), Location::new(0, [AccountId32 { network: None, id }]), fee),
-			// Final destination is a 20-byte account on a sibling of AssetHub
-			Destination::ForeignAccountId20 { para_id, id, fee } =>
-				(Some(para_id), Location::new(0, [AccountKey20 { network: None, key: id }]), fee),
-		};
-
-		let total_fees = asset_hub_fee.saturating_add(dest_para_fee);
-		let total_fee_asset: Asset = (Location::parent(), total_fees).into();
-
-		let asset_loc =
-			ConvertAssetId::convert(&token_id).ok_or(ConvertMessageError::InvalidToken)?;
-
-		let mut reanchored_asset_loc = asset_loc.clone();
-		reanchored_asset_loc
-			.reanchor(&GlobalAssetHubLocation::get(), &UniversalLocation::get())
-			.map_err(|_| ConvertMessageError::CannotReanchor)?;
-
-		let asset: Asset = (reanchored_asset_loc, amount).into();
-
-		let inbound_queue_pallet_index = InboundQueuePalletInstance::get();
-
-		let mut instructions = vec![
-			ReceiveTeleportedAsset(total_fee_asset.clone().into()),
-			BuyExecution { fees: asset_hub_fee_asset, weight_limit: Unlimited },
-			DescendOrigin(PalletInstance(inbound_queue_pallet_index).into()),
-			UniversalOrigin(GlobalConsensus(network)),
-			WithdrawAsset(asset.clone().into()),
-			SetFeesMode { jit_withdraw: true },
-		];
-
-		match dest_para_id {
-			Some(dest_para_id) => {
-				let dest_para_fee_asset: Asset = (Location::parent(), dest_para_fee).into();
-
-				instructions.extend(vec![
-					// Perform a deposit reserve to send to destination chain.
-					InitiateReserveWithdraw {
-						assets: Wild(AllCounted(2)),
-						reserve: Location::new(1, [Parachain(dest_para_id)]),
-						xcm: vec![
-							// Buy execution on target.
-							BuyExecution { fees: dest_para_fee_asset, weight_limit: Unlimited },
-							// Deposit asset to beneficiary.
+							// Deposit assets to beneficiary.
 							DepositAsset { assets: Wild(AllCounted(2)), beneficiary },
 							// Forward message id to destination parachain.
 							SetTopic(message_id.into()),
@@ -465,26 +387,96 @@ where
 		// Forward message id to Asset Hub.
 		instructions.push(SetTopic(message_id.into()));
 
-		Ok((instructions.into(), total_fees.into()))
+		// The `instructions` to forward to AssetHub, and the `total_fees` to locally burn (since
+		// they are teleported within `instructions`).
+		(instructions.into(), total_fees.into())
+	}
+
+	// Convert ERC20 token address to a location that can be understood by Assets Hub.
+	fn convert_token_address(network: NetworkId, token: H160) -> Location {
+		Location::new(
+			2,
+			[GlobalConsensus(network), AccountKey20 { network: None, key: token.into() }],
+		)
+	}
+
+	/// Constructs an XCM message destined for AssetHub that withdraws assets from the sovereign
+	/// account of the Gateway contract and either deposits those assets into a recipient account or
+	/// forwards the assets to another parachain.
+	fn convert_send_native_token(
+		message_id: H256,
+		chain_id: u64,
+		token_id: TokenId,
+		destination: Destination,
+		amount: u128,
+		asset_hub_fee: u128,
+	) -> Result<(Xcm<()>, Balance), ConvertMessageError> {
+		let network = Ethereum { chain_id };
+		let asset_hub_fee_asset: Asset = (Location::parent(), asset_hub_fee).into();
+
+		let beneficiary = match destination {
+			// Final destination is a 32-byte account on AssetHub
+			Destination::AccountId32 { id } =>
+				Ok(Location::new(0, [AccountId32 { network: None, id }])),
+			// Forwarding to a destination parachain is not allowed for PNA and is validated on the
+			// Ethereum side. https://github.com/Snowfork/snowbridge/blob/e87ddb2215b513455c844463a25323bb9c01ff36/contracts/src/Assets.sol#L216-L224
+			_ => Err(ConvertMessageError::InvalidDestination),
+		}?;
+
+		let total_fee_asset: Asset = (Location::parent(), asset_hub_fee).into();
+
+		let asset_loc =
+			ConvertAssetId::convert(&token_id).ok_or(ConvertMessageError::InvalidToken)?;
+
+		let mut reanchored_asset_loc = asset_loc.clone();
+		reanchored_asset_loc
+			.reanchor(&GlobalAssetHubLocation::get(), &EthereumUniversalLocation::get())
+			.map_err(|_| ConvertMessageError::CannotReanchor)?;
+
+		let asset: Asset = (reanchored_asset_loc, amount).into();
+
+		let inbound_queue_pallet_index = InboundQueuePalletInstance::get();
+
+		let instructions = vec![
+			ReceiveTeleportedAsset(total_fee_asset.clone().into()),
+			BuyExecution { fees: asset_hub_fee_asset, weight_limit: Unlimited },
+			DescendOrigin(PalletInstance(inbound_queue_pallet_index).into()),
+			UniversalOrigin(GlobalConsensus(network)),
+			WithdrawAsset(asset.clone().into()),
+			// Deposit both asset and fees to beneficiary so the fees will not get
+			// trapped. Another benefit is when fees left more than ED on AssetHub could be
+			// used to create the beneficiary account in case it does not exist.
+			DepositAsset { assets: Wild(AllCounted(2)), beneficiary },
+			SetTopic(message_id.into()),
+		];
+
+		// `total_fees` to burn on this chain when sending `instructions` to run on AH (which also
+		// teleport fees)
+		Ok((instructions.into(), asset_hub_fee.into()))
 	}
 }
 
-pub struct GlobalConsensusEthereumConvertsFor<AccountId>(PhantomData<AccountId>);
-impl<AccountId> ConvertLocation<AccountId> for GlobalConsensusEthereumConvertsFor<AccountId>
+pub struct EthereumLocationsConverterFor<AccountId>(PhantomData<AccountId>);
+impl<AccountId> ConvertLocation<AccountId> for EthereumLocationsConverterFor<AccountId>
 where
 	AccountId: From<[u8; 32]> + Clone,
 {
 	fn convert_location(location: &Location) -> Option<AccountId> {
 		match location.unpack() {
-			(_, [GlobalConsensus(Ethereum { chain_id })]) =>
+			(2, [GlobalConsensus(Ethereum { chain_id })]) =>
 				Some(Self::from_chain_id(chain_id).into()),
+			(2, [GlobalConsensus(Ethereum { chain_id }), AccountKey20 { network: _, key }]) =>
+				Some(Self::from_chain_id_with_key(chain_id, *key).into()),
 			_ => None,
 		}
 	}
 }
 
-impl<AccountId> GlobalConsensusEthereumConvertsFor<AccountId> {
+impl<AccountId> EthereumLocationsConverterFor<AccountId> {
 	pub fn from_chain_id(chain_id: &u64) -> [u8; 32] {
 		(b"ethereum-chain", chain_id).using_encoded(blake2_256)
+	}
+	pub fn from_chain_id_with_key(chain_id: &u64, key: [u8; 20]) -> [u8; 32] {
+		(b"ethereum-chain", chain_id, key).using_encoded(blake2_256)
 	}
 }

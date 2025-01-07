@@ -74,7 +74,14 @@ impl<T: Config> Mutate<T::AccountId> for Pallet<T> {
 		// 'Minting' can only occur if the asset has previously been burned (i.e. moved to the
 		// holding register)
 		ensure!(record.owner.is_none(), Error::<T>::NotAllowed);
-		Self::issue(region_id.core, region_id.begin, record.end, Some(who.clone()), record.paid);
+		Self::issue(
+			region_id.core,
+			region_id.begin,
+			region_id.mask,
+			record.end,
+			Some(who.clone()),
+			record.paid,
+		);
 
 		Ok(())
 	}

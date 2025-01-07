@@ -109,6 +109,15 @@ fn crate_metadata(cargo_manifest: &Path) -> Metadata {
 	crate_metadata
 }
 
+/// Keep the build directories separate so that when switching between the
+/// targets we won't trigger unnecessary rebuilds.
+fn build_subdirectory(target: RuntimeTarget) -> &'static str {
+	match target {
+		RuntimeTarget::Wasm => "wbuild",
+		RuntimeTarget::Riscv => "rbuild",
+	}
+}
+
 /// Creates the WASM project, compiles the WASM binary and compacts the WASM binary.
 ///
 /// # Returns
@@ -125,7 +134,7 @@ pub(crate) fn create_and_compile(
 	#[cfg(feature = "metadata-hash")] enable_metadata_hash: Option<MetadataExtraInfo>,
 ) -> (Option<WasmBinary>, WasmBinaryBloaty) {
 	let runtime_workspace_root = get_wasm_workspace_root();
-	let runtime_workspace = runtime_workspace_root.join(target.build_subdirectory());
+	let runtime_workspace = runtime_workspace_root.join(build_subdirectory(target));
 
 	let crate_metadata = crate_metadata(orig_project_cargo_toml);
 
@@ -507,7 +516,10 @@ fn create_project_cargo_toml(
 
 	wasm_workspace_toml.insert("dependencies".into(), dependencies.into());
 
-	wasm_workspace_toml.insert("workspace".into(), Table::new().into());
+	let mut workspace = Table::new();
+	workspace.insert("resolver".into(), "2".into());
+
+	wasm_workspace_toml.insert("workspace".into(), workspace.into());
 
 	if target == RuntimeTarget::Riscv {
 		// This dependency currently doesn't compile under RISC-V, so patch it with our own fork.
@@ -598,9 +610,10 @@ fn project_enabled_features(
 			// We don't want to enable the `std`/`default` feature for the wasm build and
 			// we need to check if the feature is enabled by checking the env variable.
 			*f != "std" &&
-				*f != "default" && env::var(format!("CARGO_FEATURE_{}", feature_env))
-				.map(|v| v == "1")
-				.unwrap_or_default()
+				*f != "default" &&
+				env::var(format!("CARGO_FEATURE_{feature_env}"))
+					.map(|v| v == "1")
+					.unwrap_or_default()
 		})
 		.map(|d| d.0.clone())
 		.collect::<Vec<_>>();
@@ -766,7 +779,7 @@ impl BuildConfiguration {
 				.collect::<Vec<_>>()
 				.iter()
 				.rev()
-				.take_while(|c| c.as_os_str() != target.build_subdirectory())
+				.take_while(|c| c.as_os_str() != build_subdirectory(target))
 				.last()
 				.expect("We put the runtime project within a `target/.../[rw]build` path; qed")
 				.as_os_str()
@@ -837,9 +850,7 @@ fn build_bloaty_blob(
 				"-C target-cpu=mvp -C target-feature=-sign-ext -C link-arg=--export-table ",
 			);
 		},
-		RuntimeTarget::Riscv => {
-			rustflags.push_str("-C target-feature=+lui-addi-fusion -C relocation-model=pie -C link-arg=--emit-relocs -C link-arg=--unique ");
-		},
+		RuntimeTarget::Riscv => (),
 	}
 
 	rustflags.push_str(default_rustflags);
@@ -864,6 +875,18 @@ fn build_bloaty_blob(
 		.env_remove("RUSTC")
 		// We don't want to call ourselves recursively
 		.env(crate::SKIP_BUILD_ENV, "");
+
+	let cargo_args = env::var(crate::WASM_BUILD_CARGO_ARGS).unwrap_or_default();
+	if !cargo_args.is_empty() {
+		let Some(args) = shlex::split(&cargo_args) else {
+			build_helper::warning(format!(
+				"the {} environment variable is not a valid shell string",
+				crate::WASM_BUILD_CARGO_ARGS
+			));
+			std::process::exit(1);
+		};
+		build_cmd.args(args);
+	}
 
 	#[cfg(feature = "metadata-hash")]
 	if let Some(hash) = metadata_hash {
@@ -891,10 +914,9 @@ fn build_bloaty_blob(
 	//
 	// So here we force the compiler to also compile the standard library crates for us
 	// to make sure that they also only use the MVP features.
-	if crate::build_std_required() {
-		// Unfortunately this is still a nightly-only flag, but FWIW it is pretty widely used
-		// so it's unlikely to break without a replacement.
-		build_cmd.arg("-Z").arg("build-std");
+	if let Some(arg) = target.rustc_target_build_std() {
+		build_cmd.arg("-Z").arg(arg);
+
 		if !cargo_cmd.supports_nightly_features() {
 			build_cmd.env("RUSTC_BOOTSTRAP", "1");
 		}
@@ -918,7 +940,7 @@ fn build_bloaty_blob(
 	let blob_name = get_blob_name(target, &manifest_path);
 	let target_directory = project
 		.join("target")
-		.join(target.rustc_target())
+		.join(target.rustc_target_dir())
 		.join(blob_build_profile.directory());
 	match target {
 		RuntimeTarget::Riscv => {
@@ -952,7 +974,7 @@ fn build_bloaty_blob(
 					},
 				};
 
-				std::fs::write(&polkavm_path, program.as_bytes())
+				std::fs::write(&polkavm_path, program)
 					.expect("writing the blob to a file always works");
 			}
 
@@ -1136,6 +1158,7 @@ fn generate_rerun_if_changed_instructions(
 	println!("cargo:rerun-if-env-changed={}", crate::WASM_BUILD_TOOLCHAIN);
 	println!("cargo:rerun-if-env-changed={}", crate::WASM_BUILD_STD);
 	println!("cargo:rerun-if-env-changed={}", crate::RUNTIME_TARGET);
+	println!("cargo:rerun-if-env-changed={}", crate::WASM_BUILD_CARGO_ARGS);
 }
 
 /// Track files and paths related to the given package to rerun `build.rs` on any relevant change.

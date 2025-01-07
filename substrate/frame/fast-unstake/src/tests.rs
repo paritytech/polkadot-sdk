@@ -137,15 +137,16 @@ fn deregister_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		ErasToCheckPerBlock::<T>::put(1);
 
-		assert_eq!(<T as Config>::Currency::reserved_balance(&1), 0);
+		// reserved balance prior to registering for fast unstake.
+		let pre_reserved = <T as Config>::Currency::reserved_balance(&1);
 
 		// Controller account registers for fast unstake.
 		assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(1)));
-		assert_eq!(<T as Config>::Currency::reserved_balance(&1), Deposit::get());
+		assert_eq!(<T as Config>::Currency::reserved_balance(&1) - pre_reserved, Deposit::get());
 
 		// Controller then changes mind and deregisters.
 		assert_ok!(FastUnstake::deregister(RuntimeOrigin::signed(1)));
-		assert_eq!(<T as Config>::Currency::reserved_balance(&1), 0);
+		assert_eq!(<T as Config>::Currency::reserved_balance(&1) - pre_reserved, 0);
 
 		// Ensure stash no longer exists in the queue.
 		assert_eq!(Queue::<T>::get(1), None);
@@ -243,7 +244,8 @@ mod on_idle {
 			CurrentEra::<T>::put(BondingDuration::get());
 
 			// given
-			assert_eq!(<T as Config>::Currency::reserved_balance(&1), 0);
+			// reserved balance prior to registering for fast unstake.
+			let pre_reserved = <T as Config>::Currency::reserved_balance(&1);
 
 			assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(1)));
 			assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(3)));
@@ -251,7 +253,10 @@ mod on_idle {
 			assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(7)));
 			assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(9)));
 
-			assert_eq!(<T as Config>::Currency::reserved_balance(&1), Deposit::get());
+			assert_eq!(
+				<T as Config>::Currency::reserved_balance(&1) - pre_reserved,
+				Deposit::get()
+			);
 
 			assert_eq!(Queue::<T>::count(), 5);
 			assert_eq!(Head::<T>::get(), None);
@@ -279,6 +284,9 @@ mod on_idle {
 			// when
 			next_block(true);
 
+			// pre_reserve may change due to unstaked amount.
+			let pre_reserved = <T as Config>::Currency::reserved_balance(&1);
+
 			// then
 			assert_eq!(
 				Head::<T>::get(),
@@ -289,7 +297,7 @@ mod on_idle {
 			);
 			assert_eq!(Queue::<T>::count(), 3);
 
-			assert_eq!(<T as Config>::Currency::reserved_balance(&1), 0);
+			assert_eq!(<T as Config>::Currency::reserved_balance(&1) - pre_reserved, 0);
 
 			assert_eq!(
 				fast_unstake_events_since_last_call(),

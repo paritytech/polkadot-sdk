@@ -26,7 +26,7 @@
 //! communication between the client and the runtime. This includes:
 //!
 //! - A set of traits to declare what any block/header/extrinsic type should provide.
-//! 	- [`traits::Block`], [`traits::Header`], [`traits::Extrinsic`]
+//! 	- [`traits::Block`], [`traits::Header`], [`traits::ExtrinsicLike`]
 //! - A set of types that implement these traits, whilst still providing a high degree of
 //!   configurability via generics.
 //! 	- [`generic::Block`], [`generic::Header`], [`generic::UncheckedExtrinsic`] and
@@ -79,8 +79,6 @@ use sp_core::{
 	sr25519,
 };
 
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use alloc::format;
 use alloc::vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
@@ -90,18 +88,18 @@ pub mod generic;
 pub mod legacy;
 mod multiaddress;
 pub mod offchain;
+pub mod proving_trie;
 pub mod runtime_logger;
-mod runtime_string;
 #[cfg(feature = "std")]
 pub mod testing;
 pub mod traits;
 pub mod transaction_validity;
 pub mod type_with_default;
 
-pub use crate::runtime_string::*;
-
 // Re-export Multiaddress
 pub use multiaddress::MultiAddress;
+
+use proving_trie::TrieError;
 
 /// Re-export these since they're only "kind of" generic.
 pub use generic::{Digest, DigestItem};
@@ -130,6 +128,8 @@ pub use sp_arithmetic::{
 	FixedPointOperand, FixedU128, FixedU64, InnerOf, PerThing, PerU16, Perbill, Percent, Permill,
 	Perquintill, Rational128, Rounding, UpperOf,
 };
+/// Re-export this since it's part of the API of this crate.
+pub use sp_weights::Weight;
 
 pub use either::Either;
 
@@ -438,10 +438,10 @@ impl TryFrom<MultiSigner> for ecdsa::Public {
 #[cfg(feature = "std")]
 impl std::fmt::Display for MultiSigner {
 	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-		match *self {
-			Self::Ed25519(ref who) => write!(fmt, "ed25519: {}", who),
-			Self::Sr25519(ref who) => write!(fmt, "sr25519: {}", who),
-			Self::Ecdsa(ref who) => write!(fmt, "ecdsa: {}", who),
+		match self {
+			Self::Ed25519(who) => write!(fmt, "ed25519: {}", who),
+			Self::Sr25519(who) => write!(fmt, "sr25519: {}", who),
+			Self::Ecdsa(who) => write!(fmt, "ecdsa: {}", who),
 		}
 	}
 }
@@ -449,23 +449,14 @@ impl std::fmt::Display for MultiSigner {
 impl Verify for MultiSignature {
 	type Signer = MultiSigner;
 	fn verify<L: Lazy<[u8]>>(&self, mut msg: L, signer: &AccountId32) -> bool {
-		match (self, signer) {
-			(Self::Ed25519(ref sig), who) => match ed25519::Public::from_slice(who.as_ref()) {
-				Ok(signer) => sig.verify(msg, &signer),
-				Err(()) => false,
-			},
-			(Self::Sr25519(ref sig), who) => match sr25519::Public::from_slice(who.as_ref()) {
-				Ok(signer) => sig.verify(msg, &signer),
-				Err(()) => false,
-			},
-			(Self::Ecdsa(ref sig), who) => {
+		let who: [u8; 32] = *signer.as_ref();
+		match self {
+			Self::Ed25519(sig) => sig.verify(msg, &who.into()),
+			Self::Sr25519(sig) => sig.verify(msg, &who.into()),
+			Self::Ecdsa(sig) => {
 				let m = sp_io::hashing::blake2_256(msg.get());
-				match sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), &m) {
-					Ok(pubkey) =>
-						&sp_io::hashing::blake2_256(pubkey.as_ref()) ==
-							<dyn AsRef<[u8; 32]>>::as_ref(who),
-					_ => false,
-				}
+				sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), &m)
+					.map_or(false, |pubkey| sp_io::hashing::blake2_256(&pubkey) == who)
 			},
 		}
 	}
@@ -601,6 +592,8 @@ pub enum DispatchError {
 	Unavailable,
 	/// Root origin is not allowed.
 	RootNotAllowed,
+	/// An error with tries.
+	Trie(TrieError),
 }
 
 /// Result of a `Dispatchable` which contains the `DispatchResult` and additional information about
@@ -706,6 +699,12 @@ impl From<ArithmeticError> for DispatchError {
 	}
 }
 
+impl From<TrieError> for DispatchError {
+	fn from(e: TrieError) -> DispatchError {
+		Self::Trie(e)
+	}
+}
+
 impl From<&'static str> for DispatchError {
 	fn from(err: &'static str) -> DispatchError {
 		Self::Other(err)
@@ -730,6 +729,7 @@ impl From<DispatchError> for &'static str {
 			Corruption => "State corrupt",
 			Unavailable => "Resource unavailable",
 			RootNotAllowed => "Root not allowed",
+			Trie(e) => e.into(),
 		}
 	}
 }
@@ -777,6 +777,10 @@ impl traits::Printable for DispatchError {
 			Corruption => "State corrupt".print(),
 			Unavailable => "Resource unavailable".print(),
 			RootNotAllowed => "Root not allowed".print(),
+			Trie(e) => {
+				"Trie error: ".print();
+				<&'static str>::from(*e).print();
+			},
 		}
 	}
 }
@@ -946,13 +950,14 @@ impl<'a> ::serde::Deserialize<'a> for OpaqueExtrinsic {
 	{
 		let r = ::sp_core::bytes::deserialize(de)?;
 		Decode::decode(&mut &r[..])
-			.map_err(|e| ::serde::de::Error::custom(format!("Decode error: {}", e)))
+			.map_err(|e| ::serde::de::Error::custom(alloc::format!("Decode error: {}", e)))
 	}
 }
 
-impl traits::Extrinsic for OpaqueExtrinsic {
-	type Call = ();
-	type SignaturePayload = ();
+impl traits::ExtrinsicLike for OpaqueExtrinsic {
+	fn is_bare(&self) -> bool {
+		false
+	}
 }
 
 /// Print something that implements `Printable` from the runtime.
@@ -1028,6 +1033,23 @@ impl OpaqueValue {
 		Decode::decode(&mut &self.0[..]).ok()
 	}
 }
+
+// TODO: Remove in future versions and clean up `parse_str_literal` in `sp-version-proc-macro`
+/// Deprecated `Cow::Borrowed()` wrapper.
+#[macro_export]
+#[deprecated = "Use Cow::Borrowed() instead of create_runtime_str!()"]
+macro_rules! create_runtime_str {
+	( $y:expr ) => {{
+		$crate::Cow::Borrowed($y)
+	}};
+}
+// TODO: Re-export for ^ macro `create_runtime_str`, should be removed once macro is gone
+#[doc(hidden)]
+pub use alloc::borrow::Cow;
+// TODO: Remove in future versions
+/// Deprecated alias to improve upgrade experience
+#[deprecated = "Use String or Cow<'static, str> instead"]
+pub type RuntimeString = alloc::string::String;
 
 #[cfg(test)]
 mod tests {

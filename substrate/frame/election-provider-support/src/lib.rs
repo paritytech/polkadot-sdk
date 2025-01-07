@@ -687,7 +687,7 @@ sp_core::generate_feature_enabled_macro!(
 );
 
 sp_core::generate_feature_enabled_macro!(
-	runtime_benchmarks_fuzz_or_std_enabled,
-	any(feature = "runtime-benchmarks", feature = "fuzzing", feature = "std"),
+	runtime_benchmarks_or_std_enabled,
+	any(feature = "runtime-benchmarks", feature = "std"),
 	$
 );

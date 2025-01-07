@@ -713,6 +713,7 @@ where
 }
 
 /// Implement `Encode` by forwarding the stored raw vec.
+#[allow(dead_code)]
 struct EncodeOpaqueValue(Vec<u8>);
 
 impl Encode for EncodeOpaqueValue {

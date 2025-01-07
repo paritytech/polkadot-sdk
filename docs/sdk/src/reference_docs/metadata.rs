@@ -21,5 +21,5 @@
 //!
 //! A few noteworthy tools that inspect the (FRAME-based) metadata of a chain:
 //!
-//! <https://wiki.polkadot.network/docs/metadata>
-//! <https://paritytech.github.io/subxt-explorer/>
+//! - <https://wiki.polkadot.network/docs/metadata>
+//! - <https://paritytech.github.io/subxt-explorer/>

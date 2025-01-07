@@ -1,0 +1,123 @@
+# GHA for test-linux-stable-int, test-linux-stable, test-linux-stable-oldkernel
+name: tests linux stable coverage
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+  merge_group:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    uses: ./.github/workflows/reusable-preflight.yml
+    if: contains(github.event.label.name, 'GHA-coverage') || contains(github.event.pull_request.labels.*.name, 'GHA-coverage')
+
+  #
+  #
+  #
+  test-linux-stable-coverage:
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    timeout-minutes: 120
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    env:
+      RUST_TOOLCHAIN: stable
+      # Enable debug assertions since we are running optimized builds for testing
+      # but still want to have debug assertions.
+      #
+      # -Cinstrument-coverage slows everything down but it is necessary for code coverage
+      # https://doc.rust-lang.org/rustc/instrument-coverage.html
+      RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings -Cinstrument-coverage"
+      LLVM_PROFILE_FILE: "/__w/polkadot-sdk/polkadot-sdk/target/coverage/cargo-test-${{ matrix.ci_node_index }}-%p-%m.profraw"
+    strategy:
+      fail-fast: false
+      matrix:
+        ci_node_index: [1, 2, 3, 4, 5]
+        ci_node_total: [5]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - run: rustup component add llvm-tools-preview
+      - run: cargo install cargo-llvm-cov
+
+      - run: mkdir -p target/coverage
+
+      # Some tests are excluded because they run very slowly or fail with -Cinstrument-coverage
+      - name: run tests
+        run: >
+          time cargo llvm-cov nextest
+          --no-report --release
+          --workspace
+          --locked --no-fail-fast
+          --features try-runtime,ci-only-tests,experimental
+          --filter-expr "
+          !test(/.*benchmark.*/)
+          - test(/recovers_from_only_chunks_if_pov_large::case_1/)
+          - test(/participation_requests_reprioritized_for_newly_included/)
+          - test(/availability_is_recovered_from_chunks_if_no_group_provided::case_1/)
+          - test(/rejects_missing_inherent_digest/)
+          - test(/availability_is_recovered_from_chunks_even_if_backing_group_supplied_if_chunks_only::case_1/)
+          - test(/availability_is_recovered_from_chunks_if_no_group_provided::case_2/)
+          - test(/all_security_features_work/)
+          - test(/nonexistent_cache_dir/)
+          - test(/recovers_from_only_chunks_if_pov_large::case_3/)
+          - test(/recovers_from_only_chunks_if_pov_large::case_2/)
+          - test(/authoring_blocks/)
+          - test(/rejects_missing_seals/)
+          - test(/generate_chain_spec/)
+          - test(/get_preset/)
+          - test(/list_presets/)
+          - test(/tests::receive_rate_limit_is_enforced/)
+          - test(/polkadot-availability-recovery/)
+          "
+          --partition count:${{ matrix.ci_node_index }}/${{ matrix.ci_node_total }}
+
+      - name: generate report
+        run: cargo llvm-cov report --release --codecov --output-path coverage-${{ matrix.ci_node_index }}.lcov
+      - name: upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-${{ matrix.ci_node_index }}.lcov
+          path: coverage-${{ matrix.ci_node_index }}.lcov
+
+  #
+  #
+  # Upload to codecov
+  upload-reports:
+    needs: [test-linux-stable-coverage]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: reports
+          pattern: coverage-report-*
+          merge-multiple: true
+      - run: ls -al reports/
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
+          directory: reports
+          root_dir: /__w/polkadot-sdk/polkadot-sdk/
+
+  #
+  #
+  #
+  remove-label:
+    runs-on: ubuntu-latest
+    needs: [upload-reports]
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-ecosystem/action-remove-labels@v1
+        with:
+          labels: GHA-coverage

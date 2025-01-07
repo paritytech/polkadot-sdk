@@ -25,8 +25,7 @@ use snowbridge_pallet_inbound_queue_fixtures::{
 };
 use snowbridge_pallet_system;
 use snowbridge_router_primitives::inbound::{
-	Command, ConvertMessage, Destination, GlobalConsensusEthereumConvertsFor, MessageV1,
-	VersionedMessage,
+	Command, Destination, EthereumLocationsConverterFor, MessageV1, VersionedMessage,
 };
 use sp_core::H256;
 use sp_runtime::{DispatchError::Token, TokenError::FundsUnavailable};
@@ -86,9 +85,9 @@ fn create_agent() {
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 		DescendOrigin(Parachain(origin_para).into()),
 		Transact {
-			require_weight_at_most: 3000000000.into(),
 			origin_kind: OriginKind::Xcm,
 			call: create_agent_call.encode().into(),
+			fallback_max_weight: None,
 		},
 	]));
 
@@ -144,9 +143,9 @@ fn create_channel() {
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 		DescendOrigin(Parachain(origin_para).into()),
 		Transact {
-			require_weight_at_most: 3000000000.into(),
 			origin_kind: OriginKind::Xcm,
 			call: create_agent_call.encode().into(),
+			fallback_max_weight: None,
 		},
 	]));
 
@@ -157,9 +156,9 @@ fn create_channel() {
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 		DescendOrigin(Parachain(origin_para).into()),
 		Transact {
-			require_weight_at_most: 3000000000.into(),
 			origin_kind: OriginKind::Xcm,
 			call: create_channel_call.encode().into(),
+			fallback_max_weight: None,
 		},
 	]));
 
@@ -287,11 +286,19 @@ fn send_token_from_ethereum_to_penpal() {
 	// Fund AssetHub sovereign account so it can pay execution fees for the asset transfer
 	BridgeHubRococo::fund_accounts(vec![(asset_hub_sovereign.clone(), INITIAL_FUND)]);
 
-	// Fund PenPal sender and receiver
-	PenpalA::fund_accounts(vec![
-		(PenpalAReceiver::get(), INITIAL_FUND),
-		(PenpalASender::get(), INITIAL_FUND),
-	]);
+	// Fund PenPal receiver (covering ED)
+	let native_id: Location = Parent.into();
+	let receiver: AccountId = [
+		28, 189, 45, 67, 83, 10, 68, 112, 90, 208, 136, 175, 49, 62, 24, 248, 11, 83, 239, 22, 179,
+		97, 119, 205, 75, 119, 184, 70, 242, 165, 240, 124,
+	]
+	.into();
+	PenpalA::mint_foreign_asset(
+		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		native_id,
+		receiver,
+		penpal_runtime::EXISTENTIAL_DEPOSIT,
+	);
 
 	PenpalA::execute_with(|| {
 		assert_ok!(<PenpalA as Chain>::System::set_storage(
@@ -303,24 +310,26 @@ fn send_token_from_ethereum_to_penpal() {
 		));
 	});
 
+	let ethereum_network_v5: NetworkId = EthereumNetwork::get().into();
+
 	// The Weth asset location, identified by the contract address on Ethereum
 	let weth_asset_location: Location =
-		(Parent, Parent, EthereumNetwork::get(), AccountKey20 { network: None, key: WETH }).into();
+		(Parent, Parent, ethereum_network_v5, AccountKey20 { network: None, key: WETH }).into();
 
-	let origin_location = (Parent, Parent, EthereumNetwork::get()).into();
+	let origin_location = (Parent, Parent, ethereum_network_v5).into();
 
 	// Fund ethereum sovereign on AssetHub
 	let ethereum_sovereign: AccountId =
-		GlobalConsensusEthereumConvertsFor::<AccountId>::convert_location(&origin_location)
-			.unwrap();
+		EthereumLocationsConverterFor::<AccountId>::convert_location(&origin_location).unwrap();
 	AssetHubRococo::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 
 	// Create asset on the Penpal parachain.
 	PenpalA::execute_with(|| {
-		assert_ok!(<PenpalA as PenpalAPallet>::ForeignAssets::create(
-			<PenpalA as Chain>::RuntimeOrigin::signed(PenpalASender::get()),
+		assert_ok!(<PenpalA as PenpalAPallet>::ForeignAssets::force_create(
+			<PenpalA as Chain>::RuntimeOrigin::root(),
 			weth_asset_location.clone(),
 			asset_hub_sovereign.into(),
+			false,
 			1000,
 		));
 
@@ -441,14 +450,14 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 			)),
 			fun: Fungible(WETH_AMOUNT),
 		}];
-		let multi_assets = VersionedAssets::V4(Assets::from(assets));
+		let multi_assets = VersionedAssets::from(Assets::from(assets));
 
-		let destination = VersionedLocation::V4(Location::new(
+		let destination = VersionedLocation::from(Location::new(
 			2,
 			[GlobalConsensus(Ethereum { chain_id: CHAIN_ID })],
 		));
 
-		let beneficiary = VersionedLocation::V4(Location::new(
+		let beneficiary = VersionedLocation::from(Location::new(
 			0,
 			[AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }],
 		));
@@ -524,8 +533,6 @@ fn register_weth_token_in_asset_hub_fail_for_insufficient_fee() {
 		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
 		type EthereumInboundQueue =
 			<BridgeHubRococo as BridgeHubRococoPallet>::EthereumInboundQueue;
-		type Converter = <bridge_hub_rococo_runtime::Runtime as snowbridge_pallet_inbound_queue::Config>::MessageConverter;
-
 		let message_id: H256 = [0; 32].into();
 		let message = VersionedMessage::V1(MessageV1 {
 			chain_id: CHAIN_ID,
@@ -535,7 +542,7 @@ fn register_weth_token_in_asset_hub_fail_for_insufficient_fee() {
 				fee: INSUFFICIENT_XCM_FEE,
 			},
 		});
-		let (xcm, _) = Converter::convert(message_id, message).unwrap();
+		let (xcm, _) = EthereumInboundQueue::do_convert(message_id, message).unwrap();
 		let _ = EthereumInboundQueue::send_xcm(xcm, AssetHubRococo::para_id().into()).unwrap();
 
 		assert_expected_events!(
@@ -552,18 +559,16 @@ fn register_weth_token_in_asset_hub_fail_for_insufficient_fee() {
 		assert_expected_events!(
 			AssetHubRococo,
 			vec![
-				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success:false, .. }) => { },
+				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success:false, .. }) => {},
 			]
 		);
 	});
 }
 
 fn send_token_from_ethereum_to_asset_hub_with_fee(account_id: [u8; 32], fee: u128) {
-	let weth_asset_location: Location = Location::new(
-		2,
-		[EthereumNetwork::get().into(), AccountKey20 { network: None, key: WETH }],
-	);
-	// (Parent, Parent, EthereumNetwork::get(), AccountKey20 { network: None, key: WETH })
+	let ethereum_network_v5: NetworkId = EthereumNetwork::get().into();
+	let weth_asset_location: Location =
+		Location::new(2, [ethereum_network_v5.into(), AccountKey20 { network: None, key: WETH }]);
 	// Fund asset hub sovereign on bridge hub
 	let asset_hub_sovereign = BridgeHubRococo::sovereign_account_id_of(Location::new(
 		1,
@@ -591,10 +596,9 @@ fn send_token_from_ethereum_to_asset_hub_with_fee(account_id: [u8; 32], fee: u12
 	// Send WETH to an existent account on asset hub
 	BridgeHubRococo::execute_with(|| {
 		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
+
 		type EthereumInboundQueue =
 			<BridgeHubRococo as BridgeHubRococoPallet>::EthereumInboundQueue;
-		type Converter = <bridge_hub_rococo_runtime::Runtime as snowbridge_pallet_inbound_queue::Config>::MessageConverter;
-
 		let message_id: H256 = [0; 32].into();
 		let message = VersionedMessage::V1(MessageV1 {
 			chain_id: CHAIN_ID,
@@ -605,7 +609,7 @@ fn send_token_from_ethereum_to_asset_hub_with_fee(account_id: [u8; 32], fee: u12
 				fee,
 			},
 		});
-		let (xcm, _) = Converter::convert(message_id, message).unwrap();
+		let (xcm, _) = EthereumInboundQueue::do_convert(message_id, message).unwrap();
 		assert_ok!(EthereumInboundQueue::send_xcm(xcm, AssetHubRococo::para_id().into()));
 
 		// Check that the message was sent
@@ -673,8 +677,8 @@ fn send_token_from_ethereum_to_non_existent_account_on_asset_hub_with_insufficie
 #[test]
 fn send_token_from_ethereum_to_non_existent_account_on_asset_hub_with_sufficient_fee_but_do_not_satisfy_ed(
 ) {
-	// On AH the xcm fee is 33_873_024 and the ED is 3_300_000
-	send_token_from_ethereum_to_asset_hub_with_fee([1; 32], 36_000_000);
+	// On AH the xcm fee is 26_789_690 and the ED is 3_300_000
+	send_token_from_ethereum_to_asset_hub_with_fee([1; 32], 30_000_000);
 
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;

@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::*;
+use crate::{xcm_config::LocationToAccountId, *};
 use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::RelaychainDataProvider;
 use cumulus_primitives_core::relay_chain;
@@ -28,13 +28,13 @@ use frame_support::{
 };
 use frame_system::Pallet as System;
 use pallet_broker::{
-	CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, RCBlockNumberOf, Timeslice,
+	CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, RCBlockNumberOf, TaskId, Timeslice,
 };
 use parachains_common::{AccountId, Balance};
-use sp_runtime::traits::AccountIdConversion;
+use sp_runtime::traits::{AccountIdConversion, MaybeConvert};
 use westend_runtime_constants::system_parachain::coretime;
 use xcm::latest::prelude::*;
-use xcm_executor::traits::TransactAsset;
+use xcm_executor::traits::{ConvertLocation, TransactAsset};
 
 pub struct BurnCoretimeRevenue;
 impl OnUnbalanced<Credit<AccountId, Balances>> for BurnCoretimeRevenue {
@@ -140,8 +140,8 @@ impl CoretimeInterface for CoretimeAllocator {
 			},
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
-				require_weight_at_most: call_weight,
 				call: request_core_count_call.encode().into(),
+				fallback_max_weight: Some(call_weight),
 			},
 		]);
 
@@ -170,8 +170,8 @@ impl CoretimeInterface for CoretimeAllocator {
 			},
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
-				require_weight_at_most: Weight::from_parts(1000000000, 200000),
 				call: request_revenue_info_at_call.encode().into(),
+				fallback_max_weight: Some(Weight::from_parts(1_000_000_000, 200_000)),
 			},
 		]);
 
@@ -199,8 +199,8 @@ impl CoretimeInterface for CoretimeAllocator {
 			},
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
-				require_weight_at_most: Weight::from_parts(1000000000, 200000),
 				call: credit_account_call.encode().into(),
+				fallback_max_weight: Some(Weight::from_parts(1_000_000_000, 200_000)),
 			},
 		]);
 
@@ -224,14 +224,44 @@ impl CoretimeInterface for CoretimeAllocator {
 		end_hint: Option<RCBlockNumberOf<Self>>,
 	) {
 		use crate::coretime::CoretimeProviderCalls::AssignCore;
-		let assign_core_call =
-			RelayRuntimePallets::Coretime(AssignCore(core, begin, assignment, end_hint));
 
 		// Weight for `assign_core` from westend benchmarks:
 		// `ref_time` = 10177115 + (1 * 25000000) + (2 * 100000000) + (57600 * 13932) = 937660315
 		// `proof_size` = 3612
 		// Add 5% to each component and round to 2 significant figures.
 		let call_weight = Weight::from_parts(980_000_000, 3800);
+
+		// The relay chain currently only allows `assign_core` to be called with a complete mask
+		// and only ever with increasing `begin`. The assignments must be truncated to avoid
+		// dropping that core's assignment completely.
+
+		// This shadowing of `assignment` is temporary and can be removed when the relay can accept
+		// multiple messages to assign a single core.
+		let assignment = if assignment.len() > 28 {
+			let mut total_parts = 0u16;
+			// Account for missing parts with a new `Idle` assignment at the start as
+			// `assign_core` on the relay assumes this is sorted. We'll add the rest of the
+			// assignments and sum the parts in one pass, so this is just initialized to 0.
+			let mut assignment_truncated = vec![(CoreAssignment::Idle, 0)];
+			// Truncate to first 27 non-idle assignments.
+			assignment_truncated.extend(
+				assignment
+					.into_iter()
+					.filter(|(a, _)| *a != CoreAssignment::Idle)
+					.take(27)
+					.inspect(|(_, parts)| total_parts += *parts)
+					.collect::<Vec<_>>(),
+			);
+
+			// Set the parts of the `Idle` assignment we injected at the start of the vec above.
+			assignment_truncated[0].1 = 57_600u16.saturating_sub(total_parts);
+			assignment_truncated
+		} else {
+			assignment
+		};
+
+		let assign_core_call =
+			RelayRuntimePallets::Coretime(AssignCore(core, begin, assignment, end_hint));
 
 		let message = Xcm(vec![
 			Instruction::UnpaidExecution {
@@ -240,8 +270,8 @@ impl CoretimeInterface for CoretimeAllocator {
 			},
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
-				require_weight_at_most: call_weight,
 				call: assign_core_call.encode().into(),
+				fallback_max_weight: Some(call_weight),
 			},
 		]);
 
@@ -277,6 +307,15 @@ impl CoretimeInterface for CoretimeAllocator {
 	}
 }
 
+pub struct SovereignAccountOf;
+impl MaybeConvert<TaskId, AccountId> for SovereignAccountOf {
+	fn maybe_convert(id: TaskId) -> Option<AccountId> {
+		// Currently all tasks are parachains.
+		let location = Location::new(1, [Parachain(id)]);
+		LocationToAccountId::convert_location(&location)
+	}
+}
+
 impl pallet_broker::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -290,5 +329,7 @@ impl pallet_broker::Config for Runtime {
 	type WeightInfo = weights::pallet_broker::WeightInfo<Runtime>;
 	type PalletId = BrokerPalletId;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type SovereignAccountOf = SovereignAccountOf;
+	type MaxAutoRenewals = ConstU32<20>;
 	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
 }

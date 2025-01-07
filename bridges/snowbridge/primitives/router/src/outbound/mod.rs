@@ -11,7 +11,7 @@ use codec::{Decode, Encode};
 
 use frame_support::{ensure, traits::Get};
 use snowbridge_core::{
-	outbound::{Command, Message, SendMessage},
+	outbound::{AgentExecuteCommand, Command, Message, SendMessage},
 	AgentId, ChannelId, ParaId, TokenId, TokenIdOf,
 };
 use sp_core::{H160, H256};
@@ -69,13 +69,15 @@ where
 			return Err(SendError::NotApplicable)
 		}
 
-		let dest = destination.take().ok_or(SendError::MissingArgument)?;
+		// Cloning destination to avoid modifying the value so subsequent exporters can use it.
+		let dest = destination.clone().take().ok_or(SendError::MissingArgument)?;
 		if dest != Here {
 			log::trace!(target: "xcm::ethereum_blob_exporter", "skipped due to unmatched remote destination {dest:?}.");
 			return Err(SendError::NotApplicable)
 		}
 
-		let (local_net, local_sub) = universal_source
+		// Cloning universal_source to avoid modifying the value so subsequent exporters can use it.
+		let (local_net, local_sub) = universal_source.clone()
 			.take()
 			.ok_or_else(|| {
 				log::error!(target: "xcm::ethereum_blob_exporter", "universal source not provided.");
@@ -84,7 +86,7 @@ where
 			.split_global()
 			.map_err(|()| {
 				log::error!(target: "xcm::ethereum_blob_exporter", "could not get global consensus from universal source '{universal_source:?}'.");
-				SendError::Unroutable
+				SendError::NotApplicable
 			})?;
 
 		if Ok(local_net) != universal_location.global_consensus() {
@@ -96,14 +98,9 @@ where
 			[Parachain(para_id)] => *para_id,
 			_ => {
 				log::error!(target: "xcm::ethereum_blob_exporter", "could not get parachain id from universal source '{local_sub:?}'.");
-				return Err(SendError::MissingArgument)
+				return Err(SendError::NotApplicable)
 			},
 		};
-
-		let message = message.take().ok_or_else(|| {
-			log::error!(target: "xcm::ethereum_blob_exporter", "xcm message not provided.");
-			SendError::MissingArgument
-		})?;
 
 		let source_location = Location::new(1, local_sub.clone());
 
@@ -111,9 +108,14 @@ where
 			Some(id) => id,
 			None => {
 				log::error!(target: "xcm::ethereum_blob_exporter", "unroutable due to not being able to create agent id. '{source_location:?}'");
-				return Err(SendError::Unroutable)
+				return Err(SendError::NotApplicable)
 			},
 		};
+
+		let message = message.take().ok_or_else(|| {
+			log::error!(target: "xcm::ethereum_blob_exporter", "xcm message not provided.");
+			SendError::MissingArgument
+		})?;
 
 		let mut converter =
 			XcmConverter::<ConvertAssetId, ()>::new(&message, expected_network, agent_id);
@@ -205,9 +207,9 @@ where
 
 	fn convert(&mut self) -> Result<(Command, [u8; 32]), XcmConverterError> {
 		let result = match self.peek() {
-			Ok(ReserveAssetDeposited { .. }) => self.send_native_tokens_message(),
+			Ok(ReserveAssetDeposited { .. }) => self.make_mint_foreign_token_command(),
 			// Get withdraw/deposit and make native tokens create message.
-			Ok(WithdrawAsset { .. }) => self.send_tokens_message(),
+			Ok(WithdrawAsset { .. }) => self.make_unlock_native_token_command(),
 			Err(e) => Err(e),
 			_ => return Err(XcmConverterError::UnexpectedInstruction),
 		}?;
@@ -220,7 +222,9 @@ where
 		Ok(result)
 	}
 
-	fn send_tokens_message(&mut self) -> Result<(Command, [u8; 32]), XcmConverterError> {
+	fn make_unlock_native_token_command(
+		&mut self,
+	) -> Result<(Command, [u8; 32]), XcmConverterError> {
 		use XcmConverterError::*;
 
 		// Get the reserve assets from WithdrawAsset.
@@ -269,7 +273,12 @@ where
 		ensure!(reserve_assets.len() == 1, TooManyAssets);
 		let reserve_asset = reserve_assets.get(0).ok_or(AssetResolutionFailed)?;
 
-		// If there was a fee specified verify it.
+		// Fees are collected on AH, up front and directly from the user, to cover the
+		// complete cost of the transfer. Any additional fees provided in the XCM program are
+		// refunded to the beneficiary. We only validate the fee here if its provided to make sure
+		// the XCM program is well formed. Another way to think about this from an XCM perspective
+		// would be that the user offered to pay X amount in fees, but we charge 0 of that X amount
+		// (no fee) and refund X to the user.
 		if let Some(fee_asset) = fee_asset {
 			// The fee asset must be the same as the reserve asset.
 			if fee_asset.id != reserve_asset.id || fee_asset.fun > reserve_asset.fun {
@@ -295,7 +304,10 @@ where
 		let topic_id = match_expression!(self.next()?, SetTopic(id), id).ok_or(SetTopicExpected)?;
 
 		Ok((
-			Command::TransferNativeToken { agent_id: self.agent_id, token, recipient, amount },
+			Command::AgentExecute {
+				agent_id: self.agent_id,
+				command: AgentExecuteCommand::TransferToken { token, recipient, amount },
+			},
 			*topic_id,
 		))
 	}
@@ -316,7 +328,16 @@ where
 		}
 	}
 
-	fn send_native_tokens_message(&mut self) -> Result<(Command, [u8; 32]), XcmConverterError> {
+	/// Convert the xcm for Polkadot-native token from AH into the Command
+	/// To match transfers of Polkadot-native tokens, we expect an input of the form:
+	/// # ReserveAssetDeposited
+	/// # ClearOrigin
+	/// # BuyExecution
+	/// # DepositAsset
+	/// # SetTopic
+	fn make_mint_foreign_token_command(
+		&mut self,
+	) -> Result<(Command, [u8; 32]), XcmConverterError> {
 		use XcmConverterError::*;
 
 		// Get the reserve assets.
@@ -365,7 +386,12 @@ where
 		ensure!(reserve_assets.len() == 1, TooManyAssets);
 		let reserve_asset = reserve_assets.get(0).ok_or(AssetResolutionFailed)?;
 
-		// If there was a fee specified verify it.
+		// Fees are collected on AH, up front and directly from the user, to cover the
+		// complete cost of the transfer. Any additional fees provided in the XCM program are
+		// refunded to the beneficiary. We only validate the fee here if its provided to make sure
+		// the XCM program is well formed. Another way to think about this from an XCM perspective
+		// would be that the user offered to pay X amount in fees, but we charge 0 of that X amount
+		// (no fee) and refund X to the user.
 		if let Some(fee_asset) = fee_asset {
 			// The fee asset must be the same as the reserve asset.
 			if fee_asset.id != reserve_asset.id || fee_asset.fun > reserve_asset.fun {

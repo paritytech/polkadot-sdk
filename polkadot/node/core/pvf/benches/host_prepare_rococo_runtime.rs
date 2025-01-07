@@ -116,7 +116,7 @@ fn host_prepare_rococo_runtime(c: &mut Criterion) {
 						cfg.prepare_workers_hard_max_num = 1;
 					})
 					.await,
-					pvf.clone().code(),
+					pvf.clone().maybe_compressed_code(),
 				)
 			},
 			|result| async move {

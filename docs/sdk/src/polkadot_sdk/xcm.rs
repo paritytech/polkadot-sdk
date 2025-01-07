@@ -5,7 +5,7 @@
 //!
 //! ## Overview
 //!
-//! XCM is a standard, whose specification lives in the [xcm format repo](https://github.com/paritytech/xcm-format).
+//! XCM is a standard, specification of which lives in the [xcm format repo](https://github.com/paritytech/xcm-format).
 //! It's agnostic both in programming language and blockchain platform, which means it could be used
 //! in Rust in Polkadot, or in Go or C++ in any other platform like Cosmos or Ethereum.
 //!
@@ -34,13 +34,12 @@
 //! but will be moved to its own repo in the future.
 //!
 //! Its main components are:
-//! - `src`: the definition of the basic types and instructions
-//! - [`xcm-executor`](https://paritytech.github.io/polkadot-sdk/master/staging_xcm_executor/struct.XcmExecutor.html):
-//!   an implementation of the virtual machine to execute instructions
-//! - `pallet-xcm`: A FRAME pallet for interacting with the executor
-//! - `xcm-builder`: a collection of types to configure the executor
-//! - `xcm-simulator`: a playground for trying out different XCM programs and executor
-//!   configurations
+//! - [`xcm`](::xcm): The definition of the basic types and instructions.
+//! - [`xcm_executor`]: An implementation of the virtual machine to execute instructions.
+//! - [`pallet_xcm`]: A FRAME pallet for interacting with the executor.
+//! - [`xcm_builder`]: A collection of types to configure the executor.
+//! - [`xcm_simulator`]: A playground for trying out different XCM programs and executor
+//!   configurations.
 //!
 //! ## Example
 //!

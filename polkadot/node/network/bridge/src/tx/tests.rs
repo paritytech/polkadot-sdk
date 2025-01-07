@@ -148,6 +148,14 @@ impl Network for TestNetwork {
 		Ok(())
 	}
 
+	async fn add_peers_to_reserved_set(
+		&mut self,
+		_protocol: ProtocolName,
+		_: HashSet<Multiaddr>,
+	) -> Result<(), String> {
+		Ok(())
+	}
+
 	async fn remove_from_peers_set(
 		&mut self,
 		_protocol: ProtocolName,

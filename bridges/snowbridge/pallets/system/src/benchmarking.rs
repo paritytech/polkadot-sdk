@@ -168,8 +168,8 @@ mod benchmarks {
 
 		T::Token::mint_into(&caller, amount)?;
 
-		let relay_token_asset_id: Location = Location::new(1, [GlobalConsensus(Westend)]);
-		let asset = Box::new(VersionedLocation::V4(relay_token_asset_id));
+		let relay_token_asset_id: Location = Location::parent();
+		let asset = Box::new(VersionedLocation::from(relay_token_asset_id));
 		let asset_metadata = AssetMetadata {
 			name: "wnd".as_bytes().to_vec().try_into().unwrap(),
 			symbol: "wnd".as_bytes().to_vec().try_into().unwrap(),
@@ -177,7 +177,7 @@ mod benchmarks {
 		};
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), asset, asset_metadata);
+		_(RawOrigin::Root, asset, asset_metadata);
 
 		Ok(())
 	}

@@ -20,24 +20,11 @@ use proc_macro::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
 
 mod builder_pattern;
-mod v2;
+mod enum_variants;
 mod v3;
 mod v4;
+mod v5;
 mod weight_info;
-
-#[proc_macro]
-pub fn impl_conversion_functions_for_multilocation_v2(input: TokenStream) -> TokenStream {
-	v2::multilocation::generate_conversion_functions(input)
-		.unwrap_or_else(syn::Error::into_compile_error)
-		.into()
-}
-
-#[proc_macro]
-pub fn impl_conversion_functions_for_junctions_v2(input: TokenStream) -> TokenStream {
-	v2::junctions::generate_conversion_functions(input)
-		.unwrap_or_else(syn::Error::into_compile_error)
-		.into()
-}
 
 #[proc_macro_derive(XcmWeightInfoTrait)]
 pub fn derive_xcm_weight_info(item: TokenStream) -> TokenStream {
@@ -72,6 +59,20 @@ pub fn impl_conversion_functions_for_junctions_v4(input: TokenStream) -> TokenSt
 		.into()
 }
 
+#[proc_macro]
+pub fn impl_conversion_functions_for_junctions_v5(input: TokenStream) -> TokenStream {
+	v5::junctions::generate_conversion_functions(input)
+		.unwrap_or_else(syn::Error::into_compile_error)
+		.into()
+}
+
+#[proc_macro]
+pub fn impl_conversion_functions_for_location_v5(input: TokenStream) -> TokenStream {
+	v5::location::generate_conversion_functions(input)
+		.unwrap_or_else(syn::Error::into_compile_error)
+		.into()
+}
+
 /// This is called on the `Instruction` enum, not on the `Xcm` struct,
 /// and allows for the following syntax for building XCMs:
 /// let message = Xcm::builder()
@@ -83,6 +84,14 @@ pub fn impl_conversion_functions_for_junctions_v4(input: TokenStream) -> TokenSt
 pub fn derive_builder(input: TokenStream) -> TokenStream {
 	let input = parse_macro_input!(input as DeriveInput);
 	builder_pattern::derive(input)
+		.unwrap_or_else(syn::Error::into_compile_error)
+		.into()
+}
+
+#[proc_macro_derive(NumVariants)]
+pub fn derive_num_variants(input: TokenStream) -> TokenStream {
+	let input = parse_macro_input!(input as DeriveInput);
+	enum_variants::derive(input)
 		.unwrap_or_else(syn::Error::into_compile_error)
 		.into()
 }

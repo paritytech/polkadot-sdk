@@ -5,6 +5,7 @@
 //! crate. This helps with selecting the right combination of crate versions, since otherwise 3rd
 //! party tools are needed to select a compatible set of versions.
 //!
+//!
 //! ## Features
 //!
 //! The umbrella crate supports no-std builds and can therefore be used in the runtime and node.
@@ -25,7 +26,7 @@
 //! - `runtime`: As described above, enable all `no-std` crates.
 //! - `node`: As described above, enable all `std` crates.
 //! - There does *not* exist a dedicated docs feature. To generate docs, enable the `runtime` and
-//!   `node` feature. For docs.rs the manifest contains specific configuration to make it show up
+//!   `node` feature. For `docs.rs` the manifest contains specific configuration to make it show up
 //!   all re-exports.
 //!
 //! There is a specific [`zepter`](https://github.com/ggwpez/zepter) check in place to ensure that
@@ -77,7 +78,7 @@
 //! ```
 //!
 //! Apart from this, no issues are known. There could be some bugs with how macros locate their own
-//! re-exports. Please compile issues that arise from using this crate.
+//! re-exports. Please [report issues](https://github.com/paritytech/polkadot-sdk/issues) that arise from using this crate.
 //!
 //! ## Dependencies
 //!

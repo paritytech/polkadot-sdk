@@ -35,6 +35,9 @@ pub use asset_conversion::{
 	AsPrefixedGeneralIndex, ConvertedConcreteId, MatchedConvertedConcreteId,
 };
 
+mod asset_exchange;
+pub use asset_exchange::SingleAssetExchangeAdapter;
+
 mod barriers;
 pub use barriers::{
 	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
@@ -105,7 +108,7 @@ pub use nonfungible_adapter::{
 };
 
 mod origin_aliases;
-pub use origin_aliases::AliasForeignAccountId32;
+pub use origin_aliases::*;
 
 mod origin_conversion;
 pub use origin_conversion::{

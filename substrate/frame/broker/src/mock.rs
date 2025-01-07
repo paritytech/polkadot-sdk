@@ -32,7 +32,7 @@ use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_arithmetic::Perbill;
 use sp_core::{ConstU32, ConstU64, Get};
 use sp_runtime::{
-	traits::{BlockNumberProvider, Identity},
+	traits::{BlockNumberProvider, Identity, MaybeConvert},
 	BuildStorage, Saturating,
 };
 
@@ -180,6 +180,14 @@ ord_parameter_types! {
 }
 type EnsureOneOrRoot = EitherOfDiverse<EnsureRoot<u64>, EnsureSignedBy<One, u64>>;
 
+// Dummy implementation which converts `TaskId` to `AccountId`.
+pub struct SovereignAccountOf;
+impl MaybeConvert<TaskId, u64> for SovereignAccountOf {
+	fn maybe_convert(task: TaskId) -> Option<u64> {
+		Some(task.into())
+	}
+}
+
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = ItemOf<TestFungibles<(), u64, (), ConstU64<0>, ()>, (), u64>;
@@ -192,6 +200,8 @@ impl crate::Config for Test {
 	type WeightInfo = ();
 	type PalletId = TestBrokerId;
 	type AdminOrigin = EnsureOneOrRoot;
+	type SovereignAccountOf = SovereignAccountOf;
+	type MaxAutoRenewals = ConstU32<3>;
 	type PriceAdapter = CenterTargetPrice<BalanceOf<Self>>;
 }
 
@@ -246,6 +256,10 @@ pub fn new_config() -> ConfigRecordOf<Test> {
 	}
 }
 
+pub fn endow(who: u64, amount: u64) {
+	assert_ok!(<<Test as Config>::Currency as Mutate<_>>::mint_into(&who, amount));
+}
+
 pub struct TestExt(ConfigRecordOf<Test>);
 #[allow(dead_code)]
 impl TestExt {
@@ -298,7 +312,7 @@ impl TestExt {
 	}
 
 	pub fn endow(self, who: u64, amount: u64) -> Self {
-		assert_ok!(<<Test as Config>::Currency as Mutate<_>>::mint_into(&who, amount));
+		endow(who, amount);
 		self
 	}
 

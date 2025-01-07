@@ -1,0 +1,49 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Dynamic deposit based on number of proposals 
+
+doc:
+  - audience: 
+      - Runtime User
+      - Runtime Dev
+    description: |
+      Introduce a dynamic proposal deposit mechanism influenced by the total number of active 
+      proposals, with the option to set the deposit to none.
+
+      The potential cost (e.g., balance hold) for proposal submission and storage is determined 
+      by the implementation of the `Consideration` trait. The footprint is defined as `proposal_count`, 
+      representing the total number of active proposals in the system, excluding the one currently 
+      being proposed. This cost may vary based on the proposal count. The pallet also offers various 
+      types to define a cost strategy based on the number of proposals.
+
+      Two new calls are introduced:
+        - kill(origin, proposal_hash): the cancellation of a proposal, accompanied by the burning 
+        of the associated cost/consideration ticket.
+        - release_proposal_cost(origin, proposal_hash): the release of the cost for a non-active proposal.
+
+      New config parameters:
+        - DisapproveOrigin: origin from which a proposal in any status may be disapproved without 
+        associated cost for a proposer;
+        - KillOrigin: Origin from which any malicious proposal may be killed with associated cost 
+        for a proposer;
+        - Consideration: mechanism to assess the necessity of some cost for publishing and storing 
+        a proposal. Set to unit type to have not submission cost;
+
+      Additionally change: 
+        - benchmarks have been upgraded to benchmarks::v2 for collective pallet;
+        - `ensure_successful` function added to the `Consideration` under `runtime-benchmarks` feature.
+
+crates:
+  - name: pallet-collective
+    bump: major
+  - name: collectives-westend-runtime
+    bump: major
+  - name: kitchensink-runtime
+    bump: major
+  - name: pallet-alliance
+    bump: patch
+  - name: pallet-balances
+    bump: patch
+  - name: pallet-utility
+    bump: patch

@@ -1,0 +1,84 @@
+name: Check licenses
+
+on:
+  pull_request:
+  merge_group:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  packages: read
+
+jobs:
+  check-licenses:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      LICENSES: "'Apache-2.0' 'GPL-3.0-only' 'GPL-3.0-or-later WITH Classpath-exception-2.0'"
+      NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+      - uses: actions/setup-node@v4.1.0
+        with:
+          node-version: "18.x"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@paritytech"
+
+      - name: Check the licenses in Polkadot
+        run: |
+          shopt -s globstar
+          npx @paritytech/license-scanner scan \
+            --ensure-licenses ${{ env.LICENSES }} \
+            -- ./polkadot/**/*.rs
+
+      - name: Check the licenses in Cumulus
+        run: |
+          shopt -s globstar
+          npx @paritytech/license-scanner scan \
+            --ensure-licenses ${{ env.LICENSES }} \
+            -- ./cumulus/**/*.rs
+
+      - name: Check the licenses in Substrate
+        run: |
+          shopt -s globstar
+          npx @paritytech/license-scanner scan \
+            --ensure-licenses ${{ env.LICENSES }} \
+            -- ./substrate/**/*.rs
+
+  check-product-references:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
+      - uses: actions/setup-node@v4.1.0
+        with:
+          node-version: "18.x"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@paritytech"
+
+      - name: Check the product references in Polkadot
+        run: |
+          shopt -s globstar
+          npx @paritytech/license-scanner scan \
+            --ensure-product 'Polkadot' \
+            -- ./polkadot/**/*.rs
+
+      - name: Check the product references in Cumulus
+        run: |
+          shopt -s globstar
+          npx @paritytech/license-scanner scan \
+            --ensure-product 'Cumulus' \
+            -- ./cumulus/**/*.rs
+
+      - name: Check the product references in Substrate
+        run: |
+          shopt -s globstar
+          npx @paritytech/license-scanner scan \
+            --ensure-product 'Substrate' \
+            -- ./substrate/**/*.rs

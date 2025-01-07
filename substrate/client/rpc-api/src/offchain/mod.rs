@@ -28,10 +28,10 @@ use sp_core::{offchain::StorageKind, Bytes};
 #[rpc(client, server)]
 pub trait OffchainApi {
 	/// Set offchain local storage under given key and prefix.
-	#[method(name = "offchain_localStorageSet")]
+	#[method(name = "offchain_localStorageSet", with_extensions)]
 	fn set_local_storage(&self, kind: StorageKind, key: Bytes, value: Bytes) -> Result<(), Error>;
 
 	/// Get offchain local storage under given key and prefix.
-	#[method(name = "offchain_localStorageGet")]
+	#[method(name = "offchain_localStorageGet", with_extensions)]
 	fn get_local_storage(&self, kind: StorageKind, key: Bytes) -> Result<Option<Bytes>, Error>;
 }

@@ -1,0 +1,10 @@
+title:  "[pallet-revive] Move event's topics" 
+
+doc:
+  - audience: Runtime Dev
+    description: |
+     Move event's topics inside body
+
+crates:
+  - name: pallet-revive
+    bump: major

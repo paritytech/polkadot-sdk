@@ -26,11 +26,12 @@ use cumulus_client_consensus_common::{
 	self as consensus_common, load_abridged_host_configuration, ParentSearchParams,
 };
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
-use cumulus_primitives_core::{relay_chain::Hash as ParaHash, BlockT};
+use cumulus_primitives_core::{relay_chain::Hash as ParaHash, BlockT, ClaimQueueOffset};
 use cumulus_relay_chain_interface::RelayChainInterface;
+use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
-	AsyncBackingParams, CoreIndex, CoreState, Hash as RelayHash, Id as ParaId,
-	OccupiedCoreAssumption, ValidationCodeHash,
+	AsyncBackingParams, CoreIndex, Hash as RelayHash, Id as ParaId, OccupiedCoreAssumption,
+	ValidationCodeHash,
 };
 use sc_consensus_aura::{standalone as aura_internal, AuraApi};
 use sp_api::ProvideRuntimeApi;
@@ -126,50 +127,33 @@ async fn async_backing_params(
 	}
 }
 
-// Return all the cores assigned to the para at the provided relay parent.
+// Return all the cores assigned to the para at the provided relay parent, using the claim queue
+// offset.
+// Will return an empty vec if the provided offset is higher than the claim queue length (which
+// corresponds to the scheduling_lookahead on the relay chain).
 async fn cores_scheduled_for_para(
 	relay_parent: RelayHash,
 	para_id: ParaId,
 	relay_client: &impl RelayChainInterface,
+	claim_queue_offset: ClaimQueueOffset,
 ) -> Vec<CoreIndex> {
-	// Get `AvailabilityCores` from runtime
-	let cores = match relay_client.availability_cores(relay_parent).await {
-		Ok(cores) => cores,
+	// Get `ClaimQueue` from runtime
+	let claim_queue: ClaimQueueSnapshot = match relay_client.claim_queue(relay_parent).await {
+		Ok(claim_queue) => claim_queue.into(),
 		Err(error) => {
 			tracing::error!(
 				target: crate::LOG_TARGET,
 				?error,
 				?relay_parent,
-				"Failed to query availability cores runtime API",
+				"Failed to query claim queue runtime API",
 			);
 			return Vec::new()
 		},
 	};
 
-	let max_candidate_depth = async_backing_params(relay_parent, relay_client)
-		.await
-		.map(|c| c.max_candidate_depth)
-		.unwrap_or(0);
-
-	cores
-		.iter()
-		.enumerate()
-		.filter_map(|(index, core)| {
-			let core_para_id = match core {
-				CoreState::Scheduled(scheduled_core) => Some(scheduled_core.para_id),
-				CoreState::Occupied(occupied_core) if max_candidate_depth > 0 => occupied_core
-					.next_up_on_available
-					.as_ref()
-					.map(|scheduled_core| scheduled_core.para_id),
-				CoreState::Free | CoreState::Occupied(_) => None,
-			};
-
-			if core_para_id == Some(para_id) {
-				Some(CoreIndex(index as u32))
-			} else {
-				None
-			}
-		})
+	claim_queue
+		.iter_claims_at_depth(claim_queue_offset.0 as usize)
+		.filter_map(|(core_index, core_para_id)| (core_para_id == para_id).then_some(core_index))
 		.collect()
 }
 

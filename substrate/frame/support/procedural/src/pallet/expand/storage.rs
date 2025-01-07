@@ -62,7 +62,7 @@ fn check_prefix_duplicates(
 	if let Some(other_dup_err) = used_prefixes.insert(prefix.clone(), dup_err.clone()) {
 		let mut err = dup_err;
 		err.combine(other_dup_err);
-		return Err(err)
+		return Err(err);
 	}
 
 	if let Metadata::CountedMap { .. } = storage_def.metadata {
@@ -79,7 +79,7 @@ fn check_prefix_duplicates(
 		if let Some(other_dup_err) = used_prefixes.insert(counter_prefix, counter_dup_err.clone()) {
 			let mut err = counter_dup_err;
 			err.combine(other_dup_err);
-			return Err(err)
+			return Err(err);
 		}
 	}
 
@@ -152,7 +152,7 @@ pub fn process_generics(def: &mut Def) -> syn::Result<Vec<ResultOnEmptyStructMet
 					variant_name: variant_name.clone(),
 					span: storage_def.attr_span,
 				});
-				return syn::parse_quote!(#on_empty_ident)
+				return syn::parse_quote!(#on_empty_ident);
 			}
 			syn::parse_quote!(#frame_support::traits::GetDefault)
 		};
@@ -178,7 +178,7 @@ pub fn process_generics(def: &mut Def) -> syn::Result<Vec<ResultOnEmptyStructMet
 						with 1 type parameter, found `{}`",
 						query_type.to_token_stream().to_string()
 					);
-					return Err(syn::Error::new(query_type.span(), msg))
+					return Err(syn::Error::new(query_type.span(), msg));
 				}
 			}
 			Ok(())
@@ -402,14 +402,14 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 		.filter_map(|storage_def| check_prefix_duplicates(storage_def, &mut prefix_set).err());
 	if let Some(mut final_error) = errors.next() {
 		errors.for_each(|error| final_error.combine(error));
-		return final_error.into_compile_error()
+		return final_error.into_compile_error();
 	}
 
 	let frame_support = &def.frame_support;
 	let frame_system = &def.frame_system;
 	let pallet_ident = &def.pallet_struct.pallet;
-
-	let entries_builder = def.storages.iter().map(|storage| {
+	let mut entries_builder = vec![];
+	for storage in def.storages.iter() {
 		let no_docs = vec![];
 		let docs = if cfg!(feature = "no-metadata-docs") { &no_docs } else { &storage.docs };
 
@@ -418,19 +418,28 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 		let full_ident = quote::quote_spanned!(storage.attr_span => #ident<#gen> );
 
 		let cfg_attrs = &storage.cfg_attrs;
-
-		quote::quote_spanned!(storage.attr_span =>
+		let deprecation = match crate::deprecation::get_deprecation(
+			&quote::quote! { #frame_support },
+			&storage.attrs,
+		) {
+			Ok(deprecation) => deprecation,
+			Err(e) => return e.into_compile_error(),
+		};
+		entries_builder.push(quote::quote_spanned!(storage.attr_span =>
 			#(#cfg_attrs)*
-			{
-				<#full_ident as #frame_support::storage::StorageEntryMetadataBuilder>::build_metadata(
-					#frame_support::__private::vec![
-						#( #docs, )*
-					],
-					&mut entries,
-				);
-			}
-		)
-	});
+			(|entries: &mut #frame_support::__private::Vec<_>| {
+				{
+					<#full_ident as #frame_support::storage::StorageEntryMetadataBuilder>::build_metadata(
+						#deprecation,
+						#frame_support::__private::vec![
+							#( #docs, )*
+						],
+						entries,
+					);
+				}
+			})
+		))
+	}
 
 	let getters = def.storages.iter().map(|storage| {
 		if let Some(getter) = &storage.getter {
@@ -904,7 +913,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 					entries: {
 						#[allow(unused_mut)]
 						let mut entries = #frame_support::__private::vec![];
-						#( #entries_builder )*
+						#( #entries_builder(&mut entries); )*
 						entries
 					},
 				}

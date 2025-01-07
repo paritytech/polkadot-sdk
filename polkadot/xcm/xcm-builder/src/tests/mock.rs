@@ -100,13 +100,13 @@ impl Dispatchable for TestCall {
 
 impl GetDispatchInfo for TestCall {
 	fn get_dispatch_info(&self) -> DispatchInfo {
-		let weight = *match self {
+		let call_weight = *match self {
 			TestCall::OnlyRoot(estimate, ..) |
 			TestCall::OnlyParachain(estimate, ..) |
 			TestCall::OnlySigned(estimate, ..) |
 			TestCall::Any(estimate, ..) => estimate,
 		};
-		DispatchInfo { weight, ..Default::default() }
+		DispatchInfo { call_weight, ..Default::default() }
 	}
 }
 
@@ -694,6 +694,20 @@ impl AssetExchange for TestAssetExchange {
 		have.subsume_assets(give);
 		EXCHANGE_ASSETS.with(|l| l.replace(have));
 		Ok(get)
+	}
+
+	fn quote_exchange_price(give: &Assets, want: &Assets, maximal: bool) -> Option<Assets> {
+		let mut have = EXCHANGE_ASSETS.with(|l| l.borrow().clone());
+		if !have.contains_assets(want) {
+			return None;
+		}
+		let get = if maximal {
+			have.saturating_take(give.clone().into())
+		} else {
+			have.saturating_take(want.clone().into())
+		};
+		let result: Vec<Asset> = get.fungible_assets_iter().collect();
+		Some(result.into())
 	}
 }
 
