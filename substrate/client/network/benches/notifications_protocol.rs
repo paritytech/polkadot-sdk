@@ -153,12 +153,19 @@ where
 				tokio::select! {
 					Some(event) = notification_service1.next_event() => {
 						if let NotificationEvent::NotificationStreamOpened { .. } = event {
-							break;
+							// Send a 32MB notification to preheat the network
+							notification_service1.send_async_notification(&peer_id2, vec![0; 2usize.pow(25)]).await.unwrap();
 						}
 					},
 					Some(event) = notification_service2.next_event() => {
-						if let NotificationEvent::ValidateInboundSubstream { result_tx, .. } = event {
-							result_tx.send(sc_network::service::traits::ValidationResult::Accept).unwrap();
+						match event {
+							NotificationEvent::ValidateInboundSubstream { result_tx, .. } => {
+								result_tx.send(sc_network::service::traits::ValidationResult::Accept).unwrap();
+							},
+							NotificationEvent::NotificationReceived { .. } => {
+								break;
+							}
+							_ => {}
 						}
 					},
 				}
