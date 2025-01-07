@@ -22,7 +22,7 @@ use syn::spanned::Spanned;
 pub fn expand_view_functions(def: &Def) -> TokenStream {
 	let (span, where_clause, view_fns, docs) = match def.view_functions.as_ref() {
 		Some(view_fns) => (
-			view_fns.attr_span.clone(),
+			view_fns.attr_span,
 			view_fns.where_clause.clone(),
 			view_fns.view_functions.clone(),
 			view_fns.docs.clone(),

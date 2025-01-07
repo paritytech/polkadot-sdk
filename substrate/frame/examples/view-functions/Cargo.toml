@@ -39,16 +39,16 @@ default = ["std"]
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",
+	"frame-metadata/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-io/std",
+	"sp-metadata-ir/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"sp-metadata-ir/std",
-	"frame-metadata/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
