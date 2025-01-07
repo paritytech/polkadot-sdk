@@ -23,7 +23,63 @@ on:
         required: true
 
 jobs:
+  prepare-chain-spec-artifacts:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - template: minimal
+            package_name: 'minimal-template-runtime'
+            runtime_path: './templates/minimal/runtime'
+            runtime_wasm_path: minimal-template-runtime/minimal_template_runtime.compact.compressed.wasm
+            relay_chain: 'dev'
+          - template: parachain
+            package_name: 'parachain-template-runtime'
+            runtime_path: './templates/parachain/runtime'
+            runtime_wasm_path: 'minimal-template-runtime/minimal_template_runtime.compact.compressed.wasm'
+            relay_chain: 'rococo-local'
+    steps:
+        - uses: actions/checkout@v4
+          with:
+            ref: "${{ github.event.inputs.stable_release_branch }}"
+
+        - name: Setup build environment
+          run: |
+            sudo apt-get update
+            sudo apt-get install -y protobuf-compiler
+            cargo install --git https://github.com/chevdor/srtool-cli
+            cargo install --path substrate/bin/utils/chain-spec-builder
+            srtool pull
+            
+        - name: Build runtime and generate chain spec
+          run: |
+            # Prepare directories
+            sudo mkdir -p ${{ matrix.runtime_path }}/target
+            sudo chmod -R 777 ${{ matrix.runtime_path }}/target
+            
+            # Build runtime
+            srtool build --package ${{ matrix.package_name }} --runtime-dir ${{ matrix.runtime_path }} --root
+            
+            # Generate chain spec
+            chain-spec-builder -c dev_chain_spec.json create \
+              --relay-chain "${{ matrix.relay_chain }}" \
+              --para-id 1000 \
+              --runtime "${{ matrix.runtime_path }}/target/srtool/release/wbuild/${{ matrix.runtime_wasm_path }}" \
+              named-preset development
+
+        - name: Prepare upload directory
+          run: |
+            mkdir -p artifacts-${{ matrix.template }}
+            cp dev_chain_spec.json artifacts-${{ matrix.package_name }}/dev_chain_spec.json
+
+        - name: Upload template directory
+          uses: actions/upload-artifact@v4
+          with:
+            name: artifacts-${{ matrix.template }}
+            path: artifacts-${{ matrix.template }}/dev_chain_spec.json
+
   sync-templates:
+    needs: prepare-chain-spec-artifacts
     runs-on: ubuntu-latest
     environment: master
     strategy:
@@ -33,6 +89,18 @@ jobs:
     env:
       template-path: "polkadot-sdk-${{ matrix.template }}-template"
     steps:
+      # 0. download dev chain spec
+      - uses: actions/checkout@v4
+        with:
+          path: polkadot-sdk
+          ref: "${{ github.event.inputs.stable_release_branch }}"
+
+      - name: Download template artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: artifacts-${{ matrix.template }}
+          path: templates/${{ matrix.template }}/
+        if: matrix.template != 'solochain'
 
       # 1. Prerequisites.
 
