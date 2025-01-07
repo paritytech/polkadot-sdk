@@ -18,10 +18,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { features = [
 	"derive",
 ], workspace = true }
-sp-std = { workspace = true }
-sp-api = { workspace = true }
-xcm = { workspace = true }
 snowbridge-core = { workspace = true }
+sp-api = { workspace = true }
+sp-std = { workspace = true }
+xcm = { workspace = true }
 
 [features]
 default = ["std"]

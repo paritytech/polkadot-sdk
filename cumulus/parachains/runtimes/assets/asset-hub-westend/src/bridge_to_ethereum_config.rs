@@ -29,6 +29,7 @@ use benchmark_helpers::DoNothingRouter;
 pub mod benchmark_helpers {
 	use crate::RuntimeOrigin;
 	use codec::Encode;
+	use xcm::prelude::*;
 
 	pub struct DoNothingRouter;
 	impl SendXcm for DoNothingRouter {

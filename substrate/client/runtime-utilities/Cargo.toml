@@ -22,8 +22,8 @@ sc-executor = { workspace = true, default-features = true }
 sc-executor-common = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
-sp-wasm-interface = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
+sp-wasm-interface = { workspace = true, default-features = true }
 
 
 thiserror = { workspace = true }
@@ -31,6 +31,6 @@ thiserror = { workspace = true }
 [dev-dependencies]
 cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
 cumulus-test-runtime = { workspace = true, default-features = true }
-sp-version = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
+sp-version = { workspace = true, default-features = true }
 subxt = { workspace = true, features = ["native"] }

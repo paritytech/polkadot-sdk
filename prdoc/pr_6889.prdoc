@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove polkadot-omni-node-lib unused dependency 
+
+doc:
+  - audience: Node Dev
+    description: 
+      Removed an unused dependency for `polkadot-omni-node-lib`.
+
+crates:
+  - name: polkadot-omni-node-lib
+    bump: patch
