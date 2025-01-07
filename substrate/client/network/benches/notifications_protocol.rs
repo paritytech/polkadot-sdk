@@ -36,7 +36,7 @@ use std::{sync::Arc, time::Duration};
 use substrate_test_runtime_client::runtime;
 use tokio::{sync::Mutex, task::JoinHandle};
 
-const NUMBER_OF_NOTIFICATIONS: usize = 10;
+const NUMBER_OF_NOTIFICATIONS: usize = 100;
 const PAYLOAD: &[(u32, &'static str)] = &[
 	// (Exponent of size, label)
 	(6, "64B"),
@@ -264,6 +264,7 @@ fn run_benchmark(c: &mut Criterion) {
 	let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
 	let mut group = c.benchmark_group("notifications_protocol");
 	group.plot_config(plot_config);
+	group.sample_size(10);
 
 	let libp2p_setup = setup_workers::<runtime::Block, runtime::Hash, NetworkWorker<_, _>>(&rt);
 	for &(exponent, label) in PAYLOAD.iter() {
