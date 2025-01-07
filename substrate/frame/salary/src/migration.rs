@@ -69,7 +69,7 @@ pub mod v1 {
 		/// 	match new {
 		///    		Ok(v) => v,
 		///    		Err(_) => u32::MAX // Or likely some custom logic.
-		/// 		}
+		/// 	}
 		/// }
 		/// ```
 		fn convert(local: L) -> N;
