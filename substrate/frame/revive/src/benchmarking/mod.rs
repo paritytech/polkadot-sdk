@@ -23,6 +23,7 @@ mod call_builder;
 mod code;
 use self::{call_builder::CallSetup, code::WasmModule};
 use crate::{
+	evm::runtime::GAS_PRICE,
 	exec::{Key, MomentOf},
 	limits,
 	storage::WriteOutcome,
@@ -596,19 +597,15 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_code_size() {
 		let contract = Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
-		build_runtime!(runtime, memory: [contract.address.encode(), vec![0u8; 32], ]);
+		build_runtime!(runtime, memory: [contract.address.encode(),]);
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_code_size(memory.as_mut_slice(), 0, 20);
+			result = runtime.bench_code_size(memory.as_mut_slice(), 0);
 		}
 
-		assert_ok!(result);
-		assert_eq!(
-			U256::from_little_endian(&memory[20..]),
-			U256::from(WasmModule::dummy().code.len())
-		);
+		assert_eq!(result.unwrap(), WasmModule::dummy().code.len() as u64);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -669,6 +666,18 @@ mod benchmarks {
 			<Weight as Decode>::decode(&mut &memory[4..]).unwrap(),
 			runtime.ext().gas_meter().gas_left()
 		);
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_ref_time_left() {
+		build_runtime!(runtime, memory: [vec![], ]);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_ref_time_left(memory.as_mut_slice());
+		}
+		assert_eq!(result.unwrap(), runtime.ext().gas_meter().gas_left().ref_time());
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -772,18 +781,67 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn seal_return_data_size() {
+		let mut setup = CallSetup::<T>::default();
+		let (mut ext, _) = setup.ext();
+		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
+		let mut memory = memory!(vec![],);
+		*runtime.ext().last_frame_output_mut() =
+			ExecReturnValue { data: vec![42; 256], ..Default::default() };
+		let result;
+		#[block]
+		{
+			result = runtime.bench_return_data_size(memory.as_mut_slice());
+		}
+		assert_eq!(result.unwrap(), 256);
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_call_data_size() {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
 		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![42u8; 128 as usize]);
-		let mut memory = memory!(vec![0u8; 32 as usize],);
+		let mut memory = memory!(vec![0u8; 4],);
 		let result;
 		#[block]
 		{
-			result = runtime.bench_call_data_size(memory.as_mut_slice(), 0);
+			result = runtime.bench_call_data_size(memory.as_mut_slice());
+		}
+		assert_eq!(result.unwrap(), 128);
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_gas_limit() {
+		build_runtime!(runtime, memory: []);
+		let result;
+		#[block]
+		{
+			result = runtime.bench_gas_limit(&mut memory);
+		}
+		assert_eq!(result.unwrap(), T::BlockWeights::get().max_block.ref_time());
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_gas_price() {
+		build_runtime!(runtime, memory: []);
+		let result;
+		#[block]
+		{
+			result = runtime.bench_gas_price(memory.as_mut_slice());
+		}
+		assert_eq!(result.unwrap(), u64::from(GAS_PRICE));
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_base_fee() {
+		build_runtime!(runtime, memory: [[1u8;32], ]);
+		let result;
+		#[block]
+		{
+			result = runtime.bench_base_fee(memory.as_mut_slice(), 0);
 		}
 		assert_ok!(result);
-		assert_eq!(U256::from_little_endian(&memory[..]), U256::from(128));
+		assert_eq!(U256::from_little_endian(&memory[..]), U256::zero());
 	}
 
 	#[benchmark(pov_mode = Measured)]
