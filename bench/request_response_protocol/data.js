@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736195440022,
+  "lastUpdate": 1736241130981,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -647,6 +647,78 @@ window.BENCHMARK_DATA = {
             "name": "request_response_benchmark/large_payload/libp2p/serially/128MB",
             "value": 2112305110,
             "range": "± 138039817",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "conr2d@proton.me",
+            "name": "Jeeyong Um",
+            "username": "conr2d"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c139739868eddbda495d642219a57602f63c18f5",
+          "message": "Remove usage of `sp-std` from Substrate (#7043)\n\n# Description\n\nThis PR removes usage of deprecated `sp-std` from Substrate. (following\nPR of #5010)\n\n## Integration\n\nThis PR doesn't remove re-exported `sp_std` from any crates yet, so\ndownstream projects using re-exported `sp_std` will not be affected.\n\n## Review Notes\n\nThe existing code using `sp-std` is refactored to use `alloc` and `core`\ndirectly. The key-value maps are instantiated from a vector of tuples\ndirectly instead of using `sp_std::map!` macro.\n\n`sp_std::Writer` is a helper type to use `Vec<u8>` with\n`core::fmt::Write` trait. This PR copied it into `sp-runtime`, because\nall crates using `sp_std::Writer` (including `sp-runtime` itself,\n`frame-support`, etc.) depend on `sp-runtime`.\n\nIf this PR is merged, I would write following PRs to remove remaining\nusage of `sp-std` from `bridges` and `cumulus`.\n\n---------\n\nCo-authored-by: command-bot <>\nCo-authored-by: Guillaume Thiolliere <guillaume.thiolliere@parity.io>\nCo-authored-by: Bastian Köcher <info@kchr.de>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2025-01-07T07:57:06Z",
+          "tree_id": "e2af4afb74389012a6222e82ffced1d704f0788c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c139739868eddbda495d642219a57602f63c18f5"
+        },
+        "date": 1736241113557,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_benchmark/small_payload/libp2p/serially/64B",
+            "value": 18516064,
+            "range": "± 285748",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_benchmark/small_payload/libp2p/serially/512B",
+            "value": 18734121,
+            "range": "± 399940",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_benchmark/small_payload/libp2p/serially/4KB",
+            "value": 19540417,
+            "range": "± 238677",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_benchmark/small_payload/libp2p/serially/64KB",
+            "value": 23533396,
+            "range": "± 587711",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_benchmark/large_payload/libp2p/serially/256KB",
+            "value": 5314302,
+            "range": "± 121738",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_benchmark/large_payload/libp2p/serially/2MB",
+            "value": 30984870,
+            "range": "± 769874",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_benchmark/large_payload/libp2p/serially/16MB",
+            "value": 229765083,
+            "range": "± 9143878",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_benchmark/large_payload/libp2p/serially/128MB",
+            "value": 2040769205,
+            "range": "± 134873103",
             "unit": "ns/iter"
           }
         ]
