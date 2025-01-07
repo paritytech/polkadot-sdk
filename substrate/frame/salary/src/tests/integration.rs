@@ -20,9 +20,7 @@
 use crate as pallet_salary;
 use crate::*;
 use frame::{
-	deps::{
-		sp_io::{self, MultiRemovalResults},
-	},
+	deps::sp_io::{self, MultiRemovalResults},
 	testing_prelude::*,
 };
 use pallet_ranked_collective::{EnsureRanked, Geometric};

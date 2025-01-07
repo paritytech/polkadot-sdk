@@ -17,12 +17,11 @@
 
 //! The crate's tests.
 
-use std::collections::BTreeMap;
-use core::cell::RefCell;
-use frame::testing_prelude::*;
-use frame::traits::tokens::ConvertRank;
 use crate as pallet_salary;
 use crate::*;
+use core::cell::RefCell;
+use frame::{testing_prelude::*, traits::tokens::ConvertRank};
+use std::collections::BTreeMap;
 
 type Block = MockBlock<Test>;
 

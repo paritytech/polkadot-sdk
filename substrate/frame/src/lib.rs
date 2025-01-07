@@ -206,8 +206,8 @@ pub mod prelude {
 	pub use frame_support::{
 		defensive, defensive_assert,
 		traits::{
-			Contains, EitherOf, EstimateNextSessionRotation, IsSubType,
-			MapSuccess, NoOpPoll, OnRuntimeUpgrade, OneSessionHandler,
+			Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll,
+			OnRuntimeUpgrade, OneSessionHandler,
 		},
 	};
 
