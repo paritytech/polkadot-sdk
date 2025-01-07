@@ -36,7 +36,6 @@ use alloc::{
 };
 use frame_support::{defensive, pallet_prelude::*};
 use frame_system::pallet_prelude::*;
-use pallet_broker::CoreAssignment;
 use polkadot_primitives::CoreIndex;
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -44,6 +43,8 @@ use sp_runtime::{
 	traits::{One, Saturating},
 	RuntimeDebug,
 };
+
+pub use pallet_broker::CoreAssignment;
 
 pub use pallet::*;
 
