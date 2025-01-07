@@ -1,0 +1,11 @@
+title: Avoid incomplete block import pipeline with full verifying import queue
+doc:
+- audience: Node Dev
+  description: |-
+    When warp syncing a node using the equivocation checking verifier, we now properly set the fork_choice rule.
+    Affected are mostly nodes that are derived from the parachain template. Omni-node is not affected.
+
+    The prevents the error `ClientImport("Incomplete block import pipeline.")` after state sync.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: patch
