@@ -403,7 +403,7 @@ pub mod pallet {
 				.map_err(|e| e.error)
 		}
 
-		/// Allow ROOT to bypass the recovery process and set an a rescuer account
+		/// Allow ROOT to bypass the recovery process and set a rescuer account
 		/// for a lost account directly.
 		///
 		/// The dispatch origin for this call must be _ROOT_.
