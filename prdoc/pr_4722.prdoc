@@ -9,10 +9,29 @@ doc:
       Read-only view functions can now be defined on pallets. These functions provide an interface for querying state,
       from both outside and inside the runtime. Common queries can be defined on pallets, without users having to
       access the storage directly.
+      
   - audience: Runtime User
     description: |
       Querying the runtime state is now easier with the introduction of pallet view functions. Clients can call commonly
       defined view functions rather than accessing the storage directly. These are similar to the Runtime APIs, but
       are defined within the runtime itself.
 
-crates: [ ]
+crates:
+- name: frame-support
+  bump: major
+- name: sp-core
+  bump: minor
+- name: sp-api
+  bump: minor
+- name: sp-metadata-ir
+  bump: minor
+- name: frame-system
+  bump: major
+- name: frame-support-procedural
+  bump: major
+- name: westend-runtime
+  bump: minor
+- name: pallet-example-view-functions
+  bump: major
+- name: cumulus-pov-validator
+  bump: minor
