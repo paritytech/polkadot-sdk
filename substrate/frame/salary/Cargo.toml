@@ -35,4 +35,7 @@ runtime-benchmarks = [
   "pallet-ranked-collective/runtime-benchmarks",
   "frame/runtime-benchmarks",
 ]
-try-runtime = ["pallet-ranked-collective?/try-runtime", "frame/try-runtime"]
+try-runtime = [
+  "pallet-ranked-collective?/try-runtime",
+  "frame/try-runtime",
+]
