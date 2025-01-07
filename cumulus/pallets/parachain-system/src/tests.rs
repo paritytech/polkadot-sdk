@@ -492,8 +492,7 @@ fn runtime_upgrade_events() {
 					.iter()
 					.any(|d| *d == sp_runtime::generic::DigestItem::RuntimeEnvironmentUpdated));
 			},
-		)
-	;
+		);
 }
 
 #[test]
