@@ -23,6 +23,7 @@ use polkadot_overseer::{
 };
 use polkadot_service::overseer::{collator_overseer_builder, OverseerGenArgs};
 
+use sc_network::service::traits::NetworkService;
 use sc_service::TaskManager;
 use sc_utils::mpsc::tracing_unbounded;
 
@@ -88,6 +89,8 @@ pub struct NewMinimalNode {
 	pub task_manager: TaskManager,
 	/// Overseer handle to interact with subsystems
 	pub overseer_handle: Handle,
+	/// Network service
+	pub network_service: Arc<dyn NetworkService>,
 }
 
 /// Glues together the [`Overseer`] and `BlockchainEvents` by forwarding

@@ -42,6 +42,7 @@ use sc_client_api::{
 	blockchain::BlockStatus, Backend, BlockchainEvents, HeaderBackend, ImportNotifications,
 	StorageProof,
 };
+use sc_network::service::traits::NetworkService;
 use sc_telemetry::TelemetryWorkerHandle;
 use sp_api::{CallApiAt, CallApiAtParams, CallContext, ProvideRuntimeApi};
 use sp_consensus::SyncOracle;
@@ -59,6 +60,7 @@ pub struct RelayChainInProcessInterface {
 	backend: Arc<FullBackend>,
 	sync_oracle: Arc<dyn SyncOracle + Send + Sync>,
 	overseer_handle: Handle,
+	network_service: Arc<dyn NetworkService>,
 }
 
 impl RelayChainInProcessInterface {
@@ -68,8 +70,9 @@ impl RelayChainInProcessInterface {
 		backend: Arc<FullBackend>,
 		sync_oracle: Arc<dyn SyncOracle + Send + Sync>,
 		overseer_handle: Handle,
+		network_service: Arc<dyn NetworkService>,
 	) -> Self {
-		Self { full_client, backend, sync_oracle, overseer_handle }
+		Self { full_client, backend, sync_oracle, overseer_handle, network_service }
 	}
 }
 
@@ -210,6 +213,10 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 
 	fn overseer_handle(&self) -> RelayChainResult<Handle> {
 		Ok(self.overseer_handle.clone())
+	}
+
+	fn network_service(&self) -> RelayChainResult<Arc<dyn NetworkService>> {
+		Ok(self.network_service.clone())
 	}
 
 	async fn get_storage_by_key(
@@ -420,6 +427,7 @@ pub fn build_inprocess_relay_chain(
 		full_node.overseer_handle.clone().ok_or(RelayChainError::GenericError(
 			"Overseer not running in full node.".to_string(),
 		))?,
+		full_node.network,
 	));
 
 	task_manager.add_child(full_node.task_manager);
