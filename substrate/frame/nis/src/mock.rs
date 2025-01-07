@@ -27,7 +27,7 @@ use frame_support::{
 };
 use pallet_balances::{Instance1, Instance2};
 use sp_core::ConstU128;
-use sp_runtime::{traits::BlockNumberProvider, BuildStorage};
+use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
