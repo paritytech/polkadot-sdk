@@ -22,6 +22,7 @@ futures-timer = { workspace = true }
 log = { workspace = true, default-features = true }
 
 polkadot-cli = { workspace = true, default-features = true }
+polkadot-erasure-coding = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }

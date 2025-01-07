@@ -29424,6 +29424,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "polkadot-cli",
+ "polkadot-erasure-coding",
  "polkadot-node-core-pvf",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",

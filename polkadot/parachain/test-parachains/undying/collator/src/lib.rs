@@ -21,13 +21,17 @@ use futures::channel::oneshot;
 use futures_timer::Delay;
 use polkadot_cli::ProvideRuntimeApi;
 use polkadot_node_primitives::{
-	maybe_compress_pov, Collation, CollationResult, CollationSecondedSignal, CollatorFn,
-	MaybeCompressedPoV, PoV, Statement, SubmitCollationParams, UpwardMessages,
+	maybe_compress_pov, AvailableData, Collation, CollationResult, CollationSecondedSignal,
+	CollatorFn, MaybeCompressedPoV, PoV, Statement, UpwardMessages,
 };
-use polkadot_node_subsystem::messages::CollationGenerationMessage;
+use polkadot_node_subsystem::messages::CollatorProtocolMessage;
 use polkadot_primitives::{
-	vstaging::{ClaimQueueOffset, DEFAULT_CLAIM_QUEUE_OFFSET},
-	CollatorId, CollatorPair, CoreIndex, Hash, Id as ParaId, OccupiedCoreAssumption,
+	vstaging::{
+		CandidateDescriptorV2, ClaimQueueOffset, CommittedCandidateReceiptV2,
+		DEFAULT_CLAIM_QUEUE_OFFSET,
+	},
+	CandidateCommitments, CollatorId, CollatorPair, CoreIndex, Hash, Id as ParaId,
+	OccupiedCoreAssumption,
 };
 use polkadot_service::{Backend, Handle, HeaderBackend, NewFull, ParachainHost};
 use sp_core::Pair;
@@ -398,7 +402,10 @@ impl Collator {
 						.collect();
 
 					if scheduled_cores.is_empty() {
-						println!("Scheduled cores is empty.");
+						log::error!(
+							target: LOG_TARGET,
+							"Scheduled cores is empty."
+						);
 						continue;
 					}
 
@@ -410,7 +417,7 @@ impl Collator {
 					) {
 						Ok(Some(validation_data)) => validation_data,
 						Ok(None) => {
-							log::warn!(
+							log::error!(
 								target: LOG_TARGET,
 								"Persisted validation data is None."
 							);
@@ -430,7 +437,7 @@ impl Collator {
 						match collation_function(relay_parent, &validation_data).await {
 							Some(collation) => collation,
 							None => {
-								log::warn!(
+								log::error!(
 									target: LOG_TARGET,
 									"Collation result is None."
 								);
@@ -447,7 +454,7 @@ impl Collator {
 					) {
 						Ok(Some(validation_code_hash)) => validation_code_hash,
 						Ok(None) => {
-							log::warn!(
+							log::error!(
 								target: LOG_TARGET,
 								"Validation code hash is None."
 							);
@@ -462,22 +469,125 @@ impl Collator {
 						},
 					};
 
+					// Fetch the session index.
+					let session_index =
+						match client.runtime_api().session_index_for_child(relay_parent) {
+							Ok(session_index) => session_index,
+							Err(error) => {
+								log::error!(
+									target: LOG_TARGET,
+									"Failed to query session index for child runtime API: {error:?}"
+								);
+								continue;
+							},
+						};
+
+					let persisted_validation_data_hash = validation_data.hash();
+					let parent_head_data = validation_data.parent_head.clone();
+					let parent_head_data_hash = validation_data.parent_head.hash();
+
+					// Apply compression to the block data.
+					let pov = {
+						let pov = collation.proof_of_validity.into_compressed();
+						let encoded_size = pov.encoded_size();
+						let max_pov_size = validation_data.max_pov_size as usize;
+
+						// As long as `POV_BOMB_LIMIT` is at least `max_pov_size`, this ensures
+						// that honest collators never produce a PoV which is uncompressed.
+						//
+						// As such, honest collators never produce an uncompressed PoV which starts
+						// with a compression magic number, which would lead validators to
+						// reject the collation.
+						if encoded_size > max_pov_size {
+							log::error!(
+								target: LOG_TARGET,
+								"PoV size {encoded_size} exceeded maximum size of {max_pov_size}",
+							);
+							continue;
+						}
+
+						pov
+					};
+
+					let pov_hash = pov.hash();
+
+					// Fetch the session info.
+					let session_info =
+						match client.runtime_api().session_info(relay_parent, session_index) {
+							Ok(Some(session_info)) => session_info,
+							Ok(None) => {
+								log::error!(
+									target: LOG_TARGET,
+									"Session info is None."
+								);
+								continue;
+							},
+							Err(error) => {
+								log::error!(
+									target: LOG_TARGET,
+									"Failed to query session info runtime API: {error:?}"
+								);
+								continue;
+							},
+						};
+
+					let n_validators = session_info.validators.len();
+
+					let available_data =
+						AvailableData { validation_data, pov: Arc::new(pov.clone()) };
+					let chunks = match polkadot_erasure_coding::obtain_chunks_v1(
+						n_validators,
+						&available_data,
+					) {
+						Ok(chunks) => chunks,
+						Err(error) => {
+							log::error!(
+								target: LOG_TARGET,
+								"Failed to obtain chunks v1: {error:?}"
+							);
+							continue;
+						},
+					};
+					let erasure_root = polkadot_erasure_coding::branches(&chunks).root();
+
+					let commitments = CandidateCommitments {
+						upward_messages: collation.upward_messages,
+						horizontal_messages: collation.horizontal_messages,
+						new_validation_code: collation.new_validation_code,
+						head_data: collation.head_data,
+						processed_downward_messages: collation.processed_downward_messages,
+						hrmp_watermark: collation.hrmp_watermark,
+					};
+
 					// Submit the same collation for all assigned cores.
 					for core_index in &scheduled_cores {
-						let submit_collation_params = SubmitCollationParams {
-							relay_parent,
-							collation: collation.clone(),
-							parent_head: validation_data.parent_head.clone(),
-							validation_code_hash,
-							result_sender: None,
-							core_index: *core_index,
+						let ccr = CommittedCandidateReceiptV2 {
+							descriptor: CandidateDescriptorV2::new(
+								para_id,
+								relay_parent,
+								*core_index,
+								session_index,
+								persisted_validation_data_hash,
+								pov_hash,
+								erasure_root,
+								commitments.head_data.hash(),
+								validation_code_hash,
+							),
+							commitments: commitments.clone(),
 						};
+
+						let candidate_receipt = ccr.to_plain();
 
 						overseer_handle
 							.send_msg(
-								CollationGenerationMessage::SubmitCollation(
-									submit_collation_params,
-								),
+								CollatorProtocolMessage::DistributeCollation {
+									candidate_receipt,
+									parent_head_data_hash,
+									pov: pov.clone(),
+									parent_head_data: parent_head_data.clone(),
+									result_sender: None,
+									core_index: *core_index,
+								},
 								"Collator",
 							)
 							.await;
