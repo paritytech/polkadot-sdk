@@ -74,8 +74,8 @@ pub mod v1 {
 		/// ```
 		fn convert(local: L) -> N;
 
-		/// Converts to the new type and finds the equivalent moment in time as from the view of the new
-		/// block provider
+		/// Converts to the new type and finds the equivalent moment in time as from the view of the
+		/// new block provider
 		///
 		/// For instance - if your new version uses the relay chain number, you'll want to
 		/// use relay current - ((current local - local) * equivalent_block_duration).
@@ -169,14 +169,18 @@ pub mod v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
-			let (status_existed, pre_claimaint_count) : (v0::StatusOf<T, I>, v0::ClaimantStatusOf<T, I>) =
-			Decode::decode(&mut &state[..]).expect("pre_upgrade provides a valid state; qed");
-			
+			let (status_existed, pre_claimaint_count): (
+				v0::StatusOf<T, I>,
+				v0::ClaimantStatusOf<T, I>,
+			) = Decode::decode(&mut &state[..]).expect("pre_upgrade provides a valid state; qed");
+
 			ensure!(crate::Status::<T, I>::exists() == status_existed, "The Status' storage existence should remain the same before and after the upgrade.");
-			ensure!(crate::Claimant::<T, I>::iter().count() == pre_claimaint_count, "The Claimant count should remain the same before and after the upgrade.");
+			ensure!(
+				crate::Claimant::<T, I>::iter().count() == pre_claimaint_count,
+				"The Claimant count should remain the same before and after the upgrade."
+			);
 			Ok(())
 		}
-
 	}
 }
 
