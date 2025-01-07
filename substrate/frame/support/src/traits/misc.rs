@@ -927,7 +927,13 @@ pub trait ExtrinsicCall: sp_runtime::traits::ExtrinsicLike {
 }
 
 impl<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions> ExtrinsicCall
-	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions>
+	for sp_runtime::generic::UncheckedExtrinsic<
+		Address,
+		Call,
+		Signature,
+		ExtensionV0,
+		ExtensionOtherVersions,
+	>
 {
 	type Call = Call;
 
@@ -943,7 +949,13 @@ pub trait InherentBuilder: ExtrinsicCall {
 }
 
 impl<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions> InherentBuilder
-	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions>
+	for sp_runtime::generic::UncheckedExtrinsic<
+		Address,
+		Call,
+		Signature,
+		ExtensionV0,
+		ExtensionOtherVersions,
+	>
 {
 	fn new_inherent(call: Self::Call) -> Self {
 		Self::new_bare(call)
@@ -967,7 +979,13 @@ pub trait SignedTransactionBuilder: ExtrinsicCall {
 }
 
 impl<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions> SignedTransactionBuilder
-	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions>
+	for sp_runtime::generic::UncheckedExtrinsic<
+		Address,
+		Call,
+		Signature,
+		ExtensionV0,
+		ExtensionOtherVersions,
+	>
 {
 	type Address = Address;
 	type Signature = Signature;

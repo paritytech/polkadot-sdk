@@ -22,7 +22,7 @@ use crate::{
 	generic::ExtensionVersion,
 	traits::{
 		AsTransactionAuthorizedOrigin, DecodeWithVersion, DispatchInfoOf, DispatchTransaction,
-		Dispatchable, PostDispatchInfoOf, TransactionExtension, VersTxExtLine,
+		Dispatchable, PostDispatchInfoOf, TransactionExtension, TxExtLineAtVers, VersTxExtLine,
 		VersTxExtLineMetadataBuilder, VersTxExtLineVersion, VersTxExtLineWeight,
 	},
 	transaction_validity::TransactionSource,
@@ -122,6 +122,7 @@ where
 	<Call as Dispatchable>::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 {
 	fn build_metadata(builder: &mut VersTxExtLineMetadataBuilder) {
+		TxExtLineAtVers::<EXTENSION_V0_VERSION, ExtensionV0>::build_metadata(builder);
 		ExtensionOtherVersions::build_metadata(builder);
 	}
 	fn validate_only(
@@ -433,4 +434,6 @@ mod tests {
 			.expect("Should be ok");
 		assert!(outcome.is_ok());
 	}
+
+	// TODO TODO: maybe test metadata
 }

@@ -152,7 +152,7 @@ impl<AccountId, Call, ExtensionV0, ExtensionOtherVersions>
 where
 	Call: Dispatchable,
 	ExtensionV0: TransactionExtension<Call>,
-	ExtensionOtherVersions: VersTxExtLineWeight<Call>
+	ExtensionOtherVersions: VersTxExtLineWeight<Call>,
 {
 	/// Returns the weight of the extension of this transaction, if present. If the transaction
 	/// doesn't use any extension, the weight returned is equal to zero.
