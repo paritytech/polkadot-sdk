@@ -46,8 +46,6 @@
 #![allow(unused_imports)]
 #![allow(missing_docs)]
 
-use crate::*;
-use frame::prelude::*;
 use core::marker::PhantomData;
 use frame::weights_prelude::*;
 

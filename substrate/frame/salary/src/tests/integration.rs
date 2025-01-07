@@ -19,11 +19,9 @@
 
 use crate as pallet_salary;
 use crate::*;
-
 use frame::{
 	deps::{
 		sp_io::{self, MultiRemovalResults},
-		sp_runtime,
 	},
 	testing_prelude::*,
 };

@@ -18,10 +18,9 @@
 //! The crate's tests.
 
 use std::collections::BTreeMap;
-
 use core::cell::RefCell;
 use frame::testing_prelude::*;
-
+use frame::traits::tokens::ConvertRank;
 use crate as pallet_salary;
 use crate::*;
 

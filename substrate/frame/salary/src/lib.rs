@@ -20,7 +20,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use core::marker::PhantomData;
-
 use frame::{
 	arithmetic::Perbill,
 	prelude::*,
@@ -83,7 +82,6 @@ pub struct ClaimantStatus<CycleIndex, Balance, Id> {
 #[frame::pallet]
 pub mod pallet {
 	use super::*;
-
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
