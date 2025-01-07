@@ -16,7 +16,13 @@
 pub mod genesis;
 
 pub use bridge_hub_rococo_runtime::{
+<<<<<<< HEAD
 	xcm_config::XcmConfig as BridgeHubRococoXcmConfig, EthereumBeaconClient, EthereumInboundQueue,
+=======
+	self as bridge_hub_rococo_runtime, xcm_config::XcmConfig as BridgeHubRococoXcmConfig,
+	EthereumBeaconClient, EthereumInboundQueue,
+	ExistentialDeposit as BridgeHubRococoExistentialDeposit,
+>>>>>>> 4059282f (Snowbridge: Support bridging native ETH (#6855))
 	RuntimeOrigin as BridgeHubRococoRuntimeOrigin,
 };
 

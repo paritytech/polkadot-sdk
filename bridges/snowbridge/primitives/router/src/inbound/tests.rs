@@ -1,20 +1,17 @@
+<<<<<<< HEAD
 use super::GlobalConsensusEthereumConvertsFor;
 use crate::inbound::CallIndex;
 use frame_support::parameter_types;
+=======
+use super::EthereumLocationsConverterFor;
+use crate::inbound::{
+	mock::*, Command, ConvertMessage, Destination, MessageV1, VersionedMessage, H160,
+};
+use frame_support::assert_ok;
+>>>>>>> 4059282f (Snowbridge: Support bridging native ETH (#6855))
 use hex_literal::hex;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
-
-const NETWORK: NetworkId = Ethereum { chain_id: 11155111 };
-
-parameter_types! {
-	pub EthereumNetwork: NetworkId = NETWORK;
-
-	pub const CreateAssetCall: CallIndex = [1, 1];
-	pub const CreateAssetExecutionFee: u128 = 123;
-	pub const CreateAssetDeposit: u128 = 891;
-	pub const SendTokenExecutionFee: u128 = 592;
-}
 
 #[test]
 fn test_contract_location_with_network_converts_successfully() {
@@ -38,3 +35,106 @@ fn test_contract_location_with_incorrect_location_fails_convert() {
 		None,
 	);
 }
+<<<<<<< HEAD
+=======
+
+#[test]
+fn test_reanchor_all_assets() {
+	let ethereum_context: InteriorLocation = [GlobalConsensus(Ethereum { chain_id: 1 })].into();
+	let ethereum = Location::new(2, ethereum_context.clone());
+	let ah_context: InteriorLocation = [GlobalConsensus(Polkadot), Parachain(1000)].into();
+	let global_ah = Location::new(1, ah_context.clone());
+	let assets = vec![
+		// DOT
+		Location::new(1, []),
+		// GLMR (Some Polkadot parachain currency)
+		Location::new(1, [Parachain(2004)]),
+		// AH asset
+		Location::new(0, [PalletInstance(50), GeneralIndex(42)]),
+		// KSM
+		Location::new(2, [GlobalConsensus(Kusama)]),
+		// KAR (Some Kusama parachain currency)
+		Location::new(2, [GlobalConsensus(Kusama), Parachain(2000)]),
+	];
+	for asset in assets.iter() {
+		// reanchor logic in pallet_xcm on AH
+		let mut reanchored_asset = asset.clone();
+		assert_ok!(reanchored_asset.reanchor(&ethereum, &ah_context));
+		// reanchor back to original location in context of Ethereum
+		let mut reanchored_asset_with_ethereum_context = reanchored_asset.clone();
+		assert_ok!(reanchored_asset_with_ethereum_context.reanchor(&global_ah, &ethereum_context));
+		assert_eq!(reanchored_asset_with_ethereum_context, asset.clone());
+	}
+}
+
+#[test]
+fn test_convert_send_token_with_weth() {
+	const WETH: H160 = H160([0xff; 20]);
+	const AMOUNT: u128 = 1_000_000;
+	const FEE: u128 = 1_000;
+	const ACCOUNT_ID: [u8; 32] = [0xBA; 32];
+	const MESSAGE: VersionedMessage = VersionedMessage::V1(MessageV1 {
+		chain_id: CHAIN_ID,
+		command: Command::SendToken {
+			token: WETH,
+			destination: Destination::AccountId32 { id: ACCOUNT_ID },
+			amount: AMOUNT,
+			fee: FEE,
+		},
+	});
+	let result = MessageConverter::convert([1; 32].into(), MESSAGE);
+	assert_ok!(&result);
+	let (xcm, fee) = result.unwrap();
+	assert_eq!(FEE, fee);
+
+	let expected_assets = ReserveAssetDeposited(
+		vec![Asset {
+			id: AssetId(Location {
+				parents: 2,
+				interior: Junctions::X2(
+					[GlobalConsensus(NETWORK), AccountKey20 { network: None, key: WETH.into() }]
+						.into(),
+				),
+			}),
+			fun: Fungible(AMOUNT),
+		}]
+		.into(),
+	);
+	let actual_assets = xcm.into_iter().find(|x| matches!(x, ReserveAssetDeposited(..)));
+	assert_eq!(actual_assets, Some(expected_assets))
+}
+
+#[test]
+fn test_convert_send_token_with_eth() {
+	const ETH: H160 = H160([0x00; 20]);
+	const AMOUNT: u128 = 1_000_000;
+	const FEE: u128 = 1_000;
+	const ACCOUNT_ID: [u8; 32] = [0xBA; 32];
+	const MESSAGE: VersionedMessage = VersionedMessage::V1(MessageV1 {
+		chain_id: CHAIN_ID,
+		command: Command::SendToken {
+			token: ETH,
+			destination: Destination::AccountId32 { id: ACCOUNT_ID },
+			amount: AMOUNT,
+			fee: FEE,
+		},
+	});
+	let result = MessageConverter::convert([1; 32].into(), MESSAGE);
+	assert_ok!(&result);
+	let (xcm, fee) = result.unwrap();
+	assert_eq!(FEE, fee);
+
+	let expected_assets = ReserveAssetDeposited(
+		vec![Asset {
+			id: AssetId(Location {
+				parents: 2,
+				interior: Junctions::X1([GlobalConsensus(NETWORK)].into()),
+			}),
+			fun: Fungible(AMOUNT),
+		}]
+		.into(),
+	);
+	let actual_assets = xcm.into_iter().find(|x| matches!(x, ReserveAssetDeposited(..)));
+	assert_eq!(actual_assets, Some(expected_assets))
+}
+>>>>>>> 4059282f (Snowbridge: Support bridging native ETH (#6855))

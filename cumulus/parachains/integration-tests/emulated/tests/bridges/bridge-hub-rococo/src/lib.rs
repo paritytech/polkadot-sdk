@@ -48,7 +48,12 @@ mod imports {
 			genesis::ED as ASSET_HUB_WESTEND_ED, AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},
 		bridge_hub_rococo_emulated_chain::{
+<<<<<<< HEAD
 			genesis::ED as BRIDGE_HUB_ROCOCO_ED,
+=======
+			bridge_hub_rococo_runtime::bridge_to_ethereum_config::EthereumGatewayAddress,
+			genesis::ED as BRIDGE_HUB_ROCOCO_ED, BridgeHubRococoExistentialDeposit,
+>>>>>>> 4059282f (Snowbridge: Support bridging native ETH (#6855))
 			BridgeHubRococoParaPallet as BridgeHubRococoPallet, BridgeHubRococoRuntimeOrigin,
 			BridgeHubRococoXcmConfig, EthereumBeaconClient, EthereumInboundQueue,
 		},
