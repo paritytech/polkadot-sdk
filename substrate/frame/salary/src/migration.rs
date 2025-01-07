@@ -83,7 +83,7 @@ pub mod v1 {
 		/// new block provider
 		///
 		/// For instance - if your new version uses the relay chain number, you'll want to
-		/// use relay current - ((current local - local) * equivalent_block_duration).
+		/// use relay current (+ or -) ((current local - local) * equivalent_block_duration).
 		/// Note: This assumes consistent block times on both local chain and relay.
 		///
 		/// # Example usage
@@ -94,13 +94,19 @@ pub mod v1 {
 		/// // number was `local_moment`.
 		/// fn equivalent_moment_in_time(local_moment: u32) -> u32 {
 		/// 	// How long it's been since 'local_moment' from the parachains pov.
-		/// 	let curr_block_number = System::block_number();
-		/// 	let local_duration = curr_block_number.saturating_sub(local_moment);
+		/// 	let local_block_number = System::block_number();
+		/// 	let local_duration = u32::abs_diff(local_block_number, local_moment);
 		/// 	// How many blocks that is from the relay's pov.
 		/// 	let relay_duration = Self::equivalent_block_duration(local_duration);
 		/// 	// What the relay block number must have been at 'local_moment'.
 		/// 	let relay_block_number = ParachainSystem::last_relay_block_number();
-		/// 	relay_block_number.saturating_sub(relay_duration)
+		/// 	if local_block_number >= local_moment {
+		/// 		// Moment was in past.
+		/// 		relay_block_number.saturating_sub(relay_duration)
+		/// 	} else {
+		/// 		// Moment is in future.
+		/// 		relay_block_number.saturating_add(relay_duration)
+		/// 	}
 		/// }
 		/// ```
 		fn equivalent_moment_in_time(local_moment: L) -> N;
