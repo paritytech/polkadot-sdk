@@ -616,6 +616,7 @@ pub struct Overseer<SupportsParachains> {
 		NetworkBridgeRxMessage, // TODO <https://github.com/paritytech/polkadot/issues/5626>
 		RuntimeApiMessage,
 		ChainSelectionMessage,
+		ChainApiMessage,
 	], can_receive_priority_messages)]
 	gossip_support: GossipSupport,
 
