@@ -120,8 +120,6 @@ use sp_runtime::{
 	},
 	DispatchError, RuntimeDebug,
 };
-#[cfg(any(feature = "std", test))]
-use sp_std::map;
 use sp_version::RuntimeVersion;
 
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
@@ -146,6 +144,10 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_core::storage::well_known_keys;
+use sp_runtime::{
+	traits::{DispatchInfoOf, PostDispatchInfoOf},
+	transaction_validity::TransactionValidityError,
+};
 use sp_weights::{RuntimeDbWeight, Weight};
 
 #[cfg(any(feature = "std", test))]
@@ -170,7 +172,7 @@ pub use extensions::{
 	check_genesis::CheckGenesis, check_mortality::CheckMortality,
 	check_non_zero_sender::CheckNonZeroSender, check_nonce::CheckNonce,
 	check_spec_version::CheckSpecVersion, check_tx_version::CheckTxVersion,
-	check_weight::CheckWeight, WeightInfo as ExtensionsWeightInfo,
+	check_weight::CheckWeight, weight_reclaim::WeightReclaim, WeightInfo as ExtensionsWeightInfo,
 };
 // Backward compatible re-export.
 pub use extensions::check_mortality::CheckMortality as CheckEra;
@@ -1049,6 +1051,17 @@ pub mod pallet {
 	pub(super) type AuthorizedUpgrade<T: Config> =
 		StorageValue<_, CodeUpgradeAuthorization<T>, OptionQuery>;
 
+	/// The weight reclaimed for the extrinsic.
+	///
+	/// This information is available until the end of the extrinsic execution.
+	/// More precisely this information is removed in `note_applied_extrinsic`.
+	///
+	/// Logic doing some post dispatch weight reduction must update this storage to avoid duplicate
+	/// reduction.
+	#[pallet::storage]
+	#[pallet::whitelist_storage]
+	pub type ExtrinsicWeightReclaimed<T: Config> = StorageValue<_, Weight, ValueQuery>;
+
 	#[derive(frame_support::DefaultNoBound)]
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -1915,12 +1928,14 @@ impl<T: Config> Pallet<T> {
 	#[cfg(any(feature = "std", test))]
 	pub fn externalities() -> TestExternalities {
 		TestExternalities::new(sp_core::storage::Storage {
-			top: map![
-				<BlockHash<T>>::hashed_key_for(BlockNumberFor::<T>::zero()) => [69u8; 32].encode(),
-				<Number<T>>::hashed_key().to_vec() => BlockNumberFor::<T>::one().encode(),
-				<ParentHash<T>>::hashed_key().to_vec() => [69u8; 32].encode()
-			],
-			children_default: map![],
+			top: [
+				(<BlockHash<T>>::hashed_key_for(BlockNumberFor::<T>::zero()), [69u8; 32].encode()),
+				(<Number<T>>::hashed_key().to_vec(), BlockNumberFor::<T>::one().encode()),
+				(<ParentHash<T>>::hashed_key().to_vec(), [69u8; 32].encode()),
+			]
+			.into_iter()
+			.collect(),
+			children_default: Default::default(),
 		})
 	}
 
@@ -2083,10 +2098,23 @@ impl<T: Config> Pallet<T> {
 			},
 		});
 
+		log::trace!(
+			target: LOG_TARGET,
+			"Used block weight: {:?}",
+			BlockWeight::<T>::get(),
+		);
+
+		log::trace!(
+			target: LOG_TARGET,
+			"Used block length: {:?}",
+			Pallet::<T>::all_extrinsics_len(),
+		);
+
 		let next_extrinsic_index = Self::extrinsic_index().unwrap_or_default() + 1u32;
 
 		storage::unhashed::put(well_known_keys::EXTRINSIC_INDEX, &next_extrinsic_index);
 		ExecutionPhase::<T>::put(Phase::ApplyExtrinsic(next_extrinsic_index));
+		ExtrinsicWeightReclaimed::<T>::kill();
 	}
 
 	/// To be called immediately after `note_applied_extrinsic` of the last extrinsic of the block
@@ -2183,6 +2211,32 @@ impl<T: Config> Pallet<T> {
 			Self::can_set_code(code)?
 		}
 		Ok(actual_hash)
+	}
+
+	/// Reclaim the weight for the extrinsic given info and post info.
+	///
+	/// This function will check the already reclaimed weight, and reclaim more if the
+	/// difference between pre dispatch and post dispatch weight is higher.
+	pub fn reclaim_weight(
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
+	) -> Result<(), TransactionValidityError>
+	where
+		T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+	{
+		let already_reclaimed = crate::ExtrinsicWeightReclaimed::<T>::get();
+		let unspent = post_info.calc_unspent(info);
+		let accurate_reclaim = already_reclaimed.max(unspent);
+		// Saturation never happens, we took the maximum above.
+		let to_reclaim_more = accurate_reclaim.saturating_sub(already_reclaimed);
+		if to_reclaim_more != Weight::zero() {
+			crate::BlockWeight::<T>::mutate(|current_weight| {
+				current_weight.reduce(to_reclaim_more, info.class);
+			});
+			crate::ExtrinsicWeightReclaimed::<T>::put(accurate_reclaim);
+		}
+
+		Ok(())
 	}
 }
 

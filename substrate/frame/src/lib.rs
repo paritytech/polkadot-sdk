@@ -203,11 +203,17 @@ pub mod prelude {
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{Contains, IsSubType, OnRuntimeUpgrade};
+	pub use frame_support::traits::{
+		Contains, EstimateNextSessionRotation, IsSubType, OnRuntimeUpgrade, OneSessionHandler,
+	};
 
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
 	pub use frame_system::pallet_prelude::*;
+
+	/// Transaction related helpers to submit transactions.
+	#[doc(no_inline)]
+	pub use frame_system::offchain::*;
 
 	/// All FRAME-relevant derive macros.
 	#[doc(no_inline)]
@@ -216,6 +222,9 @@ pub mod prelude {
 	/// All hashing related things
 	pub use super::hashing::*;
 
+	/// All arithmetic types and traits used for safe math.
+	pub use super::arithmetic::*;
+
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
@@ -223,9 +232,11 @@ pub mod prelude {
 		Saturating, StaticLookup, TrailingZeroInput,
 	};
 
-	/// Other error/result types for runtime
+	/// Other runtime types and traits
 	#[doc(no_inline)]
-	pub use sp_runtime::{DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError};
+	pub use sp_runtime::{
+		BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
+	};
 }
 
 #[cfg(any(feature = "try-runtime", test))]
@@ -317,6 +328,9 @@ pub mod testing_prelude {
 	pub use sp_io::TestExternalities;
 
 	pub use sp_io::TestExternalities as TestState;
+
+	/// Commonly used runtime traits for testing.
+	pub use sp_runtime::traits::BadOrigin;
 }
 
 /// All of the types and tools needed to build FRAME-based runtimes.
@@ -391,7 +405,7 @@ pub mod runtime {
 			LOCAL_TESTNET_RUNTIME_PRESET,
 		};
 		pub use sp_inherents::{CheckInherentsResult, InherentData};
-		pub use sp_keyring::AccountKeyring;
+		pub use sp_keyring::Sr25519Keyring;
 		pub use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode};
 	}
 
@@ -484,6 +498,7 @@ pub mod runtime {
 			frame_system::CheckEra<T>,
 			frame_system::CheckNonce<T>,
 			frame_system::CheckWeight<T>,
+			frame_system::WeightReclaim<T>,
 		);
 	}
 
@@ -509,6 +524,8 @@ pub mod traits {
 }
 
 /// The arithmetic types used for safe math.
+///
+/// This is already part of the [`prelude`].
 pub mod arithmetic {
 	pub use sp_arithmetic::{traits::*, *};
 }

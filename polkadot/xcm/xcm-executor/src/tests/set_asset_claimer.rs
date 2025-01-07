@@ -38,7 +38,7 @@ fn set_asset_claimer() {
 		// if withdrawing fails we're not missing any corner case.
 		.withdraw_asset((Here, 100u128))
 		.clear_origin()
-		.set_asset_claimer(bob.clone())
+		.set_hints(vec![AssetClaimer { location: bob.clone() }])
 		.pay_fees((Here, 10u128)) // 10% destined for fees, not more.
 		.build();
 
@@ -93,7 +93,7 @@ fn trap_then_set_asset_claimer() {
 		.withdraw_asset((Here, 100u128))
 		.clear_origin()
 		.trap(0u64)
-		.set_asset_claimer(bob)
+		.set_hints(vec![AssetClaimer { location: bob }])
 		.pay_fees((Here, 10u128)) // 10% destined for fees, not more.
 		.build();
 
@@ -121,7 +121,7 @@ fn set_asset_claimer_then_trap() {
 		// if withdrawing fails we're not missing any corner case.
 		.withdraw_asset((Here, 100u128))
 		.clear_origin()
-		.set_asset_claimer(bob.clone())
+		.set_hints(vec![AssetClaimer { location: bob.clone() }])
 		.trap(0u64)
 		.pay_fees((Here, 10u128)) // 10% destined for fees, not more.
 		.build();

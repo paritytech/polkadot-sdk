@@ -18,12 +18,13 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 pallet-default-config-example = { workspace = true }
 pallet-dev-mode = { workspace = true }
+pallet-example-authorization-tx-extension = { workspace = true }
 pallet-example-basic = { workspace = true }
 pallet-example-frame-crate = { workspace = true }
 pallet-example-kitchensink = { workspace = true }
 pallet-example-offchain-worker = { workspace = true }
-pallet-example-split = { workspace = true }
 pallet-example-single-block-migrations = { workspace = true }
+pallet-example-split = { workspace = true }
 pallet-example-tasks = { workspace = true }
 pallet-example-view-functions = { workspace = true }
 pallet-example-authorization-tx-extension = { workspace = true }

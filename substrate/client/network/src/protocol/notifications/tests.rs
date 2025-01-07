@@ -30,29 +30,24 @@ use crate::{
 
 use futures::{future::BoxFuture, prelude::*};
 use libp2p::{
-	core::{transport::MemoryTransport, upgrade, Endpoint},
+	core::{
+		transport::{MemoryTransport, PortUse},
+		upgrade, Endpoint,
+	},
 	identity, noise,
 	swarm::{
-		self, behaviour::FromSwarm, ConnectionDenied, ConnectionId, Executor, NetworkBehaviour,
-		PollParameters, Swarm, SwarmEvent, THandler, THandlerInEvent, THandlerOutEvent, ToSwarm,
+		behaviour::FromSwarm, ConnectionDenied, ConnectionId, NetworkBehaviour, Swarm, SwarmEvent,
+		THandler, THandlerInEvent, THandlerOutEvent, ToSwarm,
 	},
-	yamux, Multiaddr, PeerId, Transport,
+	yamux, Multiaddr, PeerId, SwarmBuilder, Transport,
 };
 use sc_utils::mpsc::tracing_unbounded;
 use std::{
 	iter,
-	pin::Pin,
 	sync::Arc,
 	task::{Context, Poll},
 	time::Duration,
 };
-
-struct TokioExecutor(tokio::runtime::Runtime);
-impl Executor for TokioExecutor {
-	fn exec(&self, f: Pin<Box<dyn Future<Output = ()> + Send>>) {
-		let _ = self.0.spawn(f);
-	}
-}
 
 /// Builds two nodes that have each other as bootstrap nodes.
 /// This is to be used only for testing, and a panic will happen if something goes wrong.
@@ -66,13 +61,6 @@ fn build_nodes() -> (Swarm<CustomProtoWithAddr>, Swarm<CustomProtoWithAddr>) {
 
 	for index in 0..2 {
 		let keypair = keypairs[index].clone();
-
-		let transport = MemoryTransport::new()
-			.upgrade(upgrade::Version::V1)
-			.authenticate(noise::Config::new(&keypair).unwrap())
-			.multiplex(yamux::Config::default())
-			.timeout(Duration::from_secs(20))
-			.boxed();
 
 		let (protocol_handle_pair, mut notif_service) =
 			crate::protocol::notifications::service::notification_service("/foo".into());
@@ -102,39 +90,8 @@ fn build_nodes() -> (Swarm<CustomProtoWithAddr>, Swarm<CustomProtoWithAddr>) {
 		);
 
 		let (notif_handle, command_stream) = protocol_handle_pair.split();
-		let behaviour = CustomProtoWithAddr {
-			inner: Notifications::new(
-				vec![controller_handle],
-				from_controller,
-				NotificationMetrics::new(None),
-				iter::once((
-					ProtocolConfig {
-						name: "/foo".into(),
-						fallback_names: Vec::new(),
-						handshake: Vec::new(),
-						max_notification_size: 1024 * 1024,
-					},
-					notif_handle,
-					command_stream,
-				)),
-			),
-			peer_store_future: peer_store.run().boxed(),
-			protocol_controller_future: controller.run().boxed(),
-			addrs: addrs
-				.iter()
-				.enumerate()
-				.filter_map(|(n, a)| {
-					if n != index {
-						Some((keypairs[n].public().to_peer_id(), a.clone()))
-					} else {
-						None
-					}
-				})
-				.collect(),
-		};
 
-		let runtime = tokio::runtime::Runtime::new().unwrap();
-		runtime.spawn(async move {
+		tokio::spawn(async move {
 			loop {
 				if let NotificationEvent::ValidateInboundSubstream { result_tx, .. } =
 					notif_service.next_event().await.unwrap()
@@ -144,12 +101,49 @@ fn build_nodes() -> (Swarm<CustomProtoWithAddr>, Swarm<CustomProtoWithAddr>) {
 			}
 		});
 
-		let mut swarm = Swarm::new(
-			transport,
-			behaviour,
-			keypairs[index].public().to_peer_id(),
-			swarm::Config::with_executor(TokioExecutor(runtime)),
-		);
+		let mut swarm = SwarmBuilder::with_existing_identity(keypair)
+			.with_tokio()
+			.with_other_transport(|keypair| {
+				MemoryTransport::new()
+					.upgrade(upgrade::Version::V1)
+					.authenticate(noise::Config::new(&keypair).unwrap())
+					.multiplex(yamux::Config::default())
+					.timeout(Duration::from_secs(20))
+					.boxed()
+			})
+			.unwrap()
+			.with_behaviour(|_keypair| CustomProtoWithAddr {
+				inner: Notifications::new(
+					vec![controller_handle],
+					from_controller,
+					NotificationMetrics::new(None),
+					iter::once((
+						ProtocolConfig {
+							name: "/foo".into(),
+							fallback_names: Vec::new(),
+							handshake: Vec::new(),
+							max_notification_size: 1024 * 1024,
+						},
+						notif_handle,
+						command_stream,
+					)),
+				),
+				peer_store_future: peer_store.run().boxed(),
+				protocol_controller_future: controller.run().boxed(),
+				addrs: addrs
+					.iter()
+					.enumerate()
+					.filter_map(|(n, a)| {
+						if n != index {
+							Some((keypairs[n].public().to_peer_id(), a.clone()))
+						} else {
+							None
+						}
+					})
+					.collect(),
+			})
+			.unwrap()
+			.build();
 		swarm.listen_on(addrs[index].clone()).unwrap();
 		out.push(swarm);
 	}
@@ -241,12 +235,18 @@ impl NetworkBehaviour for CustomProtoWithAddr {
 		peer: PeerId,
 		addr: &Multiaddr,
 		role_override: Endpoint,
+		port_use: PortUse,
 	) -> Result<THandler<Self>, ConnectionDenied> {
-		self.inner
-			.handle_established_outbound_connection(connection_id, peer, addr, role_override)
+		self.inner.handle_established_outbound_connection(
+			connection_id,
+			peer,
+			addr,
+			role_override,
+			port_use,
+		)
 	}
 
-	fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {
+	fn on_swarm_event(&mut self, event: FromSwarm) {
 		self.inner.on_swarm_event(event);
 	}
 
@@ -259,19 +259,15 @@ impl NetworkBehaviour for CustomProtoWithAddr {
 		self.inner.on_connection_handler_event(peer_id, connection_id, event);
 	}
 
-	fn poll(
-		&mut self,
-		cx: &mut Context,
-		params: &mut impl PollParameters,
-	) -> Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
+	fn poll(&mut self, cx: &mut Context) -> Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
 		let _ = self.peer_store_future.poll_unpin(cx);
 		let _ = self.protocol_controller_future.poll_unpin(cx);
-		self.inner.poll(cx, params)
+		self.inner.poll(cx)
 	}
 }
 
-#[test]
-fn reconnect_after_disconnect() {
+#[tokio::test]
+async fn reconnect_after_disconnect() {
 	// We connect two nodes together, then force a disconnect (through the API of the `Service`),
 	// check that the disconnect worked, and finally check whether they successfully reconnect.
 
@@ -288,108 +284,106 @@ fn reconnect_after_disconnect() {
 	let mut service1_state = ServiceState::NotConnected;
 	let mut service2_state = ServiceState::NotConnected;
 
-	futures::executor::block_on(async move {
-		loop {
-			// Grab next event from services.
-			let event = {
-				let s1 = service1.select_next_some();
-				let s2 = service2.select_next_some();
-				futures::pin_mut!(s1, s2);
-				match future::select(s1, s2).await {
-					future::Either::Left((ev, _)) => future::Either::Left(ev),
-					future::Either::Right((ev, _)) => future::Either::Right(ev),
-				}
-			};
-
-			match event {
-				future::Either::Left(SwarmEvent::Behaviour(
-					NotificationsOut::CustomProtocolOpen { .. },
-				)) => match service1_state {
-					ServiceState::NotConnected => {
-						service1_state = ServiceState::FirstConnec;
-						if service2_state == ServiceState::FirstConnec {
-							service1
-								.behaviour_mut()
-								.disconnect_peer(Swarm::local_peer_id(&service2), SetId::from(0));
-						}
-					},
-					ServiceState::Disconnected => service1_state = ServiceState::ConnectedAgain,
-					ServiceState::FirstConnec | ServiceState::ConnectedAgain => panic!(),
-				},
-				future::Either::Left(SwarmEvent::Behaviour(
-					NotificationsOut::CustomProtocolClosed { .. },
-				)) => match service1_state {
-					ServiceState::FirstConnec => service1_state = ServiceState::Disconnected,
-					ServiceState::ConnectedAgain |
-					ServiceState::NotConnected |
-					ServiceState::Disconnected => panic!(),
-				},
-				future::Either::Right(SwarmEvent::Behaviour(
-					NotificationsOut::CustomProtocolOpen { .. },
-				)) => match service2_state {
-					ServiceState::NotConnected => {
-						service2_state = ServiceState::FirstConnec;
-						if service1_state == ServiceState::FirstConnec {
-							service1
-								.behaviour_mut()
-								.disconnect_peer(Swarm::local_peer_id(&service2), SetId::from(0));
-						}
-					},
-					ServiceState::Disconnected => service2_state = ServiceState::ConnectedAgain,
-					ServiceState::FirstConnec | ServiceState::ConnectedAgain => panic!(),
-				},
-				future::Either::Right(SwarmEvent::Behaviour(
-					NotificationsOut::CustomProtocolClosed { .. },
-				)) => match service2_state {
-					ServiceState::FirstConnec => service2_state = ServiceState::Disconnected,
-					ServiceState::ConnectedAgain |
-					ServiceState::NotConnected |
-					ServiceState::Disconnected => panic!(),
-				},
-				_ => {},
+	loop {
+		// Grab next event from services.
+		let event = {
+			let s1 = service1.select_next_some();
+			let s2 = service2.select_next_some();
+			futures::pin_mut!(s1, s2);
+			match future::select(s1, s2).await {
+				future::Either::Left((ev, _)) => future::Either::Left(ev),
+				future::Either::Right((ev, _)) => future::Either::Right(ev),
 			}
+		};
 
-			// Due to the bug in `Notifications`, the disconnected node does not always detect that
-			// it was disconnected. The closed inbound substream is tolerated by design, and the
-			// closed outbound substream is not detected until something is sent into it.
-			// See [PR #13396](https://github.com/paritytech/substrate/pull/13396).
-			// This happens if the disconnecting node reconnects to it fast enough.
-			// In this case the disconnected node does not transit via `ServiceState::NotConnected`
-			// and stays in `ServiceState::FirstConnec`.
-			// TODO: update this once the fix is finally merged.
-			if service1_state == ServiceState::ConnectedAgain &&
-				service2_state == ServiceState::ConnectedAgain ||
-				service1_state == ServiceState::ConnectedAgain &&
-					service2_state == ServiceState::FirstConnec ||
-				service1_state == ServiceState::FirstConnec &&
-					service2_state == ServiceState::ConnectedAgain
-			{
-				break
-			}
+		match event {
+			future::Either::Left(SwarmEvent::Behaviour(NotificationsOut::CustomProtocolOpen {
+				..
+			})) => match service1_state {
+				ServiceState::NotConnected => {
+					service1_state = ServiceState::FirstConnec;
+					if service2_state == ServiceState::FirstConnec {
+						service1
+							.behaviour_mut()
+							.disconnect_peer(Swarm::local_peer_id(&service2), SetId::from(0));
+					}
+				},
+				ServiceState::Disconnected => service1_state = ServiceState::ConnectedAgain,
+				ServiceState::FirstConnec | ServiceState::ConnectedAgain => panic!(),
+			},
+			future::Either::Left(SwarmEvent::Behaviour(
+				NotificationsOut::CustomProtocolClosed { .. },
+			)) => match service1_state {
+				ServiceState::FirstConnec => service1_state = ServiceState::Disconnected,
+				ServiceState::ConnectedAgain |
+				ServiceState::NotConnected |
+				ServiceState::Disconnected => panic!(),
+			},
+			future::Either::Right(SwarmEvent::Behaviour(
+				NotificationsOut::CustomProtocolOpen { .. },
+			)) => match service2_state {
+				ServiceState::NotConnected => {
+					service2_state = ServiceState::FirstConnec;
+					if service1_state == ServiceState::FirstConnec {
+						service1
+							.behaviour_mut()
+							.disconnect_peer(Swarm::local_peer_id(&service2), SetId::from(0));
+					}
+				},
+				ServiceState::Disconnected => service2_state = ServiceState::ConnectedAgain,
+				ServiceState::FirstConnec | ServiceState::ConnectedAgain => panic!(),
+			},
+			future::Either::Right(SwarmEvent::Behaviour(
+				NotificationsOut::CustomProtocolClosed { .. },
+			)) => match service2_state {
+				ServiceState::FirstConnec => service2_state = ServiceState::Disconnected,
+				ServiceState::ConnectedAgain |
+				ServiceState::NotConnected |
+				ServiceState::Disconnected => panic!(),
+			},
+			_ => {},
 		}
 
-		// Now that the two services have disconnected and reconnected, wait for 3 seconds and
-		// check whether they're still connected.
-		let mut delay = futures_timer::Delay::new(Duration::from_secs(3));
-
-		loop {
-			// Grab next event from services.
-			let event = {
-				let s1 = service1.select_next_some();
-				let s2 = service2.select_next_some();
-				futures::pin_mut!(s1, s2);
-				match future::select(future::select(s1, s2), &mut delay).await {
-					future::Either::Right(_) => break, // success
-					future::Either::Left((future::Either::Left((ev, _)), _)) => ev,
-					future::Either::Left((future::Either::Right((ev, _)), _)) => ev,
-				}
-			};
-
-			match event {
-				SwarmEvent::Behaviour(NotificationsOut::CustomProtocolOpen { .. }) |
-				SwarmEvent::Behaviour(NotificationsOut::CustomProtocolClosed { .. }) => panic!(),
-				_ => {},
-			}
+		// Due to the bug in `Notifications`, the disconnected node does not always detect that
+		// it was disconnected. The closed inbound substream is tolerated by design, and the
+		// closed outbound substream is not detected until something is sent into it.
+		// See [PR #13396](https://github.com/paritytech/substrate/pull/13396).
+		// This happens if the disconnecting node reconnects to it fast enough.
+		// In this case the disconnected node does not transit via `ServiceState::NotConnected`
+		// and stays in `ServiceState::FirstConnec`.
+		// TODO: update this once the fix is finally merged.
+		if service1_state == ServiceState::ConnectedAgain &&
+			service2_state == ServiceState::ConnectedAgain ||
+			service1_state == ServiceState::ConnectedAgain &&
+				service2_state == ServiceState::FirstConnec ||
+			service1_state == ServiceState::FirstConnec &&
+				service2_state == ServiceState::ConnectedAgain
+		{
+			break
 		}
-	});
+	}
+
+	// Now that the two services have disconnected and reconnected, wait for 3 seconds and
+	// check whether they're still connected.
+	let mut delay = futures_timer::Delay::new(Duration::from_secs(3));
+
+	loop {
+		// Grab next event from services.
+		let event = {
+			let s1 = service1.select_next_some();
+			let s2 = service2.select_next_some();
+			futures::pin_mut!(s1, s2);
+			match future::select(future::select(s1, s2), &mut delay).await {
+				future::Either::Right(_) => break, // success
+				future::Either::Left((future::Either::Left((ev, _)), _)) => ev,
+				future::Either::Left((future::Either::Right((ev, _)), _)) => ev,
+			}
+		};
+
+		match event {
+			SwarmEvent::Behaviour(NotificationsOut::CustomProtocolOpen { .. }) |
+			SwarmEvent::Behaviour(NotificationsOut::CustomProtocolClosed { .. }) => panic!(),
+			_ => {},
+		}
+	}
 }
