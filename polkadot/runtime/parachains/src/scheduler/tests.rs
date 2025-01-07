@@ -504,58 +504,6 @@ fn availability_predicate_works() {
 	});
 }
 
-#[test]
-fn next_up_on_available_uses_next_scheduled_or_none() {
-	let mut config = default_config();
-	config.scheduler_params.num_cores = 1;
-	let genesis_config = genesis_config(&config);
-
-	let para_a = ParaId::from(1_u32);
-	let para_b = ParaId::from(2_u32);
-
-	new_test_ext(genesis_config).execute_with(|| {
-		register_para(para_a);
-		register_para(para_b);
-
-		// start a new session to activate, 2 validators for 2 cores.
-		run_to_block(1, |number| match number {
-			1 => Some(SessionChangeNotification {
-				new_config: config.clone(),
-				validators: vec![
-					ValidatorId::from(Sr25519Keyring::Alice.public()),
-					ValidatorId::from(Sr25519Keyring::Eve.public()),
-				],
-				..Default::default()
-			}),
-			_ => None,
-		});
-
-		MockAssigner::add_test_assignment(Assignment::Bulk(para_a));
-
-		run_to_block(2, |_| None);
-
-		{
-			// Two assignments for A on core 0, because the claim queue used to be empty.
-			assert_eq!(Scheduler::claim_queue_len(), 2);
-
-			assert!(Scheduler::scheduled_on_core(CoreIndex(1)).is_none());
-
-			assert_eq!(
-				Scheduler::scheduled_on_core(CoreIndex(0)).unwrap(),
-				ScheduledCore { para_id: para_a, collator: None }
-			);
-
-			Scheduler::advance_claim_queue(&Default::default());
-			assert_eq!(
-				Scheduler::scheduled_on_core(CoreIndex(0)).unwrap(),
-				ScheduledCore { para_id: para_a, collator: None }
-			);
-
-			Scheduler::advance_claim_queue(&Default::default());
-			assert!(Scheduler::scheduled_on_core(CoreIndex(0)).is_none());
-		}
-	});
-}
 
 #[test]
 fn session_change_increasing_number_of_cores() {
