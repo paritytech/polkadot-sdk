@@ -17,43 +17,26 @@
 
 //! Test that FRAME support multiple version for transaction extension.
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode};
 use core::fmt::Debug;
-use frame_metadata::RuntimeMetadata;
 use frame_support::{
-	construct_runtime, derive_impl,
+	derive_impl,
 	dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::Weight,
-	parameter_types,
-	traits::{Get, OnFinalize, OnInitialize, PalletInfo as _},
-	weights::RuntimeDbWeight,
-};
-use frame_system::{
-	limits::{BlockLength, BlockWeights},
-	DispatchEventInfo,
 };
 use scale_info::TypeInfo;
-use sp_core::{hashing::blake2_256, sr25519, H256};
-use sp_io::TestExternalities;
 use sp_runtime::{
 	generic,
 	generic::Preamble,
 	testing::UintAuthorityId,
 	traits::{
-		Applyable, AsTransactionAuthorizedOrigin, BlakeTwo256, Block as BlockT, Checkable,
-		Checkable as _, DecodeWithVersion, DispatchInfoOf, DispatchOriginOf, DispatchTransaction,
-		Dispatchable, ExtensionVariant, ExtrinsicLike, IdentifyAccount, IdentityLookup, NumberFor,
-		SaturatedConversion, TransactionExtension, ValidateUnsigned, Verify, VersTxExtLine,
-		VersTxExtLineWeight,
+		Applyable, BlakeTwo256, Checkable, ExtensionVariant, IdentityLookup, TransactionExtension,
 	},
 	transaction_validity::{
-		InvalidTransaction, TransactionSource, TransactionSource as Source,
-		TransactionValidityError, TransactionValidityError as TvErr, ValidTransaction,
+		InvalidTransaction, TransactionSource, TransactionValidityError, ValidTransaction,
 	},
-	ApplyExtrinsicResultWithInfo, DispatchError, DispatchErrorWithPostInfo, DispatchResult,
-	ModuleError, MultiSignature, RuntimeAppPublic, RuntimeDebug,
+	DispatchResult,
 };
-use sp_version::RuntimeVersion;
 
 #[derive(Clone, Debug, Encode, Decode, PartialEq, Eq, TypeInfo)]
 pub struct SimpleExt<const N: u32> {
@@ -87,7 +70,7 @@ impl<const N: u32> TransactionExtension<RuntimeCall> for SimpleExt<N> {
 
 	fn validate(
 		&self,
-		origin: RuntimeOrigin,
+		_origin: RuntimeOrigin,
 		_call: &RuntimeCall,
 		_info: &DispatchInfo,
 		_len: usize,
@@ -104,7 +87,7 @@ impl<const N: u32> TransactionExtension<RuntimeCall> for SimpleExt<N> {
 	fn prepare(
 		self,
 		_val: Self::Val,
-		origin: &RuntimeOrigin,
+		_origin: &RuntimeOrigin,
 		_call: &RuntimeCall,
 		_info: &DispatchInfo,
 		_len: usize,
@@ -191,7 +174,7 @@ fn test_metadata() {
 			.extrinsic
 			.extensions_in_versions
 			.iter()
-			.map(|ext| ext.identifier.clone())
+			.map(|ext| ext.identifier)
 			.collect::<Vec<_>>(),
 		vec!["SimpleExt0", "SimpleExt4", "SimpleExt7"]
 	);
