@@ -511,6 +511,13 @@ impl PerLeafClaimQueueState {
 		if let Some(mut path) = maybe_path {
 			path.add_leaf(leaf, claim_queue);
 			self.leaves.insert(*leaf, path);
+			gum::trace!(
+				target: LOG_TARGET,
+				?leaf,
+				?parent,
+				?claim_queue,
+				"add_leaf: adding to existing path"
+			);
 			return
 		}
 
@@ -519,6 +526,13 @@ impl PerLeafClaimQueueState {
 			if let Some(mut new_fork) = fork_from_state(state, parent) {
 				new_fork.add_leaf(leaf, claim_queue);
 				self.leaves.insert(*leaf, new_fork);
+				gum::trace!(
+					target: LOG_TARGET,
+					?leaf,
+					?parent,
+					?claim_queue,
+					"add_leaf: adding fork from a previous -non-leaf block"
+				);
 				return
 			}
 		}
@@ -527,6 +541,13 @@ impl PerLeafClaimQueueState {
 		let mut new_fork = ClaimQueueState::new();
 		new_fork.add_leaf(leaf, claim_queue);
 		self.leaves.insert(*leaf, new_fork);
+		gum::trace!(
+			target: LOG_TARGET,
+			?leaf,
+			?parent,
+			?claim_queue,
+			"add_leaf: adding new fork"
+		);
 	}
 
 	/// Removes a set of pruned blocks from all paths. If a path becomes empty it is removed from
