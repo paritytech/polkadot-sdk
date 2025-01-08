@@ -477,6 +477,10 @@ impl SessionBoundGridTopologyStorage {
 		topology: SessionGridTopology,
 		local_index: Option<ValidatorIndex>,
 	) {
+		if self.current_topology.session_index > session_index {
+			return
+		}
+
 		let local_neighbors = local_index
 			.and_then(|l| topology.compute_grid_neighbors_for(l))
 			.unwrap_or_else(GridNeighbors::empty);
