@@ -780,24 +780,30 @@ impl
 	> for BlockNumberConverter
 {
 	/// The equivalent moment in time from the perspective of the relay chain, starting from a
-	/// local moment in time (system block number)
+	/// local moment in time (system block number).
 	fn equivalent_moment_in_time(
-		local: CoreFellowshipLocalBlockNumber,
+		local_moment: CoreFellowshipLocalBlockNumber,
 	) -> CoreFellowshipNewBlockNumber {
-		let block_number = System::block_number();
-		let local_duration = block_number.saturating_sub(local);
-		let relay_duration = Self::equivalent_block_duration(local_duration); //6s to 6s
+		let local_block_number = System::block_number();
+		let local_duration = u32::abs_diff(local_block_number, local_moment);
+		let relay_duration = Self::equivalent_block_duration(local_duration); // 6s to 6s
 		let relay_block_number = ParachainSystem::last_relay_block_number();
-		relay_block_number.saturating_sub(relay_duration)
+		if local_block_number >= local_moment {
+			// Moment was in past.
+			relay_block_number.saturating_sub(relay_duration)
+		} else {
+			// Moment is in future.
+			relay_block_number.saturating_add(relay_duration)
+		}
 	}
 
 	/// The equivalent duration from the perspective of the relay chain, starting from
 	/// a local duration (number of block). Identity function for Westend, since both
-	/// relay and collectives chain run 6s block times
+	/// relay and collectives chain run 6s block times.
 	fn equivalent_block_duration(
-		local: CoreFellowshipLocalBlockNumber,
+		local_duration: CoreFellowshipLocalBlockNumber,
 	) -> CoreFellowshipNewBlockNumber {
-		local
+		local_duration
 	}
 }
 

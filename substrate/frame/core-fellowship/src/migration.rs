@@ -134,19 +134,61 @@ pub mod v2 {
 	/// Converts previous (local) block number into the new one. May just be identity functions
 	/// if sticking with local block number as the provider.
 	pub trait ConvertBlockNumber<L, N> {
-		/// Converts to the new type and finds the equivalent moment in time as relative to the new
-		/// block provider
+		/// Converts to the new type and finds the equivalent moment in time as from the view of the
+		/// new block provider
 		///
 		/// For instance - if your new version uses the relay chain number, you'll want to
-		/// use relay current - ((current local - local) * equivalent_block_duration)
-		fn equivalent_moment_in_time(local: L) -> N;
+		/// use relay current (+ or -) ((current local - local) * equivalent_block_duration).
+		/// Note: This assumes consistent block times on both local chain and relay.
+		///
+		/// # Example usage
+		///
+		/// ```rust,ignore
+		/// // Let's say you are a parachain and switching block providers to the relay chain.
+		/// // This will return what the relay block number was at the moment the previous provider's
+		/// // number was `local_moment`.
+		/// fn equivalent_moment_in_time(local_moment: u32) -> u32 {
+		/// 	// How long it's been since 'local_moment' from the parachains pov.
+		/// 	let local_block_number = System::block_number();
+		/// 	let local_duration = u32::abs_diff(local_block_number, local_moment);
+		/// 	// How many blocks that is from the relay's pov.
+		/// 	let relay_duration = Self::equivalent_block_duration(local_duration);
+		/// 	// What the relay block number must have been at 'local_moment'.
+		/// 	let relay_block_number = ParachainSystem::last_relay_block_number();
+		/// 	if local_block_number >= local_moment {
+		/// 		// Moment was in past.
+		/// 		relay_block_number.saturating_sub(relay_duration)
+		/// 	} else {
+		/// 		// Moment is in future.
+		/// 		relay_block_number.saturating_add(relay_duration)
+		/// 	}
+		/// }
+		/// ```
+		fn equivalent_moment_in_time(local_moment: L) -> N;
 
-		/// Returns the equivalent time duration as the previous type when represented as the new
-		/// type
+		/// Returns the equivalent number of new blocks it would take to fulfill the same
+		/// amount of time in seconds as the old blocks.
 		///
 		/// For instance - If you previously had 12s blocks and are now following the relay chain's
-		/// 6, one local block is equivalent to 2 relay blocks in duration
-		fn equivalent_block_duration(local: L) -> N;
+		/// 6, one local block is equivalent to 2 relay blocks in duration.
+		///
+		///     6s         6s
+		/// |---------||---------|
+		///
+		///          12s
+		/// |--------------------|
+		///
+		/// ^ Two 6s relay blocks passed per one 12s local block.
+		///  
+		/// # Example Usage
+		///
+		/// ```rust,ignore
+		/// // Following the scenerio above.
+		/// fn equivalent_block_duration(local_duration: u32) -> u32 {
+		/// 	local_duration.saturating_mul(2)
+		/// }
+		/// ```
+		fn equivalent_block_duration(local_duration: L) -> N;
 	}
 
 	pub struct MigrateToV2<T, BlockNumberConverter, I = ()>(
@@ -158,6 +200,13 @@ pub mod v2 {
 	where
 		BlockNumberConverter: ConvertBlockNumber<LocalBlockNumberFor<T>, NewBlockNumberFor<T, I>>,
 	{
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			let params_exists = v1::Params::<T, I>::exists();
+			let member_count = v1::Member::<T, I>::iter().count() as u32;
+			Ok((params_exists, member_count).encode())
+		}
+
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
 			let mut translation_count = 0;
 
@@ -202,6 +251,20 @@ pub mod v2 {
 			});
 
 			T::DbWeight::get().reads_writes(translation_count, translation_count)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			let (params_existed, pre_member_count): (bool, u32) =
+				Decode::decode(&mut &state[..]).expect("pre_upgrade provides a valid state; qed");
+
+			ensure!(crate::Params::<T, I>::exists() == params_existed, "The Params storage's existence should remain the same before and after the upgrade.");
+			let post_member_count = crate::Member::<T, I>::iter().count() as u32;
+			ensure!(
+				post_member_count == pre_member_count,
+				"The member count should remain the same before and after the upgrade."
+			);
+			Ok(())
 		}
 	}
 }
