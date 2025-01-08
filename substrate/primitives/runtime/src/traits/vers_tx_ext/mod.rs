@@ -34,10 +34,10 @@ mod at_vers;
 mod invalid;
 mod multi;
 mod variant;
-pub use at_vers::*;
-pub use invalid::*;
-pub use multi::*;
-pub use variant::*;
+pub use at_vers::TxExtLineAtVers;
+pub use invalid::InvalidVersion;
+pub use multi::MultiVersion;
+pub use variant::ExtensionVariant;
 
 /// The weight for an instance of a versioned transaction extension pipeline and a call.
 ///

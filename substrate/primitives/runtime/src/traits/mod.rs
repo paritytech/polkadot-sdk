@@ -60,8 +60,8 @@ pub use transaction_extension::{
 	TransactionExtensionMetadata, TxBaseImplication, ValidateResult,
 };
 pub use vers_tx_ext::{
-	ExtensionVariant, InvalidVersion, MultiVersion, TxExtLineAtVers, VersTxExtLine,
-	VersTxExtLineMetadataBuilder, VersTxExtLineVersion, VersTxExtLineWeight,
+	DecodeWithVersion, ExtensionVariant, InvalidVersion, MultiVersion, TxExtLineAtVers,
+	VersTxExtLine, VersTxExtLineMetadataBuilder, VersTxExtLineVersion, VersTxExtLineWeight,
 };
 
 /// A lazy value.
