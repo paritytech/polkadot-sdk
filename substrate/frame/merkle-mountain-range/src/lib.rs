@@ -84,7 +84,7 @@ mod tests;
 /// blocks without using excessive on-chain storage.
 ///
 /// Hence we implement the [LeafDataProvider] for [ParentNumberAndHash] which is a
-/// crate-local wrapper over [system::Pallet]. Since the current block hash
+/// crate-local wrapper over [frame_system::Pallet]. Since the current block hash
 /// is not available (since the block is not finished yet),
 /// we use the `parent_hash` here along with parent block number.
 pub struct ParentNumberAndHash<T: Config> {
