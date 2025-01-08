@@ -55,3 +55,12 @@ impl From<CommittedMessage> for Token {
 		])
 	}
 }
+
+/// Hook that will be called when new message commitment is constructed
+pub trait OnNewCommitment {
+	fn on_new_commitment(commitment: H256);
+}
+
+impl OnNewCommitment for () {
+	fn on_new_commitment(_commitment: H256) {}
+}

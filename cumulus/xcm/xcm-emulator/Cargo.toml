@@ -45,6 +45,8 @@ polkadot-runtime-parachains.default-features = true
 polkadot-runtime-parachains.workspace = true
 sp-arithmetic.default-features = true
 sp-arithmetic.workspace = true
+sp-consensus-slots = { workspace = true, default-features = true }
+sp-consensus-aura = { workspace = true, default-features = true }
 sp-core.default-features = true
 sp-core.workspace = true
 sp-crypto-hashing.default-features = true

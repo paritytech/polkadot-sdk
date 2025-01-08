@@ -184,6 +184,7 @@ impl snowbridge_pallet_outbound_queue::Config for Runtime {
 	type Channels = EthereumSystem;
 	type AggregateMessageOrigin = AggregateMessageOrigin;
 	type GetAggregateMessageOrigin = GetAggregateMessageOrigin;
+	type OnNewCommitment = ();
 }
 
 impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {

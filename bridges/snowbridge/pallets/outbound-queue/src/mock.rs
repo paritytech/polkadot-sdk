@@ -92,6 +92,7 @@ impl crate::Config for Test {
 	type PricingParameters = Parameters;
 	type Channels = Everything;
 	type WeightToFee = IdentityFee<u128>;
+	type OnNewCommitment = ();
 	type WeightInfo = ();
 }
 

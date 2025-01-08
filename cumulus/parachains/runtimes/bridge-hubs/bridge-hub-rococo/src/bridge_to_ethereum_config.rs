@@ -128,6 +128,7 @@ impl snowbridge_pallet_outbound_queue::Config for Runtime {
 	type Channels = EthereumSystem;
 	type AggregateMessageOrigin = AggregateMessageOrigin;
 	type GetAggregateMessageOrigin = GetAggregateMessageOrigin;
+	type OnNewCommitment = ();
 }
 
 #[cfg(any(feature = "std", feature = "fast-runtime", feature = "runtime-benchmarks", test))]
