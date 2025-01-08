@@ -845,7 +845,7 @@ decl_runtime_apis! {
 		fn metadata_versions() -> alloc::vec::Vec<u32>;
 	}
 
-	/// API for executing view function queriess
+	/// API for executing view functions
 	pub trait RuntimeViewFunction where {
 		/// Execute a view function query.
 		fn execute_view_function(query_id: ViewFunctionId, input: Vec<u8>) -> Result<Vec<u8>, ViewFunctionDispatchError>;
