@@ -24,9 +24,10 @@ use crate::{
 use frame::{
 	deps::{
 		sp_io::{self, MultiRemovalResults},
-		sp_runtime::{traits::Convert, StateVersion},
+		sp_runtime::StateVersion,
 	},
 	testing_prelude::*,
+	traits::Convert,
 };
 use pallet_ranked_collective::{EnsureRanked, Geometric};
 

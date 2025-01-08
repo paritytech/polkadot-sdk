@@ -20,7 +20,7 @@
 use crate as pallet_salary;
 use crate::*;
 use core::cell::RefCell;
-use frame::{deps::frame_support::traits::tokens::ConvertRank, testing_prelude::*};
+use frame::{deps::sp_runtime::traits::Identity, testing_prelude::*, traits::tokens::ConvertRank};
 use std::collections::BTreeMap;
 
 type Block = MockBlock<Test>;
