@@ -89,25 +89,22 @@ pub trait SlashingHandler<BlockNumber> {
 		session: SessionIndex,
 		candidate_hash: CandidateHash,
 		losers: impl IntoIterator<Item = ValidatorIndex>,
-		backers: impl IntoIterator<Item = ValidatorIndex>,
 	);
 
 	/// Punish a series of non-backer validators who were for an invalid parablock.
-	/// This is expected to be a minor punishment.
+	/// This is expected to be a medium punishment.
 	fn punish_for_invalid(
 		session: SessionIndex,
 		candidate_hash: CandidateHash,
 		losers: impl IntoIterator<Item = ValidatorIndex>,
-		backers: impl IntoIterator<Item = ValidatorIndex>,
 	);
 
 	/// Punish a series of validators who were against a valid parablock. This
-	/// is expected to be a very minor punishment.
+	/// is expected to be a minor punishment.
 	fn punish_against_valid(
 		session: SessionIndex,
 		candidate_hash: CandidateHash,
 		losers: impl IntoIterator<Item = ValidatorIndex>,
-		backers: impl IntoIterator<Item = ValidatorIndex>,
 	);
 
 	/// Called by the initializer to initialize the slashing pallet.
@@ -121,10 +118,17 @@ pub trait SlashingHandler<BlockNumber> {
 }
 
 impl<BlockNumber> SlashingHandler<BlockNumber> for () {
+	fn punish_backed_invalid(
+			_: SessionIndex,
+			_: CandidateHash,
+			_: impl IntoIterator<Item = ValidatorIndex>,
+		) {
+		
+	}
+
 	fn punish_for_invalid(
 		_: SessionIndex,
 		_: CandidateHash,
-		_: impl IntoIterator<Item = ValidatorIndex>,
 		_: impl IntoIterator<Item = ValidatorIndex>,
 	) {
 	}
@@ -132,7 +136,6 @@ impl<BlockNumber> SlashingHandler<BlockNumber> for () {
 	fn punish_against_valid(
 		_: SessionIndex,
 		_: CandidateHash,
-		_: impl IntoIterator<Item = ValidatorIndex>,
 		_: impl IntoIterator<Item = ValidatorIndex>,
 	) {
 	}
