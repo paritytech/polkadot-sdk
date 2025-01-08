@@ -577,6 +577,11 @@ mod benchmarks {
 		}
 
 		assert_ok!(result);
+		assert_ne!(
+			memory.as_slice()[20..32],
+			[0xEE; 12],
+			"fallback suffix found where none should be"
+		);
 		assert_eq!(T::AccountId::decode(&mut memory.as_slice()), Ok(runtime.ext().to_account_id(&address)));
 	}
 
