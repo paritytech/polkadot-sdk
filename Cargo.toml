@@ -910,7 +910,7 @@ pallet-indices = { path = "substrate/frame/indices", default-features = false, v
 pallet-insecure-randomness-collective-flip = { path = "substrate/frame/insecure-randomness-collective-flip", default-features = false, version = "24.0.0" }
 pallet-lottery = { default-features = false, path = "substrate/frame/lottery" }
 pallet-membership = { path = "substrate/frame/membership", default-features = false, version = "36.0.0" }
-pallet-message-queue = { path = "substrate/frame/message-queue", default-features = false, version = "39.0.0" }
+pallet-message-queue = { path = "substrate/frame/message-queue", default-features = false, version = "39.0.2" }
 pallet-migrations = { path = "substrate/frame/migrations", default-features = false, version = "6.0.0" }
 pallet-minimal-template = { path = "templates/minimal/pallets/template", default-features = false, version = "0.1.0" }
 pallet-mixnet = { default-features = false, path = "substrate/frame/mixnet" }
@@ -1034,7 +1034,7 @@ polkadot-primitives-test-helpers = { path = "polkadot/primitives/test-helpers", 
 polkadot-rpc = { path = "polkadot/rpc", default-features = false, version = "15.0.0" }
 polkadot-runtime-common = { path = "polkadot/runtime/common", default-features = false, version = "15.0.0" }
 polkadot-runtime-metrics = { path = "polkadot/runtime/metrics", default-features = false, version = "15.0.0" }
-polkadot-runtime-parachains = { path = "polkadot/runtime/parachains", default-features = false, version = "15.0.3" }
+polkadot-runtime-parachains = { path = "polkadot/runtime/parachains", default-features = false, version = "15.0.4" }
 polkadot-sdk = { path = "umbrella", default-features = false, version = "0.3.0" }
 polkadot-sdk-docs = { path = "docs/sdk", version = "0.1.0" }
 polkadot-service = { path = "polkadot/node/service", default-features = false, version = "15.0.0" }
@@ -1330,12 +1330,12 @@ westend-runtime = { path = "polkadot/runtime/westend", version = "15.0.0" }
 westend-runtime-constants = { path = "polkadot/runtime/westend/constants", default-features = false, version = "15.0.0" }
 westend-system-emulated-network = { path = "cumulus/parachains/integration-tests/emulated/networks/westend-system", version = "0.1.0" }
 x25519-dalek = { version = "2.0" }
-xcm = { path = "polkadot/xcm", default-features = false, package = "staging-xcm", version = "14.0.3" }
+xcm = { path = "polkadot/xcm", default-features = false, package = "staging-xcm", version = "=14.0.3" }
 xcm-builder = { path = "polkadot/xcm/xcm-builder", default-features = false, package = "staging-xcm-builder", version = "15.0.0" }
 xcm-docs = { path = "polkadot/xcm/docs", version = "0.1.0" }
 xcm-emulator = { path = "cumulus/xcm/xcm-emulator", default-features = false, version = "0.13.0" }
 xcm-executor = { path = "polkadot/xcm/xcm-executor", default-features = false, package = "staging-xcm-executor", version = "15.0.0" }
-xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false, version = "10.0.0" }
+xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false, version = "=10.0.1" }
 xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = false, version = "0.2.0" }
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false, version = "15.0.0" }
 zeroize = { version = "1.7.0", default-features = false }
