@@ -22,10 +22,7 @@ use crate::{
 	tests::integration::sp_api_hidden_includes_construct_runtime::hidden_include::sp_runtime, *,
 };
 use frame::{
-	deps::{
-		sp_io::{self, MultiRemovalResults},
-		sp_runtime::StateVersion,
-	},
+	deps::{sp_io, sp_runtime::StateVersion},
 	testing_prelude::*,
 };
 use pallet_ranked_collective::{EnsureRanked, Geometric};
