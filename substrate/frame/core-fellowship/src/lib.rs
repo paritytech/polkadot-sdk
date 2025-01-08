@@ -695,7 +695,7 @@ pub mod pallet {
 			ensure!(!Member::<T, I>::contains_key(&who), Error::<T, I>::AlreadyInducted);
 			let rank = T::Members::rank_of(&who).ok_or(Error::<T, I>::Unranked)?;
 
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			Member::<T, I>::insert(
 				&who,
 				MemberStatus { is_active: true, last_promotion: 0u32.into(), last_proof: now },
