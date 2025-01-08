@@ -19,10 +19,7 @@
 
 use crate as pallet_salary;
 use crate::*;
-use frame::{
-	deps::{sp_io, sp_runtime::StateVersion},
-	testing_prelude::*,
-};
+use frame::{deps::sp_io, testing_prelude::*};
 use pallet_ranked_collective::{EnsureRanked, Geometric};
 
 type Rank = u16;

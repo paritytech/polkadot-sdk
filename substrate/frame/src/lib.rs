@@ -207,7 +207,7 @@ pub mod prelude {
 		defensive, defensive_assert,
 		traits::{
 			Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll,
-			OnRuntimeUpgrade, OneSessionHandler,
+			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
 		},
 	};
 
@@ -232,7 +232,7 @@ pub mod prelude {
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
+		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, Identity, ReduceBy,
 		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
 	};
 	/// Other error/result types for runtime
@@ -333,7 +333,7 @@ pub mod testing_prelude {
 	pub use sp_io::TestExternalities as TestState;
 
 	/// Commonly used runtime traits for testing.
-	pub use sp_runtime::traits::BadOrigin;
+	pub use sp_runtime::{traits::BadOrigin, StateVersion};
 }
 
 /// All of the types and tools needed to build FRAME-based runtimes.

@@ -22,10 +22,7 @@
 use core::marker::PhantomData;
 use frame::{
 	prelude::*,
-	traits::{
-		tokens::{GetSalary, Pay, PaymentStatus},
-		RankedMembers, RankedMembersSwapHandler,
-	},
+	traits::tokens::{GetSalary, Pay, PaymentStatus},
 };
 
 #[cfg(test)]
