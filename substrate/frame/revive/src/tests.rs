@@ -2261,7 +2261,7 @@ fn gas_estimation_for_subcalls() {
 
 		// Run the test for all of those weight limits for the subcall
 		let weights = [
-			Weight::zero(),
+			Weight::MAX,
 			GAS_LIMIT,
 			GAS_LIMIT * 2,
 			GAS_LIMIT / 5,
