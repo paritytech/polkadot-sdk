@@ -27,7 +27,6 @@ use frame::{
 		sp_runtime::StateVersion,
 	},
 	testing_prelude::*,
-	traits::Convert,
 };
 use pallet_ranked_collective::{EnsureRanked, Geometric};
 
