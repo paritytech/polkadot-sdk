@@ -23,6 +23,7 @@ sp-genesis-builder = { workspace = true }
 sp-block-builder = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+sp-debug-derive = { workspace = true, default-features = false, features = ["force-debug"] }
 sp-inherents = { workspace = true }
 sp-keyring = { workspace = true }
 sp-offchain = { workspace = true }
@@ -98,6 +99,7 @@ std = [
 	"sp-consensus-grandpa/std",
 	"sp-core/std",
 	"sp-crypto-hashing/std",
+	"sp-debug-derive/std",
 	"sp-externalities/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",

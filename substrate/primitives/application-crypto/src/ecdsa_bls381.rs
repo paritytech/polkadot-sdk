@@ -68,6 +68,7 @@ impl RuntimePublic for Public {
 			return None
 		}
 
+		// Import logger and logg stuff here to see where it fails
 		let pub_key_as_bytes = self.to_raw_vec();
 
 		let (ecdsa_pub_as_bytes, bls381_pub_as_bytes) = split_pub_key_bytes(&pub_key_as_bytes)?;
