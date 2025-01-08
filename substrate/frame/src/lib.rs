@@ -232,8 +232,8 @@ pub mod prelude {
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+		BlockNumberProvider, Bounded, DispatchInfoOf, Dispatchable, ReduceBy, ReplaceWithDefault,
+		SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
 	};
 	/// Other error/result types for runtime
 	#[doc(no_inline)]

@@ -24,7 +24,7 @@ use crate::{
 use frame::{
 	deps::{
 		sp_io::{self, MultiRemovalResults},
-		sp_runtime::StateVersion,
+		sp_runtime::{traits::Convert, StateVersion},
 	},
 	testing_prelude::*,
 };
