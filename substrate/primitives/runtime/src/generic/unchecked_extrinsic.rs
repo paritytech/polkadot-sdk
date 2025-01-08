@@ -156,8 +156,10 @@ where
 				.saturating_add(address.size_hint())
 				.saturating_add(signature.size_hint())
 				.saturating_add(ext.size_hint()),
-			Preamble::General(ext) =>
-				EXTRINSIC_FORMAT_VERSION.size_hint().saturating_add(ext.size_hint()),
+			Preamble::General(ext) => EXTRINSIC_FORMAT_VERSION
+				.size_hint()
+				.saturating_add(0u8.size_hint()) // version
+				.saturating_add(ext.size_hint()),
 		}
 	}
 
@@ -388,8 +390,6 @@ impl<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions>
 	}
 
 	/// New instance of an new-school unsigned transaction.
-	///
-	/// This function is only available for `UncheckedExtrinsic` without multi version extension.
 	pub fn new_transaction(function: Call, tx_ext: ExtensionV0) -> Self {
 		Self { preamble: Preamble::General(ExtensionVariant::V0(tx_ext)), function }
 	}
@@ -561,14 +561,14 @@ where
 }
 
 #[cfg(feature = "serde")]
-impl<
-		Address: Encode,
-		Signature: Encode,
-		Call: Encode,
-		ExtensionV0: Encode,
-		ExtensionOtherVersions: Encode + VersTxExtLineVersion,
-	> serde::Serialize
+impl<Address, Signature, Call, ExtensionV0, ExtensionOtherVersions> serde::Serialize
 	for UncheckedExtrinsic<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions>
+where
+	Address: Encode,
+	Signature: Encode,
+	Call: Encode,
+	ExtensionV0: Encode,
+	ExtensionOtherVersions: Encode + VersTxExtLineVersion,
 {
 	fn serialize<S>(&self, seq: S) -> Result<S::Ok, S::Error>
 	where
@@ -579,15 +579,14 @@ impl<
 }
 
 #[cfg(feature = "serde")]
-impl<
-		'a,
-		Address: Decode,
-		Signature: Decode,
-		Call: Decode,
-		ExtensionV0: Decode,
-		ExtensionOtherVersions: DecodeWithVersion,
-	> serde::Deserialize<'a>
+impl<'a, Address, Signature, Call, ExtensionV0, ExtensionOtherVersions> serde::Deserialize<'a>
 	for UncheckedExtrinsic<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions>
+where
+	Address: Decode,
+	Signature: Decode,
+	Call: Decode,
+	ExtensionV0: Decode,
+	ExtensionOtherVersions: DecodeWithVersion,
 {
 	fn deserialize<D>(de: D) -> Result<Self, D::Error>
 	where

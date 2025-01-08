@@ -65,11 +65,10 @@ impl<const VERSION: u8, Extension> VersTxExtLineVersion for TxExtLineAtVers<VERS
 	}
 }
 
-impl<
-		const VERSION: u8,
-		Call: Dispatchable<RuntimeOrigin: AsTransactionAuthorizedOrigin> + Encode,
-		Extension: TransactionExtension<Call>,
-	> VersTxExtLine<Call> for TxExtLineAtVers<VERSION, Extension>
+impl<const VERSION: u8, Call, Extension> VersTxExtLine<Call> for TxExtLineAtVers<VERSION, Extension>
+where
+	Call: Dispatchable<RuntimeOrigin: AsTransactionAuthorizedOrigin> + Encode,
+	Extension: TransactionExtension<Call>,
 {
 	fn build_metadata(builder: &mut VersTxExtLineMetadataBuilder) {
 		builder.push_versioned_extension(VERSION, Extension::metadata());

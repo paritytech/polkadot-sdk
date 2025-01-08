@@ -35,6 +35,8 @@ use sp_weights::Weight;
 /// single version.
 pub trait MultiVersionItem {
 	/// The version of the transaction extension pipeline.
+	///
+	/// `None` means that the item has no version and can't be decoded.
 	const VERSION: Option<u8>;
 }
 
@@ -145,6 +147,10 @@ macro_rules! declare_multi_version_enum {
 				input: &mut CodecInput,
 			) -> Result<Self, codec::Error> {
 				$(
+					// NOTE: Here we could try all variants without checking for the version,
+					// but the error would be less informative.
+					// Otherwise we could change the trait `DecodeWithVersion` to return an enum of
+					// 3 variants: ok, error and invalid_version.
 					if $variant::VERSION == Some(extension_version) {
 						return Ok(MultiVersion::$variant($variant::decode_with_version(extension_version, input)?));
 					}

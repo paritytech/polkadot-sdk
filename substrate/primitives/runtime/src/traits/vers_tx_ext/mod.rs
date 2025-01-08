@@ -109,7 +109,7 @@ pub trait DecodeWithVersion: Sized {
 /// A type to build the metadata for the versioned transaction extension pipeline.
 pub struct VersTxExtLineMetadataBuilder {
 	/// The transaction extension pipeline by version and its list of items as vec of index into
-	/// other field `in_versions`.
+	/// the other field `in_versions`.
 	pub by_version: BTreeMap<u8, Vec<u32>>,
 	/// The list of all transaction extension item used.
 	pub in_versions: Vec<TransactionExtensionMetadata>,
