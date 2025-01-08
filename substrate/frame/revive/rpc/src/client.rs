@@ -22,12 +22,12 @@ use crate::{
 	subxt_client::{
 		revive::calls::types::EthTransact, runtime_types::pallet_revive::storage::ContractInfo,
 	},
-	BlockInfoProvider, ReceiptProvider, LOG_TARGET,
+	BlockInfoProvider, ReceiptProvider, TransactionInfo, LOG_TARGET,
 };
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	evm::{
-		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Bytes256, GenericTransaction, ReceiptInfo,
+		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, GenericTransaction, ReceiptInfo,
 		SyncingProgress, SyncingStatus, TransactionSigned, H160, H256, U256,
 	},
 	EthTransactError, EthTransactInfo,
@@ -668,7 +668,11 @@ impl Client {
 	}
 
 	/// Get the EVM block for the given hash.
-	pub async fn evm_block(&self, block: Arc<SubstrateBlock>) -> Result<Block, ClientError> {
+	pub async fn evm_block(
+		&self,
+		block: Arc<SubstrateBlock>,
+		hydrated_transactions: bool,
+	) -> Result<Block, ClientError> {
 		let runtime_api = self.api.runtime_api().at(block.hash());
 		let max_fee = Self::weight_to_fee(&runtime_api, self.max_block_weight()).await?;
 		let gas_limit = gas_from_fee(max_fee);
@@ -681,6 +685,23 @@ impl Client {
 		let state_root = header.state_root.0.into();
 		let extrinsics_root = header.extrinsics_root.0.into();
 
+		let receipts = extract_receipts_from_block(&block).await?;
+		let gas_used =
+			receipts.iter().fold(U256::zero(), |acc, (_, receipt)| acc + receipt.gas_used);
+		let transactions = if hydrated_transactions {
+			receipts
+				.into_iter()
+				.map(|(signed_tx, receipt)| TransactionInfo::new(receipt, signed_tx).into())
+				.collect::<Vec<TransactionInfo>>()
+				.into()
+		} else {
+			receipts
+				.into_iter()
+				.map(|(_, receipt)| receipt.transaction_hash)
+				.collect::<Vec<_>>()
+				.into()
+		};
+
 		Ok(Block {
 			hash: block.hash(),
 			parent_hash,
@@ -690,8 +711,9 @@ impl Client {
 			timestamp: timestamp.into(),
 			difficulty: Some(0u32.into()),
 			gas_limit,
-			logs_bloom: Bytes256([0u8; 256]),
+			gas_used,
 			receipts_root: extrinsics_root,
+			transactions,
 			..Default::default()
 		})
 	}

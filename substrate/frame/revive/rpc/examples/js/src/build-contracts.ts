@@ -55,7 +55,7 @@ for (const file of input) {
 	}
 
 	console.log('Compiling with revive...')
-	const reviveOut = await compile(input, { wasm: !!process.env.WASM })
+	const reviveOut = await compile(input, { bin: 'resolc' })
 
 	for (const contracts of Object.values(reviveOut.contracts)) {
 		for (const [name, contract] of Object.entries(contracts)) {
