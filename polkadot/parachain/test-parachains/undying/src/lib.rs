@@ -90,6 +90,8 @@ pub struct GraveyardState {
 	pub zombies: u64,
 	// Grave seal.
 	pub seal: [u8; 32],
+	// Increasing sequence number for core selector.
+	pub core_selector_number: u8,
 }
 
 /// Block data for this parachain.
@@ -123,6 +125,7 @@ pub fn execute_transaction(mut block_data: BlockData) -> GraveyardState {
 		// Chain hash the seals and burn CPU.
 		block_data.state.seal = hash_state(&block_data.state);
 	}
+	block_data.state.core_selector_number += 1;
 
 	block_data.state
 }
@@ -150,15 +153,18 @@ pub fn execute(
 		return Err(StateMismatch)
 	}
 
-	// We need to clone the block data as the fn will mutate it's state.
-	let new_state = execute_transaction(block_data.clone());
-
 	let mut upward_messages: UpwardMessages = Default::default();
 	upward_messages.force_push(UMP_SEPARATOR);
 	upward_messages.force_push(
-		UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
-			.encode(),
+		UMPSignal::SelectCore(
+			CoreSelector(block_data.state.core_selector_number),
+			ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET),
+		)
+		.encode(),
 	);
+
+	// We need to clone the block data as the fn will mutate it's state.
+	let new_state = execute_transaction(block_data.clone());
 
 	Ok((
 		HeadData {

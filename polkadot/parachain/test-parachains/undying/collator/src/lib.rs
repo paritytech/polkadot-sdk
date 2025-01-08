@@ -66,13 +66,14 @@ fn calculate_head_and_state_for_number(
 	let mut graveyard = vec![0u8; graveyard_size * graveyard_size];
 	let zombies = 0;
 	let seal = [0u8; 32];
+	let core_selector_number = 0;
 
 	// Ensure a larger compressed PoV.
 	graveyard.iter_mut().enumerate().for_each(|(i, grave)| {
 		*grave = i as u8;
 	});
 
-	let mut state = GraveyardState { index, graveyard, zombies, seal };
+	let mut state = GraveyardState { index, graveyard, zombies, seal, core_selector_number };
 	let mut head =
 		HeadData { number: 0, parent_hash: Hash::default().into(), post_state: hash_state(&state) };
 
@@ -113,13 +114,14 @@ impl State {
 		let mut graveyard = vec![0u8; graveyard_size * graveyard_size];
 		let zombies = 0;
 		let seal = [0u8; 32];
+		let core_selector_number = 0;
 
 		// Ensure a larger compressed PoV.
 		graveyard.iter_mut().enumerate().for_each(|(i, grave)| {
 			*grave = i as u8;
 		});
 
-		let state = GraveyardState { index, graveyard, zombies, seal };
+		let state = GraveyardState { index, graveyard, zombies, seal, core_selector_number };
 
 		let head_data =
 			HeadData { number: 0, parent_hash: Default::default(), post_state: hash_state(&state) };
