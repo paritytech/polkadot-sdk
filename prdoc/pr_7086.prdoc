@@ -6,6 +6,6 @@ doc:
     PR re-exports `pallet_revive::exec::Origin` to extend what can be tested externally.
 crates:
 - name: pallet-revive
-  bump: major
+  bump: minor
 - name: pallet-revive-uapi
   bump: major
