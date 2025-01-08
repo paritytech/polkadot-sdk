@@ -31,8 +31,6 @@ use core::fmt::Debug;
 use scale_info::TypeInfo;
 use sp_weights::Weight;
 
-
-
 /// An implementation of [`VersTxExtLine`] that consider any version invalid.
 ///
 /// This is mostly used by [`crate::traits::MultiVersions`].
