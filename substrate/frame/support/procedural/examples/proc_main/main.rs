@@ -82,6 +82,8 @@ pub mod frame_system {
 		#[pallet::no_default_bounds]
 		type RuntimeTask: crate::traits::tasks::Task;
 		#[pallet::no_default_bounds]
+		type RuntimeViewFunction;
+		#[pallet::no_default_bounds]
 		type PalletInfo: crate::traits::PalletInfo;
 		type DbWeight: Get<crate::weights::RuntimeDbWeight>;
 	}
@@ -236,7 +238,8 @@ mod runtime {
 		RuntimeHoldReason,
 		RuntimeSlashReason,
 		RuntimeLockId,
-		RuntimeTask
+		RuntimeTask,
+		RuntimeViewFunction
 	)]
 	pub struct Runtime;
 
