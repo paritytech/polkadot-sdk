@@ -35,8 +35,7 @@ use syn::{
 	parse_macro_input, parse_quote,
 	spanned::Spanned,
 	visit_mut::{self, VisitMut},
-	Attribute, Ident, ImplItem, ItemImpl, ItemMod, ItemUse, Path, Signature, Type, TypePath,
-	UseTree,
+	Attribute, Ident, ImplItem, ItemImpl, ItemMod, Path, Signature, Type, TypePath, UseTree,
 };
 
 use std::collections::HashMap;
@@ -865,24 +864,6 @@ pub fn impl_runtime_apis_impl(input: proc_macro::TokenStream) -> proc_macro::Tok
 	impl_runtime_apis_impl_inner(&mut api_impls, &uses)
 		.unwrap_or_else(|e| e.to_compile_error())
 		.into()
-}
-
-fn parse_path(path: &mut Vec<Ident>, item: &UseTree) -> Result<()> {
-	match &item {
-		syn::UseTree::Path(use_path) => {
-			path.push(use_path.ident.clone());
-			parse_path(path, use_path.tree.as_ref())
-		},
-		syn::UseTree::Glob(_) => Ok(()),
-		syn::UseTree::Name(_) | syn::UseTree::Rename(_) | syn::UseTree::Group(_) => {
-			let error = Error::new(
-				item.span(),
-				"Unsupported syntax used to import api implementaions from an extension module. \
-				Try using `pub use <path>::*` or `use <path>::*`",
-			);
-			return Err(error)
-		},
-	}
 }
 
 fn impl_runtime_apis_impl_inner(
