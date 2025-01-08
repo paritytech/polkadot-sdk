@@ -335,8 +335,6 @@ pub mod pallet {
 			type PalletInfo = ();
 			#[inject_runtime_type]
 			type RuntimeTask = ();
-			#[inject_runtime_type]
-			type RuntimeViewFunction = ();
 			type BaseCallFilter = frame_support::traits::Everything;
 			type BlockHashCount = TestBlockHashCount<frame_support::traits::ConstU32<10>>;
 			type OnSetCode = ();
