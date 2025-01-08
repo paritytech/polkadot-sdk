@@ -6,6 +6,11 @@ doc:
     config such that a block provider can be set for use in the pallet. This would 
     usually be the local system pallet or the appropriate relay chain. Previously 
     it defaulted to the local system pallet.
+- audience: Runtime User
+  description: |-
+    This PR updates the Westend runtime to use the relaychain's block number for
+    core-fellowship pallet logic. The type remains the same, but the values have
+    shifted.
 crates:
 - name: pallet-core-fellowship
   bump: major
