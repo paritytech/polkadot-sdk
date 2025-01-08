@@ -18,9 +18,7 @@
 //! The crate's tests.
 
 use crate as pallet_salary;
-use crate::{
-	tests::integration::sp_api_hidden_includes_construct_runtime::hidden_include::sp_runtime, *,
-};
+use crate::*;
 use frame::{
 	deps::{sp_io, sp_runtime::StateVersion},
 	testing_prelude::*,
@@ -201,7 +199,7 @@ fn swap_exhaustive_works() {
 
 			// The events mess up the storage root:
 			System::reset_events();
-			sp_io::storage::root(sp_runtime::StateVersion::V1)
+			sp_io::storage::root(StateVersion::V1)
 		});
 
 		assert_eq!(root_add, root_swap);
