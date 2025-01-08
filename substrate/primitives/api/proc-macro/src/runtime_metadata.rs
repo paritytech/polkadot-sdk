@@ -309,7 +309,7 @@ pub fn generate_impl_runtime_metadata(impls: &[ItemImpl], kind: Kind) -> Result<
 				#[doc(hidden)]
 				impl #crate_::metadata_ir::InternalImplRuntimeApis for #runtime_name {
 					fn runtime_metadata(&self) -> #crate_::vec::Vec<#crate_::metadata_ir::RuntimeApiMetadataIR> {
-						let other_apis: #crate_::vec::Vec<#crate_::metadata_ir::RuntimeApiMetadataIR> = #crate_::vec::Vec::from([#crate_::vec![ #( #metadata, )*], #(#paths::runtime_metadata(),)*]).concat();
+						let other_apis: #crate_::vec::Vec<#crate_::metadata_ir::RuntimeApiMetadataIR> = #crate_::vec::Vec::from([#crate_::vec![ #( #metadata, )*], #(#paths::internal::partial_metadata(),)*]).concat();
 						other_apis
 					}
 				}
@@ -318,7 +318,7 @@ pub fn generate_impl_runtime_metadata(impls: &[ItemImpl], kind: Kind) -> Result<
 		Kind::Ext => quote! {
 					#[doc(hidden)]
 					#[inline(always)]
-					pub fn runtime_metadata() -> #crate_::vec::Vec<#crate_::metadata_ir::RuntimeApiMetadataIR> {
+					pub fn partial_metadata() -> #crate_::vec::Vec<#crate_::metadata_ir::RuntimeApiMetadataIR> {
 						#crate_::vec![ #( #metadata, )* ]
 					}
 

@@ -44,7 +44,13 @@ use std::collections::HashMap;
 /// The structure used for parsing the runtime api implementations.
 struct RuntimeApiImpls {
 	impls: Vec<ItemImpl>,
-	uses: Vec<ItemUse>,
+	uses: Vec<TypePath>,
+}
+
+mod custom_kw {
+	use syn::custom_keyword;
+
+	custom_keyword!(external_impls);
 }
 
 impl Parse for RuntimeApiImpls {
@@ -52,9 +58,15 @@ impl Parse for RuntimeApiImpls {
 		let mut impls = Vec::new();
 		let mut uses = Vec::new();
 		while !input.is_empty() {
-			if input.peek(syn::Token![use]) || input.peek2(syn::Token![use]) {
-				let item = input.parse::<ItemUse>()?;
-				uses.push(item);
+			if input.peek(custom_kw::external_impls) || input.peek2(syn::Token![!]) {
+				let content;
+				input.parse::<custom_kw::external_impls>()?;
+				input.parse::<syn::Token![!]>()?;
+				syn::braced!(content in input);
+				let items = content.parse_terminated(syn::TypePath::parse, syn::Token![,])?;
+				for item in items.into_iter() {
+					uses.push(item)
+				}
 			} else {
 				impls.push(input.parse::<ItemImpl>()?);
 			}
@@ -221,7 +233,7 @@ fn generate_dispatch_function(impls: &[ItemImpl], kind: Kind) -> Result<TokenStr
 				.iter()
 				.map(|x| {
 					quote::quote! {
-						if let Some(res) = #x::api::dispatch(method, #data) {
+						if let Some(res) = #x::internal::api::dispatch(method, #data) {
 							return Some(res);
 						}
 					}
@@ -806,9 +818,8 @@ fn generate_runtime_api_versions(impls: &[ItemImpl]) -> Result<TokenStream> {
 		let api_ver = api_ver.map(|a| quote!( #a )).unwrap_or_else(|| base_api_version);
 		populate_runtime_api_versions(&mut result, &mut sections, attrs, id, api_ver, &c);
 	}
-
 	Ok(quote!(
-		pub const RUNTIME_API_VERSIONS: #c::ApisVec = #c::create_apis_vec!([ #( #result ),* ]);
+		pub const PARTIAL_RUNTIME_API_VERSIONS: &[([u8;8], u32)] = &[ #( #result ),* ];
 
 		#( #sections )*
 	))
@@ -856,9 +867,27 @@ pub fn impl_runtime_apis_impl(input: proc_macro::TokenStream) -> proc_macro::Tok
 		.into()
 }
 
+fn parse_path(path: &mut Vec<Ident>, item: &UseTree) -> Result<()> {
+	match &item {
+		syn::UseTree::Path(use_path) => {
+			path.push(use_path.ident.clone());
+			parse_path(path, use_path.tree.as_ref())
+		},
+		syn::UseTree::Glob(_) => Ok(()),
+		syn::UseTree::Name(_) | syn::UseTree::Rename(_) | syn::UseTree::Group(_) => {
+			let error = Error::new(
+				item.span(),
+				"Unsupported syntax used to import api implementaions from an extension module. \
+				Try using `pub use <path>::*` or `use <path>::*`",
+			);
+			return Err(error)
+		},
+	}
+}
+
 fn impl_runtime_apis_impl_inner(
 	api_impls: &mut [ItemImpl],
-	uses: &[ItemUse],
+	uses: &[TypePath],
 ) -> Result<TokenStream> {
 	rename_self_in_trait_impls(api_impls);
 
@@ -867,49 +896,48 @@ fn impl_runtime_apis_impl_inner(
 	let runtime_api_versions = generate_runtime_api_versions(api_impls)?;
 	let wasm_interface = generate_wasm_interface(api_impls)?;
 	let api_impls_for_runtime_api = generate_api_impl_for_runtime_api(api_impls)?;
-	let modules = match uses
-		.iter()
-		.map(|item| {
-			let mut path: Vec<Ident> = vec![];
-			fn call(path: &mut Vec<Ident>, item: &UseTree) -> Result<()> {
-				match &item {
-					syn::UseTree::Path(use_path) => {
-						path.push(use_path.ident.clone());
-						call(path, use_path.tree.as_ref())
-					},
-					syn::UseTree::Glob(_) => Ok(()),
-					syn::UseTree::Name(_) | syn::UseTree::Rename(_) | syn::UseTree::Group(_) => {
-						let error = Error::new(
-							item.span(),
-							"Unsupported syntax used to import api implementaions from an extension module. \
-							Try using `pub use <path>::*` or `use <path>::*`",
-						);
-						return Err(error)
-					},
-				}
-			}
-			call(&mut path, &item.tree)?;
-			let tok = quote::quote! {#(#path)::*};
-			Ok(syn::parse::<TypePath>(tok.into())
-				.expect("Can't happen, a valid TypePath was used in the `UseTree`"))
-		})
-		.collect::<Result<Vec<TypePath>>>()
-		.map_err(|e| e.into_compile_error())
-	{
-		Ok(items) => items,
-		Err(e) => return Ok(e),
-	};
-	let dispatch_impl = generate_dispatch_function(api_impls, Kind::Main(&modules))?;
+	let dispatch_impl = generate_dispatch_function(api_impls, Kind::Main(&uses))?;
 
 	let runtime_metadata =
-		crate::runtime_metadata::generate_impl_runtime_metadata(api_impls, Kind::Main(&modules))?;
+		crate::runtime_metadata::generate_impl_runtime_metadata(api_impls, Kind::Main(&uses))?;
 
 	let c = generate_crate_access();
 
-	let impl_ = quote!(
+	let runtime_api_versions_full = quote! {
+
+		pub const RUNTIME_API_VERSIONS: #c::ApisVec = {
+			const LEN: usize = #(#uses::internal::PARTIAL_RUNTIME_API_VERSIONS.len() + )* PARTIAL_RUNTIME_API_VERSIONS.len() + 0;
+			const ARR: [([u8;8], u32); LEN] = {
+				let mut arr: [([u8;8], u32); LEN] = [([0;8],0); LEN];
+				let mut base: usize = 0;
+				{
+					let mut i = 0;
+					while i < PARTIAL_RUNTIME_API_VERSIONS.len() {
+						arr[base + i] = PARTIAL_RUNTIME_API_VERSIONS[i];
+						i += 1;
+					}
+					base += PARTIAL_RUNTIME_API_VERSIONS.len();
+				}
+				#({
+					let s = #uses::internal::PARTIAL_RUNTIME_API_VERSIONS;
+					let mut i = 0;
+					while i < s.len() {
+						arr[base + i] = s[i];
+						i += 1;
+					}
+					base += s.len();
+				})*
+				if base != LEN { panic!("invalid length"); }
+				arr
+			};
+			#c::create_apis_vec!(ARR)
+		};
+	};
+
+	let impl_ = quote! {
 		#(
 			#[allow(unused_imports)]
-			#uses
+			pub use #uses::*;
 		)*
 
 		#base_runtime_api
@@ -922,10 +950,7 @@ fn impl_runtime_apis_impl_inner(
 
 		#runtime_metadata
 
-		pub fn runtime_api_versions() -> #c::ApisVec {
-			let api = #c::vec::Vec::from([RUNTIME_API_VERSIONS.into_owned(), #(#modules::RUNTIME_API_VERSIONS.into_owned()),*]).concat();
-			api.into()
-		}
+		#runtime_api_versions_full
 
 		pub mod api {
 			use super::*;
@@ -934,7 +959,7 @@ fn impl_runtime_apis_impl_inner(
 
 			#wasm_interface
 		}
-	);
+	};
 
 	let impl_ = expander::Expander::new("impl_runtime_apis")
 		.dry(std::env::var("EXPAND_MACROS").is_err())
@@ -963,7 +988,7 @@ pub fn impl_runtime_apis_impl_ext(input: proc_macro::TokenStream) -> proc_macro:
 fn impl_runtime_apis_impl_inner_ext(
 	module: Ident,
 	api_impls: &mut [ItemImpl],
-	uses: &[ItemUse],
+	uses: &[TypePath],
 ) -> Result<TokenStream> {
 	rename_self_in_trait_impls(api_impls);
 	let dispatch_impl = generate_dispatch_function(api_impls, Kind::Ext)?;
@@ -976,22 +1001,28 @@ fn impl_runtime_apis_impl_inner_ext(
 		crate::runtime_metadata::generate_impl_runtime_metadata(api_impls, Kind::Ext)?;
 	let impl_ = quote!(
 			pub mod #module {
-				#(#uses)*
+				#(
+					pub use #uses::*;
+				)*
 
 				#api_impls_for_runtime
 
 				#api_impls_for_runtime_api
 
-				#runtime_api_versions
-
-				#runtime_metadata
-
-				pub mod api {
+				pub mod internal {
 					use super::*;
 
-					#dispatch_impl
+					#runtime_api_versions
 
-					#wasm_interface
+					#runtime_metadata
+
+					pub mod api {
+						use super::*;
+
+						#dispatch_impl
+
+						#wasm_interface
+					}
 				}
 			}
 	);

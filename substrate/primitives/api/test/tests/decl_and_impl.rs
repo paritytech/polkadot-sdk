@@ -45,6 +45,10 @@ decl_runtime_apis! {
 		fn same_name() -> String;
 	}
 
+	pub trait Example2 {
+		fn same_name() -> String;
+	}
+
 	#[api_version(2)]
 	pub trait ApiWithMultipleVersions {
 		fn stable_one(data: u64);
@@ -146,14 +150,24 @@ impl_runtime_apis! {
 			unimplemented!()
 		}
 	}
-
-	pub use ext::*;
+	external_impls!{ext, ext2}
 }
 
 #[sp_api::impl_runtime_apis_ext]
 mod ext {
-	use super::*;
+	external_impls! {super}
+
 	impl super::Example<Block> for Runtime {
+		fn same_name() -> String {
+			"example".to_string()
+		}
+	}
+}
+
+#[sp_api::impl_runtime_apis_ext]
+mod ext2 {
+	external_impls! {super}
+	impl super::Example2<Block> for Runtime {
 		fn same_name() -> String {
 			"example".to_string()
 		}
@@ -251,7 +265,7 @@ fn check_runtime_api_info() {
 }
 
 fn check_runtime_api_versions_contains<T: RuntimeApiInfo + ?Sized>() {
-	assert!(self::runtime_api_versions().iter().any(|v| v == &(T::ID, T::VERSION)));
+	assert!(RUNTIME_API_VERSIONS.iter().any(|v| v == &(T::ID, T::VERSION)));
 }
 
 fn check_staging_runtime_api_versions<T: RuntimeApiInfo + ?Sized>(_staging_ver: u32) {
@@ -387,4 +401,5 @@ fn runtime_api_metadata_matches_version_implemented() {
 #[test]
 fn runtime_api_works_with_ext() {
 	check_runtime_api_versions_contains::<dyn Example<Block>>();
+	check_runtime_api_versions_contains::<dyn Example2<Block>>();
 }
