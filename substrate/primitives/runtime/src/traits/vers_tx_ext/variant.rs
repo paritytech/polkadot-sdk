@@ -434,6 +434,4 @@ mod tests {
 			.expect("Should be ok");
 		assert!(outcome.is_ok());
 	}
-
-	// TODO TODO: maybe test metadata
 }

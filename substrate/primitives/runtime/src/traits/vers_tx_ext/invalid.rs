@@ -31,9 +31,14 @@ use core::fmt::Debug;
 use scale_info::TypeInfo;
 use sp_weights::Weight;
 
+
+
 /// An implementation of [`VersTxExtLine`] that consider any version invalid.
+///
+/// This is mostly used by [`crate::traits::MultiVersions`].
+// NOTE: This type cannot be instantiated.
 #[derive(Encode, Debug, Clone, Eq, PartialEq, TypeInfo)]
-pub struct InvalidVersion;
+pub enum InvalidVersion {}
 
 impl DecodeWithVersion for InvalidVersion {
 	fn decode_with_version<I: codec::Input>(
@@ -71,12 +76,28 @@ impl<Call: Dispatchable> VersTxExtLine<Call> for InvalidVersion {
 
 impl VersTxExtLineVersion for InvalidVersion {
 	fn version(&self) -> u8 {
+		// NOTE: The type cannot be instantiated so this method is never called.
 		0
 	}
 }
 
 impl<Call: Dispatchable> VersTxExtLineWeight<Call> for InvalidVersion {
 	fn weight(&self, _call: &Call) -> Weight {
+		// NOTE: The type cannot be instantiated so this method is never called.
 		Weight::zero()
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn invalid_version_cannot_be_decoded() {
+		let mut input = &b""[..];
+		assert_eq!(
+			InvalidVersion::decode_with_version(0, &mut input),
+			Err(codec::Error::from("Invalid extension version"))
+		);
 	}
 }
