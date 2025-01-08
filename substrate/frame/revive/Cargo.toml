@@ -17,56 +17,55 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
+derive_more = { workspace = true }
 environmental = { workspace = true }
+ethereum-types = { workspace = true, features = ["codec", "rlp", "serialize"] }
+hex = { workspace = true }
+impl-trait-for-tuples = { workspace = true }
+log = { workspace = true }
 paste = { workspace = true }
 polkavm = { version = "0.18.0", default-features = false }
-codec = { features = ["derive", "max-encoded-len"], workspace = true }
+rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-log = { workspace = true }
 serde = { features = [
 	"alloc",
 	"derive",
 ], workspace = true, default-features = false }
-impl-trait-for-tuples = { workspace = true }
-rlp = { workspace = true }
-derive_more = { workspace = true }
-hex = { workspace = true }
-ethereum-types = { workspace = true, features = ["codec", "rlp", "serialize"] }
 
 # Polkadot SDK Dependencies
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-revive-fixtures = { workspace = true, optional = true }
-pallet-revive-uapi = { workspace = true, features = ["scale"] }
 pallet-revive-proc-macro = { workspace = true }
+pallet-revive-uapi = { workspace = true, features = ["scale"] }
 pallet-transaction-payment = { workspace = true }
 sp-api = { workspace = true }
 sp-arithmetic = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
-xcm = { workspace = true }
-xcm-builder = { workspace = true }
 subxt-signer = { workspace = true, optional = true, features = [
 	"unstable-eth",
 ] }
+xcm = { workspace = true }
+xcm-builder = { workspace = true }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
+hex-literal = { workspace = true }
 pretty_assertions = { workspace = true }
 secp256k1 = { workspace = true, features = ["recovery"] }
 serde_json = { workspace = true }
-hex-literal = { workspace = true }
 
 # Polkadot SDK Dependencies
 pallet-balances = { workspace = true, default-features = true }
-pallet-timestamp = { workspace = true, default-features = true }
-pallet-utility = { workspace = true, default-features = true }
 pallet-proxy = { workspace = true, default-features = true }
 pallet-revive-fixtures = { workspace = true, default-features = true }
+pallet-timestamp = { workspace = true, default-features = true }
+pallet-utility = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 xcm-builder = { workspace = true, default-features = true }
@@ -99,7 +98,6 @@ std = [
 	"sp-io/std",
 	"sp-keystore/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"subxt-signer",
 	"xcm-builder/std",
 	"xcm/std",
