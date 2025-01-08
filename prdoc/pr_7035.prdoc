@@ -48,3 +48,7 @@ crates:
     bump: major
   - name: sp-runtime
     bump: major
+  - name: sp-metadata-ir
+    bump: major
+  - name: pallet-transaction-payment
+    bump: major
