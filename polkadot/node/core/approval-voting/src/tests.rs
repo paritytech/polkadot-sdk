@@ -4848,7 +4848,6 @@ fn subsystem_relaunches_approval_work_on_availability_failure() {
 	));
 	let config = HarnessConfigBuilder::default().assignment_criteria(assignment_criteria).build();
 	let store = config.backend();
-	let store_clone = config.backend();
 
 	test_harness(config, |test_harness| async move {
 		let TestHarness { mut virtual_overseer, clock, sync_oracle_handle } = test_harness;
