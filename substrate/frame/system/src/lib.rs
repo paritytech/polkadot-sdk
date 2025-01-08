@@ -120,8 +120,6 @@ use sp_runtime::{
 	},
 	DispatchError, RuntimeDebug,
 };
-#[cfg(any(feature = "std", test))]
-use sp_std::map;
 use sp_version::RuntimeVersion;
 
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
@@ -1920,12 +1918,14 @@ impl<T: Config> Pallet<T> {
 	#[cfg(any(feature = "std", test))]
 	pub fn externalities() -> TestExternalities {
 		TestExternalities::new(sp_core::storage::Storage {
-			top: map![
-				<BlockHash<T>>::hashed_key_for(BlockNumberFor::<T>::zero()) => [69u8; 32].encode(),
-				<Number<T>>::hashed_key().to_vec() => BlockNumberFor::<T>::one().encode(),
-				<ParentHash<T>>::hashed_key().to_vec() => [69u8; 32].encode()
-			],
-			children_default: map![],
+			top: [
+				(<BlockHash<T>>::hashed_key_for(BlockNumberFor::<T>::zero()), [69u8; 32].encode()),
+				(<Number<T>>::hashed_key().to_vec(), BlockNumberFor::<T>::one().encode()),
+				(<ParentHash<T>>::hashed_key().to_vec(), [69u8; 32].encode()),
+			]
+			.into_iter()
+			.collect(),
+			children_default: Default::default(),
 		})
 	}
 
