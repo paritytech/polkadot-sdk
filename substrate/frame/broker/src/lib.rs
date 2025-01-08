@@ -272,6 +272,11 @@ pub mod pallet {
 			/// The task to which the Region was assigned.
 			task: TaskId,
 		},
+		/// An assignment has been removed from the workplan.
+		AssignmentRemoved {
+			/// The Region which was removed from the workplan.
+			region_id: RegionId,
+		},
 		/// A Region has been added to the Instantaneous Coretime Pool.
 		Pooled {
 			/// The Region which was added to the Instantaneous Coretime Pool.
@@ -544,6 +549,8 @@ pub mod pallet {
 		SovereignAccountNotFound,
 		/// Attempted to disable auto-renewal for a core that didn't have it enabled.
 		AutoRenewalNotEnabled,
+		/// Attempted to force remove an assignment that doesn't exist.
+		AssignmentNotFound,
 	}
 
 	#[derive(frame_support::DefaultNoBound)]
@@ -967,6 +974,16 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_force_reserve(workload, core)?;
 			Ok(Pays::No.into())
+		}
+
+		/// Remove an assignment from the Workplan.
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `region_id`: The Region to be removed from the workplan.
+		#[pallet::call_index(26)]
+		pub fn remove_assignment(origin: OriginFor<T>, region_id: RegionId) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_remove_assignment(region_id)
 		}
 
 		#[pallet::call_index(99)]

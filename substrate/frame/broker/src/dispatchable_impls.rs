@@ -341,6 +341,14 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	pub(crate) fn do_remove_assignment(region_id: RegionId) -> DispatchResult {
+		let workplan_key = (region_id.begin, region_id.core);
+		ensure!(Workplan::<T>::contains_key(&workplan_key), Error::<T>::AssignmentNotFound);
+		Workplan::<T>::remove(&workplan_key);
+		Self::deposit_event(Event::<T>::AssignmentRemoved { region_id });
+		Ok(())
+	}
+
 	pub(crate) fn do_pool(
 		region_id: RegionId,
 		maybe_check_owner: Option<T::AccountId>,
