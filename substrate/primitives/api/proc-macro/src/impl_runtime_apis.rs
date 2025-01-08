@@ -67,7 +67,21 @@ impl Parse for RuntimeApiImpls {
 					uses.push(item)
 				}
 			} else {
-				impls.push(input.parse::<ItemImpl>()?);
+				match input.parse::<ItemImpl>() {
+					Ok(res) => impls.push(res),
+					Err(e) => {
+						let mut error = syn::Error::new(
+							input.span(),
+							r#"Invalid syntax inside block.
+				supported item are:
+				  - impl blocks
+				  - references to other impl_api_blocks through `external_impls!{ <comma separated list of module paths> }
+				  "#,
+						);
+						error.combine(e);
+						return Err(error)
+					},
+				}
 			}
 		}
 
