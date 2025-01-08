@@ -2786,7 +2786,7 @@ where
 					)),
 			};
 			is_duplicate &= approval_entry.is_assigned(assignment.validator);
-			approval_entry.import_assignment(tranche, assignment.validator, tick_now);
+			approval_entry.import_assignment(tranche, assignment.validator, tick_now, is_duplicate);
 
 			// We've imported a new assignment, so we need to schedule a wake-up for when that might
 			// no-show.
