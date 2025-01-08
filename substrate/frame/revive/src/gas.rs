@@ -89,7 +89,7 @@ pub struct RefTimeLeft(u64);
 
 /// Resource that needs to be synced to the executor.
 ///
-/// Wrapped to make sure that the resource will be synced back the the executor.
+/// Wrapped to make sure that the resource will be synced back the executor.
 #[must_use]
 pub struct Syncable(polkavm::Gas);
 
