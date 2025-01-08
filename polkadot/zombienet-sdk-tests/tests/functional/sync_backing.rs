@@ -67,4 +67,6 @@ async fn sync_backing_test() -> Result<(), anyhow::Error> {
 	// Assert the parachain finalized block height is also on par with the number of backed
 	// candidates.
 	assert_finalized_block_height(&para_node.wait_client().await?, 5..9).await?;
+
+	Ok(())
 }
