@@ -41,10 +41,12 @@ pallet-bags-list = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 pallet-session = { workspace = true, default-features = true }
-pallet-democracy = { workspace = true, default-features = true }
+pallet-referenda = { workspace = true, default-features = true }
 pallet-vesting = { workspace = true, default-features = true }
 pallet-scheduler = { workspace = true, default-features = true }
 pallet-preimage = { workspace = true, default-features = true }
+pallet-conviction-voting = { workspace = true, default-features = true }
+sp-arithmetic = { workspace = true }
 
 [features]
 try-runtime = [
@@ -60,8 +62,9 @@ try-runtime = [
 	"pallet-staking/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-scheduler/try-runtime",
-	"pallet-democracy/try-runtime",
+	"pallet-referenda/try-runtime",
 	"pallet-vesting/try-runtime",
 	"pallet-preimage/try-runtime",
+	"pallet-conviction-voting/try-runtime",
 	"sp-runtime/try-runtime",
 ]
