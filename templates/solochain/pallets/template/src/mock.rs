@@ -18,8 +18,7 @@ mod runtime {
 		RuntimeHoldReason,
 		RuntimeSlashReason,
 		RuntimeLockId,
-		RuntimeTask,
-		RuntimeViewFunction
+		RuntimeTask
 	)]
 	pub struct Test;
 
