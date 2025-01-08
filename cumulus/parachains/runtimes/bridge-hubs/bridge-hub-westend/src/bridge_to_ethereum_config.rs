@@ -121,61 +121,31 @@ impl snowbridge_pallet_outbound_queue::Config for Runtime {
 parameter_types! {
 	pub const ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
-			version: [16,99,118,36], // 0x10637624
+			version: [0, 0, 0, 0], // 0x00000000
 			epoch: 0,
 		},
 		altair: Fork {
-			version: [32,99,118,36], // 0x20637624
+			version: [1, 0, 0, 0], // 0x01000000
 			epoch: 0,
 		},
 		bellatrix: Fork {
-			version: [48,99,118,36], // 0x30637624
+			version: [2, 0, 0, 0], // 0x02000000
 			epoch: 0,
 		},
 		capella: Fork {
-			version: [64,99,118,36], // 0x40637624
+			version: [3, 0, 0, 0], // 0x03000000
 			epoch: 0,
 		},
 		deneb: Fork {
-			version: [80,99,118,36], // 0x50637624
+			version: [4, 0, 0, 0], // 0x04000000
 			epoch: 0,
 		},
 		electra: Fork {
-			version: [96,99,118,36], // 0x60637624
-			epoch: 256,
+			version: [5, 0, 0, 0], // 0x05000000
+			epoch: 0,
 		},
 	};
 }
-
-/**
-Mekong Electra fork versions
-pub const ChainForkVersions: ForkVersions = ForkVersions {
-		genesis: Fork {
-			version: [16,99,118,36], // 0x10637624
-			epoch: 0,
-		},
-		altair: Fork {
-			version: [32,99,118,36], // 0x20637624
-			epoch: 0,
-		},
-		bellatrix: Fork {
-			version: [48,99,118,36], // 0x30637624
-			epoch: 0,
-		},
-		capella: Fork {
-			version: [64,99,118,36], // 0x40637624
-			epoch: 0,
-		},
-		deneb: Fork {
-			version: [80,99,118,36], // 0x50637624
-			epoch: 0,
-		},
-		electra: Fork {
-			version: [96,99,118,36], // 0x60637624
-			epoch: 256,
-		},
-	};
-**/
 
 #[cfg(not(any(feature = "std", feature = "fast-runtime", feature = "runtime-benchmarks", test)))]
 parameter_types! {
