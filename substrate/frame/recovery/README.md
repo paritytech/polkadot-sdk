@@ -67,7 +67,7 @@ permissionless. However, the recovery deposit is an economic deterrent that
 should disincentivize would-be attackers from trying to maliciously recover
 accounts.
 
-The recovery deposit can always be claimed by the account which is trying to
+The recovery deposit can always be claimed by the account which is trying
 to be recovered. In the case of a malicious recovery attempt, the account
 owner who still has access to their account can claim the deposit and
 essentially punish the malicious user.
