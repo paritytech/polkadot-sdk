@@ -51,9 +51,9 @@ pub mod frame_system {
 			type PalletInfo = ();
 			#[inject_runtime_type]
 			type RuntimeTask = ();
+			type DbWeight = ();
 			#[inject_runtime_type]
 			type RuntimeViewFunction = ();
-			type DbWeight = ();
 		}
 	}
 
@@ -241,7 +241,8 @@ mod runtime {
 		RuntimeHoldReason,
 		RuntimeSlashReason,
 		RuntimeLockId,
-		RuntimeTask
+		RuntimeTask,
+		RuntimeViewFunction
 	)]
 	pub struct Runtime;
 
