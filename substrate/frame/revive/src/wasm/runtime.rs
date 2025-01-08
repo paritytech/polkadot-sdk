@@ -293,6 +293,8 @@ pub enum RuntimeCosts {
 	CallDataSize,
 	/// Weight of calling `seal_return_data_size`.
 	ReturnDataSize,
+	/// Weight of calling `seal_to_account_id`.
+	ToAccountId,
 	/// Weight of calling `seal_origin`.
 	Origin,
 	/// Weight of calling `seal_is_contract`.
@@ -468,6 +470,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Caller => T::WeightInfo::seal_caller(),
 			Origin => T::WeightInfo::seal_origin(),
 			IsContract => T::WeightInfo::seal_is_contract(),
+			ToAccountId => T::WeightInfo::seal_to_account_id(),
 			CodeHash => T::WeightInfo::seal_code_hash(),
 			CodeSize => T::WeightInfo::seal_code_size(),
 			OwnCodeHash => T::WeightInfo::seal_own_code_hash(),
@@ -1391,6 +1394,22 @@ pub mod env {
 			memory,
 			out_ptr,
 			caller.as_bytes(),
+			false,
+			already_charged,
+		)?)
+	}
+
+	/// Retrieves the account id for a specified contract address.
+	///
+	/// See [`pallet_revive_uapi::HostFn::to_account_id`].
+	fn to_account_id(&mut self, memory: &mut M, addr_ptr: u32, out_ptr: u32) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::ToAccountId)?;
+		let address = memory.read_h160(addr_ptr)?;
+		let account_id = <E::T as Config>::AddressMapper::to_account_id(&address);
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&account_id.encode(),
 			false,
 			already_charged,
 		)?)

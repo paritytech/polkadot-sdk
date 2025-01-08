@@ -67,6 +67,7 @@ pub trait WeightInfo {
 	fn seal_caller() -> Weight;
 	fn seal_origin() -> Weight;
 	fn seal_is_contract() -> Weight;
+	fn seal_to_account_id() -> Weight;
 	fn seal_code_hash() -> Weight;
 	fn seal_own_code_hash() -> Weight;
 	fn seal_code_size() -> Weight;
@@ -376,6 +377,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `3771`
 		// Minimum execution time: 10_004_000 picoseconds.
 		Weight::from_parts(10_336_000, 3771)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+	}
+	/// Storage: `Revive::AddressSuffix` (r:1 w:0)
+	/// Proof: `Revive::AddressSuffix` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `Measured`)
+	fn seal_to_account_id() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `212`
+		//  Estimated: `3677`
+		// Minimum execution time: 4_000_000 picoseconds.
+		Weight::from_parts(4_000_000, 3677)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 	}
 	/// Storage: `Revive::ContractInfoOf` (r:1 w:0)
@@ -1272,6 +1283,16 @@ impl WeightInfo for () {
 		//  Estimated: `3771`
 		// Minimum execution time: 10_004_000 picoseconds.
 		Weight::from_parts(10_336_000, 3771)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	}
+	/// Storage: `Revive::AddressSuffix` (r:1 w:0)
+	/// Proof: `Revive::AddressSuffix` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `Measured`)
+	fn seal_to_account_id() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `212`
+		//  Estimated: `3677`
+		// Minimum execution time: 4_000_000 picoseconds.
+		Weight::from_parts(4_000_000, 3677)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 	}
 	/// Storage: `Revive::ContractInfoOf` (r:1 w:0)

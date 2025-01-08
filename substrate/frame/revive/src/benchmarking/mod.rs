@@ -559,6 +559,24 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn seal_to_account_id() {
+		let len = <T::AccountId as MaxEncodedLen>::max_encoded_len();
+		let account = account::<T::AccountId>("target", 0, 0);
+		let address = T::AddressMapper::to_address(&account);
+
+		build_runtime!(runtime, memory: [vec![0u8; len], address.0, ]);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_to_account_id(memory.as_mut_slice(), len as u32, 0);
+		}
+
+		assert_ok!(result);
+		assert_eq!(T::AccountId::decode(&mut memory.as_slice()), Ok(runtime.ext().to_account_id(&address)));
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_code_hash() {
 		let contract = Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
 		let len = <sp_core::H256 as MaxEncodedLen>::max_encoded_len() as u32;
