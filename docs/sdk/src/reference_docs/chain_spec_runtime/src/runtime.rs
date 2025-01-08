@@ -57,14 +57,7 @@ type SignedExtra = ();
 mod runtime {
 	/// The main runtime type.
 	#[runtime::runtime]
-	#[runtime::derive(
-		RuntimeCall,
-		RuntimeEvent,
-		RuntimeError,
-		RuntimeOrigin,
-		RuntimeTask,
-		RuntimeViewFunction
-	)]
+	#[runtime::derive(RuntimeCall, RuntimeEvent, RuntimeError, RuntimeOrigin, RuntimeTask)]
 	pub struct Runtime;
 
 	/// Mandatory system pallet that should always be included in a FRAME runtime.
