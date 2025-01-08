@@ -1405,7 +1405,7 @@ pub mod env {
 	fn to_account_id(&mut self, memory: &mut M, addr_ptr: u32, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::ToAccountId)?;
 		let address = memory.read_h160(addr_ptr)?;
-		let account_id = <E::T as Config>::AddressMapper::to_account_id(&address);
+		let account_id = self.ext.to_account_id(&address);
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
