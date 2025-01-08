@@ -1351,10 +1351,22 @@ async fn seconding_sanity_check<Context>(
 	let candidate_hash = hypothetical_candidate.candidate_hash();
 
 	for head in implicit_view.leaves() {
+		gum::trace!(
+			target: LOG_TARGET,
+			?candidate_hash,
+			leaf_hash = ?head,
+			"Checking leaf for seconding",
+		);
 		// Check that the candidate relay parent is allowed for para, skip the leaf otherwise.
 		let allowed_parents_for_para =
 			implicit_view.known_allowed_relay_parents_under(head, Some(candidate_para));
 		if !allowed_parents_for_para.unwrap_or_default().contains(&candidate_relay_parent) {
+			gum::trace!(
+				target: LOG_TARGET,
+				?candidate_hash,
+				leaf_hash = ?head,
+				"seconding_sanity_check: skipping leaf because relay parent is not allowed for para",
+			);
 			continue
 		}
 
@@ -1365,6 +1377,13 @@ async fn seconding_sanity_check<Context>(
 			&candidate_para,
 			&candidate_hash,
 		) {
+			gum::trace!(
+				target: LOG_TARGET,
+				?candidate_hash,
+				leaf_hash = ?head,
+				"seconding_sanity_check: skipping leaf because there is no free claim queue slot for the candidate",
+			);
+
 			continue
 		}
 
