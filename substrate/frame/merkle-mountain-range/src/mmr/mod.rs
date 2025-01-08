@@ -19,10 +19,8 @@ mod mmr;
 pub mod storage;
 
 pub use self::mmr::{verify_ancestry_proof, verify_leaves_proof, Mmr};
-use frame::{
-	deps::sp_mmr_primitives::{mmr_lib, DataOrHash, FullLeaf},
-	traits,
-};
+use crate::primitives::{mmr_lib, DataOrHash, FullLeaf};
+use frame::traits;
 
 /// Node type for runtime `T`.
 pub type NodeOf<T, I, L> = Node<<T as crate::Config<I>>::Hashing, L>;

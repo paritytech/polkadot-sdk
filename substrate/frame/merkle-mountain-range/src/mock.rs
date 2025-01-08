@@ -18,13 +18,13 @@
 use crate as pallet_mmr;
 use crate::*;
 
-use crate::frame_system::DefaultConfig;
+use crate::{
+	frame_system::DefaultConfig,
+	primitives::{Compact, LeafDataProvider},
+};
 use codec::{Decode, Encode};
 use frame::{
-	deps::{
-		frame_support::derive_impl,
-		sp_mmr_primitives::{Compact, LeafDataProvider},
-	},
+	deps::frame_support::derive_impl,
 	prelude::{frame_system, frame_system::config_preludes::TestDefaultConfig},
 	testing_prelude::*,
 };

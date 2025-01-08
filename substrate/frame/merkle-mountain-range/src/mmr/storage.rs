@@ -19,7 +19,7 @@
 
 use crate::{
 	mmr::{Node, NodeOf},
-	primitives::{self, NodeIndex},
+	primitives::{self, mmr_lib, mmr_lib::helper, utils::NodesUtils, NodeIndex},
 	BlockHashProvider, Config, Nodes, NumberOfLeaves, Pallet,
 };
 use alloc::{vec, vec::Vec};
@@ -29,7 +29,6 @@ use frame::{
 	deps::{
 		sp_core::offchain::StorageKind,
 		sp_io::{offchain, offchain_index},
-		sp_mmr_primitives::{mmr_lib, mmr_lib::helper, utils::NodesUtils},
 	},
 	prelude::*,
 };

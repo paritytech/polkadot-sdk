@@ -17,6 +17,8 @@
 
 use crate::{mock::*, *};
 
+use crate::primitives::{mmr_lib::helper, utils, Compact, LeafProof};
+
 use frame::{
 	deps::{
 		sp_core::{
@@ -24,7 +26,6 @@ use frame::{
 			H256,
 		},
 		sp_io::TestExternalities,
-		sp_mmr_primitives::{mmr_lib::helper, utils, Compact, LeafProof},
 	},
 	testing_prelude::*,
 };
