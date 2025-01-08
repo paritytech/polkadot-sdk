@@ -560,10 +560,14 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_to_account_id() {
-		let len = <T::AccountId as MaxEncodedLen>::max_encoded_len();
-		let account = account::<T::AccountId>("target", 0, 0);
-		let address = T::AddressMapper::to_address(&account);
+		// use a mapped address for the benchmark, to ensure that we bench the worst
+		// case (and not the fallback case).
+		let caller = whitelisted_caller();
+		let origin: T::RuntimeOrigin = RawOrigin::Signed(caller.clone()).into();
+		Contracts::<T>::map_account(origin.clone()).unwrap();
+		let address = T::AddressMapper::to_address(&caller);
 
+		let len = <T::AccountId as MaxEncodedLen>::max_encoded_len();
 		build_runtime!(runtime, memory: [vec![0u8; len], address.0, ]);
 
 		let result;
