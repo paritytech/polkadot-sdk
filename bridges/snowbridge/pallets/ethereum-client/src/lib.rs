@@ -716,58 +716,57 @@ pub mod pallet {
 			Pays::Yes
 		}
 
+		pub fn finalized_root_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
+			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
 
-        pub fn finalized_root_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
-            let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
+			if epoch >= fork_versions.electra.epoch {
+				return config::electra::FINALIZED_ROOT_INDEX;
+			}
 
-            if epoch >= fork_versions.electra.epoch {
-                return config::electra::FINALIZED_ROOT_INDEX;
-            }
+			config::altair::FINALIZED_ROOT_INDEX
+		}
 
-            config::altair::FINALIZED_ROOT_INDEX
-        }
+		pub fn current_sync_committee_gindex_at_slot(
+			slot: u64,
+			fork_versions: ForkVersions,
+		) -> usize {
+			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
 
-        pub fn current_sync_committee_gindex_at_slot(
-            slot: u64,
-            fork_versions: ForkVersions,
-        ) -> usize {
-            let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
+			if epoch >= fork_versions.electra.epoch {
+				return config::electra::CURRENT_SYNC_COMMITTEE_INDEX;
+			}
 
-            if epoch >= fork_versions.electra.epoch {
-                return config::electra::CURRENT_SYNC_COMMITTEE_INDEX;
-            }
+			config::altair::CURRENT_SYNC_COMMITTEE_INDEX
+		}
 
-            config::altair::CURRENT_SYNC_COMMITTEE_INDEX
-        }
+		pub fn next_sync_committee_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
+			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
 
-        pub fn next_sync_committee_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
-            let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
+			if epoch >= fork_versions.electra.epoch {
+				return config::electra::NEXT_SYNC_COMMITTEE_INDEX;
+			}
 
-            if epoch >= fork_versions.electra.epoch {
-                return config::electra::NEXT_SYNC_COMMITTEE_INDEX;
-            }
+			config::altair::NEXT_SYNC_COMMITTEE_INDEX
+		}
 
-            config::altair::NEXT_SYNC_COMMITTEE_INDEX
-        }
+		pub fn block_roots_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
+			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
 
-        pub fn block_roots_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
-            let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
+			if epoch >= fork_versions.electra.epoch {
+				return config::electra::BLOCK_ROOTS_INDEX;
+			}
 
-            if epoch >= fork_versions.electra.epoch {
-                return config::electra::BLOCK_ROOTS_INDEX;
-            }
+			config::altair::BLOCK_ROOTS_INDEX
+		}
 
-            config::altair::BLOCK_ROOTS_INDEX
-        }
+		pub fn execution_header_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
+			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
 
-        pub fn execution_header_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
-            let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
+			if epoch >= fork_versions.electra.epoch {
+				return config::electra::EXECUTION_HEADER_INDEX;
+			}
 
-            if epoch >= fork_versions.electra.epoch {
-                return config::electra::EXECUTION_HEADER_INDEX;
-            }
-
-            config::altair::EXECUTION_HEADER_INDEX
-        }
+			config::altair::EXECUTION_HEADER_INDEX
+		}
 	}
 }
