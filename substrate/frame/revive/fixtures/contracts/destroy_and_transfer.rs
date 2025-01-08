@@ -19,7 +19,7 @@
 #![no_main]
 
 use common::{input, u256_bytes};
-use uapi::{HostFn, HostFnImpl as api, StorageFlags, U64_MAX_AS_U256};
+use uapi::{HostFn, HostFnImpl as api, StorageFlags, U256_MAX};
 
 const ADDRESS_KEY: [u8; 32] = [0u8; 32];
 const VALUE: [u8; 32] = u256_bytes(65536);
@@ -37,7 +37,7 @@ pub extern "C" fn deploy() {
 		code_hash,
 		u64::MAX,         // How much ref_time weight to devote for the execution. u64::MAX = use all.
 		u64::MAX,         // How much proof_size weight to devote for the execution. u64::MAX = use all.
-		&U64_MAX_AS_U256, // No deposit limit.
+		&U256_MAX, // No deposit limit.
 		&VALUE,
 		&input,
 		Some(&mut address),
@@ -64,7 +64,7 @@ pub extern "C" fn call() {
 		&callee_addr,
 		u64::MAX,         // How much ref_time weight to devote for the execution. u64::MAX = use all.
 		u64::MAX,         // How much proof_size weight to devote for the execution. u64::MAX = use all.
-		&U64_MAX_AS_U256, // No deposit limit.
+		&U256_MAX, // No deposit limit.
 		&VALUE,
 		&[0u8; 1],
 		None,
@@ -77,7 +77,7 @@ pub extern "C" fn call() {
 		&callee_addr,
 		u64::MAX,         // How much ref_time weight to devote for the execution. u64::MAX = use all.
 		u64::MAX,         // How much proof_size weight to devote for the execution. u64::MAX = use all.
-		&U64_MAX_AS_U256, // No deposit limit.
+		&U256_MAX, // No deposit limit.
 		&VALUE,
 		&[0u8; 0],
 		None,

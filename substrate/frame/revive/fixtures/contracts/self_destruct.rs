@@ -19,7 +19,7 @@
 #![no_main]
 
 use common::input;
-use uapi::{HostFn, HostFnImpl as api, U64_MAX_AS_U256};
+use uapi::{HostFn, HostFnImpl as api, U256_MAX};
 
 const DJANGO_FALLBACK: [u8; 20] = [4u8; 20];
 
@@ -44,7 +44,7 @@ pub extern "C" fn call() {
 			&addr,
 			u64::MAX,         // How much ref_time to devote for the execution. u64 = all.
 			u64::MAX,         // How much proof_size to devote for the execution. u64 = all.
-			&U64_MAX_AS_U256, // No deposit limit.
+			&U256_MAX, // No deposit limit.
 			&[0u8; 32],       // Value to transfer.
 			&[0u8; 0],
 			None,

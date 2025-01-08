@@ -134,8 +134,8 @@ const fn u64_to_u256_bytes(value: u64) -> [u8; 32] {
 /// A constant representing `u64::MAX` as a 32-byte array, in little-endian encoding.
 ///
 /// Deposit limits are `U256`, but balances are represented as `u64`.
-/// To represent no deposit limits on an operation, this should be used. 
-pub const U64_MAX_AS_U256: [u8; 32] = u64_to_u256_bytes(u64::MAX);
+/// To represent no deposit limits on an operation, this should be used.
+pub const U256_MAX: [u8; 32] = u64_to_u256_bytes(u64::MAX);
 
 impl From<ReturnCode> for Option<u32> {
 	fn from(code: ReturnCode) -> Self {

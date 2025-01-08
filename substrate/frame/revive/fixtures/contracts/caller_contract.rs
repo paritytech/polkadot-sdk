@@ -19,7 +19,7 @@
 #![no_main]
 
 use common::{input, u256_bytes};
-use uapi::{HostFn, HostFnImpl as api, ReturnErrorCode, U64_MAX_AS_U256};
+use uapi::{HostFn, HostFnImpl as api, ReturnErrorCode, U256_MAX};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -44,7 +44,7 @@ pub extern "C" fn call() {
 		code_hash,
 		u64::MAX,         // How much ref_time weight to devote for the execution. u64::MAX = use all.
 		u64::MAX,         // How much proof_size weight to devote for the execution. u64::MAX = use all.
-		&U64_MAX_AS_U256, // No deposit limit.
+		&U256_MAX, // No deposit limit.
 		&value,
 		&reverted_input,
 		None,
@@ -58,7 +58,7 @@ pub extern "C" fn call() {
 		code_hash,
 		1u64,             // too little ref_time weight
 		u64::MAX,         // How much proof_size weight to devote for the execution. u64::MAX = use all.
-		&U64_MAX_AS_U256, // No deposit limit.
+		&U256_MAX, // No deposit limit.
 		&value,
 		&input,
 		None,
@@ -72,7 +72,7 @@ pub extern "C" fn call() {
 		code_hash,
 		u64::MAX,         // How much ref_time weight to devote for the execution. u64::MAX = use all.
 		1u64,             // Too little proof_size weight
-		&U64_MAX_AS_U256, // No deposit limit.
+		&U256_MAX, // No deposit limit.
 		&value,
 		&input,
 		None,
@@ -88,7 +88,7 @@ pub extern "C" fn call() {
 		code_hash,
 		u64::MAX,         // How much ref_time weight to devote for the execution. u64::MAX = use all.
 		u64::MAX,         // How much proof_size weight to devote for the execution. u64::MAX = use all.
-		&U64_MAX_AS_U256, // No deposit limit.
+		&U256_MAX, // No deposit limit.
 		&value,
 		&input,
 		Some(&mut callee),
@@ -103,7 +103,7 @@ pub extern "C" fn call() {
 		&callee,
 		u64::MAX,         // How much ref_time weight to devote for the execution. u64::MAX = use all.
 		u64::MAX,         // How much proof_size weight to devote for the execution. u64::MAX = use all.
-		&U64_MAX_AS_U256, // No deposit limit.
+		&U256_MAX, // No deposit limit.
 		&value,
 		&reverted_input,
 		None,
@@ -116,7 +116,7 @@ pub extern "C" fn call() {
 		&callee,
 		1u64,             // Too little ref_time weight.
 		u64::MAX,         // How much proof_size weight to devote for the execution. u64::MAX = use all.
-		&U64_MAX_AS_U256, // No deposit limit.
+		&U256_MAX, // No deposit limit.
 		&value,
 		&input,
 		None,
@@ -129,7 +129,7 @@ pub extern "C" fn call() {
 		&callee,
 		u64::MAX,         // How much ref_time weight to devote for the execution. u64::MAX = use all.
 		1u64,             // too little proof_size weight
-		&U64_MAX_AS_U256, // No deposit limit.
+		&U256_MAX, // No deposit limit.
 		&value,
 		&input,
 		None,
@@ -143,7 +143,7 @@ pub extern "C" fn call() {
 		&callee,
 		u64::MAX,         // How much ref_time weight to devote for the execution. u64::MAX = use all.
 		u64::MAX,         // How much proof_size weight to devote for the execution. u64::MAX = use all.
-		&U64_MAX_AS_U256, // No deposit limit.
+		&U256_MAX, // No deposit limit.
 		&value,
 		&input,
 		Some(&mut &mut output[..]),

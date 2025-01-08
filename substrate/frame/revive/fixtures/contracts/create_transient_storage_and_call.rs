@@ -20,7 +20,7 @@
 #![no_main]
 
 use common::input;
-use uapi::{HostFn, HostFnImpl as api, StorageFlags, U64_MAX_AS_U256};
+use uapi::{HostFn, HostFnImpl as api, StorageFlags, U256_MAX};
 
 static BUFFER: [u8; 448] = [0u8; 448];
 
@@ -51,7 +51,7 @@ pub extern "C" fn call() {
 		callee,
 		u64::MAX,         // How much ref_time weight to devote for the execution. u64::MAX = all.
 		u64::MAX,         // How much proof_size weight to devote for the execution. u64::MAX = all.
-		&U64_MAX_AS_U256, // No deposit limit.
+		&U256_MAX, // No deposit limit.
 		&[0u8; 32],       // Value transferred to the contract.
 		input,
 		None,

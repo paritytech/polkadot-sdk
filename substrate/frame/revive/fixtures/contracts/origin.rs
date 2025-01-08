@@ -23,7 +23,7 @@
 #![no_main]
 
 extern crate common;
-use uapi::{HostFn, HostFnImpl as api, U64_MAX_AS_U256};
+use uapi::{HostFn, HostFnImpl as api, U256_MAX};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -51,7 +51,7 @@ pub extern "C" fn call() {
 		&addr,
 		u64::MAX,
 		u64::MAX,
-		&U64_MAX_AS_U256,
+		&U256_MAX,
 		&[0; 32],
 		&[],
 		Some(&mut &mut buf[..]),

@@ -28,7 +28,7 @@
 
 extern crate common;
 
-use uapi::{HostFn, HostFnImpl as api, U64_MAX_AS_U256};
+use uapi::{HostFn, HostFnImpl as api, U256_MAX};
 
 const BUF_SIZE: usize = 8;
 static DATA: [u8; BUF_SIZE] = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -44,7 +44,7 @@ fn assert_call<const N: usize>(callee_address: &[u8; 20], expected_output: [u8; 
 		callee_address,
 		u64::MAX,
 		u64::MAX,
-		&U64_MAX_AS_U256,
+		&U256_MAX,
 		&[0u8; 32],
 		&[],
 		Some(output_buf_capped),
@@ -69,7 +69,7 @@ fn assert_instantiate<const N: usize>(expected_output: [u8; BUF_SIZE]) {
 		&code_hash,
 		u64::MAX,
 		u64::MAX,
-		&U64_MAX_AS_U256,
+		&U256_MAX,
 		&[0; 32],
 		&[0; 32],
 		None,

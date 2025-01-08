@@ -20,7 +20,7 @@
 #![no_main]
 
 use common::input;
-use uapi::{HostFn, HostFnImpl as api, U64_MAX_AS_U256};
+use uapi::{HostFn, HostFnImpl as api, U256_MAX};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -41,7 +41,7 @@ pub extern "C" fn call() {
 		callee_addr,
 		u64::MAX,         // How much ref_time to devote for the execution. u64::MAX = all.
 		u64::MAX,         // How much proof_size to devote for the execution. u64::MAX = all.
-		&U64_MAX_AS_U256, // No deposit limit.
+		&U256_MAX, // No deposit limit.
 		&[0u8; 32],       // Value transferred to the contract.
 		callee_input,
 		None,

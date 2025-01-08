@@ -19,7 +19,7 @@
 #![no_main]
 
 use common::input;
-use uapi::{HostFn, HostFnImpl as api, StorageFlags, U64_MAX_AS_U256};
+use uapi::{HostFn, HostFnImpl as api, StorageFlags, U256_MAX};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -51,7 +51,7 @@ pub extern "C" fn call() {
 		address,
 		ref_time,
 		proof_size,
-		&U64_MAX_AS_U256,
+		&U256_MAX,
 		&input,
 		None
 	).unwrap();
