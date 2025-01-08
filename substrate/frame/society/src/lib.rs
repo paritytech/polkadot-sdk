@@ -271,7 +271,7 @@ use frame_support::{
 	},
 	PalletId,
 };
-use frame_system::pallet_prelude::*;
+use frame_system::pallet_prelude::{BlockNumberFor as SystemBlockNumberFor, *};
 use rand_chacha::{
 	rand_core::{RngCore, SeedableRng},
 	ChaChaRng,
@@ -280,7 +280,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
 		AccountIdConversion, CheckedAdd, CheckedSub, Hash, Saturating, StaticLookup,
-		TrailingZeroInput, Zero,
+		TrailingZeroInput, Zero, BlockNumberProvider,
 	},
 	ArithmeticError::Overflow,
 	Percent, RuntimeDebug,
@@ -290,6 +290,8 @@ pub use weights::WeightInfo;
 
 pub use pallet::*;
 
+pub type BlockNumberFor<T, I> =
+<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 type BalanceOf<T, I> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 type NegativeImbalanceOf<T, I> = <<T as Config<I>>::Currency as Currency<
@@ -423,7 +425,7 @@ impl<AccountId: PartialEq, Balance> BidKind<AccountId, Balance> {
 }
 
 pub type PayoutsFor<T, I> =
-	BoundedVec<(BlockNumberFor<T>, BalanceOf<T, I>), <T as Config<I>>::MaxPayouts>;
+	BoundedVec<(BlockNumberFor<T, I>, BalanceOf<T, I>), <T as Config<I>>::MaxPayouts>;
 
 /// Information concerning a member.
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -443,7 +445,7 @@ pub struct PayoutRecord<Balance, PayoutsVec> {
 
 pub type PayoutRecordFor<T, I> = PayoutRecord<
 	BalanceOf<T, I>,
-	BoundedVec<(BlockNumberFor<T>, BalanceOf<T, I>), <T as Config<I>>::MaxPayouts>,
+	BoundedVec<(BlockNumberFor<T, I>, BalanceOf<T, I>), <T as Config<I>>::MaxPayouts>,
 >;
 
 /// Record for an individual new member who was elevated from a candidate recently.
@@ -491,7 +493,7 @@ pub mod pallet {
 		type Currency: ReservableCurrency<Self::AccountId>;
 
 		/// Something that provides randomness in the runtime.
-		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
+		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self, I>>;
 
 		/// The maximum number of strikes before a member gets funds slashed.
 		#[pallet::constant]
@@ -504,23 +506,23 @@ pub mod pallet {
 		/// The number of blocks on which new candidates should be voted on. Together with
 		/// `ClaimPeriod`, this sums to the number of blocks between candidate intake periods.
 		#[pallet::constant]
-		type VotingPeriod: Get<BlockNumberFor<Self>>;
+		type VotingPeriod: Get<BlockNumberFor<Self, I>>;
 
 		/// The number of blocks on which new candidates can claim their membership and be the
 		/// named head.
 		#[pallet::constant]
-		type ClaimPeriod: Get<BlockNumberFor<Self>>;
+		type ClaimPeriod: Get<BlockNumberFor<Self, I>>;
 
 		/// The maximum duration of the payout lock.
 		#[pallet::constant]
-		type MaxLockDuration: Get<BlockNumberFor<Self>>;
+		type MaxLockDuration: Get<BlockNumberFor<Self, I>>;
 
 		/// The origin that is allowed to call `found`.
 		type FounderSetOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The number of blocks between membership challenges.
 		#[pallet::constant]
-		type ChallengePeriod: Get<BlockNumberFor<Self>>;
+		type ChallengePeriod: Get<BlockNumberFor<Self, I>>;
 
 		/// The maximum number of payouts a member may have waiting unclaimed.
 		#[pallet::constant]
@@ -529,6 +531,9 @@ pub mod pallet {
 		/// The maximum number of bids at once.
 		#[pallet::constant]
 		type MaxBids: Get<u32>;
+
+		/// Provider for the block number, normally this is the frame_system.
+		type BlockNumberProvider: BlockNumberProvider;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -757,8 +762,9 @@ pub mod pallet {
 		StorageDoubleMap<_, Twox64Concat, RoundIndex, Twox64Concat, T::AccountId, Vote>;
 
 	#[pallet::hooks]
-	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
-		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+	impl<T: Config<I>, I: 'static> Hooks<SystemBlockNumberFor<T>> for Pallet<T, I> {
+		fn on_initialize(_n: SystemBlockNumberFor<T>) -> Weight {
+			let now = T::BlockNumberProvider::current_block_number();
 			let mut weight = Weight::zero();
 			let weights = T::BlockWeights::get();
 
@@ -782,7 +788,7 @@ pub mod pallet {
 			}
 
 			// Run a challenge rotation
-			if (n % T::ChallengePeriod::get()).is_zero() {
+			if (now % T::ChallengePeriod::get()).is_zero() {
 				Self::rotate_challenge(&mut rng);
 				weight.saturating_accrue(weights.max_block / 20);
 			}
@@ -1397,7 +1403,7 @@ pub enum Period<BlockNumber> {
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Get the period we are currently in.
-	fn period() -> Period<BlockNumberFor<T>> {
+	fn period() -> Period<BlockNumberFor<T, I>> {
 		let claim_period = T::ClaimPeriod::get();
 		let voting_period = T::VotingPeriod::get();
 		let rotation_period = voting_period + claim_period;
@@ -1890,7 +1896,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		candidate: &T::AccountId,
 		value: BalanceOf<T, I>,
 		kind: BidKind<T::AccountId, BalanceOf<T, I>>,
-		maturity: BlockNumberFor<T>,
+		maturity: BlockNumberFor<T, I>,
 	) {
 		let value = match kind {
 			BidKind::Deposit(deposit) => {
@@ -1927,7 +1933,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///
 	/// It is the caller's duty to ensure that `who` is already a member. This does nothing if `who`
 	/// is not a member or if `value` is zero.
-	fn bump_payout(who: &T::AccountId, when: BlockNumberFor<T>, value: BalanceOf<T, I>) {
+	fn bump_payout(who: &T::AccountId, when: BlockNumberFor<T, I>, value: BalanceOf<T, I>) {
 		if value.is_zero() {
 			return
 		}
@@ -2010,7 +2016,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///
 	/// This is a rather opaque calculation based on the formula here:
 	/// https://www.desmos.com/calculator/9itkal1tce
-	fn lock_duration(x: u32) -> BlockNumberFor<T> {
+	fn lock_duration(x: u32) -> BlockNumberFor<T, I> {
 		let lock_pc = 100 - 50_000 / (x + 500);
 		Percent::from_percent(lock_pc as u8) * T::MaxLockDuration::get()
 	}
