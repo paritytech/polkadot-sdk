@@ -2,9 +2,7 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use crate as ethereum_beacon_client;
 use crate::config;
-use frame_support::{
-	derive_impl, dispatch::DispatchResult, pallet_prelude::Weight, parameter_types,
-};
+use frame_support::{derive_impl, dispatch::DispatchResult, parameter_types};
 use pallet_timestamp;
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::inbound::{Log, Proof};
@@ -95,9 +93,9 @@ pub fn get_message_verification_payload() -> (Log, Proof) {
 
 frame_support::construct_runtime!(
 	pub enum Test {
-		System: frame_system,
-		EthereumBeaconClient: crate,
-		Timestamp: pallet_timestamp,
+		System: frame_system::{Pallet, Call, Storage, Event<T>},
+		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+		EthereumBeaconClient: ethereum_beacon_client::{Pallet, Call, Storage, Event<T>},
 	}
 );
 

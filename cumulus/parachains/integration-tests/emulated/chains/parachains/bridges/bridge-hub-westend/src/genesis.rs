@@ -87,11 +87,6 @@ pub fn genesis() -> Storage {
 			asset_hub_para_id: ASSETHUB_PARA_ID.into(),
 			..Default::default()
 		},
-		ethereum_system: bridge_hub_westend_runtime::EthereumSystemConfig {
-			para_id: PARA_ID.into(),
-			asset_hub_para_id: ASSETHUB_PARA_ID.into(),
-			..Default::default()
-		},
 		..Default::default()
 	};
 
