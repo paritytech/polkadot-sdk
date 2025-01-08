@@ -6,14 +6,14 @@
 
 use anyhow::anyhow;
 
-use super::{
-	helpers::assert_para_throughput,
-	rococo,
+use crate::helpers::{
+	assert_finalized_block_height, assert_para_throughput, rococo,
 	rococo::runtime_types::{
 		pallet_broker::coretime_interface::CoreAssignment,
 		polkadot_runtime_parachains::assigner_coretime::PartsOf57600,
 	},
 };
+use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use subxt::{OnlineClient, PolkadotConfig};
 use subxt_signer::sr25519::dev;
@@ -92,6 +92,8 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 	let network = spawn_fn(config).await?;
 
 	let relay_node = network.get_node("validator-0")?;
+	let para_node_elastic = network.get_node("collator-elastic")?;
+	let para_node_elastic_mvp = network.get_node("collator-elastic-mvp")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 	let alice = dev::alice();
@@ -155,9 +157,16 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 	assert_para_throughput(
 		&relay_client,
 		15,
-		[(2100, 39..46), (2200, 39..46)].into_iter().collect(),
+		[(ParaId::from(2100), 39..46), (ParaId::from(2200), 39..46)]
+			.into_iter()
+			.collect(),
 	)
 	.await?;
+
+	// Assert the parachain finalized block height is also on par with the number of backed
+	// candidates.
+	assert_finalized_block_height(&para_node_elastic.wait_client().await?, 36..46).await?;
+	assert_finalized_block_height(&para_node_elastic_mvp.wait_client().await?, 36..46).await?;
 
 	log::info!("Test finished successfully");
 	Ok(())
