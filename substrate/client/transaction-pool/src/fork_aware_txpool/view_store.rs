@@ -839,8 +839,7 @@ where
 			.iter()
 			.chain(self.inactive_views.read().iter())
 			.filter(|(_, view)| view.is_imported(&xt_hash))
-			.map(|(_, view)| view.remove_subtree(xt_hash, &listener_action))
-			.flatten()
+			.flat_map(|(_, view)| view.remove_subtree(xt_hash, &listener_action))
 			.filter(|xt_hash| seen.insert(*xt_hash))
 			.collect();
 

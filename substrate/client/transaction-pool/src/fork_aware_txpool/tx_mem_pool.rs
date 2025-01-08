@@ -375,7 +375,7 @@ where
 
 		let mut sorted = transactions
 			.iter()
-			.filter_map(|(h, v)| v.priority().map(|_| (h.clone(), v.clone())))
+			.filter_map(|(h, v)| v.priority().map(|_| (*h, v.clone())))
 			.collect::<Vec<_>>();
 
 		// When pushing higher prio transaction, we need to find a number of lower prio txs, such

@@ -643,7 +643,7 @@ where
 	/// are reduced to single result. Refer to `reduce_multiview_result` for more details.
 	async fn submit_at(
 		&self,
-		at: <Self::Block as BlockT>::Hash,
+		_: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xts: Vec<TransactionFor<Self>>,
 	) -> Result<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
@@ -667,7 +667,7 @@ where
 			.map(|(result, xt)| async move {
 				match result {
 					Err(TxPoolApiError::ImmediatelyDropped) =>
-						self.attempt_transaction_replacement(at, source, false, xt).await,
+						self.attempt_transaction_replacement(source, false, xt).await,
 					result @ _ => result,
 				}
 			})
@@ -765,7 +765,7 @@ where
 			match self.mempool.push_watched(source, xt.clone()) {
 				Ok(result) => result,
 				Err(TxPoolApiError::ImmediatelyDropped) =>
-					self.attempt_transaction_replacement(at, source, true, xt.clone()).await?,
+					self.attempt_transaction_replacement(source, true, xt.clone()).await?,
 				Err(e) => return Err(e.into()),
 			};
 
@@ -1342,7 +1342,6 @@ where
 	/// transaction was dropped immediately.
 	async fn attempt_transaction_replacement(
 		&self,
-		_: Block::Hash,
 		source: TransactionSource,
 		watched: bool,
 		xt: ExtrinsicFor<ChainApi>,
