@@ -47,3 +47,6 @@ pub use validated_pool::{
 
 pub(crate) use self::pool::CheckBannedBeforeVerify;
 pub(crate) use listener::DroppedByLimitsEvent;
+
+#[cfg(doc)]
+pub(crate) use validated_pool::ValidatedPool;

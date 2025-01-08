@@ -660,7 +660,7 @@ where
 				.collect::<Vec<_>>())
 		}
 
-		//todo: review + test maybe?
+		// Submit all the transactions to the mempool
 		let retries = mempool_results
 			.into_iter()
 			.zip(xts.clone())
@@ -675,6 +675,7 @@ where
 
 		let mempool_results = futures::future::join_all(retries).await;
 
+		// Collect transactions that were successfully submitted to the mempool...
 		let to_be_submitted = mempool_results
 			.iter()
 			.zip(xts)
@@ -686,26 +687,45 @@ where
 		self.metrics
 			.report(|metrics| metrics.submitted_transactions.inc_by(to_be_submitted.len() as _));
 
+		// ... and submit them to the view_store. Please note that transaction rejected by mempool
+		// are not sent here.
 		let mempool = self.mempool.clone();
 		let results_map = view_store.submit(to_be_submitted.into_iter()).await;
 		let mut submission_results = reduce_multiview_result(results_map).into_iter();
 
+		// Note for composing final result:
+		//
+		// For each failed insertion into the mempool, the mempool result should be placed into
+		// the returned vector.
+		//
+		// For each successful insertion into the mempool, the corresponding
+		// view_store submission result needs to be examined:
+		// - If there is an error during view_store submission, the transaction is removed from
+		// the mempool, and the final result recorded in the vector for this transaction is the
+		// view_store submission error.
+		//
+		// - If the view_store submission is successful, the transaction priority is updated in the
+		// mempool.
+		//
+		// Finally, it collects the hashes of updated transactions or submission errors (either
+		// from the mempool or view_store) into a returned vector.
 		Ok(mempool_results
 				.into_iter()
 				.map(|result| {
 					result
 						.map_err(Into::into)
 						.and_then(|insertion| {
-						submission_results
-							.next()
-							.expect("The number of Ok results in mempool is exactly the same as the size of to-views-submission result. qed.")
-							.inspect_err(|_|{
-								mempool.remove_transaction(&insertion.hash);
-							})
+							submission_results
+								.next()
+								.expect("The number of Ok results in mempool is exactly the same as the size of view_store submission result. qed.")
+								.inspect_err(|_|{
+									mempool.remove_transaction(&insertion.hash);
+								})
 					})
+
 				})
 				.map(|r| r.map(|r| {
-					mempool.update_transaction(&r);
+					mempool.update_transaction_priority(&r);
 					r.hash()
 				}))
 				.collect::<Vec<_>>())
@@ -758,7 +778,7 @@ where
 				self.mempool.remove_transaction(&xt_hash);
 			})
 			.map(|mut outcome| {
-				self.mempool.update_transaction(&outcome);
+				self.mempool.update_transaction_priority(&outcome);
 				outcome.expect_watcher()
 			})
 	}
@@ -897,7 +917,7 @@ where
 		self.view_store
 			.submit_local(xt)
 			.map(|outcome| {
-				self.mempool.update_transaction(&outcome);
+				self.mempool.update_transaction_priority(&outcome);
 				outcome.hash()
 			})
 			.or_else(|_| Ok(xt_hash))
@@ -1153,10 +1173,8 @@ where
 			.into_iter()
 			.zip(hashes)
 			.map(|(result, tx_hash)| {
-				//todo: we may need a bool flag here indicating if we need to update priority
-				//(premature optimization)
 				result
-					.map(|outcome| self.mempool.update_transaction(&outcome.into()))
+					.map(|outcome| self.mempool.update_transaction_priority(&outcome.into()))
 					.or_else(|_| Err(tx_hash))
 			})
 			.collect::<Vec<_>>();
@@ -1351,28 +1369,25 @@ where
 			)
 			.await;
 
-		if let Some(priority) = validated_tx.priority() {
-			let insertion_info =
-				self.mempool.try_replace_transaction(xt, priority, source, watched)?;
+		let Some(priority) = validated_tx.priority() else {
+			return Err(TxPoolApiError::ImmediatelyDropped)
+		};
 
-			for worst_hash in &insertion_info.removed {
-				log::trace!(target: LOG_TARGET, "removed: {worst_hash:?} replaced by {tx_hash:?}");
-				self.view_store
-					.listener
-					.transaction_dropped(DroppedTransaction::new_enforced_by_limts(*worst_hash));
+		let insertion_info = self.mempool.try_replace_transaction(xt, priority, source, watched)?;
 
-				self.view_store.remove_transaction_subtree(
-					*worst_hash,
-					|listener, removed_tx_hash| {
-						listener.limits_enforced(&removed_tx_hash);
-					},
-				);
-			}
+		for worst_hash in &insertion_info.removed {
+			log::trace!(target: LOG_TARGET, "removed: {worst_hash:?} replaced by {tx_hash:?}");
+			self.view_store
+				.listener
+				.transaction_dropped(DroppedTransaction::new_enforced_by_limts(*worst_hash));
 
-			return Ok(insertion_info)
+			self.view_store
+				.remove_transaction_subtree(*worst_hash, |listener, removed_tx_hash| {
+					listener.limits_enforced(&removed_tx_hash);
+				});
 		}
 
-		Err(TxPoolApiError::ImmediatelyDropped)
+		return Ok(insertion_info)
 	}
 }
 

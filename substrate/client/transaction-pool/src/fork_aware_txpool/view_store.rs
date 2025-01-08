@@ -796,7 +796,7 @@ where
 		let _results = futures::future::join_all(submit_futures).await;
 	}
 
-	/// Removes a transaction subtree from the every view in the view_store, starting from the given
+	/// Removes a transaction subtree from every view in the view_store, starting from the given
 	/// transaction hash.
 	///
 	/// This function traverses the dependency graph of transactions and removes the specified

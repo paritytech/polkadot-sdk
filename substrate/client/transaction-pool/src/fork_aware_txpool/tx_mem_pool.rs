@@ -388,7 +388,7 @@ where
 				(Some(a), Some(b)) => b.cmp(&a),
 				_ => Ordering::Equal,
 			},
-			ordering @ _ => ordering,
+			ordering => ordering,
 		});
 
 		let mut total_size_removed = 0usize;
@@ -429,7 +429,7 @@ where
 	/// size of removed transactions will be equal (or greated) then size of newly inserted
 	/// transaction.
 	///
-	/// Refer to [`try_insert_with_dropping`] for more details.
+	/// Refer to [`TxMemPool::try_insert_with_dropping`] for more details.
 	pub(super) fn try_replace_transaction(
 		&self,
 		new_xt: ExtrinsicFor<ChainApi>,
@@ -603,7 +603,9 @@ where
 		self.listener.invalidate_transactions(&invalid_hashes);
 	}
 
-	pub(super) fn update_transaction(&self, outcome: &ViewStoreSubmitOutcome<ChainApi>) {
+	/// Updates the priority of transaction stored in mempool using provided view_store submission
+	/// outcome.
+	pub(super) fn update_transaction_priority(&self, outcome: &ViewStoreSubmitOutcome<ChainApi>) {
 		outcome.priority().map(|priority| {
 			self.transactions
 				.write()
@@ -794,7 +796,9 @@ mod tx_mem_pool_tests {
 		assert!(results.iter().all(Result::is_ok));
 		assert_eq!(mempool.bytes(), total_xts_bytes);
 
-		submit_outcomes.into_iter().for_each(|o| mempool.update_transaction(&o));
+		submit_outcomes
+			.into_iter()
+			.for_each(|o| mempool.update_transaction_priority(&o));
 
 		let xt = Arc::from(large_uxt(98));
 		let hash = api.hash_and_length(&xt).0;
@@ -832,7 +836,9 @@ mod tx_mem_pool_tests {
 		assert_eq!(mempool.bytes(), total_xts_bytes);
 		assert_eq!(total_xts_bytes, max * LARGE_XT_SIZE);
 
-		submit_outcomes.into_iter().for_each(|o| mempool.update_transaction(&o));
+		submit_outcomes
+			.into_iter()
+			.for_each(|o| mempool.update_transaction_priority(&o));
 
 		//this one should drop 2 xts (size: 1130):
 		let xt = Arc::from(ExtrinsicBuilder::new_include_data(vec![98 as u8; 1025]).build());
@@ -871,7 +877,9 @@ mod tx_mem_pool_tests {
 		assert!(results.iter().all(Result::is_ok));
 		assert_eq!(mempool.bytes(), total_xts_bytes);
 
-		submit_outcomes.into_iter().for_each(|o| mempool.update_transaction(&o));
+		submit_outcomes
+			.into_iter()
+			.for_each(|o| mempool.update_transaction_priority(&o));
 
 		//this one should drop 3 xts (each of size 1129)
 		let xt = Arc::from(ExtrinsicBuilder::new_include_data(vec![98 as u8; 2154]).build());
@@ -911,14 +919,16 @@ mod tx_mem_pool_tests {
 		assert!(results.iter().all(Result::is_ok));
 		assert_eq!(mempool.bytes(), total_xts_bytes);
 
-		submit_outcomes.into_iter().for_each(|o| mempool.update_transaction(&o));
+		submit_outcomes
+			.into_iter()
+			.for_each(|o| mempool.update_transaction_priority(&o));
 
 		//this one should drop 3 xts (each of size 1129)
 		let xt = Arc::from(large_uxt(98));
 		let result =
 			mempool.try_replace_transaction(xt, low_prio, TransactionSource::External, false);
 
-		// we did not update priorities (update_transaction was not called):
+		// we did not update priorities (update_transaction_priority was not called):
 		assert!(matches!(
 			result.unwrap_err(),
 			sc_transaction_pool_api::error::Error::ImmediatelyDropped
@@ -951,7 +961,7 @@ mod tx_mem_pool_tests {
 		let result =
 			mempool.try_replace_transaction(xt, hi_prio, TransactionSource::External, false);
 
-		// we did not update priorities (update_transaction was not called):
+		// we did not update priorities (update_transaction_priority was not called):
 		assert!(matches!(
 			result.unwrap_err(),
 			sc_transaction_pool_api::error::Error::ImmediatelyDropped

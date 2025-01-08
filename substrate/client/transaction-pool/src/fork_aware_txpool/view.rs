@@ -463,8 +463,7 @@ where
 
 	/// Removes the whole transaction subtree from the inner pool.
 	///
-	/// Intended to be called when removal is a result of replacement. Provided `replaced_with`
-	/// transaction hash is used in emitted _usurped_ event.
+	/// Refer to [`crate::graph::ValidatedPool::remove_subtree`] for more details.
 	pub fn remove_subtree<F>(
 		&self,
 		tx_hash: ExtrinsicHash<ChainApi>,
