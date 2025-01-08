@@ -58,8 +58,6 @@ pub mod frame_system {
 			type PalletInfo = ();
 			#[inject_runtime_type]
 			type RuntimeTask = ();
-			#[inject_runtime_type]
-			type RuntimeViewFunction = ();
 			type DbWeight = ();
 		}
 	}
