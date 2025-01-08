@@ -80,7 +80,7 @@
 //! should disincentivize would-be attackers from trying to maliciously recover
 //! accounts.
 //!
-//! The recovery deposit can always be claimed by the account which is trying to
+//! The recovery deposit can always be claimed by the account which is trying
 //! to be recovered. In the case of a malicious recovery attempt, the account
 //! owner who still has access to their account can claim the deposit and
 //! essentially punish the malicious user.
@@ -403,7 +403,7 @@ pub mod pallet {
 				.map_err(|e| e.error)
 		}
 
-		/// Allow ROOT to bypass the recovery process and set an a rescuer account
+		/// Allow ROOT to bypass the recovery process and set a rescuer account
 		/// for a lost account directly.
 		///
 		/// The dispatch origin for this call must be _ROOT_.
