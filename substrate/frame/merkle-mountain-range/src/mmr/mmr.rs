@@ -20,11 +20,14 @@ use crate::{
 		storage::{OffchainStorage, RuntimeStorage, Storage},
 		Hasher, Node, NodeOf,
 	},
-	primitives::{self, Error, NodeIndex},
+	primitives::{
+		self, mmr_lib, mmr_lib::MMRStoreReadOps, utils::NodesUtils, AncestryProof, Error, FullLeaf,
+		LeafIndex, NodeIndex,
+	},
 	Config, HashOf, HashingOf,
 };
 use alloc::vec::Vec;
-use sp_mmr_primitives::{mmr_lib, mmr_lib::MMRStoreReadOps, utils::NodesUtils, LeafIndex};
+use frame::prelude::*;
 
 /// Stateless verification of the proof for a batch of leaves.
 /// Note, the leaves should be sorted such that corresponding leaves and leaf indices have the
@@ -36,7 +39,7 @@ pub fn verify_leaves_proof<H, L>(
 	proof: primitives::LeafProof<H::Output>,
 ) -> Result<bool, Error>
 where
-	H: sp_runtime::traits::Hash,
+	H: Hash,
 	L: primitives::FullLeaf,
 {
 	let size = NodesUtils::new(proof.leaf_count).size();
@@ -62,11 +65,11 @@ where
 
 pub fn verify_ancestry_proof<H, L>(
 	root: H::Output,
-	ancestry_proof: primitives::AncestryProof<H::Output>,
+	ancestry_proof: AncestryProof<H::Output>,
 ) -> Result<H::Output, Error>
 where
-	H: sp_runtime::traits::Hash,
-	L: primitives::FullLeaf,
+	H: Hash,
+	L: FullLeaf,
 {
 	let mmr_size = NodesUtils::new(ancestry_proof.leaf_count).size();
 
@@ -258,12 +261,10 @@ where
 	/// The generated proof contains all the leafs in the MMR, so this way we can generate a proof
 	/// with exactly `leaf_count` items.
 	#[cfg(feature = "runtime-benchmarks")]
-	pub fn generate_mock_ancestry_proof(
-		&self,
-	) -> Result<sp_mmr_primitives::AncestryProof<HashOf<T, I>>, Error> {
+	pub fn generate_mock_ancestry_proof(&self) -> Result<AncestryProof<HashOf<T, I>>, Error> {
 		use crate::ModuleMmr;
 		use alloc::vec;
-		use sp_mmr_primitives::mmr_lib::helper;
+		use mmr_lib::helper;
 
 		let mmr: ModuleMmr<OffchainStorage, T, I> = Mmr::new(self.leaves);
 		let store = <Storage<OffchainStorage, T, I, L>>::default();
@@ -289,7 +290,7 @@ where
 			proof_items.push((leaf_pos, leaf));
 		}
 
-		Ok(sp_mmr_primitives::AncestryProof {
+		Ok(AncestryProof {
 			prev_peaks,
 			prev_leaf_count: self.leaves,
 			leaf_count: self.leaves,

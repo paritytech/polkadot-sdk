@@ -59,19 +59,16 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use frame_support::weights::Weight;
-use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
 use log;
-use sp_mmr_primitives::utils;
-use sp_runtime::{
-	traits::{self, One, Saturating},
-	SaturatedConversion,
+
+pub use frame::{
+	deps::sp_mmr_primitives::{
+		self as primitives, utils, utils::NodesUtils, Error, LeafDataProvider, LeafIndex, NodeIndex,
+	},
+	prelude::*,
 };
 
 pub use pallet::*;
-pub use sp_mmr_primitives::{
-	self as primitives, utils::NodesUtils, Error, LeafDataProvider, LeafIndex, NodeIndex,
-};
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -87,14 +84,14 @@ mod tests;
 /// blocks without using excessive on-chain storage.
 ///
 /// Hence we implement the [LeafDataProvider] for [ParentNumberAndHash] which is a
-/// crate-local wrapper over [frame_system::Pallet]. Since the current block hash
+/// crate-local wrapper over [system::Pallet]. Since the current block hash
 /// is not available (since the block is not finished yet),
 /// we use the `parent_hash` here along with parent block number.
-pub struct ParentNumberAndHash<T: frame_system::Config> {
-	_phantom: core::marker::PhantomData<T>,
+pub struct ParentNumberAndHash<T: Config> {
+	_phantom: PhantomData<T>,
 }
 
-impl<T: frame_system::Config> LeafDataProvider for ParentNumberAndHash<T> {
+impl<T: Config> LeafDataProvider for ParentNumberAndHash<T> {
 	type LeafData = (BlockNumberFor<T>, <T as frame_system::Config>::Hash);
 
 	fn leaf_data() -> Self::LeafData {
@@ -111,13 +108,11 @@ pub trait BlockHashProvider<BlockNumber, BlockHash> {
 }
 
 /// Default implementation of BlockHashProvider using frame_system.
-pub struct DefaultBlockHashProvider<T: frame_system::Config> {
+pub struct DefaultBlockHashProvider<T: Config> {
 	_phantom: core::marker::PhantomData<T>,
 }
 
-impl<T: frame_system::Config> BlockHashProvider<BlockNumberFor<T>, T::Hash>
-	for DefaultBlockHashProvider<T>
-{
+impl<T: Config> BlockHashProvider<BlockNumberFor<T>, T::Hash> for DefaultBlockHashProvider<T> {
 	fn block_hash(block_number: BlockNumberFor<T>) -> T::Hash {
 		frame_system::Pallet::<T>::block_hash(block_number)
 	}
@@ -147,12 +142,11 @@ type LeafOf<T, I> = <<T as Config<I>>::LeafData as primitives::LeafDataProvider>
 /// Hashing used for the pallet.
 pub(crate) type HashingOf<T, I> = <T as Config<I>>::Hashing;
 /// Hash type used for the pallet.
-pub(crate) type HashOf<T, I> = <<T as Config<I>>::Hashing as traits::Hash>::Output;
+pub(crate) type HashOf<T, I> = <<T as Config<I>>::Hashing as Hash>::Output;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
@@ -180,7 +174,7 @@ pub mod pallet {
 		///
 		/// Then we create a tuple of these two hashes, SCALE-encode it (concatenate) and
 		/// hash, to obtain a new MMR inner node - the new peak.
-		type Hashing: traits::Hash;
+		type Hashing: Hash;
 
 		/// Data stored in the leaf nodes.
 		///
@@ -250,7 +244,7 @@ pub mod pallet {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			use primitives::LeafDataProvider;
 			let leaves = NumberOfLeaves::<T, I>::get();
-			let peaks_before = sp_mmr_primitives::utils::NodesUtils::new(leaves).number_of_peaks();
+			let peaks_before = primitives::utils::NodesUtils::new(leaves).number_of_peaks();
 			let data = T::LeafData::leaf_data();
 
 			// append new leaf to MMR
@@ -273,7 +267,7 @@ pub mod pallet {
 			NumberOfLeaves::<T, I>::put(leaves);
 			RootHash::<T, I>::put(root);
 
-			let peaks_after = sp_mmr_primitives::utils::NodesUtils::new(leaves).number_of_peaks();
+			let peaks_after = primitives::utils::NodesUtils::new(leaves).number_of_peaks();
 
 			T::WeightInfo::on_initialize(peaks_before.max(peaks_after) as u32)
 		}
@@ -293,7 +287,7 @@ pub fn verify_leaves_proof<H, L>(
 	proof: primitives::LeafProof<H::Output>,
 ) -> Result<(), primitives::Error>
 where
-	H: traits::Hash,
+	H: Hash,
 	L: primitives::FullLeaf,
 {
 	let is_valid = mmr::verify_leaves_proof::<H, L>(root, leaves, proof)?;
@@ -310,7 +304,7 @@ pub fn verify_ancestry_proof<H, L>(
 	ancestry_proof: primitives::AncestryProof<H::Output>,
 ) -> Result<H::Output, Error>
 where
-	H: traits::Hash,
+	H: Hash,
 	L: primitives::FullLeaf,
 {
 	mmr::verify_ancestry_proof::<H, L>(root, ancestry_proof)

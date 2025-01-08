@@ -17,18 +17,23 @@
 
 //! An MMR storage implementation.
 
-use alloc::{vec, vec::Vec};
-use codec::Encode;
-use core::iter::Peekable;
-use log::{debug, trace};
-use sp_core::offchain::StorageKind;
-use sp_mmr_primitives::{mmr_lib, mmr_lib::helper, utils::NodesUtils};
-
 use crate::{
 	mmr::{Node, NodeOf},
 	primitives::{self, NodeIndex},
 	BlockHashProvider, Config, Nodes, NumberOfLeaves, Pallet,
 };
+use alloc::{vec, vec::Vec};
+use codec::Encode;
+use core::iter::Peekable;
+use frame::{
+	deps::{
+		sp_core::offchain::StorageKind,
+		sp_io::{offchain, offchain_index},
+		sp_mmr_primitives::{mmr_lib, mmr_lib::helper, utils::NodesUtils},
+	},
+	prelude::*,
+};
+use log::{debug, trace};
 
 /// A marker type for runtime-specific storage implementation.
 ///
@@ -48,20 +53,20 @@ pub struct OffchainStorage;
 
 impl OffchainStorage {
 	fn get(key: &[u8]) -> Option<Vec<u8>> {
-		sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, &key)
+		offchain::local_storage_get(StorageKind::PERSISTENT, &key)
 	}
 
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	fn set<T: Config<I>, I: 'static>(key: &[u8], value: &[u8]) {
-		sp_io::offchain_index::set(key, value);
+		offchain_index::set(key, value);
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn set<T: Config<I>, I: 'static>(key: &[u8], value: &[u8]) {
 		if crate::pallet::UseLocalStorage::<T, I>::get() {
-			sp_io::offchain::local_storage_set(StorageKind::PERSISTENT, key, value);
+			offchain::local_storage_set(StorageKind::PERSISTENT, key, value);
 		} else {
-			sp_io::offchain_index::set(key, value);
+			offchain_index::set(key, value);
 		}
 	}
 }

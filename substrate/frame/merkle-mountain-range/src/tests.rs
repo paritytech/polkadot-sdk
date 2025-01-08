@@ -17,19 +17,23 @@
 
 use crate::{mock::*, *};
 
-use frame_support::traits::{Get, OnInitialize};
-use sp_core::{
-	offchain::{testing::TestOffchainExt, OffchainDbExt, OffchainWorkerExt},
-	H256,
+use frame::{
+	deps::{
+		sp_core::{
+			offchain::{testing::TestOffchainExt, OffchainDbExt, OffchainWorkerExt},
+			H256,
+		},
+		sp_io::TestExternalities,
+		sp_mmr_primitives::{mmr_lib::helper, utils, Compact, LeafProof},
+	},
+	testing_prelude::*,
 };
-use sp_mmr_primitives::{mmr_lib::helper, utils, Compact, LeafProof};
-use sp_runtime::BuildStorage;
 
-pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
+pub(crate) fn new_test_ext() -> TestExternalities {
 	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
 }
 
-fn register_offchain_ext(ext: &mut sp_io::TestExternalities) {
+fn register_offchain_ext(ext: &mut TestExternalities) {
 	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));
@@ -54,7 +58,7 @@ pub(crate) fn hex(s: &str) -> H256 {
 	s.parse().unwrap()
 }
 
-type BlockNumber = frame_system::pallet_prelude::BlockNumberFor<Test>;
+type BlockNumber = BlockNumberFor<Test>;
 
 fn decode_node(
 	v: Vec<u8>,
@@ -517,7 +521,7 @@ fn should_verify() {
 }
 
 fn generate_and_verify_batch_proof(
-	ext: &mut sp_io::TestExternalities,
+	ext: &mut TestExternalities,
 	block_numbers: &Vec<u64>,
 	blocks_to_add: usize,
 ) {
@@ -719,7 +723,6 @@ fn should_verify_on_the_next_block_since_there_is_no_pruning_yet() {
 
 #[test]
 fn should_verify_canonicalized() {
-	use frame_support::traits::Hooks;
 	sp_tracing::init_for_tests();
 
 	// How deep is our fork-aware storage (in terms of blocks/leaves, nodes will be more).

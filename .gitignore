@@ -41,3 +41,5 @@ substrate.code-workspace
 target/
 *.scale
 justfile
+python-venv
+.zed
