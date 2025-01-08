@@ -35,7 +35,7 @@ use syn::{
 	parse_macro_input, parse_quote,
 	spanned::Spanned,
 	visit_mut::{self, VisitMut},
-	Attribute, Ident, ImplItem, ItemImpl, ItemMod, Path, Signature, Type, TypePath, UseTree,
+	Attribute, Ident, ImplItem, ItemImpl, ItemMod, Path, Signature, Type, TypePath,
 };
 
 use std::collections::HashMap;
