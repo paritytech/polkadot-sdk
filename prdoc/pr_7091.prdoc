@@ -1,4 +1,4 @@
-title: '[pallet-revive] Add new host function `to_account_id`
+title: '[pallet-revive] Add new host function `to_account_id`'
 doc:
 - audience: Runtime Dev
   description: A new host function `to_account_id` is added. It allows retrieving
