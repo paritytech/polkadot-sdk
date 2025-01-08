@@ -1,7 +1,7 @@
 title: Allow declaration and usage of multiple transaction extension version in FRAME and primitives
 
 doc:
-  - audience: ["Runtime Dev"]
+  - audience: Runtime Dev
     description: |
         This PR enhance `UncheckedExtrinsic` type with a new optional generic: `ExtensionOtherVersion`.
         This generic defaults to `InvalidVersion` meaning there is not other version than the regular version 0. This is the same behavior as before this PR.
