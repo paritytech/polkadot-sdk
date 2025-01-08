@@ -182,7 +182,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("rococo"),
 	impl_name: alloc::borrow::Cow::Borrowed("parity-rococo-v2.0"),
 	authoring_version: 0,
-	spec_version: 1_016_001,
+	spec_version: 1_017_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 26,
@@ -674,6 +674,7 @@ where
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
 			frame_metadata_hash_extension::CheckMetadataHash::new(true),
+			frame_system::WeightReclaim::<Runtime>::new(),
 		)
 			.into();
 		let raw_payload = SignedPayload::new(call, tx_ext)
@@ -792,6 +793,7 @@ impl pallet_recovery::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type RuntimeCall = RuntimeCall;
+	type BlockNumberProvider = System;
 	type Currency = Balances;
 	type ConfigDepositBase = ConfigDepositBase;
 	type FriendDepositFactor = FriendDepositFactor;
@@ -1616,6 +1618,7 @@ pub type TxExtension = (
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+	frame_system::WeightReclaim<Runtime>,
 );
 
 /// Unchecked extrinsic type as expected by this runtime.

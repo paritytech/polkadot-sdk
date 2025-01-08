@@ -553,6 +553,24 @@ impl<T: frame_system::Config> pallet_broker::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `Broker::SaleInfo` (r:1 w:0)
+	/// Proof: `Broker::SaleInfo` (`max_values`: Some(1), `max_size`: Some(57), added: 552, mode: `MaxEncodedLen`)
+	/// Storage: `Broker::Reservations` (r:1 w:1)
+	/// Proof: `Broker::Reservations` (`max_values`: Some(1), `max_size`: Some(12021), added: 12516, mode: `MaxEncodedLen`)
+	/// Storage: `Broker::Status` (r:1 w:0)
+	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)
+	/// Storage: `Broker::Workplan` (r:0 w:2)
+	/// Proof: `Broker::Workplan` (`max_values`: None, `max_size`: Some(1216), added: 3691, mode: `MaxEncodedLen`)
+	fn force_reserve() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `11125`
+		//  Estimated: `13506`
+		// Minimum execution time: 31_464_000 picoseconds.
+		Weight::from_parts(32_798_000, 0)
+			.saturating_add(Weight::from_parts(0, 13506))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
 	/// Storage: `Broker::Leases` (r:1 w:1)
 	/// Proof: `Broker::Leases` (`max_values`: Some(1), `max_size`: Some(81), added: 576, mode: `MaxEncodedLen`)
 	fn swap_leases() -> Weight {

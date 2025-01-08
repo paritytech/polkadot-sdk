@@ -61,6 +61,7 @@ pub trait WeightInfo {
 	fn promote_fast(r: u32, ) -> Weight;
 	fn offboard() -> Weight;
 	fn import() -> Weight;
+	fn import_member() -> Weight;
 	fn approve() -> Weight;
 	fn submit_evidence() -> Weight;
 }
@@ -76,7 +77,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `0`
 		// Minimum execution time: 6_652_000 picoseconds.
 		Weight::from_parts(7_082_000, 0)
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `CoreFellowship::Params` (r:1 w:1)
 	/// Proof: `CoreFellowship::Params` (`max_values`: Some(1), `max_size`: Some(368), added: 863, mode: `MaxEncodedLen`)
@@ -86,8 +87,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `1853`
 		// Minimum execution time: 12_485_000 picoseconds.
 		Weight::from_parts(12_784_000, 1853)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `CoreFellowship::Member` (r:1 w:1)
 	/// Proof: `CoreFellowship::Member` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
@@ -109,8 +110,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `19894`
 		// Minimum execution time: 61_243_000 picoseconds.
 		Weight::from_parts(63_033_000, 19894)
-			.saturating_add(T::DbWeight::get().reads(6_u64))
-			.saturating_add(T::DbWeight::get().writes(6_u64))
+			.saturating_add(RocksDbWeight::get().reads(6_u64))
+			.saturating_add(RocksDbWeight::get().writes(6_u64))
 	}
 	/// Storage: `CoreFellowship::Member` (r:1 w:1)
 	/// Proof: `CoreFellowship::Member` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
@@ -132,8 +133,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `19894`
 		// Minimum execution time: 65_063_000 picoseconds.
 		Weight::from_parts(67_047_000, 19894)
-			.saturating_add(T::DbWeight::get().reads(6_u64))
-			.saturating_add(T::DbWeight::get().writes(6_u64))
+			.saturating_add(RocksDbWeight::get().reads(6_u64))
+			.saturating_add(RocksDbWeight::get().writes(6_u64))
 	}
 	/// Storage: `RankedCollective::Members` (r:1 w:0)
 	/// Proof: `RankedCollective::Members` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)
@@ -145,8 +146,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `3514`
 		// Minimum execution time: 21_924_000 picoseconds.
 		Weight::from_parts(22_691_000, 3514)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `CoreFellowship::Member` (r:1 w:1)
 	/// Proof: `CoreFellowship::Member` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
@@ -164,8 +165,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `3514`
 		// Minimum execution time: 24_720_000 picoseconds.
 		Weight::from_parts(25_580_000, 3514)
-			.saturating_add(T::DbWeight::get().reads(3_u64))
-			.saturating_add(T::DbWeight::get().writes(5_u64))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(5_u64))
 	}
 	/// Storage: `RankedCollective::Members` (r:1 w:1)
 	/// Proof: `RankedCollective::Members` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)
@@ -187,8 +188,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `19894`
 		// Minimum execution time: 58_481_000 picoseconds.
 		Weight::from_parts(59_510_000, 19894)
-			.saturating_add(T::DbWeight::get().reads(5_u64))
-			.saturating_add(T::DbWeight::get().writes(6_u64))
+			.saturating_add(RocksDbWeight::get().reads(5_u64))
+			.saturating_add(RocksDbWeight::get().writes(6_u64))
 	}
 	/// Storage: `RankedCollective::Members` (r:1 w:1)
 	/// Proof: `RankedCollective::Members` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)
@@ -211,10 +212,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(42_220_685, 19894)
 			// Standard Error: 18_061
 			.saturating_add(Weight::from_parts(13_858_309, 0).saturating_mul(r.into()))
-			.saturating_add(T::DbWeight::get().reads(3_u64))
-			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(r.into())))
-			.saturating_add(T::DbWeight::get().writes(3_u64))
-			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(r.into())))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(r.into())))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
+			.saturating_add(RocksDbWeight::get().writes((3_u64).saturating_mul(r.into())))
 			.saturating_add(Weight::from_parts(0, 2489).saturating_mul(r.into()))
 	}
 	/// Storage: `RankedCollective::Members` (r:1 w:0)
@@ -229,8 +230,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `3514`
 		// Minimum execution time: 17_492_000 picoseconds.
 		Weight::from_parts(18_324_000, 3514)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 	/// Storage: `CoreFellowship::Member` (r:1 w:1)
 	/// Proof: `CoreFellowship::Member` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
@@ -242,8 +243,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `3514`
 		// Minimum execution time: 16_534_000 picoseconds.
 		Weight::from_parts(17_046_000, 3514)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn import_member() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `285`
+		//  Estimated: `3514`
+		// Minimum execution time: 23_239_000 picoseconds.
+		Weight::from_parts(23_684_000, 0)
+			.saturating_add(Weight::from_parts(0, 3514))
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	/// Storage: `RankedCollective::Members` (r:1 w:0)
 	/// Proof: `RankedCollective::Members` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)
@@ -257,8 +268,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `19894`
 		// Minimum execution time: 42_264_000 picoseconds.
 		Weight::from_parts(43_281_000, 19894)
-			.saturating_add(T::DbWeight::get().reads(3_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 	/// Storage: `CoreFellowship::Member` (r:1 w:0)
 	/// Proof: `CoreFellowship::Member` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
@@ -270,8 +281,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `19894`
 		// Minimum execution time: 25_461_000 picoseconds.
 		Weight::from_parts(26_014_000, 19894)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
 
@@ -453,6 +464,16 @@ impl WeightInfo for () {
 		Weight::from_parts(17_046_000, 3514)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn import_member() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `285`
+		//  Estimated: `3514`
+		// Minimum execution time: 23_239_000 picoseconds.
+		Weight::from_parts(23_684_000, 0)
+			.saturating_add(Weight::from_parts(0, 3514))
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	/// Storage: `RankedCollective::Members` (r:1 w:0)
 	/// Proof: `RankedCollective::Members` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)

@@ -83,6 +83,7 @@ members = [
 	"cumulus/pallets/parachain-system/proc-macro",
 	"cumulus/pallets/session-benchmarking",
 	"cumulus/pallets/solo-to-para",
+	"cumulus/pallets/weight-reclaim",
 	"cumulus/pallets/xcm",
 	"cumulus/pallets/xcmp-queue",
 	"cumulus/parachains/common",
@@ -717,6 +718,7 @@ cumulus-pallet-parachain-system = { path = "cumulus/pallets/parachain-system", d
 cumulus-pallet-parachain-system-proc-macro = { path = "cumulus/pallets/parachain-system/proc-macro", default-features = false }
 cumulus-pallet-session-benchmarking = { path = "cumulus/pallets/session-benchmarking", default-features = false }
 cumulus-pallet-solo-to-para = { path = "cumulus/pallets/solo-to-para", default-features = false }
+cumulus-pallet-weight-reclaim = { path = "cumulus/pallets/weight-reclaim", default-features = false }
 cumulus-pallet-xcm = { path = "cumulus/pallets/xcm", default-features = false }
 cumulus-pallet-xcmp-queue = { path = "cumulus/pallets/xcmp-queue", default-features = false }
 cumulus-ping = { path = "cumulus/parachains/pallets/ping", default-features = false }
@@ -841,7 +843,7 @@ kvdb-shared-tests = { version = "0.11.0" }
 landlock = { version = "0.3.0" }
 libc = { version = "0.2.155" }
 libfuzzer-sys = { version = "0.4" }
-libp2p = { version = "0.52.4" }
+libp2p = { version = "0.54.1" }
 libp2p-identity = { version = "0.2.9" }
 libsecp256k1 = { version = "0.7.0", default-features = false }
 linked-hash-map = { version = "0.5.4" }
@@ -871,7 +873,7 @@ multihash = { version = "0.19.1", default-features = false }
 multihash-codetable = { version = "0.1.1" }
 multistream-select = { version = "0.13.0" }
 names = { version = "0.14.0", default-features = false }
-nix = { version = "0.28.0" }
+nix = { version = "0.29.0" }
 node-cli = { path = "substrate/bin/node/cli", package = "staging-node-cli" }
 node-inspect = { path = "substrate/bin/node/inspect", default-features = false, package = "staging-node-inspect" }
 node-primitives = { path = "substrate/bin/node/primitives", default-features = false }
@@ -1123,7 +1125,7 @@ regex = { version = "1.10.2" }
 relay-substrate-client = { path = "bridges/relays/client-substrate" }
 relay-utils = { path = "bridges/relays/utils" }
 remote-externalities = { path = "substrate/utils/frame/remote-externalities", default-features = false, package = "frame-remote-externalities" }
-reqwest = { version = "0.11", default-features = false }
+reqwest = { version = "0.12.9", default-features = false }
 rlp = { version = "0.6.1", default-features = false }
 rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/relays/rococo" }
 rococo-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/rococo-parachain" }
@@ -1389,7 +1391,7 @@ xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false }
 xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = false }
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 zeroize = { version = "1.7.0", default-features = false }
-zombienet-sdk = { version = "0.2.16" }
+zombienet-sdk = { version = "0.2.20" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]
