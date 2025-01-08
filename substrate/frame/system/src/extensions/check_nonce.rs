@@ -186,7 +186,7 @@ mod tests {
 		assert_ok, assert_storage_noop, dispatch::GetDispatchInfo, traits::OriginTrait,
 	};
 	use sp_runtime::{
-		traits::{AsTransactionAuthorizedOrigin, DispatchTransaction},
+		traits::{AsTransactionAuthorizedOrigin, DispatchTransaction, TxBaseImplication},
 		transaction_validity::TransactionSource::External,
 	};
 
@@ -335,7 +335,7 @@ mod tests {
 			let info = DispatchInfo::default();
 			let len = 0_usize;
 			let (_, val, origin) = CheckNonce::<Test>(1u64.into())
-				.validate(None.into(), CALL, &info, len, (), CALL, External)
+				.validate(None.into(), CALL, &info, len, (), &TxBaseImplication(CALL), External)
 				.unwrap();
 			assert!(!origin.is_transaction_authorized());
 			assert_ok!(CheckNonce::<Test>(1u64.into()).prepare(val, &origin, CALL, &info, len));
@@ -359,7 +359,7 @@ mod tests {
 			let len = 0_usize;
 			// run the validation step
 			let (_, val, origin) = CheckNonce::<Test>(1u64.into())
-				.validate(Some(1).into(), CALL, &info, len, (), CALL, External)
+				.validate(Some(1).into(), CALL, &info, len, (), &TxBaseImplication(CALL), External)
 				.unwrap();
 			// mutate `AccountData` for the caller
 			crate::Account::<Test>::mutate(1, |info| {

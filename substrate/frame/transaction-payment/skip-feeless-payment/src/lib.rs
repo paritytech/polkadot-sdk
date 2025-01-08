@@ -46,7 +46,8 @@ use frame_support::{
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
 	traits::{
-		DispatchInfoOf, DispatchOriginOf, PostDispatchInfoOf, TransactionExtension, ValidateResult,
+		DispatchInfoOf, DispatchOriginOf, Implication, PostDispatchInfoOf, TransactionExtension,
+		ValidateResult,
 	},
 	transaction_validity::TransactionValidityError,
 };
@@ -147,7 +148,7 @@ where
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		self_implicit: S::Implicit,
-		inherited_implication: &impl Encode,
+		inherited_implication: &impl Implication,
 		source: TransactionSource,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
 		if call.is_feeless(&origin) {
