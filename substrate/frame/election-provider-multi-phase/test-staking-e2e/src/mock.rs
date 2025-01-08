@@ -17,13 +17,26 @@
 
 #![allow(dead_code)]
 
+use crate::{log, log_current_time};
+use codec::Decode;
+use frame_election_provider_support::{
+	bounds::ElectionBoundsBuilder, onchain, ElectionDataProvider, ExtendedBalance,
+	SequentialPhragmen, Weight,
+};
 use frame_support::{
-	assert_ok, parameter_types, traits,
-	traits::{Hooks, UnfilteredDispatchable, VariantCountOf},
+	assert_ok, derive_impl, parameter_types, traits,
+	traits::{EqualPrivilegeOnly, Hooks, UnfilteredDispatchable, VariantCountOf, WithdrawReasons},
 	weights::constants,
 	PalletId,
 };
-use frame_system::EnsureRoot;
+use frame_system::{EnsureRoot, EnsureSigned};
+use pallet_election_provider_multi_phase::{
+	unsigned::MinerConfig, Call, CurrentPhase, ElectionCompute, GeometricDepositBase,
+	QueuedSolution, SolutionAccuracyOf,
+};
+use pallet_referenda::Curve;
+use pallet_staking::{ActiveEra, CurrentEra, ErasStartSessionIndex, StakerStatus};
+use parking_lot::RwLock;
 use sp_core::{ConstU32, Get};
 use sp_npos_elections::{ElectionScore, VoteWeight};
 use sp_runtime::{
@@ -32,31 +45,14 @@ use sp_runtime::{
 		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
 	},
 	testing,
-	traits::Zero,
+	traits::{ConvertInto, Zero},
 	transaction_validity, BuildStorage, PerU16, Perbill, Percent,
 };
 use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
 	Agent, DelegationInterface, EraIndex, SessionIndex, StakingInterface,
 };
-use std::collections::BTreeMap;
-
-use codec::Decode;
-use frame_election_provider_support::{
-	bounds::ElectionBoundsBuilder, onchain, ElectionDataProvider, ExtendedBalance,
-	SequentialPhragmen, Weight,
-};
-use pallet_election_provider_multi_phase::{
-	unsigned::MinerConfig, Call, CurrentPhase, ElectionCompute, GeometricDepositBase,
-	QueuedSolution, SolutionAccuracyOf,
-};
-use pallet_staking::{ActiveEra, CurrentEra, ErasStartSessionIndex, StakerStatus};
-use parking_lot::RwLock;
-use std::sync::Arc;
-
-use frame_support::derive_impl;
-
-use crate::{log, log_current_time};
+use std::{collections::BTreeMap, sync::Arc};
 
 pub const INIT_TIMESTAMP: BlockNumber = 30_000;
 pub const BLOCK_TIME: BlockNumber = 1000;
@@ -76,6 +72,11 @@ frame_support::construct_runtime!(
 		Session: pallet_session,
 		Historical: pallet_session::historical,
 		Timestamp: pallet_timestamp,
+		Preimage: pallet_preimage,
+		Scheduler: pallet_scheduler,
+		Vesting: pallet_vesting,
+		Referenda: pallet_referenda,
+		ConvictionVoting: pallet_conviction_voting,
 	}
 );
 
@@ -86,6 +87,117 @@ pub(crate) type Balance = u64;
 pub(crate) type VoterIndex = u16;
 pub(crate) type TargetIndex = u16;
 pub(crate) type Moment = u32;
+
+impl pallet_preimage::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type Currency = Balances;
+	type ManagerOrigin = EnsureRoot<Self::AccountId>;
+	type Consideration = ();
+}
+
+parameter_types! {
+	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * BlockWeights::get().max_block;
+}
+
+impl pallet_scheduler::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeOrigin = RuntimeOrigin;
+	type PalletsOrigin = OriginCaller;
+	type RuntimeCall = RuntimeCall;
+	type MaximumWeight = MaximumSchedulerWeight;
+	type ScheduleOrigin = EnsureRoot<Self::AccountId>;
+	type MaxScheduledPerBlock = ConstU32<100>;
+	type WeightInfo = ();
+	type OriginPrivilegeCmp = EqualPrivilegeOnly;
+	type Preimages = Preimage;
+}
+
+parameter_types! {
+	pub const AlarmInterval: BlockNumber = 1;
+	pub const SubmissionDeposit: Balance = 1;
+	pub const UndecidingTimeout: BlockNumber = 10;
+}
+
+const fn percent(x: i32) -> sp_arithmetic::FixedI64 {
+	sp_arithmetic::FixedI64::from_rational(x as u128, 100)
+}
+
+const TRACKS_DATA: [(u16, pallet_referenda::TrackInfo<Balance, BlockNumber>); 1] = [(
+	0,
+	pallet_referenda::TrackInfo {
+		name: "root",
+		max_deciding: 1,
+		decision_deposit: 100,
+		prepare_period: 8,
+		decision_period: 2,
+		confirm_period: 12,
+		min_enactment_period: 5,
+		min_approval: Curve::make_linear(20, 20, percent(0), percent(10)),
+		min_support: Curve::make_linear(20, 20, percent(0), percent(10)),
+	},
+)];
+
+pub struct TracksInfo;
+impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
+	type Id = u16;
+	type RuntimeOrigin = <RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin;
+	fn tracks() -> &'static [(Self::Id, pallet_referenda::TrackInfo<Balance, BlockNumber>)] {
+		&TRACKS_DATA[..]
+	}
+	fn track_for(_: &Self::RuntimeOrigin) -> Result<Self::Id, ()> {
+		Ok(0)
+	}
+}
+pallet_referenda::impl_tracksinfo_get!(TracksInfo, Balance, BlockNumber);
+
+impl pallet_referenda::Config for Runtime {
+	type RuntimeCall = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type Scheduler = Scheduler;
+	type Currency = Balances;
+	type SubmitOrigin = EnsureSigned<Self::AccountId>;
+	type CancelOrigin = EnsureSigned<Self::AccountId>;
+	type KillOrigin = EnsureSigned<Self::AccountId>;
+	type Slash = ();
+	type Votes = pallet_conviction_voting::VotesOf<Runtime>;
+	type Tally = pallet_conviction_voting::TallyOf<Runtime>;
+	type SubmissionDeposit = SubmissionDeposit;
+	type MaxQueued = ConstU32<100>;
+	type UndecidingTimeout = UndecidingTimeout;
+	type AlarmInterval = AlarmInterval;
+	type Tracks = TracksInfo;
+	type Preimages = Preimage;
+}
+
+impl pallet_conviction_voting::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type Currency = Balances;
+	type Polls = Referenda;
+	type MaxTurnout =
+		frame_support::traits::tokens::currency::ActiveIssuanceOf<Balances, Self::AccountId>;
+	type MaxVotes = ConstU32<100>;
+	type VoteLockingPeriod = ConstU32<3>;
+}
+
+parameter_types! {
+	pub const MinVestedTransfer: u64 = 1;
+	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
+		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
+}
+
+impl pallet_vesting::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type BlockNumberToBalance = ConvertInto;
+	type MinVestedTransfer = MinVestedTransfer;
+	type WeightInfo = ();
+	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+	type BlockNumberProvider = System;
+	const MAX_VESTING_SCHEDULES: u32 = 28;
+}
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
@@ -608,6 +720,9 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut storage);
 
+		let _ = pallet_vesting::GenesisConfig::<Runtime> { vesting: vec![(2, 0, 10, 0)] }
+			.assimilate_storage(&mut storage);
+
 		let mut ext = sp_io::TestExternalities::from(storage);
 
 		// We consider all test to start after timestamp is initialized This must be ensured by
@@ -617,6 +732,9 @@ impl ExtBuilder {
 			Session::on_initialize(1);
 			<Staking as Hooks<u32>>::on_initialize(1);
 			Timestamp::set_timestamp(INIT_TIMESTAMP);
+			Vesting::on_initialize(1);
+			Referenda::on_initialize(1);
+			ConvictionVoting::on_initialize(1);
 		});
 
 		ext
