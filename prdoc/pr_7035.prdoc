@@ -1,0 +1,50 @@
+title: Allow declaration and usage of multiple transaction extension version in FRAME and primitives
+
+doc:
+  - audience: ["Runtime Dev"]
+    description: |
+        This PR enhance `UncheckedExtrinsic` type with a new optional generic: `ExtensionOtherVersion`.
+        This generic defaults to `InvalidVersion` meaning there is not other version than the regular version 0. This is the same behavior as before this PR.
+
+        # Breaking change
+
+        The types `Preamble`, `CheckedExtrinsic` and `ExtrinsicFormat` also have this new optional generic. Their type definition also have changed a bit, the `General` variant was 2 fields, the version and the extension, it is now only one field, the extension, and the version can be retrieve by calling `extension.version()`
+
+        The type inference for those types may fail because of this PR, to update the code, write some partial type: `UncheckedExtrinsic<_, _, _, _>`, `Preamble<_, _, _>`, `ExtrinsicFormat<_, _> and `CheckedExtrinsic<_, _, _>`.
+
+        # New feature
+
+        To use this new feature, you can use the new types `TxExtLineAtVers` and `MultiVersion` to define a transaction extension with multiple version:
+
+        ```rust
+        pub type TransactionExtensionV0 = ();
+        pub type TransactionExtensionV4 = ();
+        pub type TransactionExtensionV7 = ();
+
+        pub type OtherVersions = MultiVersion<
+            TxExtLineAtVers<4, TransactionExtensionV4>;
+            TxExtLineAtVers<7, TransactionExtensionV7>;
+        >;
+
+        pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<
+            AccountId,
+            RuntimeCall,
+            UintAuthorityId,
+            TransactionExtensionV0, // The version 0, same as before
+            OtherVersions, // The other versions.
+        >;
+        ```
+
+crates:
+  - name: node-testing
+    bump: major
+  - name: pallet-revive
+    bump: major
+  - name: frame-support-procedural
+    bump: major
+  - name: frame-support
+    bump: major
+  - name: frame-support-test
+    bump: major
+  - name: sp-runtime
+    bump: major
