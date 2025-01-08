@@ -206,10 +206,6 @@ where
 						views
 					);
 					views.remove(&key);
-					//todo: merge heads up warning!
-					if views.is_empty() {
-						self.pending_dropped_transactions.push(*tx_hash);
-					}
 				});
 
 				self.future_transaction_views.iter_mut().for_each(|(tx_hash, views)| {
@@ -263,10 +259,12 @@ where
 			},
 			TransactionStatus::Ready | TransactionStatus::InBlock(..) => {
 				// note: if future transaction was once seens as the ready we may want to treat it
-				// as ready transactions. Unreferenced future transactions are more likely to be
-				// removed when the last referencing view is removed then ready transactions.
-				// Transcaction seen as ready is likely quite close to be included in some
-				// future fork.
+				// as ready transaction. The rationale behind this is as follows: we want to remove
+				// unreferenced future transactions when the last referencing view is removed (to
+				// avoid clogging mempool). For ready transactions we prefer to keep them in mempool
+				// even if no view is currently referencing them. Future transcaction once seen as
+				// ready is likely quite close to be included in some future fork (it is close to be
+				// ready, so we make exception and treat such transaction as ready).
 				if let Some(mut views) = self.future_transaction_views.remove(&tx_hash) {
 					views.insert(block_hash);
 					self.ready_transaction_views.insert(tx_hash, views);
