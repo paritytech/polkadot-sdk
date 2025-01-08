@@ -504,12 +504,6 @@ pub mod pallet {
 				});
 			};
 
-			let pays_fee = Self::check_refundable(update, latest_finalized_state.slot);
-			let actual_weight = match update.next_sync_committee_update {
-				None => T::WeightInfo::submit(),
-				Some(_) => T::WeightInfo::submit_with_sync_committee(),
-			};
-
 			if update.finalized_header.slot > latest_finalized_state.slot {
 				Self::store_finalized_header(update.finalized_header, update.block_roots_root)?;
 			}

@@ -3,20 +3,9 @@
 use super::*;
 mod util;
 
-use crate::{
-	migration::{
-		v0::{
-			CompactExecutionHeader, ExecutionHeaderIndex, ExecutionHeaderMapping,
-			ExecutionHeaderState, ExecutionHeaders, LatestExecutionState,
-		},
-		EthereumExecutionHeaderCleanup,
-	},
-	Pallet as EthereumBeaconClient,
-};
+use crate::Pallet as EthereumBeaconClient;
 use frame_benchmarking::v2::*;
-use frame_support::{migrations::SteppedMigration, weights::WeightMeter};
 use frame_system::RawOrigin;
-use hex_literal::hex;
 
 use snowbridge_beacon_primitives::Fork;
 use snowbridge_pallet_ethereum_client_fixtures::*;
