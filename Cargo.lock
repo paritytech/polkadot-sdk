@@ -4225,6 +4225,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-client-bootnodes"
+version = "0.1.0"
+dependencies = [
+ "cumulus-client-network",
+ "cumulus-relay-chain-interface",
+ "sc-network",
+ "sc-network-sync",
+ "sc-service",
+]
+
+[[package]]
 name = "cumulus-client-cli"
 version = "0.7.0"
 dependencies = [
@@ -15347,6 +15358,7 @@ dependencies = [
  "async-trait",
  "clap 4.5.13",
  "color-print",
+ "cumulus-client-bootnodes",
  "cumulus-client-cli",
  "cumulus-client-collator",
  "cumulus-client-consensus-aura",

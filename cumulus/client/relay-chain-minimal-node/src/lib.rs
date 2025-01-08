@@ -296,5 +296,6 @@ fn build_request_response_protocol_receivers<
 	let cfg =
 		Protocol::ChunkFetchingV2.get_outbound_only_config::<_, Network>(request_protocol_names);
 	config.add_request_response_protocol(cfg);
+	// TODO: add `paranode` request-response protocol.
 	(collation_req_v1_receiver, collation_req_v2_receiver, available_data_req_receiver)
 }

@@ -23,6 +23,7 @@ use crate::common::{
 	},
 	ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 };
+use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_service::{
 	build_network, build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
@@ -281,7 +282,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				hwbench.clone(),
 			)
 			.await
-			.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+			.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
 
 			let validator = parachain_config.role.is_authority();
 			let prometheus_registry = parachain_config.prometheus_registry().cloned();
@@ -398,6 +399,11 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				relay_chain_slot_duration,
 				recovery_handle: Box::new(overseer_handle.clone()),
 				sync_service,
+			})?;
+
+			start_bootnode_tasks(StartBootnodeTasksParams {
+				task_manager: &mut task_manager,
+				relay_chain_interface: relay_chain_interface.clone(),
 			})?;
 
 			if validator {

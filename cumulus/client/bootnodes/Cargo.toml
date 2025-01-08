@@ -1,0 +1,25 @@
+[package]
+name = "cumulus-client-bootnodes"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+description = "Parachain bootnodes registration and discovery."
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+homepage.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+
+# Substrate
+sc-service = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sc-network-sync = { workspace = true, default-features = true }
+
+# Polkadot
+
+# Cumulus
+cumulus-client-network = { workspace = true, default-features = true }
+cumulus-relay-chain-interface = { workspace = true, default-features = true }
