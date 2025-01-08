@@ -45,12 +45,13 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	use example::{api, *};
+	extension_impls!{ api }
+	use api::*;
 }
 
 #[sp_api::impl_runtime_apis_ext]
 mod example {
-	use super::*;
+	extension_impls! { super }
 	#[api_version(2)]
 	impl self::Api<Block> for Runtime {
 		fn test1() {}
