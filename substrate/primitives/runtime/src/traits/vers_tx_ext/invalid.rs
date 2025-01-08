@@ -33,7 +33,7 @@ use sp_weights::Weight;
 
 /// An implementation of [`VersTxExtLine`] that consider any version invalid.
 ///
-/// This is mostly used by [`crate::traits::MultiVersions`].
+/// This is mostly used by [`crate::traits::MultiVersion`].
 // NOTE: This type cannot be instantiated.
 #[derive(Encode, Debug, Clone, Eq, PartialEq, TypeInfo)]
 pub enum InvalidVersion {}

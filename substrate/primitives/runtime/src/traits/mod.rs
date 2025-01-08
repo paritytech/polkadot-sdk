@@ -59,7 +59,10 @@ pub use transaction_extension::{
 	DispatchTransaction, Implication, ImplicationParts, TransactionExtension,
 	TransactionExtensionMetadata, TxBaseImplication, ValidateResult,
 };
-pub use vers_tx_ext::*;
+pub use vers_tx_ext::{
+	ExtensionVariant, InvalidVersion, MultiVersion, TxExtLineAtVers, VersTxExtLine,
+	VersTxExtLineMetadataBuilder, VersTxExtLineVersion, VersTxExtLineWeight,
+};
 
 /// A lazy value.
 pub trait Lazy<T: ?Sized> {
