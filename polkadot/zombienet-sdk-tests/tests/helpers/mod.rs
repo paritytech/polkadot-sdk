@@ -1,19 +1,22 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use super::rococo;
+use polkadot_primitives::Id as ParaId;
 use std::{collections::HashMap, ops::Range};
 use subxt::{OnlineClient, PolkadotConfig};
+
+#[subxt::subxt(runtime_metadata_path = "metadata-files/rococo-local.scale")]
+pub mod rococo {}
 
 // Helper function for asserting the throughput of parachains (total number of backed candidates in
 // a window of relay chain blocks), after the first session change.
 pub async fn assert_para_throughput(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	stop_at: u32,
-	expected_candidate_ranges: HashMap<u32, Range<u32>>,
+	expected_candidate_ranges: HashMap<ParaId, Range<u32>>,
 ) -> Result<(), anyhow::Error> {
 	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
-	let mut candidate_count: HashMap<u32, u32> = HashMap::new();
+	let mut candidate_count: HashMap<ParaId, u32> = HashMap::new();
 	let mut current_block_count = 0;
 	let mut had_first_session_change = false;
 
@@ -31,7 +34,7 @@ pub async fn assert_para_throughput(
 			current_block_count += 1;
 
 			for event in events.find::<rococo::para_inclusion::events::CandidateBacked>() {
-				*(candidate_count.entry(event?.0.descriptor.para_id.0).or_default()) += 1;
+				*(candidate_count.entry(event?.0.descriptor.para_id.0.into()).or_default()) += 1;
 			}
 		}
 
@@ -56,5 +59,23 @@ pub async fn assert_para_throughput(
 		);
 	}
 
+	Ok(())
+}
+
+// Helper function for retrieving the latest finalized block height and asserting it's within a
+// range.
+pub async fn assert_finalized_block_height(
+	client: &OnlineClient<PolkadotConfig>,
+	expected_range: Range<u32>,
+) -> Result<(), anyhow::Error> {
+	if let Some(block) = client.blocks().subscribe_finalized().await?.next().await {
+		let height = block?.number();
+		log::info!("Finalized block number {height}");
+
+		assert!(
+			expected_range.contains(&height),
+			"Finalized block number {height} not within range {expected_range:?}"
+		);
+	}
 	Ok(())
 }
