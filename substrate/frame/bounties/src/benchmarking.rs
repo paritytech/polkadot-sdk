@@ -31,8 +31,6 @@ use pallet_treasury::Pallet as Treasury;
 
 const SEED: u32 = 0;
 
-<<<<<<< HEAD
-=======
 fn set_block_number<T: Config<I>, I: 'static>(n: BlockNumberFor<T, I>) {
 	<T as pallet_treasury::Config<I>>::BlockNumberProvider::set_block_number(n);
 }
@@ -47,7 +45,6 @@ fn minimum_balance<T: Config<I>, I: 'static>() -> BalanceOf<T, I> {
 	}
 }
 
->>>>>>> 997db8e (pallet-bounties: Fix benchmarks for 0 ED (#7013))
 // Create bounties that are approved for use in `on_initialize`.
 fn create_approved_bounties<T: Config<I>, I: 'static>(n: u32) -> Result<(), BenchmarkError> {
 	for i in 0..n {
