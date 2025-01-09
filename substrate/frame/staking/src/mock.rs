@@ -25,7 +25,7 @@ use frame_election_provider_support::{
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, LockableCurrency,
+		ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Imbalance, LockableCurrency,
 		OnUnbalanced, OneSessionHandler, WithdrawReasons,
 	},
 	weights::constants::RocksDbWeight,
@@ -548,10 +548,15 @@ impl ExtBuilder {
 			// having `timestamp::on_initialize` called before `staking::on_initialize`. Also, if
 			// session length is 1, then it is already triggered.
 			ext.execute_with(|| {
-				System::set_block_number(1);
-				Session::on_initialize(1);
-				<Staking as Hooks<u64>>::on_initialize(1);
-				Timestamp::set_timestamp(INIT_TIMESTAMP);
+				System::run_to_block_with::<AllPalletsWithSystem>(
+					1,
+					frame_system::RunToBlockHooks::default().after_initialize(|_| {
+						Timestamp::set_timestamp(INIT_TIMESTAMP);
+					}),
+				);
+
+				// Skip the genesis reward.
+				ErasRewardPoints::<Test>::remove(0);
 			});
 		}
 
@@ -618,33 +623,52 @@ pub(crate) fn bond_virtual_nominator(
 /// a block import/propose process where we first initialize the block, then execute some stuff (not
 /// in the function), and then finalize the block.
 pub(crate) fn run_to_block(n: BlockNumber) {
-	Staking::on_finalize(System::block_number());
-	for b in (System::block_number() + 1)..=n {
-		System::set_block_number(b);
-		Session::on_initialize(b);
-		<Staking as Hooks<u64>>::on_initialize(b);
-		Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
-		if b != n {
-			Staking::on_finalize(System::block_number());
-		}
-	}
+	System::run_to_block_with::<AllPalletsWithSystem>(
+		n,
+		frame_system::RunToBlockHooks::default().after_initialize(|bn| {
+			Timestamp::set_timestamp(bn * BLOCK_TIME + INIT_TIMESTAMP);
+		}),
+	);
 }
 
 /// Progresses from the current block number (whatever that may be) to the `P * session_index + 1`.
-pub(crate) fn start_session(session_index: SessionIndex) {
+pub(crate) fn start_session(end_session_idx: SessionIndex) {
+	let period = Period::get();
 	let end: u64 = if Offset::get().is_zero() {
-		(session_index as u64) * Period::get()
+		(end_session_idx as u64) * period
 	} else {
-		Offset::get() + (session_index.saturating_sub(1) as u64) * Period::get()
+		Offset::get() + (end_session_idx.saturating_sub(1) as u64) * period
 	};
+	let start_session_idx = Session::current_index();
+
 	run_to_block(end);
+
+	let sessions_per_era = SessionsPerEra::get();
+
+	// Revert the `Authorship::OnInitialize`'s `note_author` reward for easy testing.
+	for i in start_session_idx..end_session_idx {
+		let blocks_per_session = if i == 0 {
+			// Skip block 0.
+			period - 1
+		} else {
+			period
+		};
+		let extra_reward_points = blocks_per_session as RewardPoint * 20;
+
+		ErasRewardPoints::<Test>::mutate(i / sessions_per_era, |p| {
+			if let Some(author_11) = p.individual.get_mut(&11) {
+				p.total = p.total.saturating_sub(extra_reward_points);
+				*author_11 = (*author_11).saturating_sub(extra_reward_points);
+			}
+		});
+	}
+
+	let curr_session_idx = Session::current_index();
+
 	// session must have progressed properly.
 	assert_eq!(
-		Session::current_index(),
-		session_index,
-		"current session index = {}, expected = {}",
-		Session::current_index(),
-		session_index,
+		curr_session_idx, end_session_idx,
+		"current session index = {curr_session_idx}, expected = {end_session_idx}",
 	);
 }
 
