@@ -15,7 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Storage migrations for the core-fellowship pallet.
+//! Storage migrations for `pallet-core-fellowship`.
+
 use super::*;
 use frame_support::{
 	pallet_prelude::*,
@@ -132,14 +133,10 @@ pub mod v2 {
 	use frame_system::pallet_prelude::BlockNumberFor as LocalBlockNumberFor;
 
 	/// Converts previous (local) block number into the new one. May just be identity functions
-	/// if sticking with local block number as the provider.
+	/// if sticking with the local block number.
 	pub trait ConvertBlockNumber<L, N> {
 		/// Converts to the new type and finds the equivalent moment in time as from the view of the
 		/// new block provider
-		///
-		/// For instance - if your new version uses the relay chain number, you'll want to
-		/// use relay current (+ or -) ((current local - local) * equivalent_block_duration).
-		/// Note: This assumes consistent block times on both local chain and relay.
 		///
 		/// # Example usage
 		///
@@ -172,6 +169,10 @@ pub mod v2 {
 		/// For instance - If you previously had 12s blocks and are now following the relay chain's
 		/// 6, one local block is equivalent to 2 relay blocks in duration.
 		///
+		/// # Visualized
+		///
+		/// ```text
+		/// 
 		///     6s         6s
 		/// |---------||---------|
 		///
@@ -179,7 +180,8 @@ pub mod v2 {
 		/// |--------------------|
 		///
 		/// ^ Two 6s relay blocks passed per one 12s local block.
-		///  
+		/// ```  
+		///
 		/// # Example Usage
 		///
 		/// ```rust,ignore
@@ -269,7 +271,7 @@ pub mod v2 {
 	}
 }
 
-/// [`UncheckedOnRuntimeUpgrade`] implementation [`MigrateToV1`] wrapped in a
+/// [`UncheckedOnRuntimeUpgrade`] implementation [`MigrateToV1`](v1::MigrateToV1) wrapped in a
 /// [`VersionedMigration`](frame_support::migrations::VersionedMigration), which ensures that:
 /// - The migration only runs once when the on-chain storage version is 0
 /// - The on-chain storage version is updated to `1` after the migration executes
@@ -282,7 +284,7 @@ pub type MigrateV0ToV1<T, I> = frame_support::migrations::VersionedMigration<
 	<T as frame_system::Config>::DbWeight,
 >;
 
-/// [`UncheckedOnRuntimeUpgrade`] implementation [`MigrateToV2`] wrapped in a
+/// [`UncheckedOnRuntimeUpgrade`] implementation [`MigrateToV2`](v2::MigrateToV2) wrapped in a
 /// [`VersionedMigration`](frame_support::migrations::VersionedMigration), which ensures that:
 /// - The migration only runs once when the on-chain storage version is `1`.
 /// - The on-chain storage version is updated to `2` after the migration executes.
