@@ -96,7 +96,7 @@ Please see the installation section at [`crates.io/staging-chain-spec-builder`](
 #### Use `chain-spec-builder` to generate the `chain_spec.json` file
 
 ```sh
-chain-spec-builder create --relay-chain "rococo-local" --para-id <!-- docify::embed!("runtime/src/genesis_config_cmd_list_presets.rs", get_parachain_id())--> --runtime \
+chain-spec-builder create --relay-chain "rococo-local" --para-id <!-- docify::embed!("runtime/src/genesis_config_cmd_list_presets.rs", get_parachain_id)--> --runtime \
     target/release/wbuild/parachain-template-runtime/parachain_template_runtime.wasm named-preset development
 ```
 
