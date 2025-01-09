@@ -38,7 +38,7 @@ pub enum Bounded<T, H: Hash> {
 	/// for transitioning from legacy state. In the future we will make this a pure
 	/// `Dummy` item storing only the final `dummy` field.
 	Legacy { hash: H::Output, dummy: core::marker::PhantomData<T> },
-	/// A an bounded `Call`. Its encoding must be at most 128 bytes.
+	/// A bounded `Call`. Its encoding must be at most 128 bytes.
 	Inline(BoundedInline),
 	/// A hash of the call together with an upper limit for its size.`
 	Lookup { hash: H::Output, len: u32 },
