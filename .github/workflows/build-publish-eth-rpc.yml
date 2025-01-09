@@ -56,7 +56,7 @@ jobs:
   build_push_docker:
     name: Build and push docker image
     runs-on: parity-large
-    if: github.ref == 'refs/heads/master'
+    # if: github.ref == 'refs/heads/master'
     needs: [set-variables]
     env:
       VERSION: ${{ needs.set-variables.outputs.VERSION }}
