@@ -50,7 +50,6 @@ if (geth) {
 	child.unref()
 	await new Promise((resolve) => setTimeout(resolve, 500))
 }
-
 const rpcUrl = proxy
 	? 'http://localhost:8080'
 	: westend

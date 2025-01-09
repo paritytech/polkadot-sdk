@@ -1420,19 +1420,17 @@ where
 				0u32.into(),
 			)
 			.into();
-			let eth_gas = gas_from_fee(fee);
+			let raw_eth_gas = gas_from_fee(fee);
 			let eth_gas =
-				T::EthGasEncoder::encode(eth_gas, result.gas_required, result.storage_deposit);
+				T::EthGasEncoder::encode(raw_eth_gas, result.gas_required, result.storage_deposit);
 
 			if eth_gas == result.eth_gas {
-				log::trace!(target: LOG_TARGET, "bare_eth_call: encoded_len: {encoded_len:?} eth_gas: {eth_gas:?}");
+				log::debug!(target: LOG_TARGET, "bare_eth_call: raw_eth_gas: {raw_eth_gas:?} eth_gas: {eth_gas:?}");
 				break;
 			}
 			result.eth_gas = eth_gas;
 			tx.gas = Some(eth_gas.into());
-			log::debug!(target: LOG_TARGET, "Adjusting Eth gas to: {eth_gas:?}");
 		}
-
 		Ok(result)
 	}
 

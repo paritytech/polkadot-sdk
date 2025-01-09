@@ -710,6 +710,7 @@ impl Client {
 			number: header.number.into(),
 			timestamp: timestamp.into(),
 			difficulty: Some(0u32.into()),
+			base_fee_per_gas: Some(crate::GAS_PRICE.into()),
 			gas_limit,
 			gas_used,
 			receipts_root: extrinsics_root,

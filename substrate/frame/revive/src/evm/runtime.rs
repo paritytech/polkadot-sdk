@@ -50,11 +50,11 @@ type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 /// This let us calculate the gas estimate for a transaction with the formula:
 /// `estimate_gas = substrate_fee / gas_price`.
 ///
-/// The chosen constant value is balanced to ensure:
-/// - It is not too high, allowing components (ref_time, proof_size, and deposit) to be encoded in
-///   the lower digits of the gas value.
-/// - It is not too low, enabling users to adjust the gas price to define a tip.
-pub const GAS_PRICE: u32 = 1_000u32;
+/// The chosen constant value is:
+/// - Not too high, ensuring the gas value is large enough (at least 7 digits) to encode the
+///   ref_time, proof_size, and deposit into the less significant (6 lower) digits of the gas value.
+/// - Not too low, enabling users to adjust the gas price to define a tip.
+pub const GAS_PRICE: u32 = 100_000u32;
 
 /// Convert a `Balance` into a gas value, using the fixed `GAS_PRICE`.
 /// The gas is calculated as `balance / GAS_PRICE`, rounded up to the nearest integer.
@@ -401,7 +401,7 @@ pub trait EthExtra {
 				Default::default(),
 			)
 			.into();
-		log::debug!(target: LOG_TARGET, "try_into_checked_extrinsic: encoded_len: {encoded_len:?} actual_fee: {actual_fee:?} eth_fee: {eth_fee:?}");
+		log::debug!(target: LOG_TARGET, "try_into_checked_extrinsic: gas_price: {gas_price:?}, encoded_len: {encoded_len:?} actual_fee: {actual_fee:?} eth_fee: {eth_fee:?}");
 
 		// The fees from the Ethereum transaction should be greater or equal to the actual fees paid
 		// by the account.
@@ -411,12 +411,12 @@ pub trait EthExtra {
 		}
 
 		if eth_fee_no_tip > actual_fee.saturating_mul(2u32.into()) {
-			log::debug!(target: LOG_TARGET, "actual fees {actual_fee:?} too high, base eth fees: {eth_fee_no_tip:?}");
+			log::debug!(target: LOG_TARGET, "actual fees: {actual_fee:?} too high, base eth fees: {eth_fee_no_tip:?}");
 			return Err(InvalidTransaction::Call.into())
 		}
 
 		let tip = eth_fee.saturating_sub(eth_fee_no_tip);
-		log::debug!(target: LOG_TARGET, "Created checked Ethereum transaction with nonce {nonce:?} and tip: {tip:?}");
+		log::debug!(target: LOG_TARGET, "Created checked Ethereum transaction with nonce: {nonce:?} and tip: {tip:?}");
 		Ok(CheckedExtrinsic {
 			format: ExtrinsicFormat::Signed(signer.into(), Self::get_eth_extension(nonce, tip)),
 			function,
