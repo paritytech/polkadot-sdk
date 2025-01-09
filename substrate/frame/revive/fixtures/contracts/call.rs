@@ -40,7 +40,7 @@ pub extern "C" fn call() {
 		callee_addr,
 		u64::MAX,         // How much ref_time to devote for the execution. u64::MAX = use all.
 		u64::MAX,         // How much proof_size to devote for the execution. u64::MAX = use all.
-		&U256_MAX, // No deposit limit.
+		&U256_MAX,        // No deposit limit.
 		&[0u8; 32],       // Value transferred to the contract.
 		callee_input,
 		None,

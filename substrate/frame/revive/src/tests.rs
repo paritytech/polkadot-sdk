@@ -61,7 +61,7 @@ use frame_support::{
 };
 use frame_system::{EventRecord, Phase};
 use pallet_revive_fixtures::{bench::dummy_unique, compile_module};
-use pallet_revive_uapi::ReturnErrorCode as RuntimeReturnCode;
+use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, U256_MAX};
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
 use pretty_assertions::{assert_eq, assert_ne};
 use sp_core::U256;
@@ -3459,7 +3459,7 @@ fn deposit_limit_in_nested_calls() {
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller)
 				.storage_deposit_limit(13)
-				.data((100u32, &addr_callee, U256::from(u64::MAX)).encode())
+				.data((100u32, &addr_callee, U256_MAX).encode())
 				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
@@ -3473,7 +3473,7 @@ fn deposit_limit_in_nested_calls() {
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller)
 				.storage_deposit_limit(14)
-				.data((101u32, &addr_callee, U256::from(u64::MAX)).encode())
+				.data((101u32, &addr_callee, U256::from_little_endian(&U256_MAX),).encode())
 				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
@@ -3495,7 +3495,7 @@ fn deposit_limit_in_nested_calls() {
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller)
 				.storage_deposit_limit(0)
-				.data((87u32, &addr_callee, U256::from(u64::MAX)).encode())
+				.data((87u32, &addr_callee, U256::from_little_endian(&U256_MAX),).encode())
 				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
@@ -3554,7 +3554,7 @@ fn deposit_limit_in_nested_instantiate() {
 		let ret = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
 			.storage_deposit_limit(DepositLimit::Balance(callee_info_len + 2 + ED + 1))
-			.data((0u32, &code_hash_callee, U256::from(u64::MAX)).encode())
+			.data((0u32, &code_hash_callee, U256::from_little_endian(&U256_MAX),).encode())
 			.build_and_unwrap_result();
 		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
 		// The charges made on instantiation should be rolled back.
