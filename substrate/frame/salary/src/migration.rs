@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Storage migrations for the salary pallet.
+//! Storage migrations for the `pallet_salary`.
 
 use super::*;
 use frame_support::{pallet_prelude::*, storage_alias, traits::UncheckedOnRuntimeUpgrade};
@@ -55,7 +55,7 @@ pub mod v1 {
 	use frame_system::pallet_prelude::BlockNumberFor as LocalBlockNumberFor;
 
 	/// Converts previous (local) block number into the new one. May just be identity functions
-	/// if sticking with local block number as the provider.
+	/// if sticking with local block number as the block provider.
 	pub trait ConvertBlockNumber<L, N> {
 		/// Simply converts the type from L to N
 		///
@@ -82,16 +82,12 @@ pub mod v1 {
 		/// Converts to the new type and finds the equivalent moment in time as from the view of the
 		/// new block provider
 		///
-		/// For instance - if your new version uses the relay chain number, you'll want to
-		/// use relay current (+ or -) ((current local - local) * equivalent_block_duration).
-		/// Note: This assumes consistent block times on both local chain and relay.
-		///
 		/// # Example usage
 		///
 		/// ```rust,ignore
 		/// // Let's say you are a parachain and switching block providers to the relay chain.
 		/// // This will return what the relay block number was at the moment the previous provider's
-		/// // number was `local_moment`.
+		/// // number was `local_moment`, assuming consistent block times on both chains.
 		/// fn equivalent_moment_in_time(local_moment: u32) -> u32 {
 		/// 	// How long it's been since 'local_moment' from the parachains pov.
 		/// 	let local_block_number = System::block_number();
@@ -117,6 +113,9 @@ pub mod v1 {
 		/// For instance - If you previously had 12s blocks and are now following the relay chain's
 		/// 6, one local block is equivalent to 2 relay blocks in duration.
 		///
+		/// # Visualized
+		///
+		/// ```text
 		///     6s         6s
 		/// |---------||---------|
 		///
@@ -124,7 +123,8 @@ pub mod v1 {
 		/// |--------------------|
 		///
 		/// ^ Two 6s relay blocks passed per one 12s local block.
-		///  
+		/// ``` 
+		/// 
 		/// # Example Usage
 		///
 		/// ```rust,ignore
@@ -194,7 +194,7 @@ pub mod v1 {
 	}
 }
 
-/// [`UncheckedOnRuntimeUpgrade`] implementation [`MigrateToV1`] wrapped in a
+/// [`UncheckedOnRuntimeUpgrade`] implementation [`MigrateToV1`](v1::MigrateToV1) wrapped in a
 /// [`VersionedMigration`](frame_support::migrations::VersionedMigration), which ensures that:
 /// - The migration only runs once when the on-chain storage version is 0
 /// - The on-chain storage version is updated to `1` after the migration executes
