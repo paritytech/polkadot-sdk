@@ -816,6 +816,8 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
 	pub enum Event<T: Config> {
+		/// A new era has started.
+		NewEra { index: EraIndex, start: u64 },
 		/// The era payout has been set; the first balance is the validator-payout; the second is
 		/// the remainder from the maximum amount of reward.
 		EraPaid { era_index: EraIndex, validator_payout: BalanceOf<T>, remainder: BalanceOf<T> },
@@ -951,6 +953,7 @@ pub mod pallet {
 					active_era.start = Some(now_as_millis_u64);
 					// This write only ever happens once, we don't include it in the weight in
 					// general
+					Self::deposit_event(Event::<T>::NewEra { index: active_era.index, start: active_era.start.unwrap() });
 					ActiveEra::<T>::put(active_era);
 				}
 			}
