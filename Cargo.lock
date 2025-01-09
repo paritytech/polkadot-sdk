@@ -15466,7 +15466,6 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk-frame 0.1.0",
  "scale-info",
- "sp-api 26.0.0",
  "sp-statement-store 10.0.0",
 ]
 

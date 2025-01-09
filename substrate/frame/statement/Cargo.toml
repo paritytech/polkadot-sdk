@@ -19,10 +19,6 @@ codec = { features = ["derive"], workspace = true }
 frame = { workspace = true, features = ["experimental", "runtime"]}
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-api = { workspace = true }
-# sp-core = { workspace = true }
-# sp-io = { workspace = true }
-# sp-runtime = { workspace = true }
 sp-statement-store = { workspace = true }
 
 [dev-dependencies]
@@ -35,15 +31,10 @@ std = [
 	"frame/std",
 	"log/std",
 	"pallet-balances/std",
-	# "scale-info/std",
-	# "sp-api/std",
-	# "sp-core/std",
-	# "sp-io/std",
-	# "sp-runtime/std",
+	"scale-info/std",
 	"sp-statement-store/std",
 ]
 try-runtime = [
 	"pallet-balances/try-runtime",
 	"frame/try-runtime",
-	# "sp-runtime/try-runtime",
 ]

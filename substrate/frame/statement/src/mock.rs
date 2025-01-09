@@ -20,14 +20,8 @@
 use super::*;
 
 use crate as pallet_statement;
-// use frame_support::{
-// 	derive_impl, ord_parameter_types,
-// 	traits::{ConstU32, ConstU64},
-// };
-use frame::prelude::*;
-use sp_core::Pair;
-// use sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage};
-use frame::deps::sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage};
+use frame::testing_prelude::*;
+use frame::deps::{sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage}, sp_core::Pair};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -74,7 +68,7 @@ impl Config for Test {
 	type MaxAllowedBytes = ConstU32<MAX_ALLOWED_BYTES>;
 }
 
-pub fn new_test_ext() -> TestExternalities {
+pub fn new_test_ext() -> TestState {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let balances = pallet_balances::GenesisConfig::<Test> {
 		balances: vec![
