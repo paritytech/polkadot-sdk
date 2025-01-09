@@ -31,10 +31,6 @@ use pallet_treasury::Pallet as Treasury;
 
 const SEED: u32 = 0;
 
-fn set_block_number<T: Config<I>, I: 'static>(n: BlockNumberFor<T, I>) {
-	<T as pallet_treasury::Config<I>>::BlockNumberProvider::set_block_number(n);
-}
-
 fn minimum_balance<T: Config<I>, I: 'static>() -> BalanceOf<T, I> {
 	let minimum_balance = T::Currency::minimum_balance();
 
