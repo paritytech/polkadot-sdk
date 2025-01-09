@@ -204,7 +204,8 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::traits::{
-		Contains, EstimateNextSessionRotation, IsSubType, OnRuntimeUpgrade, OneSessionHandler,
+		Contains, EstimateNextSessionRotation, Everything, IsSubType, OnRuntimeUpgrade,
+		OneSessionHandler, VariantCount, VariantCountOf,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -221,8 +222,6 @@ pub mod prelude {
 
 	/// All hashing related things
 	pub use super::hashing::*;
-
-	pub use super::utility::*;
 
 	/// All account related things.
 	pub use super::account::*;
@@ -559,13 +558,6 @@ pub mod account {
 		AsEnsureOriginWithArg, ChangeMembers, EitherOfDiverse, InitializeMembers,
 	};
 	pub use sp_runtime::traits::{IdentifyAccount, IdentityLookup};
-}
-
-/// Utility traits not tied to any direct operation in the runtime.
-///
-/// This is already part of the [`prelude`]..
-pub mod utility {
-	pub use frame_support::traits::{Everything, VariantCount, VariantCountOf};
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
