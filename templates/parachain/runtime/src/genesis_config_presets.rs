@@ -10,9 +10,9 @@ use polkadot_sdk::{staging_xcm as xcm, *};
 #[doc::include_str!("../../README.md")]
 #[cfg(feature = "generate-readme")]
 
-docify::compile_markdown!("README.docify.md","README.md");
+docify::compile_markdown!("../..","../..");
 
-use docify::export;
+use docify::{export, export_content};
 
 use cumulus_primitives_core::ParaId;
 use frame_support::build_struct_json_patch;
@@ -33,9 +33,9 @@ pub const PARACHAIN_ID: u32 = 2000;
 pub fn template_session_keys(keys: AuraId) -> SessionKeys {
 	SessionKeys { aura: keys }
 }
-#[docify::export_content]
-fn get_parachain_id(){
-	PARACHAIN_ID.to_string();
+#[docify::export(name = "get_parachain_id")]
+pub fn get_parachain_id() -> u32 {
+	PARACHAIN_ID
 }
 
 fn testnet_genesis(
