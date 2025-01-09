@@ -140,6 +140,19 @@ impl LocalKeystore {
 			.map(|pair| pair.vrf_pre_output(input));
 		Ok(pre_output)
 	}
+
+	fn generate_pop<T: CorePair + ProofOfPossessionGenerator>(
+		&self,
+		key_type: KeyTypeId,
+		public: &T::Public,
+	) -> std::result::Result<Option<T::Signature>, TraitError> {
+		let pop = self
+			.0
+			.read()
+			.key_pair_by_type::<T>(public, key_type)?
+			.map(|mut pair| pair.generate_proof_of_possession());
+		Ok(pop)
+	}
 }
 
 impl Keystore for LocalKeystore {
@@ -362,7 +375,7 @@ impl Keystore for LocalKeystore {
 			key_type: KeyTypeId,
 			public: &bls381::Public
 		) -> std::result::Result<Option<bls381::Signature>, TraitError> {
-			self.bls381_generate_pop(key_type, public)
+			self.generate_pop::<bls381::Pair>(key_type, public)
 		}
 
 		fn ecdsa_bls381_public_keys(&self, key_type: KeyTypeId) -> Vec<ecdsa_bls381::Public> {
@@ -374,7 +387,7 @@ impl Keystore for LocalKeystore {
 			key_type: KeyTypeId,
 			public: &ecdsa_bls381::Public
 		) -> std::result::Result<Option<ecdsa_bls381::Signature>, TraitError> {
-			self.ecdsa_bls381_generate_pop(key_type, public)
+			self.generate_pop::<ecdsa_bls381::Pair>(key_type, public)
 		}
 
 		/// Generate a new pair of paired-keys compatible with the '(ecdsa,bls381)' signature scheme.

@@ -31,6 +31,7 @@ use substrate_test_runtime_client::{
 
 #[test]
 fn ed25519_works_in_runtime() {
+	sp_tracing::try_init_simple();
 	let keystore = Arc::new(MemoryKeystore::new());
 	let test_client = TestClientBuilder::new().build();
 

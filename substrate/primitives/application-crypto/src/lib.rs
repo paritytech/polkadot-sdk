@@ -368,6 +368,7 @@ macro_rules! app_crypto_public_common {
 				self.0
 			}
 
+			/// Verify the proposed proof of possession is correct.
 			pub fn verify_proof_of_possession(
 				proof_of_possession: &<Self as $crate::AppCrypto>::Signature,
 				allegedly_possessed_pubkey: &Self

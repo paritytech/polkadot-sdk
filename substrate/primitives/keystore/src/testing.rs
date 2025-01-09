@@ -22,9 +22,9 @@ use crate::{Error, Keystore, KeystorePtr};
 #[cfg(feature = "bandersnatch-experimental")]
 use sp_core::bandersnatch;
 #[cfg(feature = "bls-experimental")]
-use sp_core::{bls381, ecdsa_bls381, KeccakHasher};
+use sp_core::{bls381, ecdsa_bls381, KeccakHasher, crypto::ProofOfPossessionGenerator};
 use sp_core::{
-	crypto::{ByteArray, KeyTypeId, Pair, ProofOfPossessionGenerator, VrfSecret},
+	crypto::{ByteArray, KeyTypeId, Pair, VrfSecret},
 	ecdsa, ed25519, sr25519,
 };
 
@@ -123,6 +123,7 @@ impl MemoryKeystore {
 		Ok(pre_output)
 	}
 
+	#[cfg(feature = "bls-experimental")]
 	fn generate_pop<T: Pair + ProofOfPossessionGenerator>(
 		&self,
 		key_type: KeyTypeId,

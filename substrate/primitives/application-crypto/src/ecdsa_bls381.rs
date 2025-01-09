@@ -24,7 +24,7 @@ pub use sp_core::paired_crypto::ecdsa_bls381::*;
 use sp_core::{
 	bls381,
 	crypto::{ProofOfPossessionVerifier, POP_CONTEXT_TAG, CryptoType},
-	ecdsa, ecdsa_bls381,
+	ecdsa, ecdsa_bls381, testing::{ECDSA, BLS381},
 };
 
 mod app {
@@ -43,13 +43,10 @@ impl RuntimePublic for Public {
 		Vec::new()
 	}
 
-	fn generate_pair(key_type: KeyTypeId, seed: Option<Vec<u8>>) -> Self {
-		let tuple = sp_io::crypto::ecdsa_bls381_generate(key_type, seed);
-		let ecdsa_pub = tuple.0;
-		let bls381_pub = tuple.1;
-		let mut combined_pub_raw = [0u8; ecdsa_bls381::PUBLIC_KEY_LEN];
-		combined_pub_raw[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].copy_from_slice(ecdsa_pub.as_ref());
-		combined_pub_raw[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].copy_from_slice(bls381_pub.as_ref());
+	fn generate_pair(_key_type: KeyTypeId, seed: Option<Vec<u8>>) -> Self {
+		let ecdsa_pub = sp_io::crypto::ecdsa_generate(ECDSA, seed.clone());
+		let bls381_pub = sp_io::crypto::bls381_generate(BLS381, seed);
+		let combined_pub_raw = combine_pub(&ecdsa_pub, &bls381_pub);
 		Self::from_raw(combined_pub_raw)
 	}
 
@@ -68,7 +65,6 @@ impl RuntimePublic for Public {
 			return None
 		}
 
-		// Import logger and logg stuff here to see where it fails
 		let pub_key_as_bytes = self.to_raw_vec();
 
 		let (ecdsa_pub_as_bytes, bls381_pub_as_bytes) = split_pub_key_bytes(&pub_key_as_bytes)?;
@@ -130,6 +126,17 @@ fn combine_pop(
 	combined_pop_raw[..ecdsa::SIGNATURE_SERIALIZED_SIZE].copy_from_slice(ecdsa_pop.as_ref());
 	combined_pop_raw[ecdsa::SIGNATURE_SERIALIZED_SIZE..].copy_from_slice(bls381_pop.as_ref());
 	Some(combined_pop_raw)
+}
+
+/// Helper: Combine ECDSA and BLS381 pubs into single raw pub
+fn combine_pub(
+	ecdsa_pub: &ecdsa::Public,
+	bls381_pub: &bls381::Public,
+) -> [u8; ecdsa_bls381::PUBLIC_KEY_LEN] {
+	let mut combined_pub_raw = [0u8; ecdsa_bls381::PUBLIC_KEY_LEN];
+	combined_pub_raw[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].copy_from_slice(ecdsa_pub.as_ref());
+	combined_pub_raw[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].copy_from_slice(bls381_pub.as_ref());
+	combined_pub_raw
 }
 
 #[cfg(test)]

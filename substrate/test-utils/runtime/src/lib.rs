@@ -190,7 +190,7 @@ pub type Balance = u64;
 pub mod bls_experimental {
 	use sp_application_crypto::{bls381, ecdsa_bls381};
     pub type Bls381Public = bls381::AppPublic;
-    pub type EcdsaBls381Public = Option<ecdsa_bls381::AppPublic>;
+    pub type EcdsaBls381Public = ecdsa_bls381::AppPublic;
 }
 
 #[cfg(not(feature = "bls-experimental"))]
@@ -869,24 +869,11 @@ fn test_bls381_crypto() -> Bls381Public {
 #[cfg(feature = "bls-experimental")]
 fn test_ecdsa_bls381_crypto() -> EcdsaBls381Public {
 	let mut public0 = ecdsa_bls381::AppPublic::generate_pair(Some("have fabric vehicle glide wise exit drip movie parent knee grief squirrel".into()));
-	let mut public1 = ecdsa::AppPublic::generate_pair(Some("have fabric vehicle glide wise exit drip movie parent knee grief squirrel".into()));
-	let mut public2 = bls381::AppPublic::generate_pair(Some("have fabric vehicle glide wise exit drip movie parent knee grief squirrel".into()));
-
-	let ecdsa_bls381_bytes = public0.clone().to_raw_vec();
-	let ecdsa_bytes = public1.to_raw_vec();
-	let bls381_bytes = public2.to_raw_vec();
-
-	log::error!("ecdsa_bls381_bytes:: {:?} \nlen:: {}", ecdsa_bls381_bytes, ecdsa_bls381_bytes.len());
-	log::error!("ecdsa_bytes:: {:?} \nlen:: {}", ecdsa_bytes, ecdsa_bytes.len());
-	log::error!("bls381_bytes:: {:?} \nlen:: {}", bls381_bytes, bls381_bytes.len());
-
 
 	let pop = public0.generate_pop().expect("Can Generate Pop");
 
-
-	// assert!(public0.verify_pop(&pop));
-	// public0
-	None
+	assert!(public0.verify_pop(&pop));
+	public0
 }
 
 fn test_read_storage() {

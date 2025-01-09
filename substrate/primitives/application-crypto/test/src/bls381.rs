@@ -1,7 +1,6 @@
 use sp_api::{ApiExt, ProvideRuntimeApi};
-use sp_application_crypto::bls381::{AppPair, AppPublic};
 use sp_core::{
-	crypto::{ByteArray, Pair},
+	crypto::ByteArray,
 	testing::BLS381,
 };
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystoreExt};
@@ -12,6 +11,7 @@ use substrate_test_runtime_client::{
 
 #[test]
 fn bls381_works_in_runtime() {
+	sp_tracing::try_init_simple();
 	let keystore = Arc::new(MemoryKeystore::new());
 	let test_client = TestClientBuilder::new().build();
 

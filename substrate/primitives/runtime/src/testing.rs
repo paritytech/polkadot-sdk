@@ -139,7 +139,7 @@ impl sp_application_crypto::RuntimeAppPublic for UintAuthorityId {
 		None
 	}
 
-	fn verify_pop(&self, pop: &Self::Signature) -> bool {
+	fn verify_pop(&self, _pop: &Self::Signature) -> bool {
 		false
 	}
 
