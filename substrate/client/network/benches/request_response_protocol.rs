@@ -151,6 +151,21 @@ where
 	let handle1 = tokio::spawn(worker1.run());
 	let handle2 = tokio::spawn(worker2.run());
 
+	let _ = tokio::spawn({
+		let rx2 = rx2.clone();
+
+		async move {
+			let req = rx2.recv().await.unwrap();
+			req.pending_response
+				.send(OutgoingResponse {
+					result: Ok(vec![0; 2usize.pow(25)]),
+					reputation_changes: vec![],
+					sent_feedback: None,
+				})
+				.unwrap();
+		}
+	});
+
 	let ready = tokio::spawn({
 		let network_service1 = Arc::clone(&network_service1);
 
@@ -162,6 +177,16 @@ where
 				network_service2.listen_addresses()[0].clone()
 			};
 			network_service1.add_known_address(peer_id2, listen_address2.into());
+			let _ = network_service1
+				.request(
+					peer_id2.into(),
+					"/request-response/1".into(),
+					vec![0; 2],
+					None,
+					IfDisconnected::TryConnect,
+				)
+				.await
+				.unwrap();
 		}
 	});
 
@@ -207,8 +232,8 @@ async fn run_serially(setup: Arc<BenchSetup>, size: usize, limit: usize) {
 		async move {
 			loop {
 				tokio::select! {
-					res = rx2.recv() => {
-						let IncomingRequest { pending_response, .. } = res.unwrap();
+					req = rx2.recv() => {
+						let IncomingRequest { pending_response, .. } = req.unwrap();
 						pending_response.send(OutgoingResponse {
 							result: Ok(vec![0; size]),
 							reputation_changes: vec![],
