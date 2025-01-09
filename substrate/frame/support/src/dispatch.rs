@@ -1374,6 +1374,7 @@ mod extension_weight_tests {
 		type RuntimeOrigin = RuntimeOrigin;
 		type RuntimeCall = RuntimeCall;
 		type RuntimeTask = RuntimeTask;
+		type RuntimeViewFunction = RuntimeViewFunction;
 		type DbWeight = DbWeight;
 		type PalletInfo = PalletInfo;
 	}
