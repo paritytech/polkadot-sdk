@@ -1463,7 +1463,7 @@ where
 				FrameArgs::Call { dest: dest.clone(), cached_info, delegated_call: None },
 				value,
 				gas_limit,
-				deposit_limit.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
+				deposit_limit.saturated_into::<BalanceOf<T>>(),
 				// Enable read-only access if requested; cannot disable it if already set.
 				read_only || self.is_read_only(),
 			)? {
@@ -1519,7 +1519,7 @@ where
 			},
 			value,
 			gas_limit,
-			deposit_limit.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
+			deposit_limit.saturated_into::<BalanceOf<T>>(),
 			self.is_read_only(),
 		)?;
 		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data)
@@ -1549,7 +1549,7 @@ where
 			},
 			value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 			gas_limit,
-			deposit_limit.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
+			deposit_limit.saturated_into::<BalanceOf<T>>(),
 			self.is_read_only(),
 		)?;
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
@@ -1958,7 +1958,7 @@ mod tests {
 	use assert_matches::assert_matches;
 	use frame_support::{assert_err, assert_noop, assert_ok, parameter_types};
 	use frame_system::{AccountInfo, EventRecord, Phase};
-	use pallet_revive_uapi::{ReturnFlags, U256_MAX};
+	use pallet_revive_uapi::ReturnFlags;
 	use pretty_assertions::assert_eq;
 	use sp_io::hashing::keccak_256;
 	use sp_runtime::{traits::Hash, DispatchError};
@@ -3099,7 +3099,7 @@ mod tests {
 					.ext
 					.instantiate(
 						Weight::MAX,
-						U256::from_little_endian(&U256_MAX),
+						U256::MAX,
 						dummy_ch,
 						<Test as Config>::Currency::minimum_balance().into(),
 						vec![],
@@ -3803,7 +3803,7 @@ mod tests {
 			ctx.ext
 				.instantiate(
 					Weight::MAX,
-					U256::from_little_endian(&U256_MAX),
+					U256::MAX,
 					fail_code,
 					ctx.ext.minimum_balance() * 100,
 					vec![],
@@ -3820,7 +3820,7 @@ mod tests {
 				.ext
 				.instantiate(
 					Weight::MAX,
-					U256::from_little_endian(&U256_MAX),
+					U256::MAX,
 					success_code,
 					ctx.ext.minimum_balance() * 100,
 					vec![],
@@ -4597,7 +4597,7 @@ mod tests {
 				// Successful instantiation should set the output
 				let address = ctx
 					.ext
-					.instantiate(Weight::MAX, U256::from_little_endian(&U256_MAX), ok_ch, value, vec![], None)
+					.instantiate(Weight::MAX, U256::MAX, ok_ch, value, vec![], None)
 					.unwrap();
 				assert_eq!(
 					ctx.ext.last_frame_output(),
@@ -4606,15 +4606,7 @@ mod tests {
 
 				// Balance transfers should reset the output
 				ctx.ext
-					.call(
-						Weight::MAX,
-						U256::from_little_endian(&U256_MAX),
-						&address,
-						U256::from(1),
-						vec![],
-						true,
-						false,
-					)
+					.call(Weight::MAX, U256::MAX, &address, U256::from(1), vec![], true, false)
 					.unwrap();
 				assert_eq!(ctx.ext.last_frame_output(), &Default::default());
 
@@ -4827,7 +4819,7 @@ mod tests {
 
 				// Constructors can not access the immutable data
 				ctx.ext
-					.instantiate(Weight::MAX, U256::from_little_endian(&U256_MAX), dummy_ch, value, vec![], None)
+					.instantiate(Weight::MAX, U256::MAX, dummy_ch, value, vec![], None)
 					.unwrap();
 
 				exec_success()
@@ -4944,7 +4936,7 @@ mod tests {
 			move |ctx, _| {
 				let value = <Test as Config>::Currency::minimum_balance().into();
 				ctx.ext
-					.instantiate(Weight::MAX, U256::from_little_endian(&U256_MAX), dummy_ch, value, vec![], None)
+					.instantiate(Weight::MAX, U256::MAX, dummy_ch, value, vec![], None)
 					.unwrap();
 
 				exec_success()
@@ -4989,7 +4981,7 @@ mod tests {
 			move |ctx, _| {
 				let value = <Test as Config>::Currency::minimum_balance().into();
 				ctx.ext
-					.instantiate(Weight::MAX, U256::from_little_endian(&U256_MAX), dummy_ch, value, vec![], None)
+					.instantiate(Weight::MAX, U256::MAX, dummy_ch, value, vec![], None)
 					.unwrap();
 
 				exec_success()

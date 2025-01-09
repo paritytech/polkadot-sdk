@@ -116,27 +116,6 @@ pub struct ReturnCode(u32);
 /// make sense for a memory location or length.
 const SENTINEL: u32 = u32::MAX;
 
-/// Converts a `u64` to a 32-byte array, encoded little-endian.
-///
-/// The `u64` value will be placed in the first 8 bytes,
-/// and the remaining bytes are set to zero.
-const fn u64_to_u256_bytes(value: u64) -> [u8; 32] {
-	let mut bytes = [0u8; 32];
-	let value_bytes = value.to_le_bytes();
-	let mut i = 0;
-	while i < 8 {
-		bytes[i] = value_bytes[i];
-		i += 1;
-	}
-	bytes
-}
-
-/// A constant representing `u64::MAX` as a 32-byte array, in little-endian encoding.
-///
-/// Deposit limits are `U256`, but balances are represented as `u64`.
-/// To represent no deposit limits on an operation, this should be used.
-pub const U256_MAX: [u8; 32] = u64_to_u256_bytes(u64::MAX);
-
 impl From<ReturnCode> for Option<u32> {
 	fn from(code: ReturnCode) -> Self {
 		(code.0 < SENTINEL).then_some(code.0)

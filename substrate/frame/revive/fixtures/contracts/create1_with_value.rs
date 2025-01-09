@@ -19,7 +19,7 @@
 #![no_main]
 
 use common::input;
-use uapi::{HostFn, HostFnImpl as api, U256_MAX};
+use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -34,6 +34,16 @@ pub extern "C" fn call() {
 	api::value_transferred(&mut value);
 
 	// Deploy the contract with no salt (equivalent to create1).
-	let ret = api::instantiate(code_hash, u64::MAX, u64::MAX, &U256_MAX, &value, &[], None, None, None);
+	let ret = api::instantiate(
+		code_hash,
+		u64::MAX,
+		u64::MAX,
+		&[u8::MAX; 32],
+		&value,
+		&[],
+		None,
+		None,
+		None
+	);
 	assert!(ret.is_ok());
 }

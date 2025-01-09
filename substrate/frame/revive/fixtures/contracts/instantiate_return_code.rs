@@ -19,7 +19,7 @@
 #![no_main]
 
 use common::{input, u256_bytes};
-use uapi::{HostFn, HostFnImpl as api, U256_MAX};
+use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -35,7 +35,7 @@ pub extern "C" fn call() {
 		code_hash,
 		u64::MAX,               // How much ref_time weight to devote for the execution. u64::MAX = use all.
 		u64::MAX,               // How much proof_size weight to devote for the execution. u64::MAX = use all.
-		&U256_MAX,       // No deposit limit.
+		&[u8::MAX; 32],         // No deposit limit.
 		&u256_bytes(10_000u64), // Value to transfer.
 		input,
 		None,

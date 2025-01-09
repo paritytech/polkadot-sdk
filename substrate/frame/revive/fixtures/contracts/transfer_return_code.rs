@@ -19,7 +19,7 @@
 #![no_main]
 
 use common::u256_bytes;
-use uapi::{HostFn, HostFnImpl as api, U256_MAX};
+use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -33,7 +33,7 @@ pub extern "C" fn call() {
 		&[0u8; 20],
 		0,
 		0,
-		&U256_MAX,
+		&[u8::MAX; 32],
 		&u256_bytes(100u64),
 		&[],
 		None,

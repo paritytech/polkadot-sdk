@@ -22,7 +22,7 @@
 #![no_main]
 
 use common::input;
-use uapi::{HostFn, HostFnImpl as api, U256_MAX};
+use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -42,10 +42,10 @@ pub extern "C" fn call() {
 	let err_code = match api::call(
 		uapi::CallFlags::empty(),
 		callee_addr,
-		u64::MAX,             // How much ref_time to devote for the execution. u64::MAX = use all.
-		u64::MAX,             // How much proof_size to devote for the execution. u64::MAX = use all.
-		&U256_MAX,     // No deposit limit.
-		value,                // Value transferred to the contract.
+		u64::MAX,                 // How much ref_time to devote for the execution. u64::MAX = use all.
+		u64::MAX,                 // How much proof_size to devote for the execution. u64::MAX = use all.
+		&[u8::MAX; 32], // No deposit limit.
+		value,                    // Value transferred to the contract.
 		input,
 		None,
 	) {
