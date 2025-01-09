@@ -10,10 +10,7 @@ use polkadot_sdk::{staging_xcm as xcm, *};
 #[doc::include_str!("../../README.md")]
 #[cfg(feature = "generate-readme")]
 
-docify::compile_markdown!(
-    "README.docify.md",
-    "README.md"
-);
+docify::compile_markdown!("README.docify.md","README.md");
 
 use docify::export;
 
@@ -27,7 +24,7 @@ use sp_keyring::Sr25519Keyring;
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 /// Parachain id used for genesis config presets of parachain template.
-#[docify::export_content]
+#[export]
 pub const PARACHAIN_ID: u32 = 2000;
 
 /// Generate the session keys from individual elements.
@@ -35,6 +32,10 @@ pub const PARACHAIN_ID: u32 = 2000;
 /// The input must be a tuple of individual keys (a single arg for now since we have just one key).
 pub fn template_session_keys(keys: AuraId) -> SessionKeys {
 	SessionKeys { aura: keys }
+}
+#[docify::export_content]
+fn get_parachain_id(){
+	PARACHAIN_ID.to_string();
 }
 
 fn testnet_genesis(
