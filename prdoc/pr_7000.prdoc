@@ -18,3 +18,5 @@ crates:
   bump: minor
 - name: kitchensink-runtime
   bump: patch
+- name: staging-xcm-builder
+  bump: patch
