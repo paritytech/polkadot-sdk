@@ -1,0 +1,32 @@
+title: '`fatxpool`: rotator cache size now depends on pool''s limits'
+doc:
+- audience: Node Dev
+  description: |-
+    # Description
+
+    This PR modifies the hard-coded size of extrinsics cache within [`PoolRotator`](https://github.com/paritytech/polkadot-sdk/blob/cdf107de700388a52a17b2fb852c98420c78278e/substrate/client/transaction-pool/src/graph/rotator.rs#L36-L45) to be inline with pool limits.
+
+    The problem was, that due to small size (comparing to number of txs in single block) of hard coded size:
+    https://github.com/paritytech/polkadot-sdk/blob/cdf107de700388a52a17b2fb852c98420c78278e/substrate/client/transaction-pool/src/graph/rotator.rs#L34
+    excessive number of unnecessary verification were performed in `prune_tags`:
+    https://github.com/paritytech/polkadot-sdk/blob/cdf107de700388a52a17b2fb852c98420c78278e/substrate/client/transaction-pool/src/graph/pool.rs#L369-L370
+
+    This was resulting in quite long durations of `prune_tags` execution time (which was ok for 6s, but becomes noticable for 2s blocks):
+    ```
+    Pruning at HashAndNumber { number: 83, ... }. Resubmitting transactions: 6142, reverification took: 237.818955ms
+    Pruning at HashAndNumber { number: 84, ... }. Resubmitting transactions: 5985, reverification took: 222.118218ms
+    Pruning at HashAndNumber { number: 85, ... }. Resubmitting transactions: 5981, reverification took: 215.546847ms
+    ```
+
+    The fix reduces the overhead:
+    ```
+    Pruning at HashAndNumber { number: 92, ... }. Resubmitting transactions: 6325, reverification took: 14.728354ms
+    Pruning at HashAndNumber { number: 93, ... }. Resubmitting transactions: 7030, reverification took: 23.973607ms
+    Pruning at HashAndNumber { number: 94, ... }. Resubmitting transactions: 4465, reverification took: 9.532472ms
+    ```
+
+    ## Review Notes
+    I decided to leave the hardocded `EXPECTED_SIZE` for the legacy transaction pool. Removing verification of transactions during re-submission may negatively impact the behavior of the legace (single-state) pool. As in long-term we probably want to deprecate old pool, I did not invest time to assess the impact of rotator change in behavior of the legacy pool.
+crates:
+- name: sc-transaction-pool
+  bump: minor
