@@ -42,18 +42,39 @@ pub struct PoolRotator<Hash> {
 	ban_time: Duration,
 	/// Currently banned extrinsics.
 	banned_until: RwLock<HashMap<Hash, Instant>>,
+	/// Expected size of the banned extrinsics cache.
+	expected_size: usize,
+}
+
+impl<Hash: Clone> Clone for PoolRotator<Hash> {
+	fn clone(&self) -> Self {
+		Self {
+			ban_time: self.ban_time,
+			banned_until: RwLock::new(self.banned_until.read().clone()),
+			expected_size: self.expected_size,
+		}
+	}
 }
 
 impl<Hash: hash::Hash + Eq> Default for PoolRotator<Hash> {
 	fn default() -> Self {
-		Self { ban_time: Duration::from_secs(60 * 30), banned_until: Default::default() }
+		Self {
+			ban_time: Duration::from_secs(60 * 30),
+			banned_until: Default::default(),
+			expected_size: EXPECTED_SIZE,
+		}
 	}
 }
 
 impl<Hash: hash::Hash + Eq + Clone> PoolRotator<Hash> {
 	/// New rotator instance with specified ban time.
 	pub fn new(ban_time: Duration) -> Self {
-		Self { ban_time, banned_until: Default::default() }
+		Self { ban_time, ..Self::default() }
+	}
+
+	/// New rotator instance with specified ban time and expected cache size.
+	pub fn new_with_expected_size(ban_time: Duration, expected_size: usize) -> Self {
+		Self { expected_size, ..Self::new(ban_time) }
 	}
 
 	/// Returns `true` if extrinsic hash is currently banned.
@@ -69,8 +90,8 @@ impl<Hash: hash::Hash + Eq + Clone> PoolRotator<Hash> {
 			banned.insert(hash, *now + self.ban_time);
 		}
 
-		if banned.len() > 2 * EXPECTED_SIZE {
-			while banned.len() > EXPECTED_SIZE {
+		if banned.len() > 2 * self.expected_size {
+			while banned.len() > self.expected_size {
 				if let Some(key) = banned.keys().next().cloned() {
 					banned.remove(&key);
 				}

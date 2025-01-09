@@ -158,6 +158,13 @@ impl Default for Options {
 	}
 }
 
+impl Options {
+	/// Total (ready+future) maximal number of transactions in the pool.
+	pub fn total_count(&self) -> usize {
+		self.ready.count + self.future.count
+	}
+}
+
 /// Should we check that the transaction is banned
 /// in the pool, before we verify it?
 #[derive(Copy, Clone)]
@@ -172,6 +179,21 @@ pub struct Pool<B: ChainApi> {
 }
 
 impl<B: ChainApi> Pool<B> {
+	/// Create a new transaction pool with statically sized rotator.
+	pub fn new_with_staticly_sized_rotator(
+		options: Options,
+		is_validator: IsValidator,
+		api: Arc<B>,
+	) -> Self {
+		Self {
+			validated_pool: Arc::new(ValidatedPool::new_with_staticly_sized_rotator(
+				options,
+				is_validator,
+				api,
+			)),
+		}
+	}
+
 	/// Create a new transaction pool.
 	pub fn new(options: Options, is_validator: IsValidator, api: Arc<B>) -> Self {
 		Self { validated_pool: Arc::new(ValidatedPool::new(options, is_validator, api)) }
