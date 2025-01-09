@@ -12,4 +12,5 @@ doc:
       In this PR, partial records are provided as soon as they are discovered from the network.
 
 crates:
-  - name: "sc-network"
+  - name: sc-network
+    bump: patch
