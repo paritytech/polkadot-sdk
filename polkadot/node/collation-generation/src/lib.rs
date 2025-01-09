@@ -344,7 +344,8 @@ impl CollationGenerationSubsystem {
 			Box::pin(async move {
 				let transposed_claim_queue = transpose_claim_queue(claim_queue.0);
 
-				for core_index in cores_to_build_on {
+				let mut prev_core_selector_index = cores_to_build_on.len();
+				for core_index in &cores_to_build_on {
 					let collator_fn = match task_config.collator.as_ref() {
 						Some(x) => x,
 						None => return,
@@ -363,6 +364,46 @@ impl CollationGenerationSubsystem {
 							},
 						};
 
+					// Determine the core index for the descriptor.
+
+					// Use the core_selector method from CandidateCommitments to extract
+					// CoreSelector.
+					let mut commitments = CandidateCommitments::default();
+					commitments.upward_messages = collation.upward_messages.clone();
+
+					let descriptor_core_index = match commitments.core_selector() {
+						// If a valid CoreSelector is found, calculate the core index based on it.
+						Ok(Some((core_selector, _cq_offset))) => {
+							let core_selector_index =
+								core_selector.0 as usize % cores_to_build_on.len();
+
+							if cores_to_build_on.len() > 1 &&
+								prev_core_selector_index == core_selector_index
+							{
+								// Malicious behavior detected: The parachain is assigned to
+								// multiple cores but repeatedly selects the same core. This is
+								// unexpected and the process should stop here.
+								gum::error!(target: LOG_TARGET, "Parachain repeatedly selected the same core index");
+								return;
+							}
+
+							prev_core_selector_index = core_selector_index;
+
+							let Some(commitments_core_index) =
+								cores_to_build_on.get(core_selector_index)
+							else {
+								// This should not happen, as the core_selector index is modulo the
+								// length of cores_to_build_on and we ensure that cores_to_build_on
+								// is not empty.
+								continue;
+							};
+
+							*commitments_core_index
+						},
+						// Fallback to the sequential core_index if no valid CoreSelector is found.
+						_ => *core_index,
+					};
+
 					let parent_head = collation.head_data.clone();
 					if let Err(err) = construct_and_distribute_receipt(
 						PreparedCollation {
@@ -372,7 +413,7 @@ impl CollationGenerationSubsystem {
 							validation_data: validation_data.clone(),
 							validation_code_hash,
 							n_validators,
-							core_index,
+							core_index: descriptor_core_index,
 							session_index,
 						},
 						task_config.key.clone(),
