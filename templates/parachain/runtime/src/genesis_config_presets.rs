@@ -7,6 +7,16 @@ use alloc::{vec, vec::Vec};
 
 use polkadot_sdk::{staging_xcm as xcm, *};
 
+#[doc::include_str!("../README.md")]
+#[cfg(feature = "generate-readme")]
+
+docify::compile_markdown!(
+    "../../README.docify.md",
+    "../../README.md"
+);
+
+use docify::export;
+
 use cumulus_primitives_core::ParaId;
 use frame_support::build_struct_json_patch;
 use parachains_common::AuraId;
@@ -17,7 +27,8 @@ use sp_keyring::Sr25519Keyring;
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 /// Parachain id used for genesis config presets of parachain template.
-pub const PARACHAIN_ID: u32 = 1000;
+#[export]
+pub const PARACHAIN_ID: u32 = 2000;
 
 /// Generate the session keys from individual elements.
 ///
