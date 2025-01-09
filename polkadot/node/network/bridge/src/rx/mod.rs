@@ -788,7 +788,7 @@ where
 					);
 				} else {
 					dispatch_validation_event_to_approval_unbounded(
-						&NetworkBridgeEvent::NegowGossipTopology(NewGossipTopology {
+						&NetworkBridgeEvent::NewGossipTopology(NewGossipTopology {
 							session,
 							topology: SessionGridTopology::new(shuffled_indices, topology_peers),
 							local_index,
