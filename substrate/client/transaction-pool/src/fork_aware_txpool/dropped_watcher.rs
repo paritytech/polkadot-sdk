@@ -53,11 +53,13 @@ pub struct DroppedTransaction<Hash> {
 }
 
 impl<Hash> DroppedTransaction<Hash> {
-	fn new_usurped(tx_hash: Hash, by: Hash) -> Self {
+	/// Creates an new instnance with reason set to `DroppedReason::Usurped(by)`.
+	pub fn new_usurped(tx_hash: Hash, by: Hash) -> Self {
 		Self { reason: DroppedReason::Usurped(by), tx_hash }
 	}
 
-	fn new_enforced_by_limts(tx_hash: Hash) -> Self {
+	/// Creates an new instnance with reason set to `DroppedReason::LimitsEnforced`.
+	pub fn new_enforced_by_limts(tx_hash: Hash) -> Self {
 		Self { reason: DroppedReason::LimitsEnforced, tx_hash }
 	}
 }
@@ -257,10 +259,12 @@ where
 			},
 			TransactionStatus::Ready | TransactionStatus::InBlock(..) => {
 				// note: if future transaction was once seens as the ready we may want to treat it
-				// as ready transactions. Unreferenced future transactions are more likely to be
-				// removed when the last referencing view is removed then ready transactions.
-				// Transcaction seen as ready is likely quite close to be included in some
-				// future fork.
+				// as ready transaction. The rationale behind this is as follows: we want to remove
+				// unreferenced future transactions when the last referencing view is removed (to
+				// avoid clogging mempool). For ready transactions we prefer to keep them in mempool
+				// even if no view is currently referencing them. Future transcaction once seen as
+				// ready is likely quite close to be included in some future fork (it is close to be
+				// ready, so we make exception and treat such transaction as ready).
 				if let Some(mut views) = self.future_transaction_views.remove(&tx_hash) {
 					views.insert(block_hash);
 					self.ready_transaction_views.insert(tx_hash, views);
@@ -329,14 +333,14 @@ where
 		let stream_map = futures::stream::unfold(ctx, |mut ctx| async move {
 			loop {
 				if let Some(dropped) = ctx.get_pending_dropped_transaction() {
-					debug!("dropped_watcher: sending out (pending): {dropped:?}");
+					trace!("dropped_watcher: sending out (pending): {dropped:?}");
 					return Some((dropped, ctx));
 				}
 				tokio::select! {
 					biased;
 					Some(event) = next_event(&mut ctx.stream_map) => {
 						if let Some(dropped) = ctx.handle_event(event.0, event.1) {
-							debug!("dropped_watcher: sending out: {dropped:?}");
+							trace!("dropped_watcher: sending out: {dropped:?}");
 							return Some((dropped, ctx));
 						}
 					},
