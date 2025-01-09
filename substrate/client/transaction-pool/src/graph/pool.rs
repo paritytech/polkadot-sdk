@@ -602,7 +602,7 @@ mod tests {
 	fn should_reject_unactionable_transactions() {
 		// given
 		let api = Arc::new(TestApi::default());
-		let pool = Pool::new(
+		let pool = Pool::new_with_staticly_sized_rotator(
 			Default::default(),
 			// the node does not author blocks
 			false.into(),
@@ -789,7 +789,7 @@ mod tests {
 		let options = Options { ready: limit.clone(), future: limit.clone(), ..Default::default() };
 
 		let api = Arc::new(TestApi::default());
-		let pool = Pool::new(options, true.into(), api.clone());
+		let pool = Pool::new_with_staticly_sized_rotator(options, true.into(), api.clone());
 
 		let hash1 =
 			block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, xt.into())).unwrap();
@@ -825,7 +825,7 @@ mod tests {
 		let options = Options { ready: limit.clone(), future: limit.clone(), ..Default::default() };
 
 		let api = Arc::new(TestApi::default());
-		let pool = Pool::new(options, true.into(), api.clone());
+		let pool = Pool::new_with_staticly_sized_rotator(options, true.into(), api.clone());
 
 		// when
 		block_on(
@@ -1058,7 +1058,7 @@ mod tests {
 				Options { ready: limit.clone(), future: limit.clone(), ..Default::default() };
 
 			let api = Arc::new(TestApi::default());
-			let pool = Pool::new(options, true.into(), api.clone());
+			let pool = Pool::new_with_staticly_sized_rotator(options, true.into(), api.clone());
 
 			let xt = uxt(Transfer {
 				from: Alice.into(),
@@ -1096,7 +1096,7 @@ mod tests {
 					Options { ready: limit.clone(), future: limit.clone(), ..Default::default() };
 
 				let api = Arc::new(TestApi::default());
-				let pool = Pool::new(options, true.into(), api.clone());
+				let pool = Pool::new_with_staticly_sized_rotator(options, true.into(), api.clone());
 
 				// after validation `IncludeData` will have priority set to 9001
 				// (validate_transaction mock)
@@ -1128,7 +1128,7 @@ mod tests {
 					Options { ready: limit.clone(), future: limit.clone(), ..Default::default() };
 
 				let api = Arc::new(TestApi::default());
-				let pool = Pool::new(options, true.into(), api.clone());
+				let pool = Pool::new_with_staticly_sized_rotator(options, true.into(), api.clone());
 
 				let han_of_block0 = api.expect_hash_and_number(0);
 
@@ -1173,7 +1173,11 @@ mod tests {
 			let mut api = TestApi::default();
 			api.delay = Arc::new(Mutex::new(rx.into()));
 			let api = Arc::new(api);
-			let pool = Arc::new(Pool::new(Default::default(), true.into(), api.clone()));
+			let pool = Arc::new(Pool::new_with_staticly_sized_rotator(
+				Default::default(),
+				true.into(),
+				api.clone(),
+			));
 
 			let han_of_block0 = api.expect_hash_and_number(0);
 
