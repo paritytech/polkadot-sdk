@@ -32,29 +32,29 @@ bp-relayers = { workspace = true, default-features = true }
 
 equivocation-detector = { workspace = true }
 finality-relay = { workspace = true }
-parachains-relay = { workspace = true }
-relay-utils = { workspace = true }
 messages-relay = { workspace = true }
+parachains-relay = { workspace = true }
 relay-substrate-client = { workspace = true }
+relay-utils = { workspace = true }
 
 pallet-bridge-grandpa = { workspace = true, default-features = true }
 pallet-bridge-messages = { workspace = true, default-features = true }
 pallet-bridge-parachains = { workspace = true, default-features = true }
 
-bp-runtime = { workspace = true, default-features = true }
 bp-messages = { workspace = true, default-features = true }
+bp-runtime = { workspace = true, default-features = true }
 
 # Substrate Dependencies
 frame-support = { workspace = true, default-features = true }
 frame-system = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-grandpa = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
 sp-consensus-grandpa = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-trie = { workspace = true }
 
 [dev-dependencies]
-scale-info = { features = ["derive"], workspace = true }
 pallet-transaction-payment = { workspace = true, default-features = true }
 relay-substrate-client = { features = ["test-helpers"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }

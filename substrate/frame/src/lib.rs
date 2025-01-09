@@ -203,11 +203,21 @@ pub mod prelude {
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{Contains, IsSubType, OnRuntimeUpgrade};
+	pub use frame_support::{
+		defensive, defensive_assert,
+		traits::{
+			Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll,
+			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+		},
+	};
 
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
 	pub use frame_system::pallet_prelude::*;
+
+	/// Transaction related helpers to submit transactions.
+	#[doc(no_inline)]
+	pub use frame_system::offchain::*;
 
 	/// All FRAME-relevant derive macros.
 	#[doc(no_inline)]
@@ -216,11 +226,14 @@ pub mod prelude {
 	/// All hashing related things
 	pub use super::hashing::*;
 
+	/// All arithmetic types and traits used for safe math.
+	pub use super::arithmetic::*;
+
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, DispatchInfoOf, Dispatchable, SaturatedConversion,
-		Saturating, StaticLookup, TrailingZeroInput,
+		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
+		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
 	};
 
 	/// Bounded storage related types.
@@ -228,7 +241,9 @@ pub mod prelude {
 
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
-	pub use sp_runtime::{DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError};
+	pub use sp_runtime::{
+		BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
+	};
 }
 
 #[cfg(any(feature = "try-runtime", test))]
@@ -254,7 +269,7 @@ pub mod benchmarking {
 		pub use frame_benchmarking::benchmarking::*;
 		// The system origin, which is very often needed in benchmarking code. Might be tricky only
 		// if the pallet defines its own `#[pallet::origin]` and call it `RawOrigin`.
-		pub use frame_system::RawOrigin;
+		pub use frame_system::{Pallet as System, RawOrigin};
 	}
 
 	#[deprecated(
@@ -311,7 +326,7 @@ pub mod testing_prelude {
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{
 		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok,
-		assert_storage_noop, storage_alias,
+		assert_storage_noop, hypothetically, storage_alias,
 	};
 
 	pub use frame_system::{self, mocking::*};
@@ -320,6 +335,9 @@ pub mod testing_prelude {
 	pub use sp_io::TestExternalities;
 
 	pub use sp_io::TestExternalities as TestState;
+
+	/// Commonly used runtime traits for testing.
+	pub use sp_runtime::{traits::BadOrigin, StateVersion};
 }
 
 /// All of the types and tools needed to build FRAME-based runtimes.
@@ -394,7 +412,7 @@ pub mod runtime {
 			LOCAL_TESTNET_RUNTIME_PRESET,
 		};
 		pub use sp_inherents::{CheckInherentsResult, InherentData};
-		pub use sp_keyring::AccountKeyring;
+		pub use sp_keyring::Sr25519Keyring;
 		pub use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode};
 	}
 
@@ -487,6 +505,7 @@ pub mod runtime {
 			frame_system::CheckEra<T>,
 			frame_system::CheckNonce<T>,
 			frame_system::CheckWeight<T>,
+			frame_system::WeightReclaim<T>,
 		);
 	}
 
@@ -496,7 +515,7 @@ pub mod runtime {
 	#[cfg(feature = "std")]
 	pub mod testing_prelude {
 		pub use sp_core::storage::Storage;
-		pub use sp_runtime::BuildStorage;
+		pub use sp_runtime::{BuildStorage, DispatchError};
 	}
 }
 
@@ -512,6 +531,8 @@ pub mod traits {
 }
 
 /// The arithmetic types used for safe math.
+///
+/// This is already part of the [`prelude`].
 pub mod arithmetic {
 	pub use sp_arithmetic::{traits::*, *};
 }

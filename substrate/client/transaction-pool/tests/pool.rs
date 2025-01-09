@@ -40,8 +40,8 @@ use sp_runtime::{
 use std::{collections::BTreeSet, pin::Pin, sync::Arc};
 use substrate_test_runtime_client::{
 	runtime::{Block, Extrinsic, ExtrinsicBuilder, Hash, Header, Nonce, Transfer, TransferData},
-	AccountKeyring::*,
 	ClientBlockImportExt,
+	Sr25519Keyring::*,
 };
 use substrate_test_runtime_transaction_pool::{uxt, TestApi};
 

@@ -40,3 +40,10 @@ keys = ["workspace.dependencies"]
 
 [rule.formatting]
 reorder_keys = true
+
+[[rule]]
+include = ["**/Cargo.toml"]
+keys = ["build-dependencies", "dependencies", "dev-dependencies"]
+
+[rule.formatting]
+reorder_keys = true

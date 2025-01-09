@@ -105,12 +105,11 @@ Omni Node, nonetheless.
 
 #### Run Omni Node
 
-Start Omni Node with manual seal (3 seconds block times), minimal template runtime based
-chain spec. We'll use `--tmp` flag to start the node with its configurations stored in a
-temporary directory, which will be deleted at the end of the process.
+Start Omni Node in development mode (sets up block production and finalization based on manual seal,
+sealing a new block every 3 seconds), with a minimal template runtime chain spec.
 
 ```sh
-polkadot-omni-node --chain <path/to/chain_spec.json> --dev-block-time 3000 --tmp
+polkadot-omni-node --chain <path/to/chain_spec.json> --dev
 ```
 
 ### Minimal Template Node
@@ -160,7 +159,7 @@ Then make the changes in the network specification like so:
 # ...
 chain = "dev"
 chain_spec_path = "<TO BE UPDATED WITH A VALID PATH>"
-default_args = ["--dev-block-time 3000"]
+default_args = ["--dev"]
 # ..
 ```
 
