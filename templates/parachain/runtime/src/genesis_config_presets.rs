@@ -11,8 +11,8 @@ use polkadot_sdk::{staging_xcm as xcm, *};
 #[cfg(feature = "generate-readme")]
 
 docify::compile_markdown!(
-    "../../README.docify.md",
-    "../../README.md"
+    "README.docify.md",
+    "README.md"
 );
 
 use docify::export;
