@@ -58,11 +58,11 @@ pub fn ensure_is_remote(
 /// that the message sending cannot be abused in any way.
 ///
 /// This is only useful when the local chain has bridging capabilities.
-pub struct UnpaidLocalExporter<Exporter, UniversalLocation>(
+pub struct LocalExporter<Exporter, UniversalLocation>(
 	PhantomData<(Exporter, UniversalLocation)>,
 );
 impl<Exporter: ExportXcm, UniversalLocation: Get<InteriorLocation>> SendXcm
-	for UnpaidLocalExporter<Exporter, UniversalLocation>
+	for LocalExporter<Exporter, UniversalLocation>
 {
 	type Ticket = Exporter::Ticket;
 
@@ -703,9 +703,9 @@ mod tests {
 		let local_dest: Location = (Parent, Parachain(5678)).into();
 		assert!(ensure_is_remote(UniversalLocation::get(), local_dest.clone()).is_err());
 
-		// UnpaidLocalExporter
+		// LocalExporter
 		ensure_validate_does_not_consume_dest_or_msg::<
-			UnpaidLocalExporter<RoutableBridgeExporter, UniversalLocation>,
+			LocalExporter<RoutableBridgeExporter, UniversalLocation>,
 		>(local_dest.clone(), |result| assert_eq!(Err(NotApplicable), result));
 
 		// 2. check with not applicable from the inner router (using `NotApplicableBridgeSender`)
@@ -713,14 +713,14 @@ mod tests {
 			(Parent, Parent, DifferentRemote::get(), RemoteDestination::get()).into();
 		assert!(ensure_is_remote(UniversalLocation::get(), remote_dest.clone()).is_ok());
 
-		// UnpaidLocalExporter
+		// LocalExporter
 		ensure_validate_does_not_consume_dest_or_msg::<
-			UnpaidLocalExporter<NotApplicableBridgeExporter, UniversalLocation>,
+			LocalExporter<NotApplicableBridgeExporter, UniversalLocation>,
 		>(remote_dest.clone(), |result| assert_eq!(Err(NotApplicable), result));
 
 		// 3. Ok - deliver
 		// UnpaidRemoteExporter
-		assert_ok!(send_xcm::<UnpaidLocalExporter<RoutableBridgeExporter, UniversalLocation>>(
+		assert_ok!(send_xcm::<LocalExporter<RoutableBridgeExporter, UniversalLocation>>(
 			remote_dest,
 			Xcm::default()
 		));
