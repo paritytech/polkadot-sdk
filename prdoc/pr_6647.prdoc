@@ -1,0 +1,16 @@
+title: '`fatxpool`: proper handling of priorities when mempool is full'
+doc:
+- audience: Node Dev
+  description: |-
+    Higher-priority transactions can now replace lower-priority transactions even when the internal _tx_mem_pool_ is full.
+
+    **Notes for reviewers:**
+    - The _tx_mem_pool_ now maintains information about transaction priority. Although _tx_mem_pool_ itself is stateless, transaction priority is updated after submission to the view. An alternative approach could involve validating transactions at the `at` block, but this is computationally expensive. To avoid additional validation overhead, I opted to use the priority obtained from runtime during submission to the view. This is the rationale behind introducing the `SubmitOutcome` struct, which synchronously communicates transaction priority from the view to the pool. This results in a very brief window during which the transaction priority remains unknown - those transaction are not taken into consideration while dropping takes place. In the future, if needed, we could update transaction priority using view revalidation results to keep this information fully up-to-date (as priority of transaction may change with chain-state evolution).
+    - When _tx_mem_pool_ becomes full (an event anticipated to be rare), transaction priority must be known to perform priority-based removal. In such cases, the most recent block known is utilized for validation. I think that speculative submission to the view and re-using the priority from this submission would be an unnecessary complication.
+    - Once the priority is determined, lower-priority transactions whose cumulative size meets or exceeds the size of the new transaction are collected to ensure the pool size limit is not exceeded.
+    - Transaction removed from _tx_mem_pool_ , also needs to be removed from all the views with appropriate event (which is done by `remove_transaction_subtree`). To ensure complete removal, the  `PendingTxReplacement` struct was re-factored to more generic `PendingPreInsertTask` (introduced in #6405) which covers removal and submssion of transaction in the view which may be potentially created in the background. This is to ensure that removed transaction will not re-enter to the newly created view.
+
+    Closes: #5809
+crates:
+- name: sc-transaction-pool
+  bump: minor
