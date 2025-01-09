@@ -147,17 +147,19 @@ impl StorageCmd {
 			let stats = record.calculate_stats()?;
 			info!("Time summary [ns]:\n{:?}\nValue size summary:\n{:?}", stats.0, stats.1);
 			template.set_stats(Some(stats), None)?;
+			info!("Cache usage: \n{:?}", client.usage_info().usage);
 		}
 
 		if !self.params.skip_write {
 			self.bench_warmup(&client)?;
-			let record = self.bench_write(client, db, storage)?;
+			let record = self.bench_write(client.clone(), db, storage)?;
 			if let Some(path) = &self.params.json_write_path {
 				record.save_json(&cfg, path, "write")?;
 			}
 			let stats = record.calculate_stats()?;
 			info!("Time summary [ns]:\n{:?}\nValue size summary:\n{:?}", stats.0, stats.1);
 			template.set_stats(None, Some(stats))?;
+			info!("Cache usage: \n{:?}", client.usage_info().usage);
 		}
 
 		template.write(&self.params.weight_params.weight_path, &self.params.template_path)
