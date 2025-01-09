@@ -195,6 +195,8 @@ pub use pallet::*;
 
 const LOG_TARGET: &str = "runtime::balances";
 
+const ADDRESS_URI: &str = "//Sender/{}";
+
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 #[frame_support::pallet]
@@ -527,7 +529,7 @@ pub mod pallet {
 				dev_accounts: (
 					One::one(),
 					<T as Config<I>>::ExistentialDeposit::get(),
-					Some("//Sender/{}".to_string()),
+					Some(ADDRESS_URI.to_string()),
 				),
 			}
 		}
@@ -563,13 +565,12 @@ pub mod pallet {
 			// Generate additional dev accounts.
 			let (num_accounts, balance, ref derivation) = self.dev_accounts;
 
-			// Check if `derivation` is `Some` and generate key pair
-			if let Some(derivation_string) = derivation {
-				Pallet::<T, I>::derive_dev_account(num_accounts, balance, derivation_string);
-			} else {
-				// Derivation string is missing, using default..
-				Pallet::<T, I>::derive_dev_account(num_accounts, balance, "//Sender/{}");
-			}
+			// Use `derivation` (or default) to generate key pair
+			Pallet::<T, I>::derive_dev_account(
+				num_accounts,
+				balance,
+				derivation.as_deref().unwrap_or(ADDRESS_URI),
+			);
 
 			for &(ref who, free) in self.balances.iter() {
 				frame_system::Pallet::<T>::inc_providers(who);
