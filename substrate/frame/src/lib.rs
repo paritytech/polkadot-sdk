@@ -226,10 +226,9 @@ pub mod prelude {
 	/// All hashing related things
 	pub use super::hashing::*;
 
-
 	/// All account management related things.
 	pub use super::account::*;
-  
+
 	/// All arithmetic types and traits used for safe math.
 	pub use super::arithmetic::*;
 
@@ -241,7 +240,10 @@ pub mod prelude {
 	};
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
-	pub use sp_runtime::{BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError, ConsensusEngineId, DigestItem};
+	pub use sp_runtime::{
+		BoundToRuntimeAppPublic, ConsensusEngineId, DigestItem, DispatchErrorWithPostInfo,
+		DispatchResultWithInfo, TokenError,
+	};
 }
 
 #[cfg(any(feature = "try-runtime", test))]
