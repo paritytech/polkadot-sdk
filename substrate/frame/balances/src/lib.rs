@@ -195,7 +195,7 @@ pub use pallet::*;
 
 const LOG_TARGET: &str = "runtime::balances";
 
-const ADDRESS_URI: &str = "//Sender/{}";
+const DEFAULT_ADDRESS_URI: &str = "//Sender/{}";
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
@@ -529,7 +529,7 @@ pub mod pallet {
 				dev_accounts: (
 					One::one(),
 					<T as Config<I>>::ExistentialDeposit::get(),
-					Some(ADDRESS_URI.to_string()),
+					Some(DEFAULT_ADDRESS_URI.to_string()),
 				),
 			}
 		}
@@ -569,7 +569,7 @@ pub mod pallet {
 			Pallet::<T, I>::derive_dev_account(
 				num_accounts,
 				balance,
-				derivation.as_deref().unwrap_or(ADDRESS_URI),
+				derivation.as_deref().unwrap_or(DEFAULT_ADDRESS_URI),
 			);
 
 			for &(ref who, free) in self.balances.iter() {
