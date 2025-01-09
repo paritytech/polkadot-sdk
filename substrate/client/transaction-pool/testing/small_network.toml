@@ -1,0 +1,123 @@
+[relaychain]
+# single-state
+# fork-aware
+default_image = "parity/polkadot:latest"
+default_command = "polkadot"
+chain = "rococo-local"
+
+  [[relaychain.nodes]]
+  name = "alice"
+  ws_port = 9944
+  validator = true
+
+  [[relaychain.nodes]]
+  name = "bob"
+  validator = true
+
+[[parachains]]
+id = 2000
+cumulus_based = true
+# chain = "asset-hub-rococo-local.json"
+chain = "asset-hub-rococo-local-20k.json"
+# chain = "yap-westend-live-2022.json"
+
+  # run charlie as parachain collator
+  [[parachains.collators]]
+  name = "charlie"
+  validator = false
+  image = "parity/polkadot-parachain:latest"
+  command = "polkadot-parachain"
+  # command = "test-parachain"
+  ws_port = 9933
+  rpc_port = 8833
+  args = [
+    "--force-authoring",
+    "--pool-limit 500000",
+    "--pool-kbytes 2048000",
+    "--rpc-max-connections 15000",
+    "--rpc-max-response-size 150",
+    "-lbasic-authorship=debug",
+    "-ltxpool=trace",
+    "-lsync=trace",
+    "-laura::cumulus=debug",
+    "-lpeerset=trace",
+    "-lsub-libp2p=debug",
+    "--pool-type=fork-aware",
+    "--state-pruning=1024",
+    "--rpc-max-subscriptions-per-connection=128000"
+  ]
+
+  [[parachains.collators]]
+  name = "dave"
+  validator = true
+  image = "parity/polkadot-parachain:latest"
+  command = "polkadot-parachain"
+  # command = "test-parachain"
+  ws_port = 9934
+  rpc_port = 8834
+  args = [
+    "--force-authoring",
+    "--pool-limit 500000",
+    "--pool-kbytes 2048000",
+    "--rpc-max-connections 15000",
+    "--rpc-max-response-size 150",
+    "-lbasic-authorship=debug",
+    "-ltxpool=trace",
+    "-lsync=trace",
+    "-laura::cumulus=debug",
+    "-lpeerset=trace",
+    "-lsub-libp2p=debug",
+    "--pool-type=fork-aware",
+    "--state-pruning=1024",
+    "--rpc-max-subscriptions-per-connection=128000"
+  ]
+
+  [[parachains.collators]]
+  name = "eve"
+  validator = true
+  image = "parity/polkadot-parachain:latest"
+  command = "polkadot-parachain"
+  # command = "test-parachain"
+  ws_port = 9935
+  rpc_port = 8835
+  args = [
+    "--force-authoring",
+    "--pool-limit 500000",
+    "--pool-kbytes 2048000",
+    "--rpc-max-connections 15000",
+    "--rpc-max-response-size 150",
+    "-lbasic-authorship=debug",
+    "-ltxpool=trace",
+    "-lsync=trace",
+    "-laura::cumulus=debug",
+    "-lpeerset=trace",
+    "-lsub-libp2p=debug",
+    "--pool-type=fork-aware",
+    "--state-pruning=1024",
+    "--rpc-max-subscriptions-per-connection=128000"
+  ]
+
+  [[parachains.collators]]
+  name = "ferdie"
+  validator = true
+  image = "parity/polkadot-parachain:latest"
+  command = "polkadot-parachain"
+  # command = "test-parachain"
+  ws_port = 9935
+  rpc_port = 8835
+  args = [
+    "--force-authoring",
+    "--pool-limit 500000",
+    "--pool-kbytes 2048000",
+    "--rpc-max-connections 15000",
+    "--rpc-max-response-size 150",
+    "-lbasic-authorship=debug",
+    "-ltxpool=trace",
+    "-lsync=trace",
+    "-laura::cumulus=debug",
+    "-lpeerset=trace",
+    "-lsub-libp2p=debug",
+    "--pool-type=fork-aware",
+    "--state-pruning=1024",
+    "--rpc-max-subscriptions-per-connection=128000"
+  ]

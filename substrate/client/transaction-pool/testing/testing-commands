@@ -1,0 +1,580 @@
+cargo run --release
+cargo run --release -- build-spec --chain=dev
+cargo run --release -- build-spec --chain=development
+cargo run --release -- create --help
+cargo run --release -- create -p 12
+cargo run --release -- create  -p 12 patch
+cargo run --release -- create patch -p 12
+cargo run --release --example basic
+cargo run --release --example gauge
+cargo run --release --example progress_bar
+cargo run --release --  --help
+cargo run --release -- --help
+cargo run --release -- load-log --chain sub  out_20241119_094415-master.json
+cargo run --release -- load-log --chain sub  out_20241119_094815-master.json
+cargo run --release -- load-log --chain sub  out_20241119_100814-async.json
+cargo run --release -- load-log --chain sub  out_20241119_104227-async.json
+cargo run --release -- load-log --chain sub  out_20241119_104227-async.json --help
+cargo run --release -- load-log --chain sub  out_20241119_104227-async.json --show-graphs
+cargo run --release -- load-log --chain sub  out_20241119_120941-async-2.json
+cargo run --release -- load-log --chain sub  out_20241119_121117-async-2.json
+cargo run --release -- load-log --chain sub  out_20241122_122716.json --show-graphs
+cargo run --release -- metadata --ws ws://127.0.0.1:9933 > ./cumulus-test-metadata
+cargo run --release -- metadata --ws ws://127.0.0.1:9933 > ./x
+cargo run --release -- metadata --ws ws://127.0.0.1:9944
+cargo run --release -- metadata -ws ws://127.0.0.1:9944
+cargo run --release -- metadata --ws ws://127.0.0.1:9944 > ./rococo-metadata
+cargo run --release -- metadata --ws ws://127.0.0.1:9944 > ./x
+cargo run --release -- metadata -w ws://127.0.0.1:9944
+cargo run --release -- tx --help
+cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 1
+cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account alice --count 1
+cclear && cargo run --release
+cclear && cargo run --release --  block-monitor --chain=eth --ws=ws://127.0.0.1:9933
+cclear && cargo run --release --  block-monitor --chain=sub --ws=ws://127.0.0.1:9933
+cclear && cargo run --release --  block-monitor --chain=sub --ws=ws://127.0.0.1:9944
+cclear && cargo run --release --  block-monitor --chain=sub --ws=wss://kusama-yap-3359.parity-chains.parity.io
+cclear && cargo run --release --  block-monitor --chain=sub --ws=wss://kusama-yap-3362.parity-chains.parity.io
+cclear && cargo run --release --  block-monitor --chain=sub --ws=wss://versi-yap-2020.parity-versi.parity.io
+cclear && cargo run --release --  block-monitor --chain=sub --ws=wss://versi-yap-2021.parity-versi.parity.io
+cclear && cargo run --release --  block-monitor --chain=sub --ws=wss://westend-yap-2022.parity-testnet.parity.io
+cclear && cargo run --release -- --chain=fake tx one-shot
+cclear && cargo run --release -- --chain=faketx one-shot
+cclear && cargo run --release --  check-nonce --account 0
+cclear && cargo run --release --  check-nonce --account 1
+cclear && cargo run --release --  check-nonce --account 1000
+cclear && cargo run --release --  check-nonce --account 10000
+cclear && cargo run --release --  check-nonce --account 11000
+cclear && cargo run --release --  check-nonce --account 1200
+cclear && cargo run --release --  check-nonce --account 12000
+cclear && cargo run --release --  check-nonce --account 1300
+cclear && cargo run --release --  check-nonce --account 1400
+cclear && cargo run --release --  check-nonce --account 1500
+cclear && cargo run --release --  check-nonce --account 2
+cclear && cargo run --release --  check-nonce --account 2000
+cclear && cargo run --release --  check-nonce --account 3000
+cclear && cargo run --release --  check-nonce --account 39
+cclear && cargo run --release --  check-nonce --account 4000
+cclear && cargo run --release --  check-nonce --account 5000
+cclear && cargo run --release --  --check-nonce --account alice
+cclear && cargo run --release --  check-nonce --account alice
+cclear && cargo run --release --  check-nonce --account bob
+cclear && cargo run --release --  check-nonce --account charlie
+cclear && cargo run --release --  check-nonce --chain=eth --ws=ws://127.0.0.1:9933  --account 1
+cclear && cargo run --release --  check-nonce --chain=eth --ws=ws://127.0.0.1:9933  --account alice
+cclear && cargo run --release --  check-nonce --chain=eth --ws=ws://127.0.0.1:9933  --account bob
+cclear && cargo run --release --  check-nonce --chain=eth --ws=ws://127.0.0.1:9944  --account 1
+cclear && cargo run --release --  check-nonce --chain=sub --ws=ws://127.0.0.1:9944  --account 1
+cclear && cargo run --release --  check-nonce --chain=sub --ws=ws://127.0.0.1:9944  --account 100
+cclear && cargo run --release --  check-nonce --chain=sub --ws=ws://127.0.0.1:9944  --account 101
+cclear && cargo run --release --  check-nonce --chain=sub --ws=ws://127.0.0.1:9944  --account 1011
+cclear && cargo run --release --  check-nonce --chain=sub --ws=ws://127.0.0.1:9944  --account 1012
+cclear && cargo run --release --  check-nonce --chain=sub --ws=ws://127.0.0.1:9944  --account 103
+cclear && cargo run --release --  check-nonce --chain=sub --ws=ws://127.0.0.1:9944  --account 104
+cclear && cargo run --release --  check-nonce --chain=sub --ws=ws://127.0.0.1:9944  --account 105
+cclear && cargo run --release --  check-nonce --chain=sub --ws=ws://127.0.0.1:9944  --account alice
+cclear && cargo run --release --  check-nonce --chain=sub --ws=ws://127.0.0.1:9944  --account bob
+cclear && cargo run --release --  check-nonce --ws wss://kusama-yap-3359.parity-chains.parity.io   --account 0
+cclear && cargo run --release --  check-nonce --ws wss://kusama-yap-3359.parity-chains.parity.io   --account 1000
+cclear && cargo run --release --  check-nonce --ws wss://kusama-yap-3359.parity-chains.parity.io   --account 1500
+cclear && cargo run --release --  check-nonce --ws wss://kusama-yap-3359.parity-chains.parity.io   --account 800
+cclear && cargo run --release --  check-nonce --ws wss://kusama-yap-3359.parity-chains.parity.io   --account 8000
+cclear && cargo run --release --  check-nonce --ws wss://kusama-yap-3359.parity-chains.parity.io   --account 900
+cclear && cargo run --release -- generate-endowed-accounts --chain=eth --start-id 1 --last-id 20000 --out-file-name xx.json  --chain-spec /home/miszka/parity/20-mythical/project-mythical/zombienet-config/local-v.chain-spec.json --balance 166666666666666666666666666
+cclear && cargo run --release -- generate-endowed-accounts --chain=eth --start-id 1 --last-id 2 --out-file-name xx.json
+cclear && cargo run --release -- generate-endowed-accounts --chain=eth --start-id 1 --last-id 2 --out-file-name xx.json  --chain-spec /home/miszka/parity/20-mythical/project-mythical/zombienet-config/local-v.chain-spec.json
+cclear && cargo run --release -- generate-endowed-accounts --chain=eth --start-id 1 --last-id 2 --out-file-name xx.json  --chain-spec /home/miszka/parity/20-mythical/project-mythical/zombienet-config/local-v.chain-spec.json --balance 166666666666666666666666666
+cclear && cargo run --release -- generate-endowed-accounts --start-id 1 --last-id 2
+cclear && cargo run --release -- generate-endowed-accounts --start-id 1 --last-id 2 --
+cclear && cargo run --release -- generate-endowed-accounts --start_id 1 --last-id 2
+cclear && cargo run --release -- generate-endowed-accounts --start-id 1 --last-id 20000 --out-file-name /home/miszka/parity/14-txpool-forks/polkadot-sdk-master-02/cumulus/zombienet/examples/asset-hub-rococo-local-20k.json  --chain-spec /home/miszka/parity/14-txpool-forks/polkadot-sdk-master-02/cumulus/zombienet/examples/asset-hub-rococo-local.json
+cclear && cargo run --release -- generate-endowed-accounts --start-id 1 --last-id 20000 --out-file-name /home/miszka/parity/14-txpool-forks/polkadot-sdk-master-02/cumulus/zombienet/examples/asset-hub-rococo-local-20k.json  --chain-spec /home/miszka/parity/14-txpool-forks/polkadot-sdk-master-02/cumulus/zombienet/examples/asset-hub-rococo-local.json --balance 1000000000000000000
+cclear && cargo run --release -- generate-endowed-accounts --start-id 1 --last-id 20000 --out-file-name /home/miszka/parity/14-txpool-forks/polkadot-sdk-yap/asset-hub-rococo-95-20k.json  --chain-spec /home/miszka/parity/14-txpool-forks/polkadot-sdk-yap/asset-hub-rococo-95.json --balance 1000000000000000000
+cclear && cargo run --release -- generate-endowed-accounts --start-id 1 --last-id 20000 --out-file-name /home/miszka/parity/14-txpool-forks/polkadot-sdk-yap/asset-hub-rococo-95.json  --chain-spec /home/miszka/parity/14-txpool-forks/polkadot-sdk-yap/asset-hub-rococo-95-20k.json --balance 1000000000000000000
+cclear && cargo run --release -- generate-endowed-accounts --start-id 1 --last-id 20000 --out-file-name /home/miszka/parity/14-txpool-forks/polkadot-sdk-yap/asset-hub-rococo-local-95-20k.json  --chain-spec /home/miszka/parity/14-txpool-forks/polkadot-sdk-yap/asset-hub-rococo-local-95.json --balance 1000000000000000000
+cclear && cargo run --release -- generate-endowed-accounts --start-id 1 --last-id 20000 --out-file-name xx.json  --chain-spec /home/miszka/parity/14-txpool-forks/polkadot-sdk-master-02/cumulus/zombienet/examples/chain-spec-asset-hub-rococo-local.json --balance 1000000000000000000
+cclear && cargo run --release -- generate-endowed-accounts --start-id 1 --last-id 200 --out-file-name xx.json  --chain-spec chain-spec-asset-hub-rococo-local.json
+cclear && cargo run --release -- generate-endowed-accounts --start-id 1 --last-id 200 --out-file-name xx.json  --chain-spec /home/miszka/parity/14-txpool-forks/polkadot-sdk-master-02/cumulus/zombienet/examples/chain-spec-asset-hub-rococo-local.json
+cclear && cargo run --release -- generate-endowed-accounts --start-id 1 --last-id 200 --out-file-name xx.json  --chain-spec /home/miszka/parity/14-txpool-forks/polkadot-sdk-master-02/cumulus/zombienet/examples/chain-spec-asset-hub-rococo-local.json --balance 1000000000000000000
+cclear && cargo run --release -- generate-endowed-accounts --start-id 1 --last-id 200 --out-file-name xx.json  --chain-spec /home/miszka/parity/14-txpool-forks/polkadot-sdk-master-02/cumulus/zombienet/examples/chain-spec-asset-hub-rococo-local.json --help
+cclear && cargo run --release -- generate-endowed-accounts --start-id 1 --last-id 2 --balance 100000000
+cclear && cargo run --release -- generate-endowed-accounts --start-id 1 --last-id 2 --out-file-name xx.json
+cclear && cargo run --release -- generate-endowed-accounts --start-id 1 --last-id 2 --out-file-name xx.json  --chain-spec ./chain_spec_dev.json
+cclear && cargo run --release -- generate-endowed-accounts --start-id 1 --last-id 2 --out-file-name xx.json  --chain-spec ./chain_spec_devx.json
+cclear && cargo run --release -- generate-endowed-accounts --start-id 1 --last-id 2 --out-file-name xx.json  --chain-spec /home/miszka/parity/20-mythical/project-mythical/zombienet-config/local-v.chain-spec.json
+cclear && cargo run --release -- generate-endowed-accounts --start-id 1 --last-id 2 --out-file-name xx.json  --help
+cclear && cargo run --release -- generate-endowed-accounts --sub=eth --start-id 1 --last-id 2 --out-file-name xx.json  --chain-spec /home/miszka/parity/20-mythical/project-mythical/zombienet-config/local-v.chain-spec.json
+cclear && cargo run --release --  --help
+cclear && cargo run --release --  --hep
+cclear && cargo run --release -- load-log --chain eth --show-graphs out_20240806_134654.json
+cclear && cargo run --release -- load-log --chain eth --show-graphs out_20240827_145620.json
+cclear && cargo run --release -- load-log --chain fake --show-graphs out_20240806_134654.json
+cclear && cargo run --release -- load-log --chain fake --show-graphs out_20240827_145620.json
+cclear && cargo run --release -- load-log --chain sub  j.json
+cclear && cargo run --release -- load-log --chain sub out_20241003_135722.json
+cclear && cargo run --release -- load-log --chain sub out_20241003_172513.json
+cclear && cargo run --release -- load-log --chain sub out_20241003_173228.json
+cclear && cargo run --release -- load-log --chain sub out_20241004_124655.json
+cclear && cargo run --release -- load-log --chain sub out_20241004_141921.json
+cclear && cargo run --release -- load-log --chain sub  out_20241004_161040.json
+cclear && cargo run --release -- load-log --chain sub  out_20241009_151056.json
+cclear && cargo run --release -- load-log --chain sub  out_20241010_141626.json
+cclear && cargo run --release -- load-log --chain sub  out_20241028_175646.json
+cclear && cargo run --release -- load-log --chain sub --show-graphs out_20240806_134654.json
+cclear && cargo run --release -- load-log --chain sub --show-graphs out_20240814_141613.json
+cclear && cargo run --release -- load-log --chain sub --show-graphs out_20241003_125617.json
+cclear && cargo run --release -- load-log --help
+cclear && cargo run --release -- load-log --show-graphs out_20240806_134654.json
+cclear && cargo run --release -- load-log --show-graphs out_20240806_173233.json
+cclear && cargo run --release -- load-log --show-graphs out_20240808_100251.json
+cclear && cargo run --release -- load-log --show-graphs out_20240809_101849.json
+cclear && cargo run --release --  tx --block-monitor --chain=eth from-single-account --account ethan --count 100
+cclear && cargo run --release --  tx --block-monitor --chain=eth from-single-account --account ethan --count 10000
+cclear && cargo run --release --  tx --block-monitor --chain=eth one-shot --account ethan
+cclear && cargo run --release  --  tx --block-monitor  --chain=sub --ws=ws://127.0.0.1:9944 from-many-accounts --start-id 0 --last-id=10000  --count 2
+cclear && cargo run --release  --  tx --block-monitor  --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account bob  --count 200
+cclear && cargo run --release --  tx --block-monitor --help --chain=eth one-shot --account ethan
+cclear && cargo run --release --  tx --block-monitor --watched --chain=eth from-single-account --account ethan --count 10000
+cclear && cargo run --release --  tx --chain=eth from-single-account --account dave --count 10
+cclear && cargo run --release --  tx --chain=eth from-single-account --account dave --count 5
+cclear && cargo run --release --  tx --chain=eth from-single-account --account dave --count 500
+cclear && cargo run --release --  tx --chain=eth from-single-account --account dave --count 500 &> >(tee log)
+cclear && cargo run --release --  tx --chain=eth from-single-account --help
+cclear && cargo run --release --  tx --chain=eth --help
+cclear && cargo run --release --  tx --chain=eth one-shot --account 1
+cclear && cargo run --release --  tx --chain=eth one-shot --account alice
+cclear && cargo run --release --  tx --chain=eth one-shot --account dave
+cclear && cargo run --release --  tx --chain=eth one-shot --account ethan
+cclear && cargo run --release --  tx --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 100
+cclear && cargo run --release --  tx --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 10000
+cclear && cargo run --release --  tx --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 5
+cclear && cargo run --release --  tx --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 500
+cclear && cargo run --release --  tx --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 5000
+cclear && cargo run --release --  tx --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 50000
+cclear && cargo run --release --  tx --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 500000
+cclear && cargo run --release  --  tx --chain=fake from-many-accounts --start-id 0 --last-id 20 --count 20
+cclear && cargo run --release  --  tx --chain=fake from-single-account --account 0 --count 10
+cclear && cargo run --release  --  tx --chain=fake from-single-account --account 0 --count 1000
+cclear && cargo run --release  --  tx --chain=fake from-single-account --account 0 --count 20
+cclear && cargo run --release  --  tx --chain=fake from-single-account --account 0 --count 40
+cclear && cargo run --release  --  tx --chain=fake from-single-account --account 0 --count 400
+cclear && cargo run --release  --  tx --chain=fake from-single-account --account 0 --count 4000
+cclear && cargo run --release --  tx --chain=fake from-single-account --account 1 --count 10
+cclear && cargo run --release --  tx --chain=fake from-single-account --account 1 --count 500
+cclear && cargo run --release --  tx --chain=fake from-single-account --account 1 --count 5000
+cclear && cargo run --release --  tx --chain=fake from-single-account --account 1 --nonce 0 --count 500
+cclear && cargo run --release --  tx --chain=fake from-single-account --account 5 --count 5
+cclear && cargo run --release --  tx --chain=fake from-single-account --account 5 --count 500
+cclear && cargo run --release --  tx --chain=fake from-single-account --account 5 --count 5 &> log
+cclear && cargo run --release --  tx --chain=fake from-single-account --account dave --count 500
+cclear && cargo run --release --  tx --chain=fake one-shot
+cclear && cargo run --release --  tx --chain=fake one-shot --account 1
+cclear && cargo run --release --  tx --chain=fake one-shot --account 1 --count 500
+cclear && cargo run --release --  tx --chain=fake one-shot --account 1  --help
+cclear && cargo run --release  --  tx --chain=fake --ws=ws://127.0.0.1:9944 from-many-accounts --start-id 0 --last-id 20 --count 20
+cclear && cargo run --release  --  tx --chain=fale --ws=ws://127.0.0.1:9944 from-many-accounts --start-id 0 --last-id 20 --count 20
+cclear && cargo run --release --  tx --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account 1 --count 500
+cclear && cargo run --release --  tx --chain=sub --ws=ws://127.0.0.1:9944 check-nonce --account 1
+cclear && cargo run --release --  tx --chain=sub --ws=ws://127.0.0.1:9944 check-nonce --account bob
+cclear && cargo run --release  --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-many-accounts --from-id 0 --end-id 20 --count 20
+cclear && cargo run --release  --  tx   --chain=sub --ws=ws://127.0.0.1:9944 from-many-accounts --start-id 0 --end-id=10000  --count 2
+cclear && cargo run --release  --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-many-accounts --start-id 0 --end-id 20 --count 20
+cclear && cargo run --release  --  tx   --chain=sub --ws=ws://127.0.0.1:9944 from-many-accounts --start-id 0 --last-id=10000  --count 2
+cclear && cargo run --release  --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-many-accounts --start-id 0 --last-id 10 --count 3
+cclear && cargo run --release  --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-many-accounts --start-id 0 --last-id 20 --count 20
+cclear && cargo run --release --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-many-accounts --start-id 100 --last-id=105 --count 5
+cclear && cargo run --release --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-many-accounts --start-id 100 --last_id=105 --count 5
+cclear && cargo run --release --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account 1011 --count 5
+cclear && cargo run --release --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account 1 --count 1 --from 90
+cclear && cargo run --release --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account 1 --count 1 --from 91
+cclear && cargo run --release --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account 1 --count 1 --from 92
+cclear && cargo run --release --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account 1 --count 1 --from 93
+cclear && cargo run --release --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account 1 --count 40
+cclear && cargo run --release --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account 1 --count 40 --help
+cclear && cargo run --release --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account 1 --count 4 --from 5
+cclear && cargo run --release --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account 1 --count 5
+cclear && cargo run --release --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account 1 --count 500
+cclear && cargo run --release --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account 5 --count 5
+cclear && cargo run --release  --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account alice --count 1 --from 10
+cclear && cargo run --release  --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account alice --count 1 --from 11
+cclear && cargo run --release  --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account alice --count 1 --from 12
+cclear && cargo run --release  --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account alice --count 1 --from 13
+cclear && cargo run --release  --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account alice --count 1 --from 8
+cclear && cargo run --release  --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account alice --count 1 --from 9
+cclear && cargo run --release --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account alice --count 5
+cclear && cargo run --release  --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account alice  --from 13
+cclear && cargo run --release  --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account alice  --from 13 --count 3
+cclear && cargo run --release  --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account alice  --from 16
+cclear && cargo run --release  --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account alice  --from 20 --count 3
+cclear && cargo run --release  --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account alice  --from 20 --count 4
+cclear && cargo run --release  --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account bob  --count 100
+cclear && cargo run --release  --  tx   --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account bob  --count 10000
+cclear && cargo run --release  --  tx   --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account bob  --count 200
+cclear && cargo run --release  --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account bob  --count 200
+cclear && cargo run --release  --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account bob  --count 35
+cclear && cargo run --release  --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account bob  --count 350
+cclear && cargo run --release  --  tx --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account bob  --count 40
+cclear && cargo run --release -- tx from-single-account
+cclear && cargo run --release -- tx from-single-account  --count 1
+cclear && cargo run --release -- tx from-single-account  --count 1 --to 2
+cclear && cargo run --release -- tx from-single-account --from 0 --count 1
+cclear && cargo run --release -- tx from-single-account --help
+cclear && cargo run --release --  tx --help
+cclear && cargo run --release -- tx --help
+cclear && cargo run --release --  tx --help --chain=eth one-shot --account ethan
+cclear && cargo run --release -- tx one-shot
+cclear && cargo run --release --  tx one-shot --help
+cclear && cargo run --release --  tx --remark 100 --send-threshold=300  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 3000 --count 1
+cclear && cargo run --release --  tx --remark 100 --send-threshold=600  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 3000 --count 1
+cclear && cargo run --release --  tx --remark 10  --chain=sub '--ws=ws://127.0.0.1:9933' --tip 20 from-single-account --account=charlie  --from 2314 --count 200
+cclear && cargo run --release --  tx --remark 10 --send-threshold=1500  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id=1 --last-id=1 --count 1600000
+cclear && cargo run --release --  tx --remark 10 --send-threshold=1500  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id=50 --last-id=51 --count 500000
+cclear && cargo run --release --  tx --remark 10 --send-threshold=150  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id=1 --last-id=1 --count 150
+cclear && cargo run --release --  tx --remark 10 --send-threshold=30  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id=200 --last-id=230 --count 1
+cclear && cargo run --release --  tx --remark 10 --send-threshold=30  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id=400 --last-id=500 --count 3
+cclear && cargo run --release --  tx --remark 10 --send-threshold=30  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id=400 --last-id=520 --count 1
+cclear && cargo run --release --  tx --remark 10 --send-threshold=3  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id=1 --last-id=1 --count 50
+cclear && cargo run --release --  tx --remark 10 --send-threshold=60  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id=00 --last-id=60 --count 1
+cclear && cargo run --release --  tx --remark 10 --send-threshold=60  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id=1 --last-id=100 --count 1
+cclear && cargo run --release --  tx --remark 10 --send-threshold=60  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id=200 --last-id=260 --count 1
+cclear && cargo run --release --  tx --remark 10 --send-threshold=60  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id=300 --last-id=400 --count 1
+cclear && cargo run --release --  tx --remark 10 --send-threshold=6  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id=1 --last-id=1 --count 50
+cclear && cargo run --release --  tx --remark 10 --send-threshold 750  --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=alice --count=1500
+cclear && cargo run --release --  tx  --remark 1 --send-threshold 12000  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --last-id=20000 --count 1
+cclear && cargo run --release --  tx --remark 1 --send-threshold=20  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=bob --count 20
+cclear && cargo run --release --  tx  --remark 1 --send-threshold 8000  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --last-id=12000 --count 1
+cclear && cargo run --release --  tx  --remark 1 --send-threshold 8000  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --last-id=16000 --count 1
+cclear && cargo run --release --  tx  --remark 1 --send-threshold 8000  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --last-id=20000 --count
+cclear && cargo run --release --  tx  --remark 1 --send-threshold 8000  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --last-id=20000 --count 1
+cclear && cargo run --release --  tx  --remark 1 --send-threshold 8000  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --last-id=20000 --count 4
+cclear && cargo run --release --  tx  --remark 1 --send-threshold 8000  --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account alice --count 32000
+cclear && cargo run --release --  tx  --remark=200 --send-threshold 303  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --last-id=303 --count=1
+cclear && cargo run --release --  tx --remark 50  --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=charlie  --count 1
+cclear && cargo run --release --  tx --remark 50  --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=charlie  --count 1000
+cclear && cargo run --release --  tx --remark 50  --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=charlie  --count 2000
+cclear && cargo run --release --  tx --remark 50  --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=charlie --from 0 --count 10
+cclear && cargo run --release --  tx --remark 50  --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=charlie --from 10 --count 1
+cclear && cargo run --release --  tx --remark 50  --chain=sub '--ws=ws://127.0.0.1:9933' --tip 1000 from-single-account --account=charlie  --count 1
+cclear && cargo run --release --  tx --remark 50  --chain=sub '--ws=ws://127.0.0.1:9933' --tip 10 from-single-account --account=charlie  --count 1
+cclear && cargo run --release --  tx --remark 50  --chain=sub '--ws=ws://127.0.0.1:9933' --tip 10 from-single-account --account=charlie  --from 116 --count 3
+cclear && cargo run --release --  tx --remark 50  --chain=sub '--ws=ws://127.0.0.1:9933' --tip 10 from-single-account --account=charlie  --from 14 --count 200
+cclear && cargo run --release --  tx --remark 50  --chain=sub '--ws=ws://127.0.0.1:9933' --tip 20 from-single-account --account=charlie  --from 116 --count 3
+cclear && cargo run --release --  tx --remark 50  --chain=sub '--ws=ws://127.0.0.1:9933' --tip 20 from-single-account --account=charlie  --from 1314 --count 400
+cclear && cargo run --release --  tx --remark 50  --chain=sub '--ws=ws://127.0.0.1:9933' --tip 20 from-single-account --account=charlie  --from 2314 --count 200
+cclear && cargo run --release --  tx --remark 50  --chain=sub '--ws=ws://127.0.0.1:9933' --tip 20 from-single-account --account=charlie  --from 514 --count 200
+cclear && cargo run --release --  tx --remark 50 --send-threshold=1000  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=6 --count 2000
+cclear && cargo run --release --  tx  --remark=50 --send-threshold 100  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --last-id=303 --count=1
+cclear && cargo run --release --  tx --remark 50 --send-threshold=12  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=alice --count 20 --from 100
+cclear && cargo run --release --  tx --remark 50 --send-threshold=12  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=alice --count 3 --from 100
+cclear && cargo run --release --  tx  --remark=50 --send-threshold 1340  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --last-id=1500 --count=1
+cclear && cargo run --release --  tx  --remark=50 --send-threshold 1340  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --last-id=303 --count=1
+cclear && cargo run --release --  tx --remark 50 --send-threshold=150 --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=alice --count 100
+cclear && cargo run --release --  tx --remark 50 --send-threshold=150 --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=alice --count 30
+cclear && cargo run --release --  tx --remark 50 --send-threshold=150 --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=alice --count 33
+cclear && cargo run --release --  tx --remark 50 --send-threshold=150 --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=bob --count 100
+cclear && cargo run --release --  tx --remark 50 --send-threshold=150 --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=bob --count 3000
+cclear && cargo run --release --  tx --remark 50 --send-threshold=150 --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=bob --count 6
+cclear && cargo run --release --  tx --remark 50 --send-threshold=150 --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=charlie --count 1000
+cclear && cargo run --release --  tx --remark 50 --send-threshold=150 --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=charlie --count 30000
+cclear && cargo run --release --  tx --remark 50 --send-threshold=150 --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=charlie --count 4500
+cclear && cargo run --release --  tx --remark 50 --send-threshold=150 --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=eve --count 3 --from 20
+cclear && cargo run --release --  tx --remark 50 --send-threshold=200  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 2000 --count 1
+cclear && cargo run --release --  tx --remark 50 --send-threshold=200  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 5 --last-id 5 --count 2000
+cclear && cargo run --release --  tx --remark 50 --send-threshold=200  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=1 --count 30000
+cclear && cargo run --release --  tx --remark 50 --send-threshold=200  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=6 --count 2000
+cclear && cargo run --release --  tx --remark 50 --send-threshold=200  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=alice --count 2000
+cclear && cargo run --release --  tx --remark 50 --send-threshold=20  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=alice --count 20 --from 150
+cclear && cargo run --release --  tx --remark 50 --send-threshold=20  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=bob --count 20
+cclear && cargo run --release --  tx --remark 50 --send-threshold=20  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=bob --count 3
+cclear && cargo run --release --  tx --remark 50 --send-threshold=20 --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=bob --count 300
+cclear && cargo run --release --  tx --remark 50 --send-threshold 250  --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=bob  --count 1000
+cclear && cargo run --release --  tx --remark 50 --send-threshold 250  --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=bob  --count 2000
+cclear && cargo run --release --  tx --remark 50 --send-threshold 250  --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=charlie --count 1000
+cclear && cargo run --release --  tx --remark 50 --send-threshold 250  --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=charlie  --count 2000
+cclear && cargo run --release --  tx --remark 50 --send-threshold 250  --chain=sub '--ws=ws://127.0.0.1:9933' --tip 10 from-single-account --account=bob --count 1000
+cclear && cargo run --release --  tx --remark 50 --send-threshold 250  --chain=sub '--ws=ws://127.0.0.1:9933' --tip 10 from-single-account --account=bob --from 2450  --count 200
+cclear && cargo run --release --  tx --remark 50 --send-threshold 250  --chain=sub '--ws=ws://127.0.0.1:9933' --tip 10 from-single-account --account=bob --from 500  --count 200
+cclear && cargo run --release --  tx --remark 50 --send-threshold 250  --chain=sub '--ws=ws://127.0.0.1:9933' --tip 20 from-single-account --account=bob  --count 1000
+cclear && cargo run --release --  tx --remark 50 --send-threshold 250  --chain=sub '--ws=ws://127.0.0.1:9933' --tip 20 from-single-account --account=bob  --count 200 --from 10000
+cclear && cargo run --release --  tx --remark 50 --send-threshold 250  --chain=sub '--ws=ws://127.0.0.1:9933' --tip 20 from-single-account --account=bob  --count 200 --from 20000
+cclear && cargo run --release --  tx --remark 50 --send-threshold 250  --chain=sub '--ws=ws://127.0.0.1:9933' --tip 20 from-single-account --account=bob  --count 200 --from 5000
+cclear && cargo run --release --  tx --remark 50 --send-threshold 250  --chain=sub '--ws=ws://127.0.0.1:9933' --tip 20 from-single-account --account=bob  --count 30 --from 10000
+cclear && cargo run --release --  tx --remark 50 --send-threshold 250  --chain=sub '--ws=ws://127.0.0.1:9933' --tip 20 from-single-account --account=bob  --count 30 --from 30000
+cclear && cargo run --release --  tx --remark 50 --send-threshold=300  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 3000 --count 1
+cclear && cargo run --release --  tx --remark 50 --send-threshold=300  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id=21 --last-id=30 --count 3000
+cclear && cargo run --release --  tx --remark 50 --send-threshold 300  --chain=sub '--ws=ws://127.0.0.1:9933' --tip 10 from-single-account --account=bob --count 1000
+cclear && cargo run --release --  tx  --remark=50 --send-threshold 303  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --last-id=303 --count=1
+cclear && cargo run --release --  tx  --remark=50 --send-threshold 303  --chain=sub '--ws=ws://127.0.0.1:9933' --tip=10 from-many-accounts --start-id=1 --last-id=303 --count=1
+cclear && cargo run --release --  tx  --remark=50 --send-threshold 303  --chain=sub '--ws=ws://127.0.0.1:9933' --tip=10 from-single-account --account=175
+cclear && cargo run --release --  tx  --remark=50 --send-threshold 303  --chain=sub '--ws=ws://127.0.0.1:9933' --tip=10 from-single-account --account=200
+cclear && cargo run --release --  tx  --remark=50 --send-threshold 303  --chain=sub '--ws=ws://127.0.0.1:9933' --tip=10 from-single-account --account=75
+cclear && cargo run --release --  tx --remark 50 --send-threshold=30 --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=alice --count 30
+cclear && cargo run --release --  tx --remark 50 --send-threshold=30 --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=bob --count 30
+cclear && cargo run --release --  tx --remark 50 --send-threshold=30 --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=bob --count 300
+cclear && cargo run --release --  tx --remark 50 --send-threshold=3  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=alice --count 1 --from 0
+cclear && cargo run --release --  tx --remark 50 --send-threshold=3  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=alice --count 30
+cclear && cargo run --release --  tx --remark 50 --send-threshold=3  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=alice --count 30 --help
+cclear && cargo run --release --  tx --remark 50 --send-threshold=3  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=alice --count 3 --from 10
+cclear && cargo run --release --  tx --remark 50 --send-threshold=3 --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=alice --count 3 --from 10
+cclear && cargo run --release --  tx --remark 50 --send-threshold=3  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=alice --count 3 --from 15
+cclear && cargo run --release --  tx --remark 50 --send-threshold=3  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=alice --count 3 --from 20
+cclear && cargo run --release --  tx --remark 50 --send-threshold=3 --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=alice --count 3 --from 20
+cclear && cargo run --release --  tx --remark 50 --send-threshold=3  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=alice --count 3 --from 30
+cclear && cargo run --release --  tx --remark 50 --send-threshold=3 --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=alice --count 3 --from 30
+cclear && cargo run --release --  tx --remark 50 --send-threshold=3  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=alice --count 3 --from 40
+cclear && cargo run --release --  tx --remark 50 --send-threshold=3 --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=alice --count 3 --from 40
+cclear && cargo run --release --  tx --remark 50 --send-threshold=3  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=alice --count 3 --from 5
+cclear && cargo run --release --  tx --remark 50 --send-threshold=3  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=alice --count 3 --from 50
+cclear && cargo run --release --  tx --remark 50 --send-threshold=3  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=alice --count 3 --from 60
+cclear && cargo run --release --  tx --remark 50 --send-threshold=3  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=alice --count 3 --from 90
+cclear && cargo run --release --  tx --remark 50 --send-threshold=3  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=bob --count 3 --from 0
+cclear && cargo run --release --  tx --remark 50 --send-threshold=3  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=charlie --count 3 --from 10
+cclear && cargo run --release --  tx --remark 50 --send-threshold=3  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=eve --count 3 --from 10
+cclear && cargo run --release --  tx --remark 50 --send-threshold=500  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=6 --count 2000
+cclear && cargo run --release --  tx --remark 50 --send-threshold=60 --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=bob --count 300
+cclear && cargo run --release --  tx --remark 50 --send-threshold=6  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=alice --count 60
+cclear && cargo run --release --  tx --remark 5 --send-threshold=3000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id=50 --last-id=51 --count 600000
+cclear && cargo run --release --  tx --remark 70 --send-threshold=300  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 3000 --count 1
+cclear && cargo run --release --  tx --send-threshold=10000 --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 50000
+cclear && cargo run --release --  tx   --send-threshold=10000  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account 1 --count 10000
+cclear && cargo run --release --  tx   --send-threshold=10000  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account 1 --count 20000
+cclear && cargo run --release --  tx   --send-threshold=10000  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account 1 --count 200000
+cclear && cargo run --release --  tx   --send-threshold=10000  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account 1 --count 60000
+cclear && cargo run --release --  tx   --send-threshold=1000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 2 --last-id 20000
+cclear && cargo run --release --  tx   --send-threshold=1000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 5 --last-id 5 --count 1000
+cclear && cargo run --release  --  tx --send-threshold 1000 --watched  --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account bob  --count 1000
+cclear && cargo run --release  --  tx --send-threshold 1000 --watched  --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account bob  --count 1 --from 32
+cclear && cargo run --release --  tx   --send-threshold=100  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 100 --count 1
+cclear && cargo run --release --  tx   --send-threshold=100  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 200 --count 1
+cclear && cargo run --release --  tx   --send-threshold=100  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 2 --count 300
+cclear && cargo run --release --  tx   --send-threshold=100  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 300 --count 1
+cclear && cargo run --release --  tx   --send-threshold=100  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 2 --last-id 20000
+cclear && cargo run --release --  tx   --send-threshold=100  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 2 --last-id 3 --count 100
+cclear && cargo run --release --  tx   --send-threshold=100  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 3 --last-id 4 --count 300
+cclear && cargo run --release --  tx   --send-threshold=100  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 4 --last-id 4 --count 100
+cclear && cargo run --release --  tx   --send-threshold=100  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=10 --count 300
+cclear && cargo run --release  --  tx --send-threshold 100 --watched  --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account bob  --count 1000
+cclear && cargo run --release --  tx   --send-threshold=10  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 10 --count 1
+cclear && cargo run --release  --  tx --send-threshold 10 --watched  --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account bob  --count 1000
+cclear && cargo run --release  --  tx --send-threshold 10 --watched  --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account bob  --count 20
+cclear && cargo run --release --  tx  --send-threshold 14000  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --last-id=15999 --count 2
+cclear && cargo run --release --  tx --send-threshold 14000  --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account alice --count 48000
+cclear && cargo run --release --  tx  --send-threshold=15000  --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 100000
+cclear && cargo run --release --  tx  --send-threshold=15000  --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 10000000
+cclear && cargo run --release --  tx --send-threshold=15000  --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 128
+cclear && cargo run --release --  tx  --send-threshold=15000  --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 500000
+cclear && cargo run --release --  tx --send-threshold=15000  --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 500000
+cclear && cargo run --release --  tx  --send-threshold=15000  --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 5000000
+cclear && cargo run --release --  tx --send-threshold=15000  --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 5000000
+cclear && cargo run --release --  tx --send-threshold=15000  --chain=fake --ws=ws://127.0.0.1:9933 from-single-account --account 1 --count 5000000
+cclear && cargo run --release --  tx --send-threshold=15000  --chain=fake --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 5000000
+cclear && cargo run --release --  tx  --send-threshold 15000  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=0 --last-id=1200 --count 1
+cclear && cargo run --release --  tx  --send-threshold 15000  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=0 --last-id=1200 --count 3
+cclear && cargo run --release --  tx  --send-threshold 15000  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=0 --last-id=1200 --count 30
+cclear && cargo run --release --  tx  --send-threshold 15000  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=0 --last-id=1200 --count 300
+cclear && cargo run --release --  tx  --send-threshold 15000  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=0 --last-id=1400 --count 300
+cclear && cargo run --release --  tx  --send-threshold 15000  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --last-id=1200 --count 1
+cclear && cargo run --release --  tx --send-threshold 15000  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --last-id=1500 --count=20
+cclear && cargo run --release --  tx  --send-threshold 15000  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --last-id=15999 --count 30
+cclear && cargo run --release --  tx  --send-threshold 15000  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --last-id=2000 --count 1
+cclear && cargo run --release --  tx --send-threshold 15000  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --last-id=3000 --count=20
+cclear && cargo run --release --  tx  --send-threshold 15000  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --last-id=30 --count 1 --from=100
+cclear && cargo run --release --  tx  --send-threshold 15000  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --last-id=30 --count 1 --from=200
+cclear && cargo run --release --  tx  --send-threshold 15000  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --last-id=30 --count 1 --help
+cclear && cargo run --release --  tx  --send-threshold 15000  --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=alice --count=30000
+cclear && cargo run --release --  tx  --send-threshold 15000  --chain=sub '--ws=wss://kusama-yap-3359.parity-chains.parity.io' from-many-accounts --start-id=1 --last-id=1500 --count 300
+cclear && cargo run --release --  tx  --send-threshold 15000  --chain=sub '--ws=wss://kusama-yap-3359.parity-chains.parity.io' from-many-accounts --start-id=1 --last-id=900 --count 300
+cclear && cargo run --release --  tx  --send-threshold 15000  --chain=sub '--ws=wss://kusama-yap-3362.parity-chains.parity.io' from-many-accounts --start-id=1 --last-id=15999 --count 20
+cclear && cargo run --release --  tx --send-threshold=15000 --watched --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 500000
+cclear && cargo run --release --  tx --send-threshold=15000 --watched --chain=fake --ws=ws://127.0.0.1:9933 from-single-account --account 1 --count 500000
+cclear && cargo run --release --  tx --send-threshold=15000 --watched --chain=fake --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 500000
+cclear && cargo run --release  --  tx --send-threshold 15 --watched  --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account bob  --count 100
+cclear && cargo run --release --  tx   --send-threshold=16000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 2 --last-id 16000
+cclear && cargo run --release --  tx --send-threshold 16000  --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account alice --count 32000
+cclear && cargo run --release --  tx --send-threshold 16000  --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account alice --count 80000
+cclear && cargo run --release --  tx  --send-threshold 18000  --chain=sub '--ws=wss://kusama-yap-3359.parity-chains.parity.io' from-many-accounts --start-id=12000 --last-id=13000 --count 50
+cclear && cargo run --release --  tx  --send-threshold 18000  --chain=sub '--ws=wss://kusama-yap-3359.parity-chains.parity.io' from-many-accounts --start-id=1 --last-id=500 --count 300
+cclear && cargo run --release --  tx  --send-threshold 20000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 0 --last-id 20000 --count 1
+cclear && cargo run --release --  tx  --send-threshold 20000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 20000 --count 1
+cclear && cargo run --release --  tx  --send-threshold 20000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 20000 --count 5
+cclear && cargo run --release --  tx   --send-threshold=20000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 2 --last-id 20000
+cclear && cargo run --release --  tx --send-threshold 20000  --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account alice --count 10
+cclear && cargo run --release --  tx --send-threshold 20000  --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account alice --count 64000
+cclear && cargo run --release --  tx --send-threshold 20000  --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account alice --count 80000
+cclear && cargo run --release --  tx   --send-threshold=2000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id=2000 --last-id=2200 --count 1000 --from 100
+cclear && cargo run --release --  tx   --send-threshold=2000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 5 --last-id 5 --count 2000
+cclear && cargo run --release --  tx   --send-threshold=2000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 5 --last-id 5 --count 2000 --help
+cclear && cargo run --release --  tx  --send-threshold 2000  --chain=sub '--ws=wss://kusama-yap-3359.parity-chains.parity.io' from-many-accounts --start-id=1 --last-id=15999 --count 20
+cclear && cargo run --release --  tx   --send-threshold=200  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 200 --count 1
+cclear && cargo run --release --  tx   --send-threshold=200  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id=2000 --last-id=2002 --count 10 --from 100
+cclear && cargo run --release --  tx   --send-threshold=20  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 1 --count 150
+cclear && cargo run --release --  tx  --send-threshold 21000  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=0 --last-id=1200 --count 300
+cclear && cargo run --release --  tx  --send-threshold 21000  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --last-id=15999 --count 3
+cclear && cargo run --release --  tx  --send-threshold 21000  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --last-id=15999 --count 30
+cclear && cargo run --release --  tx --send-threshold 21000  --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account alice --count 48000
+cclear && cargo run --release --  tx  --send-threshold 21000  --chain=sub '--ws=wss://kusama-yap-3359.parity-chains.parity.io' from-many-accounts --start-id=1 --last-id=15999 --count 20
+cclear && cargo run --release --  tx  --send-threshold 21000  --chain=sub '--ws=wss://kusama-yap-3359.parity-chains.parity.io' from-many-accounts --start-id=1 --last-id=15999 --count 3
+#cclear && cargo run --release --  tx  --send-threshold 21000  --chain=sub '--ws=wss://kusama-yap-3359.parity-chains.parity.io' from-many-accounts --start-id=1 --last-id=1 --count 1
+cclear && cargo run --release --  tx  --send-threshold 21000  --chain=sub '--ws=wss://kusama-yap-3359.parity-chains.parity.io' from-many-accounts --start-id=1 --last-id=1 --count 1
+cclear && cargo run --release --  tx  --send-threshold 22000  --chain=sub '--ws=wss://kusama-yap-3359.parity-chains.parity.io' from-many-accounts --start-id=12000 --last-id=13000 --count 50
+cclear && cargo run --release --  tx  --send-threshold 22000  --chain=sub '--ws=wss://kusama-yap-3359.parity-chains.parity.io' from-many-accounts --start-id=12000 --last-id=13000 --count 5000
+cclear && cargo run --release --  tx  --send-threshold 22000  --chain=sub --ws wss://versi-yap-2021.parity-versi.parity.io  from-many-accounts --start-id=0 --last-id=1200 --count 30
+cclear && cargo run --release --  tx  --send-threshold 22000  --chain=sub --ws wss://versi-yap-2021.parity-versi.parity.io  from-many-accounts --start-id=0 --last-id=1200 --count 300
+cclear && cargo run --release --  tx  --send-threshold 250  --chain=sub '--ws=ws://127.0.0.1:9933' --tip 20 from-single-account --account=bob  --count 30 --from 20000
+cclear && cargo run --release --  tx  --send-threshold 250  --chain=sub '--ws=ws://127.0.0.1:9933' --tip 20 from-single-account --account=bob  --count 30 --from 30000
+cclear && cargo run --release --  tx   --send-threshold=2  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 1 --count 10
+cclear && cargo run --release --  tx  --send-threshold=3000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 100 --count 200
+cclear && cargo run --release --  tx  --send-threshold=3000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 100 --count 2000
+cclear && cargo run --release --  tx  --send-threshold=3000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 100 --count 500
+cclear && cargo run --release --  tx   --send-threshold=3000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 10 --count 20000
+cclear && cargo run --release --  tx  --send-threshold=3000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 20000 --count 2
+cclear && cargo run --release --  tx  --send-threshold=3000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 20000 --count 20
+cclear && cargo run --release --  tx  --send-threshold=3000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 20000 --count 3
+cclear && cargo run --release --  tx   --send-threshold=3000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 3 --count 20000
+cclear && cargo run --release --  tx  --send-threshold=3000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 3 --count 20000
+cclear && cargo run --release --  tx   --send-threshold=3000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 2 --last-id 10000 --count 2
+cclear && cargo run --release --  tx   --send-threshold=3000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 2 --last-id 20000
+cclear && cargo run --release --  tx   --send-threshold=3000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 2 --last-id 3 --count 30000
+cclear && cargo run --release --  tx   --send-threshold=3000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 2 --last-id 4 --count 20000
+cclear && cargo run --release --  tx   --send-threshold=3000  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account 1 --count 20000
+cclear && cargo run --release --  tx   --send-threshold=3000  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account 1 --count 60000
+cclear && cargo run --release --  tx  --send-threshold 300  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1  --count 200
+cclear && cargo run --release --  tx  --send-threshold 300  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --help
+cclear && cargo run --release --  tx  --send-threshold 300  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --last-id=1000 --count=1
+cclear && cargo run --release --  tx  --send-threshold 300  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --last-id=1 --count 200
+cclear && cargo run --release --  tx   --send-threshold=300  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 2 --count 300
+cclear && cargo run --release --  tx   --send-threshold=300  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 300 --count 1
+cclear && cargo run --release --  tx   --send-threshold=300  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 300 --count 2
+cclear && cargo run --release --  tx  --send-threshold 300  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --last-id=30 --count 200
+cclear && cargo run --release --  tx   --send-threshold=300  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 5 --last-id 6 --count 300
+cclear && cargo run --release --  tx   --send-threshold=300  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=10 --count 300
+cclear && cargo run --release --  tx   --send-threshold=300  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=10 --count 300  &> >(tee xxx1)
+cclear && cargo run --release --  tx   --send-threshold=300  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --help
+cclear && cargo run --release --  tx  --send-threshold 300  --chain=sub '--ws=ws://127.0.0.1:9933' --tip 10 from-single-account --account=bob --count 1000
+cclear && cargo run --release --  tx   --send-threshold=30  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 10 --count 3
+cclear && cargo run --release --  tx   --send-threshold=30  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 10 --count 4
+cclear && cargo run --release --  tx   --send-threshold=30  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 10 --count 5
+cclear && cargo run --release --  tx   --send-threshold=30  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 1 --count 10
+cclear && cargo run --release --  tx   --send-threshold=30  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 1 --count 15
+cclear && cargo run --release --  tx   --send-threshold=30  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 1 --count 150
+cclear && cargo run --release --  tx   --send-threshold=30  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 1 --count 20
+cclear && cargo run --release --  tx   --send-threshold=30  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 1 --count 30
+cclear && cargo run --release --  tx   --send-threshold=30  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 2 --count 10
+cclear && cargo run --release --  tx   --send-threshold=30  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 300 --count 1
+cclear && cargo run --release --  tx   --send-threshold=30  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 600 --count 1
+cclear && cargo run --release --  tx   --send-threshold=30  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 60 --count 1
+cclear && cargo run --release --  tx   --send-threshold=30  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 3 --last-id 4 --count 300
+cclear && cargo run --release --  tx   --send-threshold=30  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 5 --last-id 6 --count 300
+cclear && cargo run --release --  tx   --send-threshold=30  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=10 --count 300
+cclear && cargo run --release --  tx  --send-threshold 30  --chain=sub '--ws=ws://127.0.0.1:9933' --tip 10 from-single-account --account=bob --count 1000
+cclear && cargo run --release --  tx  --send-threshold 35000  --chain=sub '--ws=wss://kusama-yap-3359.parity-chains.parity.io' from-many-accounts --start-id=1 --last-id=15999 --count 20
+cclear && cargo run --release --  tx  --send-threshold 35000  --chain=sub '--ws=wss://kusama-yap-3359.parity-chains.parity.io' from-many-accounts --start-id=1 --last-id=15999 --count 3
+cclear && cargo run --release --  tx   --send-threshold=3  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --help
+cclear && cargo run --release --  tx   --send-threshold=3  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id=1000 --last-id=1002 --count 10 --from 10
+cclear && cargo run --release --  tx   --send-threshold=3  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id=1000 -last-id=1002 --count 10 --from 10
+cclear && cargo run --release --  tx   --send-threshold=3  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=10 --count 300
+cclear && cargo run --release --  tx   --send-threshold=3  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account=10 --help
+cclear && cargo run --release --  tx --send-threshold=500000 --watched --chain=fake --ws=ws://127.0.0.1:9933 from-single-account --account 1 --count 500
+cclear && cargo run --release --  tx --send-threshold=500000 --watched --chain=fake --ws=ws://127.0.0.1:9933 from-single-account --account 1 --count 500000
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=eth --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 10 --count 2
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=eth --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 2 --count 2
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 1
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 10
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 100
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 1000000
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 1 --from 0
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 1 --from 1
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 1 --from 2
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 1 --fromx
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 20000
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9932 from-many-accounts --start-id 1 --last-id 2 --count 1  --from 1
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start 1 --end 10 --count 50  --from 1100540
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 10 --count 3  --from 1
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 2
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 20000 --count 10
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 200 --count 4
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 200 --count 40
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 2 --count 1
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 2 --count 1  --from 1
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 2 --count 2
+cclear && cargo run --release --  tx   --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 2 --last-id 20000
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-ids 1 --last-id 10 --count 3  --from 1
+cclear && cargo run --release --  tx   --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account 1 --count 60000
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 1
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 100
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 1000
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 100000
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 1000000
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 5000000
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 5000000  --from 1100539
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 5000000  --help
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 500  --from 1100539
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 50  --from 1100539
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 50  --from 1100540
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account bob --count 500
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account bob --count 50000
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9944 from-many-accounts --start-id 1 --last-id 2 --count 1  --from 1
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account alice --count 1
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account alice --count 1000
+cclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account bob --count 500
+cclear && cargo run --release --  tx   --send-threshold=500  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 4 --last-id 4 --count 500
+cclear && cargo run --release --  tx   --send-threshold=500  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 5 --last-id 5 --count 500
+cclear && cargo run --release  --  tx --send-threshold 50 --watched  --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account bob  --count 100
+cclear && cargo run --release --  tx   --send-threshold=6000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --count 20000
+cclear && cargo run --release --  tx   --send-threshold=6000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 10 --count 20000
+cclear && cargo run --release --  tx  --send-threshold 6000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 20000 --count 5
+cclear && cargo run --release --  tx   --send-threshold=6000  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account 1 --count 20000
+cclear && cargo run --release --  tx   --send-threshold=6000  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --start-id 1 --count 20000
+cclear && cargo run --release --  tx  --send-threshold 6000  --remark 10 --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --acount alice --count 50
+cclear && cargo run --release --  tx  --send-threshold 6000  --remark 10 --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --alice --count 50
+cclear && cargo run --release --  tx   --send-threshold=60  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 300 --count 1
+cclear && cargo run --release --  tx   --send-threshold=60  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 60 --count 1
+cclear && cargo run --release --  tx   --send-threshold=60  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 60 --count 60
+cclear && cargo run --release --  tx   --send-threshold=70  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 70 --count 1
+cclear && cargo run --release --  tx  --send-threshold 8000  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --help
+cclear && cargo run --release --  tx  --send-threshold 8000  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=0 --last-id=20000 --count 1
+cclear && cargo run --release --  tx  --send-threshold 8000  --chain=sub '--ws=ws://127.0.0.1:9933' from-many-accounts --start-id=1 --last-id=20000 --count 1
+cclear && cargo run --release --  tx --send-threshold 8000  --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account alice --count 20000
+cclear && cargo run --release --  tx  --send-threshold 8000  --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account=alice --count=30000
+cclear && cargo run --release --  tx --send-threshold 8000  --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account alice --count 32000
+cclear && cargo run --release --  tx --send-threshold 8000  --chain=sub '--ws=ws://127.0.0.1:9933' from-single-account --account alice --count 40000
+cclear && cargo run --release --  tx --send-threshold 8000  --chain=sub '--ws=wss://westend-yap-2022.parity-testnet.parity.io' from-many-accounts --start-id 2 --last-id 10002
+cclear && cargo run --release --  tx --send-threshold 8000  --chain=sub '--ws=wss://westend-yap-2022.parity-testnet.parity.io' from-many-accounts --start-id 2 --last-id 10002 --count 2
+cclear && cargo run --release --  tx --send-threshold 8000  --chain=sub '--ws=wss://westend-yap-2022.parity-testnet.parity.io' from-many-accounts --start-id 2 --last-id 10002 --count 2 --help
+cclear && cargo run --release --  tx --send-threshold 8000  --chain=sub '--ws=wss://westend-yap-2022.parity-testnet.parity.io' from-many-accounts --start-id 2 --last-id 16000
+cclear && cargo run --release --  tx --send-threshold 8000  --chain=sub '--ws=wss://westend-yap-2022.parity-testnet.parity.io' from-many-accounts --start-id 2 --last-id 5002
+cclear && cargo run --release --  tx --send-threshold 8000  --chain=sub '--ws=wss://westend-yap-2022.parity-testnet.parity.io' from-single-account --account 0 --count 1
+cclear && cargo run --release --  tx --send-threshold 8000  --chain=sub '--ws=wss://westend-yap-2022.parity-testnet.parity.io' from-single-account --account 0 --count 10000
+cclear && cargo run --release --  tx --send-threshold 8000  --chain=sub '--ws=wss://westend-yap-2022.parity-testnet.parity.io' from-single-account --account 1 --count 1000
+cclear && cargo run --release --  tx --send-threshold 8000  --chain=sub '--ws=wss://westend-yap-2022.parity-testnet.parity.io' from-single-account --account 1 --count 10000
+cclear && cargo run --release --  tx --send-threshold 8000  --chain=sub '--ws=wss://westend-yap-2022.parity-testnet.parity.io' from-single-account --account 70 --count 1
+cclear && cargo run --release --  tx --send-threshold 8000  --chain=sub '--ws=wss://westend-yap-2022.parity-testnet.parity.io' from-single-account --account 70 --count 100
+cclear && cargo run --release --  tx --send-threshold 8000  --chain=sub '--ws=wss://westend-yap-2022.parity-testnet.parity.io' from-single-account --account 70 --count 10000
+cclear && cargo run --release --  tx   --send-threshold=80  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 80 --count 1
+cclear && cargo run --release --  tx --unwatched --block-monitor --send-threshold 12000  --chain=sub '--ws=wss://westend-yap-2022.parity-testnet.parity.io' from-many-accounts --start-id 0 --last-id 10000 --count 1
+cclear && cargo run --release --  tx --unwatched --block-monitor --send-threshold 12000  --chain=sub '--ws=wss://westend-yap-2022.parity-testnet.parity.io' from-many-accounts --start-id 0 --last-id 10000 --count 15
+cclear && cargo run --release --  tx --unwatched --block-monitor --send-threshold 12000  --chain=sub '--ws=wss://westend-yap-2022.parity-testnet.parity.io' from-many-accounts --start-id 0 --last-id 10000 --count 5
+cclear && cargo run --release --  tx --unwatched --block-monitor --send-threshold 12000  --chain=sub '--ws=wss://westend-yap-2022.parity-testnet.parity.io' from-many-accounts --start-id 0 --last-id 10000 --count 50
+cclear && cargo run --release --  tx --unwatched --block-monitor --send-threshold 12000  --chain=sub '--ws=wss://westend-yap-2022.parity-testnet.parity.io' from-many-accounts --start-id 2 --last-id 10002 --count 5
+cclear && cargo run --release --  tx --unwatched --block-monitor --send-threshold=15000  --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 100
+cclear && cargo run --release --  tx --unwatched --block-monitor --send-threshold=15000  --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 100000
+cclear && cargo run --release --  tx --unwatched --block-monitor --send-threshold=15000  --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 10000000
+cclear && cargo run --release --  tx --unwatched --block-monitor --send-threshold=15000  --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 5000000
+cclear && cargo run --release --  tx  --unwatched --block-monitor --send-threshold=3000  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id 1 --last-id 3 --count 20000
+cclear && cargo run --release --  tx --unwatched --block-monitor --send-threshold=5000  --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 100000
+cclear && cargo run --release --  tx --unwatched --block-monitor --send-threshold=75000  --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 100000
+cclear && cargo run --release --  tx --unwatched --block-monitor --send-threshold=7500  --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 100000
+cclear && cargo run --release --  tx --unwatched --block-monitor --send-threshold 8000  --chain=sub '--ws=wss://westend-yap-2022.parity-testnet.parity.io' from-many-accounts --start-id 2 --last-id 10002 --count 5
+cclear && cargo run --release --  tx --unwatched --send-threshold 8000  --chain=sub '--ws=wss://westend-yap-2022.parity-testnet.parity.io' from-many-accounts --start-id 10003 --last-id 15003 --count 5
+cclear && cargo run --release --  tx --unwatched --send-threshold 8000  --chain=sub '--ws=wss://westend-yap-2022.parity-testnet.parity.io' from-many-accounts --start-id 2 --last-id 10002 --count 2
+cclear && cargo run --release --  tx --unwatched --send-threshold 8000  --chain=sub '--ws=wss://westend-yap-2022.parity-testnet.parity.io' from-many-accounts --start-id 2 --last-id 10002 --count 2 --help
+cclear && cargo run --release --  tx --watched=0
+cclear && cargo run --release  --  tx --watched  --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account bob  --count 1000
+cclear && cargo run --release  --  tx --watched --chain=sub --ws=ws://127.0.0.1:9944 from-single-account --account bob  --count 200
+cclear && cargo run --release --  tx --watched=false
+cclear && cargo run --release --  tx --watched --send-threshold=10000 --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 1000
+cclear && cargo run --release --  tx --watched --send-threshold=10000 --chain=eth --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 50000
+cclear && cargo run --release --  --ws wss://kusama-yap-3359.parity-chains.parity.io  check-nonce --account 1500
+git diff -- .cclear && cargo run --release --  tx --remark 10 --send-threshold=1500  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id=50 --last-id=51 --count 100000
+git diff -- .cclear && cargo run --release --  tx --remark 10 --send-threshold=1500  --chain=sub --ws=ws://127.0.0.1:9933 from-many-accounts --start-id=50 --last-id=51 --count 5000
+lcclear && cargo run --release --  tx  --send-threshold=5000  --chain=sub --ws=ws://127.0.0.1:9933 from-single-account --account alice --count 100000

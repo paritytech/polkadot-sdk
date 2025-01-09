@@ -1,0 +1,27 @@
+This is basically a shell/brain-dump of my activities in testing transaction
+pool. It is not well organised (apologies). Intended to build something better
+from this.
+
+I have different zombienet files, for different scenarios, e.g.:
+- one collator,
+- 3x collator + 1x rpc node
+- limits on transactions pool
+- old transaction pool (for comparing behaviour)
+- debug levels
+
+Also different runtimes are checked (e.g. yap and asset-hub).
+
+Ther is a `run` bash script that allows to customize PATH and execute zombienet with particular scenario.
+
+
+Test tool:
+I am using this tool for testing scenarios:
+https://github.com/michalkucharczyk/tx-test-tool/
+
+`testing-commands` file contains a history dump of different test executions. (Provided for reference).
+
+Test tool 2:
+There is also one more tool:
+https://github.com/paritytech/polkadot-stps/
+
+Mainly used by chains team to check the transaction throughput. I think that sending method shall be incorporated into tx-test-tool.

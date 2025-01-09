@@ -1,0 +1,31 @@
+# export PATH=/home/miszka/parity/14-txpool-forks/polkadot-sdk/target/release:$PATH
+# export PATH=/home/miszka/parity/14-txpool-forks/polkadot-sdk-master-02/target/release:$PATH
+# export PATH=/home/miszka/parity/20-mythical/polkadot-sdk-mythical-branch/target/release:$PATH
+
+# export PATH=/home/miszka/parity/14-txpool-forks/polkadot-sdk-v1.16.2/target/release:$PATH
+# export PATH=/home/miszka/parity/14-txpool-forks/polkadot-sdk-master/target/release:$PATH
+# export PATH=/home/miszka/parity/14-txpool-forks/polkadot-sdk-master/target/release-master:$PATH
+# export PATH=/home/miszka/parity/14-txpool-forks/polkadot-sdk-master/target/release:$PATH
+
+# export PATH=/home/miszka/parity/14-txpool-forks/polkadot-sdk-master/target/release-rotator-old:$PATH
+export PATH=/home/miszka/parity/14-txpool-forks/polkadot-sdk-master/target/release/:$PATH
+
+
+# export PATH=/home/miszka/parity/14-txpool-forks/polkadot-sdk-master/target/release-master:$PATH
+# export PATH=/home/miszka/parity/14-txpool-forks/polkadot-sdk-master/target/release-telemetry-fix:$PATH
+# export PATH=/home/miszka/parity/14-txpool-forks/polkadot-sdk-master/target/release-network-sync-notifications/:$PATH
+#
+
+# export PATH=/home/miszka/parity/14-txpool-forks/polkadot-sdk-master-03/target/release-master/:$PATH
+
+ls -al `which test-parachain`
+ls -al `which substrate-node`
+ls -al `which polkadot-parachain`
+ls -al `which polkadot`
+
+zombienet-linux -l text spawn -p native small_network-yap.toml
+# zombienet-linux -l text spawn -p native  small_network-single-collator.toml
+# zombienet-linux -l text spawn -p native small_network-old-pool.toml
+# zombienet-linux -l text spawn -p native small_network-limits-30.toml
+# zombienet-linux -l text spawn -p native small_network-old-pool-small.toml
+
