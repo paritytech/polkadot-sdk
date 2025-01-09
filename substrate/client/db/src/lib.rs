@@ -2229,6 +2229,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 	fn usage_info(&self) -> Option<UsageInfo> {
 		let (io_stats, state_stats) = self.io_stats.take_or_else(|| {
 			(
+				// TODO: check this?
 				// TODO: implement DB stats and cache size retrieval
 				kvdb::IoStats::empty(),
 				self.state_usage.take(),
