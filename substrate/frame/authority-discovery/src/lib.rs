@@ -26,10 +26,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use frame::{
-	prelude::*,
-	traits::{Get, OneSessionHandler},
-};
+use frame::prelude::*;
 use sp_authority_discovery::AuthorityId;
 
 pub use pallet::*;
@@ -170,11 +167,10 @@ mod tests {
 	use super::*;
 	use crate as pallet_authority_discovery;
 	use alloc::vec;
-	use frame::testing_prelude::*
-	use sp_application_crypto::Pair;
+	use frame::{testing_prelude::*, traits::OpaqueKeys};
 	use sp_authority_discovery::AuthorityPair;
 
-	type Block = frame_system::mocking::MockBlock<Test>;
+	type Block = MockBlock<Test>;
 
 	construct_runtime!(
 		pub enum Test

@@ -24,8 +24,6 @@ frame = { workspace = true, features = ["experimental", "runtime"] }
 pallet-session = { features = [
 	"historical",
 ], workspace = true }
-scale-info = { features = ["derive"], workspace = true }
-sp-application-crypto = { workspace = true }
 sp-authority-discovery = { workspace = true }
 
 [features]
@@ -35,7 +33,6 @@ std = [
 	"frame/std",
 	"pallet-session/std",
 	"scale-info/std",
-	"sp-application-crypto/std",
 	"sp-authority-discovery/std",
 ]
 try-runtime = [

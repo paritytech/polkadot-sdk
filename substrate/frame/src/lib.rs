@@ -224,15 +224,18 @@ pub mod prelude {
 	pub use super::derive::*;
 
 	/// All hashing related things
-	pub use super::hashing::*;
+	pub use super::cryptography::*;
 
 	/// All arithmetic types and traits used for safe math.
 	pub use super::arithmetic::*;
 
+	/// All account management related things.
+	pub use super::account::*;
+
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
+		BlockNumberProvider, Bounded, Convert, ConvertInto, DispatchInfoOf, Dispatchable, ReduceBy,
 		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
 	};
 
@@ -530,6 +533,17 @@ pub mod traits {
 	pub use sp_runtime::traits::*;
 }
 
+/// All account management related traits.
+///
+/// This is already part of the [`prelude`].
+pub mod account {
+	pub use frame_support::traits::{
+		AsEnsureOriginWithArg, ChangeMembers, EitherOfDiverse, FindAuthor, InitializeMembers,
+	};
+	pub use sp_application_crypto::{KeyTypeId, Pair};
+	pub use sp_runtime::traits::{IdentifyAccount, IdentityLookup};
+}
+
 /// The arithmetic types used for safe math.
 ///
 /// This is already part of the [`prelude`].
@@ -551,8 +565,12 @@ pub mod derive {
 	pub use sp_runtime::RuntimeDebug;
 }
 
-pub mod hashing {
-	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
+pub mod cryptography {
+	pub use sp_core::{
+		crypto::{VrfPublic, VrfSecret, Wraps},
+		hashing::*,
+		Pair, H160, H256, H512, U256, U512,
+	};
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
 }
 
@@ -581,6 +599,8 @@ pub mod deps {
 	pub use frame_executive;
 	#[cfg(feature = "runtime")]
 	pub use sp_api;
+	#[cfg(feature = "runtime")]
+	pub use sp_application_crypto;
 	#[cfg(feature = "runtime")]
 	pub use sp_block_builder;
 	#[cfg(feature = "runtime")]
