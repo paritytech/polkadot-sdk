@@ -10360,7 +10360,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.8.4"
-source = "git+https://github.com/paritytech/litep2p.git?branch=lexnv/kad-found-records#07383d1acfebc77be2892fd13559b8e8c39dd883"
+source = "git+https://github.com/paritytech/litep2p.git?branch=lexnv/kad-found-records#6531e6ae362369b7e24e08fbe767a4eb171d30c5"
 dependencies = [
  "async-trait",
  "bs58",
