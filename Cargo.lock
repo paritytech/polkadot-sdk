@@ -10456,8 +10456,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.8.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b0fef34af8847e816003bf7fdeac5ea50b9a7a88441ac927a6166b5e812ab79"
+source = "git+https://github.com/paritytech/litep2p.git?branch=lexnv/kad-found-records#07383d1acfebc77be2892fd13559b8e8c39dd883"
 dependencies = [
  "async-trait",
  "bs58",
