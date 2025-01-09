@@ -1755,11 +1755,6 @@ default-features = false
 optional = true
 path = "../substrate/utils/substrate-bip39"
 
-[dependencies.substrate-wasm-builder]
-default-features = false
-optional = true
-path = "../substrate/utils/wasm-builder"
-
 [dependencies.testnet-parachains-constants]
 default-features = false
 optional = true
@@ -2494,6 +2489,11 @@ path = "../substrate/utils/frame/rpc/client"
 default-features = false
 optional = true
 path = "../substrate/utils/frame/rpc/state-trie-migration-rpc"
+
+[dependencies.substrate-wasm-builder]
+default-features = false
+optional = true
+path = "../substrate/utils/wasm-builder"
 
 [dependencies.tracing-gum]
 default-features = false
