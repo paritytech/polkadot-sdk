@@ -31,7 +31,10 @@ use std::{
 use super::base_pool::Transaction;
 
 /// Expected size of the banned extrinsics cache.
-const EXPECTED_SIZE: usize = 2048;
+const DEFAULT_EXPECTED_SIZE: usize = 2048;
+
+/// The default duration, in seconds, for which an extrinsic is banned.
+const DEFAULT_BAN_TIME_SECS: u64 = 30 * 60;
 
 /// Pool rotator is responsible to only keep fresh extrinsics in the pool.
 ///
@@ -59,9 +62,9 @@ impl<Hash: Clone> Clone for PoolRotator<Hash> {
 impl<Hash: hash::Hash + Eq> Default for PoolRotator<Hash> {
 	fn default() -> Self {
 		Self {
-			ban_time: Duration::from_secs(60 * 30),
+			ban_time: Duration::from_secs(DEFAULT_BAN_TIME_SECS),
 			banned_until: Default::default(),
-			expected_size: EXPECTED_SIZE,
+			expected_size: DEFAULT_EXPECTED_SIZE,
 		}
 	}
 }
@@ -222,16 +225,16 @@ mod tests {
 		let past_block = 0;
 
 		// when
-		for i in 0..2 * EXPECTED_SIZE {
+		for i in 0..2 * DEFAULT_EXPECTED_SIZE {
 			let tx = tx_with(i as u64, past_block);
 			assert!(rotator.ban_if_stale(&now, past_block, &tx));
 		}
-		assert_eq!(rotator.banned_until.read().len(), 2 * EXPECTED_SIZE);
+		assert_eq!(rotator.banned_until.read().len(), 2 * DEFAULT_EXPECTED_SIZE);
 
 		// then
-		let tx = tx_with(2 * EXPECTED_SIZE as u64, past_block);
+		let tx = tx_with(2 * DEFAULT_EXPECTED_SIZE as u64, past_block);
 		// trigger a garbage collection
 		assert!(rotator.ban_if_stale(&now, past_block, &tx));
-		assert_eq!(rotator.banned_until.read().len(), EXPECTED_SIZE);
+		assert_eq!(rotator.banned_until.read().len(), DEFAULT_EXPECTED_SIZE);
 	}
 }
