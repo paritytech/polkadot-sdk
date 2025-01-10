@@ -155,7 +155,7 @@ impl pallet_session::historical::Config for Test {
 }
 impl pallet_authorship::Config for Test {
 	type FindAuthor = Author11;
-	type EventHandler = Pallet<Test>;
+	type EventHandler = ();
 }
 
 impl pallet_timestamp::Config for Test {
@@ -544,9 +544,6 @@ impl ExtBuilder {
 		let mut ext = sp_io::TestExternalities::from(storage);
 
 		if self.initialize_first_session {
-			// We consider all test to start after timestamp is initialized This must be ensured by
-			// having `timestamp::on_initialize` called before `staking::on_initialize`. Also, if
-			// session length is 1, then it is already triggered.
 			ext.execute_with(|| {
 				System::run_to_block_with::<AllPalletsWithSystem>(
 					1,
@@ -554,9 +551,6 @@ impl ExtBuilder {
 						Timestamp::set_timestamp(INIT_TIMESTAMP);
 					}),
 				);
-
-				// Skip the genesis reward.
-				ErasRewardPoints::<Test>::remove(0);
 			});
 		}
 
@@ -639,29 +633,8 @@ pub(crate) fn start_session(end_session_idx: SessionIndex) {
 	} else {
 		Offset::get() + (end_session_idx.saturating_sub(1) as u64) * period
 	};
-	let start_session_idx = Session::current_index();
 
 	run_to_block(end);
-
-	let sessions_per_era = SessionsPerEra::get();
-
-	// Revert the `Authorship::OnInitialize`'s `note_author` reward for easy testing.
-	for i in start_session_idx..end_session_idx {
-		let blocks_per_session = if i == 0 {
-			// Skip block 0.
-			period - 1
-		} else {
-			period
-		};
-		let extra_reward_points = blocks_per_session as RewardPoint * 20;
-
-		ErasRewardPoints::<Test>::mutate(i / sessions_per_era, |p| {
-			if let Some(author_11) = p.individual.get_mut(&11) {
-				p.total = p.total.saturating_sub(extra_reward_points);
-				*author_11 = (*author_11).saturating_sub(extra_reward_points);
-			}
-		});
-	}
 
 	let curr_session_idx = Session::current_index();
 

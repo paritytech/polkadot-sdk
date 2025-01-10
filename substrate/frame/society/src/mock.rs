@@ -223,8 +223,11 @@ pub fn conclude_intake(allow_resignation: bool, judge_intake: Option<bool>) {
 pub fn next_intake() {
 	let claim_period: u64 = <Test as Config>::ClaimPeriod::get();
 	match Society::period() {
-		Period::Voting { more, .. } => System::run_to_block::<AllPalletsWithSystem>(System::block_number() + more + claim_period),
-		Period::Claim { more, .. } => System::run_to_block::<AllPalletsWithSystem>(System::block_number() + more),
+		Period::Voting { more, .. } => System::run_to_block::<AllPalletsWithSystem>(
+			System::block_number() + more + claim_period,
+		),
+		Period::Claim { more, .. } =>
+			System::run_to_block::<AllPalletsWithSystem>(System::block_number() + more),
 	}
 }
 

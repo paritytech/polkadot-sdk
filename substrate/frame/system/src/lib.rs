@@ -1975,7 +1975,10 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Simulate the execution of a block sequence up to a specified height, injecting the
-	/// provided closures at each block.
+	/// provided hooks at each block.
+	///
+	/// `on_finalize` is always called before `on_initialize` with the current block number.
+	/// `on_initalize` is always called with the next block number.
 	///
 	/// These hooks allows custom logic to be executed at each block at specific location.
 	/// For example, you might use one of them to set a timestamp for each block.
@@ -2399,7 +2402,6 @@ where
 	after_initialize: Box<dyn 'a + FnMut(BlockNumberFor<T>)>,
 	before_finalize: Box<dyn 'a + FnMut(BlockNumberFor<T>)>,
 	after_finalize: Box<dyn 'a + FnMut(BlockNumberFor<T>)>,
-	_marker: PhantomData<&'a T>,
 }
 #[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 impl<'a, T> RunToBlockHooks<'a, T>
@@ -2450,7 +2452,6 @@ where
 			after_initialize: Box::new(|_| {}),
 			before_finalize: Box::new(|_| {}),
 			after_finalize: Box::new(|_| {}),
-			_marker: Default::default(),
 		}
 	}
 }

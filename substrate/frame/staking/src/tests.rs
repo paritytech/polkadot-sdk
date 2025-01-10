@@ -2395,7 +2395,7 @@ fn reward_from_authorship_event_handler_works() {
 
 #[test]
 fn add_reward_points_fns_works() {
-	ExtBuilder::default().initialize_first_session(false).build_and_execute(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		// Not mandatory but must be coherent with rewards
 		assert_eq_uvec!(Session::validators(), vec![21, 11]);
 
