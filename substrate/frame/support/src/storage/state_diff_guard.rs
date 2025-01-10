@@ -87,8 +87,8 @@
 //!     fn try_on_runtime_upgrade() -> Result<frame_support::weights::Weight, &'static str> {
 //!         // migration logic here
 //!         let guard = StateDiffGuard::builder()
-//!             .must_change_if_exists(GuardSubject::Prefix(SomeMap::<T>::storage_info().first().unwrap().clone()))
-//!             .must_not_change(GuardSubject::Prefix(SomeDoubleMap::<T>::storage_info().first().unwrap().clone()))
+//!             .must_change_if_exists(SomeMap::<T>::storage_info())
+//!             .must_not_change(SomeDoubleMap::<T>::storage_info())
 //! 			.can_not_change(GuardSubject::AnythingElse)
 //!             .build();
 //!
@@ -141,7 +141,7 @@ pub enum MutationPolicy {
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub enum GuardSubject {
 	/// Explicit storage prefix to guard.
-	Prefix(StorageInfo),
+	Prefix(Vec<u8>),
 	/// Any storage prefix.
 	AnythingElse,
 }
@@ -150,9 +150,26 @@ impl GuardSubject {
 	/// Get the raw prefix.
 	fn raw_prefix(&self) -> Option<&Vec<u8>> {
 		match self {
-			GuardSubject::Prefix(info) => Some(&info.prefix),
+			GuardSubject::Prefix(prefix) => Some(prefix.as_ref()),
 			GuardSubject::AnythingElse => None,
 		}
+	}
+}
+
+/// Wrapper around a `Vec<GuardSubject>` so that we can implement `Into` for it.
+pub struct GuardSubjectCollection(pub Vec<GuardSubject>);
+
+impl From<Vec<StorageInfo>> for GuardSubjectCollection {
+	fn from(storage_info: Vec<StorageInfo>) -> Self {
+		GuardSubjectCollection(
+			storage_info.into_iter().map(|s| GuardSubject::Prefix(s.prefix)).collect(),
+		)
+	}
+}
+
+impl From<GuardSubject> for GuardSubjectCollection {
+	fn from(subject: GuardSubject) -> Self {
+		GuardSubjectCollection(vec![subject])
 	}
 }
 
@@ -273,22 +290,28 @@ pub struct StateDiffGuardBuilder {
 
 impl StateDiffGuardBuilder {
 	/// Add a storage prefix that must change if it already exited prior to the guard.
-	pub fn must_change_if_exists(mut self, prefix: GuardSubject) -> Self {
-		self.mutation_policy.insert(prefix, MutationPolicy::MustChangeIfExists);
+	pub fn must_change_if_exists<S: Into<GuardSubjectCollection>>(mut self, prefixes: S) -> Self {
+		for prefix in prefixes.into().0 {
+			self.mutation_policy.insert(prefix, MutationPolicy::MustChangeIfExists);
+		}
 
 		self
 	}
 
 	/// Add a storage prefix that must not change.
-	pub fn must_not_change(mut self, prefix: GuardSubject) -> Self {
-		self.mutation_policy.insert(prefix, MutationPolicy::MustNotChange);
+	pub fn must_not_change<S: Into<GuardSubjectCollection>>(mut self, prefixes: S) -> Self {
+		for prefix in prefixes.into().0 {
+			self.mutation_policy.insert(prefix, MutationPolicy::MustNotChange);
+		}
 
 		self
 	}
 
 	/// Add a storage prefix that can change.
-	pub fn can_change(mut self, prefix: GuardSubject) -> Self {
-		self.mutation_policy.insert(prefix, MutationPolicy::CanChange);
+	pub fn can_change<S: Into<GuardSubjectCollection>>(mut self, prefixes: S) -> Self {
+		for prefix in prefixes.into().0 {
+			self.mutation_policy.insert(prefix, MutationPolicy::CanChange);
+		}
 
 		self
 	}
@@ -368,9 +391,7 @@ mod tests {
 	fn guard_storage_key_types_works() {
 		TestExternalities::default().execute_with(|| {
 			let guard = StateDiffGuard::builder()
-				.must_not_change(GuardSubject::Prefix(
-					TestDoubleMapBlake2::storage_info().first().unwrap().clone(),
-				))
+				.must_not_change(TestDoubleMapBlake2::storage_info())
 				.build();
 
 			mod v2 {
@@ -403,12 +424,8 @@ mod tests {
 			TestStorageValue::put(1);
 
 			let guard = StateDiffGuard::builder()
-				.can_change(GuardSubject::Prefix(
-					TestDoubleMapBlake2::storage_info().first().unwrap().clone(),
-				))
-				.must_not_change(GuardSubject::Prefix(
-					TestMap::storage_info().first().unwrap().clone(),
-				))
+				.can_change(TestDoubleMapBlake2::storage_info())
+				.must_not_change(TestMap::storage_info())
 				.build();
 
 			TestDoubleMapBlake2::remove(1, 1);
@@ -428,10 +445,8 @@ mod tests {
 
 			// must change all entries of `TestDoubleMapBlake2`
 			let guard = StateDiffGuard::builder()
-				.must_change_if_exists(GuardSubject::Prefix(
-					TestDoubleMapBlake2::storage_info().first().unwrap().clone(),
-				))
-				.can_change(GuardSubject::Prefix(TestMap::storage_info().first().unwrap().clone()))
+				.must_change_if_exists(TestDoubleMapBlake2::storage_info())
+				.can_change(TestMap::storage_info())
 				.build();
 
 			TestDoubleMapBlake2::remove(1, 2);
@@ -448,9 +463,8 @@ mod tests {
 			TestDoubleMapBlake2::insert(1, 2, 1);
 			TestStorageValue::put(1);
 
-			let guard = StateDiffGuard::builder().must_change_if_exists(GuardSubject::Prefix(
-				TestDoubleMapBlake2::storage_info().first().unwrap().clone(),
-			));
+			let guard = StateDiffGuard::builder()
+				.must_change_if_exists(TestDoubleMapBlake2::storage_info());
 		});
 	}
 
@@ -461,9 +475,7 @@ mod tests {
 		ext.execute_with(|| {
 			TestStorageValue::put(1);
 			let guard = StateDiffGuard::builder()
-				.must_change_if_exists(GuardSubject::Prefix(
-					TestStorageValue::storage_info().first().unwrap().clone(),
-				))
+				.must_change_if_exists(TestStorageValue::storage_info())
 				.build();
 		});
 	}
@@ -474,9 +486,7 @@ mod tests {
 		ext.execute_with(|| {
 			TestStorageValue::put(1);
 			let guard = StateDiffGuard::builder()
-				.must_change_if_exists(GuardSubject::Prefix(
-					TestStorageValue::storage_info().first().unwrap().clone(),
-				))
+				.must_change_if_exists(TestStorageValue::storage_info())
 				.build();
 
 			TestStorageValue::put(2);
@@ -488,9 +498,7 @@ mod tests {
 		let mut ext = TestExternalities::default();
 		ext.execute_with(|| {
 			let guard = StateDiffGuard::builder()
-				.must_change_if_exists(GuardSubject::Prefix(
-					TestStorageValue::storage_info().first().unwrap().clone(),
-				))
+				.must_change_if_exists(TestStorageValue::storage_info())
 				.build();
 
 			TestStorageValue::put(2);
@@ -502,9 +510,7 @@ mod tests {
 		let mut ext = TestExternalities::default();
 		ext.execute_with(|| {
 			let guard = StateDiffGuard::builder()
-				.must_change_if_exists(GuardSubject::Prefix(
-					TestStorageValue::storage_info().first().unwrap().clone(),
-				))
+				.must_change_if_exists(TestStorageValue::storage_info())
 				.build();
 		});
 	}
@@ -513,11 +519,8 @@ mod tests {
 	fn test_diff_guard_can_change_works() {
 		let mut ext = TestExternalities::default();
 		ext.execute_with(|| {
-			let guard = StateDiffGuard::builder()
-				.can_change(GuardSubject::Prefix(
-					TestStorageValue::storage_info().first().unwrap().clone(),
-				))
-				.build();
+			let guard =
+				StateDiffGuard::builder().can_change(TestStorageValue::storage_info()).build();
 		});
 	}
 
@@ -527,11 +530,8 @@ mod tests {
 		ext.execute_with(|| {
 			TestStorageValue::put(1);
 
-			let guard = StateDiffGuard::builder()
-				.can_change(GuardSubject::Prefix(
-					TestStorageValue::storage_info().first().unwrap().clone(),
-				))
-				.build();
+			let guard =
+				StateDiffGuard::builder().can_change(TestStorageValue::storage_info()).build();
 		});
 	}
 
@@ -541,11 +541,8 @@ mod tests {
 		ext.execute_with(|| {
 			TestStorageValue::put(1);
 
-			let guard = StateDiffGuard::builder()
-				.can_change(GuardSubject::Prefix(
-					TestStorageValue::storage_info().first().unwrap().clone(),
-				))
-				.build();
+			let guard =
+				StateDiffGuard::builder().can_change(TestStorageValue::storage_info()).build();
 
 			TestStorageValue::put(2);
 		});
@@ -555,11 +552,8 @@ mod tests {
 	fn test_diff_guard_can_change_works_if_not_existed() {
 		let mut ext = TestExternalities::default();
 		ext.execute_with(|| {
-			let guard = StateDiffGuard::builder()
-				.can_change(GuardSubject::Prefix(
-					TestStorageValue::storage_info().first().unwrap().clone(),
-				))
-				.build();
+			let guard =
+				StateDiffGuard::builder().can_change(TestStorageValue::storage_info()).build();
 
 			TestStorageValue::put(2);
 		});
@@ -570,9 +564,7 @@ mod tests {
 		let mut ext = TestExternalities::default();
 		ext.execute_with(|| {
 			let guard = StateDiffGuard::builder()
-				.must_not_change(GuardSubject::Prefix(
-					TestStorageValue::storage_info().first().unwrap().clone(),
-				))
+				.must_not_change(TestStorageValue::storage_info())
 				.build();
 		});
 	}
@@ -583,9 +575,7 @@ mod tests {
 		ext.execute_with(|| {
 			TestStorageValue::put(1);
 			let guard = StateDiffGuard::builder()
-				.must_not_change(GuardSubject::Prefix(
-					TestStorageValue::storage_info().first().unwrap().clone(),
-				))
+				.must_not_change(TestStorageValue::storage_info())
 				.build();
 		});
 	}
@@ -598,9 +588,7 @@ mod tests {
 			TestStorageValue::put(1);
 
 			let guard = StateDiffGuard::builder()
-				.must_not_change(GuardSubject::Prefix(
-					TestStorageValue::storage_info().first().unwrap().clone(),
-				))
+				.must_not_change(TestStorageValue::storage_info())
 				.build();
 
 			TestStorageValue::put(2);
@@ -613,9 +601,7 @@ mod tests {
 		let mut ext = TestExternalities::default();
 		ext.execute_with(|| {
 			let guard = StateDiffGuard::builder()
-				.must_not_change(GuardSubject::Prefix(
-					TestStorageValue::storage_info().first().unwrap().clone(),
-				))
+				.must_not_change(TestStorageValue::storage_info())
 				.build();
 
 			TestStorageValue::put(2);
