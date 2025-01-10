@@ -579,15 +579,15 @@ mod tests {
 	type Error = sp_blockchain::Error;
 
 	struct DummyFactory(Arc<TestClient>);
-	struct DummyProposer(u64, Arc<TestClient>);
+	struct DummyProposer(Arc<TestClient>);
 
 	impl Environment<TestBlock> for DummyFactory {
 		type Proposer = DummyProposer;
 		type CreateProposer = futures::future::Ready<Result<DummyProposer, Error>>;
 		type Error = Error;
 
-		fn init(&mut self, parent_header: &<TestBlock as BlockT>::Header) -> Self::CreateProposer {
-			futures::future::ready(Ok(DummyProposer(parent_header.number + 1, self.0.clone())))
+		fn init(&mut self, _: &<TestBlock as BlockT>::Header) -> Self::CreateProposer {
+			futures::future::ready(Ok(DummyProposer(self.0.clone())))
 		}
 	}
 
@@ -604,9 +604,9 @@ mod tests {
 			_: Duration,
 			_: Option<usize>,
 		) -> Self::Proposal {
-			let r = BlockBuilderBuilder::new(&*self.1)
-				.on_parent_block(self.1.chain_info().best_hash)
-				.fetch_parent_block_number(&*self.1)
+			let r = BlockBuilderBuilder::new(&*self.0)
+				.on_parent_block(self.0.chain_info().best_hash)
+				.fetch_parent_block_number(&*self.0)
 				.unwrap()
 				.with_inherent_digests(digests)
 				.build()

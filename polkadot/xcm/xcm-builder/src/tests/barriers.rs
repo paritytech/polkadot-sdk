@@ -284,6 +284,76 @@ fn allow_paid_should_work() {
 }
 
 #[test]
+fn allow_paid_should_deprivilege_origin() {
+	AllowPaidFrom::set(vec![Parent.into()]);
+	let fees = (Parent, 1).into();
+
+	let mut paying_message_clears_origin = Xcm::<()>(vec![
+		ReserveAssetDeposited((Parent, 100).into()),
+		ClearOrigin,
+		BuyExecution { fees, weight_limit: Limited(Weight::from_parts(30, 30)) },
+		DepositAsset { assets: AllCounted(1).into(), beneficiary: Here.into() },
+	]);
+	let r = AllowTopLevelPaidExecutionFrom::<IsInVec<AllowPaidFrom>>::should_execute(
+		&Parent.into(),
+		paying_message_clears_origin.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(r, Ok(()));
+
+	let mut paying_message_aliases_origin = paying_message_clears_origin.clone();
+	paying_message_aliases_origin.0[1] = AliasOrigin(Parachain(1).into());
+	let r = AllowTopLevelPaidExecutionFrom::<IsInVec<AllowPaidFrom>>::should_execute(
+		&Parent.into(),
+		paying_message_aliases_origin.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(r, Ok(()));
+
+	let mut paying_message_descends_origin = paying_message_clears_origin.clone();
+	paying_message_descends_origin.0[1] = DescendOrigin(Parachain(1).into());
+	let r = AllowTopLevelPaidExecutionFrom::<IsInVec<AllowPaidFrom>>::should_execute(
+		&Parent.into(),
+		paying_message_descends_origin.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(r, Ok(()));
+
+	let mut paying_message_fake_descends_origin = paying_message_clears_origin.clone();
+	paying_message_fake_descends_origin.0[1] = DescendOrigin(Here.into());
+	let r = AllowTopLevelPaidExecutionFrom::<IsInVec<AllowPaidFrom>>::should_execute(
+		&Parent.into(),
+		paying_message_fake_descends_origin.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(r, Err(ProcessMessageError::Overweight(Weight::from_parts(30, 30))));
+}
+
+#[test]
+fn allow_paid_should_allow_hints() {
+	AllowPaidFrom::set(vec![Parent.into()]);
+	let fees = (Parent, 1).into();
+
+	let mut paying_message_with_hints = Xcm::<()>(vec![
+		ReserveAssetDeposited((Parent, 100).into()),
+		SetHints { hints: vec![AssetClaimer { location: Location::here() }].try_into().unwrap() },
+		BuyExecution { fees, weight_limit: Limited(Weight::from_parts(30, 30)) },
+		DepositAsset { assets: AllCounted(1).into(), beneficiary: Here.into() },
+	]);
+	let r = AllowTopLevelPaidExecutionFrom::<IsInVec<AllowPaidFrom>>::should_execute(
+		&Parent.into(),
+		paying_message_with_hints.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(r, Ok(()));
+}
+
+#[test]
 fn suspension_should_work() {
 	TestSuspender::set_suspended(true);
 	AllowUnpaidFrom::set(vec![Parent.into()]);
@@ -315,56 +385,150 @@ fn allow_subscriptions_from_should_work() {
 	// allow only parent
 	AllowSubsFrom::set(vec![Location::parent()]);
 
-	let valid_xcm_1 = Xcm::<TestCall>(vec![SubscribeVersion {
-		query_id: 42,
-		max_response_weight: Weight::from_parts(5000, 5000),
-	}]);
-	let valid_xcm_2 = Xcm::<TestCall>(vec![UnsubscribeVersion]);
-	let invalid_xcm_1 = Xcm::<TestCall>(vec![
-		SetAppendix(Xcm(vec![])),
-		SubscribeVersion { query_id: 42, max_response_weight: Weight::from_parts(5000, 5000) },
-	]);
-	let invalid_xcm_2 = Xcm::<TestCall>(vec![
-		SubscribeVersion { query_id: 42, max_response_weight: Weight::from_parts(5000, 5000) },
-		SetTopic([0; 32]),
-	]);
-
-	let test_data = vec![
-		(
-			valid_xcm_1.clone(),
-			Parachain(1).into_location(),
-			// not allowed origin
-			Err(ProcessMessageError::Unsupported),
-		),
-		(valid_xcm_1, Location::parent(), Ok(())),
-		(
-			valid_xcm_2.clone(),
-			Parachain(1).into_location(),
-			// not allowed origin
-			Err(ProcessMessageError::Unsupported),
-		),
-		(valid_xcm_2, Location::parent(), Ok(())),
-		(
-			invalid_xcm_1,
-			Location::parent(),
-			// invalid XCM
-			Err(ProcessMessageError::BadFormat),
-		),
-		(
-			invalid_xcm_2,
-			Location::parent(),
-			// invalid XCM
-			Err(ProcessMessageError::BadFormat),
-		),
-	];
-
-	for (mut message, origin, expected_result) in test_data {
-		let r = AllowSubscriptionsFrom::<IsInVec<AllowSubsFrom>>::should_execute(
-			&origin,
-			message.inner_mut(),
-			Weight::from_parts(10, 10),
-			&mut props(Weight::zero()),
+	// closure for (xcm, origin) testing with `AllowSubscriptionsFrom`
+	let assert_should_execute = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
+		assert_eq!(
+			AllowSubscriptionsFrom::<IsInVec<AllowSubsFrom>>::should_execute(
+				&origin,
+				&mut xcm,
+				Weight::from_parts(10, 10),
+				&mut props(Weight::zero()),
+			),
+			expected_result
 		);
-		assert_eq!(r, expected_result, "Failed for origin: {origin:?} and message: {message:?}");
-	}
+	};
+
+	// invalid origin
+	assert_should_execute(
+		vec![SubscribeVersion {
+			query_id: Default::default(),
+			max_response_weight: Default::default(),
+		}],
+		Parachain(1).into_location(),
+		Err(ProcessMessageError::Unsupported),
+	);
+	assert_should_execute(
+		vec![UnsubscribeVersion],
+		Parachain(1).into_location(),
+		Err(ProcessMessageError::Unsupported),
+	);
+
+	// invalid XCM (unexpected instruction before)
+	assert_should_execute(
+		vec![
+			SetAppendix(Xcm(vec![])),
+			SubscribeVersion {
+				query_id: Default::default(),
+				max_response_weight: Default::default(),
+			},
+		],
+		Location::parent(),
+		Err(ProcessMessageError::BadFormat),
+	);
+	assert_should_execute(
+		vec![SetAppendix(Xcm(vec![])), UnsubscribeVersion],
+		Location::parent(),
+		Err(ProcessMessageError::BadFormat),
+	);
+	// invalid XCM (unexpected instruction after)
+	assert_should_execute(
+		vec![
+			SubscribeVersion {
+				query_id: Default::default(),
+				max_response_weight: Default::default(),
+			},
+			SetTopic([0; 32]),
+		],
+		Location::parent(),
+		Err(ProcessMessageError::BadFormat),
+	);
+	assert_should_execute(
+		vec![UnsubscribeVersion, SetTopic([0; 32])],
+		Location::parent(),
+		Err(ProcessMessageError::BadFormat),
+	);
+	// invalid XCM (unexpected instruction)
+	assert_should_execute(
+		vec![SetAppendix(Xcm(vec![]))],
+		Location::parent(),
+		Err(ProcessMessageError::BadFormat),
+	);
+
+	// ok
+	assert_should_execute(
+		vec![SubscribeVersion {
+			query_id: Default::default(),
+			max_response_weight: Default::default(),
+		}],
+		Location::parent(),
+		Ok(()),
+	);
+	assert_should_execute(vec![UnsubscribeVersion], Location::parent(), Ok(()));
+}
+
+#[test]
+fn allow_hrmp_notifications_from_relay_chain_should_work() {
+	// closure for (xcm, origin) testing with `AllowHrmpNotificationsFromRelayChain`
+	let assert_should_execute = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
+		assert_eq!(
+			AllowHrmpNotificationsFromRelayChain::should_execute(
+				&origin,
+				&mut xcm,
+				Weight::from_parts(10, 10),
+				&mut props(Weight::zero()),
+			),
+			expected_result
+		);
+	};
+
+	// invalid origin
+	assert_should_execute(
+		vec![HrmpChannelAccepted { recipient: Default::default() }],
+		Location::new(1, [Parachain(1)]),
+		Err(ProcessMessageError::Unsupported),
+	);
+
+	// invalid XCM (unexpected instruction before)
+	assert_should_execute(
+		vec![SetAppendix(Xcm(vec![])), HrmpChannelAccepted { recipient: Default::default() }],
+		Location::parent(),
+		Err(ProcessMessageError::BadFormat),
+	);
+	// invalid XCM (unexpected instruction after)
+	assert_should_execute(
+		vec![HrmpChannelAccepted { recipient: Default::default() }, SetTopic([0; 32])],
+		Location::parent(),
+		Err(ProcessMessageError::BadFormat),
+	);
+	// invalid XCM (unexpected instruction)
+	assert_should_execute(
+		vec![SetAppendix(Xcm(vec![]))],
+		Location::parent(),
+		Err(ProcessMessageError::BadFormat),
+	);
+
+	// ok
+	assert_should_execute(
+		vec![HrmpChannelAccepted { recipient: Default::default() }],
+		Location::parent(),
+		Ok(()),
+	);
+	assert_should_execute(
+		vec![HrmpNewChannelOpenRequest {
+			max_capacity: Default::default(),
+			sender: Default::default(),
+			max_message_size: Default::default(),
+		}],
+		Location::parent(),
+		Ok(()),
+	);
+	assert_should_execute(
+		vec![HrmpChannelClosing {
+			recipient: Default::default(),
+			sender: Default::default(),
+			initiator: Default::default(),
+		}],
+		Location::parent(),
+		Ok(()),
+	);
 }

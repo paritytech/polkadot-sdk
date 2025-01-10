@@ -33,7 +33,7 @@ pub fn expand_tt_default_parts(def: &mut Def) -> proc_macro2::TokenStream {
 
 	let call_part = def.call.as_ref().map(|_| quote::quote!(Call,));
 
-	let task_part = def.task_enum.as_ref().map(|_| quote::quote!(Task,));
+	let task_part = def.tasks.as_ref().map(|_| quote::quote!(Task,));
 
 	let storage_part = (!def.storages.is_empty()).then(|| quote::quote!(Storage,));
 
@@ -85,7 +85,7 @@ pub fn expand_tt_default_parts(def: &mut Def) -> proc_macro2::TokenStream {
 
 	let call_part_v2 = def.call.as_ref().map(|_| quote::quote!(+ Call));
 
-	let task_part_v2 = def.task_enum.as_ref().map(|_| quote::quote!(+ Task));
+	let task_part_v2 = def.tasks.as_ref().map(|_| quote::quote!(+ Task));
 
 	let storage_part_v2 = (!def.storages.is_empty()).then(|| quote::quote!(+ Storage));
 
@@ -198,9 +198,9 @@ pub fn expand_tt_default_parts(def: &mut Def) -> proc_macro2::TokenStream {
 		macro_rules! #default_parts_unique_id_v2 {
 			{
 				$caller:tt
-				frame_support = [{ $($frame_support:ident)::* }]
+				your_tt_return = [{ $my_tt_return:path }]
 			} => {
-				$($frame_support)*::__private::tt_return! {
+				$my_tt_return! {
 					$caller
 					tokens = [{
 						+ Pallet #call_part_v2 #storage_part_v2 #event_part_v2 #error_part_v2 #origin_part_v2 #config_part_v2

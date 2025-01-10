@@ -17,9 +17,9 @@
 //! Common logic for implementation of worker processes.
 
 use crate::LOG_TARGET;
+use codec::Encode;
 use futures::FutureExt as _;
 use futures_timer::Delay;
-use parity_scale_codec::Encode;
 use pin_project::pin_project;
 use polkadot_node_core_pvf_common::{SecurityStatus, WorkerHandshake};
 use rand::Rng;
@@ -237,10 +237,8 @@ impl WorkerHandle {
 		// Clear all env vars from the spawned process.
 		let mut command = process::Command::new(program.as_ref());
 		command.env_clear();
-		// Add back any env vars we want to keep.
-		if let Ok(value) = std::env::var("RUST_LOG") {
-			command.env("RUST_LOG", value);
-		}
+
+		command.env("RUST_LOG", sc_tracing::logging::get_directives().join(","));
 
 		let mut child = command
 			.args(extra_args)

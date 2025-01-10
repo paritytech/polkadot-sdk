@@ -24,13 +24,13 @@ use std::{
 };
 
 use assert_matches::assert_matches;
+use codec::{Decode, Encode};
 use futures::{
 	channel::oneshot,
 	future::{poll_fn, ready},
 	pin_mut, Future,
 };
 use futures_timer::Delay;
-use parity_scale_codec::{Decode, Encode};
 
 use sc_network::{config::RequestResponseConfig, ProtocolName};
 
@@ -57,8 +57,8 @@ use polkadot_node_subsystem_test_helpers::{
 	subsystem_test_harness, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
-	AuthorityDiscoveryId, Block, CandidateHash, CandidateReceipt, ExecutorParams, Hash,
-	NodeFeatures, SessionIndex, SessionInfo,
+	vstaging::CandidateReceiptV2 as CandidateReceipt, AuthorityDiscoveryId, Block, CandidateHash,
+	ExecutorParams, Hash, NodeFeatures, SessionIndex, SessionInfo,
 };
 
 use self::mock::{

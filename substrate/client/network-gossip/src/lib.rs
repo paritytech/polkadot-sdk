@@ -67,9 +67,12 @@ pub use self::{
 	validator::{DiscardAll, MessageIntent, ValidationResult, Validator, ValidatorContext},
 };
 
-use sc_network::{multiaddr, types::ProtocolName, NetworkBlock, NetworkEventStream, NetworkPeers};
+use sc_network::{types::ProtocolName, NetworkBlock, NetworkEventStream, NetworkPeers};
 use sc_network_sync::SyncEventStream;
-use sc_network_types::PeerId;
+use sc_network_types::{
+	multiaddr::{Multiaddr, Protocol},
+	PeerId,
+};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 use std::iter;
 
@@ -79,16 +82,18 @@ mod validator;
 
 /// Abstraction over a network.
 pub trait Network<B: BlockT>: NetworkPeers + NetworkEventStream {
-	fn add_set_reserved(&self, who: PeerId, protocol: ProtocolName) {
-		let addr =
-			iter::once(multiaddr::Protocol::P2p(who.into())).collect::<multiaddr::Multiaddr>();
-		let result = self.add_peers_to_reserved_set(protocol, iter::once(addr).collect());
+	fn add_set_reserved(&self, peer_ids: Vec<PeerId>, protocol: ProtocolName) {
+		let addrs = peer_ids
+			.into_iter()
+			.map(|peer_id| Multiaddr::empty().with(Protocol::P2p(peer_id.into())))
+			.collect();
+		let result = self.add_peers_to_reserved_set(protocol, addrs);
 		if let Err(err) = result {
 			log::error!(target: "gossip", "add_set_reserved failed: {}", err);
 		}
 	}
-	fn remove_set_reserved(&self, who: PeerId, protocol: ProtocolName) {
-		let result = self.remove_peers_from_reserved_set(protocol, iter::once(who).collect());
+	fn remove_set_reserved(&self, peer_id: PeerId, protocol: ProtocolName) {
+		let result = self.remove_peers_from_reserved_set(protocol, iter::once(peer_id).collect());
 		if let Err(err) = result {
 			log::error!(target: "gossip", "remove_set_reserved failed: {}", err);
 		}

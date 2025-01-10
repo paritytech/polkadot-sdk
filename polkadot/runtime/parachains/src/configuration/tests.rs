@@ -17,7 +17,7 @@
 use super::*;
 use crate::{
 	configuration,
-	mock::{new_test_ext, Configuration, ParasShared, RuntimeOrigin, Test},
+	mock::{new_test_ext, Configuration, MockGenesisConfig, ParasShared, RuntimeOrigin, Test},
 };
 use bitvec::{bitvec, prelude::Lsb0};
 use frame_support::{assert_err, assert_noop, assert_ok};
@@ -210,7 +210,7 @@ fn invariants() {
 		);
 
 		assert_err!(
-			Configuration::set_max_pov_size(RuntimeOrigin::root(), MAX_POV_SIZE + 1),
+			Configuration::set_max_pov_size(RuntimeOrigin::root(), POV_SIZE_HARD_LIMIT + 1),
 			Error::<Test>::InvalidNewValue
 		);
 
@@ -316,13 +316,14 @@ fn setting_pending_config_members() {
 			approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 1 },
 			minimum_backing_votes: 5,
 			node_features: bitvec![u8, Lsb0; 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
+			#[allow(deprecated)]
 			scheduler_params: SchedulerParams {
 				group_rotation_frequency: 20,
 				paras_availability_period: 10,
 				max_validators_per_core: None,
 				lookahead: 3,
 				num_cores: 2,
-				max_availability_timeouts: 5,
+				max_availability_timeouts: 0,
 				on_demand_queue_max_size: 10_000u32,
 				on_demand_base_fee: 10_000_000u128,
 				on_demand_fee_variability: Perbill::from_percent(3),
@@ -353,11 +354,6 @@ fn setting_pending_config_members() {
 		Configuration::set_coretime_cores(
 			RuntimeOrigin::root(),
 			new_config.scheduler_params.num_cores,
-		)
-		.unwrap();
-		Configuration::set_max_availability_timeouts(
-			RuntimeOrigin::root(),
-			new_config.scheduler_params.max_availability_timeouts,
 		)
 		.unwrap();
 		Configuration::set_group_rotation_frequency(
@@ -513,7 +509,7 @@ fn verify_externally_accessible() {
 	// This test verifies that the value can be accessed through the well known keys and the
 	// host configuration decodes into the abridged version.
 
-	use primitives::{well_known_keys, AbridgedHostConfiguration};
+	use polkadot_primitives::{well_known_keys, AbridgedHostConfiguration};
 
 	new_test_ext(Default::default()).execute_with(|| {
 		let mut ground_truth = HostConfiguration::default();
@@ -546,4 +542,52 @@ fn verify_externally_accessible() {
 			},
 		);
 	});
+}
+
+#[test]
+fn active_config_hrmp_channel_size_and_capacity_ratio_works() {
+	frame_support::parameter_types! {
+		pub Ratio100: Percent = Percent::from_percent(100);
+		pub Ratio50: Percent = Percent::from_percent(50);
+	}
+
+	let mut genesis: MockGenesisConfig = Default::default();
+	genesis.configuration.config.hrmp_channel_max_message_size = 1024;
+	genesis.configuration.config.hrmp_channel_max_capacity = 100;
+
+	new_test_ext(genesis).execute_with(|| {
+		let active_config = configuration::ActiveConfig::<Test>::get();
+		assert_eq!(active_config.hrmp_channel_max_message_size, 1024);
+		assert_eq!(active_config.hrmp_channel_max_capacity, 100);
+
+		assert_eq!(
+			ActiveConfigHrmpChannelSizeAndCapacityRatio::<Test, Ratio100>::get(),
+			(1024, 100)
+		);
+		assert_eq!(ActiveConfigHrmpChannelSizeAndCapacityRatio::<Test, Ratio50>::get(), (512, 50));
+
+		// change ActiveConfig
+		assert_ok!(Configuration::set_hrmp_channel_max_message_size(
+			RuntimeOrigin::root(),
+			active_config.hrmp_channel_max_message_size * 4
+		));
+		assert_ok!(Configuration::set_hrmp_channel_max_capacity(
+			RuntimeOrigin::root(),
+			active_config.hrmp_channel_max_capacity * 4
+		));
+		on_new_session(1);
+		on_new_session(2);
+		let active_config = configuration::ActiveConfig::<Test>::get();
+		assert_eq!(active_config.hrmp_channel_max_message_size, 4096);
+		assert_eq!(active_config.hrmp_channel_max_capacity, 400);
+
+		assert_eq!(
+			ActiveConfigHrmpChannelSizeAndCapacityRatio::<Test, Ratio100>::get(),
+			(4096, 400)
+		);
+		assert_eq!(
+			ActiveConfigHrmpChannelSizeAndCapacityRatio::<Test, Ratio50>::get(),
+			(2048, 200)
+		);
+	})
 }

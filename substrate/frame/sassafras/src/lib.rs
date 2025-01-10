@@ -47,10 +47,13 @@
 #![warn(unused_must_use, unsafe_code, unused_variables, unused_imports, missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use codec::{Decode, Encode, MaxEncodedLen};
 use log::{debug, error, trace, warn};
-use scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
+use alloc::vec::Vec;
 use frame_support::{
 	dispatch::{DispatchResultWithPostInfo, Pays},
 	traits::{Defensive, Get},
@@ -58,7 +61,7 @@ use frame_support::{
 	BoundedVec, WeakBoundedVec,
 };
 use frame_system::{
-	offchain::{SendTransactionTypes, SubmitTransaction},
+	offchain::{CreateInherent, SubmitTransaction},
 	pallet_prelude::BlockNumberFor,
 };
 use sp_consensus_sassafras::{
@@ -72,7 +75,6 @@ use sp_runtime::{
 	traits::{One, Zero},
 	BoundToRuntimeAppPublic,
 };
-use sp_std::prelude::Vec;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -129,7 +131,7 @@ pub mod pallet {
 
 	/// Configuration parameters.
 	#[pallet::config]
-	pub trait Config: frame_system::Config + SendTransactionTypes<Call<Self>> {
+	pub trait Config: frame_system::Config + CreateInherent<Call<Self>> {
 		/// Amount of slots that each epoch should last.
 		#[pallet::constant]
 		type EpochLength: Get<u32>;
@@ -288,7 +290,7 @@ pub mod pallet {
 		pub epoch_config: EpochConfiguration,
 		/// Phantom config
 		#[serde(skip)]
-		pub _phantom: sp_std::marker::PhantomData<T>,
+		pub _phantom: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -1018,7 +1020,8 @@ impl<T: Config> Pallet<T> {
 	pub fn submit_tickets_unsigned_extrinsic(tickets: Vec<TicketEnvelope>) -> bool {
 		let tickets = BoundedVec::truncate_from(tickets);
 		let call = Call::submit_tickets { tickets };
-		match SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()) {
+		let xt = T::create_inherent(call.into());
+		match SubmitTransaction::<T, Call<T>>::submit_transaction(xt) {
 			Ok(_) => true,
 			Err(e) => {
 				error!(target: LOG_TARGET, "Error submitting tickets {:?}", e);

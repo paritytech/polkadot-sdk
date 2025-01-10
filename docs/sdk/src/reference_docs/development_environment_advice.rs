@@ -15,8 +15,9 @@
 //! ```json
 //! {
 //!   // Use a separate target dir for Rust Analyzer. Helpful if you want to use Rust
-//!   // Analyzer and cargo on the command line at the same time.
-//!   "rust-analyzer.rust.analyzerTargetDir": "target/vscode-rust-analyzer",
+//!   // Analyzer and cargo on the command line at the same time,
+//!   // at the expense of duplicating build artifacts.
+//!   "rust-analyzer.cargo.targetDir": "target/vscode-rust-analyzer",
 //!   // Improve stability
 //!   "rust-analyzer.server.extraEnv": {
 //!     "CHALK_OVERFLOW_DEPTH": "100000000",
@@ -38,7 +39,7 @@
 //!   // Use nightly formatting.
 //!   // See the polkadot-sdk CI job that checks formatting for the current version used in
 //!   // polkadot-sdk.
-//!   "rust-analyzer.rustfmt.extraArgs": ["+nightly-2024-01-22"],
+//!   "rust-analyzer.rustfmt.extraArgs": ["+nightly-2024-04-10"],
 //! }
 //! ```
 //!
@@ -79,7 +80,7 @@
 //!     # Use nightly formatting.
 //!     # See the polkadot-sdk CI job that checks formatting for the current version used in
 //!     # polkadot-sdk.
-//!     extraArgs = { "+nightly-2024-01-22" },
+//!     extraArgs = { "+nightly-2024-04-10" },
 //!   },
 //! },
 //! ```
@@ -145,7 +146,7 @@
 //! }
 //! ```
 //!
-//! //! and the same in Lua for `neovim/nvim-lspconfig`:
+//! and the same in Lua for `neovim/nvim-lspconfig`:
 //!
 //! ```lua
 //! ["rust-analyzer"] = {

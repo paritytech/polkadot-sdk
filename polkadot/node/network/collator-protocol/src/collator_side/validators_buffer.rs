@@ -110,7 +110,7 @@ impl ValidatorGroupsBuffer {
 			.validators
 			.iter()
 			.enumerate()
-			.filter_map(|(idx, authority_id)| bits[idx].then_some(authority_id.clone()))
+			.filter_map(|(idx, authority_id)| bits[idx].then(|| authority_id.clone()))
 			.collect();
 
 		if let Some(last_group) = self.group_infos.iter().last() {

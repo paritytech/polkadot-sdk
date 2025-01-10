@@ -1734,16 +1734,16 @@ pub fn show_benchmark_debug_info(
 	components: &[(BenchmarkParameter, u32)],
 	verify: &bool,
 	error_message: &str,
-) -> sp_runtime::RuntimeString {
-	sp_runtime::format_runtime_string!(
+) -> alloc::string::String {
+	alloc::format!(
 		"\n* Pallet: {}\n\
 		* Benchmark: {}\n\
 		* Components: {:?}\n\
 		* Verify: {:?}\n\
 		* Error message: {}",
-		sp_std::str::from_utf8(instance_string)
+		alloc::str::from_utf8(instance_string)
 			.expect("it's all just strings ran through the wasm interface. qed"),
-		sp_std::str::from_utf8(benchmark)
+		alloc::str::from_utf8(benchmark)
 			.expect("it's all just strings ran through the wasm interface. qed"),
 		components,
 		verify,
@@ -1821,12 +1821,13 @@ macro_rules! add_benchmark {
 		let (config, whitelist) = $params;
 		let $crate::BenchmarkConfig {
 			pallet,
+			instance,
 			benchmark,
 			selected_components,
 			verify,
 			internal_repeats,
 		} = config;
-		if &pallet[..] == &name_string[..] {
+		if &pallet[..] == &name_string[..] && &instance[..] == &instance_string[..] {
 			let benchmark_result = <$location>::run_benchmark(
 				&benchmark[..],
 				&selected_components[..],
@@ -1893,7 +1894,7 @@ macro_rules! add_benchmark {
 /// This macro allows users to easily generate a list of benchmarks for the pallets configured
 /// in the runtime.
 ///
-/// To use this macro, first create a an object to store the list:
+/// To use this macro, first create an object to store the list:
 ///
 /// ```ignore
 /// let mut list = Vec::<BenchmarkList>::new();

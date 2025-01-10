@@ -1,0 +1,25 @@
+{
+  "balances": {
+    "balances": [
+      [
+	"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
+	1000000000000000
+      ],
+      [
+	"5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y",
+	1000000000000000
+      ],
+      [
+	"5CcjiSgG2KLuKAsqkE2Nak1S2FbAcMr5SxRASUuwR3zSNV2b",
+	5000000000000000
+      ]
+    ]
+  },
+  "substrateTest": {
+    "authorities": [
+      "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+      "5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL",
+      "5CcjiSgG2KLuKAsqkE2Nak1S2FbAcMr5SxRASUuwR3zSNV2b"
+    ]
+  }
+}

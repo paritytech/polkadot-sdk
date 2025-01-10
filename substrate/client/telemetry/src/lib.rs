@@ -37,9 +37,9 @@
 #![warn(missing_docs)]
 
 use futures::{channel::mpsc, prelude::*};
+use libp2p::Multiaddr;
 use log::{error, warn};
 use parking_lot::Mutex;
-use sc_network::Multiaddr;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use serde::Serialize;
 use std::{

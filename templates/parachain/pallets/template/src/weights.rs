@@ -4,7 +4,7 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
 //! DATE: 2023-04-06, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `Alexs-MacBook-Pro-2.local`, CPU: `<UNKNOWN>`
+//! HOSTNAME: `_`, CPU: `<UNKNOWN>`
 //! EXECUTION: Some(Wasm), WASM-EXECUTION: Compiled, CHAIN: Some("dev"), DB CACHE: 1024
 
 // Executed Command:
@@ -29,7 +29,7 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
+use frame::{deps::frame_support::weights::constants::RocksDbWeight, prelude::*};
 use core::marker::PhantomData;
 
 /// Weight functions needed for pallet_template.
@@ -39,10 +39,16 @@ pub trait WeightInfo {
 }
 
 /// Weights for pallet_template using the Substrate node and recommended hardware.
+#[cfg_attr(
+    not(feature = "std"),
+    deprecated(
+        note = "SubstrateWeight is auto-generated and should not be used in production. Replace it with runtime benchmarked weights."
+    )
+)]
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	/// Storage: TemplateModule Something (r:0 w:1)
-	/// Proof: TemplateModule Something (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+	/// Storage: Template Something (r:0 w:1)
+	/// Proof: Template Something (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
 	fn do_something() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -51,8 +57,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(9_000_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: TemplateModule Something (r:1 w:1)
-	/// Proof: TemplateModule Something (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+	/// Storage: Template Something (r:1 w:1)
+	/// Proof: Template Something (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
 	fn cause_error() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `32`
@@ -66,8 +72,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
-	/// Storage: TemplateModule Something (r:0 w:1)
-	/// Proof: TemplateModule Something (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+	/// Storage: Template Something (r:0 w:1)
+	/// Proof: Template Something (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
 	fn do_something() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -76,8 +82,8 @@ impl WeightInfo for () {
 		Weight::from_parts(9_000_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: TemplateModule Something (r:1 w:1)
-	/// Proof: TemplateModule Something (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+	/// Storage: Template Something (r:1 w:1)
+	/// Proof: Template Something (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
 	fn cause_error() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `32`

@@ -32,6 +32,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
@@ -60,10 +62,10 @@ pub mod pallet {
 		type OverwrittenDefaultValue: Get<u32>;
 
 		/// An input parameter that relies on `<Self as frame_system::Config>::AccountId`. This can
-		/// too have a default, as long as as it is present in `frame_system::DefaultConfig`.
+		/// too have a default, as long as it is present in `frame_system::DefaultConfig`.
 		type CanDeriveDefaultFromSystem: Get<Self::AccountId>;
 
-		/// We might chose to declare as one that doesn't have a default, for whatever semantical
+		/// We might choose to declare as one that doesn't have a default, for whatever semantical
 		/// reason.
 		#[pallet::no_default]
 		type HasNoDefault: Get<u32>;
@@ -189,7 +191,7 @@ pub mod tests {
 	}
 
 	parameter_types! {
-		pub const SomeCall: RuntimeCall = RuntimeCall::System(frame_system::Call::<Runtime>::remark { remark: vec![] });
+		pub const SomeCall: RuntimeCall = RuntimeCall::System(frame_system::Call::<Runtime>::remark { remark: alloc::vec![] });
 	}
 
 	#[derive_impl(TestDefaultConfig as pallet::DefaultConfig)]

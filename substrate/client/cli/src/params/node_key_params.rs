@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use clap::Args;
-use sc_network::config::{identity::ed25519, NodeKeyConfig};
+use sc_network::config::{ed25519, NodeKeyConfig};
 use sc_service::Role;
 use sp_core::H256;
 use std::{path::PathBuf, str::FromStr};
@@ -116,8 +116,8 @@ impl NodeKeyParams {
 						.clone()
 						.unwrap_or_else(|| net_config_dir.join(NODE_KEY_ED25519_FILE));
 					if !self.unsafe_force_node_key_generation &&
-						role.is_authority() && !is_dev &&
-						!key_path.exists()
+						role.is_authority() &&
+						!is_dev && !key_path.exists()
 					{
 						return Err(Error::NetworkKeyNotFound(key_path))
 					}
@@ -148,7 +148,7 @@ fn parse_ed25519_secret(hex: &str) -> error::Result<sc_network::config::Ed25519S
 mod tests {
 	use super::*;
 	use clap::ValueEnum;
-	use libp2p_identity::ed25519;
+	use sc_network::config::ed25519;
 	use std::fs::{self, File};
 	use tempfile::TempDir;
 
@@ -194,11 +194,7 @@ mod tests {
 				.into_keypair()
 				.expect("Creates node key pair");
 
-			if let Ok(pair) = node_key.try_into_ed25519() {
-				if pair.secret().as_ref() != key.as_ref() {
-					panic!("Invalid key")
-				}
-			} else {
+			if node_key.secret().as_ref() != key.as_ref() {
 				panic!("Invalid key")
 			}
 		}
@@ -241,7 +237,6 @@ mod tests {
 				|params| {
 					let dir = PathBuf::from(net_config_dir.clone());
 					let typ = params.node_key_type;
-					let role = role.clone();
 					params.node_key(net_config_dir, role, is_dev).and_then(move |c| match c {
 						NodeKeyConfig::Ed25519(sc_network::config::Secret::File(ref f))
 							if typ == NodeKeyType::Ed25519 &&

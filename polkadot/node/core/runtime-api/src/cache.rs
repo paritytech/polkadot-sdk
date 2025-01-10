@@ -20,12 +20,16 @@ use schnellru::{ByLength, LruMap};
 use sp_consensus_babe::Epoch;
 
 use polkadot_primitives::{
-	async_backing, slashing, ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber,
-	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreIndex,
-	CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id as ParaId,
+	async_backing, slashing, vstaging,
+	vstaging::{
+		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
+		ScrapedOnChainVotes,
+	},
+	ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateHash,
+	CoreIndex, DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id as ParaId,
 	InboundDownwardMessage, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
-	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
-	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	PersistedValidationData, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex,
 };
 
 /// For consistency we have the same capacity for all caches. We use 128 as we'll only need that
@@ -66,7 +70,7 @@ pub(crate) struct RequestResultCache {
 	key_ownership_proof: LruMap<(Hash, ValidatorId), Option<slashing::OpaqueKeyOwnershipProof>>,
 	minimum_backing_votes: LruMap<SessionIndex, u32>,
 	disabled_validators: LruMap<Hash, Vec<ValidatorIndex>>,
-	para_backing_state: LruMap<(Hash, ParaId), Option<async_backing::BackingState>>,
+	para_backing_state: LruMap<(Hash, ParaId), Option<vstaging::async_backing::BackingState>>,
 	async_backing_params: LruMap<Hash, async_backing::AsyncBackingParams>,
 	node_features: LruMap<SessionIndex, NodeFeatures>,
 	approval_voting_params: LruMap<SessionIndex, ApprovalVotingParams>,
@@ -499,14 +503,14 @@ impl RequestResultCache {
 	pub(crate) fn para_backing_state(
 		&mut self,
 		key: (Hash, ParaId),
-	) -> Option<&Option<async_backing::BackingState>> {
+	) -> Option<&Option<vstaging::async_backing::BackingState>> {
 		self.para_backing_state.get(&key).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_para_backing_state(
 		&mut self,
 		key: (Hash, ParaId),
-		value: Option<async_backing::BackingState>,
+		value: Option<vstaging::async_backing::BackingState>,
 	) {
 		self.para_backing_state.insert(key, value);
 	}
@@ -561,7 +565,7 @@ pub(crate) enum RequestResult {
 	// The structure of each variant is (relay_parent, [params,]*, result)
 	Authorities(Hash, Vec<AuthorityDiscoveryId>),
 	Validators(Hash, Vec<ValidatorId>),
-	MinimumBackingVotes(Hash, SessionIndex, u32),
+	MinimumBackingVotes(SessionIndex, u32),
 	ValidatorGroups(Hash, (Vec<Vec<ValidatorIndex>>, GroupRotationInfo)),
 	AvailabilityCores(Hash, Vec<CoreState>),
 	PersistedValidationData(Hash, ParaId, OccupiedCoreAssumption, Option<PersistedValidationData>),
@@ -589,22 +593,19 @@ pub(crate) enum RequestResult {
 	FetchOnChainVotes(Hash, Option<ScrapedOnChainVotes>),
 	PvfsRequirePrecheck(Hash, Vec<ValidationCodeHash>),
 	// This is a request with side-effects and no result, hence ().
-	SubmitPvfCheckStatement(Hash, PvfCheckStatement, ValidatorSignature, ()),
+	#[allow(dead_code)]
+	SubmitPvfCheckStatement(()),
 	ValidationCodeHash(Hash, ParaId, OccupiedCoreAssumption, Option<ValidationCodeHash>),
 	Version(Hash, u32),
 	Disputes(Hash, Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>),
 	UnappliedSlashes(Hash, Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>),
 	KeyOwnershipProof(Hash, ValidatorId, Option<slashing::OpaqueKeyOwnershipProof>),
 	// This is a request with side-effects.
-	SubmitReportDisputeLost(
-		Hash,
-		slashing::DisputeProof,
-		slashing::OpaqueKeyOwnershipProof,
-		Option<()>,
-	),
+	#[allow(dead_code)]
+	SubmitReportDisputeLost(Option<()>),
 	ApprovalVotingParams(Hash, SessionIndex, ApprovalVotingParams),
 	DisabledValidators(Hash, Vec<ValidatorIndex>),
-	ParaBackingState(Hash, ParaId, Option<async_backing::BackingState>),
+	ParaBackingState(Hash, ParaId, Option<vstaging::async_backing::BackingState>),
 	AsyncBackingParams(Hash, async_backing::AsyncBackingParams),
 	NodeFeatures(SessionIndex, NodeFeatures),
 	ClaimQueue(Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>),

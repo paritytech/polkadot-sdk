@@ -79,7 +79,7 @@ pub struct RunCmd {
 
 	/// Disable the BEEFY gadget.
 	///
-	/// Currently enabled by default on 'Rococo', 'Wococo' and 'Versi'.
+	/// Currently enabled by default.
 	#[arg(long)]
 	pub no_beefy: bool,
 
@@ -92,12 +92,6 @@ pub struct RunCmd {
 	/// Enable the block authoring backoff that is triggered when finality is lagging.
 	#[arg(long)]
 	pub force_authoring_backoff: bool,
-
-	/// Add the destination address to the 'Jaeger' agent.
-	///
-	/// Must be valid socket address, of format `IP:Port` (commonly `127.0.0.1:6831`).
-	#[arg(long)]
-	pub jaeger_agent: Option<String>,
 
 	/// Add the destination address to the `pyroscope` agent.
 	///
@@ -131,9 +125,33 @@ pub struct RunCmd {
 	#[arg(long, value_name = "PATH")]
 	pub workers_path: Option<PathBuf>,
 
+	/// Override the maximum number of pvf execute workers.
+	///
+	///  **Dangerous!** Do not touch unless explicitly advised to.
+	#[arg(long)]
+	pub execute_workers_max_num: Option<usize>,
+	/// Override the maximum number of pvf workers that can be spawned in the pvf prepare
+	/// pool for tasks with the priority below critical.
+	///
+	///  **Dangerous!** Do not touch unless explicitly advised to.
+
+	#[arg(long)]
+	pub prepare_workers_soft_max_num: Option<usize>,
+	/// Override the absolute number of pvf workers that can be spawned in the pvf prepare pool.
+	///
+	///  **Dangerous!** Do not touch unless explicitly advised to.
+	#[arg(long)]
+	pub prepare_workers_hard_max_num: Option<usize>,
 	/// TESTING ONLY: disable the version check between nodes and workers.
 	#[arg(long, hide = true)]
 	pub disable_worker_version_check: bool,
+
+	/// Enable approval-voting message processing in parallel.
+	///
+	///**Dangerous!** This is an experimental feature and should not be used in production, unless
+	/// explicitly advised to.
+	#[arg(long)]
+	pub enable_approval_voting_parallel: bool,
 }
 
 #[allow(missing_docs)]

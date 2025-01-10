@@ -40,7 +40,7 @@
 //!
 //! ### Log levels
 //!
-//! All of the the [`tracing` macros](https://docs.rs/tracing/latest/tracing/index.html#macros) are available.
+//! All of the [`tracing` macros](https://docs.rs/tracing/latest/tracing/index.html#macros) are available.
 //! In decreasing order of priority they are:
 //!
 //! - `error!`

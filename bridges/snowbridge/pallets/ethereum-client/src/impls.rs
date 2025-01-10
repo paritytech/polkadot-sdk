@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
 use frame_support::ensure;
-use primitives::ExecutionProof;
+use snowbridge_beacon_primitives::ExecutionProof;
 
 use snowbridge_core::inbound::{
 	VerificationError::{self, *},

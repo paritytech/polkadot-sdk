@@ -26,11 +26,11 @@ use crate::{
 	traits::{Get, GetDefault, StorageInfo, StorageInstance},
 	StorageHasher, Twox128,
 };
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 use frame_support::storage::StorageDecodeNonDedupLength;
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
-use sp_std::prelude::*;
 
 /// A type representing a *map* in storage. A *storage map* is a mapping of keys to values of a
 /// given type stored on-chain.
@@ -490,7 +490,11 @@ where
 	OnEmpty: Get<QueryKind::Query> + 'static,
 	MaxValues: Get<Option<u32>>,
 {
-	fn build_metadata(docs: Vec<&'static str>, entries: &mut Vec<StorageEntryMetadataIR>) {
+	fn build_metadata(
+		deprecation_status: sp_metadata_ir::DeprecationStatusIR,
+		docs: Vec<&'static str>,
+		entries: &mut Vec<StorageEntryMetadataIR>,
+	) {
 		let docs = if cfg!(feature = "no-metadata-docs") { vec![] } else { docs };
 
 		let entry = StorageEntryMetadataIR {
@@ -503,6 +507,7 @@ where
 			},
 			default: OnEmpty::get().encode(),
 			docs,
+			deprecation_info: deprecation_status,
 		};
 
 		entries.push(entry);
@@ -791,8 +796,16 @@ mod test {
 			assert_eq!(A::iter().collect::<Vec<_>>(), vec![(3, 10)]);
 
 			let mut entries = vec![];
-			A::build_metadata(vec![], &mut entries);
-			AValueQueryWithAnOnEmpty::build_metadata(vec![], &mut entries);
+			A::build_metadata(
+				sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
+				vec![],
+				&mut entries,
+			);
+			AValueQueryWithAnOnEmpty::build_metadata(
+				sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
+				vec![],
+				&mut entries,
+			);
 			assert_eq!(
 				entries,
 				vec![
@@ -806,6 +819,7 @@ mod test {
 						},
 						default: Option::<u32>::None.encode(),
 						docs: vec![],
+						deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated
 					},
 					StorageEntryMetadataIR {
 						name: "foo",
@@ -817,6 +831,7 @@ mod test {
 						},
 						default: 97u32.encode(),
 						docs: vec![],
+						deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated
 					}
 				]
 			);

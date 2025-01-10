@@ -18,7 +18,7 @@ use std::marker::PhantomData;
 
 use futures::{channel::oneshot, StreamExt};
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 
 use sc_network::{config as netconfig, NetworkBackend};
 use sc_network_types::PeerId;

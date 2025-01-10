@@ -46,6 +46,8 @@ impl Config for Test {
 	type OnNewRoot = ();
 	type BlockHashProvider = DefaultBlockHashProvider<Test>;
 	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 #[derive(Encode, Decode, Clone, Default, Eq, PartialEq, Debug)]

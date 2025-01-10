@@ -9,6 +9,7 @@ TestConfiguration:
     coalesce_tranche_diff: 12
     num_no_shows_per_candidate: 0
     workdir_prefix: "/tmp"
+    approval_voting_parallel_enabled: true
   n_validators: 500
   n_cores: 100
   min_pov_size: 1120
@@ -16,3 +17,5 @@ TestConfiguration:
   peer_bandwidth: 524288000000
   bandwidth: 524288000000
   num_blocks: 10
+  connectivity: 100
+  latency: null

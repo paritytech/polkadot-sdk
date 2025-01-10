@@ -102,7 +102,10 @@ impl<'a> DummyCrate<'a> {
 			"#,
 		);
 
-		write_file_if_changed(project_dir.join("src/main.rs"), "fn main() {}");
+		write_file_if_changed(
+			project_dir.join("src/main.rs"),
+			"#![allow(missing_docs)] fn main() {}",
+		);
 		DummyCrate { cargo_command, temp, manifest_path, target }
 	}
 
@@ -193,11 +196,14 @@ fn check_wasm_toolchain_installed(
 				error,
 				colorize_aux_message(&"-".repeat(60)),
 			))
-		}
+		};
 	}
 
 	let version = dummy_crate.get_rustc_version();
-	if crate::build_std_required() {
+
+	let target = RuntimeTarget::new();
+	assert!(target == RuntimeTarget::Wasm);
+	if target.rustc_target_build_std().is_some() {
 		if let Some(sysroot) = dummy_crate.get_sysroot() {
 			let src_path =
 				Path::new(sysroot.trim()).join("lib").join("rustlib").join("src").join("rust");

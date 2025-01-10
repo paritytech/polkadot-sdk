@@ -18,9 +18,9 @@
 //! Storage types to build abstraction on storage, they implements storage traits such as
 //! StorageMap and others.
 
+use alloc::vec::Vec;
 use codec::FullCodec;
 use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryModifierIR};
-use sp_std::prelude::*;
 
 mod counted_map;
 mod counted_nmap;
@@ -93,7 +93,7 @@ where
 }
 
 /// Implements [`QueryKindTrait`] with `Query` type being `Result<Value, PalletError>`.
-pub struct ResultQuery<Error>(sp_std::marker::PhantomData<Error>);
+pub struct ResultQuery<Error>(core::marker::PhantomData<Error>);
 impl<Value, Error, OnEmpty> QueryKindTrait<Value, OnEmpty> for ResultQuery<Error>
 where
 	Value: FullCodec + 'static,
@@ -141,7 +141,11 @@ where
 /// Implemented by each of the storage types: value, map, countedmap, doublemap and nmap.
 pub trait StorageEntryMetadataBuilder {
 	/// Build into `entries` the storage metadata entries of a storage given some `docs`.
-	fn build_metadata(doc: Vec<&'static str>, entries: &mut Vec<StorageEntryMetadataIR>);
+	fn build_metadata(
+		deprecation_status: sp_metadata_ir::DeprecationStatusIR,
+		doc: Vec<&'static str>,
+		entries: &mut Vec<StorageEntryMetadataIR>,
+	);
 }
 
 #[cfg(test)]

@@ -145,7 +145,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			ensure!(account == mint_to, Error::<T, I>::WrongOrigin);
 		}
 
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = T::BlockNumberProvider::current_block_number();
 		ensure!(deadline >= now, Error::<T, I>::DeadlineExpired);
 
 		ensure!(

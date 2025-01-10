@@ -16,8 +16,8 @@
 // limitations under the License.
 
 use crate::{BoundedBTreeMap, BoundedBTreeSet, BoundedVec, WeakBoundedVec};
+use alloc::vec::Vec;
 use codec::Decode;
-use sp_std::vec::Vec;
 
 /// Provides the sealed trait `StreamIter`.
 mod private {
@@ -26,7 +26,7 @@ mod private {
 	/// Used as marker trait for types that support stream iteration.
 	pub trait StreamIter {
 		/// The actual iterator implementation.
-		type Iterator: sp_std::iter::Iterator;
+		type Iterator: core::iter::Iterator;
 
 		/// Create the stream iterator for the value found at `key`.
 		fn stream_iter(key: Vec<u8>) -> Self::Iterator;
@@ -40,7 +40,7 @@ mod private {
 		}
 	}
 
-	impl<T: codec::Decode> StreamIter for sp_std::collections::btree_set::BTreeSet<T> {
+	impl<T: codec::Decode> StreamIter for alloc::collections::btree_set::BTreeSet<T> {
 		type Iterator = ScaleContainerStreamIter<T>;
 
 		fn stream_iter(key: Vec<u8>) -> Self::Iterator {
@@ -49,7 +49,7 @@ mod private {
 	}
 
 	impl<K: codec::Decode, V: codec::Decode> StreamIter
-		for sp_std::collections::btree_map::BTreeMap<K, V>
+		for alloc::collections::btree_map::BTreeMap<K, V>
 	{
 		type Iterator = ScaleContainerStreamIter<(K, V)>;
 
@@ -116,14 +116,14 @@ impl<T: private::StreamIter + codec::FullCodec, StorageValue: super::StorageValu
 /// A streaming iterator implementation for SCALE container types.
 ///
 /// SCALE container types follow the same type of encoding `Compact<u32>(len) ++ data`.
-/// This type provides an [`Iterator`](sp_std::iter::Iterator) implementation that decodes
+/// This type provides an [`Iterator`](core::iter::Iterator) implementation that decodes
 /// one item after another with each call to [`next`](Self::next). The bytes representing
 /// the container are also not read at once into memory and instead being read in chunks. As long
 /// as individual items are smaller than these chunks the memory usage of this iterator should
 /// be constant. On decoding errors [`next`](Self::next) will return `None` to signal that the
 /// iterator is finished.
 pub struct ScaleContainerStreamIter<T> {
-	marker: sp_std::marker::PhantomData<T>,
+	marker: core::marker::PhantomData<T>,
 	input: StorageInput,
 	length: u32,
 	read: u32,
@@ -156,7 +156,7 @@ impl<T> ScaleContainerStreamIter<T> {
 			0
 		};
 
-		Self { marker: sp_std::marker::PhantomData, input, length, read: 0 }
+		Self { marker: core::marker::PhantomData, input, length, read: 0 }
 	}
 
 	/// Creates a new instance of the stream iterator.
@@ -168,11 +168,11 @@ impl<T> ScaleContainerStreamIter<T> {
 		let mut input = StorageInput::new(key);
 		let length = if input.exists() { codec::Compact::<u32>::decode(&mut input)?.0 } else { 0 };
 
-		Ok(Self { marker: sp_std::marker::PhantomData, input, length, read: 0 })
+		Ok(Self { marker: core::marker::PhantomData, input, length, read: 0 })
 	}
 }
 
-impl<T: codec::Decode> sp_std::iter::Iterator for ScaleContainerStreamIter<T> {
+impl<T: codec::Decode> core::iter::Iterator for ScaleContainerStreamIter<T> {
 	type Item = T;
 
 	fn next(&mut self) -> Option<T> {
@@ -235,7 +235,7 @@ impl StorageInput {
 	///
 	/// - `key`: The storage key of the storage item that this input will read.
 	fn new(key: Vec<u8>) -> Self {
-		let mut buffer = sp_std::vec![0; STORAGE_INPUT_BUFFER_CAPACITY];
+		let mut buffer = alloc::vec![0; STORAGE_INPUT_BUFFER_CAPACITY];
 		unsafe {
 			buffer.set_len(buffer.capacity());
 		}
@@ -270,7 +270,7 @@ impl StorageInput {
 			sp_io::storage::read(&self.key, &mut self.buffer[present_bytes..], self.offset)
 		{
 			let bytes_read =
-				sp_std::cmp::min(length_minus_offset as usize, self.buffer.len() - present_bytes);
+				core::cmp::min(length_minus_offset as usize, self.buffer.len() - present_bytes);
 			let buffer_len = present_bytes + bytes_read;
 			unsafe {
 				self.buffer.set_len(buffer_len);

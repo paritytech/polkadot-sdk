@@ -24,9 +24,10 @@
 use crate::weights::Weight;
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_runtime::traits::AtLeast32BitUnsigned;
-use sp_std::prelude::*;
 use sp_weights::WeightMeter;
 
+#[cfg(feature = "try-runtime")]
+use alloc::vec::Vec;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
@@ -351,6 +352,7 @@ pub trait IntegrityTest {
 /// - [`crate::traits::misc::OffchainWorker`]
 /// - [`OnIdle`]
 /// - [`IntegrityTest`]
+/// - [`OnPoll`]
 ///
 /// ## Ordering
 ///
@@ -363,34 +365,32 @@ pub trait IntegrityTest {
 ///
 /// ```mermaid
 /// graph LR
-/// 	Optional --> BeforeExtrinsics
-/// 	BeforeExtrinsics --> Extrinsics
-/// 	Extrinsics --> AfterExtrinsics
-/// 	subgraph Optional
+/// 	Optional --> Mandatory
+/// 	Mandatory --> ExtrinsicsMandatory
+/// 	ExtrinsicsMandatory --> Poll
+/// 	Poll --> Extrinsics
+/// 	Extrinsics --> AfterMandatory
+/// 	AfterMandatory --> onIdle
+///
+/// subgraph Optional
 /// 	OnRuntimeUpgrade
 /// end
 ///
-/// subgraph BeforeExtrinsics
+/// subgraph Mandatory
 /// 	OnInitialize
+/// end
+///
+/// subgraph ExtrinsicsMandatory
+/// 	Inherent1 --> Inherent2
 /// end
 ///
 /// subgraph Extrinsics
 /// 	direction TB
-/// 	Inherent1
-/// 	Inherent2
-/// 	Extrinsic1
-/// 	Extrinsic2
-///
-/// 	Inherent1 --> Inherent2
-/// 	Inherent2 --> Extrinsic1
 /// 	Extrinsic1 --> Extrinsic2
 /// end
 ///
-/// subgraph AfterExtrinsics
-/// 	OnIdle
+/// subgraph AfterMandatory
 /// 	OnFinalize
-///
-/// 	OnIdle --> OnFinalize
 /// end
 /// ```
 ///
@@ -466,6 +466,8 @@ pub trait Hooks<BlockNumber> {
 	///
 	/// Is not guaranteed to execute in a block and should therefore only be used in no-deadline
 	/// scenarios.
+	///
+	/// This is the non-mandatory version of [`Hooks::on_initialize`].
 	fn on_poll(_n: BlockNumber, _weight: &mut WeightMeter) {}
 
 	/// Hook executed when a code change (aka. a "runtime upgrade") is detected by the FRAME
@@ -706,7 +708,7 @@ mod tests {
 
 	#[test]
 	fn on_idle_round_robin_works() {
-		static mut ON_IDLE_INVOCATION_ORDER: sp_std::vec::Vec<&str> = sp_std::vec::Vec::new();
+		static mut ON_IDLE_INVOCATION_ORDER: alloc::vec::Vec<&str> = alloc::vec::Vec::new();
 
 		struct Test1;
 		struct Test2;

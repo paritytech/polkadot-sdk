@@ -22,15 +22,15 @@ use relay_substrate_client::{Chain, ChainWithUtilityPallet, UtilityPallet};
 
 use std::marker::PhantomData;
 
+// to avoid `finality_relay` dependency in other crates
+pub use finality_relay::HeadersToRelay;
+
 pub mod cli;
 pub mod equivocation;
 pub mod error;
 pub mod finality;
 pub mod finality_base;
-pub mod messages_lane;
-pub mod messages_metrics;
-pub mod messages_source;
-pub mod messages_target;
+pub mod messages;
 pub mod on_demand;
 pub mod parachains;
 
@@ -125,5 +125,19 @@ impl<Call> BatchCallBuilderConstructor<Call> for () {
 impl<Call> BatchCallBuilder<Call> for () {
 	fn build_batch_call(&self, _calls: Vec<Call>) -> Call {
 		unreachable!("never called, because ()::new_builder() returns None; qed")
+	}
+}
+
+/// Module for handling storage proofs compatibility.
+pub mod proofs {
+	use bp_runtime::{HashOf, RawStorageProof};
+	use relay_substrate_client::Chain;
+	use sp_trie::StorageProof;
+
+	/// Converts proof to `RawStorageProof` type.
+	pub fn to_raw_storage_proof<SourceChain: Chain>(
+		proof: (StorageProof, HashOf<SourceChain>),
+	) -> RawStorageProof {
+		proof.0.into_iter_nodes().collect()
 	}
 }

@@ -16,9 +16,9 @@
 
 //! Collator for the adder test parachain.
 
+use codec::{Decode, Encode};
 use futures::channel::oneshot;
 use futures_timer::Delay;
-use parity_scale_codec::{Decode, Encode};
 use polkadot_node_primitives::{
 	Collation, CollationResult, CollationSecondedSignal, CollatorFn, MaybeCompressedPoV, PoV,
 	Statement,
@@ -236,7 +236,7 @@ impl Collator {
 					if let Ok(res) = recv.await {
 						if !matches!(
 							res.statement.payload(),
-							Statement::Seconded(s) if s.descriptor.pov_hash == compressed_pov.hash(),
+							Statement::Seconded(s) if s.descriptor.pov_hash() == compressed_pov.hash(),
 						) {
 							log::error!(
 								"Seconded statement should match our collation: {:?}",

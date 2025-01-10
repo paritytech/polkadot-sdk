@@ -22,7 +22,7 @@ use frame_support::{
 	traits::{Contains, Everything, Nothing},
 	weights::Weight,
 };
-use xcm::latest::prelude::*;
+use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
 	AllowExplicitUnpaidExecutionFrom, FixedWeightBounds, FrameTransactionalProcessor,
 	ParentAsSuperuser, ParentIsPreset, SovereignSignedViaLocation,
@@ -30,8 +30,8 @@ use xcm_builder::{
 
 parameter_types! {
 	pub const WestendLocation: Location = Location::parent();
-	pub const WestendNetwork: Option<NetworkId> = Some(NetworkId::Westend);
-	pub UniversalLocation: InteriorLocation = [Parachain(ParachainInfo::parachain_id().into())].into();
+	pub const WestendNetwork: NetworkId = NetworkId::ByGenesis(WESTEND_GENESIS_HASH);
+	pub UniversalLocation: InteriorLocation = [GlobalConsensus(WestendNetwork::get()), Parachain(ParachainInfo::parachain_id().into())].into();
 }
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
@@ -91,6 +91,7 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = ();
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {
