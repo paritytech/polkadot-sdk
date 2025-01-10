@@ -43,11 +43,10 @@
 //! Here's an example of a privileged function in another pallet:
 //!
 //! ```
-//! #[frame_support::pallet]
+//! #[frame::pallet]
 //! pub mod pallet {
 //! 	use super::*;
-//! 	use frame_support::pallet_prelude::*;
-//! 	use frame_system::pallet_prelude::*;
+//! 	use frame::prelude::*;
 //!
 //! 	#[pallet::pallet]
 //! 	pub struct Pallet<T>(_);
@@ -124,10 +123,17 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
-
-use sp_runtime::{traits::StaticLookup, DispatchResult};
-
-use frame_support::{dispatch::GetDispatchInfo, traits::UnfilteredDispatchable};
+use frame::{
+	benchmarking::prelude::*,
+	deps::{
+		frame_support::{
+			dispatch::{GetDispatchInfo, Parameter},
+			traits::UnfilteredDispatchable,
+		},
+		sp_runtime::{traits::StaticLookup, DispatchResult},
+	},
+	prelude::*,
+};
 
 mod extension;
 #[cfg(test)]
@@ -145,16 +151,13 @@ pub use pallet::*;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::{DispatchResult, *};
-	use frame_support::pallet_prelude::*;
-	use frame_system::{pallet_prelude::*, RawOrigin};
 
 	/// Default preludes for [`Config`].
 	pub mod config_preludes {
 		use super::*;
-		use frame_support::derive_impl;
 
 		/// Default prelude sensible to be used in a testing environment.
 		pub struct TestDefaultConfig;
@@ -162,7 +165,7 @@ pub mod pallet {
 		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for TestDefaultConfig {}
 
-		#[frame_support::register_default_impl(TestDefaultConfig)]
+		#[frame::register_default_impl(TestDefaultConfig)]
 		impl DefaultConfig for TestDefaultConfig {
 			type WeightInfo = ();
 			#[inject_runtime_type]
@@ -335,7 +338,7 @@ pub mod pallet {
 	pub(super) type Key<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
 	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
+	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		/// The `AccountId` of the sudo key.
 		pub key: Option<T::AccountId>,

@@ -19,15 +19,17 @@
 
 use super::*;
 use crate as sudo;
-use frame_support::{derive_impl, traits::Contains};
-use sp_io;
-use sp_runtime::BuildStorage;
+use frame::{
+	prelude::*,
+	traits::{Contains, UnfilteredDispatchable},
+	deps::sp_io,
+	benchmarking::prelude::*,
+};
 
 // Logger module to track execution.
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod logger {
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
+	use frame::prelude::*;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {

@@ -18,7 +18,7 @@
 //! Tests for the module.
 
 use super::*;
-use frame_support::{assert_noop, assert_ok, weights::Weight};
+use frame::testing_prelude::*;
 use mock::{
 	new_test_ext, Logger, LoggerCall, RuntimeCall, RuntimeEvent as TestEvent, RuntimeOrigin, Sudo,
 	SudoCall, System, Test,
