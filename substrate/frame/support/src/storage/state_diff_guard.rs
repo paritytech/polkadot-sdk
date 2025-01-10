@@ -212,30 +212,33 @@ impl StateDiffGuard {
 		let mut check_passed = true;
 
 		while let Some(next) = sp_io::storage::next_key(&previous_key) {
-			if let Some(value) = sp_io::storage::get(&next) {
-				let (maybe_old_value, value) = (self.initial_state.remove(&next), value);
+			let Some(value) = sp_io::storage::get(&next) else {
+				continue
+			}
+			let (maybe_old_value, value) = (self.initial_state.remove(&next), value);
 
-				if let Some(policy) = self.prefix_mutation_policy(&next) {
-					match policy {
-						MutationPolicy::CanChange => {
-							// expected to change, no need to check anything
-						},
-						MutationPolicy::CanNotChange | MutationPolicy::MustNotChange => {
-							check_passed = maybe_old_value == Some(value.to_vec());
-						},
-						MutationPolicy::MustChange =>
-							if let Some(old_value) = maybe_old_value {
-								if old_value == value {
-									check_passed = false;
-									log::info!(
-										"Storage value for key must have been changed, but it is not {:?} -> {:?}",
-										next,
-										value
-									);
-								}
-							},
-					}
-				}
+			let Some(policy) = self.prefix_mutation_policy(&next) else {
+				continue;
+			}
+
+			match policy {
+				MutationPolicy::CanChange => {
+					// expected to change, no need to check anything
+				},
+				MutationPolicy::CanNotChange | MutationPolicy::MustNotChange => {
+					check_passed = maybe_old_value == Some(value.to_vec());
+				},
+				MutationPolicy::MustChange =>
+					if let Some(old_value) = maybe_old_value {
+						if old_value == value {
+							check_passed = false;
+							log::info!(
+								"Storage value for key must have been changed, but it is not {:?} -> {:?}",
+								next,
+								value
+							);
+						}
+					},
 			}
 
 			previous_key = next;
