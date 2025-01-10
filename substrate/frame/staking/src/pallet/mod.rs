@@ -822,8 +822,15 @@ pub mod pallet {
 		ValidatorCountSet {
 			count: u32,
 		},
+		/// A stash was killed
 		StashKilled {
 			stash: T::AccountId
+		},
+		/// A nomination has been set or updated
+		Nomination {
+			nominator: T::AccountId,
+			targets:  BoundedVec<T::AccountId, MaxNominationsOf<T>>,
+			submitted_in: EraIndex,
 		},
 		/// The era payout has been set; the first balance is the validator-payout; the second is
 		/// the remainder from the maximum amount of reward.
@@ -1321,15 +1328,22 @@ pub mod pallet {
 				.try_into()
 				.map_err(|_| Error::<T>::TooManyNominators)?;
 
+			let submitted_in = Self::current_era().unwrap_or(0);
 			let nominations = Nominations {
-				targets,
+				targets: targets.clone(),
 				// Initial nominations are considered submitted at era 0. See `Nominations` doc.
-				submitted_in: Self::current_era().unwrap_or(0),
+				submitted_in,
 				suppressed: false,
 			};
 
 			Self::do_remove_validator(stash);
 			Self::do_add_nominator(stash, nominations);
+
+			Self::deposit_event(Event::<T>::Nomination {
+				nominator: stash.clone(),
+				targets,
+				submitted_in
+			});
 			Ok(())
 		}
 
