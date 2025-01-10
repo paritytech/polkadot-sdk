@@ -14,8 +14,8 @@ doc:
 
       ```rust
           let _guard = StateDiffGuard::builder()
-            .must_change(GuardSubject::Prefix(SomeMap::<T>::storage_info().first().unwrap().clone()))
-            .must_not_change(GuardSubject::Prefix(SomeDoubleMap::<T>::storage_info().first().unwrap().clone()))
+            .must_change(SomeMap::<T>::storage_info())
+            .must_not_change(SomeDoubleMap::<T>::storage_info())
             .can_not_change(GuardSubject::AnythingElse)
             .build();
 
