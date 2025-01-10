@@ -20,3 +20,4 @@ doc:
 crates:
 - name: substrate-wasm-builder
   bump: minor
+  validate: false
