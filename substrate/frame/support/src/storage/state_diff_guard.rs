@@ -114,9 +114,9 @@
 //! In the example above, the guard will panic if any storage entry that doesn't match `SomeMap` or
 //! `SomeDoubleMap` prefixes is changed.
 
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use array_bytes::bytes2hex;
 use core::fmt::Debug;
-use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 use crate::traits::StorageInfo;
 
@@ -335,6 +335,7 @@ impl Drop for StateDiffGuard {
 		let check_passed = self.apply_mutation_policy();
 
 		// No need to double panic, eg. inside a test assertion failure.
+		#[cfg(feature = "std")]
 		if sp_std::thread::panicking() {
 			return
 		}
