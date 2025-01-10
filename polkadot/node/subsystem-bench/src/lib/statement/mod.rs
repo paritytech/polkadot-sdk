@@ -191,21 +191,24 @@ fn build_overseer(
 	let mut network_config =
 		FullNetworkConfiguration::<Block, Hash, NetworkWorker<Block, Hash>>::new(&net_conf, None);
 
-	let (statement_req_receiver, statement_req_cfg) =
+	// v1 requests
+	// We don't use them in this benchmark but still need to add the protocol
+	let (v1_statement_req_receiver, v1_statement_req_cfg) =
 		IncomingRequest::get_config_receiver::<Block, sc_network::NetworkWorker<Block, Hash>>(
 			&ReqProtocolNames::new(GENESIS_HASH, None),
 		);
-	network_config.add_request_response_protocol(statement_req_cfg);
-	let (candidate_req_receiver, candidate_req_cfg) =
+	network_config.add_request_response_protocol(v1_statement_req_cfg);
+	// v2 requests
+	let (v2_candidate_req_receiver, v2_candidate_req_cfg) =
 		IncomingRequest::get_config_receiver::<Block, sc_network::NetworkWorker<Block, Hash>>(
 			&ReqProtocolNames::new(GENESIS_HASH, None),
 		);
-	network_config.add_request_response_protocol(candidate_req_cfg);
+	network_config.add_request_response_protocol(v2_candidate_req_cfg);
 	let keystore = make_keystore();
 	let subsystem = StatementDistributionSubsystem::new(
 		keystore.clone(),
-		statement_req_receiver,
-		candidate_req_receiver,
+		v1_statement_req_receiver,
+		v2_candidate_req_receiver,
 		Metrics::try_register(&dependencies.registry).unwrap(),
 		rand::rngs::StdRng::from_entropy(),
 	);
