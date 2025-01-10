@@ -32,7 +32,7 @@ use frame_support::{
 	DefaultNoBound, RuntimeDebugNoBound,
 };
 use sp_runtime::{
-	traits::{Bounded, Saturating, Zero},
+	traits::{Saturating, Zero},
 	DispatchError, FixedPointNumber, FixedU128,
 };
 
@@ -271,7 +271,6 @@ impl<T: Config> Default for Contribution<T> {
 impl<T, E, S> RawMeter<T, E, S>
 where
 	T: Config,
-	BalanceOf<T>: Bounded,
 	E: Ext<T>,
 	S: State + Default + Debug,
 {
