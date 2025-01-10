@@ -7,10 +7,15 @@ license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
 description = "An Ethereum JSON-RPC server for pallet-revive."
+default-run = "eth-rpc"
 
 [[bin]]
 name = "eth-rpc"
 path = "src/main.rs"
+
+[[bin]]
+name = "eth-indexer"
+path = "src/eth-indexer.rs"
 
 [[example]]
 name = "deploy"
@@ -56,6 +61,12 @@ sc-service = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true }
 sp-weights = { workspace = true, default-features = true }
+sqlx = { version = "0.8.2", features = [
+	"macros",
+	"postgres",
+	"runtime-tokio",
+	"sqlite",
+] }
 subxt = { workspace = true, default-features = true, features = ["reconnecting-rpc-client"] }
 subxt-signer = { workspace = true, optional = true, features = [
 	"unstable-eth",
@@ -65,6 +76,7 @@ tokio = { workspace = true, features = ["full"] }
 
 [features]
 example = ["rlp", "subxt-signer"]
+sqlite = []
 
 [dev-dependencies]
 env_logger = { workspace = true }

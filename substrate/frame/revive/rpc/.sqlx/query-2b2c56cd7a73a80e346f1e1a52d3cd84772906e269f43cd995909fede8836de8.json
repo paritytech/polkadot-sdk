@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "-- sqlite\n            SELECT COUNT(*) as count\n            FROM transaction_hashes\n            WHERE block_hash = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "count",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "2b2c56cd7a73a80e346f1e1a52d3cd84772906e269f43cd995909fede8836de8"
+}
