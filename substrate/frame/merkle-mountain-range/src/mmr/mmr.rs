@@ -21,8 +21,8 @@ use crate::{
 		Hasher, Node, NodeOf,
 	},
 	primitives::{
-		self, mmr_lib, mmr_lib::MMRStoreReadOps, utils::NodesUtils, AncestryProof, Error, FullLeaf,
-		LeafIndex, NodeIndex,
+		mmr_lib, mmr_lib::MMRStoreReadOps, utils::NodesUtils, AncestryProof, Error, FullLeaf,
+		LeafIndex, LeafProof, NodeIndex,
 	},
 	Config, HashOf, HashingOf,
 };
@@ -36,11 +36,11 @@ use frame::prelude::*;
 pub fn verify_leaves_proof<H, L>(
 	root: H::Output,
 	leaves: Vec<Node<H, L>>,
-	proof: primitives::LeafProof<H::Output>,
+	proof: LeafProof<H::Output>,
 ) -> Result<bool, Error>
 where
 	H: Hash,
-	L: primitives::FullLeaf,
+	L: FullLeaf,
 {
 	let size = NodesUtils::new(proof.leaf_count).size();
 
@@ -107,7 +107,7 @@ pub struct Mmr<StorageType, T, I, L>
 where
 	T: Config<I>,
 	I: 'static,
-	L: primitives::FullLeaf,
+	L: FullLeaf,
 	Storage<StorageType, T, I, L>:
 		MMRStoreReadOps<NodeOf<T, I, L>> + mmr_lib::MMRStoreWriteOps<NodeOf<T, I, L>>,
 {
@@ -119,7 +119,7 @@ impl<StorageType, T, I, L> Mmr<StorageType, T, I, L>
 where
 	T: Config<I>,
 	I: 'static,
-	L: primitives::FullLeaf,
+	L: FullLeaf,
 	Storage<StorageType, T, I, L>:
 		MMRStoreReadOps<NodeOf<T, I, L>> + mmr_lib::MMRStoreWriteOps<NodeOf<T, I, L>>,
 {
@@ -136,7 +136,7 @@ where
 	pub fn verify_leaves_proof(
 		&self,
 		leaves: Vec<L>,
-		proof: primitives::LeafProof<HashOf<T, I>>,
+		proof: LeafProof<HashOf<T, I>>,
 	) -> Result<bool, Error> {
 		let p = mmr_lib::MerkleProof::<NodeOf<T, I, L>, Hasher<HashingOf<T, I>, L>>::new(
 			self.mmr.mmr_size(),
@@ -170,7 +170,7 @@ impl<T, I, L> Mmr<RuntimeStorage, T, I, L>
 where
 	T: Config<I>,
 	I: 'static,
-	L: primitives::FullLeaf,
+	L: FullLeaf,
 {
 	/// Push another item to the MMR.
 	///
@@ -198,7 +198,7 @@ impl<T, I, L> Mmr<OffchainStorage, T, I, L>
 where
 	T: Config<I>,
 	I: 'static,
-	L: primitives::FullLeaf + codec::Decode,
+	L: FullLeaf + codec::Decode,
 {
 	/// Generate a proof for given leaf indices.
 	///
@@ -207,7 +207,7 @@ where
 	pub fn generate_proof(
 		&self,
 		leaf_indices: Vec<NodeIndex>,
-	) -> Result<(Vec<L>, primitives::LeafProof<HashOf<T, I>>), Error> {
+	) -> Result<(Vec<L>, LeafProof<HashOf<T, I>>), Error> {
 		let positions = leaf_indices
 			.iter()
 			.map(|index| mmr_lib::leaf_index_to_pos(*index))
@@ -225,7 +225,7 @@ where
 		self.mmr
 			.gen_proof(positions)
 			.map_err(|e| Error::GenerateProof.log_error(e))
-			.map(|p| primitives::LeafProof {
+			.map(|p| LeafProof {
 				leaf_indices,
 				leaf_count,
 				items: p.proof_items().iter().map(|x| x.hash()).collect(),
@@ -236,14 +236,14 @@ where
 	pub fn generate_ancestry_proof(
 		&self,
 		prev_leaf_count: LeafIndex,
-	) -> Result<primitives::AncestryProof<HashOf<T, I>>, Error> {
+	) -> Result<AncestryProof<HashOf<T, I>>, Error> {
 		let prev_mmr_size = NodesUtils::new(prev_leaf_count).size();
 		let raw_ancestry_proof = self
 			.mmr
 			.gen_ancestry_proof(prev_mmr_size)
 			.map_err(|e| Error::GenerateProof.log_error(e))?;
 
-		Ok(primitives::AncestryProof {
+		Ok(AncestryProof {
 			prev_peaks: raw_ancestry_proof.prev_peaks.into_iter().map(|p| p.hash()).collect(),
 			prev_leaf_count,
 			leaf_count: self.leaves,

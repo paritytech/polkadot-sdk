@@ -19,7 +19,7 @@
 
 use crate::{
 	mmr::{Node, NodeOf},
-	primitives::{self, mmr_lib, mmr_lib::helper, utils::NodesUtils, NodeIndex},
+	primitives::{mmr_lib, mmr_lib::helper, utils::NodesUtils, FullLeaf, NodeIndex},
 	BlockHashProvider, Config, Nodes, NumberOfLeaves, Pallet,
 };
 use alloc::{vec, vec::Vec};
@@ -86,7 +86,7 @@ impl<T, I, L> mmr_lib::MMRStoreReadOps<NodeOf<T, I, L>> for Storage<OffchainStor
 where
 	T: Config<I>,
 	I: 'static,
-	L: primitives::FullLeaf + codec::Decode,
+	L: FullLeaf + Decode,
 {
 	fn get_elem(&self, pos: NodeIndex) -> mmr_lib::Result<Option<NodeOf<T, I, L>>> {
 		// Find out which leaf added node `pos` in the MMR.
@@ -124,7 +124,7 @@ impl<T, I, L> mmr_lib::MMRStoreWriteOps<NodeOf<T, I, L>> for Storage<OffchainSto
 where
 	T: Config<I>,
 	I: 'static,
-	L: primitives::FullLeaf + codec::Decode,
+	L: FullLeaf + Decode,
 {
 	fn append(&mut self, _: NodeIndex, _: Vec<NodeOf<T, I, L>>) -> mmr_lib::Result<()> {
 		panic!("MMR must not be altered in the off-chain context.")
@@ -135,7 +135,7 @@ impl<T, I, L> mmr_lib::MMRStoreReadOps<NodeOf<T, I, L>> for Storage<RuntimeStora
 where
 	T: Config<I>,
 	I: 'static,
-	L: primitives::FullLeaf,
+	L: FullLeaf,
 {
 	fn get_elem(&self, pos: NodeIndex) -> mmr_lib::Result<Option<NodeOf<T, I, L>>> {
 		Ok(Nodes::<T, I>::get(pos).map(Node::Hash))
@@ -146,7 +146,7 @@ impl<T, I, L> mmr_lib::MMRStoreWriteOps<NodeOf<T, I, L>> for Storage<RuntimeStor
 where
 	T: Config<I>,
 	I: 'static,
-	L: primitives::FullLeaf,
+	L: FullLeaf,
 {
 	fn append(&mut self, pos: NodeIndex, elems: Vec<NodeOf<T, I, L>>) -> mmr_lib::Result<()> {
 		if elems.is_empty() {
@@ -209,7 +209,7 @@ impl<T, I, L> Storage<RuntimeStorage, T, I, L>
 where
 	T: Config<I>,
 	I: 'static,
-	L: primitives::FullLeaf,
+	L: FullLeaf,
 {
 	fn store_to_offchain(
 		pos: NodeIndex,
