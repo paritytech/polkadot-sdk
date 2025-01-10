@@ -629,7 +629,9 @@ async fn handle_peer_view_change<Sender>(
 	});
 
 	// Drop claims for all cancelled fetches
-	sender.send_message(CandidateBackingMessage::DropClaims(removed)).await;
+	if !removed.is_empty() {
+		sender.send_message(CandidateBackingMessage::DropClaims(removed)).await;
+	}
 }
 
 /// Request a collation from the network.
@@ -1369,9 +1371,11 @@ where
 	}
 
 	// Drop claims for all unneeded candidates
-	sender
-		.send_message(CandidateBackingMessage::DropClaims(removed_collation_reqs))
-		.await;
+	if !removed_collation_reqs.is_empty() {
+		sender
+			.send_message(CandidateBackingMessage::DropClaims(removed_collation_reqs))
+			.await;
+	}
 
 	Ok(())
 }
@@ -1787,10 +1791,8 @@ async fn dequeue_next_collation_and_fetch<Context>(
 	// The collator we tried to fetch from last, optionally which candidate.
 	previous_fetch: (CollatorId, Option<CandidateHash>),
 ) {
-	let claimed_slots = get_claimed_slots(ctx.sender(), relay_parent).await;
-
 	while let Some((next, id)) =
-		get_next_collation_to_fetch(&previous_fetch, relay_parent, state, &claimed_slots)
+		get_next_collation_to_fetch(ctx.sender(), &previous_fetch, relay_parent, state).await
 	{
 		gum::debug!(
 			target: LOG_TARGET,
@@ -2169,11 +2171,11 @@ async fn handle_collation_fetch_response(
 
 /// Returns the next collation to fetch from the `waiting_queue` and reset the status back to
 /// `Waiting`.
-fn get_next_collation_to_fetch(
+async fn get_next_collation_to_fetch(
+	sender: &mut impl overseer::CollatorProtocolSenderTrait,
 	finished_one: &(CollatorId, Option<CandidateHash>),
 	relay_parent: Hash,
 	state: &mut State,
-	unfulfilled_entries: &VecDeque<ParaId>,
 ) -> Option<(PendingCollation, CollatorId)> {
 	let rp_state = match state.per_relay_parent.get_mut(&relay_parent) {
 		Some(rp_state) => rp_state,
@@ -2203,8 +2205,11 @@ fn get_next_collation_to_fetch(
 			return None
 		}
 	}
+
+	let unfulfilled_entries = get_claimed_slots(sender, relay_parent).await;
+
 	rp_state.collations.status.back_to_waiting();
-	rp_state.collations.pick_a_collation_to_fetch(unfulfilled_entries)
+	rp_state.collations.pick_a_collation_to_fetch(&unfulfilled_entries)
 }
 
 // Sanity check the candidate descriptor version.

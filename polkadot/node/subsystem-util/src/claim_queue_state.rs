@@ -599,6 +599,8 @@ impl PerLeafClaimQueueState {
 	}
 
 	/// Claims a slot in pending state for a candidate at a concrete leaf.
+	/// NOTE: This functions performs a claim only at the specified leaf. The caller needs to ensure
+	/// that this is correct.
 	pub fn claim_pending_slot_at_leaf(
 		&mut self,
 		leaf: &Hash,

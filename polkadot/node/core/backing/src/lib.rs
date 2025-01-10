@@ -1468,7 +1468,7 @@ async fn handle_can_second_request<Context>(
 		let candidate_relay_parent = hypothetical_candidate.relay_parent();
 		let candidate_para_id = hypothetical_candidate.candidate_para();
 
-		let cq = if let Some(core_index) = state
+		let cq_state = if let Some(core_index) = state
 			.per_relay_parent
 			.get(&relay_parent)
 			.and_then(|rp_state| rp_state.assigned_core)
@@ -1481,7 +1481,8 @@ async fn handle_can_second_request<Context>(
 		};
 
 		let result =
-			seconding_sanity_check(ctx, &state.implicit_view, hypothetical_candidate, cq).await;
+			seconding_sanity_check(ctx, &state.implicit_view, hypothetical_candidate, cq_state)
+				.await;
 
 		match result {
 			SecondingAllowed::No => false,
@@ -1491,7 +1492,7 @@ async fn handle_can_second_request<Context>(
 				// only make claims at the leaves at which we can second the candidate. Calling
 				// `claim_pending_slot` here might make unnecessary claims.
 				for leaf in leaves.iter() {
-					let res = cq.claim_pending_slot_at_leaf(
+					let res = cq_state.claim_pending_slot_at_leaf(
 						&leaf,
 						&candidate_hash,
 						&candidate_relay_parent,
