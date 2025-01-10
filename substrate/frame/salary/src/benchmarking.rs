@@ -21,7 +21,6 @@
 
 use super::*;
 use crate::{pallet::BlockNumberFor as SalaryBlockNumberFor, Pallet as Salary};
-
 use frame::benchmarking::prelude::*;
 
 const SEED: u32 = 0;
