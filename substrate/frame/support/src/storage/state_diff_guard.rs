@@ -112,6 +112,7 @@
 //! In the example above, the guard will panic if any storage entry that doesn't match `SomeMap` or
 //! `SomeDoubleMap` prefixes is changed.
 
+use array_bytes::bytes2hex;
 use core::fmt::Debug;
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
@@ -212,14 +213,12 @@ impl StateDiffGuard {
 		let mut check_passed = true;
 
 		while let Some(next) = sp_io::storage::next_key(&previous_key) {
-			let Some(value) = sp_io::storage::get(&next) else {
-				continue
-			}
+			let Some(value) = sp_io::storage::get(&next) else { continue };
 			let (maybe_old_value, value) = (self.initial_state.remove(&next), value);
 
 			let Some(policy) = self.prefix_mutation_policy(&next) else {
 				continue;
-			}
+			};
 
 			match policy {
 				MutationPolicy::CanChange => {
@@ -234,8 +233,8 @@ impl StateDiffGuard {
 							check_passed = false;
 							log::info!(
 								"Storage value for key must have been changed, but it is not {:?} -> {:?}",
-								next,
-								value
+								bytes2hex("0x", &next),
+								bytes2hex("0x", value),
 							);
 						}
 					},
@@ -246,16 +245,19 @@ impl StateDiffGuard {
 
 		// if there are any keys left in initial state, it means that they were removed
 		for (key, _) in self.initial_state.iter() {
-			if let Some(policy) = self.prefix_mutation_policy(key) {
-				match policy {
-					MutationPolicy::CanChange | MutationPolicy::MustChange => {
-						// expected to change, no need to check anything
-					},
-					MutationPolicy::CanNotChange | MutationPolicy::MustNotChange => {
-						check_passed = false;
-						log::info!("Storage key must not have been removed, but it is {:?}", key);
-					},
-				}
+			let Some(policy) = self.prefix_mutation_policy(key) else { continue };
+
+			match policy {
+				MutationPolicy::CanChange | MutationPolicy::MustChange => {
+					// expected to change, no need to check anything
+				},
+				MutationPolicy::CanNotChange | MutationPolicy::MustNotChange => {
+					check_passed = false;
+					log::info!(
+						"Storage key must not have been removed, but it is {:?}",
+						bytes2hex("0x", key)
+					);
+				},
 			}
 		}
 
