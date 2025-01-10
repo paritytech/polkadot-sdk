@@ -102,14 +102,15 @@ mod apis {
 
 			fn wild_card(_: u32) {}
 		}
-		pub use ext::*;
+
+		external_impls!{ext}
 	}
 }
 
 #[sp_api::impl_runtime_apis_ext]
 mod ext {
-	use super::*;
-	use crate::apis::RuntimeApiImpl;
+
+	external_impls! {super, crate::apis}
 
 	impl sp_api::Core<Block> for Runtime {
 		fn version() -> sp_version::RuntimeVersion {
