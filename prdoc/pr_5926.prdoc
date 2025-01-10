@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "[pallet-revive] add codegen for Ethereum RPC API"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Add codegen crate for generating Ethereum RPC methods and types from the spec.
+
+crates:
+  - name: pallet-revive-rpc-codegen 
+    bump: patch
