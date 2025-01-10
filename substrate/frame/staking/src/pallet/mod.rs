@@ -822,6 +822,9 @@ pub mod pallet {
 		ValidatorCountSet {
 			count: u32,
 		},
+		StashKilled {
+			stash: T::AccountId
+		},
 		/// The era payout has been set; the first balance is the validator-payout; the second is
 		/// the remainder from the maximum amount of reward.
 		EraPaid { era_index: EraIndex, validator_payout: BalanceOf<T>, remainder: BalanceOf<T> },

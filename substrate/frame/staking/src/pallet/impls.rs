@@ -809,6 +809,7 @@ impl<T: Config> Pallet<T> {
 
 		frame_system::Pallet::<T>::dec_consumers(&stash);
 
+		Self::deposit_event(Event::<T>::StashKilled { stash: stash.clone() });
 		Ok(())
 	}
 
