@@ -545,12 +545,8 @@ impl ExtBuilder {
 
 		if self.initialize_first_session {
 			ext.execute_with(|| {
-				System::run_to_block_with::<AllPalletsWithSystem>(
-					1,
-					frame_system::RunToBlockHooks::default().after_initialize(|_| {
-						Timestamp::set_timestamp(INIT_TIMESTAMP);
-					}),
-				);
+				System::run_to_block::<AllPalletsWithSystem>(1);
+				Timestamp::set_timestamp(INIT_TIMESTAMP);
 			});
 		}
 
