@@ -21,3 +21,5 @@ crates:
 - name: substrate-wasm-builder
   bump: minor
   validate: false
+- name: sp-consensus-beefy
+  bump: patch
