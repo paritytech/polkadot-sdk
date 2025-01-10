@@ -322,6 +322,7 @@ fn upgrade_fails_when_migration_active() {
 			Event::MigrationAdvanced { index: 0, took: 2 },
 		]);
 		assert_eq!(upgrades_started_completed_failed(), (1, 0, 0));
+		System::reset_events();
 
 		// Upgrade again.
 		Migrations::on_runtime_upgrade();
@@ -353,6 +354,7 @@ fn migration_timeout_errors() {
 			Event::UpgradeFailed,
 		]);
 		assert_eq!(upgrades_started_completed_failed(), (1, 0, 1));
+		System::reset_events();
 
 		// Failed migrations are not black-listed.
 		assert!(historic().is_empty());
