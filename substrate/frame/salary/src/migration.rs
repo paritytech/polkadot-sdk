@@ -195,7 +195,7 @@ pub mod v1 {
 }
 
 /// [`UncheckedOnRuntimeUpgrade`] implementation [`MigrateToV1`](v1::MigrateToV1) wrapped in a
-/// [`VersionedMigration`](frame::deps::frame_support::migrations::VersionedMigration), which ensures that:
+/// [`VersionedMigration`], which ensures that:
 /// - The migration only runs once when the on-chain storage version is 0
 /// - The on-chain storage version is updated to `1` after the migration executes
 /// - Reads/Writes from checking/settings the on-chain storage version are accounted for
