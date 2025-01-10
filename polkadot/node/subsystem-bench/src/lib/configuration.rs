@@ -21,6 +21,7 @@ use itertools::Itertools;
 use polkadot_primitives::{AssignmentId, AuthorityDiscoveryId, ValidatorId, ValidatorPair};
 use rand::thread_rng;
 use rand_distr::{Distribution, Normal, Uniform};
+use sc_network::config::{ed25519::SecretKey, NodeKeyConfig, Secret};
 use sc_network_types::PeerId;
 use serde::{Deserialize, Serialize};
 use sp_consensus_babe::AuthorityId;
@@ -199,6 +200,15 @@ impl TestConfiguration {
 
 	/// Generates the authority keys we need for the network emulation.
 	pub fn generate_authorities(&self) -> TestAuthorities {
+		let node_key_configs = (0..self.n_validators)
+			.map(|_| NodeKeyConfig::Ed25519(Secret::Input(SecretKey::generate())))
+			.collect_vec();
+		let peer_ids = node_key_configs
+			.iter()
+			.cloned()
+			.map(|node_key_config| node_key_config.into_keypair().unwrap().public().to_peer_id())
+			.collect_vec();
+
 		let keyring = Keyring::default();
 
 		let key_seeds = (0..self.n_validators)
@@ -222,7 +232,6 @@ impl TestConfiguration {
 
 		let validator_assignment_id: Vec<AssignmentId> =
 			keys.iter().map(|key| (*key).into()).collect::<Vec<_>>();
-		let peer_ids: Vec<PeerId> = keys.iter().map(|_| PeerId::random()).collect::<Vec<_>>();
 
 		let peer_id_to_authority = peer_ids
 			.iter()
@@ -239,6 +248,7 @@ impl TestConfiguration {
 			keyring,
 			validator_public,
 			validator_authority_id,
+			node_key_configs,
 			peer_ids,
 			validator_babe_id,
 			validator_assignment_id,
@@ -275,6 +285,7 @@ pub struct TestAuthorities {
 	pub peer_ids: Vec<PeerId>,
 	pub peer_id_to_authority: HashMap<PeerId, AuthorityDiscoveryId>,
 	pub validator_pairs: Vec<ValidatorPair>,
+	pub node_key_configs: Vec<NodeKeyConfig>,
 }
 
 /// Sample latency (in milliseconds) from a normal distribution with parameters
