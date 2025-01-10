@@ -2265,8 +2265,8 @@ fn gas_estimation_for_subcalls() {
 			GAS_LIMIT,
 			GAS_LIMIT * 2,
 			GAS_LIMIT / 5,
-			Weight::from_parts(0, GAS_LIMIT.proof_size()),
-			Weight::from_parts(GAS_LIMIT.ref_time(), 0),
+			Weight::from_parts(u64::MAX, GAS_LIMIT.proof_size()),
+			Weight::from_parts(GAS_LIMIT.ref_time(), u64::MAX),
 		];
 
 		// This call is passed to the sub call in order to create a large `required_weight`

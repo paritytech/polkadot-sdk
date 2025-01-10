@@ -1117,25 +1117,15 @@ where
 				return Ok(output);
 			}
 
-			// Storage limit is normally enforced as late as possible (when the last frame returns)
-			// so that the ordering of storage accesses does not matter.
-			// (However, if a special limit was set for a sub-call, it should be enforced right
-			// after the sub-call returned. See below for this case of enforcement).
-			if self.frames.is_empty() {
-				let frame = &mut self.first_frame;
-				frame.contract_info.load(&frame.account_id);
-				let contract = frame.contract_info.as_contract();
-				frame.nested_storage.enforce_limit(contract)?;
-			}
-
 			let frame = self.top_frame_mut();
 
-			// If a special limit was set for the sub-call, we enforce it here.
-			// The sub-call will be rolled back in case the limit is exhausted.
+			// The storage deposit is only charged at the end of every call stack.
+			// To make sure that no sub call uses more than it is allowed to,
+			// the limit is manually enforced here.
 			let contract = frame.contract_info.as_contract();
 			frame
 				.nested_storage
-				.enforce_subcall_limit(contract)
+				.enforce_limit(contract)
 				.map_err(|e| ExecError { error: e, origin: ErrorOrigin::Callee })?;
 
 			let account_id = T::AddressMapper::to_address(&frame.account_id);

@@ -101,12 +101,8 @@ pub struct Root;
 
 /// State parameter that constitutes a meter that is in its nested state.
 /// Its value indicates whether the nested meter has its own limit.
-#[derive(DefaultNoBound, RuntimeDebugNoBound)]
-pub enum Nested {
-	#[default]
-	DerivedLimit,
-	OwnLimit,
-}
+#[derive(Default, Debug)]
+pub struct Nested;
 
 impl State for Root {}
 impl State for Nested {}
@@ -125,10 +121,8 @@ pub struct RawMeter<T: Config, E, S: State + Default + Debug> {
 	/// We only have one charge per contract hence the size of this vector is
 	/// limited by the maximum call depth.
 	charges: Vec<Charge<T>>,
-	/// We store the nested state to determine if it has a special limit for sub-call.
-	nested: S,
 	/// Type parameter only used in impls.
-	_phantom: PhantomData<E>,
+	_phantom: PhantomData<(E, S)>,
 }
 
 /// This type is used to describe a storage change when charging from the meter.
@@ -289,15 +283,7 @@ where
 	pub fn nested(&self, limit: BalanceOf<T>) -> RawMeter<T, E, Nested> {
 		debug_assert!(matches!(self.contract_state(), ContractState::Alive));
 
-		if limit == BalanceOf::<T>::max_value() {
-			RawMeter { limit: self.available(), ..Default::default() }
-		} else {
-			// If a special limit is specified higher than it is available,
-			// we want to enforce the lesser limit to the nested meter, to fail in the sub-call.
-			let limit = self.available().min(limit);
-
-			RawMeter { limit, nested: Nested::OwnLimit, ..Default::default() }
-		}
+		RawMeter { limit: self.available().min(limit), ..Default::default() }
 	}
 
 	/// Absorb a child that was spawned to handle a sub call.
@@ -479,13 +465,6 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 
 	/// [`Self::charge`] does not enforce the storage limit since we want to do this check as late
 	/// as possible to allow later refunds to offset earlier charges.
-	///
-	/// # Note
-	///
-	/// We normally need to call this **once** for every call stack and not for every cross contract
-	/// call. However, if a dedicated limit is specified for a sub-call, this needs to be called
-	/// once the sub-call has returned. For this, the [`Self::enforce_subcall_limit`] wrapper is
-	/// used.
 	pub fn enforce_limit(
 		&mut self,
 		info: Option<&mut ContractInfo<T>>,
@@ -503,18 +482,6 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 			}
 		}
 		Ok(())
-	}
-
-	/// This is a wrapper around [`Self::enforce_limit`] to use on the exit from a sub-call to
-	/// enforce its special limit if needed.
-	pub fn enforce_subcall_limit(
-		&mut self,
-		info: Option<&mut ContractInfo<T>>,
-	) -> Result<(), DispatchError> {
-		match self.nested {
-			Nested::OwnLimit => self.enforce_limit(info),
-			Nested::DerivedLimit => Ok(()),
-		}
 	}
 }
 
