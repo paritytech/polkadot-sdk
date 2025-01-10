@@ -99,6 +99,10 @@ pub static CUSTOM_DEFAULT_VARIANTS: LazyLock<HashMap<&'static str, &'static str>
 		])
 	});
 
+/// Name alias for generated field names
+pub static NAME_ALIAS: LazyLock<HashMap<&'static str, &'static str>> =
+	LazyLock::new(|| HashMap::from([("H256s", "Hashes")]));
+
 /// Read the OpenRPC specs, and inject extra methods and legacy aliases.
 pub fn read_specs() -> anyhow::Result<OpenRpc> {
 	let content = include_str!("../openrpc.json");
@@ -416,7 +420,8 @@ impl TypeNameProvider for TypeGenerator {
 							required = Required::No { skip_if_null: false };
 							None
 						} else {
-							Some(name)
+							let name = if info.array { format!("{name}s") } else { name };
+							Some(NAME_ALIAS.get(name.as_str()).map_or(name, |v| v.to_string()))
 						}
 					})
 					.collect::<Vec<_>>();

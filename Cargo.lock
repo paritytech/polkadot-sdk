@@ -15163,6 +15163,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-revive-rpc-codegen"
+version = "0.1.0"
+dependencies = [
+ "Inflector",
+ "anyhow",
+ "pretty_assertions",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "pallet-revive-uapi"
 version = "0.1.0"
 dependencies = [

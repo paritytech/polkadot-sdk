@@ -14,7 +14,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use crate::open_rpc::*;
+use crate::{generator::NAME_ALIAS, open_rpc::*};
 use inflector::Inflector;
 
 /// Type information used for generating the type.
@@ -187,11 +187,8 @@ pub struct Variant {
 impl Variant {
 	pub fn name(&self) -> String {
 		let name = self.type_info.name.to_pascal_case();
-		if self.type_info.array {
-			format!("{}s", name)
-		} else {
-			name
-		}
+		let name = if self.type_info.array { format!("{}s", name) } else { name };
+		NAME_ALIAS.get(name.as_str()).map_or(name, |v| v.to_string())
 	}
 }
 
