@@ -19,7 +19,10 @@
 
 #![cfg(test)]
 
-use crate::{self as pallet_balances, AccountData, Config, CreditOf, Error, Pallet, TotalIssuance};
+use crate::{
+	self as pallet_balances, AccountData, Config, CreditOf, Error, Pallet, TotalIssuance,
+	DEFAULT_ADDRESS_URI,
+};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	assert_err, assert_noop, assert_ok, assert_storage_noop, derive_impl,
@@ -169,7 +172,11 @@ impl ExtBuilder {
 			} else {
 				vec![]
 			},
-			dev_accounts: (1000, self.existential_deposit, Some("//Sender/{}".to_string())),
+			dev_accounts: Some((
+				1000,
+				self.existential_deposit,
+				Some(DEFAULT_ADDRESS_URI.to_string()),
+			)),
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
@@ -283,7 +290,7 @@ pub fn ensure_ti_valid() {
 	let mut sum = 0;
 
 	// Fetch the dev accounts from Account Storage.
-	let dev_accounts = (1000, EXISTENTIAL_DEPOSIT, "//Sender/{}".to_string()); // You can customize this as needed
+	let dev_accounts = (1000, EXISTENTIAL_DEPOSIT, DEFAULT_ADDRESS_URI.to_string());
 	let (num_accounts, _balance, ref derivation) = dev_accounts;
 
 	// Generate the dev account public keys.

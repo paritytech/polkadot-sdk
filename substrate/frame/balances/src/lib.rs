@@ -195,7 +195,8 @@ pub use pallet::*;
 
 const LOG_TARGET: &str = "runtime::balances";
 
-const DEFAULT_ADDRESS_URI: &str = "//Sender/{}";
+// Default derivation(hard) for development accounts.
+const DEFAULT_ADDRESS_URI: &str = "//Sender//{}";
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
@@ -513,25 +514,18 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
 		pub balances: Vec<(T::AccountId, T::Balance)>,
-		/// Derived development accounts:
+		/// Derived development accounts(Optional):
 		/// - `u32`: The number of development accounts to generate.
 		/// - `T::Balance`: The initial balance assigned to each development account.
-		/// - `Option<String>`: An optional derivation string template.
-		///   - Must include `{}` as a placeholder for account indices.
-		///   - Defaults to `"//Sender/{}`" if `None`.
-		pub dev_accounts: (u32, T::Balance, Option<String>),
+		/// - `String`: An optional derivation(hard) string template.
+		/// - Must include `{}` as a placeholder for account indices.
+		/// - Defaults to `"//Sender//{}`" if `None`.
+		pub dev_accounts: Option<(u32, T::Balance, Option<String>)>,
 	}
 
 	impl<T: Config<I>, I: 'static> Default for GenesisConfig<T, I> {
 		fn default() -> Self {
-			Self {
-				balances: Default::default(),
-				dev_accounts: (
-					One::one(),
-					<T as Config<I>>::ExistentialDeposit::get(),
-					Some(DEFAULT_ADDRESS_URI.to_string()),
-				),
-			}
+			Self { balances: Default::default(), dev_accounts: None }
 		}
 	}
 
@@ -563,15 +557,14 @@ pub mod pallet {
 			);
 
 			// Generate additional dev accounts.
-			let (num_accounts, balance, ref derivation) = self.dev_accounts;
-
-			// Use `derivation` (or default) to generate key pair
-			Pallet::<T, I>::derive_dev_account(
-				num_accounts,
-				balance,
-				derivation.as_deref().unwrap_or(DEFAULT_ADDRESS_URI),
-			);
-
+			if let Some((num_accounts, balance, ref derivation)) = self.dev_accounts {
+				// Using the provided derivation string or default to `"//Sender//{}`".
+				Pallet::<T, I>::derive_dev_account(
+					num_accounts,
+					balance,
+					derivation.as_deref().unwrap_or(DEFAULT_ADDRESS_URI),
+				);
+			}
 			for &(ref who, free) in self.balances.iter() {
 				frame_system::Pallet::<T>::inc_providers(who);
 				assert!(T::AccountStore::insert(who, AccountData { free, ..Default::default() })
@@ -1281,9 +1274,9 @@ pub mod pallet {
 			Ok(actual)
 		}
 
-		/// Generate dev account from derivation string.
+		/// Generate dev account from derivation(hard) string.
 		pub fn derive_dev_account(num_accounts: u32, balance: T::Balance, derivation: &str) {
-			// Ensure that the number of accounts is not zero
+			// Ensure that the number of accounts is not zero.
 			assert!(num_accounts > 0, "num_accounts must be greater than zero");
 
 			assert!(
