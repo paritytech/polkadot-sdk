@@ -818,6 +818,10 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// A new era has started.
 		NewEra { index: EraIndex, start: u64 },
+		/// The ideal number of validators has been updated
+		ValidatorCountSet {
+			count: u32,
+		},
 		/// The era payout has been set; the first balance is the validator-payout; the second is
 		/// the remainder from the maximum amount of reward.
 		EraPaid { era_index: EraIndex, validator_payout: BalanceOf<T>, remainder: BalanceOf<T> },
@@ -1437,6 +1441,7 @@ pub mod pallet {
 				Error::<T>::TooManyValidators
 			);
 			ValidatorCount::<T>::put(new);
+			Self::deposit_event(Event::<T>::ValidatorCountSet { count: new });
 			Ok(())
 		}
 
@@ -1462,6 +1467,7 @@ pub mod pallet {
 			);
 
 			ValidatorCount::<T>::put(new);
+			Self::deposit_event(Event::<T>::ValidatorCountSet { count: new });
 			Ok(())
 		}
 
@@ -1485,6 +1491,7 @@ pub mod pallet {
 			);
 
 			ValidatorCount::<T>::put(new);
+			Self::deposit_event(Event::<T>::ValidatorCountSet { count: new });
 			Ok(())
 		}
 

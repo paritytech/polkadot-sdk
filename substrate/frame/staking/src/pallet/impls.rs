@@ -362,8 +362,7 @@ impl<T: Config> Pallet<T> {
 				amount: imbalance.peek(),
 				validator: validator_stash.clone(),
 				era,
-				page,
-
+				page
 			});
 			total_imbalance.subsume(imbalance);
 		}
