@@ -19,6 +19,7 @@
 
 use crate::{
 	address::AddressMapper,
+	evm::runtime::GAS_PRICE,
 	exec::{ExecError, ExecResult, Ext, Key},
 	gas::{ChargedAmount, Token},
 	limits,
@@ -64,6 +65,13 @@ pub trait Memory<T: Config> {
 	///
 	/// - designated area is not within the bounds of the sandbox memory.
 	fn write(&mut self, ptr: u32, buf: &[u8]) -> Result<(), DispatchError>;
+
+	/// Zero the designated location in the sandbox memory.
+	///
+	/// Returns `Err` if one of the following conditions occurs:
+	///
+	/// - designated area is not within the bounds of the sandbox memory.
+	fn zero(&mut self, ptr: u32, len: u32) -> Result<(), DispatchError>;
 
 	/// Read designated chunk from the sandbox memory.
 	///
@@ -162,6 +170,10 @@ impl<T: Config> Memory<T> for [u8] {
 		bound_checked.copy_from_slice(buf);
 		Ok(())
 	}
+
+	fn zero(&mut self, ptr: u32, len: u32) -> Result<(), DispatchError> {
+		<[u8] as Memory<T>>::write(self, ptr, &vec![0; len as usize])
+	}
 }
 
 impl<T: Config> Memory<T> for polkavm::RawInstance {
@@ -173,6 +185,10 @@ impl<T: Config> Memory<T> for polkavm::RawInstance {
 
 	fn write(&mut self, ptr: u32, buf: &[u8]) -> Result<(), DispatchError> {
 		self.write_memory(ptr, buf).map_err(|_| Error::<T>::OutOfBounds.into())
+	}
+
+	fn zero(&mut self, ptr: u32, len: u32) -> Result<(), DispatchError> {
+		self.zero_memory(ptr, len).map_err(|_| Error::<T>::OutOfBounds.into())
 	}
 }
 
@@ -267,8 +283,16 @@ pub enum RuntimeCosts {
 	CopyFromContract(u32),
 	/// Weight charged for copying data to the sandbox.
 	CopyToContract(u32),
+	/// Weight of calling `seal_call_data_load``.
+	CallDataLoad,
+	/// Weight of calling `seal_call_data_copy`.
+	CallDataCopy(u32),
 	/// Weight of calling `seal_caller`.
 	Caller,
+	/// Weight of calling `seal_call_data_size`.
+	CallDataSize,
+	/// Weight of calling `seal_return_data_size`.
+	ReturnDataSize,
 	/// Weight of calling `seal_origin`.
 	Origin,
 	/// Weight of calling `seal_is_contract`.
@@ -285,6 +309,8 @@ pub enum RuntimeCosts {
 	CallerIsRoot,
 	/// Weight of calling `seal_address`.
 	Address,
+	/// Weight of calling `seal_ref_time_left`.
+	RefTimeLeft,
 	/// Weight of calling `seal_weight_left`.
 	WeightLeft,
 	/// Weight of calling `seal_balance`.
@@ -299,8 +325,14 @@ pub enum RuntimeCosts {
 	BlockNumber,
 	/// Weight of calling `seal_block_hash`.
 	BlockHash,
+	/// Weight of calling `seal_gas_price`.
+	GasPrice,
+	/// Weight of calling `seal_base_fee`.
+	BaseFee,
 	/// Weight of calling `seal_now`.
 	Now,
+	/// Weight of calling `seal_gas_limit`.
+	GasLimit,
 	/// Weight of calling `seal_weight_to_fee`.
 	WeightToFee,
 	/// Weight of calling `seal_terminate`, passing the number of locked dependencies.
@@ -427,8 +459,12 @@ impl<T: Config> Token<T> for RuntimeCosts {
 		use self::RuntimeCosts::*;
 		match *self {
 			HostFn => cost_args!(noop_host_fn, 1),
-			CopyToContract(len) => T::WeightInfo::seal_input(len),
+			CopyToContract(len) => T::WeightInfo::seal_copy_to_contract(len),
 			CopyFromContract(len) => T::WeightInfo::seal_return(len),
+			CallDataSize => T::WeightInfo::seal_call_data_size(),
+			ReturnDataSize => T::WeightInfo::seal_return_data_size(),
+			CallDataLoad => T::WeightInfo::seal_call_data_load(),
+			CallDataCopy(len) => T::WeightInfo::seal_call_data_copy(len),
 			Caller => T::WeightInfo::seal_caller(),
 			Origin => T::WeightInfo::seal_origin(),
 			IsContract => T::WeightInfo::seal_is_contract(),
@@ -438,6 +474,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			CallerIsOrigin => T::WeightInfo::seal_caller_is_origin(),
 			CallerIsRoot => T::WeightInfo::seal_caller_is_root(),
 			Address => T::WeightInfo::seal_address(),
+			RefTimeLeft => T::WeightInfo::seal_ref_time_left(),
 			WeightLeft => T::WeightInfo::seal_weight_left(),
 			Balance => T::WeightInfo::seal_balance(),
 			BalanceOf => T::WeightInfo::seal_balance_of(),
@@ -445,7 +482,10 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			MinimumBalance => T::WeightInfo::seal_minimum_balance(),
 			BlockNumber => T::WeightInfo::seal_block_number(),
 			BlockHash => T::WeightInfo::seal_block_hash(),
+			GasPrice => T::WeightInfo::seal_gas_price(),
+			BaseFee => T::WeightInfo::seal_base_fee(),
 			Now => T::WeightInfo::seal_now(),
+			GasLimit => T::WeightInfo::seal_gas_limit(),
 			WeightToFee => T::WeightInfo::seal_weight_to_fee(),
 			Terminate(locked_dependencies) => T::WeightInfo::seal_terminate(locked_dependencies),
 			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len),
@@ -1143,20 +1183,6 @@ pub mod env {
 		self.set_storage(memory, flags, key_ptr, key_len, value_ptr, value_len)
 	}
 
-	/// Clear the value at the given key in the contract storage.
-	/// See [`pallet_revive_uapi::HostFn::clear_storage`]
-	#[stable]
-	#[mutating]
-	fn clear_storage(
-		&mut self,
-		memory: &mut M,
-		flags: u32,
-		key_ptr: u32,
-		key_len: u32,
-	) -> Result<u32, TrapReason> {
-		self.clear_storage(memory, flags, key_ptr, key_len)
-	}
-
 	/// Retrieve the value under the given key from storage.
 	/// See [`pallet_revive_uapi::HostFn::get_storage`]
 	#[stable]
@@ -1170,35 +1196,6 @@ pub mod env {
 		out_len_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.get_storage(memory, flags, key_ptr, key_len, out_ptr, out_len_ptr)
-	}
-
-	/// Checks whether there is a value stored under the given key.
-	/// See [`pallet_revive_uapi::HostFn::contains_storage`]
-	#[stable]
-	fn contains_storage(
-		&mut self,
-		memory: &mut M,
-		flags: u32,
-		key_ptr: u32,
-		key_len: u32,
-	) -> Result<u32, TrapReason> {
-		self.contains_storage(memory, flags, key_ptr, key_len)
-	}
-
-	/// Retrieve and remove the value under the given key from storage.
-	/// See [`pallet_revive_uapi::HostFn::take_storage`]
-	#[stable]
-	#[mutating]
-	fn take_storage(
-		&mut self,
-		memory: &mut M,
-		flags: u32,
-		key_ptr: u32,
-		key_len: u32,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
-		self.take_storage(memory, flags, key_ptr, key_len, out_ptr, out_len_ptr)
 	}
 
 	/// Make a call to another contract.
@@ -1296,27 +1293,78 @@ pub mod env {
 		)
 	}
 
-	/// Remove the calling account and transfer remaining **free** balance.
-	/// See [`pallet_revive_uapi::HostFn::terminate`].
+	/// Returns the total size of the contract call input data.
+	/// See [`pallet_revive_uapi::HostFn::call_data_size `].
 	#[stable]
-	#[mutating]
-	fn terminate(&mut self, memory: &mut M, beneficiary_ptr: u32) -> Result<(), TrapReason> {
-		self.terminate(memory, beneficiary_ptr)
+	fn call_data_size(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
+		self.charge_gas(RuntimeCosts::CallDataSize)?;
+		Ok(self
+			.input_data
+			.as_ref()
+			.map(|input| input.len().try_into().expect("usize fits into u64; qed"))
+			.unwrap_or_default())
 	}
 
 	/// Stores the input passed by the caller into the supplied buffer.
-	/// See [`pallet_revive_uapi::HostFn::input`].
+	/// See [`pallet_revive_uapi::HostFn::call_data_copy`].
 	#[stable]
-	fn input(&mut self, memory: &mut M, out_ptr: u32, out_len_ptr: u32) -> Result<(), TrapReason> {
-		if let Some(input) = self.input_data.take() {
-			self.write_sandbox_output(memory, out_ptr, out_len_ptr, &input, false, |len| {
-				Some(RuntimeCosts::CopyToContract(len))
-			})?;
-			self.input_data = Some(input);
-			Ok(())
-		} else {
-			Err(Error::<E::T>::InputForwarded.into())
+	fn call_data_copy(
+		&mut self,
+		memory: &mut M,
+		out_ptr: u32,
+		out_len: u32,
+		offset: u32,
+	) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::CallDataCopy(out_len))?;
+
+		let Some(input) = self.input_data.as_ref() else {
+			return Err(Error::<E::T>::InputForwarded.into());
+		};
+
+		let start = offset as usize;
+		if start >= input.len() {
+			memory.zero(out_ptr, out_len)?;
+			return Ok(());
 		}
+
+		let end = start.saturating_add(out_len as usize).min(input.len());
+		memory.write(out_ptr, &input[start..end])?;
+
+		let bytes_written = (end - start) as u32;
+		memory.zero(out_ptr.saturating_add(bytes_written), out_len - bytes_written)?;
+
+		Ok(())
+	}
+
+	/// Stores the U256 value at given call input `offset` into the supplied buffer.
+	/// See [`pallet_revive_uapi::HostFn::call_data_load`].
+	#[stable]
+	fn call_data_load(
+		&mut self,
+		memory: &mut M,
+		out_ptr: u32,
+		offset: u32,
+	) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::CallDataLoad)?;
+
+		let Some(input) = self.input_data.as_ref() else {
+			return Err(Error::<E::T>::InputForwarded.into());
+		};
+
+		let mut data = [0; 32];
+		let start = offset as usize;
+		let data = if start >= input.len() {
+			data // Any index is valid to request; OOB offsets return zero.
+		} else {
+			let end = start.saturating_add(32).min(input.len());
+			data[..end - start].copy_from_slice(&input[start..end]);
+			data.reverse();
+			data // Solidity expects right-padded data
+		};
+
+		self.write_fixed_sandbox_output(memory, out_ptr, &data, false, already_charged)?;
+
+		Ok(())
 	}
 
 	/// Cease contract execution and save a data buffer as a result of the execution.
@@ -1363,15 +1411,6 @@ pub mod env {
 		)?)
 	}
 
-	/// Checks whether a specified address belongs to a contract.
-	/// See [`pallet_revive_uapi::HostFn::is_contract`].
-	#[stable]
-	fn is_contract(&mut self, memory: &mut M, account_ptr: u32) -> Result<u32, TrapReason> {
-		self.charge_gas(RuntimeCosts::IsContract)?;
-		let address = memory.read_h160(account_ptr)?;
-		Ok(self.ext.is_contract(&address) as u32)
-	}
-
 	/// Retrieve the code hash for a specified contract address.
 	/// See [`pallet_revive_uapi::HostFn::code_hash`].
 	#[stable]
@@ -1390,47 +1429,10 @@ pub mod env {
 	/// Retrieve the code size for a given contract address.
 	/// See [`pallet_revive_uapi::HostFn::code_size`].
 	#[stable]
-	fn code_size(&mut self, memory: &mut M, addr_ptr: u32, out_ptr: u32) -> Result<(), TrapReason> {
+	fn code_size(&mut self, memory: &mut M, addr_ptr: u32) -> Result<u64, TrapReason> {
 		self.charge_gas(RuntimeCosts::CodeSize)?;
 		let address = memory.read_h160(addr_ptr)?;
-		Ok(self.write_fixed_sandbox_output(
-			memory,
-			out_ptr,
-			&self.ext.code_size(&address).to_little_endian(),
-			false,
-			already_charged,
-		)?)
-	}
-
-	/// Retrieve the code hash of the currently executing contract.
-	/// See [`pallet_revive_uapi::HostFn::own_code_hash`].
-	#[stable]
-	fn own_code_hash(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::OwnCodeHash)?;
-		let code_hash = *self.ext.own_code_hash();
-		Ok(self.write_fixed_sandbox_output(
-			memory,
-			out_ptr,
-			code_hash.as_bytes(),
-			false,
-			already_charged,
-		)?)
-	}
-
-	/// Checks whether the caller of the current contract is the origin of the whole call stack.
-	/// See [`pallet_revive_uapi::HostFn::caller_is_origin`].
-	#[stable]
-	fn caller_is_origin(&mut self, _memory: &mut M) -> Result<u32, TrapReason> {
-		self.charge_gas(RuntimeCosts::CallerIsOrigin)?;
-		Ok(self.ext.caller_is_origin() as u32)
-	}
-
-	/// Checks whether the caller of the current contract is root.
-	/// See [`pallet_revive_uapi::HostFn::caller_is_root`].
-	#[stable]
-	fn caller_is_root(&mut self, _memory: &mut M) -> Result<u32, TrapReason> {
-		self.charge_gas(RuntimeCosts::CallerIsRoot)?;
-		Ok(self.ext.caller_is_root() as u32)
+		Ok(self.ext.code_size(&address))
 	}
 
 	/// Stores the address of the current contract into the supplied buffer.
@@ -1464,27 +1466,6 @@ pub mod env {
 			memory,
 			out_ptr,
 			&self.ext.get_weight_price(weight).encode(),
-			false,
-			already_charged,
-		)?)
-	}
-
-	/// Stores the amount of weight left into the supplied buffer.
-	/// See [`pallet_revive_uapi::HostFn::weight_left`].
-	#[stable]
-	fn weight_left(
-		&mut self,
-		memory: &mut M,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::WeightLeft)?;
-		let gas_left = &self.ext.gas_meter().gas_left().encode();
-		Ok(self.write_sandbox_output(
-			memory,
-			out_ptr,
-			out_len_ptr,
-			gas_left,
 			false,
 			already_charged,
 		)?)
@@ -1567,6 +1548,14 @@ pub mod env {
 		)?)
 	}
 
+	/// Returns the block ref_time limit.
+	/// See [`pallet_revive_uapi::HostFn::gas_limit`].
+	#[stable]
+	fn gas_limit(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
+		self.charge_gas(RuntimeCosts::GasLimit)?;
+		Ok(<E::T as frame_system::Config>::BlockWeights::get().max_block.ref_time())
+	}
+
 	/// Stores the value transferred along with this call/instantiate into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::value_transferred`].
 	#[stable]
@@ -1581,6 +1570,28 @@ pub mod env {
 		)?)
 	}
 
+	/// Returns the simulated ethereum `GASPRICE` value.
+	/// See [`pallet_revive_uapi::HostFn::gas_price`].
+	#[stable]
+	fn gas_price(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
+		self.charge_gas(RuntimeCosts::GasPrice)?;
+		Ok(GAS_PRICE.into())
+	}
+
+	/// Returns the simulated ethereum `BASEFEE` value.
+	/// See [`pallet_revive_uapi::HostFn::base_fee`].
+	#[stable]
+	fn base_fee(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::BaseFee)?;
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&U256::zero().to_little_endian(),
+			false,
+			already_charged,
+		)?)
+	}
+
 	/// Load the latest block timestamp into the supplied buffer
 	/// See [`pallet_revive_uapi::HostFn::now`].
 	#[stable]
@@ -1590,20 +1601,6 @@ pub mod env {
 			memory,
 			out_ptr,
 			&self.ext.now().to_little_endian(),
-			false,
-			already_charged,
-		)?)
-	}
-
-	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
-	/// See [`pallet_revive_uapi::HostFn::minimum_balance`].
-	#[stable]
-	fn minimum_balance(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::MinimumBalance)?;
-		Ok(self.write_fixed_sandbox_output(
-			memory,
-			out_ptr,
-			&self.ext.minimum_balance().to_little_endian(),
 			false,
 			already_charged,
 		)?)
@@ -1684,22 +1681,6 @@ pub mod env {
 		)?)
 	}
 
-	/// Computes the SHA2 256-bit hash on the given input buffer.
-	/// See [`pallet_revive_uapi::HostFn::hash_sha2_256`].
-	#[stable]
-	fn hash_sha2_256(
-		&mut self,
-		memory: &mut M,
-		input_ptr: u32,
-		input_len: u32,
-		output_ptr: u32,
-	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::HashSha256(input_len))?;
-		Ok(self.compute_hash_on_intermediate_buffer(
-			memory, sha2_256, input_ptr, input_len, output_ptr,
-		)?)
-	}
-
 	/// Computes the KECCAK 256-bit hash on the given input buffer.
 	/// See [`pallet_revive_uapi::HostFn::hash_keccak_256`].
 	#[stable]
@@ -1716,36 +1697,53 @@ pub mod env {
 		)?)
 	}
 
-	/// Computes the BLAKE2 256-bit hash on the given input buffer.
-	/// See [`pallet_revive_uapi::HostFn::hash_blake2_256`].
+	/// Stores the length of the data returned by the last call into the supplied buffer.
+	/// See [`pallet_revive_uapi::HostFn::return_data_size`].
 	#[stable]
-	fn hash_blake2_256(
-		&mut self,
-		memory: &mut M,
-		input_ptr: u32,
-		input_len: u32,
-		output_ptr: u32,
-	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::HashBlake256(input_len))?;
-		Ok(self.compute_hash_on_intermediate_buffer(
-			memory, blake2_256, input_ptr, input_len, output_ptr,
-		)?)
+	fn return_data_size(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
+		self.charge_gas(RuntimeCosts::ReturnDataSize)?;
+		Ok(self
+			.ext
+			.last_frame_output()
+			.data
+			.len()
+			.try_into()
+			.expect("usize fits into u64; qed"))
 	}
 
-	/// Computes the BLAKE2 128-bit hash on the given input buffer.
-	/// See [`pallet_revive_uapi::HostFn::hash_blake2_128`].
+	/// Stores data returned by the last call, starting from `offset`, into the supplied buffer.
+	/// See [`pallet_revive_uapi::HostFn::return_data`].
 	#[stable]
-	fn hash_blake2_128(
+	fn return_data_copy(
 		&mut self,
 		memory: &mut M,
-		input_ptr: u32,
-		input_len: u32,
-		output_ptr: u32,
+		out_ptr: u32,
+		out_len_ptr: u32,
+		offset: u32,
 	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::HashBlake128(input_len))?;
-		Ok(self.compute_hash_on_intermediate_buffer(
-			memory, blake2_128, input_ptr, input_len, output_ptr,
-		)?)
+		let output = mem::take(self.ext.last_frame_output_mut());
+		let result = if offset as usize > output.data.len() {
+			Err(Error::<E::T>::OutOfBounds.into())
+		} else {
+			self.write_sandbox_output(
+				memory,
+				out_ptr,
+				out_len_ptr,
+				&output.data[offset as usize..],
+				false,
+				|len| Some(RuntimeCosts::CopyToContract(len)),
+			)
+		};
+		*self.ext.last_frame_output_mut() = output;
+		Ok(result?)
+	}
+
+	/// Returns the amount of ref_time left.
+	/// See [`pallet_revive_uapi::HostFn::ref_time_left`].
+	#[stable]
+	fn ref_time_left(&mut self, memory: &mut M) -> Result<u64, TrapReason> {
+		self.charge_gas(RuntimeCosts::RefTimeLeft)?;
+		Ok(self.ext.gas_meter().gas_left().ref_time())
 	}
 
 	/// Call into the chain extension provided by the chain if any.
@@ -1778,9 +1776,66 @@ pub mod env {
 		ret
 	}
 
+	/// Call some dispatchable of the runtime.
+	/// See [`frame_support::traits::call_runtime`].
+	#[mutating]
+	fn call_runtime(
+		&mut self,
+		memory: &mut M,
+		call_ptr: u32,
+		call_len: u32,
+	) -> Result<ReturnErrorCode, TrapReason> {
+		use frame_support::dispatch::GetDispatchInfo;
+		self.charge_gas(RuntimeCosts::CopyFromContract(call_len))?;
+		let call: <E::T as Config>::RuntimeCall = memory.read_as_unbounded(call_ptr, call_len)?;
+		self.call_dispatchable::<CallRuntimeFailed>(
+			call.get_dispatch_info(),
+			RuntimeCosts::CallRuntime,
+			|runtime| runtime.ext.call_runtime(call),
+		)
+	}
+
+	/// Checks whether the caller of the current contract is the origin of the whole call stack.
+	/// See [`pallet_revive_uapi::HostFn::caller_is_origin`].
+	fn caller_is_origin(&mut self, _memory: &mut M) -> Result<u32, TrapReason> {
+		self.charge_gas(RuntimeCosts::CallerIsOrigin)?;
+		Ok(self.ext.caller_is_origin() as u32)
+	}
+
+	/// Checks whether the caller of the current contract is root.
+	/// See [`pallet_revive_uapi::HostFn::caller_is_root`].
+	fn caller_is_root(&mut self, _memory: &mut M) -> Result<u32, TrapReason> {
+		self.charge_gas(RuntimeCosts::CallerIsRoot)?;
+		Ok(self.ext.caller_is_root() as u32)
+	}
+
+	/// Clear the value at the given key in the contract storage.
+	/// See [`pallet_revive_uapi::HostFn::clear_storage`]
+	#[mutating]
+	fn clear_storage(
+		&mut self,
+		memory: &mut M,
+		flags: u32,
+		key_ptr: u32,
+		key_len: u32,
+	) -> Result<u32, TrapReason> {
+		self.clear_storage(memory, flags, key_ptr, key_len)
+	}
+
+	/// Checks whether there is a value stored under the given key.
+	/// See [`pallet_revive_uapi::HostFn::contains_storage`]
+	fn contains_storage(
+		&mut self,
+		memory: &mut M,
+		flags: u32,
+		key_ptr: u32,
+		key_len: u32,
+	) -> Result<u32, TrapReason> {
+		self.contains_storage(memory, flags, key_ptr, key_len)
+	}
+
 	/// Emit a custom debug message.
 	/// See [`pallet_revive_uapi::HostFn::debug_message`].
-	#[stable]
 	fn debug_message(
 		&mut self,
 		memory: &mut M,
@@ -1800,23 +1855,245 @@ pub mod env {
 		}
 	}
 
-	/// Call some dispatchable of the runtime.
-	/// See [`frame_support::traits::call_runtime`].
-	#[mutating]
-	fn call_runtime(
+	/// Recovers the ECDSA public key from the given message hash and signature.
+	/// See [`pallet_revive_uapi::HostFn::ecdsa_recover`].
+	fn ecdsa_recover(
 		&mut self,
 		memory: &mut M,
-		call_ptr: u32,
-		call_len: u32,
+		signature_ptr: u32,
+		message_hash_ptr: u32,
+		output_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
-		use frame_support::dispatch::GetDispatchInfo;
-		self.charge_gas(RuntimeCosts::CopyFromContract(call_len))?;
-		let call: <E::T as Config>::RuntimeCall = memory.read_as_unbounded(call_ptr, call_len)?;
-		self.call_dispatchable::<CallRuntimeFailed>(
-			call.get_dispatch_info(),
-			RuntimeCosts::CallRuntime,
-			|runtime| runtime.ext.call_runtime(call),
-		)
+		self.charge_gas(RuntimeCosts::EcdsaRecovery)?;
+
+		let mut signature: [u8; 65] = [0; 65];
+		memory.read_into_buf(signature_ptr, &mut signature)?;
+		let mut message_hash: [u8; 32] = [0; 32];
+		memory.read_into_buf(message_hash_ptr, &mut message_hash)?;
+
+		let result = self.ext.ecdsa_recover(&signature, &message_hash);
+
+		match result {
+			Ok(pub_key) => {
+				// Write the recovered compressed ecdsa public key back into the sandboxed output
+				// buffer.
+				memory.write(output_ptr, pub_key.as_ref())?;
+
+				Ok(ReturnErrorCode::Success)
+			},
+			Err(_) => Ok(ReturnErrorCode::EcdsaRecoveryFailed),
+		}
+	}
+
+	/// Calculates Ethereum address from the ECDSA compressed public key and stores
+	/// See [`pallet_revive_uapi::HostFn::ecdsa_to_eth_address`].
+	fn ecdsa_to_eth_address(
+		&mut self,
+		memory: &mut M,
+		key_ptr: u32,
+		out_ptr: u32,
+	) -> Result<ReturnErrorCode, TrapReason> {
+		self.charge_gas(RuntimeCosts::EcdsaToEthAddress)?;
+		let mut compressed_key: [u8; 33] = [0; 33];
+		memory.read_into_buf(key_ptr, &mut compressed_key)?;
+		let result = self.ext.ecdsa_to_eth_address(&compressed_key);
+		match result {
+			Ok(eth_address) => {
+				memory.write(out_ptr, eth_address.as_ref())?;
+				Ok(ReturnErrorCode::Success)
+			},
+			Err(_) => Ok(ReturnErrorCode::EcdsaRecoveryFailed),
+		}
+	}
+
+	/// Computes the BLAKE2 128-bit hash on the given input buffer.
+	/// See [`pallet_revive_uapi::HostFn::hash_blake2_128`].
+	fn hash_blake2_128(
+		&mut self,
+		memory: &mut M,
+		input_ptr: u32,
+		input_len: u32,
+		output_ptr: u32,
+	) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::HashBlake128(input_len))?;
+		Ok(self.compute_hash_on_intermediate_buffer(
+			memory, blake2_128, input_ptr, input_len, output_ptr,
+		)?)
+	}
+
+	/// Computes the BLAKE2 256-bit hash on the given input buffer.
+	/// See [`pallet_revive_uapi::HostFn::hash_blake2_256`].
+	fn hash_blake2_256(
+		&mut self,
+		memory: &mut M,
+		input_ptr: u32,
+		input_len: u32,
+		output_ptr: u32,
+	) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::HashBlake256(input_len))?;
+		Ok(self.compute_hash_on_intermediate_buffer(
+			memory, blake2_256, input_ptr, input_len, output_ptr,
+		)?)
+	}
+
+	/// Computes the SHA2 256-bit hash on the given input buffer.
+	/// See [`pallet_revive_uapi::HostFn::hash_sha2_256`].
+	fn hash_sha2_256(
+		&mut self,
+		memory: &mut M,
+		input_ptr: u32,
+		input_len: u32,
+		output_ptr: u32,
+	) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::HashSha256(input_len))?;
+		Ok(self.compute_hash_on_intermediate_buffer(
+			memory, sha2_256, input_ptr, input_len, output_ptr,
+		)?)
+	}
+
+	/// Checks whether a specified address belongs to a contract.
+	/// See [`pallet_revive_uapi::HostFn::is_contract`].
+	fn is_contract(&mut self, memory: &mut M, account_ptr: u32) -> Result<u32, TrapReason> {
+		self.charge_gas(RuntimeCosts::IsContract)?;
+		let address = memory.read_h160(account_ptr)?;
+		Ok(self.ext.is_contract(&address) as u32)
+	}
+
+	/// Adds a new delegate dependency to the contract.
+	/// See [`pallet_revive_uapi::HostFn::lock_delegate_dependency`].
+	#[mutating]
+	fn lock_delegate_dependency(
+		&mut self,
+		memory: &mut M,
+		code_hash_ptr: u32,
+	) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::LockDelegateDependency)?;
+		let code_hash = memory.read_h256(code_hash_ptr)?;
+		self.ext.lock_delegate_dependency(code_hash)?;
+		Ok(())
+	}
+
+	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
+	/// See [`pallet_revive_uapi::HostFn::minimum_balance`].
+	fn minimum_balance(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::MinimumBalance)?;
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&self.ext.minimum_balance().to_little_endian(),
+			false,
+			already_charged,
+		)?)
+	}
+
+	/// Retrieve the code hash of the currently executing contract.
+	/// See [`pallet_revive_uapi::HostFn::own_code_hash`].
+	fn own_code_hash(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::OwnCodeHash)?;
+		let code_hash = *self.ext.own_code_hash();
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			code_hash.as_bytes(),
+			false,
+			already_charged,
+		)?)
+	}
+
+	/// Replace the contract code at the specified address with new code.
+	/// See [`pallet_revive_uapi::HostFn::set_code_hash`].
+	///
+	/// Disabled until the internal implementation takes care of collecting
+	/// the immutable data of the new code hash.
+	#[mutating]
+	fn set_code_hash(&mut self, memory: &mut M, code_hash_ptr: u32) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::SetCodeHash)?;
+		let code_hash: H256 = memory.read_h256(code_hash_ptr)?;
+		self.ext.set_code_hash(code_hash)?;
+		Ok(())
+	}
+
+	/// Verify a sr25519 signature
+	/// See [`pallet_revive_uapi::HostFn::sr25519_verify`].
+	fn sr25519_verify(
+		&mut self,
+		memory: &mut M,
+		signature_ptr: u32,
+		pub_key_ptr: u32,
+		message_len: u32,
+		message_ptr: u32,
+	) -> Result<ReturnErrorCode, TrapReason> {
+		self.charge_gas(RuntimeCosts::Sr25519Verify(message_len))?;
+
+		let mut signature: [u8; 64] = [0; 64];
+		memory.read_into_buf(signature_ptr, &mut signature)?;
+
+		let mut pub_key: [u8; 32] = [0; 32];
+		memory.read_into_buf(pub_key_ptr, &mut pub_key)?;
+
+		let message: Vec<u8> = memory.read(message_ptr, message_len)?;
+
+		if self.ext.sr25519_verify(&signature, &message, &pub_key) {
+			Ok(ReturnErrorCode::Success)
+		} else {
+			Ok(ReturnErrorCode::Sr25519VerifyFailed)
+		}
+	}
+
+	/// Removes the delegate dependency from the contract.
+	/// see [`pallet_revive_uapi::HostFn::unlock_delegate_dependency`].
+	#[mutating]
+	fn unlock_delegate_dependency(
+		&mut self,
+		memory: &mut M,
+		code_hash_ptr: u32,
+	) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::UnlockDelegateDependency)?;
+		let code_hash = memory.read_h256(code_hash_ptr)?;
+		self.ext.unlock_delegate_dependency(&code_hash)?;
+		Ok(())
+	}
+
+	/// Retrieve and remove the value under the given key from storage.
+	/// See [`pallet_revive_uapi::HostFn::take_storage`]
+	#[mutating]
+	fn take_storage(
+		&mut self,
+		memory: &mut M,
+		flags: u32,
+		key_ptr: u32,
+		key_len: u32,
+		out_ptr: u32,
+		out_len_ptr: u32,
+	) -> Result<ReturnErrorCode, TrapReason> {
+		self.take_storage(memory, flags, key_ptr, key_len, out_ptr, out_len_ptr)
+	}
+
+	/// Remove the calling account and transfer remaining **free** balance.
+	/// See [`pallet_revive_uapi::HostFn::terminate`].
+	#[mutating]
+	fn terminate(&mut self, memory: &mut M, beneficiary_ptr: u32) -> Result<(), TrapReason> {
+		self.terminate(memory, beneficiary_ptr)
+	}
+
+	/// Stores the amount of weight left into the supplied buffer.
+	/// See [`pallet_revive_uapi::HostFn::weight_left`].
+	fn weight_left(
+		&mut self,
+		memory: &mut M,
+		out_ptr: u32,
+		out_len_ptr: u32,
+	) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::WeightLeft)?;
+		let gas_left = &self.ext.gas_meter().gas_left().encode();
+		Ok(self.write_sandbox_output(
+			memory,
+			out_ptr,
+			out_len_ptr,
+			gas_left,
+			false,
+			already_charged,
+		)?)
 	}
 
 	/// Execute an XCM program locally, using the contract's address as the origin.
@@ -1894,169 +2171,5 @@ pub mod env {
 				Ok(ReturnErrorCode::XcmSendFailed)
 			},
 		}
-	}
-
-	/// Recovers the ECDSA public key from the given message hash and signature.
-	/// See [`pallet_revive_uapi::HostFn::ecdsa_recover`].
-	#[stable]
-	fn ecdsa_recover(
-		&mut self,
-		memory: &mut M,
-		signature_ptr: u32,
-		message_hash_ptr: u32,
-		output_ptr: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
-		self.charge_gas(RuntimeCosts::EcdsaRecovery)?;
-
-		let mut signature: [u8; 65] = [0; 65];
-		memory.read_into_buf(signature_ptr, &mut signature)?;
-		let mut message_hash: [u8; 32] = [0; 32];
-		memory.read_into_buf(message_hash_ptr, &mut message_hash)?;
-
-		let result = self.ext.ecdsa_recover(&signature, &message_hash);
-
-		match result {
-			Ok(pub_key) => {
-				// Write the recovered compressed ecdsa public key back into the sandboxed output
-				// buffer.
-				memory.write(output_ptr, pub_key.as_ref())?;
-
-				Ok(ReturnErrorCode::Success)
-			},
-			Err(_) => Ok(ReturnErrorCode::EcdsaRecoveryFailed),
-		}
-	}
-
-	/// Verify a sr25519 signature
-	/// See [`pallet_revive_uapi::HostFn::sr25519_verify`].
-	#[stable]
-	fn sr25519_verify(
-		&mut self,
-		memory: &mut M,
-		signature_ptr: u32,
-		pub_key_ptr: u32,
-		message_len: u32,
-		message_ptr: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
-		self.charge_gas(RuntimeCosts::Sr25519Verify(message_len))?;
-
-		let mut signature: [u8; 64] = [0; 64];
-		memory.read_into_buf(signature_ptr, &mut signature)?;
-
-		let mut pub_key: [u8; 32] = [0; 32];
-		memory.read_into_buf(pub_key_ptr, &mut pub_key)?;
-
-		let message: Vec<u8> = memory.read(message_ptr, message_len)?;
-
-		if self.ext.sr25519_verify(&signature, &message, &pub_key) {
-			Ok(ReturnErrorCode::Success)
-		} else {
-			Ok(ReturnErrorCode::Sr25519VerifyFailed)
-		}
-	}
-
-	/// Replace the contract code at the specified address with new code.
-	/// See [`pallet_revive_uapi::HostFn::set_code_hash`].
-	///
-	/// Disabled until the internal implementation takes care of collecting
-	/// the immutable data of the new code hash.
-	#[mutating]
-	fn set_code_hash(&mut self, memory: &mut M, code_hash_ptr: u32) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::SetCodeHash)?;
-		let code_hash: H256 = memory.read_h256(code_hash_ptr)?;
-		self.ext.set_code_hash(code_hash)?;
-		Ok(())
-	}
-
-	/// Calculates Ethereum address from the ECDSA compressed public key and stores
-	/// See [`pallet_revive_uapi::HostFn::ecdsa_to_eth_address`].
-	#[stable]
-	fn ecdsa_to_eth_address(
-		&mut self,
-		memory: &mut M,
-		key_ptr: u32,
-		out_ptr: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
-		self.charge_gas(RuntimeCosts::EcdsaToEthAddress)?;
-		let mut compressed_key: [u8; 33] = [0; 33];
-		memory.read_into_buf(key_ptr, &mut compressed_key)?;
-		let result = self.ext.ecdsa_to_eth_address(&compressed_key);
-		match result {
-			Ok(eth_address) => {
-				memory.write(out_ptr, eth_address.as_ref())?;
-				Ok(ReturnErrorCode::Success)
-			},
-			Err(_) => Ok(ReturnErrorCode::EcdsaRecoveryFailed),
-		}
-	}
-
-	/// Adds a new delegate dependency to the contract.
-	/// See [`pallet_revive_uapi::HostFn::lock_delegate_dependency`].
-	#[stable]
-	#[mutating]
-	fn lock_delegate_dependency(
-		&mut self,
-		memory: &mut M,
-		code_hash_ptr: u32,
-	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::LockDelegateDependency)?;
-		let code_hash = memory.read_h256(code_hash_ptr)?;
-		self.ext.lock_delegate_dependency(code_hash)?;
-		Ok(())
-	}
-
-	/// Removes the delegate dependency from the contract.
-	/// see [`pallet_revive_uapi::HostFn::unlock_delegate_dependency`].
-	#[stable]
-	#[mutating]
-	fn unlock_delegate_dependency(
-		&mut self,
-		memory: &mut M,
-		code_hash_ptr: u32,
-	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::UnlockDelegateDependency)?;
-		let code_hash = memory.read_h256(code_hash_ptr)?;
-		self.ext.unlock_delegate_dependency(&code_hash)?;
-		Ok(())
-	}
-
-	/// Stores the length of the data returned by the last call into the supplied buffer.
-	/// See [`pallet_revive_uapi::HostFn::return_data_size`].
-	#[stable]
-	fn return_data_size(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
-		Ok(self.write_fixed_sandbox_output(
-			memory,
-			out_ptr,
-			&U256::from(self.ext.last_frame_output().data.len()).to_little_endian(),
-			false,
-			|len| Some(RuntimeCosts::CopyToContract(len)),
-		)?)
-	}
-
-	/// Stores data returned by the last call, starting from `offset`, into the supplied buffer.
-	/// See [`pallet_revive_uapi::HostFn::return_data`].
-	#[stable]
-	fn return_data_copy(
-		&mut self,
-		memory: &mut M,
-		out_ptr: u32,
-		out_len_ptr: u32,
-		offset: u32,
-	) -> Result<(), TrapReason> {
-		let output = mem::take(self.ext.last_frame_output_mut());
-		let result = if offset as usize > output.data.len() {
-			Err(Error::<E::T>::OutOfBounds.into())
-		} else {
-			self.write_sandbox_output(
-				memory,
-				out_ptr,
-				out_len_ptr,
-				&output.data[offset as usize..],
-				false,
-				|len| Some(RuntimeCosts::CopyToContract(len)),
-			)
-		};
-		*self.ext.last_frame_output_mut() = output;
-		Ok(result?)
 	}
 }

@@ -65,6 +65,10 @@ impl frame_system::ExtensionsWeightInfo for MockWeights {
 	fn check_weight() -> Weight {
 		Weight::from_parts(10, 0)
 	}
+
+	fn weight_reclaim() -> Weight {
+		Weight::from_parts(10, 0)
+	}
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
