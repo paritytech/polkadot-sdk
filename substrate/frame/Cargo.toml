@@ -30,6 +30,8 @@ sp-arithmetic = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
+sp-statement-store = { workspace = true }
+
 
 # frame deps, for developing FRAME pallets.
 frame-support = { workspace = true }

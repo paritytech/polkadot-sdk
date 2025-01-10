@@ -21,7 +21,7 @@ use super::*;
 
 use crate as pallet_statement;
 use frame::testing_prelude::*;
-use frame::deps::{sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage}, sp_core::Pair};
+use frame::deps::{sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage}, sp_core::sr25519::Pair};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

@@ -33,16 +33,12 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{
-	pallet_prelude::*,
-	sp_runtime::{traits::CheckedDiv, SaturatedConversion},
-	traits::fungible::Inspect,
-};
-use frame_system::pallet_prelude::*;
-use sp_statement_store::{
+use frame::prelude::*;
+use frame::deps::{sp_io, sp_statement_store::{
 	runtime_api::{InvalidStatement, StatementSource, ValidStatement},
 	Proof, SignatureVerificationResult, Statement,
-};
+}};
+use frame::traits::fungible::Inspect;
 
 #[cfg(test)]
 mod mock;
@@ -53,7 +49,7 @@ pub use pallet::*;
 
 const LOG_TARGET: &str = "runtime::statement";
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
 
