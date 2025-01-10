@@ -24,6 +24,7 @@ use jsonrpsee::{
 	types::{ErrorCode, ErrorObjectOwned},
 };
 use pallet_revive::evm::*;
+use sp_arithmetic::Permill;
 use sp_core::{keccak_256, H160, H256, U256};
 use thiserror::Error;
 
@@ -127,7 +128,12 @@ impl EthRpcServer for EthRpcServerImpl {
 		transaction_hash: H256,
 	) -> RpcResult<Option<ReceiptInfo>> {
 		let receipt = self.client.receipt(&transaction_hash).await;
-		log::debug!(target: LOG_TARGET, "transaction_receipt for {transaction_hash:?}: {}", receipt.is_some());
+		log::debug!(
+			target: LOG_TARGET,
+			"transaction_receipt for {transaction_hash:?}: received: {received} - success: {success:?}",
+			received = receipt.is_some(),
+			success = receipt.as_ref().map(|r| r.status == Some(U256::one()))
+		);
 		Ok(receipt)
 	}
 
@@ -224,6 +230,11 @@ impl EthRpcServer for EthRpcServerImpl {
 
 	async fn gas_price(&self) -> RpcResult<U256> {
 		Ok(U256::from(GAS_PRICE))
+	}
+
+	async fn max_priority_fee_per_gas(&self) -> RpcResult<U256> {
+		// TODO: Provide better estimation
+		Ok(U256::from(Permill::from_percent(20).mul_ceil(GAS_PRICE)))
 	}
 
 	async fn get_code(&self, address: H160, block: BlockNumberOrTagOrHash) -> RpcResult<Bytes> {
