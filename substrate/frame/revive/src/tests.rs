@@ -4852,19 +4852,18 @@ fn skip_transfer_works() {
 		);
 
 		// fails when calling from a contract when gas is specified.
-		assert!(
-			Pallet::<Test>::bare_eth_transact(
-				GenericTransaction {
-					from: Some(BOB_ADDR),
-					to: Some(caller_addr),
-					input: Some((0u32, &addr).encode().into()),
-					gas: Some(1u32.into()),
-					..Default::default()
-				},
-				Weight::MAX,
-				|_| 0u32
-			).is_err(),
-		);
+		assert!(Pallet::<Test>::bare_eth_transact(
+			GenericTransaction {
+				from: Some(BOB_ADDR),
+				to: Some(caller_addr),
+				input: Some((0u32, &addr).encode().into()),
+				gas: Some(1u32.into()),
+				..Default::default()
+			},
+			Weight::MAX,
+			|_| 0u32
+		)
+		.is_err(),);
 
 		// works when no gas is specified.
 		assert_ok!(Pallet::<Test>::bare_eth_transact(
