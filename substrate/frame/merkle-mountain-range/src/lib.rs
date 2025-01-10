@@ -61,11 +61,10 @@ extern crate alloc;
 use alloc::vec::Vec;
 use log;
 
-pub use frame::{
-	deps::sp_mmr_primitives::{
-		self as primitives, utils, utils::NodesUtils, Error, LeafDataProvider, LeafIndex, NodeIndex,
-	},
-	prelude::*,
+pub use frame::prelude::*;
+
+pub use sp_mmr_primitives::{
+	self as primitives, utils, utils::NodesUtils, Error, LeafDataProvider, LeafIndex, NodeIndex,
 };
 
 pub use pallet::*;

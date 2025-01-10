@@ -19,6 +19,7 @@ codec = { workspace = true }
 frame = { workspace = true, features = ["experimental", "runtime"] }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+sp-mmr-primitives = { workspace = true }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
@@ -32,6 +33,7 @@ std = [
 	"frame/std",
 	"log/std",
 	"scale-info/std",
+	"sp-mmr-primitives/std",
 ]
 runtime-benchmarks = [
 	"frame/runtime-benchmarks",

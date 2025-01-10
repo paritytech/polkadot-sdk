@@ -290,7 +290,6 @@ pub mod weights_prelude {
 	pub use frame_support::{
 		traits::Get,
 		weights::{
-			constants as weights_constants,
 			constants::{ParityDbWeight, RocksDbWeight},
 			Weight,
 		},
@@ -566,7 +565,6 @@ pub mod deps {
 	pub use sp_arithmetic;
 	pub use sp_core;
 	pub use sp_io;
-	pub use sp_mmr_primitives;
 	pub use sp_runtime;
 
 	pub use codec;

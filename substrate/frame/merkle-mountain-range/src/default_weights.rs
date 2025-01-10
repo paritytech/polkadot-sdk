@@ -18,7 +18,7 @@
 //! Default weights for the MMR Pallet
 //! This file was not auto-generated.
 
-use frame::weights_prelude::{weights_constants::WEIGHT_REF_TIME_PER_NANOS, *};
+use frame::{deps::frame_support::weights::constants::*, weights_prelude::*};
 
 impl crate::WeightInfo for () {
 	fn on_initialize(peaks: u32) -> Weight {
