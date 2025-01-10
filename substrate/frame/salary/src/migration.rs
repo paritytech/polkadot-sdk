@@ -18,16 +18,16 @@
 //! Storage migrations for the `pallet_salary`.
 
 use super::*;
-use frame_support::{pallet_prelude::*, storage_alias, traits::UncheckedOnRuntimeUpgrade};
+use frame::{storage_alias, traits::UncheckedOnRuntimeUpgrade, deps::frame_support::migrations::VersionedMigration};
 
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
 #[cfg(feature = "try-runtime")]
-use sp_runtime::TryRuntimeError;
+use frame::try_runtime::TryRuntimeError;
 
 mod v0 {
 	use super::*;
-	use frame_system::pallet_prelude::BlockNumberFor as LocalBlockNumberFor;
+	use frame::prelude::BlockNumberFor as LocalBlockNumberFor;
 
 	// V0 types.
 	pub type CycleIndexOf<T> = LocalBlockNumberFor<T>;
@@ -51,8 +51,8 @@ mod v0 {
 }
 
 pub mod v1 {
-	use super::{BlockNumberFor as NewBlockNumberFor, *};
-	use frame_system::pallet_prelude::BlockNumberFor as LocalBlockNumberFor;
+	use super::{pallet::BlockNumberFor as NewBlockNumberFor, *};
+	use frame::prelude::BlockNumberFor as LocalBlockNumberFor;
 
 	/// Converts previous (local) block number into the new one. May just be identity functions
 	/// if sticking with local block number as the block provider.
@@ -148,7 +148,7 @@ pub mod v1 {
 			Ok((status_exists, claimant_count).encode())
 		}
 
-		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+		fn on_runtime_upgrade() -> Weight {
 			let mut transactions = 0;
 
 			// Status storage option
@@ -195,11 +195,11 @@ pub mod v1 {
 }
 
 /// [`UncheckedOnRuntimeUpgrade`] implementation [`MigrateToV1`](v1::MigrateToV1) wrapped in a
-/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), which ensures that:
+/// [`VersionedMigration`](frame::deps::frame_support::migrations::VersionedMigration), which ensures that:
 /// - The migration only runs once when the on-chain storage version is 0
 /// - The on-chain storage version is updated to `1` after the migration executes
 /// - Reads/Writes from checking/settings the on-chain storage version are accounted for
-pub type MigrateV0ToV1<T, BC, I> = frame_support::migrations::VersionedMigration<
+pub type MigrateV0ToV1<T, BC, I> = VersionedMigration<
 	0, // The migration will only execute when the on-chain storage version is 0
 	1, // The on-chain storage version will be set to 1 after the migration is complete
 	v1::MigrateToV1<T, BC, I>,
