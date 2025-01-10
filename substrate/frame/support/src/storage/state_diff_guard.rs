@@ -87,7 +87,7 @@
 //!     fn try_on_runtime_upgrade() -> Result<frame_support::weights::Weight, &'static str> {
 //!         // migration logic here
 //!         let guard = StateDiffGuard::builder()
-//!             .must_change(GuardSubject::Prefix(SomeMap::<T>::storage_info().first().unwrap().clone()))
+//!             .must_change_if_exists(GuardSubject::Prefix(SomeMap::<T>::storage_info().first().unwrap().clone()))
 //!             .must_not_change(GuardSubject::Prefix(SomeDoubleMap::<T>::storage_info().first().unwrap().clone()))
 //! 			.can_not_change(GuardSubject::AnythingElse)
 //!             .build();
@@ -131,10 +131,8 @@ type State = BTreeMap<StorageKey, StorageValue>;
 pub enum MutationPolicy {
 	/// The storage prefix is expected to change.
 	CanChange,
-	/// The storage prefix is expected to not change.
-	CanNotChange,
-	/// The storage prefix must change.
-	MustChange,
+	/// The storage prefix must change if it already existed prior to the guard.
+	MustChangeIfExists,
 	/// The storage prefix must not change.
 	MustNotChange,
 }
@@ -213,6 +211,7 @@ impl StateDiffGuard {
 		let mut check_passed = true;
 
 		while let Some(next) = sp_io::storage::next_key(&previous_key) {
+			previous_key = next.clone();
 			let Some(value) = sp_io::storage::get(&next) else { continue };
 			let (maybe_old_value, value) = (self.initial_state.remove(&next), value);
 
@@ -224,23 +223,25 @@ impl StateDiffGuard {
 				MutationPolicy::CanChange => {
 					// expected to change, no need to check anything
 				},
-				MutationPolicy::CanNotChange | MutationPolicy::MustNotChange => {
-					check_passed = maybe_old_value == Some(value.to_vec());
-				},
-				MutationPolicy::MustChange =>
-					if let Some(old_value) = maybe_old_value {
-						if old_value == value {
-							check_passed = false;
-							log::info!(
-								"Storage value for key must have been changed, but it is not {:?} -> {:?}",
-								bytes2hex("0x", &next),
-								bytes2hex("0x", value),
-							);
-						}
+				MutationPolicy::MustNotChange =>
+					if maybe_old_value != Some(value.to_vec()) {
+						check_passed = false;
+						log::error!(
+							"Storage value for key must not have been changed, but it is {:?} -> {:?}",
+							bytes2hex("0x", &next),
+							bytes2hex("0x", value),
+						);
+					},
+				MutationPolicy::MustChangeIfExists =>
+					if maybe_old_value == Some(value.to_vec()) {
+						check_passed = false;
+						log::error!(
+							"Storage value for key must have been changed, but it is not {:?} -> {:?}",
+							bytes2hex("0x", &next),
+							bytes2hex("0x", value),
+						);
 					},
 			}
-
-			previous_key = next;
 		}
 
 		// if there are any keys left in initial state, it means that they were removed
@@ -248,12 +249,12 @@ impl StateDiffGuard {
 			let Some(policy) = self.prefix_mutation_policy(key) else { continue };
 
 			match policy {
-				MutationPolicy::CanChange | MutationPolicy::MustChange => {
+				MutationPolicy::CanChange | MutationPolicy::MustChangeIfExists => {
 					// expected to change, no need to check anything
 				},
-				MutationPolicy::CanNotChange | MutationPolicy::MustNotChange => {
+				MutationPolicy::MustNotChange => {
 					check_passed = false;
-					log::info!(
+					log::error!(
 						"Storage key must not have been removed, but it is {:?}",
 						bytes2hex("0x", key)
 					);
@@ -271,9 +272,9 @@ pub struct StateDiffGuardBuilder {
 }
 
 impl StateDiffGuardBuilder {
-	/// Add a storage prefix that must change.
-	pub fn must_change(mut self, prefix: GuardSubject) -> Self {
-		self.mutation_policy.insert(prefix, MutationPolicy::MustChange);
+	/// Add a storage prefix that must change if it already exited prior to the guard.
+	pub fn must_change_if_exists(mut self, prefix: GuardSubject) -> Self {
+		self.mutation_policy.insert(prefix, MutationPolicy::MustChangeIfExists);
 
 		self
 	}
@@ -288,13 +289,6 @@ impl StateDiffGuardBuilder {
 	/// Add a storage prefix that can change.
 	pub fn can_change(mut self, prefix: GuardSubject) -> Self {
 		self.mutation_policy.insert(prefix, MutationPolicy::CanChange);
-
-		self
-	}
-
-	/// Add a storage prefix that must not change.
-	pub fn can_not_change(mut self, prefix: GuardSubject) -> Self {
-		self.mutation_policy.insert(prefix, MutationPolicy::CanNotChange);
 
 		self
 	}
@@ -349,9 +343,6 @@ mod tests {
 			let guard = StateDiffGuard::builder().build();
 
 			TestMap::insert(1, 1);
-
-			// this will not panic because guard is not guarding any storage keys
-			sp_std::mem::drop(guard);
 		});
 	}
 
@@ -364,13 +355,11 @@ mod tests {
 			TestStorageValue::put(1);
 
 			let guard =
-				StateDiffGuard::builder().can_not_change(GuardSubject::AnythingElse).build();
+				StateDiffGuard::builder().must_not_change(GuardSubject::AnythingElse).build();
 
 			TestMap::insert(1, 2);
 			TestDoubleMapBlake2::insert(1, 1, 2);
 			TestStorageValue::put(2);
-
-			sp_std::mem::drop(guard);
 		});
 	}
 
@@ -402,9 +391,6 @@ mod tests {
 
 			v2::TestMap::insert(1, 1);
 			v2::TestDoubleMapBlake2::insert(1, 1, 12);
-
-			// this will panic because the whitelisted storage key is expected to change
-			sp_std::mem::drop(guard);
 		});
 	}
 
@@ -429,14 +415,12 @@ mod tests {
 			TestMap::insert(1, 1);
 
 			// this will panic because by default any other whitelisted prefix is not expected to
-			// change
-			sp_std::mem::drop(guard);
 		});
 	}
 
 	#[test]
 	#[should_panic(expected = "`StateDiffGuard` detected an unexpected storage change")]
-	fn diff_guard_basic_must_change() {
+	fn diff_guard_basic_must_change_if_exists() {
 		TestExternalities::default().execute_with(|| {
 			TestDoubleMapBlake2::insert(1, 1, 1);
 			TestDoubleMapBlake2::insert(1, 1, 2);
@@ -444,7 +428,7 @@ mod tests {
 
 			// must change all entries of `TestDoubleMapBlake2`
 			let guard = StateDiffGuard::builder()
-				.must_change(GuardSubject::Prefix(
+				.must_change_if_exists(GuardSubject::Prefix(
 					TestDoubleMapBlake2::storage_info().first().unwrap().clone(),
 				))
 				.can_change(GuardSubject::Prefix(TestMap::storage_info().first().unwrap().clone()))
@@ -452,8 +436,6 @@ mod tests {
 
 			TestDoubleMapBlake2::remove(1, 2);
 			TestMap::insert(1, 1);
-			// this will panic because the whitelisted prefix is expected to change
-			sp_std::mem::drop(guard);
 		});
 	}
 
@@ -466,12 +448,177 @@ mod tests {
 			TestDoubleMapBlake2::insert(1, 2, 1);
 			TestStorageValue::put(1);
 
-			let guard = StateDiffGuard::builder().must_change(GuardSubject::Prefix(
+			let guard = StateDiffGuard::builder().must_change_if_exists(GuardSubject::Prefix(
 				TestDoubleMapBlake2::storage_info().first().unwrap().clone(),
 			));
+		});
+	}
 
-			TestDoubleMapBlake2::remove(1, 1);
-			sp_std::mem::drop(guard);
+	#[test]
+	#[should_panic(expected = "`StateDiffGuard` detected an unexpected storage change")]
+	fn test_diff_guard_must_change_if_existed_errors() {
+		let mut ext = TestExternalities::default();
+		ext.execute_with(|| {
+			TestStorageValue::put(1);
+			let guard = StateDiffGuard::builder()
+				.must_change_if_exists(GuardSubject::Prefix(
+					TestStorageValue::storage_info().first().unwrap().clone(),
+				))
+				.build();
+		});
+	}
+
+	#[test]
+	fn test_diff_guard_must_change_if_existed_works_on_change() {
+		let mut ext = TestExternalities::default();
+		ext.execute_with(|| {
+			TestStorageValue::put(1);
+			let guard = StateDiffGuard::builder()
+				.must_change_if_exists(GuardSubject::Prefix(
+					TestStorageValue::storage_info().first().unwrap().clone(),
+				))
+				.build();
+
+			TestStorageValue::put(2);
+		});
+	}
+
+	#[test]
+	fn test_diff_guard_must_change_if_existed_works_if_not_existed() {
+		let mut ext = TestExternalities::default();
+		ext.execute_with(|| {
+			let guard = StateDiffGuard::builder()
+				.must_change_if_exists(GuardSubject::Prefix(
+					TestStorageValue::storage_info().first().unwrap().clone(),
+				))
+				.build();
+
+			TestStorageValue::put(2);
+		});
+	}
+
+	#[test]
+	fn test_diff_guard_must_change_if_existed_works_if_not_existed_or_crated() {
+		let mut ext = TestExternalities::default();
+		ext.execute_with(|| {
+			let guard = StateDiffGuard::builder()
+				.must_change_if_exists(GuardSubject::Prefix(
+					TestStorageValue::storage_info().first().unwrap().clone(),
+				))
+				.build();
+		});
+	}
+
+	#[test]
+	fn test_diff_guard_can_change_works() {
+		let mut ext = TestExternalities::default();
+		ext.execute_with(|| {
+			let guard = StateDiffGuard::builder()
+				.can_change(GuardSubject::Prefix(
+					TestStorageValue::storage_info().first().unwrap().clone(),
+				))
+				.build();
+		});
+	}
+
+	#[test]
+	fn test_diff_guard_can_change_works_on_change() {
+		let mut ext = TestExternalities::default();
+		ext.execute_with(|| {
+			TestStorageValue::put(1);
+
+			let guard = StateDiffGuard::builder()
+				.can_change(GuardSubject::Prefix(
+					TestStorageValue::storage_info().first().unwrap().clone(),
+				))
+				.build();
+		});
+	}
+
+	#[test]
+	fn test_diff_guard_can_change_works_on_change_if_exited() {
+		let mut ext = TestExternalities::default();
+		ext.execute_with(|| {
+			TestStorageValue::put(1);
+
+			let guard = StateDiffGuard::builder()
+				.can_change(GuardSubject::Prefix(
+					TestStorageValue::storage_info().first().unwrap().clone(),
+				))
+				.build();
+
+			TestStorageValue::put(2);
+		});
+	}
+
+	#[test]
+	fn test_diff_guard_can_change_works_if_not_existed() {
+		let mut ext = TestExternalities::default();
+		ext.execute_with(|| {
+			let guard = StateDiffGuard::builder()
+				.can_change(GuardSubject::Prefix(
+					TestStorageValue::storage_info().first().unwrap().clone(),
+				))
+				.build();
+
+			TestStorageValue::put(2);
+		});
+	}
+
+	#[test]
+	fn test_diff_guard_must_not_change_works() {
+		let mut ext = TestExternalities::default();
+		ext.execute_with(|| {
+			let guard = StateDiffGuard::builder()
+				.must_not_change(GuardSubject::Prefix(
+					TestStorageValue::storage_info().first().unwrap().clone(),
+				))
+				.build();
+		});
+	}
+
+	#[test]
+	fn test_diff_guard_must_not_change_errors() {
+		let mut ext = TestExternalities::default();
+		ext.execute_with(|| {
+			TestStorageValue::put(1);
+			let guard = StateDiffGuard::builder()
+				.must_not_change(GuardSubject::Prefix(
+					TestStorageValue::storage_info().first().unwrap().clone(),
+				))
+				.build();
+		});
+	}
+
+	#[test]
+	#[should_panic(expected = "`StateDiffGuard` detected an unexpected storage change")]
+	fn test_diff_guard_must_not_change_on_change() {
+		let mut ext = TestExternalities::default();
+		ext.execute_with(|| {
+			TestStorageValue::put(1);
+
+			let guard = StateDiffGuard::builder()
+				.must_not_change(GuardSubject::Prefix(
+					TestStorageValue::storage_info().first().unwrap().clone(),
+				))
+				.build();
+
+			TestStorageValue::put(2);
+		});
+	}
+
+	#[test]
+	#[should_panic(expected = "`StateDiffGuard` detected an unexpected storage change")]
+	fn test_diff_guard_must_not_change_if_not_existed() {
+		let mut ext = TestExternalities::default();
+		ext.execute_with(|| {
+			let guard = StateDiffGuard::builder()
+				.must_not_change(GuardSubject::Prefix(
+					TestStorageValue::storage_info().first().unwrap().clone(),
+				))
+				.build();
+
+			TestStorageValue::put(2);
 		});
 	}
 }
