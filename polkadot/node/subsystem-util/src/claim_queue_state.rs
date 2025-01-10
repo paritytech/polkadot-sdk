@@ -607,8 +607,7 @@ impl PerLeafClaimQueueState {
 		para_id: &ParaId,
 	) -> bool {
 		if let Some(leaf_state) = self.leaves.get_mut(leaf) {
-			leaf_state.claim_pending_at(relay_parent, para_id, *candidate_hash);
-			return true
+			return leaf_state.claim_pending_at(relay_parent, para_id, *candidate_hash);
 		}
 		return false
 	}
