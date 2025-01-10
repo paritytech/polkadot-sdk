@@ -691,7 +691,7 @@ impl Client {
 		let transactions = if hydrated_transactions {
 			receipts
 				.into_iter()
-				.map(|(signed_tx, receipt)| TransactionInfo::new(receipt, signed_tx).into())
+				.map(|(signed_tx, receipt)| TransactionInfo::new(receipt, signed_tx))
 				.collect::<Vec<TransactionInfo>>()
 				.into()
 		} else {

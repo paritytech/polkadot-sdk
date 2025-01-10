@@ -166,7 +166,7 @@ impl ReceiptProvider for DBReceiptProvider {
 	}
 
 	async fn receipt_by_hash(&self, transaction_hash: &H256) -> Option<ReceiptInfo> {
-		let (block_hash, transaction_index) = self.fetch_row(&transaction_hash).await?;
+		let (block_hash, transaction_index) = self.fetch_row(transaction_hash).await?;
 
 		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;
 		let (_, receipt) =
