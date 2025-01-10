@@ -7,7 +7,7 @@ Previously, these three parameters were passed along with the signed payload, an
 
     This approach unfortunately can be attacked. A malicious actor could force such a transaction to fail by injecting low values for some of these extra parameters as they are not part of the signed payload.
 
-    The new approach encodes these 3 extra parameters in the lower digits of the transaction gas, approximating the  the log2 of the actual values to  encode each components on 2 digits
+    The new approach encodes these 3 extra parameters in the lower digits of the transaction gas, using the log2 of the actual values to  encode each components on 2 digits
 crates:
 - name: pallet-revive-eth-rpc
   bump: minor
