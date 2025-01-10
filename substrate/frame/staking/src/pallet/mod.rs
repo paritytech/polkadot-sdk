@@ -826,6 +826,9 @@ pub mod pallet {
 			stash: T::AccountId,
 			dest: RewardDestination<T::AccountId>,
 			amount: BalanceOf<T>,
+			validator: T::AccountId,
+			era: EraIndex,
+			page: Page,
 		},
 		/// A staker (validator or nominator) has been slashed by the given amount.
 		Slashed { staker: T::AccountId, amount: BalanceOf<T> },

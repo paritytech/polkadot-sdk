@@ -356,7 +356,15 @@ impl<T: Config> Pallet<T> {
 		if let Some((imbalance, dest)) =
 			Self::make_payout(&stash, validator_staking_payout + validator_commission_payout)
 		{
-			Self::deposit_event(Event::<T>::Rewarded { stash, dest, amount: imbalance.peek() });
+			Self::deposit_event(Event::<T>::Rewarded {
+				stash,
+				dest,
+				amount: imbalance.peek(),
+				validator: validator_stash.clone(),
+				era,
+				page,
+
+			});
 			total_imbalance.subsume(imbalance);
 		}
 
@@ -380,6 +388,9 @@ impl<T: Config> Pallet<T> {
 					stash: nominator.who.clone(),
 					dest,
 					amount: imbalance.peek(),
+					validator: validator_stash.clone(),
+					era,
+					page,
 				};
 				Self::deposit_event(e);
 				total_imbalance.subsume(imbalance);
