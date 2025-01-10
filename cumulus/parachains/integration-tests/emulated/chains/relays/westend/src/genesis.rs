@@ -14,10 +14,10 @@
 // limitations under the License.
 
 // Substrate
-use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
-use grandpa::AuthorityId as GrandpaId;
+use sc_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
+use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_core::storage::Storage;
 use sp_runtime::Perbill;
 
@@ -77,15 +77,14 @@ pub fn genesis() -> Storage {
 					)
 				})
 				.collect::<Vec<_>>(),
+			..Default::default()
 		},
 		staking: westend_runtime::StakingConfig {
 			validator_count: validators::initial_authorities().len() as u32,
 			minimum_validator_count: 1,
 			stakers: validators::initial_authorities()
 				.iter()
-				.map(|x| {
-					(x.0.clone(), x.1.clone(), STASH, westend_runtime::StakerStatus::Validator)
-				})
+				.map(|x| (x.0.clone(), x.1.clone(), STASH, pallet_staking::StakerStatus::Validator))
 				.collect(),
 			invulnerables: validators::initial_authorities().iter().map(|x| x.0.clone()).collect(),
 			force_era: pallet_staking::Forcing::ForceNone,

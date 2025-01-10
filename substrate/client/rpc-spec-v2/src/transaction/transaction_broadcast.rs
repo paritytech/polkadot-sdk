@@ -18,11 +18,17 @@
 
 //! API implementation for broadcasting transactions.
 
-use crate::{transaction::api::TransactionBroadcastApiServer, SubscriptionTaskExecutor};
+use crate::{
+	common::connections::RpcConnections, transaction::api::TransactionBroadcastApiServer,
+	SubscriptionTaskExecutor,
+};
 use codec::Decode;
 use futures::{FutureExt, Stream, StreamExt};
 use futures_util::stream::AbortHandle;
-use jsonrpsee::core::{async_trait, RpcResult};
+use jsonrpsee::{
+	core::{async_trait, RpcResult},
+	ConnectionId, Extensions,
+};
 use parking_lot::RwLock;
 use rand::{distributions::Alphanumeric, Rng};
 use sc_client_api::BlockchainEvents;
@@ -46,6 +52,8 @@ pub struct TransactionBroadcast<Pool: TransactionPool, Client> {
 	executor: SubscriptionTaskExecutor,
 	/// The broadcast operation IDs.
 	broadcast_ids: Arc<RwLock<HashMap<String, BroadcastState<Pool>>>>,
+	/// Keep track of how many concurrent operations are active for each connection.
+	rpc_connections: RpcConnections,
 }
 
 /// The state of a broadcast operation.
@@ -58,8 +66,19 @@ struct BroadcastState<Pool: TransactionPool> {
 
 impl<Pool: TransactionPool, Client> TransactionBroadcast<Pool, Client> {
 	/// Creates a new [`TransactionBroadcast`].
-	pub fn new(client: Arc<Client>, pool: Arc<Pool>, executor: SubscriptionTaskExecutor) -> Self {
-		TransactionBroadcast { client, pool, executor, broadcast_ids: Default::default() }
+	pub fn new(
+		client: Arc<Client>,
+		pool: Arc<Pool>,
+		executor: SubscriptionTaskExecutor,
+		max_transactions_per_connection: usize,
+	) -> Self {
+		TransactionBroadcast {
+			client,
+			pool,
+			executor,
+			broadcast_ids: Default::default(),
+			rpc_connections: RpcConnections::new(max_transactions_per_connection),
+		}
 	}
 
 	/// Generate an unique operation ID for the `transaction_broadcast` RPC method.
@@ -102,11 +121,24 @@ where
 	<Pool::Block as BlockT>::Hash: Unpin,
 	Client: HeaderBackend<Pool::Block> + BlockchainEvents<Pool::Block> + Send + Sync + 'static,
 {
-	fn broadcast(&self, bytes: Bytes) -> RpcResult<Option<String>> {
+	async fn broadcast(&self, ext: &Extensions, bytes: Bytes) -> RpcResult<Option<String>> {
 		let pool = self.pool.clone();
+		let conn_id = ext
+			.get::<ConnectionId>()
+			.copied()
+			.expect("ConnectionId is always set by jsonrpsee; qed");
 
 		// The unique ID of this operation.
 		let id = self.generate_unique_id();
+
+		// Ensure that the connection has not reached the maximum number of active operations.
+		let Some(reserved_connection) = self.rpc_connections.reserve_space(conn_id) else {
+			return Ok(None)
+		};
+		let Some(reserved_identifier) = reserved_connection.register(id.clone()) else {
+			// This can only happen if the generated operation ID is not unique.
+			return Ok(None)
+		};
 
 		// The JSON-RPC server might check whether the transaction is valid before broadcasting it.
 		// If it does so and if the transaction is invalid, the server should silently do nothing
@@ -118,7 +150,11 @@ where
 		// Save the tx hash to remove it later.
 		let tx_hash = pool.hash_of(&decoded_extrinsic);
 
-		let mut best_block_import_stream =
+		// The compiler can no longer deduce the type of the stream and complains
+		// about `one type is more general than the other`.
+		let mut best_block_import_stream: std::pin::Pin<
+			Box<dyn Stream<Item = <Pool::Block as BlockT>::Hash> + Send>,
+		> =
 			Box::pin(self.client.import_notification_stream().filter_map(
 				|notification| async move { notification.is_new_best.then_some(notification.hash) },
 			));
@@ -180,6 +216,9 @@ where
 		// The future expected by the executor must be `Future<Output = ()>` instead of
 		// `Future<Output = Result<(), Aborted>>`.
 		let fut = fut.map(move |result| {
+			// Connection space is cleaned when this object is dropped.
+			drop(reserved_identifier);
+
 			// Remove the entry from the broadcast IDs map.
 			let Some(broadcast_state) = broadcast_ids.write().remove(&drop_id) else { return };
 
@@ -203,7 +242,21 @@ where
 		Ok(Some(id))
 	}
 
-	fn stop_broadcast(&self, operation_id: String) -> Result<(), ErrorBroadcast> {
+	async fn stop_broadcast(
+		&self,
+		ext: &Extensions,
+		operation_id: String,
+	) -> Result<(), ErrorBroadcast> {
+		let conn_id = ext
+			.get::<ConnectionId>()
+			.copied()
+			.expect("ConnectionId is always set by jsonrpsee; qed");
+
+		// The operation ID must correlate to the same connection ID.
+		if !self.rpc_connections.contains_identifier(conn_id, &operation_id) {
+			return Err(ErrorBroadcast::InvalidOperationID)
+		}
+
 		let mut broadcast_ids = self.broadcast_ids.write();
 
 		let Some(broadcast_state) = broadcast_ids.remove(&operation_id) else {

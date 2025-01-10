@@ -20,6 +20,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(test)]
 mod tests;
 
@@ -33,17 +35,21 @@ pub use asset_conversion::{
 	AsPrefixedGeneralIndex, ConvertedConcreteId, MatchedConvertedConcreteId,
 };
 
+mod asset_exchange;
+pub use asset_exchange::SingleAssetExchangeAdapter;
+
 mod barriers;
 pub use barriers::{
-	AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses, AllowSubscriptionsFrom,
-	AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, DenyReserveTransferToRelayChain,
-	DenyThenTry, IsChildSystemParachain, IsParentsOnly, IsSiblingSystemParachain,
-	RespectSuspension, TakeWeightCredit, TrailingSetTopicAsId, WithComputedOrigin,
+	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
+	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
+	AllowUnpaidExecutionFrom, DenyReserveTransferToRelayChain, DenyThenTry, IsChildSystemParachain,
+	IsParentsOnly, IsSiblingSystemParachain, RespectSuspension, TakeWeightCredit,
+	TrailingSetTopicAsId, WithComputedOrigin,
 };
 
 mod controller;
 pub use controller::{
-	Controller, ExecuteController, ExecuteControllerWeightInfo, MaxXcmEncodedSize, QueryController,
+	Controller, ExecuteController, ExecuteControllerWeightInfo, QueryController,
 	QueryControllerWeightInfo, QueryHandler, SendController, SendControllerWeightInfo,
 };
 
@@ -53,7 +59,7 @@ pub use currency_adapter::CurrencyAdapter;
 
 mod fee_handling;
 pub use fee_handling::{
-	deposit_or_burn_fee, HandleFee, XcmFeeManagerFromComponents, XcmFeeToAccount,
+	deposit_or_burn_fee, HandleFee, SendXcmFeeToAccount, XcmFeeManagerFromComponents,
 };
 
 mod filter_asset_location;
@@ -102,7 +108,7 @@ pub use nonfungible_adapter::{
 };
 
 mod origin_aliases;
-pub use origin_aliases::AliasForeignAccountId32;
+pub use origin_aliases::*;
 
 mod origin_conversion;
 pub use origin_conversion::{
@@ -119,7 +125,9 @@ mod process_xcm_message;
 pub use process_xcm_message::ProcessXcmMessage;
 
 mod routing;
-pub use routing::{EnsureDelivery, WithTopicSource, WithUniqueTopic};
+pub use routing::{
+	EnsureDecodableXcm, EnsureDelivery, InspectMessageQueues, WithTopicSource, WithUniqueTopic,
+};
 
 mod transactional;
 pub use transactional::FrameTransactionalProcessor;

@@ -1,0 +1,13 @@
+title: "`AllowHrmpNotificationsFromRelayChain` barrier for HRMP notifications from the relaychain"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      A new barrier, `AllowHrmpNotificationsFromRelayChain`, has been added.
+      This barrier can be utilized to ensure that HRMP notifications originate solely from the Relay Chain.
+      If your runtime relies on these notifications,
+      you can include it in the runtime's barrier type for `xcm_executor::Config`.
+
+crates:
+- name: staging-xcm-builder
+  bump: minor

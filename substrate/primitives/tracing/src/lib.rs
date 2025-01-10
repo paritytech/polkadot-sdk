@@ -40,11 +40,14 @@
 extern crate alloc;
 
 #[cfg(feature = "std")]
-use tracing;
+pub use tracing;
 pub use tracing::{
 	debug, debug_span, error, error_span, event, info, info_span, span, trace, trace_span, warn,
 	warn_span, Level, Span,
 };
+
+#[cfg(feature = "std")]
+pub use tracing_subscriber;
 
 pub use crate::types::{
 	WasmEntryAttributes, WasmFieldName, WasmFields, WasmLevel, WasmMetadata, WasmValue,

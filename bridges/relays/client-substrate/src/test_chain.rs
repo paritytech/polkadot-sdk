@@ -24,7 +24,7 @@
 use crate::{Chain, ChainWithBalances, ChainWithMessages};
 use bp_messages::{ChainWithMessages as ChainWithMessagesBase, MessageNonce};
 use bp_runtime::ChainId;
-use frame_support::weights::Weight;
+use frame_support::{sp_runtime::StateVersion, weights::Weight};
 use std::time::Duration;
 
 /// Chain that may be used in tests.
@@ -44,6 +44,8 @@ impl bp_runtime::Chain for TestChain {
 	type Nonce = u32;
 	type Signature = sp_runtime::testing::TestSignature;
 
+	const STATE_VERSION: StateVersion = StateVersion::V1;
+
 	fn max_extrinsic_size() -> u32 {
 		100000
 	}
@@ -56,6 +58,7 @@ impl bp_runtime::Chain for TestChain {
 impl Chain for TestChain {
 	const NAME: &'static str = "Test";
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str = "TestMethod";
+	const FREE_HEADERS_INTERVAL_METHOD: &'static str = "TestMethod";
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_millis(0);
 
 	type SignedBlock = sp_runtime::generic::SignedBlock<
@@ -99,6 +102,8 @@ impl bp_runtime::Chain for TestParachainBase {
 	type Nonce = u32;
 	type Signature = sp_runtime::testing::TestSignature;
 
+	const STATE_VERSION: StateVersion = StateVersion::V1;
+
 	fn max_extrinsic_size() -> u32 {
 		unreachable!()
 	}
@@ -110,6 +115,7 @@ impl bp_runtime::Chain for TestParachainBase {
 
 impl bp_runtime::Parachain for TestParachainBase {
 	const PARACHAIN_ID: u32 = 1000;
+	const MAX_HEADER_SIZE: u32 = 1_024;
 }
 
 /// Parachain that may be used in tests.
@@ -123,6 +129,7 @@ impl bp_runtime::UnderlyingChainProvider for TestParachain {
 impl Chain for TestParachain {
 	const NAME: &'static str = "TestParachain";
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str = "TestParachainMethod";
+	const FREE_HEADERS_INTERVAL_METHOD: &'static str = "TestParachainMethod";
 	const AVERAGE_BLOCK_INTERVAL: Duration = Duration::from_millis(0);
 
 	type SignedBlock = sp_runtime::generic::SignedBlock<

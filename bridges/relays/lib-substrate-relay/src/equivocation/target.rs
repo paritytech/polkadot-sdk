@@ -34,27 +34,33 @@ use sp_runtime::traits::Header;
 use std::marker::PhantomData;
 
 /// Substrate node as equivocation source.
-pub struct SubstrateEquivocationTarget<P: SubstrateEquivocationDetectionPipeline> {
-	client: Client<P::TargetChain>,
+pub struct SubstrateEquivocationTarget<P: SubstrateEquivocationDetectionPipeline, TargetClnt> {
+	client: TargetClnt,
 
 	_phantom: PhantomData<P>,
 }
 
-impl<P: SubstrateEquivocationDetectionPipeline> SubstrateEquivocationTarget<P> {
+impl<P: SubstrateEquivocationDetectionPipeline, TargetClnt: Client<P::TargetChain>>
+	SubstrateEquivocationTarget<P, TargetClnt>
+{
 	/// Create new instance of `SubstrateEquivocationTarget`.
-	pub fn new(client: Client<P::TargetChain>) -> Self {
+	pub fn new(client: TargetClnt) -> Self {
 		Self { client, _phantom: Default::default() }
 	}
 }
 
-impl<P: SubstrateEquivocationDetectionPipeline> Clone for SubstrateEquivocationTarget<P> {
+impl<P: SubstrateEquivocationDetectionPipeline, TargetClnt: Client<P::TargetChain>> Clone
+	for SubstrateEquivocationTarget<P, TargetClnt>
+{
 	fn clone(&self) -> Self {
 		Self { client: self.client.clone(), _phantom: Default::default() }
 	}
 }
 
 #[async_trait]
-impl<P: SubstrateEquivocationDetectionPipeline> RelayClient for SubstrateEquivocationTarget<P> {
+impl<P: SubstrateEquivocationDetectionPipeline, TargetClnt: Client<P::TargetChain>> RelayClient
+	for SubstrateEquivocationTarget<P, TargetClnt>
+{
 	type Error = Error;
 
 	async fn reconnect(&mut self) -> Result<(), Error> {
@@ -63,8 +69,9 @@ impl<P: SubstrateEquivocationDetectionPipeline> RelayClient for SubstrateEquivoc
 }
 
 #[async_trait]
-impl<P: SubstrateEquivocationDetectionPipeline>
-	TargetClient<EquivocationDetectionPipelineAdapter<P>> for SubstrateEquivocationTarget<P>
+impl<P: SubstrateEquivocationDetectionPipeline, TargetClnt: Client<P::TargetChain>>
+	TargetClient<EquivocationDetectionPipelineAdapter<P>>
+	for SubstrateEquivocationTarget<P, TargetClnt>
 {
 	async fn best_finalized_header_number(
 		&self,

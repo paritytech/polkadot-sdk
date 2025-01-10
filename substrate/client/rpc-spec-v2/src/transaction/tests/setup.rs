@@ -67,6 +67,7 @@ fn maintained_pool(
 
 pub fn setup_api(
 	options: Options,
+	max_tx_per_connection: usize,
 ) -> (
 	Arc<TestApi>,
 	Arc<MiddlewarePool>,
@@ -85,9 +86,13 @@ pub fn setup_api(
 
 	let (task_executor, executor_recv) = TaskExecutorBroadcast::new();
 
-	let tx_api =
-		RpcTransactionBroadcast::new(client_mock.clone(), pool.clone(), Arc::new(task_executor))
-			.into_rpc();
+	let tx_api = RpcTransactionBroadcast::new(
+		client_mock.clone(),
+		pool.clone(),
+		Arc::new(task_executor),
+		max_tx_per_connection,
+	)
+	.into_rpc();
 
 	(api, pool, client_mock, tx_api, executor_recv, pool_state)
 }

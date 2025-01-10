@@ -19,7 +19,7 @@ use async_trait::async_trait;
 use futures::stream::FusedStream;
 
 use bp_messages::{MessageNonce, UnrewardedRelayersState, Weight};
-use relay_utils::FailedClient;
+use relay_utils::{FailedClient, TrackedTransactionStatus, TransactionTracker};
 
 use crate::{
 	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
@@ -59,9 +59,7 @@ pub async fn run<P: MessageLane>(
 			_phantom: Default::default(),
 		},
 		target_state_updates,
-		MessageDeliveryStrategy::<P, _, _> {
-			lane_source_client: source_client,
-			lane_target_client: target_client,
+		MessageDeliveryStrategy::<P> {
 			max_unrewarded_relayer_entries_at_target: params
 				.max_unrewarded_relayer_entries_at_target,
 			max_unconfirmed_nonces_at_target: params.max_unconfirmed_nonces_at_target,
@@ -71,10 +69,72 @@ pub async fn run<P: MessageLane>(
 			latest_confirmed_nonces_at_source: VecDeque::new(),
 			target_nonces: None,
 			strategy: BasicStrategy::new(),
-			metrics_msg,
 		},
 	)
 	.await
+}
+
+/// Relay range of messages.
+pub async fn relay_messages_range<P: MessageLane>(
+	source_client: impl MessageLaneSourceClient<P>,
+	target_client: impl MessageLaneTargetClient<P>,
+	at: SourceHeaderIdOf<P>,
+	range: RangeInclusive<MessageNonce>,
+	outbound_state_proof_required: bool,
+) -> Result<(), ()> {
+	// compute cumulative dispatch weight of all messages in given range
+	let dispatch_weight = source_client
+		.generated_message_details(at.clone(), range.clone())
+		.await
+		.map_err(|e| {
+			log::error!(
+				target: "bridge",
+				"Failed to get generated message details at {:?} for messages {:?}: {:?}",
+				at,
+				range,
+				e,
+			);
+		})?
+		.values()
+		.fold(Weight::zero(), |total, details| total.saturating_add(details.dispatch_weight));
+	// prepare messages proof
+	let (at, range, proof) = source_client
+		.prove_messages(
+			at.clone(),
+			range.clone(),
+			MessageProofParameters { outbound_state_proof_required, dispatch_weight },
+		)
+		.await
+		.map_err(|e| {
+			log::error!(
+				target: "bridge",
+				"Failed to generate messages proof at {:?} for messages {:?}: {:?}",
+				at,
+				range,
+				e,
+			);
+		})?;
+	// submit messages proof to the target node
+	let tx_tracker = target_client
+		.submit_messages_proof(None, at, range.clone(), proof)
+		.await
+		.map_err(|e| {
+			log::error!(
+				target: "bridge",
+				"Failed to submit messages proof for messages {:?}: {:?}",
+				range,
+				e,
+			);
+		})?
+		.tx_tracker;
+
+	match tx_tracker.wait().await {
+		TrackedTransactionStatus::Finalized(_) => Ok(()),
+		TrackedTransactionStatus::Lost => {
+			log::error!("Transaction with messages {:?} is considered lost", range,);
+			Err(())
+		},
+	}
 }
 
 /// Message delivery race.
@@ -237,11 +297,7 @@ struct DeliveryRaceTargetNoncesData {
 }
 
 /// Messages delivery strategy.
-struct MessageDeliveryStrategy<P: MessageLane, SC, TC> {
-	/// The client that is connected to the message lane source node.
-	lane_source_client: SC,
-	/// The client that is connected to the message lane target node.
-	lane_target_client: TC,
+struct MessageDeliveryStrategy<P: MessageLane> {
 	/// Maximal unrewarded relayer entries at target client.
 	max_unrewarded_relayer_entries_at_target: MessageNonce,
 	/// Maximal unconfirmed nonces at target client.
@@ -259,8 +315,6 @@ struct MessageDeliveryStrategy<P: MessageLane, SC, TC> {
 	target_nonces: Option<TargetClientNonces<DeliveryRaceTargetNoncesData>>,
 	/// Basic delivery strategy.
 	strategy: MessageDeliveryStrategyBase<P>,
-	/// Message lane metrics.
-	metrics_msg: Option<MessageLaneLoopMetrics>,
 }
 
 type MessageDeliveryStrategyBase<P> = BasicStrategy<
@@ -272,7 +326,7 @@ type MessageDeliveryStrategyBase<P> = BasicStrategy<
 	<P as MessageLane>::MessagesProof,
 >;
 
-impl<P: MessageLane, SC, TC> std::fmt::Debug for MessageDeliveryStrategy<P, SC, TC> {
+impl<P: MessageLane> std::fmt::Debug for MessageDeliveryStrategy<P> {
 	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
 		fmt.debug_struct("MessageDeliveryStrategy")
 			.field(
@@ -290,11 +344,9 @@ impl<P: MessageLane, SC, TC> std::fmt::Debug for MessageDeliveryStrategy<P, SC, 
 	}
 }
 
-impl<P: MessageLane, SC, TC> MessageDeliveryStrategy<P, SC, TC>
+impl<P: MessageLane> MessageDeliveryStrategy<P>
 where
 	P: MessageLane,
-	SC: MessageLaneSourceClient<P>,
-	TC: MessageLaneTargetClient<P>,
 {
 	/// Returns true if some race action can be selected (with `select_race_action`) at given
 	/// `best_finalized_source_header_id_at_best_target` source header at target.
@@ -402,23 +454,18 @@ where
 		let max_nonces = std::cmp::min(max_nonces, self.max_messages_in_single_batch);
 		let max_messages_weight_in_single_batch = self.max_messages_weight_in_single_batch;
 		let max_messages_size_in_single_batch = self.max_messages_size_in_single_batch;
-		let lane_source_client = self.lane_source_client.clone();
-		let lane_target_client = self.lane_target_client.clone();
 
 		// select nonces from nonces, available for delivery
 		let selected_nonces = match self.strategy.available_source_queue_indices(race_state) {
 			Some(available_source_queue_indices) => {
 				let source_queue = self.strategy.source_queue();
-				let reference = RelayMessagesBatchReference {
+				let reference = RelayMessagesBatchReference::<P> {
 					max_messages_in_this_batch: max_nonces,
 					max_messages_weight_in_single_batch,
 					max_messages_size_in_single_batch,
-					lane_source_client: lane_source_client.clone(),
-					lane_target_client: lane_target_client.clone(),
 					best_target_nonce,
 					nonces_queue: source_queue.clone(),
 					nonces_queue_range: available_source_queue_indices,
-					metrics: self.metrics_msg.clone(),
 				};
 
 				MessageRaceLimits::decide(reference).await
@@ -471,12 +518,10 @@ where
 }
 
 #[async_trait]
-impl<P, SC, TC> RaceStrategy<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::MessagesProof>
-	for MessageDeliveryStrategy<P, SC, TC>
+impl<P> RaceStrategy<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::MessagesProof>
+	for MessageDeliveryStrategy<P>
 where
 	P: MessageLane,
-	SC: MessageLaneSourceClient<P>,
-	TC: MessageLaneTargetClient<P>,
 {
 	type SourceNoncesRange = MessageDetailsMap<P::SourceChainBalance>;
 	type ProofParameters = MessageProofParameters;
@@ -644,8 +689,7 @@ mod tests {
 		message_lane_loop::{
 			tests::{
 				header_id, TestMessageLane, TestMessagesBatchTransaction, TestMessagesProof,
-				TestSourceChainBalance, TestSourceClient, TestSourceHeaderId, TestTargetClient,
-				TestTargetHeaderId,
+				TestSourceChainBalance, TestSourceHeaderId, TestTargetHeaderId,
 			},
 			MessageDetails,
 		},
@@ -663,8 +707,7 @@ mod tests {
 		TestMessagesProof,
 		TestMessagesBatchTransaction,
 	>;
-	type TestStrategy =
-		MessageDeliveryStrategy<TestMessageLane, TestSourceClient, TestTargetClient>;
+	type TestStrategy = MessageDeliveryStrategy<TestMessageLane>;
 
 	fn source_nonces(
 		new_nonces: RangeInclusive<MessageNonce>,
@@ -707,9 +750,6 @@ mod tests {
 			max_messages_weight_in_single_batch: Weight::from_parts(4, 0),
 			max_messages_size_in_single_batch: 4,
 			latest_confirmed_nonces_at_source: vec![(header_id(1), 19)].into_iter().collect(),
-			lane_source_client: TestSourceClient::default(),
-			lane_target_client: TestTargetClient::default(),
-			metrics_msg: None,
 			target_nonces: Some(TargetClientNonces {
 				latest_nonce: 19,
 				nonces_data: DeliveryRaceTargetNoncesData {
@@ -1104,9 +1144,6 @@ mod tests {
 			max_messages_weight_in_single_batch: Weight::from_parts(4, 0),
 			max_messages_size_in_single_batch: 4,
 			latest_confirmed_nonces_at_source: VecDeque::new(),
-			lane_source_client: TestSourceClient::default(),
-			lane_target_client: TestTargetClient::default(),
-			metrics_msg: None,
 			target_nonces: None,
 			strategy: BasicStrategy::new(),
 		};

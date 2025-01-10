@@ -27,14 +27,16 @@ use sc_consensus_beefy::communication::notification::{
 	BeefyBestBlockStream, BeefyVersionedFinalityProofStream,
 };
 use sc_consensus_grandpa::FinalityProofProvider;
-pub use sc_rpc::{DenyUnsafe, SubscriptionTaskExecutor};
+pub use sc_rpc::SubscriptionTaskExecutor;
+use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
+use sp_application_crypto::RuntimeAppPublic;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus::SelectChain;
 use sp_consensus_babe::BabeApi;
+use sp_consensus_beefy::AuthorityIdBound;
 use sp_keystore::KeystorePtr;
-use txpool_api::TransactionPool;
 
 /// A type representing all RPC extensions.
 pub type RpcExtension = RpcModule<()>;
@@ -62,9 +64,9 @@ pub struct GrandpaDeps<B> {
 }
 
 /// Dependencies for BEEFY
-pub struct BeefyDeps {
+pub struct BeefyDeps<AuthorityId: AuthorityIdBound> {
 	/// Receives notifications about finality proof events from BEEFY.
-	pub beefy_finality_proof_stream: BeefyVersionedFinalityProofStream<Block>,
+	pub beefy_finality_proof_stream: BeefyVersionedFinalityProofStream<Block, AuthorityId>,
 	/// Receives notifications about best block events from BEEFY.
 	pub beefy_best_block_stream: BeefyBestBlockStream<Block>,
 	/// Executor to drive the subscription manager in the BEEFY RPC handler.
@@ -72,7 +74,7 @@ pub struct BeefyDeps {
 }
 
 /// Full client dependencies
-pub struct FullDeps<C, P, SC, B> {
+pub struct FullDeps<C, P, SC, B, AuthorityId: AuthorityIdBound> {
 	/// The client instance to use.
 	pub client: Arc<C>,
 	/// Transaction pool instance.
@@ -81,21 +83,25 @@ pub struct FullDeps<C, P, SC, B> {
 	pub select_chain: SC,
 	/// A copy of the chain spec.
 	pub chain_spec: Box<dyn sc_chain_spec::ChainSpec>,
-	/// Whether to deny unsafe calls
-	pub deny_unsafe: DenyUnsafe,
 	/// BABE specific dependencies.
 	pub babe: BabeDeps,
 	/// GRANDPA specific dependencies.
 	pub grandpa: GrandpaDeps<B>,
 	/// BEEFY specific dependencies.
-	pub beefy: BeefyDeps,
+	pub beefy: BeefyDeps<AuthorityId>,
 	/// Backend used by the node.
 	pub backend: Arc<B>,
 }
 
 /// Instantiate all RPC extensions.
-pub fn create_full<C, P, SC, B>(
-	FullDeps { client, pool, select_chain, chain_spec, deny_unsafe, babe, grandpa, beefy, backend } : FullDeps<C, P, SC, B>,
+pub fn create_full<C, P, SC, B, AuthorityId>(
+	FullDeps { client, pool, select_chain, chain_spec, babe, grandpa, beefy, backend }: FullDeps<
+		C,
+		P,
+		SC,
+		B,
+		AuthorityId,
+	>,
 ) -> Result<RpcExtension, Box<dyn std::error::Error + Send + Sync>>
 where
 	C: ProvideRuntimeApi<Block>
@@ -105,7 +111,7 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	C::Api: frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
+	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	C::Api: mmr_rpc::MmrRuntimeApi<Block, <Block as sp_runtime::traits::Block>::Hash, BlockNumber>,
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: BabeApi<Block>,
@@ -114,15 +120,16 @@ where
 	SC: SelectChain<Block> + 'static,
 	B: sc_client_api::Backend<Block> + Send + Sync + 'static,
 	B::State: sc_client_api::StateBackend<sp_runtime::traits::HashingFor<Block>>,
+	AuthorityId: AuthorityIdBound,
+	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
-	use frame_rpc_system::{System, SystemApiServer};
 	use mmr_rpc::{Mmr, MmrApiServer};
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
 	use sc_consensus_babe_rpc::{Babe, BabeApiServer};
 	use sc_consensus_beefy_rpc::{Beefy, BeefyApiServer};
 	use sc_consensus_grandpa_rpc::{Grandpa, GrandpaApiServer};
-	use sc_rpc_spec_v2::chain_spec::{ChainSpec, ChainSpecApiServer};
 	use sc_sync_state_rpc::{SyncState, SyncStateApiServer};
+	use substrate_frame_rpc_system::{System, SystemApiServer};
 	use substrate_state_trie_migration_rpc::{StateMigration, StateMigrationApiServer};
 
 	let mut io = RpcModule::new(());
@@ -135,13 +142,8 @@ where
 		finality_provider,
 	} = grandpa;
 
-	let chain_name = chain_spec.name().to_string();
-	let genesis_hash = client.hash(0).ok().flatten().expect("Genesis block exists; qed");
-	let properties = chain_spec.properties();
-
-	io.merge(ChainSpec::new(chain_name, genesis_hash, properties).into_rpc())?;
-	io.merge(StateMigration::new(client.clone(), backend.clone(), deny_unsafe).into_rpc())?;
-	io.merge(System::new(client.clone(), pool.clone(), deny_unsafe).into_rpc())?;
+	io.merge(StateMigration::new(client.clone(), backend.clone()).into_rpc())?;
+	io.merge(System::new(client.clone(), pool.clone()).into_rpc())?;
 	io.merge(TransactionPayment::new(client.clone()).into_rpc())?;
 	io.merge(
 		Mmr::new(
@@ -153,8 +155,7 @@ where
 		.into_rpc(),
 	)?;
 	io.merge(
-		Babe::new(client.clone(), babe_worker_handle.clone(), keystore, select_chain, deny_unsafe)
-			.into_rpc(),
+		Babe::new(client.clone(), babe_worker_handle.clone(), keystore, select_chain).into_rpc(),
 	)?;
 	io.merge(
 		Grandpa::new(
@@ -171,7 +172,7 @@ where
 	)?;
 
 	io.merge(
-		Beefy::<Block>::new(
+		Beefy::<Block, AuthorityId>::new(
 			beefy.beefy_finality_proof_stream,
 			beefy.beefy_best_block_stream,
 			beefy.subscription_executor,

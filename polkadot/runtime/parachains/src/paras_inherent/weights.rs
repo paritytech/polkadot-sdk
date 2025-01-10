@@ -19,8 +19,9 @@
 //! the relay chain, but we do care about the size of the block, by putting the tx in the
 //! proof_size we can use the already existing weight limiting code to limit the used size as well.
 
-use parity_scale_codec::{Encode, WrapperTypeEncode};
-use primitives::{
+use crate::{configuration, inclusion};
+use codec::{Encode, WrapperTypeEncode};
+use polkadot_primitives::{
 	CheckedMultiDisputeStatementSet, MultiDisputeStatementSet, UncheckedSignedAvailabilityBitfield,
 	UncheckedSignedAvailabilityBitfields,
 };
@@ -28,6 +29,8 @@ use primitives::{
 use super::{BackedCandidate, Config, DisputeStatementSet, Weight};
 
 pub trait WeightInfo {
+	/// The weight of processing an empty parachain inherent.
+	fn enter_empty() -> Weight;
 	/// Variant over `v`, the count of dispute statements in a dispute statement set. This gives the
 	/// weight of a single dispute statement set.
 	fn enter_variable_disputes(v: u32) -> Weight;
@@ -45,6 +48,9 @@ pub struct TestWeightInfo;
 //  mock.
 #[cfg(not(feature = "runtime-benchmarks"))]
 impl WeightInfo for TestWeightInfo {
+	fn enter_empty() -> Weight {
+		Weight::zero()
+	}
 	fn enter_variable_disputes(v: u32) -> Weight {
 		// MAX Block Weight should fit 4 disputes
 		Weight::from_parts(80_000 * v as u64 + 80_000, 0)
@@ -66,6 +72,9 @@ impl WeightInfo for TestWeightInfo {
 // running as a test.
 #[cfg(feature = "runtime-benchmarks")]
 impl WeightInfo for TestWeightInfo {
+	fn enter_empty() -> Weight {
+		Weight::zero()
+	}
 	fn enter_variable_disputes(_v: u32) -> Weight {
 		Weight::zero()
 	}
@@ -88,6 +97,7 @@ pub fn paras_inherent_total_weight<T: Config>(
 	backed_candidates_weight::<T>(backed_candidates)
 		.saturating_add(signed_bitfields_weight::<T>(bitfields))
 		.saturating_add(multi_dispute_statement_sets_weight::<T>(disputes))
+		.saturating_add(enact_candidates_max_weight::<T>(bitfields))
 }
 
 pub fn multi_dispute_statement_sets_weight<T: Config>(
@@ -123,7 +133,8 @@ where
 	set_proof_size_to_tx_size(
 		<<T as Config>::WeightInfo as WeightInfo>::enter_variable_disputes(
 			statement_set.as_ref().statements.len() as u32,
-		),
+		)
+		.saturating_sub(<<T as Config>::WeightInfo as WeightInfo>::enter_empty()),
 		statement_set,
 	)
 }
@@ -133,6 +144,7 @@ pub fn signed_bitfields_weight<T: Config>(
 ) -> Weight {
 	set_proof_size_to_tx_size(
 		<<T as Config>::WeightInfo as WeightInfo>::enter_bitfields()
+			.saturating_sub(<<T as Config>::WeightInfo as WeightInfo>::enter_empty())
 			.saturating_mul(bitfields.len() as u64),
 		bitfields,
 	)
@@ -140,8 +152,30 @@ pub fn signed_bitfields_weight<T: Config>(
 
 pub fn signed_bitfield_weight<T: Config>(bitfield: &UncheckedSignedAvailabilityBitfield) -> Weight {
 	set_proof_size_to_tx_size(
-		<<T as Config>::WeightInfo as WeightInfo>::enter_bitfields(),
+		<<T as Config>::WeightInfo as WeightInfo>::enter_bitfields()
+			.saturating_sub(<<T as Config>::WeightInfo as WeightInfo>::enter_empty()),
 		bitfield,
+	)
+}
+
+/// Worst case scenario is all candidates have been enacted
+/// and process a maximum number of messages.
+pub fn enact_candidates_max_weight<T: Config>(
+	bitfields: &UncheckedSignedAvailabilityBitfields,
+) -> Weight {
+	let config = configuration::ActiveConfig::<T>::get();
+	let max_ump_msgs = config.max_upward_message_num_per_candidate;
+	let max_hrmp_msgs = config.hrmp_max_message_num_per_candidate;
+	// No bitfields - no enacted candidates
+	let bitfield_size = bitfields.first().map(|b| b.unchecked_payload().0.len()).unwrap_or(0);
+	set_proof_size_to_tx_size(
+		<<T as inclusion::Config>::WeightInfo as inclusion::WeightInfo>::enact_candidate(
+			max_ump_msgs,
+			max_hrmp_msgs,
+			1, // runtime upgrade
+		)
+		.saturating_mul(bitfield_size as u64),
+		bitfields,
 	)
 }
 
@@ -155,7 +189,8 @@ pub fn backed_candidate_weight<T: frame_system::Config + Config>(
 			<<T as Config>::WeightInfo as WeightInfo>::enter_backed_candidates_variable(
 				candidate.validity_votes().len() as u32,
 			)
-		},
+		}
+		.saturating_sub(<<T as Config>::WeightInfo as WeightInfo>::enter_empty()),
 		candidate,
 	)
 }

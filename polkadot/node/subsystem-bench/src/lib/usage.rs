@@ -23,7 +23,6 @@ use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BenchmarkUsage {
-	pub benchmark_name: String,
 	pub network_usage: Vec<ResourceUsage>,
 	pub cpu_usage: Vec<ResourceUsage>,
 }
@@ -32,16 +31,15 @@ impl std::fmt::Display for BenchmarkUsage {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		write!(
 			f,
-			"\n{}\n\n{}\n{}\n\n{}\n{}\n",
-			self.benchmark_name.purple(),
-			format!("{:<32}{:>12}{:>12}", "Network usage, KiB", "total", "per block").blue(),
+			"\n{}\n{}\n\n{}\n{}\n",
+			format!("{:<64}{:>12}{:>12}", "Network usage, KiB", "total", "per block").blue(),
 			self.network_usage
 				.iter()
 				.map(|v| v.to_string())
 				.sorted()
 				.collect::<Vec<String>>()
 				.join("\n"),
-			format!("{:<32}{:>12}{:>12}", "CPU usage, seconds", "total", "per block").blue(),
+			format!("{:<64}{:>12}{:>12}", "CPU usage, seconds", "total", "per block").blue(),
 			self.cpu_usage
 				.iter()
 				.map(|v| v.to_string())
@@ -59,18 +57,17 @@ impl BenchmarkUsage {
 		let all_cpu_usage: Vec<&ResourceUsage> = usages.iter().flat_map(|v| &v.cpu_usage).collect();
 
 		Self {
-			benchmark_name: usages.first().map(|v| v.benchmark_name.clone()).unwrap_or_default(),
 			network_usage: ResourceUsage::average_by_resource_name(&all_network_usages),
 			cpu_usage: ResourceUsage::average_by_resource_name(&all_cpu_usage),
 		}
 	}
 
 	pub fn check_network_usage(&self, checks: &[ResourceUsageCheck]) -> Vec<String> {
-		check_usage(&self.benchmark_name, &self.network_usage, checks)
+		check_usage(&self.network_usage, checks)
 	}
 
 	pub fn check_cpu_usage(&self, checks: &[ResourceUsageCheck]) -> Vec<String> {
-		check_usage(&self.benchmark_name, &self.cpu_usage, checks)
+		check_usage(&self.cpu_usage, checks)
 	}
 
 	pub fn cpu_usage_diff(&self, other: &Self, resource_name: &str) -> Option<f64> {
@@ -105,18 +102,8 @@ impl BenchmarkUsage {
 	}
 }
 
-fn check_usage(
-	benchmark_name: &str,
-	usage: &[ResourceUsage],
-	checks: &[ResourceUsageCheck],
-) -> Vec<String> {
-	checks
-		.iter()
-		.filter_map(|check| {
-			check_resource_usage(usage, check)
-				.map(|message| format!("{}: {}", benchmark_name, message))
-		})
-		.collect()
+fn check_usage(usage: &[ResourceUsage], checks: &[ResourceUsageCheck]) -> Vec<String> {
+	checks.iter().filter_map(|check| check_resource_usage(usage, check)).collect()
 }
 
 fn check_resource_usage(
@@ -147,7 +134,7 @@ pub struct ResourceUsage {
 
 impl std::fmt::Display for ResourceUsage {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(f, "{:<32}{:>12.4}{:>12.4}", self.resource_name.cyan(), self.total, self.per_block)
+		write!(f, "{:<64}{:>12.4}{:>12.4}", self.resource_name.cyan(), self.total, self.per_block)
 	}
 }
 
@@ -161,6 +148,13 @@ impl ResourceUsage {
 		for (resource_name, values) in by_name {
 			let total = values.iter().map(|v| v.total).sum::<f64>() / values.len() as f64;
 			let per_block = values.iter().map(|v| v.per_block).sum::<f64>() / values.len() as f64;
+			let per_block_sd =
+				standard_deviation(&values.iter().map(|v| v.per_block).collect::<Vec<f64>>());
+			println!(
+				"[{}] standart_deviation {:.2}%",
+				resource_name,
+				per_block_sd / per_block * 100.0
+			);
 			average.push(Self { resource_name, total, per_block });
 		}
 		average
@@ -178,4 +172,12 @@ pub struct ChartItem {
 	pub name: String,
 	pub unit: String,
 	pub value: f64,
+}
+
+fn standard_deviation(values: &[f64]) -> f64 {
+	let n = values.len() as f64;
+	let mean = values.iter().sum::<f64>() / n;
+	let variance = values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (n - 1.0);
+
+	variance.sqrt()
 }

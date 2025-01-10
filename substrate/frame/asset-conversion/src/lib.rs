@@ -70,6 +70,9 @@ pub use swap::*;
 pub use types::*;
 pub use weights::WeightInfo;
 
+extern crate alloc;
+
+use alloc::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 use codec::Codec;
 use frame_support::{
 	storage::{with_storage_layer, with_transaction},
@@ -93,7 +96,6 @@ use sp_runtime::{
 	},
 	DispatchError, Saturating, TokenError, TransactionOutcome,
 };
-use sp_std::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -433,7 +435,7 @@ pub mod pallet {
 		/// calls to render the liquidity withdrawable and rectify the exchange rate.
 		///
 		/// Once liquidity is added, someone may successfully call
-		/// [`Pallet::swap_exact_tokens_for_tokens`] successfully.
+		/// [`Pallet::swap_exact_tokens_for_tokens`].
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::add_liquidity())]
 		pub fn add_liquidity(
@@ -596,7 +598,14 @@ pub mod pallet {
 			);
 
 			// burn the provided lp token amount that includes the fee
-			T::PoolAssets::burn_from(pool.lp_token.clone(), &sender, lp_token_burn, Exact, Polite)?;
+			T::PoolAssets::burn_from(
+				pool.lp_token.clone(),
+				&sender,
+				lp_token_burn,
+				Expendable,
+				Exact,
+				Polite,
+			)?;
 
 			T::Assets::transfer(*asset1, &pool_account, &withdraw_to, amount1, Expendable)?;
 			T::Assets::transfer(*asset2, &pool_account, &withdraw_to, amount2, Expendable)?;

@@ -38,7 +38,6 @@ use crate::{
 			request_response::{RequestResponseConfig, RequestResponseProtocol},
 		},
 	},
-	multiaddr::{Multiaddr, Protocol},
 	peer_store::PeerStoreProvider,
 	protocol,
 	service::{
@@ -51,24 +50,30 @@ use crate::{
 
 use codec::Encode;
 use futures::StreamExt;
-use libp2p::kad::RecordKey;
 use litep2p::{
 	config::ConfigBuilder,
-	crypto::ed25519::{Keypair, SecretKey},
+	crypto::ed25519::Keypair,
+	error::{DialError, NegotiationError},
 	executor::Executor,
 	protocol::{
-		libp2p::{bitswap::Config as BitswapConfig, kademlia::QueryId},
+		libp2p::{
+			bitswap::Config as BitswapConfig,
+			kademlia::{QueryId, Record, RecordsType},
+		},
 		request_response::ConfigBuilder as RequestResponseConfigBuilder,
 	},
 	transport::{
 		tcp::config::Config as TcpTransportConfig,
-		websocket::config::Config as WebSocketTransportConfig, Endpoint,
+		websocket::config::Config as WebSocketTransportConfig, ConnectionLimitsConfig, Endpoint,
 	},
-	types::ConnectionId,
-	Error as Litep2pError, Litep2p, Litep2pEvent, ProtocolName as Litep2pProtocolName,
+	types::{
+		multiaddr::{Multiaddr, Protocol},
+		ConnectionId,
+	},
+	Litep2p, Litep2pEvent, ProtocolName as Litep2pProtocolName,
 };
-use parking_lot::RwLock;
 use prometheus_endpoint::Registry;
+use sc_network_types::kad::{Key as RecordKey, PeerRecord, Record as P2PRecord};
 
 use sc_client_api::BlockBackend;
 use sc_network_common::{role::Roles, ExHashT};
@@ -81,7 +86,7 @@ use std::{
 	collections::{hash_map::Entry, HashMap, HashSet},
 	fs,
 	future::Future,
-	io, iter,
+	iter,
 	pin::Pin,
 	sync::{
 		atomic::{AtomicUsize, Ordering},
@@ -138,6 +143,17 @@ struct ConnectionContext {
 	num_connections: usize,
 }
 
+/// Kademlia query we are tracking.
+#[derive(Debug)]
+enum KadQuery {
+	/// `GET_VALUE` query for key and when it was initiated.
+	GetValue(RecordKey, Instant),
+	/// `PUT_VALUE` query for key and when it was initiated.
+	PutValue(RecordKey, Instant),
+	/// `GET_PROVIDERS` query for key and when it was initiated.
+	GetProviders(RecordKey, Instant),
+}
+
 /// Networking backend for `litep2p`.
 pub struct Litep2pNetworkBackend {
 	/// Main `litep2p` object.
@@ -152,11 +168,8 @@ pub struct Litep2pNetworkBackend {
 	/// `Peerset` handles to notification protocols.
 	peerset_handles: HashMap<ProtocolName, ProtocolControlHandle>,
 
-	/// Pending `GET_VALUE` queries.
-	pending_get_values: HashMap<QueryId, (RecordKey, Instant)>,
-
-	/// Pending `PUT_VALUE` queries.
-	pending_put_values: HashMap<QueryId, (RecordKey, Instant)>,
+	/// Pending Kademlia queries.
+	pending_queries: HashMap<QueryId, KadQuery>,
 
 	/// Discovery.
 	discovery: Discovery,
@@ -178,9 +191,6 @@ pub struct Litep2pNetworkBackend {
 
 	/// Prometheus metrics.
 	metrics: Option<Metrics>,
-
-	/// External addresses.
-	external_addresses: Arc<RwLock<HashSet<Multiaddr>>>,
 }
 
 impl Litep2pNetworkBackend {
@@ -200,12 +210,12 @@ impl Litep2pNetworkBackend {
 					Protocol::Ip4(_),
 				) => match address.iter().find(|protocol| std::matches!(protocol, Protocol::P2p(_)))
 				{
-					Some(Protocol::P2p(multihash)) => PeerId::from_multihash(multihash)
+					Some(Protocol::P2p(multihash)) => PeerId::from_multihash(multihash.into())
 						.map_or(None, |peer| Some((peer, Some(address)))),
 					_ => None,
 				},
 				Some(Protocol::P2p(multihash)) =>
-					PeerId::from_multihash(multihash).map_or(None, |peer| Some((peer, None))),
+					PeerId::from_multihash(multihash.into()).map_or(None, |peer| Some((peer, None))),
 				_ => None,
 			})
 			.fold(HashMap::new(), |mut acc, (peer, maybe_address)| {
@@ -244,16 +254,9 @@ impl Litep2pNetworkBackend {
 impl Litep2pNetworkBackend {
 	/// Get `litep2p` keypair from `NodeKeyConfig`.
 	fn get_keypair(node_key: &NodeKeyConfig) -> Result<(Keypair, litep2p::PeerId), Error> {
-		let secret = libp2p::identity::Keypair::try_into_ed25519(node_key.clone().into_keypair()?)
-			.map_err(|error| {
-				log::error!(target: LOG_TARGET, "failed to convert to ed25519: {error:?}");
-				Error::Io(io::ErrorKind::InvalidInput.into())
-			})?
-			.secret();
+		let secret: litep2p::crypto::ed25519::SecretKey =
+			node_key.clone().into_keypair()?.secret().into();
 
-		let mut secret = secret.as_ref().iter().cloned().collect::<Vec<_>>();
-		let secret = SecretKey::from_bytes(&mut secret)
-			.map_err(|_| Error::Io(io::ErrorKind::InvalidInput.into()))?;
 		let local_identity = Keypair::from(secret);
 		let local_public = local_identity.public();
 		let local_peer_id = local_public.to_peer_id();
@@ -327,6 +330,8 @@ impl Litep2pNetworkBackend {
 			.listen_addresses
 			.iter()
 			.filter_map(|address| {
+				use sc_network_types::multiaddr::Protocol;
+
 				let mut iter = address.iter();
 
 				match iter.next() {
@@ -367,13 +372,15 @@ impl Litep2pNetworkBackend {
 
 		config_builder
 			.with_websocket(WebSocketTransportConfig {
-				listen_addresses: websocket.into_iter().flatten().collect(),
+				listen_addresses: websocket.into_iter().flatten().map(Into::into).collect(),
 				yamux_config: yamux_config.clone(),
+				nodelay: true,
 				..Default::default()
 			})
 			.with_tcp(TcpTransportConfig {
-				listen_addresses: tcp.into_iter().flatten().collect(),
+				listen_addresses: tcp.into_iter().flatten().map(Into::into).collect(),
 				yamux_config,
+				nodelay: true,
 				..Default::default()
 			})
 	}
@@ -522,6 +529,8 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		// collect known addresses
 		let known_addresses: HashMap<litep2p::PeerId, Vec<Multiaddr>> =
 			known_addresses.into_iter().fold(HashMap::new(), |mut acc, (peer, address)| {
+				use sc_network_types::multiaddr::Protocol;
+
 				let address = match address.iter().last() {
 					Some(Protocol::Ws(_) | Protocol::Wss(_) | Protocol::Tcp(_)) =>
 						address.with(Protocol::P2p(peer.into())),
@@ -529,7 +538,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 					_ => return acc,
 				};
 
-				acc.entry(peer.into()).or_default().push(address);
+				acc.entry(peer.into()).or_default().push(address.into());
 				peer_store_handle.add_known_peer(peer);
 
 				acc
@@ -539,6 +548,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		let listen_addresses = Arc::new(Default::default());
 		let (discovery, ping_config, identify_config, kademlia_config, maybe_mdns_config) =
 			Discovery::new(
+				local_peer_id,
 				&network_config,
 				params.genesis_hash,
 				params.fork_id.as_deref(),
@@ -553,6 +563,9 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			.with_libp2p_ping(ping_config)
 			.with_libp2p_identify(identify_config)
 			.with_libp2p_kademlia(kademlia_config)
+			.with_connection_limits(ConnectionLimitsConfig::default().max_incoming_connections(
+				Some(crate::MAX_CONNECTIONS_ESTABLISHED_INCOMING as usize),
+			))
 			.with_executor(executor);
 
 		if let Some(config) = maybe_mdns_config {
@@ -566,14 +579,21 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		let litep2p =
 			Litep2p::new(config_builder.build()).map_err(|error| Error::Litep2p(error))?;
 
-		let external_addresses: Arc<RwLock<HashSet<Multiaddr>>> = Arc::new(RwLock::new(
-			HashSet::from_iter(network_config.public_addresses.iter().cloned()),
-		));
 		litep2p.listen_addresses().for_each(|address| {
 			log::debug!(target: LOG_TARGET, "listening on: {address}");
 
 			listen_addresses.write().insert(address.clone());
 		});
+
+		let public_addresses = litep2p.public_addresses();
+		for address in network_config.public_addresses.iter() {
+			if let Err(err) = public_addresses.add_address(address.clone().into()) {
+				log::warn!(
+					target: LOG_TARGET,
+					"failed to add public address {address:?}: {err:?}",
+				);
+			}
+		}
 
 		let network_service = Arc::new(Litep2pNetworkService::new(
 			local_peer_id,
@@ -584,7 +604,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			block_announce_protocol.clone(),
 			request_response_senders,
 			Arc::clone(&listen_addresses),
-			Arc::clone(&external_addresses),
+			public_addresses,
 		));
 
 		// register rest of the metrics now that `Litep2p` has been created
@@ -603,14 +623,12 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			peerset_handles: notif_protocols,
 			num_connected,
 			discovery,
-			pending_put_values: HashMap::new(),
-			pending_get_values: HashMap::new(),
+			pending_queries: HashMap::new(),
 			peerstore_handle: peer_store_handle,
 			block_announce_protocol,
 			event_streams: out_events::OutChannels::new(None)?,
 			peers: HashMap::new(),
 			litep2p,
-			external_addresses,
 		})
 	}
 
@@ -618,8 +636,11 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		Arc::clone(&self.network_service)
 	}
 
-	fn peer_store(bootnodes: Vec<sc_network_types::PeerId>) -> Self::PeerStore {
-		Peerstore::new(bootnodes)
+	fn peer_store(
+		bootnodes: Vec<sc_network_types::PeerId>,
+		metrics_registry: Option<Registry>,
+	) -> Self::PeerStore {
+		Peerstore::new(bootnodes, metrics_registry)
 	}
 
 	fn register_notification_metrics(registry: Option<&Registry>) -> NotificationMetrics {
@@ -690,11 +711,29 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 					Some(command) => match command {
 						NetworkServiceCommand::GetValue{ key } => {
 							let query_id = self.discovery.get_value(key.clone()).await;
-							self.pending_get_values.insert(query_id, (key, Instant::now()));
+							self.pending_queries.insert(query_id, KadQuery::GetValue(key, Instant::now()));
 						}
 						NetworkServiceCommand::PutValue { key, value } => {
 							let query_id = self.discovery.put_value(key.clone(), value).await;
-							self.pending_put_values.insert(query_id, (key, Instant::now()));
+							self.pending_queries.insert(query_id, KadQuery::PutValue(key, Instant::now()));
+						}
+						NetworkServiceCommand::PutValueTo { record, peers, update_local_storage} => {
+							let kademlia_key = record.key.clone();
+							let query_id = self.discovery.put_value_to_peers(record.into(), peers, update_local_storage).await;
+							self.pending_queries.insert(query_id, KadQuery::PutValue(kademlia_key, Instant::now()));
+						}
+						NetworkServiceCommand::StoreRecord { key, value, publisher, expires } => {
+							self.discovery.store_record(key, value, publisher.map(Into::into), expires).await;
+						}
+						NetworkServiceCommand::StartProviding { key } => {
+							self.discovery.start_providing(key).await;
+						}
+						NetworkServiceCommand::StopProviding { key } => {
+							self.discovery.stop_providing(key).await;
+						}
+						NetworkServiceCommand::GetProviders { key } => {
+							let query_id = self.discovery.get_providers(key.clone()).await;
+							self.pending_queries.insert(query_id, KadQuery::GetProviders(key, Instant::now()));
 						}
 						NetworkServiceCommand::EventStream { tx } => {
 							self.event_streams.push(tx);
@@ -713,7 +752,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							protocol,
 							peers,
 						} => {
-							let peers = self.add_addresses(peers.into_iter());
+							let peers = self.add_addresses(peers.into_iter().map(Into::into));
 
 							match self.peerset_handles.get(&protocol) {
 								Some(handle) => {
@@ -722,20 +761,22 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 								None => log::warn!(target: LOG_TARGET, "protocol {protocol} doens't exist"),
 							};
 						}
-						NetworkServiceCommand::AddKnownAddress { peer, mut address } => {
+						NetworkServiceCommand::AddKnownAddress { peer, address } => {
+							let mut address: Multiaddr = address.into();
+
 							if !address.iter().any(|protocol| std::matches!(protocol, Protocol::P2p(_))) {
-								address.push(Protocol::P2p(peer.into()));
+								address.push(Protocol::P2p(litep2p::PeerId::from(peer).into()));
 							}
 
 							if self.litep2p.add_known_address(peer.into(), iter::once(address.clone())) == 0usize {
-								log::warn!(
+								log::debug!(
 									target: LOG_TARGET,
 									"couldn't add known address ({address}) for {peer:?}, unsupported transport"
 								);
 							}
 						},
 						NetworkServiceCommand::SetReservedPeers { protocol, peers } => {
-							let peers = self.add_addresses(peers.into_iter());
+							let peers = self.add_addresses(peers.into_iter().map(Into::into));
 
 							match self.peerset_handles.get(&protocol) {
 								Some(handle) => {
@@ -795,24 +836,23 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							self.peerstore_handle.add_known_peer(peer.into());
 						}
 					}
-					Some(DiscoveryEvent::GetRecordSuccess { query_id, record }) => {
-						match self.pending_get_values.remove(&query_id) {
-							None => log::warn!(
-								target: LOG_TARGET,
-								"`GET_VALUE` succeeded for a non-existent query",
-							),
-							Some((_key, started)) => {
+					Some(DiscoveryEvent::GetRecordSuccess { query_id, records }) => {
+						match self.pending_queries.remove(&query_id) {
+							Some(KadQuery::GetValue(key, started)) => {
 								log::trace!(
 									target: LOG_TARGET,
 									"`GET_VALUE` for {:?} ({query_id:?}) succeeded",
-									record.key,
+									key,
 								);
-
-								self.event_streams.send(Event::Dht(
-									DhtEvent::ValueFound(vec![
-										(libp2p::kad::RecordKey::new(&record.key), record.value)
-									])
-								));
+								for record in litep2p_to_libp2p_peer_record(records) {
+									self.event_streams.send(
+										Event::Dht(
+											DhtEvent::ValueFound(
+												record.into()
+											)
+										)
+									);
+								}
 
 								if let Some(ref metrics) = self.metrics {
 									metrics
@@ -820,20 +860,27 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 										.with_label_values(&["value-get"])
 										.observe(started.elapsed().as_secs_f64());
 								}
-							}
+							},
+							query => {
+								log::error!(
+									target: LOG_TARGET,
+									"Missing/invalid pending query for `GET_VALUE`: {query:?}"
+								);
+								debug_assert!(false);
+							},
 						}
 					}
 					Some(DiscoveryEvent::PutRecordSuccess { query_id }) => {
-						match self.pending_put_values.remove(&query_id) {
-							None => log::warn!(
-								target: LOG_TARGET,
-								"`PUT_VALUE` succeeded for a non-existent query",
-							),
-							Some((key, started)) => {
+						match self.pending_queries.remove(&query_id) {
+							Some(KadQuery::PutValue(key, started)) => {
 								log::trace!(
 									target: LOG_TARGET,
 									"`PUT_VALUE` for {key:?} ({query_id:?}) succeeded",
 								);
+
+								self.event_streams.send(Event::Dht(
+									DhtEvent::ValuePut(key)
+								));
 
 								if let Some(ref metrics) = self.metrics {
 									metrics
@@ -841,42 +888,57 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 										.with_label_values(&["value-put"])
 										.observe(started.elapsed().as_secs_f64());
 								}
+							},
+							query => {
+								log::error!(
+									target: LOG_TARGET,
+									"Missing/invalid pending query for `PUT_VALUE`: {query:?}"
+								);
+								debug_assert!(false);
+							}
+						}
+					}
+					Some(DiscoveryEvent::GetProvidersSuccess { query_id, providers }) => {
+						match self.pending_queries.remove(&query_id) {
+							Some(KadQuery::GetProviders(key, started)) => {
+								log::trace!(
+									target: LOG_TARGET,
+									"`GET_PROVIDERS` for {key:?} ({query_id:?}) succeeded",
+								);
+
+								self.event_streams.send(Event::Dht(
+									DhtEvent::ProvidersFound(
+										key.into(),
+										providers.into_iter().map(|p| p.peer.into()).collect()
+									)
+								));
+
+								if let Some(ref metrics) = self.metrics {
+									metrics
+										.kademlia_query_duration
+										.with_label_values(&["providers-get"])
+										.observe(started.elapsed().as_secs_f64());
+								}
+							},
+							query => {
+								log::error!(
+									target: LOG_TARGET,
+									"Missing/invalid pending query for `GET_PROVIDERS`: {query:?}"
+								);
+								debug_assert!(false);
 							}
 						}
 					}
 					Some(DiscoveryEvent::QueryFailed { query_id }) => {
-						match self.pending_get_values.remove(&query_id) {
-							None => match self.pending_put_values.remove(&query_id) {
-								None => log::warn!(
-									target: LOG_TARGET,
-									"non-existent query failed ({query_id:?})",
-								),
-								Some((key, started)) => {
-									log::debug!(
-										target: LOG_TARGET,
-										"`PUT_VALUE` ({query_id:?}) failed for key {key:?}",
-									);
-
-									self.event_streams.send(Event::Dht(
-										DhtEvent::ValuePutFailed(libp2p::kad::RecordKey::new(&key))
-									));
-
-									if let Some(ref metrics) = self.metrics {
-										metrics
-											.kademlia_query_duration
-											.with_label_values(&["value-put-failed"])
-											.observe(started.elapsed().as_secs_f64());
-									}
-								}
-							}
-							Some((key, started)) => {
+						match self.pending_queries.remove(&query_id) {
+							Some(KadQuery::GetValue(key, started)) => {
 								log::debug!(
 									target: LOG_TARGET,
 									"`GET_VALUE` ({query_id:?}) failed for key {key:?}",
 								);
 
 								self.event_streams.send(Event::Dht(
-									DhtEvent::ValueNotFound(libp2p::kad::RecordKey::new(&key))
+									DhtEvent::ValueNotFound(key)
 								));
 
 								if let Some(ref metrics) = self.metrics {
@@ -885,6 +947,46 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 										.with_label_values(&["value-get-failed"])
 										.observe(started.elapsed().as_secs_f64());
 								}
+							},
+							Some(KadQuery::PutValue(key, started)) => {
+								log::debug!(
+									target: LOG_TARGET,
+									"`PUT_VALUE` ({query_id:?}) failed for key {key:?}",
+								);
+
+								self.event_streams.send(Event::Dht(
+									DhtEvent::ValuePutFailed(key)
+								));
+
+								if let Some(ref metrics) = self.metrics {
+									metrics
+										.kademlia_query_duration
+										.with_label_values(&["value-put-failed"])
+										.observe(started.elapsed().as_secs_f64());
+								}
+							},
+							Some(KadQuery::GetProviders(key, started)) => {
+								log::debug!(
+									target: LOG_TARGET,
+									"`GET_PROVIDERS` ({query_id:?}) failed for key {key:?}"
+								);
+
+								self.event_streams.send(Event::Dht(
+									DhtEvent::ProvidersNotFound(key)
+								));
+
+								if let Some(ref metrics) = self.metrics {
+									metrics
+										.kademlia_query_duration
+										.with_label_values(&["providers-get-failed"])
+										.observe(started.elapsed().as_secs_f64());
+								}
+							},
+							None => {
+								log::warn!(
+									target: LOG_TARGET,
+									"non-existent query failed ({query_id:?})",
+								);
 							}
 						}
 					}
@@ -892,10 +994,35 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						self.discovery.add_self_reported_address(peer, supported_protocols, listen_addresses).await;
 					}
 					Some(DiscoveryEvent::ExternalAddressDiscovered { address }) => {
-						let mut addresses = self.external_addresses.write();
+						match self.litep2p.public_addresses().add_address(address.clone().into()) {
+							Ok(inserted) => if inserted {
+								log::info!(target: LOG_TARGET, "🔍 Discovered new external address for our node: {address}");
+							},
+							Err(err) => {
+								log::warn!(
+									target: LOG_TARGET,
+									"🔍 Failed to add discovered external address {address:?}: {err:?}",
+								);
+							},
+						}
+					}
+					Some(DiscoveryEvent::ExternalAddressExpired{ address }) => {
+						let local_peer_id = self.litep2p.local_peer_id();
 
-						if addresses.insert(address.clone()) {
-							log::info!(target: LOG_TARGET, "discovered new external address for our node: {address}");
+						// Litep2p requires the peer ID to be present in the address.
+						let address = if !std::matches!(address.iter().last(), Some(Protocol::P2p(_))) {
+							address.with(Protocol::P2p(*local_peer_id.as_ref()))
+						} else {
+							address
+						};
+
+						if self.litep2p.public_addresses().remove_address(&address) {
+							log::info!(target: LOG_TARGET, "🔍 Expired external address for our node: {address}");
+						} else {
+							log::warn!(
+								target: LOG_TARGET,
+								"🔍 Failed to remove expired external address {address:?}"
+							);
 						}
 					}
 					Some(DiscoveryEvent::Ping { peer, rtt }) => {
@@ -903,6 +1030,22 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							target: LOG_TARGET,
 							"ping time with {peer:?}: {rtt:?}",
 						);
+					}
+					Some(DiscoveryEvent::IncomingRecord { record: Record { key, value, publisher, expires }} ) => {
+						self.event_streams.send(Event::Dht(
+							DhtEvent::PutRecordRequest(
+								key.into(),
+								value,
+								publisher.map(Into::into),
+								expires,
+							)
+						));
+					},
+
+					Some(DiscoveryEvent::RandomKademliaStarted) => {
+						if let Some(metrics) = self.metrics.as_ref() {
+							metrics.kademlia_random_queries_total.inc();
+						}
 					}
 				},
 				event = self.litep2p.next_event() => match event {
@@ -913,7 +1056,15 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 
 						let direction = match endpoint {
 							Endpoint::Dialer { .. } => "out",
-							Endpoint::Listener { .. } => "in",
+							Endpoint::Listener { .. } => {
+								// Increment incoming connections counter.
+								//
+								// Note: For litep2p these are represented by established negotiated connections,
+								// while for libp2p (legacy) these represent not-yet-negotiated connections.
+								metrics.incoming_connections_total.inc();
+
+								"in"
+							},
 						};
 						metrics.connections_opened_total.with_label_values(&[direction]).inc();
 
@@ -965,25 +1116,91 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						}
 					}
 					Some(Litep2pEvent::DialFailure { address, error }) => {
-						log::trace!(
+						log::debug!(
 							target: LOG_TARGET,
 							"failed to dial peer at {address:?}: {error:?}",
 						);
 
-						let reason = match error {
-							Litep2pError::PeerIdMismatch(_, _) => "invalid-peer-id",
-							Litep2pError::Timeout | Litep2pError::TransportError(_) |
-							Litep2pError::IoError(_) | Litep2pError::WebSocket(_) => "transport-error",
-							_ => "other",
-						};
-
 						if let Some(metrics) = &self.metrics {
-							metrics.pending_connections_errors_total.with_label_values(&[reason]).inc();
+							let reason = match error {
+								DialError::Timeout => "timeout",
+								DialError::AddressError(_) => "invalid-address",
+								DialError::DnsError(_) => "cannot-resolve-dns",
+								DialError::NegotiationError(error) => match error {
+									NegotiationError::Timeout => "timeout",
+									NegotiationError::PeerIdMissing => "missing-peer-id",
+									NegotiationError::StateMismatch => "state-mismatch",
+									NegotiationError::PeerIdMismatch(_,_) => "peer-id-missmatch",
+									NegotiationError::MultistreamSelectError(_) => "multistream-select-error",
+									NegotiationError::SnowError(_) => "noise-error",
+									NegotiationError::ParseError(_) => "parse-error",
+									NegotiationError::IoError(_) => "io-error",
+									NegotiationError::WebSocket(_) => "webscoket-error",
+									NegotiationError::BadSignature => "bad-signature",
+								}
+							};
+
+							metrics.pending_connections_errors_total.with_label_values(&[&reason]).inc();
 						}
 					}
-					_ => {}
+					Some(Litep2pEvent::ListDialFailures { errors }) => {
+						log::debug!(
+							target: LOG_TARGET,
+							"failed to dial peer on multiple addresses {errors:?}",
+						);
+
+						if let Some(metrics) = &self.metrics {
+							metrics.pending_connections_errors_total.with_label_values(&["transport-errors"]).inc();
+						}
+					}
+					None => {
+						log::error!(
+								target: LOG_TARGET,
+								"Litep2p backend terminated"
+						);
+						return
+					}
 				},
 			}
 		}
+	}
+}
+
+// Glue code to convert from a litep2p records type to a libp2p2 PeerRecord.
+fn litep2p_to_libp2p_peer_record(records: RecordsType) -> Vec<PeerRecord> {
+	match records {
+		litep2p::protocol::libp2p::kademlia::RecordsType::LocalStore(record) => {
+			vec![PeerRecord {
+				record: P2PRecord {
+					key: record.key.to_vec().into(),
+					value: record.value,
+					publisher: record.publisher.map(|peer_id| {
+						let peer_id: sc_network_types::PeerId = peer_id.into();
+						peer_id.into()
+					}),
+					expires: record.expires,
+				},
+				peer: None,
+			}]
+		},
+		litep2p::protocol::libp2p::kademlia::RecordsType::Network(records) => records
+			.into_iter()
+			.map(|record| {
+				let peer_id: sc_network_types::PeerId = record.peer.into();
+
+				PeerRecord {
+					record: P2PRecord {
+						key: record.record.key.to_vec().into(),
+						value: record.record.value,
+						publisher: record.record.publisher.map(|peer_id| {
+							let peer_id: sc_network_types::PeerId = peer_id.into();
+							peer_id.into()
+						}),
+						expires: record.record.expires,
+					},
+					peer: Some(peer_id.into()),
+				}
+			})
+			.collect::<Vec<_>>(),
 	}
 }

@@ -24,7 +24,7 @@ use crate::crypto::{
 	PublicBytes, SecretStringError, Signature as SignatureT, SignatureBytes, UncheckedFrom,
 };
 
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 /// ECDSA and BLS12-377 paired crypto scheme
 #[cfg(feature = "bls-experimental")]
@@ -122,6 +122,106 @@ pub mod ecdsa_bls377 {
 				return false
 			};
 			bls377::Pair::verify(&right_sig, message, &right_pub)
+		}
+	}
+}
+
+/// ECDSA and BLS12-381 paired crypto scheme
+#[cfg(feature = "bls-experimental")]
+pub mod ecdsa_bls381 {
+	use crate::{bls381, crypto::CryptoTypeId, ecdsa};
+	#[cfg(feature = "full_crypto")]
+	use crate::{
+		crypto::{Pair as PairT, UncheckedFrom},
+		Hasher,
+	};
+
+	/// An identifier used to match public keys against BLS12-381 keys
+	pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"ecb8");
+
+	const PUBLIC_KEY_LEN: usize =
+		ecdsa::PUBLIC_KEY_SERIALIZED_SIZE + bls381::PUBLIC_KEY_SERIALIZED_SIZE;
+	const SIGNATURE_LEN: usize =
+		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls381::SIGNATURE_SERIALIZED_SIZE;
+
+	#[doc(hidden)]
+	pub struct EcdsaBls381Tag(ecdsa::EcdsaTag, bls381::Bls381Tag);
+
+	impl super::PairedCryptoSubTagBound for EcdsaBls381Tag {}
+
+	/// (ECDSA,BLS12-381) key-pair pair.
+	pub type Pair =
+		super::Pair<ecdsa::Pair, bls381::Pair, PUBLIC_KEY_LEN, SIGNATURE_LEN, EcdsaBls381Tag>;
+
+	/// (ECDSA,BLS12-381) public key pair.
+	pub type Public = super::Public<PUBLIC_KEY_LEN, EcdsaBls381Tag>;
+
+	/// (ECDSA,BLS12-381) signature pair.
+	pub type Signature = super::Signature<SIGNATURE_LEN, EcdsaBls381Tag>;
+
+	impl super::CryptoType for Public {
+		type Pair = Pair;
+	}
+
+	impl super::CryptoType for Signature {
+		type Pair = Pair;
+	}
+
+	impl super::CryptoType for Pair {
+		type Pair = Pair;
+	}
+
+	#[cfg(feature = "full_crypto")]
+	impl Pair {
+		/// Hashes the `message` with the specified [`Hasher`] before signing with the ECDSA secret
+		/// component.
+		///
+		/// The hasher does not affect the BLS12-381 component. This generates BLS12-381 Signature
+		/// according to IETF standard.
+		pub fn sign_with_hasher<H>(&self, message: &[u8]) -> Signature
+		where
+			H: Hasher,
+			H::Out: Into<[u8; 32]>,
+		{
+			let msg_hash = H::hash(message).into();
+
+			let mut raw: [u8; SIGNATURE_LEN] = [0u8; SIGNATURE_LEN];
+			raw[..ecdsa::SIGNATURE_SERIALIZED_SIZE]
+				.copy_from_slice(self.left.sign_prehashed(&msg_hash).as_ref());
+			raw[ecdsa::SIGNATURE_SERIALIZED_SIZE..]
+				.copy_from_slice(self.right.sign(message).as_ref());
+			<Self as PairT>::Signature::unchecked_from(raw)
+		}
+
+		/// Hashes the `message` with the specified [`Hasher`] before verifying with the ECDSA
+		/// public component.
+		///
+		/// The hasher does not affect the the BLS12-381 component. This verifies whether the
+		/// BLS12-381 signature was hashed and signed according to IETF standard
+		pub fn verify_with_hasher<H>(sig: &Signature, message: &[u8], public: &Public) -> bool
+		where
+			H: Hasher,
+			H::Out: Into<[u8; 32]>,
+		{
+			let msg_hash = H::hash(message).into();
+
+			let Ok(left_pub) = public.0[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].try_into() else {
+				return false
+			};
+			let Ok(left_sig) = sig.0[..ecdsa::SIGNATURE_SERIALIZED_SIZE].try_into() else {
+				return false
+			};
+			if !ecdsa::Pair::verify_prehashed(&left_sig, &msg_hash, &left_pub) {
+				return false
+			}
+
+			let Ok(right_pub) = public.0[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].try_into() else {
+				return false
+			};
+			let Ok(right_sig) = sig.0[ecdsa::SIGNATURE_SERIALIZED_SIZE..].try_into() else {
+				return false
+			};
+			bls381::Pair::verify(&right_sig, message, &right_pub)
 		}
 	}
 }

@@ -1,0 +1,13 @@
+title: "MQ processor should be transactional"
+
+doc:
+  - audience: [Runtime User, Runtime Dev]
+    description: |
+      Enforce transactional processing on pallet Message Queue Processor.
+
+      Storage changes that were done while processing a message will now be rolled back
+      when the processing returns an error. `Ok(false)` will not revert, only `Err(_)`.
+
+crates:
+  - name: pallet-message-queue
+    bump: major

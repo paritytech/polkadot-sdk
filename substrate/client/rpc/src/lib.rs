@@ -22,12 +22,9 @@
 
 #![warn(missing_docs)]
 
-pub use jsonrpsee::core::{
-	id_providers::{
-		RandomIntegerIdProvider as RandomIntegerSubscriptionId,
-		RandomStringIdProvider as RandomStringSubscriptionId,
-	},
-	traits::IdProvider as RpcSubscriptionIdProvider,
+pub use jsonrpsee::core::id_providers::{
+	RandomIntegerIdProvider as RandomIntegerSubscriptionId,
+	RandomStringIdProvider as RandomStringSubscriptionId,
 };
 pub use sc_rpc_api::DenyUnsafe;
 

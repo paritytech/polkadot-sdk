@@ -1,0 +1,17 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Report BestBlock events only for newBlock reports
+
+doc:
+  - audience: Node Dev
+    description: |
+      This PR ensures that the chainHead_v1_follow method of the RPC-v2 API is always
+      reporting a `BestBlock` event after a `NewBlock`.
+      There was a race condition in the chainHead follow logic which led to the `BestBlock`
+      event to be emitted without an associated `NewBlock` event.
+
+crates:
+  - name: sc-rpc-spec-v2
+    bump: minor
+

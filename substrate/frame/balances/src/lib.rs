@@ -150,7 +150,11 @@ mod tests;
 mod types;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::{Codec, MaxEncodedLen};
+use core::{cmp, fmt::Debug, mem, result};
 use frame_support::{
 	ensure,
 	pallet_prelude::DispatchResult,
@@ -158,6 +162,7 @@ use frame_support::{
 		tokens::{
 			fungible, BalanceStatus as Status, DepositConsequence,
 			Fortitude::{self, Force, Polite},
+			IdAmount,
 			Preservation::{Expendable, Preserve, Protect},
 			WithdrawConsequence,
 		},
@@ -170,15 +175,13 @@ pub use impl_currency::{NegativeImbalance, PositiveImbalance};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
-		AtLeast32BitUnsigned, Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize,
-		Saturating, StaticLookup, Zero,
+		AtLeast32BitUnsigned, CheckedAdd, CheckedSub, MaybeSerializeDeserialize, Saturating,
+		StaticLookup, Zero,
 	},
 	ArithmeticError, DispatchError, FixedPointOperand, Perbill, RuntimeDebug, TokenError,
 };
-use sp_std::{cmp, fmt::Debug, mem, prelude::*, result};
 pub use types::{
-	AccountData, AdjustmentDirection, BalanceLock, DustCleaner, ExtraFlags, IdAmount, Reasons,
-	ReserveData,
+	AccountData, AdjustmentDirection, BalanceLock, DustCleaner, ExtraFlags, Reasons, ReserveData,
 };
 pub use weights::WeightInfo;
 
@@ -202,7 +205,7 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::*;
-		use frame_support::{derive_impl, traits::ConstU64};
+		use frame_support::derive_impl;
 
 		pub struct TestDefaultConfig;
 
@@ -219,18 +222,19 @@ pub mod pallet {
 			type RuntimeFreezeReason = ();
 
 			type Balance = u64;
-			type ExistentialDeposit = ConstU64<1>;
+			type ExistentialDeposit = ConstUint<1>;
 
 			type ReserveIdentifier = ();
-			type FreezeIdentifier = ();
+			type FreezeIdentifier = Self::RuntimeFreezeReason;
 
 			type DustRemoval = ();
 
 			type MaxLocks = ConstU32<100>;
 			type MaxReserves = ConstU32<100>;
-			type MaxFreezes = ConstU32<100>;
+			type MaxFreezes = VariantCountOf<Self::RuntimeFreezeReason>;
 
 			type WeightInfo = ();
+			type DoneSlashHandler = ();
 		}
 	}
 
@@ -309,6 +313,14 @@ pub mod pallet {
 		/// The maximum number of individual freeze locks that can exist on an account at any time.
 		#[pallet::constant]
 		type MaxFreezes: Get<u32>;
+
+		/// Allows callbacks to other pallets so they can update their bookkeeping when a slash
+		/// occurs.
+		type DoneSlashHandler: fungible::hold::DoneSlash<
+			Self::RuntimeHoldReason,
+			Self::AccountId,
+			Self::Balance,
+		>;
 	}
 
 	/// The in-code storage version.
@@ -405,13 +417,11 @@ pub mod pallet {
 
 	/// The total units issued in the system.
 	#[pallet::storage]
-	#[pallet::getter(fn total_issuance)]
 	#[pallet::whitelist_storage]
 	pub type TotalIssuance<T: Config<I>, I: 'static = ()> = StorageValue<_, T::Balance, ValueQuery>;
 
 	/// The total units of outstanding deactivated balance in the system.
 	#[pallet::storage]
-	#[pallet::getter(fn inactive_issuance)]
 	#[pallet::whitelist_storage]
 	pub type InactiveIssuance<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, T::Balance, ValueQuery>;
@@ -449,7 +459,6 @@ pub mod pallet {
 	///
 	/// Use of locks is deprecated in favour of freezes. See `https://github.com/paritytech/substrate/pull/12951/`
 	#[pallet::storage]
-	#[pallet::getter(fn locks)]
 	pub type Locks<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Blake2_128Concat,
@@ -462,7 +471,6 @@ pub mod pallet {
 	///
 	/// Use of reserves is deprecated in favour of holds. See `https://github.com/paritytech/substrate/pull/12951/`
 	#[pallet::storage]
-	#[pallet::getter(fn reserves)]
 	pub type Reserves<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Blake2_128Concat,
@@ -525,7 +533,7 @@ pub mod pallet {
 				.iter()
 				.map(|(x, _)| x)
 				.cloned()
-				.collect::<sp_std::collections::btree_set::BTreeSet<_>>();
+				.collect::<alloc::collections::btree_set::BTreeSet<_>>();
 
 			assert!(
 				endowed_accounts.len() == self.balances.len(),
@@ -542,8 +550,8 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
-		#[cfg(not(feature = "insecure_zero_ed"))]
 		fn integrity_test() {
+			#[cfg(not(feature = "insecure_zero_ed"))]
 			assert!(
 				!<T as Config<I>>::ExistentialDeposit::get().is_zero(),
 				"The existential deposit must be greater than zero!"
@@ -554,6 +562,29 @@ pub mod pallet {
 				"MaxFreezes should be greater than or equal to the number of freeze reasons: {} < {}",
 				T::MaxFreezes::get(), <T::RuntimeFreezeReason as VariantCount>::VARIANT_COUNT,
 			);
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Holds::<T, I>::iter_keys().try_for_each(|k| {
+				if Holds::<T, I>::decode_len(k).unwrap_or(0) >
+					T::RuntimeHoldReason::VARIANT_COUNT as usize
+				{
+					Err("Found `Hold` with too many elements")
+				} else {
+					Ok(())
+				}
+			})?;
+
+			Freezes::<T, I>::iter_keys().try_for_each(|k| {
+				if Freezes::<T, I>::decode_len(k).unwrap_or(0) > T::MaxFreezes::get() as usize {
+					Err("Found `Freeze` with too many elements")
+				} else {
+					Ok(())
+				}
+			})?;
+
+			Ok(())
 		}
 	}
 
@@ -767,9 +798,57 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Burn the specified liquid free balance from the origin account.
+		///
+		/// If the origin's account ends up below the existential deposit as a result
+		/// of the burn and `keep_alive` is false, the account will be reaped.
+		///
+		/// Unlike sending funds to a _burn_ address, which merely makes the funds inaccessible,
+		/// this `burn` operation will reduce total issuance by the amount _burned_.
+		#[pallet::call_index(10)]
+		#[pallet::weight(if *keep_alive {T::WeightInfo::burn_allow_death() } else {T::WeightInfo::burn_keep_alive()})]
+		pub fn burn(
+			origin: OriginFor<T>,
+			#[pallet::compact] value: T::Balance,
+			keep_alive: bool,
+		) -> DispatchResult {
+			let source = ensure_signed(origin)?;
+			let preservation = if keep_alive { Preserve } else { Expendable };
+			<Self as fungible::Mutate<_>>::burn_from(
+				&source,
+				value,
+				preservation,
+				Precision::Exact,
+				Polite,
+			)?;
+			Ok(())
+		}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Public function to get the total issuance.
+		pub fn total_issuance() -> T::Balance {
+			TotalIssuance::<T, I>::get()
+		}
+
+		/// Public function to get the inactive issuance.
+		pub fn inactive_issuance() -> T::Balance {
+			InactiveIssuance::<T, I>::get()
+		}
+
+		/// Public function to access the Locks storage.
+		pub fn locks(who: &T::AccountId) -> WeakBoundedVec<BalanceLock<T::Balance>, T::MaxLocks> {
+			Locks::<T, I>::get(who)
+		}
+
+		/// Public function to access the reserves storage.
+		pub fn reserves(
+			who: &T::AccountId,
+		) -> BoundedVec<ReserveData<T::ReserveIdentifier, T::Balance>, T::MaxReserves> {
+			Reserves::<T, I>::get(who)
+		}
+
 		fn ed() -> T::Balance {
 			T::ExistentialDeposit::get()
 		}
@@ -807,13 +886,13 @@ pub mod pallet {
 		}
 
 		/// Get the free balance of an account.
-		pub fn free_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
+		pub fn free_balance(who: impl core::borrow::Borrow<T::AccountId>) -> T::Balance {
 			Self::account(who.borrow()).free
 		}
 
 		/// Get the balance of an account that can be used for transfers, reservations, or any other
 		/// non-locking, non-transaction-fee activity. Will be at most `free_balance`.
-		pub fn usable_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
+		pub fn usable_balance(who: impl core::borrow::Borrow<T::AccountId>) -> T::Balance {
 			<Self as fungible::Inspect<_>>::reducible_balance(who.borrow(), Expendable, Polite)
 		}
 
@@ -821,14 +900,12 @@ pub mod pallet {
 		/// or any other kind of fees, though). Will be at most `free_balance`.
 		///
 		/// This requires that the account stays alive.
-		pub fn usable_balance_for_fees(
-			who: impl sp_std::borrow::Borrow<T::AccountId>,
-		) -> T::Balance {
+		pub fn usable_balance_for_fees(who: impl core::borrow::Borrow<T::AccountId>) -> T::Balance {
 			<Self as fungible::Inspect<_>>::reducible_balance(who.borrow(), Protect, Polite)
 		}
 
 		/// Get the reserved balance of an account.
-		pub fn reserved_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
+		pub fn reserved_balance(who: impl core::borrow::Borrow<T::AccountId>) -> T::Balance {
 			Self::account(who.borrow()).reserved
 		}
 
@@ -954,9 +1031,16 @@ pub mod pallet {
 				if !did_consume && does_consume {
 					frame_system::Pallet::<T>::inc_consumers(who)?;
 				}
+				if does_consume && frame_system::Pallet::<T>::consumers(who) == 0 {
+					// NOTE: This is a failsafe and should not happen for normal accounts. A normal
+					// account should have gotten a consumer ref in `!did_consume && does_consume`
+					// at some point.
+					log::error!(target: LOG_TARGET, "Defensively bumping a consumer ref.");
+					frame_system::Pallet::<T>::inc_consumers(who)?;
+				}
 				if did_provide && !does_provide {
 					// This could reap the account so must go last.
-					frame_system::Pallet::<T>::dec_providers(who).map_err(|r| {
+					frame_system::Pallet::<T>::dec_providers(who).inspect_err(|_| {
 						// best-effort revert consumer change.
 						if did_consume && !does_consume {
 							let _ = frame_system::Pallet::<T>::inc_consumers(who).defensive();
@@ -964,7 +1048,6 @@ pub mod pallet {
 						if !did_consume && does_consume {
 							let _ = frame_system::Pallet::<T>::dec_consumers(who);
 						}
-						r
 					})?;
 				}
 

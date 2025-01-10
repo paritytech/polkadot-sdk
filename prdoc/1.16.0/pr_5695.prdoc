@@ -1,0 +1,15 @@
+title: 'pallet-migrations: fix index access for singluar migrations'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Discovered a bug in the migrations pallet while debugging https://github.com/paritytech/try-runtime-cli/pull/90.
+    It only occurs when a single MBM is configured - hence it did not happen when Ajuna Network tried it...
+
+    Changes:
+    - Check len of the tuple before accessing its nth_id
+    - Make nth_id return `None` on unary tuples and n>0
+crates:
+- name: pallet-migrations
+  bump: patch
+- name: frame-support
+  bump: patch

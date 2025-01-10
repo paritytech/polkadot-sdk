@@ -20,7 +20,7 @@
 //! See the [`crate::traits::fungibles`] doc for more information about fungibles traits.
 
 use crate::dispatch::DispatchResult;
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 pub trait Inspect<AccountId>: super::Inspect<AccountId> {
 	// Get name for an AssetId.

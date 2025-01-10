@@ -23,7 +23,7 @@ use crate::{
 };
 
 use async_trait::async_trait;
-use relay_substrate_client::ChainWithTransactions;
+use relay_substrate_client::{ChainWithTransactions, Client};
 use structopt::StructOpt;
 
 /// Start equivocation detection loop.

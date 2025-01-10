@@ -220,18 +220,16 @@ impl<B: BlockT> Future for GossipEngine<B> {
 							},
 							NotificationEvent::NotificationStreamOpened {
 								peer, handshake, ..
-							} => {
-								let Some(role) = this.network.peer_role(peer, handshake) else {
+							} =>
+								if let Some(role) = this.network.peer_role(peer, handshake) {
+									this.state_machine.new_peer(
+										&mut this.notification_service,
+										peer,
+										role,
+									);
+								} else {
 									log::debug!(target: "gossip", "role for {peer} couldn't be determined");
-									continue
-								};
-
-								this.state_machine.new_peer(
-									&mut this.notification_service,
-									peer,
-									role,
-								);
-							},
+								},
 							NotificationEvent::NotificationStreamClosed { peer } => {
 								this.state_machine
 									.peer_disconnected(&mut this.notification_service, peer);
@@ -256,10 +254,12 @@ impl<B: BlockT> Future for GossipEngine<B> {
 
 					match sync_event_stream {
 						Poll::Ready(Some(event)) => match event {
-							SyncEvent::PeerConnected(remote) =>
-								this.network.add_set_reserved(remote, this.protocol.clone()),
-							SyncEvent::PeerDisconnected(remote) =>
-								this.network.remove_set_reserved(remote, this.protocol.clone()),
+							SyncEvent::InitialPeers(peer_ids) =>
+								this.network.add_set_reserved(peer_ids, this.protocol.clone()),
+							SyncEvent::PeerConnected(peer_id) =>
+								this.network.add_set_reserved(vec![peer_id], this.protocol.clone()),
+							SyncEvent::PeerDisconnected(peer_id) =>
+								this.network.remove_set_reserved(peer_id, this.protocol.clone()),
 						},
 						// The sync event stream closed. Do the same for [`GossipValidator`].
 						Poll::Ready(None) => {
@@ -348,7 +348,7 @@ impl<B: BlockT> futures::future::FusedFuture for GossipEngine<B> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{multiaddr::Multiaddr, ValidationResult, ValidatorContext};
+	use crate::{ValidationResult, ValidatorContext};
 	use codec::{DecodeAll, Encode};
 	use futures::{
 		channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender},
@@ -363,6 +363,7 @@ mod tests {
 	};
 	use sc_network_common::role::ObservedRole;
 	use sc_network_sync::SyncEventStream;
+	use sc_network_types::multiaddr::Multiaddr;
 	use sp_runtime::{
 		testing::H256,
 		traits::{Block as BlockT, NumberFor},
@@ -375,9 +376,6 @@ mod tests {
 
 	#[derive(Clone, Default)]
 	struct TestNetwork {}
-
-	#[derive(Clone, Default)]
-	struct TestNetworkInner {}
 
 	#[async_trait::async_trait]
 	impl NetworkPeers for TestNetwork {
