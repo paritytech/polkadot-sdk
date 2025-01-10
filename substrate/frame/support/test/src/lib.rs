@@ -52,6 +52,8 @@ pub mod pallet {
 		type RuntimeCall;
 		/// Contains an aggregation of all tasks in this runtime.
 		type RuntimeTask;
+		/// Type for dispatching queries.
+		type RuntimeViewFunction;
 		/// The runtime event type.
 		type RuntimeEvent: Parameter
 			+ Member
