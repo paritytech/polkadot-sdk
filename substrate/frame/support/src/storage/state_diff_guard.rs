@@ -18,6 +18,8 @@
 // Feature gated since it can panic.
 #![cfg(any(feature = "std", feature = "runtime-benchmarks", feature = "try-runtime", test))]
 
+//! WARNING: This code is experimental and its API might change.
+//!
 //! # Motivation
 //!
 //! In migrations and tests it is sometimes desirable to know and restrict which storage keys
@@ -86,7 +88,7 @@
 //!     #[cfg(feature = "try-runtime")]
 //!     fn try_on_runtime_upgrade() -> Result<frame_support::weights::Weight, &'static str> {
 //!         // migration logic here
-//!         let guard = StateDiffGuard::builder()
+//!         let _guard = StateDiffGuard::builder()
 //!             .must_change_if_exists(SomeMap::<T>::storage_info())
 //!             .must_not_change(SomeDoubleMap::<T>::storage_info())
 //! 			.can_not_change(GuardSubject::AnythingElse)
@@ -156,7 +158,7 @@ impl GuardSubject {
 	}
 }
 
-/// Wrapper around a `Vec<GuardSubject>` so that we can implement `Into` for it.
+/// Wrapper around a `Vec<GuardSubject>` so that we can implement conversion traits on it.
 pub struct GuardSubjectCollection(pub Vec<GuardSubject>);
 
 impl From<Vec<StorageInfo>> for GuardSubjectCollection {
@@ -363,7 +365,7 @@ mod tests {
 	#[test]
 	fn diff_guard_default_works() {
 		TestExternalities::default().execute_with(|| {
-			let guard = StateDiffGuard::builder().build();
+			let _guard = StateDiffGuard::builder().build();
 
 			TestMap::insert(1, 1);
 		});
@@ -377,7 +379,7 @@ mod tests {
 			TestDoubleMapBlake2::insert(1, 1, 1);
 			TestStorageValue::put(1);
 
-			let guard =
+			let _guard =
 				StateDiffGuard::builder().must_not_change(GuardSubject::AnythingElse).build();
 
 			TestMap::insert(1, 2);
@@ -390,7 +392,7 @@ mod tests {
 	#[should_panic(expected = "`StateDiffGuard` detected an unexpected storage change")]
 	fn guard_storage_key_types_works() {
 		TestExternalities::default().execute_with(|| {
-			let guard = StateDiffGuard::builder()
+			let _guard = StateDiffGuard::builder()
 				.must_not_change(TestDoubleMapBlake2::storage_info())
 				.build();
 
@@ -423,7 +425,7 @@ mod tests {
 			TestDoubleMapBlake2::insert(1, 2, 1);
 			TestStorageValue::put(1);
 
-			let guard = StateDiffGuard::builder()
+			let _guard = StateDiffGuard::builder()
 				.can_change(TestDoubleMapBlake2::storage_info())
 				.must_not_change(TestMap::storage_info())
 				.build();
@@ -444,7 +446,7 @@ mod tests {
 			TestStorageValue::put(1);
 
 			// must change all entries of `TestDoubleMapBlake2`
-			let guard = StateDiffGuard::builder()
+			let _guard = StateDiffGuard::builder()
 				.must_change_if_exists(TestDoubleMapBlake2::storage_info())
 				.can_change(TestMap::storage_info())
 				.build();
@@ -463,7 +465,7 @@ mod tests {
 			TestDoubleMapBlake2::insert(1, 2, 1);
 			TestStorageValue::put(1);
 
-			let guard = StateDiffGuard::builder()
+			let _guard = StateDiffGuard::builder()
 				.must_change_if_exists(TestDoubleMapBlake2::storage_info());
 		});
 	}
@@ -474,7 +476,7 @@ mod tests {
 		let mut ext = TestExternalities::default();
 		ext.execute_with(|| {
 			TestStorageValue::put(1);
-			let guard = StateDiffGuard::builder()
+			let _guard = StateDiffGuard::builder()
 				.must_change_if_exists(TestStorageValue::storage_info())
 				.build();
 		});
@@ -485,7 +487,7 @@ mod tests {
 		let mut ext = TestExternalities::default();
 		ext.execute_with(|| {
 			TestStorageValue::put(1);
-			let guard = StateDiffGuard::builder()
+			let _guard = StateDiffGuard::builder()
 				.must_change_if_exists(TestStorageValue::storage_info())
 				.build();
 
@@ -497,7 +499,7 @@ mod tests {
 	fn test_diff_guard_must_change_if_existed_works_if_not_existed() {
 		let mut ext = TestExternalities::default();
 		ext.execute_with(|| {
-			let guard = StateDiffGuard::builder()
+			let _guard = StateDiffGuard::builder()
 				.must_change_if_exists(TestStorageValue::storage_info())
 				.build();
 
@@ -509,7 +511,7 @@ mod tests {
 	fn test_diff_guard_must_change_if_existed_works_if_not_existed_or_crated() {
 		let mut ext = TestExternalities::default();
 		ext.execute_with(|| {
-			let guard = StateDiffGuard::builder()
+			let _guard = StateDiffGuard::builder()
 				.must_change_if_exists(TestStorageValue::storage_info())
 				.build();
 		});
@@ -519,7 +521,7 @@ mod tests {
 	fn test_diff_guard_can_change_works() {
 		let mut ext = TestExternalities::default();
 		ext.execute_with(|| {
-			let guard =
+			let _guard =
 				StateDiffGuard::builder().can_change(TestStorageValue::storage_info()).build();
 		});
 	}
@@ -530,7 +532,7 @@ mod tests {
 		ext.execute_with(|| {
 			TestStorageValue::put(1);
 
-			let guard =
+			let _guard =
 				StateDiffGuard::builder().can_change(TestStorageValue::storage_info()).build();
 		});
 	}
@@ -541,7 +543,7 @@ mod tests {
 		ext.execute_with(|| {
 			TestStorageValue::put(1);
 
-			let guard =
+			let _guard =
 				StateDiffGuard::builder().can_change(TestStorageValue::storage_info()).build();
 
 			TestStorageValue::put(2);
@@ -552,7 +554,7 @@ mod tests {
 	fn test_diff_guard_can_change_works_if_not_existed() {
 		let mut ext = TestExternalities::default();
 		ext.execute_with(|| {
-			let guard =
+			let _guard =
 				StateDiffGuard::builder().can_change(TestStorageValue::storage_info()).build();
 
 			TestStorageValue::put(2);
@@ -563,7 +565,7 @@ mod tests {
 	fn test_diff_guard_must_not_change_works() {
 		let mut ext = TestExternalities::default();
 		ext.execute_with(|| {
-			let guard = StateDiffGuard::builder()
+			let _guard = StateDiffGuard::builder()
 				.must_not_change(TestStorageValue::storage_info())
 				.build();
 		});
@@ -574,7 +576,7 @@ mod tests {
 		let mut ext = TestExternalities::default();
 		ext.execute_with(|| {
 			TestStorageValue::put(1);
-			let guard = StateDiffGuard::builder()
+			let _guard = StateDiffGuard::builder()
 				.must_not_change(TestStorageValue::storage_info())
 				.build();
 		});
@@ -587,7 +589,7 @@ mod tests {
 		ext.execute_with(|| {
 			TestStorageValue::put(1);
 
-			let guard = StateDiffGuard::builder()
+			let _guard = StateDiffGuard::builder()
 				.must_not_change(TestStorageValue::storage_info())
 				.build();
 
@@ -600,7 +602,7 @@ mod tests {
 	fn test_diff_guard_must_not_change_if_not_existed() {
 		let mut ext = TestExternalities::default();
 		ext.execute_with(|| {
-			let guard = StateDiffGuard::builder()
+			let _guard = StateDiffGuard::builder()
 				.must_not_change(TestStorageValue::storage_info())
 				.build();
 
