@@ -53,6 +53,7 @@ pub static SUPPORTED_ETH_METHODS: LazyLock<Vec<&'static str>> = LazyLock::new(||
 		"eth_getTransactionByHash",
 		"eth_getTransactionCount",
 		"eth_getTransactionReceipt",
+		"eth_maxPriorityFeePerGas",
 		"eth_sendRawTransaction",
 		"eth_sendTransaction",
 		"eth_syncing",
