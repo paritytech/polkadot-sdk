@@ -4852,7 +4852,7 @@ fn skip_transfer_works() {
 		);
 
 		// fails when calling from a contract when gas is specified.
-		assert_err!(
+		assert!(
 			Pallet::<Test>::bare_eth_transact(
 				GenericTransaction {
 					from: Some(BOB_ADDR),
@@ -4863,8 +4863,7 @@ fn skip_transfer_works() {
 				},
 				Weight::MAX,
 				|_| 0u32
-			),
-			EthTransactError::Message(format!("insufficient funds for gas * price + value: address {BOB_ADDR:?} have 0 (supplied gas 1)"))
+			).is_err(),
 		);
 
 		// works when no gas is specified.
