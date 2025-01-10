@@ -1,21 +1,26 @@
-error: Unsupported syntax used to import api implementaions from an extension module. Try using `pub use <path>::*` or `use <path>::*`
-  --> tests/ui/incorrect_extension_import.rs:48:15
+error: expected `external_impls`
+  --> tests/ui/incorrect_extension_import.rs:48:2
    |
-48 |     use example::{api, *};
-   |                  ^^^^^^^^
+48 |     extension_impls!{ api }
+   |     ^^^^^^^^^^^^^^^
 
-error[E0412]: cannot find type `RuntimeApiImpl` in this scope
-  --> tests/ui/incorrect_extension_import.rs:51:1
+error: expected `external_impls`
+  --> tests/ui/incorrect_extension_import.rs:54:2
    |
-51 | #[sp_api::impl_runtime_apis_ext]
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
-   |
-   = note: this error originates in the attribute macro `sp_api::impl_runtime_apis_ext` (in Nightly builds, run with -Z macro-backtrace for more info)
+54 |     extension_impls! { super }
+   |     ^^^^^^^^^^^^^^^
 
-warning: unused import: `sp_runtime::traits::Block`
+error: unused import: `substrate_test_runtime_client::runtime::Block`
+  --> tests/ui/incorrect_extension_import.rs:19:5
+   |
+19 | use substrate_test_runtime_client::runtime::Block;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `-D unused-imports` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(unused_imports)]`
+
+error: unused import: `sp_runtime::traits::Block`
   --> tests/ui/incorrect_extension_import.rs:18:5
    |
 18 | use sp_runtime::traits::Block as BlockT;
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = note: `#[warn(unused_imports)]` on by default
