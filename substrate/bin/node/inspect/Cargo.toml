@@ -17,7 +17,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 clap = { features = ["derive"], workspace = true }
 codec = { workspace = true, default-features = true }
-thiserror = { workspace = true }
 sc-cli = { workspace = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-service = { workspace = true }
@@ -26,6 +25,7 @@ sp-core = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-statement-store = { workspace = true, default-features = true }
+thiserror = { workspace = true }
 
 [features]
 runtime-benchmarks = [

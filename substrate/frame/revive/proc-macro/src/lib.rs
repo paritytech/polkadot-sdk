@@ -25,6 +25,17 @@ use proc_macro2::{Literal, Span, TokenStream as TokenStream2};
 use quote::{quote, ToTokens};
 use syn::{parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma, FnArg, Ident};
 
+#[proc_macro_attribute]
+pub fn unstable_hostfn(_attr: TokenStream, item: TokenStream) -> TokenStream {
+	let input = syn::parse_macro_input!(item as syn::Item);
+	let expanded = quote! {
+		#[cfg(feature = "unstable-hostfn")]
+		#[cfg_attr(docsrs, doc(cfg(feature = "unstable-hostfn")))]
+		#input
+	};
+	expanded.into()
+}
+
 /// Defines a host functions set that can be imported by contract wasm code.
 ///
 /// **NB**: Be advised that all functions defined by this macro
@@ -501,10 +512,9 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 				let result = (|| #body)();
 				if ::log::log_enabled!(target: "runtime::revive::strace", ::log::Level::Trace) {
 						use core::fmt::Write;
-						let mut w = sp_std::Writer::default();
-						let _ = core::write!(&mut w, #trace_fmt_str, #( #trace_fmt_args, )* result);
-						let msg = core::str::from_utf8(&w.inner()).unwrap_or_default();
-						self.ext().append_debug_buffer(msg);
+						let mut msg = alloc::string::String::default();
+						let _ = core::write!(&mut msg, #trace_fmt_str, #( #trace_fmt_args, )* result);
+						self.ext().append_debug_buffer(&msg);
 				}
 				result
 			}

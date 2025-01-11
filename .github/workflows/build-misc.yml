@@ -20,7 +20,7 @@ jobs:
     uses: ./.github/workflows/reusable-preflight.yml
 
   build-runtimes-polkavm:
-    timeout-minutes: 20
+    timeout-minutes: 60
     needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
@@ -38,11 +38,7 @@ jobs:
         env:
           SUBSTRATE_RUNTIME_TARGET: riscv
         id: required
-        run: |
-          forklift cargo check -p minimal-template-runtime
-          forklift cargo check -p westend-runtime
-          forklift cargo check -p rococo-runtime
-          forklift cargo check -p polkadot-test-runtime
+        run: forklift cargo check -p minimal-template-runtime -p westend-runtime -p rococo-runtime -p polkadot-test-runtime
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
