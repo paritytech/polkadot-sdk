@@ -387,9 +387,10 @@ pub mod pallet {
 				.ok_or(Error::<T>::NoProjectAvailable)?;
 			let ref_index = infos.index;
 			let vote = Democracy::Vote { aye: is_fund, conviction };
-			// let account_vote = Democracy::AccountVote::Standard { vote, balance: amount };
+			let converted_amount = Self::convert_balance(amount).ok_or("Failed Conversion!!!")?;
+			let account_vote = Democracy::AccountVote::Standard { vote, balance: converted_amount };
 
-			// Democracy::Pallet::<T>::vote(origin, ref_index, account_vote)?;
+			Democracy::Pallet::<T>::vote(origin, ref_index, account_vote)?;
 
 			Ok(())
 		}

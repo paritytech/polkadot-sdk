@@ -23,7 +23,7 @@ pub use frame_support::{
 	dispatch::GetDispatchInfo,
 	pallet_prelude::*,
 	traits::{
-		fungible,
+		fungible, Currency,
 		fungible::{Inspect, InspectHold, Mutate, MutateHold},
 		fungibles,
 		schedule::{
@@ -35,7 +35,7 @@ pub use frame_support::{
 		StorePreimage, UnfilteredDispatchable,
 	},
 	transactional,
-	weights::WeightMeter,
+	weights::{WeightMeter, WeightToFee},
 	PalletId, Serialize,
 };
 pub use frame_system::{pallet_prelude::*, RawOrigin};
@@ -45,13 +45,16 @@ pub use sp_runtime::{
 		AccountIdConversion, BlockNumberProvider, Convert, Dispatchable, Saturating, StaticLookup,
 		Zero,
 	},
-	Percent,
+	Percent, SaturatedConversion,
 };
 pub use sp_std::boxed::Box;
 
 pub type BalanceOf<T> = <<T as Config>::NativeBalance as fungible::Inspect<
 	<T as frame_system::Config>::AccountId,
 >>::Balance;
+
+pub type BalanceOfD<T> = <<T as Democracy::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 /// A reward index.
 pub type SpendIndex = u32;
@@ -223,3 +226,7 @@ impl<T: Config> VotingRoundInfo<T> {
 		round_infos
 	}
 }
+
+
+    
+

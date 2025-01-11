@@ -127,6 +127,17 @@ impl<T: Config> Pallet<T> {
 		T::PotId::get().into_account_truncating()
 	}
 
+	pub fn convert_balance(amount: BalanceOf<T>) -> Option<BalanceOfD<T>> {
+		let value = match TryInto::<u128>::try_into(amount) {
+			Ok(val) => {
+    TryInto::<BalanceOfD<T>>::try_into(val).ok()
+  },
+  Err(e) => None
+		};
+
+		value
+        
+	}
 	/// Funds transfer from the Pot to a project account
 	pub fn spend(amount: BalanceOf<T>, beneficiary: AccountIdOf<T>) -> DispatchResult {
 		// Get Pot account
