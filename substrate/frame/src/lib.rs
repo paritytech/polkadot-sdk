@@ -34,8 +34,8 @@
 //!
 //! This crate is organized into 3 stages:
 //!
-//! 1. preludes: `prelude`, `testing_prelude` and `runtime::prelude`, `benchmarking`,
-//!    `weights_prelude`, `try_runtime`.
+//! 1. preludes: `prelude`, `testing_prelude`, `runtime::prelude`, `benchmarking`,
+//!    `weights_prelude`, `migrations_prelude`, and `try_runtime`.
 //! 2. domain-specific modules: `traits`, `hashing`, `arithmetic` and `derive`.
 //! 3. Accessing frame/substrate dependencies directly: `deps`.
 //!
@@ -152,6 +152,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg(feature = "experimental")]
 
+extern crate alloc;
+
 #[doc(no_inline)]
 pub use frame_support::pallet;
 
@@ -207,7 +209,7 @@ pub mod prelude {
 		defensive, defensive_assert,
 		traits::{
 			Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll,
-			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+			OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
 		},
 	};
 
@@ -334,6 +336,24 @@ pub mod testing_prelude {
 
 	/// Commonly used runtime traits for testing.
 	pub use sp_runtime::{traits::BadOrigin, StateVersion};
+
+	#[cfg(any(feature = "try-runtime", test))]
+	pub use sp_runtime::TryRuntimeError;
+}
+
+/// Prelude to be included in the `migration.rs` of each pallet.
+///
+/// ```
+/// pub use polkadot_sdk_frame::migrations_prelude::*;
+/// ```
+pub mod migrations_prelude {
+	pub use super::traits::UncheckedOnRuntimeUpgrade;
+	pub use frame_support::{migrations::*, storage_alias, traits::OnRuntimeUpgrade};
+
+	#[cfg(feature = "try-runtime")]
+	pub use alloc::vec::Vec;
+	#[cfg(feature = "try-runtime")]
+	pub use sp_runtime::TryRuntimeError;
 }
 
 /// All of the types and tools needed to build FRAME-based runtimes.
