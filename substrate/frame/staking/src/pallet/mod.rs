@@ -861,6 +861,10 @@ pub mod pallet {
 			era: EraIndex,
 			page: Page,
 		},
+		/// A change in the set of validators who cannot be slashed (if any).
+		InvulnerablesSet {
+			invulnerables: Vec<T::AccountId>,
+		},
 		/// A staker (validator or nominator) has been slashed by the given amount.
 		Slashed { staker: T::AccountId, amount: BalanceOf<T> },
 		/// A slash for the given validator, for the given percentage of their stake, at the given
@@ -1584,7 +1588,8 @@ pub mod pallet {
 			invulnerables: Vec<T::AccountId>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			<Invulnerables<T>>::put(invulnerables);
+			<Invulnerables<T>>::put(invulnerables.clone());
+			Self::deposit_event(Event::<T>::InvulnerablesSet { invulnerables });
 			Ok(())
 		}
 
@@ -2005,12 +2010,18 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			let min_commission = MinCommission::<T>::get();
-			Validators::<T>::try_mutate_exists(validator_stash, |maybe_prefs| {
+			Validators::<T>::try_mutate_exists(validator_stash.clone(), |maybe_prefs| {
 				maybe_prefs
 					.as_mut()
 					.map(|prefs| {
 						(prefs.commission < min_commission)
-							.then(|| prefs.commission = min_commission)
+							.then(|| {
+								prefs.commission = min_commission;
+								Self::deposit_event(Event::<T>::ValidatorPrefsSet { stash: validator_stash, prefs: ValidatorPrefs {
+									commission: prefs.commission,
+									blocked: prefs.blocked,
+								} })
+							})
 					})
 					.ok_or(Error::<T>::NotStash)
 			})?;
