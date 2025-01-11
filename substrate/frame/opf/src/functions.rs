@@ -65,7 +65,7 @@ impl<T: Config> Pallet<T> {
 		};
 
 		// Update Funds unlock block according to the selected conviction
-		new_vote.funds_unlock();
+		//new_vote.funds_unlock();
 		if Votes::<T>::contains_key(&project, &voter_id) {
 			let old_vote = Votes::<T>::get(&project, &voter_id).ok_or(Error::<T>::NoVoteData)?;
 			let old_amount = old_vote.amount;
@@ -93,9 +93,9 @@ impl<T: Config> Pallet<T> {
 			});
 
 			// Adjust locked amount
-			let total_hold = T::NativeBalance::total_balance_on_hold(&voter_id);
+			/*let total_hold = T::NativeBalance::total_balance_on_hold(&voter_id);
 			let new_hold = total_hold.saturating_sub(old_amount).saturating_add(amount);
-			T::NativeBalance::set_on_hold(&HoldReason::FundsReserved.into(), &voter_id, new_hold)?;
+			T::NativeBalance::set_on_hold(&HoldReason::FundsReserved.into(), &voter_id, new_hold)?;*/
 		} else {
 			Votes::<T>::insert(&project, &voter_id, new_vote);
 			ProjectFunds::<T>::mutate(&project, |val| {
@@ -108,7 +108,7 @@ impl<T: Config> Pallet<T> {
 				*val = BoundedVec::<BalanceOf<T>, ConstU32<2>>::try_from(val0).expect("It works");
 			});
 			// Lock the necessary amount
-			T::NativeBalance::hold(&HoldReason::FundsReserved.into(), &voter_id, amount)?;
+			// T::NativeBalance::hold(&HoldReason::FundsReserved.into(), &voter_id, amount)?;
 		}
 		/*
 		let ref_index =
