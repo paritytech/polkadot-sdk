@@ -43,6 +43,10 @@ crates:
     bump: minor
   - name: pallet-safe-mode
     bump: minor
+  - name: pallet-scored-pool
+    bump: minor
+  - name: pallet-statement
+    bump: minor
   - name: pallet-root-offences
     bump: minor
   - name: pallet-revive
@@ -74,6 +78,8 @@ crates:
   - name: pallet-grandpa
     bump: minor
   - name: pallet-fast-unstake
+    bump: minor
+  - name: frame-executive
     bump: minor
   - name: pallet-elections-phragmen
     bump: minor
