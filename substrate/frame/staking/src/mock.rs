@@ -545,7 +545,9 @@ impl ExtBuilder {
 
 		if self.initialize_first_session {
 			ext.execute_with(|| {
-				System::run_to_block::<AllPalletsWithSystem>(1);
+				run_to_block(1);
+
+				// Force reset the timestamp to the initial timestamp for easy testing.
 				Timestamp::set_timestamp(INIT_TIMESTAMP);
 			});
 		}
