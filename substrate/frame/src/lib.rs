@@ -324,7 +324,7 @@ pub mod testing_prelude {
 
 	pub use frame_system::{self, mocking::*};
 
-	#[deprecated(note = "Use `frame::testing_prelude::TestExternalities` instead.")]
+	#[deprecated(note = "Use `frame::testing_prelude::TestState` instead.")]
 	pub use sp_io::TestExternalities;
 
 	pub use sp_io::TestExternalities as TestState;
