@@ -832,6 +832,14 @@ pub mod pallet {
 			targets:  BoundedVec<T::AccountId, MaxNominationsOf<T>>,
 			submitted_in: EraIndex,
 		},
+		/// A new minimum commission has been set
+		MinCommissionSet {
+			perbill: u32
+		},
+		RewardDestinationSet {
+			stash: T::AccountId,
+			dest: RewardDestination<T::AccountId>
+		},
 		/// The era payout has been set; the first balance is the validator-payout; the second is
 		/// the remainder from the maximum amount of reward.
 		EraPaid { era_index: EraIndex, validator_payout: BalanceOf<T>, remainder: BalanceOf<T> },
@@ -1396,6 +1404,8 @@ pub mod pallet {
 				}),
 				Error::<T>::ControllerDeprecated
 			);
+
+			Self::deposit_event(Event::<T>::RewardDestinationSet { stash: ledger.stash.clone(), dest: payee.clone() });
 
 			let _ = ledger
 				.set_payee(payee)
@@ -1969,6 +1979,7 @@ pub mod pallet {
 		pub fn set_min_commission(origin: OriginFor<T>, new: Perbill) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 			MinCommission::<T>::put(new);
+			Self::deposit_event(Event::<T>::MinCommissionSet { perbill: new.deconstruct() });
 			Ok(())
 		}
 
