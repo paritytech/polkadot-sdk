@@ -26,6 +26,7 @@ impl<T: Config> Pallet<T> {
 		is_fund: bool,
 		conviction: Democracy::Conviction,
 	) -> DispatchResult {
+		let origin = T::RuntimeOrigin::from(RawOrigin::Signed(voter_id.clone()));
 		if !ProjectFunds::<T>::contains_key(&project) {
 			let bounded = BoundedVec::<BalanceOf<T>, ConstU32<2>>::try_from(vec![
 				BalanceOf::<T>::zero(),
@@ -35,8 +36,10 @@ impl<T: Config> Pallet<T> {
 			ProjectFunds::<T>::insert(&project, bounded);
 		}
 
-		let projects = WhiteListedProjectAccounts::<T>::get(project.clone())
-			.ok_or(Error::<T>::NoProjectAvailable);
+		let infos = WhiteListedProjectAccounts::<T>::get(project.clone())
+			.ok_or(Error::<T>::NoProjectAvailable)?;
+		let ref_index = infos.index;
+
 		let conviction_fund = amount.saturating_add(
 			amount.saturating_mul(<u8 as From<Democracy::Conviction>>::from(conviction).into()),
 		);
@@ -56,7 +59,7 @@ impl<T: Config> Pallet<T> {
 			*val = Some(round.clone());
 		});
 
-		let mut new_vote = VoteInfo {
+		let new_vote = VoteInfo {
 			amount,
 			round: round.clone(),
 			is_fund,
@@ -64,8 +67,6 @@ impl<T: Config> Pallet<T> {
 			funds_unlock_block: round.round_ending_block,
 		};
 
-		// Update Funds unlock block according to the selected conviction
-		//new_vote.funds_unlock();
 		if Votes::<T>::contains_key(&project, &voter_id) {
 			let old_vote = Votes::<T>::get(&project, &voter_id).ok_or(Error::<T>::NoVoteData)?;
 			let old_amount = old_vote.amount;
@@ -92,10 +93,8 @@ impl<T: Config> Pallet<T> {
 				*value = Some(new_vote);
 			});
 
-			// Adjust locked amount
-			/*let total_hold = T::NativeBalance::total_balance_on_hold(&voter_id);
-			let new_hold = total_hold.saturating_sub(old_amount).saturating_add(amount);
-			T::NativeBalance::set_on_hold(&HoldReason::FundsReserved.into(), &voter_id, new_hold)?;*/
+			// Remove previous vote from Referendum
+			Democracy::Pallet::<T>::remove_vote(origin, ref_index)?;
 		} else {
 			Votes::<T>::insert(&project, &voter_id, new_vote);
 			ProjectFunds::<T>::mutate(&project, |val| {
@@ -110,14 +109,6 @@ impl<T: Config> Pallet<T> {
 			// Lock the necessary amount
 			// T::NativeBalance::hold(&HoldReason::FundsReserved.into(), &voter_id, amount)?;
 		}
-		/*
-		let ref_index =
-			ReferendumIndexLog::<T>::get(&project).ok_or(Error::<T>::NoProjectAvailable)?;
-
-		let vote = Democracy::Vote { aye: is_fund, conviction };
-		let account_vote = Democracy::AccountVote::Standard{ vote, balance: amount };
-
-		Democracy::Pallet::<T>::vote(&voter_id, ref_index, vote)?;*/
 
 		Ok(())
 	}
@@ -130,7 +121,7 @@ impl<T: Config> Pallet<T> {
 	pub fn convert_balance(amount: BalanceOf<T>) -> Option<BalanceOfD<T>> {
 		let value = match TryInto::<u128>::try_into(amount) {
 			Ok(val) => TryInto::<BalanceOfD<T>>::try_into(val).ok(),
-			Err(e) => None,
+			Err(_) => None,
 		};
 
 		value

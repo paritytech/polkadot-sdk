@@ -274,7 +274,7 @@ pub mod pallet {
 			projects_id: Vec<ProjectId<T>>,
 		) -> DispatchResult {
 			//T::AdminOrigin::ensure_origin_or_root(origin.clone())?;
-			let who = T::SubmitOrigin::ensure_origin(origin.clone())?;
+			let _who = T::SubmitOrigin::ensure_origin(origin.clone())?;
 			// Only 1 batch submission per round
 			let mut round_index = NextVotingRoundNumber::<T>::get();
 
@@ -302,8 +302,7 @@ pub mod pallet {
 			for project_id in &projects_id {
 				ProjectInfo::<T>::new(project_id.clone());
 				// Prepare the proposal call
-				let call0: <T as Config>::RuntimeCall =
-					crate::Call::<T>::on_registration { project_id: project_id.clone() }.into();
+				let call0: <T as Config>::RuntimeCall = crate::Call::<T>::on_registration {}.into();
 				let call = <T as Config>::RuntimeCall::convert(call0);
 				let call_f = T::Preimages::bound(call)?;
 				let threshold = Democracy::VoteThreshold::SimpleMajority;
@@ -448,10 +447,12 @@ pub mod pallet {
 
 		#[pallet::call_index(6)]
 		#[transactional]
-		pub fn on_registration(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
+		pub fn on_registration(origin: OriginFor<T>) -> DispatchResult {
+			let _who = T::SubmitOrigin::ensure_origin(origin.clone())?;
 			// prepare reward distribution
 			// for now we are using the temporary-constant reward.
 			let _ = Self::calculate_rewards(T::TemporaryRewards::get())?;
+
 			Ok(())
 		}
 	}
