@@ -413,12 +413,6 @@ pub trait EthExtra {
 			return Err(InvalidTransaction::Payment.into())
 		}
 
-		if eth_fee_no_tip > actual_fee.saturating_mul(2u32.into()) {
-			log::debug!(target: LOG_TARGET, "actual fees: {actual_fee:?} too high, base eth fees:
-		 {eth_fee_no_tip:?}");
-			return Err(InvalidTransaction::Call.into())
-		}
-
 		let tip = eth_fee.saturating_sub(eth_fee_no_tip);
 		log::debug!(target: LOG_TARGET, "Created checked Ethereum transaction with nonce: {nonce:?} and tip: {tip:?}");
 		Ok(CheckedExtrinsic {
@@ -678,13 +672,6 @@ mod test {
 					tx.gas_price = Some(tx.gas_price.unwrap() / 2);
 				}),
 				InvalidTransaction::Payment,
-			),
-			(
-				"Gas fees too high",
-				Box::new(|tx| {
-					tx.gas = Some(tx.gas.unwrap() * 2);
-				}),
-				InvalidTransaction::Call,
 			),
 			(
 				"Gas fees too low",
