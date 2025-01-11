@@ -1,7 +1,5 @@
 use std::process::Command;
 
-#[cfg(all(feature = "std", feature = "metadata-hash"))]
-#[docify::export(template_enable_metadata_hash)]
 fn main() {
 	println!("cargo:rerun-if-changed=../../parachain/runtime/src/genesis_config_presets.rs");
 	substrate_wasm_builder::WasmBuilder::init_with_defaults()
