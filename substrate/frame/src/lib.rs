@@ -35,7 +35,7 @@
 //! This crate is organized into 3 stages:
 //!
 //! 1. preludes: `prelude`, `testing_prelude`, `runtime::prelude`, `benchmarking`,
-//!    `weights_prelude`, `migrations_prelude`, and `try_runtime`.
+//!    `weights_prelude`, and `migrations_prelude`.
 //! 2. domain-specific modules: `traits`, `hashing`, `arithmetic` and `derive`.
 //! 3. Accessing frame/substrate dependencies directly: `deps`.
 //!
@@ -244,11 +244,6 @@ pub mod prelude {
 	};
 }
 
-#[cfg(any(feature = "try-runtime", test))]
-pub mod try_runtime {
-	pub use sp_runtime::TryRuntimeError;
-}
-
 /// Prelude to be included in the `benchmarking.rs` of a pallet.
 ///
 /// It supports both the `benchmarking::v1::benchmarks` and `benchmarking::v2::benchmark` syntax.
@@ -341,7 +336,7 @@ pub mod testing_prelude {
 	pub use sp_runtime::TryRuntimeError;
 }
 
-/// Prelude to be included in the `migration.rs` of each pallet.
+/// Prelude to be included in the `migrations.rs` file of each pallet.
 ///
 /// ```
 /// pub use polkadot_sdk_frame::migrations_prelude::*;
