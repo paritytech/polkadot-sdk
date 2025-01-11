@@ -59,6 +59,10 @@ crates:
     bump: minor
   - name: pallet-nis
     bump: minor
+  - name: pallet-nomination-pools-test-delegate-stake
+    bump: minor
+  - name: pallet-nomination-pools-test-transfer-stake
+    bump: minor
   - name: pallet-multisig
     bump: minor
   - name: pallet-lottery
@@ -72,6 +76,8 @@ crates:
   - name: pallet-fast-unstake
     bump: minor
   - name: pallet-elections-phragmen
+    bump: minor
+  - name: pallet-election-provider-e2e-test
     bump: minor
   - name: pallet-election-provider-multi-phase
     bump: minor
@@ -98,6 +104,8 @@ crates:
   - name: pallet-asset-conversion
     bump: minor
   - name: pallet-asset-conversion-ops
+    bump: minor
+  - name: pallet-atomic-swap
     bump: minor
   - name: pallet-alliance
     bump: minor
@@ -129,7 +137,7 @@ crates:
     bump: minor
   - name: people-westend-emulated-chain
     bump: minor
-  - namne: people-rococo-emulated-chain
+  - name: people-rococo-emulated-chain
     bump: minor
   - name: coretime-westend-emulated-chain
     bump: minor
