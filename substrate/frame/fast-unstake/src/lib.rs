@@ -247,6 +247,10 @@ pub mod pallet {
 		BatchFinished { size: u32 },
 		/// An internal error happened. Operations will be paused now.
 		InternalError,
+		/// An account has registered for fast unstaking
+		Registered { stash: T::AccountId },
+	/// An account has deregistered from fast unstaking
+		Deregistered { stash: T::AccountId }
 	}
 
 	#[pallet::error]
@@ -347,7 +351,9 @@ pub mod pallet {
 			T::Currency::reserve(&stash_account, T::Deposit::get())?;
 
 			// enqueue them.
-			Queue::<T>::insert(stash_account, T::Deposit::get());
+			Queue::<T>::insert(&stash_account, T::Deposit::get());
+
+			Self::deposit_event(Event::<T>::Registered { stash: stash_account });
 			Ok(())
 		}
 
@@ -389,6 +395,7 @@ pub mod pallet {
 				}
 			}
 
+			Self::deposit_event(Event::<T>::Deregistered { stash: stash_account });
 			Ok(())
 		}
 
