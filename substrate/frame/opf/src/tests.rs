@@ -32,9 +32,8 @@ pub fn next_block() {
 	);
 }
 
-pub fn project_list() -> Vec<ProjectId<Test>>{
+pub fn project_list() -> Vec<ProjectId<Test>> {
 	vec![ALICE, BOB, DAVE]
-	
 }
 
 pub fn run_to_block(n: BlockNumberFor<Test>) {

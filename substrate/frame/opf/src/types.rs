@@ -20,12 +20,11 @@
 pub use super::*;
 
 pub use frame_support::{
-	pallet_prelude::*,
-	traits::UnfilteredDispatchable,
 	dispatch::GetDispatchInfo,
+	pallet_prelude::*,
 	traits::{
 		fungible,
-		fungible::{Inspect, Mutate, MutateHold},
+		fungible::{Inspect, InspectHold, Mutate, MutateHold},
 		fungibles,
 		schedule::{
 			v3::{Anon as ScheduleAnon, Named as ScheduleNamed},
@@ -33,14 +32,13 @@ pub use frame_support::{
 		},
 		tokens::{Precision, Preservation},
 		Bounded, DefensiveOption, EnsureOrigin, LockIdentifier, OriginTrait, QueryPreimage,
-		StorePreimage,
+		StorePreimage, UnfilteredDispatchable,
 	},
 	transactional,
 	weights::WeightMeter,
 	PalletId, Serialize,
 };
 pub use frame_system::{pallet_prelude::*, RawOrigin};
-pub use pallet_conviction_voting::Conviction;
 pub use scale_info::prelude::vec::Vec;
 pub use sp_runtime::{
 	traits::{
@@ -125,16 +123,19 @@ pub struct ProjectInfo<T: Config> {
 
 	/// Amount to be locked & payed for this project
 	pub amount: BalanceOf<T>,
+
+	/// Referendum Index
+	pub index: u32,
 }
 
 impl<T: Config> ProjectInfo<T> {
 	pub fn new(project_id: ProjectId<T>) {
 		let submission_block = T::BlockNumberProvider::current_block_number();
 		let amount = Zero::zero();
-		let project_info = ProjectInfo { project_id: project_id.clone(), submission_block, amount };
+		let project_info =
+			ProjectInfo { project_id: project_id.clone(), submission_block, amount, index: 0 };
 		WhiteListedProjectAccounts::<T>::insert(project_id, project_info);
 	}
-
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
@@ -149,7 +150,7 @@ pub struct VoteInfo<T: Config> {
 	/// Whether the vote is "fund" / "not fund"
 	pub is_fund: bool,
 
-	pub conviction: Conviction,
+	pub conviction: Democracy::Conviction,
 
 	pub funds_unlock_block: ProvidedBlockNumberFor<T>,
 }
@@ -157,7 +158,7 @@ pub struct VoteInfo<T: Config> {
 // If no conviction, user's funds are released at the end of the voting round
 impl<T: Config> VoteInfo<T> {
 	pub fn funds_unlock(&mut self) {
-		let conviction_coeff = <u8 as From<Conviction>>::from(self.conviction);
+		let conviction_coeff = <u8 as From<Democracy::Conviction>>::from(self.conviction);
 		let funds_unlock_block = self
 			.round
 			.round_ending_block
@@ -173,7 +174,7 @@ impl<T: Config> Default for VoteInfo<T> {
 		let round = VotingRounds::<T>::get(0).expect("Round 0 exists");
 		let amount = Zero::zero();
 		let is_fund = false;
-		let conviction = Conviction::None;
+		let conviction = Democracy::Conviction::None;
 		let funds_unlock_block = round.round_ending_block;
 		VoteInfo { amount, round, is_fund, conviction, funds_unlock_block }
 	}
@@ -195,10 +196,13 @@ impl<T: Config> VotingRoundInfo<T> {
 	pub fn new() -> Self {
 		let round_starting_block = T::BlockNumberProvider::current_block_number();
 		let batch_submitted = false;
-		let round_ending_block = round_starting_block
-			.clone()
-			.saturating_add(<T as Config>::VotingPeriod::get());  
-			let round_number = NextVotingRoundNumber::<T>::mutate(|n| { let res = *n; *n = n.saturating_add(1); res });
+		let round_ending_block =
+			round_starting_block.clone().saturating_add(<T as Config>::VotingPeriod::get());
+		let round_number = NextVotingRoundNumber::<T>::mutate(|n| {
+			let res = *n;
+			*n = n.saturating_add(1);
+			res
+		});
 		let total_positive_votes_amount = BalanceOf::<T>::zero();
 		let total_negative_votes_amount = BalanceOf::<T>::zero();
 

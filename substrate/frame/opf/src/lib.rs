@@ -41,20 +41,20 @@ pub mod pallet {
 	pub trait Config: frame_system::Config + Democracy::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type RuntimeCall: Convert<<Self as Config>::RuntimeCall, <Self as frame_system::Config>::RuntimeCall>
-						+ Parameter
-						+ UnfilteredDispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
-						+ From<Call<Self>>
-						+ GetDispatchInfo;
+			+ Parameter
+			+ UnfilteredDispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
+			+ From<Call<Self>>
+			+ GetDispatchInfo;
 		/// The admin origin that can list and un-list whitelisted projects.
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Type to access the Balances Pallet.
 		type NativeBalance: fungible::Inspect<Self::AccountId>
-		+ fungible::Mutate<Self::AccountId>
-		+ fungible::hold::Inspect<Self::AccountId>
-		+ fungible::hold::Mutate<Self::AccountId, Reason = Self::RuntimeHoldReason>
-		+ fungible::freeze::Inspect<Self::AccountId>
-		+ fungible::freeze::Mutate<Self::AccountId>;
+			+ fungible::Mutate<Self::AccountId>
+			+ fungible::hold::Inspect<Self::AccountId>
+			+ fungible::hold::Mutate<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ fungible::freeze::Inspect<Self::AccountId>
+			+ fungible::freeze::Mutate<Self::AccountId>;
 
 		type RuntimeHoldReason: From<HoldReason>;
 		/// Provider for the block number.
@@ -116,7 +116,7 @@ pub mod pallet {
 	/// List of Whitelisted Project registered
 	#[pallet::storage]
 	pub type WhiteListedProjectAccounts<T: Config> =
-	CountedStorageMap<_, Twox64Concat, ProjectId<T>, ProjectInfo<T>, OptionQuery>;
+		CountedStorageMap<_, Twox64Concat, ProjectId<T>, ProjectInfo<T>, OptionQuery>;
 
 	/// Returns (positive_funds,negative_funds) of Whitelisted Project accounts
 	#[pallet::storage]
@@ -126,6 +126,18 @@ pub mod pallet {
 		ProjectId<T>,
 		BoundedVec<BalanceOf<T>, ConstU32<2>>,
 		ValueQuery,
+	>;
+
+	/// Returns Votes Infos against (project_id, voter_id) key
+	#[pallet::storage]
+	pub type Votes<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		ProjectId<T>,
+		Twox64Concat,
+		VoterId<T>,
+		VoteInfo<T>,
+		OptionQuery,
 	>;
 
 	#[pallet::event]
@@ -224,7 +236,9 @@ pub mod pallet {
 		/// Another project has already been submitted under the same project_id
 		SubmittedProjectId,
 		/// Project batch already submitted
-		BatchAlreadySubmitted
+		BatchAlreadySubmitted,
+		NoVoteData,
+		NotEnoughFunds,
 	}
 
 	#[pallet::hooks]
@@ -236,7 +250,6 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-
 		/// OPF Projects registration
 		///
 		/// ## Dispatch Origin
@@ -256,20 +269,23 @@ pub mod pallet {
 		/// ## Events
 		/// Emits [`Event::<T>::Projectslisted`].
 		#[pallet::call_index(1)]
-		pub fn register_projects_batch(origin: OriginFor<T>, projects_id: Vec<ProjectId<T>>) -> DispatchResult {
+		pub fn register_projects_batch(
+			origin: OriginFor<T>,
+			projects_id: Vec<ProjectId<T>>,
+		) -> DispatchResult {
 			//T::AdminOrigin::ensure_origin_or_root(origin.clone())?;
 			let who = T::SubmitOrigin::ensure_origin(origin.clone())?;
 			// Only 1 batch submission per round
 			let mut round_index = NextVotingRoundNumber::<T>::get();
 
-		// No active round?
-		if round_index == 0 {
-			// Start the first voting round
-			let _round0 = VotingRoundInfo::<T>::new();
-			round_index = NextVotingRoundNumber::<T>::get();
-		}
+			// No active round?
+			if round_index == 0 {
+				// Start the first voting round
+				let _round0 = VotingRoundInfo::<T>::new();
+				round_index = NextVotingRoundNumber::<T>::get();
+			}
 
-		let current_round_index = round_index.saturating_sub(1);
+			let current_round_index = round_index.saturating_sub(1);
 
 			let round_infos = VotingRounds::<T>::get(current_round_index).expect("InvalidResult");
 			// Check no Project batch has been submitted yet
@@ -280,21 +296,36 @@ pub mod pallet {
 			let when = T::BlockNumberProvider::current_block_number();
 			if when >= round_ending_block {
 				// Create a new round.
-			let _new_round = VotingRoundInfo::<T>::new();
+				let _new_round = VotingRoundInfo::<T>::new();
 			}
 
-			for project_id in &projects_id{
+			for project_id in &projects_id {
 				ProjectInfo::<T>::new(project_id.clone());
 				// Prepare the proposal call
-				let call0: <T as Config>::RuntimeCall = crate::Call::<T>::on_registration {project_id: project_id.clone()}.into();
+				let call0: <T as Config>::RuntimeCall =
+					crate::Call::<T>::on_registration { project_id: project_id.clone() }.into();
 				let call = <T as Config>::RuntimeCall::convert(call0);
-				let call_f = T::Preimages::bound(call).unwrap();
+				let call_f = T::Preimages::bound(call)?;
 				let threshold = Democracy::VoteThreshold::SimpleMajority;
-				Democracy::Pallet::<T>::propose(origin.clone(), call_f.clone(), T::MinimumDeposit::get())?;
-				Democracy::Pallet::<T>::internal_start_referendum(call_f,threshold, Zero::zero());
+				Democracy::Pallet::<T>::propose(
+					origin.clone(),
+					call_f.clone(),
+					T::MinimumDeposit::get(),
+				)?;
+				let referendum_index = Democracy::Pallet::<T>::internal_start_referendum(
+					call_f,
+					threshold,
+					Zero::zero(),
+				);
+				let mut new_infos = WhiteListedProjectAccounts::<T>::get(&project_id)
+					.ok_or(Error::<T>::NoProjectAvailable)?;
+				new_infos.index = referendum_index;
 
+				WhiteListedProjectAccounts::<T>::mutate(project_id, |value| {
+					*value = Some(new_infos);
+				});
 			}
-			
+
 			Self::deposit_event(Event::Projectslisted { when, projects_id });
 			Ok(())
 		}
@@ -333,7 +364,33 @@ pub mod pallet {
 
 		#[pallet::call_index(3)]
 		#[transactional]
-		pub fn vote(origin: OriginFor<T>) -> DispatchResult {
+		pub fn vote(
+			origin: OriginFor<T>,
+			project_id: ProjectId<T>,
+			#[pallet::compact] amount: BalanceOf<T>,
+			is_fund: bool,
+			conviction: Democracy::Conviction,
+		) -> DispatchResult {
+			let voter = ensure_signed(origin.clone())?;
+			// Get current voting round & check if we are in voting period or not
+			Self::period_check()?;
+			// Check that voter has enough funds to vote
+			let voter_balance = T::NativeBalance::total_balance(&voter);
+			ensure!(voter_balance > amount, Error::<T>::NotEnoughFunds);
+
+			// Check the available un-holded balance
+			let voter_holds = T::NativeBalance::total_balance_on_hold(&voter);
+			let available_funds = voter_balance.saturating_sub(voter_holds);
+			ensure!(available_funds > amount, Error::<T>::NotEnoughFunds);
+
+			let infos = WhiteListedProjectAccounts::<T>::get(&project_id)
+				.ok_or(Error::<T>::NoProjectAvailable)?;
+			let ref_index = infos.index;
+			let vote = Democracy::Vote { aye: is_fund, conviction };
+			// let account_vote = Democracy::AccountVote::Standard { vote, balance: amount };
+
+			// Democracy::Pallet::<T>::vote(origin, ref_index, account_vote)?;
+
 			Ok(())
 		}
 
@@ -370,23 +427,20 @@ pub mod pallet {
 			let now = T::BlockNumberProvider::current_block_number();
 			let info = Spends::<T>::get(&project_id).ok_or(Error::<T>::InexistentSpend)?;
 			if now >= info.expire {
-					Spends::<T>::remove(&project_id);
-					Self::deposit_event(Event::ExpiredClaim {
-						expired_when: info.expire,
-						project_id,
-					});
-					Ok(())
-				} else if now < info.expire {
-					// transfer the funds
-					Self::spend(info.amount, project_id.clone())?;					
-					Self::deposit_event(Event::RewardClaimed {
-						when: now,
-						amount: info.amount,
-						project_id: project_id.clone(),
-					});
-					Self::unlist_project(project_id)?;
-					Ok(())
-				} else {
+				Spends::<T>::remove(&project_id);
+				Self::deposit_event(Event::ExpiredClaim { expired_when: info.expire, project_id });
+				Ok(())
+			} else if now < info.expire {
+				// transfer the funds
+				Self::spend(info.amount, project_id.clone())?;
+				Self::deposit_event(Event::RewardClaimed {
+					when: now,
+					amount: info.amount,
+					project_id: project_id.clone(),
+				});
+				Self::unlist_project(project_id)?;
+				Ok(())
+			} else {
 				Err(DispatchError::Other("Not Claiming Period"))
 			}
 		}

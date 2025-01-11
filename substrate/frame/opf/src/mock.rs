@@ -17,14 +17,15 @@
 
 //! Test environment for OPF pallet.
 use crate as pallet_opf;
-use codec::{Decode, Encode, MaxEncodedLen};
 use crate::Convert;
+use codec::{Decode, Encode, MaxEncodedLen};
 pub use frame_support::{
 	derive_impl, ord_parameter_types,
 	pallet_prelude::TypeInfo,
 	parameter_types,
 	traits::{
-		ConstU32, ConstU64, SortedMembers, EqualPrivilegeOnly, OnFinalize, OnInitialize, OriginTrait, VoteTally,
+		ConstU32, ConstU64, EqualPrivilegeOnly, OnFinalize, OnInitialize, OriginTrait,
+		SortedMembers, VoteTally,
 	},
 	weights::Weight,
 	PalletId,
@@ -37,7 +38,6 @@ pub use sp_runtime::{
 pub type Block = frame_system::mocking::MockBlock<Test>;
 pub type Balance = u64;
 pub type AccountId = u64;
-
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -169,9 +169,9 @@ impl Convert<RuntimeCall, RuntimeCall> for RuntimeCall {
 	fn convert(call: RuntimeCall) -> RuntimeCall {
 		let call_encoded: Vec<u8> = call.encode();
 		let ref_call_encoded = &call_encoded;
-		if let Ok(call_formatted) = RuntimeCall::decode(&mut &ref_call_encoded[..]){
+		if let Ok(call_formatted) = RuntimeCall::decode(&mut &ref_call_encoded[..]) {
 			call_formatted
-		} else{
+		} else {
 			call
 		}
 	}
