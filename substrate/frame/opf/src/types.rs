@@ -23,7 +23,7 @@ pub use frame_support::{
 	dispatch::GetDispatchInfo,
 	pallet_prelude::*,
 	traits::{
-		fungible, Currency,
+		fungible,
 		fungible::{Inspect, InspectHold, Mutate, MutateHold},
 		fungibles,
 		schedule::{
@@ -31,8 +31,8 @@ pub use frame_support::{
 			DispatchTime, MaybeHashed,
 		},
 		tokens::{Precision, Preservation},
-		Bounded, DefensiveOption, EnsureOrigin, LockIdentifier, OriginTrait, QueryPreimage,
-		StorePreimage, UnfilteredDispatchable,
+		Bounded, Currency, DefensiveOption, EnsureOrigin, LockIdentifier, OriginTrait,
+		QueryPreimage, StorePreimage, UnfilteredDispatchable,
 	},
 	transactional,
 	weights::{WeightMeter, WeightToFee},
@@ -53,7 +53,9 @@ pub type BalanceOf<T> = <<T as Config>::NativeBalance as fungible::Inspect<
 	<T as frame_system::Config>::AccountId,
 >>::Balance;
 
-pub type BalanceOfD<T> = <<T as Democracy::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub type BalanceOfD<T> = <<T as Democracy::Config>::Currency as Currency<
+	<T as frame_system::Config>::AccountId,
+>>::Balance;
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 /// A reward index.
@@ -226,7 +228,3 @@ impl<T: Config> VotingRoundInfo<T> {
 		round_infos
 	}
 }
-
-
-    
-
