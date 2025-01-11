@@ -2403,6 +2403,7 @@ where
 	before_finalize: Box<dyn 'a + FnMut(BlockNumberFor<T>)>,
 	after_finalize: Box<dyn 'a + FnMut(BlockNumberFor<T>)>,
 }
+
 #[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 impl<'a, T> RunToBlockHooks<'a, T>
 where
@@ -2441,6 +2442,7 @@ where
 		self
 	}
 }
+
 #[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 impl<'a, T> Default for RunToBlockHooks<'a, T>
 where
