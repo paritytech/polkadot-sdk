@@ -834,11 +834,20 @@ pub mod pallet {
 		},
 		/// A new minimum commission has been set
 		MinCommissionSet {
-			perbill: u32
+			min_commission: Perbill
 		},
 		RewardDestinationSet {
 			stash: T::AccountId,
 			dest: RewardDestination<T::AccountId>
+		},
+		StakingConfigsSet {
+			min_nominator_bond: BalanceOf<T>,
+			min_validator_bond: BalanceOf<T>,
+			max_nominator_count: Option<u32>,
+			max_validator_count: Option<u32>,
+			chill_threshold: Option<Percent>,
+			min_commission: Perbill,
+			max_staked_rewards: Option<Percent>,
 		},
 		/// The era payout has been set; the first balance is the validator-payout; the second is
 		/// the remainder from the maximum amount of reward.
@@ -1854,6 +1863,44 @@ pub mod pallet {
 			config_op_exp!(ChillThreshold<T>, chill_threshold);
 			config_op_exp!(MinCommission<T>, min_commission);
 			config_op_exp!(MaxStakedRewards<T>, max_staked_rewards);
+
+			Self::deposit_event(Event::<T>::StakingConfigsSet {
+				min_nominator_bond: match min_nominator_bond {
+					ConfigOp::Noop => MinNominatorBond::<T>::get(),
+					ConfigOp::Set(v) => v,
+					ConfigOp::Remove => <T as Config>::CurrencyBalance::zero(),
+				},
+				min_validator_bond: match min_validator_bond {
+					ConfigOp::Noop => MinValidatorBond::<T>::get(),
+					ConfigOp::Set(v) => v,
+					ConfigOp::Remove => <T as Config>::CurrencyBalance::zero(),
+				},
+				max_nominator_count: match max_nominator_count {
+					ConfigOp::Noop => MaxNominatorsCount::<T>::get(),
+					ConfigOp::Set(v) => Some(v),
+					ConfigOp::Remove => None,
+				},
+				max_validator_count: match max_validator_count {
+					ConfigOp::Noop => MaxValidatorsCount::<T>::get(),
+					ConfigOp::Set(v) => Some(v),
+					ConfigOp::Remove => None,
+				},
+				chill_threshold: match chill_threshold {
+					ConfigOp::Noop => ChillThreshold::<T>::get(),
+					ConfigOp::Set(v) => Some(v),
+					ConfigOp::Remove => None,
+				},
+				min_commission: match min_commission {
+					ConfigOp::Noop => MinCommission::<T>::get(),
+					ConfigOp::Set(v) => v,
+					ConfigOp::Remove => Perbill::zero(),
+				},
+				max_staked_rewards: match max_staked_rewards {
+					ConfigOp::Noop => MaxStakedRewards::<T>::get(),
+					ConfigOp::Set(v) => Some(v),
+					ConfigOp::Remove => None,
+				},
+			});
 			Ok(())
 		}
 		/// Declare a `controller` to stop participating as either a validator or nominator.
@@ -1979,7 +2026,7 @@ pub mod pallet {
 		pub fn set_min_commission(origin: OriginFor<T>, new: Perbill) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 			MinCommission::<T>::put(new);
-			Self::deposit_event(Event::<T>::MinCommissionSet { perbill: new.deconstruct() });
+			Self::deposit_event(Event::<T>::MinCommissionSet { min_commission: new });
 			Ok(())
 		}
 
