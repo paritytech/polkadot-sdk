@@ -18,7 +18,10 @@
 //! Storage migrations for the `pallet_salary`.
 
 use super::*;
-use frame::{storage_alias, traits::UncheckedOnRuntimeUpgrade, deps::frame_support::migrations::VersionedMigration};
+use frame::{
+	deps::frame_support::migrations::VersionedMigration, storage_alias,
+	traits::UncheckedOnRuntimeUpgrade,
+};
 
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
@@ -123,8 +126,8 @@ pub mod v1 {
 		/// |--------------------|
 		///
 		/// ^ Two 6s relay blocks passed per one 12s local block.
-		/// ``` 
-		/// 
+		/// ```
+		///
 		/// # Example Usage
 		///
 		/// ```rust,ignore
