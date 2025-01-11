@@ -12,5 +12,7 @@ doc:
       or `testing_prelude`.
 
 crates:
+- name: polkadot-sdk-frame
+  bump: minor
 - name: pallet-multisig
   bump: none
