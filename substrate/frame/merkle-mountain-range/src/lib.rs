@@ -61,7 +61,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use log;
 
-pub use frame::prelude::*;
+use frame::prelude::*;
 
 pub use sp_mmr_primitives::{
 	self as primitives, utils, utils::NodesUtils, AncestryProof, Error, FullLeaf, LeafDataProvider,
