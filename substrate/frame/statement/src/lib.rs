@@ -33,12 +33,12 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame::prelude::*;
-use frame::deps::{sp_io, sp_statement_store::{
+use frame::{prelude::*, traits::fungible::Inspect, deps::sp_io};
+use sp_statement_store::{
 	runtime_api::{InvalidStatement, StatementSource, ValidStatement},
 	Proof, SignatureVerificationResult, Statement,
-}};
-use frame::traits::fungible::Inspect;
+};
+
 
 #[cfg(test)]
 mod mock;

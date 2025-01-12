@@ -15461,25 +15461,11 @@ dependencies = [
 name = "pallet-statement"
 version = "10.0.0"
 dependencies = [
- "frame-support 28.0.0",
- "frame-system 28.0.0",
  "log",
  "pallet-balances 28.0.0",
  "parity-scale-codec",
+ "polkadot-sdk-frame 0.1.0",
  "scale-info",
-<<<<<<< HEAD
-=======
- "sp-api 26.0.0",
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> parent of fed7211911 (migrate pallet-statement to use umbrella crate)
-=======
->>>>>>> parent of fed7211911 (migrate pallet-statement to use umbrella crate)
-=======
->>>>>>> parent of fed7211911 (migrate pallet-statement to use umbrella crate)
  "sp-statement-store 10.0.0",
 ]
 
@@ -15507,13 +15493,9 @@ version = "28.0.0"
 dependencies = [
  "docify",
  "frame-benchmarking 28.0.0",
- "frame-support 28.0.0",
- "frame-system 28.0.0",
  "parity-scale-codec",
+ "polkadot-sdk-frame 0.1.0",
  "scale-info",
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
 ]
 
 [[package]]

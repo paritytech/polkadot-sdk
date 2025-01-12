@@ -19,15 +19,12 @@
 
 use super::*;
 use crate as sudo;
-use frame_support::{derive_impl, traits::Contains};
-use sp_io;
-use sp_runtime::BuildStorage;
+use frame::testing_prelude::*;
 
 // Logger module to track execution.
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod logger {
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
+	use frame::preliude::*
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -127,7 +124,7 @@ pub type SudoCall = sudo::Call<Test>;
 pub type LoggerCall = logger::Call<Test>;
 
 // Build test environment by setting the root `key` for the Genesis.
-pub fn new_test_ext(root_key: u64) -> sp_io::TestExternalities {
+pub fn new_test_ext(root_key: u64) -> TestState {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	sudo::GenesisConfig::<Test> { key: Some(root_key) }
 		.assimilate_storage(&mut t)

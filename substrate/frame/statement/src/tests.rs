@@ -21,16 +21,12 @@
 
 use super::*;
 use crate::mock::*;
-use frame::deps::{sp_runtime::AccountId32, sp_core::{Pair, H256}, sp_statement_store::{
-	runtime_api::{InvalidStatement, StatementSource, ValidStatement},
-	Proof, Statement,
-}};
-use sp_core::Pair;
-use sp_runtime::AccountId32;
+use frame::testing_prelude::*;
 use sp_statement_store::{
 	runtime_api::{InvalidStatement, StatementSource, ValidStatement},
 	Proof, Statement,
 };
+
 #[test]
 fn sign_and_validate_no_balance() {
 	new_test_ext().execute_with(|| {

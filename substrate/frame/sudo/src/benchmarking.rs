@@ -20,10 +20,9 @@
 use super::*;
 use crate::Pallet;
 use alloc::{boxed::Box, vec};
-use frame_benchmarking::v2::*;
-use frame_support::dispatch::{DispatchInfo, GetDispatchInfo};
-use frame_system::RawOrigin;
-use sp_runtime::traits::{
+use frame::prelude::*;
+use frame::benchmarking::prelude::*
+use frame::deps::sp_runtime::traits::{
 	AsSystemOriginSigner, AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable,
 };
 
