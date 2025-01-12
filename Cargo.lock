@@ -15474,6 +15474,9 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> parent of fed7211911 (migrate pallet-statement to use umbrella crate)
+=======
 >>>>>>> parent of fed7211911 (migrate pallet-statement to use umbrella crate)
 =======
 >>>>>>> parent of fed7211911 (migrate pallet-statement to use umbrella crate)

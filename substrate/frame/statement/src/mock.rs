@@ -74,8 +74,11 @@ impl Config for Test {
 	type MaxAllowedBytes = ConstU32<MAX_ALLOWED_BYTES>;
 }
 
+<<<<<<< HEAD
 pub fn new_test_ext() -> TestState {
 pub fn new_test_ext() -> sp_io::TestExternalities {
+=======
+>>>>>>> parent of fed7211911 (migrate pallet-statement to use umbrella crate)
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let balances = pallet_balances::GenesisConfig::<Test> {
