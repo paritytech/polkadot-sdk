@@ -28,11 +28,10 @@ default = ["std"]
 std = [
 	"codec/std",
 	"frame/std",
-	"frame-benchmarking?/std",
 	"scale-info/std",
 ]
 runtime-benchmarks = [
-	"frame-benchmarking/runtime-benchmarks",
+	"frame/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame/try-runtime"
