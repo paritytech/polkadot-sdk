@@ -20,21 +20,18 @@ use crate::{mock::*, *};
 use crate::primitives::{mmr_lib::helper, utils, Compact, LeafProof};
 
 use frame::{
-	deps::{
-		sp_core::{
-			offchain::{testing::TestOffchainExt, OffchainDbExt, OffchainWorkerExt},
-			H256,
-		},
-		sp_io::TestExternalities,
+	deps::sp_core::{
+		offchain::{testing::TestOffchainExt, OffchainDbExt, OffchainWorkerExt},
+		H256,
 	},
 	testing_prelude::*,
 };
 
-pub(crate) fn new_test_ext() -> TestExternalities {
+pub(crate) fn new_test_ext() -> TestState {
 	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
 }
 
-fn register_offchain_ext(ext: &mut TestExternalities) {
+fn register_offchain_ext(ext: &mut TestState) {
 	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));
