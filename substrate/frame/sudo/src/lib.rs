@@ -124,7 +124,6 @@ extern crate alloc;
 
 use alloc::boxed::Box;
 
-// use sp_runtime::{traits::StaticLookup, DispatchResult};
 
 
 mod extension;
@@ -135,6 +134,7 @@ mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+use frame::prelude::*;
 pub mod weights;
 pub use weights::WeightInfo;
 
