@@ -7,7 +7,7 @@ doc:
   - audience: Runtime Dev
     description: |
       Currently, all other versioned types in the `staging-xcm` are created using `versioned_type!` macro, except for `VersionedXcm`. 
-      This PR changes `versioned_type` macro so that it can be used for `VersionedXcm` as well. This is done by adding optional
+      This PR changes `versioned_type` macro so that it can be used for `VersionedXcm` as well, reducing a lot of duplication. This is done by adding optional
       generic type param to an enum that is passed to the macro.
 
 crates:
