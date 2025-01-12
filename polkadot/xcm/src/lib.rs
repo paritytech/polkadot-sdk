@@ -82,38 +82,15 @@ pub trait TryAs<T> {
 // NOTE: converting a v4 type into a versioned type will make it v5.
 macro_rules! versioned_type {
 	(@internal $n:ident, $v3:ty, $v4:ty,) => {
-		impl IntoVersion for $n {
-			fn into_version(self, n: Version) -> Result<Self, ()> {
-				Ok(match n {
-					3 => Self::V3(self.try_into()?),
-					4 => Self::V4(self.try_into()?),
-					5 => Self::V5(self.try_into()?),
-					_ => return Err(()),
-				})
-			}
-		}
 		impl MaxEncodedLen for $n {
 			fn max_encoded_len() -> usize {
 				<$v3>::max_encoded_len().max(<$v4>::max_encoded_len())
 			}
 		}
 	};
-	(@internal $n:ident, $v3:ty, $v4:ty, $t:ident $(, ($($bound_type:ty : $bound:path),+))?) => {
-		impl<$t> IntoVersion for $n<$t>
-		$(where $($bound_type : $bound),+)?
-		{
-			fn into_version(self, n: Version) -> Result<Self, ()> {
-				Ok(match n {
-					3 => Self::V3(self.try_into()?),
-					4 => Self::V4(self.try_into()?),
-					5 => Self::V5(self.try_into()?),
-					_ => return Err(()),
-				})
-			}
-		}
+	(@internal $n:ident, $v3:ty, $v4:ty, $t:ident) => {
 	};
-	($(#[$attr:meta])* pub enum $n:ident$(<$($gen:ident),*>)? $(where $($bound_type:ty : $bound_trait:path),+)?
-	{
+	($(#[$attr:meta])* pub enum $n:ident$(<$($gen:ident),*>)? {
 		$(#[$index3:meta])+
 		V3($v3:ty),
 		$(#[$index4:meta])+
@@ -133,11 +110,7 @@ macro_rules! versioned_type {
         $(#[scale_info(bounds(), skip_type_params($($gen)+))])?
 		#[scale_info(replace_segment("staging_xcm", "xcm"))]
 		$(#[$attr])*
-		pub enum $n<$($($gen),*)?>
-		$(
-			where $($bound_type: $bound_trait),+
-		)?
-		{
+		pub enum $n<$($($gen),*)?> {
 			$(#[$index3])*
 			V3($v3),
 			$(#[$index4])*
@@ -146,18 +119,12 @@ macro_rules! versioned_type {
 			V5($v5),
 		}
 		impl<$($($gen),*)?> $n<$($($gen),*)?>
-		$(
-			where $($bound_type: $bound_trait),+
-		)?
 		{
 			pub fn try_as<T>(&self) -> Result<&T, ()> where Self: TryAs<T> {
 				<Self as TryAs<T>>::try_as(&self)
 			}
 		}
 		impl<$($($gen),*)?> TryAs<$v3> for $n <$($($gen),*)?>
-		$(
-			where $($bound_type: $bound_trait),+
-		)?
 		{
 			fn try_as(&self) -> Result<&$v3, ()> {
 				match &self {
@@ -167,9 +134,6 @@ macro_rules! versioned_type {
 			}
 		}
 		impl<$($($gen),*)?> TryAs<$v4> for $n<$($($gen),*)?>
-		$(
-			where $($bound_type: $bound_trait),+
-		)?
 		{
 			fn try_as(&self) -> Result<&$v4, ()> {
 				match &self {
@@ -179,9 +143,6 @@ macro_rules! versioned_type {
 			}
 		}
 		impl<$($($gen),*)?> TryAs<$v5> for $n<$($($gen),*)?>
-		$(
-			where $($bound_type: $bound_trait),+
-		)?
 		{
 			fn try_as(&self) -> Result<&$v5, ()> {
 				match &self {
@@ -191,18 +152,12 @@ macro_rules! versioned_type {
 			}
 		}
 		impl<$($($gen),*)?> From<$v3> for $n <$($($gen),*)?>
-		$(
-			where $($bound_type: $bound_trait),+
-		)?
 		{
 			fn from(x: $v3) -> Self {
 				$n::V3(x.into())
 			}
 		}
 		impl<$($($gen,),+)? T: Into<$v5>> From<T> for $n<$($($gen),*)?>
-		$(
-			where $($bound_type: $bound_trait),+
-		)?
 		{
 			fn from(x: T) -> Self {
 				$n::V5(x.into())
@@ -210,7 +165,7 @@ macro_rules! versioned_type {
 		}
 		impl<$($($gen),*)?> TryFrom<$n<$($($gen),*)?>> for $v3
 		$(
-			where $($bound_type: $bound_trait),+
+			where $($gen: Decode + GetDispatchInfo),*
 		)?
 		{
 			type Error = ();
@@ -228,7 +183,7 @@ macro_rules! versioned_type {
 		}
 		impl<$($($gen),*)?> TryFrom<$n <$($($gen),*)?>> for $v4
 		$(
-			where $($bound_type: $bound_trait),+
+			where $($gen: Decode + GetDispatchInfo),*
 		)?
 		{
 			type Error = ();
@@ -242,9 +197,6 @@ macro_rules! versioned_type {
 			}
 		}
 		impl<$($($gen),*)?> TryFrom<$n<$($($gen),*)?>> for $v5
-		$(
-			where $($bound_type: $bound_trait),+
-		)?
 		{
 			type Error = ();
 			fn try_from(x: $n<$($($gen),*)?>) -> Result<Self, ()> {
@@ -260,12 +212,24 @@ macro_rules! versioned_type {
 			}
 		}
 		// internal macro that handles some edge cases
-		versioned_type!(@internal $n, $v3, $v4, $($($gen),+)? $(, ($($bound_type : $bound_trait),+))?);
+		versioned_type!(@internal $n, $v3, $v4, $($($gen),+)?);
+
+		impl<$($($gen),*)?> IntoVersion for $n<$($($gen),*)?>
+		$(
+			where $($gen: Decode + GetDispatchInfo),*
+		)?
+		{
+			fn into_version(self, n: Version) -> Result<Self, ()> {
+				Ok(match n {
+					3 => Self::V3(self.try_into()?),
+					4 => Self::V4(self.try_into()?),
+					5 => Self::V5(self.try_into()?),
+					_ => return Err(()),
+				})
+			}
+		}
 
 		impl<$($($gen),*)?> IdentifyVersion for $n<$($($gen),*)?>
-		$(
-			where $($bound_type: $bound_trait),+
-		)?
 		{
 			fn identify_version(&self) -> Version {
 				use $n::*;
@@ -380,7 +344,7 @@ versioned_type! {
 pub type VersionedMultiAssets = VersionedAssets;
 
 versioned_type! {
-	pub enum VersionedXcm<RuntimeCall> where RuntimeCall: Decode, RuntimeCall: GetDispatchInfo {
+	pub enum VersionedXcm<RuntimeCall> {
 		#[codec(index = 3)]
 		V3(v3::Xcm<RuntimeCall>),
 		#[codec(index = 4)]
