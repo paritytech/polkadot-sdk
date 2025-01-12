@@ -16,7 +16,7 @@ jobs:
   preflight:
     uses: ./.github/workflows/reusable-preflight.yml
 
-  check-publish:
+  check-publish-compile:
     timeout-minutes: 90
     needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
