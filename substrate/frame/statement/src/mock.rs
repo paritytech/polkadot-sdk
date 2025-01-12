@@ -20,8 +20,17 @@
 use super::*;
 
 use crate as pallet_statement;
+<<<<<<< HEAD
 use frame::testing_prelude::*;
 use frame::deps::{sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage}, sp_core::Pair};
+=======
+use frame_support::{
+	derive_impl, ord_parameter_types,
+	traits::{ConstU32, ConstU64},
+};
+use sp_core::Pair;
+use sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage};
+>>>>>>> parent of fed7211911 (migrate pallet-statement to use umbrella crate)
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -30,7 +39,7 @@ pub const MAX_ALLOWED_STATEMENTS: u32 = 10;
 pub const MIN_ALLOWED_BYTES: u32 = 1024;
 pub const MAX_ALLOWED_BYTES: u32 = 4096;
 
-construct_runtime!(
+frame_support::construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -68,7 +77,11 @@ impl Config for Test {
 	type MaxAllowedBytes = ConstU32<MAX_ALLOWED_BYTES>;
 }
 
+<<<<<<< HEAD
 pub fn new_test_ext() -> TestState {
+=======
+pub fn new_test_ext() -> sp_io::TestExternalities {
+>>>>>>> parent of fed7211911 (migrate pallet-statement to use umbrella crate)
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let balances = pallet_balances::GenesisConfig::<Test> {
 		balances: vec![
