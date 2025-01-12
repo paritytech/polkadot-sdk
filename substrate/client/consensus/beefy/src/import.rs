@@ -132,7 +132,7 @@ where
 	type Error = ConsensusError;
 
 	async fn import_block(
-		&mut self,
+		&self,
 		mut block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		let hash = block.post_hash();

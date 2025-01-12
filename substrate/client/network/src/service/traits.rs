@@ -36,7 +36,11 @@ use prometheus_endpoint::Registry;
 
 use sc_client_api::BlockBackend;
 use sc_network_common::{role::ObservedRole, ExHashT};
-use sc_network_types::{multiaddr::Multiaddr, PeerId};
+pub use sc_network_types::{
+	kad::{Key as KademliaKey, Record},
+	multiaddr::Multiaddr,
+	PeerId,
+};
 use sp_runtime::traits::Block as BlockT;
 
 use std::{
@@ -48,7 +52,7 @@ use std::{
 	time::{Duration, Instant},
 };
 
-pub use libp2p::{identity::SigningError, kad::record::Key as KademliaKey};
+pub use libp2p::identity::SigningError;
 
 /// Supertrait defining the services provided by [`NetworkBackend`] service handle.
 pub trait NetworkService:
@@ -217,6 +221,11 @@ pub trait NetworkDHTProvider {
 	/// Start putting a value in the DHT.
 	fn put_value(&self, key: KademliaKey, value: Vec<u8>);
 
+	/// Start putting the record to `peers`.
+	///
+	/// If `update_local_storage` is true the local storage is udpated as well.
+	fn put_record_to(&self, record: Record, peers: HashSet<PeerId>, update_local_storage: bool);
+
 	/// Store a record in the DHT memory store.
 	fn store_record(
 		&self,
@@ -225,6 +234,15 @@ pub trait NetworkDHTProvider {
 		publisher: Option<PeerId>,
 		expires: Option<Instant>,
 	);
+
+	/// Register this node as a provider for `key` on the DHT.
+	fn start_providing(&self, key: KademliaKey);
+
+	/// Deregister this node as a provider for `key` on the DHT.
+	fn stop_providing(&self, key: KademliaKey);
+
+	/// Start getting the list of providers for `key` on the DHT.
+	fn get_providers(&self, key: KademliaKey);
 }
 
 impl<T> NetworkDHTProvider for Arc<T>
@@ -240,6 +258,10 @@ where
 		T::put_value(self, key, value)
 	}
 
+	fn put_record_to(&self, record: Record, peers: HashSet<PeerId>, update_local_storage: bool) {
+		T::put_record_to(self, record, peers, update_local_storage)
+	}
+
 	fn store_record(
 		&self,
 		key: KademliaKey,
@@ -248,6 +270,18 @@ where
 		expires: Option<Instant>,
 	) {
 		T::store_record(self, key, value, publisher, expires)
+	}
+
+	fn start_providing(&self, key: KademliaKey) {
+		T::start_providing(self, key)
+	}
+
+	fn stop_providing(&self, key: KademliaKey) {
+		T::stop_providing(self, key)
+	}
+
+	fn get_providers(&self, key: KademliaKey) {
+		T::get_providers(self, key)
 	}
 }
 

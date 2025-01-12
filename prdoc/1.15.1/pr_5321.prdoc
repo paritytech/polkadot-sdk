@@ -1,0 +1,11 @@
+title: fix availability-distribution Jaeger spans memory leak
+
+doc:
+  - audience: Node Dev
+    description: |
+      Fixes a memory leak which caused the Jaeger span storage in availability-distribution to never be pruned and therefore increasing indefinitely.
+      This was caused by improper handling of finalized heads. More info in https://github.com/paritytech/polkadot-sdk/issues/5258
+
+crates:
+  - name: polkadot-availability-distribution
+    bump: patch

@@ -19,21 +19,33 @@
 
 extern crate alloc;
 
+mod default_weights;
+mod equivocation;
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
+
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Encode, MaxEncodedLen};
+use log;
 
 use frame_support::{
 	dispatch::{DispatchResultWithPostInfo, Pays},
 	pallet_prelude::*,
 	traits::{Get, OneSessionHandler},
-	weights::Weight,
+	weights::{constants::RocksDbWeight as DbWeight, Weight},
 	BoundedSlice, BoundedVec, Parameter,
 };
 use frame_system::{
 	ensure_none, ensure_signed,
 	pallet_prelude::{BlockNumberFor, HeaderFor, OriginFor},
 };
-use log;
+use sp_consensus_beefy::{
+	AncestryHelper, AncestryHelperWeightInfo, AuthorityIndex, BeefyAuthorityId, ConsensusLog,
+	DoubleVotingProof, ForkVotingProof, FutureBlockVotingProof, OnNewValidatorSet, ValidatorSet,
+	BEEFY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
+};
 use sp_runtime::{
 	generic::DigestItem,
 	traits::{IsMember, Member, One},
@@ -42,23 +54,9 @@ use sp_runtime::{
 use sp_session::{GetSessionNumber, GetValidatorCount};
 use sp_staking::{offence::OffenceReportSystem, SessionIndex};
 
-use sp_consensus_beefy::{
-	AncestryHelper, AuthorityIndex, BeefyAuthorityId, ConsensusLog, DoubleVotingProof,
-	ForkVotingProof, FutureBlockVotingProof, OnNewValidatorSet, ValidatorSet, BEEFY_ENGINE_ID,
-	GENESIS_AUTHORITY_SET_ID,
-};
-
-mod default_weights;
-mod equivocation;
-#[cfg(test)]
-mod mock;
-#[cfg(test)]
-mod tests;
-
+use crate::equivocation::EquivocationEvidenceFor;
 pub use crate::equivocation::{EquivocationOffence, EquivocationReportSystem, TimeSlot};
 pub use pallet::*;
-
-use crate::equivocation::EquivocationEvidenceFor;
 
 const LOG_TARGET: &str = "runtime::beefy";
 
@@ -102,7 +100,8 @@ pub mod pallet {
 		type OnNewValidatorSet: OnNewValidatorSet<<Self as Config>::BeefyId>;
 
 		/// Hook for checking commitment canonicity.
-		type AncestryHelper: AncestryHelper<HeaderFor<Self>>;
+		type AncestryHelper: AncestryHelper<HeaderFor<Self>>
+			+ AncestryHelperWeightInfo<HeaderFor<Self>>;
 
 		/// Weights for this pallet.
 		type WeightInfo: WeightInfo;
@@ -295,9 +294,10 @@ pub mod pallet {
 		/// and validate the given key ownership proof against the extracted offender.
 		/// If both are valid, the offence will be reported.
 		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::report_fork_voting(
+		#[pallet::weight(T::WeightInfo::report_fork_voting::<T>(
 			key_owner_proof.validator_count(),
 			T::MaxNominators::get(),
+			&equivocation_proof.ancestry_proof
 		))]
 		pub fn report_fork_voting(
 			origin: OriginFor<T>,
@@ -329,9 +329,10 @@ pub mod pallet {
 		/// if the block author is defined it will be defined as the equivocation
 		/// reporter.
 		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::report_fork_voting(
+		#[pallet::weight(T::WeightInfo::report_fork_voting::<T>(
 			key_owner_proof.validator_count(),
 			T::MaxNominators::get(),
+			&equivocation_proof.ancestry_proof
 		))]
 		pub fn report_fork_voting_unsigned(
 			origin: OriginFor<T>,
@@ -358,7 +359,7 @@ pub mod pallet {
 		/// and validate the given key ownership proof against the extracted offender.
 		/// If both are valid, the offence will be reported.
 		#[pallet::call_index(5)]
-		#[pallet::weight(T::WeightInfo::report_fork_voting(
+		#[pallet::weight(T::WeightInfo::report_future_block_voting(
 			key_owner_proof.validator_count(),
 			T::MaxNominators::get(),
 		))]
@@ -389,7 +390,7 @@ pub mod pallet {
 		/// if the block author is defined it will be defined as the equivocation
 		/// reporter.
 		#[pallet::call_index(6)]
-		#[pallet::weight(T::WeightInfo::report_fork_voting(
+		#[pallet::weight(T::WeightInfo::report_future_block_voting(
 			key_owner_proof.validator_count(),
 			T::MaxNominators::get(),
 		))]
@@ -740,15 +741,52 @@ pub trait WeightInfo {
 		validator_count: u32,
 		max_nominators_per_validator: u32,
 	) -> Weight;
+
+	fn set_new_genesis() -> Weight;
+}
+
+pub(crate) trait WeightInfoExt: WeightInfo {
 	fn report_double_voting(validator_count: u32, max_nominators_per_validator: u32) -> Weight {
 		Self::report_voting_equivocation(2, validator_count, max_nominators_per_validator)
 	}
-	fn report_fork_voting(validator_count: u32, max_nominators_per_validator: u32) -> Weight;
+
+	fn report_fork_voting<T: Config>(
+		validator_count: u32,
+		max_nominators_per_validator: u32,
+		ancestry_proof: &<T::AncestryHelper as AncestryHelper<HeaderFor<T>>>::Proof,
+	) -> Weight {
+		let _weight = <T::AncestryHelper as AncestryHelperWeightInfo<HeaderFor<T>>>::extract_validation_context()
+			.saturating_add(
+				<T::AncestryHelper as AncestryHelperWeightInfo<HeaderFor<T>>>::is_non_canonical(
+					ancestry_proof,
+				),
+			)
+			.saturating_add(Self::report_voting_equivocation(
+				1,
+				validator_count,
+				max_nominators_per_validator,
+			));
+
+		// TODO: https://github.com/paritytech/polkadot-sdk/issues/4523 - return `_weight` here.
+		// We return `Weight::MAX` currently in order to disallow this extrinsic for the moment.
+		// We need to check that the proof is optimal.
+		Weight::MAX
+	}
+
 	fn report_future_block_voting(
 		validator_count: u32,
 		max_nominators_per_validator: u32,
 	) -> Weight {
-		Self::report_voting_equivocation(1, validator_count, max_nominators_per_validator)
+		// checking if the report is for a future block
+		DbWeight::get()
+			.reads(1)
+			// check and report the equivocated vote
+			.saturating_add(Self::report_voting_equivocation(
+				1,
+				validator_count,
+				max_nominators_per_validator,
+			))
 	}
-	fn set_new_genesis() -> Weight;
 }
+
+impl<T> WeightInfoExt for T where T: WeightInfo {}

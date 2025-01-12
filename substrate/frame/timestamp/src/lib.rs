@@ -161,7 +161,7 @@ pub mod pallet {
 		impl DefaultConfig for TestDefaultConfig {
 			type Moment = u64;
 			type OnTimestampSet = ();
-			type MinimumPeriod = frame_support::traits::ConstU64<1>;
+			type MinimumPeriod = ConstUint<1>;
 			type WeightInfo = ();
 		}
 	}
@@ -368,10 +368,12 @@ impl<T: Config> UnixTime for Pallet<T> {
 		// `sp_timestamp::InherentDataProvider`.
 		let now = Now::<T>::get();
 
-		log::error!(
-			target: "runtime::timestamp",
-			"`pallet_timestamp::UnixTime::now` is called at genesis, invalid value returned: 0",
-		);
+		if now == T::Moment::zero() {
+			log::error!(
+				target: "runtime::timestamp",
+				"`pallet_timestamp::UnixTime::now` is called at genesis, invalid value returned: 0",
+			);
+		}
 
 		core::time::Duration::from_millis(now.saturated_into::<u64>())
 	}

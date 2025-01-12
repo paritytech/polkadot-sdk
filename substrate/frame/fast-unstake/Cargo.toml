@@ -4,7 +4,7 @@ version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME fast unstake pallet"
 
@@ -22,23 +22,23 @@ scale-info = { features = ["derive"], workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 
+frame-election-provider-support = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-staking = { workspace = true }
-frame-election-provider-support = { workspace = true }
 
 frame-benchmarking = { optional = true, workspace = true }
 
 docify = { workspace = true }
 
 [dev-dependencies]
-pallet-staking-reward-curve = { workspace = true, default-features = true }
-sp-core = { workspace = true }
-substrate-test-utils = { workspace = true }
-sp-tracing = { workspace = true, default-features = true }
-pallet-staking = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
+pallet-staking = { workspace = true, default-features = true }
+pallet-staking-reward-curve = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
+sp-core = { workspace = true }
+sp-tracing = { workspace = true, default-features = true }
+substrate-test-utils = { workspace = true }
 
 [features]
 default = ["std"]

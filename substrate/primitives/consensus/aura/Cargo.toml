@@ -5,7 +5,7 @@ authors.workspace = true
 description = "Primitives for Aura consensus"
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
 

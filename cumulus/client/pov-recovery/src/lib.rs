@@ -6,7 +6,7 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Polkadot is distributed in the hope that it will be useful,
+// Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -56,7 +56,11 @@ use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT};
 use polkadot_node_subsystem::messages::{AvailabilityRecoveryMessage, RuntimeApiRequest};
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{
-	CandidateReceipt, CommittedCandidateReceipt, Id as ParaId, SessionIndex,
+	vstaging::{
+		CandidateReceiptV2 as CandidateReceipt,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	},
+	Id as ParaId, SessionIndex,
 };
 
 use cumulus_primitives_core::ParachainBlockData;

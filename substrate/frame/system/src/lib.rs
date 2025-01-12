@@ -99,7 +99,7 @@
 
 extern crate alloc;
 
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::{borrow::Cow, boxed::Box, vec, vec::Vec};
 use core::{fmt::Debug, marker::PhantomData};
 use pallet_prelude::{BlockNumberFor, HeaderFor};
 #[cfg(feature = "std")]
@@ -120,8 +120,6 @@ use sp_runtime::{
 	},
 	DispatchError, RuntimeDebug,
 };
-#[cfg(any(feature = "std", test))]
-use sp_std::map;
 use sp_version::RuntimeVersion;
 
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
@@ -130,7 +128,8 @@ use frame_support::traits::BuildGenesisConfig;
 use frame_support::{
 	dispatch::{
 		extract_actual_pays_fee, extract_actual_weight, DispatchClass, DispatchInfo,
-		DispatchResult, DispatchResultWithPostInfo, PerDispatchClass, PostDispatchInfo,
+		DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, PerDispatchClass,
+		PostDispatchInfo,
 	},
 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
 	migrations::MultiStepMigrator,
@@ -145,6 +144,10 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_core::storage::well_known_keys;
+use sp_runtime::{
+	traits::{DispatchInfoOf, PostDispatchInfoOf},
+	transaction_validity::TransactionValidityError,
+};
 use sp_weights::{RuntimeDbWeight, Weight};
 
 #[cfg(any(feature = "std", test))]
@@ -169,12 +172,13 @@ pub use extensions::{
 	check_genesis::CheckGenesis, check_mortality::CheckMortality,
 	check_non_zero_sender::CheckNonZeroSender, check_nonce::CheckNonce,
 	check_spec_version::CheckSpecVersion, check_tx_version::CheckTxVersion,
-	check_weight::CheckWeight,
+	check_weight::CheckWeight, weight_reclaim::WeightReclaim, WeightInfo as ExtensionsWeightInfo,
 };
 // Backward compatible re-export.
 pub use extensions::check_mortality::CheckMortality as CheckEra;
 pub use frame_support::dispatch::RawOrigin;
 use frame_support::traits::{PostInherents, PostTransactions, PreInherents};
+use sp_core::storage::StateVersion;
 pub use weights::WeightInfo;
 
 const LOG_TARGET: &str = "runtime::system";
@@ -182,17 +186,20 @@ const LOG_TARGET: &str = "runtime::system";
 /// Compute the trie root of a list of extrinsics.
 ///
 /// The merkle proof is using the same trie as runtime state with
-/// `state_version` 0.
-pub fn extrinsics_root<H: Hash, E: codec::Encode>(extrinsics: &[E]) -> H::Output {
-	extrinsics_data_root::<H>(extrinsics.iter().map(codec::Encode::encode).collect())
+/// `state_version` 0 or 1.
+pub fn extrinsics_root<H: Hash, E: codec::Encode>(
+	extrinsics: &[E],
+	state_version: StateVersion,
+) -> H::Output {
+	extrinsics_data_root::<H>(extrinsics.iter().map(codec::Encode::encode).collect(), state_version)
 }
 
 /// Compute the trie root of a list of extrinsics.
 ///
 /// The merkle proof is using the same trie as runtime state with
-/// `state_version` 0.
-pub fn extrinsics_data_root<H: Hash>(xts: Vec<Vec<u8>>) -> H::Output {
-	H::ordered_trie_root(xts, sp_core::storage::StateVersion::V0)
+/// `state_version` 0 or 1.
+pub fn extrinsics_data_root<H: Hash>(xts: Vec<Vec<u8>>, state_version: StateVersion) -> H::Output {
+	H::ordered_trie_root(xts, state_version)
 }
 
 /// An object to track the currently used extrinsic weight in a block.
@@ -257,6 +264,19 @@ where
 	check_version: bool,
 }
 
+/// Information about the dispatch of a call, to be displayed in the
+/// [`ExtrinsicSuccess`](Event::ExtrinsicSuccess) and [`ExtrinsicFailed`](Event::ExtrinsicFailed)
+/// events.
+#[derive(Clone, Copy, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo)]
+pub struct DispatchEventInfo {
+	/// Weight of this transaction.
+	pub weight: Weight,
+	/// Class of this transaction.
+	pub class: DispatchClass,
+	/// Does this transaction pay fees.
+	pub pays_fee: Pays,
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use crate::{self as frame_system, pallet_prelude::*, *};
@@ -293,12 +313,13 @@ pub mod pallet {
 			type Hash = sp_core::hash::H256;
 			type Hashing = sp_runtime::traits::BlakeTwo256;
 			type AccountId = u64;
-			type Lookup = sp_runtime::traits::IdentityLookup<u64>;
+			type Lookup = sp_runtime::traits::IdentityLookup<Self::AccountId>;
 			type MaxConsumers = frame_support::traits::ConstU32<16>;
 			type AccountData = ();
 			type OnNewAccount = ();
 			type OnKilledAccount = ();
 			type SystemWeightInfo = ();
+			type ExtensionsWeightInfo = ();
 			type SS58Prefix = ();
 			type Version = ();
 			type BlockWeights = ();
@@ -360,7 +381,7 @@ pub mod pallet {
 			type MaxConsumers = frame_support::traits::ConstU32<128>;
 
 			/// The default data to be stored in an account.
-			type AccountData = crate::AccountInfo<Self::Nonce, ()>;
+			type AccountData = ();
 
 			/// What to do if a new account is created.
 			type OnNewAccount = ();
@@ -370,6 +391,9 @@ pub mod pallet {
 
 			/// Weight information for the extrinsics of this pallet.
 			type SystemWeightInfo = ();
+
+			/// Weight information for the extensions of this pallet.
+			type ExtensionsWeightInfo = ();
 
 			/// This is used as an identifier of the chain.
 			type SS58Prefix = ();
@@ -486,6 +510,7 @@ pub mod pallet {
 		type RuntimeCall: Parameter
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
 			+ Debug
+			+ GetDispatchInfo
 			+ From<Call<Self>>;
 
 		/// The aggregated `RuntimeTask` type.
@@ -578,7 +603,11 @@ pub mod pallet {
 		/// All resources should be cleaned up associated with the given account.
 		type OnKilledAccount: OnKilledAccount<Self::AccountId>;
 
+		/// Weight information for the extrinsics of this pallet.
 		type SystemWeightInfo: WeightInfo;
+
+		/// Weight information for the transaction extensions of this pallet.
+		type ExtensionsWeightInfo: extensions::WeightInfo;
 
 		/// The designated SS58 prefix of this chain.
 		///
@@ -829,9 +858,9 @@ pub mod pallet {
 	#[pallet::event]
 	pub enum Event<T: Config> {
 		/// An extrinsic completed successfully.
-		ExtrinsicSuccess { dispatch_info: DispatchInfo },
+		ExtrinsicSuccess { dispatch_info: DispatchEventInfo },
 		/// An extrinsic failed.
-		ExtrinsicFailed { dispatch_error: DispatchError, dispatch_info: DispatchInfo },
+		ExtrinsicFailed { dispatch_error: DispatchError, dispatch_info: DispatchEventInfo },
 		/// `:code` was updated.
 		CodeUpdated,
 		/// A new account was created.
@@ -917,7 +946,8 @@ pub mod pallet {
 
 	/// Total length (in bytes) for all extrinsics put together, for the current block.
 	#[pallet::storage]
-	pub(super) type AllExtrinsicsLen<T: Config> = StorageValue<_, u32>;
+	#[pallet::whitelist_storage]
+	pub type AllExtrinsicsLen<T: Config> = StorageValue<_, u32>;
 
 	/// Map of block numbers to block hashes.
 	#[pallet::storage]
@@ -945,6 +975,7 @@ pub mod pallet {
 
 	/// Digest of the current block, also part of the block header.
 	#[pallet::storage]
+	#[pallet::whitelist_storage]
 	#[pallet::unbounded]
 	#[pallet::getter(fn digest)]
 	pub(super) type Digest<T: Config> = StorageValue<_, generic::Digest, ValueQuery>;
@@ -1009,6 +1040,17 @@ pub mod pallet {
 	#[pallet::getter(fn authorized_upgrade)]
 	pub(super) type AuthorizedUpgrade<T: Config> =
 		StorageValue<_, CodeUpgradeAuthorization<T>, OptionQuery>;
+
+	/// The weight reclaimed for the extrinsic.
+	///
+	/// This information is available until the end of the extrinsic execution.
+	/// More precisely this information is removed in `note_applied_extrinsic`.
+	///
+	/// Logic doing some post dispatch weight reduction must update this storage to avoid duplicate
+	/// reduction.
+	#[pallet::storage]
+	#[pallet::whitelist_storage]
+	pub type ExtrinsicWeightReclaimed<T: Config> = StorageValue<_, Weight, ValueQuery>;
 
 	#[derive(frame_support::DefaultNoBound)]
 	#[pallet::genesis_config]
@@ -1133,24 +1175,24 @@ pub struct AccountInfo<Nonce, AccountData> {
 
 /// Stores the `spec_version` and `spec_name` of when the last runtime upgrade
 /// happened.
-#[derive(sp_runtime::RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(RuntimeDebug, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct LastRuntimeUpgradeInfo {
 	pub spec_version: codec::Compact<u32>,
-	pub spec_name: sp_runtime::RuntimeString,
+	pub spec_name: Cow<'static, str>,
 }
 
 impl LastRuntimeUpgradeInfo {
 	/// Returns if the runtime was upgraded in comparison of `self` and `current`.
 	///
 	/// Checks if either the `spec_version` increased or the `spec_name` changed.
-	pub fn was_upgraded(&self, current: &sp_version::RuntimeVersion) -> bool {
+	pub fn was_upgraded(&self, current: &RuntimeVersion) -> bool {
 		current.spec_version > self.spec_version.0 || current.spec_name != self.spec_name
 	}
 }
 
-impl From<sp_version::RuntimeVersion> for LastRuntimeUpgradeInfo {
-	fn from(version: sp_version::RuntimeVersion) -> Self {
+impl From<RuntimeVersion> for LastRuntimeUpgradeInfo {
+	fn from(version: RuntimeVersion) -> Self {
 		Self { spec_version: version.spec_version.into(), spec_name: version.spec_name }
 	}
 }
@@ -1847,7 +1889,9 @@ impl<T: Config> Pallet<T> {
 		let extrinsics = (0..ExtrinsicCount::<T>::take().unwrap_or_default())
 			.map(ExtrinsicData::<T>::take)
 			.collect();
-		let extrinsics_root = extrinsics_data_root::<T::Hashing>(extrinsics);
+		let extrinsics_root_state_version = T::Version::get().extrinsics_root_state_version();
+		let extrinsics_root =
+			extrinsics_data_root::<T::Hashing>(extrinsics, extrinsics_root_state_version);
 
 		// move block hash pruning window by one block
 		let block_hash_count = T::BlockHashCount::get();
@@ -1874,12 +1918,14 @@ impl<T: Config> Pallet<T> {
 	#[cfg(any(feature = "std", test))]
 	pub fn externalities() -> TestExternalities {
 		TestExternalities::new(sp_core::storage::Storage {
-			top: map![
-				<BlockHash<T>>::hashed_key_for(BlockNumberFor::<T>::zero()) => [69u8; 32].encode(),
-				<Number<T>>::hashed_key().to_vec() => BlockNumberFor::<T>::one().encode(),
-				<ParentHash<T>>::hashed_key().to_vec() => [69u8; 32].encode()
-			],
-			children_default: map![],
+			top: [
+				(<BlockHash<T>>::hashed_key_for(BlockNumberFor::<T>::zero()), [69u8; 32].encode()),
+				(<Number<T>>::hashed_key().to_vec(), BlockNumberFor::<T>::one().encode()),
+				(<ParentHash<T>>::hashed_key().to_vec(), [69u8; 32].encode()),
+			]
+			.into_iter()
+			.collect(),
+			children_default: Default::default(),
 		})
 	}
 
@@ -2019,13 +2065,15 @@ impl<T: Config> Pallet<T> {
 	/// Emits an `ExtrinsicSuccess` or `ExtrinsicFailed` event depending on the outcome.
 	/// The emitted event contains the post-dispatch corrected weight including
 	/// the base-weight for its dispatch class.
-	pub fn note_applied_extrinsic(r: &DispatchResultWithPostInfo, mut info: DispatchInfo) {
-		info.weight = extract_actual_weight(r, &info)
+	pub fn note_applied_extrinsic(r: &DispatchResultWithPostInfo, info: DispatchInfo) {
+		let weight = extract_actual_weight(r, &info)
 			.saturating_add(T::BlockWeights::get().get(info.class).base_extrinsic);
-		info.pays_fee = extract_actual_pays_fee(r, &info);
+		let class = info.class;
+		let pays_fee = extract_actual_pays_fee(r, &info);
+		let dispatch_event_info = DispatchEventInfo { weight, class, pays_fee };
 
 		Self::deposit_event(match r {
-			Ok(_) => Event::ExtrinsicSuccess { dispatch_info: info },
+			Ok(_) => Event::ExtrinsicSuccess { dispatch_info: dispatch_event_info },
 			Err(err) => {
 				log::trace!(
 					target: LOG_TARGET,
@@ -2033,14 +2081,30 @@ impl<T: Config> Pallet<T> {
 					Self::block_number(),
 					err,
 				);
-				Event::ExtrinsicFailed { dispatch_error: err.error, dispatch_info: info }
+				Event::ExtrinsicFailed {
+					dispatch_error: err.error,
+					dispatch_info: dispatch_event_info,
+				}
 			},
 		});
+
+		log::trace!(
+			target: LOG_TARGET,
+			"Used block weight: {:?}",
+			BlockWeight::<T>::get(),
+		);
+
+		log::trace!(
+			target: LOG_TARGET,
+			"Used block length: {:?}",
+			Pallet::<T>::all_extrinsics_len(),
+		);
 
 		let next_extrinsic_index = Self::extrinsic_index().unwrap_or_default() + 1u32;
 
 		storage::unhashed::put(well_known_keys::EXTRINSIC_INDEX, &next_extrinsic_index);
 		ExecutionPhase::<T>::put(Phase::ApplyExtrinsic(next_extrinsic_index));
+		ExtrinsicWeightReclaimed::<T>::kill();
 	}
 
 	/// To be called immediately after `note_applied_extrinsic` of the last extrinsic of the block
@@ -2137,6 +2201,32 @@ impl<T: Config> Pallet<T> {
 			Self::can_set_code(code)?
 		}
 		Ok(actual_hash)
+	}
+
+	/// Reclaim the weight for the extrinsic given info and post info.
+	///
+	/// This function will check the already reclaimed weight, and reclaim more if the
+	/// difference between pre dispatch and post dispatch weight is higher.
+	pub fn reclaim_weight(
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
+	) -> Result<(), TransactionValidityError>
+	where
+		T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+	{
+		let already_reclaimed = crate::ExtrinsicWeightReclaimed::<T>::get();
+		let unspent = post_info.calc_unspent(info);
+		let accurate_reclaim = already_reclaimed.max(unspent);
+		// Saturation never happens, we took the maximum above.
+		let to_reclaim_more = accurate_reclaim.saturating_sub(already_reclaimed);
+		if to_reclaim_more != Weight::zero() {
+			crate::BlockWeight::<T>::mutate(|current_weight| {
+				current_weight.reduce(to_reclaim_more, info.class);
+			});
+			crate::ExtrinsicWeightReclaimed::<T>::put(accurate_reclaim);
+		}
+
+		Ok(())
 	}
 }
 

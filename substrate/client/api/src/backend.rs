@@ -232,6 +232,9 @@ pub trait BlockImportOperation<Block: BlockT> {
 	/// Add a transaction index operation.
 	fn update_transaction_index(&mut self, index: Vec<IndexOperation>)
 		-> sp_blockchain::Result<()>;
+
+	/// Configure whether to create a block gap if newly imported block is missing parent
+	fn set_create_gap(&mut self, create_gap: bool);
 }
 
 /// Interface for performing operations on the backend.

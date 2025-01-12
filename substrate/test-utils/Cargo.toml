@@ -4,7 +4,7 @@ version = "4.0.0-dev"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Substrate test utilities"
 publish = false
@@ -20,5 +20,5 @@ futures = { workspace = true }
 tokio = { features = ["macros", "time"], workspace = true, default-features = true }
 
 [dev-dependencies]
-trybuild = { features = ["diff"], workspace = true }
 sc-service = { workspace = true, default-features = true }
+trybuild = { features = ["diff"], workspace = true }

@@ -399,6 +399,7 @@ impl pallet_proxy::Config for Test {
 	type CallHasher = BlakeTwo256;
 	type AnnouncementDepositBase = ConstU64<1>;
 	type AnnouncementDepositFactor = ConstU64<1>;
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 impl pallet_dummy::Config for Test {}
@@ -549,9 +550,7 @@ impl ExtBuilder {
 		self
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
-		use env_logger::{Builder, Env};
-		let env = Env::new().default_filter_or("runtime=debug");
-		let _ = Builder::from_env(env).is_test(true).try_init();
+		sp_tracing::try_init_simple();
 		self.set_associated_consts();
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		pallet_balances::GenesisConfig::<Test> { balances: vec![] }

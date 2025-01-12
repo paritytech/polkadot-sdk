@@ -39,5 +39,31 @@ mod pallet {
 	}
 }
 
+#[frame_support::pallet(dev_mode)]
+mod pallet_with_instance {
+	use frame_support::pallet_prelude::{ValueQuery, StorageValue};
+
+	#[pallet::config]
+	pub trait Config<I: 'static = ()>: frame_system::Config {}
+
+	#[pallet::pallet]
+	pub struct Pallet<T, I = ()>(_);
+
+	#[pallet::storage]
+	pub type SomeStorage<T, I = ()> = StorageValue<_, u32, ValueQuery>;
+
+    #[pallet::tasks_experimental]
+	impl<T: Config<I>, I> Pallet<T, I> {
+		#[pallet::task_index(0)]
+		#[pallet::task_condition(|i, j| i == 0u32 && j == 2u64)]
+		#[pallet::task_list(vec![(0u32, 2u64), (2u32, 4u64)].iter())]
+		#[pallet::task_weight(0.into())]
+		fn foo(_i: u32, _j: u64) -> frame_support::pallet_prelude::DispatchResult {
+			<SomeStorage<T, I>>::get();
+			Ok(())
+		}
+	}
+}
+
 fn main() {
 }

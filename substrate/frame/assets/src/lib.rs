@@ -183,7 +183,11 @@ use frame_support::{
 	pallet_prelude::DispatchResultWithPostInfo,
 	storage::KeyPrefixIterator,
 	traits::{
-		tokens::{fungibles, DepositConsequence, WithdrawConsequence},
+		tokens::{
+			fungibles, DepositConsequence, Fortitude,
+			Preservation::{Expendable, Preserve},
+			WithdrawConsequence,
+		},
 		BalanceStatus::Reserved,
 		Currency, EnsureOriginWithArg, Incrementable, ReservableCurrency, StoredMap,
 	},
@@ -271,7 +275,7 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::*;
-		use frame_support::{derive_impl, traits::ConstU64};
+		use frame_support::derive_impl;
 		pub struct TestDefaultConfig;
 
 		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
@@ -285,11 +289,11 @@ pub mod pallet {
 			type RemoveItemsLimit = ConstU32<5>;
 			type AssetId = u32;
 			type AssetIdParameter = u32;
-			type AssetDeposit = ConstU64<1>;
-			type AssetAccountDeposit = ConstU64<10>;
-			type MetadataDepositBase = ConstU64<1>;
-			type MetadataDepositPerByte = ConstU64<1>;
-			type ApprovalDeposit = ConstU64<1>;
+			type AssetDeposit = ConstUint<1>;
+			type AssetAccountDeposit = ConstUint<10>;
+			type MetadataDepositBase = ConstUint<1>;
+			type MetadataDepositPerByte = ConstUint<1>;
+			type ApprovalDeposit = ConstUint<1>;
 			type StringLimit = ConstU32<50>;
 			type Extra = ();
 			type CallbackHandle = ();
@@ -797,8 +801,6 @@ pub mod pallet {
 		///
 		/// - `id`: The identifier of the asset to be destroyed. This must identify an existing
 		///   asset.
-		///
-		/// The asset class must be frozen before calling `start_destroy`.
 		#[pallet::call_index(2)]
 		pub fn start_destroy(origin: OriginFor<T>, id: T::AssetIdParameter) -> DispatchResult {
 			let maybe_check_owner = match T::ForceOrigin::try_origin(origin) {
@@ -1751,6 +1753,49 @@ pub mod pallet {
 			})?;
 
 			Self::deposit_event(Event::<T, I>::Blocked { asset_id: id, who });
+			Ok(())
+		}
+
+		/// Transfer the entire transferable balance from the caller asset account.
+		///
+		/// NOTE: This function only attempts to transfer _transferable_ balances. This means that
+		/// any held, frozen, or minimum balance (when `keep_alive` is `true`), will not be
+		/// transferred by this function. To ensure that this function results in a killed account,
+		/// you might need to prepare the account by removing any reference counters, storage
+		/// deposits, etc...
+		///
+		/// The dispatch origin of this call must be Signed.
+		///
+		/// - `id`: The identifier of the asset for the account holding a deposit.
+		/// - `dest`: The recipient of the transfer.
+		/// - `keep_alive`: A boolean to determine if the `transfer_all` operation should send all
+		///   of the funds the asset account has, causing the sender asset account to be killed
+		///   (false), or transfer everything except at least the minimum balance, which will
+		///   guarantee to keep the sender asset account alive (true).
+		#[pallet::call_index(32)]
+		#[pallet::weight(T::WeightInfo::transfer_all())]
+		pub fn transfer_all(
+			origin: OriginFor<T>,
+			id: T::AssetIdParameter,
+			dest: AccountIdLookupOf<T>,
+			keep_alive: bool,
+		) -> DispatchResult {
+			let transactor = ensure_signed(origin)?;
+			let keep_alive = if keep_alive { Preserve } else { Expendable };
+			let reducible_balance = <Self as fungibles::Inspect<_>>::reducible_balance(
+				id.clone().into(),
+				&transactor,
+				keep_alive,
+				Fortitude::Polite,
+			);
+			let dest = T::Lookup::lookup(dest)?;
+			<Self as fungibles::Mutate<_>>::transfer(
+				id.into(),
+				&transactor,
+				&dest,
+				reducible_balance,
+				keep_alive,
+			)?;
 			Ok(())
 		}
 	}

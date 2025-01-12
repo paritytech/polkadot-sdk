@@ -124,8 +124,6 @@ pub mod pallet {
 		type ManagerOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// A means of providing some cost while data is stored on-chain.
-		///
-		/// Should never return a `None`, implying no cost for a non-empty preimage.
 		type Consideration: Consideration<Self::AccountId, Footprint>;
 	}
 
@@ -162,8 +160,6 @@ pub mod pallet {
 		TooMany,
 		/// Too few hashes were requested to be upgraded (i.e. zero).
 		TooFew,
-		/// No ticket with a cost was returned by [`Config::Consideration`] to store the preimage.
-		NoCost,
 	}
 
 	/// A reason for this pallet placing a hold on funds.
@@ -240,7 +236,7 @@ pub mod pallet {
 			Self::do_unrequest_preimage(&hash)
 		}
 
-		/// Ensure that the a bulk of pre-images is upgraded.
+		/// Ensure that the bulk of pre-images is upgraded.
 		///
 		/// The caller pays no fee if at least 90% of pre-images were successfully updated.
 		#[pallet::call_index(4)]
@@ -274,10 +270,10 @@ impl<T: Config> Pallet<T> {
 				// unreserve deposit
 				T::Currency::unreserve(&who, amount);
 				// take consideration
-				let Ok(Some(ticket)) =
+				let Ok(ticket) =
 					T::Consideration::new(&who, Footprint::from_parts(1, len as usize))
+						.defensive_proof("Unexpected inability to take deposit after unreserved")
 				else {
-					defensive!("None ticket or inability to take deposit after unreserved");
 					return true
 				};
 				RequestStatus::Unrequested { ticket: (who, ticket), len }
@@ -288,10 +284,12 @@ impl<T: Config> Pallet<T> {
 					T::Currency::unreserve(&who, deposit);
 					// take consideration
 					if let Some(len) = maybe_len {
-						let Ok(Some(ticket)) =
+						let Ok(ticket) =
 							T::Consideration::new(&who, Footprint::from_parts(1, len as usize))
+								.defensive_proof(
+									"Unexpected inability to take deposit after unreserved",
+								)
 						else {
-							defensive!("None ticket or inability to take deposit after unreserved");
 							return true
 						};
 						Some((who, ticket))
@@ -351,8 +349,7 @@ impl<T: Config> Pallet<T> {
 				RequestStatus::Requested { maybe_ticket: None, count: 1, maybe_len: Some(len) },
 			(None, Some(depositor)) => {
 				let ticket =
-					T::Consideration::new(depositor, Footprint::from_parts(1, len as usize))?
-						.ok_or(Error::<T>::NoCost)?;
+					T::Consideration::new(depositor, Footprint::from_parts(1, len as usize))?;
 				RequestStatus::Unrequested { ticket: (depositor.clone(), ticket), len }
 			},
 		};

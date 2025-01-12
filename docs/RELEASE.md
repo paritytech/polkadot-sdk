@@ -14,7 +14,11 @@ Merging to it is restricted to [Backports](#backports).
 
 We are releasing multiple different things from this repository in one release, but we don't want to use the same
 version for everything. Thus, in the following we explain the versioning story for the crates, node and Westend &
-Rococo. To easily refer to a release, it shall be named by its date in the form `stableYYMMDD`.
+Rococo.
+
+To easily refer to a release, it shall be named by its date in the form `stableYYMM`. Patches to stable releases are
+tagged in the form of `stableYYMM-PATCH`, with `PATCH` ranging from 1 to 99. For example, the fourth patch to
+`stable2409` would be `stable2409-4`.
 
 ## Crate
 
@@ -55,9 +59,10 @@ The Westend testnet will be updated to a new runtime every two weeks with the la
 
 **From `master` to `stable`**
 
-Backports in this direction can be anything that is audited and either a `minor` or a `patch` bump. [Security
-fixes](#bug-and-security-fix) should be prioritized over additions or improvements. Crates that are declared as internal
-API can also have `major` version bumps through backports.
+Backports in this direction can be anything that is audited and either a `minor` or a `patch` bump.
+See [BACKPORT.md](./BACKPORT.md) for more explanation. [Security fixes](#bug-and-security-fix)
+should be prioritized over additions or improvements. Crates that are declared as internal API can
+also have `major` version bumps through backports.
 
 **From `stable` to `master`**
 
@@ -164,5 +169,6 @@ Describes how developers should merge bug and security fixes.
 2. The Pull Request is marked as priority fix.
 3. Audit happens with priority.
 4. It is merged into `master`.
-5. It is automatically back-ported to `stable`.
-6. The fix will be released in the next *Stable* release. In urgent cases, a release can happen earlier.
+5. Dev adds the `A4-needs-backport` label.
+6. It is automatically back-ported to `stable`.
+7. The fix will be released in the next *Stable* release. In urgent cases, a release can happen earlier.

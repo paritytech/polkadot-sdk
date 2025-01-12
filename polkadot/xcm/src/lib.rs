@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -21,28 +21,24 @@
 //
 // Hence, `no_std` rather than sp-runtime.
 #![cfg_attr(not(feature = "std"), no_std)]
-// Because of XCMv2.
-#![allow(deprecated)]
 
 extern crate alloc;
 
 use codec::{Decode, DecodeLimit, Encode, Error as CodecError, Input, MaxEncodedLen};
 use derivative::Derivative;
+use frame_support::dispatch::GetDispatchInfo;
 use scale_info::TypeInfo;
 
-#[deprecated(
-	note = "XCMv2 will be removed once XCMv5 is released. Please use XCMv3 or XCMv4 instead."
-)]
-pub mod v2;
 pub mod v3;
 pub mod v4;
+pub mod v5;
 
 pub mod lts {
 	pub use super::v4::*;
 }
 
 pub mod latest {
-	pub use super::v4::*;
+	pub use super::v5::*;
 }
 
 mod double_encoded;
@@ -81,14 +77,17 @@ pub trait TryAs<T> {
 	fn try_as(&self) -> Result<&T, ()>;
 }
 
+// Macro that generated versioned wrapper types.
+// Trait bounds are optional and can be provided as a comma-separated list after the type name.
+// NOTE: converting a v4 type into a versioned type will make it v5.
 macro_rules! versioned_type {
 	(@internal $n:ident, $v3:ty, $v4:ty,) => {
 		impl IntoVersion for $n {
 			fn into_version(self, n: Version) -> Result<Self, ()> {
 				Ok(match n {
-					1 | 2 => Self::V2(self.try_into()?),
 					3 => Self::V3(self.try_into()?),
 					4 => Self::V4(self.try_into()?),
+					5 => Self::V5(self.try_into()?),
 					_ => return Err(()),
 				})
 			}
@@ -99,125 +98,28 @@ macro_rules! versioned_type {
 			}
 		}
 	};
-	(@internal $n:ident, $v3:ty, $v4:ty, $t:ident) => {
-		// `VersionedXcm` version 1 support is dropped
-		impl<$t> IntoVersion for $n<$t>{
+	(@internal $n:ident, $v3:ty, $v4:ty, $t:ident $(, ($($bound_type:ty : $bound:path),+))?) => {
+		impl<$t> IntoVersion for $n<$t>
+		$(where $($bound_type : $bound),+)?
+		{
 			fn into_version(self, n: Version) -> Result<Self, ()> {
 				Ok(match n {
-					2 => Self::V2(self.try_into()?),
 					3 => Self::V3(self.try_into()?),
 					4 => Self::V4(self.try_into()?),
+					5 => Self::V5(self.try_into()?),
 					_ => return Err(()),
 				})
 			}
 		}
 	};
-	($(#[$attr:meta])* pub enum $n:ident {
+	($(#[$attr:meta])* pub enum $n:ident$(<$($gen:ident),*>)? $(where $($bound_type:ty : $bound_trait:path),+)?
+	{
 		$(#[$index3:meta])+
 		V3($v3:ty),
 		$(#[$index4:meta])+
 		V4($v4:ty),
-	}) => {
-		#[derive(Derivative, Encode, Decode, TypeInfo)]
-		#[derivative(
-			Clone(bound = ""),
-			Eq(bound = ""),
-			PartialEq(bound = ""),
-			Debug(bound = "")
-		)]
-		#[codec(encode_bound())]
-		#[codec(decode_bound())]
-		#[scale_info(replace_segment("staging_xcm", "xcm"))]
-		$(#[$attr])*
-		pub enum $n {
-			$(#[$index3])*
-			V3($v3),
-			$(#[$index4])*
-			V4($v4),
-		}
-		impl $n {
-			pub fn try_as<T>(&self) -> Result<&T, ()> where Self: TryAs<T> {
-				<Self as TryAs<T>>::try_as(&self)
-			}
-		}
-		impl TryAs<$v3> for $n {
-			fn try_as(&self) -> Result<&$v3, ()> {
-				match &self {
-					Self::V3(ref x) => Ok(x),
-					_ => Err(()),
-				}
-			}
-		}
-		impl TryAs<$v4> for $n {
-			fn try_as(&self) -> Result<&$v4, ()> {
-				match &self {
-					Self::V4(ref x) => Ok(x),
-					_ => Err(()),
-				}
-			}
-		}
-		impl IntoVersion for $n {
-			fn into_version(self, n: Version) -> Result<Self, ()> {
-				Ok(match n {
-					3 => Self::V3(self.try_into()?),
-					4 => Self::V4(self.try_into()?),
-					_ => return Err(()),
-				})
-			}
-		}
-		impl From<$v3> for $n {
-			fn from(x: $v3) -> Self {
-				$n::V3(x.into())
-			}
-		}
-		impl From<$v4> for $n {
-			fn from(x: $v4) -> Self {
-				$n::V4(x.into())
-			}
-		}
-		impl TryFrom<$n> for $v3 {
-			type Error = ();
-			fn try_from(x: $n) -> Result<Self, ()> {
-				use $n::*;
-				match x {
-					V3(x) => Ok(x),
-					V4(x) => x.try_into(),
-				}
-			}
-		}
-		impl TryFrom<$n> for $v4 {
-			type Error = ();
-			fn try_from(x: $n) -> Result<Self, ()> {
-				use $n::*;
-				match x {
-					V3(x) => x.try_into().map_err(|_| ()),
-					V4(x) => Ok(x),
-				}
-			}
-		}
-		impl MaxEncodedLen for $n {
-			fn max_encoded_len() -> usize {
-				<$v3>::max_encoded_len()
-			}
-		}
-		impl IdentifyVersion for $n {
-			fn identify_version(&self) -> Version {
-				use $n::*;
-				match self {
-					V3(_) => v3::VERSION,
-					V4(_) => v4::VERSION,
-				}
-			}
-		}
-	};
-
-	($(#[$attr:meta])* pub enum $n:ident $(<$($gen:ident),*>)?{
-		$(#[$index2:meta])+
-		V2($v2:ty),
-		$(#[$index3:meta])+
-		V3($v3:ty),
-		$(#[$index4:meta])+
-		V4($v4:ty),
+		$(#[$index5:meta])+
+		V5($v5:ty),
 	}) => {
 		#[derive(Derivative, Encode, Decode, TypeInfo)]
 		#[derivative(
@@ -231,28 +133,32 @@ macro_rules! versioned_type {
         $(#[scale_info(bounds(), skip_type_params($($gen)+))])?
 		#[scale_info(replace_segment("staging_xcm", "xcm"))]
 		$(#[$attr])*
-		pub enum $n<$($($gen),*)?>{
-			$(#[$index2])*
-			V2($v2),
+		pub enum $n<$($($gen),*)?>
+		$(
+			where $($bound_type: $bound_trait),+
+		)?
+		{
 			$(#[$index3])*
 			V3($v3),
 			$(#[$index4])*
 			V4($v4),
+			$(#[$index5])*
+			V5($v5),
 		}
-		impl<$($($gen),*)?> $n<$($($gen),*)?> {
+		impl<$($($gen),*)?> $n<$($($gen),*)?>
+		$(
+			where $($bound_type: $bound_trait),+
+		)?
+		{
 			pub fn try_as<T>(&self) -> Result<&T, ()> where Self: TryAs<T> {
 				<Self as TryAs<T>>::try_as(&self)
 			}
 		}
-		impl<$($($gen),*)?> TryAs<$v2> for $n <$($($gen),*)?>{
-			fn try_as(&self) -> Result<&$v2, ()> {
-				match &self {
-					Self::V2(ref x) => Ok(x),
-					_ => Err(()),
-				}
-			}
-		}
-		impl<$($($gen),*)?> TryAs<$v3> for $n <$($($gen),*)?>{
+		impl<$($($gen),*)?> TryAs<$v3> for $n <$($($gen),*)?>
+		$(
+			where $($bound_type: $bound_trait),+
+		)?
+		{
 			fn try_as(&self) -> Result<&$v3, ()> {
 				match &self {
 					Self::V3(ref x) => Ok(x),
@@ -260,7 +166,11 @@ macro_rules! versioned_type {
 				}
 			}
 		}
-		impl<$($($gen),*)?> TryAs<$v4> for $n<$($($gen),*)?> {
+		impl<$($($gen),*)?> TryAs<$v4> for $n<$($($gen),*)?>
+		$(
+			where $($bound_type: $bound_trait),+
+		)?
+		{
 			fn try_as(&self) -> Result<&$v4, ()> {
 				match &self {
 					Self::V4(ref x) => Ok(x),
@@ -268,65 +178,101 @@ macro_rules! versioned_type {
 				}
 			}
 		}
-		impl<$($($gen),*)?> From<$v2> for $n<$($($gen),*)?> {
-			fn from(x: $v2) -> Self {
-				$n::V2(x)
-			}
-		}
-		impl<$($($gen,),+)? T: Into<$v4>> From<T> for $n<$($($gen),*)?> {
-			fn from(x: T) -> Self {
-				$n::V4(x.into())
-			}
-		}
-		impl<$($($gen),*)?>TryFrom<$n<$($($gen),*)?>> for $v2 {
-			type Error = ();
-			fn try_from(x: $n<$($($gen),*)?>) -> Result<Self, ()> {
-				use $n::*;
-				match x {
-					V2(x) => Ok(x),
-					V3(x) => x.try_into(),
-					V4(x) => {
-						let v3: $v3 = x.try_into().map_err(|_| ())?;
-						v3.try_into()
-					},
+		impl<$($($gen),*)?> TryAs<$v5> for $n<$($($gen),*)?>
+		$(
+			where $($bound_type: $bound_trait),+
+		)?
+		{
+			fn try_as(&self) -> Result<&$v5, ()> {
+				match &self {
+					Self::V5(ref x) => Ok(x),
+					_ => Err(()),
 				}
 			}
 		}
-		impl<$($($gen),*)?> TryFrom<$n<$($($gen),*)?>> for $v3 {
+		impl<$($($gen),*)?> From<$v3> for $n <$($($gen),*)?>
+		$(
+			where $($bound_type: $bound_trait),+
+		)?
+		{
+			fn from(x: $v3) -> Self {
+				$n::V3(x.into())
+			}
+		}
+		impl<$($($gen,),+)? T: Into<$v5>> From<T> for $n<$($($gen),*)?>
+		$(
+			where $($bound_type: $bound_trait),+
+		)?
+		{
+			fn from(x: T) -> Self {
+				$n::V5(x.into())
+			}
+		}
+		impl<$($($gen),*)?> TryFrom<$n<$($($gen),*)?>> for $v3
+		$(
+			where $($bound_type: $bound_trait),+
+		)?
+		{
 			type Error = ();
 			fn try_from(x: $n <$($($gen),*)?>) -> Result<Self, ()> {
 				use $n::*;
 				match x {
-					V2(x) => x.try_into(),
 					V3(x) => Ok(x),
 					V4(x) => x.try_into().map_err(|_| ()),
+					V5(x) => {
+						let v4: $v4 = x.try_into().map_err(|_| ())?;
+						v4.try_into().map_err(|_| ())
+					}
 				}
 			}
 		}
-		impl<$($($gen),*)?> TryFrom<$n <$($($gen),*)?>> for $v4 {
+		impl<$($($gen),*)?> TryFrom<$n <$($($gen),*)?>> for $v4
+		$(
+			where $($bound_type: $bound_trait),+
+		)?
+		{
 			type Error = ();
 			fn try_from(x: $n<$($($gen),*)?>) -> Result<Self, ()> {
 				use $n::*;
 				match x {
-					V2(x) => {
-						let v3: $v3 = x.try_into().map_err(|_| ())?;
-						v3.try_into().map_err(|_| ())
-					},
 					V3(x) => x.try_into().map_err(|_| ()),
 					V4(x) => Ok(x),
+					V5(x) => x.try_into().map_err(|_| ()),
+				}
+			}
+		}
+		impl<$($($gen),*)?> TryFrom<$n<$($($gen),*)?>> for $v5
+		$(
+			where $($bound_type: $bound_trait),+
+		)?
+		{
+			type Error = ();
+			fn try_from(x: $n<$($($gen),*)?>) -> Result<Self, ()> {
+				use $n::*;
+				match x {
+					V3(x) => {
+						let v4: $v4 = x.try_into().map_err(|_| ())?;
+						v4.try_into().map_err(|_| ())
+					},
+					V4(x) => x.try_into().map_err(|_| ()),
+					V5(x) => Ok(x),
 				}
 			}
 		}
 		// internal macro that handles some edge cases
-		versioned_type!(@internal $n, $v3, $v4, $($($gen),+)?);
+		versioned_type!(@internal $n, $v3, $v4, $($($gen),+)? $(, ($($bound_type : $bound_trait),+))?);
 
-		impl<$($($gen),*)?> IdentifyVersion for $n<$($($gen),*)?>{
+		impl<$($($gen),*)?> IdentifyVersion for $n<$($($gen),*)?>
+		$(
+			where $($bound_type: $bound_trait),+
+		)?
+		{
 			fn identify_version(&self) -> Version {
 				use $n::*;
 				match self {
-					V2(_) => v2::VERSION,
 					V3(_) => v3::VERSION,
 					V4(_) => v4::VERSION,
+					V5(_) => v5::VERSION,
 				}
 			}
 		}
@@ -340,42 +286,44 @@ versioned_type! {
 		V3(v3::AssetId),
 		#[codec(index = 4)]
 		V4(v4::AssetId),
+		#[codec(index = 5)]
+		V5(v5::AssetId),
 	}
 }
 
 versioned_type! {
 	/// A single version's `Response` value, together with its version code.
 	pub enum VersionedResponse {
-		#[codec(index = 2)]
-		V2(v2::Response),
 		#[codec(index = 3)]
 		V3(v3::Response),
 		#[codec(index = 4)]
 		V4(v4::Response),
+		#[codec(index = 5)]
+		V5(v5::Response),
 	}
 }
 
 versioned_type! {
 	/// A single `NetworkId` value, together with its version code.
 	pub enum VersionedNetworkId {
-		#[codec(index = 2)]
-		V2(v2::NetworkId),
 		#[codec(index = 3)]
 		V3(v3::NetworkId),
 		#[codec(index = 4)]
 		V4(v4::NetworkId),
+		#[codec(index = 5)]
+		V5(v5::NetworkId),
 	}
 }
 
 versioned_type! {
 	/// A single `Junction` value, together with its version code.
 	pub enum VersionedJunction {
-		#[codec(index = 2)]
-		V2(v2::Junction),
 		#[codec(index = 3)]
 		V3(v3::Junction),
 		#[codec(index = 4)]
 		V4(v4::Junction),
+		#[codec(index = 5)]
+		V5(v5::Junction),
 	}
 }
 
@@ -383,76 +331,66 @@ versioned_type! {
 	/// A single `Location` value, together with its version code.
 	#[derive(Ord, PartialOrd)]
 	pub enum VersionedLocation {
-		#[codec(index = 1)] // v2 is same as v1 and therefore re-using the v1 index
-		V2(v2::MultiLocation),
 		#[codec(index = 3)]
 		V3(v3::MultiLocation),
 		#[codec(index = 4)]
 		V4(v4::Location),
+		#[codec(index = 5)]
+		V5(v5::Location),
 	}
 }
-
-#[deprecated(note = "Use `VersionedLocation` instead")]
-pub type VersionedMultiLocation = VersionedLocation;
 
 versioned_type! {
 	/// A single `InteriorLocation` value, together with its version code.
 	pub enum VersionedInteriorLocation {
-		#[codec(index = 2)] // while this is same as v1::Junctions, VersionedInteriorLocation is introduced in v3
-		V2(v2::InteriorMultiLocation),
 		#[codec(index = 3)]
 		V3(v3::InteriorMultiLocation),
 		#[codec(index = 4)]
 		V4(v4::InteriorLocation),
+		#[codec(index = 5)]
+		V5(v5::InteriorLocation),
 	}
 }
-
-#[deprecated(note = "Use `VersionedInteriorLocation` instead")]
-pub type VersionedInteriorMultiLocation = VersionedInteriorLocation;
 
 versioned_type! {
 	/// A single `Asset` value, together with its version code.
 	pub enum VersionedAsset {
-		#[codec(index = 1)] // v2 is same as v1 and therefore re-using the v1 index
-		V2(v2::MultiAsset),
 		#[codec(index = 3)]
 		V3(v3::MultiAsset),
 		#[codec(index = 4)]
 		V4(v4::Asset),
+		#[codec(index = 5)]
+		V5(v5::Asset),
 	}
 }
-
-#[deprecated(note = "Use `VersionedAsset` instead")]
-pub type VersionedMultiAsset = VersionedAsset;
 
 versioned_type! {
 	/// A single `MultiAssets` value, together with its version code.
 	pub enum VersionedAssets {
-		#[codec(index = 1)] // v2 is same as v1 and therefore re-using the v1 index
-		V2(v2::MultiAssets),
 		#[codec(index = 3)]
 		V3(v3::MultiAssets),
 		#[codec(index = 4)]
 		V4(v4::Assets),
+		#[codec(index = 5)]
+		V5(v5::Assets),
 	}
 }
 
 #[deprecated(note = "Use `VersionedAssets` instead")]
 pub type VersionedMultiAssets = VersionedAssets;
 
-
 versioned_type! {
-	pub enum VersionedXcm<RuntimeCall> {
-		#[codec(index = 2)]
-		V2(v2::Xcm<RuntimeCall>),
+	pub enum VersionedXcm<RuntimeCall> where RuntimeCall: Decode, RuntimeCall: GetDispatchInfo {
 		#[codec(index = 3)]
 		V3(v3::Xcm<RuntimeCall>),
 		#[codec(index = 4)]
 		V4(v4::Xcm<RuntimeCall>),
+		#[codec(index = 5)]
+		V5(v5::Xcm<RuntimeCall>),
 	}
 }
 
-impl<C> VersionedXcm<C> {
+impl<C: Decode + GetDispatchInfo> VersionedXcm<C> {
 	/// Checks that the XCM is decodable with `MAX_XCM_DECODE_DEPTH`. Consequently, it also checks
 	/// all decode implementations and limits, such as MAX_ITEMS_IN_ASSETS or
 	/// MAX_INSTRUCTIONS_TO_DECODE.
@@ -472,7 +410,7 @@ impl<C> VersionedXcm<C> {
 /// Convert an `Xcm` datum into a `VersionedXcm`, based on a destination `Location` which will
 /// interpret it.
 pub trait WrapVersion {
-	fn wrap_version<RuntimeCall>(
+	fn wrap_version<RuntimeCall: Decode + GetDispatchInfo>(
 		dest: &latest::Location,
 		xcm: impl Into<VersionedXcm<RuntimeCall>>,
 	) -> Result<VersionedXcm<RuntimeCall>, ()>;
@@ -493,7 +431,7 @@ pub trait GetVersion {
 /// `()` implementation does nothing with the XCM, just sending with whatever version it was
 /// authored as.
 impl WrapVersion for () {
-	fn wrap_version<RuntimeCall>(
+	fn wrap_version<RuntimeCall: Decode + GetDispatchInfo>(
 		_: &latest::Location,
 		xcm: impl Into<VersionedXcm<RuntimeCall>>,
 	) -> Result<VersionedXcm<RuntimeCall>, ()> {
@@ -501,28 +439,11 @@ impl WrapVersion for () {
 	}
 }
 
-/// `WrapVersion` implementation which attempts to always convert the XCM to version 2 before
-/// wrapping it.
-pub struct AlwaysV2;
-impl WrapVersion for AlwaysV2 {
-	fn wrap_version<RuntimeCall>(
-		_: &latest::Location,
-		xcm: impl Into<VersionedXcm<RuntimeCall>>,
-	) -> Result<VersionedXcm<RuntimeCall>, ()> {
-		Ok(VersionedXcm::<RuntimeCall>::V2(xcm.into().try_into()?))
-	}
-}
-impl GetVersion for AlwaysV2 {
-	fn get_version_for(_dest: &latest::Location) -> Option<Version> {
-		Some(v2::VERSION)
-	}
-}
-
 /// `WrapVersion` implementation which attempts to always convert the XCM to version 3 before
 /// wrapping it.
 pub struct AlwaysV3;
 impl WrapVersion for AlwaysV3 {
-	fn wrap_version<Call>(
+	fn wrap_version<Call: Decode + GetDispatchInfo>(
 		_: &latest::Location,
 		xcm: impl Into<VersionedXcm<Call>>,
 	) -> Result<VersionedXcm<Call>, ()> {
@@ -539,7 +460,7 @@ impl GetVersion for AlwaysV3 {
 /// wrapping it.
 pub struct AlwaysV4;
 impl WrapVersion for AlwaysV4 {
-	fn wrap_version<Call>(
+	fn wrap_version<Call: Decode + GetDispatchInfo>(
 		_: &latest::Location,
 		xcm: impl Into<VersionedXcm<Call>>,
 	) -> Result<VersionedXcm<Call>, ()> {
@@ -552,9 +473,26 @@ impl GetVersion for AlwaysV4 {
 	}
 }
 
+/// `WrapVersion` implementation which attempts to always convert the XCM to version 3 before
+/// wrapping it.
+pub struct AlwaysV5;
+impl WrapVersion for AlwaysV5 {
+	fn wrap_version<Call: Decode + GetDispatchInfo>(
+		_: &latest::Location,
+		xcm: impl Into<VersionedXcm<Call>>,
+	) -> Result<VersionedXcm<Call>, ()> {
+		Ok(VersionedXcm::<Call>::V5(xcm.into().try_into()?))
+	}
+}
+impl GetVersion for AlwaysV5 {
+	fn get_version_for(_dest: &latest::Location) -> Option<Version> {
+		Some(v5::VERSION)
+	}
+}
+
 /// `WrapVersion` implementation which attempts to always convert the XCM to the latest version
 /// before wrapping it.
-pub type AlwaysLatest = AlwaysV4;
+pub type AlwaysLatest = AlwaysV5;
 
 /// `WrapVersion` implementation which attempts to always convert the XCM to the most recent Long-
 /// Term-Support version before wrapping it.
@@ -562,7 +500,7 @@ pub type AlwaysLts = AlwaysV4;
 
 pub mod prelude {
 	pub use super::{
-		latest::prelude::*, AlwaysLatest, AlwaysLts, AlwaysV2, AlwaysV3, AlwaysV4, GetVersion,
+		latest::prelude::*, AlwaysLatest, AlwaysLts, AlwaysV3, AlwaysV4, AlwaysV5, GetVersion,
 		IdentifyVersion, IntoVersion, Unsupported, Version as XcmVersion, VersionedAsset,
 		VersionedAssetId, VersionedAssets, VersionedInteriorLocation, VersionedLocation,
 		VersionedResponse, VersionedXcm, WrapVersion,
@@ -570,12 +508,6 @@ pub mod prelude {
 }
 
 pub mod opaque {
-	pub mod v2 {
-		// Everything from v2
-		pub use crate::v2::*;
-		// Then override with the opaque types in v2
-		pub use crate::v2::opaque::{Instruction, Xcm};
-	}
 	pub mod v3 {
 		// Everything from v3
 		pub use crate::v3::*;
@@ -588,9 +520,15 @@ pub mod opaque {
 		// Then override with the opaque types in v4
 		pub use crate::v4::opaque::{Instruction, Xcm};
 	}
+	pub mod v5 {
+		// Everything from v4
+		pub use crate::v5::*;
+		// Then override with the opaque types in v5
+		pub use crate::v5::opaque::{Instruction, Xcm};
+	}
 
 	pub mod latest {
-		pub use super::v4::*;
+		pub use super::v5::*;
 	}
 
 	pub mod lts {
@@ -642,7 +580,7 @@ fn size_limits() {
     }
 
 	check_sizes! {
-		(crate::latest::Instruction<()>, 112),
+		(crate::latest::Instruction<()>, 128),
 		(crate::latest::Asset, 80),
 		(crate::latest::Location, 24),
 		(crate::latest::AssetId, 40),
@@ -730,4 +668,26 @@ fn validate_xcm_nesting_works() {
 	))]))
 	.validate_xcm_nesting()
 	.is_err());
+}
+
+#[test]
+fn test_versioned_xcm() {
+	let v3_xcm = VersionedXcm::V3(v3::Xcm(vec![]));
+	let v4_xcm = VersionedXcm::V4(v4::Xcm(vec![]));
+	let v5_xcm = VersionedXcm::V5(v5::Xcm(vec![]));
+
+	// Test conversion between versions
+	let v3_to_v4: Result<v4::Xcm<()>, ()> = v3_xcm.clone().try_into();
+	assert!(v3_to_v4.is_ok());
+
+	let v4_to_v5: Result<v5::Xcm<()>, ()> = v4_xcm.clone().try_into();
+	assert!(v4_to_v5.is_ok());
+
+	let v5_to_v3: Result<v3::Xcm<()>, ()> = v5_xcm.clone().try_into();
+	assert!(v5_to_v3.is_ok());
+
+	// Test identify_version
+	assert_eq!(v3_xcm.identify_version(), v3::VERSION);
+	assert_eq!(v4_xcm.identify_version(), v4::VERSION);
+	assert_eq!(v5_xcm.identify_version(), v5::VERSION);
 }

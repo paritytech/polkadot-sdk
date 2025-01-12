@@ -17,14 +17,13 @@
 
 use super::*;
 use frame_support::{
-	pallet_prelude::{DispatchResult, *},
+	pallet_prelude::*,
 	traits::{
 		fungible::Balanced,
 		tokens::{Fortitude::Polite, Precision::Exact, Preservation::Expendable},
 		OnUnbalanced,
 	},
 };
-use frame_system::pallet_prelude::BlockNumberFor;
 use sp_arithmetic::{
 	traits::{SaturatedConversion, Saturating},
 	FixedPointNumber, FixedU64,
@@ -60,7 +59,7 @@ impl<T: Config> Pallet<T> {
 		T::PalletId::get().into_account_truncating()
 	}
 
-	pub fn sale_price(sale: &SaleInfoRecordOf<T>, now: BlockNumberFor<T>) -> BalanceOf<T> {
+	pub fn sale_price(sale: &SaleInfoRecordOf<T>, now: RelayBlockNumberOf<T>) -> BalanceOf<T> {
 		let num = now.saturating_sub(sale.sale_start).min(sale.leadin_length).saturated_into();
 		let through = FixedU64::from_rational(num, sale.leadin_length.saturated_into());
 		T::PriceAdapter::leadin_factor_at(through).saturating_mul_int(sale.end_price)
@@ -94,11 +93,12 @@ impl<T: Config> Pallet<T> {
 	pub fn issue(
 		core: CoreIndex,
 		begin: Timeslice,
+		mask: CoreMask,
 		end: Timeslice,
 		owner: Option<T::AccountId>,
 		paid: Option<BalanceOf<T>>,
 	) -> RegionId {
-		let id = RegionId { begin, core, mask: CoreMask::complete() };
+		let id = RegionId { begin, core, mask };
 		let record = RegionRecord { end, owner, paid };
 		Regions::<T>::insert(&id, &record);
 		id

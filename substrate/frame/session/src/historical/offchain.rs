@@ -171,7 +171,9 @@ mod tests {
 			}
 		});
 
-		crate::GenesisConfig::<Test> { keys }.assimilate_storage(&mut t).unwrap();
+		crate::GenesisConfig::<Test> { keys, ..Default::default() }
+			.assimilate_storage(&mut t)
+			.unwrap();
 
 		let mut ext = sp_io::TestExternalities::new(t);
 
