@@ -32,9 +32,9 @@ frame-election-provider-support = { workspace = true, default-features = true }
 frame-support = { workspace = true, default-features = true }
 frame-system = { workspace = true, default-features = true }
 
-pallet-delegated-staking = { workspace = true, default-features = true }
 pallet-bags-list = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
+pallet-delegated-staking = { workspace = true, default-features = true }
 pallet-election-provider-multi-phase = { workspace = true, default-features = true }
 pallet-nomination-pools = { workspace = true, default-features = true }
 pallet-session = { workspace = true, default-features = true }
