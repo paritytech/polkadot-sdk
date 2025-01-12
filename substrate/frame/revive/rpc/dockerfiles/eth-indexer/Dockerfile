@@ -11,7 +11,7 @@ RUN rustup component add rust-src
 RUN cargo build --locked --profile production -p pallet-revive-eth-rpc --bin eth-indexer
 
 FROM docker.io/parity/base-bin:latest
-COPY --from=builder /polkadot/target/production/eth-rpc /usr/local/bin
+COPY --from=builder /polkadot/target/production/eth-indexer /usr/local/bin
 
 USER root
 RUN useradd -m -u 1001 -U -s /bin/sh -d /polkadot polkadot && \
