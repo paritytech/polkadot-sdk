@@ -8,8 +8,6 @@ use alloc::{vec, vec::Vec};
 use polkadot_sdk::{staging_xcm as xcm, *};
 use docify::{compile_markdown, export, export_content};
 
-#[doc = include_str!("../../README.md")]
-#[cfg(feature = "generate-readme")]
 docify::compile_markdown!("../../README.docify.md","../../README.md");
 
 
