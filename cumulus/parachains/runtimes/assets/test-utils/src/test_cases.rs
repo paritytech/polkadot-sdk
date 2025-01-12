@@ -1695,8 +1695,10 @@ where
 			0,
 			test_account
 		));
-		let execution_fees =
-			Runtime::query_weight_to_asset_fee(xcm_weight.unwrap(), VersionedAssetId::from(AssetId(asset_not_in_pool)));
+		let execution_fees = Runtime::query_weight_to_asset_fee(
+			xcm_weight.unwrap(),
+			VersionedAssetId::from(AssetId(asset_not_in_pool)),
+		);
 		// Now it works!
 		assert_ok!(execution_fees);
 	});

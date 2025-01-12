@@ -525,7 +525,8 @@ fn send_eth_asset_from_asset_hub_to_ethereum_and_back() {
 	let assethub_location = BridgeHubRococo::sibling_location_of(AssetHubRococo::para_id());
 	let assethub_sovereign = BridgeHubRococo::sovereign_account_id_of(assethub_location);
 	let ethereum_sovereign: AccountId =
-		GlobalConsensusEthereumConvertsFor::<AccountId>::convert_location(&origin_location).unwrap();
+		GlobalConsensusEthereumConvertsFor::<AccountId>::convert_location(&origin_location)
+			.unwrap();
 
 	AssetHubRococo::force_default_xcm_version(Some(XCM_VERSION));
 	BridgeHubRococo::force_default_xcm_version(Some(XCM_VERSION));
@@ -734,8 +735,10 @@ fn register_weth_token_in_asset_hub_fail_for_insufficient_fee() {
 }
 
 fn send_weth_from_ethereum_to_asset_hub_with_fee(account_id: [u8; 32], fee: u128) {
-	let weth_asset_location: Location =
-		Location::new(2, [EthereumNetwork::get().into(), AccountKey20 { network: None, key: WETH }]);
+	let weth_asset_location: Location = Location::new(
+		2,
+		[EthereumNetwork::get().into(), AccountKey20 { network: None, key: WETH }],
+	);
 	// Fund asset hub sovereign on bridge hub
 	let asset_hub_sovereign = BridgeHubRococo::sovereign_account_id_of(Location::new(
 		1,
