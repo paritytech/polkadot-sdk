@@ -20,14 +20,11 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-<<<<<<< HEAD
-=======
 sp-api = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-statement-store = { workspace = true }
->>>>>>> parent of fed7211911 (migrate pallet-statement to use umbrella crate)
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
@@ -41,22 +38,17 @@ std = [
 	"log/std",
 	"pallet-balances/std",
 	"scale-info/std",
-<<<<<<< HEAD
-=======
 	"sp-api/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-statement-store/std",
->>>>>>> parent of fed7211911 (migrate pallet-statement to use umbrella crate)
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
-<<<<<<< HEAD
 	"frame/try-runtime",
-=======
 	"sp-runtime/try-runtime",
->>>>>>> parent of fed7211911 (migrate pallet-statement to use umbrella crate)
+	"sp-runtime/try-runtime",
 ]
