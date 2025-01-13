@@ -141,7 +141,7 @@ where
 		Self::new_with_optional_priority(watched, source, tx, bytes, Some(priority))
 	}
 
-	/// Creates a new instance of wrapper for a transaction with given priority.
+	/// Creates a new instance of wrapper for a transaction with optional priority.
 	fn new_with_optional_priority(
 		watched: bool,
 		source: TransactionSource,
