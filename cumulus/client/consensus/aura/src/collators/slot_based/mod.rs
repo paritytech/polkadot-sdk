@@ -62,6 +62,7 @@ mod block_import;
 mod collation_task;
 mod relay_chain_data_cache;
 
+mod signaling_task;
 /// Parameters for [`run`].
 pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner> {
 	/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.

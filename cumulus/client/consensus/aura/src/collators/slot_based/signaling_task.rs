@@ -51,10 +51,13 @@ use crate::{
 	},
 	LOG_TARGET,
 };
-use crate::collators::slot_based::signaling_task::{SignalingTaskMessage, SignalingTaskParams};
+
+pub struct SignalingTaskMessage {
+
+}
 
 /// Parameters for [`run_block_builder`].
-pub struct BuilderTaskParams<
+pub struct SignalingTaskParams<
 	Block: BlockT,
 	BI,
 	CIDP,
@@ -98,7 +101,6 @@ pub struct BuilderTaskParams<
 	/// likelihood of encountering unfavorable notification arrival timings (i.e. we don't want to
 	/// wait for relay chain notifications because we woke up too early).
 	pub slot_drift: Duration,
-	pub signaling_task_receiver: sc_utils::mpsc::TracingUnboundedReceiver<super::signaling_task::SignalingTaskMessage>,
 }
 
 #[derive(Debug)]
@@ -160,8 +162,8 @@ where
 }
 
 /// Run block-builder.
-pub fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RelayClient, CHP, Proposer, CS>(
-	params: BuilderTaskParams<Block, BI, CIDP, Client, Backend, RelayClient, CHP, Proposer, CS>,
+pub fn run_signaling_task<Block, P, BI, CIDP, Client, Backend, RelayClient, CHP, Proposer, CS>(
+	params: SignalingTaskParams<Block, BI, CIDP, Client, Backend, RelayClient, CHP, Proposer, CS>,
 ) -> impl Future<Output = ()> + Send + 'static
 where
 	Block: BlockT,
@@ -189,7 +191,8 @@ where
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
 	async move {
-		let BuilderTaskParams {
+		tracing::info!(target: LOG_TARGET, "Starting slot-based block-builder task.");
+		let SignalingTaskParams {
 			relay_client,
 			create_inherent_data_providers,
 			para_client,
@@ -203,101 +206,131 @@ where
 			authoring_duration,
 			para_backend,
 			slot_drift,
-			mut signaling_task_receiver,
 		} = params;
-			while let SignalingTaskMessage {} = signaling_task_receiver.next().await {
 
-				tracing::debug!(
-				target: crate::LOG_TARGET,
-				?core_index,
-				slot_info = ?para_slot,
-				unincluded_segment_len = parent.depth,
-				relay_parent = %relay_parent,
-				included = %included_block,
-				parent = %parent_hash,
-				"Building block."
-			);
+		let slot_timer = SlotTimer::<_, _, P>::new_with_drift(para_client.clone(), slot_drift);
 
-				let validation_data = PersistedValidationData {
-					parent_head: parent_header.encode().into(),
-					relay_parent_number: *relay_parent_header.number(),
-					relay_parent_storage_root: *relay_parent_header.state_root(),
-					max_pov_size: *max_pov_size,
-				};
+		let mut collator = {
+			let params = collator_util::Params {
+				create_inherent_data_providers,
+				block_import,
+				relay_client: relay_client.clone(),
+				keystore: keystore.clone(),
+				para_id,
+				proposer,
+				collator_service,
+			};
 
-				let (parachain_inherent_data, other_inherent_data) = match collator
-					.create_inherent_data(
-						relay_parent,
-						&validation_data,
-						parent_hash,
-						slot_claim.timestamp(),
-					)
+			collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
+		};
+
+		let mut relay_chain_data_cache = RelayChainDataCache::new(relay_client.clone(), para_id);
+
+		loop {
+			// We wait here until the next slot arrives.
+			let Ok(para_slot) = slot_timer.wait_until_next_slot().await else {
+				return;
+			};
+
+			let Ok(relay_parent) = relay_client.best_block_hash().await else {
+				tracing::warn!(target: crate::LOG_TARGET, "Unable to fetch latest relay chain block hash.");
+				continue
+			};
+
+			let Some((included_block, parent)) =
+				crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)
 					.await
-				{
+			else {
+				continue
+			};
+
+			let parent_hash = parent.hash;
+
+			// Retrieve the core selector.
+			let (core_selector, claim_queue_offset) =
+				match core_selector(&*para_client, parent.hash, *parent.header.number()) {
+					Ok(core_selector) => core_selector,
 					Err(err) => {
-						tracing::error!(target: crate::LOG_TARGET, ?err);
-						break
+						tracing::trace!(
+							target: crate::LOG_TARGET,
+							"Unable to retrieve the core selector from the runtime API: {}",
+							err
+						);
+						continue
 					},
-					Ok(x) => x,
 				};
 
-				let validation_code_hash = match code_hash_provider.code_hash_at(parent_hash) {
-					None => {
-						tracing::error!(target: crate::LOG_TARGET, ?parent_hash, "Could not fetch validation code hash");
-						break
-					},
-					Some(v) => v,
-				};
+			let Ok(RelayChainData {
+				relay_parent_header,
+				max_pov_size,
+				scheduled_cores,
+				claimed_cores,
+			}) = relay_chain_data_cache
+				.get_mut_relay_chain_data(relay_parent, claim_queue_offset)
+				.await
+			else {
+				continue;
+			};
 
-				check_validation_code_or_log(
-					&validation_code_hash,
-					para_id,
-					&relay_client,
-					relay_parent,
-				)
-					.await;
-
-				let allowed_pov_size = if cfg!(feature = "full-pov-size") {
-					validation_data.max_pov_size
-				} else {
-					// Set the block limit to 50% of the maximum PoV size.
-					//
-					// TODO: If we got benchmarking that includes the proof size,
-					// we should be able to use the maximum pov size.
-					validation_data.max_pov_size / 2
-				} as usize;
-
-				let Ok(Some(candidate)) = collator
-					.build_block_and_import(
-						&parent_header,
-						&slot_claim,
-						None,
-						(parachain_inherent_data, other_inherent_data),
-						authoring_duration,
-						allowed_pov_size,
-					)
-					.await
-				else {
-					tracing::error!(target: crate::LOG_TARGET, "Unable to build block at slot.");
-					continue;
-				};
-
-				let new_block_hash = candidate.block.header().hash();
-
-				// Announce the newly built block to our peers.
-				collator.collator_service().announce_block(new_block_hash, None);
-
-				if let Err(err) = collator_sender.unbounded_send(CollatorMessage {
-					relay_parent,
-					parent_header,
-					parachain_candidate: candidate,
-					validation_code_hash,
-					core_index: *core_index,
-				}) {
-					tracing::error!(target: crate::LOG_TARGET, ?err, "Unable to send block to collation task.");
-					return
-				}
+			if scheduled_cores.is_empty() {
+				tracing::debug!(target: LOG_TARGET, "Parachain not scheduled, skipping slot.");
+				continue;
+			} else {
+				tracing::debug!(
+					target: LOG_TARGET,
+					?relay_parent,
+					"Parachain is scheduled on cores: {:?}",
+					scheduled_cores
+				);
 			}
 
+			let core_selector = core_selector.0 as usize % scheduled_cores.len();
+			let Some(core_index) = scheduled_cores.get(core_selector) else {
+				// This cannot really happen, as we modulo the core selector with the
+				// scheduled_cores length and we check that the scheduled_cores is not empty.
+				continue;
+			};
+
+			if !claimed_cores.insert(*core_index) {
+				tracing::debug!(
+					target: LOG_TARGET,
+					"Core {:?} was already claimed at this relay chain slot",
+					core_index
+				);
+				continue
+			}
+
+			let parent_header = parent.header;
+
+			// We mainly call this to inform users at genesis if there is a mismatch with the
+			// on-chain data.
+			collator.collator_service().check_block_status(parent_hash, &parent_header);
+
+			let slot_claim = match crate::collators::can_build_upon::<_, _, P>(
+				para_slot.slot,
+				para_slot.timestamp,
+				parent_hash,
+				included_block,
+				&*para_client,
+				&keystore,
+			)
+			.await
+			{
+				Some(slot) => slot,
+				None => {
+					tracing::debug!(
+						target: crate::LOG_TARGET,
+						?core_index,
+						slot_info = ?para_slot,
+						unincluded_segment_len = parent.depth,
+						relay_parent = %relay_parent,
+						included = %included_block,
+						parent = %parent_hash,
+						"Not building block."
+					);
+					continue
+				},
+			};
+		}
 	}
 }
