@@ -18,20 +18,22 @@ doc:
 
 crates:
   - name: frame-support
-    bump: major
+    bump: minor
+  - name: frame-system
+    bump: minor
   - name: sp-core
     bump: minor
   - name: sp-api
     bump: minor
   - name: sp-metadata-ir
-    bump: minor
-  - name: frame-system
     bump: major
   - name: frame-support-procedural
-    bump: major
+    bump: patch
   - name: westend-runtime
     bump: minor
   - name: pallet-example-view-functions
-    bump: major
+    bump: patch
   - name: cumulus-pov-validator
-    bump: minor
+    bump: none
+  - name: cumulus-pallet-weight-reclaim
+    bump: none
