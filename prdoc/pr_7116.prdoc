@@ -1,0 +1,8 @@
+title: Increase the number of pvf execution workers from 2 to 4
+doc:
+- audience: Node Dev
+  description: |-
+    Increase the number of pvf execution workers from 2 to 4.
+crates:
+- name: polkadot-service
+  bump: patch
