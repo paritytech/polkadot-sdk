@@ -2372,7 +2372,7 @@ pub mod pallet {
 					if consecutive_inactives >= threshold {
 						Self::chill_stash(&stash);
 
-						return Ok(());
+						return Ok(Pays::No.into());
 					}
 				} else {
 					consecutive_inactives = 0;
