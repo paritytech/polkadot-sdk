@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Instructions for XCM v5.
+//! Instructions for XCM v6.
 
 use bounded_collections::BoundedVec;
 use codec::{Decode, Encode};
