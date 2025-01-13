@@ -19,7 +19,7 @@ use super::super::LOG_TARGET;
 use core::str;
 
 use crate as pallet_tips;
-use frame::runtime::prelude::*;
+use frame::runtime::prelude::{storage::migration::move_storage_from_pallet, *};
 
 /// Migrate the entire storage of this pallet to a new prefix.
 ///

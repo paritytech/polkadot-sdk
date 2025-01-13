@@ -240,7 +240,7 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use sp_runtime::{
 		BoundToRuntimeAppPublic,
-		DispatchError::{self, BadOrigin},
+		DispatchError,
 		DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
 	};
 }
@@ -375,8 +375,8 @@ pub mod runtime {
 		/// sovereign account ID for a pallet.
 		pub use frame_support::PalletId;
 
-		/// Runtime storage traits amd types.
-		pub use frame_support::storage::{migration::*, KeyPrefixIterator, StoragePrefixedMap};
+		/// Runtime storage traits and types.
+		pub use frame_support::storage::{KeyPrefixIterator, StoragePrefixedMap};
 
 		/// Macros to easily impl traits such as `Get` for types.
 		// TODO: using linking in the Get in the line above triggers an ICE :/
