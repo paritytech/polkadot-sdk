@@ -312,7 +312,7 @@ where
 			batch_len,
 			revalidation_duration
 		);
-		log_xt_trace!(data:tuple, target:LOG_TARGET, validation_results.iter().map(|x| (x.1, &x.0)), "[{:?}] view::revalidateresult: {:?}");
+		log_xt_trace!(data:tuple, target:LOG_TARGET, validation_results.iter().map(|x| (x.1, &x.0)), "[{:?}] view::revalidate result: {:?}");
 
 		for (validation_result, tx_hash, tx) in validation_results {
 			match validation_result {
@@ -457,7 +457,9 @@ where
 		}
 	}
 
-	/// todo: add doc
+	/// Remove invalid transactions from the view.
+	///
+	/// Refer to [`crate::graph::ValidatedPool::remove_invalid`] for more details.
 	pub(crate) fn remove_invalid(
 		&self,
 		hashes: &[ExtrinsicHash<ChainApi>],
@@ -478,7 +480,7 @@ where
 		&self,
 		tx_hash: ExtrinsicHash<ChainApi>,
 		listener_action: F,
-	) -> Vec<ExtrinsicHash<ChainApi>>
+	) -> Vec<TransactionFor<ChainApi>>
 	where
 		F: Fn(&mut crate::graph::Listener<ChainApi>, ExtrinsicHash<ChainApi>),
 	{

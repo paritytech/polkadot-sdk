@@ -826,7 +826,7 @@ where
 		// - remove resulting hashes from mempool and collect Arc<Transaction>
 		// - send notification using listener (should this be done in view_store)
 
-		Default::default()
+		removed
 	}
 
 	// todo [#5491]: api change?

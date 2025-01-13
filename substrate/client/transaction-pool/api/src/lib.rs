@@ -303,6 +303,8 @@ pub trait TransactionPool: Send + Sync {
 	///
 	/// The optional `at` parameter provides additional context regarding the block where the error
 	/// occurred.
+	///
+	/// Function returns the transactions actually removed from the pool.
 	fn report_invalid(
 		&self,
 		at: Option<<Self::Block as BlockT>::Hash>,

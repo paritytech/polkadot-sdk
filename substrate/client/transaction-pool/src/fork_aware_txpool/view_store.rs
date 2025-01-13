@@ -654,12 +654,32 @@ where
 		log::trace!(target:LOG_TARGET,"finish_background_revalidations took {:?}", start.elapsed());
 	}
 
-	/// todo: doc
+	/// Reports invalid transactions to the view store.
+	///
+	/// This function accepts an array of tuples, each containing a transaction hash and an
+	/// optional error encountered during the transaction execution at a specific (also optional)
+	/// block.
+	///
+	/// Removal operation applies to provided transactions and their descendants.
+	///
+	/// Invalid future and stale transaction will be removed only from given `at` view, and will be
+	/// kept in the transaction pool. Such transaction will not be reported in returned vector. They
+	/// also will not be banned. No event will be triggered.
+	///
+	/// For other errors, the transaction will be removed from the pool, and it will be included in
+	/// the returned vector. If the tuple's error is None, the transaction will be forcibly removed
+	/// from the pool. It will be included in the returned vector. Additionally transactions
+	/// provided as input will be banned from re-entering the pool.
+	///
+	/// For every transaction removed from the pool an Invalid event is triggered.
+	///
+	/// Returns the list of actually removed transactions, which may include transactions dependent
+	/// on provided set.
 	pub(crate) fn report_invalid(
 		&self,
 		at: Option<Block::Hash>,
 		invalid_tx_errors: &[(ExtrinsicHash<ChainApi>, Option<BlockchainError>)],
-	) -> Vec<ExtrinsicHash<ChainApi>> {
+	) -> Vec<TransactionFor<ChainApi>> {
 		let mut remove_from_view = vec![];
 		let mut remove_from_pool = vec![];
 
@@ -676,21 +696,24 @@ where
 			},
 		});
 
-		at.inspect(|at| {
-			self.get_view_at(*at, true)
+		// transaction removed from view, won't be included into the final result, as they may still
+		// be in the pool.
+		at.map(|at| {
+			self.get_view_at(at, true)
 				.map(|(view, _)| view.remove_invalid(&remove_from_view[..]))
-				.unwrap_or_default();
 		});
 
-		//todo - merge with priorites:
-		// let removed from_pool = self.view_store.remove_transaction_subtree(
-		// 	worst_tx_hash,
-		// 	|listener, removed_tx_hash| { &mut Listener<<Block as Block>::Hash, …>, <Block as Block>::Hash
-		// 		listener.invalid(&removed_tx_hash, &tx_hash);
-		// 	},
-		// );
+		let mut removed = vec![];
+		for tx in &remove_from_pool {
+			let removed_from_pool =
+				self.remove_transaction_subtree(*tx, |listener, removed_tx_hash| {
+					listener.invalid(&removed_tx_hash);
+				});
+			removed.extend(removed_from_pool);
+		}
+		self.listener.invalidate_transactions(&remove_from_pool[..]);
 
-		remove_from_pool
+		removed
 	}
 
 	/// Replaces an existing transaction in the view_store with a new one.
@@ -859,7 +882,7 @@ where
 		&self,
 		xt_hash: ExtrinsicHash<ChainApi>,
 		listener_action: F,
-	) -> Vec<ExtrinsicHash<ChainApi>>
+	) -> Vec<TransactionFor<ChainApi>>
 	where
 		F: Fn(&mut crate::graph::Listener<ChainApi>, ExtrinsicHash<ChainApi>)
 			+ Clone
@@ -883,7 +906,7 @@ where
 			.chain(self.inactive_views.read().iter())
 			.filter(|(_, view)| view.is_imported(&xt_hash))
 			.flat_map(|(_, view)| view.remove_subtree(xt_hash, &listener_action))
-			.filter(|xt_hash| seen.insert(*xt_hash))
+			.filter_map(|xt| seen.insert(xt.hash).then(|| xt.clone()))
 			.collect();
 
 		if let Some(removal_action) = self.pending_txs_tasks.write().get_mut(&xt_hash) {

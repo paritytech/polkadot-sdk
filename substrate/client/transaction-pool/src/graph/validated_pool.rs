@@ -668,6 +668,11 @@ impl<B: ChainApi> ValidatedPool<B> {
 	/// to prevent them from entering the pool right away.
 	/// Note this is not the case for the dependent transactions - those may
 	/// still be valid so we want to be able to re-import them.
+	///
+	/// For every removed transaction an Invalid event is triggered.
+	///
+	/// Returns the list of actually removed transactions, which may include transactions dependent
+	/// on provided set.
 	pub fn remove_invalid(&self, hashes: &[ExtrinsicHash<B>]) -> Vec<TransactionFor<B>> {
 		// early exit in case there is no invalid transactions.
 		if hashes.is_empty() {
@@ -749,6 +754,9 @@ impl<B: ChainApi> ValidatedPool<B> {
 	/// This function traverses the dependency graph of transactions and removes the specified
 	/// transaction along with all its descendant transactions from the pool.
 	///
+	/// The root transaction will be banned from re-entrering the pool. Descendant transactions may
+	/// be re-submitted to the pool if required.
+	///
 	/// A `listener_action` callback function is invoked for every transaction that is removed,
 	/// providing a reference to the pool's listener and the hash of the removed transaction. This
 	/// allows to trigger the required events.
@@ -759,10 +767,11 @@ impl<B: ChainApi> ValidatedPool<B> {
 		&self,
 		tx_hash: ExtrinsicHash<B>,
 		listener_action: F,
-	) -> Vec<ExtrinsicHash<B>>
+	) -> Vec<TransactionFor<B>>
 	where
 		F: Fn(&mut Listener<B>, ExtrinsicHash<B>),
 	{
+		self.rotator.ban(&Instant::now(), std::iter::once(tx_hash));
 		self.pool
 			.write()
 			.remove_subtree(&[tx_hash])
@@ -771,7 +780,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 				let removed_tx_hash = tx.hash;
 				let mut listener = self.listener.write();
 				listener_action(&mut *listener, removed_tx_hash);
-				removed_tx_hash
+				tx.clone()
 			})
 			.collect::<Vec<_>>()
 	}
