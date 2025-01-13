@@ -204,10 +204,12 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::{
-    defensive, defensive_assert,
-    traits::{
-		Contains, EitherOf, EstimateNextSessionRotation, Everything, InsideBoth, InstanceFilter, IsSubType, MapSuccess, NoOpPoll, 
-		OnRuntimeUpgrade, OneSessionHandler, VariantCount, VariantCountOf, RankedMembers, RankedMembersSwapHandler},
+		defensive, defensive_assert,
+		traits::{
+			Contains, EitherOf, EstimateNextSessionRotation, Everything, InsideBoth,
+			InstanceFilter, IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade, OneSessionHandler,
+			RankedMembers, RankedMembersSwapHandler, VariantCount, VariantCountOf,
+		},
 	};
 
 	/// Pallet prelude of `frame-system`.
