@@ -20,37 +20,14 @@ use crate::BlockInfoProvider;
 use jsonrpsee::core::async_trait;
 use pallet_revive::evm::{ReceiptInfo, TransactionSigned};
 use sp_core::{H256, U256};
+use sqlx::{query, SqlitePool};
 use std::sync::Arc;
-
-#[cfg(not(any(feature = "sqlite", test)))]
-use sqlx::PgPool;
-#[cfg(any(feature = "sqlite", test))]
-use sqlx::SqlitePool;
-
-/// Wrapper around [`sqlx::query!`] that injects a comment with the database type to the query
-/// string, so that we can generate sqlx artifact with different hashes for each database.
-macro_rules! query {
-    ($query:expr, $($args:tt)*) => {{
-        #[cfg(any(feature = "sqlite", test))]
-        {
-            sqlx::query!("-- sqlite" + $query, $($args)*)
-        }
-        #[cfg(not(any(feature = "sqlite", test)))]
-        {
-            sqlx::query!("-- pgsql" + $query, $($args)*)
-        }
-    }};
-}
 
 /// A `[ReceiptProvider]` that stores receipts in a SQLite database.
 #[derive(Clone)]
 pub struct DBReceiptProvider {
 	/// The database pool.
-	#[cfg(any(feature = "sqlite", test))]
 	pool: SqlitePool,
-	#[cfg(not(any(feature = "sqlite", test)))]
-	pool: PgPool,
-
 	/// The block provider used to fetch blocks, and reconstruct receipts.
 	block_provider: Arc<dyn BlockInfoProvider>,
 	/// weather or not we should write to the DB.
@@ -64,11 +41,7 @@ impl DBReceiptProvider {
 		read_only: bool,
 		block_provider: Arc<dyn BlockInfoProvider>,
 	) -> Result<Self, sqlx::Error> {
-		#[cfg(any(feature = "sqlite", test))]
 		let pool = SqlitePool::connect(database_url).await?;
-		#[cfg(not(any(feature = "sqlite", test)))]
-		let pool = PgPool::connect(database_url).await?;
-
 		Ok(Self { pool, block_provider, read_only })
 	}
 
@@ -145,11 +118,7 @@ impl ReceiptProvider for DBReceiptProvider {
 		.await
 		.ok()?;
 
-		#[cfg(any(feature = "sqlite", test))]
 		let count = row.count as usize;
-		#[cfg(not(any(feature = "sqlite", test)))]
-		let count = row.count.unwrap_or_default() as usize;
-
 		Some(count)
 	}
 
@@ -166,7 +135,7 @@ impl ReceiptProvider for DBReceiptProvider {
 	}
 
 	async fn receipt_by_hash(&self, transaction_hash: &H256) -> Option<ReceiptInfo> {
-		let (block_hash, transaction_index) = self.fetch_row(transaction_hash).await?;
+		let (block_hash, transaction_index) = self.fetch_row(&transaction_hash).await?;
 
 		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;
 		let (_, receipt) =

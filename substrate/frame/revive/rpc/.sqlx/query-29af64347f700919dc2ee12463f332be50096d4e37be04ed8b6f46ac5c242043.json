@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "-- sqlite\n\t\t\tSELECT block_hash, transaction_index\n\t\t\tFROM transaction_hashes\n\t\t\tWHERE transaction_hash = $1\n\t\t\t",
+  "query": "\n\t\t\tSELECT block_hash, transaction_index\n\t\t\tFROM transaction_hashes\n\t\t\tWHERE transaction_hash = $1\n\t\t\t",
   "describe": {
     "columns": [
       {
@@ -22,5 +22,5 @@
       false
     ]
   },
-  "hash": "ef458656669caadd17228b367bde04028e5fd1edb7287253421c6875e8ed73e9"
+  "hash": "29af64347f700919dc2ee12463f332be50096d4e37be04ed8b6f46ac5c242043"
 }

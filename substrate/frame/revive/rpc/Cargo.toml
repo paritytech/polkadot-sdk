@@ -64,7 +64,6 @@ sp-crypto-hashing = { workspace = true }
 sp-weights = { workspace = true, default-features = true }
 sqlx = { version = "0.8.2", features = [
 	"macros",
-	"postgres",
 	"runtime-tokio",
 	"sqlite",
 ] }
@@ -77,7 +76,6 @@ tokio = { workspace = true, features = ["full"] }
 
 [features]
 example = ["rlp", "subxt-signer"]
-sqlite = []
 
 [dev-dependencies]
 env_logger = { workspace = true }
