@@ -783,21 +783,6 @@ where
 			})
 	}
 
-	// /// Intended to remove transactions identified by the given hashes, and any dependent
-	// /// transactions, from the pool. In current implementation this function only outputs the
-	// error. /// Seems that API change is needed here to make this call reasonable.
-	// // todo [#5491]: api change? we need block hash here (assuming we need it at all - could be
-	// // useful for verification for debugging purposes).
-	// fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
-	// 	if !hashes.is_empty() {
-	// 		log::debug!(target: LOG_TARGET, "fatp::remove_invalid {}", hashes.len());
-	// 		log_xt_trace!(target:LOG_TARGET, hashes, "[{:?}] fatp::remove_invalid");
-	// 		self.metrics
-	// 			.report(|metrics| metrics.removed_invalid_txs.inc_by(hashes.len() as _));
-	// 	}
-	// 	Default::default()
-	// }
-
 	/// Reports invalid transactions to the transaction pool.
 	///
 	/// This function takes an array of tuples, each consisting of a transaction hash and the
@@ -818,13 +803,6 @@ where
 
 		self.metrics
 			.report(|metrics| metrics.removed_invalid_txs.inc_by(removed.len() as _));
-
-		// todo (after merging / rebasing)
-
-		// depending on error:
-		// - handle cloned view with view_store replacements
-		// - remove resulting hashes from mempool and collect Arc<Transaction>
-		// - send notification using listener (should this be done in view_store)
 
 		removed
 	}
