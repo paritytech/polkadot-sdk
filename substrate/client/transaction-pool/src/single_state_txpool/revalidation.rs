@@ -384,7 +384,11 @@ mod tests {
 	#[test]
 	fn revalidation_queue_works() {
 		let api = Arc::new(TestApi::default());
-		let pool = Arc::new(Pool::new(Default::default(), true.into(), api.clone()));
+		let pool = Arc::new(Pool::new_with_staticly_sized_rotator(
+			Default::default(),
+			true.into(),
+			api.clone(),
+		));
 		let queue = Arc::new(RevalidationQueue::new(api.clone(), pool.clone()));
 
 		let uxt = uxt(Transfer {
@@ -414,7 +418,11 @@ mod tests {
 	#[test]
 	fn revalidation_queue_skips_revalidation_for_unknown_block_hash() {
 		let api = Arc::new(TestApi::default());
-		let pool = Arc::new(Pool::new(Default::default(), true.into(), api.clone()));
+		let pool = Arc::new(Pool::new_with_staticly_sized_rotator(
+			Default::default(),
+			true.into(),
+			api.clone(),
+		));
 		let queue = Arc::new(RevalidationQueue::new(api.clone(), pool.clone()));
 
 		let uxt0 = uxt(Transfer {
