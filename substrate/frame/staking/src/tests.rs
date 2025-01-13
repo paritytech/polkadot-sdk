@@ -5860,7 +5860,7 @@ fn chill_inactive_validator_works() {
 			Error::<Test>::InvalidProof,
 		);
 
-		// `11` wasn't a validator of the some of the eras, the proof will be rejected.
+		// `11` wasn't a validator of some of the eras, the proof will be rejected.
 		(0..history_depth).for_each(|era| {
 			if era % 2 == 0 {
 				ErasRewardPoints::<Test>::insert(era, EraRewardPoints::default())

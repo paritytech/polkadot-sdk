@@ -1141,13 +1141,8 @@ mod benchmarks {
 	fn chill_inactive_validator(
 		l: Linear<2, { ChillInactiveValidatorThreshold::<T>::get() }>,
 	) -> Result<(), BenchmarkError> {
-		let (stash, _) = create_validator_with_nominators::<T>(
-			0,
-			0,
-			false,
-			true,
-			RewardDestination::Staked,
-		)?;
+		let (stash, _) =
+			create_validator_with_nominators::<T>(0, 0, false, true, RewardDestination::Staked)?;
 		assert!(T::VoterList::contains(&stash));
 
 		Staking::<T>::set_staking_configs(

@@ -2336,7 +2336,6 @@ pub mod pallet {
 			proof: BoundedVec<EraIndex, T::HistoryDepth>,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
-
 			ensure!(Validators::<T>::contains_key(&stash), Error::<T>::NotValidator);
 
 			let threshold = ChillInactiveValidatorThreshold::<T>::get();
