@@ -202,7 +202,7 @@ impl<T: Config> VotingRoundInfo<T> {
 		let round_starting_block = T::BlockNumberProvider::current_block_number();
 		let batch_submitted = false;
 		let round_ending_block =
-			round_starting_block.clone().saturating_add(<T as Config>::VotingPeriod::get());
+			round_starting_block.saturating_add(<T as Config>::VotingPeriod::get());
 		let round_number = NextVotingRoundNumber::<T>::mutate(|n| {
 			let res = *n;
 			*n = n.saturating_add(1);

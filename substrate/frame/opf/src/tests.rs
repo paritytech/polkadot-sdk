@@ -61,14 +61,26 @@ fn project_registration_works() {
 }
 
 #[test]
-fn vote_works(){
+fn vote_works() {
 	new_test_ext().execute_with(|| {
 		let batch = project_list();
 		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch));
 		// Bob vote for Alice
-		assert_ok!(Opf::vote(RuntimeOrigin::signed(BOB), ALICE, 100, true,pallet_democracy::Conviction::Locked1x));
+		assert_ok!(Opf::vote(
+			RuntimeOrigin::signed(BOB),
+			ALICE,
+			100,
+			true,
+			pallet_democracy::Conviction::Locked1x
+		));
 		// Dave vote for Alice
-		assert_ok!(Opf::vote(RuntimeOrigin::signed(DAVE), ALICE, 100, true,pallet_democracy::Conviction::Locked2x));
+		assert_ok!(Opf::vote(
+			RuntimeOrigin::signed(DAVE),
+			ALICE,
+			100,
+			true,
+			pallet_democracy::Conviction::Locked2x
+		));
 		//Round number is 0
 		let round_number = NextVotingRoundNumber::<Test>::get().saturating_sub(1);
 		assert_eq!(round_number, 0);
@@ -78,6 +90,5 @@ fn vote_works(){
 		let dave_hold = <Test as Config>::NativeBalance::total_balance_on_hold(&DAVE);
 		assert_eq!(bob_hold, 100);
 		assert_eq!(dave_hold, 100);
-
 	})
 }

@@ -289,7 +289,7 @@ pub mod pallet {
 
 			let round_infos = VotingRounds::<T>::get(current_round_index).expect("InvalidResult");
 			// Check no Project batch has been submitted yet
-			ensure!(round_infos.batch_submitted == false, Error::<T>::BatchAlreadySubmitted);
+			ensure!(!round_infos.batch_submitted, Error::<T>::BatchAlreadySubmitted);
 			let round_ending_block = round_infos.round_ending_block;
 
 			// If current voting round is over, start a new one
@@ -385,14 +385,15 @@ pub mod pallet {
 			let infos = WhiteListedProjectAccounts::<T>::get(&project_id)
 				.ok_or(Error::<T>::NoProjectAvailable)?;
 			let ref_index = infos.index;
-			
-			// Funds lock is handled by the opf pallet 
+
+			// Funds lock is handled by the opf pallet
 			let conv = Democracy::Conviction::None;
 			let vote = Democracy::Vote { aye: is_fund, conviction: conv };
-			let converted_amount = Self::convert_balance(amount.clone()).ok_or("Failed Conversion!!!")?;
+			let converted_amount =
+				Self::convert_balance(amount).ok_or("Failed Conversion!!!")?;
 			let account_vote = Democracy::AccountVote::Standard { vote, balance: converted_amount };
 
-			Self::try_vote(voter, project_id, amount, is_fund, conviction )?;
+			Self::try_vote(voter, project_id, amount, is_fund, conviction)?;
 			Democracy::Pallet::<T>::vote(origin, ref_index, account_vote)?;
 
 			Ok(())
