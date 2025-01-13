@@ -39,7 +39,7 @@ jobs:
         run: cat .github/env >> $GITHUB_OUTPUT
 
   run-frame-omni-bencher:
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: parity-large
     needs: [ set-image, changes ] # , build-frame-omni-bencher ]
     if: ${{ needs.changes.outputs.rust }}
     timeout-minutes: 30

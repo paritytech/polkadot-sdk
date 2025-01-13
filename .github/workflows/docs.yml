@@ -28,7 +28,7 @@ jobs:
       - id: set_image
         run: cat .github/env >> $GITHUB_OUTPUT
   test-rustdoc:
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: parity-large
     needs: [set-image]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -38,7 +38,7 @@ jobs:
         env:
           SKIP_WASM_BUILD: 1
   test-doc:
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: parity-large
     needs: [set-image]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -49,7 +49,7 @@ jobs:
           RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
 
   build-rustdoc:
-    runs-on: arc-runners-polkadot-sdk-beefy
+    runs-on: parity-large
     needs: [set-image, test-rustdoc]
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}

@@ -36,9 +36,9 @@ jobs:
         run: |
           # Run merge queues on persistent runners
           if [[ $GITHUB_REF_NAME == *"gh-readonly-queue"* ]]; then
-            echo "RUNNER=arc-runners-polkadot-sdk-beefy-persistent" >> $GITHUB_OUTPUT
+            echo "RUNNER=parity-large-persistent" >> $GITHUB_OUTPUT
           else
-            echo "RUNNER=arc-runners-polkadot-sdk-beefy" >> $GITHUB_OUTPUT
+            echo "RUNNER=parity-large" >> $GITHUB_OUTPUT
           fi
   # More info can be found here: https://github.com/paritytech/polkadot/pull/5865
   check-runtime-migration:
