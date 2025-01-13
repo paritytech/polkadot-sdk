@@ -355,7 +355,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			let when = T::BlockNumberProvider::current_block_number();
-			Self::unlist_project(project_id.clone())?;
+			WhiteListedProjectAccounts::<T>::remove(&project_id);
 			Self::deposit_event(Event::<T>::ProjectUnlisted { when, project_id });
 
 			Ok(())
@@ -389,8 +389,7 @@ pub mod pallet {
 			// Funds lock is handled by the opf pallet
 			let conv = Democracy::Conviction::None;
 			let vote = Democracy::Vote { aye: is_fund, conviction: conv };
-			let converted_amount =
-				Self::convert_balance(amount).ok_or("Failed Conversion!!!")?;
+			let converted_amount = Self::convert_balance(amount).ok_or("Failed Conversion!!!")?;
 			let account_vote = Democracy::AccountVote::Standard { vote, balance: converted_amount };
 
 			Self::try_vote(voter, project_id, amount, is_fund, conviction)?;
@@ -401,7 +400,20 @@ pub mod pallet {
 
 		#[pallet::call_index(4)]
 		#[transactional]
-		pub fn remove_vote(origin: OriginFor<T>) -> DispatchResult {
+		pub fn remove_vote(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
+			let voter = ensure_signed(origin.clone())?;
+			// Get current voting round & check if we are in voting period or not
+			Self::period_check()?;
+			// Removal action executed
+			Self::try_remove_vote(voter.clone(), project_id.clone())?;
+			// Remove previous vote from Referendum
+			let infos = WhiteListedProjectAccounts::<T>::get(project_id.clone())
+				.ok_or(Error::<T>::NoProjectAvailable)?;
+			let ref_index = infos.index;
+			Democracy::Pallet::<T>::remove_vote(origin, ref_index)?;
+
+			let when = T::BlockNumberProvider::current_block_number();
+			Self::deposit_event(Event::<T>::VoteRemoved { who: voter, when, project_id });
 			Ok(())
 		}
 
@@ -443,7 +455,7 @@ pub mod pallet {
 					amount: info.amount,
 					project_id: project_id.clone(),
 				});
-				Self::unlist_project(project_id)?;
+				WhiteListedProjectAccounts::<T>::remove(&project_id);
 				Ok(())
 			} else {
 				Err(DispatchError::Other("Not Claiming Period"))
