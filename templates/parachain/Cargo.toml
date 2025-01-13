@@ -1,6 +1,6 @@
 [package]
-name = "parachain-template"
-description = "A parachain template built with Substrate, part of Polkadot Sdk."
+name = "parachain-template-docs"
+description = "A parachain-template helper crate to keep documentation in sync with the template's components."
 version = "0.0.0"
 license = "Unlicense"
 authors.workspace = true
@@ -11,6 +11,6 @@ publish = false
 
 [dependencies]
 docify = "0.2.8"
-parachain-template-runtime = { workspace = true, default-features = true }
+
 [features]
 generate-readme = []

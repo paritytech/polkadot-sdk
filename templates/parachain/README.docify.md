@@ -2,7 +2,6 @@
 
 compile_markdown!("README.docify.md", "README.md");
 
-<!-- docify::embed!("src/lib.rs", embed_parachain_id)--> 
 
 # Polkadot SDK's Parachain Template
 
@@ -25,11 +24,11 @@ compile_markdown!("README.docify.md", "README.md");
 
 - [Starting a Development Chain](#starting-a-development-chain)
 
-    - [Omni Node](#omni-node-prerequisites)
-    - [Zombienet setup with Omni Node](#zombienet-setup-with-omni-node)
-    - [Parachain Template Node](#parachain-template-node)
-    - [Connect with the Polkadot-JS Apps Front-End](#connect-with-the-polkadot-js-apps-front-end)
-    - [Takeaways](#takeaways)
+  - [Omni Node](#omni-node-prerequisites)
+  - [Zombienet setup with Omni Node](#zombienet-setup-with-omni-node)
+  - [Parachain Template Node](#parachain-template-node)
+  - [Connect with the Polkadot-JS Apps Front-End](#connect-with-the-polkadot-js-apps-front-end)
+  - [Takeaways](#takeaways)
 
 - [Runtime development](#runtime-development)
 - [Contributing](#contributing)
@@ -77,6 +76,12 @@ cd parachain-template
 
 ## Starting a Development Chain
 
+The parachain template relies on a hardcoded parachain id which is defined in the runtime code
+and referenced throughout the contents of this file as `{{PARACHAIN_ID}}`. Please replace
+any command or file referencing this placeholder with the value of the `PARACHAIN_ID` constant:
+
+<!-- docify::embed!("runtime/src/genesis_config_presets.rs", PARACHAIN_ID)-->
+
 ### Omni Node Prerequisites
 
 [Omni Node](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/omni_node/index.html) can
@@ -100,7 +105,7 @@ Please see the installation section at [`crates.io/staging-chain-spec-builder`](
 #### Use `chain-spec-builder` to generate the `chain_spec.json` file
 
 ```sh
-chain-spec-builder create --relay-chain "rococo-local" --para-id <!-- docify::embed!("src/lib".rs", embed_parachain_id)--> --runtime \
+chain-spec-builder create --relay-chain "rococo-local" --para-id {{PARACHAIN_ID}} --runtime \
     target/release/wbuild/parachain-template-runtime/parachain_template_runtime.wasm named-preset development
 ```
 
@@ -145,7 +150,7 @@ export PATH="$PATH:<path/to/binaries>"
 ```toml
 # ...
 [[parachains]]
-id = <!-- docify::embed!("src/lib.rs", embed_parachain_id)-->
+id = {{PARACHAIN_ID}}
 chain_spec_path = "<TO BE UPDATED WITH A VALID PATH>"
 # ...
 ```
@@ -250,5 +255,3 @@ relay chain network (see [Parachain Template node](#parachain-template-node) set
 
 - 👥 Additionally, there are [GitHub issues](https://github.com/paritytech/polkadot-sdk/issues) and
   [Substrate StackExchange](https://substrate.stackexchange.com/).
-
-
