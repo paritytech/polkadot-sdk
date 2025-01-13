@@ -816,6 +816,39 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
 	pub enum Event<T: Config> {
+		/// A new era has started.
+		NewEra { index: EraIndex, start: u64 },
+		/// The ideal number of validators has been updated
+		ValidatorCountSet {
+			count: u32,
+		},
+		/// A stash was killed
+		StashKilled {
+			stash: T::AccountId
+		},
+		/// A nomination has been set or updated
+		Nomination {
+			nominator: T::AccountId,
+			targets:  BoundedVec<T::AccountId, MaxNominationsOf<T>>,
+			submitted_in: EraIndex,
+		},
+		/// A new minimum commission has been set
+		MinCommissionSet {
+			min_commission: Perbill
+		},
+		RewardDestinationSet {
+			stash: T::AccountId,
+			dest: RewardDestination<T::AccountId>
+		},
+		StakingConfigsSet {
+			min_nominator_bond: BalanceOf<T>,
+			min_validator_bond: BalanceOf<T>,
+			max_nominator_count: Option<u32>,
+			max_validator_count: Option<u32>,
+			chill_threshold: Option<Percent>,
+			min_commission: Perbill,
+			max_staked_rewards: Option<Percent>,
+		},
 		/// The era payout has been set; the first balance is the validator-payout; the second is
 		/// the remainder from the maximum amount of reward.
 		EraPaid { era_index: EraIndex, validator_payout: BalanceOf<T>, remainder: BalanceOf<T> },
@@ -824,6 +857,13 @@ pub mod pallet {
 			stash: T::AccountId,
 			dest: RewardDestination<T::AccountId>,
 			amount: BalanceOf<T>,
+			validator: T::AccountId,
+			era: EraIndex,
+			page: Page,
+		},
+		/// A change in the set of validators who cannot be slashed (if any).
+		InvulnerablesSet {
+			invulnerables: Vec<T::AccountId>,
 		},
 		/// A staker (validator or nominator) has been slashed by the given amount.
 		Slashed { staker: T::AccountId, amount: BalanceOf<T> },
@@ -951,6 +991,7 @@ pub mod pallet {
 					active_era.start = Some(now_as_millis_u64);
 					// This write only ever happens once, we don't include it in the weight in
 					// general
+					Self::deposit_event(Event::<T>::NewEra { index: active_era.index, start: active_era.start.unwrap() });
 					ActiveEra::<T>::put(active_era);
 				}
 			}
@@ -1036,7 +1077,8 @@ pub mod pallet {
 
 			// You're auto-bonded forever, here. We might improve this by only bonding when
 			// you actually validate/nominate and remove once you unbond __everything__.
-			ledger.bond(payee)?;
+			ledger.bond(payee.clone())?;
+			Self::deposit_event(Event::<T>::RewardDestinationSet { stash, dest: payee});
 
 			Ok(())
 		}
@@ -1308,15 +1350,22 @@ pub mod pallet {
 				.try_into()
 				.map_err(|_| Error::<T>::TooManyNominators)?;
 
+			let submitted_in = Self::current_era().unwrap_or(0);
 			let nominations = Nominations {
-				targets,
+				targets: targets.clone(),
 				// Initial nominations are considered submitted at era 0. See `Nominations` doc.
-				submitted_in: Self::current_era().unwrap_or(0),
+				submitted_in,
 				suppressed: false,
 			};
 
 			Self::do_remove_validator(stash);
 			Self::do_add_nominator(stash, nominations);
+
+			Self::deposit_event(Event::<T>::Nomination {
+				nominator: stash.clone(),
+				targets,
+				submitted_in
+			});
 			Ok(())
 		}
 
@@ -1369,6 +1418,8 @@ pub mod pallet {
 				}),
 				Error::<T>::ControllerDeprecated
 			);
+
+			Self::deposit_event(Event::<T>::RewardDestinationSet { stash: ledger.stash.clone(), dest: payee.clone() });
 
 			let _ = ledger
 				.set_payee(payee)
@@ -1431,6 +1482,7 @@ pub mod pallet {
 				Error::<T>::TooManyValidators
 			);
 			ValidatorCount::<T>::put(new);
+			Self::deposit_event(Event::<T>::ValidatorCountSet { count: new });
 			Ok(())
 		}
 
@@ -1456,6 +1508,7 @@ pub mod pallet {
 			);
 
 			ValidatorCount::<T>::put(new);
+			Self::deposit_event(Event::<T>::ValidatorCountSet { count: new });
 			Ok(())
 		}
 
@@ -1479,6 +1532,7 @@ pub mod pallet {
 			);
 
 			ValidatorCount::<T>::put(new);
+			Self::deposit_event(Event::<T>::ValidatorCountSet { count: new });
 			Ok(())
 		}
 
@@ -1535,7 +1589,8 @@ pub mod pallet {
 			invulnerables: Vec<T::AccountId>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			<Invulnerables<T>>::put(invulnerables);
+			<Invulnerables<T>>::put(invulnerables.clone());
+			Self::deposit_event(Event::<T>::InvulnerablesSet { invulnerables });
 			Ok(())
 		}
 
@@ -1814,6 +1869,44 @@ pub mod pallet {
 			config_op_exp!(ChillThreshold<T>, chill_threshold);
 			config_op_exp!(MinCommission<T>, min_commission);
 			config_op_exp!(MaxStakedRewards<T>, max_staked_rewards);
+
+			Self::deposit_event(Event::<T>::StakingConfigsSet {
+				min_nominator_bond: match min_nominator_bond {
+					ConfigOp::Noop => MinNominatorBond::<T>::get(),
+					ConfigOp::Set(v) => v,
+					ConfigOp::Remove => <T as Config>::CurrencyBalance::zero(),
+				},
+				min_validator_bond: match min_validator_bond {
+					ConfigOp::Noop => MinValidatorBond::<T>::get(),
+					ConfigOp::Set(v) => v,
+					ConfigOp::Remove => <T as Config>::CurrencyBalance::zero(),
+				},
+				max_nominator_count: match max_nominator_count {
+					ConfigOp::Noop => MaxNominatorsCount::<T>::get(),
+					ConfigOp::Set(v) => Some(v),
+					ConfigOp::Remove => None,
+				},
+				max_validator_count: match max_validator_count {
+					ConfigOp::Noop => MaxValidatorsCount::<T>::get(),
+					ConfigOp::Set(v) => Some(v),
+					ConfigOp::Remove => None,
+				},
+				chill_threshold: match chill_threshold {
+					ConfigOp::Noop => ChillThreshold::<T>::get(),
+					ConfigOp::Set(v) => Some(v),
+					ConfigOp::Remove => None,
+				},
+				min_commission: match min_commission {
+					ConfigOp::Noop => MinCommission::<T>::get(),
+					ConfigOp::Set(v) => v,
+					ConfigOp::Remove => Perbill::zero(),
+				},
+				max_staked_rewards: match max_staked_rewards {
+					ConfigOp::Noop => MaxStakedRewards::<T>::get(),
+					ConfigOp::Set(v) => Some(v),
+					ConfigOp::Remove => None,
+				},
+			});
 			Ok(())
 		}
 		/// Declare a `controller` to stop participating as either a validator or nominator.
@@ -1918,12 +2011,18 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			let min_commission = MinCommission::<T>::get();
-			Validators::<T>::try_mutate_exists(validator_stash, |maybe_prefs| {
+			Validators::<T>::try_mutate_exists(validator_stash.clone(), |maybe_prefs| {
 				maybe_prefs
 					.as_mut()
 					.map(|prefs| {
 						(prefs.commission < min_commission)
-							.then(|| prefs.commission = min_commission)
+							.then(|| {
+								prefs.commission = min_commission;
+								Self::deposit_event(Event::<T>::ValidatorPrefsSet { stash: validator_stash, prefs: ValidatorPrefs {
+									commission: prefs.commission,
+									blocked: prefs.blocked,
+								} })
+							})
 					})
 					.ok_or(Error::<T>::NotStash)
 			})?;
@@ -1939,6 +2038,7 @@ pub mod pallet {
 		pub fn set_min_commission(origin: OriginFor<T>, new: Perbill) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 			MinCommission::<T>::put(new);
+			Self::deposit_event(Event::<T>::MinCommissionSet { min_commission: new });
 			Ok(())
 		}
 

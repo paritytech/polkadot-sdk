@@ -385,7 +385,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
-		type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// A stable ID for a validator.
 		type ValidatorId: Member
@@ -523,10 +523,12 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event {
+	pub enum Event<T: Config> {
 		/// New session has happened. Note that the argument is the session index, not the
 		/// block number as the type might suggest.
 		NewSession { session_index: SessionIndex },
+		KeysSet { account: T::AccountId, keys: T::Keys },
+		KeysPurged { account: T::AccountId }
 	}
 
 	/// Error for the session pallet.
@@ -798,12 +800,13 @@ impl<T: Config> Pallet<T> {
 			.ok_or(Error::<T>::NoAssociatedValidatorId)?;
 
 		ensure!(frame_system::Pallet::<T>::can_inc_consumer(account), Error::<T>::NoAccount);
-		let old_keys = Self::inner_set_keys(&who, keys)?;
+		let old_keys = Self::inner_set_keys(&who, keys.clone())?;
 		if old_keys.is_none() {
 			let assertion = frame_system::Pallet::<T>::inc_consumers(account).is_ok();
 			debug_assert!(assertion, "can_inc_consumer() returned true; no change since; qed");
 		}
 
+		Self::deposit_event(Event::KeysSet { account: account.clone(), keys });
 		Ok(())
 	}
 
@@ -862,6 +865,7 @@ impl<T: Config> Pallet<T> {
 		}
 		frame_system::Pallet::<T>::dec_consumers(account);
 
+		Self::deposit_event(Event::KeysPurged { account: account.clone() });
 		Ok(())
 	}
 
