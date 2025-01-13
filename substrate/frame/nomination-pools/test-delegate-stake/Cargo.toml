@@ -23,7 +23,6 @@ sp-core = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-staking = { workspace = true, default-features = true }
-sp-std = { workspace = true, default-features = true }
 
 frame-election-provider-support = { workspace = true, default-features = true }
 frame-support = { features = ["experimental"], workspace = true, default-features = true }

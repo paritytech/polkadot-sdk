@@ -83,6 +83,7 @@ members = [
 	"cumulus/pallets/parachain-system/proc-macro",
 	"cumulus/pallets/session-benchmarking",
 	"cumulus/pallets/solo-to-para",
+	"cumulus/pallets/weight-reclaim",
 	"cumulus/pallets/xcm",
 	"cumulus/pallets/xcmp-queue",
 	"cumulus/parachains/common",
@@ -717,6 +718,7 @@ cumulus-pallet-parachain-system = { path = "cumulus/pallets/parachain-system", d
 cumulus-pallet-parachain-system-proc-macro = { path = "cumulus/pallets/parachain-system/proc-macro", default-features = false }
 cumulus-pallet-session-benchmarking = { path = "cumulus/pallets/session-benchmarking", default-features = false }
 cumulus-pallet-solo-to-para = { path = "cumulus/pallets/solo-to-para", default-features = false }
+cumulus-pallet-weight-reclaim = { path = "cumulus/pallets/weight-reclaim", default-features = false }
 cumulus-pallet-xcm = { path = "cumulus/pallets/xcm", default-features = false }
 cumulus-pallet-xcmp-queue = { path = "cumulus/pallets/xcmp-queue", default-features = false }
 cumulus-ping = { path = "cumulus/parachains/pallets/ping", default-features = false }
@@ -1389,7 +1391,7 @@ xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false }
 xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = false }
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 zeroize = { version = "1.7.0", default-features = false }
-zombienet-sdk = { version = "0.2.19" }
+zombienet-sdk = { version = "0.2.20" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]
