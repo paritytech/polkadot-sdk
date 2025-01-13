@@ -676,13 +676,13 @@ fn create_project(
 		RuntimeTarget::Wasm => {
 			write_file_if_changed(
 				wasm_project_folder.join("src/lib.rs"),
-				"#![no_std] pub use wasm_project::*;",
+				"#![no_std] #![allow(unused_imports)] pub use wasm_project::*;",
 			);
 		},
 		RuntimeTarget::Riscv => {
 			write_file_if_changed(
 				wasm_project_folder.join("src/main.rs"),
-				"#![no_std] #![no_main] pub use wasm_project::*;",
+				"#![no_std] #![no_main] #![allow(unused_imports)] pub use wasm_project::*;",
 			);
 		},
 	}
@@ -858,7 +858,7 @@ fn build_bloaty_blob(
 			// Also see:
 			// https://blog.rust-lang.org/2024/09/24/webassembly-targets-change-in-default-target-features.html#disabling-on-by-default-webassembly-proposals
 
-			if !cargo_cmd.supports_wasm32v1_none_target() {
+			if !cargo_cmd.is_wasm32v1_none_target_available() {
 				rustflags.push_str("-C target-cpu=mvp ");
 			}
 

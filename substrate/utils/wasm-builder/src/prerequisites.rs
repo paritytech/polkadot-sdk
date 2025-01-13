@@ -68,23 +68,28 @@ pub(crate) fn check(target: RuntimeTarget) -> Result<CargoCommandVersioned, Stri
 				));
 			}
 
-			let dummy_crate = DummyCrate::new(&cargo_command, target);
+			let dummy_crate = DummyCrate::new(&cargo_command, target, false);
 			let version = dummy_crate.get_rustc_version();
 			Ok(CargoCommandVersioned::new(cargo_command, version))
 		},
 	}
 }
 
-struct DummyCrate<'a> {
+pub(crate) struct DummyCrate<'a> {
 	cargo_command: &'a CargoCommand,
 	temp: tempfile::TempDir,
 	manifest_path: PathBuf,
 	target: RuntimeTarget,
+	ignore_target: bool,
 }
 
 impl<'a> DummyCrate<'a> {
 	/// Creates a minimal dummy crate.
-	fn new(cargo_command: &'a CargoCommand, target: RuntimeTarget) -> Self {
+	pub(crate) fn new(
+		cargo_command: &'a CargoCommand,
+		target: RuntimeTarget,
+		ignore_target: bool,
+	) -> Self {
 		let temp = tempdir().expect("Creating temp dir does not fail; qed");
 		let project_dir = temp.path();
 		fs::create_dir_all(project_dir.join("src")).expect("Creating src dir does not fail; qed");
@@ -139,7 +144,7 @@ impl<'a> DummyCrate<'a> {
 			},
 		}
 
-		DummyCrate { cargo_command, temp, manifest_path, target }
+		DummyCrate { cargo_command, temp, manifest_path, target, ignore_target }
 	}
 
 	fn prepare_command(&self, subcommand: &str) -> Command {
@@ -147,9 +152,11 @@ impl<'a> DummyCrate<'a> {
 		// Chdir to temp to avoid including project's .cargo/config.toml
 		// by accident - it can happen in some CI environments.
 		cmd.current_dir(&self.temp);
-		cmd.arg(subcommand)
-			.arg(format!("--target={}", self.target.rustc_target(self.cargo_command)))
-			.args(&["--manifest-path", &self.manifest_path.display().to_string()]);
+		cmd.arg(subcommand);
+		if !self.ignore_target {
+			cmd.arg(format!("--target={}", self.target.rustc_target(self.cargo_command)));
+		}
+		cmd.args(&["--manifest-path", &self.manifest_path.display().to_string()]);
 
 		if super::color_output_enabled() {
 			cmd.arg("--color=always");
@@ -185,7 +192,7 @@ impl<'a> DummyCrate<'a> {
 		sysroot_cmd.output().ok().and_then(|o| String::from_utf8(o.stdout).ok())
 	}
 
-	fn get_toolchain(&self) -> Option<String> {
+	pub(crate) fn get_toolchain(&self) -> Option<String> {
 		let sysroot = self.get_sysroot()?;
 		Path::new(sysroot.trim())
 			.file_name()
@@ -208,10 +215,10 @@ fn check_wasm_toolchain_installed(
 	let target = RuntimeTarget::Wasm;
 	let rustc_target = target.rustc_target(&cargo_command);
 
-	let dummy_crate = DummyCrate::new(&cargo_command, target);
+	let dummy_crate = DummyCrate::new(&cargo_command, target, false);
+	let toolchain = dummy_crate.get_toolchain().unwrap_or("<unknown>".to_string());
 
 	if let Err(error) = dummy_crate.try_build() {
-		let toolchain = dummy_crate.get_toolchain().unwrap_or("<unknown>".to_string());
 		let basic_error_message = colorize_error_message(
 			&format!("Rust WASM target for toolchain {toolchain} is not properly installed; please install it!")
 		);
@@ -251,6 +258,14 @@ fn check_wasm_toolchain_installed(
 				))
 			}
 		}
+	}
+
+	if cargo_command.supports_wasm32v1_none_target() &&
+		!cargo_command.is_wasm32v1_none_target_installed()
+	{
+		build_helper::warning!("You are building WASM runtime using `wasm32-unknown-unknown` target, although Rust >= 1.84 supports `wasm32v1-none` target!");
+		build_helper::warning!("You can install it with `rustup target add wasm32v1-none --toolchain {toolchain}` if you're using `rustup`.");
+		build_helper::warning!("After installing `wasm32v1-none` target, you must rebuild WASM runtime from scratch, use `cargo clean` before building.");
 	}
 
 	Ok(CargoCommandVersioned::new(cargo_command, version))

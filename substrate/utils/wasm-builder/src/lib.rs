@@ -117,6 +117,7 @@
 //! To install the `rust-src` component, use `rustup component add rust-src
 //! --toolchain nightly-2024-12-26`.
 
+use prerequisites::DummyCrate;
 use std::{
 	env, fs,
 	io::BufRead,
@@ -341,6 +342,33 @@ impl CargoCommand {
 			version.major > 1 || (version.major == 1 && version.minor >= 84)
 		})
 	}
+
+	fn is_target_installed(toolchain: &str, target: &str) -> Result<bool, Option<String>> {
+		let Ok(result) = Command::new("rustup")
+			.args(&["target", "list", "--toolchain", toolchain, "--installed"])
+			.output()
+		else {
+			return Err(None)
+		};
+		if !result.status.success() {
+			return Err(Some(String::from_utf8_lossy(&result.stderr).into()));
+		}
+		Ok(String::from_utf8_lossy(&result.stdout).contains(target))
+	}
+
+	/// Returns whether the `wasm32v1-none` target is installed in this version of the toolchain.
+	fn is_wasm32v1_none_target_installed(&self) -> bool {
+		let dummy_crate = DummyCrate::new(self, RuntimeTarget::Wasm, true);
+		let toolchain = dummy_crate.get_toolchain().expect("toolchain not found");
+		Self::is_target_installed(&toolchain, "wasm32v1-none").expect("target not found")
+	}
+
+	/// Returns whether the `wasm32v1-none` target is available in this version of the toolchain.
+	fn is_wasm32v1_none_target_available(&self) -> bool {
+		// Check if major and minor are greater or equal than 1.84 and that the `wasm32v1-none`
+		// target is installed for this toolchain.
+		self.supports_wasm32v1_none_target() && self.is_wasm32v1_none_target_installed()
+	}
 }
 
 /// Wraps a [`CargoCommand`] and the version of `rustc` the cargo command uses.
@@ -385,8 +413,7 @@ fn get_bool_environment_variable(name: &str) -> Option<bool> {
 		Some(false)
 	} else {
 		build_helper::warning!(
-			"the '{}' environment variable has an invalid value; it must be either '1' or '0'",
-			name
+			"the '{name}' environment variable has an invalid value; it must be either '1' or '0'",
 		);
 		std::process::exit(1);
 	}
@@ -421,7 +448,7 @@ impl RuntimeTarget {
 	fn rustc_target(self, cargo_command: &CargoCommand) -> String {
 		match self {
 			RuntimeTarget::Wasm =>
-				if cargo_command.supports_wasm32v1_none_target() {
+				if cargo_command.is_wasm32v1_none_target_available() {
 					"wasm32v1-none".into()
 				} else {
 					"wasm32-unknown-unknown".into()
@@ -437,7 +464,7 @@ impl RuntimeTarget {
 	fn rustc_target_dir(self, cargo_command: &CargoCommand) -> &'static str {
 		match self {
 			RuntimeTarget::Wasm =>
-				if cargo_command.supports_wasm32v1_none_target() {
+				if cargo_command.is_wasm32v1_none_target_available() {
 					"wasm32v1-none".into()
 				} else {
 					"wasm32-unknown-unknown".into()
@@ -450,7 +477,7 @@ impl RuntimeTarget {
 	fn rustc_target_build_std(self, cargo_command: &CargoCommand) -> Option<&'static str> {
 		if !crate::get_bool_environment_variable(crate::WASM_BUILD_STD).unwrap_or_else(
 			|| match self {
-				RuntimeTarget::Wasm => !cargo_command.supports_wasm32v1_none_target(),
+				RuntimeTarget::Wasm => !cargo_command.is_wasm32v1_none_target_available(),
 				RuntimeTarget::Riscv => true,
 			},
 		) {
