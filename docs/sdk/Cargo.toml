@@ -68,8 +68,8 @@ substrate-wasm-builder = { workspace = true, default-features = true }
 cumulus-client-service = { workspace = true, default-features = true }
 cumulus-pallet-aura-ext = { workspace = true, default-features = true }
 cumulus-pallet-parachain-system = { workspace = true, default-features = true }
+cumulus-pallet-weight-reclaim = { workspace = true, default-features = true }
 cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
-cumulus-primitives-storage-weight-reclaim = { workspace = true, default-features = true }
 parachain-info = { workspace = true, default-features = true }
 
 # Omni Node

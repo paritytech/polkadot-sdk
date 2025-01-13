@@ -17,7 +17,7 @@ jobs:
     uses: ./.github/workflows/reusable-preflight.yml
 
   build:
-    timeout-minutes: 80
+    timeout-minutes: 50
     needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER_BENCHMARK }}
     container:
@@ -27,12 +27,8 @@ jobs:
       matrix:
         features:
           [
-            {
-              bench: "notifications_protocol",
-            },
-            {
-              bench: "request_response_protocol",
-            },
+            { bench: "notifications_protocol" },
+            { bench: "request_response_protocol" },
           ]
     steps:
       - name: Checkout
@@ -42,7 +38,7 @@ jobs:
         id: run-benchmarks
         run: |
           mkdir -p ./charts
-          forklift cargo bench -p sc-network --bench ${{ matrix.features.bench }} -- --output-format bencher | grep "^test" | tee ./charts/networking-bench.txt || echo "Benchmarks failed"
+          forklift cargo bench -p sc-network --bench ${{ matrix.features.bench }} -- --output-format bencher | grep "^test" | tee ./charts/${{ matrix.features.bench }}.txt || echo "Benchmarks failed"
           ls -lsa ./charts
 
       - name: Upload artifacts
@@ -69,7 +65,13 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4.1.8
         with:
-          name: networking-bench-${{ github.sha }}
+          name: notifications_protocol-${{ github.sha }}
+          path: ./charts
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4.1.8
+        with:
+          name: request_response_protocol-${{ github.sha }}
           path: ./charts
 
       - name: Setup git
@@ -90,6 +92,7 @@ jobs:
         uses: benchmark-action/github-action-benchmark@v1
         with:
           tool: "cargo"
+          name: ${{ env.BENCH }}
           output-file-path: ./charts/${{ env.BENCH }}.txt
           benchmark-data-dir-path: ./bench/${{ env.BENCH }}
           github-token: ${{ steps.app-token.outputs.token }}
@@ -101,6 +104,7 @@ jobs:
         uses: benchmark-action/github-action-benchmark@v1
         with:
           tool: "cargo"
+          name: ${{ env.BENCH }}
           output-file-path: ./charts/${{ env.BENCH }}.txt
           benchmark-data-dir-path: ./bench/${{ env.BENCH }}
           github-token: ${{ steps.app-token.outputs.token }}
