@@ -899,7 +899,10 @@ where
 		Option<<T as frame_system::Config>::AccountId>,
 	>,
 {
-	fn offending_validator(validator: <T as frame_system::Config>::AccountId, severity: OffenceSeverity) {
+	fn offending_validator(
+		validator: <T as frame_system::Config>::AccountId,
+		severity: OffenceSeverity,
+	) {
 		<pallet_session::Pallet<T>>::offending_validator(validator, severity)
 	}
 
