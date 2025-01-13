@@ -169,6 +169,5 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 	assert_finalized_block_height(&para_node_elastic_mvp.wait_client().await?, 36..46).await?;
 
 	log::info!("Test finished successfully");
-
 	Ok(())
 }

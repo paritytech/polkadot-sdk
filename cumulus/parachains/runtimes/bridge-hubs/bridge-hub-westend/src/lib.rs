@@ -374,7 +374,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type ReservedXcmpWeight = ReservedXcmpWeight;
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
-	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
+	type SelectCore = cumulus_pallet_parachain_system::RoundRobinCoreSelector<Runtime>;
 }
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
@@ -842,7 +842,7 @@ impl_runtime_apis! {
 	}
 
 	impl cumulus_primitives_core::GetCoreSelectorApi<Block> for Runtime {
-		fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
+		fn core_selector() -> Option<(CoreSelector, ClaimQueueOffset)> {
 			ParachainSystem::core_selector()
 		}
 	}

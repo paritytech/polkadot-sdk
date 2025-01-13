@@ -639,7 +639,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 		BLOCK_PROCESSING_VELOCITY,
 		UNINCLUDED_SEGMENT_CAPACITY,
 	>;
-	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
+	type SelectCore = cumulus_pallet_parachain_system::RoundRobinCoreSelector<Runtime>;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -986,7 +986,7 @@ impl_runtime_apis! {
 	}
 
 	impl cumulus_primitives_core::GetCoreSelectorApi<Block> for Runtime {
-		fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
+		fn core_selector() -> Option<(CoreSelector, ClaimQueueOffset)> {
 			ParachainSystem::core_selector()
 		}
 	}
