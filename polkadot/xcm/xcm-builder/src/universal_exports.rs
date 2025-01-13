@@ -77,9 +77,12 @@ impl<Exporter: ExportXcm, UniversalLocation: Get<InteriorLocation>> SendXcm
 		let (remote_network, remote_location) = devolved;
 		let xcm = msg.take().ok_or(MissingArgument)?;
 
+		let hash = (Some(Location::here()), &remote_location).using_encoded(sp_io::hashing::blake2_128);
+		let channel = u32::decode(&mut hash.as_ref()).unwrap_or(0);
+
 		validate_export::<Exporter>(
 			remote_network,
-			0,
+			channel,
 			universal_source,
 			remote_location,
 			xcm.clone(),
