@@ -1821,12 +1821,13 @@ macro_rules! add_benchmark {
 		let (config, whitelist) = $params;
 		let $crate::BenchmarkConfig {
 			pallet,
+			instance,
 			benchmark,
 			selected_components,
 			verify,
 			internal_repeats,
 		} = config;
-		if &pallet[..] == &name_string[..] {
+		if &pallet[..] == &name_string[..] && &instance[..] == &instance_string[..] {
 			let benchmark_result = <$location>::run_benchmark(
 				&benchmark[..],
 				&selected_components[..],
@@ -1893,7 +1894,7 @@ macro_rules! add_benchmark {
 /// This macro allows users to easily generate a list of benchmarks for the pallets configured
 /// in the runtime.
 ///
-/// To use this macro, first create a an object to store the list:
+/// To use this macro, first create an object to store the list:
 ///
 /// ```ignore
 /// let mut list = Vec::<BenchmarkList>::new();

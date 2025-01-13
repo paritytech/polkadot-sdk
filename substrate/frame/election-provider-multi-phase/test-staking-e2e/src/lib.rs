@@ -47,7 +47,7 @@ fn log_current_time() {
 		"block: {:?}, session: {:?}, era: {:?}, EPM phase: {:?} ts: {:?}",
 		System::block_number(),
 		Session::current_index(),
-		Staking::current_era(),
+		pallet_staking::CurrentEra::<Runtime>::get(),
 		CurrentPhase::<Runtime>::get(),
 		Now::<Runtime>::get()
 	);
@@ -147,30 +147,35 @@ fn mass_slash_doesnt_enter_emergency_phase() {
 
 		let active_set_size_before_slash = Session::validators().len();
 
-		// Slash more than 1/3 of the active validators
-		let mut slashed = slash_half_the_active_set();
+		// assuming half is above the disabling limit (default 1/3), otherwise test will break
+		let slashed = slash_half_the_active_set();
 
 		let active_set_size_after_slash = Session::validators().len();
 
 		// active set should stay the same before and after the slash
 		assert_eq!(active_set_size_before_slash, active_set_size_after_slash);
 
-		// Slashed validators are disabled up to a limit
-		slashed.truncate(
-			pallet_staking::UpToLimitDisablingStrategy::<SLASHING_DISABLING_FACTOR>::disable_limit(
-				active_set_size_after_slash,
-			),
-		);
-
 		// Find the indices of the disabled validators
 		let active_set = Session::validators();
-		let expected_disabled = slashed
+		let potentially_disabled = slashed
 			.into_iter()
 			.map(|d| active_set.iter().position(|a| *a == d).unwrap() as u32)
 			.collect::<Vec<_>>();
 
+		// Ensure that every actually disabled validator is also in the potentially disabled set
+		// (not necessarily the other way around)
+		let disabled = Session::disabled_validators();
+		for d in disabled.iter() {
+			assert!(potentially_disabled.contains(d));
+		}
+
+		// Ensure no more than disabling limit of validators (default 1/3) is disabled
+		let disabling_limit = pallet_staking::UpToLimitWithReEnablingDisablingStrategy::<
+			SLASHING_DISABLING_FACTOR,
+		>::disable_limit(active_set_size_before_slash);
+		assert!(disabled.len() == disabling_limit);
+
 		assert_eq!(pallet_staking::ForceEra::<Runtime>::get(), pallet_staking::Forcing::NotForcing);
-		assert_eq!(Session::disabled_validators(), expected_disabled);
 	});
 }
 

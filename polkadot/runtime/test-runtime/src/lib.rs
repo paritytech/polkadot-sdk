@@ -395,7 +395,7 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = polkadot_runtime_common::StakingBenchmarkingConfig;
 	type EventListeners = ();
 	type WeightInfo = ();
-	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
+	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy;
 }
 
 parameter_types! {
@@ -443,6 +443,7 @@ where
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+			frame_system::WeightReclaim::<Runtime>::new(),
 		)
 			.into();
 		let raw_payload = SignedPayload::new(call, tx_ext)
@@ -584,6 +585,7 @@ impl parachains_paras::Config for Runtime {
 
 parameter_types! {
 	pub const BrokerId: u32 = 10u32;
+	pub MaxXcmTransactWeight: Weight = Weight::from_parts(10_000_000, 10_000);
 }
 
 pub struct BrokerPot;
@@ -657,6 +659,7 @@ impl coretime::Config for Runtime {
 	type BrokerId = BrokerId;
 	type WeightInfo = crate::coretime::TestWeightInfo;
 	type SendXcm = DummyXcmSender;
+	type MaxXcmTransactWeight = MaxXcmTransactWeight;
 	type BrokerPotLocation = BrokerPot;
 	type AssetTransactor = ();
 	type AccountToLocation = ();
@@ -832,6 +835,7 @@ pub type TxExtension = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	frame_system::WeightReclaim<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
