@@ -56,7 +56,7 @@ macro_rules! impl_xcm_instruction {
 
 			impl<$generic> TryFrom<$name<$generic>> for $instr $(< $instr_generic >)? {
 				type Error = ();
-				fn try_from(x: $name<$generic>) -> Result<Self, ()> {
+				fn try_from(x: $name<$generic>) -> result::Result<Self, ()> {
 					match x {
 						$name::$instr(x) => Ok(x),
 						_ => Err(()),
@@ -64,8 +64,7 @@ macro_rules! impl_xcm_instruction {
 				}
 			}
 
-			// TODO: make it $crate::IntoInstruction
-			impl<$generic> IntoInstruction<$generic> for $instr $(< $instr_generic >)? {
+			impl<$generic> $crate::traits::IntoInstruction<$name<$generic>> for $instr $(< $instr_generic >)? {
 				fn into_instruction(self) -> $name<$generic> {
 					$name::$instr(self)
 				}

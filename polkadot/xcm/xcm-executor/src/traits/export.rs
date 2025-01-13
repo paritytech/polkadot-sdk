@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use xcm::latest::prelude::*;
+use xcm::latest::{SendResult, prelude::*};
 
 /// Utility for delivering a message to a system under a different (non-local) consensus with a
 /// spoofed origin. This essentially defines the behaviour of the `ExportMessage` XCM instruction.

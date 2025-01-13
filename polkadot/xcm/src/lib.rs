@@ -29,17 +29,22 @@ use derivative::Derivative;
 use frame_support::dispatch::GetDispatchInfo;
 use scale_info::TypeInfo;
 
+mod xcm;
+pub (crate) use xcm::XcmBase;
+
 pub mod v3;
 pub mod v4;
 pub mod v5;
 pub mod v6;
+pub mod traits;
 
 pub mod lts {
 	pub use super::v4::*;
 }
 
 pub mod latest {
-	pub use super::v5::*;
+	pub use super::v6::*;
+	pub use crate::traits::*;
 }
 
 mod double_encoded;
@@ -518,7 +523,7 @@ pub type AlwaysLts = AlwaysV4;
 
 pub mod prelude {
 	pub use super::{
-		latest::prelude::*, AlwaysLatest, AlwaysLts, AlwaysV3, AlwaysV4, AlwaysV5, GetVersion,
+		latest::{prelude::*, SendXcm}, AlwaysLatest, AlwaysLts, AlwaysV3, AlwaysV4, AlwaysV5, GetVersion,
 		IdentifyVersion, IntoVersion, Unsupported, Version as XcmVersion, VersionedAsset,
 		VersionedAssetId, VersionedAssets, VersionedInteriorLocation, VersionedLocation,
 		VersionedResponse, VersionedXcm, WrapVersion,

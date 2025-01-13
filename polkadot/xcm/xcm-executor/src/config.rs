@@ -30,7 +30,7 @@ use xcm::prelude::*;
 /// The trait to parameterize the `XcmExecutor`.
 pub trait Config {
 	/// The outer call dispatch type.
-	type RuntimeCall: Parameter + Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo;
+	type RuntimeCall: Parameter + Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo + 'static;
 
 	/// How to send an onward XCM message.
 	///
