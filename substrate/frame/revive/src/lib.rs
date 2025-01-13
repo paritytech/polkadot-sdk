@@ -299,7 +299,8 @@ pub mod pallet {
 		#[pallet::constant]
 		type NativeToEthRatio: Get<u32>;
 
-		/// Encode and decode Ethereum gas values. See [`GasEncoder`].
+		/// Encode and decode Ethereum gas values.
+		/// Only valid value is `()`. See [`GasEncoder`].
 		#[pallet::no_default_bounds]
 		type EthGasEncoder: GasEncoder<BalanceOf<Self>>;
 	}
@@ -1420,17 +1421,19 @@ where
 				0u32.into(),
 			)
 			.into();
-			let raw_eth_gas = gas_from_fee(fee);
+			let eth_gas = gas_from_fee(fee);
 			let eth_gas =
-				T::EthGasEncoder::encode(raw_eth_gas, result.gas_required, result.storage_deposit);
+				T::EthGasEncoder::encode(eth_gas, result.gas_required, result.storage_deposit);
 
 			if eth_gas == result.eth_gas {
-				log::debug!(target: LOG_TARGET, "bare_eth_call: raw_eth_gas: {raw_eth_gas:?} eth_gas: {eth_gas:?}");
+				log::trace!(target: LOG_TARGET, "bare_eth_call: encoded_len: {encoded_len:?} eth_gas: {eth_gas:?}");
 				break;
 			}
 			result.eth_gas = eth_gas;
 			tx.gas = Some(eth_gas.into());
+			log::debug!(target: LOG_TARGET, "Adjusting Eth gas to: {eth_gas:?}");
 		}
+
 		Ok(result)
 	}
 
