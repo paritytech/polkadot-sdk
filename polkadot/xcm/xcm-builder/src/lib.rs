@@ -132,6 +132,8 @@ pub use routing::{
 mod transactional;
 pub use transactional::FrameTransactionalProcessor;
 
+#[allow(deprecated)]
+pub use universal_exports::UnpaidLocalExporter;
 mod universal_exports;
 pub use universal_exports::{
 	ensure_is_remote, BridgeBlobDispatcher, BridgeMessage, DispatchBlob, DispatchBlobError,
