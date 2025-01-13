@@ -54,6 +54,7 @@ fn set_staking_configs_works() {
 			ConfigOp::Set(10),
 			ConfigOp::Set(20),
 			ConfigOp::Set(Percent::from_percent(75)),
+			ConfigOp::Set(20),
 			ConfigOp::Set(Zero::zero()),
 			ConfigOp::Set(Zero::zero())
 		));
@@ -62,12 +63,14 @@ fn set_staking_configs_works() {
 		assert_eq!(MaxNominatorsCount::<Test>::get(), Some(10));
 		assert_eq!(MaxValidatorsCount::<Test>::get(), Some(20));
 		assert_eq!(ChillThreshold::<Test>::get(), Some(Percent::from_percent(75)));
+		assert_eq!(ChillInactiveValidatorThreshold::<Test>::get(), 20);
 		assert_eq!(MinCommission::<Test>::get(), Perbill::from_percent(0));
 		assert_eq!(MaxStakedRewards::<Test>::get(), Some(Percent::from_percent(0)));
 
 		// noop does nothing
 		assert_storage_noop!(assert_ok!(Staking::set_staking_configs(
 			RuntimeOrigin::root(),
+			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
@@ -86,6 +89,7 @@ fn set_staking_configs_works() {
 			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
+			ConfigOp::Remove,
 			ConfigOp::Remove
 		));
 		assert_eq!(MinNominatorBond::<Test>::get(), 0);
@@ -93,6 +97,7 @@ fn set_staking_configs_works() {
 		assert_eq!(MaxNominatorsCount::<Test>::get(), None);
 		assert_eq!(MaxValidatorsCount::<Test>::get(), None);
 		assert_eq!(ChillThreshold::<Test>::get(), None);
+		assert_eq!(ChillInactiveValidatorThreshold::<Test>::get(), HistoryDepth::get());
 		assert_eq!(MinCommission::<Test>::get(), Perbill::from_percent(0));
 		assert_eq!(MaxStakedRewards::<Test>::get(), None);
 	});
@@ -1803,6 +1808,7 @@ fn max_staked_rewards_works() {
 		// sets new max staked rewards through set_staking_configs.
 		assert_ok!(Staking::set_staking_configs(
 			RuntimeOrigin::root(),
+			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
@@ -5739,6 +5745,7 @@ fn chill_other_works() {
 				ConfigOp::Remove,
 				ConfigOp::Remove,
 				ConfigOp::Remove,
+				ConfigOp::Noop,
 				ConfigOp::Remove,
 				ConfigOp::Noop,
 			));
@@ -5760,6 +5767,7 @@ fn chill_other_works() {
 				ConfigOp::Noop,
 				ConfigOp::Set(10),
 				ConfigOp::Set(10),
+				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
@@ -5785,6 +5793,7 @@ fn chill_other_works() {
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
+				ConfigOp::Noop,
 			));
 
 			// Still can't chill these users
@@ -5805,6 +5814,7 @@ fn chill_other_works() {
 				ConfigOp::Set(10),
 				ConfigOp::Set(10),
 				ConfigOp::Set(Percent::from_percent(75)),
+				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 			));
@@ -5835,6 +5845,122 @@ fn chill_other_works() {
 }
 
 #[test]
+fn chill_inactive_validator_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		let history_depth = HistoryDepth::get();
+
+		// No era recorded, the proof will be rejected.
+		assert_eq!(ErasRewardPoints::<Test>::iter().count(), 0);
+		assert_noop!(
+			Staking::chill_inactive_validator(
+				RuntimeOrigin::signed(0),
+				11,
+				BoundedVec::truncate_from((0..history_depth).collect::<Vec<_>>())
+			),
+			Error::<Test>::InvalidProof,
+		);
+
+		// `11` wasn't a validator of the some of the eras, the proof will be rejected.
+		(0..history_depth).for_each(|era| {
+			if era % 2 == 0 {
+				ErasRewardPoints::<Test>::insert(era, EraRewardPoints::default())
+			} else {
+				ErasRewardPoints::<Test>::insert(
+					era,
+					EraRewardPoints { total: 100, individual: BTreeMap::from_iter([(11, 0)]) },
+				)
+			}
+		});
+		assert_eq!(ErasRewardPoints::<Test>::iter().count() as EraIndex, history_depth);
+		assert_noop!(
+			Staking::chill_inactive_validator(
+				RuntimeOrigin::signed(0),
+				11,
+				BoundedVec::truncate_from((0..history_depth).collect::<Vec<_>>())
+			),
+			Error::<Test>::InvalidProof,
+		);
+
+		// `11` produced some blocks in some of the eras, the proof will be rejected.
+		(0..history_depth).for_each(|era| {
+			if era % 2 == 0 {
+				ErasRewardPoints::<Test>::insert(era, EraRewardPoints::default())
+			} else {
+				ErasRewardPoints::<Test>::insert(
+					era,
+					EraRewardPoints { total: 100, individual: BTreeMap::from_iter([(11, 20)]) },
+				)
+			}
+		});
+		assert_eq!(ErasRewardPoints::<Test>::iter().count() as EraIndex, history_depth);
+		assert_noop!(
+			Staking::chill_inactive_validator(
+				RuntimeOrigin::signed(0),
+				11,
+				BoundedVec::truncate_from((0..history_depth).collect::<Vec<_>>())
+			),
+			Error::<Test>::InvalidProof,
+		);
+
+		// Set the validator has been inactive for `999` eras.
+		(0..999).for_each(|era| {
+			ErasRewardPoints::<Test>::insert(
+				era,
+				EraRewardPoints { total: 0, individual: BTreeMap::from_iter([(11, 0)]) },
+			);
+		});
+		assert_eq!(ErasRewardPoints::<Test>::iter().count(), 999);
+
+		// Not validator will be rejected.
+		assert_noop!(
+			Staking::chill_inactive_validator(RuntimeOrigin::signed(0), 0, Default::default()),
+			Error::<Test>::NotValidator,
+		);
+
+		// Values below the threshold will be rejected.
+		(0..history_depth).for_each(|i| {
+			assert_noop!(
+				Staking::chill_inactive_validator(
+					RuntimeOrigin::signed(0),
+					11,
+					BoundedVec::truncate_from((0..i).collect::<Vec<_>>())
+				),
+				Error::<Test>::InvalidProof,
+			);
+		});
+
+		// Consecutive part cannot fit the threshold will be rejected.
+		{
+			let proof =
+				BoundedVec::truncate_from((0..10).chain(11..history_depth + 1).collect::<Vec<_>>());
+			assert_eq!(proof.len() as EraIndex, history_depth);
+			assert_noop!(
+				Staking::chill_inactive_validator(RuntimeOrigin::signed(0), 11, proof),
+				Error::<Test>::InvalidProof,
+			);
+		}
+
+		// Unsorted proof will be rejected.
+		//
+		// After sorting, the proof will be valid.
+		{
+			let mut proof = BoundedVec::truncate_from((0..history_depth).rev().collect::<Vec<_>>());
+			assert_eq!(proof.len() as EraIndex, history_depth);
+			assert_noop!(
+				Staking::chill_inactive_validator(RuntimeOrigin::signed(0), 11, proof.clone()),
+				Error::<Test>::InvalidProof,
+			);
+
+			proof.sort();
+
+			assert!(Validators::<Test>::contains_key(11));
+			assert_ok!(Staking::chill_inactive_validator(RuntimeOrigin::signed(0), 11, proof));
+			assert!(!Validators::<Test>::contains_key(11));
+		}
+	});
+}
+
+#[test]
 fn capped_stakers_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let validator_count = Validators::<Test>::count();
@@ -5851,6 +5977,7 @@ fn capped_stakers_works() {
 			ConfigOp::Set(max),
 			ConfigOp::Set(max),
 			ConfigOp::Remove,
+			ConfigOp::Noop,
 			ConfigOp::Remove,
 			ConfigOp::Noop,
 		));
@@ -5924,6 +6051,7 @@ fn capped_stakers_works() {
 			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
+			ConfigOp::Noop,
 		));
 		assert_ok!(Staking::nominate(RuntimeOrigin::signed(last_nominator), vec![1]));
 		assert_ok!(Staking::validate(
@@ -5958,6 +6086,7 @@ fn min_commission_works() {
 			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
+			ConfigOp::Noop,
 			ConfigOp::Set(Perbill::from_percent(10)),
 			ConfigOp::Noop,
 		));

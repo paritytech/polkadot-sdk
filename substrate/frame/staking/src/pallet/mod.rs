@@ -721,6 +721,15 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
 
+	/// The number of consecutive eras a validator can remain inactive before being subject to
+	/// chilling by anyone.
+	///
+	/// This must be equal or less than [`Config::HistoryDepth`] and greater than `2` for better
+	/// safety.
+	#[pallet::storage]
+	pub(crate) type ChillInactiveValidatorThreshold<T: Config> =
+		StorageValue<_, u32, ValueQuery, T::HistoryDepth>;
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
@@ -867,6 +876,8 @@ pub mod pallet {
 		NotController,
 		/// Not a stash account.
 		NotStash,
+		/// Not a validator.
+		NotValidator,
 		/// Stash is already bonded.
 		AlreadyBonded,
 		/// Controller is already paired.
@@ -895,8 +906,13 @@ pub mod pallet {
 		NotSortedAndUnique,
 		/// Rewards for this era have already been claimed for this validator.
 		AlreadyClaimed,
+		// The threshold is greater than the [`Config::HistoryDepth`] or less than 2.
+		InvalidChillInactiveValidatorThreshold,
 		/// No nominators exist on this page.
 		InvalidPage,
+		/// Non-consecutive, unsorted, or insufficient era indexes were provided to chill an
+		/// inactive validator.
+		InvalidProof,
 		/// Incorrect previous history depth input provided.
 		IncorrectHistoryDepth,
 		/// Incorrect number of slashing spans provided.
@@ -1941,10 +1957,18 @@ pub mod pallet {
 			max_nominator_count: ConfigOp<u32>,
 			max_validator_count: ConfigOp<u32>,
 			chill_threshold: ConfigOp<Percent>,
+			chill_inactive_validator_threshold: ConfigOp<u32>,
 			min_commission: ConfigOp<Perbill>,
 			max_staked_rewards: ConfigOp<Percent>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
+
+			if let ConfigOp::Set(threshold) = chill_inactive_validator_threshold {
+				ensure!(
+					threshold >= 2 && threshold <= T::HistoryDepth::get(),
+					Error::<T>::InvalidChillInactiveValidatorThreshold
+				);
+			}
 
 			macro_rules! config_op_exp {
 				($storage:ty, $op:ident) => {
@@ -1961,10 +1985,13 @@ pub mod pallet {
 			config_op_exp!(MaxNominatorsCount<T>, max_nominator_count);
 			config_op_exp!(MaxValidatorsCount<T>, max_validator_count);
 			config_op_exp!(ChillThreshold<T>, chill_threshold);
+			config_op_exp!(ChillInactiveValidatorThreshold<T>, chill_inactive_validator_threshold);
 			config_op_exp!(MinCommission<T>, min_commission);
 			config_op_exp!(MaxStakedRewards<T>, max_staked_rewards);
+
 			Ok(())
 		}
+
 		/// Declare a `controller` to stop participating as either a validator or nominator.
 		///
 		/// Effects will be felt at the beginning of the next era.
@@ -2020,6 +2047,7 @@ pub mod pallet {
 			//
 			// Otherwise, if caller is the same as the controller, this is just like `chill`.
 
+			// Only if the key exists but the `OptionQuery`'s value is `None`.
 			if Nominators::<T>::contains_key(&stash) && Nominators::<T>::get(&stash).is_none() {
 				Self::chill_stash(&stash);
 				return Ok(())
@@ -2290,6 +2318,67 @@ pub mod pallet {
 				Error::<T>::BadState
 			);
 			Ok(())
+		}
+
+		/// Chill an inactive validator.
+		///
+		/// - Anyone can call this function.
+		/// - The validator's stash account should be provided.
+		/// - The proof should be a list of consecutive sorted era indexes where the validator has
+		///   not produced any blocks.
+		/// - This will only be successful if the validator has not produced any blocks in
+		///   [`ChillInactiveValidatorThreshold`] consecutive eras.
+		#[pallet::call_index(30)]
+		#[pallet::weight(T::WeightInfo::chill_inactive_validator(proof.len() as _))]
+		pub fn chill_inactive_validator(
+			origin: OriginFor<T>,
+			stash: T::AccountId,
+			proof: BoundedVec<EraIndex, T::HistoryDepth>,
+		) -> DispatchResult {
+			ensure_signed(origin)?;
+
+			ensure!(Validators::<T>::contains_key(&stash), Error::<T>::NotValidator);
+
+			let threshold = ChillInactiveValidatorThreshold::<T>::get();
+
+			ensure!(proof.len() as EraIndex >= threshold, Error::<T>::InvalidProof);
+
+			// Check that the proof is sorted and consecutive.
+			for w in proof.windows(2) {
+				ensure!(w[1] == w[0] + 1, Error::<T>::InvalidProof);
+			}
+
+			let mut consecutive_inactives = 0;
+
+			for era in proof {
+				// Check if the ear exists.
+				if !ErasRewardPoints::<T>::contains_key(era) {
+					consecutive_inactives = 0;
+
+					continue;
+				}
+
+				// Check if the stash was a validator of the era.
+				let Some(&points) = ErasRewardPoints::<T>::get(era).individual.get(&stash) else {
+					consecutive_inactives = 0;
+
+					continue;
+				};
+
+				if points == 0 {
+					consecutive_inactives += 1;
+
+					if consecutive_inactives >= threshold {
+						Self::chill_stash(&stash);
+
+						return Ok(());
+					}
+				} else {
+					consecutive_inactives = 0;
+				}
+			}
+
+			Err(Error::<T>::InvalidProof)?
 		}
 	}
 }

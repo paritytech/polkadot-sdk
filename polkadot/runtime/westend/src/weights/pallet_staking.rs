@@ -826,4 +826,8 @@ impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
+	// TODO: benchmark.
+	fn chill_inactive_validator(l: u32, ) -> Weight {
+		0.into()
+	}
 }
