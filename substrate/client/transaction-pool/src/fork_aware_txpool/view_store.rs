@@ -667,14 +667,17 @@ where
 	/// also will not be banned. No event will be triggered.
 	///
 	/// For other errors, the transaction will be removed from the pool, and it will be included in
-	/// the returned vector. If the tuple's error is None, the transaction will be forcibly removed
-	/// from the pool. It will be included in the returned vector. Additionally transactions
+	/// the returned vector. It will be included in the returned vector. Additionally transactions
 	/// provided as input will be banned from re-entering the pool.
 	///
-	/// For every transaction removed from the pool an Invalid event is triggered.
+	/// If the tuple's error is None, the transaction will be forcibly removed from the pool,
+	/// banned and included into the returned vector.
+	///
+	/// For every transaction removed from the pool (including descendants) an Invalid event is
+	/// triggered.
 	///
 	/// Returns the list of actually removed transactions, which may include transactions dependent
-	/// on provided set.
+	/// on the provided set.
 	pub(crate) fn report_invalid(
 		&self,
 		at: Option<Block::Hash>,
