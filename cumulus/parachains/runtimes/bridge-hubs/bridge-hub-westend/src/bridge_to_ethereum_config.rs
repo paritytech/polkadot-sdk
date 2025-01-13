@@ -142,7 +142,7 @@ parameter_types! {
 		},
 		electra: Fork {
 			version: [5, 0, 0, 0], // 0x05000000
-			epoch: 0,
+			epoch: 20,
 		},
 	};
 }

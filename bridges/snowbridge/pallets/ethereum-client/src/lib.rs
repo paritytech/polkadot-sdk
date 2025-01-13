@@ -201,6 +201,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			update: Box<CheckpointUpdate>,
 		) -> DispatchResult {
+			log::info!(target: LOG_TARGET,"💫 In force checkpoint.");
 			ensure_root(origin)?;
 			Self::process_checkpoint_update(&update)?;
 			Ok(())
@@ -252,6 +253,7 @@ pub mod pallet {
 				update.header.slot,
 				fork_versions.clone(),
 			);
+			log::info!(target: LOG_TARGET,"💫 sync_committee_g_index: {}.", sync_committee_g_index);
 			// Verifies the sync committee in the Beacon state.
 			ensure!(
 				verify_merkle_branch(
@@ -274,6 +276,7 @@ pub mod pallet {
 			// tree leaf.
 			let block_roots_g_index =
 				Self::block_roots_gindex_at_slot(update.header.slot, fork_versions);
+			log::info!(target: LOG_TARGET,"💫 block_roots_g_index: {}.", block_roots_g_index);
 			ensure!(
 				verify_merkle_branch(
 					update.block_roots_root,
@@ -627,9 +630,11 @@ pub mod pallet {
 		/// Returns the fork version based on the current epoch.
 		pub(super) fn select_fork_version(fork_versions: &ForkVersions, epoch: u64) -> ForkVersion {
 			if epoch >= fork_versions.electra.epoch {
+				log::info!(target: LOG_TARGET,"💫 Found Electra fork.");
 				return fork_versions.electra.version
 			}
 			if epoch >= fork_versions.deneb.epoch {
+				log::info!(target: LOG_TARGET,"💫 Found Deneb fork.");
 				return fork_versions.deneb.version
 			}
 			if epoch >= fork_versions.capella.epoch {
