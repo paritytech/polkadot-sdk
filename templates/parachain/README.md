@@ -1,8 +1,5 @@
 <div align="center">
 
-compile_markdown!("README.docify.md", "README.md");
-
-
 # Polkadot SDK's Parachain Template
 
 <img height="70px" alt="Polkadot SDK Logo" src="https://github.com/paritytech/polkadot-sdk/raw/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png#gh-dark-mode-only"/>
