@@ -1077,7 +1077,8 @@ pub mod pallet {
 
 			// You're auto-bonded forever, here. We might improve this by only bonding when
 			// you actually validate/nominate and remove once you unbond __everything__.
-			ledger.bond(payee)?;
+			ledger.bond(payee.clone())?;
+			Self::deposit_event(Event::<T>::RewardDestinationSet { stash, dest: payee});
 
 			Ok(())
 		}
