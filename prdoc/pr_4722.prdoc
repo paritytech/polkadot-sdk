@@ -17,21 +17,21 @@ doc:
       are defined within the runtime itself.
 
 crates:
-- name: frame-support
-  bump: major
-- name: sp-core
-  bump: minor
-- name: sp-api
-  bump: minor
-- name: sp-metadata-ir
-  bump: minor
-- name: frame-system
-  bump: major
-- name: frame-support-procedural
-  bump: major
-- name: westend-runtime
-  bump: minor
-- name: pallet-example-view-functions
-  bump: major
-- name: cumulus-pov-validator
-  bump: minor
+  - name: frame-support
+    bump: major
+  - name: sp-core
+    bump: minor
+  - name: sp-api
+    bump: minor
+  - name: sp-metadata-ir
+    bump: minor
+  - name: frame-system
+    bump: major
+  - name: frame-support-procedural
+    bump: major
+  - name: westend-runtime
+    bump: minor
+  - name: pallet-example-view-functions
+    bump: major
+  - name: cumulus-pov-validator
+    bump: minor
