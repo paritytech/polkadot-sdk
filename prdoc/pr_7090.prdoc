@@ -1,7 +1,7 @@
 # Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
 # See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
 
-title: Snowbridge - Support bridging native ETH
+title: Backport Snowbridge - Support bridging native ETH
 
 doc:
   - audience: Runtime User
