@@ -48,7 +48,6 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_xcm_bridge_hub_router`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_xcm_bridge_hub_router::WeightInfo for WeightInfo<T> {
-	// TODO:revert-for-depracated-new
 	/// Storage: `ToWestendXcmRouter::Bridges` (r:2 w:1)
 	/// Proof: `ToWestendXcmRouter::Bridges` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
 	fn on_idle_when_bridge_state_removed() -> Weight {
@@ -61,23 +60,6 @@ impl<T: frame_system::Config> pallet_xcm_bridge_hub_router::WeightInfo for Weigh
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	// TODO:revert-for-depracated-old
-	// /// Storage: `XcmpQueue::InboundXcmpSuspended` (r:1 w:0)
-	// /// Proof: `XcmpQueue::InboundXcmpSuspended` (`max_values`: Some(1), `max_size`: Some(4002), added: 4497, mode: `MaxEncodedLen`)
-	// /// Storage: `XcmpQueue::OutboundXcmpStatus` (r:1 w:0)
-	// /// Proof: `XcmpQueue::OutboundXcmpStatus` (`max_values`: Some(1), `max_size`: Some(1282), added: 1777, mode: `MaxEncodedLen`)
-	// /// Storage: `ToWestendXcmRouter::Bridge` (r:1 w:1)
-	// /// Proof: `ToWestendXcmRouter::Bridge` (`max_values`: Some(1), `max_size`: Some(17), added: 512, mode: `MaxEncodedLen`)
-	// fn on_initialize_when_non_congested() -> Weight {
-	// 	// Proof Size summary in bytes:
-	// 	//  Measured:  `154`
-	// 	//  Estimated: `5487`
-	// 	// Minimum execution time: 13_884_000 picoseconds.
-	// 	Weight::from_parts(14_312_000, 0)
-	// 		.saturating_add(Weight::from_parts(0, 5487))
-	// 		.saturating_add(T::DbWeight::get().reads(3))
-	// 		.saturating_add(T::DbWeight::get().writes(1))
-	// }
 	/// Storage: `ToWestendXcmRouter::Bridges` (r:2 w:1)
 	/// Proof: `ToWestendXcmRouter::Bridges` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
 	fn on_idle_when_bridge_state_updated() -> Weight {
@@ -90,7 +72,6 @@ impl<T: frame_system::Config> pallet_xcm_bridge_hub_router::WeightInfo for Weigh
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	// TODO:revert-for-depracated-new
 	/// Storage: `ToWestendXcmRouter::Bridges` (r:1 w:1)
 	/// Proof: `ToWestendXcmRouter::Bridges` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
 	fn update_bridge_status() -> Weight {
@@ -103,17 +84,4 @@ impl<T: frame_system::Config> pallet_xcm_bridge_hub_router::WeightInfo for Weigh
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	// TODO:revert-for-depracated-old
-	// /// Storage: `ToWestendXcmRouter::Bridge` (r:1 w:1)
-	// /// Proof: `ToWestendXcmRouter::Bridge` (`max_values`: Some(1), `max_size`: Some(17), added: 512, mode: `MaxEncodedLen`)
-	// fn report_bridge_status() -> Weight {
-	// 	// Proof Size summary in bytes:
-	// 	//  Measured:  `150`
-	// 	//  Estimated: `1502`
-	// 	// Minimum execution time: 12_394_000 picoseconds.
-	// 	Weight::from_parts(12_883_000, 0)
-	// 		.saturating_add(Weight::from_parts(0, 1502))
-	// 		.saturating_add(T::DbWeight::get().reads(1))
-	// 		.saturating_add(T::DbWeight::get().writes(1))
-	// }
 }

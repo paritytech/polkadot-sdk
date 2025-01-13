@@ -98,7 +98,7 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type DestinationVersion =
 		LatestOrNoneForLocationVersionChecker<Equals<UnknownXcmVersionForRoutableLocation>>;
 
-	type ToBridgeHubSender = SovereignPaidRemoteExporter<
+	type MessageExporter = SovereignPaidRemoteExporter<
 		pallet_xcm_bridge_hub_router::impls::ViaRemoteBridgeHubExporter<
 			TestRuntime,
 			(),
@@ -106,7 +106,7 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 			BridgedNetworkId,
 			SiblingBridgeHubLocation,
 		>,
-		TestToBridgeHubSender,
+		TestXcmRouter,
 		UniversalLocation,
 	>;
 
@@ -129,9 +129,9 @@ impl<LocationValue: Contains<Location>> GetVersion
 	}
 }
 
-pub struct TestToBridgeHubSender;
+pub struct TestXcmRouter;
 
-impl TestToBridgeHubSender {
+impl TestXcmRouter {
 	pub fn is_message_sent() -> bool {
 		!Self::get_messages().is_empty()
 	}
@@ -141,7 +141,7 @@ thread_local! {
 	pub static SENT_XCM: RefCell<Vec<(Location, Xcm<()>)>> = RefCell::new(Vec::new());
 }
 
-impl SendXcm for TestToBridgeHubSender {
+impl SendXcm for TestXcmRouter {
 	type Ticket = (Location, Xcm<()>);
 
 	fn validate(
@@ -159,7 +159,7 @@ impl SendXcm for TestToBridgeHubSender {
 	}
 }
 
-impl InspectMessageQueues for TestToBridgeHubSender {
+impl InspectMessageQueues for TestXcmRouter {
 	fn clear_messages() {
 		SENT_XCM.with(|q| q.borrow_mut().clear());
 	}

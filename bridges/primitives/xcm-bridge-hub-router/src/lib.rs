@@ -64,7 +64,7 @@ impl ResolveBridgeId for () {
 	}
 }
 
-// TODO:revert-for-depracated: BridgeId->H256
+// TODO:revert-for-depracated: BridgeId->H256 - FAIL-CI and keep `build_congestion_message` only for deprecated router
 /// A minimized version of `pallet-xcm-bridge-hub-router::Call` that can be used without a runtime.
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 #[allow(non_camel_case_types)]
