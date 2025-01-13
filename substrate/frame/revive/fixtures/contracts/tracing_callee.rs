@@ -14,13 +14,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-//! Emit a "Hello World!" debug message but assume that logging is disabled.
 #![no_std]
 #![no_main]
 
 extern crate common;
-use uapi::{HostFn, HostFnImpl as api, ReturnErrorCode};
+use uapi::{HostFn, HostFnImpl as api, StorageFlags};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -29,5 +27,7 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	assert_eq!(api::debug_message(b"Hello World!"), Err(ReturnErrorCode::LoggingDisabled));
+	// Burn some PoV, clear_storage consumes some PoV as in order to clear the storage we need to we
+	// need to read its size first.
+	api::clear_storage(StorageFlags::empty(), b"");
 }

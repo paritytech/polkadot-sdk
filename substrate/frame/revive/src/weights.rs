@@ -96,7 +96,6 @@ pub trait WeightInfo {
 	fn seal_return(n: u32, ) -> Weight;
 	fn seal_terminate(n: u32, ) -> Weight;
 	fn seal_deposit_event(t: u32, n: u32, ) -> Weight;
-	fn seal_debug_message(i: u32, ) -> Weight;
 	fn get_storage_empty() -> Weight;
 	fn get_storage_full() -> Weight;
 	fn set_storage_empty() -> Weight;
@@ -642,16 +641,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(194_546, 0).saturating_mul(t.into()))
 			// Standard Error: 34
 			.saturating_add(Weight::from_parts(774, 0).saturating_mul(n.into()))
-	}
-	/// The range of component `i` is `[0, 262144]`.
-	fn seal_debug_message(i: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 340_000 picoseconds.
-		Weight::from_parts(306_527, 0)
-			// Standard Error: 1
-			.saturating_add(Weight::from_parts(728, 0).saturating_mul(i.into()))
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -1538,16 +1527,6 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(194_546, 0).saturating_mul(t.into()))
 			// Standard Error: 34
 			.saturating_add(Weight::from_parts(774, 0).saturating_mul(n.into()))
-	}
-	/// The range of component `i` is `[0, 262144]`.
-	fn seal_debug_message(i: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 340_000 picoseconds.
-		Weight::from_parts(306_527, 0)
-			// Standard Error: 1
-			.saturating_add(Weight::from_parts(728, 0).saturating_mul(i.into()))
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)

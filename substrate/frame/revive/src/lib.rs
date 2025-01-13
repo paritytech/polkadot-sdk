@@ -41,6 +41,7 @@ pub mod test_utils;
 pub mod weights;
 
 use crate::{
+	debug::Traces,
 	evm::{
 		runtime::{gas_from_fee, GAS_PRICE},
 		GasEncoder, GenericTransaction,
@@ -71,7 +72,7 @@ use frame_support::{
 use frame_system::{
 	ensure_signed,
 	pallet_prelude::{BlockNumberFor, OriginFor},
-	EventRecord, Pallet as System,
+	Pallet as System,
 };
 use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
@@ -94,13 +95,10 @@ pub use weights::WeightInfo;
 pub use crate::wasm::SyscallDoc;
 
 type TrieId = BoundedVec<u8, ConstU32<128>>;
-type BalanceOf<T> =
+pub type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
 type CodeVec = BoundedVec<u8, ConstU32<{ limits::code::BLOB_BYTES }>>;
-type EventRecordOf<T> =
-	EventRecord<<T as frame_system::Config>::RuntimeEvent, <T as frame_system::Config>::Hash>;
-type DebugBuffer = BoundedVec<u8, ConstU32<{ limits::DEBUG_BUFFER_BYTES }>>;
 type ImmutableData = BoundedVec<u8, ConstU32<{ limits::IMMUTABLE_BYTES }>>;
 
 /// Used as a sentinel value when reading and writing contract memory.
@@ -121,7 +119,7 @@ const LOG_TARGET: &str = "runtime::revive";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use crate::debug::Debugger;
+	use crate::debug::{Debugger, Tracer};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use sp_core::U256;
@@ -258,9 +256,9 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type InstantiateOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
 
-		/// For most production chains, it's recommended to use the `()` implementation of this
-		/// trait. This implementation offers additional logging when the log target
-		/// "runtime::revive" is set to trace.
+		/// Debugging utilities for contracts.
+		/// For production chains, it's recommended to use the `()` implementation of this
+		/// trait.
 		#[pallet::no_default_bounds]
 		type Debug: Debugger<Self>;
 
@@ -746,6 +744,20 @@ pub mod pallet {
 		}
 	}
 
+	use crate::evm::Traces;
+	environmental!(tracer: Tracer);
+	pub fn using_tracer<R>(t: &mut Tracer, f: impl FnOnce() -> R) -> R {
+		tracer::using(t, f)
+	}
+
+	pub fn with_tracer(f: impl FnOnce(&mut Tracer)) {
+		tracer::with(f);
+	}
+
+	pub fn traces() -> Option<Traces> {
+		tracer::with(|tracer| tracer.clone().traces())
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T>
 	where
@@ -809,9 +821,8 @@ pub mod pallet {
 				gas_limit,
 				DepositLimit::Balance(storage_deposit_limit),
 				data,
-				DebugInfo::Skip,
-				CollectEvents::Skip,
 			);
+
 			if let Ok(return_value) = &output.result {
 				if return_value.did_revert() {
 					output.result = Err(<Error<T>>::ContractReverted.into());
@@ -847,8 +858,6 @@ pub mod pallet {
 				Code::Existing(code_hash),
 				data,
 				salt,
-				DebugInfo::Skip,
-				CollectEvents::Skip,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -913,8 +922,6 @@ pub mod pallet {
 				Code::Upload(code),
 				data,
 				salt,
-				DebugInfo::Skip,
-				CollectEvents::Skip,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -1084,16 +1091,10 @@ where
 		gas_limit: Weight,
 		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		data: Vec<u8>,
-		debug: DebugInfo,
-		collect_events: CollectEvents,
-	) -> ContractResult<ExecReturnValue, BalanceOf<T>, EventRecordOf<T>> {
+	) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
-		let mut debug_message = if matches!(debug, DebugInfo::UnsafeDebug) {
-			Some(DebugBuffer::default())
-		} else {
-			None
-		};
+
 		let try_call = || {
 			let origin = Origin::from_runtime_origin(origin)?;
 			let mut storage_meter = match storage_deposit_limit {
@@ -1108,7 +1109,6 @@ where
 				Self::convert_native_to_evm(value),
 				data,
 				storage_deposit_limit.is_unchecked(),
-				debug_message.as_mut(),
 			)?;
 			storage_deposit = storage_meter
 				.try_into_deposit(&origin, storage_deposit_limit.is_unchecked())
@@ -1118,18 +1118,12 @@ where
 			Ok(result)
 		};
 		let result = Self::run_guarded(try_call);
-		let events = if matches!(collect_events, CollectEvents::UnsafeCollect) {
-			Some(System::<T>::read_events_no_consensus().map(|e| *e).collect())
-		} else {
-			None
-		};
 		ContractResult {
 			result: result.map_err(|r| r.error),
 			gas_consumed: gas_meter.gas_consumed(),
 			gas_required: gas_meter.gas_required(),
 			storage_deposit,
-			debug_message: debug_message.unwrap_or_default().to_vec(),
-			events,
+			traces: traces(),
 		}
 	}
 
@@ -1137,8 +1131,8 @@ where
 	///
 	/// Identical to [`Self::instantiate`] or [`Self::instantiate_with_code`] but tailored towards
 	/// being called by other code within the runtime as opposed to from an extrinsic. It returns
-	/// more information and allows the enablement of features that are not suitable for an
-	/// extrinsic (debugging, event collection).
+	/// more information and allows the enablement of debugging features that are not suitable for
+	/// an extrinsic.
 	pub fn bare_instantiate(
 		origin: OriginFor<T>,
 		value: BalanceOf<T>,
@@ -1147,14 +1141,9 @@ where
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
-		debug: DebugInfo,
-		collect_events: CollectEvents,
-	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>, EventRecordOf<T>> {
+	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
-		let mut debug_message =
-			if debug == DebugInfo::UnsafeDebug { Some(DebugBuffer::default()) } else { None };
-
 		let unchecked_deposit_limit = storage_deposit_limit.is_unchecked();
 		let mut storage_deposit_limit = match storage_deposit_limit {
 			DepositLimit::Balance(limit) => limit,
@@ -1194,7 +1183,6 @@ where
 				data,
 				salt.as_ref(),
 				unchecked_deposit_limit,
-				debug_message.as_mut(),
 			);
 			storage_deposit = storage_meter
 				.try_into_deposit(&instantiate_origin, unchecked_deposit_limit)?
@@ -1202,11 +1190,6 @@ where
 			result
 		};
 		let output = Self::run_guarded(try_instantiate);
-		let events = if matches!(collect_events, CollectEvents::UnsafeCollect) {
-			Some(System::<T>::read_events_no_consensus().map(|e| *e).collect())
-		} else {
-			None
-		};
 		ContractResult {
 			result: output
 				.map(|(addr, result)| InstantiateReturnValue { result, addr })
@@ -1214,8 +1197,7 @@ where
 			gas_consumed: gas_meter.gas_consumed(),
 			gas_required: gas_meter.gas_required(),
 			storage_deposit,
-			debug_message: debug_message.unwrap_or_default().to_vec(),
-			events,
+			traces: traces(),
 		}
 	}
 
@@ -1272,8 +1254,6 @@ where
 		};
 
 		let input = tx.input.clone().unwrap_or_default().0;
-		let debug = DebugInfo::Skip;
-		let collect_events = CollectEvents::Skip;
 
 		let extract_error = |err| {
 			if err == Error::<T>::TransferFailed.into() ||
@@ -1304,8 +1284,6 @@ where
 					gas_limit,
 					storage_deposit_limit,
 					input.clone(),
-					debug,
-					collect_events,
 				);
 
 				let data = match result.result {
@@ -1362,8 +1340,6 @@ where
 					Code::Upload(code.to_vec()),
 					data.to_vec(),
 					None,
-					debug,
-					collect_events,
 				);
 
 				let returned_data = match result.result {
@@ -1532,12 +1508,11 @@ environmental!(executing_contract: bool);
 sp_api::decl_runtime_apis! {
 	/// The API used to dry-run contract interactions.
 	#[api_version(1)]
-	pub trait ReviveApi<AccountId, Balance, Nonce, BlockNumber, EventRecord> where
+	pub trait ReviveApi<AccountId, Balance, Nonce, BlockNumber> where
 		AccountId: Codec,
 		Balance: Codec,
 		Nonce: Codec,
 		BlockNumber: Codec,
-		EventRecord: Codec,
 	{
 		/// Returns the free balance of the given `[H160]` address, using EVM decimals.
 		fn balance(address: H160) -> U256;
@@ -1555,7 +1530,7 @@ sp_api::decl_runtime_apis! {
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
 			input_data: Vec<u8>,
-		) -> ContractResult<ExecReturnValue, Balance, EventRecord>;
+		) -> ContractResult<ExecReturnValue, Balance>;
 
 		/// Instantiate a new contract.
 		///
@@ -1568,7 +1543,7 @@ sp_api::decl_runtime_apis! {
 			code: Code,
 			data: Vec<u8>,
 			salt: Option<[u8; 32]>,
-		) -> ContractResult<InstantiateReturnValue, Balance, EventRecord>;
+		) -> ContractResult<InstantiateReturnValue, Balance>;
 
 
 		/// Perform an Ethereum call.

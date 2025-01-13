@@ -39,7 +39,7 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-revive-fixtures = { workspace = true, optional = true }
 pallet-revive-proc-macro = { workspace = true }
-pallet-revive-uapi = { workspace = true, features = ["scale"] }
+pallet-revive-uapi = { workspace = true, features = ["scale", "serde"] }
 pallet-transaction-payment = { workspace = true }
 sp-api = { workspace = true }
 sp-arithmetic = { workspace = true }

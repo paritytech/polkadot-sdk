@@ -339,8 +339,6 @@ pub enum RuntimeCosts {
 	Terminate(u32),
 	/// Weight of calling `seal_deposit_event` with the given number of topics and event size.
 	DepositEvent { num_topic: u32, len: u32 },
-	/// Weight of calling `seal_debug_message` per byte of passed message.
-	DebugMessage(u32),
 	/// Weight of calling `seal_set_storage` for the given storage item sizes.
 	SetStorage { old_bytes: u32, new_bytes: u32 },
 	/// Weight of calling `seal_clear_storage` per cleared byte.
@@ -489,7 +487,6 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			WeightToFee => T::WeightInfo::seal_weight_to_fee(),
 			Terminate(locked_dependencies) => T::WeightInfo::seal_terminate(locked_dependencies),
 			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len),
-			DebugMessage(len) => T::WeightInfo::seal_debug_message(len),
 			SetStorage { new_bytes, old_bytes } => {
 				cost_storage!(write, seal_set_storage, new_bytes, old_bytes)
 			},
@@ -669,10 +666,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		match result {
 			Ok(_) => Ok(ReturnErrorCode::Success),
 			Err(e) => {
-				if self.ext.debug_buffer_enabled() {
-					self.ext.append_debug_buffer("call failed with: ");
-					self.ext.append_debug_buffer(e.into());
-				};
+				log::debug!(target: LOG_TARGET, "call failed with: {e:?}");
 				Ok(ErrorReturnCode::get())
 			},
 		}
@@ -1834,27 +1828,6 @@ pub mod env {
 		self.contains_storage(memory, flags, key_ptr, key_len)
 	}
 
-	/// Emit a custom debug message.
-	/// See [`pallet_revive_uapi::HostFn::debug_message`].
-	fn debug_message(
-		&mut self,
-		memory: &mut M,
-		str_ptr: u32,
-		str_len: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
-		let str_len = str_len.min(limits::DEBUG_BUFFER_BYTES);
-		self.charge_gas(RuntimeCosts::DebugMessage(str_len))?;
-		if self.ext.append_debug_buffer("") {
-			let data = memory.read(str_ptr, str_len)?;
-			if let Some(msg) = core::str::from_utf8(&data).ok() {
-				self.ext.append_debug_buffer(msg);
-			}
-			Ok(ReturnErrorCode::Success)
-		} else {
-			Ok(ReturnErrorCode::LoggingDisabled)
-		}
-	}
-
 	/// Recovers the ECDSA public key from the given message hash and signature.
 	/// See [`pallet_revive_uapi::HostFn::ecdsa_recover`].
 	fn ecdsa_recover(
@@ -2164,10 +2137,7 @@ pub mod env {
 				Ok(ReturnErrorCode::Success)
 			},
 			Err(e) => {
-				if self.ext.append_debug_buffer("") {
-					self.ext.append_debug_buffer("seal0::xcm_send failed with: ");
-					self.ext.append_debug_buffer(e.into());
-				};
+				log::debug!(target: LOG_TARGET, "seal0::xcm_send failed with: {e:?}");
 				Ok(ReturnErrorCode::XcmSendFailed)
 			},
 		}

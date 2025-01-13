@@ -15173,6 +15173,7 @@ dependencies = [
  "paste",
  "polkavm-derive 0.18.0",
  "scale-info",
+ "serde",
 ]
 
 [[package]]
