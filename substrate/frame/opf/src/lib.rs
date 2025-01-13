@@ -385,10 +385,14 @@ pub mod pallet {
 			let infos = WhiteListedProjectAccounts::<T>::get(&project_id)
 				.ok_or(Error::<T>::NoProjectAvailable)?;
 			let ref_index = infos.index;
-			let vote = Democracy::Vote { aye: is_fund, conviction };
-			let converted_amount = Self::convert_balance(amount).ok_or("Failed Conversion!!!")?;
+			
+			// Funds lock is handled by the opf pallet 
+			let conv = Democracy::Conviction::None;
+			let vote = Democracy::Vote { aye: is_fund, conviction: conv };
+			let converted_amount = Self::convert_balance(amount.clone()).ok_or("Failed Conversion!!!")?;
 			let account_vote = Democracy::AccountVote::Standard { vote, balance: converted_amount };
 
+			Self::try_vote(voter, project_id, amount, is_fund, conviction )?;
 			Democracy::Pallet::<T>::vote(origin, ref_index, account_vote)?;
 
 			Ok(())
