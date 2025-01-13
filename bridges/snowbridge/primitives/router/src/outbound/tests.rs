@@ -18,7 +18,6 @@ parameter_types! {
 	UniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetwork::get()), Parachain(1013)].into();
 	const BridgedNetwork: NetworkId =  Ethereum{ chain_id: 1 };
 	const NonBridgedNetwork: NetworkId =  Ethereum{ chain_id: 2 };
-	pub AssetHubParaId: ParaId = ParaId::from(1000);
 }
 
 struct MockOkOutboundQueue;
@@ -87,7 +86,6 @@ fn exporter_validate_with_unknown_network_yields_not_applicable() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
-			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::NotApplicable));
 }
@@ -107,7 +105,6 @@ fn exporter_validate_with_invalid_destination_yields_missing_argument() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
-			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::MissingArgument));
 }
@@ -130,7 +127,6 @@ fn exporter_validate_with_x8_destination_yields_not_applicable() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
-			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::NotApplicable));
 }
@@ -150,7 +146,6 @@ fn exporter_validate_without_universal_source_yields_missing_argument() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
-			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::MissingArgument));
 }
@@ -170,7 +165,6 @@ fn exporter_validate_without_global_universal_location_yields_not_applicable() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
-			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::NotApplicable));
 }
@@ -190,7 +184,6 @@ fn exporter_validate_without_global_bridge_location_yields_not_applicable() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
-			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::NotApplicable));
 }
@@ -211,7 +204,6 @@ fn exporter_validate_with_remote_universal_source_yields_not_applicable() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
-			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::NotApplicable));
 }
@@ -231,7 +223,6 @@ fn exporter_validate_without_para_id_in_source_yields_not_applicable() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
-			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::NotApplicable));
 }
@@ -252,7 +243,6 @@ fn exporter_validate_complex_para_id_in_source_yields_not_applicable() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
-			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::NotApplicable));
 }
@@ -273,7 +263,6 @@ fn exporter_validate_without_xcm_message_yields_missing_argument() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
-			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 	assert_eq!(result, Err(XcmSendError::MissingArgument));
 }
@@ -321,7 +310,6 @@ fn exporter_validate_with_max_target_fee_yields_unroutable() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
-			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 
 	assert_eq!(result, Err(XcmSendError::Unroutable));
@@ -349,7 +337,6 @@ fn exporter_validate_with_unparsable_xcm_yields_unroutable() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
-			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 
 	assert_eq!(result, Err(XcmSendError::Unroutable));
@@ -396,7 +383,6 @@ fn exporter_validate_xcm_success_case_1() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
-			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 
 	assert!(result.is_ok());
@@ -410,7 +396,6 @@ fn exporter_deliver_with_submit_failure_yields_unroutable() {
 		MockErrOutboundQueue,
 		AgentIdOf,
 		MockTokenIdConvert,
-		AssetHubParaId,
 	>::deliver((hex!("deadbeef").to_vec(), XcmHash::default()));
 	assert_eq!(result, Err(XcmSendError::Transport("other transport error")))
 }
@@ -522,6 +507,46 @@ fn xcm_converter_convert_with_wildcard_all_asset_filter_succeeds() {
 		agent_id: Default::default(),
 		command: AgentExecuteCommand::TransferToken {
 			token: token_address.into(),
+			recipient: beneficiary_address.into(),
+			amount: 1000,
+		},
+	};
+	let result = converter.convert();
+	assert_eq!(result, Ok((expected_payload, [0; 32])));
+}
+
+#[test]
+fn xcm_converter_convert_with_native_eth_succeeds() {
+	let network = BridgedNetwork::get();
+
+	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
+
+	// The asset is `{ parents: 0, interior: X1(Here) }` relative to ethereum.
+	let assets: Assets = vec![Asset { id: AssetId([].into()), fun: Fungible(1000) }].into();
+	let filter: AssetFilter = Wild(All);
+
+	let message: Xcm<()> = vec![
+		WithdrawAsset(assets.clone()),
+		ClearOrigin,
+		BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
+		DepositAsset {
+			assets: filter,
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
+		},
+		SetTopic([0; 32]),
+	]
+	.into();
+
+	let mut converter =
+		XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+
+	// The token address that is expected to be sent should be
+	// `0x0000000000000000000000000000000000000000`. The solidity will
+	// interpret this as a transfer of ETH.
+	let expected_payload = Command::AgentExecute {
+		agent_id: Default::default(),
+		command: AgentExecuteCommand::TransferToken {
+			token: H160([0; 20]),
 			recipient: beneficiary_address.into(),
 			amount: 1000,
 		},
@@ -1223,7 +1248,6 @@ fn exporter_validate_with_invalid_dest_does_not_alter_destination() {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
-			AssetHubParaId,
 		>::validate(
 			network, channel, &mut universal_source_wrapper, &mut dest_wrapper, &mut msg_wrapper
 		);
@@ -1277,7 +1301,6 @@ fn exporter_validate_with_invalid_universal_source_does_not_alter_universal_sour
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
-			AssetHubParaId,
 		>::validate(
 			network, channel, &mut universal_source_wrapper, &mut dest_wrapper, &mut msg_wrapper
 		);

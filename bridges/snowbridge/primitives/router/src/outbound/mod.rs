@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! Converts XCM messages into simpler commands that can be processed by the Gateway contract
 
+mod barriers;
+pub use barriers::DenyFirstExportMessageFrom;
 #[cfg(test)]
 mod tests;
 
@@ -26,7 +28,6 @@ pub struct EthereumBlobExporter<
 	OutboundQueue,
 	AgentHashedDescription,
 	ConvertAssetId,
-	WhitelistedParaId,
 >(
 	PhantomData<(
 		UniversalLocation,
@@ -34,25 +35,17 @@ pub struct EthereumBlobExporter<
 		OutboundQueue,
 		AgentHashedDescription,
 		ConvertAssetId,
-		WhitelistedParaId,
 	)>,
 );
 
-impl<
-		UniversalLocation,
-		EthereumNetwork,
-		OutboundQueue,
-		AgentHashedDescription,
-		ConvertAssetId,
-		WhitelistedParaId,
-	> ExportXcm
+impl<UniversalLocation, EthereumNetwork, OutboundQueue, AgentHashedDescription, ConvertAssetId>
+	ExportXcm
 	for EthereumBlobExporter<
 		UniversalLocation,
 		EthereumNetwork,
 		OutboundQueue,
 		AgentHashedDescription,
 		ConvertAssetId,
-		WhitelistedParaId,
 	>
 where
 	UniversalLocation: Get<InteriorLocation>,
@@ -60,7 +53,6 @@ where
 	OutboundQueue: SendMessage<Balance = u128>,
 	AgentHashedDescription: ConvertLocation<H256>,
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
-	WhitelistedParaId: Get<ParaId>,
 {
 	type Ticket = (Vec<u8>, XcmHash);
 
@@ -104,12 +96,11 @@ where
 			return Err(SendError::NotApplicable)
 		}
 
-		// Check the location here can only be AssetHub sovereign
 		let para_id = match local_sub.as_slice() {
-			[Parachain(para_id)] if ParaId::from(*para_id) == WhitelistedParaId::get() => *para_id,
+			[Parachain(para_id)] => *para_id,
 			_ => {
-				log::debug!(target: "xcm::ethereum_blob_exporter", "only supports Asset Hub root location as the universal source '{local_sub:?}'.");
-				return Err(SendError::NotApplicable);
+				log::error!(target: "xcm::ethereum_blob_exporter", "could not get parachain id from universal source '{local_sub:?}'.");
+				return Err(SendError::NotApplicable)
 			},
 		};
 
@@ -300,8 +291,13 @@ where
 		let (token, amount) = match reserve_asset {
 			Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
 				match inner_location.unpack() {
+					// Get the ERC20 contract address of the token.
 					(0, [AccountKey20 { network, key }]) if self.network_matches(network) =>
 						Some((H160(*key), *amount)),
+					// If there is no ERC20 contract address in the location then signal to the
+					// gateway that is a native Ether transfer by using
+					// `0x0000000000000000000000000000000000000000` as the token address.
+					(0, []) => Some((H160([0; 20]), *amount)),
 					_ => None,
 				},
 			_ => None,

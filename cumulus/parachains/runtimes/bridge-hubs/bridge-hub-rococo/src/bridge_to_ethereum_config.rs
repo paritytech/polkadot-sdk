@@ -35,7 +35,6 @@ use testnet_parachains_constants::rococo::{
 use crate::xcm_config::RelayNetwork;
 #[cfg(feature = "runtime-benchmarks")]
 use benchmark_helpers::DoNothingRouter;
-use cumulus_primitives_core::ParaId;
 use frame_support::{parameter_types, weights::ConstantMultiplier};
 use pallet_xcm::EnsureXcm;
 use sp_runtime::{
@@ -51,13 +50,11 @@ pub type SnowbridgeExporter = EthereumBlobExporter<
 	snowbridge_pallet_outbound_queue::Pallet<Runtime>,
 	snowbridge_core::AgentIdOf,
 	EthereumSystem,
-	AssetHubParaId,
 >;
 
 // Ethereum Bridge
 parameter_types! {
 	pub storage EthereumGatewayAddress: H160 = H160(hex_literal::hex!("EDa338E4dC46038493b885327842fD3E301CaB39"));
-	pub AssetHubParaId: ParaId = ParaId::from(rococo_runtime_constants::system_parachain::ASSET_HUB_ID);
 }
 
 parameter_types! {
