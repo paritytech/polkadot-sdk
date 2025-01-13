@@ -2,13 +2,7 @@ title: 'xcm: Fixes for `UnpaidLocalExporter`'
 doc:
 - audience: Runtime Dev
   description: |-
-    ## Description
-
     This PR deprecates `UnpaidLocalExporter` in favor of the new `LocalExporter`. First, the name is misleading, as it can be used in both paid and unpaid scenarios. Second, it contains a hard-coded channel 0, whereas `LocalExporter` uses the same algorithm as `xcm-exporter`.
-
-    ## Future Improvements
-
-    Remove the `channel` argument and slightly modify the `ExportXcm::validate` signature as part of [this issue](https://github.com/orgs/paritytech/projects/145/views/8?pane=issue&itemId=84899273).
 crates:
 - name: staging-xcm-builder
   bump: patch
