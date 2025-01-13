@@ -18,10 +18,10 @@
 //! Treasury pallet tests.
 
 #![cfg(test)]
-use super::*;
+use super::{*, BadOrigin};
 use crate::{self as pallet_tips, Event as TipEvent};
 use frame::{
-	testing_prelude::*,
+	testing_prelude::{*, storage::migration::move_pallet},
 	traits::tokens::{PayFromAccount, UnityAssetBalanceConversion},
 };
 
