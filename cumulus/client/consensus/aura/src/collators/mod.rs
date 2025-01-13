@@ -188,11 +188,7 @@ where
 
 	let slot = if api_version > 1 { relay_slot } else { para_slot };
 
-	if runtime_api.can_build_upon(parent_hash, included_block, slot).ok()? {
-		Some(SlotClaim::unchecked::<P>(author_pub, para_slot, timestamp))
-	} else {
-		None
-	}
+	runtime_api.can_build_upon(parent_hash, included_block, slot).ok().map(|_| SlotClaim::unchecked::<P>(author_pub, para_slot, timestamp))
 }
 
 /// Use [`cumulus_client_consensus_common::find_potential_parents`] to find parachain blocks that
