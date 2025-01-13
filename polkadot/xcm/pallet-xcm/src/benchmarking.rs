@@ -597,11 +597,14 @@ mod benchmarks {
 		Ok(())
 	}
 
-	add_authorized_alias {
+	#[benchmark]
+	fn add_authorized_alias() -> Result<(), BenchmarkError> {
 		let who: T::AccountId = whitelisted_caller();
 		let origin = RawOrigin::Signed(who.clone());
-		let origin_location: VersionedLocation = T::ExecuteXcmOrigin::try_origin(origin.clone().into())
-			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?.into();
+		let origin_location: VersionedLocation =
+			T::ExecuteXcmOrigin::try_origin(origin.clone().into())
+				.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?
+				.into();
 
 		// Give some multiple of ED
 		let balance = T::ExistentialDeposit::get() * 10u32.into();
@@ -611,7 +614,9 @@ mod benchmarks {
 		let mut existing_aliases = BoundedVec::<OriginAliaser, MaxAuthorizedAliases>::new();
 		// prepopulate list with `max-1` aliases to benchmark worst case
 		for i in 1..MaxAuthorizedAliases::get() {
-			let alias = Location::new(1, [Parachain(i), AccountId32 { network: None, id: [42_u8; 32] }]).into();
+			let alias =
+				Location::new(1, [Parachain(i), AccountId32 { network: None, id: [42_u8; 32] }])
+					.into();
 			let aliaser = OriginAliaser { location: alias, expiry: None };
 			existing_aliases.try_push(aliaser).unwrap()
 		}
@@ -621,14 +626,23 @@ mod benchmarks {
 
 		// now benchmark adding new alias
 		let aliaser: VersionedLocation =
-			Location::new(1, [Parachain(1234), AccountId32 { network: None, id: [42_u8; 32] }]).into();
-	}: _(origin, Box::new(aliaser), None)
+			Location::new(1, [Parachain(1234), AccountId32 { network: None, id: [42_u8; 32] }])
+				.into();
 
-	remove_authorized_alias {
+		#[extrinsic_call]
+		_(origin, Box::new(aliaser), None);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn remove_authorized_alias() -> Result<(), BenchmarkError> {
 		let who: T::AccountId = whitelisted_caller();
 		let origin = RawOrigin::Signed(who.clone());
-		let origin_location: VersionedLocation = T::ExecuteXcmOrigin::try_origin(origin.clone().into())
-			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?.into();
+		let origin_location: VersionedLocation =
+			T::ExecuteXcmOrigin::try_origin(origin.clone().into())
+				.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?
+				.into();
 
 		// Give some multiple of ED
 		let balance = T::ExistentialDeposit::get() * 10u32.into();
@@ -637,8 +651,10 @@ mod benchmarks {
 
 		let mut existing_aliases = BoundedVec::<OriginAliaser, MaxAuthorizedAliases>::new();
 		// prepopulate list with `max` aliases to benchmark worst case
-		for i in 1..MaxAuthorizedAliases::get()+1 {
-			let alias = Location::new(1, [Parachain(i), AccountId32 { network: None, id: [42_u8; 32] }]).into();
+		for i in 1..MaxAuthorizedAliases::get() + 1 {
+			let alias =
+				Location::new(1, [Parachain(i), AccountId32 { network: None, id: [42_u8; 32] }])
+					.into();
 			let aliaser = OriginAliaser { location: alias, expiry: None };
 			existing_aliases.try_push(aliaser).unwrap()
 		}
@@ -649,7 +665,12 @@ mod benchmarks {
 		// now benchmark removing an alias
 		let aliaser_to_remove: VersionedLocation =
 			Location::new(1, [Parachain(1), AccountId32 { network: None, id: [42_u8; 32] }]).into();
-	}: _(origin, Box::new(aliaser_to_remove))
+
+		#[extrinsic_call]
+		_(origin, Box::new(aliaser_to_remove));
+
+		Ok(())
+	}
 
 	impl_benchmark_test_suite!(
 		Pallet,
