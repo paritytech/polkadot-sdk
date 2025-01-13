@@ -352,25 +352,32 @@ where
 	/// Attempts to insert a new transaction in the memory pool and drop some worse existing
 	/// transactions.
 	///
+	/// A "worse" transaction means transaction with lower priority, or older transaction with the
+	/// same prio.
+	///
 	/// This operation will not overflow the limit of the mempool. It means that cumulative
 	/// size of removed transactions will be equal (or greated) then size of newly inserted
 	/// transaction.
 	///
 	/// Returns a `Result` containing `InsertionInfo` if the new transaction is successfully
 	/// inserted; otherwise, returns an appropriate error indicating the failure.
-	pub(super) fn try_insert_with_dropping(
+	pub(super) fn try_insert_with_replacement(
 		&self,
-		hash: ExtrinsicHash<ChainApi>,
-		new_tx: TxInMemPool<ChainApi, Block>,
+		new_tx: ExtrinsicFor<ChainApi>,
+		priority: TransactionPriority,
+		source: TransactionSource,
+		watched: bool,
 	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error> {
+		let (hash, length) = self.api.hash_and_length(&new_tx);
+		let new_tx = TxInMemPool::new_with_priority(watched, source, new_tx, length, priority);
+		if new_tx.bytes > self.max_transactions_total_bytes {
+			return Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped);
+		}
+
 		let mut transactions = self.transactions.write();
 
 		if transactions.contains_key(&hash) {
 			return Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(hash)));
-		}
-
-		if new_tx.bytes > self.max_transactions_total_bytes {
-			return Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped);
 		}
 
 		let mut sorted = transactions
@@ -420,28 +427,6 @@ where
 		debug_assert!(!self.is_limit_exceeded(transactions.len(), self.transactions.bytes()));
 
 		Ok(InsertionInfo::new_with_removed(hash, source, to_be_removed))
-	}
-
-	/// Attempts to insert a new transaction in the memory pool and drop some worse existing
-	/// transactions.
-	///
-	/// This operation will not overflow the limit of the mempool. It means that cumulative
-	/// size of removed transactions will be equal (or greated) then size of newly inserted
-	/// transaction.
-	///
-	/// Refer to [`TxMemPool::try_insert_with_dropping`] for more details.
-	pub(super) fn try_replace_transaction(
-		&self,
-		new_xt: ExtrinsicFor<ChainApi>,
-		priority: TransactionPriority,
-		source: TransactionSource,
-		watched: bool,
-	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error> {
-		let (hash, length) = self.api.hash_and_length(&new_xt);
-		self.try_insert_with_dropping(
-			hash,
-			TxInMemPool::new_with_priority(watched, source, new_xt, length, priority),
-		)
 	}
 
 	/// Adds a new unwatched transactions to the internal buffer not exceeding the limit.
@@ -803,7 +788,7 @@ mod tx_mem_pool_tests {
 		let xt = Arc::from(large_uxt(98));
 		let hash = api.hash_and_length(&xt).0;
 		let result = mempool
-			.try_replace_transaction(xt, hi_prio, TransactionSource::External, false)
+			.try_insert_with_replacement(xt, hi_prio, TransactionSource::External, false)
 			.unwrap();
 
 		assert_eq!(result.hash, hash);
@@ -845,7 +830,7 @@ mod tx_mem_pool_tests {
 		let (hash, length) = api.hash_and_length(&xt);
 		assert_eq!(length, 1130);
 		let result = mempool
-			.try_replace_transaction(xt, hi_prio, TransactionSource::External, false)
+			.try_insert_with_replacement(xt, hi_prio, TransactionSource::External, false)
 			.unwrap();
 
 		assert_eq!(result.hash, hash);
@@ -887,7 +872,7 @@ mod tx_mem_pool_tests {
 		// overhead is 105, thus length: 105 + 2154
 		assert_eq!(length, 2 * LARGE_XT_SIZE + 1);
 		let result = mempool
-			.try_replace_transaction(xt, hi_prio, TransactionSource::External, false)
+			.try_insert_with_replacement(xt, hi_prio, TransactionSource::External, false)
 			.unwrap();
 
 		assert_eq!(result.hash, hash);
@@ -926,7 +911,7 @@ mod tx_mem_pool_tests {
 		//this one should drop 3 xts (each of size 1129)
 		let xt = Arc::from(large_uxt(98));
 		let result =
-			mempool.try_replace_transaction(xt, low_prio, TransactionSource::External, false);
+			mempool.try_insert_with_replacement(xt, low_prio, TransactionSource::External, false);
 
 		// we did not update priorities (update_transaction_priority was not called):
 		assert!(matches!(
@@ -959,7 +944,7 @@ mod tx_mem_pool_tests {
 		assert_eq!(length, 2 * LARGE_XT_SIZE + 1);
 
 		let result =
-			mempool.try_replace_transaction(xt, hi_prio, TransactionSource::External, false);
+			mempool.try_insert_with_replacement(xt, hi_prio, TransactionSource::External, false);
 
 		// we did not update priorities (update_transaction_priority was not called):
 		assert!(matches!(
