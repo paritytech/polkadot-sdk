@@ -402,9 +402,10 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			})?;
 
 			start_bootnode_tasks(StartBootnodeTasksParams {
+				para_id,
 				task_manager: &mut task_manager,
 				relay_chain_interface: relay_chain_interface.clone(),
-			})?;
+			});
 
 			if validator {
 				Self::StartConsensus::start_consensus(

@@ -16,17 +16,48 @@
 
 //! Parachain bootnodes advertisement.
 
-use sc_network::service::traits::NetworkService;
+use codec::{Decode, Encode};
+use cumulus_primitives_core::{relay_chain::Hash, ParaId};
+use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
+use futures::StreamExt;
+use sp_consensus_babe::Epoch;
 use std::sync::Arc;
 
 pub struct BootnodeAdvertisement {
-	network_service: Arc<dyn NetworkService>,
+	para_id_scale_compact: Vec<u8>,
+	relay_chain_interface: Arc<dyn RelayChainInterface>,
 }
 
 impl BootnodeAdvertisement {
-	pub fn new(network_service: Arc<dyn NetworkService>) -> Self {
-		Self { network_service }
+	pub fn new(para_id: ParaId, relay_chain_interface: Arc<dyn RelayChainInterface>) -> Self {
+		Self { para_id_scale_compact: Encode::encode(&para_id), relay_chain_interface }
 	}
 
-	pub async fn run(self) {}
+	async fn current_epoch(self: &Self, hash: Hash) -> RelayChainResult<Epoch> {
+		let res = self
+			.relay_chain_interface
+			.call_runtime_api("BabeApi_current_epoch", hash, &[])
+			.await?;
+		Decode::decode(&mut &*res).map_err(Into::into)
+	}
+
+	pub async fn run(self) -> RelayChainResult<()> {
+		let network_service = self.relay_chain_interface.network_service()?;
+		let import_notification_stream =
+			self.relay_chain_interface.import_notification_stream().await?;
+		let header = import_notification_stream.fuse().select_next_some().await;
+
+		let startup_epoch = self.current_epoch(header.hash()).await?;
+		let key = self
+			.para_id_scale_compact
+			.clone()
+			.into_iter()
+			.chain(startup_epoch.randomness.into_iter())
+			.collect::<Vec<_>>();
+
+		network_service.start_providing(key.into());
+
+		// Do not terminate the essential task.
+		std::future::pending().await
+	}
 }

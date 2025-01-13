@@ -17,30 +17,30 @@
 //! Parachain bootnodes advertisement and discovery service.
 
 use crate::advertisement::BootnodeAdvertisement;
+use cumulus_primitives_core::ParaId;
 use cumulus_relay_chain_interface::RelayChainInterface;
 use sc_service::TaskManager;
 use std::sync::Arc;
 
 /// Bootnode advertisement task params.
 pub struct StartBootnodeTasksParams<'a> {
+	pub para_id: ParaId,
 	pub task_manager: &'a mut TaskManager,
 	pub relay_chain_interface: Arc<dyn RelayChainInterface>,
 }
 
 pub fn start_bootnode_tasks(
-	StartBootnodeTasksParams { task_manager, relay_chain_interface }: StartBootnodeTasksParams,
-) -> sc_service::error::Result<()> {
-	let network_service = relay_chain_interface
-		.network_service()
-		.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
-
-	let bootnode_advertisement = BootnodeAdvertisement::new(network_service);
+	StartBootnodeTasksParams { para_id, task_manager, relay_chain_interface }: StartBootnodeTasksParams,
+) {
+	let bootnode_advertisement = BootnodeAdvertisement::new(para_id, relay_chain_interface);
 
 	task_manager.spawn_essential_handle().spawn_blocking(
 		"cumulus-bootnode-advertisement",
 		None,
-		bootnode_advertisement.run(),
+		async {
+			if let Err(e) = bootnode_advertisement.run().await {
+				log::error!("Bootnode advertisement terminated with an error: {e}");
+			}
+		},
 	);
-
-	Ok(())
 }

@@ -4229,10 +4229,15 @@ name = "cumulus-client-bootnodes"
 version = "0.1.0"
 dependencies = [
  "cumulus-client-network",
+ "cumulus-primitives-core 0.7.0",
  "cumulus-relay-chain-interface",
+ "futures",
+ "log",
+ "parity-scale-codec",
  "sc-network",
  "sc-network-sync",
  "sc-service",
+ "sp-consensus-babe 0.32.0",
 ]
 
 [[package]]

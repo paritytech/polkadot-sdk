@@ -12,14 +12,19 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+codec = { workspace = true, default-features = true }
+futures = { workspace = true }
+log = { workspace = true, default-features = true }
 
 # Substrate
 sc-service = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
 sc-network-sync = { workspace = true, default-features = true }
+sp-consensus-babe = { workspace = true, default-features = true }
 
 # Polkadot
 
 # Cumulus
 cumulus-client-network = { workspace = true, default-features = true }
+cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
