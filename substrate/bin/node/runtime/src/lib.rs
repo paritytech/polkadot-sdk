@@ -3301,6 +3301,40 @@ impl_runtime_apis! {
 				key
 			)
 		}
+
+		fn trace_tx(
+			block: Block,
+			tx_index: u32,
+		) -> Result<pallet_revive::evm::Traces, sp_runtime::DispatchError> {
+			let mut t = pallet_revive::debug::Tracer::new_call_tracer(true);
+			Executive::initialize_block(block.header());
+
+			for (index, ext) in block.extrinsics().into_iter().enumerate() {
+				if index as u32 == tx_index {
+					pallet_revive::using_tracer(&mut t, || {
+						let _ = Executive::apply_extrinsic(ext.clone());
+					});
+					break;
+				} else {
+					let _ = Executive::apply_extrinsic(ext.clone());
+				}
+			}
+			Ok(t.traces())
+		}
+
+		fn trace_block(
+			block: Block,
+		) -> Result<pallet_revive::evm::Traces, sp_runtime::DispatchError> {
+			let mut t = pallet_revive::debug::Tracer::new_call_tracer(true);
+			pallet_revive::using_tracer(&mut t, || {
+				Executive::initialize_block(block.header());
+
+				for ext in block.extrinsics().into_iter() {
+					let _ = Executive::apply_extrinsic(ext.clone());
+				}
+			});
+			Ok(t.traces())
+		}
 	}
 
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<

@@ -38,6 +38,13 @@ pub trait StateApi<Hash> {
 	#[method(name = "state_call", aliases = ["state_callAt"], blocking)]
 	fn call(&self, name: String, bytes: Bytes, hash: Option<Hash>) -> Result<Bytes, Error>;
 
+	/// Debug a method from the runtime API.
+	/// The method will be called at the block's parent state.
+	/// and passed the block to be replayed, followed by the decoded `bytes`
+	/// arguments.
+	#[method(name = "state_debugBlock", blocking, with_extensions)]
+	fn debug_block(&self, name: String, block: Hash, bytes: Bytes) -> Result<Bytes, Error>;
+
 	/// Returns the keys with prefix, leave empty to get all the keys.
 	#[method(name = "state_getKeys", blocking)]
 	#[deprecated(since = "2.0.0", note = "Please use `getKeysPaged` with proper paging support")]
