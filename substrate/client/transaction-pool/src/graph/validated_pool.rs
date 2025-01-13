@@ -23,6 +23,7 @@ use std::{
 
 use crate::{common::log_xt::log_xt_trace, LOG_TARGET};
 use futures::channel::mpsc::{channel, Sender};
+use indexmap::IndexMap;
 use parking_lot::{Mutex, RwLock};
 use sc_transaction_pool_api::{error, PoolStatus, ReadyTransactions, TransactionPriority};
 use sp_blockchain::HashAndNumber;
@@ -386,7 +387,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 	/// Transactions that are missing from the pool are not submitted.
 	pub fn resubmit(
 		&self,
-		mut updated_transactions: HashMap<ExtrinsicHash<B>, ValidatedTransactionFor<B>>,
+		mut updated_transactions: IndexMap<ExtrinsicHash<B>, ValidatedTransactionFor<B>>,
 	) {
 		#[derive(Debug, Clone, Copy, PartialEq)]
 		enum Status {
@@ -421,7 +422,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 				let removed = pool.remove_subtree(&[hash]);
 				for removed_tx in removed {
 					let removed_hash = removed_tx.hash;
-					let updated_transaction = updated_transactions.remove(&removed_hash);
+					let updated_transaction = updated_transactions.shift_remove(&removed_hash);
 					let tx_to_resubmit = if let Some(updated_tx) = updated_transaction {
 						updated_tx
 					} else {
@@ -438,7 +439,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 					txs_to_resubmit.push((removed_hash, tx_to_resubmit));
 				}
 				// make sure to remove the hash even if it's not present in the pool anymore.
-				updated_transactions.remove(&hash);
+				updated_transactions.shift_remove(&hash);
 			}
 
 			// if we're rejecting future transactions, then insertion order matters here:

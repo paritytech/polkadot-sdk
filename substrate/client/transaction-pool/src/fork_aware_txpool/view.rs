@@ -33,6 +33,7 @@ use crate::{
 	},
 	LOG_TARGET,
 };
+use indexmap::IndexMap;
 use parking_lot::Mutex;
 use sc_transaction_pool_api::{error::Error as TxPoolError, PoolStatus};
 use sp_blockchain::HashAndNumber;
@@ -40,10 +41,10 @@ use sp_runtime::{
 	generic::BlockId, traits::Block as BlockT, transaction_validity::TransactionValidityError,
 	SaturatedConversion,
 };
-use std::{collections::HashMap, sync::Arc, time::Instant};
+use std::{sync::Arc, time::Instant};
 
 pub(super) struct RevalidationResult<ChainApi: graph::ChainApi> {
-	revalidated: HashMap<ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>>,
+	revalidated: IndexMap<ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>>,
 	invalid_hashes: Vec<ExtrinsicHash<ChainApi>>,
 }
 
@@ -272,7 +273,7 @@ where
 		//todo: revalidate future, remove if invalid [#5496]
 
 		let mut invalid_hashes = Vec::new();
-		let mut revalidated = HashMap::new();
+		let mut revalidated = IndexMap::new();
 
 		let mut validation_results = vec![];
 		let mut batch_iter = batch.into_iter();
