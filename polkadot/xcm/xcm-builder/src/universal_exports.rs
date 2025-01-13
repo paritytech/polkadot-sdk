@@ -66,7 +66,7 @@ pub struct UnpaidLocalExporter<Exporter, UniversalLocation>(
 	PhantomData<(Exporter, UniversalLocation)>,
 );
 impl<Exporter: ExportXcm, UniversalLocation: Get<InteriorLocation>> SendXcm
-for UnpaidLocalExporter<Exporter, UniversalLocation>
+	for UnpaidLocalExporter<Exporter, UniversalLocation>
 {
 	type Ticket = Exporter::Ticket;
 
@@ -88,12 +88,12 @@ for UnpaidLocalExporter<Exporter, UniversalLocation>
 			remote_location,
 			xcm.clone(),
 		)
-			.inspect_err(|err| {
-				if let NotApplicable = err {
-					// We need to make sure that msg is not consumed in case of `NotApplicable`.
-					*msg = Some(xcm);
-				}
-			})
+		.inspect_err(|err| {
+			if let NotApplicable = err {
+				// We need to make sure that msg is not consumed in case of `NotApplicable`.
+				*msg = Some(xcm);
+			}
+		})
 	}
 
 	fn deliver(ticket: Exporter::Ticket) -> Result<XcmHash, SendError> {
@@ -108,9 +108,7 @@ for UnpaidLocalExporter<Exporter, UniversalLocation>
 /// the message over a bridge.
 ///
 /// This is only useful when the local chain has bridging capabilities.
-pub struct LocalExporter<Exporter, UniversalLocation>(
-	PhantomData<(Exporter, UniversalLocation)>,
-);
+pub struct LocalExporter<Exporter, UniversalLocation>(PhantomData<(Exporter, UniversalLocation)>);
 impl<Exporter: ExportXcm, UniversalLocation: Get<InteriorLocation>> SendXcm
 	for LocalExporter<Exporter, UniversalLocation>
 {
@@ -127,7 +125,8 @@ impl<Exporter: ExportXcm, UniversalLocation: Get<InteriorLocation>> SendXcm
 		let (remote_network, remote_location) = devolved;
 		let xcm = msg.take().ok_or(MissingArgument)?;
 
-		let hash = (Some(Location::here()), &remote_location).using_encoded(sp_io::hashing::blake2_128);
+		let hash =
+			(Some(Location::here()), &remote_location).using_encoded(sp_io::hashing::blake2_128);
 		let channel = u32::decode(&mut hash.as_ref()).unwrap_or(0);
 
 		validate_export::<Exporter>(
