@@ -2341,6 +2341,8 @@ pub mod pallet {
 			ensure!(Validators::<T>::contains_key(&stash), Error::<T>::NotValidator);
 
 			let threshold = ChillInactiveValidatorThreshold::<T>::get();
+			
+			if threshold.is_zero() { return Ok(()); }
 
 			ensure!(proof.len() as EraIndex >= threshold, Error::<T>::InvalidProof);
 
