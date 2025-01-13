@@ -355,8 +355,6 @@ fn fatp_prios_watcher_full_mempool_higher_prio_is_accepted_with_subtree() {
 	assert_pool_status!(header01.hash(), &pool, 4, 0);
 	assert_eq!(pool.mempool_len().1, 4);
 
-	// let header02 = api.push_block_with_parent(header01.hash(), vec![], true);
-	// block_on(pool.maintain(new_best_block_event(&pool, Some(header01.hash()), header02.hash())));
 
 	let xt4_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt4.clone())).unwrap();
 	assert_pool_status!(header01.hash(), &pool, 2, 0);

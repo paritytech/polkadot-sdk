@@ -668,7 +668,7 @@ where
 				match result {
 					Err(TxPoolApiError::ImmediatelyDropped) =>
 						self.attempt_transaction_replacement(source, false, xt).await,
-					result @ _ => result,
+					_ => result,
 				}
 			})
 			.collect::<Vec<_>>();
@@ -687,7 +687,7 @@ where
 		self.metrics
 			.report(|metrics| metrics.submitted_transactions.inc_by(to_be_submitted.len() as _));
 
-		// ... and submit them to the view_store. Please note that transaction rejected by mempool
+		// ... and submit them to the view_store. Please note that transactions rejected by mempool
 		// are not sent here.
 		let mempool = self.mempool.clone();
 		let results_map = view_store.submit(to_be_submitted.into_iter()).await;

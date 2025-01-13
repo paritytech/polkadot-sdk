@@ -53,12 +53,12 @@ pub struct DroppedTransaction<Hash> {
 }
 
 impl<Hash> DroppedTransaction<Hash> {
-	/// Creates an new instnance with reason set to `DroppedReason::Usurped(by)`.
+	/// Creates a new instance with reason set to `DroppedReason::Usurped(by)`.
 	pub fn new_usurped(tx_hash: Hash, by: Hash) -> Self {
 		Self { reason: DroppedReason::Usurped(by), tx_hash }
 	}
 
-	/// Creates an new instnance with reason set to `DroppedReason::LimitsEnforced`.
+	/// Creates a new instance with reason set to `DroppedReason::LimitsEnforced`.
 	pub fn new_enforced_by_limts(tx_hash: Hash) -> Self {
 		Self { reason: DroppedReason::LimitsEnforced, tx_hash }
 	}
@@ -258,7 +258,7 @@ where
 				self.future_transaction_views.entry(tx_hash).or_default().insert(block_hash);
 			},
 			TransactionStatus::Ready | TransactionStatus::InBlock(..) => {
-				// note: if future transaction was once seens as the ready we may want to treat it
+				// note: if future transaction was once seen as the ready we may want to treat it
 				// as ready transaction. The rationale behind this is as follows: we want to remove
 				// unreferenced future transactions when the last referencing view is removed (to
 				// avoid clogging mempool). For ready transactions we prefer to keep them in mempool
