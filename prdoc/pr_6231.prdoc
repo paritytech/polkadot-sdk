@@ -1,4 +1,4 @@
-title: Bridges - revert-back and improve congestion
+title: Bridges - Add improved congestion control mechanism
 doc:
 - audience: Runtime Dev
   description: |-

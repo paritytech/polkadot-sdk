@@ -148,7 +148,7 @@ pub mod pallet {
 		///   that does not use `ExportMessage` but instead directly calls the `ExportXcm`
 		///   implementation.
 		#[pallet::no_default]
-		type ToBridgeHubSender: SendXcm;
+		type MessageExporter: SendXcm;
 
 		/// Resolves a specific `BridgeId` for `dest`, used for identifying the bridge in cases of
 		/// congestion and dynamic fees. If it resolves to `None`, it means no congestion or

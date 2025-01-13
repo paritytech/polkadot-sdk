@@ -174,8 +174,7 @@ where
 			},
 		};
 
-		// Here, we have the actual result fees covering bridge fees, so now we need to check/apply
-		// the congestion and dynamic_fees features (if possible).
+		// `fees` is populated with base bridge fees, now let's apply congestion/dynamic fees if required.
 		if let Some(bridge_id) = T::BridgeIdResolver::resolve_for(network, remote_location) {
 			if let Some(bridge_state) = Bridges::<T, I>::get(bridge_id) {
 				fees = fees.map(|f| Pallet::<T, I>::calculate_dynamic_fee(&bridge_state, f));
