@@ -1936,6 +1936,8 @@ pub mod pallet {
 		///   set to `None`, no limit is enforced.
 		/// * `chill_threshold`: The ratio of `max_nominator_count` or `max_validator_count` which
 		///   should be filled in order for the `chill_other` transaction to work.
+		/// * `chill_inactive_validator_threshold`: The number of consecutive eras a validator can
+		///   remain inactive before being subject to chilling by anyone.
 		/// * `min_commission`: The minimum amount of commission that each validators must maintain.
 		///   This is checked only upon calling `validate`. Existing validators are not affected.
 		///
