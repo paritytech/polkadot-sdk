@@ -30,6 +30,7 @@ use frame_support::{
 	StorageNoopGuard,
 };
 use frame_system::Event as SysEvent;
+use sp_runtime::traits::DispatchTransaction;
 
 const ID_1: LockIdentifier = *b"1       ";
 const ID_2: LockIdentifier = *b"2       ";
@@ -258,20 +259,22 @@ fn lock_should_work_reserve() {
 				TokenError::Frozen
 			);
 			assert_noop!(Balances::reserve(&1, 1), Error::<Test>::LiquidityRestrictions,);
-			assert!(<ChargeTransactionPayment<Test> as SignedExtension>::pre_dispatch(
+			assert!(ChargeTransactionPayment::<Test>::validate_and_prepare(
 				ChargeTransactionPayment::from(1),
-				&1,
+				Some(1).into(),
 				CALL,
 				&info_from_weight(Weight::from_parts(1, 0)),
 				1,
+				0,
 			)
 			.is_err());
-			assert!(<ChargeTransactionPayment<Test> as SignedExtension>::pre_dispatch(
+			assert!(ChargeTransactionPayment::<Test>::validate_and_prepare(
 				ChargeTransactionPayment::from(0),
-				&1,
+				Some(1).into(),
 				CALL,
 				&info_from_weight(Weight::from_parts(1, 0)),
 				1,
+				0,
 			)
 			.is_err());
 		});
@@ -289,20 +292,22 @@ fn lock_should_work_tx_fee() {
 				TokenError::Frozen
 			);
 			assert_noop!(Balances::reserve(&1, 1), Error::<Test>::LiquidityRestrictions,);
-			assert!(<ChargeTransactionPayment<Test> as SignedExtension>::pre_dispatch(
+			assert!(ChargeTransactionPayment::<Test>::validate_and_prepare(
 				ChargeTransactionPayment::from(1),
-				&1,
+				Some(1).into(),
 				CALL,
 				&info_from_weight(Weight::from_parts(1, 0)),
 				1,
+				0,
 			)
 			.is_err());
-			assert!(<ChargeTransactionPayment<Test> as SignedExtension>::pre_dispatch(
+			assert!(ChargeTransactionPayment::<Test>::validate_and_prepare(
 				ChargeTransactionPayment::from(0),
-				&1,
+				Some(1).into(),
 				CALL,
 				&info_from_weight(Weight::from_parts(1, 0)),
 				1,
+				0,
 			)
 			.is_err());
 		});
@@ -1017,7 +1022,7 @@ fn slash_consumed_slash_full_works() {
 	ExtBuilder::default().existential_deposit(100).build_and_execute_with(|| {
 		Balances::make_free_balance_be(&1, 1_000);
 		assert_ok!(System::inc_consumers(&1)); // <-- Reference counter added here is enough for all tests
-									   // Slashed completed in full
+										 // Slashed completed in full
 		assert_eq!(Balances::slash(&1, 900), (NegativeImbalance::new(900), 0));
 		// Account is still alive
 		assert!(System::account_exists(&1));
@@ -1029,7 +1034,7 @@ fn slash_consumed_slash_over_works() {
 	ExtBuilder::default().existential_deposit(100).build_and_execute_with(|| {
 		Balances::make_free_balance_be(&1, 1_000);
 		assert_ok!(System::inc_consumers(&1)); // <-- Reference counter added here is enough for all tests
-									   // Slashed completed in full
+										 // Slashed completed in full
 		assert_eq!(Balances::slash(&1, 1_000), (NegativeImbalance::new(900), 100));
 		// Account is still alive
 		assert!(System::account_exists(&1));
@@ -1041,7 +1046,7 @@ fn slash_consumed_slash_partial_works() {
 	ExtBuilder::default().existential_deposit(100).build_and_execute_with(|| {
 		Balances::make_free_balance_be(&1, 1_000);
 		assert_ok!(System::inc_consumers(&1)); // <-- Reference counter added here is enough for all tests
-									   // Slashed completed in full
+										 // Slashed completed in full
 		assert_eq!(Balances::slash(&1, 800), (NegativeImbalance::new(800), 0));
 		// Account is still alive
 		assert!(System::account_exists(&1));

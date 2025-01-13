@@ -36,14 +36,17 @@ pub mod xcm_config;
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
+use codec::{Decode, Encode, MaxEncodedLen};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
-use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
+use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector, ParaId};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
-	traits::{ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, TransformOrigin},
+	traits::{
+		ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, InstanceFilter, TransformOrigin,
+	},
 	weights::{ConstantMultiplier, Weight, WeightToFee as _},
 	PalletId,
 };
@@ -64,10 +67,10 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys,
-	traits::Block as BlockT,
+	generic, impl_opaque_keys,
+	traits::{BlakeTwo256, Block as BlockT, BlockNumberProvider},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, DispatchError, MultiAddress, Perbill,
+	ApplyExtrinsicResult, DispatchError, MultiAddress, Perbill, RuntimeDebug,
 };
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -95,23 +98,25 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 
-/// The SignedExtension to the basic transaction logic.
-pub type SignedExtra = (
-	frame_system::CheckNonZeroSender<Runtime>,
-	frame_system::CheckSpecVersion<Runtime>,
-	frame_system::CheckTxVersion<Runtime>,
-	frame_system::CheckGenesis<Runtime>,
-	frame_system::CheckEra<Runtime>,
-	frame_system::CheckNonce<Runtime>,
-	frame_system::CheckWeight<Runtime>,
-	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim<Runtime>,
-	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
-);
+/// The TransactionExtension to the basic transaction logic.
+pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
+	Runtime,
+	(
+		frame_system::CheckNonZeroSender<Runtime>,
+		frame_system::CheckSpecVersion<Runtime>,
+		frame_system::CheckTxVersion<Runtime>,
+		frame_system::CheckGenesis<Runtime>,
+		frame_system::CheckEra<Runtime>,
+		frame_system::CheckNonce<Runtime>,
+		frame_system::CheckWeight<Runtime>,
+		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+	),
+>;
 
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
-	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
 
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
@@ -121,6 +126,7 @@ pub type Migrations = (
 	pallet_broker::migration::MigrateV0ToV1<Runtime>,
 	pallet_broker::migration::MigrateV1ToV2<Runtime>,
 	pallet_broker::migration::MigrateV2ToV3<Runtime>,
+	pallet_broker::migration::MigrateV3ToV4<Runtime, BrokerMigrationV4BlockConversion>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );
@@ -143,14 +149,14 @@ impl_opaque_keys! {
 
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("coretime-rococo"),
-	impl_name: create_runtime_str!("coretime-rococo"),
+	spec_name: alloc::borrow::Cow::Borrowed("coretime-rococo"),
+	impl_name: alloc::borrow::Cow::Borrowed("coretime-rococo"),
 	authoring_version: 1,
-	spec_version: 1_015_000,
+	spec_version: 1_017_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
-	state_version: 1,
+	system_version: 1,
 };
 
 /// The version information used to identify this runtime when compiled natively.
@@ -205,6 +211,8 @@ impl frame_system::Config for Runtime {
 	type DbWeight = RocksDbWeight;
 	/// Weight information for the extrinsics of this pallet.
 	type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
+	/// Weight information for the extensions of this pallet.
+	type ExtensionsWeightInfo = weights::frame_system_extensions::WeightInfo<Runtime>;
 	/// Block & extrinsics weights: base values and limits.
 	type BlockWeights = RuntimeBlockWeights;
 	/// The maximum length of a block (in bytes).
@@ -213,6 +221,10 @@ impl frame_system::Config for Runtime {
 	/// The action to take on a Runtime Upgrade
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = ConstU32<16>;
+}
+
+impl cumulus_pallet_weight_reclaim::Config for Runtime {
+	type WeightInfo = weights::cumulus_pallet_weight_reclaim::WeightInfo<Runtime>;
 }
 
 impl pallet_timestamp::Config for Runtime {
@@ -246,6 +258,7 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
 	type MaxFreezes = ConstU32<0>;
+	type DoneSlashHandler = ();
 }
 
 parameter_types! {
@@ -261,6 +274,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
+	type WeightInfo = weights::pallet_transaction_payment::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -281,6 +295,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type ReservedXcmpWeight = ReservedXcmpWeight;
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
+	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
 }
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
@@ -436,6 +451,140 @@ impl pallet_multisig::Config for Runtime {
 	type DepositFactor = DepositFactor;
 	type MaxSignatories = ConstU32<100>;
 	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
+}
+
+/// The type used to represent the kinds of proxying allowed.
+#[derive(
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Encode,
+	Decode,
+	RuntimeDebug,
+	MaxEncodedLen,
+	scale_info::TypeInfo,
+)]
+pub enum ProxyType {
+	/// Fully permissioned proxy. Can execute any call on behalf of _proxied_.
+	Any,
+	/// Can execute any call that does not transfer funds or assets.
+	NonTransfer,
+	/// Proxy with the ability to reject time-delay proxy announcements.
+	CancelProxy,
+	/// Proxy for all Broker pallet calls.
+	Broker,
+	/// Proxy for renewing coretime.
+	CoretimeRenewer,
+	/// Proxy able to purchase on-demand coretime credits.
+	OnDemandPurchaser,
+	/// Collator selection proxy. Can execute calls related to collator selection mechanism.
+	Collator,
+}
+impl Default for ProxyType {
+	fn default() -> Self {
+		Self::Any
+	}
+}
+
+impl InstanceFilter<RuntimeCall> for ProxyType {
+	fn filter(&self, c: &RuntimeCall) -> bool {
+		match self {
+			ProxyType::Any => true,
+			ProxyType::NonTransfer => !matches!(
+				c,
+				RuntimeCall::Balances { .. } |
+				// `purchase`, `renew`, `transfer` and `purchase_credit` are pretty self explanatory.
+				RuntimeCall::Broker(pallet_broker::Call::purchase { .. }) |
+				RuntimeCall::Broker(pallet_broker::Call::renew { .. }) |
+				RuntimeCall::Broker(pallet_broker::Call::transfer { .. }) |
+				RuntimeCall::Broker(pallet_broker::Call::purchase_credit { .. }) |
+				// `pool` doesn't transfer, but it defines the account to be paid for contributions
+				RuntimeCall::Broker(pallet_broker::Call::pool { .. }) |
+				// `assign` is essentially a transfer of a region NFT
+				RuntimeCall::Broker(pallet_broker::Call::assign { .. })
+			),
+			ProxyType::CancelProxy => matches!(
+				c,
+				RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. }) |
+					RuntimeCall::Utility { .. } |
+					RuntimeCall::Multisig { .. }
+			),
+			ProxyType::Broker => {
+				matches!(
+					c,
+					RuntimeCall::Broker { .. } |
+						RuntimeCall::Utility { .. } |
+						RuntimeCall::Multisig { .. }
+				)
+			},
+			ProxyType::CoretimeRenewer => {
+				matches!(
+					c,
+					RuntimeCall::Broker(pallet_broker::Call::renew { .. }) |
+						RuntimeCall::Utility { .. } |
+						RuntimeCall::Multisig { .. }
+				)
+			},
+			ProxyType::OnDemandPurchaser => {
+				matches!(
+					c,
+					RuntimeCall::Broker(pallet_broker::Call::purchase_credit { .. }) |
+						RuntimeCall::Utility { .. } |
+						RuntimeCall::Multisig { .. }
+				)
+			},
+			ProxyType::Collator => matches!(
+				c,
+				RuntimeCall::CollatorSelection { .. } |
+					RuntimeCall::Utility { .. } |
+					RuntimeCall::Multisig { .. }
+			),
+		}
+	}
+
+	fn is_superset(&self, o: &Self) -> bool {
+		match (self, o) {
+			(x, y) if x == y => true,
+			(ProxyType::Any, _) => true,
+			(_, ProxyType::Any) => false,
+			(ProxyType::Broker, ProxyType::CoretimeRenewer) => true,
+			(ProxyType::Broker, ProxyType::OnDemandPurchaser) => true,
+			(ProxyType::NonTransfer, ProxyType::Collator) => true,
+			_ => false,
+		}
+	}
+}
+
+parameter_types! {
+	// One storage item; key size 32, value size 8; .
+	pub const ProxyDepositBase: Balance = deposit(1, 40);
+	// Additional storage item size of 33 bytes.
+	pub const ProxyDepositFactor: Balance = deposit(0, 33);
+	pub const MaxProxies: u16 = 32;
+	// One storage item; key size 32, value size 16
+	pub const AnnouncementDepositBase: Balance = deposit(1, 48);
+	pub const AnnouncementDepositFactor: Balance = deposit(0, 66);
+	pub const MaxPending: u16 = 32;
+}
+
+impl pallet_proxy::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type Currency = Balances;
+	type ProxyType = ProxyType;
+	type ProxyDepositBase = ProxyDepositBase;
+	type ProxyDepositFactor = ProxyDepositFactor;
+	type MaxProxies = MaxProxies;
+	type WeightInfo = weights::pallet_proxy::WeightInfo<Runtime>;
+	type MaxPending = MaxPending;
+	type CallHasher = BlakeTwo256;
+	type AnnouncementDepositBase = AnnouncementDepositBase;
+	type AnnouncementDepositFactor = AnnouncementDepositFactor;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -451,6 +600,25 @@ impl pallet_sudo::Config for Runtime {
 	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
+pub struct BrokerMigrationV4BlockConversion;
+
+impl pallet_broker::migration::v4::BlockToRelayHeightConversion<Runtime>
+	for BrokerMigrationV4BlockConversion
+{
+	fn convert_block_number_to_relay_height(input_block_number: u32) -> u32 {
+		let relay_height = pallet_broker::RCBlockNumberProviderOf::<
+			<Runtime as pallet_broker::Config>::Coretime,
+		>::current_block_number();
+		let parachain_block_number = frame_system::Pallet::<Runtime>::block_number();
+		let offset = relay_height - parachain_block_number * 2;
+		offset + input_block_number * 2
+	}
+
+	fn convert_block_length_to_relay_length(input_block_length: u32) -> u32 {
+		input_block_length * 2
+	}
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -460,6 +628,7 @@ construct_runtime!(
 		ParachainSystem: cumulus_pallet_parachain_system = 1,
 		Timestamp: pallet_timestamp = 3,
 		ParachainInfo: parachain_info = 4,
+		WeightReclaim: cumulus_pallet_weight_reclaim = 5,
 
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
@@ -481,6 +650,7 @@ construct_runtime!(
 		// Handy utilities.
 		Utility: pallet_utility = 40,
 		Multisig: pallet_multisig = 41,
+		Proxy: pallet_proxy = 42,
 
 		// The main stage.
 		Broker: pallet_broker = 50,
@@ -504,10 +674,12 @@ mod benches {
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
 		[pallet_message_queue, MessageQueue]
 		[pallet_multisig, Multisig]
+		[pallet_proxy, Proxy]
 		[pallet_utility, Utility]
 		// NOTE: Make sure you point to the individual modules below.
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
+		[cumulus_pallet_weight_reclaim, WeightReclaim]
 	);
 }
 
@@ -671,7 +843,8 @@ impl_runtime_apis! {
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
-			match asset.try_as::<AssetId>() {
+			let latest_asset_id: Result<AssetId, ()> = asset.clone().try_into();
+			match latest_asset_id {
 				Ok(asset_id) if asset_id.0 == xcm_config::RocRelayLocation::get() => {
 					// for native token
 					Ok(WeightToFee::weight_to_fee(&weight))
@@ -724,6 +897,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl cumulus_primitives_core::GetCoreSelectorApi<Block> for Runtime {
+		fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
+			ParachainSystem::core_selector()
+		}
+	}
+
 	#[cfg(feature = "try-runtime")]
 	impl frame_try_runtime::TryRuntime<Block> for Runtime {
 		fn on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {
@@ -770,7 +949,7 @@ impl_runtime_apis! {
 
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
-		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
+		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
 			use frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};
 			use sp_storage::TrackedStorageKey;
 
@@ -969,18 +1148,8 @@ impl_runtime_apis! {
 			type XcmBalances = pallet_xcm_benchmarks::fungible::Pallet::<Runtime>;
 			type XcmGeneric = pallet_xcm_benchmarks::generic::Pallet::<Runtime>;
 
-			let whitelist: Vec<TrackedStorageKey> = vec![
-				// Block Number
-				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac").to_vec().into(),
-				// Total Issuance
-				hex_literal::hex!("c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80").to_vec().into(),
-				// Execution Phase
-				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7ff553b5a9862a516939d82b3d3d8661a").to_vec().into(),
-				// Event Count
-				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef70a98fdbe9ce6c55837576c60c7af3850").to_vec().into(),
-				// System Events
-				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7").to_vec().into(),
-			];
+			use frame_support::traits::WhitelistedStorageKeys;
+			let whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();
 
 			let mut batches = Vec::<BenchmarkBatch>::new();
 			let params = (&config, &whitelist);
@@ -1001,6 +1170,15 @@ impl_runtime_apis! {
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
 			vec![]
+		}
+	}
+
+	impl xcm_runtime_apis::trusted_query::TrustedQueryApi<Block> for Runtime {
+		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
+			PolkadotXcm::is_trusted_reserve(asset, location)
+		}
+		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
+			PolkadotXcm::is_trusted_teleporter(asset, location)
 		}
 	}
 }

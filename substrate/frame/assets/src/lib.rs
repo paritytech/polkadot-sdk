@@ -275,7 +275,7 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::*;
-		use frame_support::{derive_impl, traits::ConstU64};
+		use frame_support::derive_impl;
 		pub struct TestDefaultConfig;
 
 		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
@@ -289,11 +289,11 @@ pub mod pallet {
 			type RemoveItemsLimit = ConstU32<5>;
 			type AssetId = u32;
 			type AssetIdParameter = u32;
-			type AssetDeposit = ConstU64<1>;
-			type AssetAccountDeposit = ConstU64<10>;
-			type MetadataDepositBase = ConstU64<1>;
-			type MetadataDepositPerByte = ConstU64<1>;
-			type ApprovalDeposit = ConstU64<1>;
+			type AssetDeposit = ConstUint<1>;
+			type AssetAccountDeposit = ConstUint<10>;
+			type MetadataDepositBase = ConstUint<1>;
+			type MetadataDepositPerByte = ConstUint<1>;
+			type ApprovalDeposit = ConstUint<1>;
 			type StringLimit = ConstU32<50>;
 			type Extra = ();
 			type CallbackHandle = ();
@@ -801,8 +801,6 @@ pub mod pallet {
 		///
 		/// - `id`: The identifier of the asset to be destroyed. This must identify an existing
 		///   asset.
-		///
-		/// The asset class must be frozen before calling `start_destroy`.
 		#[pallet::call_index(2)]
 		pub fn start_destroy(origin: OriginFor<T>, id: T::AssetIdParameter) -> DispatchResult {
 			let maybe_check_owner = match T::ForceOrigin::try_origin(origin) {

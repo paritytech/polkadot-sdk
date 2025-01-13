@@ -1,7 +1,7 @@
 //! # Substrate CLI
 //!
 //! Let's see some examples of typical CLI arguments used when setting up and running a
-//! Substrate-based blockchain. We use the [`substrate-node-template`](https://github.com/substrate-developer-hub/substrate-node-template)
+//! Substrate-based blockchain. We use the [`solochain-template`](https://github.com/paritytech/polkadot-sdk-solochain-template)
 //! on these examples.
 //!
 //! #### Checking the available CLI arguments

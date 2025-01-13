@@ -58,12 +58,14 @@
 //! > that this step in the guide was not
 //! > set up correctly.
 //!
-//! ## 3. Add the SignedExtension to your runtime
+//! ## 3. Add the TransactionExtension to your runtime
 //!
-//! In your runtime, you will find a list of SignedExtensions.
+//! In your runtime, you will find a list of TransactionExtensions.
 //! To enable the reclaiming,
-//! add [`StorageWeightReclaim`](cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim)
-//! to that list. For maximum efficiency, make sure that `StorageWeightReclaim` is last in the list.
+//! set [`StorageWeightReclaim`](cumulus_pallet_weight_reclaim::StorageWeightReclaim)
+//! as a warpper of that list.
+//! It is necessary that this extension wraps all the other transaction extensions in order to catch
+//! the whole PoV size of the transactions.
 //! The extension will check the size of the storage proof before and after an extrinsic execution.
 //! It reclaims the difference between the calculated size and the benchmarked size.
 #![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", template_signed_extra)]

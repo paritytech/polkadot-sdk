@@ -27,6 +27,7 @@ use sp_runtime::transaction_validity::TransactionTag as Tag;
 use std::time::Instant;
 
 use super::base_pool::Transaction;
+use crate::{common::log_xt::log_xt_trace, LOG_TARGET};
 
 /// Transaction with partially satisfied dependencies.
 pub struct WaitingTransaction<Hash, Ex> {
@@ -105,11 +106,11 @@ impl<Hash, Ex> WaitingTransaction<Hash, Ex> {
 
 /// A pool of transactions that are not yet ready to be included in the block.
 ///
-/// Contains transactions that are still awaiting for some other transactions that
+/// Contains transactions that are still awaiting some other transactions that
 /// could provide a tag that they require.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct FutureTransactions<Hash: hash::Hash + Eq, Ex> {
-	/// tags that are not yet provided by any transaction and we await for them
+	/// tags that are not yet provided by any transaction, and we await for them
 	wanted_tags: HashMap<Tag, HashSet<Hash>>,
 	/// Transactions waiting for a particular other transaction
 	waiting: HashMap<Hash, WaitingTransaction<Hash, Ex>>,
@@ -128,7 +129,9 @@ every hash from `wanted_tags` is always present in `waiting`;
 qed
 #";
 
-impl<Hash: hash::Hash + Eq + Clone, Ex> FutureTransactions<Hash, Ex> {
+impl<Hash: hash::Hash + Eq + Clone + std::fmt::Debug, Ex: std::fmt::Debug>
+	FutureTransactions<Hash, Ex>
+{
 	/// Import transaction to Future queue.
 	///
 	/// Only transactions that don't have all their tags satisfied should occupy
@@ -165,10 +168,30 @@ impl<Hash: hash::Hash + Eq + Clone, Ex> FutureTransactions<Hash, Ex> {
 			.collect()
 	}
 
+	/// Removes transactions that provide any of tags in the given list.
+	///
+	/// Returns list of removed transactions.
+	pub fn prune_tags(&mut self, tags: &Vec<Tag>) -> Vec<Arc<Transaction<Hash, Ex>>> {
+		let pruned = self
+			.waiting
+			.values()
+			.filter_map(|tx| {
+				tx.transaction
+					.provides
+					.iter()
+					.any(|provided_tag| tags.contains(provided_tag))
+					.then(|| tx.transaction.hash.clone())
+			})
+			.collect::<Vec<_>>();
+
+		log_xt_trace!(target: LOG_TARGET, &pruned, "[{:?}] FutureTransactions: removed while pruning tags.");
+		self.remove(&pruned)
+	}
+
 	/// Satisfies provided tags in transactions that are waiting for them.
 	///
 	/// Returns (and removes) transactions that became ready after their last tag got
-	/// satisfied and now we can remove them from Future and move to Ready queue.
+	/// satisfied, and now we can remove them from Future and move to Ready queue.
 	pub fn satisfy_tags<T: AsRef<Tag>>(
 		&mut self,
 		tags: impl IntoIterator<Item = T>,
@@ -218,6 +241,7 @@ impl<Hash: hash::Hash + Eq + Clone, Ex> FutureTransactions<Hash, Ex> {
 				removed.push(waiting_tx.transaction)
 			}
 		}
+
 		removed
 	}
 

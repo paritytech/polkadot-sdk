@@ -35,7 +35,8 @@ use log::{debug, trace, warn};
 use prometheus_endpoint::{register, Counter, PrometheusError, Registry, U64};
 use sc_network::{
 	config::{NonReservedPeerMode, ProtocolId, SetConfig},
-	error, multiaddr,
+	error,
+	multiaddr::{Multiaddr, Protocol},
 	peer_store::PeerStoreProvider,
 	service::{
 		traits::{NotificationEvent, NotificationService, ValidationResult},
@@ -377,9 +378,19 @@ where
 
 	fn handle_sync_event(&mut self, event: SyncEvent) {
 		match event {
-			SyncEvent::PeerConnected(remote) => {
-				let addr = iter::once(multiaddr::Protocol::P2p(remote.into()))
-					.collect::<multiaddr::Multiaddr>();
+			SyncEvent::InitialPeers(peer_ids) => {
+				let addrs = peer_ids
+					.into_iter()
+					.map(|peer_id| Multiaddr::empty().with(Protocol::P2p(peer_id.into())))
+					.collect();
+				let result =
+					self.network.add_peers_to_reserved_set(self.protocol_name.clone(), addrs);
+				if let Err(err) = result {
+					log::error!(target: LOG_TARGET, "Add reserved peers failed: {}", err);
+				}
+			},
+			SyncEvent::PeerConnected(peer_id) => {
+				let addr = Multiaddr::empty().with(Protocol::P2p(peer_id.into()));
 				let result = self.network.add_peers_to_reserved_set(
 					self.protocol_name.clone(),
 					iter::once(addr).collect(),
@@ -388,10 +399,10 @@ where
 					log::error!(target: LOG_TARGET, "Add reserved peer failed: {}", err);
 				}
 			},
-			SyncEvent::PeerDisconnected(remote) => {
+			SyncEvent::PeerDisconnected(peer_id) => {
 				let result = self.network.remove_peers_from_reserved_set(
 					self.protocol_name.clone(),
-					iter::once(remote).collect(),
+					iter::once(peer_id).collect(),
 				);
 				if let Err(err) = result {
 					log::error!(target: LOG_TARGET, "Remove reserved peer failed: {}", err);
@@ -462,6 +473,8 @@ where
 		if let Some(transaction) = self.transaction_pool.transaction(hash) {
 			let propagated_to = self.do_propagate_transactions(&[(hash.clone(), transaction)]);
 			self.transaction_pool.on_broadcasted(propagated_to);
+		} else {
+			debug!(target: "sync", "Propagating transaction failure [{:?}]", hash);
 		}
 	}
 
@@ -478,7 +491,7 @@ where
 				continue
 			}
 
-			let (hashes, to_send): (Vec<_>, Vec<_>) = transactions
+			let (hashes, to_send): (Vec<_>, Transactions<_>) = transactions
 				.iter()
 				.filter(|(hash, _)| peer.known_transactions.insert(hash.clone()))
 				.cloned()
@@ -522,8 +535,14 @@ where
 			return
 		}
 
-		debug!(target: LOG_TARGET, "Propagating transactions");
 		let transactions = self.transaction_pool.transactions();
+
+		if transactions.is_empty() {
+			return
+		}
+
+		debug!(target: LOG_TARGET, "Propagating transactions");
+
 		let propagated_to = self.do_propagate_transactions(&transactions);
 		self.transaction_pool.on_broadcasted(propagated_to);
 	}

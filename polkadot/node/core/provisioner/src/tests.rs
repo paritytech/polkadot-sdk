@@ -16,14 +16,17 @@
 
 use super::*;
 use bitvec::bitvec;
-use polkadot_primitives::{OccupiedCore, ScheduledCore};
-use polkadot_primitives_test_helpers::{dummy_candidate_descriptor, dummy_hash};
+use polkadot_primitives::{
+	vstaging::{MutateDescriptorV2, OccupiedCore},
+	ScheduledCore,
+};
+use polkadot_primitives_test_helpers::{dummy_candidate_descriptor_v2, dummy_hash};
 
 const MOCK_GROUP_SIZE: usize = 5;
 
 pub fn occupied_core(para_id: u32) -> CoreState {
-	let mut candidate_descriptor = dummy_candidate_descriptor(dummy_hash());
-	candidate_descriptor.para_id = para_id.into();
+	let mut candidate_descriptor = dummy_candidate_descriptor_v2(dummy_hash());
+	candidate_descriptor.set_para_id(para_id.into());
 
 	CoreState::Occupied(OccupiedCore {
 		group_responsible: para_id.into(),
@@ -32,7 +35,7 @@ pub fn occupied_core(para_id: u32) -> CoreState {
 		time_out_at: 200_u32,
 		next_up_on_time_out: None,
 		availability: bitvec![u8, bitvec::order::Lsb0; 0; 32],
-		candidate_descriptor,
+		candidate_descriptor: candidate_descriptor.into(),
 		candidate_hash: Default::default(),
 	})
 }
@@ -254,9 +257,10 @@ mod select_candidates {
 	use polkadot_node_subsystem_test_helpers::TestSubsystemSender;
 	use polkadot_node_subsystem_util::runtime::ProspectiveParachainsMode;
 	use polkadot_primitives::{
-		BlockNumber, CandidateCommitments, CommittedCandidateReceipt, PersistedValidationData,
+		vstaging::{CommittedCandidateReceiptV2 as CommittedCandidateReceipt, MutateDescriptorV2},
+		BlockNumber, CandidateCommitments, PersistedValidationData,
 	};
-	use polkadot_primitives_test_helpers::{dummy_candidate_descriptor, dummy_hash};
+	use polkadot_primitives_test_helpers::{dummy_candidate_descriptor_v2, dummy_hash};
 	use rstest::rstest;
 	use std::ops::Not;
 	use CoreState::{Free, Scheduled};
@@ -266,8 +270,8 @@ mod select_candidates {
 	fn dummy_candidate_template() -> CandidateReceipt {
 		let empty_hash = PersistedValidationData::<Hash, BlockNumber>::default().hash();
 
-		let mut descriptor_template = dummy_candidate_descriptor(dummy_hash());
-		descriptor_template.persisted_validation_data_hash = empty_hash;
+		let mut descriptor_template = dummy_candidate_descriptor_v2(dummy_hash());
+		descriptor_template.set_persisted_validation_data_hash(empty_hash);
 		CandidateReceipt {
 			descriptor: descriptor_template,
 			commitments_hash: CandidateCommitments::default().hash(),
@@ -283,7 +287,7 @@ mod select_candidates {
 			.take(core_count)
 			.enumerate()
 			.map(|(idx, mut candidate)| {
-				candidate.descriptor.para_id = idx.into();
+				candidate.descriptor.set_para_id(idx.into());
 				candidate
 			})
 			.collect();
@@ -559,14 +563,14 @@ mod select_candidates {
 		use RuntimeApiMessage::Request;
 
 		let mut backed = expected.clone().into_iter().fold(HashMap::new(), |mut acc, candidate| {
-			acc.entry(candidate.descriptor().para_id).or_insert(vec![]).push(candidate);
+			acc.entry(candidate.descriptor().para_id()).or_insert(vec![]).push(candidate);
 			acc
 		});
 
-		expected.sort_by_key(|c| c.candidate().descriptor.para_id);
+		expected.sort_by_key(|c| c.candidate().descriptor.para_id());
 		let mut candidates_iter = expected
 			.iter()
-			.map(|candidate| (candidate.hash(), candidate.descriptor().relay_parent));
+			.map(|candidate| (candidate.hash(), candidate.descriptor().relay_parent()));
 
 		while let Some(from_job) = receiver.next().await {
 			match from_job {
@@ -601,7 +605,7 @@ mod select_candidates {
 								candidates
 									.iter()
 									.map(|candidate| {
-										(candidate.hash(), candidate.descriptor().relay_parent)
+										(candidate.hash(), candidate.descriptor().relay_parent())
 									})
 									.collect(),
 							)
@@ -707,7 +711,7 @@ mod select_candidates {
 			.take(mock_cores.len())
 			.enumerate()
 			.map(|(idx, mut candidate)| {
-				candidate.descriptor.para_id = idx.into();
+				candidate.descriptor.set_para_id(idx.into());
 				candidate
 			})
 			.cycle()
@@ -719,11 +723,11 @@ mod select_candidates {
 					candidate
 				} else if idx < mock_cores.len() * 2 {
 					// for the second repetition of the candidates, give them the wrong hash
-					candidate.descriptor.persisted_validation_data_hash = Default::default();
+					candidate.descriptor.set_persisted_validation_data_hash(Default::default());
 					candidate
 				} else {
 					// third go-around: right hash, wrong para_id
-					candidate.descriptor.para_id = idx.into();
+					candidate.descriptor.set_para_id(idx.into());
 					candidate
 				}
 			})
@@ -807,9 +811,9 @@ mod select_candidates {
 
 		let committed_receipts: Vec<_> = (0..=mock_cores.len())
 			.map(|i| {
-				let mut descriptor = dummy_candidate_descriptor(dummy_hash());
-				descriptor.para_id = i.into();
-				descriptor.persisted_validation_data_hash = empty_hash;
+				let mut descriptor = dummy_candidate_descriptor_v2(dummy_hash());
+				descriptor.set_para_id(i.into());
+				descriptor.set_persisted_validation_data_hash(empty_hash);
 				CommittedCandidateReceipt {
 					descriptor,
 					commitments: CandidateCommitments {
@@ -917,14 +921,14 @@ mod select_candidates {
 
 		let committed_receipts: Vec<_> = (0..mock_cores.len())
 			.map(|i| {
-				let mut descriptor = dummy_candidate_descriptor(dummy_hash());
-				descriptor.para_id = if let Scheduled(scheduled_core) = &mock_cores[i] {
+				let mut descriptor = dummy_candidate_descriptor_v2(dummy_hash());
+				descriptor.set_para_id(if let Scheduled(scheduled_core) = &mock_cores[i] {
 					scheduled_core.para_id
 				} else {
 					panic!("`mock_cores` is not initialized with `Scheduled`?")
-				};
-				descriptor.persisted_validation_data_hash = empty_hash;
-				descriptor.pov_hash = Hash::from_low_u64_be(i as u64);
+				});
+				descriptor.set_persisted_validation_data_hash(empty_hash);
+				descriptor.set_pov_hash(Hash::from_low_u64_be(i as u64));
 				CommittedCandidateReceipt {
 					descriptor,
 					commitments: CandidateCommitments {
@@ -1222,8 +1226,8 @@ mod select_candidates {
 			.take(mock_cores.len() + 1)
 			.enumerate()
 			.map(|(idx, mut candidate)| {
-				candidate.descriptor.para_id = idx.into();
-				candidate.descriptor.relay_parent = Hash::repeat_byte(idx as u8);
+				candidate.descriptor.set_para_id(idx.into());
+				candidate.descriptor.set_relay_parent(Hash::repeat_byte(idx as u8));
 				candidate
 			})
 			.collect();

@@ -136,7 +136,7 @@ where
 		loop {
 			previous_key = Self::translate_next(previous_key, &mut f);
 			if previous_key.is_none() {
-				break
+				break;
 			}
 		}
 	}
@@ -158,7 +158,7 @@ where
 					"Invalid translation: failed to decode old value for key",
 					array_bytes::bytes2hex("0x", &current_key)
 				);
-				return Some(current_key)
+				return Some(current_key);
 			},
 		};
 
@@ -170,7 +170,7 @@ where
 					"Invalid translation: failed to decode key",
 					array_bytes::bytes2hex("0x", &current_key)
 				);
-				return Some(current_key)
+				return Some(current_key);
 			},
 		};
 
@@ -311,9 +311,8 @@ impl<K: FullEncode, V: FullCodec, G: StorageMap<K, V>> storage::StorageMap<K, V>
 
 			final_key
 		};
-		unhashed::take(old_key.as_ref()).map(|value| {
+		unhashed::take(old_key.as_ref()).inspect(|value| {
 			unhashed::put(Self::storage_map_final_key(key).as_ref(), &value);
-			value
 		})
 	}
 }

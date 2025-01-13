@@ -253,4 +253,14 @@ impl<T: frame_system::Config> snowbridge_pallet_system::WeightInfo for WeightInf
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
+
+	fn register_token() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `256`
+		//  Estimated: `6044`
+		// Minimum execution time: 45_000_000 picoseconds.
+		Weight::from_parts(45_000_000, 6044)
+			.saturating_add(T::DbWeight::get().reads(5_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
+	}
 }

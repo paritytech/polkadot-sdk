@@ -45,13 +45,17 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::ReputationAggregator,
-	runtime::{request_min_backing_votes, ProspectiveParachainsMode},
-	vstaging::{fetch_claim_queue, ClaimQueueSnapshot},
+	runtime::{
+		request_min_backing_votes, request_node_features, ClaimQueueSnapshot,
+		ProspectiveParachainsMode,
+	},
 };
 use polkadot_primitives::{
-	AuthorityDiscoveryId, CandidateHash, CompactStatement, CoreIndex, CoreState, GroupIndex,
-	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, SessionIndex, SessionInfo, SignedStatement,
-	SigningContext, UncheckedSignedStatement, ValidatorId, ValidatorIndex,
+	node_features::FeatureIndex,
+	vstaging::{transpose_claim_queue, CandidateDescriptorVersion, TransposedClaimQueue},
+	AuthorityDiscoveryId, CandidateHash, CompactStatement, CoreIndex, GroupIndex,
+	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures, SessionIndex, SessionInfo,
+	SignedStatement, SigningContext, UncheckedSignedStatement, ValidatorId, ValidatorIndex,
 };
 
 use sp_keystore::KeystorePtr;
@@ -136,6 +140,12 @@ const COST_UNREQUESTED_RESPONSE_STATEMENT: Rep =
 	Rep::CostMajor("Un-requested Statement In Response");
 const COST_INACCURATE_ADVERTISEMENT: Rep =
 	Rep::CostMajor("Peer advertised a candidate inaccurately");
+const COST_UNSUPPORTED_DESCRIPTOR_VERSION: Rep =
+	Rep::CostMajor("Candidate Descriptor version is not supported");
+const COST_INVALID_CORE_INDEX: Rep =
+	Rep::CostMajor("Candidate Descriptor contains an invalid core index");
+const COST_INVALID_SESSION_INDEX: Rep =
+	Rep::CostMajor("Candidate Descriptor contains an invalid session index");
 
 const COST_INVALID_REQUEST: Rep = Rep::CostMajor("Peer sent unparsable request");
 const COST_INVALID_REQUEST_BITFIELD_SIZE: Rep =
@@ -155,6 +165,7 @@ struct PerRelayParentState {
 	statement_store: StatementStore,
 	seconding_limit: usize,
 	session: SessionIndex,
+	transposed_cq: TransposedClaimQueue,
 	groups_per_para: HashMap<ParaId, Vec<GroupIndex>>,
 	disabled_validators: HashSet<ValidatorIndex>,
 }
@@ -218,10 +229,17 @@ struct PerSessionState {
 	// getting the topology from the gossip-support subsystem
 	grid_view: Option<grid::SessionTopologyView>,
 	local_validator: Option<LocalValidatorIndex>,
+	// `true` if v2 candidate receipts are allowed by the runtime
+	allow_v2_descriptors: bool,
 }
 
 impl PerSessionState {
-	fn new(session_info: SessionInfo, keystore: &KeystorePtr, backing_threshold: u32) -> Self {
+	fn new(
+		session_info: SessionInfo,
+		keystore: &KeystorePtr,
+		backing_threshold: u32,
+		allow_v2_descriptors: bool,
+	) -> Self {
 		let groups = Groups::new(session_info.validator_groups.clone(), backing_threshold);
 		let mut authority_lookup = HashMap::new();
 		for (i, ad) in session_info.discovery_keys.iter().cloned().enumerate() {
@@ -234,7 +252,14 @@ impl PerSessionState {
 		)
 		.map(|(_, index)| LocalValidatorIndex::Active(index));
 
-		PerSessionState { session_info, groups, authority_lookup, grid_view: None, local_validator }
+		PerSessionState {
+			session_info,
+			groups,
+			authority_lookup,
+			grid_view: None,
+			local_validator,
+			allow_v2_descriptors,
+		}
 	}
 
 	fn supply_topology(
@@ -269,6 +294,11 @@ impl PerSessionState {
 	/// `false` is also returned if session topology is not known yet.
 	fn is_not_validator(&self) -> bool {
 		self.grid_view.is_some() && self.local_validator.is_none()
+	}
+
+	/// Returns `true` if v2 candidate receipts are enabled
+	fn candidate_receipt_v2_enabled(&self) -> bool {
+		self.allow_v2_descriptors
 	}
 }
 
@@ -570,7 +600,7 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 
 	for new_relay_parent in new_relay_parents.iter().cloned() {
 		let disabled_validators: HashSet<_> =
-			polkadot_node_subsystem_util::vstaging::get_disabled_validators_with_fallback(
+			polkadot_node_subsystem_util::runtime::get_disabled_validators_with_fallback(
 				ctx.sender(),
 				new_relay_parent,
 			)
@@ -614,8 +644,18 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 
 			let minimum_backing_votes =
 				request_min_backing_votes(new_relay_parent, session_index, ctx.sender()).await?;
-			let mut per_session_state =
-				PerSessionState::new(session_info, &state.keystore, minimum_backing_votes);
+			let node_features =
+				request_node_features(new_relay_parent, session_index, ctx.sender()).await?;
+			let mut per_session_state = PerSessionState::new(
+				session_info,
+				&state.keystore,
+				minimum_backing_votes,
+				node_features
+					.unwrap_or(NodeFeatures::EMPTY)
+					.get(FeatureIndex::CandidateReceiptV2 as usize)
+					.map(|b| *b)
+					.unwrap_or(false),
+			);
 			if let Some(topology) = state.unused_topologies.remove(&session_index) {
 				per_session_state.supply_topology(&topology.topology, topology.local_index);
 			}
@@ -641,18 +681,6 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 			continue
 		}
 
-		// New leaf: fetch info from runtime API and initialize
-		// `per_relay_parent`.
-
-		let availability_cores = polkadot_node_subsystem_util::request_availability_cores(
-			new_relay_parent,
-			ctx.sender(),
-		)
-		.await
-		.await
-		.map_err(JfyiError::RuntimeApiUnavailable)?
-		.map_err(JfyiError::FetchAvailabilityCores)?;
-
 		let group_rotation_info =
 			polkadot_node_subsystem_util::request_validator_groups(new_relay_parent, ctx.sender())
 				.await
@@ -661,23 +689,22 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 				.map_err(JfyiError::FetchValidatorGroups)?
 				.1;
 
-		let maybe_claim_queue = fetch_claim_queue(ctx.sender(), new_relay_parent)
-		.await
-		.unwrap_or_else(|err| {
-				gum::debug!(target: LOG_TARGET, ?new_relay_parent, ?err, "handle_active_leaves_update: `claim_queue` API not available");
-				None
-			});
+		let claim_queue = ClaimQueueSnapshot(
+			polkadot_node_subsystem_util::request_claim_queue(new_relay_parent, ctx.sender())
+				.await
+				.await
+				.map_err(JfyiError::RuntimeApiUnavailable)?
+				.map_err(JfyiError::FetchClaimQueue)?,
+		);
 
 		let local_validator = per_session.local_validator.and_then(|v| {
 			if let LocalValidatorIndex::Active(idx) = v {
 				find_active_validator_state(
 					idx,
 					&per_session.groups,
-					&availability_cores,
 					&group_rotation_info,
-					&maybe_claim_queue,
+					&claim_queue,
 					seconding_limit,
-					max_candidate_depth,
 				)
 			} else {
 				Some(LocalValidatorState { grid_tracker: GridTracker::default(), active: None })
@@ -685,12 +712,13 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 		});
 
 		let groups_per_para = determine_groups_per_para(
-			availability_cores,
+			per_session.groups.all().len(),
 			group_rotation_info,
-			&maybe_claim_queue,
-			max_candidate_depth,
+			&claim_queue,
 		)
 		.await;
+
+		let transposed_cq = transpose_claim_queue(claim_queue.0);
 
 		state.per_relay_parent.insert(
 			new_relay_parent,
@@ -701,6 +729,7 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 				session: session_index,
 				groups_per_para,
 				disabled_validators,
+				transposed_cq,
 			},
 		);
 	}
@@ -740,11 +769,9 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 fn find_active_validator_state(
 	validator_index: ValidatorIndex,
 	groups: &Groups,
-	availability_cores: &[CoreState],
 	group_rotation_info: &GroupRotationInfo,
-	maybe_claim_queue: &Option<ClaimQueueSnapshot>,
+	claim_queue: &ClaimQueueSnapshot,
 	seconding_limit: usize,
-	max_candidate_depth: usize,
 ) -> Option<LocalValidatorState> {
 	if groups.all().is_empty() {
 		return None
@@ -752,23 +779,8 @@ fn find_active_validator_state(
 
 	let our_group = groups.by_validator_index(validator_index)?;
 
-	let core_index = group_rotation_info.core_for_group(our_group, availability_cores.len());
-	let paras_assigned_to_core = if let Some(claim_queue) = maybe_claim_queue {
-		claim_queue.iter_claims_for_core(&core_index).copied().collect()
-	} else {
-		availability_cores
-			.get(core_index.0 as usize)
-			.and_then(|core_state| match core_state {
-				CoreState::Scheduled(scheduled_core) => Some(scheduled_core.para_id),
-				CoreState::Occupied(occupied_core) if max_candidate_depth >= 1 => occupied_core
-					.next_up_on_available
-					.as_ref()
-					.map(|scheduled_core| scheduled_core.para_id),
-				CoreState::Free | CoreState::Occupied(_) => None,
-			})
-			.into_iter()
-			.collect()
-	};
+	let core_index = group_rotation_info.core_for_group(our_group, groups.all().len());
+	let paras_assigned_to_core = claim_queue.iter_claims_for_core(&core_index).copied().collect();
 	let group_validators = groups.get(our_group)?.to_owned();
 
 	Some(LocalValidatorState {
@@ -1200,7 +1212,7 @@ pub(crate) async fn share_local_statement<Context>(
 	// have the candidate. Sanity: check the para-id is valid.
 	let expected = match statement.payload() {
 		FullStatementWithPVD::Seconded(ref c, _) =>
-			Some((c.descriptor().para_id, c.descriptor().relay_parent)),
+			Some((c.descriptor.para_id(), c.descriptor.relay_parent())),
 		FullStatementWithPVD::Valid(hash) =>
 			state.candidates.get_confirmed(&hash).map(|c| (c.para_id(), c.relay_parent())),
 	};
@@ -2173,39 +2185,16 @@ async fn provide_candidate_to_grid<Context>(
 
 // Utility function to populate per relay parent `ParaId` to `GroupIndex` mappings.
 async fn determine_groups_per_para(
-	availability_cores: Vec<CoreState>,
+	n_cores: usize,
 	group_rotation_info: GroupRotationInfo,
-	maybe_claim_queue: &Option<ClaimQueueSnapshot>,
-	max_candidate_depth: usize,
+	claim_queue: &ClaimQueueSnapshot,
 ) -> HashMap<ParaId, Vec<GroupIndex>> {
-	let n_cores = availability_cores.len();
-
 	// Determine the core indices occupied by each para at the current relay parent. To support
 	// on-demand parachains we also consider the core indices at next blocks.
-	let schedule: HashMap<CoreIndex, Vec<ParaId>> = if let Some(claim_queue) = maybe_claim_queue {
-		claim_queue
-			.iter_all_claims()
-			.map(|(core_index, paras)| (*core_index, paras.iter().copied().collect()))
-			.collect()
-	} else {
-		availability_cores
-			.into_iter()
-			.enumerate()
-			.filter_map(|(index, core)| match core {
-				CoreState::Scheduled(scheduled_core) =>
-					Some((CoreIndex(index as u32), vec![scheduled_core.para_id])),
-				CoreState::Occupied(occupied_core) =>
-					if max_candidate_depth >= 1 {
-						occupied_core.next_up_on_available.map(|scheduled_core| {
-							(CoreIndex(index as u32), vec![scheduled_core.para_id])
-						})
-					} else {
-						None
-					},
-				CoreState::Free => None,
-			})
-			.collect()
-	};
+	let schedule: HashMap<CoreIndex, Vec<ParaId>> = claim_queue
+		.iter_all_claims()
+		.map(|(core_index, paras)| (*core_index, paras.iter().copied().collect()))
+		.collect();
 
 	let mut groups_per_para = HashMap::new();
 	// Map from `CoreIndex` to `GroupIndex` and collect as `HashMap`.
@@ -2276,13 +2265,13 @@ async fn fragment_chain_update_inner<Context>(
 		} = hypo
 		{
 			let confirmed_candidate = state.candidates.get_confirmed(&candidate_hash);
-			let prs = state.per_relay_parent.get_mut(&receipt.descriptor().relay_parent);
+			let prs = state.per_relay_parent.get_mut(&receipt.descriptor.relay_parent());
 			if let (Some(confirmed), Some(prs)) = (confirmed_candidate, prs) {
 				let per_session = state.per_session.get(&prs.session);
 				let group_index = confirmed.group_index();
 
 				// Sanity check if group_index is valid for this para at relay parent.
-				let Some(expected_groups) = prs.groups_per_para.get(&receipt.descriptor().para_id)
+				let Some(expected_groups) = prs.groups_per_para.get(&receipt.descriptor.para_id())
 				else {
 					continue
 				};
@@ -2295,7 +2284,7 @@ async fn fragment_chain_update_inner<Context>(
 						ctx,
 						candidate_hash,
 						confirmed.group_index(),
-						&receipt.descriptor().relay_parent,
+						&receipt.descriptor.relay_parent(),
 						prs,
 						confirmed,
 						per_session,
@@ -2887,7 +2876,7 @@ pub(crate) async fn handle_backed_candidate_message<Context>(
 		ctx,
 		state,
 		confirmed.para_id(),
-		confirmed.candidate_receipt().descriptor().para_head,
+		confirmed.candidate_receipt().descriptor.para_head(),
 	)
 	.await;
 }
@@ -3105,11 +3094,12 @@ pub(crate) async fn handle_response<Context>(
 ) {
 	let &requests::CandidateIdentifier { relay_parent, candidate_hash, group_index } =
 		response.candidate_identifier();
+	let peer = *response.requested_peer();
 
 	gum::trace!(
 		target: LOG_TARGET,
 		?candidate_hash,
-		peer = ?response.requested_peer(),
+		?peer,
 		"Received response",
 	);
 
@@ -3144,6 +3134,8 @@ pub(crate) async fn handle_response<Context>(
 				expected_groups.iter().any(|g| g == &g_index)
 			},
 			disabled_mask,
+			&relay_parent_state.transposed_cq,
+			per_session.candidate_receipt_v2_enabled(),
 		);
 
 		for (peer, rep) in res.reputation_changes {

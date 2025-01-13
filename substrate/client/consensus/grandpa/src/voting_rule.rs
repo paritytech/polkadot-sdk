@@ -82,7 +82,7 @@ where
 ///
 /// In the best case our vote is exactly N blocks
 /// behind the best block, but if there is a scenario where either
-/// >34% of validators run without this rule or the fork-choice rule
+/// \>34% of validators run without this rule or the fork-choice rule
 /// can prioritize shorter chains over longer ones, the vote may be
 /// closer to the best block than N.
 #[derive(Clone)]
@@ -367,7 +367,7 @@ mod tests {
 		// where each subtracts 50 blocks from the current target
 		let rule = VotingRulesBuilder::new().add(Subtract(50)).add(Subtract(50)).build();
 
-		let mut client = Arc::new(TestClientBuilder::new().build());
+		let client = Arc::new(TestClientBuilder::new().build());
 		let mut hashes = Vec::with_capacity(200);
 
 		for _ in 0..200 {
@@ -416,7 +416,7 @@ mod tests {
 	fn before_best_by_has_cutoff_at_base() {
 		let rule = BeforeBestBlockBy(2);
 
-		let mut client = Arc::new(TestClientBuilder::new().build());
+		let client = Arc::new(TestClientBuilder::new().build());
 
 		let n = 5;
 		let mut hashes = Vec::with_capacity(n);
