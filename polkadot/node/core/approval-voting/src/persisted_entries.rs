@@ -214,15 +214,13 @@ impl ApprovalEntry {
 				self.tranches.len() - 1
 			},
 		};
-		// We already know if we have seen an assignment from this validator
-		// and since this function is on the hot path we can avoid going through tranches
-		// if the assignment is not a duplicate.
-		if !is_duplicate ||
-			!self.tranches[idx]
-				.assignments
-				.iter()
-				.any(|(validator, _)| validator == &validator_index)
-		{
+		// At restart we might have duplicate assignments because approval-distribution is not
+		// persistent across restarts, so avoid adding duplicates.
+		// We already know if we have seen an assignment from this validator and since this
+		// function is on the hot path we can avoid iterating through tranches by using
+		// !is_duplicate to determine if it is already present in the vector and does not need
+		// adding.
+		if !is_duplicate {
 			self.tranches[idx].assignments.push((validator_index, tick_now));
 		}
 		self.assigned_validators.set(validator_index.0 as _, true);
