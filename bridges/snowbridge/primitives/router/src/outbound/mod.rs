@@ -2,8 +2,6 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! Converts XCM messages into simpler commands that can be processed by the Gateway contract
 
-mod barriers;
-pub use barriers::DenyFirstExportMessageFrom;
 #[cfg(test)]
 mod tests;
 
@@ -21,6 +19,8 @@ use sp_runtime::traits::MaybeEquivalence;
 use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};
 use xcm::prelude::*;
 use xcm_executor::traits::{ConvertLocation, ExportXcm};
+
+pub mod barriers;
 
 pub struct EthereumBlobExporter<
 	UniversalLocation,
