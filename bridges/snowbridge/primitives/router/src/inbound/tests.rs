@@ -1,14 +1,8 @@
-<<<<<<< HEAD
 use super::GlobalConsensusEthereumConvertsFor;
-use crate::inbound::CallIndex;
-use frame_support::{assert_ok, parameter_types};
-=======
-use super::EthereumLocationsConverterFor;
 use crate::inbound::{
 	mock::*, Command, ConvertMessage, Destination, MessageV1, VersionedMessage, H160,
 };
 use frame_support::assert_ok;
->>>>>>> 4059282f (Snowbridge: Support bridging native ETH (#6855))
 use hex_literal::hex;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;

@@ -4,7 +4,7 @@ use sp_runtime::{
 	traits::{IdentifyAccount, MaybeEquivalence, Verify},
 	MultiSignature,
 };
-use xcm::{latest::WESTEND_GENESIS_HASH, prelude::*};
+use xcm::prelude::*;
 
 pub const CHAIN_ID: u64 = 11155111;
 pub const NETWORK: NetworkId = Ethereum { chain_id: CHAIN_ID };
@@ -18,8 +18,8 @@ parameter_types! {
 	pub const SendTokenExecutionFee: u128 = 1_000_000_000;
 	pub const InboundQueuePalletInstance: u8 = 80;
 	pub UniversalLocation: InteriorLocation =
-		[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1002)].into();
-	pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),Parachain(1000)]);
+		[GlobalConsensus(Westend), Parachain(1002)].into();
+	pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(Westend),Parachain(1000)]);
 }
 
 type Signature = MultiSignature;
