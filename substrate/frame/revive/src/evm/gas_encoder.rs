@@ -49,8 +49,22 @@ where
 		.unwrap_or(0) as u128
 }
 
+mod private {
+	pub trait Sealed {}
+	impl Sealed for () {}
+}
+
 /// Encodes/Decodes EVM gas values.
-pub trait GasEncoder<Balance> {
+///
+/// # Note
+///
+/// This is defined as a trait rather than standalone functions to allow
+/// it to be added as an associated type to [`crate::Config`]. This way,
+/// it can be invoked without requiring the implementation bounds to be
+/// explicitly specified.
+///
+/// This trait is sealed and cannot be implemented by downstream crates.
+pub trait GasEncoder<Balance>: private::Sealed {
 	/// Encodes all components (deposit limit, weight reference time, and proof size) into a single
 	/// gas value.
 	fn encode(gas_limit: U256, weight: Weight, deposit: Balance) -> U256;
