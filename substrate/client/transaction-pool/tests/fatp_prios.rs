@@ -24,7 +24,8 @@ use fatp_common::{invalid_hash, new_best_block_event, TestPoolBuilder, LOG_TARGE
 use futures::{executor::block_on, FutureExt};
 use sc_transaction_pool::ChainApi;
 use sc_transaction_pool_api::{
-	error::Error as TxPoolError, MaintainedTransactionPool, TransactionPool, TransactionStatus,
+	error::Error as TxPoolError, LocalTransactionPool, MaintainedTransactionPool, TransactionPool,
+	TransactionStatus,
 };
 use substrate_test_runtime_client::Sr25519Keyring::*;
 use substrate_test_runtime_transaction_pool::uxt;
@@ -498,4 +499,65 @@ fn fatp_prios_watcher_full_mempool_does_not_keep_dropped_transaction() {
 	assert_watcher_stream!(xt1_watcher, [TransactionStatus::Ready, TransactionStatus::Dropped]);
 	assert_watcher_stream!(xt2_watcher, [TransactionStatus::Ready]);
 	assert_watcher_stream!(xt3_watcher, [TransactionStatus::Ready]);
+}
+
+#[test]
+fn fatp_prios_submit_local_full_mempool_higher_prio_is_accepted() {
+	sp_tracing::try_init_simple();
+
+	let builder = TestPoolBuilder::new();
+	let (pool, api, _) = builder.with_mempool_count_limit(4).with_ready_count(2).build();
+	api.set_nonce(api.genesis_hash(), Bob.into(), 300);
+	api.set_nonce(api.genesis_hash(), Charlie.into(), 400);
+	api.set_nonce(api.genesis_hash(), Dave.into(), 500);
+	api.set_nonce(api.genesis_hash(), Eve.into(), 600);
+	api.set_nonce(api.genesis_hash(), Ferdie.into(), 700);
+
+	let header01 = api.push_block(1, vec![], true);
+	let event = new_best_block_event(&pool, None, header01.hash());
+	block_on(pool.maintain(event));
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Bob, 300);
+	let xt2 = uxt(Charlie, 400);
+
+	let xt3 = uxt(Dave, 500);
+
+	let xt4 = uxt(Eve, 600);
+	let xt5 = uxt(Ferdie, 700);
+
+	api.set_priority(&xt0, 1);
+	api.set_priority(&xt1, 2);
+	api.set_priority(&xt2, 3);
+	api.set_priority(&xt3, 4);
+
+	api.set_priority(&xt4, 5);
+	api.set_priority(&xt5, 6);
+	pool.submit_local(invalid_hash(), xt0.clone()).unwrap();
+	pool.submit_local(invalid_hash(), xt1.clone()).unwrap();
+
+	assert_pool_status!(header01.hash(), &pool, 2, 0);
+	assert_eq!(pool.mempool_len().0, 2);
+
+	let header02 = api.push_block_with_parent(header01.hash(), vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header01.hash()), header02.hash())));
+
+	pool.submit_local(invalid_hash(), xt2.clone()).unwrap();
+	pool.submit_local(invalid_hash(), xt3.clone()).unwrap();
+
+	assert_pool_status!(header02.hash(), &pool, 2, 0);
+	assert_eq!(pool.mempool_len().0, 4);
+
+	let header03 = api.push_block_with_parent(header02.hash(), vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header02.hash()), header03.hash())));
+
+	pool.submit_local(invalid_hash(), xt4.clone()).unwrap();
+	pool.submit_local(invalid_hash(), xt5.clone()).unwrap();
+
+	assert_pool_status!(header03.hash(), &pool, 2, 0);
+	assert_eq!(pool.mempool_len().0, 4);
+
+	assert_ready_iterator!(header01.hash(), pool, []);
+	assert_ready_iterator!(header02.hash(), pool, [xt3, xt2]);
+	assert_ready_iterator!(header03.hash(), pool, [xt5, xt4]);
 }
