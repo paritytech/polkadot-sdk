@@ -283,7 +283,9 @@ impl DelegationInterface for DelegateMock {
 
 	fn remove_agent(agent: Agent<Self::AccountId>) -> DispatchResult {
 		let mut agents = AgentBalanceMap::get();
-		agents.remove(&agent.get());
+		let agent = agent.get();
+		assert!(agents.contains_key(&agent));
+		agents.remove(&agent);
 		AgentBalanceMap::set(&agents);
 		Ok(())
 	}
@@ -300,7 +302,10 @@ impl DelegationInterface for DelegateMock {
 
 		let agent = agent.get();
 		let mut agents = AgentBalanceMap::get();
-		agents.get_mut(&agent).map(|(d, _, _)| *d += amount);
+		agents
+			.get_mut(&agent)
+			.map(|(d, _, _)| *d += amount)
+			.ok_or(DispatchError::Other("agent not registered"))?;
 		AgentBalanceMap::set(&agents);
 
 		if BondedBalanceMap::get().contains_key(&agent) {

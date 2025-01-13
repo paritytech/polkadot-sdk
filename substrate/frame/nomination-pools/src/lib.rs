@@ -2020,7 +2020,6 @@ pub mod pallet {
 			ensure!(!PoolMembers::<T>::contains_key(&who), Error::<T>::AccountBelongsToOtherPool);
 
 			let mut bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
-			ensure!(bonded_pool.state == PoolState::Open, Error::<T>::NotOpen);
 			bonded_pool.ok_to_join()?;
 
 			let mut reward_pool = RewardPools::<T>::get(pool_id)
