@@ -1,4 +1,4 @@
-title: Migrate pallet-fast-unstake and pallet-babe benchmark to v2
+title: Increase the number of pvf execution workers from 2 to 4
 doc:
 - audience: Node Dev
   description: |-
