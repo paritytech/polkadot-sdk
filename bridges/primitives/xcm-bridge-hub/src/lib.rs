@@ -159,8 +159,10 @@ pub enum BridgeState {
 	/// *suspended* means that we have sent the "Suspended" message/signal to the local bridge
 	/// origin.
 	///
-	/// `bool` - `true` means that we keep accepting messages to the bridge.
-	Suspended(bool),
+	/// We keep accepting messages to the bridge to allow any inflight messages to be processed.
+	SoftSuspended,
+	/// Bridge is suspended and new messages are now being actively dropped.
+	HardSuspended,
 	/// Bridge is closed. Associated lanes are also closed.
 	/// After all outbound messages will be pruned, the bridge will vanish without any traces.
 	Closed,

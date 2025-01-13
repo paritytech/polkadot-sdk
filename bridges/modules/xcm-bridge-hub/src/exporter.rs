@@ -146,7 +146,7 @@ where
 
 		// Here, we know that the message is relevant to this pallet instance, so let's check for
 		// congestion defense.
-		if bridge.state == BridgeState::Suspended(false) {
+		if bridge.state == BridgeState::HardSuspended {
 			log::error!(
 				target: LOG_TARGET,
 				"Bridge for requested bridge_origin_relative_location: {:?} (bridge_origin_universal_location: {:?}) and bridge_destination_universal_location: {:?} \
@@ -227,12 +227,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		// check if the lane is already suspended or not.
 		match bridge.state {
-			BridgeState::Suspended(true) => {
+			BridgeState::SoftSuspended => {
 				if enqueued_messages > T::CongestionLimits::get().outbound_lane_stop_threshold {
 					// If its suspended and reached `outbound_lane_stop_threshold`, we stop
 					// accepting new messages (a.k.a. start dropping).
 					Bridges::<T, I>::mutate_extant(bridge_id, |bridge| {
-						bridge.state = BridgeState::Suspended(false);
+						bridge.state = BridgeState::HardSuspended;
 					});
 					return
 				} else {
@@ -242,8 +242,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				}
 			},
 			BridgeState::Suspended(false) => {
-				// We cannot accept new messages to the suspended bridge, hoping that it'll be
-				// actually resumed soon
+				// We cannot accept new messages and start dropping messages, until the outbound lane goes below the drop limit.
 				return
 			},
 			_ => {
