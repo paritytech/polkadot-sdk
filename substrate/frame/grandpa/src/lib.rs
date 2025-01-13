@@ -460,8 +460,6 @@ impl<T: Config> Pallet<T> {
 	/// together sessions and GRANDPA set ids, i.e. we need to validate that a validator
 	/// was the owner of a given key on a given session, and what the active set ID was
 	/// during that session.
-	///
-	/// TWOX-NOTE: `SetId` is not under user control.
 	pub fn session_for_set(set_id: SetId) -> Option<SessionIndex> {
 		SetIdSession::<T>::get(set_id)
 	}
