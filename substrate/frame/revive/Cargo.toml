@@ -9,6 +9,7 @@ repository.workspace = true
 description = "FRAME pallet for PolkaVM contracts."
 readme = "README.md"
 include = ["CHANGELOG.md", "README.md", "build.rs", "src/**/*"]
+publish = false
 
 [lints]
 workspace = true
