@@ -82,8 +82,17 @@ pub fn expand_runtime_metadata(
 		let name = &decl.name;
 		let path = &decl.path;
 		let instance = decl.instance.as_ref().into_iter();
+		let attr = decl.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
+			let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
+				.expect("was successfully parsed before; qed");
+			quote! {
+				#acc
+				#attr
+			}
+		});
 
 		quote! {
+			#attr
 			#path::Pallet::<#runtime #(, #path::#instance)*>::pallet_view_functions_metadata(
 				::core::stringify!(#name)
 			)

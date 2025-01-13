@@ -16,6 +16,7 @@
 // limitations under the License
 
 use crate::construct_runtime::Pallet;
+use core::str::FromStr;
 use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
 
 /// Expands implementation of runtime level `DispatchViewFunction`.
@@ -28,7 +29,16 @@ pub fn expand_outer_query(
 
 	let prefix_conditionals = pallet_decls.iter().map(|pallet| {
 		let pallet_name = &pallet.name;
+		let attr = pallet.cfg_pattern.iter().fold(TokenStream2::new(), |acc, pattern| {
+			let attr = TokenStream2::from_str(&format!("#[cfg({})]", pattern.original()))
+				.expect("was successfully parsed before; qed");
+			quote::quote! {
+				#acc
+				#attr
+			}
+		});
 		quote::quote! {
+			#attr
 			if id.prefix == <#pallet_name as #scrate::traits::ViewFunctionIdPrefix>::prefix() {
 				return <#pallet_name as #scrate::traits::DispatchViewFunction>::dispatch_view_function(id, input, output)
 			}
