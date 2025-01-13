@@ -25,20 +25,31 @@ use crate::{
 		runtime_api::{MockRuntimeApi, MockRuntimeApiCoreState},
 		AlwaysSupportsParachains,
 	},
-	network::{new_network, NetworkEmulatorHandle, NetworkInterface, NetworkInterfaceReceiver},
+	network::{
+		new_network, NetworkEmulatorHandle, NetworkInterface, NetworkInterfaceReceiver,
+		NetworkMessage,
+	},
 	usage::BenchmarkUsage,
 	NODE_UNDER_TEST,
 };
 use bitvec::vec::BitVec;
+use codec::{Decode, Encode};
 use colored::Colorize;
 use itertools::Itertools;
+use polkadot_network_bridge::WireMessage;
 use polkadot_node_metrics::metrics::Metrics;
 use polkadot_node_network_protocol::{
 	authority_discovery::AuthorityDiscovery,
 	grid_topology::{SessionGridTopology, TopologyPeerInfo},
 	peer_set::{peer_sets_info, IsAuthority, PeerSet, PeerSetProtocolNames},
-	request_response::{v2::AttestedCandidateRequest, IncomingRequest, ReqProtocolNames},
-	v3::{self, BackedCandidateManifest, StatementFilter},
+	request_response::{
+		v2::{AttestedCandidateRequest, AttestedCandidateResponse},
+		IncomingRequest, OutgoingRequest, ReqProtocolNames, Requests,
+	},
+	v3::{
+		self, BackedCandidateAcknowledgement, BackedCandidateManifest, StatementFilter,
+		ValidationProtocol,
+	},
 	view, Versioned, View,
 };
 use polkadot_node_subsystem::messages::{
@@ -49,7 +60,8 @@ use polkadot_overseer::{
 	Handle as OverseerHandle, Overseer, OverseerConnector, OverseerMetrics, SpawnGlue,
 };
 use polkadot_primitives::{
-	AuthorityDiscoveryId, Block, GroupIndex, Hash, Id, ValidatorId, ValidatorIndex,
+	AuthorityDiscoveryId, Block, CompactStatement, GroupIndex, Hash, Id, SignedStatement,
+	SigningContext, ValidatorId, ValidatorIndex,
 };
 use polkadot_service::{
 	overseer::{NetworkBridgeMetrics, NetworkBridgeRxSubsystem, NetworkBridgeTxSubsystem},
@@ -61,16 +73,19 @@ use sc_keystore::LocalKeystore;
 use sc_network::{
 	config::{
 		FullNetworkConfiguration, MultiaddrWithPeerId, NetworkConfiguration, NonReservedPeerMode,
-		Params, ProtocolId, Role, SetConfig,
+		Params, ProtocolId, Role, SetConfig, TransportConfig,
 	},
+	multiaddr,
 	request_responses::ProtocolConfig,
 	service::traits::{NotificationEvent, ValidationResult},
-	Multiaddr, NetworkWorker, NotificationMetrics,
+	IfDisconnected, Multiaddr, NetworkWorker, NotificationMetrics,
 };
 use sc_network_common::sync::message::BlockAnnouncesHandshake;
 use sc_network_types::PeerId;
 use sc_service::SpawnTaskHandle;
+use sp_application_crypto::Pair;
 use sp_consensus::SyncOracle;
+use sp_core::Bytes;
 use sp_keystore::{Keystore, KeystorePtr};
 use sp_runtime::RuntimeAppPublic;
 use std::{
@@ -79,9 +94,12 @@ use std::{
 	time::{Duration, Instant},
 };
 pub use test_state::TestState;
+use tokio::sync::oneshot;
 
 mod test_state;
 
+// TODO: use same index for all nodes
+const SESSION_INDEX: u32 = 0;
 const LOG_TARGET: &str = "subsystem-bench::statement";
 
 pub fn make_keystore() -> KeystorePtr {
@@ -182,11 +200,10 @@ fn build_overseer(
 	let req_protocol_names = ReqProtocolNames::new(GENESIS_HASH, None);
 	let peer_set_protocol_names = PeerSetProtocolNames::new(GENESIS_HASH, None);
 	let mut net_conf = NetworkConfiguration::new_local();
-	net_conf.listen_addresses = vec![std::iter::once(sc_network::multiaddr::Protocol::Ip4(
-		std::net::Ipv4Addr::new(127, 0, 0, 1),
-	))
-	.chain(std::iter::once(sc_network::multiaddr::Protocol::Tcp(40000 + NODE_UNDER_TEST as u16)))
-	.collect()];
+	net_conf.transport = TransportConfig::MemoryOnly;
+	net_conf.listen_addresses =
+		vec![multiaddr::Protocol::Memory(NODE_UNDER_TEST.saturating_add(1) as u64).into()];
+	net_conf.node_key = state.test_authorities.node_key_configs[NODE_UNDER_TEST as usize].clone();
 
 	let mut network_config =
 		FullNetworkConfiguration::<Block, Hash, NetworkWorker<Block, Hash>>::new(&net_conf, None);
@@ -346,9 +363,6 @@ fn build_overseer(
 
 			for (peer_id, multiaddr) in addresses {
 				network_service.add_known_address(peer_id, multiaddr.clone());
-				network_service
-					.add_reserved_peer(MultiaddrWithPeerId { multiaddr, peer_id })
-					.unwrap();
 			}
 
 			tokio::time::sleep(Duration::from_secs(5)).await;
@@ -369,12 +383,11 @@ fn build_peer(
 	let _guard = handle.enter();
 
 	let req_protocol_names = ReqProtocolNames::new(GENESIS_HASH, None);
+	let peer_set_protocol_names = PeerSetProtocolNames::new(GENESIS_HASH, None);
 	let mut net_conf = NetworkConfiguration::new_local();
-	net_conf.listen_addresses = vec![std::iter::once(sc_network::multiaddr::Protocol::Ip4(
-		std::net::Ipv4Addr::new(127, 0, 0, 1),
-	))
-	.chain(std::iter::once(sc_network::multiaddr::Protocol::Tcp(40000 + index)))
-	.collect()];
+	net_conf.transport = TransportConfig::MemoryOnly;
+	net_conf.listen_addresses =
+		vec![multiaddr::Protocol::Memory(index.saturating_add(1) as u64).into()];
 	net_conf.node_key = state.test_authorities.node_key_configs[index as usize].clone();
 
 	let mut network_config =
@@ -384,6 +397,7 @@ fn build_peer(
 			Block,
 			NetworkWorker<Block, Hash>,
 		>(&req_protocol_names);
+	let candidate_req_name = candidate_req_cfg.name.clone();
 	network_config.add_request_response_protocol(candidate_req_cfg);
 	let role = Role::Authority;
 	let peer_store_handle = network_config.peer_store_handle();
@@ -417,6 +431,30 @@ fn build_peer(
 			Arc::clone(&peer_store_handle),
 		);
 
+	let mut notification_services = peer_sets_info::<Block, NetworkWorker<Block, Hash>>(
+		IsAuthority::Yes,
+		&peer_set_protocol_names,
+		notification_metrics.clone(),
+		Arc::clone(&peer_store_handle),
+	)
+	.into_iter()
+	.map(|(config, (_peerset, service))| {
+		network_config.add_notification_protocol(config);
+		service
+	})
+	.collect_vec();
+	let validation_position = notification_services
+		.iter()
+		.position(|service| service.protocol().contains("/validation/"))
+		.expect("Should be only one validation service");
+	let mut validation_notification_service = notification_services.remove(validation_position);
+	let collation_position = notification_services
+		.iter()
+		.position(|service| service.protocol().contains("/collation/"))
+		.expect("Should be only one collation service");
+	let mut collation_notification_service = notification_services.remove(collation_position);
+	assert!(notification_services.is_empty());
+
 	let worker =
 		<NetworkWorker<Block, Hash> as sc_network::NetworkBackend<Block, Hash>>::new(Params::<
 			Block,
@@ -446,20 +484,155 @@ fn build_peer(
 	let index_string = Box::leak(format!("{}", index).into_boxed_str());
 	spawn_handle.spawn(index_string, "peer_worker", worker.run());
 	spawn_handle.spawn(index_string, "peer_notification", {
-		let mut notification_service = notification_service.clone().unwrap();
+		let state = Arc::clone(&state);
+		let network_service = Arc::clone(&network_service);
 		async move {
-			while let Some(event) = notification_service.next_event().await {
-				match event {
-					NotificationEvent::ValidateInboundSubstream { result_tx, .. } =>
-						result_tx.send(ValidationResult::Accept).unwrap(),
-					_ => {},
+			loop {
+				tokio::select! {
+					event = notification_service.next_event() => {
+						if let Some(NotificationEvent::ValidateInboundSubstream { result_tx, .. }) = event {
+							result_tx.send(ValidationResult::Accept).unwrap();
+						}
+					},
+					event = validation_notification_service.next_event() => {
+						if let Some(NotificationEvent::NotificationReceived { peer, notification }) = event {
+							let message: Bytes = notification.into();
+							let message = WireMessage::<v3::ValidationProtocol>::decode(&mut message.as_ref()).unwrap();
+							match message {
+								WireMessage::ProtocolMessage(v3::ValidationProtocol::StatementDistribution(v3::StatementDistributionMessage::Statement(relay_parent, statement))) => {
+									let statement_validator_index = statement.unchecked_validator_index().0;
+									gum::debug!(target: LOG_TARGET, "Peer {} received a statement from validator {}", index, statement_validator_index);
+									let candidate_hash = *statement.unchecked_payload().candidate_hash();
+									let statements_sent_count = state
+										.statements_tracker
+										.get(&candidate_hash)
+										.unwrap()
+										.get(index as usize)
+										.unwrap()
+										.as_ref();
+									if statements_sent_count.load(Ordering::SeqCst) {
+										gum::debug!(target: LOG_TARGET, "Peer {} already sent own statement back to validator {}", index, statement_validator_index);
+										continue
+									} else {
+										statements_sent_count.store(true, Ordering::SeqCst);
+									}
+
+									let group_statements = state.statements.get(&candidate_hash).unwrap();
+									if !group_statements.iter().any(|s| s.unchecked_validator_index().0 == index as u32)
+									{
+										gum::debug!(target: LOG_TARGET, "No cluster statements for Validator {}", index);
+										continue
+									}
+
+									let statement = CompactStatement::Valid(candidate_hash);
+									let context = SigningContext { parent_hash: relay_parent, session_index: SESSION_INDEX };
+									let payload = statement.signing_payload(&context);
+									let pair = state.test_authorities.validator_pairs.get(index as usize).unwrap();
+									let signature = pair.sign(&payload[..]);
+									let statement = SignedStatement::new(statement, ValidatorIndex(index as u32), signature, &context, &pair.public())
+										.unwrap()
+										.as_unchecked()
+										.to_owned();
+									let message = WireMessage::ProtocolMessage(v3::ValidationProtocol::StatementDistribution(v3::StatementDistributionMessage::Statement(relay_parent, statement)));
+									let _ = validation_notification_service.send_async_notification(&peer, message.encode()).await;
+									gum::debug!(target: LOG_TARGET, "Peer {} sent own statement back to validator {}", index, statement_validator_index);
+								}
+								WireMessage::ProtocolMessage(v3::ValidationProtocol::StatementDistribution(v3::StatementDistributionMessage::BackedCandidateManifest(manifest))) => {
+									let backing_group = state.session_info.validator_groups.get(manifest.group_index).unwrap();
+									let group_size = backing_group.len();
+									let is_own_backing_group = backing_group.contains(&ValidatorIndex(NODE_UNDER_TEST));
+									let mut seconded_in_group = BitVec::from_iter((0..group_size).map(|_| !is_own_backing_group));
+									let mut validated_in_group = BitVec::from_iter((0..group_size).map(|_| false));
+
+									if is_own_backing_group {
+										let peer_id = state.test_authorities.peer_ids.get(NODE_UNDER_TEST as usize).unwrap().to_owned();
+										let req = AttestedCandidateRequest { candidate_hash: manifest.candidate_hash, mask: StatementFilter::blank(state.own_backing_group.len()) };
+										gum::debug!(target: LOG_TARGET, "Peer {} is requesting candidate {}", index, manifest.candidate_hash);
+										let (response, _) = network_service.request(peer_id, candidate_req_name.clone(), req.encode(), None, IfDisconnected::TryConnect).await.unwrap();
+										let response = AttestedCandidateResponse::decode(&mut response.as_ref()).unwrap();
+										gum::debug!(target: LOG_TARGET, "Peer {} received requested candidate {}", index, manifest.candidate_hash);
+										for statement in response.statements {
+											let validator_index = statement.unchecked_validator_index();
+											let position_in_group = backing_group.iter().position(|v| *v == validator_index).unwrap();
+											match statement.unchecked_payload() {
+												CompactStatement::Seconded(_) => seconded_in_group.set(position_in_group, true),
+												CompactStatement::Valid(_) => validated_in_group.set(position_in_group, true),
+											}
+										}
+									}
+
+									let ack = BackedCandidateAcknowledgement { candidate_hash: manifest.candidate_hash, statement_knowledge: StatementFilter { seconded_in_group, validated_in_group } };
+									let message = WireMessage::ProtocolMessage(v3::ValidationProtocol::StatementDistribution(v3::StatementDistributionMessage::BackedCandidateKnown(ack)));
+									validation_notification_service.send_async_notification(&peer, message.encode()).await.unwrap();
+									gum::debug!(target: LOG_TARGET, "Peer {} sent backed candidate known {}", index, manifest.candidate_hash);
+									state.manifests_tracker
+										.get(&manifest.candidate_hash)
+										.unwrap()
+										.as_ref()
+										.store(true, Ordering::SeqCst);
+									let manifests_count = state
+										.manifests_tracker
+										.values()
+										.filter(|v| v.load(Ordering::SeqCst))
+										.collect::<Vec<_>>()
+										.len();
+									gum::debug!(target: LOG_TARGET, "Peer {} tracked {} manifest", index, manifests_count);
+								},
+								WireMessage::ProtocolMessage(v3::ValidationProtocol::StatementDistribution(v3::StatementDistributionMessage::BackedCandidateKnown(ack))) => {
+									gum::debug!(target: LOG_TARGET, "Peer {} received backed candidate known {}", index, ack.candidate_hash);
+									state.manifests_tracker
+										.get(&ack.candidate_hash)
+										.unwrap()
+										.as_ref()
+										.store(true, Ordering::SeqCst);
+									let manifests_count = state
+										.manifests_tracker
+										.values()
+										.filter(|v| v.load(Ordering::SeqCst))
+										.collect::<Vec<_>>()
+										.len();
+									gum::debug!(target: LOG_TARGET, "Peer {} tracked {} manifest", index, manifests_count);
+								},
+								WireMessage::ViewUpdate(_) => {},
+								message => {
+									gum::error!(target: LOG_TARGET, "Peer {} received unknown message {:?}", index, message);
+								}
+							}
+						}
+					},
+					event = collation_notification_service.next_event() => {
+						gum::error!(target: LOG_TARGET, "Peer {} received collation {:?}", index, event);
+					},
 				}
 			}
 		}
 	});
 	spawn_handle.spawn(index_string, "peer_request", async move {
-		let xxx = candidate_req_receiver.recv(|| vec![]).await;
-		println!("xxx: {:?}", xxx);
+		loop {
+			let req = candidate_req_receiver.recv(|| vec![]).await.unwrap();
+			let payload = req.payload;
+			let candidate_receipt = state
+				.commited_candidate_receipts
+				.values()
+				.flatten()
+				.find(|v| v.hash() == payload.candidate_hash)
+				.unwrap()
+				.clone();
+			let persisted_validation_data = state.pvd.clone();
+			let statements = state
+				.statements
+				.get(&payload.candidate_hash)
+				.unwrap()
+				.clone();
+			gum::debug!(target: LOG_TARGET, ?statements, "Peer {} is preparing AttestedCandidateResponse", index);
+			let res = AttestedCandidateResponse {
+				candidate_receipt,
+				persisted_validation_data,
+				statements,
+			};
+			req.pending_response.send_response(res).unwrap();
+			gum::debug!(target: LOG_TARGET, "Peer {} answered request with AttestedCandidateResponse", index);
+		}
 	});
 
 	let listen_address = tokio::spawn({
@@ -597,9 +770,7 @@ pub async fn benchmark_statement_distribution(
 	env.metrics().set_n_cores(config.n_cores);
 
 	let topology = generate_topology(&state.test_authorities);
-	let peer_connected_messages = env.network().generate_peer_connected(|e| {
-		AllMessages::StatementDistribution(StatementDistributionMessage::NetworkBridgeUpdate(e))
-	});
+	let peer_connected_messages = vec![];
 	let new_session_topology_messages =
 		generate_new_session_topology(&topology, ValidatorIndex(NODE_UNDER_TEST));
 	for message in peer_connected_messages.into_iter().chain(new_session_topology_messages) {
@@ -645,6 +816,7 @@ pub async fn benchmark_statement_distribution(
 			)),
 		);
 		env.send_message(message).await;
+		gum::info!(target: LOG_TARGET, "Validator {} sent a statement initiating statement exchange in a cluster", seconding_validator_in_own_backing_group.0);
 
 		let max_messages_per_candidate = state.config.max_candidate_depth + 1;
 		// One was just sent for the own backing group
@@ -771,7 +943,7 @@ pub async fn benchmark_statement_distribution(
 				.filter(|v| v.load(Ordering::SeqCst))
 				.collect::<Vec<_>>()
 				.len();
-			gum::debug!(target: LOG_TARGET, "{}/{} manifest exchanges", manifests_count, candidates_advertised);
+			gum::trace!(target: LOG_TARGET, "{}/{} manifest exchanges", manifests_count, candidates_advertised);
 
 			if manifests_count == candidates_advertised {
 				break;
