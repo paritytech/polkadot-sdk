@@ -639,7 +639,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 		BLOCK_PROCESSING_VELOCITY,
 		UNINCLUDED_SEGMENT_CAPACITY,
 	>;
-	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
+	type SelectCore = cumulus_pallet_parachain_system::RoundRobinCoreSelector<Runtime>;
 }
 
 impl parachain_info::Config for Runtime {}

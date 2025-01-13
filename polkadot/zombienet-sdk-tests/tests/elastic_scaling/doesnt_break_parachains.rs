@@ -56,10 +56,10 @@ async fn doesnt_break_parachains_test() -> Result<(), anyhow::Error> {
 			(1..4).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
 		})
 		.with_parachain(|p| {
-			// Use rococo-parachain default, which has 6 second slot time. Also, don't use
-			// slot-based collator.
+			// Use test-parachain default, which has 6 second slot time and doesn't output ump
+			// signals. Also, don't use slot-based collator.
 			p.with_id(2000)
-				.with_default_command("polkadot-parachain")
+				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_default_args(vec![("-lparachain=debug,aura=debug").into()])
 				.with_collator(|n| n.with_name("collator-2000"))

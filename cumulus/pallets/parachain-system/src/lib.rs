@@ -194,6 +194,9 @@ pub mod ump_constants {
 }
 
 /// Trait for selecting the next core to build the candidate for.
+/// If methods return `None`,
+/// WARN: Only use an implementation that returns `Some(..)` if you're sure that all collator nodes
+/// have been updated to the latest version and are using the slot-based collator.
 pub trait SelectCore {
 	/// Core selector information for the current block.
 	fn selected_core() -> Option<(CoreSelector, ClaimQueueOffset)>;
@@ -210,10 +213,18 @@ impl SelectCore for () {
 	}
 }
 
-/// The default core selection policy.
-pub struct DefaultCoreSelector<T>(PhantomData<T>);
+/// Default core selection policy, no-op. Leaves the core selection up to the node side.
+/// Backwards compatible with all node versions. Use this unless you are sure that all collator
+/// nodes have been updated to latest version and are using the slot-based collator.
+pub type DefaultCoreSelector = ();
 
-impl<T: frame_system::Config> SelectCore for DefaultCoreSelector<T> {
+/// Core selection policy which does a round-robin selection on the assigned cores at claim queue
+/// depth 0.
+/// WARN: Only use if you're sure that all collator nodes have been updated to the latest version
+/// and are using the slot-based collator.
+pub struct RoundRobinCoreSelector<T>(PhantomData<T>);
+
+impl<T: frame_system::Config> SelectCore for RoundRobinCoreSelector<T> {
 	fn selected_core() -> Option<(CoreSelector, ClaimQueueOffset)> {
 		let core_selector: U256 = frame_system::Pallet::<T>::block_number().into();
 
@@ -227,10 +238,13 @@ impl<T: frame_system::Config> SelectCore for DefaultCoreSelector<T> {
 	}
 }
 
-/// Core selection policy that builds on claim queue offset 1.
-pub struct LookaheadCoreSelector<T>(PhantomData<T>);
+/// Core selection policy which does a round-robin selection on the assigned cores at claim queue
+/// depth 1.
+/// WARN: Only use if you're sure that all collator nodes have been updated to the latest version
+/// and are using the slot-based collator.
+pub struct LookaheadRoundRobinCoreSelector<T>(PhantomData<T>);
 
-impl<T: frame_system::Config> SelectCore for LookaheadCoreSelector<T> {
+impl<T: frame_system::Config> SelectCore for LookaheadRoundRobinCoreSelector<T> {
 	fn selected_core() -> Option<(CoreSelector, ClaimQueueOffset)> {
 		let core_selector: U256 = frame_system::Pallet::<T>::block_number().into();
 
