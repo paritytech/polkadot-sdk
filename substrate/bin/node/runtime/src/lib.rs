@@ -3303,19 +3303,52 @@ impl_runtime_apis! {
 		}
 
 		fn trace_block(
-			_block: Block,
-			_config: pallet_revive::evm::TracerConfig
+			block: Block,
+			config: pallet_revive::evm::TracerConfig
 		) -> Result<Vec<(u32, pallet_revive::evm::EthTraces)>, sp_runtime::DispatchError> {
-			unimplemented!()
+			let mut tracer = pallet_revive::debug::Tracer::from_config(config);
+			let mut traces = vec![];
+
+			pallet_revive::using_tracer(&mut tracer, || {
+				Executive::initialize_block(block.header());
+
+				for (index, ext) in block.extrinsics().into_iter().enumerate() {
+					let _ = Executive::apply_extrinsic(ext.clone());
+					pallet_revive::with_tracer(|tracer| {
+						if !tracer.has_traces() {
+							let tx_traces = tracer.collect_traces().as_eth_traces::<Runtime>();
+							 traces.push((index as u32, tx_traces));
+						}
+					});
+				}
+			});
+
+			Ok(traces)
 		}
 
 		fn trace_tx(
-			_block: Block,
-			_tx_index: u32,
-			_config: pallet_revive::evm::TracerConfig
+			block: Block,
+			tx_index: u32,
+			config: pallet_revive::evm::TracerConfig
 		) -> Result<pallet_revive::evm::EthTraces, sp_runtime::DispatchError> {
-			unimplemented!()
+			let mut tracer = pallet_revive::debug::Tracer::from_config(config);
+			Executive::initialize_block(block.header());
+
+			for (index, ext) in block.extrinsics().into_iter().enumerate() {
+				if index as u32 == tx_index {
+					pallet_revive::using_tracer(&mut tracer, || {
+						let _ = Executive::apply_extrinsic(ext.clone());
+					});
+					break;
+				} else {
+					let _ = Executive::apply_extrinsic(ext.clone());
+				}
+			}
+
+			Ok(tracer.collect_traces().as_eth_traces::<Runtime>())
 		}
+
+
 	}
 
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<
