@@ -388,7 +388,7 @@ test("Initiate Teleport with remote fees", async () => {
 	expect(r).toBeTruthy();
 })
 
-test("Withdraw USDT from Asset Hub to Penpal Alice", async () => {
+test("Local Reserve Asset Transfer of USDT from Asset Hub to Alice on Penpal", async () => {
 
 	const msg = Enum('V5', [
 		XcmV4Instruction.WithdrawAsset([
