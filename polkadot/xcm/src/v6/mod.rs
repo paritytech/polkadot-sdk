@@ -33,11 +33,11 @@ pub use instructions::*;
 
 pub use super::v5::{
 	Ancestor, AncestorThen, Asset, AssetFilter, AssetId, AssetInstance, AssetTransferFilter,
-	Assets, BodyId, BodyPart, Error, Fungibility, InteriorLocation, Junction, Junctions, Location,
-	MaxDispatchErrorLen, MaybeErrorCode, NetworkId, OriginKind, Outcome, Parent, ParentThen,
-	PreparedMessage, QueryId, Response, Result, SendError, Weight, WeightLimit, WildAsset,
-	WildFungibility, XcmContext, XcmHash, MAX_ITEMS_IN_ASSETS, ROCOCO_GENESIS_HASH,
-	WESTEND_GENESIS_HASH,
+	Assets, BodyId, BodyPart, Error, Fungibility, Hint, HintNumVariants, InteriorLocation,
+	Junction, Junctions, Location, MaxDispatchErrorLen, MaybeErrorCode, NetworkId, OriginKind,
+	Outcome, Parent, ParentThen, PreparedMessage, QueryId, QueryResponseInfo, Response, Result,
+	SendError, Weight, WeightLimit, WildAsset, WildFungibility, XcmContext, XcmHash,
+	MAX_ITEMS_IN_ASSETS, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH,
 };
 
 pub const VERSION: super::Version = 6;
@@ -56,8 +56,7 @@ pub mod prelude {
 			Assets, BodyId, BodyPart,
 			Fungibility::{self, *},
 			Hint::{self, *},
-			HintNumVariants,
-			InteriorLocation,
+			HintNumVariants, InteriorLocation,
 			Junction::{self, *},
 			Junctions::{self, Here},
 			Location, MaybeErrorCode,
@@ -203,7 +202,7 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 				TransferAsset { assets, beneficiary }.into_instruction()
 			},
 			OldInstruction::TransferReserveAsset { assets, dest, xcm } => {
-				TransferReserveAsset { assets, dest, xcm }.into_instruction()
+				TransferReserveAsset { assets, dest, xcm: xcm.try_into()? }.into_instruction()
 			},
 			OldInstruction::Transact { origin_kind, fallback_max_weight, call } => {
 				Transact { origin_kind, fallback_max_weight, call }.into_instruction()
@@ -229,16 +228,16 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 				DepositAsset { assets, beneficiary }.into_instruction()
 			},
 			OldInstruction::DepositReserveAsset { assets, dest, xcm } => {
-				DepositReserveAsset { assets, dest, xcm }.into_instruction()
+				DepositReserveAsset { assets, dest, xcm: xcm.try_into()? }.into_instruction()
 			},
 			OldInstruction::ExchangeAsset { give, want, maximal } => {
 				ExchangeAsset { give, want, maximal }.into_instruction()
 			},
 			OldInstruction::InitiateReserveWithdraw { assets, reserve, xcm } => {
-				InitiateReserveWithdraw { assets, reserve, xcm }.into_instruction()
+				InitiateReserveWithdraw { assets, reserve, xcm: xcm.try_into()? }.into_instruction()
 			},
 			OldInstruction::InitiateTeleport { assets, dest, xcm } => {
-				InitiateTeleport { assets, dest, xcm }.into_instruction()
+				InitiateTeleport { assets, dest, xcm: xcm.try_into()? }.into_instruction()
 			},
 			OldInstruction::ReportHolding { response_info, assets } => {
 				ReportHolding { response_info, assets }.into_instruction()
@@ -247,8 +246,10 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 				BuyExecution { fees, weight_limit }.into_instruction()
 			},
 			OldInstruction::RefundSurplus => RefundSurplus.into_instruction(),
-			OldInstruction::SetErrorHandler(xcm) => SetErrorHandler(xcm).into_instruction(),
-			OldInstruction::SetAppendix(xcm) => SetAppendix(xcm).into_instruction(),
+			OldInstruction::SetErrorHandler(xcm) => {
+				SetErrorHandler(xcm.try_into()?).into_instruction()
+			},
+			OldInstruction::SetAppendix(xcm) => SetAppendix(xcm.try_into()?).into_instruction(),
 			OldInstruction::ClearError => ClearError.into_instruction(),
 			OldInstruction::ClaimAsset { assets, ticket } => {
 				ClaimAsset { assets, ticket }.into_instruction()
@@ -284,7 +285,7 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 				UniversalOrigin(junction).into_instruction()
 			},
 			OldInstruction::ExportMessage { network, destination, xcm } => {
-				ExportMessage { network, destination, xcm }.into_instruction()
+				ExportMessage { network, destination, xcm: xcm.try_into()? }.into_instruction()
 			},
 			OldInstruction::LockAsset { asset, unlocker } => {
 				LockAsset { asset, unlocker }.into_instruction()
@@ -314,10 +315,16 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 				preserve_origin,
 				assets,
 				remote_xcm,
-			} => InitiateTransfer { destination, remote_fees, preserve_origin, assets, remote_xcm }
-				.into_instruction(),
+			} => InitiateTransfer {
+				destination,
+				remote_fees,
+				preserve_origin,
+				assets,
+				remote_xcm: remote_xcm.try_into()?,
+			}
+			.into_instruction(),
 			OldInstruction::ExecuteWithOrigin { descendant_origin, xcm } => {
-				ExecuteWithOrigin { descendant_origin, xcm }.into_instruction()
+				ExecuteWithOrigin { descendant_origin, xcm: xcm.try_into()? }.into_instruction()
 			},
 			OldInstruction::SetHints { hints } => SetHints { hints }.into_instruction(),
 		})

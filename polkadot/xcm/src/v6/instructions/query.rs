@@ -16,6 +16,11 @@
 
 //! Query related instructions.
 
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
+
+use crate::v6::{Location, QueryResponseInfo, Response, Weight};
+
 /// Respond with information that the local system is expecting.
 ///
 /// - `query_id`: The identifier of the query that resulted in this message being sent.
@@ -33,8 +38,7 @@
 /// Kind: *Information*.
 ///
 /// Errors:
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct QueryResponse {
 	#[codec(compact)]
 	pub query_id: u64,
@@ -57,8 +61,7 @@ pub struct QueryResponse {
 /// Kind: *Command*
 ///
 /// Errors: *Fallible*.
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct QueryPallet {
 	pub module_name: Vec<u8>,
 	pub response_info: QueryResponseInfo,

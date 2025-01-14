@@ -16,6 +16,13 @@
 
 //! Origin related instructions.
 
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
+
+use crate::v6::{
+	InteriorLocation, Junction, Location, Xcm,
+};
+
 /// Clear the origin.
 ///
 /// This may be used by the XCM author to ensure that later instructions cannot command the
@@ -27,8 +34,7 @@
 /// Kind: *Command*.
 ///
 /// Errors:
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct ClearOrigin;
 
 /// Mutate the origin to some interior location.
@@ -36,8 +42,7 @@ pub struct ClearOrigin;
 /// Kind: *Command*
 ///
 /// Errors:
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct DescendOrigin(pub InteriorLocation);
 
 /// Set the Origin Register to be some child of the Universal Ancestor.
@@ -53,8 +58,7 @@ pub struct DescendOrigin(pub InteriorLocation);
 /// Kind: *Command*
 ///
 /// Errors: *Fallible*.
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct UniversalOrigin(pub Junction);
 
 /// Alter the current Origin to another given origin.
@@ -62,8 +66,7 @@ pub struct UniversalOrigin(pub Junction);
 /// Kind: *Command*
 ///
 /// Errors: If the existing state would not allow such a change.
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct AliasOrigin(pub Location);
 
 /// Executes inner `xcm` with origin set to the provided `descendant_origin`. Once the inner
@@ -83,10 +86,9 @@ pub struct AliasOrigin(pub Location);
 ///
 /// Errors:
 /// - `BadOrigin`
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 #[scale_info(skip_type_params(Call))]
-pub struct ExecuteWithOrigin<Call> {
+pub struct ExecuteWithOrigin<Call: 'static> {
 	// TODO: make this generic over Xcm so it is using the current version
 	pub descendant_origin: Option<InteriorLocation>,
 	pub xcm: Xcm<Call>,

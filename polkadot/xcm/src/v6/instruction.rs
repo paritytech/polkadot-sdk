@@ -21,19 +21,19 @@ macro_rules! impl_xcm_instruction {
 		$vis:vis enum $name:ident<$generic:ident> {
 			$(
 				$( #[$instr_doc:meta] )*
-				$instr:ident $(< $instr_generic:ident >)?,
+				$instr:ident $(< $instr_generic:ty >)?,
 			)+
 		}
     ) => {
         $( #[$doc] )*
-        $vis enum $name<$generic> {
+        $vis enum $name<$generic> where $generic: 'static {
             $(
                 // $( #[$instr_doc] )*
                 $instr($instr $(< $instr_generic >)?),
             )+
         }
 
-		impl <$generic> $name<$generic> {
+		impl <$generic: 'static> $name<$generic> {
 			pub fn into<C>(self) -> $name<C> {
 				$name::from(self)
 			}
@@ -48,7 +48,7 @@ macro_rules! impl_xcm_instruction {
 		}
 
 		$(
-			impl<$generic> From<$instr $(< $instr_generic >)?> for $name<$generic> {
+			impl<$generic: 'static> From<$instr $(< $instr_generic >)?> for $name<$generic> {
 				fn from(x: $instr $(< $instr_generic >)?) -> Self {
 					Self::$instr(x)
 				}

@@ -16,18 +16,6 @@
 
 //! Instructions for XCM v6.
 
-use bounded_collections::BoundedVec;
-use codec::{Decode, Encode};
-use educe::Educe;
-use scale_info::TypeInfo;
-
-use crate::v5::{
-	Asset, AssetFilter, AssetTransferFilter, Assets, Error, Hint, HintNumVariants,
-	InteriorLocation, Junction, Location, MaybeErrorCode, NetworkId, OriginKind, QueryId,
-	QueryResponseInfo, Response, Weight, WeightLimit, Xcm,
-};
-use crate::DoubleEncoded;
-
 mod assets;
 pub use assets::*;
 

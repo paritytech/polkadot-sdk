@@ -16,6 +16,11 @@
 
 //! Asset related instructions.
 
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
+
+use crate::v6::{Asset, AssetFilter, AssetTransferFilter, Assets, Location, Xcm};
+
 /// Withdraw asset(s) (`assets`) from the ownership of `origin` and place them into the Holding
 /// Register.
 ///
@@ -24,8 +29,7 @@
 /// Kind: *Command*.
 ///
 /// Errors:
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct WithdrawAsset(pub Assets);
 
 /// Asset(s) (`assets`) have been received into the ownership of this system on the `origin`
@@ -39,8 +43,7 @@ pub struct WithdrawAsset(pub Assets);
 /// Kind: *Trusted Indication*.
 ///
 /// Errors:
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct ReserveAssetDeposited(pub Assets);
 
 /// Asset(s) (`assets`) have been destroyed on the `origin` system and equivalent assets should
@@ -54,8 +57,7 @@ pub struct ReserveAssetDeposited(pub Assets);
 /// Kind: *Trusted Indication*.
 ///
 /// Errors:
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct ReceiveTeleportedAsset(pub Assets);
 
 /// Withdraw asset(s) (`assets`) from the ownership of `origin` and place equivalent assets
@@ -69,8 +71,7 @@ pub struct ReceiveTeleportedAsset(pub Assets);
 /// Kind: *Command*.
 ///
 /// Errors:
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct TransferAsset {
 	pub assets: Assets,
 	pub beneficiary: Location,
@@ -94,8 +95,7 @@ pub struct TransferAsset {
 /// Kind: *Command*.
 ///
 /// Errors:
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct TransferReserveAsset {
 	pub assets: Assets,
 	pub dest: Location,
@@ -111,8 +111,7 @@ pub struct TransferReserveAsset {
 /// Kind: *Command*
 ///
 /// Errors:
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct DepositAsset {
 	pub assets: AssetFilter,
 	pub beneficiary: Location,
@@ -134,8 +133,7 @@ pub struct DepositAsset {
 /// Kind: *Command*
 ///
 /// Errors:
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct DepositReserveAsset {
 	pub assets: AssetFilter,
 	pub dest: Location,
@@ -157,8 +155,7 @@ pub struct DepositReserveAsset {
 /// Kind: *Command*
 ///
 /// Errors:
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct ExchangeAsset {
 	pub give: AssetFilter,
 	pub want: Assets,
@@ -179,8 +176,7 @@ pub struct ExchangeAsset {
 /// Kind: *Command*
 ///
 /// Errors:
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct InitiateReserveWithdraw {
 	pub assets: AssetFilter,
 	pub reserve: Location,
@@ -201,8 +197,7 @@ pub struct InitiateReserveWithdraw {
 /// Kind: *Command*
 ///
 /// Errors:
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct InitiateTeleport {
 	pub assets: AssetFilter,
 	pub dest: Location,
@@ -219,8 +214,7 @@ pub struct InitiateTeleport {
 /// Kind: *Command*
 ///
 /// Errors:
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct ClaimAsset {
 	pub assets: Assets,
 	pub ticket: Location,
@@ -235,8 +229,7 @@ pub struct ClaimAsset {
 /// Kind: *Command*
 ///
 /// Errors: *Infallible*
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct BurnAsset(pub Assets);
 
 /// Lock the locally held asset and prevent further transfer or withdrawal.
@@ -253,8 +246,7 @@ pub struct BurnAsset(pub Assets);
 /// Kind: *Command*.
 ///
 /// Errors:
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct LockAsset {
 	pub asset: Asset,
 	pub unlocker: Location,
@@ -271,8 +263,7 @@ pub struct LockAsset {
 /// Kind: *Command*.
 ///
 /// Errors:
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct UnlockAsset {
 	pub asset: Asset,
 	pub target: Location,
@@ -291,8 +282,7 @@ pub struct UnlockAsset {
 /// Kind: *Trusted Indication*.
 ///
 /// Errors:
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct NoteUnlockable {
 	pub asset: Asset,
 	pub owner: Location,
@@ -310,8 +300,7 @@ pub struct NoteUnlockable {
 /// Kind: *Command*.
 ///
 /// Errors:
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct RequestUnlock {
 	pub asset: Asset,
 	pub locker: Location,
@@ -363,8 +352,7 @@ pub struct RequestUnlock {
 /// Safety: No concerns.
 ///
 /// Kind: *Command*
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct InitiateTransfer {
 	pub destination: Location,
 	pub remote_fees: Option<AssetTransferFilter>,

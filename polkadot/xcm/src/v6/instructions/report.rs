@@ -16,6 +16,11 @@
 
 //! Report related instructions.
 
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
+
+use crate::v6::{AssetFilter, QueryResponseInfo};
+
 /// Immediately report the contents of the Error Register to the given destination via XCM.
 ///
 /// A `QueryResponse` message of type `ExecutionOutcome` is sent to the described destination.
@@ -25,8 +30,7 @@
 /// Kind: *Command*
 ///
 /// Errors:
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct ReportError(pub QueryResponseInfo);
 
 /// Report to a given destination the contents of the Holding Register.
@@ -41,8 +45,7 @@ pub struct ReportError(pub QueryResponseInfo);
 /// Kind: *Command*
 ///
 /// Errors:
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct ReportHolding {
 	pub response_info: QueryResponseInfo,
 	pub assets: AssetFilter,
@@ -59,6 +62,5 @@ pub struct ReportHolding {
 /// Kind: *Command*
 ///
 /// Errors: *Fallible*.
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct ReportTransactStatus(pub QueryResponseInfo);

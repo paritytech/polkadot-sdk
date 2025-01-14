@@ -16,6 +16,11 @@
 
 //! Versions related instructions.
 
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
+
+use crate::v6::{QueryId, Weight};
+
 /// Ask the destination system to respond with the most recent version of XCM that they
 /// support in a `QueryResponse` instruction. Any changes to this should also elicit similar
 /// responses when they happen.
@@ -28,8 +33,7 @@
 /// Kind: *Command*
 ///
 /// Errors: *Fallible*
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct SubscribeVersion {
 	#[codec(compact)]
 	pub query_id: QueryId,
@@ -41,6 +45,5 @@ pub struct SubscribeVersion {
 /// Kind: *Command*
 ///
 /// Errors: *Fallible*
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct UnsubscribeVersion;

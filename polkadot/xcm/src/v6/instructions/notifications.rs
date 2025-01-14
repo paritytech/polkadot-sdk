@@ -16,6 +16,9 @@
 
 //! Notification related instructions.
 
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
+
 /// A message to notify about a new incoming HRMP channel. This message is meant to be sent by
 /// the relay-chain to a para.
 ///
@@ -27,8 +30,7 @@
 /// Safety: The message should originate directly from the relay-chain.
 ///
 /// Kind: *System Notification*
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct HrmpNewChannelOpenRequest {
 	#[codec(compact)]
 	pub sender: u32,
@@ -47,8 +49,7 @@ pub struct HrmpNewChannelOpenRequest {
 /// Kind: *System Notification*
 ///
 /// Errors:
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct HrmpChannelAccepted {
 	// NOTE: We keep this as a structured item to a) keep it consistent with the other Hrmp
 	// items; and b) because the field's meaning is not obvious/mentioned from the item name.
@@ -66,8 +67,7 @@ pub struct HrmpChannelAccepted {
 /// Kind: *System Notification*
 ///
 /// Errors:
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct HrmpChannelClosing {
 	#[codec(compact)]
 	pub initiator: u32,

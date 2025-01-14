@@ -16,14 +16,18 @@
 
 //! Expect related instructions.
 
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
+
+use crate::v6::{Assets, Error, Location, MaybeErrorCode};
+
 /// Throw an error if Holding does not contain at least the given assets.
 ///
 /// Kind: *Command*
 ///
 /// Errors:
 /// - `ExpectationFalse`: If Holding Register does not contain the assets in the parameter.
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct ExpectAsset(pub Assets);
 
 /// Ensure that the Origin Register equals some given value and throw an error if not.
@@ -32,8 +36,7 @@ pub struct ExpectAsset(pub Assets);
 ///
 /// Errors:
 /// - `ExpectationFalse`: If Origin Register is not equal to the parameter.
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct ExpectOrigin(pub Option<Location>);
 
 /// Ensure that the Error Register equals some given value and throw an error if not.
@@ -42,8 +45,7 @@ pub struct ExpectOrigin(pub Option<Location>);
 ///
 /// Errors:
 /// - `ExpectationFalse`: If the value of the Error Register is not equal to the parameter.
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct ExpectError(pub Option<(u32, Error)>);
 
 /// Ensure that the Transact Status Register equals some given value and throw an error if
@@ -54,8 +56,7 @@ pub struct ExpectError(pub Option<(u32, Error)>);
 /// Errors:
 /// - `ExpectationFalse`: If the value of the Transact Status Register is not equal to the
 ///   parameter.
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct ExpectTransactStatus(pub MaybeErrorCode);
 
 /// Ensure that a particular pallet with a particular version exists.
@@ -76,8 +77,7 @@ pub struct ExpectTransactStatus(pub MaybeErrorCode);
 ///
 /// Errors:
 /// - `ExpectationFalse`: In case any of the expectations are broken.
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct ExpectPallet {
 	#[codec(compact)]
 	pub index: u32,

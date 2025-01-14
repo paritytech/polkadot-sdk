@@ -16,6 +16,12 @@
 
 //! Control flow related instructions.
 
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
+use bounded_collections::BoundedVec;
+
+use crate::v6::{Xcm, Hint, HintNumVariants};
+
 /// Set the Error Handler Register. This is code that should be called in the case of an error
 /// happening.
 ///
@@ -30,10 +36,9 @@
 /// Kind: *Command*
 ///
 /// Errors: None.
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 #[scale_info(skip_type_params(Call))]
-pub struct SetErrorHandler<Call>(pub Xcm<Call>);
+pub struct SetErrorHandler<Call: 'static>(pub Xcm<Call>);
 
 impl<Call> SetErrorHandler<Call> {
 	pub fn into<C>(self) -> SetErrorHandler<C> {
@@ -59,10 +64,9 @@ impl<Call> SetErrorHandler<Call> {
 /// Kind: *Command*
 ///
 /// Errors: None.
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 #[scale_info(skip_type_params(Call))]
-pub struct SetAppendix<Call>(pub Xcm<Call>);
+pub struct SetAppendix<Call: 'static>(pub Xcm<Call>);
 
 impl<Call> SetAppendix<Call> {
 	pub fn into<C>(self) -> SetAppendix<C> {
@@ -79,8 +83,7 @@ impl<Call> SetAppendix<Call> {
 /// Kind: *Command*
 ///
 /// Errors: None.
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct ClearError;
 
 /// Always throws an error of type `Trap`.
@@ -89,8 +92,7 @@ pub struct ClearError;
 ///
 /// Errors:
 /// - `Trap`: All circumstances, whose inner value is the same as this item's inner value.
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct Trap(#[codec(compact)] pub u64);
 
 /// Set the Transact Status Register to its default, cleared, value.
@@ -100,8 +102,7 @@ pub struct Trap(#[codec(compact)] pub u64);
 /// Kind: *Command*
 ///
 /// Errors: *Infallible*.
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct ClearTransactStatus;
 
 /// Sets the Fees Mode Register.
@@ -112,8 +113,7 @@ pub struct ClearTransactStatus;
 /// Kind: *Command*.
 ///
 /// Errors:
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct SetFeesMode {
 	pub jit_withdraw: bool,
 }
@@ -129,8 +129,7 @@ pub struct SetFeesMode {
 /// Kind: *Command*
 ///
 /// Errors:
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct SetTopic(pub [u8; 32]);
 
 /// Clear the Topic Register.
@@ -138,8 +137,7 @@ pub struct SetTopic(pub [u8; 32]);
 /// Kind: *Command*
 ///
 /// Errors: None.
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct ClearTopic;
 
 /// Set hints for XCM execution.
@@ -150,8 +148,7 @@ pub struct ClearTopic;
 ///
 /// - `hints`: A bounded vector of `ExecutionHint`, specifying the different hints that will
 /// be activated.
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct SetHints {
 	pub hints: BoundedVec<Hint, HintNumVariants>,
 }

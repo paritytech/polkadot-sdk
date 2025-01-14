@@ -16,6 +16,12 @@
 
 //! Miscellaneous instructions.
 
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
+
+use crate::v6::{InteriorLocation, NetworkId, OriginKind, Weight, Xcm};
+use crate::DoubleEncoded;
+
 /// Apply the encoded transaction `call`, whose dispatch-origin should be `origin` as expressed
 /// by the kind of origin `origin_kind`.
 ///
@@ -33,8 +39,7 @@
 /// Kind: *Command*.
 ///
 /// Errors:
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 #[scale_info(skip_type_params(Call))]
 pub struct Transact<Call> {
 	pub origin_kind: OriginKind,
@@ -75,8 +80,7 @@ impl<Call> Transact<Call> {
 /// Kind: *Command*
 ///
 /// Errors: *Fallible*.
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct ExportMessage {
 	pub network: NetworkId,
 	pub destination: InteriorLocation,

@@ -16,6 +16,11 @@
 
 //! Fees related instructions.
 
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
+
+use crate::v6::{Asset, Location, WeightLimit};
+
 /// Pay for the execution of some XCM `xcm` and `orders` with up to `weight`
 /// picoseconds of execution time, paying for this with up to `fees` from the Holding Register.
 ///
@@ -27,8 +32,7 @@
 /// Kind: *Command*
 ///
 /// Errors:
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct BuyExecution {
 	pub fees: Asset,
 	pub weight_limit: WeightLimit,
@@ -39,8 +43,7 @@ pub struct BuyExecution {
 /// Kind: *Command*
 ///
 /// Errors: None.
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct RefundSurplus;
 
 /// A directive to indicate that the origin expects free execution of the message.
@@ -53,8 +56,7 @@ pub struct RefundSurplus;
 /// Kind: *Indication*
 ///
 /// Errors: If the given origin is `Some` and not equal to the current Origin register.
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct UnpaidExecution {
 	pub weight_limit: WeightLimit,
 	pub check_origin: Option<Location>,
@@ -64,8 +66,7 @@ pub struct UnpaidExecution {
 ///
 /// Successor to `BuyExecution`.
 /// Defined in fellowship RFC 105.
-#[derive(Educe, Encode, Decode, TypeInfo)]
-#[educe(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
 pub struct PayFees {
 	pub asset: Asset,
 }
