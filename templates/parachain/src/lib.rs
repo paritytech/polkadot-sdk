@@ -18,7 +18,7 @@
 // with code sections across the components under the template: node,
 // pallets & runtime, by using `docify`.
 
-#[cfg(feature = "generate-readme")]
+#[cfg(all(doc, feature = "generate-readme"))]
 docify::compile_markdown!("README.docify.md", "README.md");
 
 #[docify::export_content]
