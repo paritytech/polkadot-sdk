@@ -222,5 +222,5 @@ pub(crate) fn uxt(transfer: Transfer) -> Extrinsic {
 
 pub(crate) fn pool() -> (Pool<TestApi>, Arc<TestApi>) {
 	let api = Arc::new(TestApi::default());
-	(Pool::new(Default::default(), true.into(), api.clone()), api)
+	(Pool::new_with_staticly_sized_rotator(Default::default(), true.into(), api.clone()), api)
 }

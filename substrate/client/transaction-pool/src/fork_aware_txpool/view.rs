@@ -28,7 +28,7 @@ use crate::{
 	common::log_xt::log_xt_trace,
 	graph::{
 		self, base_pool::TimedTransactionSource, watcher::Watcher, ExtrinsicFor, ExtrinsicHash,
-		IsValidator, ValidatedTransaction, ValidatedTransactionFor,
+		IsValidator, ValidatedPoolSubmitOutcome, ValidatedTransaction, ValidatedTransactionFor,
 	},
 	LOG_TARGET,
 };
@@ -158,7 +158,7 @@ where
 	pub(super) async fn submit_many(
 		&self,
 		xts: impl IntoIterator<Item = (TimedTransactionSource, ExtrinsicFor<ChainApi>)>,
-	) -> Vec<Result<ExtrinsicHash<ChainApi>, ChainApi::Error>> {
+	) -> Vec<Result<ValidatedPoolSubmitOutcome<ChainApi>, ChainApi::Error>> {
 		if log::log_enabled!(target: LOG_TARGET, log::Level::Trace) {
 			let xts = xts.into_iter().collect::<Vec<_>>();
 			log_xt_trace!(target: LOG_TARGET, xts.iter().map(|(_,xt)| self.pool.validated_pool().api().hash_and_length(xt).0), "[{:?}] view::submit_many at:{}", self.at.hash);
@@ -173,7 +173,7 @@ where
 		&self,
 		source: TimedTransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
-	) -> Result<Watcher<ExtrinsicHash<ChainApi>, ExtrinsicHash<ChainApi>>, ChainApi::Error> {
+	) -> Result<ValidatedPoolSubmitOutcome<ChainApi>, ChainApi::Error> {
 		log::trace!(target: LOG_TARGET, "[{:?}] view::submit_and_watch at:{}", self.pool.validated_pool().api().hash_and_length(&xt).0, self.at.hash);
 		self.pool.submit_and_watch(&self.at, source, xt).await
 	}
@@ -182,7 +182,7 @@ where
 	pub(super) fn submit_local(
 		&self,
 		xt: ExtrinsicFor<ChainApi>,
-	) -> Result<ExtrinsicHash<ChainApi>, ChainApi::Error> {
+	) -> Result<ValidatedPoolSubmitOutcome<ChainApi>, ChainApi::Error> {
 		let (hash, length) = self.pool.validated_pool().api().hash_and_length(&xt);
 		log::trace!(target: LOG_TARGET, "[{:?}] view::submit_local at:{}", hash, self.at.hash);
 
@@ -459,5 +459,19 @@ where
 	pub(super) fn is_imported(&self, tx_hash: &ExtrinsicHash<ChainApi>) -> bool {
 		const IGNORE_BANNED: bool = false;
 		self.pool.validated_pool().check_is_known(tx_hash, IGNORE_BANNED).is_err()
+	}
+
+	/// Removes the whole transaction subtree from the inner pool.
+	///
+	/// Refer to [`crate::graph::ValidatedPool::remove_subtree`] for more details.
+	pub fn remove_subtree<F>(
+		&self,
+		tx_hash: ExtrinsicHash<ChainApi>,
+		listener_action: F,
+	) -> Vec<ExtrinsicHash<ChainApi>>
+	where
+		F: Fn(&mut crate::graph::Listener<ChainApi>, ExtrinsicHash<ChainApi>),
+	{
+		self.pool.validated_pool().remove_subtree(tx_hash, listener_action)
 	}
 }
