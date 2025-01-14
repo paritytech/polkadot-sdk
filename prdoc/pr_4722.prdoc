@@ -20,7 +20,7 @@ crates:
   - name: frame-support
     bump: minor
   - name: frame-system
-    bump: minor
+    bump: major
   - name: sp-core
     bump: minor
   - name: sp-api
@@ -29,11 +29,11 @@ crates:
     bump: major
   - name: frame-support-procedural
     bump: patch
-  - name: westend-runtime
-    bump: minor
   - name: pallet-example-view-functions
     bump: patch
   - name: cumulus-pov-validator
     bump: none
   - name: cumulus-pallet-weight-reclaim
-    bump: none
+    bump: minor
+  - name: westend-runtime
+    bump: minor
