@@ -18,8 +18,8 @@
 use crate::{
 	client::{connect, Client},
 	BlockInfoProvider, BlockInfoProviderImpl, CacheReceiptProvider, DBReceiptProvider,
-	EthRpcServer, EthRpcServerImpl, ReceiptProvider, SystemHealthRpcServer,
-	SystemHealthRpcServerImpl,
+	DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, ReceiptProvider,
+	SystemHealthRpcServer, SystemHealthRpcServerImpl,
 };
 use clap::Parser;
 use futures::{pin_mut, FutureExt};
@@ -203,10 +203,12 @@ fn rpc_module(is_dev: bool, client: Client) -> Result<RpcModule<()>, sc_service:
 		.with_accounts(if is_dev { vec![crate::Account::default()] } else { vec![] })
 		.into_rpc();
 
-	let health_api = SystemHealthRpcServerImpl::new(client).into_rpc();
+	let health_api = SystemHealthRpcServerImpl::new(client.clone()).into_rpc();
+	let debug_api = DebugRpcServerImpl::new(client).into_rpc();
 
 	let mut module = RpcModule::new(());
 	module.merge(eth_api).map_err(|e| sc_service::Error::Application(e.into()))?;
 	module.merge(health_api).map_err(|e| sc_service::Error::Application(e.into()))?;
+	module.merge(debug_api).map_err(|e| sc_service::Error::Application(e.into()))?;
 	Ok(module)
 }

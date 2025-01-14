@@ -41,6 +41,7 @@ pub mod test_utils;
 pub mod weights;
 
 use crate::{
+	debug::EthTraces,
 	evm::{
 		runtime::{gas_from_fee, GAS_PRICE},
 		GasEncoder, GenericTransaction, Traces,
@@ -53,6 +54,7 @@ use crate::{
 use alloc::{boxed::Box, format, vec};
 use codec::{Codec, Decode, Encode};
 use environmental::*;
+use evm::TracerConfig;
 use frame_support::{
 	dispatch::{
 		DispatchErrorWithPostInfo, DispatchResultWithPostInfo, GetDispatchInfo, Pays,
@@ -1571,5 +1573,23 @@ sp_api::decl_runtime_apis! {
 			address: H160,
 			key: [u8; 32],
 		) -> GetStorageResult;
+
+		/// Replay the block with the given hash.
+		/// This is intended to called through `state_debugBlock` RPC. Using [`using_tracer`]
+		/// function to record traces.
+		fn trace_block(
+			block: Block,
+			config: TracerConfig
+		) -> Result<Vec<(u32, EthTraces)>, sp_runtime::DispatchError>;
+
+		/// Replay the block with the given hash.
+		/// This is intended to called through `state_debugBlock` RPC. Using [`using_tracer`]
+		/// function to record trace for the specified transaction index in the block.
+		fn trace_tx(
+			block: Block,
+			tx_index: u32,
+			config: TracerConfig
+		) -> Result<EthTraces, sp_runtime::DispatchError>;
+
 	}
 }

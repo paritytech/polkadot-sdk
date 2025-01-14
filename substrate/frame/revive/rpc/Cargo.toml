@@ -46,7 +46,6 @@ required-features = ["example"]
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 codec = { workspace = true, features = ["derive"] }
-ethabi = { version = "18.0.0" }
 futures = { workspace = true, features = ["thread-pool"] }
 hex = { workspace = true }
 jsonrpsee = { workspace = true, features = ["full"] }
@@ -78,8 +77,10 @@ tokio = { workspace = true, features = ["full"] }
 example = ["rlp", "subxt-signer"]
 
 [dev-dependencies]
+ethabi = { version = "18.0.0" }
 env_logger = { workspace = true }
 pallet-revive-fixtures = { workspace = true, default-features = true }
 static_init = { workspace = true }
 substrate-cli-test-utils = { workspace = true }
 subxt-signer = { workspace = true, features = ["unstable-eth"] }
+

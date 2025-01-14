@@ -27,9 +27,9 @@ use crate::{
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	evm::{
-		extract_revert_message, Block, BlockNumberOrTag, BlockNumberOrTagOrHash,
-		GenericTransaction, ReceiptInfo, SyncingProgress, SyncingStatus, TransactionSigned, H160,
-		H256, U256,
+		extract_revert_message, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Bytes, CallTrace,
+		GenericTransaction, ReceiptInfo, SyncingProgress, SyncingStatus, TracerConfig,
+		TransactionSigned, TransactionTrace, H160, H256, U256,
 	},
 	EthTransactError, EthTransactInfo,
 };
@@ -467,7 +467,7 @@ impl Client {
 	pub async fn receipt_by_hash_and_index(
 		&self,
 		block_hash: &H256,
-		transaction_index: &U256,
+		transaction_index: u32,
 	) -> Option<ReceiptInfo> {
 		self.receipt_provider
 			.receipt_by_block_hash_and_index(block_hash, transaction_index)
@@ -479,7 +479,7 @@ impl Client {
 	}
 
 	/// Get receipts count per block.
-	pub async fn receipts_count_per_block(&self, block_hash: &SubstrateBlockHash) -> Option<usize> {
+	pub async fn receipts_count_per_block(&self, block_hash: &SubstrateBlockHash) -> Option<u32> {
 		self.receipt_provider.receipts_count_per_block(block_hash).await
 	}
 
@@ -625,6 +625,68 @@ impl Client {
 		block_number: SubstrateBlockNumber,
 	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
 		self.block_provider.block_by_number(block_number).await
+	}
+
+	/// Get the transaction traces for the given block.
+	pub async fn trace_block_by_number(
+		&self,
+		block: Option<BlockNumberOrTag>,
+		tracer_config: TracerConfig,
+	) -> Result<Vec<TransactionTrace>, ClientError> {
+		let hash = match block {
+			Some(BlockNumberOrTag::U256(n)) => {
+				let block_number: SubstrateBlockNumber =
+					n.try_into().map_err(|_| ClientError::ConversionFailed)?;
+				self.get_block_hash(block_number).await?
+			},
+			Some(BlockNumberOrTag::BlockTag(_)) | None =>
+				self.latest_block().await.map(|b| b.hash()),
+		};
+		let hash = hash.ok_or(ClientError::BlockNotFound)?;
+
+		let rpc_client = RpcClient::new(self.rpc_client.clone());
+		let params = subxt::rpc_params!["ReviveApi_trace_tx", hash, tracer_config];
+		let traces: Vec<(u32, pallet_revive::evm::EthTraces)> =
+			rpc_client.request("state_debugBlock", params).await?;
+
+		let mut hashes = self
+			.receipt_provider
+			.block_transaction_hashes(&hash)
+			.await
+			.ok_or(ClientError::EthExtrinsicNotFound)?;
+
+		let traces = traces
+			.into_iter()
+			.filter_map(|(index, traces)| {
+				Some(TransactionTrace { tx_hash: hashes.remove(&index)?, result: traces })
+			})
+			.collect();
+
+		Ok(traces)
+	}
+
+	/// Get the transaction traces for the given transaction.
+	pub async fn trace_transaction(
+		&self,
+		transaction_hash: H256,
+		tracer_config: TracerConfig,
+	) -> Result<CallTrace<U256, Bytes>, ClientError> {
+		let rpc_client = RpcClient::new(self.rpc_client.clone());
+
+		let receipt = self
+			.receipt_provider
+			.receipt_by_hash(&transaction_hash)
+			.await
+			.ok_or(ClientError::EthExtrinsicNotFound)?;
+
+		let params = subxt::rpc_params![
+			"ReviveApi_trace_tx",
+			tracer_config,
+			receipt.block_hash,
+			receipt.transaction_index
+		];
+		let traces = rpc_client.request("state_debugBlock", params).await?;
+		Ok(traces)
 	}
 
 	/// Get the EVM block for the given hash.

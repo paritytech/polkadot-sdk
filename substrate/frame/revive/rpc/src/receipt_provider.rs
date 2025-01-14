@@ -32,6 +32,7 @@ use pallet_revive::{
 	evm::{GenericTransaction, Log, ReceiptInfo, TransactionSigned, H256, U256},
 };
 use sp_core::keccak_256;
+use std::collections::HashMap;
 use tokio::join;
 
 mod cache;
@@ -49,15 +50,18 @@ pub trait ReceiptProvider: Send + Sync {
 	/// Remove receipts with the given block hash.
 	async fn remove(&self, block_hash: &H256);
 
+	/// Return all transaction hashes for the given block hash.
+	async fn block_transaction_hashes(&self, block_hash: &H256) -> Option<HashMap<u32, H256>>;
+
 	/// Get the receipt for the given block hash and transaction index.
 	async fn receipt_by_block_hash_and_index(
 		&self,
 		block_hash: &H256,
-		transaction_index: &U256,
+		transaction_index: u32,
 	) -> Option<ReceiptInfo>;
 
 	/// Get the number of receipts per block.
-	async fn receipts_count_per_block(&self, block_hash: &H256) -> Option<usize>;
+	async fn receipts_count_per_block(&self, block_hash: &H256) -> Option<u32>;
 
 	/// Get the receipt for the given transaction hash.
 	async fn receipt_by_hash(&self, transaction_hash: &H256) -> Option<ReceiptInfo>;
@@ -79,7 +83,7 @@ impl<Main: ReceiptProvider, Fallback: ReceiptProvider> ReceiptProvider for (Main
 	async fn receipt_by_block_hash_and_index(
 		&self,
 		block_hash: &H256,
-		transaction_index: &U256,
+		transaction_index: u32,
 	) -> Option<ReceiptInfo> {
 		if let Some(receipt) =
 			self.0.receipt_by_block_hash_and_index(block_hash, transaction_index).await
@@ -90,11 +94,18 @@ impl<Main: ReceiptProvider, Fallback: ReceiptProvider> ReceiptProvider for (Main
 		self.1.receipt_by_block_hash_and_index(block_hash, transaction_index).await
 	}
 
-	async fn receipts_count_per_block(&self, block_hash: &H256) -> Option<usize> {
+	async fn receipts_count_per_block(&self, block_hash: &H256) -> Option<u32> {
 		if let Some(count) = self.0.receipts_count_per_block(block_hash).await {
 			return Some(count);
 		}
 		self.1.receipts_count_per_block(block_hash).await
+	}
+
+	async fn block_transaction_hashes(&self, block_hash: &H256) -> Option<HashMap<u32, H256>> {
+		if let Some(hashes) = self.0.block_transaction_hashes(block_hash).await {
+			return Some(hashes);
+		}
+		self.1.block_transaction_hashes(block_hash).await
 	}
 
 	async fn receipt_by_hash(&self, hash: &H256) -> Option<ReceiptInfo> {
@@ -225,12 +236,12 @@ pub async fn extract_receipts_from_block(
 ///  Extract receipt from transaction
 pub async fn extract_receipts_from_transaction(
 	block: &SubstrateBlock,
-	transaction_index: usize,
+	transaction_index: u32,
 ) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
 	let extrinsics = block.extrinsics().await?;
 	let ext = extrinsics
 		.iter()
-		.nth(transaction_index)
+		.nth(transaction_index as usize)
 		.ok_or(ClientError::EthExtrinsicNotFound)?;
 
 	let call = ext

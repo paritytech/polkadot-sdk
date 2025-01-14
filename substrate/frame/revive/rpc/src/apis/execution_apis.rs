@@ -18,7 +18,7 @@
 //! Generated JSON-RPC methods.
 #![allow(missing_docs)]
 
-use super::*;
+use crate::*;
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 
 #[rpc(server, client)]

@@ -32,6 +32,7 @@ pub mod cli;
 pub mod client;
 pub mod example;
 pub mod subxt_client;
+pub mod tracing;
 
 #[cfg(test)]
 mod tests;
@@ -42,11 +43,8 @@ pub use block_info_provider::*;
 mod receipt_provider;
 pub use receipt_provider::*;
 
-mod rpc_health;
-pub use rpc_health::*;
-
-mod rpc_methods_gen;
-pub use rpc_methods_gen::*;
+mod apis;
+pub use apis::*;
 
 pub const LOG_TARGET: &str = "eth-rpc";
 
@@ -299,8 +297,10 @@ impl EthRpcServer for EthRpcServerImpl {
 		block_hash: H256,
 		transaction_index: U256,
 	) -> RpcResult<Option<TransactionInfo>> {
+		let transaction_index: u32 =
+			transaction_index.try_into().map_err(|_| EthRpcError::ConversionError)?;
 		let Some(receipt) =
-			self.client.receipt_by_hash_and_index(&block_hash, &transaction_index).await
+			self.client.receipt_by_hash_and_index(&block_hash, transaction_index).await
 		else {
 			return Ok(None);
 		};
