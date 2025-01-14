@@ -533,6 +533,15 @@ pub mod pallet {
 		AssetsClaimed { hash: H256, origin: Location, assets: VersionedAssets },
 		/// A XCM version migration finished.
 		VersionMigrationFinished { version: XcmVersion },
+		/// An `aliaser` location was authorized by `target` to alias it, authorization valid until
+		/// `expiry` block number.
+		AliasAuthorized {
+			aliaser: VersionedLocation,
+			target: VersionedLocation,
+			expiry: Option<u64>,
+		},
+		/// `target` removed alias authorization for `aliaser`.
+		AliasAuthorizationRemoved { aliaser: VersionedLocation, target: VersionedLocation },
 	}
 
 	#[pallet::origin]
@@ -1530,7 +1539,8 @@ pub mod pallet {
 					println!("add_authorized_alias(): 3");
 				} else {
 					// if it doesn't, we try to add it
-					let aliaser = OriginAliaser { location: versioned_aliaser, expiry: expires };
+					let aliaser =
+						OriginAliaser { location: versioned_aliaser.clone(), expiry: expires };
 					aliasers.try_push(aliaser).map_err(|_| Error::<T>::TooManyAuthorizedAliases)?;
 					println!("add_authorized_alias(): 4");
 					// we try to update the ticket (the storage deposit)
@@ -1543,7 +1553,8 @@ pub mod pallet {
 				// add new entry with its first alias
 				let ticket = TicketOf::<T>::new(&signed_origin, aliasers_footprint(1))?;
 				println!("add_authorized_alias(): 7");
-				let aliaser = OriginAliaser { location: versioned_aliaser, expiry: expires };
+				let aliaser =
+					OriginAliaser { location: versioned_aliaser.clone(), expiry: expires };
 				let mut aliasers = BoundedVec::<OriginAliaser, MaxAuthorizedAliases>::new();
 				aliasers.try_push(aliaser).map_err(|_| Error::<T>::TooManyAuthorizedAliases)?;
 				println!("add_authorized_alias(): 8");
@@ -1553,6 +1564,11 @@ pub mod pallet {
 			println!("add_authorized_alias(): 9");
 			// write to storage
 			AuthorizedAliases::<T>::insert(&versioned_origin, entry);
+			Self::deposit_event(Event::AliasAuthorized {
+				aliaser: versioned_aliaser,
+				target: versioned_origin,
+				expiry: expires,
+			});
 			Ok(())
 		}
 
@@ -1589,12 +1605,21 @@ pub mod pallet {
 					ticket.drop(&signed_origin)?;
 					AuthorizedAliases::<T>::remove(&versioned_origin);
 					println!("remove_authorized_alias(): removed all aliasers and deposit");
+
+					Self::deposit_event(Event::AliasAuthorizationRemoved {
+						aliaser: versioned_to_remove,
+						target: versioned_origin,
+					});
 				} else if old_len != new_len {
 					// update aliasers and storage deposit
 					ticket = ticket.update(&signed_origin, aliasers_footprint(new_len))?;
 					let entry = AuthorizedAliasesEntry { aliasers, ticket };
 					AuthorizedAliases::<T>::insert(&versioned_origin, entry);
 					println!("remove_authorized_alias(): updated aliasers and deposit");
+					Self::deposit_event(Event::AliasAuthorizationRemoved {
+						aliaser: versioned_to_remove,
+						target: versioned_origin,
+					});
 				}
 			}
 			Ok(())

@@ -496,6 +496,7 @@ fn authorized_aliases_work() {
 		);
 
 		// --- remove one alias
+		let target: Location = AccountId32 { network: None, id: who.clone().into() }.into();
 		assert_ok!(XcmPallet::remove_authorized_alias(
 			RuntimeOrigin::signed(who.clone()),
 			Box::new(Location::here().into()),
@@ -504,6 +505,14 @@ fn authorized_aliases_work() {
 		let footprint = aliasers_footprint(MaxAuthorizedAliases::get() as usize - 1);
 		let deposit = (footprint.size + 2 * footprint.count) as u128;
 		assert_eq!(total_balance - deposit, <Balances as Currency<_>>::free_balance(&who));
+		// de-authorization event
+		assert_eq!(
+			last_events(1),
+			vec![RuntimeEvent::XcmPallet(crate::Event::AliasAuthorizationRemoved {
+				aliaser: Location::here().into(),
+				target: target.clone().into(),
+			}),]
+		);
 
 		// --- adding one more is now allowed
 		assert_ok!(XcmPallet::add_authorized_alias(
@@ -511,8 +520,15 @@ fn authorized_aliases_work() {
 			Box::new(alias.clone().into()),
 			None
 		));
+		assert_eq!(
+			last_events(1),
+			vec![RuntimeEvent::XcmPallet(crate::Event::AliasAuthorized {
+				aliaser: alias.clone().into(),
+				target: target.clone().into(),
+				expiry: None,
+			})]
+		);
 
-		let target: Location = AccountId32 { network: None, id: who.clone().into() }.into();
 		// --- un-authorized alias is correctly filtered/denied
 		assert!(!AuthorizedAliasers::<Test>::contains(&Location::here(), &target));
 		// --- authorized alias is correctly allowed
