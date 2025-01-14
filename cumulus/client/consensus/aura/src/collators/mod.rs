@@ -190,8 +190,8 @@ where
 
 	runtime_api
 		.can_build_upon(parent_hash, included_block, slot)
-		.ok()
-		.map(|_| SlotClaim::unchecked::<P>(author_pub, para_slot, timestamp))
+		.ok()?
+		.then(|| SlotClaim::unchecked::<P>(author_pub, para_slot, timestamp))
 }
 
 /// Use [`cumulus_client_consensus_common::find_potential_parents`] to find parachain blocks that
