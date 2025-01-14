@@ -10,7 +10,13 @@ fn create_agent() {
 		let origin = make_xcm_origin(origin_location);
 
 		let agent_origin = Location::new(1, [Parachain(2000)]);
-		let agent_id = make_agent_id(agent_origin.clone());
+
+		let reanchored_location = agent_origin
+			.clone()
+			.reanchored(&EthereumDestination::get(), &UniversalLocation::get())
+			.unwrap();
+
+		let agent_id = make_agent_id(reanchored_location);
 
 		assert!(!Agents::<Test>::contains_key(agent_id));
 		assert_ok!(EthereumSystem::create_agent(

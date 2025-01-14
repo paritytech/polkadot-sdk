@@ -65,6 +65,7 @@ where
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use frame_support::dispatch::RawOrigin;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -148,7 +149,10 @@ pub mod pallet {
 			location: Box<VersionedLocation>,
 			fee: u128,
 		) -> DispatchResult {
-			T::SiblingOrigin::ensure_origin(origin)?;
+			let _ = match origin.clone().into() {
+				Ok(RawOrigin::Root) => Ok(Here.into()),
+				_ => T::SiblingOrigin::ensure_origin(origin),
+			}?;
 
 			let origin_location: Location =
 				(*location).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
@@ -193,7 +197,10 @@ pub mod pallet {
 			metadata: AssetMetadata,
 			fee: u128,
 		) -> DispatchResult {
-			let origin_location = T::SiblingOrigin::ensure_origin(origin)?;
+			let origin_location = match origin.clone().into() {
+				Ok(RawOrigin::Root) => Ok(Here.into()),
+				_ => T::SiblingOrigin::ensure_origin(origin),
+			}?;
 
 			let asset_location: Location =
 				(*asset_id).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;

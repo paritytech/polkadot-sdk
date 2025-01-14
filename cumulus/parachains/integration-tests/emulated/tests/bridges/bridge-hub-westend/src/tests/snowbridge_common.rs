@@ -350,15 +350,14 @@ pub fn register_ah_user_agent_on_ethereum() {
 			],
 		);
 
-		assert_ok!(
-			<BridgeHubWestend as BridgeHubWestendPallet>::EthereumSystem::force_create_agent(
-				RuntimeOrigin::root(),
-				bx!(location.into()),
-			)
-		);
+		assert_ok!(<BridgeHubWestend as BridgeHubWestendPallet>::EthereumSystemV2::create_agent(
+			RuntimeOrigin::root(),
+			bx!(location.into()),
+			REMOTE_FEE_AMOUNT_IN_WETH,
+		));
 		assert_expected_events!(
 			BridgeHubWestend,
-			vec![RuntimeEvent::EthereumSystem(snowbridge_pallet_system::Event::CreateAgent{ .. }) => {},]
+			vec![RuntimeEvent::EthereumSystemV2(snowbridge_pallet_system_v2::Event::CreateAgent{ .. }) => {},]
 		);
 	});
 }
@@ -370,15 +369,14 @@ pub fn register_penpal_agent_on_ethereum() {
 
 		let location = Location::new(1, [Parachain(PenpalB::para_id().into())]);
 
-		assert_ok!(
-			<BridgeHubWestend as BridgeHubWestendPallet>::EthereumSystem::force_create_agent(
-				RuntimeOrigin::root(),
-				bx!(location.into()),
-			)
-		);
+		assert_ok!(<BridgeHubWestend as BridgeHubWestendPallet>::EthereumSystemV2::create_agent(
+			RuntimeOrigin::root(),
+			bx!(location.into()),
+			REMOTE_FEE_AMOUNT_IN_WETH
+		));
 		assert_expected_events!(
 			BridgeHubWestend,
-			vec![RuntimeEvent::EthereumSystem(snowbridge_pallet_system::Event::CreateAgent{ .. }) => {},]
+			vec![RuntimeEvent::EthereumSystemV2(snowbridge_pallet_system_v2::Event::CreateAgent{ .. }) => {},]
 		);
 	});
 
@@ -394,15 +392,14 @@ pub fn register_penpal_agent_on_ethereum() {
 			],
 		);
 
-		assert_ok!(
-			<BridgeHubWestend as BridgeHubWestendPallet>::EthereumSystem::force_create_agent(
-				RuntimeOrigin::root(),
-				bx!(location.into()),
-			)
-		);
+		assert_ok!(<BridgeHubWestend as BridgeHubWestendPallet>::EthereumSystemV2::create_agent(
+			RuntimeOrigin::root(),
+			bx!(location.into()),
+			REMOTE_FEE_AMOUNT_IN_WETH,
+		));
 		assert_expected_events!(
 			BridgeHubWestend,
-			vec![RuntimeEvent::EthereumSystem(snowbridge_pallet_system::Event::CreateAgent{ .. }) => {},]
+			vec![RuntimeEvent::EthereumSystemV2(snowbridge_pallet_system_v2::Event::CreateAgent{ .. }) => {},]
 		);
 	});
 }

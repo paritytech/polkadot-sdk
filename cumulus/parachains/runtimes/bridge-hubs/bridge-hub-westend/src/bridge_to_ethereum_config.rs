@@ -20,7 +20,7 @@ use crate::{
 	xcm_config,
 	xcm_config::{TreasuryAccount, UniversalLocation},
 	Balances, EthereumInboundQueue, EthereumOutboundQueue, EthereumOutboundQueueV2, EthereumSystem,
-	MessageQueue, Runtime, RuntimeEvent, TransactionByteFee,
+	EthereumSystemV2, MessageQueue, Runtime, RuntimeEvent, TransactionByteFee,
 };
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
@@ -68,7 +68,7 @@ pub type SnowbridgeExporterV2 = EthereumBlobExporterV2<
 	EthereumNetwork,
 	snowbridge_pallet_outbound_queue_v2::Pallet<Runtime>,
 	snowbridge_core::AgentIdOf,
-	EthereumSystem,
+	(EthereumSystem, EthereumSystemV2),
 	WETHAddress,
 	AssetHubParaId,
 >;
