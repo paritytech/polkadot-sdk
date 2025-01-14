@@ -95,7 +95,7 @@ const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000); // 0
 pub const HARD_MESSAGE_SIZE_LIMIT: u32 = 32 * 1024;
 
 /// The target that will be used when publishing logs related to this pallet.
-pub const LOG_TARGET: &str = "runtime::bridge-xcm-router";
+pub const LOG_TARGET: &str = "xcm::bridge-router";
 
 #[frame_support::pallet]
 pub mod pallet {
