@@ -2019,8 +2019,8 @@ impl<T: Config> Pallet<T> {
 	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 	#[track_caller]
 	pub fn assert_has_event(event: T::RuntimeEvent) {
-		let additional_note = if Self::block_number().is_zero() {
-			"\nWARNING: block number is zero, and events are not registered at block number zero."
+		let warn = if Self::block_number().is_zero() {
+			"WARNING: block number is zero, and events are not registered at block number zero.\n"
 		} else {
 			""
 		};
@@ -2028,7 +2028,7 @@ impl<T: Config> Pallet<T> {
 		let events = Self::events();
 		assert!(
 			events.iter().any(|record| record.event == event),
-			"expected event {event:?} not found in events {events:?}{additional_note}",
+			"{warn}expected event {event:?} not found in events {events:?}",
 		);
 	}
 
@@ -2038,20 +2038,17 @@ impl<T: Config> Pallet<T> {
 	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 	#[track_caller]
 	pub fn assert_last_event(event: T::RuntimeEvent) {
-		let additional_note = if Self::block_number().is_zero() {
-			"\nWARNING: block number is zero, and events are not registered at block number zero."
+		let warn = if Self::block_number().is_zero() {
+			"WARNING: block number is zero, and events are not registered at block number zero.\n"
 		} else {
 			""
 		};
 
-		let last_event = Self::events()
-			.last()
-			.expect(&*format!("events expected{additional_note}"))
-			.event
-			.clone();
+		let last_event =
+			Self::events().last().expect(&*format!("{warn}events expected")).event.clone();
 		assert_eq!(
 			last_event, event,
-			"expected event {event:?} is not equal to the last event {last_event:?}{additional_note}",
+			"{warn}expected event {event:?} is not equal to the last event {last_event:?}",
 		);
 	}
 
