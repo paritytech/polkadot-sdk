@@ -284,6 +284,19 @@ impl RequestResponseProtocol {
 			return;
 		};
 
+		let peer_id = peer.into();
+		if self.peerstore_handle.is_banned(&peer_id) {
+			log::trace!(
+				target: LOG_TARGET,
+				"{}: rejecting inbound request from banned {peer:?} ({request_id:?})",
+				self.protocol,
+			);
+
+			self.handle.reject_request(request_id);
+			self.metrics.register_inbound_request_failure("banned-peer");
+			return;
+		}
+
 		log::trace!(
 			target: LOG_TARGET,
 			"{}: request received from {peer:?} ({fallback:?} {request_id:?}), request size {:?}",
