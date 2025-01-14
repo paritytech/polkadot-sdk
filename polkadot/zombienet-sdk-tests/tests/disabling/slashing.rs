@@ -13,7 +13,7 @@ use crate::helpers::{
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use subxt::{OnlineClient, PolkadotConfig};
-use zombienet_sdk::NetworkConfigBuilder;
+use zombienet_sdk::{NetworkConfigBuilder, NetworkNode};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
@@ -95,26 +95,14 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 
 	let timeout_secs: u64 = 360;
 	let disputes_total_metric = "polkadot_parachain_candidate_disputes_total";
-	honest
-		.wait_metric_with_timeout(
-			disputes_total_metric,
-			|d| d > 0.0,
-			timeout_secs,
-		)
-		.await?;
+	wait_for_metric(&honest, disputes_total_metric, 1).await;
 
 	// Pause first flaky node, so they stop concluding
 	let flaky_0 = network.get_node("honest-flaky-validator-0")?;
 	flaky_0.pause().await?;
 
 	// Wait for a dispute that will not conclude
-	honest
-		.wait_metric_with_timeout(
-			disputes_total_metric,
-			|d| d > 1.0,
-			timeout_secs,
-		)
-		.await?;
+	let disputes = wait_for_metric(&honest, disputes_total_metric, 2).await;
 	log::info!("Dispute initiated, now waiting for a session change");
 
 	wait_for_session_change(&relay_client).await?;
@@ -125,13 +113,7 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 	// We don't need malus anymore
 	malus.pause().await?;
 
-	honest
-		.wait_metric_with_timeout(
-			"polkadot_parachain_candidate_dispute_concluded{validity=\"invalid\"}",
-			|d| d > 1.0,
-			timeout_secs,
-		)
-		.await?;
+	wait_for_metric(&honest, "polkadot_parachain_candidate_dispute_concluded{validity=\"invalid\"}", disputes).await;
 	log::info!("A dispute has concluded");
 
 	honest
@@ -148,4 +130,15 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 	log::info!("Test finished successfully");
 
 	Ok(())
+}
+
+pub async fn wait_for_metric(node: &NetworkNode, metric: &str, value: u64) -> u64 {
+    println!("Waiting for {metric} to reach {value}:");
+    loop {
+        let current = node.reports(metric).await.unwrap_or(0.0) as u64;
+        log::debug!("{metric} = {current}");
+        if current >= value {
+            return current;
+        }
+    }
 }
