@@ -22,7 +22,6 @@ scale-info = { features = ["derive"], workspace = true }
 sp-mmr-primitives = { workspace = true }
 
 [dev-dependencies]
-array-bytes = { workspace = true, default-features = true }
 itertools = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
 

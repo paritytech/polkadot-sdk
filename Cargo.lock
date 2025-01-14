@@ -13970,7 +13970,6 @@ dependencies = [
 name = "pallet-mmr"
 version = "27.0.0"
 dependencies = [
- "array-bytes",
  "itertools 0.11.0",
  "log",
  "parity-scale-codec",
