@@ -95,7 +95,7 @@ impl_xcm_instruction! {
 		Decode,
 		TypeInfo,
 	)]
-	#[educe(Clone, Eq, PartialEq, Debug)]
+	#[educe(Clone(bound = false), Eq, PartialEq(bound = false), Debug(bound = false))]
 	#[codec(encode_bound())]
 	#[codec(decode_bound())]
 	#[scale_info(bounds(), skip_type_params(Call))]

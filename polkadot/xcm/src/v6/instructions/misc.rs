@@ -18,6 +18,7 @@
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
+use educe::Educe;
 
 use crate::v6::{InteriorLocation, NetworkId, OriginKind, Weight, Xcm};
 use crate::DoubleEncoded;
@@ -39,7 +40,8 @@ use crate::DoubleEncoded;
 /// Kind: *Command*.
 ///
 /// Errors:
-#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
+#[derive(Educe, Encode, Decode, TypeInfo)]
+#[educe(Clone(bound = false), Eq, PartialEq(bound = false), Debug(bound = false))]
 #[scale_info(skip_type_params(Call))]
 pub struct Transact<Call> {
 	pub origin_kind: OriginKind,

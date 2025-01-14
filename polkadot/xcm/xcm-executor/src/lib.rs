@@ -48,6 +48,8 @@ pub use assets::AssetsInHolding;
 mod config;
 pub use config::Config;
 
+mod instructions;
+
 #[cfg(test)]
 mod tests;
 
@@ -203,7 +205,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	}
 }
 
-pub struct WeighedMessage<Call>(Weight, Xcm<Call>);
+pub struct WeighedMessage<Call: 'static>(Weight, Xcm<Call>);
 impl<C> PreparedMessage for WeighedMessage<C> {
 	fn weight_of(&self) -> Weight {
 		self.0

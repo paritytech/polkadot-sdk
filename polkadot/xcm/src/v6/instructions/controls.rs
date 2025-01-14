@@ -19,6 +19,7 @@
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use bounded_collections::BoundedVec;
+use educe::Educe;
 
 use crate::v6::{Xcm, Hint, HintNumVariants};
 
@@ -36,7 +37,8 @@ use crate::v6::{Xcm, Hint, HintNumVariants};
 /// Kind: *Command*
 ///
 /// Errors: None.
-#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
+#[derive(Educe, Encode, Decode, TypeInfo)]
+#[educe(Clone(bound = false), Eq, PartialEq(bound = false), Debug(bound = false))]
 #[scale_info(skip_type_params(Call))]
 pub struct SetErrorHandler<Call: 'static>(pub Xcm<Call>);
 
@@ -64,7 +66,8 @@ impl<Call> SetErrorHandler<Call> {
 /// Kind: *Command*
 ///
 /// Errors: None.
-#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
+#[derive(Educe, Encode, Decode, TypeInfo)]
+#[educe(Clone(bound = false), Eq, PartialEq(bound = false), Debug(bound = false))]
 #[scale_info(skip_type_params(Call))]
 pub struct SetAppendix<Call: 'static>(pub Xcm<Call>);
 

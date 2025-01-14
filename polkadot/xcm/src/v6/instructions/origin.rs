@@ -18,6 +18,7 @@
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
+use educe::Educe;
 
 use crate::v6::{
 	InteriorLocation, Junction, Location, Xcm,
@@ -86,7 +87,8 @@ pub struct AliasOrigin(pub Location);
 ///
 /// Errors:
 /// - `BadOrigin`
-#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo)]
+#[derive(Educe, Encode, Decode, TypeInfo)]
+#[educe(Clone(bound = false), Eq, PartialEq(bound = false), Debug(bound = false))]
 #[scale_info(skip_type_params(Call))]
 pub struct ExecuteWithOrigin<Call: 'static> {
 	// TODO: make this generic over Xcm so it is using the current version
