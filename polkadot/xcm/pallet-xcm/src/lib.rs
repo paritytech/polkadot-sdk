@@ -687,7 +687,6 @@ pub mod pallet {
 		MigrateVersionNotifiers,
 		NotifyCurrentTargets(Option<Vec<u8>>),
 		MigrateAndNotifyOldTargets,
-		RemoveExpiredAliasAuthorizations,
 	}
 
 	impl Default for VersionMigrationStage {
@@ -2608,45 +2607,6 @@ impl<T: Config> Pallet<T> {
 					}
 				}
 			}
-			stage = RemoveExpiredAliasAuthorizations;
-		}
-		if stage == RemoveExpiredAliasAuthorizations {
-			let block_num =
-				frame_system::Pallet::<T>::current_block_number().saturated_into::<u64>();
-			let mut writes = 0;
-			// need to iterate keys and modify map in separate steps to avoid undefined behavior
-			let keys: Vec<VersionedLocation> = AuthorizedAliases::<T>::iter_keys().collect();
-			weight_used.saturating_add(T::DbWeight::get().reads(keys.len() as u64));
-			for key in keys {
-				if let Some(entry) = AuthorizedAliases::<T>::get(&key) {
-					let (mut aliases, ticket) = (entry.aliasers, entry.ticket);
-					let Some(who) = Location::try_from(key.clone())
-						.ok()
-						.and_then(|key| T::SovereignAccountOf::convert_location(&key))
-					else {
-						continue
-					};
-					let old_len = aliases.len();
-					aliases.retain(|aliaser| {
-						aliaser.expiry.map(|expiry| expiry > block_num).unwrap_or(true)
-					});
-					let new_len = aliases.len();
-					if new_len > 0 {
-						// remove entry altogether and return all storage deposit
-						let _ = ticket.drop(&who);
-						AuthorizedAliases::<T>::remove(&key);
-						writes = writes + 2;
-					} else if old_len != new_len {
-						// update aliasers and storage deposit
-						if let Ok(ticket) = ticket.update(&who, aliasers_footprint(new_len)) {
-							let entry = AuthorizedAliasesEntry { aliasers: aliases, ticket };
-							AuthorizedAliases::<T>::insert(&key, entry);
-							writes = writes + 2;
-						}
-					}
-				}
-			}
-			weight_used.saturating_add(T::DbWeight::get().writes(writes));
 		}
 		(weight_used, None)
 	}
