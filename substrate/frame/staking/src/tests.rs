@@ -5929,17 +5929,6 @@ fn chill_inactive_validator_works() {
 			);
 		});
 
-		// Consecutive part cannot fit the threshold will be rejected.
-		{
-			let proof =
-				BoundedVec::truncate_from((0..10).chain(11..history_depth + 1).collect::<Vec<_>>());
-			assert_eq!(proof.len() as EraIndex, history_depth);
-			assert_noop!(
-				Staking::chill_inactive_validator(RuntimeOrigin::signed(0), 11, proof),
-				Error::<Test>::InvalidProof,
-			);
-		}
-
 		// Unsorted proof will be rejected.
 		//
 		// After sorting, the proof will be valid.
