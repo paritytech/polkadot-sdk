@@ -204,10 +204,12 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::{
-    defensive, defensive_assert,
-    traits::{
-		Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-		OriginTrait}
+		defensive, defensive_assert,
+		traits::{
+			Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll,
+			OnRuntimeUpgrade, OneSessionHandler, OriginTrait, RankedMembers,
+			RankedMembersSwapHandler,
+		},
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -516,6 +518,7 @@ pub mod runtime {
 	pub mod testing_prelude {
 		pub use sp_core::storage::Storage;
 		pub use sp_runtime::{testing::UintAuthorityId, BuildStorage, DispatchError};
+	}
 }
 
 /// All traits often used in FRAME pallets.
