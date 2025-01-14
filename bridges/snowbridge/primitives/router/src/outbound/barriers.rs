@@ -55,7 +55,7 @@ mod tests {
 	}
 
 	#[test]
-	fn deny_export_message_from_source() {
+	fn deny_export_message_from_source_other_than_asset_hub() {
 		let mut xcm: Vec<Instruction<()>> =
 			vec![ExportMessage { network: EthereumNetwork::get(), destination: Here, xcm: Default::default() }];
 
