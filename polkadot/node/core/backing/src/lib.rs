@@ -992,8 +992,8 @@ async fn handle_communication<Context>(
 					cq.release_claims_for_candidate(&candidate_hash);
 				});
 			},
-		CandidateBackingMessage::ClaimedSlots(relay_parent, tx) => {
-			handle_claimed_slots(&relay_parent, state, tx)?;
+		CandidateBackingMessage::PendingSlots(relay_parent, tx) => {
+			handle_pending_slots(&relay_parent, state, tx)?;
 		},
 		CandidateBackingMessage::CanClaim(relay_parent, para_id, tx) =>
 			handle_can_claim(&relay_parent, &para_id, state, tx)?,
@@ -2374,7 +2374,7 @@ fn handle_get_backable_candidates_message(
 	Ok(())
 }
 
-fn handle_claimed_slots(
+fn handle_pending_slots(
 	relay_parent: &Hash,
 	state: &mut State,
 	tx: oneshot::Sender<VecDeque<ParaId>>,
