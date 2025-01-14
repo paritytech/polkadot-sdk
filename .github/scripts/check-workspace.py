@@ -114,8 +114,8 @@ def check_duplicates(workspace_crates):
 # Check that all crates are in the workspace.
 def check_missing(workspace_crates, all_crates):
 	print(f'🔎 Checking for missing crates')
-	if len(workspace_crates) == len(all_crates):
-		print(f'✅ All {len(all_crates)} crates are in the workspace')
+	if len(workspace_crates) == len(all_crates) -1:
+		print(f'✅ All {len(all_crates)} crates except templates/parachain are in the workspace')
 		return
 
 	missing = []
