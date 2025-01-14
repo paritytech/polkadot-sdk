@@ -6,4 +6,4 @@ doc:
 
 crates:
   - name: pallet-nft-fractionalization
-    bump: patch
+    bump: major
