@@ -16,6 +16,7 @@
 
 //! Contains runtime APIs for querying XCM authorized aliases.
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::pallet_prelude::{MaxEncodedLen, TypeInfo};
 use xcm::VersionedLocation;
