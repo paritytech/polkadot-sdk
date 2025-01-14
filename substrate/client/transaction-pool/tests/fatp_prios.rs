@@ -311,7 +311,6 @@ fn fatp_prios_watcher_full_mempool_higher_prio_is_accepted() {
 	assert_pool_status!(header03.hash(), &pool, 2, 0);
 	assert_eq!(pool.mempool_len().1, 4);
 
-
 	assert_watcher_stream!(xt0_watcher, [TransactionStatus::Ready, TransactionStatus::Dropped]);
 	assert_watcher_stream!(xt1_watcher, [TransactionStatus::Ready, TransactionStatus::Dropped]);
 
