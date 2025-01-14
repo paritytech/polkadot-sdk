@@ -323,7 +323,7 @@ where
 			pool_api.clone(),
 			listener.clone(),
 			metrics.clone(),
-			TXMEMPOOL_TRANSACTION_LIMIT_MULTIPLIER * (options.ready.count + options.future.count),
+			TXMEMPOOL_TRANSACTION_LIMIT_MULTIPLIER * options.total_count(),
 			options.ready.total_bytes + options.future.total_bytes,
 		));
 
