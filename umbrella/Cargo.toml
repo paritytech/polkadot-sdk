@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-sdk"
-version = "0.10.0"
+version = "0.10.1"
 description = "Polkadot SDK umbrella crate."
 license = "Apache-2.0"
 publish = false
@@ -1955,7 +1955,7 @@ version = "0.18.0"
 path = "../polkadot/xcm"
 default-features = false
 optional = true
-version = "15.0.0"
+version = "15.0.1"
 
 [dependencies.staging-xcm-builder]
 path = "../polkadot/xcm/xcm-builder"
@@ -1991,7 +1991,7 @@ version = "5.0.0"
 path = "../polkadot/xcm/procedural"
 default-features = false
 optional = true
-version = "10.2.0"
+version = "11.0.0"
 
 [dependencies.xcm-runtime-apis]
 path = "../polkadot/xcm/xcm-runtime-apis"

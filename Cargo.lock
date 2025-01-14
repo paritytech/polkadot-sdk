@@ -15260,7 +15260,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-sdk"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -23355,7 +23355,7 @@ version = "2.0.0"
 
 [[package]]
 name = "staging-xcm"
-version = "15.0.0"
+version = "15.0.1"
 dependencies = [
  "array-bytes",
  "bounded-collections",
@@ -26947,7 +26947,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-procedural"
-version = "10.2.0"
+version = "11.0.0"
 dependencies = [
  "Inflector",
  "frame-support",
