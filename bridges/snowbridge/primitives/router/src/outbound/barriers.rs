@@ -7,12 +7,15 @@ use xcm::prelude::{ExportMessage, Instruction, Location, NetworkId, Weight};
 use xcm_builder::{CreateMatcher, MatchXcm};
 use xcm_executor::traits::{Properties, ShouldExecute};
 
-pub struct DenyFirstExportMessageFrom<From, To>(PhantomData<(From, To)>);
+pub struct DenyFirstExportMessageFrom<FromOrigin, ToGlobalConsensus>(
+	PhantomData<(FromOrigin, ToGlobalConsensus)>,
+);
 
-impl<From, To> ShouldExecute for DenyFirstExportMessageFrom<From, To>
+impl<FromOrigin, ToGlobalConsensus> ShouldExecute
+	for DenyFirstExportMessageFrom<FromOrigin, ToGlobalConsensus>
 where
-	From: Contains<Location>,
-	To: Contains<NetworkId>,
+	FromOrigin: Contains<Location>,
+	ToGlobalConsensus: Contains<NetworkId>,
 {
 	fn should_execute<RuntimeCall>(
 		origin: &Location,
@@ -24,7 +27,7 @@ where
 			|_| true,
 			|inst| match inst {
 				ExportMessage { network, .. } =>
-					if To::contains(network) && From::contains(origin) {
+					if ToGlobalConsensus::contains(network) && FromOrigin::contains(origin) {
 						return Err(ProcessMessageError::Unsupported)
 					} else {
 						Ok(ControlFlow::Continue(()))
@@ -59,7 +62,7 @@ mod tests {
 			Everything,
 		>::should_execute(
 			&Location::parent(),
-			&mut *xcm,
+			&mut xcm,
 			Weight::zero(),
 			&mut Properties { weight_credit: Weight::zero(), message_id: None },
 		);
@@ -76,7 +79,7 @@ mod tests {
 			Everything,
 		>::should_execute(
 			&AssetHubLocation::get(),
-			&mut *xcm,
+			&mut xcm,
 			Weight::zero(),
 			&mut Properties { weight_credit: Weight::zero(), message_id: None },
 		);
@@ -89,7 +92,7 @@ mod tests {
 
 		let result = DenyFirstExportMessageFrom::<Everything, Everything>::should_execute(
 			&Location::parent(),
-			&mut *xcm,
+			&mut xcm,
 			Weight::zero(),
 			&mut Properties { weight_credit: Weight::zero(), message_id: None },
 		);
