@@ -28,7 +28,7 @@ use crate::traits::IntoInstruction;
 pub mod instruction;
 pub mod instructions;
 
-use crate::impl_xcm_instruction;
+use crate::{apply_instructions, impl_xcm_instruction};
 pub use instructions::*;
 
 pub use super::v5::{
@@ -80,81 +80,7 @@ pub mod prelude {
 	}
 }
 
-impl_xcm_instruction! {
-	/// Cross-Consensus Message: A message from one consensus system to another.
-	///
-	/// Consensus systems that may send and receive messages include blockchains and smart contracts.
-	///
-	/// All messages are delivered from a known *origin*, expressed as a `Location`.
-	///
-	/// This is the inner XCM format and is version-sensitive. Messages are typically passed using the
-	/// outer XCM format, known as `VersionedXcm`.
-	#[derive(
-		Educe,
-		Encode,
-		Decode,
-		TypeInfo,
-	)]
-	#[educe(Clone(bound = false), Eq, PartialEq(bound = false), Debug(bound = false))]
-	#[codec(encode_bound())]
-	#[codec(decode_bound())]
-	#[scale_info(bounds(), skip_type_params(Call))]
-
-	pub enum Instruction<Call> {
-		WithdrawAsset,
-		ReserveAssetDeposited,
-		ReceiveTeleportedAsset,
-		QueryResponse,
-		TransferAsset,
-		TransferReserveAsset,
-		Transact<Call>,
-		HrmpNewChannelOpenRequest,
-		HrmpChannelAccepted,
-		HrmpChannelClosing,
-		ClearOrigin,
-		DescendOrigin,
-		ReportError,
-		DepositAsset,
-		DepositReserveAsset,
-		ExchangeAsset,
-		InitiateReserveWithdraw,
-		InitiateTeleport,
-		ReportHolding,
-		BuyExecution,
-		RefundSurplus,
-		SetErrorHandler<Call>,
-		SetAppendix<Call>,
-		ClearError,
-		ClaimAsset,
-		Trap,
-		SubscribeVersion,
-		UnsubscribeVersion,
-		BurnAsset,
-		ExpectAsset,
-		ExpectOrigin,
-		ExpectError,
-		ExpectTransactStatus,
-		QueryPallet,
-		ExpectPallet,
-		ReportTransactStatus,
-		ClearTransactStatus,
-		UniversalOrigin,
-		ExportMessage,
-		LockAsset,
-		UnlockAsset,
-		NoteUnlockable,
-		RequestUnlock,
-		SetFeesMode,
-		SetTopic,
-		ClearTopic,
-		AliasOrigin,
-		UnpaidExecution,
-		PayFees,
-		InitiateTransfer,
-		ExecuteWithOrigin<Call>,
-		SetHints,
-	}
-}
+apply_instructions!(impl_xcm_instruction, pub enum Instruction<Call>);
 
 impl<Call> Xcm<Call> {
 	pub fn into<C>(self) -> Xcm<C> {

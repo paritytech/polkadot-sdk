@@ -15,17 +15,88 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 #[macro_export]
+macro_rules! apply_instructions {
+	($mac:ident, $($args:tt)*) => {
+		$mac!($($args)*,
+			WithdrawAsset,
+			ReserveAssetDeposited,
+			ReceiveTeleportedAsset,
+			QueryResponse,
+			TransferAsset,
+			TransferReserveAsset,
+			Transact<Call>,
+			HrmpNewChannelOpenRequest,
+			HrmpChannelAccepted,
+			HrmpChannelClosing,
+			ClearOrigin,
+			DescendOrigin,
+			ReportError,
+			DepositAsset,
+			DepositReserveAsset,
+			ExchangeAsset,
+			InitiateReserveWithdraw,
+			InitiateTeleport,
+			ReportHolding,
+			BuyExecution,
+			RefundSurplus,
+			SetErrorHandler<Call>,
+			SetAppendix<Call>,
+			ClearError,
+			ClaimAsset,
+			Trap,
+			SubscribeVersion,
+			UnsubscribeVersion,
+			BurnAsset,
+			ExpectAsset,
+			ExpectOrigin,
+			ExpectError,
+			ExpectTransactStatus,
+			QueryPallet,
+			ExpectPallet,
+			ReportTransactStatus,
+			ClearTransactStatus,
+			UniversalOrigin,
+			ExportMessage,
+			LockAsset,
+			UnlockAsset,
+			NoteUnlockable,
+			RequestUnlock,
+			SetFeesMode,
+			SetTopic,
+			ClearTopic,
+			AliasOrigin,
+			UnpaidExecution,
+			PayFees,
+			InitiateTransfer,
+			ExecuteWithOrigin<Call>,
+			SetHints
+		);
+	};
+}
+
+#[macro_export]
 macro_rules! impl_xcm_instruction {
     (
-		$( #[$doc:meta] )*
-		$vis:vis enum $name:ident<$generic:ident> {
-			$(
-				$( #[$instr_doc:meta] )*
-				$instr:ident $(< $instr_generic:ty >)?,
-			)+
-		}
+		$vis:vis enum $name:ident<$generic:ident>, $( $instr:ident $( < $instr_generic:ty > )? ),*
     ) => {
-        $( #[$doc] )*
+		/// Cross-Consensus Message: A message from one consensus system to another.
+		///
+		/// Consensus systems that may send and receive messages include blockchains and smart contracts.
+		///
+		/// All messages are delivered from a known *origin*, expressed as a `Location`.
+		///
+		/// This is the inner XCM format and is version-sensitive. Messages are typically passed using the
+		/// outer XCM format, known as `VersionedXcm`.
+		#[derive(
+			Educe,
+			Encode,
+			Decode,
+			TypeInfo,
+		)]
+		#[educe(Clone(bound = false), Eq, PartialEq(bound = false), Debug(bound = false))]
+		#[codec(encode_bound())]
+		#[codec(decode_bound())]
+		#[scale_info(bounds(), skip_type_params(Call))]
         $vis enum $name<$generic> where $generic: 'static {
             $(
                 // $( #[$instr_doc] )*
