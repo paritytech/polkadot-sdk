@@ -183,6 +183,10 @@ pub type WaivedLocations = (
 	Equals<RelayTreasuryLocation>,
 );
 
+/// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
+/// - ROC with the parent Relay Chain and sibling parachains.
+pub type TrustedTeleporters = ConcreteAssetFromSystem<RocRelayLocation>;
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -192,8 +196,7 @@ impl xcm_executor::Config for XcmConfig {
 	// Coretime chain does not recognize a reserve location for any asset. Users must teleport ROC
 	// where allowed (e.g. with the Relay Chain).
 	type IsReserve = ();
-	/// Only allow teleportation of ROC.
-	type IsTeleporter = ConcreteAssetFromSystem<RocRelayLocation>;
+	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = WeightInfoBounds<
@@ -278,6 +281,7 @@ impl pallet_xcm::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
+	type Consideration = ();
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {

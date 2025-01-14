@@ -80,6 +80,7 @@ pallet-message-queue = { workspace = true }
 parachain-info = { workspace = true }
 parachains-common = { workspace = true }
 snowbridge-router-primitives = { workspace = true }
+testnet-parachains-constants = { features = ["westend"], workspace = true }
 
 primitive-types = { version = "0.12.1", default-features = false, features = ["codec", "num-traits", "scale-info"] }
 

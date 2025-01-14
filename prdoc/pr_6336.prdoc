@@ -23,7 +23,7 @@ doc:
 
 crates:
   - name: pallet-xcm
-    bump: minor
+    bump: major
   - name: xcm-runtime-apis
     bump: minor 
   - name: staging-xcm-builder
