@@ -62,6 +62,8 @@ pub mod weights;
 pub use benchmarking::types::WeightlessExtension;
 pub use pallet::*;
 pub use weights::WeightInfo;
+mod extension;
+pub use extension::MetaTxMarker;
 
 use core::ops::Add;
 use frame_support::{

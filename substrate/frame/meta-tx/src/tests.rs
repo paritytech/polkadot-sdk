@@ -45,6 +45,7 @@ fn create_tx_bare_ext(account: AccountId) -> TxBareExtension {
 
 pub fn create_meta_tx_bare_ext(account: AccountId) -> MetaTxBareExtension {
 	(
+		MetaTxMarker::new(),
 		frame_system::CheckNonZeroSender::<Runtime>::new(),
 		frame_system::CheckSpecVersion::<Runtime>::new(),
 		frame_system::CheckTxVersion::<Runtime>::new(),

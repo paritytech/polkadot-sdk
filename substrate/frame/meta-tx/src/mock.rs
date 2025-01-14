@@ -76,6 +76,7 @@ mod tx_ext {
 	///
 	/// Helper type used to decode the part of the extension which should be signed.
 	pub type MetaTxBareExtension = (
+		MetaTxMarker<Runtime>,
 		frame_system::CheckNonZeroSender<Runtime>,
 		frame_system::CheckSpecVersion<Runtime>,
 		frame_system::CheckTxVersion<Runtime>,
