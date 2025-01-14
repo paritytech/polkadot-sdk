@@ -17,7 +17,7 @@
 
 use crate::{
 	address::{self, AddressMapper},
-	debug::{CallInterceptor, CallSpan, Tracing},
+	debug::{CallInterceptor, Tracer, Tracing},
 	gas::GasMeter,
 	limits,
 	primitives::{ExecReturnValue, StorageDeposit},
@@ -1015,6 +1015,7 @@ where
 	fn run(&mut self, executable: E, input_data: Vec<u8>) -> Result<(), ExecError> {
 		let frame = self.top_frame();
 		let entry_point = frame.entry_point;
+		let is_delegate_call = frame.delegate.is_some();
 		let delegated_code_hash =
 			if frame.delegate.is_some() { Some(*executable.code_hash()) } else { None };
 
@@ -1035,6 +1036,9 @@ where
 		let do_transaction = || -> ExecResult {
 			let caller = self.caller();
 			let frame = top_frame_mut!(self);
+			let read_only = frame.read_only;
+			let value_transferred = frame.value_transferred;
+			let account_id = &frame.account_id.clone();
 
 			// We need to charge the storage deposit before the initial transfer so that
 			// it can create the account in case the initial transfer is < ed.
@@ -1042,10 +1046,11 @@ where
 				// Root origin can't be used to instantiate a contract, so it is safe to assume that
 				// if we reached this point the origin has an associated account.
 				let origin = &self.origin.account_id()?;
+
 				frame.nested_storage.charge_instantiate(
 					origin,
-					&frame.account_id,
-					frame.contract_info.get(&frame.account_id),
+					&account_id,
+					frame.contract_info.get(&account_id),
 					executable.code_info(),
 					self.skip_transfer,
 				)?;
@@ -1066,20 +1071,42 @@ where
 				)?;
 			}
 
-			let contract_address = T::AddressMapper::to_address(&top_frame!(self).account_id);
+			let contract_address = T::AddressMapper::to_address(account_id);
+			let maybe_caller_address = caller.account_id().map(T::AddressMapper::to_address);
 
-			let call_span = T::Debug::new_call_span(&contract_address, entry_point, &input_data);
+			crate::with_tracer(|tracer| {
+				tracer.enter_child_span(
+					&maybe_caller_address.unwrap_or_default(),
+					&contract_address,
+					is_delegate_call,
+					read_only,
+					&value_transferred,
+					&input_data,
+					&frame.nested_gas,
+				);
+			});
 
 			let output = T::Debug::intercept_call(&contract_address, entry_point, &input_data)
 				.unwrap_or_else(|| executable.execute(self, entry_point, input_data))
-				.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })?;
-
-			call_span.after_call(&output);
+				.map_err(|e| {
+					crate::with_tracer(|tracer| {
+						tracer
+							.exit_child_span_with_error(e.error, &top_frame_mut!(self).nested_gas);
+					});
+					ExecError { error: e.error, origin: ErrorOrigin::Callee }
+				})?;
 
 			// Avoid useless work that would be reverted anyways.
 			if output.did_revert() {
+				crate::with_tracer(|tracer| {
+					tracer.exit_child_span(&output, &top_frame_mut!(self).nested_gas);
+				});
 				return Ok(output);
 			}
+
+			crate::with_tracer(|tracer| {
+				tracer.exit_child_span(&output, &top_frame_mut!(self).nested_gas);
+			});
 
 			// Storage limit is normally enforced as late as possible (when the last frame returns)
 			// so that the ordering of storage accesses does not matter.
@@ -1110,10 +1137,9 @@ where
 						return Err(Error::<T>::TerminatedInConstructor.into());
 					}
 
-					let caller = T::AddressMapper::to_address(self.caller().account_id()?);
 					// Deposit an instantiation event.
 					Contracts::<T>::deposit_event(Event::Instantiated {
-						deployer: caller,
+						deployer: maybe_caller_address?,
 						contract: account_id,
 					});
 				},
@@ -1691,11 +1717,11 @@ where
 	}
 
 	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) {
-		Contracts::<Self::T>::deposit_event(Event::ContractEmitted {
-			contract: T::AddressMapper::to_address(self.account_id()),
-			data,
-			topics,
+		let contract = T::AddressMapper::to_address(self.account_id());
+		crate::with_tracer(|tracer| {
+			<Tracer as Tracing<T>>::log_event(tracer, &contract, &topics, &data);
 		});
+		Contracts::<Self::T>::deposit_event(Event::ContractEmitted { contract, data, topics });
 	}
 
 	fn block_number(&self) -> U256 {

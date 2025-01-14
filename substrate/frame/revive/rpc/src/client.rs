@@ -27,8 +27,9 @@ use crate::{
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	evm::{
-		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, GenericTransaction, ReceiptInfo,
-		SyncingProgress, SyncingStatus, TransactionSigned, H160, H256, U256,
+		extract_revert_message, Block, BlockNumberOrTag, BlockNumberOrTagOrHash,
+		GenericTransaction, ReceiptInfo, SyncingProgress, SyncingStatus, TransactionSigned, H160,
+		H256, U256,
 	},
 	EthTransactError, EthTransactInfo,
 };
@@ -80,47 +81,6 @@ fn unwrap_call_err(err: &subxt::error::RpcError) -> Option<ErrorObjectOwned> {
 			}
 		},
 		_ => None,
-	}
-}
-
-/// Extract the revert message from a revert("msg") solidity statement.
-fn extract_revert_message(exec_data: &[u8]) -> Option<String> {
-	let error_selector = exec_data.get(0..4)?;
-
-	match error_selector {
-		// assert(false)
-		[0x4E, 0x48, 0x7B, 0x71] => {
-			let panic_code: u32 = U256::from_big_endian(exec_data.get(4..36)?).try_into().ok()?;
-
-			// See https://docs.soliditylang.org/en/latest/control-structures.html#panic-via-assert-and-error-via-require
-			let msg = match panic_code {
-				0x00 => "generic panic",
-				0x01 => "assert(false)",
-				0x11 => "arithmetic underflow or overflow",
-				0x12 => "division or modulo by zero",
-				0x21 => "enum overflow",
-				0x22 => "invalid encoded storage byte array accessed",
-				0x31 => "out-of-bounds array access; popping on an empty array",
-				0x32 => "out-of-bounds access of an array or bytesN",
-				0x41 => "out of memory",
-				0x51 => "uninitialized function",
-				code => return Some(format!("execution reverted: unknown panic code: {code:#x}")),
-			};
-
-			Some(format!("execution reverted: {msg}"))
-		},
-		// revert(string)
-		[0x08, 0xC3, 0x79, 0xA0] => {
-			let decoded = ethabi::decode(&[ethabi::ParamType::String], &exec_data[4..]).ok()?;
-			if let Some(ethabi::Token::String(msg)) = decoded.first() {
-				return Some(format!("execution reverted: {msg}"))
-			}
-			Some("execution reverted".to_string())
-		},
-		_ => {
-			log::debug!(target: LOG_TARGET, "Unknown revert function selector: {error_selector:?}");
-			Some("execution reverted".to_string())
-		},
 	}
 }
 

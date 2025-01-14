@@ -29,6 +29,7 @@ use crate::{
 		ChainExtension, Environment, Ext, RegisteredChainExtension, Result as ExtensionResult,
 		RetVal, ReturnFlags,
 	},
+	debug::Tracer,
 	evm::{runtime::GAS_PRICE, GenericTransaction},
 	exec::Key,
 	limits,
@@ -36,6 +37,7 @@ use crate::{
 	storage::DeletionQueueManager,
 	test_utils::*,
 	tests::test_utils::{get_contract, get_contract_checked},
+	using_tracer,
 	wasm::Memory,
 	weights::WeightInfo,
 	AccountId32Mapper, BalanceOf, Code, CodeInfoOf, Config, ContractInfo, ContractInfoOf,
@@ -4814,5 +4816,133 @@ fn unstable_interface_rejected() {
 
 		Test::set_unstable_interface(true);
 		assert_ok!(builder::bare_instantiate(Code::Upload(code)).build().result);
+	});
+}
+
+#[test]
+fn tracing_works() {
+	use crate::evm::{TracerConfig, *};
+	use CallType::*;
+	let (code, _code_hash) = compile_module("tracing").unwrap();
+	let (wasm_callee, _) = compile_module("tracing_callee").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr: addr_callee, .. } =
+			builder::bare_instantiate(Code::Upload(wasm_callee)).build_and_unwrap_contract();
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let tracer_options = vec![
+			(TracerConfig::CallTracer { with_logs: false }, vec![]),
+			(
+				TracerConfig::CallTracer { with_logs: true },
+				vec![
+					CallLog {
+						address: addr,
+						topics: Default::default(),
+						data: b"before".to_vec().into(),
+						position: 0,
+					},
+					CallLog {
+						address: addr,
+						topics: Default::default(),
+						data: b"after".to_vec().into(),
+						position: 1,
+					},
+				],
+			),
+		];
+
+		for (tracer_config, logs) in tracer_options {
+			let mut tracer = Tracer::from_config(tracer_config);
+			using_tracer(&mut tracer, || {
+				builder::bare_call(addr).data((3u32, addr_callee).encode()).build()
+			});
+
+			let traces = tracer.collect_traces()
+				.map(|_| Weight::default(), |value| EthOutput::from(value));
+
+			assert_eq!(
+				traces,
+				Traces::CallTraces(vec![CallTrace {
+					from: ALICE_ADDR,
+					to: addr,
+					input: (3u32, addr_callee).encode(),
+					call_type: Call,
+					logs: logs.clone(),
+					calls: vec![
+						CallTrace {
+							from: addr,
+							to: addr_callee,
+							input: 2u32.encode(),
+							output: EthOutput {
+								output: hex_literal::hex!(
+											"08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001a546869732066756e6374696f6e20616c77617973206661696c73000000000000"
+										).to_vec().into(),
+								revert_reason: Some(
+									"execution reverted: This function always fails".to_string()
+								),
+							},
+							error: Some("execution reverted".to_string()),
+							call_type: Call,
+							..Default::default()
+						},
+						CallTrace {
+							from: addr,
+							to: addr,
+							input: (2u32, addr_callee).encode(),
+							call_type: Call,
+							logs: logs.clone(),
+							calls: vec![
+								CallTrace {
+									from: addr,
+									to: addr_callee,
+									input: 1u32.encode(),
+									output: EthOutput {
+										output: Default::default(),
+										revert_reason: None,
+									},
+									error: Some("ContractTrapped".to_string()),
+									call_type: Call,
+									..Default::default()
+								},
+								CallTrace {
+									from: addr,
+									to: addr,
+									input: (1u32, addr_callee).encode(),
+									call_type: Call,
+									logs: logs.clone(),
+									calls: vec![
+										CallTrace {
+											from: addr,
+											to: addr_callee,
+											input: 0u32.encode(),
+											output: EthOutput {
+												output: 0u32.to_le_bytes().to_vec().into(),
+												revert_reason: None,
+											},
+											call_type: Call,
+											..Default::default()
+										},
+										CallTrace {
+											from: addr,
+											to: addr,
+											input: (0u32, addr_callee).encode(),
+											call_type: Call,
+											..Default::default()
+										},
+									],
+									..Default::default()
+								},
+							],
+							..Default::default()
+						},
+					],
+					..Default::default()
+				},])
+			);
+		}
 	});
 }

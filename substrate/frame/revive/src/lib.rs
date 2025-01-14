@@ -43,7 +43,7 @@ pub mod weights;
 use crate::{
 	evm::{
 		runtime::{gas_from_fee, GAS_PRICE},
-		GasEncoder, GenericTransaction,
+		GasEncoder, GenericTransaction, Traces,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Ext, Key, Origin, Stack as ExecStack},
 	gas::GasMeter,
@@ -118,7 +118,7 @@ const LOG_TARGET: &str = "runtime::revive";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use crate::debug::Debugger;
+	use crate::debug::{Debugger, Tracer};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use sp_core::U256;
@@ -742,6 +742,23 @@ pub mod pallet {
 				storage_size_limit
 			);
 		}
+	}
+
+	environmental!(tracer: Tracer);
+
+	/// Run the given closure with the given tracer.
+	pub fn using_tracer<R>(t: &mut Tracer, f: impl FnOnce() -> R) -> R {
+		tracer::using(t, f)
+	}
+
+	/// Run the closure when the tracer is enabled.
+	pub fn with_tracer(f: impl FnOnce(&mut Tracer)) {
+		tracer::with(f);
+	}
+
+	/// Collect the traces from the tracer.
+	pub fn collect_traces() -> Option<Traces> {
+		tracer::with(|tracer| tracer.collect_traces())
 	}
 
 	#[pallet::call]

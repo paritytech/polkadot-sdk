@@ -27,6 +27,7 @@ log = { workspace = true }
 paste = { workspace = true }
 polkavm = { version = "0.18.0", default-features = false }
 rlp = { workspace = true }
+ethabi = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = [
 	"alloc",
