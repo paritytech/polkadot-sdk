@@ -757,7 +757,7 @@ mod tx_mem_pool_tests {
 	}
 
 	#[test]
-	fn replacing_works_00() {
+	fn replacing_txs_works_for_same_tx_size() {
 		sp_tracing::try_init_simple();
 		let max = 10;
 		let api = Arc::from(TestApi::default());
@@ -796,7 +796,7 @@ mod tx_mem_pool_tests {
 	}
 
 	#[test]
-	fn replacing_works_01() {
+	fn replacing_txs_removes_proper_size_of_txs() {
 		sp_tracing::try_init_simple();
 		let max = 10;
 		let api = Arc::from(TestApi::default());
@@ -838,7 +838,7 @@ mod tx_mem_pool_tests {
 	}
 
 	#[test]
-	fn replacing_works_02() {
+	fn replacing_txs_removes_proper_size_and_prios() {
 		sp_tracing::try_init_simple();
 		const COUNT: usize = 10;
 		let api = Arc::from(TestApi::default());
@@ -880,7 +880,7 @@ mod tx_mem_pool_tests {
 	}
 
 	#[test]
-	fn replacing_skips_lower_prio_tx() {
+	fn replacing_txs_skips_lower_prio_tx() {
 		sp_tracing::try_init_simple();
 		const COUNT: usize = 10;
 		let api = Arc::from(TestApi::default());
@@ -908,12 +908,11 @@ mod tx_mem_pool_tests {
 			.into_iter()
 			.for_each(|o| mempool.update_transaction_priority(&o));
 
-		//this one should drop 3 xts (each of size 1129)
 		let xt = Arc::from(large_uxt(98));
 		let result =
 			mempool.try_insert_with_replacement(xt, low_prio, TransactionSource::External, false);
 
-		// we did not update priorities (update_transaction_priority was not called):
+		// lower prio tx is rejected immediately
 		assert!(matches!(
 			result.unwrap_err(),
 			sc_transaction_pool_api::error::Error::ImmediatelyDropped
@@ -921,7 +920,7 @@ mod tx_mem_pool_tests {
 	}
 
 	#[test]
-	fn replacing_is_skipped_if_prios_are_not_set() {
+	fn replacing_txs_is_skipped_if_prios_are_not_set() {
 		sp_tracing::try_init_simple();
 		const COUNT: usize = 10;
 		let api = Arc::from(TestApi::default());
