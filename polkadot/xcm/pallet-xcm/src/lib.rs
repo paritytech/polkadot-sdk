@@ -1511,10 +1511,6 @@ pub mod pallet {
 			let origin_location: Location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
 			let aliaser: Location = (*aliaser).try_into().map_err(|()| Error::<T>::BadVersion)?;
 			tracing::debug!(target: "xcm::pallet_xcm::add_authorized_alias", ?origin_location, ?aliaser, ?expires);
-			println!(
-				"add_authorized_alias(): origin {:?}, aliaser {:?}, expires {:?}",
-				origin_location, aliaser, expires
-			);
 			ensure!(origin_location != aliaser, Error::<T>::BadLocation);
 			if let Some(expiry) = expires {
 				ensure!(
@@ -1525,43 +1521,33 @@ pub mod pallet {
 			}
 			let versioned_origin = VersionedLocation::from(origin_location);
 			let versioned_aliaser = VersionedLocation::from(aliaser);
-			println!("add_authorized_alias(): 1");
 
 			let entry = if let Some(entry) = AuthorizedAliases::<T>::get(&versioned_origin) {
 				// entry already exists, update it
 				let (mut aliasers, mut ticket) = (entry.aliasers, entry.ticket);
-				println!("add_authorized_alias(): 2");
 				if let Some(aliaser) =
 					aliasers.iter_mut().find(|aliaser| aliaser.location == versioned_aliaser)
 				{
 					// if the aliaser already exists, just update its expiry block
 					aliaser.expiry = expires;
-					println!("add_authorized_alias(): 3");
 				} else {
 					// if it doesn't, we try to add it
 					let aliaser =
 						OriginAliaser { location: versioned_aliaser.clone(), expiry: expires };
 					aliasers.try_push(aliaser).map_err(|_| Error::<T>::TooManyAuthorizedAliases)?;
-					println!("add_authorized_alias(): 4");
 					// we try to update the ticket (the storage deposit)
 					ticket = ticket.update(&signed_origin, aliasers_footprint(aliasers.len()))?;
-					println!("add_authorized_alias(): 5");
 				}
 				AuthorizedAliasesEntry { aliasers, ticket }
 			} else {
-				println!("add_authorized_alias(): 6");
 				// add new entry with its first alias
 				let ticket = TicketOf::<T>::new(&signed_origin, aliasers_footprint(1))?;
-				println!("add_authorized_alias(): 7");
 				let aliaser =
 					OriginAliaser { location: versioned_aliaser.clone(), expiry: expires };
 				let mut aliasers = BoundedVec::<OriginAliaser, MaxAuthorizedAliases>::new();
 				aliasers.try_push(aliaser).map_err(|_| Error::<T>::TooManyAuthorizedAliases)?;
-				println!("add_authorized_alias(): 8");
 				AuthorizedAliasesEntry { aliasers, ticket }
 			};
-
-			println!("add_authorized_alias(): 9");
 			// write to storage
 			AuthorizedAliases::<T>::insert(&versioned_origin, entry);
 			Self::deposit_event(Event::AliasAuthorized {
@@ -1586,26 +1572,15 @@ pub mod pallet {
 			ensure!(origin_location != to_remove, Error::<T>::BadLocation);
 			let versioned_origin = VersionedLocation::from(origin_location);
 			let versioned_to_remove = VersionedLocation::from(to_remove);
-			println!("remove_authorized_alias(): versioned_origin {:?}", versioned_origin);
 			if let Some(entry) = AuthorizedAliases::<T>::get(&versioned_origin) {
 				let (mut aliasers, mut ticket) = (entry.aliasers, entry.ticket);
 				let old_len = aliasers.len();
-				println!(
-					"remove_authorized_alias(): old aliasers {:?} len {:?}",
-					aliasers, old_len
-				);
 				aliasers.retain(|alias| versioned_to_remove.ne(&alias.location));
 				let new_len = aliasers.len();
-				println!(
-					"remove_authorized_alias(): new aliasers {:?} len {:?}",
-					aliasers, new_len
-				);
 				if aliasers.is_empty() {
 					// remove entry altogether and return all storage deposit
 					ticket.drop(&signed_origin)?;
 					AuthorizedAliases::<T>::remove(&versioned_origin);
-					println!("remove_authorized_alias(): removed all aliasers and deposit");
-
 					Self::deposit_event(Event::AliasAuthorizationRemoved {
 						aliaser: versioned_to_remove,
 						target: versioned_origin,
@@ -1615,7 +1590,6 @@ pub mod pallet {
 					ticket = ticket.update(&signed_origin, aliasers_footprint(new_len))?;
 					let entry = AuthorizedAliasesEntry { aliasers, ticket };
 					AuthorizedAliases::<T>::insert(&versioned_origin, entry);
-					println!("remove_authorized_alias(): updated aliasers and deposit");
 					Self::deposit_event(Event::AliasAuthorizationRemoved {
 						aliaser: versioned_to_remove,
 						target: versioned_origin,
