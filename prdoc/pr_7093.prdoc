@@ -1,15 +1,9 @@
-# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
-# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
-
-title: 'Modify template parachain to have its readme to use Docify'
-
+title: 'initial docify readme with some content #6333'
 doc:
-  - audience: Runtime Dev
-    description: >
-      This PR modifies the parachain template so that its README is now auto generated with Docify.
-      This is part of the ongoing effort on milestone for Omni-Node.
-      The effort is tracked [here](https://github.com/paritytech/polkadot-sdk/issues/6333).
-
+- audience: Runtime Dev
+  description: 'Docifying the README.MD under templates/parachain by adding a Docify.
+  Also Adding the Cargo.toml under the same folder, essentially making it a crate as Docify acts
+  for Readmes only under the same crate. Other changes are related to the same to skip this crate'
 crates:
-  - name: template-parachain
-    bump: major
+- name: template-parachain-pallet
+  bump: minor
