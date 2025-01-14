@@ -122,7 +122,7 @@ where
 		}
 	}
 
-	/// Creates new processed instance of pending transaction removal.
+	/// Creates new unprocessed instance of pending transaction removal.
 	fn new_removal_action(
 		xt_hash: ExtrinsicHash<ChainApi>,
 		listener: RemovalListener<ChainApi>,

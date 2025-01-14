@@ -53,14 +53,15 @@ use parking_lot::Mutex;
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_transaction_pool_api::{
 	error::Error as TxPoolApiError, ChainEvent, ImportNotificationStream,
-	MaintainedTransactionPool, PoolStatus, TransactionFor, TransactionPool, TransactionSource,
-	TransactionStatusStreamFor, TxHash,
+	MaintainedTransactionPool, PoolStatus, TransactionFor, TransactionPool, TransactionPriority,
+	TransactionSource, TransactionStatusStreamFor, TxHash,
 };
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_core::traits::SpawnEssentialNamed;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, NumberFor},
+	transaction_validity::{TransactionValidityError, ValidTransaction},
 };
 use std::{
 	collections::{HashMap, HashSet},
@@ -322,7 +323,7 @@ where
 			pool_api.clone(),
 			listener.clone(),
 			metrics.clone(),
-			TXMEMPOOL_TRANSACTION_LIMIT_MULTIPLIER * (options.ready.count + options.future.count),
+			TXMEMPOOL_TRANSACTION_LIMIT_MULTIPLIER * options.total_count(),
 			options.ready.total_bytes + options.future.total_bytes,
 		));
 
@@ -668,7 +669,7 @@ where
 				match result {
 					Err(TxPoolApiError::ImmediatelyDropped) =>
 						self.attempt_transaction_replacement(source, false, xt).await,
-					result @ _ => result,
+					_ => result,
 				}
 			})
 			.collect::<Vec<_>>();
@@ -687,7 +688,7 @@ where
 		self.metrics
 			.report(|metrics| metrics.submitted_transactions.inc_by(to_be_submitted.len() as _));
 
-		// ... and submit them to the view_store. Please note that transaction rejected by mempool
+		// ... and submit them to the view_store. Please note that transactions rejected by mempool
 		// are not sent here.
 		let mempool = self.mempool.clone();
 		let results_map = view_store.submit(to_be_submitted.into_iter()).await;
@@ -894,22 +895,16 @@ where
 	}
 }
 
-impl<Block, Client> sc_transaction_pool_api::LocalTransactionPool
-	for ForkAwareTxPool<FullChainApi<Client, Block>, Block>
+impl<ChainApi, Block> sc_transaction_pool_api::LocalTransactionPool
+	for ForkAwareTxPool<ChainApi, Block>
 where
 	Block: BlockT,
+	ChainApi: 'static + graph::ChainApi<Block = Block>,
 	<Block as BlockT>::Hash: Unpin,
-	Client: sp_api::ProvideRuntimeApi<Block>
-		+ sc_client_api::BlockBackend<Block>
-		+ sc_client_api::blockchain::HeaderBackend<Block>
-		+ sp_runtime::traits::BlockIdTo<Block>
-		+ sp_blockchain::HeaderMetadata<Block, Error = sp_blockchain::Error>,
-	Client: Send + Sync + 'static,
-	Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
 {
 	type Block = Block;
-	type Hash = ExtrinsicHash<FullChainApi<Client, Block>>;
-	type Error = <FullChainApi<Client, Block> as graph::ChainApi>::Error;
+	type Hash = ExtrinsicHash<ChainApi>;
+	type Error = ChainApi::Error;
 
 	fn submit_local(
 		&self,
@@ -918,18 +913,29 @@ where
 	) -> Result<Self::Hash, Self::Error> {
 		log::debug!(target: LOG_TARGET, "fatp::submit_local views:{}", self.active_views_count());
 		let xt = Arc::from(xt);
-		let InsertionInfo { hash: xt_hash, .. } = self
-			.mempool
-			.extend_unwatched(TransactionSource::Local, &[xt.clone()])
-			.remove(0)?;
+
+		let result =
+			self.mempool.extend_unwatched(TransactionSource::Local, &[xt.clone()]).remove(0);
+
+		let insertion = match result {
+			Err(TxPoolApiError::ImmediatelyDropped) => self.attempt_transaction_replacement_sync(
+				TransactionSource::Local,
+				false,
+				xt.clone(),
+			),
+			_ => result,
+		}?;
 
 		self.view_store
 			.submit_local(xt)
+			.inspect_err(|_| {
+				self.mempool.remove_transaction(&insertion.hash);
+			})
 			.map(|outcome| {
 				self.mempool.update_transaction_priority(&outcome);
 				outcome.hash()
 			})
-			.or_else(|_| Ok(xt_hash))
+			.or_else(|_| Ok(insertion.hash))
 	}
 }
 
@@ -1366,7 +1372,7 @@ where
 			.get_view_at(at, false)
 			.ok_or(TxPoolApiError::ImmediatelyDropped)?;
 
-		let (tx_hash, validated_tx) = best_view
+		let (xt_hash, validated_tx) = best_view
 			.pool
 			.verify_one(
 				best_view.at.hash,
@@ -1381,7 +1387,44 @@ where
 			return Err(TxPoolApiError::ImmediatelyDropped)
 		};
 
-		let insertion_info = self.mempool.try_replace_transaction(xt, priority, source, watched)?;
+		self.attempt_transaction_replacement_inner(xt, xt_hash, priority, source, watched)
+	}
+
+	/// Sync version of [`Self::attempt_transaction_replacement`].
+	fn attempt_transaction_replacement_sync(
+		&self,
+		source: TransactionSource,
+		watched: bool,
+		xt: ExtrinsicFor<ChainApi>,
+	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, TxPoolApiError> {
+		let at = self
+			.view_store
+			.most_recent_view
+			.read()
+			.ok_or(TxPoolApiError::ImmediatelyDropped)?;
+
+		let ValidTransaction { priority, .. } = self
+			.api
+			.validate_transaction_blocking(at, TransactionSource::Local, Arc::from(xt.clone()))
+			.map_err(|_| TxPoolApiError::ImmediatelyDropped)?
+			.map_err(|e| match e {
+				TransactionValidityError::Invalid(i) => TxPoolApiError::InvalidTransaction(i),
+				TransactionValidityError::Unknown(u) => TxPoolApiError::UnknownTransaction(u),
+			})?;
+		let xt_hash = self.hash_of(&xt);
+		self.attempt_transaction_replacement_inner(xt, xt_hash, priority, source, watched)
+	}
+
+	fn attempt_transaction_replacement_inner(
+		&self,
+		xt: ExtrinsicFor<ChainApi>,
+		tx_hash: ExtrinsicHash<ChainApi>,
+		priority: TransactionPriority,
+		source: TransactionSource,
+		watched: bool,
+	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, TxPoolApiError> {
+		let insertion_info =
+			self.mempool.try_insert_with_replacement(xt, priority, source, watched)?;
 
 		for worst_hash in &insertion_info.removed {
 			log::trace!(target: LOG_TARGET, "removed: {worst_hash:?} replaced by {tx_hash:?}");

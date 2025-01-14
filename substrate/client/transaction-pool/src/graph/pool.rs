@@ -157,6 +157,13 @@ impl Default for Options {
 	}
 }
 
+impl Options {
+	/// Total (ready+future) maximal number of transactions in the pool.
+	pub fn total_count(&self) -> usize {
+		self.ready.count + self.future.count
+	}
+}
+
 /// Should we check that the transaction is banned
 /// in the pool, before we verify it?
 #[derive(Copy, Clone)]
@@ -171,6 +178,21 @@ pub struct Pool<B: ChainApi> {
 }
 
 impl<B: ChainApi> Pool<B> {
+	/// Create a new transaction pool with statically sized rotator.
+	pub fn new_with_staticly_sized_rotator(
+		options: Options,
+		is_validator: IsValidator,
+		api: Arc<B>,
+	) -> Self {
+		Self {
+			validated_pool: Arc::new(ValidatedPool::new_with_staticly_sized_rotator(
+				options,
+				is_validator,
+				api,
+			)),
+		}
+	}
+
 	/// Create a new transaction pool.
 	pub fn new(options: Options, is_validator: IsValidator, api: Arc<B>) -> Self {
 		Self { validated_pool: Arc::new(ValidatedPool::new(options, is_validator, api)) }
@@ -283,6 +305,7 @@ impl<B: ChainApi> Pool<B> {
 		let mut validated_counter: usize = 0;
 
 		let mut future_tags = Vec::new();
+		let now = Instant::now();
 		for (extrinsic, in_pool_tags) in all {
 			match in_pool_tags {
 				// reuse the tags for extrinsics that were found in the pool
@@ -318,7 +341,7 @@ impl<B: ChainApi> Pool<B> {
 			}
 		}
 
-		log::trace!(target: LOG_TARGET,"prune: validated_counter:{validated_counter}");
+		log::debug!(target: LOG_TARGET,"prune: validated_counter:{validated_counter}, took:{:?}", now.elapsed());
 
 		self.prune_tags(at, future_tags, in_pool_hashes).await
 	}
@@ -350,6 +373,7 @@ impl<B: ChainApi> Pool<B> {
 		tags: impl IntoIterator<Item = Tag>,
 		known_imported_hashes: impl IntoIterator<Item = ExtrinsicHash<B>> + Clone,
 	) {
+		let now = Instant::now();
 		log::trace!(target: LOG_TARGET, "Pruning at {:?}", at);
 		// Prune all transactions that provide given tags
 		let prune_status = self.validated_pool.prune_tags(tags);
@@ -368,9 +392,8 @@ impl<B: ChainApi> Pool<B> {
 		let reverified_transactions =
 			self.verify(at, pruned_transactions, CheckBannedBeforeVerify::Yes).await;
 
-		let pruned_hashes = reverified_transactions.keys().map(Clone::clone).collect();
-
-		log::trace!(target: LOG_TARGET, "Pruning at {:?}. Resubmitting transactions: {}", &at, reverified_transactions.len());
+		let pruned_hashes = reverified_transactions.keys().map(Clone::clone).collect::<Vec<_>>();
+		log::debug!(target: LOG_TARGET, "Pruning at {:?}. Resubmitting transactions: {}, reverification took: {:?}", &at, reverified_transactions.len(), now.elapsed());
 		log_xt_trace!(data: tuple, target: LOG_TARGET, &reverified_transactions, "[{:?}] Resubmitting transaction: {:?}");
 
 		// And finally - submit reverified transactions back to the pool
@@ -584,7 +607,7 @@ mod tests {
 	fn should_reject_unactionable_transactions() {
 		// given
 		let api = Arc::new(TestApi::default());
-		let pool = Pool::new(
+		let pool = Pool::new_with_staticly_sized_rotator(
 			Default::default(),
 			// the node does not author blocks
 			false.into(),
@@ -779,7 +802,7 @@ mod tests {
 		let options = Options { ready: limit.clone(), future: limit.clone(), ..Default::default() };
 
 		let api = Arc::new(TestApi::default());
-		let pool = Pool::new(options, true.into(), api.clone());
+		let pool = Pool::new_with_staticly_sized_rotator(options, true.into(), api.clone());
 
 		let hash1 = block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, xt.into()))
 			.unwrap()
@@ -817,7 +840,7 @@ mod tests {
 		let options = Options { ready: limit.clone(), future: limit.clone(), ..Default::default() };
 
 		let api = Arc::new(TestApi::default());
-		let pool = Pool::new(options, true.into(), api.clone());
+		let pool = Pool::new_with_staticly_sized_rotator(options, true.into(), api.clone());
 
 		// when
 		block_on(
@@ -1057,7 +1080,7 @@ mod tests {
 				Options { ready: limit.clone(), future: limit.clone(), ..Default::default() };
 
 			let api = Arc::new(TestApi::default());
-			let pool = Pool::new(options, true.into(), api.clone());
+			let pool = Pool::new_with_staticly_sized_rotator(options, true.into(), api.clone());
 
 			let xt = uxt(Transfer {
 				from: Alice.into(),
@@ -1096,7 +1119,7 @@ mod tests {
 					Options { ready: limit.clone(), future: limit.clone(), ..Default::default() };
 
 				let api = Arc::new(TestApi::default());
-				let pool = Pool::new(options, true.into(), api.clone());
+				let pool = Pool::new_with_staticly_sized_rotator(options, true.into(), api.clone());
 
 				// after validation `IncludeData` will have priority set to 9001
 				// (validate_transaction mock)
@@ -1128,7 +1151,7 @@ mod tests {
 					Options { ready: limit.clone(), future: limit.clone(), ..Default::default() };
 
 				let api = Arc::new(TestApi::default());
-				let pool = Pool::new(options, true.into(), api.clone());
+				let pool = Pool::new_with_staticly_sized_rotator(options, true.into(), api.clone());
 
 				let han_of_block0 = api.expect_hash_and_number(0);
 
@@ -1176,7 +1199,11 @@ mod tests {
 			let mut api = TestApi::default();
 			api.delay = Arc::new(Mutex::new(rx.into()));
 			let api = Arc::new(api);
-			let pool = Arc::new(Pool::new(Default::default(), true.into(), api.clone()));
+			let pool = Arc::new(Pool::new_with_staticly_sized_rotator(
+				Default::default(),
+				true.into(),
+				api.clone(),
+			));
 
 			let han_of_block0 = api.expect_hash_and_number(0);
 

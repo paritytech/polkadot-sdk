@@ -49,7 +49,7 @@ const LOG_TARGET: &str = "txpool";
 
 fn pool() -> (Pool<TestApi>, Arc<TestApi>) {
 	let api = Arc::new(TestApi::with_alice_nonce(209));
-	(Pool::new(Default::default(), true.into(), api.clone()), api)
+	(Pool::new_with_staticly_sized_rotator(Default::default(), true.into(), api.clone()), api)
 }
 
 fn maintained_pool() -> (BasicPool<TestApi, Block>, Arc<TestApi>, futures::executor::ThreadPool) {
@@ -230,7 +230,7 @@ fn should_correctly_prune_transactions_providing_more_than_one_tag() {
 	api.set_valid_modifier(Box::new(|v: &mut ValidTransaction| {
 		v.provides.push(vec![155]);
 	}));
-	let pool = Pool::new(Default::default(), true.into(), api.clone());
+	let pool = Pool::new_with_staticly_sized_rotator(Default::default(), true.into(), api.clone());
 	let xt0 = Arc::from(uxt(Alice, 209));
 	block_on(pool.submit_one(&api.expect_hash_and_number(0), TSOURCE, xt0.clone()))
 		.expect("1. Imported");

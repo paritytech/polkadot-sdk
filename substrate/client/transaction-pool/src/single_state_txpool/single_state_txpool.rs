@@ -141,7 +141,11 @@ where
 		finalized_hash: Block::Hash,
 		options: graph::Options,
 	) -> (Self, Pin<Box<dyn Future<Output = ()> + Send>>) {
-		let pool = Arc::new(graph::Pool::new(options, true.into(), pool_api.clone()));
+		let pool = Arc::new(graph::Pool::new_with_staticly_sized_rotator(
+			options,
+			true.into(),
+			pool_api.clone(),
+		));
 		let (revalidation_queue, background_task) = revalidation::RevalidationQueue::new_background(
 			pool_api.clone(),
 			pool.clone(),
@@ -177,7 +181,11 @@ where
 		best_block_hash: Block::Hash,
 		finalized_hash: Block::Hash,
 	) -> Self {
-		let pool = Arc::new(graph::Pool::new(options, is_validator, pool_api.clone()));
+		let pool = Arc::new(graph::Pool::new_with_staticly_sized_rotator(
+			options,
+			is_validator,
+			pool_api.clone(),
+		));
 		let (revalidation_queue, background_task) = match revalidation_type {
 			RevalidationType::Light =>
 				(revalidation::RevalidationQueue::new(pool_api.clone(), pool.clone()), None),
