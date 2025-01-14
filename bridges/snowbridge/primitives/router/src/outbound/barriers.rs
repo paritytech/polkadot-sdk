@@ -72,7 +72,7 @@ mod tests {
 	}
 
 	#[test]
-	fn allow_export_message_from_source() {
+	fn allow_export_message_from_asset_hub() {
 		let mut xcm: Vec<Instruction<()>> =
 			vec![ExportMessage { network: EthereumNetwork::get(), destination: Here, xcm: Default::default() }];
 
