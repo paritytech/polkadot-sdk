@@ -78,6 +78,9 @@ const SLOT_DURATION_MILLIS: u64 = 5000;
 
 const TIMEOUT: Duration = Duration::from_millis(2000);
 
+const NUM_APPROVAL_RETRIES: u32 = 3;
+const RETRY_BACKOFF: Duration = Duration::from_millis(300);
+
 #[derive(Clone)]
 struct TestSyncOracle {
 	flag: Arc<AtomicBool>,
@@ -573,6 +576,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 			Metrics::default(),
 			clock.clone(),
 			Arc::new(SpawnGlue(pool)),
+			NUM_APPROVAL_RETRIES,
+			RETRY_BACKOFF,
 		),
 		assignment_criteria,
 		backend,
@@ -3202,6 +3207,20 @@ async fn recover_available_data(virtual_overseer: &mut VirtualOverseer) {
 	);
 }
 
+async fn recover_available_data_failure(virtual_overseer: &mut VirtualOverseer) {
+	let available_data = RecoveryError::Unavailable;
+
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::AvailabilityRecovery(
+			AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, tx)
+		) => {
+			tx.send(Err(available_data)).unwrap();
+		},
+		"overseer did not receive recover available data message",
+	);
+}
+
 struct TriggersAssignmentConfig<F1, F2> {
 	our_assigned_tranche: DelayTranche,
 	assign_validator_tranche: F1,
@@ -4770,6 +4789,133 @@ fn subsystem_relaunches_approval_work_on_restart() {
 			AllMessages::ApprovalDistribution(ApprovalDistributionMessage::DistributeApproval(_))
 		);
 
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
+				let _ = sender.send(Ok(ApprovalVotingParams {
+					max_approval_coalesce_count: 1,
+				}));
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::ApprovalDistribution(ApprovalDistributionMessage::DistributeApproval(_))
+		);
+
+		// Assert that there are no more messages being sent by the subsystem
+		assert!(overseer_recv(&mut virtual_overseer).timeout(TIMEOUT / 2).await.is_none());
+
+		virtual_overseer
+	});
+}
+
+/// Test that we retry the approval of candidate on availability failure, up to max retries.
+#[test]
+fn subsystem_relaunches_approval_work_on_availability_failure() {
+	let assignment_criteria = Box::new(MockAssignmentCriteria(
+		|| {
+			let mut assignments = HashMap::new();
+
+			let _ = assignments.insert(
+				CoreIndex(0),
+				approval_db::v2::OurAssignment {
+					cert: garbage_assignment_cert_v2(AssignmentCertKindV2::RelayVRFModuloCompact {
+						core_bitfield: vec![CoreIndex(0), CoreIndex(2)].try_into().unwrap(),
+					}),
+					tranche: 0,
+					validator_index: ValidatorIndex(0),
+					triggered: false,
+				}
+				.into(),
+			);
+
+			let _ = assignments.insert(
+				CoreIndex(1),
+				approval_db::v2::OurAssignment {
+					cert: garbage_assignment_cert_v2(AssignmentCertKindV2::RelayVRFDelay {
+						core_index: CoreIndex(1),
+					}),
+					tranche: 0,
+					validator_index: ValidatorIndex(0),
+					triggered: false,
+				}
+				.into(),
+			);
+			assignments
+		},
+		|_| Ok(0),
+	));
+	let config = HarnessConfigBuilder::default().assignment_criteria(assignment_criteria).build();
+	let store = config.backend();
+
+	test_harness(config, |test_harness| async move {
+		let TestHarness { mut virtual_overseer, clock, sync_oracle_handle } = test_harness;
+
+		setup_overseer_with_blocks_with_two_assignments_triggered(
+			&mut virtual_overseer,
+			store,
+			&clock,
+			sync_oracle_handle,
+		)
+		.await;
+
+		// We have two candidates for one we are going to fail the availability for up to
+		// max_retries and for the other we are going to succeed on the last retry, so we should
+		// see the approval being distributed.
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::ApprovalDistribution(ApprovalDistributionMessage::DistributeAssignment(
+				_,
+				_,
+			)) => {
+			}
+		);
+
+		recover_available_data_failure(&mut virtual_overseer).await;
+		fetch_validation_code(&mut virtual_overseer).await;
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::ApprovalDistribution(ApprovalDistributionMessage::DistributeAssignment(
+				_,
+				_
+			)) => {
+			}
+		);
+
+		recover_available_data_failure(&mut virtual_overseer).await;
+		fetch_validation_code(&mut virtual_overseer).await;
+
+		recover_available_data_failure(&mut virtual_overseer).await;
+		fetch_validation_code(&mut virtual_overseer).await;
+
+		recover_available_data_failure(&mut virtual_overseer).await;
+		fetch_validation_code(&mut virtual_overseer).await;
+
+		recover_available_data_failure(&mut virtual_overseer).await;
+		fetch_validation_code(&mut virtual_overseer).await;
+
+		recover_available_data_failure(&mut virtual_overseer).await;
+		fetch_validation_code(&mut virtual_overseer).await;
+
+		recover_available_data_failure(&mut virtual_overseer).await;
+		fetch_validation_code(&mut virtual_overseer).await;
+
+		recover_available_data(&mut virtual_overseer).await;
+		fetch_validation_code(&mut virtual_overseer).await;
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::CandidateValidation(CandidateValidationMessage::ValidateFromExhaustive {
+				exec_kind,
+				response_sender,
+				..
+			}) if exec_kind == PvfExecKind::Approval => {
+				response_sender.send(Ok(ValidationResult::Valid(Default::default(), Default::default())))
+					.unwrap();
+			}
+		);
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ApprovalVotingParams(_, sender))) => {
