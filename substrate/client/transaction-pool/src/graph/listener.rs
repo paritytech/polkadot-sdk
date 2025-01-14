@@ -126,8 +126,8 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 	}
 
 	/// Transaction was dropped from the pool because of enforcing the limit.
-	pub fn limit_enforced(&mut self, tx: &H) {
-		trace!(target: LOG_TARGET, "[{:?}] Dropped (limit enforced)", tx);
+	pub fn limits_enforced(&mut self, tx: &H) {
+		trace!(target: LOG_TARGET, "[{:?}] Dropped (limits enforced)", tx);
 		self.fire(tx, |watcher| watcher.limit_enforced());
 
 		if let Some(ref sink) = self.dropped_by_limits_sink {
