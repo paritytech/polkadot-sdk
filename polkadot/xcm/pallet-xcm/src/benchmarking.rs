@@ -607,7 +607,7 @@ mod benchmarks {
 				.into();
 
 		// Give some multiple of ED
-		let balance = T::ExistentialDeposit::get() * 10u32.into();
+		let balance = T::ExistentialDeposit::get() * 1000u32.into();
 		let _ =
 			<pallet_balances::Pallet::<T> as frame_support::traits::Currency<_>>::make_free_balance_be(&who, balance);
 
@@ -645,7 +645,7 @@ mod benchmarks {
 				.into();
 
 		// Give some multiple of ED
-		let balance = T::ExistentialDeposit::get() * 10u32.into();
+		let balance = T::ExistentialDeposit::get() * 1000u32.into();
 		let _ =
 			<pallet_balances::Pallet::<T> as frame_support::traits::Currency<_>>::make_free_balance_be(&who, balance);
 
