@@ -2045,7 +2045,7 @@ impl<T: Config> Pallet<T> {
 		};
 
 		let last_event =
-			Self::events().last().expect(&format!("{warn}events expected")).event.clone();
+			Self::events().last().expect(&alloc::format!("{warn}events expected")).event.clone();
 		assert_eq!(
 			last_event, event,
 			"{warn}expected event {event:?} is not equal to the last event {last_event:?}",
