@@ -31,7 +31,7 @@ use xcm_executor::traits::ConvertLocation;
 
 const INITIAL_FUND: u128 = 5_000_000_000_000;
 pub const CHAIN_ID: u64 = 11155111;
-pub const WETH: [u8; 20] = hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2");
+pub const WETH: [u8; 20] = hex!("fff9976782d46cc05630d1f6ebab18b2324d6b14");
 const ETHEREUM_DESTINATION_ADDRESS: [u8; 20] = hex!("44a57ee2f2FCcb85FDa2B0B18EBD0D8D2333700e");
 const XCM_FEE: u128 = 100_000_000_000;
 const TOKEN_AMOUNT: u128 = 100_000_000_000;

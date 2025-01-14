@@ -170,7 +170,9 @@ pub mod time {
 }
 
 pub mod snowbridge {
+	use cumulus_primitives_core::ParaId;
 	use frame_support::parameter_types;
+	use sp_core::H160;
 	use xcm::prelude::{Location, NetworkId};
 
 	/// The pallet index of the Ethereum inbound queue pallet in the bridge hub runtime.
@@ -183,6 +185,8 @@ pub mod snowbridge {
 		/// <https://ethereum.org/en/developers/docs/apis/json-rpc/#net_version>
 		pub EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
 		pub EthereumLocation: Location = Location::new(2, EthereumNetwork::get());
+		pub storage WETHAddress: H160 = H160(hex_literal::hex!("fff9976782d46cc05630d1f6ebab18b2324d6b14"));
+		pub AssetHubParaId: ParaId = ParaId::from(westend_runtime_constants::system_parachain::ASSET_HUB_ID);
 	}
 }
 
