@@ -47,7 +47,6 @@ mod tests {
 		traits::{Equals, Everything, EverythingBut},
 	};
 	use xcm::prelude::*;
-	use xcm_builder::{DenyReserveTransferToRelayChain, DenyThenTry, TakeWeightCredit};
 
 	parameter_types! {
 		pub AssetHubLocation: Location = Location::new(1, Parachain(1000));
