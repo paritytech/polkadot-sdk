@@ -866,11 +866,11 @@ fn fatp_watcher_invalid_fails_on_submission() {
 	block_on(pool.maintain(event));
 
 	let xt0 = uxt(Alice, 150);
-	api.add_invalid(&xt0);
 	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone()));
 	let xt0_watcher = xt0_watcher.map(|_| ());
 
 	assert_pool_status!(header01.hash(), &pool, 0, 0);
+	// Alice's nonce in state is 200, tx is 150.
 	assert!(matches!(
 		xt0_watcher.unwrap_err().into_pool_error(),
 		Ok(TxPoolError::InvalidTransaction(InvalidTransaction::Stale))
