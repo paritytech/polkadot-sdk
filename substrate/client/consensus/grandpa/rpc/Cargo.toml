@@ -1,6 +1,6 @@
 [package]
 name = "sc-consensus-grandpa-rpc"
-version = "0.31.0"
+version = "0.32.0"
 authors.workspace = true
 description = "RPC extensions for the GRANDPA finality gadget"
 repository.workspace = true
