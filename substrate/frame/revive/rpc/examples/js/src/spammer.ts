@@ -4,7 +4,6 @@ import {
 	getByteCode,
 	killProcessOnPort,
 	polkadotSdkPath,
-	timeout,
 	wait,
 	waitForHealth,
 } from './util'
@@ -74,30 +73,28 @@ if (!deployReceipt.contractAddress) throw new Error('Contract address should be 
 const flipperAddr = deployReceipt.contractAddress
 
 let nonce = await wallet.getTransactionCount(wallet.account)
-let callCount = 0
 
-console.log('🔄 Starting nonce:', nonce)
 console.log('🔄 Starting loop...')
+console.log('Starting nonce:', nonce)
 try {
 	while (true) {
-		callCount++
-		console.log(`🔄 Call flip (${callCount})...`)
+		console.log(`Call flip (nonce: ${nonce})...`)
 		const { request } = await wallet.simulateContract({
 			account: wallet.account,
 			address: flipperAddr,
 			abi: FlipperAbi,
 			functionName: 'flip',
+			nonce,
 		})
 
-		console.log(`🔄 Submit flip (call ${callCount}...`)
-
-		await Promise.race([
-			(async () => {
-				const hash = await wallet.writeContract(request)
-				await wallet.waitForTransactionReceipt({ hash })
-			})(),
-			timeout(15_000),
-		])
+		const hash = await wallet.writeContract(request)
+		console.time(hash)
+		wallet.waitForTransactionReceipt({ hash }).then((receipt) => {
+			console.timeEnd(hash)
+			console.log(`${receipt.status ? '✅' : '❌'} - ${hash}`)
+		})
+		await wait(1_000)
+		nonce++
 	}
 } catch (err) {
 	console.error('Failed with error:', err)
