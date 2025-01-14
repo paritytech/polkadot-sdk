@@ -106,7 +106,7 @@ where
 				Some(want_amount),
 			)
 			.map_err(|(credit_in, error)| {
-				tracing::error!(
+				tracing::debug!(
 					target: "xcm::SingleAssetExchangeAdapter::exchange_asset",
 					?error,
 					"Could not perform the swap"
@@ -127,7 +127,7 @@ where
 					want_amount,
 				)
 				.map_err(|(credit_in, error)| {
-					tracing::error!(
+					tracing::debug!(
 						target: "xcm::SingleAssetExchangeAdapter::exchange_asset",
 						?error,
 						"Could not perform the swap",
