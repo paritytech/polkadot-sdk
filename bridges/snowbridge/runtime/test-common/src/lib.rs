@@ -623,3 +623,56 @@ pub fn ethereum_to_polkadot_message_extrinsics_work<Runtime>(
 			assert_ok!(sync_committee_outcome);
 		});
 }
+
+#[allow(clippy::too_many_arguments)]
+pub fn send_transfer_token_message_from_source_other_than_asset_hub_failure<Runtime, XcmConfig>(
+	ethereum_chain_id: u64,
+	collator_session_key: CollatorSessionKeys<Runtime>,
+	runtime_para_id: u32,
+	assethub_parachain_id: u32,
+	another_parachain_id: u32,
+	initial_amount: u128,
+	weth_contract_address: H160,
+	destination_address: H160,
+	fee_amount: u128,
+	expected_error: XcmError,
+) where
+	Runtime: frame_system::Config
+		+ pallet_balances::Config
+		+ pallet_session::Config
+		+ pallet_xcm::Config
+		+ parachain_info::Config
+		+ pallet_collator_selection::Config
+		+ cumulus_pallet_parachain_system::Config
+		+ snowbridge_pallet_outbound_queue::Config
+		+ snowbridge_pallet_system::Config
+		+ pallet_timestamp::Config,
+	XcmConfig: xcm_executor::Config,
+	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
+{
+	ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_key.collators())
+		.with_session_keys(collator_session_key.session_keys())
+		.with_para_id(runtime_para_id.into())
+		.with_tracing()
+		.build()
+		.execute_with(|| {
+			<snowbridge_pallet_system::Pallet<Runtime>>::initialize(
+				runtime_para_id.into(),
+				assethub_parachain_id.into(),
+			)
+			.unwrap();
+
+			// fund asset hub sovereign account enough so it can pay fees
+			initial_fund::<Runtime>(assethub_parachain_id, initial_amount);
+
+			let outcome = send_transfer_token_message::<Runtime, XcmConfig>(
+				ethereum_chain_id,
+				another_parachain_id,
+				weth_contract_address,
+				destination_address,
+				fee_amount,
+			);
+			assert_err!(outcome.ensure_complete(), expected_error);
+		});
+}
