@@ -852,8 +852,52 @@ fn build_overseer(
 		.replace_availability_recovery(|_| MockAvailabilityRecovery::new())
 		.replace_candidate_validation(|_| MockCandidateValidation::new());
 
+<<<<<<< HEAD
 	let (overseer, raw_handle) =
 		dummy.build_with_connector(overseer_connector).expect("Should not fail");
+=======
+	let (overseer, raw_handle) = if state.options.approval_voting_parallel_enabled {
+		let approval_voting_parallel = ApprovalVotingParallelSubsystem::with_config_and_clock(
+			TEST_CONFIG,
+			db.clone(),
+			keystore.clone(),
+			Box::new(TestSyncOracle {}),
+			state.approval_voting_parallel_metrics.clone(),
+			Arc::new(system_clock.clone()),
+			SpawnGlue(spawn_task_handle.clone()),
+			None,
+		);
+		dummy
+			.replace_approval_voting_parallel(|_| approval_voting_parallel)
+			.build_with_connector(overseer_connector)
+			.expect("Should not fail")
+	} else {
+		let approval_voting = ApprovalVotingSubsystem::with_config_and_clock(
+			TEST_CONFIG,
+			db.clone(),
+			keystore.clone(),
+			Box::new(TestSyncOracle {}),
+			state.approval_voting_parallel_metrics.approval_voting_metrics(),
+			Arc::new(system_clock.clone()),
+			Arc::new(SpawnGlue(spawn_task_handle.clone())),
+			1,
+			Duration::from_secs(1),
+		);
+
+		let approval_distribution = ApprovalDistribution::new_with_clock(
+			state.approval_voting_parallel_metrics.approval_distribution_metrics(),
+			TEST_CONFIG.slot_duration_millis,
+			Arc::new(system_clock.clone()),
+			Arc::new(RealAssignmentCriteria {}),
+		);
+
+		dummy
+			.replace_approval_voting(|_| approval_voting)
+			.replace_approval_distribution(|_| approval_distribution)
+			.build_with_connector(overseer_connector)
+			.expect("Should not fail")
+	};
+>>>>>>> 6878ba1f (Retry approval on availability failure if the check is still needed (#6807))
 
 	let overseer_handle = OverseerHandleReal::new(raw_handle);
 	(overseer, overseer_handle)
