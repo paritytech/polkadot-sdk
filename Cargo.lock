@@ -4235,9 +4235,10 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "sc-network",
- "sc-network-sync",
  "sc-service",
  "sp-consensus-babe 0.32.0",
+ "sp-runtime 31.0.1",
+ "tokio",
 ]
 
 [[package]]

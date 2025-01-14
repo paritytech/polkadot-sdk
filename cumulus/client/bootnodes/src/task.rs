@@ -16,11 +16,15 @@
 
 //! Parachain bootnodes advertisement and discovery service.
 
-use crate::advertisement::BootnodeAdvertisement;
+use crate::advertisement::{BootnodeAdvertisement, BootnodeAdvertisementParams};
 use cumulus_primitives_core::ParaId;
 use cumulus_relay_chain_interface::RelayChainInterface;
+use log::error;
 use sc_service::TaskManager;
 use std::sync::Arc;
+
+/// Log target for this crate.
+const LOG_TARGET: &str = "bootnodes";
 
 /// Bootnode advertisement task params.
 pub struct StartBootnodeTasksParams<'a> {
@@ -29,18 +33,38 @@ pub struct StartBootnodeTasksParams<'a> {
 	pub relay_chain_interface: Arc<dyn RelayChainInterface>,
 }
 
+async fn bootnode_advertisement(
+	para_id: ParaId,
+	relay_chain_interface: Arc<dyn RelayChainInterface>,
+) {
+	let network_service = match relay_chain_interface.network_service() {
+		Ok(network_service) => network_service,
+		Err(e) => {
+			error!(
+				target: LOG_TARGET,
+				"Bootnode advertisement: Failed to obtain network service: {e}",
+			);
+			return;
+		},
+	};
+
+	let bootnode_advertisement = BootnodeAdvertisement::new(BootnodeAdvertisementParams {
+		para_id,
+		relay_chain_interface,
+		network_service,
+	});
+
+	if let Err(e) = bootnode_advertisement.run().await {
+		error!(target: LOG_TARGET, "Bootnode advertisement terminated with error: {e}");
+	}
+}
+
 pub fn start_bootnode_tasks(
 	StartBootnodeTasksParams { para_id, task_manager, relay_chain_interface }: StartBootnodeTasksParams,
 ) {
-	let bootnode_advertisement = BootnodeAdvertisement::new(para_id, relay_chain_interface);
-
 	task_manager.spawn_essential_handle().spawn_blocking(
 		"cumulus-bootnode-advertisement",
 		None,
-		async {
-			if let Err(e) = bootnode_advertisement.run().await {
-				log::error!("Bootnode advertisement terminated with an error: {e}");
-			}
-		},
+		bootnode_advertisement(para_id, relay_chain_interface),
 	);
 }
