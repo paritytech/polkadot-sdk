@@ -133,38 +133,38 @@ impl Contains<Location> for ParentOrParentsPlurality {
 
 pub type Barrier = TrailingSetTopicAsId<
 	DenyThenTry<
-		(
+		DenyFirstExportMessageFrom<
+			EverythingBut<Equals<AssetHubLocation>>,
+			Equals<EthereumNetwork>,
+		>,
+		DenyThenTry<
 			DenyReserveTransferToRelayChain,
-			DenyFirstExportMessageFrom<
-				EverythingBut<Equals<AssetHubLocation>>,
-				Equals<EthereumNetwork>,
-			>,
-		),
-		(
-			// Allow local users to buy weight credit.
-			TakeWeightCredit,
-			// Expected responses are OK.
-			AllowKnownQueryResponses<PolkadotXcm>,
-			WithComputedOrigin<
-				(
-					// If the message is one that immediately attempts to pay for execution, then
-					// allow it.
-					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Parent, its pluralities (i.e. governance bodies) and relay treasury pallet
-					// get free execution.
-					AllowExplicitUnpaidExecutionFrom<(
-						ParentOrParentsPlurality,
-						Equals<RelayTreasuryLocation>,
-					)>,
-					// Subscriptions for version tracking are OK.
-					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
-					// HRMP notifications from the relay chain are OK.
-					AllowHrmpNotificationsFromRelayChain,
-				),
-				UniversalLocation,
-				ConstU32<8>,
-			>,
-		),
+			(
+				// Allow local users to buy weight credit.
+				TakeWeightCredit,
+				// Expected responses are OK.
+				AllowKnownQueryResponses<PolkadotXcm>,
+				WithComputedOrigin<
+					(
+						// If the message is one that immediately attempts to pay for execution,
+						// then allow it.
+						AllowTopLevelPaidExecutionFrom<Everything>,
+						// Parent, its pluralities (i.e. governance bodies) and relay treasury
+						// pallet get free execution.
+						AllowExplicitUnpaidExecutionFrom<(
+							ParentOrParentsPlurality,
+							Equals<RelayTreasuryLocation>,
+						)>,
+						// Subscriptions for version tracking are OK.
+						AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
+						// HRMP notifications from the relay chain are OK.
+						AllowHrmpNotificationsFromRelayChain,
+					),
+					UniversalLocation,
+					ConstU32<8>,
+				>,
+			),
+		>,
 	>,
 >;
 

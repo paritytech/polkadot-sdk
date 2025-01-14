@@ -47,9 +47,11 @@ mod tests {
 		traits::{Equals, Everything, EverythingBut},
 	};
 	use xcm::prelude::*;
+	use xcm_builder::{DenyReserveTransferToRelayChain, DenyThenTry, TakeWeightCredit};
 
 	parameter_types! {
 		pub AssetHubLocation: Location = Location::new(1, Parachain(1000));
+		pub EthereumNetwork: NetworkId = Ethereum { chain_id: 1 };
 	}
 
 	#[test]
@@ -97,5 +99,28 @@ mod tests {
 			&mut Properties { weight_credit: Weight::zero(), message_id: None },
 		);
 		assert!(result.is_ok());
+	}
+
+	#[test]
+	fn deny_with_reserve_transfer_to_relay_chain() {
+		let mut xcm: Vec<Instruction<()>> = vec![DepositReserveAsset {
+			assets: Wild(All),
+			dest: Location { parents: 1, interior: Here },
+			xcm: Default::default(),
+		}];
+
+		let result = DenyThenTry::<
+			DenyFirstExportMessageFrom<
+				EverythingBut<Equals<AssetHubLocation>>,
+				Equals<EthereumNetwork>,
+			>,
+			DenyThenTry<DenyReserveTransferToRelayChain, TakeWeightCredit>,
+		>::should_execute(
+			&AssetHubLocation::get(),
+			&mut xcm,
+			Weight::zero(),
+			&mut Properties { weight_credit: Weight::zero(), message_id: None },
+		);
+		assert_err!(result, ProcessMessageError::Unsupported);
 	}
 }
