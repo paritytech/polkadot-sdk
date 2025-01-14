@@ -243,7 +243,9 @@ pub mod pallet {
 		/// The preimage provider.
 		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 
-		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		/// Provider for the block number.
+		///
+		/// Normally this is the `frame_system` pallet.
 		type BlockNumberProvider: BlockNumberProvider;
 	}
 

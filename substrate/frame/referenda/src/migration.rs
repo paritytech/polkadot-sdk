@@ -178,13 +178,19 @@ pub mod v1 {
 	}
 }
 
-pub mod v2 {
+/// Migration for when changing the block number provider.
+///
+/// This migration is not guarded
+pub mod switch_block_number_provider {
 	use super::*;
 
 	/// The log target.
-	const TARGET: &'static str = "runtime::referenda::migration::v2";
-
+	const TARGET: &'static str = "runtime::referenda::migration::change_block_number_provider";
+	/// Convert from one to another block number provider/type.
 	pub trait BlockToRelayHeightConversion<T: Config<I>, I: 'static> {
+		/// Convert the `old` block number type to the new block number type.
+		///
+		/// Any changes in the rate of blocks need to be taken into account.
 		fn convert_block_number_to_relay_height(
 			block_number: SystemBlockNumberFor<T>,
 		) -> BlockNumberFor<T, I>;
@@ -196,7 +202,7 @@ pub mod v2 {
 		PhantomData<BlockConversion>,
 	);
 	impl<BlockConversion: BlockToRelayHeightConversion<T, I>, T: Config<I>, I: 'static>
-		OnRuntimeUpgrade for crate::migration::v2::MigrateV1ToV2<BlockConversion, T, I>
+		OnRuntimeUpgrade for MigrateV1ToV2<BlockConversion, T, I>
 	{
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
@@ -219,10 +225,7 @@ pub mod v2 {
 				in_code_version,
 				on_chain_version
 			);
-			if on_chain_version != 1 {
-				log::warn!(target: TARGET, "skipping migration from v1 to v2.");
-				return weight
-			}
+
 			v1::ReferendumInfoFor::<T, I>::iter().for_each(|(key, value)| {
 				let maybe_new_value = match value {
 					ReferendumInfo::Ongoing(_) | ReferendumInfo::Killed(_) => None,
