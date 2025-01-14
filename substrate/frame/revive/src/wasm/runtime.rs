@@ -1746,6 +1746,13 @@ pub mod env {
 		Ok(self.ext.gas_meter().gas_left().ref_time())
 	}
 
+	/// Returns the block author.
+	/// See [`pallet_revive_uapi::HostFn::ref_time_left`].
+	#[stable]
+	fn coinbase(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
+		Ok(())
+	}
+
 	/// Call into the chain extension provided by the chain if any.
 	/// See [`pallet_revive_uapi::HostFn::call_chain_extension`].
 	fn call_chain_extension(
