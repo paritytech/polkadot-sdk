@@ -241,7 +241,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					return
 				}
 			},
-			BridgeState::Suspended(false) => {
+			BridgeState::HardSuspended => {
 				// We cannot accept new messages and start dropping messages, until the outbound lane goes below the drop limit.
 				return
 			},
@@ -291,7 +291,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		// and remember that we have suspended the bridge
 		Bridges::<T, I>::mutate_extant(bridge_id, |bridge| {
-			bridge.state = BridgeState::Suspended(true);
+			bridge.state = BridgeState::SoftSuspended;
 		});
 	}
 
@@ -304,10 +304,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			// and if it is bellow the `stop_threshold`
 			if enqueued_messages < T::CongestionLimits::get().outbound_lane_stop_threshold {
 				if let Some((bridge_id, bridge)) = Self::bridge_by_lane_id(&lane_id) {
-					if let BridgeState::Suspended(false) = bridge.state {
+					if let BridgeState::HardSuspended = bridge.state {
 						// we allow exporting again
 						Bridges::<T, I>::mutate_extant(bridge_id, |b| {
-							b.state = BridgeState::Suspended(true);
+							b.state = BridgeState::SoftSuspended;
 						});
 					}
 				}
@@ -319,11 +319,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// anything
 		let (bridge_id, bridge) = match Self::bridge_by_lane_id(&lane_id) {
 			Some(bridge)
-				if bridge.1.state == BridgeState::Suspended(true) ||
-					bridge.1.state == BridgeState::Suspended(false) =>
+				if bridge.1.state == BridgeState::SoftSuspended ||
+					bridge.1.state == BridgeState::HardSuspended =>
 				bridge,
 			_ => {
-				// if there is no bridge or it has been closed, then we don't need to send resume
+				// if there is no bridge, or it has been closed, then we don't need to send resume
 				// signal to the local origin - it has closed bridge itself, so it should have
 				// already pruned everything else
 				return
@@ -499,7 +499,7 @@ mod tests {
 			let (bridge_id, _) =
 				open_lane_and_send_regular_message(OpenBridgeOrigin::sibling_parachain_origin());
 			Bridges::<TestRuntime, ()>::mutate_extant(bridge_id, |bridge| {
-				bridge.state = BridgeState::Suspended(true);
+				bridge.state = BridgeState::SoftSuspended;
 			});
 			for _ in 1..TestCongestionLimits::get().outbound_lane_congested_threshold {
 				open_lane_and_send_regular_message(OpenBridgeOrigin::sibling_parachain_origin());
@@ -526,7 +526,7 @@ mod tests {
 			assert!(TestLocalXcmChannelManager::is_bridge_suspened(&bridge_id));
 			assert_eq!(
 				XcmOverBridge::bridge(&bridge_id).unwrap().state,
-				BridgeState::Suspended(true)
+				BridgeState::SoftSuspended
 			);
 
 			// send more messages to reach `outbound_lane_stop_threshold`
@@ -537,7 +537,7 @@ mod tests {
 			}
 			assert_eq!(
 				XcmOverBridge::bridge(&bridge_id).unwrap().state,
-				BridgeState::Suspended(false)
+				BridgeState::HardSuspended
 			);
 		});
 	}
@@ -548,7 +548,7 @@ mod tests {
 			let (bridge_id, lane_id) =
 				open_lane_and_send_regular_message(OpenBridgeOrigin::sibling_parachain_origin());
 			Bridges::<TestRuntime, ()>::mutate_extant(bridge_id, |bridge| {
-				bridge.state = BridgeState::Suspended(true);
+				bridge.state = BridgeState::SoftSuspended;
 			});
 			XcmOverBridge::on_bridge_messages_delivered(
 				lane_id,
@@ -558,7 +558,7 @@ mod tests {
 			assert!(!TestLocalXcmChannelManager::is_bridge_resumed(&bridge_id));
 			assert_eq!(
 				XcmOverBridge::bridge(&bridge_id).unwrap().state,
-				BridgeState::Suspended(true)
+				BridgeState::SoftSuspended
 			);
 		});
 	}
@@ -595,7 +595,7 @@ mod tests {
 				&mut Some(xcm.clone()),
 			),);
 
-			// Suspended(true) - exporter still works
+			// SoftSuspended - exporter still works
 			XcmOverBridge::on_bridge_message_enqueued(
 				bridge_id,
 				XcmOverBridge::bridge(&bridge_id).unwrap(),
@@ -603,7 +603,7 @@ mod tests {
 			);
 			assert_eq!(
 				XcmOverBridge::bridge(&bridge_id).unwrap().state,
-				BridgeState::Suspended(true)
+				BridgeState::SoftSuspended
 			);
 			assert_ok!(XcmOverBridge::validate(
 				BridgedRelayNetwork::get(),
@@ -613,7 +613,7 @@ mod tests {
 				&mut Some(xcm.clone()),
 			),);
 
-			// Suspended(false) - exporter stops working
+			// HardSuspended - exporter stops working
 			XcmOverBridge::on_bridge_message_enqueued(
 				bridge_id,
 				XcmOverBridge::bridge(&bridge_id).unwrap(),
@@ -621,7 +621,7 @@ mod tests {
 			);
 			assert_eq!(
 				XcmOverBridge::bridge(&bridge_id).unwrap().state,
-				BridgeState::Suspended(false)
+				BridgeState::HardSuspended
 			);
 			assert_err!(
 				XcmOverBridge::validate(
@@ -634,14 +634,14 @@ mod tests {
 				SendError::Transport("Exporter is suspended!"),
 			);
 
-			// Back to Suspended(true) - exporter again works
+			// Back to SoftSuspended - exporter again works
 			XcmOverBridge::on_bridge_messages_delivered(
 				lane_id,
 				TestCongestionLimits::get().outbound_lane_stop_threshold - 1,
 			);
 			assert_eq!(
 				XcmOverBridge::bridge(&bridge_id).unwrap().state,
-				BridgeState::Suspended(true)
+				BridgeState::SoftSuspended
 			);
 			assert_ok!(XcmOverBridge::validate(
 				BridgedRelayNetwork::get(),
@@ -673,7 +673,7 @@ mod tests {
 			let (bridge_id, lane_id) =
 				open_lane_and_send_regular_message(OpenBridgeOrigin::sibling_parachain_origin());
 			Bridges::<TestRuntime, ()>::mutate_extant(bridge_id, |bridge| {
-				bridge.state = BridgeState::Suspended(true);
+				bridge.state = BridgeState::SoftSuspended;
 			});
 			XcmOverBridge::on_bridge_messages_delivered(
 				lane_id,
@@ -980,7 +980,7 @@ mod tests {
 			// bridge is suspended but exporter accepts more messages
 			assert_eq!(
 				XcmOverBridge::bridge(locations.bridge_id()).unwrap().state,
-				BridgeState::Suspended(true)
+				BridgeState::SoftSuspended
 			);
 
 			// export still can accept more messages
@@ -1002,7 +1002,7 @@ mod tests {
 			// bridge is suspended but exporter CANNOT accept more messages
 			assert_eq!(
 				XcmOverBridge::bridge(locations.bridge_id()).unwrap().state,
-				BridgeState::Suspended(false)
+				BridgeState::HardSuspended
 			);
 
 			// export still can accept more messages
@@ -1099,11 +1099,11 @@ mod tests {
 			// bridges are suspended
 			assert_eq!(
 				XcmOverBridge::bridge(bridge_1.bridge_id()).unwrap().state,
-				BridgeState::Suspended(true)
+				BridgeState::SoftSuspended
 			);
 			assert_eq!(
 				XcmOverBridge::bridge(bridge_2.bridge_id()).unwrap().state,
-				BridgeState::Suspended(true)
+				BridgeState::SoftSuspended
 			);
 			// both routers are congested
 			assert!(
