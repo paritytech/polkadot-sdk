@@ -805,7 +805,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-rococo-runtime"
-version = "0.23.0"
+version = "0.24.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -2133,7 +2133,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-common"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
@@ -2198,7 +2198,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-rococo-runtime"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -2394,7 +2394,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-westend-runtime"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -13496,7 +13496,7 @@ dependencies = [
 
 [[package]]
 name = "penpal-runtime"
-version = "0.26.0"
+version = "0.27.0"
 dependencies = [
  "assets-common",
  "cumulus-pallet-aura-ext",
@@ -20991,7 +20991,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-beacon-primitives"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "byte-slice-cast",
  "frame-support",
@@ -21013,7 +21013,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-core"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "ethabi-decode",
  "frame-support",
@@ -21037,7 +21037,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-ethereum"
-version = "0.10.0"
+version = "0.11.0"
 dependencies = [
  "ethabi-decode",
  "ethbloom",
@@ -21089,7 +21089,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-outbound-queue-runtime-api"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -21101,7 +21101,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-ethereum-client"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -21128,7 +21128,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-ethereum-client-fixtures"
-version = "0.19.0"
+version = "0.20.0"
 dependencies = [
  "hex-literal",
  "snowbridge-beacon-primitives",
@@ -21139,7 +21139,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
@@ -21168,7 +21168,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue-fixtures"
-version = "0.19.0"
+version = "0.20.0"
 dependencies = [
  "hex-literal",
  "snowbridge-beacon-primitives",
@@ -21179,7 +21179,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-outbound-queue"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "bridge-hub-common",
  "ethabi-decode",
@@ -21202,7 +21202,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-system"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -21228,7 +21228,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-router-primitives"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "frame-support",
  "hex-literal",
@@ -21246,7 +21246,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-runtime-common"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "frame-support",
  "log",
@@ -21261,7 +21261,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-runtime-test-common"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "frame-support",
@@ -21291,7 +21291,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-system-runtime-api"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "parity-scale-codec",
  "snowbridge-core",
