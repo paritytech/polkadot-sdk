@@ -24,9 +24,9 @@ doc:
 crates:
   - name: pallet-xcm
     bump: minor
-  - name: staging-xcm-builder
-    bump: none
   - name: xcm-runtime-apis
+    bump: minor 
+  - name: staging-xcm-builder
     bump: none
   - name: westend-runtime
     bump: none
