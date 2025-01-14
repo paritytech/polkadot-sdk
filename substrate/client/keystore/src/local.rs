@@ -398,7 +398,20 @@ impl Keystore for LocalKeystore {
 			key_type: KeyTypeId,
 			seed: Option<&str>,
 		) -> std::result::Result<ecdsa_bls381::Public, TraitError> {
-			self.generate_new::<ecdsa_bls381::Pair>(key_type, seed)
+			let pubkey = self.generate_new::<ecdsa_bls381::Pair>(key_type, seed)?;
+
+			let s = self
+				.0
+				.read()
+				.additional
+				.get(&(key_type, pubkey.to_vec()))
+				.map(|s| s.to_string())
+				.expect("Can retrieve seed");
+
+			self.generate_new::<ecdsa::Pair>(sp_core::testing::ECDSA, Some(&*s)).expect("seed slice is valid");
+			self.generate_new::<bls381::Pair>(sp_core::testing::BLS381, Some(&*s)).expect("seed slice is valid");
+
+			Ok(pubkey)
 		}
 
 		fn ecdsa_bls381_sign(

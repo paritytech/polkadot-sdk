@@ -868,7 +868,7 @@ fn test_bls381_crypto() -> Bls381Public {
 
 #[cfg(feature = "bls-experimental")]
 fn test_ecdsa_bls381_crypto() -> EcdsaBls381Public {
-	let mut public0 = ecdsa_bls381::AppPublic::generate_pair(Some("have fabric vehicle glide wise exit drip movie parent knee grief squirrel".into()));
+	let mut public0 = ecdsa_bls381::AppPublic::generate_pair(None);
 
 	let pop = public0.generate_pop().expect("Can Generate Pop");
 

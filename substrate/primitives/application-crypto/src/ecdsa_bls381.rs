@@ -24,7 +24,7 @@ pub use sp_core::paired_crypto::ecdsa_bls381::*;
 use sp_core::{
 	bls381,
 	crypto::{ProofOfPossessionVerifier, POP_CONTEXT_TAG, CryptoType},
-	ecdsa, ecdsa_bls381, testing::{ECDSA, BLS381},
+	ecdsa, ecdsa_bls381, testing::{ECDSA_BLS381, ECDSA, BLS381},
 };
 
 mod app {
@@ -43,11 +43,8 @@ impl RuntimePublic for Public {
 		Vec::new()
 	}
 
-	fn generate_pair(_key_type: KeyTypeId, seed: Option<Vec<u8>>) -> Self {
-		let ecdsa_pub = sp_io::crypto::ecdsa_generate(ECDSA, seed.clone());
-		let bls381_pub = sp_io::crypto::bls381_generate(BLS381, seed);
-		let combined_pub_raw = combine_pub(&ecdsa_pub, &bls381_pub);
-		Self::from_raw(combined_pub_raw)
+	fn generate_pair(key_type: KeyTypeId, seed: Option<Vec<u8>>) -> Self {
+		sp_io::crypto::ecdsa_bls381_generate(key_type, seed)
 	}
 
 	/// Dummy implementation. Returns `None`.
@@ -61,7 +58,7 @@ impl RuntimePublic for Public {
 	}
 
 	fn generate_pop(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
-		if key_type != sp_core::testing::ECDSA_BLS381 {
+		if key_type != ECDSA_BLS381 {
 			return None
 		}
 
@@ -106,7 +103,7 @@ fn generate_ecdsa_pop(
 ) -> Option<ecdsa::Signature> {
 	let ecdsa_statement = [POP_CONTEXT_TAG, ecdsa_pub_as_bytes.as_slice()].concat();
 	let ecdsa_pub = ecdsa::Public::from_raw(ecdsa_pub_as_bytes);
-	sp_io::crypto::ecdsa_sign(sp_core::testing::ECDSA, &ecdsa_pub, ecdsa_statement.as_slice())
+	sp_io::crypto::ecdsa_sign(ECDSA, &ecdsa_pub, ecdsa_statement.as_slice())
 }
 
 /// Helper: Generate BLS381 proof of possession
@@ -114,7 +111,7 @@ fn generate_bls381_pop(
 	bls381_pub_as_bytes: [u8; bls381::PUBLIC_KEY_SERIALIZED_SIZE],
 ) -> Option<bls381::Signature> {
 	let bls381_pub = bls381::Public::from_raw(bls381_pub_as_bytes);
-	sp_io::crypto::bls381_generate_pop(sp_core::testing::BLS381, &bls381_pub)
+	sp_io::crypto::bls381_generate_pop(BLS381, &bls381_pub)
 }
 
 /// Helper: Combine ECDSA and BLS381 pops into a single raw pop
@@ -126,17 +123,6 @@ fn combine_pop(
 	combined_pop_raw[..ecdsa::SIGNATURE_SERIALIZED_SIZE].copy_from_slice(ecdsa_pop.as_ref());
 	combined_pop_raw[ecdsa::SIGNATURE_SERIALIZED_SIZE..].copy_from_slice(bls381_pop.as_ref());
 	Some(combined_pop_raw)
-}
-
-/// Helper: Combine ECDSA and BLS381 pubs into single raw pub
-fn combine_pub(
-	ecdsa_pub: &ecdsa::Public,
-	bls381_pub: &bls381::Public,
-) -> [u8; ecdsa_bls381::PUBLIC_KEY_LEN] {
-	let mut combined_pub_raw = [0u8; ecdsa_bls381::PUBLIC_KEY_LEN];
-	combined_pub_raw[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].copy_from_slice(ecdsa_pub.as_ref());
-	combined_pub_raw[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].copy_from_slice(bls381_pub.as_ref());
-	combined_pub_raw
 }
 
 #[cfg(test)]

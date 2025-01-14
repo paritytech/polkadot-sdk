@@ -108,7 +108,7 @@ use sp_core::{
 };
 
 #[cfg(feature = "bls-experimental")]
-use sp_core::bls381;
+use sp_core::{bls381, ecdsa_bls381};
 
 #[cfg(feature = "std")]
 use sp_trie::{LayoutV0, LayoutV1, TrieConfiguration};
@@ -1234,6 +1234,21 @@ pub trait Crypto {
 			.bls381_generate_pop(id, pub_key)
 			.ok()
 			.flatten()
+	}
+
+	/// Generate combination `ecdsa & bls12-381` key for the given key type using an optional `seed` and
+	/// store it in the keystore.
+	///
+	/// The `seed` needs to be a valid utf8.
+	///
+	/// Returns the public key.
+	#[cfg(feature = "bls-experimental")]
+	fn ecdsa_bls381_generate(&mut self, id: KeyTypeId, seed: Option<Vec<u8>>) -> ecdsa_bls381::Public {
+		let seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect("Seed is valid utf8!"));
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.ecdsa_bls381_generate_new(id, seed)
+			.expect("`ecdsa_bls381_generate` failed")
 	}
 
 	/// Generate a `bandersnatch` key pair for the given key type using an optional

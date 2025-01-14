@@ -330,7 +330,19 @@ impl Keystore for MemoryKeystore {
 		key_type: KeyTypeId,
 		seed: Option<&str>,
 	) -> Result<ecdsa_bls381::Public, Error> {
-		self.generate_new::<ecdsa_bls381::Pair>(key_type, seed)
+		let pubkey = self.generate_new::<ecdsa_bls381::Pair>(key_type, seed.clone())?;
+
+		let s: String = self.keys
+			.read()
+			.get(&key_type)
+			.map(|inner| inner.get(pubkey.as_slice()).map(|s| s.to_string()))
+			.flatten()
+			.expect("Can Retrieve Seed");
+
+		self.generate_new::<ecdsa::Pair>(sp_core::testing::ECDSA, Some(&s)).expect("seed slice is valid");
+		self.generate_new::<bls381::Pair>(sp_core::testing::BLS381, Some(&s)).expect("seed slice is valid");
+
+		Ok(pubkey)
 	}
 
 	#[cfg(feature = "bls-experimental")]
