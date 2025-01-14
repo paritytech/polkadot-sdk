@@ -25,6 +25,8 @@ use log;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
+type SystemBlockNumberFor<T> = frame_system::pallet_prelude::BlockNumberFor<T>;
+
 /// Initial version of storage types.
 pub mod v0 {
 	use super::*;
@@ -37,7 +39,7 @@ pub mod v0 {
 	pub type ReferendumInfoOf<T, I> = ReferendumInfo<
 		TrackIdOf<T, I>,
 		PalletsOriginOf<T>,
-		BlockNumberFor<T, I>,
+		SystemBlockNumberFor<T>,
 		BoundedCallOf<T, I>,
 		BalanceOf<T, I>,
 		TallyOf<T, I>,
@@ -93,6 +95,21 @@ pub mod v1 {
 	/// The log target.
 	const TARGET: &'static str = "runtime::referenda::migration::v1";
 
+	pub(crate) type ReferendumInfoOf<T, I> = ReferendumInfo<
+		TrackIdOf<T, I>,
+		PalletsOriginOf<T>,
+		SystemBlockNumberFor<T>,
+		BoundedCallOf<T, I>,
+		BalanceOf<T, I>,
+		TallyOf<T, I>,
+		<T as frame_system::Config>::AccountId,
+		ScheduleAddressOf<T, I>,
+	>;
+
+	#[storage_alias]
+	pub type ReferendumInfoFor<T: Config<I>, I: 'static> =
+		StorageMap<Pallet<T, I>, Blake2_128Concat, ReferendumIndex, ReferendumInfoOf<T, I>>;
+
 	/// Transforms a submission deposit of ReferendumInfo(Approved|Rejected|Cancelled|TimedOut) to
 	/// optional value, making it refundable.
 	pub struct MigrateV0ToV1<T, I = ()>(PhantomData<(T, I)>);
@@ -137,7 +154,7 @@ pub mod v1 {
 				if let Some(new_value) = maybe_new_value {
 					weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 					log::info!(target: TARGET, "migrating referendum #{:?}", &key);
-					ReferendumInfoFor::<T, I>::insert(key, new_value);
+					v1::ReferendumInfoFor::<T, I>::insert(key, new_value);
 				} else {
 					weight.saturating_accrue(T::DbWeight::get().reads(1));
 				}
@@ -151,6 +168,99 @@ pub mod v1 {
 		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
 			let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
 			ensure!(on_chain_version == 1, "must upgrade from version 0 to 1.");
+			let pre_referendum_count: u32 = Decode::decode(&mut &state[..])
+				.expect("failed to decode the state from pre-upgrade.");
+			let post_referendum_count = ReferendumInfoFor::<T, I>::iter().count() as u32;
+			ensure!(post_referendum_count == pre_referendum_count, "must migrate all referendums.");
+			log::info!(target: TARGET, "migrated all referendums.");
+			Ok(())
+		}
+	}
+}
+
+pub mod v2 {
+	use super::*;
+
+	/// The log target.
+	const TARGET: &'static str = "runtime::referenda::migration::v2";
+
+	pub trait BlockToRelayHeightConversion<T: Config<I>, I: 'static> {
+		fn convert_block_number_to_relay_height(
+			block_number: SystemBlockNumberFor<T>,
+		) -> BlockNumberFor<T, I>;
+	}
+
+	/// Transforms a submission deposit of ReferendumInfo(Approved|Rejected|Cancelled|TimedOut) to
+	/// optional value, making it refundable.
+	pub struct MigrateV1ToV2<BlockConversion, T, I = ()>(
+		PhantomData<(T, I)>,
+		PhantomData<BlockConversion>,
+	);
+	impl<BlockConversion: BlockToRelayHeightConversion<T, I>, T: Config<I>, I: 'static>
+		OnRuntimeUpgrade for crate::migration::v2::MigrateV1ToV2<BlockConversion, T, I>
+	{
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			let referendum_count = v1::ReferendumInfoFor::<T, I>::iter().count();
+			log::info!(
+				target: TARGET,
+				"pre-upgrade state contains '{}' referendums.",
+				referendum_count
+			);
+			Ok((referendum_count as u32).encode())
+		}
+
+		fn on_runtime_upgrade() -> Weight {
+			let in_code_version = Pallet::<T, I>::in_code_storage_version();
+			let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
+			let mut weight = T::DbWeight::get().reads(1);
+			log::info!(
+				target: TARGET,
+				"running migration with in-code storage version {:?} / onchain {:?}.",
+				in_code_version,
+				on_chain_version
+			);
+			if on_chain_version != 1 {
+				log::warn!(target: TARGET, "skipping migration from v1 to v2.");
+				return weight
+			}
+			v1::ReferendumInfoFor::<T, I>::iter().for_each(|(key, value)| {
+				let maybe_new_value = match value {
+					ReferendumInfo::Ongoing(_) | ReferendumInfo::Killed(_) => None,
+					ReferendumInfo::Approved(e, s, d) => {
+						let new_e = BlockConversion::convert_block_number_to_relay_height(e);
+						Some(ReferendumInfo::Approved(new_e, s, d))
+					},
+					ReferendumInfo::Rejected(e, s, d) => {
+						let new_e = BlockConversion::convert_block_number_to_relay_height(e);
+						Some(ReferendumInfo::Rejected(new_e, s, d))
+					},
+					ReferendumInfo::Cancelled(e, s, d) => {
+						let new_e = BlockConversion::convert_block_number_to_relay_height(e);
+						Some(ReferendumInfo::Cancelled(new_e, s, d))
+					},
+					ReferendumInfo::TimedOut(e, s, d) => {
+						let new_e = BlockConversion::convert_block_number_to_relay_height(e);
+						Some(ReferendumInfo::TimedOut(new_e, s, d))
+					},
+				};
+				if let Some(new_value) = maybe_new_value {
+					weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+					log::info!(target: TARGET, "migrating referendum #{:?}", &key);
+					ReferendumInfoFor::<T, I>::insert(key, new_value);
+				} else {
+					weight.saturating_accrue(T::DbWeight::get().reads(1));
+				}
+			});
+			StorageVersion::new(1).put::<Pallet<T, I>>();
+			weight.saturating_accrue(T::DbWeight::get().writes(1));
+			weight
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
+			ensure!(on_chain_version == 1, "must upgrade from version 1 to 2.");
 			let pre_referendum_count: u32 = Decode::decode(&mut &state[..])
 				.expect("failed to decode the state from pre-upgrade.");
 			let post_referendum_count = ReferendumInfoFor::<T, I>::iter().count() as u32;
@@ -185,7 +295,6 @@ pub mod test {
 			deciding: None,
 		}
 	}
-
 	#[test]
 	pub fn referendum_status_v0() {
 		// make sure the bytes of the encoded referendum v0 is decodable.
@@ -214,11 +323,11 @@ pub mod test {
 			// run migration from v0 to v1.
 			v1::MigrateV0ToV1::<T, ()>::on_runtime_upgrade();
 			// fetch and assert migrated into v1 the ongoing referendum.
-			let ongoing_v1 = ReferendumInfoFor::<T, ()>::get(2).unwrap();
+			let ongoing_v1 = v1::ReferendumInfoFor::<T, ()>::get(2).unwrap();
 			// referendum status schema is the same for v0 and v1.
 			assert_eq!(ReferendumInfoOf::<T, ()>::Ongoing(status_v0), ongoing_v1);
 			// fetch and assert migrated into v1 the approved referendum.
-			let approved_v1 = ReferendumInfoFor::<T, ()>::get(5).unwrap();
+			let approved_v1 = v1::ReferendumInfoFor::<T, ()>::get(5).unwrap();
 			assert_eq!(
 				approved_v1,
 				ReferendumInfoOf::<T, ()>::Approved(
