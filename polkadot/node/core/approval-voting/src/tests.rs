@@ -266,7 +266,8 @@ where
 		_relay_vrf_story: polkadot_node_primitives::approval::v1::RelayVRFStory,
 		_assignment: &polkadot_node_primitives::approval::v2::AssignmentCertV2,
 		_backing_groups: Vec<polkadot_primitives::GroupIndex>,
-	) -> Result<polkadot_node_primitives::approval::v1::DelayTranche, criteria::InvalidAssignment> {
+	) -> Result<polkadot_node_primitives::approval::v1::DelayTranche, criteria::InvalidAssignment>
+	{
 		self.1(validator_index)
 	}
 }
@@ -578,12 +579,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 			sync_oracle,
 			Metrics::default(),
 			clock.clone(),
-<<<<<<< HEAD
-=======
-			Arc::new(SpawnGlue(pool)),
 			NUM_APPROVAL_RETRIES,
 			RETRY_BACKOFF,
->>>>>>> 6878ba1f (Retry approval on availability failure if the check is still needed (#6807))
 		),
 		assignment_criteria,
 		backend,
