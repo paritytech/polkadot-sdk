@@ -652,6 +652,9 @@ fn fatp_invalid_report_future_dont_remove_from_pool() {
 	assert_pool_status!(header01.hash(), &pool, 4, 0);
 	assert_ready_iterator!(header01.hash(), pool, [xt0, xt1, xt2, xt3]);
 
+	let header02 = api.push_block_with_parent(header01.hash(), vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header01.hash()), header02.hash())));
+
 	let xt0_report = (
 		pool.api().hash_and_length(&xt0).0,
 		Some(BlockchainError::ApplyExtrinsicFailed(ApplyExtrinsicFailed::Validity(
@@ -670,10 +673,8 @@ fn fatp_invalid_report_future_dont_remove_from_pool() {
 	assert!(result.is_empty());
 	assert_ready_iterator!(header01.hash(), pool, [xt2, xt3]);
 
-	let header02 = api.push_block_with_parent(header01.hash(), vec![], true);
-	block_on(pool.maintain(new_best_block_event(&pool, Some(header01.hash()), header02.hash())));
 	assert_pool_status!(header02.hash(), &pool, 4, 0);
-	assert_ready_iterator!(header02.hash(), pool, [xt2, xt3, xt1, xt0]);
+	assert_ready_iterator!(header02.hash(), pool, [xt0, xt1, xt2, xt3]);
 
 	assert_watcher_stream!(xt0_watcher, [TransactionStatus::Ready]);
 	assert_watcher_stream!(xt1_watcher, [TransactionStatus::Ready]);
