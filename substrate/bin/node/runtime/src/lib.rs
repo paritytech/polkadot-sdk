@@ -3301,6 +3301,21 @@ impl_runtime_apis! {
 				key
 			)
 		}
+
+		fn trace_block(
+			_block: Block,
+			_config: pallet_revive::evm::TracerConfig
+		) -> Result<Vec<(u32, pallet_revive::evm::EthTraces)>, sp_runtime::DispatchError> {
+			unimplemented!()
+		}
+
+		fn trace_tx(
+			_block: Block,
+			_tx_index: u32,
+			_config: pallet_revive::evm::TracerConfig
+		) -> Result<pallet_revive::evm::EthTraces, sp_runtime::DispatchError> {
+			unimplemented!()
+		}
 	}
 
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<
