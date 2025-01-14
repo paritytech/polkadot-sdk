@@ -244,7 +244,6 @@ pub struct OutgoingResponse {
 }
 
 /// Information stored about a pending request.
-#[derive(Debug)]
 struct PendingRequest {
 	started_at: Instant,
 	response_tx: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
@@ -670,7 +669,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 					.iter()
 					.filter_map(|(id, req)| {
 						if req.started_at.elapsed() > Duration::from_secs(60) {
-							Some((id.clone(), req.clone()))
+							Some((id.clone(), req.started_at, req.fallback_request.clone()))
 						} else {
 							None
 						}
