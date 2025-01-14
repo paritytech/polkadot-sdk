@@ -74,7 +74,7 @@ mod tests {
 	#[test]
 	fn allow_export_message_from_source() {
 		let mut xcm: Vec<Instruction<()>> =
-			vec![ExportMessage { network: Polkadot, destination: Here, xcm: Default::default() }];
+			vec![ExportMessage { network: EthereumNetwork::get(), destination: Here, xcm: Default::default() }];
 
 		let result = DenyFirstExportMessageFrom::<
 			EverythingBut<Equals<AssetHubLocation>>,
