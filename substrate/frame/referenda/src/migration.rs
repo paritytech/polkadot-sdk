@@ -190,8 +190,7 @@ pub mod v2 {
 		) -> BlockNumberFor<T, I>;
 	}
 
-	/// Transforms a submission deposit of ReferendumInfo(Approved|Rejected|Cancelled|TimedOut) to
-	/// optional value, making it refundable.
+	/// Transforms SystemBlockNumberFor<T> to BlockNumberFor<T,I>
 	pub struct MigrateV1ToV2<BlockConversion, T, I = ()>(
 		PhantomData<(T, I)>,
 		PhantomData<BlockConversion>,
