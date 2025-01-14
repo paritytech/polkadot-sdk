@@ -23,6 +23,8 @@ mod gas_encoder;
 pub use gas_encoder::*;
 pub mod runtime;
 
+use crate::alloc::{format, string::*};
+
 /// Extract the revert message from a revert("msg") solidity statement.
 pub fn extract_revert_message(exec_data: &[u8]) -> Option<String> {
 	let error_selector = exec_data.get(0..4)?;
