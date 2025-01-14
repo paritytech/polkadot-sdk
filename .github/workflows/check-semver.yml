@@ -76,6 +76,7 @@ jobs:
         if: ${{ !contains(github.event.pull_request.labels.*.name, 'R0-silent') }}
         run: |
           rustup default $TOOLCHAIN
+          rustup target add wasm32-unknown-unknown --toolchain $TOOLCHAIN
           rustup component add rust-src --toolchain $TOOLCHAIN
 
       - name: install parity-publish
