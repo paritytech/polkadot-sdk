@@ -2354,18 +2354,14 @@ pub mod pallet {
 			let mut consecutive_inactives = 0;
 
 			for era in proof {
-				// Check if the ear exists.
+				// Check if the era exists.
 				if !ErasRewardPoints::<T>::contains_key(era) {
-					consecutive_inactives = 0;
-
-					continue;
+					break;
 				}
 
 				// Check if the stash was a validator of the era.
 				let Some(&points) = ErasRewardPoints::<T>::get(era).individual.get(&stash) else {
-					consecutive_inactives = 0;
-
-					continue;
+					break;
 				};
 
 				if points == 0 {
@@ -2377,7 +2373,7 @@ pub mod pallet {
 						return Ok(Pays::No.into());
 					}
 				} else {
-					consecutive_inactives = 0;
+					break;
 				}
 			}
 
