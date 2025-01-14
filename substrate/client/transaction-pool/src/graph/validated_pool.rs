@@ -121,16 +121,41 @@ impl<B: ChainApi> Clone for ValidatedPool<B> {
 			listener: Default::default(),
 			pool: RwLock::from(self.pool.read().clone()),
 			import_notification_sinks: Default::default(),
-			rotator: PoolRotator::default(),
+			rotator: self.rotator.clone(),
 		}
 	}
 }
 
 impl<B: ChainApi> ValidatedPool<B> {
+	/// Create a new transaction pool with statically sized rotator.
+	pub fn new_with_staticly_sized_rotator(
+		options: Options,
+		is_validator: IsValidator,
+		api: Arc<B>,
+	) -> Self {
+		let ban_time = options.ban_time;
+		Self::new_with_rotator(options, is_validator, api, PoolRotator::new(ban_time))
+	}
+
 	/// Create a new transaction pool.
 	pub fn new(options: Options, is_validator: IsValidator, api: Arc<B>) -> Self {
-		let base_pool = base::BasePool::new(options.reject_future_transactions);
 		let ban_time = options.ban_time;
+		let total_count = options.total_count();
+		Self::new_with_rotator(
+			options,
+			is_validator,
+			api,
+			PoolRotator::new_with_expected_size(ban_time, total_count),
+		)
+	}
+
+	fn new_with_rotator(
+		options: Options,
+		is_validator: IsValidator,
+		api: Arc<B>,
+		rotator: PoolRotator<ExtrinsicHash<B>>,
+	) -> Self {
+		let base_pool = base::BasePool::new(options.reject_future_transactions);
 		Self {
 			is_validator,
 			options,
@@ -138,7 +163,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 			api,
 			pool: RwLock::new(base_pool),
 			import_notification_sinks: Default::default(),
-			rotator: PoolRotator::new(ban_time),
+			rotator,
 		}
 	}
 
