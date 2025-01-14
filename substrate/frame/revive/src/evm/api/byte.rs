@@ -116,7 +116,10 @@ macro_rules! impl_hex {
 
         impl Debug for $type {
             fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-                write!(f, concat!(stringify!($type), "({})"), self.0.to_hex())
+				let hex_str = self.0.to_hex();
+				let truncated = &hex_str[..hex_str.len().min(100)];
+				let ellipsis = if hex_str.len() > 100 { "..." } else { "" };
+                write!(f, concat!(stringify!($type), "({}{})"), truncated,ellipsis)
             }
         }
 
