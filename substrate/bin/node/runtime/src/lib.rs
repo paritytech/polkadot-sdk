@@ -1468,6 +1468,7 @@ impl pallet_revive::Config for Runtime {
 	type Xcm = ();
 	type ChainId = ConstU64<420_420_420>;
 	type NativeToEthRatio = ConstU32<1_000_000>; // 10^(18 - 12) Eth is 10^18, Native is 10^12.
+	type EthGasEncoder = ();
 }
 
 impl pallet_sudo::Config for Runtime {
@@ -1532,6 +1533,7 @@ where
 				),
 			),
 			frame_metadata_hash_extension::CheckMetadataHash::new(false),
+			frame_system::WeightReclaim::<Runtime>::new(),
 		);
 
 		let raw_payload = SignedPayload::new(call, tx_ext)
@@ -1653,6 +1655,7 @@ impl pallet_recovery::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_recovery::weights::SubstrateWeight<Runtime>;
 	type RuntimeCall = RuntimeCall;
+	type BlockNumberProvider = System;
 	type Currency = Balances;
 	type ConfigDepositBase = ConfigDepositBase;
 	type FriendDepositFactor = FriendDepositFactor;
@@ -2679,6 +2682,7 @@ pub type TxExtension = (
 		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
 	>,
 	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+	frame_system::WeightReclaim<Runtime>,
 );
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -2700,6 +2704,7 @@ impl EthExtra for EthExtraImpl {
 			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None)
 				.into(),
 			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
+			frame_system::WeightReclaim::<Runtime>::new(),
 		)
 	}
 }
@@ -2981,7 +2986,7 @@ impl_runtime_apis! {
 		}
 
 		fn current_set_id() -> sp_consensus_grandpa::SetId {
-			Grandpa::current_set_id()
+			pallet_grandpa::CurrentSetId::<Runtime>::get()
 		}
 
 		fn submit_report_equivocation_unsigned_extrinsic(
