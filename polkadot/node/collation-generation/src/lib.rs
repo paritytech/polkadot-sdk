@@ -53,7 +53,7 @@ use polkadot_primitives::{
 	node_features::FeatureIndex,
 	vstaging::{
 		transpose_claim_queue, CandidateDescriptorV2, CandidateReceiptV2 as CandidateReceipt,
-		CommittedCandidateReceiptV2, TransposedClaimQueue,
+		ClaimQueueOffset, CommittedCandidateReceiptV2, TransposedClaimQueue,
 	},
 	CandidateCommitments, CandidateDescriptor, CollatorPair, CoreIndex, Hash, Id as ParaId,
 	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, SessionIndex,
@@ -276,13 +276,15 @@ impl CollationGenerationSubsystem {
 		let claim_queue =
 			ClaimQueueSnapshot::from(request_claim_queue(relay_parent, ctx.sender()).await.await??);
 
-		let cores_to_build_on = claim_queue
-			.iter_claims_at_depth(0)
-			.filter_map(|(core_idx, para_id)| (para_id == config.para_id).then_some(core_idx))
+		let assigned_cores = claim_queue
+			.iter_all_claims()
+			.filter_map(|(core_idx, para_ids)| {
+				para_ids.iter().any(|&para_id| para_id == config.para_id).then_some(*core_idx)
+			})
 			.collect::<Vec<_>>();
 
-		// Nothing to do if no core assigned to us.
-		if cores_to_build_on.is_empty() {
+		// Nothing to do if no core is assigned to us at any depth.
+		if assigned_cores.is_empty() {
 			return Ok(())
 		}
 
@@ -342,66 +344,80 @@ impl CollationGenerationSubsystem {
 		ctx.spawn(
 			"chained-collation-builder",
 			Box::pin(async move {
-				let transposed_claim_queue = transpose_claim_queue(claim_queue.0);
+				// Build the first collation in advance to find the claim queue offset and retrieve
+				// the list of cores to submit collations on.
+				let collator_fn = match task_config.collator.as_ref() {
+					Some(x) => x,
+					None => return,
+				};
 
-				let mut prev_core_selector_index = cores_to_build_on.len();
-				for core_index in &cores_to_build_on {
-					let collator_fn = match task_config.collator.as_ref() {
-						Some(x) => x,
-						None => return,
+				let (mut collation, mut result_sender) =
+					match collator_fn(relay_parent, &validation_data).await {
+						Some(collation) => collation.into_inner(),
+						None => {
+							gum::debug!(
+								target: LOG_TARGET,
+								?para_id,
+								"collator returned no collation on collate",
+							);
+							return
+						},
 					};
 
-					let (collation, result_sender) =
-						match collator_fn(relay_parent, &validation_data).await {
-							Some(collation) => collation.into_inner(),
-							None => {
-								gum::debug!(
-									target: LOG_TARGET,
-									?para_id,
-									"collator returned no collation on collate",
-								);
-								return
-							},
-						};
+				// Use the core_selector method from CandidateCommitments to extract CoreSelector
+				// and ClaimQueueOffset.
+				let mut commitments = CandidateCommitments::default();
+				commitments.upward_messages = collation.upward_messages.clone();
 
-					// Determine the core index for the descriptor.
+				let (mut core_selector, init_cq_offset) = match commitments.core_selector() {
+					Ok(Some((sel, off))) => (Some(sel), off),
+					Ok(None) => (None, ClaimQueueOffset(0)),
+					Err(err) => {
+						gum::debug!(
+							target: LOG_TARGET,
+							?para_id,
+							"error processing UMP signals: {}",
+							err
+						);
+						return
+					},
+				};
 
-					// Use the core_selector method from CandidateCommitments to extract
-					// CoreSelector.
-					let mut commitments = CandidateCommitments::default();
-					commitments.upward_messages = collation.upward_messages.clone();
+				// Identify the cores to build collations on using the given claim queue offset.
+				let cores_to_build_on = claim_queue
+					.iter_claims_at_depth(init_cq_offset.0 as usize)
+					.filter_map(|(core_idx, para_id)| {
+						(para_id == task_config.para_id).then_some(core_idx)
+					})
+					.collect::<Vec<_>>();
 
-					let descriptor_core_index = match commitments.core_selector() {
-						// If a valid CoreSelector is found, calculate the core index based on it.
-						Ok(Some((core_selector, _cq_offset))) => {
+				// Track used core selector indexes not to submit collations on the same core.
+				let mut used_core_selector_indexes = vec![false; cores_to_build_on.len()];
+
+				let transposed_claim_queue = transpose_claim_queue(claim_queue.0);
+
+				for core_index in &cores_to_build_on {
+					let descriptor_core_index = match core_selector {
+						Some(ref core_selector) => {
+							// Calculate the core selector index and ensure it hasn't been used.
 							let core_selector_index =
 								core_selector.0 as usize % cores_to_build_on.len();
 
-							if cores_to_build_on.len() > 1 &&
-								prev_core_selector_index == core_selector_index
-							{
-								// Malicious behavior detected: The parachain is assigned to
-								// multiple cores but repeatedly selects the same core. This is
-								// unexpected and the process should stop here.
-								gum::error!(target: LOG_TARGET, "Parachain repeatedly selected the same core index");
-								return;
+							if used_core_selector_indexes[core_selector_index] {
+								gum::debug!(
+									target: LOG_TARGET,
+									?para_id,
+									"parachain repeatedly selected the same core index",
+								);
+								return
 							}
+							used_core_selector_indexes[core_selector_index] = true;
 
-							prev_core_selector_index = core_selector_index;
-
-							let Some(commitments_core_index) =
-								cores_to_build_on.get(core_selector_index)
-							else {
-								// This should not happen, as the core_selector index is modulo the
-								// length of cores_to_build_on and we ensure that cores_to_build_on
-								// is not empty.
-								continue;
-							};
-
-							*commitments_core_index
+							let commitments_core_index = cores_to_build_on[core_selector_index];
+							commitments_core_index
 						},
 						// Fallback to the sequential core_index if no valid CoreSelector is found.
-						_ => *core_index,
+						None => *core_index,
 					};
 
 					let parent_head = collation.head_data.clone();
@@ -433,9 +449,80 @@ impl CollationGenerationSubsystem {
 						return
 					}
 
+					// No need to build more collations if we have already built and submitted
+					// cores_to_build_on.len() collations.
+					if core_index == cores_to_build_on.last().unwrap() {
+						return
+					}
+
 					// Chain the collations. All else stays the same as we build the chained
 					// collation on same relay parent.
 					validation_data.parent_head = parent_head;
+
+					// Prepare the next collation.
+					(collation, result_sender) =
+						match collator_fn(relay_parent, &validation_data).await {
+							Some(collation) => collation.into_inner(),
+							None => {
+								gum::debug!(
+									target: LOG_TARGET,
+									?para_id,
+									"collator returned no collation on collate",
+								);
+								return
+							},
+						};
+
+					// Determine the new core selector and claim queue offset values.
+					commitments.upward_messages = collation.upward_messages.clone();
+					let (new_core_selector, new_cq_offset) = match commitments.core_selector() {
+						Ok(Some((sel, off))) => (Some(sel), off),
+						Ok(None) => (None, ClaimQueueOffset(0)),
+						Err(err) => {
+							gum::debug!(
+								target: LOG_TARGET,
+								?para_id,
+								"error processing UMP signals: {}",
+								err
+							);
+							return
+						},
+					};
+
+					// We generally assume that the claim queue offset will not change often,
+					// but if it does at any point, it is fine to skip that relay chain block
+					// and readjust the cores later.
+					if new_cq_offset.0 != init_cq_offset.0 {
+						gum::debug!(
+							target: LOG_TARGET,
+							?para_id,
+							"claim queue offset changed between blocks (initial: {}, current: {})",
+							init_cq_offset.0,
+							new_cq_offset.0
+						);
+						return
+					}
+
+					// We either use core selectors to choose cores for building blocks or iterate
+					// over all cores sequentially if no core selector is provided. A mixed approach
+					// is not acceptable.
+					if core_selector.is_none() && new_core_selector.is_some() {
+						gum::debug!(
+							target: LOG_TARGET,
+							?para_id,
+							"previous block(s) had no core selector, but the current block has one",
+						);
+						return
+					} else if core_selector.is_some() && new_core_selector.is_none() {
+						gum::debug!(
+							target: LOG_TARGET,
+							?para_id,
+							"previous block(s) had a core selector, but the current block does not",
+						);
+						return
+					} else {
+						core_selector = new_core_selector;
+					}
 				}
 			}),
 		)?;
