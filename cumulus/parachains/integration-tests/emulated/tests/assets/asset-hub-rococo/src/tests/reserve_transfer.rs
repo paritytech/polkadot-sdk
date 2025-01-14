@@ -14,11 +14,7 @@
 // limitations under the License.
 
 use crate::imports::*;
-<<<<<<< HEAD
-=======
 use rococo_system_emulated_network::rococo_emulated_chain::rococo_runtime::Dmp;
-use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
->>>>>>> c10e25aa (dmp: Check that the para exist before delivering a message (#6604))
 
 fn relay_to_para_sender_assertions(t: RelayToParaTest) {
 	type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
