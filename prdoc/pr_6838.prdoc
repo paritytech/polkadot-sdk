@@ -6,4 +6,8 @@ doc:
     So user can't export message from non system parachain directly.
 crates:
 - name: snowbridge-router-primitives
+  bump: minor
+- name: testnet-parachains-constants
+  bump: patch
+- name: bridge-hub-westend-runtime
   bump: patch
