@@ -43,6 +43,12 @@ pub fn weth_location() -> Location {
 	)
 }
 
+pub fn ethereum_sovereign_account() -> AccountId {
+	EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&ethereum())
+		.unwrap()
+		.into()
+}
+
 pub fn fund_on_bh() {
 	let asset_hub_sovereign = BridgeHubWestend::sovereign_account_id_of(Location::new(
 		1,
@@ -53,8 +59,9 @@ pub fn fund_on_bh() {
 
 pub fn fund_on_ah() {
 	AssetHubWestend::fund_accounts(vec![
-	  (AssetHubWestendSender::get(), INITIAL_FUND),
-	  (AssetHubWestendReceiver::get(), INITIAL_FUND),
+		(AssetHubWestendSender::get(), INITIAL_FUND),
+		(AssetHubWestendReceiver::get(), INITIAL_FUND),
+		(ethereum_sovereign_account(), INITIAL_FUND),
 	]);
 
 	AssetHubWestend::execute_with(|| {
@@ -69,33 +76,16 @@ pub fn fund_on_ah() {
 			INITIAL_FUND,
 		));
 	});
-
-	let ethereum_sovereign: AccountId =
-		EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&Location::new(
-			2,
-			[GlobalConsensus(EthereumNetwork::get())],
-		))
-		.unwrap()
-		.into();
-	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 }
 
 pub fn register_weth_on_ah() {
-	let ethereum_sovereign: AccountId =
-		EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&Location::new(
-			2,
-			[GlobalConsensus(EthereumNetwork::get())],
-		))
-		.unwrap()
-		.into();
-
 	AssetHubWestend::execute_with(|| {
 		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::force_create(
 			RuntimeOrigin::root(),
 			weth_location().try_into().unwrap(),
-			ethereum_sovereign.clone().into(),
+			ethereum_sovereign_account().into(),
 			true,
 			1,
 		));
