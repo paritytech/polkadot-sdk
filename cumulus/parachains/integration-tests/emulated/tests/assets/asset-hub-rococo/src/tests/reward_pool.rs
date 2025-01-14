@@ -51,6 +51,8 @@ fn treasury_creates_asset_reward_pool() {
 		type RococoRuntimeEvent = <Rococo as Chain>::RuntimeEvent;
 		type RococoRuntimeOrigin = <Rococo as Chain>::RuntimeOrigin;
 
+		Dmp::make_parachain_reachable(AssetHubRococo::para_id());
+
 		let staked_asset_id = bx!(RelayLocation::get());
 		let reward_asset_id = bx!(RelayLocation::get());
 

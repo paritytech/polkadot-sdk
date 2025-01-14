@@ -50,6 +50,8 @@ fn treasury_creates_asset_reward_pool() {
 		type WestendRuntimeEvent = <Westend as Chain>::RuntimeEvent;
 		type WestendRuntimeOrigin = <Westend as Chain>::RuntimeOrigin;
 
+		Dmp::make_parachain_reachable(AssetHubWestend::para_id());
+
 		let staked_asset_id = bx!(RelayLocation::get());
 		let reward_asset_id = bx!(RelayLocation::get());
 

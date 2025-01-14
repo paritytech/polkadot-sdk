@@ -84,6 +84,7 @@ mod imports {
 				xcm_config::{
 					UniversalLocation as WestendUniversalLocation, XcmConfig as WestendXcmConfig,
 				},
+				Dmp,
 			},
 			WestendRelayPallet as WestendPallet,
 		},

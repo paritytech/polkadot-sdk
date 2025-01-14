@@ -80,7 +80,7 @@ mod imports {
 				xcm_config::{
 					UniversalLocation as RococoUniversalLocation, XcmConfig as RococoXcmConfig,
 				},
-				OriginCaller as RococoOriginCaller,
+				Dmp, OriginCaller as RococoOriginCaller,
 			},
 			RococoRelayPallet as RococoPallet,
 		},
