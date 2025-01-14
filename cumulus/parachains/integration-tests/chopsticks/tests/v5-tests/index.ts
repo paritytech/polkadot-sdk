@@ -387,3 +387,108 @@ test("Initiate Teleport with remote fees", async () => {
 	const r = await ahToWnd.signAndSubmit(aliceSigner);
 	expect(r).toBeTruthy();
 })
+
+test("Withdraw USDT from Asset Hub to Penpal Alice", async () => {
+
+	const msg = Enum('V5', [
+		XcmV4Instruction.WithdrawAsset([
+			{
+				id: {
+					parents: 1,
+					interior: XcmV3Junctions.Here(),
+				},
+				fun: XcmV3MultiassetFungibility.Fungible(5_000_000_000_000n),
+			},
+		]),
+		Enum('PayFees', {
+			asset: {
+				id: {
+					parents: 1,
+					interior: XcmV3Junctions.Here(),
+				},
+				fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
+			}
+		}),
+		XcmV4Instruction.TransferReserveAsset({
+			assets: [
+				{
+					id: {
+						parents: 0,
+						interior: XcmV3Junctions.X2([
+							XcmV3Junction.PalletInstance(50),
+							XcmV3Junction.GeneralIndex(1984n)]),
+					},
+					fun: XcmV3MultiassetFungibility.Fungible(100_000_000n),
+				},
+				{
+					id: {
+						parents: 1,
+						interior: XcmV3Junctions.Here(),
+					},
+					fun: XcmV3MultiassetFungibility.Fungible(4_000_000_000_000n),
+				},
+			],
+			dest: {
+				parents: 1,
+				interior: XcmV3Junctions.X1(
+					XcmV3Junction.Parachain(2042),
+				),
+			},
+			xcm: [
+				Enum('PayFees', {
+					asset: {
+						id: {
+							parents: 1,
+							interior: XcmV3Junctions.Here(),
+						},
+						fun: XcmV3MultiassetFungibility.Fungible(5_000_000_000n),
+					}
+				}),
+				XcmV4Instruction.DepositAsset({
+					// some WND might get trapped bc of extra fungibles in PayFees above ^
+					assets: XcmV3MultiassetMultiAssetFilter.Wild({
+						type: 'All',
+						value: undefined,
+					}),
+
+					// ===================== GRANULAR VERSIONS =====================
+					// assets: XcmV4AssetAssetFilter.Definite([{
+					// 	id: {
+					// 		parents: 1,
+					// 		interior: XcmV3Junctions.Here(),
+					// 	},
+					// 	fun: XcmV3MultiassetFungibility.Fungible(3_995_000_000_000n),
+					// }]),
+					//
+					// assets: XcmV4AssetAssetFilter.Definite([{
+					// 	id: {
+					// 		parents: 1,
+					// 		interior: XcmV3Junctions.X3([
+					// 			XcmV3Junction.Parachain(1000),
+					// 			XcmV3Junction.PalletInstance(50),
+					// 			XcmV3Junction.GeneralIndex(1984n)]),
+					// 	},
+					// 	fun: XcmV3MultiassetFungibility.Fungible(100_000_000n),
+					// }]),
+
+					beneficiary: {
+						parents: 0,
+						interior: XcmV3Junctions.X1(XcmV3Junction.AccountId32({
+							network: undefined,
+							id: Binary.fromBytes(hdkdKeyPairAlice.publicKey),
+						})),
+					},
+				}),
+			],
+		}),
+	]);
+
+
+	const ahToWnd = AHApi.tx.PolkadotXcm.execute({
+			message: msg,
+			max_weight: { ref_time: 81834380000n, proof_size: 823193n },
+		},
+	);
+	const r = await ahToWnd.signAndSubmit(aliceSigner);
+	expect(r).toBeTruthy();
+})
