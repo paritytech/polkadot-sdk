@@ -52,6 +52,7 @@ use sp_std::marker::PhantomData;
 pub trait WeightInfo {
 	fn on_initialize_when_non_congested() -> Weight;
 	fn on_initialize_when_congested() -> Weight;
+	fn report_bridge_status() -> Weight;
 }
 
 /// Weights for `pallet_xcm_bridge_hub_router` that are generated using one of the Bridge testnets.
@@ -84,6 +85,19 @@ impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 		//  Estimated: `3547`
 		// Minimum execution time: 4_239 nanoseconds.
 		Weight::from_parts(4_383_000, 3547).saturating_add(T::DbWeight::get().reads(1_u64))
+	}
+	/// Storage: `XcmBridgeHubRouter::Bridge` (r:1 w:1)
+	///
+	/// Proof: `XcmBridgeHubRouter::Bridge` (`max_values`: Some(1), `max_size`: Some(17), added:
+	/// 512, mode: `MaxEncodedLen`)
+	fn report_bridge_status() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `53`
+		//  Estimated: `1502`
+		// Minimum execution time: 10_427 nanoseconds.
+		Weight::from_parts(10_682_000, 1502)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
 
@@ -119,5 +133,18 @@ impl WeightInfo for () {
 		//  Estimated: `3547`
 		// Minimum execution time: 4_239 nanoseconds.
 		Weight::from_parts(4_383_000, 3547).saturating_add(RocksDbWeight::get().reads(1_u64))
+	}
+	/// Storage: `XcmBridgeHubRouter::Bridge` (r:1 w:1)
+	///
+	/// Proof: `XcmBridgeHubRouter::Bridge` (`max_values`: Some(1), `max_size`: Some(17), added:
+	/// 512, mode: `MaxEncodedLen`)
+	fn report_bridge_status() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `53`
+		//  Estimated: `1502`
+		// Minimum execution time: 10_427 nanoseconds.
+		Weight::from_parts(10_682_000, 1502)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }

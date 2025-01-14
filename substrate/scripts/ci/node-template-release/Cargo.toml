@@ -18,7 +18,7 @@ clap = { features = ["derive"], workspace = true }
 flate2 = { workspace = true }
 fs_extra = { workspace = true }
 glob = { workspace = true }
+itertools = { workspace = true }
 tar = { workspace = true }
 tempfile = { workspace = true }
 toml_edit = { workspace = true }
-itertools = { workspace = true }
