@@ -61,13 +61,14 @@ use xcm_builder::{
 use xcm_executor::{
 	traits::{
 		AssetTransferError, CheckSuspension, ClaimAssets, ConvertLocation, ConvertOrigin,
-		DropAssets, MatchesFungible, OnResponse, Properties, QueryHandler, QueryResponseStatus,
-		RecordXcm, TransactAsset, TransferType, VersionChangeNotifier, WeightBounds,
-		XcmAssetTransfers,
+		DropAssets, FeeManager, FeeReason, MatchesFungible, OnResponse, Properties, QueryHandler,
+		QueryResponseStatus, RecordXcm, TransactAsset, TransferType, VersionChangeNotifier,
+		WeightBounds, XcmAssetTransfers,
 	},
 	AssetsInHolding,
 };
 use xcm_runtime_apis::{
+	authorized_aliases::OriginAliaser,
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
 	trusted_query::Error as TrustedQueryApiError,
@@ -75,7 +76,6 @@ use xcm_runtime_apis::{
 
 #[cfg(any(feature = "try-runtime", test))]
 use sp_runtime::TryRuntimeError;
-use xcm_executor::traits::{FeeManager, FeeReason};
 
 pub trait WeightInfo {
 	fn send() -> Weight;
@@ -194,24 +194,14 @@ impl WeightInfo for TestWeightInfo {
 	}
 }
 
-/// Entry of an authorized aliaser for a local origin. The aliaser `location` is only authorized
-/// until its inner `expiry` block number.
 #[derive(Clone, Debug, Encode, Decode, MaxEncodedLen, TypeInfo)]
-pub(crate) struct OriginAliaser {
-	pub(crate) location: VersionedLocation,
-	pub(crate) expiry: Option<u64>,
+pub struct AuthorizedAliasesEntry<Ticket, MAX: Get<u32>> {
+	pub aliasers: BoundedVec<OriginAliaser, MAX>,
+	pub ticket: Ticket,
 }
 
-#[derive(Clone, Debug, Encode, Decode, MaxEncodedLen, TypeInfo)]
-pub(crate) struct AuthorizedAliasesEntry<Ticket, MAX: Get<u32>> {
-	pub(crate) aliasers: BoundedVec<OriginAliaser, MAX>,
-	pub(crate) ticket: Ticket,
-}
-
-pub(crate) fn aliasers_footprint(aliasers_count: usize) -> Footprint {
-	let f = Footprint::from_parts(aliasers_count, OriginAliaser::max_encoded_len());
-	println!("add_authorized_alias(): footprint {:?}", f);
-	f
+pub fn aliasers_footprint(aliasers_count: usize) -> Footprint {
+	Footprint::from_parts(aliasers_count, OriginAliaser::max_encoded_len())
 }
 
 #[frame_support::pallet]
@@ -2795,6 +2785,40 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
+	/// Given a `destination` and XCM `message`, return assets to be charged as XCM delivery fees.
+	pub fn query_delivery_fees(
+		destination: VersionedLocation,
+		message: VersionedXcm<()>,
+	) -> Result<VersionedAssets, XcmPaymentApiError> {
+		let result_version = destination.identify_version().max(message.identify_version());
+
+		let destination: Location = destination
+			.clone()
+			.try_into()
+			.map_err(|e| {
+				tracing::error!(target: "xcm::pallet_xcm::query_delivery_fees", ?e, ?destination, "Failed to convert versioned destination");
+				XcmPaymentApiError::VersionedConversionFailed
+			})?;
+
+		let message: Xcm<()> =
+			message.clone().try_into().map_err(|e| {
+				tracing::error!(target: "xcm::pallet_xcm::query_delivery_fees", ?e, ?message, "Failed to convert versioned message");
+				XcmPaymentApiError::VersionedConversionFailed
+			})?;
+
+		let (_, fees) = validate_send::<T::XcmRouter>(destination.clone(), message.clone()).map_err(|error| {
+			tracing::error!(target: "xcm::pallet_xcm::query_delivery_fees", ?error, ?destination, ?message, "Failed to validate send to destination");
+			XcmPaymentApiError::Unroutable
+		})?;
+
+		VersionedAssets::from(fees)
+			.into_version(result_version)
+			.map_err(|e| {
+				tracing::error!(target: "xcm::pallet_xcm::query_delivery_fees", ?e, ?result_version, "Failed to convert fees into version");
+				XcmPaymentApiError::VersionedConversionFailed
+			})
+	}
+
 	/// Given an Asset and a Location, returns if the provided location is a trusted reserve for the
 	/// given asset.
 	pub fn is_trusted_reserve(
@@ -2846,37 +2870,32 @@ impl<T: Config> Pallet<T> {
 		Ok(<T::XcmExecutor as XcmAssetTransfers>::IsTeleporter::contains(&a, &location))
 	}
 
-	pub fn query_delivery_fees(
-		destination: VersionedLocation,
-		message: VersionedXcm<()>,
-	) -> Result<VersionedAssets, XcmPaymentApiError> {
-		let result_version = destination.identify_version().max(message.identify_version());
+	/// Returns locations allowed to alias into and act as `target`.
+	fn authorized_aliasers(target: VersionedLocation) -> Vec<OriginAliaser> {
+		AuthorizedAliases::<T>::get(&target)
+			.map(|authorized| authorized.aliasers.into_iter().collect())
+			.unwrap_or_default()
+	}
 
-		let destination: Location = destination
-			.clone()
-			.try_into()
-			.map_err(|e| {
-				tracing::error!(target: "xcm::pallet_xcm::query_delivery_fees", ?e, ?destination, "Failed to convert versioned destination");
-				XcmPaymentApiError::VersionedConversionFailed
-			})?;
-
-		let message: Xcm<()> =
-			message.clone().try_into().map_err(|e| {
-				tracing::error!(target: "xcm::pallet_xcm::query_delivery_fees", ?e, ?message, "Failed to convert versioned message");
-				XcmPaymentApiError::VersionedConversionFailed
-			})?;
-
-		let (_, fees) = validate_send::<T::XcmRouter>(destination.clone(), message.clone()).map_err(|error| {
-			tracing::error!(target: "xcm::pallet_xcm::query_delivery_fees", ?error, ?destination, ?message, "Failed to validate send to destination");
-			XcmPaymentApiError::Unroutable
-		})?;
-
-		VersionedAssets::from(fees)
-			.into_version(result_version)
-			.map_err(|e| {
-				tracing::error!(target: "xcm::pallet_xcm::query_delivery_fees", ?e, ?result_version, "Failed to convert fees into version");
-				XcmPaymentApiError::VersionedConversionFailed
+	/// Given an `origin` and a `target`, returns if the `origin` location was added by `target` as
+	/// an authorized aliaser.
+	///
+	/// Effectively says whether `origin` is allowed to alias into and act as `target`.
+	pub fn is_authorized_alias(origin: VersionedLocation, target: VersionedLocation) -> bool {
+		Self::authorized_aliasers(target)
+			.iter()
+			.find(|&aliaser| {
+				aliaser.location == origin &&
+					aliaser
+						.expiry
+						.map(|expiry| {
+							expiry <
+								frame_system::Pallet::<T>::current_block_number()
+									.saturated_into::<u64>()
+						})
+						.unwrap_or(true)
 			})
+			.is_some()
 	}
 
 	/// Create a new expectation of a query response with the querier being here.
@@ -3633,21 +3652,7 @@ impl<L: Into<VersionedLocation> + Clone, T: Config> ContainsPair<L, L> for Autho
 		tracing::trace!(target: "xcm::pallet_xcm::AuthorizedAliasers::contains", ?origin, ?target);
 		// return true if the `origin` has been explicitly authorized by `target` as aliaser, and
 		// the authorization has not expired
-		AuthorizedAliases::<T>::get(&target)
-			.map(|authorized| {
-				let current_block =
-					frame_system::Pallet::<T>::current_block_number().saturated_into::<u64>();
-				authorized
-					.aliasers
-					.iter()
-					.find(|&aliaser| {
-						let not_expired =
-							aliaser.expiry.map(|expiry| expiry < current_block).unwrap_or(true);
-						not_expired && aliaser.location == origin
-					})
-					.is_some()
-			})
-			.unwrap_or(false)
+		Pallet::<T>::is_authorized_alias(origin, target)
 	}
 }
 

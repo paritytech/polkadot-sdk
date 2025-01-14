@@ -24,7 +24,7 @@ use xcm::{VersionedAsset, VersionedLocation};
 pub type XcmTrustedQueryResult = Result<bool, Error>;
 
 sp_api::decl_runtime_apis! {
-	// API for querying trusted reserves and trusted teleporters.
+	/// API for querying trusted reserves and trusted teleporters.
 	pub trait TrustedQueryApi {
 		/// Returns if the location is a trusted reserve for the asset.
 		///
