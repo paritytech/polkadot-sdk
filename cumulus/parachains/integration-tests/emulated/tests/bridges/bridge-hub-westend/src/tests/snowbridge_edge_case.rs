@@ -52,8 +52,10 @@ pub fn fund_on_bh() {
 }
 
 pub fn fund_on_ah() {
-	AssetHubWestend::fund_accounts(vec![(AssetHubWestendSender::get(), INITIAL_FUND)]);
-	AssetHubWestend::fund_accounts(vec![(AssetHubWestendReceiver::get(), INITIAL_FUND)]);
+	AssetHubWestend::fund_accounts(vec![
+	  (AssetHubWestendSender::get(), INITIAL_FUND),
+	  (AssetHubWestendReceiver::get(), INITIAL_FUND),
+	]);
 
 	AssetHubWestend::execute_with(|| {
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint_into(
