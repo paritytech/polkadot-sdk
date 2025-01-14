@@ -246,7 +246,7 @@ impl Discovery {
 		_peerstore_handle: Arc<dyn PeerStoreProvider>,
 	) -> (Self, PingConfig, IdentifyConfig, KademliaConfig, Option<MdnsConfig>) {
 		let (ping_config, ping_event_stream) = PingConfig::default();
-		let user_agent = format!("{} ({})", config.client_version, config.node_name);
+		let user_agent = format!("{} ({}) (litep2p)", config.client_version, config.node_name);
 
 		let (identify_config, identify_event_stream) =
 			IdentifyConfig::new("/substrate/1.0".to_string(), Some(user_agent));
