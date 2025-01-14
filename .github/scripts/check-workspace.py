@@ -52,19 +52,20 @@ def get_members(workspace_dir, exclude):
 	members = []
 	for member in root_manifest['workspace']['members']:
 
-        # Exclude the specific 'templates/parachain' directory
-        if member == 'templates/parachain':
-            print(f'⏩ Excluding {member} directly from the workspace')
-            continue
-        # If member is under 'templates/parachain/', allow it to be included
-        if member.startswith('templates/parachain/') and member != 'templates/parachain':
+            # Exclude the specific 'templates/parachain' directory
+            if member == 'templates/parachain':
+                print(f'⏩ Excluding {member} directly from the workspace')
+                continue
+            # If member is under 'templates/parachain/', allow it to be included
+            if member.startswith('templates/parachain/') and member != 'templates/parachain':
+                members.append(member)
+                continue
+            # Exclude any crate listed in the exclusion list
+            if member in exclude:
+                print(f'❌ Excluded member should not appear in the workspace {member}')
+                sys.exit(1)
+
             members.append(member)
-            continue
-        # Exclude any crate listed in the exclusion list
-        if member in exclude:
-            print(f'❌ Excluded member should not appear in the workspace {member}')
-            sys.exit(1)
-        members.append(member)
 
 	return members
 
