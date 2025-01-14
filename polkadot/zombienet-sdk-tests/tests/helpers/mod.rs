@@ -4,6 +4,7 @@
 use polkadot_primitives::Id as ParaId;
 use std::{collections::HashMap, ops::Range};
 use subxt::{OnlineClient, PolkadotConfig};
+use tokio::time::{sleep, Duration};
 
 #[subxt::subxt(runtime_metadata_path = "metadata-files/rococo-local.scale")]
 pub mod rococo {}
@@ -76,6 +77,47 @@ pub async fn assert_finalized_block_height(
 			expected_range.contains(&height),
 			"Finalized block number {height} not within range {expected_range:?}"
 		);
+	}
+	Ok(())
+}
+
+/// Assert that finality has not stalled.
+pub async fn assert_blocks_are_being_finalized(
+	client: &OnlineClient<PolkadotConfig>,
+) -> Result<(), anyhow::Error> {
+	let mut finalized_blocks = client.blocks().subscribe_finalized().await?;
+	let first_measurement = finalized_blocks
+		.next()
+		.await
+		.ok_or(anyhow::anyhow!("Can't get finalized block from stream"))??
+		.number();
+	sleep(Duration::from_secs(12)).await;
+	let second_measurement = finalized_blocks
+		.next()
+		.await
+		.ok_or(anyhow::anyhow!("Can't get finalized block from stream"))??
+		.number();
+
+	assert!(second_measurement > first_measurement);
+
+	Ok(())
+}
+
+/// Wait for a `NewSession` event.
+pub async fn wait_for_session_change(
+	relay_client: &OnlineClient<PolkadotConfig>,
+) -> Result<(), anyhow::Error> {
+	let mut blocks_sub = relay_client.blocks().subscribe_best().await?;
+
+	while let Some(block) = blocks_sub.next().await {
+		let block = block?;
+		let events = block.events().await?;
+		let is_session_change = events.has::<rococo::session::events::NewSession>()?;
+
+		if is_session_change {
+			log::info!("Session changed at block {}", block.number());
+			break
+		}
 	}
 	Ok(())
 }
