@@ -311,8 +311,6 @@ fn fatp_prios_watcher_full_mempool_higher_prio_is_accepted() {
 	assert_pool_status!(header03.hash(), &pool, 2, 0);
 	assert_eq!(pool.mempool_len().1, 4);
 
-	// let header04 = api.push_block_with_parent(header03.hash(), vec![], true);
-	// block_on(pool.maintain(new_best_block_event(&pool, Some(header03.hash()), header04.hash())));
 
 	assert_watcher_stream!(xt0_watcher, [TransactionStatus::Ready, TransactionStatus::Dropped]);
 	assert_watcher_stream!(xt1_watcher, [TransactionStatus::Ready, TransactionStatus::Dropped]);
