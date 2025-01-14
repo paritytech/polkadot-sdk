@@ -1,6 +1,5 @@
 endpoint: wss://westend-penpal-rpc.polkadot.io 
 mock-signature-host: true
-#block: ${env.WESTEND_BRIDGE_HUB_BLOCK_NUMBER}
 db: ./db.sqlite
 runtime-log-level: 5
 wasm-override: wasms/penpal_runtime.compact.compressed.wasm
