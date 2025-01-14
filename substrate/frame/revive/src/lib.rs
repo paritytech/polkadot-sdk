@@ -41,7 +41,10 @@ pub mod test_utils;
 pub mod weights;
 
 use crate::{
-	evm::{runtime::GAS_PRICE, GenericTransaction},
+	evm::{
+		runtime::{gas_from_fee, GAS_PRICE},
+		GasEncoder, GenericTransaction,
+	},
 	exec::{AccountIdOf, ExecError, Executable, Ext, Key, Origin, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
@@ -295,6 +298,11 @@ pub mod pallet {
 		/// The ratio between the decimal representation of the native token and the ETH token.
 		#[pallet::constant]
 		type NativeToEthRatio: Get<u32>;
+
+		/// Encode and decode Ethereum gas values.
+		/// Only valid value is `()`. See [`GasEncoder`].
+		#[pallet::no_default_bounds]
+		type EthGasEncoder: GasEncoder<BalanceOf<Self>>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -368,6 +376,7 @@ pub mod pallet {
 			type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
 			type ChainId = ConstU64<0>;
 			type NativeToEthRatio = ConstU32<1>;
+			type EthGasEncoder = ();
 		}
 	}
 
@@ -560,6 +569,8 @@ pub mod pallet {
 		AccountUnmapped,
 		/// Tried to map an account that is already mapped.
 		AccountAlreadyMapped,
+		/// The transaction used to dry-run a contract is invalid.
+		InvalidGenericTransaction,
 	}
 
 	/// A reason for the pallet contracts placing a hold on funds.
@@ -761,12 +772,7 @@ pub mod pallet {
 		#[allow(unused_variables)]
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::MAX)]
-		pub fn eth_transact(
-			origin: OriginFor<T>,
-			payload: Vec<u8>,
-			gas_limit: Weight,
-			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
-		) -> DispatchResultWithPostInfo {
+		pub fn eth_transact(origin: OriginFor<T>, payload: Vec<u8>) -> DispatchResultWithPostInfo {
 			Err(frame_system::Error::CallFiltered::<T>.into())
 		}
 
@@ -1406,11 +1412,8 @@ where
 				return Err(EthTransactError::Message("Invalid transaction".into()));
 			};
 
-			let eth_dispatch_call = crate::Call::<T>::eth_transact {
-				payload: unsigned_tx.dummy_signed_payload(),
-				gas_limit: result.gas_required,
-				storage_deposit_limit: result.storage_deposit,
-			};
+			let eth_dispatch_call =
+				crate::Call::<T>::eth_transact { payload: unsigned_tx.dummy_signed_payload() };
 			let encoded_len = utx_encoded_size(eth_dispatch_call);
 			let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(
 				encoded_len,
@@ -1418,7 +1421,9 @@ where
 				0u32.into(),
 			)
 			.into();
-			let eth_gas: U256 = (fee / GAS_PRICE.into()).into();
+			let eth_gas = gas_from_fee(fee);
+			let eth_gas =
+				T::EthGasEncoder::encode(eth_gas, result.gas_required, result.storage_deposit);
 
 			if eth_gas == result.eth_gas {
 				log::trace!(target: LOG_TARGET, "bare_eth_call: encoded_len: {encoded_len:?} eth_gas: {eth_gas:?}");

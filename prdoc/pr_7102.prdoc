@@ -1,0 +1,8 @@
+title: '`fatxpool`: rotator cache size now depends on pool''s limits'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR modifies the hard-coded size of extrinsics cache within `PoolRotator` to be inline with pool limits. It only applies to fork-aware transaction pool. For the legacy (single-state) transaction pool the logic remains untouched.
+crates:
+- name: sc-transaction-pool
+  bump: minor
