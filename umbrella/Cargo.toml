@@ -694,7 +694,7 @@ version = "0.15.0"
 path = "../cumulus/parachains/runtimes/bridge-hubs/common"
 default-features = false
 optional = true
-version = "0.11.0"
+version = "0.12.0"
 
 [dependencies.bridge-runtime-common]
 path = "../bridges/bin/runtime-common"
@@ -1588,19 +1588,19 @@ version = "16.0.0"
 path = "../bridges/snowbridge/primitives/beacon"
 default-features = false
 optional = true
-version = "0.11.0"
+version = "0.12.0"
 
 [dependencies.snowbridge-core]
 path = "../bridges/snowbridge/primitives/core"
 default-features = false
 optional = true
-version = "0.11.0"
+version = "0.12.0"
 
 [dependencies.snowbridge-ethereum]
 path = "../bridges/snowbridge/primitives/ethereum"
 default-features = false
 optional = true
-version = "0.10.0"
+version = "0.11.0"
 
 [dependencies.snowbridge-outbound-queue-merkle-tree]
 path = "../bridges/snowbridge/pallets/outbound-queue/merkle-tree"
@@ -1612,61 +1612,61 @@ version = "0.10.0"
 path = "../bridges/snowbridge/pallets/outbound-queue/runtime-api"
 default-features = false
 optional = true
-version = "0.11.0"
+version = "0.12.0"
 
 [dependencies.snowbridge-pallet-ethereum-client]
 path = "../bridges/snowbridge/pallets/ethereum-client"
 default-features = false
 optional = true
-version = "0.11.0"
+version = "0.12.0"
 
 [dependencies.snowbridge-pallet-ethereum-client-fixtures]
 path = "../bridges/snowbridge/pallets/ethereum-client/fixtures"
 default-features = false
 optional = true
-version = "0.19.0"
+version = "0.20.0"
 
 [dependencies.snowbridge-pallet-inbound-queue]
 path = "../bridges/snowbridge/pallets/inbound-queue"
 default-features = false
 optional = true
-version = "0.11.0"
+version = "0.12.0"
 
 [dependencies.snowbridge-pallet-inbound-queue-fixtures]
 path = "../bridges/snowbridge/pallets/inbound-queue/fixtures"
 default-features = false
 optional = true
-version = "0.19.0"
+version = "0.20.0"
 
 [dependencies.snowbridge-pallet-outbound-queue]
 path = "../bridges/snowbridge/pallets/outbound-queue"
 default-features = false
 optional = true
-version = "0.11.0"
+version = "0.12.0"
 
 [dependencies.snowbridge-pallet-system]
 path = "../bridges/snowbridge/pallets/system"
 default-features = false
 optional = true
-version = "0.11.0"
+version = "0.12.0"
 
 [dependencies.snowbridge-router-primitives]
 path = "../bridges/snowbridge/primitives/router"
 default-features = false
 optional = true
-version = "0.17.0"
+version = "0.18.0"
 
 [dependencies.snowbridge-runtime-common]
 path = "../bridges/snowbridge/runtime/runtime-common"
 default-features = false
 optional = true
-version = "0.11.0"
+version = "0.12.0"
 
 [dependencies.snowbridge-system-runtime-api]
 path = "../bridges/snowbridge/pallets/system/runtime-api"
 default-features = false
 optional = true
-version = "0.11.0"
+version = "0.12.0"
 
 [dependencies.sp-api]
 path = "../substrate/primitives/api"
@@ -2740,7 +2740,7 @@ version = "18.0.0"
 path = "../bridges/snowbridge/runtime/test-common"
 default-features = false
 optional = true
-version = "0.13.0"
+version = "0.14.0"
 
 [dependencies.sp-blockchain]
 path = "../substrate/primitives/blockchain"

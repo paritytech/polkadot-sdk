@@ -616,7 +616,7 @@ arrayvec = { version = "0.7.4" }
 assert_cmd = { version = "2.0.14" }
 assert_matches = { version = "1.5.0" }
 asset-hub-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-rococo", version = "0.1.0" }
-asset-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-rococo", default-features = false, version = "0.23.0" }
+asset-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-rococo", default-features = false, version = "0.24.0" }
 asset-hub-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-westend", version = "0.1.0" }
 asset-hub-westend-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-westend", version = "0.27.0" }
 asset-test-utils = { path = "cumulus/parachains/runtimes/assets/test-utils", default-features = false, version = "21.0.0" }
@@ -659,12 +659,12 @@ bp-test-utils = { path = "bridges/primitives/test-utils", default-features = fal
 bp-westend = { path = "bridges/chains/chain-westend", default-features = false, version = "0.15.0" }
 bp-xcm-bridge-hub = { path = "bridges/primitives/xcm-bridge-hub", default-features = false, version = "0.5.0" }
 bp-xcm-bridge-hub-router = { path = "bridges/primitives/xcm-bridge-hub-router", default-features = false, version = "0.15.0" }
-bridge-hub-common = { path = "cumulus/parachains/runtimes/bridge-hubs/common", default-features = false, version = "0.11.0" }
+bridge-hub-common = { path = "cumulus/parachains/runtimes/bridge-hubs/common", default-features = false, version = "0.12.0" }
 bridge-hub-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-rococo", version = "0.1.0" }
-bridge-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo", default-features = false, version = "0.17.0" }
+bridge-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo", default-features = false, version = "0.18.0" }
 bridge-hub-test-utils = { path = "cumulus/parachains/runtimes/bridge-hubs/test-utils", default-features = false }
 bridge-hub-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-westend", version = "0.1.0" }
-bridge-hub-westend-runtime = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend", default-features = false, version = "0.14.0" }
+bridge-hub-westend-runtime = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend", default-features = false, version = "0.15.0" }
 bridge-runtime-common = { path = "bridges/bin/runtime-common", default-features = false, version = "0.19.0" }
 bs58 = { version = "0.5.1", default-features = false }
 build-helper = { version = "0.1.1" }
@@ -1024,7 +1024,7 @@ partial_sort = { version = "0.2.0" }
 paste = { version = "1.0.15", default-features = false }
 pbkdf2 = { version = "0.12.2", default-features = false }
 penpal-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/testing/penpal", version = "0.1.0" }
-penpal-runtime = { path = "cumulus/parachains/runtimes/testing/penpal", version = "0.26.0" }
+penpal-runtime = { path = "cumulus/parachains/runtimes/testing/penpal", version = "0.27.0" }
 people-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/people/people-rococo", version = "0.1.0" }
 people-rococo-runtime = { path = "cumulus/parachains/runtimes/people/people-rococo", version = "0.13.0" }
 people-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/people/people-westend", version = "0.1.0" }
@@ -1217,21 +1217,21 @@ slotmap = { version = "1.0" }
 smallvec = { version = "1.11.0", default-features = false }
 smoldot = { version = "0.11.0", default-features = false }
 smoldot-light = { version = "0.9.0", default-features = false }
-snowbridge-beacon-primitives = { path = "bridges/snowbridge/primitives/beacon", default-features = false, version = "0.11.0" }
-snowbridge-core = { path = "bridges/snowbridge/primitives/core", default-features = false, version = "0.11.0" }
-snowbridge-ethereum = { path = "bridges/snowbridge/primitives/ethereum", default-features = false, version = "0.10.0" }
+snowbridge-beacon-primitives = { path = "bridges/snowbridge/primitives/beacon", default-features = false, version = "0.12.0" }
+snowbridge-core = { path = "bridges/snowbridge/primitives/core", default-features = false, version = "0.12.0" }
+snowbridge-ethereum = { path = "bridges/snowbridge/primitives/ethereum", default-features = false, version = "0.11.0" }
 snowbridge-outbound-queue-merkle-tree = { path = "bridges/snowbridge/pallets/outbound-queue/merkle-tree", default-features = false, version = "0.10.0" }
-snowbridge-outbound-queue-runtime-api = { path = "bridges/snowbridge/pallets/outbound-queue/runtime-api", default-features = false, version = "0.11.0" }
-snowbridge-pallet-ethereum-client = { path = "bridges/snowbridge/pallets/ethereum-client", default-features = false, version = "0.11.0" }
-snowbridge-pallet-ethereum-client-fixtures = { path = "bridges/snowbridge/pallets/ethereum-client/fixtures", default-features = false, version = "0.19.0" }
-snowbridge-pallet-inbound-queue = { path = "bridges/snowbridge/pallets/inbound-queue", default-features = false, version = "0.11.0" }
-snowbridge-pallet-inbound-queue-fixtures = { path = "bridges/snowbridge/pallets/inbound-queue/fixtures", default-features = false, version = "0.19.0" }
-snowbridge-pallet-outbound-queue = { path = "bridges/snowbridge/pallets/outbound-queue", default-features = false, version = "0.11.0" }
-snowbridge-pallet-system = { path = "bridges/snowbridge/pallets/system", default-features = false, version = "0.11.0" }
-snowbridge-router-primitives = { path = "bridges/snowbridge/primitives/router", default-features = false, version = "0.17.0" }
-snowbridge-runtime-common = { path = "bridges/snowbridge/runtime/runtime-common", default-features = false, version = "0.11.0" }
+snowbridge-outbound-queue-runtime-api = { path = "bridges/snowbridge/pallets/outbound-queue/runtime-api", default-features = false, version = "0.12.0" }
+snowbridge-pallet-ethereum-client = { path = "bridges/snowbridge/pallets/ethereum-client", default-features = false, version = "0.12.0" }
+snowbridge-pallet-ethereum-client-fixtures = { path = "bridges/snowbridge/pallets/ethereum-client/fixtures", default-features = false, version = "0.20.0" }
+snowbridge-pallet-inbound-queue = { path = "bridges/snowbridge/pallets/inbound-queue", default-features = false, version = "0.12.0" }
+snowbridge-pallet-inbound-queue-fixtures = { path = "bridges/snowbridge/pallets/inbound-queue/fixtures", default-features = false, version = "0.20.0" }
+snowbridge-pallet-outbound-queue = { path = "bridges/snowbridge/pallets/outbound-queue", default-features = false, version = "0.12.0" }
+snowbridge-pallet-system = { path = "bridges/snowbridge/pallets/system", default-features = false, version = "0.12.0" }
+snowbridge-router-primitives = { path = "bridges/snowbridge/primitives/router", default-features = false, version = "0.18.0" }
+snowbridge-runtime-common = { path = "bridges/snowbridge/runtime/runtime-common", default-features = false, version = "0.12.0" }
 snowbridge-runtime-test-common = { path = "bridges/snowbridge/runtime/test-common", default-features = false }
-snowbridge-system-runtime-api = { path = "bridges/snowbridge/pallets/system/runtime-api", default-features = false, version = "0.11.0" }
+snowbridge-system-runtime-api = { path = "bridges/snowbridge/pallets/system/runtime-api", default-features = false, version = "0.12.0" }
 soketto = { version = "0.8.0" }
 solochain-template-runtime = { path = "templates/solochain/runtime", version = "0.1.0" }
 sp-api = { path = "substrate/primitives/api", default-features = false, version = "35.0.0" }
