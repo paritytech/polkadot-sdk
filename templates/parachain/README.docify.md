@@ -78,6 +78,8 @@ and referenced throughout the contents of this file as `{{PARACHAIN_ID}}`. Pleas
 any command or file referencing this placeholder with the value of the `PARACHAIN_ID` constant:
 
 <!-- docify::embed!("runtime/src/genesis_config_presets.rs", PARACHAIN_ID)-->
+<!-- docify::embed!("/src/lib.rs", RANDOM_CHECK_ID)-->
+
 
 ### Omni Node Prerequisites
 

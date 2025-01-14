@@ -20,3 +20,6 @@
 
 #[cfg(feature = "generate-readme")]
 docify::compile_markdown!("README.docify.md", "README.md");
+
+#[docify::export_content]
+pub const RANDOM_CHECK_ID: u32 = 1000;

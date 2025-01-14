@@ -34,16 +34,12 @@ polkadot-sdk = { workspace = true, features = ["substrate-build-script-utils"] }
 
 [features]
 default = ["std"]
-std = [
-	"log/std",
-	"parachain-template-runtime/std",
-	"polkadot-sdk/std",
-]
+std = ["log/std", "parachain-template-runtime/std", "polkadot-sdk/std"]
 runtime-benchmarks = [
-	"parachain-template-runtime/runtime-benchmarks",
-	"polkadot-sdk/runtime-benchmarks",
+  "parachain-template-runtime/runtime-benchmarks",
+  "polkadot-sdk/runtime-benchmarks",
 ]
 try-runtime = [
-	"parachain-template-runtime/try-runtime",
-	"polkadot-sdk/try-runtime",
+  "parachain-template-runtime/try-runtime",
+  "polkadot-sdk/try-runtime",
 ]

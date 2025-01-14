@@ -78,7 +78,7 @@ and referenced throughout the contents of this file as `{{PARACHAIN_ID}}`. Pleas
 any command or file referencing this placeholder with the value of the `PARACHAIN_ID` constant:
 
 ```rust,ignore
-pub const PARACHAIN_ID: u32 = 1000;
+pub const PARACHAIN_ID: u32 = 2000;
 ```
 
 ### Omni Node Prerequisites
