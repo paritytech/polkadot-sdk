@@ -4,6 +4,4 @@ doc:
   description: 'Docifying the README.MD under templates/parachain by adding a Docify.
   Also Adding the Cargo.toml under the same folder, essentially making it a crate as Docify acts
   for Readmes only under the same crate. Other changes are related to the same to skip this crate'
-crates:
-- name: template-parachain-pallet
-  bump: minor
+crates: [ ]
