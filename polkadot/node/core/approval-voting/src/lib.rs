@@ -21,13 +21,10 @@
 //! of others. It uses this information to determine when candidates and blocks have
 //! been sufficiently approved to finalize.
 
-<<<<<<< HEAD
+use futures_timer::Delay;
 use itertools::Itertools;
 use jaeger::{hash_to_trace_identifier, PerLeafSpan};
 use polkadot_node_jaeger as jaeger;
-=======
-use futures_timer::Delay;
->>>>>>> 6878ba1f (Retry approval on availability failure if the check is still needed (#6807))
 use polkadot_node_primitives::{
 	approval::{
 		v1::{BlockApprovalMeta, DelayTranche},
@@ -175,16 +172,11 @@ pub struct ApprovalVotingSubsystem {
 	db: Arc<dyn Database>,
 	mode: Mode,
 	metrics: Metrics,
-<<<<<<< HEAD
 	clock: Box<dyn Clock + Send + Sync>,
-=======
-	clock: Arc<dyn Clock + Send + Sync>,
-	spawner: Arc<dyn overseer::gen::Spawner + 'static>,
 	/// The maximum time we retry to approve a block if it is still needed and PoV fetch failed.
 	max_approval_retries: u32,
 	/// The backoff before we retry the approval.
 	retry_backoff: Duration,
->>>>>>> 6878ba1f (Retry approval on availability failure if the check is still needed (#6807))
 }
 
 #[derive(Clone)]
@@ -510,14 +502,9 @@ impl ApprovalVotingSubsystem {
 			keystore,
 			sync_oracle,
 			metrics,
-<<<<<<< HEAD
 			Box::new(SystemClock {}),
-=======
-			Arc::new(SystemClock {}),
-			spawner,
 			MAX_APPROVAL_RETRIES,
 			APPROVAL_CHECKING_TIMEOUT / 2,
->>>>>>> 6878ba1f (Retry approval on availability failure if the check is still needed (#6807))
 		)
 	}
 
@@ -528,14 +515,9 @@ impl ApprovalVotingSubsystem {
 		keystore: Arc<LocalKeystore>,
 		sync_oracle: Box<dyn SyncOracle + Send>,
 		metrics: Metrics,
-<<<<<<< HEAD
 		clock: Box<dyn Clock + Send + Sync>,
-=======
-		clock: Arc<dyn Clock + Send + Sync>,
-		spawner: Arc<dyn overseer::gen::Spawner + 'static>,
 		max_approval_retries: u32,
 		retry_backoff: Duration,
->>>>>>> 6878ba1f (Retry approval on availability failure if the check is still needed (#6807))
 	) -> Self {
 		ApprovalVotingSubsystem {
 			keystore,
@@ -545,12 +527,8 @@ impl ApprovalVotingSubsystem {
 			mode: Mode::Syncing(sync_oracle),
 			metrics,
 			clock,
-<<<<<<< HEAD
-=======
-			spawner,
 			max_approval_retries,
 			retry_backoff,
->>>>>>> 6878ba1f (Retry approval on availability failure if the check is still needed (#6807))
 		}
 	}
 
@@ -1334,13 +1312,19 @@ where
 				if let Some(retry_info) = retry_info {
 					for block_hash in relay_block_hashes {
 						if overlayed_db.load_block_entry(&block_hash).map(|block_info| block_info.is_some()).unwrap_or(false) {
-							let sender = to_other_subsystems.clone();
-							let spawn_handle = subsystem.spawner.clone();
+							let ctx = &mut ctx;
 							let metrics = subsystem.metrics.clone();
 							let retry_info = retry_info.clone();
 							let executor_params = retry_info.executor_params.clone();
 							let candidate = retry_info.candidate.clone();
-
+							let launch_approval_span = state
+								.spans
+								.get(&block_hash)
+								.map(|span| span.child("launch-approval"))
+								.unwrap_or_else(|| jaeger::Span::new(candidate_hash, "launch-approval"))
+								.with_trace_id(candidate_hash)
+								.with_candidate(candidate_hash)
+								.with_stage(jaeger::Stage::ApprovalChecking);
 							currently_checking_set
 								.insert_relay_block_hash(
 									candidate_hash,
@@ -1348,8 +1332,7 @@ where
 									block_hash,
 									async move {
 										launch_approval(
-											sender,
-											spawn_handle,
+											ctx,
 											metrics,
 											retry_info.session_index,
 											candidate,
@@ -1358,6 +1341,7 @@ where
 											retry_info.backing_group,
 											executor_params,
 											retry_info.core_index,
+											&launch_approval_span,
 											retry_info,
 										)
 										.await
@@ -1433,68 +1417,6 @@ where
 	Ok(())
 }
 
-<<<<<<< HEAD
-=======
-// Starts a worker thread that runs the approval voting subsystem.
-pub async fn start_approval_worker<
-	WorkProvider: ApprovalVotingWorkProvider + Send + 'static,
-	Sender: SubsystemSender<ChainApiMessage>
-		+ SubsystemSender<RuntimeApiMessage>
-		+ SubsystemSender<ChainSelectionMessage>
-		+ SubsystemSender<AvailabilityRecoveryMessage>
-		+ SubsystemSender<DisputeCoordinatorMessage>
-		+ SubsystemSender<CandidateValidationMessage>
-		+ Clone,
-	ADSender: SubsystemSender<ApprovalDistributionMessage>,
->(
-	work_provider: WorkProvider,
-	to_other_subsystems: Sender,
-	to_approval_distr: ADSender,
-	config: Config,
-	db: Arc<dyn Database>,
-	keystore: Arc<LocalKeystore>,
-	sync_oracle: Box<dyn SyncOracle + Send>,
-	metrics: Metrics,
-	spawner: Arc<dyn overseer::gen::Spawner + 'static>,
-	task_name: &'static str,
-	group_name: &'static str,
-	clock: Arc<dyn Clock + Send + Sync>,
-) -> SubsystemResult<()> {
-	let approval_voting = ApprovalVotingSubsystem::with_config_and_clock(
-		config,
-		db.clone(),
-		keystore,
-		sync_oracle,
-		metrics,
-		clock,
-		spawner,
-		MAX_APPROVAL_RETRIES,
-		APPROVAL_CHECKING_TIMEOUT / 2,
-	);
-	let backend = DbBackend::new(db.clone(), approval_voting.db_config);
-	let spawner = approval_voting.spawner.clone();
-	spawner.spawn_blocking(
-		task_name,
-		Some(group_name),
-		Box::pin(async move {
-			if let Err(err) = run(
-				work_provider,
-				to_other_subsystems,
-				to_approval_distr,
-				approval_voting,
-				Box::new(RealAssignmentCriteria),
-				backend,
-			)
-			.await
-			{
-				gum::error!(target: LOG_TARGET, ?err, "Approval voting worker stopped processing messages");
-			};
-		}),
-	);
-	Ok(())
-}
-
->>>>>>> 6878ba1f (Retry approval on availability failure if the check is still needed (#6807))
 // Handle actions is a function that accepts a set of instructions
 // and subsequently updates the underlying approvals_db in accordance
 // with the linear set of instructions passed in. Therefore, actions
@@ -1647,11 +1569,8 @@ async fn handle_actions<Context>(
 										backing_group,
 										executor_params,
 										core_index,
-<<<<<<< HEAD
 										&launch_approval_span,
-=======
 										retry,
->>>>>>> 6878ba1f (Retry approval on availability failure if the check is still needed (#6807))
 									)
 									.await
 								},
@@ -2583,7 +2502,12 @@ fn schedule_wakeup_action(
 				last_assignment_tick.map(|l| l + APPROVAL_DELAY).filter(|t| t > &tick_now),
 				next_no_show,
 			)
-			.map(|tick| Action::ScheduleWakeup { block_hash, block_number, candidate_hash, tick })
+			.map(|tick| Action::ScheduleWakeup {
+				block_hash,
+				block_number,
+				candidate_hash,
+				tick,
+			})
 		},
 		RequiredTranches::Pending { considered, next_no_show, clock_drift, .. } => {
 			// select the minimum of `next_no_show`, or the tick of the next non-empty tranche
@@ -3581,11 +3505,8 @@ async fn launch_approval<Context>(
 	backing_group: GroupIndex,
 	executor_params: ExecutorParams,
 	core_index: Option<CoreIndex>,
-<<<<<<< HEAD
 	span: &jaeger::Span,
-=======
 	retry: RetryApprovalInfo,
->>>>>>> 6878ba1f (Retry approval on availability failure if the check is still needed (#6807))
 ) -> SubsystemResult<RemoteHandle<ApprovalState>> {
 	let (a_tx, a_rx) = oneshot::channel();
 	let (code_tx, code_rx) = oneshot::channel();
@@ -3616,12 +3537,8 @@ async fn launch_approval<Context>(
 	}
 
 	let candidate_hash = candidate.hash();
-<<<<<<< HEAD
 	let para_id = candidate.descriptor.para_id;
-=======
-	let para_id = candidate.descriptor.para_id();
 	let mut next_retry = None;
->>>>>>> 6878ba1f (Retry approval on availability failure if the check is still needed (#6807))
 	gum::trace!(target: LOG_TARGET, ?candidate_hash, ?para_id, "Recovering data.");
 
 	let request_validation_data_span = span
