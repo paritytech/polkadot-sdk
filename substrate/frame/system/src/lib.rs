@@ -2017,6 +2017,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// NOTE: Events not registered at the genesis block and quietly omitted.
 	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+	#[track_caller]
 	pub fn assert_has_event(event: T::RuntimeEvent) {
 		let events = Self::events();
 		assert!(
@@ -2029,6 +2030,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// NOTE: Events not registered at the genesis block and quietly omitted.
 	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+	#[track_caller]
 	pub fn assert_last_event(event: T::RuntimeEvent) {
 		let last_event = Self::events().last().expect("events expected").event.clone();
 		assert_eq!(
