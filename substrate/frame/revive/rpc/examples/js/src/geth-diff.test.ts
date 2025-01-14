@@ -289,27 +289,5 @@ for (const env of envs) {
 				],
 			})
 		})
-
-		test.only('eth_estimate (no gas specified) child_call', async () => {
-			let balance = await env.serverWallet.getBalance(env.accountWallet.account)
-			expect(balance).toBe(0n)
-
-			const data = encodeFunctionData({
-				abi: FlipperCallerAbi,
-				functionName: 'callFlip',
-			})
-
-			await env.accountWallet.request({
-				method: 'eth_estimateGas',
-				params: [
-					{
-						data,
-						from: env.accountWallet.account.address,
-						to: flipperCallerAddr,
-						gas: `0x${Number(1000000).toString(16)}`,
-					},
-				],
-			})
-		})
 	})
 }
