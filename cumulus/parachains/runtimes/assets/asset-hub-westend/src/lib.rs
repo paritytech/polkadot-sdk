@@ -981,6 +981,7 @@ impl pallet_revive::Config for Runtime {
 	type Xcm = pallet_xcm::Pallet<Self>;
 	type ChainId = ConstU64<420_420_421>;
 	type NativeToEthRatio = ConstU32<1_000_000>; // 10^(18 - 12) Eth is 10^18, Native is 10^12.
+	type EthGasEncoder = ();
 }
 
 impl TryFrom<RuntimeCall> for pallet_revive::Call<Runtime> {
