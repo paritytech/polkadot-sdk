@@ -20,12 +20,10 @@ use bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID;
 use bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID;
 use bp_polkadot_core::Signature;
 use bridge_hub_westend_runtime::{
-	bridge_to_ethereum_config::{EthereumGatewayAddress, WETHAddress},
-	bridge_to_rococo_config,
-	xcm_config::XcmConfig,
-	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, Executive,
-	MessageQueueServiceWeight, Runtime, RuntimeCall, RuntimeEvent, SessionKeys, TxExtension,
-	UncheckedExtrinsic,
+	bridge_to_ethereum_config::EthereumGatewayAddress, bridge_to_rococo_config,
+	xcm_config::XcmConfig, AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages,
+	Executive, MessageQueueServiceWeight, Runtime, RuntimeCall, RuntimeEvent, SessionKeys,
+	TxExtension, UncheckedExtrinsic,
 };
 use codec::{Decode, Encode};
 use cumulus_primitives_core::XcmError::{FailedToTransactAsset, NotHoldingFees};
@@ -37,6 +35,7 @@ use sp_runtime::{
 	generic::{Era, SignedPayload},
 	AccountId32,
 };
+use testnet_parachains_constants::westend::snowbridge::WETHAddress;
 
 parameter_types! {
 		pub const DefaultBridgeHubEthereumBaseFee: Balance = 2_750_872_500_000;
