@@ -18,8 +18,8 @@
 //! This module contains functions to meter the storage deposit.
 
 use crate::{
-	address::AddressMapper, storage::ContractInfo, AccountIdOf, BalanceOf, CodeInfo, Config, Error,
-	Event, HoldReason, Inspect, Origin, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
+	storage::ContractInfo, AccountIdOf, BalanceOf, CodeInfo, Config, Error, HoldReason, Inspect,
+	Origin, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};
@@ -548,12 +548,6 @@ impl<T: Config> Ext<T> for ReservingExt {
 					Preservation::Preserve,
 					Fortitude::Polite,
 				)?;
-
-				Pallet::<T>::deposit_event(Event::StorageDepositTransferredAndHeld {
-					from: T::AddressMapper::to_address(origin),
-					to: T::AddressMapper::to_address(contract),
-					amount: *amount,
-				});
 			},
 			Deposit::Refund(amount) => {
 				let transferred = T::Currency::transfer_on_hold(
@@ -565,12 +559,6 @@ impl<T: Config> Ext<T> for ReservingExt {
 					Restriction::Free,
 					Fortitude::Polite,
 				)?;
-
-				Pallet::<T>::deposit_event(Event::StorageDepositTransferredAndReleased {
-					from: T::AddressMapper::to_address(contract),
-					to: T::AddressMapper::to_address(origin),
-					amount: transferred,
-				});
 
 				if transferred < *amount {
 					// This should never happen, if it does it means that there is a bug in the

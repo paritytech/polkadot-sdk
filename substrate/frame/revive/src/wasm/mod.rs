@@ -29,14 +29,13 @@ pub use crate::wasm::runtime::{ReturnData, TrapReason};
 pub use crate::wasm::runtime::{Memory, Runtime, RuntimeCosts};
 
 use crate::{
-	address::AddressMapper,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	gas::{GasMeter, Token},
 	limits,
 	storage::meter::Diff,
 	weights::WeightInfo,
-	AccountIdOf, BadOrigin, BalanceOf, CodeInfoOf, CodeVec, Config, Error, Event, ExecError,
-	HoldReason, Pallet, PristineCode, Weight, LOG_TARGET,
+	AccountIdOf, BadOrigin, BalanceOf, CodeInfoOf, CodeVec, Config, Error, ExecError, HoldReason,
+	PristineCode, Weight, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -157,16 +156,9 @@ where
 					code_info.deposit,
 					BestEffort,
 				);
-				let deposit_released = code_info.deposit;
-				let remover = T::AddressMapper::to_address(&code_info.owner);
 
 				*existing = None;
 				<PristineCode<T>>::remove(&code_hash);
-				<Pallet<T>>::deposit_event(Event::CodeRemoved {
-					code_hash,
-					deposit_released,
-					remover,
-				});
 				Ok(())
 			} else {
 				Err(<Error<T>>::CodeNotFound.into())
@@ -202,12 +194,6 @@ where
 					self.code_info.refcount = 0;
 					<PristineCode<T>>::insert(code_hash, &self.code);
 					*stored_code_info = Some(self.code_info.clone());
-					let uploader = T::AddressMapper::to_address(&self.code_info.owner);
-					<Pallet<T>>::deposit_event(Event::CodeStored {
-						code_hash,
-						deposit_held: deposit,
-						uploader,
-					});
 					Ok(deposit)
 				},
 			}
