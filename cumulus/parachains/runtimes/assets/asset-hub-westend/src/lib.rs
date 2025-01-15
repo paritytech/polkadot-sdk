@@ -341,7 +341,6 @@ pub type LocalAndForeignAssets = fungibles::UnionOf<
 	xcm::v5::Location,
 	AccountId,
 >;
-
 /// Union fungibles implementation for [`LocalAndForeignAssets`] and `Balances`.
 pub type NativeAndAssets = fungible::UnionOf<
 	Balances,
@@ -981,6 +980,7 @@ impl pallet_revive::Config for Runtime {
 	type Xcm = pallet_xcm::Pallet<Self>;
 	type ChainId = ConstU64<420_420_421>;
 	type NativeToEthRatio = ConstU32<1_000_000>; // 10^(18 - 12) Eth is 10^18, Native is 10^12.
+	type EthGasEncoder = ();
 }
 
 impl TryFrom<RuntimeCall> for pallet_revive::Call<Runtime> {
@@ -1128,6 +1128,7 @@ pub type Migrations = (
 	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.
