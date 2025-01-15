@@ -859,4 +859,33 @@ mod tests {
 
 		assert_eq!(0o100600, permissions.mode());
 	}
+
+
+	#[test]
+	#[cfg(feature = "bls-experimental")]
+	fn ecdsa_bls381_generate_with_none_works() {
+		use sp_core::testing::{ECDSA, BLS381, ECDSA_BLS381};
+
+		let store = LocalKeystore::in_memory();
+		let ecdsa_bls381_key = store.ecdsa_bls381_generate_new(ECDSA_BLS381, None).expect("Can generate key..");
+
+		let ecdsa_keys = store.ecdsa_public_keys(ECDSA);
+		let bls381_keys = store.bls381_public_keys(BLS381);
+		let ecdsa_bls381_keys = store.ecdsa_bls381_public_keys(ECDSA_BLS381);
+
+		assert_eq!(ecdsa_keys.len(), 1);
+		assert_eq!(bls381_keys.len(), 1);
+		assert_eq!(ecdsa_bls381_keys.len(), 1);
+
+		let ecdsa_key = ecdsa_keys[0];
+		let bls381_key = bls381_keys[0];
+
+		let mut combined_key_raw = [0u8; ecdsa_bls381::PUBLIC_KEY_LEN];
+		combined_key_raw[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].copy_from_slice(ecdsa_key.as_ref());
+		combined_key_raw[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].copy_from_slice(bls381_key.as_ref());
+		let combined_key = ecdsa_bls381::Public::from_raw(combined_key_raw);
+
+		assert_eq!(combined_key, ecdsa_bls381_key);
+	}
+
 }
