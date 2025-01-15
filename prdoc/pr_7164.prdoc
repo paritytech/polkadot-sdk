@@ -5,4 +5,4 @@ doc:
     is emitted by contracts
 crates:
 - name: pallet-revive
-  bump: minor
+  bump: major
