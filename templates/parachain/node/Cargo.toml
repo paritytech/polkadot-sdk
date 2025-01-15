@@ -37,7 +37,7 @@ default = ["std"]
 std = [
 	"log/std",
 	"parachain-template-runtime/std",
-	"polkadot-sdk/std"
+	"polkadot-sdk/std",
 ]
 runtime-benchmarks = [
 	"parachain-template-runtime/runtime-benchmarks",
