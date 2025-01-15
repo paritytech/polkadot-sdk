@@ -514,7 +514,7 @@ pub enum ElectionError<T: Config> {
 	DataProvider(&'static str),
 	/// An error nested in the fallback.
 	Fallback(FallbackErrorOf<T>),
-	/// An error occurred when requesting an election result. The caller expects a mulit-paged
+	/// An error occurred when requesting an election result. The caller expects a multi-paged
 	/// election, which this pallet does not support.
 	MultiPageNotSupported,
 	/// No solution has been queued.
