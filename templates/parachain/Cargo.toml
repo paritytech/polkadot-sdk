@@ -1,5 +1,5 @@
 [package]
-name = "parachain-template-docs"
+name = "parachain-template"
 description = "A parachain-template helper crate to keep documentation in sync with the template's components."
 version = "0.0.0"
 license = "Unlicense"
@@ -10,7 +10,7 @@ edition.workspace = true
 publish = false
 
 [dependencies]
-docify = "0.2.8"
+docify = "0.2.9"
 
 [features]
 generate-readme = []

@@ -78,8 +78,6 @@ and referenced throughout the contents of this file as `{{PARACHAIN_ID}}`. Pleas
 any command or file referencing this placeholder with the value of the `PARACHAIN_ID` constant:
 
 <!-- docify::embed!("runtime/src/genesis_config_presets.rs", PARACHAIN_ID)-->
-<!-- docify::embed!("/src/lib.rs", RANDOM_CHECK_ID)-->
-
 
 ### Omni Node Prerequisites
 
@@ -120,7 +118,7 @@ Start Omni Node with the generated chain spec. We'll start it in development mod
 and finalizing blocks based on manual seal, configured below to seal a block with each second.
 
 ```bash
-polkadot-omni-node --chain <path/to/chain_spec.json> --dev --dev-block-time {{PARACHAIN_ID}}
+polkadot-omni-node --chain <path/to/chain_spec.json> --dev --dev-block-time 1000
 ```
 
 However, such a setup is not close to what would run in production, and for that we need to setup a local

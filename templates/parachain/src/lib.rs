@@ -18,8 +18,5 @@
 // with code sections across the components under the template: node,
 // pallets & runtime, by using `docify`.
 
-#[cfg(all(doc, feature = "generate-readme"))]
+#[cfg(feature = "generate-readme")]
 docify::compile_markdown!("README.docify.md", "README.md");
-
-#[docify::export_content]
-pub const PARACHAIN_ID: u32 = 1000;

@@ -67,7 +67,6 @@ polkadot-sdk = { workspace = true, default-features = false, features = [
 cumulus-pallet-parachain-system = { workspace = true }
 
 [features]
-generate-readme = []
 default = ["std"]
 std = [
 	"codec/std",
