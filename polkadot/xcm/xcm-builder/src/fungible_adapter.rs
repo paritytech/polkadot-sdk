@@ -118,10 +118,10 @@ impl<
 	> TransactAsset
 	for FungibleMutateAdapter<Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount>
 {
-	fn can_check_in(_origin: &Location, what: &Asset, _context: &XcmContext) -> XcmResult {
+	fn can_check_in(origin: &Location, what: &Asset, _context: &XcmContext) -> XcmResult {
 		tracing::trace!(
 			target: "xcm::fungible_adapter",
-			origin = ?_origin, ?what,
+			?origin, ?what,
 			"can_check_in origin",
 		);
 		// Check we handle this asset
@@ -135,10 +135,10 @@ impl<
 		}
 	}
 
-	fn check_in(_origin: &Location, what: &Asset, _context: &XcmContext) {
+	fn check_in(origin: &Location, what: &Asset, _context: &XcmContext) {
 		tracing::trace!(
 			target: "xcm::fungible_adapter",
-			origin = ?_origin, ?what,
+			?origin, ?what,
 			"check_in origin",
 		);
 		if let Some(amount) = Matcher::matches_fungible(what) {
@@ -152,10 +152,10 @@ impl<
 		}
 	}
 
-	fn can_check_out(_dest: &Location, what: &Asset, _context: &XcmContext) -> XcmResult {
+	fn can_check_out(dest: &Location, what: &Asset, _context: &XcmContext) -> XcmResult {
 		tracing::trace!(
 			target: "xcm::fungible_adapter",
-			dest = ?_dest,
+			?dest,
 			?what,
 			"can_check_out",
 		);
@@ -169,10 +169,10 @@ impl<
 		}
 	}
 
-	fn check_out(_dest: &Location, what: &Asset, _context: &XcmContext) {
+	fn check_out(dest: &Location, what: &Asset, _context: &XcmContext) {
 		tracing::trace!(
 			target: "xcm::fungible_adapter",
-			dest = ?_dest,
+			?dest,
 			?what,
 			"check_out",
 		);

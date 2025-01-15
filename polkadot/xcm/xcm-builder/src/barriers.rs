@@ -34,15 +34,15 @@ use xcm_executor::traits::{CheckSuspension, OnResponse, Properties, ShouldExecut
 pub struct TakeWeightCredit;
 impl ShouldExecute for TakeWeightCredit {
 	fn should_execute<RuntimeCall>(
-		_origin: &Location,
-		_instructions: &mut [Instruction<RuntimeCall>],
+		origin: &Location,
+		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
 		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
 		tracing::trace!(
 			target: "xcm::barriers",
-			origin = ?_origin,
-			instructions = ?_instructions,
+			?origin,
+			?instructions,
 			?max_weight,
 			?properties,
 			"TakeWeightCredit"
@@ -69,14 +69,14 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
-		_properties: &mut Properties,
+		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
 		tracing::trace!(
 			target: "xcm::barriers",
 			?origin,
 			?instructions,
 			?max_weight,
-			properties = ?_properties,
+			?properties,
 			"AllowTopLevelPaidExecutionFrom",
 		);
 
@@ -288,12 +288,12 @@ impl<T: Contains<Location>> ShouldExecute for AllowUnpaidExecutionFrom<T> {
 	fn should_execute<RuntimeCall>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
-		_max_weight: Weight,
-		_properties: &mut Properties,
+		max_weight: Weight,
+		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
 		tracing::trace!(
 			target: "xcm::barriers",
-			?origin, ?instructions, max_weight = ?_max_weight, properties = ?_properties,
+			?origin, ?instructions, ?max_weight, ?properties,
 			"AllowUnpaidExecutionFrom"
 		);
 		ensure!(T::contains(origin), ProcessMessageError::Unsupported);
@@ -311,11 +311,11 @@ impl<T: Contains<Location>> ShouldExecute for AllowExplicitUnpaidExecutionFrom<T
 		origin: &Location,
 		instructions: &mut [Instruction<Call>],
 		max_weight: Weight,
-		_properties: &mut Properties,
+		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
 		tracing::trace!(
 			target: "xcm::barriers",
-			?origin, ?instructions, ?max_weight, properties = ?_properties,
+			?origin, ?instructions, ?max_weight, ?properties,
 			"AllowExplicitUnpaidExecutionFrom",
 		);
 		ensure!(T::contains(origin), ProcessMessageError::Unsupported);
@@ -369,12 +369,12 @@ impl<ResponseHandler: OnResponse> ShouldExecute for AllowKnownQueryResponses<Res
 	fn should_execute<RuntimeCall>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
-		_max_weight: Weight,
-		_properties: &mut Properties,
+		max_weight: Weight,
+		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
 		tracing::trace!(
 			target: "xcm::barriers",
-			?origin, ?instructions, max_weight = ?_max_weight, properties = ?_properties,
+			?origin, ?instructions, ?max_weight, ?properties,
 			"AllowKnownQueryResponses"
 		);
 		instructions
@@ -397,12 +397,12 @@ impl<T: Contains<Location>> ShouldExecute for AllowSubscriptionsFrom<T> {
 	fn should_execute<RuntimeCall>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
-		_max_weight: Weight,
-		_properties: &mut Properties,
+		max_weight: Weight,
+		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
 		tracing::trace!(
 			target: "xcm::barriers",
-			?origin, ?instructions, max_weight = ?_max_weight, properties = ?_properties,
+			?origin, ?instructions, ?max_weight, ?properties,
 			"AllowSubscriptionsFrom",
 		);
 		ensure!(T::contains(origin), ProcessMessageError::Unsupported);
@@ -428,12 +428,12 @@ impl ShouldExecute for AllowHrmpNotificationsFromRelayChain {
 	fn should_execute<RuntimeCall>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
-		_max_weight: Weight,
-		_properties: &mut Properties,
+		max_weight: Weight,
+		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
 		tracing::trace!(
 			target: "xcm::barriers",
-			?origin, ?instructions, max_weight = ?_max_weight, properties = ?_properties,
+			?origin, ?instructions, ?max_weight, ?properties,
 			"AllowHrmpNotificationsFromRelayChain"
 		);
 		// accept only the Relay Chain

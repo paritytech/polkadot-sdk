@@ -118,10 +118,10 @@ impl<
 	> TransactAsset
 	for NonFungibleMutateAdapter<NonFungible, Matcher, AccountIdConverter, AccountId, CheckingAccount>
 {
-	fn can_check_in(_origin: &Location, what: &Asset, context: &XcmContext) -> XcmResult {
+	fn can_check_in(origin: &Location, what: &Asset, context: &XcmContext) -> XcmResult {
 		tracing::trace!(
 			target: LOG_TARGET,
-			origin = ?_origin,
+			?origin,
 			?what,
 			?context,
 			"can_check_in",
@@ -138,10 +138,10 @@ impl<
 		}
 	}
 
-	fn check_in(_origin: &Location, what: &Asset, context: &XcmContext) {
+	fn check_in(origin: &Location, what: &Asset, context: &XcmContext) {
 		tracing::trace!(
 			target: LOG_TARGET,
-			origin = ?_origin,
+			?origin,
 			?what,
 			?context,
 			"check_in",
@@ -158,10 +158,10 @@ impl<
 		}
 	}
 
-	fn can_check_out(_dest: &Location, what: &Asset, context: &XcmContext) -> XcmResult {
+	fn can_check_out(dest: &Location, what: &Asset, context: &XcmContext) -> XcmResult {
 		tracing::trace!(
 			target: LOG_TARGET,
-			dest = ?_dest,
+			?dest,
 			?what,
 			?context,
 			"can_check_out",
@@ -178,10 +178,10 @@ impl<
 		}
 	}
 
-	fn check_out(_dest: &Location, what: &Asset, context: &XcmContext) {
+	fn check_out(dest: &Location, what: &Asset, context: &XcmContext) {
 		tracing::trace!(
 			target: LOG_TARGET,
-			dest = ?_dest,
+			?dest,
 			?what,
 			?context,
 			"check_out",

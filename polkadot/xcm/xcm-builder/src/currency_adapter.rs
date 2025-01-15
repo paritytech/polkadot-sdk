@@ -142,8 +142,8 @@ impl<
 	> TransactAsset
 	for CurrencyAdapter<Currency, Matcher, AccountIdConverter, AccountId, CheckedAccount>
 {
-	fn can_check_in(_origin: &Location, what: &Asset, _context: &XcmContext) -> Result {
-		tracing::trace!(target: "xcm::currency_adapter", origin = ?_origin, ?what, "can_check_in origin",);
+	fn can_check_in(origin: &Location, what: &Asset, _context: &XcmContext) -> Result {
+		tracing::trace!(target: "xcm::currency_adapter", ?origin, ?what, "can_check_in origin",);
 		// Check we handle this asset.
 		let amount: Currency::Balance =
 			Matcher::matches_fungible(what).ok_or(Error::AssetNotHandled)?;
@@ -156,8 +156,8 @@ impl<
 		}
 	}
 
-	fn check_in(_origin: &Location, what: &Asset, _context: &XcmContext) {
-		tracing::trace!(target: "xcm::currency_adapter", origin = ?_origin, ?what, "check_in origin");
+	fn check_in(origin: &Location, what: &Asset, _context: &XcmContext) {
+		tracing::trace!(target: "xcm::currency_adapter", ?origin, ?what, "check_in origin");
 		if let Some(amount) = Matcher::matches_fungible(what) {
 			match CheckedAccount::get() {
 				Some((checked_account, MintLocation::Local)) =>
@@ -169,8 +169,8 @@ impl<
 		}
 	}
 
-	fn can_check_out(_dest: &Location, what: &Asset, _context: &XcmContext) -> Result {
-		tracing::trace!(target: "xcm::currency_adapter", dest = ?_dest, ?what, "can_check_out",);
+	fn can_check_out(dest: &Location, what: &Asset, _context: &XcmContext) -> Result {
+		tracing::trace!(target: "xcm::currency_adapter", ?dest, ?what, "can_check_out",);
 		let amount = Matcher::matches_fungible(what).ok_or(Error::AssetNotHandled)?;
 		match CheckedAccount::get() {
 			Some((checked_account, MintLocation::Local)) =>
@@ -181,8 +181,8 @@ impl<
 		}
 	}
 
-	fn check_out(_dest: &Location, what: &Asset, _context: &XcmContext) {
-		tracing::trace!(target: "xcm::currency_adapter", dest = ?_dest, ?what, "check_out",);
+	fn check_out(dest: &Location, what: &Asset, _context: &XcmContext) {
+		tracing::trace!(target: "xcm::currency_adapter", ?dest, ?what, "check_out",);
 		if let Some(amount) = Matcher::matches_fungible(what) {
 			match CheckedAccount::get() {
 				Some((checked_account, MintLocation::Local)) =>
