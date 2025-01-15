@@ -181,8 +181,10 @@
           };
 
           function convertValue(value, unit) {
+            const REQUESTS_COUNT = 100;
+            const perRequest = value / REQUESTS_COUNT;
             const conversionFactor = unitConversion[unit] || 1;
-            return value * conversionFactor;
+            return perRequest * conversionFactor;
           }
 
           datasets.forEach(ds => {

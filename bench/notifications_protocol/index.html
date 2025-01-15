@@ -181,8 +181,10 @@
           };
 
           function convertValue(value, unit) {
+            const NOTIFICATIONS_COUNT = 100;
+            const perNotification = value / NOTIFICATIONS_COUNT;
             const conversionFactor = unitConversion[unit] || 1;
-            return value * conversionFactor;
+            return perNotification * conversionFactor;
           }
 
           datasets.forEach(ds => {
