@@ -246,6 +246,7 @@ jobs:
           WASM_BUILD_NO_COLOR=1 forklift cargo build --locked --release -p staging-node-cli
           ls -la target/release/
       - name: pack artifacts
+        shell: bash
         run: |
           mv target/release/substrate-node ./artifacts/substrate/substrate
           echo -n "Substrate version = "
