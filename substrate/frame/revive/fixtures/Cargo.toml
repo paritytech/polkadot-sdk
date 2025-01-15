@@ -1,19 +1,20 @@
 [package]
 name = "pallet-revive-fixtures"
-version = "0.1.0"
+version = "0.3.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Fixtures for testing and benchmarking"
+publish = false
 
 [lints]
 workspace = true
 
 [dependencies]
-frame-system = { workspace = true, default-features = true, optional = true }
-sp-core = { workspace = true, default-features = true, optional = true }
-sp-io = { workspace = true, default-features = true, optional = true }
-sp-runtime = { workspace = true, default-features = true, optional = true }
+frame-system = { workspace = true, optional = true, default-features = true }
+sp-core = { workspace = true, optional = true, default-features = true }
+sp-io = { workspace = true, optional = true, default-features = true }
+sp-runtime = { workspace = true, optional = true, default-features = true }
 anyhow = { workspace = true, default-features = true, optional = true }
 log = { workspace = true }
 

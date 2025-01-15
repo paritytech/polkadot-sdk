@@ -19,35 +19,35 @@ targets = ["x86_64-unknown-linux-gnu"]
 sp-application-crypto = { features = ["serde"], workspace = true }
 sp-consensus-aura = { features = ["serde"], workspace = true }
 sp-consensus-babe = { features = ["serde"], workspace = true }
-sp-genesis-builder = { workspace = true }
-sp-block-builder = { workspace = true }
+sp-genesis-builder.workspace = true
+sp-block-builder.workspace = true
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-inherents = { workspace = true }
-sp-keyring = { workspace = true }
-sp-offchain = { workspace = true }
+sp-inherents.workspace = true
+sp-keyring.workspace = true
+sp-offchain.workspace = true
 sp-core = { features = ["serde"], workspace = true }
-sp-crypto-hashing = { workspace = true }
-sp-io = { workspace = true }
-frame-support = { workspace = true }
-sp-version = { workspace = true }
-sp-session = { workspace = true }
-sp-api = { workspace = true }
+sp-crypto-hashing.workspace = true
+sp-io.workspace = true
+frame-support.workspace = true
+sp-version.workspace = true
+sp-session.workspace = true
+sp-api.workspace = true
 sp-runtime = { features = ["serde"], workspace = true }
-pallet-babe = { workspace = true }
-pallet-balances = { workspace = true }
-frame-executive = { workspace = true }
-frame-metadata-hash-extension = { workspace = true }
-frame-system = { workspace = true }
-frame-system-rpc-runtime-api = { workspace = true }
-pallet-timestamp = { workspace = true }
+pallet-babe.workspace = true
+pallet-balances.workspace = true
+frame-executive.workspace = true
+frame-metadata-hash-extension.workspace = true
+frame-system.workspace = true
+frame-system-rpc-runtime-api.workspace = true
+pallet-timestamp.workspace = true
 sp-consensus-grandpa = { features = ["serde"], workspace = true }
-sp-trie = { workspace = true }
-sp-transaction-pool = { workspace = true }
+sp-trie.workspace = true
+sp-transaction-pool.workspace = true
 trie-db = { workspace = true }
 sc-service = { features = ["test-helpers"], optional = true, workspace = true }
-sp-state-machine = { workspace = true }
-sp-externalities = { workspace = true }
+sp-state-machine.workspace = true
+sp-externalities.workspace = true
 
 # 3rd party
 array-bytes = { optional = true, workspace = true, default-features = true }
@@ -57,13 +57,13 @@ tracing = { workspace = true, default-features = false }
 
 [dev-dependencies]
 futures = { workspace = true }
-sc-block-builder = { workspace = true, default-features = true }
-sc-chain-spec = { workspace = true, default-features = true }
-sc-executor = { workspace = true, default-features = true }
-sc-executor-common = { workspace = true, default-features = true }
-sp-consensus = { workspace = true, default-features = true }
-substrate-test-runtime-client = { workspace = true }
-sp-tracing = { workspace = true, default-features = true }
+sc-block-builder = { default-features = true, path = "../../client/block-builder" }
+sc-chain-spec = { default-features = true, path = "../../client/chain-spec" }
+sc-executor = { default-features = true, path = "../../client/executor" }
+sc-executor-common = { default-features = true, path = "../../client/executor/common" }
+sp-consensus = { default-features = true, path = "../../primitives/consensus/common" }
+substrate-test-runtime-client = { path = "client" }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
 serde = { features = ["alloc", "derive"], workspace = true }
 serde_json = { features = ["alloc"], workspace = true }
 
@@ -85,10 +85,8 @@ std = [
 	"pallet-babe/std",
 	"pallet-balances/std",
 	"pallet-timestamp/std",
-	"sc-executor/std",
 	"sc-service",
 	"scale-info/std",
-	"serde/std",
 	"serde_json/std",
 	"sp-api/std",
 	"sp-application-crypto/std",
@@ -107,7 +105,6 @@ std = [
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-state-machine/std",
-	"sp-tracing/std",
 	"sp-transaction-pool/std",
 	"sp-trie/std",
 	"sp-version/std",

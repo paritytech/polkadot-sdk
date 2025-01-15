@@ -1,0 +1,7 @@
+title: eth-rpc 1017003 runtime upgrade fix
+doc:
+- audience: Runtime Dev
+  description: Fix eth-rpc metadatafor 1017003 asset-hub westend
+crates:
+- name: pallet-revive-eth-rpc
+  bump: no_change

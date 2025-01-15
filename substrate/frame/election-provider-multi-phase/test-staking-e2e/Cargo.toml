@@ -21,37 +21,26 @@ codec = { features = ["derive"], workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true, default-features = true }
 log = { workspace = true }
 
-sp-runtime = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-sp-std = { workspace = true, default-features = true }
-sp-staking = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-npos-elections = { workspace = true }
-sp-tracing = { workspace = true, default-features = true }
+sp-runtime = { default-features = true, path = "../../../primitives/runtime" }
+sp-io = { default-features = true, path = "../../../primitives/io" }
+sp-std = { default-features = true, path = "../../../primitives/std" }
+sp-staking = { default-features = true, path = "../../../primitives/staking" }
+sp-core = { default-features = true, path = "../../../primitives/core" }
+sp-npos-elections = { path = "../../../primitives/npos-elections", default-features = false }
+sp-tracing = { default-features = true, path = "../../../primitives/tracing" }
 
-frame-system = { workspace = true, default-features = true }
-frame-support = { workspace = true, default-features = true }
-frame-election-provider-support = { workspace = true, default-features = true }
+frame-system = { default-features = true, path = "../../system" }
+frame-support = { default-features = true, path = "../../support" }
+frame-election-provider-support = { default-features = true, path = "../../election-provider-support" }
 
-pallet-election-provider-multi-phase = { workspace = true, default-features = true }
-pallet-staking = { workspace = true, default-features = true }
-pallet-nomination-pools = { workspace = true, default-features = true }
-pallet-bags-list = { workspace = true, default-features = true }
-pallet-balances = { workspace = true, default-features = true }
-pallet-timestamp = { workspace = true, default-features = true }
-pallet-session = { workspace = true, default-features = true }
+pallet-election-provider-multi-phase = { default-features = true, path = ".." }
+pallet-staking = { default-features = true, path = "../../staking" }
+pallet-nomination-pools = { default-features = true, path = "../../nomination-pools" }
+pallet-bags-list = { default-features = true, path = "../../bags-list" }
+pallet-balances = { default-features = true, path = "../../balances" }
+pallet-timestamp = { default-features = true, path = "../../timestamp" }
+pallet-session = { default-features = true, path = "../../session" }
 
 [features]
 try-runtime = [
-	"frame-election-provider-support/try-runtime",
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"pallet-bags-list/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-election-provider-multi-phase/try-runtime",
-	"pallet-nomination-pools/try-runtime",
-	"pallet-session/try-runtime",
-	"pallet-staking/try-runtime",
-	"pallet-timestamp/try-runtime",
-	"sp-runtime/try-runtime",
 ]

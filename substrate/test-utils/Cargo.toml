@@ -1,6 +1,6 @@
 [package]
 name = "substrate-test-utils"
-version = "4.0.0-dev"
+version = "3.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -21,4 +21,4 @@ tokio = { features = ["macros", "time"], workspace = true, default-features = tr
 
 [dev-dependencies]
 trybuild = { features = ["diff"], workspace = true }
-sc-service = { workspace = true, default-features = true }
+sc-service = { default-features = true, path = "../client/service" }

@@ -13,8 +13,9 @@ publish = false
 workspace = true
 
 [dependencies]
-kitchensink-runtime = { workspace = true }
-generate-bags = { workspace = true, default-features = true }
+kitchensink-runtime.workspace = true
+generate-bags.workspace = true
+generate-bags.default-features = true
 
 # third-party
 clap = { features = ["derive"], workspace = true }

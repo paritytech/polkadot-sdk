@@ -28,36 +28,46 @@ tokio = { features = [
 ], workspace = true, default-features = true }
 thiserror = { workspace = true }
 quick_cache = { workspace = true }
-
-# Bridge dependencies
-
-bp-header-chain = { workspace = true, default-features = true }
-bp-messages = { workspace = true, default-features = true }
-bp-polkadot-core = { workspace = true, default-features = true }
-bp-runtime = { workspace = true, default-features = true }
-finality-relay = { workspace = true }
-relay-utils = { workspace = true }
-
-# Substrate Dependencies
-
-frame-support = { workspace = true, default-features = true }
-pallet-transaction-payment = { workspace = true, default-features = true }
-pallet-transaction-payment-rpc-runtime-api = { workspace = true, default-features = true }
-pallet-utility = { workspace = true, default-features = true }
-sc-chain-spec = { workspace = true, default-features = true }
-sc-rpc-api = { workspace = true, default-features = true }
-sc-transaction-pool-api = { workspace = true, default-features = true }
-sp-consensus-grandpa = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-rpc = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-std = { workspace = true, default-features = true }
-sp-trie = { workspace = true, default-features = true }
-sp-version = { workspace = true, default-features = true }
-
-# Polkadot Dependencies
-
-xcm = { workspace = true, default-features = true }
+bp-header-chain.workspace = true
+bp-header-chain.default-features = true
+bp-messages.workspace = true
+bp-messages.default-features = true
+bp-polkadot-core.workspace = true
+bp-polkadot-core.default-features = true
+bp-runtime.workspace = true
+bp-runtime.default-features = true
+finality-relay.workspace = true
+relay-utils.workspace = true
+frame-support.workspace = true
+frame-support.default-features = true
+pallet-transaction-payment.workspace = true
+pallet-transaction-payment.default-features = true
+pallet-transaction-payment-rpc-runtime-api.workspace = true
+pallet-transaction-payment-rpc-runtime-api.default-features = true
+pallet-utility.workspace = true
+pallet-utility.default-features = true
+sc-chain-spec.workspace = true
+sc-chain-spec.default-features = true
+sc-rpc-api.workspace = true
+sc-rpc-api.default-features = true
+sc-transaction-pool-api.workspace = true
+sc-transaction-pool-api.default-features = true
+sp-consensus-grandpa.workspace = true
+sp-consensus-grandpa.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
+sp-rpc.workspace = true
+sp-rpc.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+sp-std.workspace = true
+sp-std.default-features = true
+sp-trie.workspace = true
+sp-trie.default-features = true
+sp-version.workspace = true
+sp-version.default-features = true
+xcm.workspace = true
+xcm.default-features = true
 
 [features]
 default = []

@@ -15,15 +15,22 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-api = { workspace = true, default-features = true }
-substrate-test-runtime-client = { workspace = true }
-sp-version = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-consensus = { workspace = true, default-features = true }
-sc-block-builder = { workspace = true, default-features = true }
+sp-api.workspace = true
+sp-api.default-features = true
+substrate-test-runtime-client.workspace = true
+sp-version.workspace = true
+sp-version.default-features = true
+sp-tracing.workspace = true
+sp-tracing.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+sp-consensus.workspace = true
+sp-consensus.default-features = true
+sc-block-builder.workspace = true
+sc-block-builder.default-features = true
 codec = { workspace = true, default-features = true }
-sp-state-machine = { workspace = true, default-features = true }
+sp-state-machine.workspace = true
+sp-state-machine.default-features = true
 trybuild = { workspace = true }
 rustversion = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
@@ -32,7 +39,7 @@ scale-info = { features = ["derive"], workspace = true }
 criterion = { workspace = true, default-features = true }
 futures = { workspace = true }
 log = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
+sp-core = { default-features = true, path = "../../core" }
 static_assertions = { workspace = true, default-features = true }
 
 [[bench]]

@@ -19,3 +19,8 @@ you should include both pallets in your `construct_runtime` macro, but only incl
 pallet's [`TransactionExtension`] ([`ChargeAssetTxPayment`]).
 
 License: Apache-2.0
+
+
+## Release
+
+Polkadot SDK Stable 2412

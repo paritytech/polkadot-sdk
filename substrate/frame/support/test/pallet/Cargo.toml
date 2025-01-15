@@ -1,6 +1,6 @@
 [package]
 name = "frame-support-test-pallet"
-version = "4.0.0-dev"
+version = "4.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -18,9 +18,9 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["derive"], workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-sp-runtime = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
+sp-runtime.workspace = true
 
 [features]
 default = ["std"]

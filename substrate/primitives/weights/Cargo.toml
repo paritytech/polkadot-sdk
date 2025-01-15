@@ -1,6 +1,6 @@
 [package]
 name = "sp-weights"
-version = "27.0.0"
+version = "31.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -21,8 +21,8 @@ codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["alloc", "derive"], workspace = true }
 smallvec = { workspace = true, default-features = true }
-sp-arithmetic = { workspace = true }
-sp-debug-derive = { workspace = true }
+sp-arithmetic.workspace = true
+sp-debug-derive.workspace = true
 schemars = { optional = true, workspace = true }
 
 [features]

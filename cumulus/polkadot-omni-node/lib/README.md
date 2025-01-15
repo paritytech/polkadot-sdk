@@ -24,3 +24,8 @@ user-facing binary author, support url, etc.
 ## Examples
 
 For an example, see the [`polkadot-parachain-bin`](https://crates.io/crates/polkadot-parachain-bin) crate.
+
+
+## Release
+
+Polkadot SDK Stable 2412
