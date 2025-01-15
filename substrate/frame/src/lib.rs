@@ -150,7 +150,6 @@
 //! * `runtime::apis` should expose all common runtime APIs that all FRAME-based runtimes need.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg(feature = "experimental")]
 
 #[doc(no_inline)]
 pub use frame_support::pallet;
