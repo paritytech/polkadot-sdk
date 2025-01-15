@@ -113,7 +113,7 @@ pub trait HostFn: private::Sealed {
 		callee: &[u8; 20],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
-		deposit: Option<&[u8; 32]>,
+		deposit: &[u8; 32],
 		value: &[u8; 32],
 		input_data: &[u8],
 		output: Option<&mut &mut [u8]>,
@@ -202,7 +202,7 @@ pub trait HostFn: private::Sealed {
 		address: &[u8; 20],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
-		deposit_limit: Option<&[u8; 32]>,
+		deposit_limit: &[u8; 32],
 		input_data: &[u8],
 		output: Option<&mut &mut [u8]>,
 	) -> Result;
@@ -318,7 +318,7 @@ pub trait HostFn: private::Sealed {
 		code_hash: &[u8; 32],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
-		deposit: Option<&[u8; 32]>,
+		deposit: &[u8; 32],
 		value: &[u8; 32],
 		input: &[u8],
 		address: Option<&mut [u8; 20]>,
@@ -488,7 +488,7 @@ pub trait HostFn: private::Sealed {
 	/// A return value of `true` indicates that this contract is being called by a root origin,
 	/// and `false` indicates that the caller is a signed origin.
 	#[unstable_hostfn]
-	fn caller_is_root() -> u32;
+	fn caller_is_root() -> bool;
 
 	/// Clear the value at the given key in the contract storage.
 	///
@@ -514,26 +514,6 @@ pub trait HostFn: private::Sealed {
 	/// Returns the size of the pre-existing value at the specified key if any.
 	#[unstable_hostfn]
 	fn contains_storage(flags: StorageFlags, key: &[u8]) -> Option<u32>;
-
-	/// Emit a custom debug message.
-	///
-	/// No newlines are added to the supplied message.
-	/// Specifying invalid UTF-8 just drops the message with no trap.
-	///
-	/// This is a no-op if debug message recording is disabled which is always the case
-	/// when the code is executing on-chain. The message is interpreted as UTF-8 and
-	/// appended to the debug buffer which is then supplied to the calling RPC client.
-	///
-	/// # Note
-	///
-	/// Even though no action is taken when debug message recording is disabled there is still
-	/// a non trivial overhead (and weight cost) associated with calling this function. Contract
-	/// languages should remove calls to this function (either at runtime or compile time) when
-	/// not being executed as an RPC. For example, they could allow users to disable logging
-	/// through compile time flags (cargo features) for on-chain deployment. Additionally, the
-	/// return value of this function can be cached in order to prevent further calls at runtime.
-	#[unstable_hostfn]
-	fn debug_message(str: &[u8]) -> Result;
 
 	/// Recovers the ECDSA public key from the given message hash and signature.
 	///
