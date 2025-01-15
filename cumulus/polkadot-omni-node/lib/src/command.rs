@@ -34,10 +34,12 @@ use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunc
 use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
-use sc_cli::{Result, SubstrateCli};
+use sc_cli::{CliConfiguration, Result, SubstrateCli};
 use sp_runtime::traits::AccountIdConversion;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
+
+const DEFAULT_DEV_BLOCK_TIME_MS: u64 = 3000;
 
 /// Structure that can be used in order to provide customizers for different functionalities of the
 /// node binary that is being built using this library.
@@ -46,6 +48,16 @@ pub struct RunConfig {
 	pub chain_spec_loader: Box<dyn LoadSpec>,
 	/// A custom runtime resolver.
 	pub runtime_resolver: Box<dyn RuntimeResolver>,
+}
+
+impl RunConfig {
+	/// Create a new `RunConfig`
+	pub fn new(
+		runtime_resolver: Box<dyn RuntimeResolver>,
+		chain_spec_loader: Box<dyn LoadSpec>,
+	) -> Self {
+		RunConfig { chain_spec_loader, runtime_resolver }
+	}
 }
 
 pub fn new_aura_node_spec<Block>(
@@ -220,10 +232,19 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 						.ok_or("Could not find parachain extension in chain-spec.")?,
 				);
 
+				if cli.run.base.is_dev()? {
+					// Set default dev block time to 3000ms if not set.
+					// TODO: take block time from AURA config if set.
+					let dev_block_time = cli.dev_block_time.unwrap_or(DEFAULT_DEV_BLOCK_TIME_MS);
+					return node_spec
+						.start_manual_seal_node(config, para_id, dev_block_time)
+						.map_err(Into::into);
+				}
+
 				if let Some(dev_block_time) = cli.dev_block_time {
 					return node_spec
 						.start_manual_seal_node(config, para_id, dev_block_time)
-						.map_err(Into::into)
+						.map_err(Into::into);
 				}
 
 				// If Statemint (Statemine, Westmint, Rockmine) DB exists and we're using the
@@ -266,13 +287,15 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 				}
 
 				let hwbench = (!cli.no_hardware_benchmarks)
-					.then_some(config.database.path().map(|database_path| {
-						let _ = std::fs::create_dir_all(database_path);
-						sc_sysinfo::gather_hwbench(
-							Some(database_path),
-							&SUBSTRATE_REFERENCE_HARDWARE,
-						)
-					}))
+					.then(|| {
+						config.database.path().map(|database_path| {
+							let _ = std::fs::create_dir_all(database_path);
+							sc_sysinfo::gather_hwbench(
+								Some(database_path),
+								&SUBSTRATE_REFERENCE_HARDWARE,
+							)
+						})
+					})
 					.flatten();
 
 				let parachain_account =

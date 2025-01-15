@@ -19,6 +19,7 @@ forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 
 ## ⚡ Quickstart
 If you want to get an example node running quickly you can execute the following getting started script:
+
 ```
 curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/scripts/getting-started.sh | bash
 ```
@@ -31,18 +32,17 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/paritytec
   * [Guides](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/index.html),
 	namely how to build your first FRAME pallet
   * [Templates](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/templates/index.html)
-    for starting a new project
-* Other resources:
-  * [Polkadot Wiki -> Build](https://wiki.polkadot.network/docs/build-guide)
+    for starting a new project.
+  * [External Resources](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/external_resources/index.html)
 
 ## 🚀 Releases
 
 <!-- markdownlint-disable-next-line MD013 -->
 ![Current Stable Release](https://raw.githubusercontent.com/paritytech/release-registry/main/badges/polkadot-sdk-latest.svg)&nbsp;&nbsp;![Next Stable Release](https://raw.githubusercontent.com/paritytech/release-registry/main/badges/polkadot-sdk-next.svg)
 
-The Polkadot SDK is released every three months as a `stableYYMMDD` release. They are supported for
+The Polkadot SDK is released every three months as a `stableYYMM` release. They are supported for
 one year with patches. See the next upcoming versions in the [Release
-Registry](https://github.com/paritytech/release-registry/).
+Registry](https://github.com/paritytech/release-registry/) and more docs in [RELEASE.md](./docs/RELEASE.md).
 
 You can use [`psvm`](https://github.com/paritytech/psvm) to update all dependencies to a specific
 version without needing to manually select the correct version for each crate.

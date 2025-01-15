@@ -108,6 +108,13 @@ for PALLET in "${PALLETS[@]}"; do
   FOLDER="$(echo "${PALLET#*_}" | tr '_' '-')";
   WEIGHT_FILE="./frame/${FOLDER}/src/weights.rs"
 
+  TEMPLATE_FILE_NAME="frame-weight-template.hbs"
+  if [ $(cargo metadata --locked --format-version 1 --no-deps | jq --arg pallet "${PALLET//_/-}" -r '.packages[] | select(.name == $pallet) | .dependencies | any(.name == "polkadot-sdk-frame")') = true ]
+  then
+    TEMPLATE_FILE_NAME="frame-umbrella-weight-template.hbs"
+  fi
+  TEMPLATE_FILE="./.maintain/${TEMPLATE_FILE_NAME}"
+
   # Special handling of custom weight paths.
   if [ "$PALLET" == "frame_system_extensions" ] || [ "$PALLET" == "frame-system-extensions" ]
   then
@@ -118,6 +125,9 @@ for PALLET in "${PALLETS[@]}"; do
   elif [ "$PALLET" == "pallet_asset_tx_payment" ] || [ "$PALLET" == "pallet-asset-tx-payment" ]
   then
     WEIGHT_FILE="./frame/transaction-payment/asset-tx-payment/src/weights.rs"
+  elif [ "$PALLET" == "pallet_asset_conversion_ops" ] || [ "$PALLET" == "pallet-asset-conversion-ops" ]
+  then
+    WEIGHT_FILE="./frame/asset-conversion/ops/src/weights.rs"
   fi
 
   echo "[+] Benchmarking $PALLET with weight file $WEIGHT_FILE";
@@ -133,7 +143,7 @@ for PALLET in "${PALLETS[@]}"; do
     --heap-pages=4096 \
     --output="$WEIGHT_FILE" \
     --header="./HEADER-APACHE2" \
-    --template=./.maintain/frame-weight-template.hbs 2>&1
+    --template="$TEMPLATE_FILE" 2>&1
   )
   if [ $? -ne 0 ]; then
     echo "$OUTPUT" >> "$ERR_FILE"

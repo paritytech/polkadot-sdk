@@ -25,7 +25,7 @@ use frame_election_provider_support::{
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, LockableCurrency,
+		ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Imbalance, LockableCurrency,
 		OnUnbalanced, OneSessionHandler, WithdrawReasons,
 	},
 	weights::constants::RocksDbWeight,
@@ -155,7 +155,7 @@ impl pallet_session::historical::Config for Test {
 }
 impl pallet_authorship::Config for Test {
 	type FindAuthor = Author11;
-	type EventHandler = Pallet<Test>;
+	type EventHandler = ();
 }
 
 impl pallet_timestamp::Config for Test {
@@ -258,7 +258,8 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 	}
 }
 
-// Disabling threshold for `UpToLimitDisablingStrategy`
+// Disabling threshold for `UpToLimitDisablingStrategy` and
+// `UpToLimitWithReEnablingDisablingStrategy``
 pub(crate) const DISABLING_LIMIT_FACTOR: usize = 3;
 
 #[derive_impl(crate::config_preludes::TestDefaultConfig)]
@@ -284,7 +285,8 @@ impl crate::pallet::pallet::Config for Test {
 	type HistoryDepth = HistoryDepth;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
-	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy<DISABLING_LIMIT_FACTOR>;
+	type DisablingStrategy =
+		pallet_staking::UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>;
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;
@@ -542,13 +544,10 @@ impl ExtBuilder {
 		let mut ext = sp_io::TestExternalities::from(storage);
 
 		if self.initialize_first_session {
-			// We consider all test to start after timestamp is initialized This must be ensured by
-			// having `timestamp::on_initialize` called before `staking::on_initialize`. Also, if
-			// session length is 1, then it is already triggered.
 			ext.execute_with(|| {
-				System::set_block_number(1);
-				Session::on_initialize(1);
-				<Staking as Hooks<u64>>::on_initialize(1);
+				run_to_block(1);
+
+				// Force reset the timestamp to the initial timestamp for easy testing.
 				Timestamp::set_timestamp(INIT_TIMESTAMP);
 			});
 		}
@@ -568,11 +567,11 @@ impl ExtBuilder {
 }
 
 pub(crate) fn active_era() -> EraIndex {
-	Staking::active_era().unwrap().index
+	pallet_staking::ActiveEra::<Test>::get().unwrap().index
 }
 
 pub(crate) fn current_era() -> EraIndex {
-	Staking::current_era().unwrap()
+	pallet_staking::CurrentEra::<Test>::get().unwrap()
 }
 
 pub(crate) fn bond(who: AccountId, val: Balance) {
@@ -616,33 +615,31 @@ pub(crate) fn bond_virtual_nominator(
 /// a block import/propose process where we first initialize the block, then execute some stuff (not
 /// in the function), and then finalize the block.
 pub(crate) fn run_to_block(n: BlockNumber) {
-	Staking::on_finalize(System::block_number());
-	for b in (System::block_number() + 1)..=n {
-		System::set_block_number(b);
-		Session::on_initialize(b);
-		<Staking as Hooks<u64>>::on_initialize(b);
-		Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
-		if b != n {
-			Staking::on_finalize(System::block_number());
-		}
-	}
+	System::run_to_block_with::<AllPalletsWithSystem>(
+		n,
+		frame_system::RunToBlockHooks::default().after_initialize(|bn| {
+			Timestamp::set_timestamp(bn * BLOCK_TIME + INIT_TIMESTAMP);
+		}),
+	);
 }
 
 /// Progresses from the current block number (whatever that may be) to the `P * session_index + 1`.
-pub(crate) fn start_session(session_index: SessionIndex) {
+pub(crate) fn start_session(end_session_idx: SessionIndex) {
+	let period = Period::get();
 	let end: u64 = if Offset::get().is_zero() {
-		(session_index as u64) * Period::get()
+		(end_session_idx as u64) * period
 	} else {
-		Offset::get() + (session_index.saturating_sub(1) as u64) * Period::get()
+		Offset::get() + (end_session_idx.saturating_sub(1) as u64) * period
 	};
+
 	run_to_block(end);
+
+	let curr_session_idx = Session::current_index();
+
 	// session must have progressed properly.
 	assert_eq!(
-		Session::current_index(),
-		session_index,
-		"current session index = {}, expected = {}",
-		Session::current_index(),
-		session_index,
+		curr_session_idx, end_session_idx,
+		"current session index = {curr_session_idx}, expected = {end_session_idx}",
 	);
 }
 
@@ -663,7 +660,7 @@ pub(crate) fn start_active_era(era_index: EraIndex) {
 
 pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
 	let (payout, _rest) = <Test as Config>::EraPayout::era_payout(
-		Staking::eras_total_stake(active_era()),
+		pallet_staking::ErasTotalStake::<Test>::get(active_era()),
 		pallet_balances::TotalIssuance::<Test>::get(),
 		duration,
 	);
@@ -673,7 +670,7 @@ pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
 
 pub(crate) fn maximum_payout_for_duration(duration: u64) -> Balance {
 	let (payout, rest) = <Test as Config>::EraPayout::era_payout(
-		Staking::eras_total_stake(active_era()),
+		pallet_staking::ErasTotalStake::<Test>::get(active_era()),
 		pallet_balances::TotalIssuance::<Test>::get(),
 		duration,
 	);
@@ -732,11 +729,11 @@ pub(crate) fn on_offence_in_era(
 		}
 	}
 
-	if Staking::active_era().unwrap().index == era {
+	if pallet_staking::ActiveEra::<Test>::get().unwrap().index == era {
 		let _ = Staking::on_offence(
 			offenders,
 			slash_fraction,
-			Staking::eras_start_session_index(era).unwrap(),
+			pallet_staking::ErasStartSessionIndex::<Test>::get(era).unwrap(),
 		);
 	} else {
 		panic!("cannot slash in era {}", era);
@@ -750,7 +747,7 @@ pub(crate) fn on_offence_now(
 	>],
 	slash_fraction: &[Perbill],
 ) {
-	let now = Staking::active_era().unwrap().index;
+	let now = pallet_staking::ActiveEra::<Test>::get().unwrap().index;
 	on_offence_in_era(offenders, slash_fraction, now)
 }
 
@@ -889,10 +886,10 @@ macro_rules! assert_session_era {
 			$session,
 		);
 		assert_eq!(
-			Staking::current_era().unwrap(),
+			CurrentEra::<T>::get().unwrap(),
 			$era,
 			"wrong current era {} != {}",
-			Staking::current_era().unwrap(),
+			CurrentEra::<T>::get().unwrap(),
 			$era,
 		);
 	};

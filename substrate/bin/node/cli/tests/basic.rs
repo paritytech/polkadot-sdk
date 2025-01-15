@@ -61,14 +61,14 @@ pub fn bloaty_code_unwrap() -> &'static [u8] {
 /// correct multiplier.
 fn transfer_fee(extrinsic: &UncheckedExtrinsic) -> Balance {
 	let mut info = default_transfer_call().get_dispatch_info();
-	info.extension_weight = extrinsic.extension_weight();
+	info.extension_weight = extrinsic.0.extension_weight();
 	TransactionPayment::compute_fee(extrinsic.encode().len() as u32, &info, 0)
 }
 
 /// Default transfer fee, same as `transfer_fee`, but with a weight refund factored in.
 fn transfer_fee_with_refund(extrinsic: &UncheckedExtrinsic, weight_refund: Weight) -> Balance {
 	let mut info = default_transfer_call().get_dispatch_info();
-	info.extension_weight = extrinsic.extension_weight();
+	info.extension_weight = extrinsic.0.extension_weight();
 	let post_info = (Some(info.total_weight().saturating_sub(weight_refund)), info.pays_fee).into();
 	TransactionPayment::compute_actual_fee(extrinsic.encode().len() as u32, &info, &post_info, 0)
 }
@@ -324,7 +324,7 @@ fn full_native_block_import_works() {
 
 	let mut alice_last_known_balance: Balance = Default::default();
 	let mut fees = t.execute_with(|| transfer_fee(&xt()));
-	let extension_weight = xt().extension_weight();
+	let extension_weight = xt().0.extension_weight();
 	let weight_refund = Weight::zero();
 	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
 
@@ -427,7 +427,7 @@ fn full_native_block_import_works() {
 
 	fees = t.execute_with(|| transfer_fee(&xt()));
 	let pot = t.execute_with(|| Treasury::pot());
-	let extension_weight = xt().extension_weight();
+	let extension_weight = xt().0.extension_weight();
 	let weight_refund = Weight::zero();
 	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
 

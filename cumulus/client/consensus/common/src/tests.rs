@@ -20,7 +20,7 @@ use async_trait::async_trait;
 use codec::Encode;
 use cumulus_client_pov_recovery::RecoveryKind;
 use cumulus_primitives_core::{
-	relay_chain::{BlockId, BlockNumber, CoreState},
+	relay_chain::{vstaging::CoreState, BlockId, BlockNumber},
 	CumulusDigestItem, InboundDownwardMessage, InboundHrmpMessage,
 };
 use cumulus_relay_chain_interface::{

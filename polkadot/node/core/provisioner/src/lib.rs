@@ -41,9 +41,10 @@ use polkadot_node_subsystem_util::{
 	TimeoutExt,
 };
 use polkadot_primitives::{
-	node_features::FeatureIndex, BackedCandidate, BlockNumber, CandidateHash, CandidateReceipt,
-	CoreIndex, CoreState, Hash, Id as ParaId, NodeFeatures, OccupiedCoreAssumption, SessionIndex,
-	SignedAvailabilityBitfield, ValidatorIndex,
+	node_features::FeatureIndex,
+	vstaging::{BackedCandidate, CandidateReceiptV2 as CandidateReceipt, CoreState},
+	BlockNumber, CandidateHash, CoreIndex, Hash, Id as ParaId, NodeFeatures,
+	OccupiedCoreAssumption, SessionIndex, SignedAvailabilityBitfield, ValidatorIndex,
 };
 use std::collections::{BTreeMap, HashMap};
 
@@ -361,10 +362,9 @@ fn note_provisionable_data(
 			gum::trace!(
 				target: LOG_TARGET,
 				?candidate_hash,
-				para = ?backed_candidate.descriptor().para_id,
+				para = ?backed_candidate.descriptor().para_id(),
 				"noted backed candidate",
 			);
-
 			per_relay_parent.backed_candidates.push(backed_candidate);
 		},
 		// We choose not to punish these forms of misbehavior for the time being.
@@ -650,22 +650,22 @@ async fn select_candidate_hashes_from_tracked(
 		// selection criteria
 		if let Some(candidate) = candidates.iter().find(|backed_candidate| {
 			let descriptor = &backed_candidate.descriptor;
-			descriptor.para_id == scheduled_core.para_id &&
-				descriptor.persisted_validation_data_hash == computed_validation_data_hash
+			descriptor.para_id() == scheduled_core.para_id &&
+				descriptor.persisted_validation_data_hash() == computed_validation_data_hash
 		}) {
 			let candidate_hash = candidate.hash();
 			gum::trace!(
 				target: LOG_TARGET,
 				leaf_hash=?relay_parent,
 				?candidate_hash,
-				para = ?candidate.descriptor.para_id,
+				para = ?candidate.descriptor.para_id(),
 				core = core_idx,
 				"Selected candidate receipt",
 			);
 
 			selected_candidates.insert(
-				candidate.descriptor.para_id,
-				vec![(candidate_hash, candidate.descriptor.relay_parent)],
+				candidate.descriptor.para_id(),
+				vec![(candidate_hash, candidate.descriptor.relay_parent())],
 			);
 		}
 	}

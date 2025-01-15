@@ -8,6 +8,7 @@ use alloc::{vec, vec::Vec};
 use polkadot_sdk::{staging_xcm as xcm, *};
 
 use cumulus_primitives_core::ParaId;
+use frame_support::build_struct_json_patch;
 use parachains_common::AuraId;
 use serde_json::Value;
 use sp_genesis_builder::PresetId;
@@ -15,6 +16,8 @@ use sp_keyring::Sr25519Keyring;
 
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
+/// Parachain id used for genesis config presets of parachain template.
+pub const PARACHAIN_ID: u32 = 1000;
 
 /// Generate the session keys from individual elements.
 ///
@@ -29,7 +32,7 @@ fn testnet_genesis(
 	root: AccountId,
 	id: ParaId,
 ) -> Value {
-	let config = RuntimeGenesisConfig {
+	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts
 				.iter()
@@ -37,11 +40,10 @@ fn testnet_genesis(
 				.map(|k| (k, 1u128 << 60))
 				.collect::<Vec<_>>(),
 		},
-		parachain_info: ParachainInfoConfig { parachain_id: id, ..Default::default() },
+		parachain_info: ParachainInfoConfig { parachain_id: id },
 		collator_selection: CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect::<Vec<_>>(),
 			candidacy_bond: EXISTENTIAL_DEPOSIT * 16,
-			..Default::default()
 		},
 		session: SessionConfig {
 			keys: invulnerables
@@ -54,17 +56,10 @@ fn testnet_genesis(
 					)
 				})
 				.collect::<Vec<_>>(),
-			..Default::default()
 		},
-		polkadot_xcm: PolkadotXcmConfig {
-			safe_xcm_version: Some(SAFE_XCM_VERSION),
-			..Default::default()
-		},
+		polkadot_xcm: PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
 		sudo: SudoConfig { key: Some(root) },
-		..Default::default()
-	};
-
-	serde_json::to_value(config).expect("Could not build genesis config.")
+	})
 }
 
 fn local_testnet_genesis() -> Value {
@@ -76,7 +71,7 @@ fn local_testnet_genesis() -> Value {
 		],
 		Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 		Sr25519Keyring::Alice.to_account_id(),
-		1000.into(),
+		PARACHAIN_ID.into(),
 	)
 }
 
@@ -89,15 +84,15 @@ fn development_config_genesis() -> Value {
 		],
 		Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 		Sr25519Keyring::Alice.to_account_id(),
-		1000.into(),
+		PARACHAIN_ID.into(),
 	)
 }
 
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<vec::Vec<u8>> {
-	let patch = match id.try_into() {
-		Ok(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET) => local_testnet_genesis(),
-		Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => development_config_genesis(),
+	let patch = match id.as_ref() {
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => local_testnet_genesis(),
+		sp_genesis_builder::DEV_RUNTIME_PRESET => development_config_genesis(),
 		_ => return None,
 	};
 	Some(

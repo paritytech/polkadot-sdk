@@ -23,6 +23,7 @@ use crate::{
 #[cfg(not(feature = "std"))]
 use alloc::format;
 use alloc::{vec, vec::Vec};
+use frame_support::build_struct_json_patch;
 use pallet_staking::{Forcing, StakerStatus};
 use polkadot_primitives::{AccountId, AssignmentId, SchedulerParams, ValidatorId};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -132,7 +133,8 @@ fn default_parachains_host_configuration(
 		},
 		node_features: bitvec::vec::BitVec::from_element(
 			1u8 << (FeatureIndex::ElasticScalingMVP as usize) |
-				1u8 << (FeatureIndex::EnableAssignmentsV2 as usize),
+				1u8 << (FeatureIndex::EnableAssignmentsV2 as usize) |
+				1u8 << (FeatureIndex::CandidateReceiptV2 as usize),
 		),
 		scheduler_params: SchedulerParams {
 			lookahead: 2,
@@ -170,7 +172,7 @@ fn westend_testnet_genesis(
 	const ENDOWMENT: u128 = 1_000_000 * WND;
 	const STASH: u128 = 100 * WND;
 
-	let config = RuntimeGenesisConfig {
+	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::<Vec<_>>(),
 		},
@@ -192,7 +194,6 @@ fn westend_testnet_genesis(
 					)
 				})
 				.collect::<Vec<_>>(),
-			..Default::default()
 		},
 		staking: StakingConfig {
 			minimum_validator_count: 1,
@@ -204,19 +205,12 @@ fn westend_testnet_genesis(
 			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
 			force_era: Forcing::NotForcing,
 			slash_reward_fraction: Perbill::from_percent(10),
-			..Default::default()
 		},
-		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG, ..Default::default() },
+		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG },
 		sudo: SudoConfig { key: Some(root_key) },
 		configuration: ConfigurationConfig { config: default_parachains_host_configuration() },
-		registrar: RegistrarConfig {
-			next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
-			..Default::default()
-		},
-		..Default::default()
-	};
-
-	serde_json::to_value(config).expect("Could not build genesis config.")
+		registrar: RegistrarConfig { next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID },
+	})
 }
 
 // staging_testnet
@@ -229,7 +223,7 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 	//
 	// SECRET_SEED="slow awkward present example safe bundle science ocean cradle word tennis earn"
 	// subkey inspect -n polkadot "$SECRET_SEED"
-	let endowed_accounts = vec![
+	let endowed_accounts: Vec<AccountId> = vec![
 		// 15S75FkhCWEowEGfxWwVfrW3LQuy8w8PNhVmrzfsVhCMjUh1
 		hex!["c416837e232d9603e83162ef4bda08e61580eeefe60fe92fc044aa508559ae42"].into(),
 	];
@@ -345,7 +339,7 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 	const ENDOWMENT: u128 = 1_000_000 * WND;
 	const STASH: u128 = 100 * WND;
 
-	let config = RuntimeGenesisConfig {
+	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts
 				.iter()
@@ -371,7 +365,6 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 					)
 				})
 				.collect::<Vec<_>>(),
-			..Default::default()
 		},
 		staking: StakingConfig {
 			validator_count: 50,
@@ -383,19 +376,12 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
 			force_era: Forcing::ForceNone,
 			slash_reward_fraction: Perbill::from_percent(10),
-			..Default::default()
 		},
-		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG, ..Default::default() },
+		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG },
 		sudo: SudoConfig { key: Some(endowed_accounts[0].clone()) },
 		configuration: ConfigurationConfig { config: default_parachains_host_configuration() },
-		registrar: RegistrarConfig {
-			next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
-			..Default::default()
-		},
-		..Default::default()
-	};
-
-	serde_json::to_value(config).expect("Could not build genesis config.")
+		registrar: RegistrarConfig { next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID },
+	})
 }
 
 //development
@@ -418,10 +404,10 @@ fn westend_local_testnet_genesis() -> serde_json::Value {
 
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
-	let patch = match id.try_into() {
-		Ok(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET) => westend_local_testnet_genesis(),
-		Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => westend_development_config_genesis(),
-		Ok("staging_testnet") => westend_staging_testnet_config_genesis(),
+	let patch = match id.as_ref() {
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => westend_local_testnet_genesis(),
+		sp_genesis_builder::DEV_RUNTIME_PRESET => westend_development_config_genesis(),
+		"staging_testnet" => westend_staging_testnet_config_genesis(),
 		_ => return None,
 	};
 	Some(

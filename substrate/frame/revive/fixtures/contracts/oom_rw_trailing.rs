@@ -26,13 +26,18 @@ extern crate common;
 
 use uapi::{HostFn, HostFnImpl as api, ReturnFlags};
 
-static mut BUFFER: [u8; 1025 * 1024] = [0; 1025 * 1024];
+static mut BUFFER: [u8; 2 * 1025 * 1024] = [0; 2 * 1025 * 1024];
+
+unsafe fn buffer() -> &'static [u8; 2 * 1025 * 1024] {
+	let ptr = core::ptr::addr_of!(BUFFER);
+	&*ptr
+}
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub unsafe extern "C" fn call_never() {
 	// make sure the buffer is not optimized away
-	api::return_value(ReturnFlags::empty(), &BUFFER);
+	api::return_value(ReturnFlags::empty(), buffer());
 }
 
 #[no_mangle]

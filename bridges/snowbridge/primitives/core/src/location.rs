@@ -97,9 +97,12 @@ impl DescribeLocation for DescribeTokenTerminal {
 #[cfg(test)]
 mod tests {
 	use crate::TokenIdOf;
-	use xcm::prelude::{
-		GeneralIndex, GeneralKey, GlobalConsensus, Junction::*, Location, NetworkId::*,
-		PalletInstance, Parachain,
+	use xcm::{
+		latest::WESTEND_GENESIS_HASH,
+		prelude::{
+			GeneralIndex, GeneralKey, GlobalConsensus, Junction::*, Location, NetworkId::ByGenesis,
+			PalletInstance, Parachain,
+		},
 	};
 	use xcm_executor::traits::ConvertLocation;
 
@@ -108,17 +111,24 @@ mod tests {
 		let token_locations = [
 			// Relay Chain cases
 			// Relay Chain relative to Ethereum
-			Location::new(1, [GlobalConsensus(Westend)]),
+			Location::new(1, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]),
 			// Parachain cases
 			// Parachain relative to Ethereum
-			Location::new(1, [GlobalConsensus(Westend), Parachain(2000)]),
+			Location::new(1, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(2000)]),
 			// Parachain general index
-			Location::new(1, [GlobalConsensus(Westend), Parachain(2000), GeneralIndex(1)]),
+			Location::new(
+				1,
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					Parachain(2000),
+					GeneralIndex(1),
+				],
+			),
 			// Parachain general key
 			Location::new(
 				1,
 				[
-					GlobalConsensus(Westend),
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
 					Parachain(2000),
 					GeneralKey { length: 32, data: [0; 32] },
 				],
@@ -127,7 +137,7 @@ mod tests {
 			Location::new(
 				1,
 				[
-					GlobalConsensus(Westend),
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
 					Parachain(2000),
 					AccountKey20 { network: None, key: [0; 20] },
 				],
@@ -136,24 +146,36 @@ mod tests {
 			Location::new(
 				1,
 				[
-					GlobalConsensus(Westend),
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
 					Parachain(2000),
 					AccountId32 { network: None, id: [0; 32] },
 				],
 			),
 			// Parchain Pallet instance cases
 			// Parachain pallet instance
-			Location::new(1, [GlobalConsensus(Westend), Parachain(2000), PalletInstance(8)]),
+			Location::new(
+				1,
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					Parachain(2000),
+					PalletInstance(8),
+				],
+			),
 			// Parachain Pallet general index
 			Location::new(
 				1,
-				[GlobalConsensus(Westend), Parachain(2000), PalletInstance(8), GeneralIndex(1)],
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					Parachain(2000),
+					PalletInstance(8),
+					GeneralIndex(1),
+				],
 			),
 			// Parachain Pallet general key
 			Location::new(
 				1,
 				[
-					GlobalConsensus(Westend),
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
 					Parachain(2000),
 					PalletInstance(8),
 					GeneralKey { length: 32, data: [0; 32] },
@@ -163,7 +185,7 @@ mod tests {
 			Location::new(
 				1,
 				[
-					GlobalConsensus(Westend),
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
 					Parachain(2000),
 					PalletInstance(8),
 					AccountKey20 { network: None, key: [0; 20] },
@@ -173,7 +195,7 @@ mod tests {
 			Location::new(
 				1,
 				[
-					GlobalConsensus(Westend),
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
 					Parachain(2000),
 					PalletInstance(8),
 					AccountId32 { network: None, id: [0; 32] },

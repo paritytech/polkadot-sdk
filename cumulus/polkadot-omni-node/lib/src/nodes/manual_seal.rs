@@ -16,29 +16,37 @@
 
 use crate::common::{
 	rpc::BuildRpcExtensions as BuildRpcExtensionsT,
-	spec::{BaseNodeSpec, BuildImportQueue, NodeSpec as NodeSpecT},
+	spec::{BaseNodeSpec, BuildImportQueue, ClientBlockImport, NodeSpec as NodeSpecT},
 	types::{Hash, ParachainBlockImport, ParachainClient},
 };
 use codec::Encode;
 use cumulus_client_parachain_inherent::{MockValidationDataInherentDataProvider, MockXcmConfig};
-use cumulus_primitives_core::ParaId;
+use cumulus_primitives_core::{CollectCollationInfo, ParaId};
+use polkadot_primitives::UpgradeGoAhead;
 use sc_consensus::{DefaultImportQueue, LongestChain};
 use sc_consensus_manual_seal::rpc::{ManualSeal, ManualSealApiServer};
 use sc_network::NetworkBackend;
-use sc_service::{build_polkadot_syncing_strategy, Configuration, PartialComponents, TaskManager};
+use sc_service::{Configuration, PartialComponents, TaskManager};
 use sc_telemetry::TelemetryHandle;
+use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::Header;
-use sp_timestamp::Timestamp;
 use std::{marker::PhantomData, sync::Arc};
 
 pub struct ManualSealNode<NodeSpec>(PhantomData<NodeSpec>);
 
-impl<NodeSpec: NodeSpecT> BuildImportQueue<NodeSpec::Block, NodeSpec::RuntimeApi>
-	for ManualSealNode<NodeSpec>
+impl<NodeSpec: NodeSpecT>
+	BuildImportQueue<
+		NodeSpec::Block,
+		NodeSpec::RuntimeApi,
+		Arc<ParachainClient<NodeSpec::Block, NodeSpec::RuntimeApi>>,
+	> for ManualSealNode<NodeSpec>
 {
 	fn build_import_queue(
 		client: Arc<ParachainClient<NodeSpec::Block, NodeSpec::RuntimeApi>>,
-		_block_import: ParachainBlockImport<NodeSpec::Block, NodeSpec::RuntimeApi>,
+		_block_import: ParachainBlockImport<
+			NodeSpec::Block,
+			Arc<ParachainClient<NodeSpec::Block, NodeSpec::RuntimeApi>>,
+		>,
 		config: &Configuration,
 		_telemetry_handle: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
@@ -55,6 +63,7 @@ impl<NodeSpec: NodeSpecT> BaseNodeSpec for ManualSealNode<NodeSpec> {
 	type Block = NodeSpec::Block;
 	type RuntimeApi = NodeSpec::RuntimeApi;
 	type BuildImportQueue = Self;
+	type InitBlockImport = ClientBlockImport;
 }
 
 impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
@@ -79,14 +88,14 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 			keystore_container,
 			select_chain: _,
 			transaction_pool,
-			other: (_, mut telemetry, _),
+			other: (_, mut telemetry, _, _),
 		} = Self::new_partial(&config)?;
 		let select_chain = LongestChain::new(backend.clone());
 
 		// Since this is a dev node, prevent it from connecting to peers.
 		config.network.default_peers_set.in_peers = 0;
 		config.network.default_peers_set.out_peers = 0;
-		let mut net_config = sc_network::config::FullNetworkConfiguration::<_, _, Net>::new(
+		let net_config = sc_network::config::FullNetworkConfiguration::<_, _, Net>::new(
 			&config.network,
 			config.prometheus_config.as_ref().map(|cfg| cfg.registry.clone()),
 		);
@@ -94,17 +103,7 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 			config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
 		);
 
-		let syncing_strategy = build_polkadot_syncing_strategy(
-			config.protocol_id(),
-			config.chain_spec.fork_id(),
-			&mut net_config,
-			None,
-			client.clone(),
-			&task_manager.spawn_handle(),
-			config.prometheus_config.as_ref().map(|config| &config.registry),
-		)?;
-
-		let (network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
+		let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 			sc_service::build_network(sc_service::BuildNetworkParams {
 				config: &config,
 				client: client.clone(),
@@ -113,7 +112,7 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 				import_queue,
 				net_config,
 				block_announce_validator_builder: None,
-				syncing_strategy,
+				warp_sync_config: None,
 				block_relay: None,
 				metrics,
 			})?;
@@ -158,6 +157,18 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 					.header(block)
 					.expect("Header lookup should succeed")
 					.expect("Header passed in as parent should be present in backend.");
+
+				let should_send_go_ahead = match client_for_cidp
+					.runtime_api()
+					.collect_collation_info(block, &current_para_head)
+				{
+					Ok(info) => info.new_validation_code.is_some(),
+					Err(e) => {
+						log::error!("Failed to collect collation info: {:?}", e);
+						false
+					},
+				};
+
 				let current_para_block_head =
 					Some(polkadot_primitives::HeadData(current_para_head.encode()));
 				let client_for_xcm = client_for_cidp.clone();
@@ -180,9 +191,18 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 						raw_downward_messages: vec![],
 						raw_horizontal_messages: vec![],
 						additional_key_values: None,
+						upgrade_go_ahead: should_send_go_ahead.then(|| {
+							log::info!(
+								"Detected pending validation code, sending go-ahead signal."
+							);
+							UpgradeGoAhead::GoAhead
+						}),
 					};
 					Ok((
-						sp_timestamp::InherentDataProvider::new(Timestamp::new(0)),
+						// This is intentional, as the runtime that we expect to run against this
+						// will never receive the aura-related inherents/digests, and providing
+						// real timestamps would cause aura <> timestamp checking to fail.
+						sp_timestamp::InherentDataProvider::new(sp_timestamp::Timestamp::new(0)),
 						mocked_parachain,
 					))
 				}
@@ -227,7 +247,6 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 			telemetry: telemetry.as_mut(),
 		})?;
 
-		start_network.start_network();
 		Ok(task_manager)
 	}
 }

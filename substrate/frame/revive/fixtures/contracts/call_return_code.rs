@@ -42,10 +42,10 @@ pub extern "C" fn call() {
 	let err_code = match api::call(
 		uapi::CallFlags::empty(),
 		callee_addr,
-		0u64,                // How much ref_time to devote for the execution. 0 = all.
-		0u64,                // How much proof_size to devote for the execution. 0 = all.
-		None,                // No deposit limit.
-		value, 				 // Value transferred to the contract.
+		u64::MAX,                 // How much ref_time to devote for the execution. u64::MAX = use all.
+		u64::MAX,                 // How much proof_size to devote for the execution. u64::MAX = use all.
+		&[u8::MAX; 32], // No deposit limit.
+		value,                    // Value transferred to the contract.
 		input,
 		None,
 	) {

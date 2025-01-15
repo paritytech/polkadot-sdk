@@ -37,6 +37,7 @@ pub type TxExtension = (
 	frame_system::CheckMortality<Test>,
 	frame_system::CheckNonce<Test>,
 	frame_system::CheckWeight<Test>,
+	frame_system::WeightReclaim<Test>,
 );
 pub type Address = sp_runtime::MultiAddress<AccountId, AccountIndex>;
 pub type UncheckedExtrinsic =
@@ -126,7 +127,6 @@ parameter_types! {
 	pub const AnyNetwork: Option<NetworkId> = None;
 	pub UniversalLocation: InteriorLocation = (ByGenesis([0; 32]), Parachain(42)).into();
 	pub UnitWeightCost: u64 = 1_000;
-	pub static AdvertisedXcmVersion: u32 = 3;
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
 	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (AssetId(RelayLocation::get()), 1, 1);
 	pub TrustedAssets: (AssetFilter, Location) = (All.into(), Here.into());
@@ -267,7 +267,7 @@ impl pallet_xcm::Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
-	type AdvertisedXcmVersion = AdvertisedXcmVersion;
+	type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
 	type TrustedLockers = ();
 	type SovereignAccountOf = SovereignAccountOf;
 	type Currency = Balances;

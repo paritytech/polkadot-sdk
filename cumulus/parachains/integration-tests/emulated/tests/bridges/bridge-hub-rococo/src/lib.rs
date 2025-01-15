@@ -22,9 +22,8 @@ mod imports {
 
 	// Polkadot
 	pub use xcm::{
-		latest::ParentThen,
+		latest::{ParentThen, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
 		prelude::{AccountId32 as AccountId32Junction, *},
-		v4::{self, NetworkId::Westend as WestendId},
 	};
 	pub use xcm_executor::traits::TransferType;
 
@@ -51,6 +50,7 @@ mod imports {
 			AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},
 		bridge_hub_rococo_emulated_chain::{
+			bridge_hub_rococo_runtime::bridge_to_ethereum_config::EthereumGatewayAddress,
 			genesis::ED as BRIDGE_HUB_ROCOCO_ED, BridgeHubRococoExistentialDeposit,
 			BridgeHubRococoParaPallet as BridgeHubRococoPallet, BridgeHubRococoRuntimeOrigin,
 			BridgeHubRococoXcmConfig, EthereumBeaconClient, EthereumInboundQueue,

@@ -66,8 +66,9 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers::mock::new_block_import_info;
 use polkadot_overseer::Handle as OverseerHandleReal;
 use polkadot_primitives::{
-	BlockNumber, CandidateEvent, CandidateIndex, CandidateReceipt, Hash, Header, Slot, ValidatorId,
-	ValidatorIndex, ASSIGNMENT_KEY_TYPE_ID,
+	vstaging::{CandidateEvent, CandidateReceiptV2 as CandidateReceipt},
+	BlockNumber, CandidateIndex, Hash, Header, Slot, ValidatorId, ValidatorIndex,
+	ASSIGNMENT_KEY_TYPE_ID,
 };
 use prometheus::Registry;
 use sc_keystore::LocalKeystore;
@@ -890,6 +891,8 @@ fn build_overseer(
 			state.approval_voting_parallel_metrics.approval_voting_metrics(),
 			Arc::new(system_clock.clone()),
 			Arc::new(SpawnGlue(spawn_task_handle.clone())),
+			1,
+			Duration::from_secs(1),
 		);
 
 		let approval_distribution = ApprovalDistribution::new_with_clock(

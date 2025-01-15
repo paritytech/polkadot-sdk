@@ -242,3 +242,28 @@ impl<Reporter, Evidence> OffenceReportSystem<Reporter, Evidence> for () {
 		Ok(())
 	}
 }
+
+/// Wrapper type representing the severity of an offence.
+///
+/// As of now the only meaningful value taken into account
+/// when deciding the severity of an offence is the associated
+/// slash amount `Perbill`.
+///
+/// For instance used for the purposes of distinguishing who should be
+/// prioritized for disablement.
+#[derive(
+	Clone, Copy, PartialEq, Eq, Encode, Decode, sp_runtime::RuntimeDebug, scale_info::TypeInfo,
+)]
+pub struct OffenceSeverity(pub Perbill);
+
+impl PartialOrd for OffenceSeverity {
+	fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+		self.0.partial_cmp(&other.0)
+	}
+}
+
+impl Ord for OffenceSeverity {
+	fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+		self.0.cmp(&other.0)
+	}
+}

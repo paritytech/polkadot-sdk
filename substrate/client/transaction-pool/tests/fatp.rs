@@ -30,7 +30,7 @@ use sc_transaction_pool_api::{
 };
 use sp_runtime::transaction_validity::InvalidTransaction;
 use std::{sync::Arc, time::Duration};
-use substrate_test_runtime_client::AccountKeyring::*;
+use substrate_test_runtime_client::Sr25519Keyring::*;
 use substrate_test_runtime_transaction_pool::uxt;
 
 pub mod fatp_common;
@@ -2199,7 +2199,7 @@ fn import_sink_works3() {
 		pool.submit_one(genesis, SOURCE, xt1.clone()),
 	];
 
-	let x = block_on(futures::future::join_all(submissions));
+	block_on(futures::future::join_all(submissions));
 
 	let header01a = api.push_block(1, vec![], true);
 	let header01b = api.push_block(1, vec![], true);
@@ -2212,8 +2212,6 @@ fn import_sink_works3() {
 
 	assert_pool_status!(header01a.hash(), &pool, 1, 1);
 	assert_pool_status!(header01b.hash(), &pool, 1, 1);
-
-	log::debug!("xxx {x:#?}");
 
 	let import_events =
 		futures::executor::block_on_stream(import_stream).take(1).collect::<Vec<_>>();
@@ -2267,19 +2265,13 @@ fn fatp_avoid_stuck_transaction() {
 
 	assert_pool_status!(header06.hash(), &pool, 0, 0);
 
-	// Import enough blocks to make xt4i revalidated
-	let mut prev_header = header03;
-	// wait 10 blocks for revalidation
-	for n in 7..=11 {
-		let header = api.push_block(n, vec![], true);
-		let event = finalized_block_event(&pool, prev_header.hash(), header.hash());
-		block_on(pool.maintain(event));
-		prev_header = header;
-	}
+	let header07 = api.push_block(7, vec![], true);
+	let event = finalized_block_event(&pool, header03.hash(), header07.hash());
+	block_on(pool.maintain(event));
 
 	let xt4i_events = futures::executor::block_on_stream(xt4i_watcher).collect::<Vec<_>>();
 	log::debug!("xt4i_events: {:#?}", xt4i_events);
-	assert_eq!(xt4i_events, vec![TransactionStatus::Future, TransactionStatus::Invalid]);
+	assert_eq!(xt4i_events, vec![TransactionStatus::Future, TransactionStatus::Dropped]);
 	assert_eq!(pool.mempool_len(), (0, 0));
 }
 

@@ -27,8 +27,7 @@ use crate::{
 	inclusion::{self, CandidateCheckContext},
 	initializer,
 	metrics::METRICS,
-	paras,
-	scheduler::{self, FreedReason},
+	paras, scheduler,
 	shared::{self, AllowedRelayParentsTracker},
 	ParaId,
 };
@@ -38,6 +37,7 @@ use alloc::{
 	vec::Vec,
 };
 use bitvec::prelude::BitVec;
+use core::result::Result;
 use frame_support::{
 	defensive,
 	dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
@@ -105,15 +105,6 @@ impl DisputedBitfield {
 	}
 }
 
-/// The context in which the inherent data is checked or processed.
-#[derive(PartialEq)]
-pub enum ProcessInherentDataContext {
-	/// Enables filtering/limits weight of inherent up to maximum block weight.
-	/// Invariant: InherentWeight <= BlockWeight.
-	ProvideInherent,
-	/// Checks the InherentWeight invariant.
-	Enter,
-}
 pub use pallet::*;
 
 #[frame_support::pallet]
@@ -140,11 +131,9 @@ pub mod pallet {
 		/// The hash of the submitted parent header doesn't correspond to the saved block hash of
 		/// the parent.
 		InvalidParentHeader,
-		/// The data given to the inherent will result in an overweight block.
-		InherentOverweight,
-		/// A candidate was filtered during inherent execution. This should have only been done
+		/// Inherent data was filtered during execution. This should have only been done
 		/// during creation.
-		CandidatesFilteredDuringExecution,
+		InherentDataFilteredDuringExecution,
 		/// Too many candidates supplied.
 		UnscheduledCandidate,
 	}
@@ -253,9 +242,12 @@ pub mod pallet {
 
 			ensure!(!Included::<T>::exists(), Error::<T>::TooManyInclusionInherents);
 			Included::<T>::set(Some(()));
+			let initial_data = data.clone();
 
-			Self::process_inherent_data(data, ProcessInherentDataContext::Enter)
-				.map(|(_processed, post_info)| post_info)
+			Self::process_inherent_data(data).and_then(|(processed, post_info)| {
+				ensure!(initial_data == processed, Error::<T>::InherentDataFilteredDuringExecution);
+				Ok(post_info)
+			})
 		}
 	}
 }
@@ -273,10 +265,7 @@ impl<T: Config> Pallet<T> {
 				return None
 			},
 		};
-		match Self::process_inherent_data(
-			parachains_inherent_data,
-			ProcessInherentDataContext::ProvideInherent,
-		) {
+		match Self::process_inherent_data(parachains_inherent_data) {
 			Ok((processed, _)) => Some(processed),
 			Err(err) => {
 				log::warn!(target: LOG_TARGET, "Processing inherent data failed: {:?}", err);
@@ -290,21 +279,12 @@ impl<T: Config> Pallet<T> {
 	/// The given inherent data is processed and state is altered accordingly. If any data could
 	/// not be applied (inconsistencies, weight limit, ...) it is removed.
 	///
-	/// When called from `create_inherent` the `context` must be set to
-	/// `ProcessInherentDataContext::ProvideInherent` so it guarantees the invariant that inherent
-	/// is not overweight.
-	/// It is **mandatory** that calls from `enter` set `context` to
-	/// `ProcessInherentDataContext::Enter` to ensure the weight invariant is checked.
-	///
 	/// Returns: Result containing processed inherent data and weight, the processed inherent would
 	/// consume.
 	fn process_inherent_data(
 		data: ParachainsInherentData<HeaderFor<T>>,
-		context: ProcessInherentDataContext,
-	) -> core::result::Result<
-		(ParachainsInherentData<HeaderFor<T>>, PostDispatchInfo),
-		DispatchErrorWithPostInfo,
-	> {
+	) -> Result<(ParachainsInherentData<HeaderFor<T>>, PostDispatchInfo), DispatchErrorWithPostInfo>
+	{
 		#[cfg(feature = "runtime-metrics")]
 		sp_io::init_tracing();
 
@@ -333,6 +313,27 @@ impl<T: Config> Pallet<T> {
 		let now = frame_system::Pallet::<T>::block_number();
 		let config = configuration::ActiveConfig::<T>::get();
 
+		// Before anything else, update the allowed relay-parents.
+		{
+			let parent_number = now - One::one();
+			let parent_storage_root = *parent_header.state_root();
+
+			shared::AllowedRelayParents::<T>::mutate(|tracker| {
+				tracker.update(
+					parent_hash,
+					parent_storage_root,
+					scheduler::ClaimQueue::<T>::get()
+						.into_iter()
+						.map(|(core_index, paras)| {
+							(core_index, paras.into_iter().map(|e| e.para_id()).collect())
+						})
+						.collect(),
+					parent_number,
+					config.async_backing_params.allowed_ancestry_len,
+				);
+			});
+		}
+
 		let candidates_weight = backed_candidates_weight::<T>(&backed_candidates);
 		let bitfields_weight = signed_bitfields_weight::<T>(&bitfields);
 		let disputes_weight = multi_dispute_statement_sets_weight::<T>(&disputes);
@@ -345,7 +346,7 @@ impl<T: Config> Pallet<T> {
 		log::debug!(target: LOG_TARGET, "Time weight before filter: {}, candidates + bitfields: {}, disputes: {}", weight_before_filtering.ref_time(), candidates_weight.ref_time() + bitfields_weight.ref_time(), disputes_weight.ref_time());
 
 		let current_session = shared::CurrentSessionIndex::<T>::get();
-		let expected_bits = scheduler::AvailabilityCores::<T>::get().len();
+		let expected_bits = scheduler::Pallet::<T>::num_availability_cores();
 		let validator_public = shared::ActiveValidatorKeys::<T>::get();
 
 		// We are assuming (incorrectly) to have all the weight (for the mandatory class or even
@@ -390,7 +391,7 @@ impl<T: Config> Pallet<T> {
 			T::DisputesHandler::filter_dispute_data(set, post_conclusion_acceptance_period)
 		};
 
-		// Limit the disputes first, since the following statements depend on the votes include
+		// Limit the disputes first, since the following statements depend on the votes included
 		// here.
 		let (checked_disputes_sets, checked_disputes_sets_consumed_weight) =
 			limit_and_sanitize_disputes::<T, _>(
@@ -399,7 +400,7 @@ impl<T: Config> Pallet<T> {
 				max_block_weight,
 			);
 
-		let mut all_weight_after = if context == ProcessInherentDataContext::ProvideInherent {
+		let mut all_weight_after = {
 			// Assure the maximum block weight is adhered, by limiting bitfields and backed
 			// candidates. Dispute statement sets were already limited before.
 			let non_disputes_weight = apply_weight_limit::<T>(
@@ -427,23 +428,6 @@ impl<T: Config> Pallet<T> {
 				log::warn!(target: LOG_TARGET, "Post weight limiting weight is still too large, time: {}, size: {}", all_weight_after.ref_time(), all_weight_after.proof_size());
 			}
 			all_weight_after
-		} else {
-			// This check is performed in the context of block execution. Ensures inherent weight
-			// invariants guaranteed by `create_inherent_data` for block authorship.
-			if weight_before_filtering.any_gt(max_block_weight) {
-				log::error!(
-					"Overweight para inherent data reached the runtime {:?}: {} > {}",
-					parent_hash,
-					weight_before_filtering,
-					max_block_weight
-				);
-			}
-
-			ensure!(
-				weight_before_filtering.all_lte(max_block_weight),
-				Error::<T>::InherentOverweight
-			);
-			weight_before_filtering
 		};
 
 		// Note that `process_checked_multi_dispute_data` will iterate and import each
@@ -567,98 +551,9 @@ impl<T: Config> Pallet<T> {
 			log::debug!(target: LOG_TARGET, "Evicted timed out cores: {:?}", freed_timeout);
 		}
 
-		// We'll schedule paras again, given freed cores, and reasons for freeing.
-		let freed = freed_concluded
-			.into_iter()
-			.map(|(c, _hash)| (c, FreedReason::Concluded))
-			.chain(freed_disputed.into_iter().map(|core| (core, FreedReason::Concluded)))
-			.chain(freed_timeout.into_iter().map(|c| (c, FreedReason::TimedOut)))
-			.collect::<BTreeMap<CoreIndex, FreedReason>>();
-		scheduler::Pallet::<T>::free_cores_and_fill_claim_queue(freed, now);
-
-		METRICS.on_candidates_processed_total(backed_candidates.len() as u64);
-
-		// After freeing cores and filling claims, but before processing backed candidates
-		// we update the allowed relay-parents.
-		{
-			let parent_number = now - One::one();
-			let parent_storage_root = *parent_header.state_root();
-
-			shared::AllowedRelayParents::<T>::mutate(|tracker| {
-				tracker.update(
-					parent_hash,
-					parent_storage_root,
-					scheduler::ClaimQueue::<T>::get()
-						.into_iter()
-						.map(|(core_index, paras)| {
-							(core_index, paras.into_iter().map(|e| e.para_id()).collect())
-						})
-						.collect(),
-					parent_number,
-					config.async_backing_params.allowed_ancestry_len,
-				);
-			});
-		}
-		let allowed_relay_parents = shared::AllowedRelayParents::<T>::get();
-
-		let core_index_enabled = configuration::ActiveConfig::<T>::get()
-			.node_features
-			.get(FeatureIndex::ElasticScalingMVP as usize)
-			.map(|b| *b)
-			.unwrap_or(false);
-
-		let allow_v2_receipts = configuration::ActiveConfig::<T>::get()
-			.node_features
-			.get(FeatureIndex::CandidateReceiptV2 as usize)
-			.map(|b| *b)
-			.unwrap_or(false);
-
-		let mut eligible: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
-		let mut total_eligible_cores = 0;
-
-		for (core_idx, para_id) in scheduler::Pallet::<T>::eligible_paras() {
-			total_eligible_cores += 1;
-			log::trace!(target: LOG_TARGET, "Found eligible para {:?} on core {:?}", para_id, core_idx);
-			eligible.entry(para_id).or_default().insert(core_idx);
-		}
-
-		let initial_candidate_count = backed_candidates.len();
-		let backed_candidates_with_core = sanitize_backed_candidates::<T>(
-			backed_candidates,
-			&allowed_relay_parents,
-			concluded_invalid_hashes,
-			eligible,
-			core_index_enabled,
-			allow_v2_receipts,
-		);
-		let count = count_backed_candidates(&backed_candidates_with_core);
-
-		ensure!(count <= total_eligible_cores, Error::<T>::UnscheduledCandidate);
-
-		METRICS.on_candidates_sanitized(count as u64);
-
-		// In `Enter` context (invoked during execution) no more candidates should be filtered,
-		// because they have already been filtered during `ProvideInherent` context. Abort in such
-		// cases.
-		if context == ProcessInherentDataContext::Enter {
-			ensure!(
-				initial_candidate_count == count,
-				Error::<T>::CandidatesFilteredDuringExecution
-			);
-		}
-
-		// Process backed candidates according to scheduled cores.
-		let inclusion::ProcessedCandidates::<<HeaderFor<T> as HeaderT>::Hash> {
-			core_indices: occupied,
-			candidate_receipt_with_backing_validator_indices,
-		} = inclusion::Pallet::<T>::process_candidates(
-			&allowed_relay_parents,
-			&backed_candidates_with_core,
-			scheduler::Pallet::<T>::group_validators,
-			core_index_enabled,
-		)?;
-		// Note which of the scheduled cores were actually occupied by a backed candidate.
-		scheduler::Pallet::<T>::occupied(occupied.into_iter().map(|e| (e.0, e.1)).collect());
+		// Back candidates.
+		let (candidate_receipt_with_backing_validator_indices, backed_candidates_with_core) =
+			Self::back_candidates(concluded_invalid_hashes, backed_candidates)?;
 
 		set_scrapable_on_chain_backings::<T>(
 			current_session,
@@ -672,6 +567,7 @@ impl<T: Config> Pallet<T> {
 
 		let bitfields = bitfields.into_iter().map(|v| v.into_unchecked()).collect();
 
+		let count = backed_candidates_with_core.len();
 		let processed = ParachainsInherentData {
 			bitfields,
 			backed_candidates: backed_candidates_with_core.into_iter().fold(
@@ -685,6 +581,104 @@ impl<T: Config> Pallet<T> {
 			parent_header,
 		};
 		Ok((processed, Some(all_weight_after).into()))
+	}
+
+	fn back_candidates(
+		concluded_invalid_hashes: BTreeSet<CandidateHash>,
+		backed_candidates: Vec<BackedCandidate<T::Hash>>,
+	) -> Result<
+		(
+			Vec<(CandidateReceipt<T::Hash>, Vec<(ValidatorIndex, ValidityAttestation)>)>,
+			BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>>,
+		),
+		DispatchErrorWithPostInfo,
+	> {
+		let allowed_relay_parents = shared::AllowedRelayParents::<T>::get();
+		let upcoming_new_session = initializer::Pallet::<T>::upcoming_session_change();
+
+		METRICS.on_candidates_processed_total(backed_candidates.len() as u64);
+
+		if !upcoming_new_session {
+			let occupied_cores =
+				inclusion::Pallet::<T>::get_occupied_cores().map(|(core, _)| core).collect();
+
+			let mut eligible: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
+			let mut total_eligible_cores = 0;
+
+			for (core_idx, para_id) in Self::eligible_paras(&occupied_cores) {
+				total_eligible_cores += 1;
+				log::trace!(target: LOG_TARGET, "Found eligible para {:?} on core {:?}", para_id, core_idx);
+				eligible.entry(para_id).or_default().insert(core_idx);
+			}
+
+			let node_features = configuration::ActiveConfig::<T>::get().node_features;
+			let core_index_enabled = node_features
+				.get(FeatureIndex::ElasticScalingMVP as usize)
+				.map(|b| *b)
+				.unwrap_or(false);
+
+			let allow_v2_receipts = node_features
+				.get(FeatureIndex::CandidateReceiptV2 as usize)
+				.map(|b| *b)
+				.unwrap_or(false);
+
+			let backed_candidates_with_core = sanitize_backed_candidates::<T>(
+				backed_candidates,
+				&allowed_relay_parents,
+				concluded_invalid_hashes,
+				eligible,
+				core_index_enabled,
+				allow_v2_receipts,
+			);
+			let count = count_backed_candidates(&backed_candidates_with_core);
+
+			ensure!(count <= total_eligible_cores, Error::<T>::UnscheduledCandidate);
+
+			METRICS.on_candidates_sanitized(count as u64);
+
+			// Process backed candidates according to scheduled cores.
+			let candidate_receipt_with_backing_validator_indices =
+				inclusion::Pallet::<T>::process_candidates(
+					&allowed_relay_parents,
+					&backed_candidates_with_core,
+					scheduler::Pallet::<T>::group_validators,
+					core_index_enabled,
+				)?;
+
+			// We need to advance the claim queue on all cores, except for the ones that did not
+			// get freed in this block. The ones that did not get freed also cannot be newly
+			// occupied.
+			scheduler::Pallet::<T>::advance_claim_queue(&occupied_cores);
+
+			Ok((candidate_receipt_with_backing_validator_indices, backed_candidates_with_core))
+		} else {
+			log::debug!(
+				target: LOG_TARGET,
+				"Upcoming session change, not backing any new candidates."
+			);
+			// If we'll initialize a new session at the end of the block, we don't want to
+			// advance the claim queue.
+
+			Ok((vec![], BTreeMap::new()))
+		}
+	}
+
+	/// Paras that may get backed on cores.
+	///
+	/// 1. The para must be scheduled on core.
+	/// 2. Core needs to be free, otherwise backing is not possible.
+	///
+	/// We get a set of the occupied cores as input.
+	pub(crate) fn eligible_paras<'a>(
+		occupied_cores: &'a BTreeSet<CoreIndex>,
+	) -> impl Iterator<Item = (CoreIndex, ParaId)> + 'a {
+		scheduler::ClaimQueue::<T>::get().into_iter().filter_map(|(core_idx, queue)| {
+			if occupied_cores.contains(&core_idx) {
+				return None
+			}
+			let next_scheduled = queue.front()?;
+			Some((core_idx, next_scheduled.para_id()))
+		})
 	}
 }
 
@@ -1144,10 +1138,7 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 }
 
 fn count_backed_candidates<B>(backed_candidates: &BTreeMap<ParaId, Vec<B>>) -> usize {
-	backed_candidates.iter().fold(0, |mut count, (_id, candidates)| {
-		count += candidates.len();
-		count
-	})
+	backed_candidates.values().map(|c| c.len()).sum()
 }
 
 /// Derive entropy from babe provided per block randomness.

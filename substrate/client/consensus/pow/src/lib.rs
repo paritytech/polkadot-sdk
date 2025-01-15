@@ -62,7 +62,6 @@ use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
 use sp_runtime::{
 	generic::{BlockId, Digest, DigestItem},
 	traits::{Block as BlockT, Header as HeaderT},
-	RuntimeString,
 };
 use std::{cmp::Ordering, marker::PhantomData, sync::Arc, time::Duration};
 
@@ -110,7 +109,7 @@ pub enum Error<B: BlockT> {
 	#[error("{0}")]
 	Environment(String),
 	#[error("{0}")]
-	Runtime(RuntimeString),
+	Runtime(String),
 	#[error("{0}")]
 	Other(String),
 }

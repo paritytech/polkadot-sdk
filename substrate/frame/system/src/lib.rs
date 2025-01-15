@@ -99,7 +99,7 @@
 
 extern crate alloc;
 
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::{borrow::Cow, boxed::Box, vec, vec::Vec};
 use core::{fmt::Debug, marker::PhantomData};
 use pallet_prelude::{BlockNumberFor, HeaderFor};
 #[cfg(feature = "std")]
@@ -120,8 +120,6 @@ use sp_runtime::{
 	},
 	DispatchError, RuntimeDebug,
 };
-#[cfg(any(feature = "std", test))]
-use sp_std::map;
 use sp_version::RuntimeVersion;
 
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
@@ -130,7 +128,8 @@ use frame_support::traits::BuildGenesisConfig;
 use frame_support::{
 	dispatch::{
 		extract_actual_pays_fee, extract_actual_weight, DispatchClass, DispatchInfo,
-		DispatchResult, DispatchResultWithPostInfo, PerDispatchClass, PostDispatchInfo,
+		DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, PerDispatchClass,
+		PostDispatchInfo,
 	},
 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
 	migrations::MultiStepMigrator,
@@ -145,6 +144,10 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_core::storage::well_known_keys;
+use sp_runtime::{
+	traits::{DispatchInfoOf, PostDispatchInfoOf},
+	transaction_validity::TransactionValidityError,
+};
 use sp_weights::{RuntimeDbWeight, Weight};
 
 #[cfg(any(feature = "std", test))]
@@ -169,7 +172,7 @@ pub use extensions::{
 	check_genesis::CheckGenesis, check_mortality::CheckMortality,
 	check_non_zero_sender::CheckNonZeroSender, check_nonce::CheckNonce,
 	check_spec_version::CheckSpecVersion, check_tx_version::CheckTxVersion,
-	check_weight::CheckWeight, WeightInfo as ExtensionsWeightInfo,
+	check_weight::CheckWeight, weight_reclaim::WeightReclaim, WeightInfo as ExtensionsWeightInfo,
 };
 // Backward compatible re-export.
 pub use extensions::check_mortality::CheckMortality as CheckEra;
@@ -310,7 +313,7 @@ pub mod pallet {
 			type Hash = sp_core::hash::H256;
 			type Hashing = sp_runtime::traits::BlakeTwo256;
 			type AccountId = u64;
-			type Lookup = sp_runtime::traits::IdentityLookup<u64>;
+			type Lookup = sp_runtime::traits::IdentityLookup<Self::AccountId>;
 			type MaxConsumers = frame_support::traits::ConstU32<16>;
 			type AccountData = ();
 			type OnNewAccount = ();
@@ -507,6 +510,7 @@ pub mod pallet {
 		type RuntimeCall: Parameter
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
 			+ Debug
+			+ GetDispatchInfo
 			+ From<Call<Self>>;
 
 		/// The aggregated `RuntimeTask` type.
@@ -971,6 +975,7 @@ pub mod pallet {
 
 	/// Digest of the current block, also part of the block header.
 	#[pallet::storage]
+	#[pallet::whitelist_storage]
 	#[pallet::unbounded]
 	#[pallet::getter(fn digest)]
 	pub(super) type Digest<T: Config> = StorageValue<_, generic::Digest, ValueQuery>;
@@ -1035,6 +1040,17 @@ pub mod pallet {
 	#[pallet::getter(fn authorized_upgrade)]
 	pub(super) type AuthorizedUpgrade<T: Config> =
 		StorageValue<_, CodeUpgradeAuthorization<T>, OptionQuery>;
+
+	/// The weight reclaimed for the extrinsic.
+	///
+	/// This information is available until the end of the extrinsic execution.
+	/// More precisely this information is removed in `note_applied_extrinsic`.
+	///
+	/// Logic doing some post dispatch weight reduction must update this storage to avoid duplicate
+	/// reduction.
+	#[pallet::storage]
+	#[pallet::whitelist_storage]
+	pub type ExtrinsicWeightReclaimed<T: Config> = StorageValue<_, Weight, ValueQuery>;
 
 	#[derive(frame_support::DefaultNoBound)]
 	#[pallet::genesis_config]
@@ -1159,24 +1175,24 @@ pub struct AccountInfo<Nonce, AccountData> {
 
 /// Stores the `spec_version` and `spec_name` of when the last runtime upgrade
 /// happened.
-#[derive(sp_runtime::RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(RuntimeDebug, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct LastRuntimeUpgradeInfo {
 	pub spec_version: codec::Compact<u32>,
-	pub spec_name: sp_runtime::RuntimeString,
+	pub spec_name: Cow<'static, str>,
 }
 
 impl LastRuntimeUpgradeInfo {
 	/// Returns if the runtime was upgraded in comparison of `self` and `current`.
 	///
 	/// Checks if either the `spec_version` increased or the `spec_name` changed.
-	pub fn was_upgraded(&self, current: &sp_version::RuntimeVersion) -> bool {
+	pub fn was_upgraded(&self, current: &RuntimeVersion) -> bool {
 		current.spec_version > self.spec_version.0 || current.spec_name != self.spec_name
 	}
 }
 
-impl From<sp_version::RuntimeVersion> for LastRuntimeUpgradeInfo {
-	fn from(version: sp_version::RuntimeVersion) -> Self {
+impl From<RuntimeVersion> for LastRuntimeUpgradeInfo {
+	fn from(version: RuntimeVersion) -> Self {
 		Self { spec_version: version.spec_version.into(), spec_name: version.spec_name }
 	}
 }
@@ -1902,12 +1918,14 @@ impl<T: Config> Pallet<T> {
 	#[cfg(any(feature = "std", test))]
 	pub fn externalities() -> TestExternalities {
 		TestExternalities::new(sp_core::storage::Storage {
-			top: map![
-				<BlockHash<T>>::hashed_key_for(BlockNumberFor::<T>::zero()) => [69u8; 32].encode(),
-				<Number<T>>::hashed_key().to_vec() => BlockNumberFor::<T>::one().encode(),
-				<ParentHash<T>>::hashed_key().to_vec() => [69u8; 32].encode()
-			],
-			children_default: map![],
+			top: [
+				(<BlockHash<T>>::hashed_key_for(BlockNumberFor::<T>::zero()), [69u8; 32].encode()),
+				(<Number<T>>::hashed_key().to_vec(), BlockNumberFor::<T>::one().encode()),
+				(<ParentHash<T>>::hashed_key().to_vec(), [69u8; 32].encode()),
+			]
+			.into_iter()
+			.collect(),
+			children_default: Default::default(),
 		})
 	}
 
@@ -1954,6 +1972,51 @@ impl<T: Config> Pallet<T> {
 			.map(|er| er.event)
 			.filter_map(|e| e.try_into().ok())
 			.collect::<_>()
+	}
+
+	/// Simulate the execution of a block sequence up to a specified height, injecting the
+	/// provided hooks at each block.
+	///
+	/// `on_finalize` is always called before `on_initialize` with the current block number.
+	/// `on_initalize` is always called with the next block number.
+	///
+	/// These hooks allows custom logic to be executed at each block at specific location.
+	/// For example, you might use one of them to set a timestamp for each block.
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+	pub fn run_to_block_with<AllPalletsWithSystem>(
+		n: BlockNumberFor<T>,
+		mut hooks: RunToBlockHooks<T>,
+	) where
+		AllPalletsWithSystem: frame_support::traits::OnInitialize<BlockNumberFor<T>>
+			+ frame_support::traits::OnFinalize<BlockNumberFor<T>>,
+	{
+		let mut bn = Self::block_number();
+
+		while bn < n {
+			// Skip block 0.
+			if !bn.is_zero() {
+				(hooks.before_finalize)(bn);
+				AllPalletsWithSystem::on_finalize(bn);
+				(hooks.after_finalize)(bn);
+			}
+
+			bn += One::one();
+
+			Self::set_block_number(bn);
+			(hooks.before_initialize)(bn);
+			AllPalletsWithSystem::on_initialize(bn);
+			(hooks.after_initialize)(bn);
+		}
+	}
+
+	/// Simulate the execution of a block sequence up to a specified height.
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+	pub fn run_to_block<AllPalletsWithSystem>(n: BlockNumberFor<T>)
+	where
+		AllPalletsWithSystem: frame_support::traits::OnInitialize<BlockNumberFor<T>>
+			+ frame_support::traits::OnFinalize<BlockNumberFor<T>>,
+	{
+		Self::run_to_block_with::<AllPalletsWithSystem>(n, Default::default());
 	}
 
 	/// Set the block number to something in particular. Can be used as an alternative to
@@ -2070,10 +2133,23 @@ impl<T: Config> Pallet<T> {
 			},
 		});
 
+		log::trace!(
+			target: LOG_TARGET,
+			"Used block weight: {:?}",
+			BlockWeight::<T>::get(),
+		);
+
+		log::trace!(
+			target: LOG_TARGET,
+			"Used block length: {:?}",
+			Pallet::<T>::all_extrinsics_len(),
+		);
+
 		let next_extrinsic_index = Self::extrinsic_index().unwrap_or_default() + 1u32;
 
 		storage::unhashed::put(well_known_keys::EXTRINSIC_INDEX, &next_extrinsic_index);
 		ExecutionPhase::<T>::put(Phase::ApplyExtrinsic(next_extrinsic_index));
+		ExtrinsicWeightReclaimed::<T>::kill();
 	}
 
 	/// To be called immediately after `note_applied_extrinsic` of the last extrinsic of the block
@@ -2170,6 +2246,32 @@ impl<T: Config> Pallet<T> {
 			Self::can_set_code(code)?
 		}
 		Ok(actual_hash)
+	}
+
+	/// Reclaim the weight for the extrinsic given info and post info.
+	///
+	/// This function will check the already reclaimed weight, and reclaim more if the
+	/// difference between pre dispatch and post dispatch weight is higher.
+	pub fn reclaim_weight(
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
+	) -> Result<(), TransactionValidityError>
+	where
+		T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+	{
+		let already_reclaimed = crate::ExtrinsicWeightReclaimed::<T>::get();
+		let unspent = post_info.calc_unspent(info);
+		let accurate_reclaim = already_reclaimed.max(unspent);
+		// Saturation never happens, we took the maximum above.
+		let to_reclaim_more = accurate_reclaim.saturating_sub(already_reclaimed);
+		if to_reclaim_more != Weight::zero() {
+			crate::BlockWeight::<T>::mutate(|current_weight| {
+				current_weight.reduce(to_reclaim_more, info.class);
+			});
+			crate::ExtrinsicWeightReclaimed::<T>::put(accurate_reclaim);
+		}
+
+		Ok(())
 	}
 }
 
@@ -2287,6 +2389,72 @@ impl<T: Config> Lookup for ChainContext<T> {
 
 	fn lookup(&self, s: Self::Source) -> Result<Self::Target, LookupError> {
 		<T::Lookup as StaticLookup>::lookup(s)
+	}
+}
+
+/// Hooks for the [`Pallet::run_to_block_with`] function.
+#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+pub struct RunToBlockHooks<'a, T>
+where
+	T: 'a + Config,
+{
+	before_initialize: Box<dyn 'a + FnMut(BlockNumberFor<T>)>,
+	after_initialize: Box<dyn 'a + FnMut(BlockNumberFor<T>)>,
+	before_finalize: Box<dyn 'a + FnMut(BlockNumberFor<T>)>,
+	after_finalize: Box<dyn 'a + FnMut(BlockNumberFor<T>)>,
+}
+
+#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+impl<'a, T> RunToBlockHooks<'a, T>
+where
+	T: 'a + Config,
+{
+	/// Set the hook function logic before the initialization of the block.
+	pub fn before_initialize<F>(mut self, f: F) -> Self
+	where
+		F: 'a + FnMut(BlockNumberFor<T>),
+	{
+		self.before_initialize = Box::new(f);
+		self
+	}
+	/// Set the hook function logic after the initialization of the block.
+	pub fn after_initialize<F>(mut self, f: F) -> Self
+	where
+		F: 'a + FnMut(BlockNumberFor<T>),
+	{
+		self.after_initialize = Box::new(f);
+		self
+	}
+	/// Set the hook function logic before the finalization of the block.
+	pub fn before_finalize<F>(mut self, f: F) -> Self
+	where
+		F: 'a + FnMut(BlockNumberFor<T>),
+	{
+		self.before_finalize = Box::new(f);
+		self
+	}
+	/// Set the hook function logic after the finalization of the block.
+	pub fn after_finalize<F>(mut self, f: F) -> Self
+	where
+		F: 'a + FnMut(BlockNumberFor<T>),
+	{
+		self.after_finalize = Box::new(f);
+		self
+	}
+}
+
+#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+impl<'a, T> Default for RunToBlockHooks<'a, T>
+where
+	T: Config,
+{
+	fn default() -> Self {
+		Self {
+			before_initialize: Box::new(|_| {}),
+			after_initialize: Box::new(|_| {}),
+			before_finalize: Box::new(|_| {}),
+			after_finalize: Box::new(|_| {}),
+		}
 	}
 }
 

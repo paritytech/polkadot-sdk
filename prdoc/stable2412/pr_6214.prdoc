@@ -1,0 +1,5 @@
+crates:
+  - name: cumulus-pallet-parachain-system
+    bump: none
+  - name: rococo-parachain-runtime
+    bump: none
