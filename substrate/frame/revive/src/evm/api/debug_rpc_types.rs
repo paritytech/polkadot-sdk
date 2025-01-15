@@ -157,7 +157,7 @@ pub struct CallLog {
 	#[serde(default, skip_serializing_if = "Vec::is_empty")]
 	pub topics: Vec<H256>,
 	/// Position of the log relative to subcalls within the same trace
-	/// See https://github.com/ethereum/go-ethereum/pull/28389 for details
+	/// See <https://github.com/ethereum/go-ethereum/pull/28389> for details
 	#[serde(with = "super::hex_serde")]
 	pub position: u32,
 }
