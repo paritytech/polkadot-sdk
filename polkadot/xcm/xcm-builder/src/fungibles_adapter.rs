@@ -60,7 +60,7 @@ impl<
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		Assets::transfer(asset_id, &source, &dest, amount, Preserve)
 			.map_err(|e| {
-				tracing::error!(target: "xcm::fungibles_adapter", error = ?e, ?amount, "Failed to transfer asset internally");
+				tracing::debug!(target: "xcm::fungibles_adapter", error = ?e, ?asset_id, ?source, ?dest, ?amount, "Failed internal transfer asset");
 				XcmError::FailedToTransactAsset(e.into())
 			})?;
 		Ok(what.clone().into())
