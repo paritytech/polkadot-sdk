@@ -114,6 +114,7 @@ jobs:
             currentWorkflow:
               - '${{ steps.current_file.outputs.currentWorkflowFile }}'
               - '.github/workflows/zombienet-reusable-preflight.yml'
+              - '.github/zombienet-env'
 
 
       #
