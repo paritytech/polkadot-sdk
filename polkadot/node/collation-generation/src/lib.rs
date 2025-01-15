@@ -396,6 +396,16 @@ impl CollationGenerationSubsystem {
 						})
 						.collect::<Vec<_>>();
 
+					if cores_to_build_on.is_empty() {
+						gum::debug!(
+							target: LOG_TARGET,
+							?para_id,
+							"no core is assigned to para at depth {}",
+							cq_offset.0,
+						);
+						return
+					}
+
 					let index = match core_selector {
 						// Use the CoreSelector's index if provided.
 						Some(core_selector) => core_selector.0 as usize,
