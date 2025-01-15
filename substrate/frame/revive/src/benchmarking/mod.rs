@@ -557,6 +557,38 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn seal_to_account_id() {
+		// use a mapped address for the benchmark, to ensure that we bench the worst
+		// case (and not the fallback case).
+		let address = {
+			let caller = account("seal_to_account_id", 0, 0);
+			T::Currency::set_balance(&caller, caller_funding::<T>());
+			T::AddressMapper::map(&caller).unwrap();
+			T::AddressMapper::to_address(&caller)
+		};
+
+		let len = <T::AccountId as MaxEncodedLen>::max_encoded_len();
+		build_runtime!(runtime, memory: [vec![0u8; len], address.0, ]);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_to_account_id(memory.as_mut_slice(), len as u32, 0);
+		}
+
+		assert_ok!(result);
+		assert_ne!(
+			memory.as_slice()[20..32],
+			[0xEE; 12],
+			"fallback suffix found where none should be"
+		);
+		assert_eq!(
+			T::AccountId::decode(&mut memory.as_slice()),
+			Ok(runtime.ext().to_account_id(&address))
+		);
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_code_hash() {
 		let contract = Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
 		let len = <sp_core::H256 as MaxEncodedLen>::max_encoded_len() as u32;
