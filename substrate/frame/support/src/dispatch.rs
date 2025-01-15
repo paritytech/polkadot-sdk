@@ -317,8 +317,8 @@ impl PostDispatchInfo {
 					Greater post dispatch weight components are ignored.
 					Pre dispatch weight: {:?},
 					Post dispatch weight: {:?}",
-					actual_weight,
 					info_total_weight,
+					actual_weight,
 				);
 			}
 			actual_weight.min(info.total_weight())
