@@ -562,10 +562,11 @@ mod benchmarks {
 	fn seal_to_account_id() {
 		// use a mapped address for the benchmark, to ensure that we bench the worst
 		// case (and not the fallback case).
-		let caller = whitelisted_caller();
-		let origin: T::RuntimeOrigin = RawOrigin::Signed(caller.clone()).into();
-		Contracts::<T>::map_account(origin.clone()).unwrap();
-		let address = T::AddressMapper::to_address(&caller);
+		let address = {
+			let caller = account("seal_to_account_id", 0, 0);
+			T::AddressMapper::map(&caller).unwrap();
+			T::AddressMapper::to_address(&caller)
+		};
 
 		let len = <T::AccountId as MaxEncodedLen>::max_encoded_len();
 		build_runtime!(runtime, memory: [vec![0u8; len], address.0, ]);
