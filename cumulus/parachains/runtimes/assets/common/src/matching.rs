@@ -47,6 +47,7 @@ impl<SelfParaId: Get<ParaId>, L: TryFrom<Location> + TryInto<Location> + Clone> 
 	for FromSiblingParachain<SelfParaId, L>
 {
 	fn contains(a: &L, b: &L) -> bool {
+		tracing::trace!(target: "xcm:contains", ?a, ?b, "FromSiblingParachain");
 		// We convert locations to latest
 		let a = match ((*a).clone().try_into(), (*b).clone().try_into()) {
 			(Ok(a), Ok(b)) if a.starts_with(&b) => a, // `a` needs to be from `b` at least
@@ -74,6 +75,7 @@ impl<
 	> ContainsPair<L, L> for FromNetwork<UniversalLocation, ExpectedNetworkId, L>
 {
 	fn contains(a: &L, b: &L) -> bool {
+		tracing::trace!(target: "xcm:contains", ?a, ?b, "FromNetwork");
 		// We convert locations to latest
 		let a = match ((*a).clone().try_into(), (*b).clone().try_into()) {
 			(Ok(a), Ok(b)) if a.starts_with(&b) => a, // `a` needs to be from `b` at least
@@ -139,6 +141,7 @@ impl<AssetsAllowedNetworks: Contains<Location>, OriginLocation: Get<Location>>
 	ContainsPair<Asset, Location> for RemoteAssetFromLocation<AssetsAllowedNetworks, OriginLocation>
 {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
+		tracing::trace!(target: "xcm:contains", ?asset, ?origin, "RemoteAssetFromLocation");
 		<Self as ContainsPair<Location, Location>>::contains(&asset.id.0, origin)
 	}
 }
