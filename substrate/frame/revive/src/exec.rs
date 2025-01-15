@@ -1095,34 +1095,11 @@ where
 				.enforce_limit(contract)
 				.map_err(|e| ExecError { error: e, origin: ErrorOrigin::Callee })?;
 
-			let account_id = T::AddressMapper::to_address(&frame.account_id);
-			match (entry_point, delegated_code_hash) {
-				(ExportedFunction::Constructor, _) => {
-					// It is not allowed to terminate a contract inside its constructor.
-					if matches!(frame.contract_info, CachedContract::Terminated) {
-						return Err(Error::<T>::TerminatedInConstructor.into());
-					}
-
-					let caller = T::AddressMapper::to_address(self.caller().account_id()?);
-					// Deposit an instantiation event.
-					Contracts::<T>::deposit_event(Event::Instantiated {
-						deployer: caller,
-						contract: account_id,
-					});
-				},
-				(ExportedFunction::Call, Some(code_hash)) => {
-					Contracts::<T>::deposit_event(Event::DelegateCalled {
-						contract: account_id,
-						code_hash,
-					});
-				},
-				(ExportedFunction::Call, None) => {
-					let caller = self.caller();
-					Contracts::<T>::deposit_event(Event::Called {
-						caller: caller.clone(),
-						contract: account_id,
-					});
-				},
+			// It is not allowed to terminate a contract inside its constructor.
+			if entry_point == ExportedFunction::Constructor &&
+				matches!(frame.contract_info, CachedContract::Terminated)
+			{
+				return Err(Error::<T>::TerminatedInConstructor.into());
 			}
 
 			Ok(output)
@@ -1529,10 +1506,6 @@ where
 				.charge_deposit(frame.account_id.clone(), StorageDeposit::Refund(*deposit));
 		}
 
-		Contracts::<T>::deposit_event(Event::Terminated {
-			contract: account_address,
-			beneficiary: *beneficiary,
-		});
 		Ok(())
 	}
 
@@ -1789,11 +1762,6 @@ where
 
 		Self::increment_refcount(hash)?;
 		Self::decrement_refcount(prev_hash);
-		Contracts::<Self::T>::deposit_event(Event::ContractCodeUpdated {
-			contract: T::AddressMapper::to_address(&frame.account_id),
-			new_code_hash: hash,
-			old_code_hash: prev_hash,
-		});
 		Ok(())
 	}
 
@@ -2975,13 +2943,6 @@ mod tests {
 					ContractInfo::<Test>::load_code_hash(&instantiated_contract_id).unwrap(),
 					dummy_ch
 				);
-				assert_eq!(
-					&events(),
-					&[Event::Instantiated {
-						deployer: ALICE_ADDR,
-						contract: instantiated_contract_address
-					}]
-				);
 			});
 	}
 
@@ -3097,19 +3058,6 @@ mod tests {
 					ContractInfo::<Test>::load_code_hash(&instantiated_contract_id).unwrap(),
 					dummy_ch
 				);
-				assert_eq!(
-					&events(),
-					&[
-						Event::Instantiated {
-							deployer: BOB_ADDR,
-							contract: instantiated_contract_address
-						},
-						Event::Called {
-							caller: Origin::from_account_id(ALICE),
-							contract: BOB_ADDR
-						},
-					]
-				);
 			});
 	}
 
@@ -3160,13 +3108,6 @@ mod tests {
 						false,
 					),
 					Ok(_)
-				);
-
-				// The contract wasn't instantiated so we don't expect to see an instantiation
-				// event here.
-				assert_eq!(
-					&events(),
-					&[Event::Called { caller: Origin::from_account_id(ALICE), contract: BOB_ADDR },]
 				);
 			});
 	}
@@ -3507,24 +3448,14 @@ mod tests {
 			let remark_hash = <Test as frame_system::Config>::Hashing::hash(b"Hello World");
 			assert_eq!(
 				System::events(),
-				vec![
-					EventRecord {
-						phase: Phase::Initialization,
-						event: MetaEvent::System(frame_system::Event::Remarked {
-							sender: BOB_FALLBACK,
-							hash: remark_hash
-						}),
-						topics: vec![],
-					},
-					EventRecord {
-						phase: Phase::Initialization,
-						event: MetaEvent::Contracts(crate::Event::Called {
-							caller: Origin::from_account_id(ALICE),
-							contract: BOB_ADDR,
-						}),
-						topics: vec![],
-					},
-				]
+				vec![EventRecord {
+					phase: Phase::Initialization,
+					event: MetaEvent::System(frame_system::Event::Remarked {
+						sender: BOB_FALLBACK,
+						hash: remark_hash
+					}),
+					topics: vec![],
+				},]
 			);
 		});
 	}
@@ -3611,14 +3542,6 @@ mod tests {
 							index: 1,
 							error: frame_system::Error::<Test>::CallFiltered.into()
 						},),
-						topics: vec![],
-					},
-					EventRecord {
-						phase: Phase::Initialization,
-						event: MetaEvent::Contracts(crate::Event::Called {
-							caller: Origin::from_account_id(ALICE),
-							contract: BOB_ADDR,
-						}),
 						topics: vec![],
 					},
 				]
