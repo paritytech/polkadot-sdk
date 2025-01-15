@@ -62,6 +62,8 @@ type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, Value
 
 /// Migrates to multi-page election support.
 ///
+/// See: https://github.com/paritytech/polkadot-sdk/pull/6034
+///
 /// Important note: this migration should be released with the election provider configured by this
 /// pallet supporting up to 1 page. Thus,
 /// * `VoterSnapshotStatus` does not need migration, as it will always be `Status::Waiting` when
