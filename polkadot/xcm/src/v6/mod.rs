@@ -69,6 +69,7 @@ pub mod prelude {
 			XcmContext, XcmError, XcmHash, XcmResult, XcmWeightInfo,
 		};
 	}
+	pub use crate::traits::{ExecuteXcm, SendXcm, SendResult, validate_send, send_xcm};
 	pub use super::instructions::*;
 	pub use super::{Instruction, Xcm};
 	pub use contents::*;

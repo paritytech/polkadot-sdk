@@ -82,10 +82,10 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 		instructions[..end]
 			.matcher()
 			.match_next_inst(|inst| match inst {
-				WithdrawAsset(ref assets) |
-				ReceiveTeleportedAsset(ref assets) |
-				ReserveAssetDeposited(ref assets) |
-				ClaimAsset { ref assets, .. } =>
+				Instruction::WithdrawAsset(WithdrawAsset(ref assets)) |
+				Instruction::ReceiveTeleportedAsset(ReceiveTeleportedAsset(ref assets)) |
+				Instruction::ReserveAssetDeposited(ReserveAssetDeposited(ref assets)) |
+				Instruction::ClaimAsset(ClaimAsset { ref assets, .. }) =>
 					if assets.len() <= MAX_ASSETS_FOR_BUY_EXECUTION {
 						Ok(())
 					} else {
@@ -94,22 +94,22 @@ impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> 
 				_ => Err(ProcessMessageError::BadFormat),
 			})?
 			.skip_inst_while(|inst| {
-				matches!(inst, ClearOrigin | AliasOrigin(..)) ||
-					matches!(inst, DescendOrigin(child) if child != &Here) ||
-					matches!(inst, SetHints { .. })
+				matches!(inst, Instruction::ClearOrigin(_) | Instruction::AliasOrigin(..)) ||
+					matches!(inst, Instruction::DescendOrigin(DescendOrigin(child)) if child != &Here) ||
+					matches!(inst, Instruction::SetHints { .. })
 			})?
 			.match_next_inst(|inst| match inst {
-				BuyExecution { weight_limit: Limited(ref mut weight), .. }
+				Instruction::BuyExecution(BuyExecution { weight_limit: Limited(ref mut weight), .. })
 					if weight.all_gte(max_weight) =>
 				{
 					*weight = max_weight;
 					Ok(())
 				},
-				BuyExecution { ref mut weight_limit, .. } if weight_limit == &Unlimited => {
+				Instruction::BuyExecution(BuyExecution { ref mut weight_limit, .. }) if weight_limit == &Unlimited => {
 					*weight_limit = Limited(max_weight);
 					Ok(())
 				},
-				PayFees { .. } => Ok(()),
+				Instruction::PayFees(_) => Ok(()),
 				_ => Err(ProcessMessageError::Overweight(max_weight)),
 			})?;
 		Ok(())
@@ -189,14 +189,14 @@ impl<InnerBarrier: ShouldExecute, LocalUniversal: Get<InteriorLocation>, MaxPref
 			|_| skipped.get() < MaxPrefixes::get() as usize,
 			|inst| {
 				match inst {
-					UniversalOrigin(new_global) => {
+					Instruction::UniversalOrigin(UniversalOrigin(new_global)) => {
 						// Note the origin is *relative to local consensus*! So we need to escape
 						// local consensus with the `parents` before diving in into the
 						// `universal_location`.
 						actual_origin =
 							Junctions::from([*new_global]).relative_to(&LocalUniversal::get());
 					},
-					DescendOrigin(j) => {
+					Instruction::DescendOrigin(DescendOrigin(j)) => {
 						let Ok(_) = actual_origin.append_with(j.clone()) else {
 							return Err(ProcessMessageError::Unsupported)
 						};
@@ -235,7 +235,7 @@ impl<InnerBarrier: ShouldExecute> ShouldExecute for TrailingSetTopicAsId<InnerBa
 			"TrailingSetTopicAsId origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}",
 			origin, instructions, max_weight, properties,
 		);
-		let until = if let Some(SetTopic(t)) = instructions.last() {
+		let until = if let Some(Instruction::SetTopic(SetTopic(t))) = instructions.last() {
 			properties.message_id = Some(*t);
 			instructions.len() - 1
 		} else {
@@ -308,8 +308,8 @@ impl<T: Contains<Location>> ShouldExecute for AllowExplicitUnpaidExecutionFrom<T
 		);
 		ensure!(T::contains(origin), ProcessMessageError::Unsupported);
 		instructions.matcher().match_next_inst(|inst| match inst {
-			UnpaidExecution { weight_limit: Limited(m), .. } if m.all_gte(max_weight) => Ok(()),
-			UnpaidExecution { weight_limit: Unlimited, .. } => Ok(()),
+			Instruction::UnpaidExecution(UnpaidExecution { weight_limit: Limited(m), .. }) if m.all_gte(max_weight) => Ok(()),
+			Instruction::UnpaidExecution(UnpaidExecution { weight_limit: Unlimited, .. }) => Ok(()),
 			_ => Err(ProcessMessageError::Overweight(max_weight)),
 		})?;
 		Ok(())
@@ -369,7 +369,7 @@ impl<ResponseHandler: OnResponse> ShouldExecute for AllowKnownQueryResponses<Res
 			.matcher()
 			.assert_remaining_insts(1)?
 			.match_next_inst(|inst| match inst {
-				QueryResponse { query_id, querier, .. }
+				Instruction::QueryResponse(QueryResponse { query_id, querier, .. })
 					if ResponseHandler::expecting_response(origin, *query_id, querier.as_ref()) =>
 					Ok(()),
 				_ => Err(ProcessMessageError::BadFormat),
@@ -398,7 +398,7 @@ impl<T: Contains<Location>> ShouldExecute for AllowSubscriptionsFrom<T> {
 			.matcher()
 			.assert_remaining_insts(1)?
 			.match_next_inst(|inst| match inst {
-				SubscribeVersion { .. } | UnsubscribeVersion => Ok(()),
+				Instruction::SubscribeVersion(_) | Instruction::UnsubscribeVersion(_) => Ok(()),
 				_ => Err(ProcessMessageError::BadFormat),
 			})?;
 		Ok(())
@@ -431,9 +431,9 @@ impl ShouldExecute for AllowHrmpNotificationsFromRelayChain {
 			.matcher()
 			.assert_remaining_insts(1)?
 			.match_next_inst(|inst| match inst {
-				HrmpNewChannelOpenRequest { .. } |
-				HrmpChannelAccepted { .. } |
-				HrmpChannelClosing { .. } => Ok(()),
+				Instruction::HrmpNewChannelOpenRequest(_) |
+				Instruction::HrmpChannelAccepted(_) |
+				Instruction::HrmpChannelClosing(_) => Ok(()),
 				_ => Err(ProcessMessageError::BadFormat),
 			})?;
 		Ok(())
@@ -475,18 +475,18 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 		message.matcher().match_next_inst_while(
 			|_| true,
 			|inst| match inst {
-				InitiateReserveWithdraw {
+				Instruction::InitiateReserveWithdraw(InitiateReserveWithdraw {
 					reserve: Location { parents: 1, interior: Here },
 					..
-				} |
-				DepositReserveAsset { dest: Location { parents: 1, interior: Here }, .. } |
-				TransferReserveAsset { dest: Location { parents: 1, interior: Here }, .. } => {
+				}) |
+				Instruction::DepositReserveAsset(DepositReserveAsset { dest: Location { parents: 1, interior: Here }, .. }) |
+				Instruction::TransferReserveAsset(TransferReserveAsset { dest: Location { parents: 1, interior: Here }, .. }) => {
 					Err(ProcessMessageError::Unsupported) // Deny
 				},
 
 				// An unexpected reserve transfer has arrived from the Relay Chain. Generally,
 				// `IsReserve` should not allow this, but we just log it here.
-				ReserveAssetDeposited { .. }
+				Instruction::ReserveAssetDeposited(_)
 					if matches!(origin, Location { parents: 1, interior: Here }) =>
 				{
 					log::warn!(

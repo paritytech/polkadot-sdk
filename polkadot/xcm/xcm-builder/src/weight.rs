@@ -77,7 +77,7 @@ pub struct WeightInfoBounds<W, C, M>(PhantomData<(W, C, M)>);
 impl<W, C, M> WeightBounds<C> for WeightInfoBounds<W, C, M>
 where
 	W: XcmWeightInfo<C>,
-	C: Decode + GetDispatchInfo,
+	C: Decode + GetDispatchInfo + 'static,
 	M: Get<u32>,
 	Instruction<C>: xcm::latest::GetWeight<W>,
 {
@@ -94,7 +94,7 @@ where
 impl<W, C, M> WeightInfoBounds<W, C, M>
 where
 	W: XcmWeightInfo<C>,
-	C: Decode + GetDispatchInfo,
+	C: Decode + GetDispatchInfo + 'static,
 	M: Get<u32>,
 	Instruction<C>: xcm::latest::GetWeight<W>,
 {

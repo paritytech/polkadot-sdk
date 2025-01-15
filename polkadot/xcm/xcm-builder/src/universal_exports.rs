@@ -242,16 +242,16 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 		// We then send a normal message to the bridge asking it to export the prepended
 		// message to the remote chain. This will only work if the bridge will do the message
 		// export for free. Common-good chains will typically be afforded this.
-		let mut message = Xcm(vec![
-			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+		let mut message = Xcm::new(vec![
+			UnpaidExecution { weight_limit: Unlimited, check_origin: None }.into(),
 			ExportMessage {
 				network: remote_network,
 				destination: remote_location,
 				xcm: xcm.clone(),
-			},
+			}.into(),
 		]);
 		if let Some(forward_id) = maybe_forward_id {
-			message.0.push(SetTopic(forward_id));
+			message.0.push(SetTopic(forward_id).into());
 		}
 		validate_send::<Router>(bridge, message).inspect_err(|err| {
 			if let NotApplicable = err {
@@ -328,21 +328,21 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 			xcm: xcm.clone(),
 		};
 
-		let mut message = Xcm(if let Some(ref payment) = maybe_payment {
+		let mut message = Xcm::new(if let Some(ref payment) = maybe_payment {
 			let fees = payment
 				.clone()
 				.reanchored(&bridge, &UniversalLocation::get())
 				.map_err(|_| Unroutable)?;
 			vec![
-				WithdrawAsset(fees.clone().into()),
-				BuyExecution { fees, weight_limit: Unlimited },
+				WithdrawAsset(fees.clone().into()).into(),
+				BuyExecution { fees, weight_limit: Unlimited }.into(),
 				// `SetAppendix` ensures that `fees` are not trapped in any case, for example, when
 				// `ExportXcm::validate` encounters an error during the processing of
 				// `ExportMessage`.
-				SetAppendix(Xcm(vec![DepositAsset {
+				SetAppendix(Xcm::new(vec![DepositAsset {
 					assets: AllCounted(1).into(),
 					beneficiary: local_from_bridge,
-				}])),
+				}.into()])),
 				export_instruction,
 			]
 		} else {
