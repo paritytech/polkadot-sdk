@@ -857,6 +857,23 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn seal_block_author() {
+		build_runtime!(runtime, memory: [[123u8; 20], ]);
+		let result;
+		#[block]
+		{
+			result = runtime.bench_block_author(memory.as_mut_slice(), 0);
+		}
+		assert_ok!(result);
+		let block_author = runtime
+			.ext()
+			.block_author()
+			.map(|account| T::AddressMapper::to_address(&account))
+			.unwrap_or(H160::zero());
+		assert_eq!(&memory[..], block_author.as_bytes());
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_block_hash() {
 		let mut memory = vec![0u8; 64];
 		let mut setup = CallSetup::<T>::default();
