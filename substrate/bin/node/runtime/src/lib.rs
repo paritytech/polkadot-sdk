@@ -3347,8 +3347,6 @@ impl_runtime_apis! {
 
 			Ok(tracer.collect_traces().as_eth_traces::<Runtime>())
 		}
-
-
 	}
 
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<
