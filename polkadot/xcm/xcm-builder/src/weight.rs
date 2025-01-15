@@ -234,12 +234,12 @@ impl<
 		tracing::trace!(target: "xcm::weight", ?weight, ?payment, ?context, "UsingComponents::buy_weight");
 		let amount = WeightToFee::weight_to_fee(&weight);
 		let u128_amount: u128 = amount.try_into().map_err(|_| {
-			tracing::error!(target: "xcm::weight", "Amount could not be converted");
+			tracing::debug!(target: "xcm::weight", ?amount, "Weight fee could not be converted");
 			XcmError::Overflow
 		})?;
 		let required = Asset { id: AssetId(AssetIdValue::get()), fun: Fungible(u128_amount) };
 		let unused = payment.checked_sub(required).map_err(|error| {
-			tracing::error!(target: "xcm::weight", ?error, "Failed to substract from payment");
+			tracing::debug!(target: "xcm::weight", ?error, "Failed to substract from payment");
 			XcmError::TooExpensive
 		})?;
 		self.0 = self.0.saturating_add(weight);

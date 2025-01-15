@@ -110,7 +110,7 @@ impl<Inner: SendXcm, TopicSource: SourceTopic> SendXcm for WithTopicSource<Inner
 			unique_id
 		};
 		let (ticket, assets) = Inner::validate(destination, &mut Some(message)).map_err(|e| {
-			tracing::error!(target: "xcm::validate", error = ?e, "Failed to validate");
+			tracing::debug!(target: "xcm::validate", error = ?e, "Failed to validate");
 			SendError::NotApplicable
 		})?;
 		Ok(((ticket, unique_id), assets))
@@ -210,7 +210,7 @@ impl<Inner: SendXcm> SendXcm for EnsureDecodableXcm<Inner> {
 		if let Some(msg) = message {
 			let versioned_xcm = VersionedXcm::<()>::from(msg.clone());
 			if versioned_xcm.validate_xcm_nesting().is_err() {
-				tracing::error!(
+				tracing::debug!(
 					target: "xcm::validate_xcm_nesting",
 					?versioned_xcm,
 					?msg,
