@@ -51,20 +51,10 @@ def get_members(workspace_dir, exclude):
 
 	members = []
 	for member in root_manifest['workspace']['members']:
-
-            # Exclude the specific 'templates/parachain' directory
-            if member == 'templates/parachain':
-                print(f'⏩ Excluding {member} directly from the workspace')
-                continue
-            # If member is under 'templates/parachain/', allow it to be included
-            if member.startswith('templates/parachain/') and member != 'templates/parachain':
-                members.append(member)
-                continue
             # Exclude any crate listed in the exclusion list
             if member in exclude:
                 print(f'❌ Excluded member should not appear in the workspace {member}')
                 sys.exit(1)
-
             members.append(member)
 
 	return members
@@ -114,8 +104,8 @@ def check_duplicates(workspace_crates):
 # Check that all crates are in the workspace.
 def check_missing(workspace_crates, all_crates):
 	print(f'🔎 Checking for missing crates')
-	if len(workspace_crates) == len(all_crates) -1:
-		print(f'✅ All {len(all_crates)} crates except templates/parachain are in the workspace')
+	if len(workspace_crates) == len(all_crates):
+		print(f'✅ All {len(all_crates)} crates are in the workspace')
 		return
 
 	missing = []
