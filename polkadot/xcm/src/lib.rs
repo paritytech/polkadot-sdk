@@ -78,7 +78,6 @@ pub trait TryAs<T> {
 }
 
 // Macro that generated versioned wrapper types.
-// Trait bounds are optional and can be provided as a comma-separated list after the type name.
 // NOTE: converting a v4 type into a versioned type will make it v5.
 macro_rules! versioned_type {
 	(@internal $n:ident, $v3:ty, $v4:ty, $v5:ty,) => {
@@ -339,9 +338,6 @@ versioned_type! {
 		V5(v5::Assets),
 	}
 }
-
-#[deprecated(note = "Use `VersionedAssets` instead")]
-pub type VersionedMultiAssets = VersionedAssets;
 
 versioned_type! {
 	pub enum VersionedXcm<RuntimeCall> {
