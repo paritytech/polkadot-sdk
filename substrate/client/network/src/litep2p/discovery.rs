@@ -33,15 +33,9 @@ use litep2p::{
 		libp2p::{
 			identify::{Config as IdentifyConfig, IdentifyEvent},
 			kademlia::{
-<<<<<<< HEAD
 				Config as KademliaConfig, ConfigBuilder as KademliaConfigBuilder,
-				IncomingRecordValidationMode, KademliaEvent, KademliaHandle, QueryId, Quorum,
-				Record, RecordKey, RecordsType,
-=======
-				Config as KademliaConfig, ConfigBuilder as KademliaConfigBuilder, ContentProvider,
 				IncomingRecordValidationMode, KademliaEvent, KademliaHandle, PeerRecord, QueryId,
 				Quorum, Record, RecordKey,
->>>>>>> 77c78e15 (litep2p: Provide partial results to speedup GetRecord queries (#7099))
 			},
 			ping::{Config as PingConfig, PingEvent},
 		},

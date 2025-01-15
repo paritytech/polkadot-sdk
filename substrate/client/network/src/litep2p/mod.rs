@@ -820,17 +820,8 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							self.peerstore_handle.add_known_peer(peer.into());
 						}
 					}
-<<<<<<< HEAD
-					Some(DiscoveryEvent::GetRecordSuccess { query_id, records }) => {
-						match self.pending_get_values.remove(&query_id) {
-							None => log::warn!(
-								target: LOG_TARGET,
-								"`GET_VALUE` succeeded for a non-existent query",
-							),
-							Some((key, started)) => {
-=======
 					Some(DiscoveryEvent::GetRecordPartialResult { query_id, record }) => {
-						if !self.pending_queries.contains_key(&query_id) {
+						if !self.pending_get_values.contains_key(&query_id) {
 							log::error!(
 								target: LOG_TARGET,
 								"Missing/invalid pending query for `GET_VALUE` partial result: {query_id:?}"
@@ -862,25 +853,12 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						);
 					}
 					Some(DiscoveryEvent::GetRecordSuccess { query_id }) => {
-						match self.pending_queries.remove(&query_id) {
-							Some(KadQuery::GetValue(key, started)) => {
->>>>>>> 77c78e15 (litep2p: Provide partial results to speedup GetRecord queries (#7099))
+						match self.pending_get_values.remove(&query_id) {
+							Some((key, started)) => {
 								log::trace!(
 									target: LOG_TARGET,
 									"`GET_VALUE` for {key:?} ({query_id:?}) succeeded",
 								);
-<<<<<<< HEAD
-								for record in litep2p_to_libp2p_peer_record(records) {
-									self.event_streams.send(
-										Event::Dht(
-											DhtEvent::ValueFound(
-												record
-											)
-										)
-									);
-								}
-=======
->>>>>>> 77c78e15 (litep2p: Provide partial results to speedup GetRecord queries (#7099))
 
 								if let Some(ref metrics) = self.metrics {
 									metrics
@@ -888,7 +866,14 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 										.with_label_values(&["value-get"])
 										.observe(started.elapsed().as_secs_f64());
 								}
-							}
+							},
+							None => {
+								log::error!(
+									target: LOG_TARGET,
+									"Missing/invalid pending query for `GET_VALUE`: {query_id:?}"
+								);
+								debug_assert!(false);
+							},
 						}
 					}
 					Some(DiscoveryEvent::PutRecordSuccess { query_id }) => {
