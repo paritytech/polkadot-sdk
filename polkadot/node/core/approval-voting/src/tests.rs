@@ -263,7 +263,8 @@ where
 		_relay_vrf_story: polkadot_node_primitives::approval::v1::RelayVRFStory,
 		_assignment: &polkadot_node_primitives::approval::v2::AssignmentCertV2,
 		_backing_groups: Vec<polkadot_primitives::GroupIndex>,
-	) -> Result<polkadot_node_primitives::approval::v1::DelayTranche, criteria::InvalidAssignment> {
+	) -> Result<polkadot_node_primitives::approval::v1::DelayTranche, criteria::InvalidAssignment>
+	{
 		self.1(validator_index)
 	}
 }
@@ -5276,7 +5277,7 @@ fn subsystem_launches_missed_assignments_on_restart() {
 		let block_hash = Hash::repeat_byte(0x01);
 		let fork_block_hash = Hash::repeat_byte(0x02);
 		let candidate_commitments = CandidateCommitments::default();
-		let mut candidate_receipt = dummy_candidate_receipt_v2(block_hash);
+		let mut candidate_receipt = dummy_candidate_receipt(block_hash);
 		candidate_receipt.commitments_hash = candidate_commitments.hash();
 		let candidate_hash = candidate_receipt.hash();
 		let slot = Slot::from(1);
@@ -5333,7 +5334,7 @@ fn subsystem_launches_missed_assignments_on_restart() {
 		let block_hash = Hash::repeat_byte(0x01);
 		let fork_block_hash = Hash::repeat_byte(0x02);
 		let candidate_commitments = CandidateCommitments::default();
-		let mut candidate_receipt = dummy_candidate_receipt_v2(block_hash);
+		let mut candidate_receipt = dummy_candidate_receipt(block_hash);
 		candidate_receipt.commitments_hash = candidate_commitments.hash();
 		let (chain_builder, session_info) = build_chain_with_two_blocks_with_one_candidate_each(
 			block_hash,
