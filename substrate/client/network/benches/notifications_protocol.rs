@@ -36,8 +36,14 @@ use std::{sync::Arc, time::Duration};
 use substrate_test_runtime_client::runtime;
 use tokio::{sync::Mutex, task::JoinHandle};
 
-const NUMBER_OF_NOTIFICATIONS: usize = 1000;
-// const NUMBER_OF_NOTIFICATIONS: usize = 5000;
+// test notifications_protocol/libp2p/with_backpressure/64KB ... bench:    44421256 ns/iter (+/- 309026)
+// test notifications_protocol/libp2p/with_backpressure/256KB ... bench:   359526580 ns/iter (+/- 2611825)
+// test notifications_protocol/litep2p/with_backpressure/64KB ... bench:    46879477 ns/iter (+/- 327248)
+// test notifications_protocol/litep2p/with_backpressure/256KB ... bench:   413041795 ns/iter (+/- 4181491)
+// const NUMBER_OF_NOTIFICATIONS: usize = 1000;
+
+const NUMBER_OF_NOTIFICATIONS: usize = 5000;
+
 // const NUMBER_OF_NOTIFICATIONS: usize = 10000;
 const PAYLOAD: &[(u32, &'static str)] = &[
 	// (Exponent of size, label)
