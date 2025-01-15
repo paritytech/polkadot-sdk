@@ -15,8 +15,38 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{config, XcmExecutor};
-use xcm::latest::Error as XcmError;
+use xcm::{
+	apply_instructions,
+	latest::{Error as XcmError, Instruction},
+};
+
+mod assets;
+mod controls;
+mod expect;
+mod fees;
+mod misc;
+mod notifications;
+mod origin;
+mod query;
+mod report;
+mod versions;
 
 pub trait ExecuteInstruction<Config: config::Config> {
-	fn execute(&self, executor: &mut XcmExecutor<Config>) -> Result<(), XcmError>;
+	fn execute(self, executor: &mut XcmExecutor<Config>) -> Result<(), XcmError>;
 }
+
+macro_rules! impl_execute_instruction {
+	($name:ident, $( $instr:ident $( < $instr_generic:ty > )? ),*) => {
+		impl<Config: config::Config> ExecuteInstruction<Config> for $name<<Config as config::Config>::RuntimeCall> {
+			fn execute(self, executor: &mut XcmExecutor<Config>) -> Result<(), XcmError> {
+				match self {
+					$(
+						Self::$instr(x) => x.execute(executor),
+					)*
+				}
+			}
+		}
+	};
+}
+
+apply_instructions!(impl_execute_instruction, Instruction);

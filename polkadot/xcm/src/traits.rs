@@ -163,6 +163,40 @@ impl Reanchorable for Location {
 	}
 }
 
+impl Reanchorable for Asset {
+	type Error = ();
+
+	/// Mutate the location of the asset identifier if concrete, giving it the same location
+	/// relative to a `target` context. The local context is provided as `context`.
+	fn reanchor(&mut self, target: &Location, context: &InteriorLocation) -> result::Result<(), ()> {
+		self.id.reanchor(target, context)
+	}
+
+	/// Mutate the location of the asset identifier if concrete, giving it the same location
+	/// relative to a `target` context. The local context is provided as `context`.
+	fn reanchored(mut self, target: &Location, context: &InteriorLocation) -> result::Result<Self, ()> {
+		self.id.reanchor(target, context)?;
+		Ok(self)
+	}
+}
+
+impl Reanchorable for Assets {
+	type Error = ();
+
+	fn reanchor(&mut self, target: &Location, context: &InteriorLocation) -> result::Result<(), ()> {
+		self.0.iter_mut().try_for_each(|i| i.reanchor(target, context))?;
+		self.0.sort();
+		Ok(())
+	}
+
+	fn reanchored(mut self, target: &Location, context: &InteriorLocation) -> result::Result<Self, ()> {
+		match self.reanchor(target, context) {
+			Ok(()) => Ok(self),
+			Err(()) => Err(()),
+		}
+	}
+}
+
 /// Result value when attempting to send an XCM message.
 pub type SendResult<T> = result::Result<(T, Assets), SendError>;
 
