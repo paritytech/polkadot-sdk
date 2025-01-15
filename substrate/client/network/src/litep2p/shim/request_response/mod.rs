@@ -273,6 +273,13 @@ impl RequestResponseProtocol {
 		request_id: RequestId,
 		request: Vec<u8>,
 	) {
+		log::trace!(
+			target: LOG_TARGET,
+			"{}: request received from {peer:?} ({fallback:?} {request_id:?}), request size {:?}",
+			self.protocol,
+			request.len(),
+		);
+
 		let Some(inbound_queue) = &self.inbound_queue else {
 			log::trace!(
 				target: LOG_TARGET,
@@ -296,12 +303,6 @@ impl RequestResponseProtocol {
 			return;
 		}
 
-		log::trace!(
-			target: LOG_TARGET,
-			"{}: request received from {peer:?} ({fallback:?} {request_id:?}), request size {:?}",
-			self.protocol,
-			request.len(),
-		);
 		let (tx, rx) = oneshot::channel();
 
 		match inbound_queue.try_send(IncomingRequest {
