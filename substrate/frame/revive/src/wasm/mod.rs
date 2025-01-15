@@ -193,8 +193,9 @@ where
 						&HoldReason::CodeUploadDepositReserve.into(),
 						&self.code_info.owner,
 						deposit,
-					) .map_err(|err| { log::debug!(target: LOG_TARGET, "failed to store code for owner: {:?}: {err:?}", self.code_info.owner);
-						<Error<T>>::StorageDepositNotEnoughFunds
+					) .map_err(|err| {
+							log::debug!(target: LOG_TARGET, "failed to hold store code deposit {deposit:?} for owner: {:?}: {err:?}", self.code_info.owner);
+							<Error<T>>::StorageDepositNotEnoughFunds
 					})?;
 					}
 
