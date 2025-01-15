@@ -506,38 +506,3 @@ impl ShouldNotExecute for DenyReserveTransferToRelayChain {
 		Ok(())
 	}
 }
-
-/// Deny execution if the message contains instruction `ExportMessage` with
-/// a. origin is contained in `FromOrigin` (i.e.`FromOrigin::Contains(origin)`)
-/// b. network is contained in `ToGlobalConsensus`, (i.e. `ToGlobalConsensus::contains(network)`)
-pub struct DenyExportMessageFrom<FromOrigin, ToGlobalConsensus>(
-	PhantomData<(FromOrigin, ToGlobalConsensus)>,
-);
-
-impl<FromOrigin, ToGlobalConsensus> ShouldNotExecute
-	for DenyExportMessageFrom<FromOrigin, ToGlobalConsensus>
-where
-	FromOrigin: Contains<Location>,
-	ToGlobalConsensus: Contains<NetworkId>,
-{
-	fn should_not_execute<RuntimeCall>(
-		origin: &Location,
-		message: &mut [Instruction<RuntimeCall>],
-		_max_weight: Weight,
-		_properties: &mut Properties,
-	) -> Result<(), ProcessMessageError> {
-		message.matcher().match_next_inst_while(
-			|_| true,
-			|inst| match inst {
-				ExportMessage { network, .. } =>
-					if ToGlobalConsensus::contains(network) && FromOrigin::contains(origin) {
-						return Err(ProcessMessageError::Unsupported)
-					} else {
-						Ok(ControlFlow::Continue(()))
-					},
-				_ => Ok(ControlFlow::Continue(())),
-			},
-		)?;
-		Ok(())
-	}
-}

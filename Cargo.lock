@@ -2584,6 +2584,8 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
  "staging-xcm 7.0.0",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
 ]
 
 [[package]]
