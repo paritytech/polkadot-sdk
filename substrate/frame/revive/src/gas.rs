@@ -22,7 +22,7 @@ use frame_support::{
 	weights::Weight,
 	DefaultNoBound,
 };
-use sp_runtime::{traits::Zero, DispatchError};
+use sp_runtime::DispatchError;
 
 #[cfg(test)]
 use std::{any::Any, fmt::Debug};
@@ -168,25 +168,19 @@ impl<T: Config> GasMeter<T> {
 		}
 	}
 
-	/// Create a new gas meter by removing gas from the current meter.
+	/// Create a new gas meter by removing *all* the gas from the current meter.
 	///
-	/// # Note
-	///
-	/// Passing `0` as amount is interpreted as "all remaining gas".
+	/// This should only be used by the primordial frame in a sequence of calls - every subsequent
+	/// frame should use [`nested`](Self::nested).
+	pub fn nested_take_all(&mut self) -> Self {
+		let gas_left = self.gas_left;
+		self.gas_left -= gas_left;
+		GasMeter::new(gas_left)
+	}
+
+	/// Create a new gas meter for a nested call by removing gas from the current meter.
 	pub fn nested(&mut self, amount: Weight) -> Self {
-		let amount = Weight::from_parts(
-			if amount.ref_time().is_zero() {
-				self.gas_left().ref_time()
-			} else {
-				amount.ref_time()
-			},
-			if amount.proof_size().is_zero() {
-				self.gas_left().proof_size()
-			} else {
-				amount.proof_size()
-			},
-		)
-		.min(self.gas_left);
+		let amount = amount.min(self.gas_left);
 		self.gas_left -= amount;
 		GasMeter::new(amount)
 	}
@@ -390,6 +384,50 @@ mod tests {
 	fn refuse_to_execute_anything_if_zero() {
 		let mut gas_meter = GasMeter::<Test>::new(Weight::zero());
 		assert!(gas_meter.charge(SimpleToken(1)).is_err());
+	}
+
+	/// Previously, passing a `Weight` of 0 to `nested` would consume all of the meter's current
+	/// gas.
+	///
+	/// Now, a `Weight` of 0 means no gas for the nested call.
+	#[test]
+	fn nested_zero_gas_requested() {
+		let test_weight = 50000.into();
+		let mut gas_meter = GasMeter::<Test>::new(test_weight);
+		let gas_for_nested_call = gas_meter.nested(0.into());
+
+		assert_eq!(gas_meter.gas_left(), 50000.into());
+		assert_eq!(gas_for_nested_call.gas_left(), 0.into())
+	}
+
+	#[test]
+	fn nested_some_gas_requested() {
+		let test_weight = 50000.into();
+		let mut gas_meter = GasMeter::<Test>::new(test_weight);
+		let gas_for_nested_call = gas_meter.nested(10000.into());
+
+		assert_eq!(gas_meter.gas_left(), 40000.into());
+		assert_eq!(gas_for_nested_call.gas_left(), 10000.into())
+	}
+
+	#[test]
+	fn nested_all_gas_requested() {
+		let test_weight = Weight::from_parts(50000, 50000);
+		let mut gas_meter = GasMeter::<Test>::new(test_weight);
+		let gas_for_nested_call = gas_meter.nested(test_weight);
+
+		assert_eq!(gas_meter.gas_left(), Weight::from_parts(0, 0));
+		assert_eq!(gas_for_nested_call.gas_left(), 50_000.into())
+	}
+
+	#[test]
+	fn nested_excess_gas_requested() {
+		let test_weight = Weight::from_parts(50000, 50000);
+		let mut gas_meter = GasMeter::<Test>::new(test_weight);
+		let gas_for_nested_call = gas_meter.nested(test_weight + 10000.into());
+
+		assert_eq!(gas_meter.gas_left(), Weight::from_parts(0, 0));
+		assert_eq!(gas_for_nested_call.gas_left(), 50_000.into())
 	}
 
 	// Make sure that the gas meter does not charge in case of overcharge
