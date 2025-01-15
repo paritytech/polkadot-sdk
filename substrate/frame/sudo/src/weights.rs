@@ -46,7 +46,7 @@
 #![allow(unused_imports)]
 #![allow(missing_docs)]
 
-use frame::weights_prelude::*
+use frame::weights_prelude::*;
 
 /// Weight functions needed for `pallet_sudo`.
 pub trait WeightInfo {
