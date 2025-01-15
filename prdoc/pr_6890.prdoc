@@ -11,3 +11,9 @@ doc:
 crates:
   - name: pallet-revive
     bump: minor
+  - name: pallet-revive-fixtures
+    bump: patch
+  - name: pallet-revive-uapi
+    bump: patch
+  - name: pallet-revive-eth-rpc
+    bump: patch
