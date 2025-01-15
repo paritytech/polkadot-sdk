@@ -100,12 +100,15 @@ pub mod v17 {
 				migrated_stashes.into(),
 			)
 		}
-	}
 
-	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
-		frame_support::ensure!(Pallet::<T>::on_chain_storage_version() >= 17, "v17 not applied");
-		Ok(())
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			frame_support::ensure!(
+				Pallet::<T>::on_chain_storage_version() >= 17,
+				"v17 not applied"
+			);
+			Ok(())
+		}
 	}
 
 	pub type MigrateV16ToV17<T> = VersionedMigration<
