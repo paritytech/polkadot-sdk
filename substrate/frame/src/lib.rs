@@ -206,6 +206,7 @@ pub mod prelude {
 	pub use frame_support::{
 		defensive, defensive_assert,
 		traits::{
+			tokens::{ConversionFromAssetBalance, ConversionToAssetBalance},
 			Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll,
 			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
 		},
@@ -231,9 +232,13 @@ pub mod prelude {
 
 	/// Runtime traits
 	#[doc(no_inline)]
-	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+	pub use sp_runtime::{
+		traits::{
+			BlockNumberProvider, Bounded, CheckedDiv, Convert, DispatchInfoOf, Dispatchable,
+			ReduceBy, ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup,
+			TrailingZeroInput, Zero,
+		},
+		FixedPointNumber, FixedU128,
 	};
 	/// Other error/result types for runtime
 	#[doc(no_inline)]

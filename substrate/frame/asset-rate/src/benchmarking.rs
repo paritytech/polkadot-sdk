@@ -21,10 +21,7 @@ use super::*;
 use crate::{pallet as pallet_asset_rate, Pallet as AssetRate};
 
 use codec::Encode;
-use frame_benchmarking::v2::*;
-use frame_support::assert_ok;
-use frame_system::RawOrigin;
-use sp_core::crypto::FromEntropy;
+use frame::{benchmarking::prelude::*, deps::sp_core::crypto::FromEntropy};
 
 /// Trait describing the factory function for the `AssetKind` parameter.
 pub trait AssetKindFactory<AssetKind> {
