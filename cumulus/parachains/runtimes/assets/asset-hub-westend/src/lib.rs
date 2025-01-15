@@ -125,7 +125,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
 	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_017_003,
+	spec_version: 1_017_004,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -341,7 +341,6 @@ pub type LocalAndForeignAssets = fungibles::UnionOf<
 	xcm::v5::Location,
 	AccountId,
 >;
-
 /// Union fungibles implementation for [`LocalAndForeignAssets`] and `Balances`.
 pub type NativeAndAssets = fungible::UnionOf<
 	Balances,
@@ -1124,6 +1123,7 @@ pub type Migrations = (
 	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.
