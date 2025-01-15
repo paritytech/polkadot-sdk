@@ -24,8 +24,8 @@ use crate::{
 	runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo},
 	storage::{self, meter::Diff, WriteOutcome},
 	transient_storage::TransientStorage,
-	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, DebugBuffer, Error,
-	Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, LOG_TARGET,
+	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, Error, Event,
+	ImmutableData, ImmutableDataOf, Pallet as Contracts,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -378,19 +378,6 @@ pub trait Ext: sealing::Sealed {
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff);
 
-	/// Append a string to the debug buffer.
-	///
-	/// It is added as-is without any additional new line.
-	///
-	/// This is a no-op if debug message recording is disabled which is always the case
-	/// when the code is executing on-chain.
-	///
-	/// Returns `true` if debug message recording is enabled. Otherwise `false` is returned.
-	fn append_debug_buffer(&mut self, msg: &str) -> bool;
-
-	/// Returns `true` if debug message recording is enabled. Otherwise `false` is returned.
-	fn debug_buffer_enabled(&self) -> bool;
-
 	/// Call some dispatchable and return the result.
 	fn call_runtime(&self, call: <Self::T as Config>::RuntimeCall) -> DispatchResultWithPostInfo;
 
@@ -555,11 +542,6 @@ pub struct Stack<'a, T: Config, E> {
 	frames: BoundedVec<Frame<T>, ConstU32<{ limits::CALL_STACK_DEPTH }>>,
 	/// Statically guarantee that each call stack has at least one frame.
 	first_frame: Frame<T>,
-	/// A text buffer used to output human readable information.
-	///
-	/// All the bytes added to this field should be valid UTF-8. The buffer has no defined
-	/// structure and is intended to be shown to users as-is for debugging purposes.
-	debug_message: Option<&'a mut DebugBuffer>,
 	/// Transient storage used to store data, which is kept for the duration of a transaction.
 	transient_storage: TransientStorage<T>,
 	/// Whether or not actual transfer of funds should be performed.
@@ -765,11 +747,6 @@ where
 {
 	/// Create and run a new call stack by calling into `dest`.
 	///
-	/// # Note
-	///
-	/// `debug_message` should only ever be set to `Some` when executing as an RPC because
-	/// it adds allocations and could be abused to drive the runtime into an OOM panic.
-	///
 	/// # Return Value
 	///
 	/// Result<(ExecReturnValue, CodeSize), (ExecError, CodeSize)>
@@ -781,7 +758,6 @@ where
 		value: U256,
 		input_data: Vec<u8>,
 		skip_transfer: bool,
-		debug_message: Option<&'a mut DebugBuffer>,
 	) -> ExecResult {
 		let dest = T::AddressMapper::to_account_id(&dest);
 		if let Some((mut stack, executable)) = Self::new(
@@ -791,7 +767,6 @@ where
 			storage_meter,
 			value,
 			skip_transfer,
-			debug_message,
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
@@ -800,11 +775,6 @@ where
 	}
 
 	/// Create and run a new call stack by instantiating a new contract.
-	///
-	/// # Note
-	///
-	/// `debug_message` should only ever be set to `Some` when executing as an RPC because
-	/// it adds allocations and could be abused to drive the runtime into an OOM panic.
 	///
 	/// # Return Value
 	///
@@ -818,7 +788,6 @@ where
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
 		skip_transfer: bool,
-		debug_message: Option<&'a mut DebugBuffer>,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
 		let (mut stack, executable) = Self::new(
 			FrameArgs::Instantiate {
@@ -832,7 +801,6 @@ where
 			storage_meter,
 			value,
 			skip_transfer,
-			debug_message,
 		)?
 		.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 		let address = T::AddressMapper::to_address(&stack.top_frame().account_id);
@@ -848,7 +816,6 @@ where
 		gas_meter: &'a mut GasMeter<T>,
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: BalanceOf<T>,
-		debug_message: Option<&'a mut DebugBuffer>,
 	) -> (Self, E) {
 		Self::new(
 			FrameArgs::Call {
@@ -861,7 +828,6 @@ where
 			storage_meter,
 			value.into(),
 			false,
-			debug_message,
 		)
 		.unwrap()
 		.unwrap()
@@ -878,7 +844,6 @@ where
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: U256,
 		skip_transfer: bool,
-		debug_message: Option<&'a mut DebugBuffer>,
 	) -> Result<Option<(Self, E)>, ExecError> {
 		origin.ensure_mapped()?;
 		let Some((first_frame, executable)) = Self::new_frame(
@@ -903,7 +868,6 @@ where
 			block_number: <frame_system::Pallet<T>>::block_number(),
 			first_frame,
 			frames: Default::default(),
-			debug_message,
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
 			skip_transfer,
 			_phantom: Default::default(),
@@ -1250,13 +1214,6 @@ where
 				}
 			}
 		} else {
-			if let Some((msg, false)) = self.debug_message.as_ref().map(|m| (m, m.is_empty())) {
-				log::debug!(
-					target: LOG_TARGET,
-					"Execution finished with debug buffer: {}",
-					core::str::from_utf8(msg).unwrap_or("<Invalid UTF8>"),
-				);
-			}
 			self.gas_meter.absorb_nested(mem::take(&mut self.first_frame.nested_gas));
 			if !persist {
 				return;
@@ -1759,28 +1716,6 @@ where
 		self.top_frame_mut().nested_storage.charge(diff)
 	}
 
-	fn debug_buffer_enabled(&self) -> bool {
-		self.debug_message.is_some()
-	}
-
-	fn append_debug_buffer(&mut self, msg: &str) -> bool {
-		if let Some(buffer) = &mut self.debug_message {
-			buffer
-				.try_extend(&mut msg.bytes())
-				.map_err(|_| {
-					log::debug!(
-						target: LOG_TARGET,
-						"Debug buffer (of {} bytes) exhausted!",
-						limits::DEBUG_BUFFER_BYTES,
-					)
-				})
-				.ok();
-			true
-		} else {
-			false
-		}
-	}
-
 	fn call_runtime(&self, call: <Self::T as Config>::RuntimeCall) -> DispatchResultWithPostInfo {
 		let mut origin: T::RuntimeOrigin = RawOrigin::Signed(self.account_id().clone()).into();
 		origin.add_filter(T::CallFilter::contains);
@@ -2103,7 +2038,6 @@ mod tests {
 					value.into(),
 					vec![],
 					false,
-					None,
 				),
 				Ok(_)
 			);
@@ -2196,7 +2130,6 @@ mod tests {
 				value.into(),
 				vec![],
 				false,
-				None,
 			)
 			.unwrap();
 
@@ -2237,7 +2170,6 @@ mod tests {
 				value.into(),
 				vec![],
 				false,
-				None,
 			));
 
 			assert_eq!(get_balance(&ALICE), 100 - value);
@@ -2274,7 +2206,6 @@ mod tests {
 					U256::zero(),
 					vec![],
 					false,
-					None,
 				),
 				ExecError {
 					error: Error::<Test>::CodeNotFound.into(),
@@ -2292,7 +2223,6 @@ mod tests {
 				U256::zero(),
 				vec![],
 				false,
-				None,
 			));
 		});
 	}
@@ -2321,7 +2251,6 @@ mod tests {
 				55u64.into(),
 				vec![],
 				false,
-				None,
 			)
 			.unwrap();
 
@@ -2371,7 +2300,6 @@ mod tests {
 				U256::zero(),
 				vec![],
 				false,
-				None,
 			);
 
 			let output = result.unwrap();
@@ -2401,7 +2329,6 @@ mod tests {
 				U256::zero(),
 				vec![],
 				false,
-				None,
 			);
 
 			let output = result.unwrap();
@@ -2431,7 +2358,6 @@ mod tests {
 				U256::zero(),
 				vec![1, 2, 3, 4],
 				false,
-				None,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -2468,7 +2394,6 @@ mod tests {
 					vec![1, 2, 3, 4],
 					Some(&[0; 32]),
 					false,
-					None,
 				);
 				assert_matches!(result, Ok(_));
 			});
@@ -2523,7 +2448,6 @@ mod tests {
 				value.into(),
 				vec![],
 				false,
-				None,
 			);
 
 			assert_matches!(result, Ok(_));
@@ -2588,7 +2512,6 @@ mod tests {
 				U256::zero(),
 				vec![],
 				false,
-				None,
 			);
 
 			assert_matches!(result, Ok(_));
@@ -2654,7 +2577,6 @@ mod tests {
 				U256::zero(),
 				vec![],
 				false,
-				None,
 			);
 
 			assert_matches!(result, Ok(_));
@@ -2687,7 +2609,6 @@ mod tests {
 				U256::zero(),
 				vec![],
 				false,
-				None,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -2725,7 +2646,6 @@ mod tests {
 				U256::zero(),
 				vec![0],
 				false,
-				None,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -2752,7 +2672,6 @@ mod tests {
 				U256::zero(),
 				vec![0],
 				false,
-				None,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -2797,7 +2716,6 @@ mod tests {
 				U256::zero(),
 				vec![0],
 				false,
-				None,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -2824,7 +2742,6 @@ mod tests {
 				U256::zero(),
 				vec![0],
 				false,
-				None,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -2851,7 +2768,6 @@ mod tests {
 				1u64.into(),
 				vec![0],
 				false,
-				None,
 			);
 			assert_matches!(result, Err(_));
 		});
@@ -2896,7 +2812,6 @@ mod tests {
 				U256::zero(),
 				vec![0],
 				false,
-				None,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -2942,7 +2857,6 @@ mod tests {
 				U256::zero(),
 				vec![],
 				false,
-				None,
 			);
 
 			assert_matches!(result, Ok(_));
@@ -2969,7 +2883,6 @@ mod tests {
 					vec![],
 					Some(&[0; 32]),
 					false,
-					None,
 				),
 				Err(_)
 			);
@@ -3005,7 +2918,6 @@ mod tests {
 						vec![],
 						Some(&[0 ;32]),
 						false,
-						None,
 					),
 					Ok((address, ref output)) if output.data == vec![80, 65, 83, 83] => address
 				);
@@ -3060,7 +2972,6 @@ mod tests {
 						vec![],
 						Some(&[0; 32]),
 						false,
-						None,
 					),
 					Ok((address, ref output)) if output.data == vec![70, 65, 73, 76] => address
 				);
@@ -3125,7 +3036,6 @@ mod tests {
 						(min_balance * 10).into(),
 						vec![],
 						false,
-						None,
 					),
 					Ok(_)
 				);
@@ -3206,7 +3116,6 @@ mod tests {
 						U256::zero(),
 						vec![],
 						false,
-						None,
 					),
 					Ok(_)
 				);
@@ -3250,7 +3159,6 @@ mod tests {
 						vec![],
 						Some(&[0; 32]),
 						false,
-						None,
 					),
 					Err(Error::<Test>::TerminatedInConstructor.into())
 				);
@@ -3315,7 +3223,6 @@ mod tests {
 				U256::zero(),
 				vec![0],
 				false,
-				None,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -3378,7 +3285,6 @@ mod tests {
 					vec![],
 					Some(&[0; 32]),
 					false,
-					None,
 				);
 				assert_matches!(result, Ok(_));
 			});
@@ -3425,111 +3331,9 @@ mod tests {
 					U256::zero(),
 					vec![],
 					false,
-					None,
 				)
 				.unwrap();
 			});
-	}
-
-	#[test]
-	fn printing_works() {
-		let code_hash = MockLoader::insert(Call, |ctx, _| {
-			ctx.ext.append_debug_buffer("This is a test");
-			ctx.ext.append_debug_buffer("More text");
-			exec_success()
-		});
-
-		let mut debug_buffer = DebugBuffer::try_from(Vec::new()).unwrap();
-
-		ExtBuilder::default().build().execute_with(|| {
-			let min_balance = <Test as Config>::Currency::minimum_balance();
-
-			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
-			set_balance(&ALICE, min_balance * 10);
-			place_contract(&BOB, code_hash);
-			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
-			MockStack::run_call(
-				origin,
-				BOB_ADDR,
-				&mut gas_meter,
-				&mut storage_meter,
-				U256::zero(),
-				vec![],
-				false,
-				Some(&mut debug_buffer),
-			)
-			.unwrap();
-		});
-
-		assert_eq!(&String::from_utf8(debug_buffer.to_vec()).unwrap(), "This is a testMore text");
-	}
-
-	#[test]
-	fn printing_works_on_fail() {
-		let code_hash = MockLoader::insert(Call, |ctx, _| {
-			ctx.ext.append_debug_buffer("This is a test");
-			ctx.ext.append_debug_buffer("More text");
-			exec_trapped()
-		});
-
-		let mut debug_buffer = DebugBuffer::try_from(Vec::new()).unwrap();
-
-		ExtBuilder::default().build().execute_with(|| {
-			let min_balance = <Test as Config>::Currency::minimum_balance();
-
-			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
-			set_balance(&ALICE, min_balance * 10);
-			place_contract(&BOB, code_hash);
-			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
-			let result = MockStack::run_call(
-				origin,
-				BOB_ADDR,
-				&mut gas_meter,
-				&mut storage_meter,
-				U256::zero(),
-				vec![],
-				false,
-				Some(&mut debug_buffer),
-			);
-			assert!(result.is_err());
-		});
-
-		assert_eq!(&String::from_utf8(debug_buffer.to_vec()).unwrap(), "This is a testMore text");
-	}
-
-	#[test]
-	fn debug_buffer_is_limited() {
-		let code_hash = MockLoader::insert(Call, move |ctx, _| {
-			ctx.ext.append_debug_buffer("overflowing bytes");
-			exec_success()
-		});
-
-		// Pre-fill the buffer almost up to its limit, leaving not enough space to the message
-		let debug_buf_before = DebugBuffer::try_from(vec![0u8; DebugBuffer::bound() - 5]).unwrap();
-		let mut debug_buf_after = debug_buf_before.clone();
-
-		ExtBuilder::default().build().execute_with(|| {
-			let min_balance = <Test as Config>::Currency::minimum_balance();
-			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
-			set_balance(&ALICE, min_balance * 10);
-			place_contract(&BOB, code_hash);
-			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
-			MockStack::run_call(
-				origin,
-				BOB_ADDR,
-				&mut gas_meter,
-				&mut storage_meter,
-				U256::zero(),
-				vec![],
-				false,
-				Some(&mut debug_buf_after),
-			)
-			.unwrap();
-			assert_eq!(debug_buf_before, debug_buf_after);
-		});
 	}
 
 	#[test]
@@ -3559,7 +3363,6 @@ mod tests {
 				U256::zero(),
 				CHARLIE_ADDR.as_bytes().to_vec(),
 				false,
-				None,
 			));
 
 			// Calling into oneself fails
@@ -3572,7 +3375,6 @@ mod tests {
 					U256::zero(),
 					BOB_ADDR.as_bytes().to_vec(),
 					false,
-					None,
 				)
 				.map_err(|e| e.error),
 				<Error<Test>>::ReentranceDenied,
@@ -3623,7 +3425,6 @@ mod tests {
 					U256::zero(),
 					vec![0],
 					false,
-					None,
 				)
 				.map_err(|e| e.error),
 				<Error<Test>>::ReentranceDenied,
@@ -3658,7 +3459,6 @@ mod tests {
 				U256::zero(),
 				vec![],
 				false,
-				None,
 			)
 			.unwrap();
 
@@ -3743,7 +3543,6 @@ mod tests {
 				U256::zero(),
 				vec![],
 				false,
-				None,
 			)
 			.unwrap();
 
@@ -3870,7 +3669,6 @@ mod tests {
 					vec![],
 					Some(&[0; 32]),
 					false,
-					None,
 				)
 				.ok();
 				assert_eq!(System::account_nonce(&ALICE), 0);
@@ -3884,7 +3682,6 @@ mod tests {
 					vec![],
 					Some(&[0; 32]),
 					false,
-					None,
 				));
 				assert_eq!(System::account_nonce(&ALICE), 1);
 
@@ -3897,7 +3694,6 @@ mod tests {
 					vec![],
 					Some(&[0; 32]),
 					false,
-					None,
 				));
 				assert_eq!(System::account_nonce(&ALICE), 2);
 
@@ -3910,7 +3706,6 @@ mod tests {
 					vec![],
 					Some(&[0; 32]),
 					false,
-					None,
 				));
 				assert_eq!(System::account_nonce(&ALICE), 3);
 			});
@@ -3979,7 +3774,6 @@ mod tests {
 				U256::zero(),
 				vec![],
 				false,
-				None,
 			));
 		});
 	}
@@ -4091,7 +3885,6 @@ mod tests {
 				U256::zero(),
 				vec![],
 				false,
-				None,
 			));
 		});
 	}
@@ -4131,7 +3924,6 @@ mod tests {
 				U256::zero(),
 				vec![],
 				false,
-				None,
 			));
 		});
 	}
@@ -4171,7 +3963,6 @@ mod tests {
 				U256::zero(),
 				vec![],
 				false,
-				None,
 			));
 		});
 	}
@@ -4225,7 +4016,6 @@ mod tests {
 				U256::zero(),
 				vec![],
 				false,
-				None,
 			));
 		});
 	}
@@ -4282,7 +4072,6 @@ mod tests {
 				U256::zero(),
 				vec![],
 				false,
-				None,
 			));
 		});
 	}
@@ -4358,7 +4147,6 @@ mod tests {
 				U256::zero(),
 				vec![],
 				false,
-				None,
 			));
 		});
 	}
@@ -4429,7 +4217,6 @@ mod tests {
 				U256::zero(),
 				vec![0],
 				false,
-				None,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -4468,7 +4255,6 @@ mod tests {
 				U256::zero(),
 				vec![],
 				false,
-				None,
 			));
 		});
 	}
@@ -4531,7 +4317,6 @@ mod tests {
 				U256::zero(),
 				vec![0],
 				false,
-				None,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -4565,7 +4350,6 @@ mod tests {
 				U256::zero(),
 				vec![],
 				false,
-				None,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -4641,7 +4425,6 @@ mod tests {
 					U256::zero(),
 					vec![],
 					false,
-					None,
 				)
 				.unwrap()
 			});
@@ -4710,7 +4493,6 @@ mod tests {
 				U256::zero(),
 				vec![0],
 				false,
-				None,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -4782,7 +4564,6 @@ mod tests {
 				U256::zero(),
 				vec![],
 				false,
-				None,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -4834,7 +4615,6 @@ mod tests {
 					U256::zero(),
 					vec![],
 					false,
-					None,
 				)
 				.unwrap()
 			});
@@ -4904,7 +4684,6 @@ mod tests {
 					U256::zero(),
 					vec![],
 					false,
-					None,
 				)
 				.unwrap()
 			});
@@ -4951,7 +4730,6 @@ mod tests {
 					U256::zero(),
 					vec![],
 					false,
-					None,
 				)
 				.unwrap()
 			});
@@ -4996,7 +4774,6 @@ mod tests {
 					U256::zero(),
 					vec![],
 					false,
-					None,
 				)
 				.unwrap()
 			});
@@ -5052,7 +4829,6 @@ mod tests {
 					U256::zero(),
 					vec![0],
 					false,
-					None,
 				),
 				Ok(_)
 			);
