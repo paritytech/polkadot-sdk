@@ -364,6 +364,7 @@ runtime-benchmarks = [
 	"staging-node-inspect?/runtime-benchmarks",
 	"staging-xcm-builder?/runtime-benchmarks",
 	"staging-xcm-executor?/runtime-benchmarks",
+	"staging-xcm?/runtime-benchmarks",
 	"xcm-runtime-apis?/runtime-benchmarks",
 ]
 try-runtime = [
