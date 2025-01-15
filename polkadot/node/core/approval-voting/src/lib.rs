@@ -124,13 +124,10 @@ const APPROVAL_CHECKING_TIMEOUT: Duration = Duration::from_secs(120);
 const WAIT_FOR_SIGS_TIMEOUT: Duration = Duration::from_millis(500);
 const APPROVAL_CACHE_SIZE: u32 = 1024;
 
-<<<<<<< HEAD
 const TICK_TOO_FAR_IN_FUTURE: Tick = 20; // 10 seconds.
-=======
 /// The maximum number of times we retry to approve a block if is still needed.
 const MAX_APPROVAL_RETRIES: u32 = 16;
 
->>>>>>> 6878ba1f (Retry approval on availability failure if the check is still needed (#6807))
 const APPROVAL_DELAY: Tick = 2;
 pub(crate) const LOG_TARGET: &str = "parachain::approval-voting";
 
