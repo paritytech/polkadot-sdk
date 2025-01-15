@@ -621,9 +621,9 @@ array-bytes = { version = "6.2.2", default-features = false }
 arrayvec = { version = "0.7.4" }
 assert_cmd = { version = "2.0.14" }
 assert_matches = { version = "1.5.0" }
-asset-hub-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-rococo" }
 asset-hub-next-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-next-westend" }
 asset-hub-next-westend-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-next-westend" }
+asset-hub-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-rococo" }
 asset-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-rococo", default-features = false }
 asset-hub-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-westend" }
 asset-hub-westend-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-westend" }
@@ -645,9 +645,9 @@ blake2b_simd = { version = "1.0.2", default-features = false }
 blake3 = { version = "1.5" }
 bounded-collections = { version = "0.2.2", default-features = false }
 bounded-vec = { version = "0.7" }
+bp-asset-hub-next-westend = { path = "bridges/chains/chain-asset-hub-next-westend", default-features = false }
 bp-asset-hub-rococo = { path = "bridges/chains/chain-asset-hub-rococo", default-features = false }
 bp-asset-hub-westend = { path = "bridges/chains/chain-asset-hub-westend", default-features = false }
-bp-asset-hub-next-westend = { path = "bridges/chains/chain-asset-hub-next-westend", default-features = false }
 bp-beefy = { path = "bridges/primitives/beefy", default-features = false }
 bp-bridge-hub-cumulus = { path = "bridges/chains/chain-bridge-hub-cumulus", default-features = false }
 bp-bridge-hub-kusama = { default-features = false, path = "bridges/chains/chain-bridge-hub-kusama" }
