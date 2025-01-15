@@ -685,6 +685,7 @@ mod paged_snapshot {
 				assert_eq!(all_voters, single_page_voters);
 			})
 	}
+}
 
 mod paged_exposures {
 	use super::*;
