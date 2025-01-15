@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["MaybeErrorCode","OriginKind","VersionedAssets","VersionedXcm","WeightLimit"],"struct":["Asset","AssetId","Dmp","Location","Weight","Xcm"],"trait":["Chain","WeightToFee"],"type":["AccountId","V3Location"]};

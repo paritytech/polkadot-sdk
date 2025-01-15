@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["close","disapprove_proposal","execute","kill","propose","release_proposal_cost","set_members","vote"],"struct":["Close","DisapproveProposal","Execute","Kill","Propose","ReleaseProposalCost","SetMembers","Vote"]};

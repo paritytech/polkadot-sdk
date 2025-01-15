@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CORETIME_PARA_ID"],"enum":["CoretimeRuntimeType"],"fn":["chain_type_name"],"mod":["kusama","polkadot","rococo","westend"]};

@@ -1,0 +1,161 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Service configuration."><title>sc_service::config - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../sc_service/index.html">sc_service</a><span class="version">0.35.0</span></h2></div><h2 class="location"><a href="#">Module config</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li></ul></section><h2><a href="../index.html">In crate sc_service</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">sc_service</a>::<wbr><a class="mod" href="#">config</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/sc_service/config.rs.html#19-350">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Service configuration.</p>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.BasePath.html" title="struct sc_service::config::BasePath">BasePath</a></div><div class="desc docblock-short">The base path that is used for everything that needs to be written on disk to run a node.</div></li><li><div class="item-name"><a class="struct" href="struct.Configuration.html" title="struct sc_service::config::Configuration">Configuration</a></div><div class="desc docblock-short">Service configuration.</div></li><li><div class="item-name"><a class="struct" href="struct.ExecutorConfiguration.html" title="struct sc_service::config::ExecutorConfiguration">ExecutorConfiguration</a></div><div class="desc docblock-short">Runtime executor configuration.</div></li><li><div class="item-name"><a class="struct" href="struct.IncomingRequest.html" title="struct sc_service::config::IncomingRequest">IncomingRequest</a></div><div class="desc docblock-short">A single request received by a peer on a request-response protocol.</div></li><li><div class="item-name"><a class="struct" href="struct.Multiaddr.html" title="struct sc_service::config::Multiaddr">Multiaddr</a></div><div class="desc docblock-short"><a href="struct.Multiaddr.html" title="struct sc_service::config::Multiaddr"><code>Multiaddr</code></a> type used in Substrate. Converted to libp2p’s <code>Multiaddr</code>
+or litep2p’s <code>Multiaddr</code> when passed to the corresponding network backend.</div></li><li><div class="item-name"><a class="struct" href="struct.MultiaddrWithPeerId.html" title="struct sc_service::config::MultiaddrWithPeerId">MultiaddrWithPeerId</a></div><div class="desc docblock-short">Address of a node, including its identity.</div></li><li><div class="item-name"><a class="struct" href="struct.NetworkConfiguration.html" title="struct sc_service::config::NetworkConfiguration">NetworkConfiguration</a></div><div class="desc docblock-short">Network service configuration.</div></li><li><div class="item-name"><a class="struct" href="struct.NonDefaultSetConfig.html" title="struct sc_service::config::NonDefaultSetConfig">NonDefaultSetConfig</a></div><div class="desc docblock-short">Extension to <a href="struct.SetConfig.html" title="struct sc_service::config::SetConfig"><code>SetConfig</code></a> for sets that aren’t the default set.</div></li><li><div class="item-name"><a class="struct" href="struct.OffchainWorkerConfig.html" title="struct sc_service::config::OffchainWorkerConfig">OffchainWorkerConfig</a></div><div class="desc docblock-short">Configuration of the database of the client.</div></li><li><div class="item-name"><a class="struct" href="struct.OutgoingResponse.html" title="struct sc_service::config::OutgoingResponse">OutgoingResponse</a></div><div class="desc docblock-short">Response for an incoming request to be send by a request protocol handler.</div></li><li><div class="item-name"><a class="struct" href="struct.PrometheusConfig.html" title="struct sc_service::config::PrometheusConfig">PrometheusConfig</a></div><div class="desc docblock-short">Configuration of the Prometheus endpoint.</div></li><li><div class="item-name"><a class="struct" href="struct.ProtocolId.html" title="struct sc_service::config::ProtocolId">ProtocolId</a></div><div class="desc docblock-short">Protocol name prefix, transmitted on the wire for legacy protocol names.
+I.e., <code>dot</code> in <code>/dot/sync/2</code>. Should be unique for each chain. Always UTF-8.
+Deprecated in favour of genesis hash &amp; fork ID based protocol names.</div></li><li><div class="item-name"><a class="struct" href="struct.RequestResponseConfig.html" title="struct sc_service::config::RequestResponseConfig">RequestResponseConfig</a></div><div class="desc docblock-short">Configuration for a single request-response protocol.</div></li><li><div class="item-name"><a class="struct" href="struct.RpcConfiguration.html" title="struct sc_service::config::RpcConfiguration">RpcConfiguration</a></div><div class="desc docblock-short">RPC configuration.</div></li><li><div class="item-name"><a class="struct" href="struct.RpcEndpoint.html" title="struct sc_service::config::RpcEndpoint">RpcEndpoint</a></div><div class="desc docblock-short">Represent a single RPC endpoint with its configuration.</div></li><li><div class="item-name"><a class="struct" href="struct.SetConfig.html" title="struct sc_service::config::SetConfig">SetConfig</a></div><div class="desc docblock-short">Configuration for a set of nodes.</div></li><li><div class="item-name"><a class="struct" href="struct.TelemetryEndpoints.html" title="struct sc_service::config::TelemetryEndpoints">TelemetryEndpoints</a></div><div class="desc docblock-short">List of telemetry servers we want to talk to. Contains the URL of the server, and the
+maximum verbosity level.</div></li><li><div class="item-name"><a class="struct" href="struct.TransactionPoolOptions.html" title="struct sc_service::config::TransactionPoolOptions">TransactionPoolOptions</a></div><div class="desc docblock-short">Transaction pool options.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.BlocksPruning.html" title="enum sc_service::config::BlocksPruning">BlocksPruning</a></div><div class="desc docblock-short">Block pruning settings.</div></li><li><div class="item-name"><a class="enum" href="enum.DatabaseSource.html" title="enum sc_service::config::DatabaseSource">DatabaseSource</a></div><div class="desc docblock-short">Where to find the database..</div></li><li><div class="item-name"><a class="enum" href="enum.IpNetwork.html" title="enum sc_service::config::IpNetwork">IpNetwork</a></div><div class="desc docblock-short">Holds IPv4 or IPv6 network.</div></li><li><div class="item-name"><a class="enum" href="enum.KeystoreConfig.html" title="enum sc_service::config::KeystoreConfig">KeystoreConfig</a></div><div class="desc docblock-short">Configuration of the client keystore.</div></li><li><div class="item-name"><a class="enum" href="enum.NodeKeyConfig.html" title="enum sc_service::config::NodeKeyConfig">NodeKeyConfig</a></div><div class="desc docblock-short">The configuration of a node’s secret key, describing the type of key
+and how it is obtained. A node’s identity keypair is the result of
+the evaluation of the node key configuration.</div></li><li><div class="item-name"><a class="enum" href="enum.PruningMode.html" title="enum sc_service::config::PruningMode">PruningMode</a></div><div class="desc docblock-short">Pruning mode.</div></li><li><div class="item-name"><a class="enum" href="enum.Role.html" title="enum sc_service::config::Role">Role</a></div><div class="desc docblock-short">Role of the local node.</div></li><li><div class="item-name"><a class="enum" href="enum.RpcBatchRequestConfig.html" title="enum sc_service::config::RpcBatchRequestConfig">RpcBatchRequestConfig</a></div><div class="desc docblock-short">Configuration for batch request handling.</div></li><li><div class="item-name"><a class="enum" href="enum.RpcMethods.html" title="enum sc_service::config::RpcMethods">RpcMethods</a></div><div class="desc docblock-short">Available RPC methods.</div></li><li><div class="item-name"><a class="enum" href="enum.SyncMode.html" title="enum sc_service::config::SyncMode">SyncMode</a></div><div class="desc docblock-short">Sync operation mode.</div></li><li><div class="item-name"><a class="enum" href="enum.TaskType.html" title="enum sc_service::config::TaskType">TaskType</a></div><div class="desc docblock-short">Type for tasks spawned by the executor.</div></li><li><div class="item-name"><a class="enum" href="enum.TransportConfig.html" title="enum sc_service::config::TransportConfig">TransportConfig</a></div><div class="desc docblock-short">Configuration for the transport layer.</div></li><li><div class="item-name"><a class="enum" href="enum.WasmExecutionMethod.html" title="enum sc_service::config::WasmExecutionMethod">WasmExecutionMethod</a></div><div class="desc docblock-short">Specification of different methods of executing the runtime Wasm code.</div></li><li><div class="item-name"><a class="enum" href="enum.WasmtimeInstantiationStrategy.html" title="enum sc_service::config::WasmtimeInstantiationStrategy">WasmtimeInstantiationStrategy</a></div><div class="desc docblock-short">The instantiation strategy to use for the WASM executor.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Database.html" title="trait sc_service::config::Database">Database</a></div></li><li><div class="item-name"><a class="trait" href="trait.RpcSubscriptionIdProvider.html" title="trait sc_service::config::RpcSubscriptionIdProvider">RpcSubscriptionIdProvider</a></div><div class="desc docblock-short">Trait for providing subscription IDs that can be cloned.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

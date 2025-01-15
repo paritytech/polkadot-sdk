@@ -1,0 +1,243 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Everything common among our refund transaction extensions."><title>RefundTransactionExtension in bridge_runtime_common::refund_relayer_extension - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="bridge_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../bridge_runtime_common/index.html">bridge_runtime_common</a><span class="version">0.7.0</span></h2></div><h2 class="location"><a href="#">RefundTransactionExtension</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.GrandpaInstance">GrandpaInstance</a></li><li><a href="#associatedtype.Id">Id</a></li><li><a href="#associatedtype.Msgs">Msgs</a></li><li><a href="#associatedtype.Priority">Priority</a></li><li><a href="#associatedtype.Refund">Refund</a></li><li><a href="#associatedtype.Runtime">Runtime</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.additional_call_result_check">additional_call_result_check</a></li><li><a href="#tymethod.check_obsolete_parsed_call">check_obsolete_parsed_call</a></li><li><a href="#tymethod.expand_call">expand_call</a></li><li><a href="#tymethod.parse_and_check_for_obsolete_call">parse_and_check_for_obsolete_call</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.analyze_call_result">analyze_call_result</a></li><li><a href="#method.bundled_messages_for_priority_boost">bundled_messages_for_priority_boost</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In bridge_runtime_common::refund_relayer_extension</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">bridge_runtime_common</a>::<wbr><a href="index.html">refund_relayer_extension</a>::<wbr><a class="trait" href="#">RefundTransactionExtension</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/bridge_runtime_common/refund_relayer_extension.rs.html#246-460">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait RefundTransactionExtension: 'static + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + Codec + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.PartialEq.html" title="trait core::cmp::PartialEq">PartialEq</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + TypeInfo<span class="where fmt-newline">where
+    &lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.Runtime" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::Runtime">Runtime</a> as GrandpaConfig&lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.GrandpaInstance" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::GrandpaInstance">GrandpaInstance</a>&gt;&gt;::BridgedChain: Chain&lt;BlockNumber = RelayBlockNumber&gt;,</span>{
+    type <a href="#associatedtype.Runtime" class="associatedtype">Runtime</a>: UtilityConfig&lt;RuntimeCall = &lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.Runtime" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::Runtime">Runtime</a> as Config&gt;::RuntimeCall&gt; + GrandpaConfig&lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.GrandpaInstance" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::GrandpaInstance">GrandpaInstance</a>&gt; + MessagesConfig&lt;&lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.Msgs" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::Msgs">Msgs</a> as <a class="trait" href="trait.RefundableMessagesLaneId.html" title="trait bridge_runtime_common::refund_relayer_extension::RefundableMessagesLaneId">RefundableMessagesLaneId</a>&gt;::<a class="associatedtype" href="trait.RefundableMessagesLaneId.html#associatedtype.Instance" title="type bridge_runtime_common::refund_relayer_extension::RefundableMessagesLaneId::Instance">Instance</a>&gt; + RelayersConfig;
+    type <a href="#associatedtype.GrandpaInstance" class="associatedtype">GrandpaInstance</a>: 'static;
+    type <a href="#associatedtype.Msgs" class="associatedtype">Msgs</a>: <a class="trait" href="trait.RefundableMessagesLaneId.html" title="trait bridge_runtime_common::refund_relayer_extension::RefundableMessagesLaneId">RefundableMessagesLaneId</a>;
+    type <a href="#associatedtype.Refund" class="associatedtype">Refund</a>: <a class="trait" href="trait.RefundCalculator.html" title="trait bridge_runtime_common::refund_relayer_extension::RefundCalculator">RefundCalculator</a>&lt;Balance = &lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.Runtime" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::Runtime">Runtime</a> as RelayersConfig&gt;::Reward&gt;;
+    type <a href="#associatedtype.Priority" class="associatedtype">Priority</a>: Get&lt;<a class="type" href="../../sp_runtime/transaction_validity/type.TransactionPriority.html" title="type sp_runtime::transaction_validity::TransactionPriority">TransactionPriority</a>&gt;;
+    type <a href="#associatedtype.Id" class="associatedtype">Id</a>: StaticStrProvider;
+
+    // Required methods
+    fn <a href="#tymethod.expand_call" class="fn">expand_call</a>(
+        call: &amp;&lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.Runtime" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::Runtime">Runtime</a> as Config&gt;::RuntimeCall
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;&amp;&lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.Runtime" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::Runtime">Runtime</a> as Config&gt;::RuntimeCall&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.parse_and_check_for_obsolete_call" class="fn">parse_and_check_for_obsolete_call</a>(
+        call: &amp;&lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.Runtime" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::Runtime">Runtime</a> as Config&gt;::RuntimeCall
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="enum.CallInfo.html" title="enum bridge_runtime_common::refund_relayer_extension::CallInfo">CallInfo</a>&gt;, <a class="enum" href="../../sp_runtime/transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.check_obsolete_parsed_call" class="fn">check_obsolete_parsed_call</a>(
+        call: &amp;&lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.Runtime" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::Runtime">Runtime</a> as Config&gt;::RuntimeCall
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;&amp;&lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.Runtime" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::Runtime">Runtime</a> as Config&gt;::RuntimeCall, <a class="enum" href="../../sp_runtime/transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.additional_call_result_check" class="fn">additional_call_result_check</a>(
+        relayer: &amp;&lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.Runtime" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::Runtime">Runtime</a> as Config&gt;::AccountId,
+        call_info: &amp;<a class="enum" href="enum.CallInfo.html" title="enum bridge_runtime_common::refund_relayer_extension::CallInfo">CallInfo</a>
+    ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.bool.html">bool</a>;
+
+    // Provided methods
+    fn <a href="#method.analyze_call_result" class="fn">analyze_call_result</a>(
+        pre: <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.PreDispatchData.html" title="struct bridge_runtime_common::refund_relayer_extension::PreDispatchData">PreDispatchData</a>&lt;&lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.Runtime" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::Runtime">Runtime</a> as Config&gt;::AccountId&gt;&gt;&gt;,
+        info: &amp;DispatchInfo,
+        post_info: &amp;PostDispatchInfo,
+        len: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.usize.html">usize</a>,
+        result: &amp;<a class="type" href="../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a>
+    ) -&gt; <a class="enum" href="enum.RelayerAccountAction.html" title="enum bridge_runtime_common::refund_relayer_extension::RelayerAccountAction">RelayerAccountAction</a>&lt;&lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.Runtime" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::Runtime">Runtime</a> as Config&gt;::AccountId, &lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.Runtime" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::Runtime">Runtime</a> as RelayersConfig&gt;::Reward&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.bundled_messages_for_priority_boost" class="fn">bundled_messages_for_priority_boost</a>(
+        call_info: <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="enum" href="enum.CallInfo.html" title="enum bridge_runtime_common::refund_relayer_extension::CallInfo">CallInfo</a>&gt;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;MessageNonce&gt; { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Everything common among our refund transaction extensions.</p>
+</div></details><h2 id="required-associated-types" class="small-section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.Runtime" class="method"><a class="src rightside" href="../../src/bridge_runtime_common/refund_relayer_extension.rs.html#253-256">source</a><h4 class="code-header">type <a href="#associatedtype.Runtime" class="associatedtype">Runtime</a>: UtilityConfig&lt;RuntimeCall = &lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.Runtime" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::Runtime">Runtime</a> as Config&gt;::RuntimeCall&gt; + GrandpaConfig&lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.GrandpaInstance" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::GrandpaInstance">GrandpaInstance</a>&gt; + MessagesConfig&lt;&lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.Msgs" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::Msgs">Msgs</a> as <a class="trait" href="trait.RefundableMessagesLaneId.html" title="trait bridge_runtime_common::refund_relayer_extension::RefundableMessagesLaneId">RefundableMessagesLaneId</a>&gt;::<a class="associatedtype" href="trait.RefundableMessagesLaneId.html#associatedtype.Instance" title="type bridge_runtime_common::refund_relayer_extension::RefundableMessagesLaneId::Instance">Instance</a>&gt; + RelayersConfig</h4></section></summary><div class="docblock"><p>This chain runtime.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.GrandpaInstance" class="method"><a class="src rightside" href="../../src/bridge_runtime_common/refund_relayer_extension.rs.html#258">source</a><h4 class="code-header">type <a href="#associatedtype.GrandpaInstance" class="associatedtype">GrandpaInstance</a>: 'static</h4></section></summary><div class="docblock"><p>Grandpa pallet reference.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Msgs" class="method"><a class="src rightside" href="../../src/bridge_runtime_common/refund_relayer_extension.rs.html#260">source</a><h4 class="code-header">type <a href="#associatedtype.Msgs" class="associatedtype">Msgs</a>: <a class="trait" href="trait.RefundableMessagesLaneId.html" title="trait bridge_runtime_common::refund_relayer_extension::RefundableMessagesLaneId">RefundableMessagesLaneId</a></h4></section></summary><div class="docblock"><p>Messages pallet and lane reference.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Refund" class="method"><a class="src rightside" href="../../src/bridge_runtime_common/refund_relayer_extension.rs.html#262">source</a><h4 class="code-header">type <a href="#associatedtype.Refund" class="associatedtype">Refund</a>: <a class="trait" href="trait.RefundCalculator.html" title="trait bridge_runtime_common::refund_relayer_extension::RefundCalculator">RefundCalculator</a>&lt;Balance = &lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.Runtime" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::Runtime">Runtime</a> as RelayersConfig&gt;::Reward&gt;</h4></section></summary><div class="docblock"><p>Refund amount calculator.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Priority" class="method"><a class="src rightside" href="../../src/bridge_runtime_common/refund_relayer_extension.rs.html#264">source</a><h4 class="code-header">type <a href="#associatedtype.Priority" class="associatedtype">Priority</a>: Get&lt;<a class="type" href="../../sp_runtime/transaction_validity/type.TransactionPriority.html" title="type sp_runtime::transaction_validity::TransactionPriority">TransactionPriority</a>&gt;</h4></section></summary><div class="docblock"><p>Priority boost calculator.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Id" class="method"><a class="src rightside" href="../../src/bridge_runtime_common/refund_relayer_extension.rs.html#266">source</a><h4 class="code-header">type <a href="#associatedtype.Id" class="associatedtype">Id</a>: StaticStrProvider</h4></section></summary><div class="docblock"><p>Signed extension unique identifier.</p>
+</div></details></div><h2 id="required-methods" class="small-section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.expand_call" class="method"><a class="src rightside" href="../../src/bridge_runtime_common/refund_relayer_extension.rs.html#269">source</a><h4 class="code-header">fn <a href="#tymethod.expand_call" class="fn">expand_call</a>(
+    call: &amp;&lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.Runtime" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::Runtime">Runtime</a> as Config&gt;::RuntimeCall
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;&amp;&lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.Runtime" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::Runtime">Runtime</a> as Config&gt;::RuntimeCall&gt;</h4></section></summary><div class="docblock"><p>Unpack batch runtime call.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.parse_and_check_for_obsolete_call" class="method"><a class="src rightside" href="../../src/bridge_runtime_common/refund_relayer_extension.rs.html#273-275">source</a><h4 class="code-header">fn <a href="#tymethod.parse_and_check_for_obsolete_call" class="fn">parse_and_check_for_obsolete_call</a>(
+    call: &amp;&lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.Runtime" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::Runtime">Runtime</a> as Config&gt;::RuntimeCall
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="enum.CallInfo.html" title="enum bridge_runtime_common::refund_relayer_extension::CallInfo">CallInfo</a>&gt;, <a class="enum" href="../../sp_runtime/transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt;</h4></section></summary><div class="docblock"><p>Given runtime call, check if it has supported format. Additionally, check if any of
+(optionally batched) calls are obsolete and we shall reject the transaction.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.check_obsolete_parsed_call" class="method"><a class="src rightside" href="../../src/bridge_runtime_common/refund_relayer_extension.rs.html#278-280">source</a><h4 class="code-header">fn <a href="#tymethod.check_obsolete_parsed_call" class="fn">check_obsolete_parsed_call</a>(
+    call: &amp;&lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.Runtime" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::Runtime">Runtime</a> as Config&gt;::RuntimeCall
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;&amp;&lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.Runtime" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::Runtime">Runtime</a> as Config&gt;::RuntimeCall, <a class="enum" href="../../sp_runtime/transaction_validity/enum.TransactionValidityError.html" title="enum sp_runtime::transaction_validity::TransactionValidityError">TransactionValidityError</a>&gt;</h4></section></summary><div class="docblock"><p>Check if parsed call is already obsolete.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.additional_call_result_check" class="method"><a class="src rightside" href="../../src/bridge_runtime_common/refund_relayer_extension.rs.html#284-287">source</a><h4 class="code-header">fn <a href="#tymethod.additional_call_result_check" class="fn">additional_call_result_check</a>(
+    relayer: &amp;&lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.Runtime" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::Runtime">Runtime</a> as Config&gt;::AccountId,
+    call_info: &amp;<a class="enum" href="enum.CallInfo.html" title="enum bridge_runtime_common::refund_relayer_extension::CallInfo">CallInfo</a>
+) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Called from post-dispatch and shall perform additional checks (apart from relay
+chain finality and messages transaction finality) of given call result.</p>
+</div></details></div><h2 id="provided-methods" class="small-section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.analyze_call_result" class="method"><a class="src rightside" href="../../src/bridge_runtime_common/refund_relayer_extension.rs.html#291-428">source</a><h4 class="code-header">fn <a href="#method.analyze_call_result" class="fn">analyze_call_result</a>(
+    pre: <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.PreDispatchData.html" title="struct bridge_runtime_common::refund_relayer_extension::PreDispatchData">PreDispatchData</a>&lt;&lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.Runtime" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::Runtime">Runtime</a> as Config&gt;::AccountId&gt;&gt;&gt;,
+    info: &amp;DispatchInfo,
+    post_info: &amp;PostDispatchInfo,
+    len: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.usize.html">usize</a>,
+    result: &amp;<a class="type" href="../../sp_runtime/type.DispatchResult.html" title="type sp_runtime::DispatchResult">DispatchResult</a>
+) -&gt; <a class="enum" href="enum.RelayerAccountAction.html" title="enum bridge_runtime_common::refund_relayer_extension::RelayerAccountAction">RelayerAccountAction</a>&lt;&lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.Runtime" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::Runtime">Runtime</a> as Config&gt;::AccountId, &lt;Self::<a class="associatedtype" href="trait.RefundTransactionExtension.html#associatedtype.Runtime" title="type bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension::Runtime">Runtime</a> as RelayersConfig&gt;::Reward&gt;</h4></section></summary><div class="docblock"><p>Given post-dispatch information, analyze the outcome of relayer call and return
+actions that need to be performed on relayer account.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.bundled_messages_for_priority_boost" class="method"><a class="src rightside" href="../../src/bridge_runtime_common/refund_relayer_extension.rs.html#439-459">source</a><h4 class="code-header">fn <a href="#method.bundled_messages_for_priority_boost" class="fn">bundled_messages_for_priority_boost</a>(
+    call_info: <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="enum" href="enum.CallInfo.html" title="enum bridge_runtime_common::refund_relayer_extension::CallInfo">CallInfo</a>&gt;
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;MessageNonce&gt;</h4></section></summary><div class="docblock"><p>Returns number of bundled messages <code>Some(_)</code>, if the given call info is a:</p>
+<ul>
+<li>
+<p>message delivery transaction;</p>
+</li>
+<li>
+<p>with reasonable bundled messages that may be accepted by the messages pallet.</p>
+</li>
+</ul>
+<p>This function is used to check whether the transaction priority should be
+virtually boosted. The relayer registration (we only boost priority for registered
+relayer transactions) must be checked outside.</p>
+</div></details></div><h2 id="object-safety" class="small-section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.75.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-RefundTransactionExtension-for-RefundBridgedGrandpaMessages%3CRuntime,+GrandpaInstance,+Msgs,+Refund,+Priority,+Id%3E" class="impl"><a class="src rightside" href="../../src/bridge_runtime_common/refund_relayer_extension.rs.html#793-857">source</a><a href="#impl-RefundTransactionExtension-for-RefundBridgedGrandpaMessages%3CRuntime,+GrandpaInstance,+Msgs,+Refund,+Priority,+Id%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Runtime, GrandpaInstance, Msgs, Refund, Priority, Id&gt; <a class="trait" href="trait.RefundTransactionExtension.html" title="trait bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension">RefundTransactionExtension</a> for <a class="struct" href="struct.RefundBridgedGrandpaMessages.html" title="struct bridge_runtime_common::refund_relayer_extension::RefundBridgedGrandpaMessages">RefundBridgedGrandpaMessages</a>&lt;Runtime, GrandpaInstance, Msgs, Refund, Priority, Id&gt;<span class="where fmt-newline">where
+    Self: 'static + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a>,
+    Runtime: UtilityConfig&lt;RuntimeCall = &lt;Runtime as Config&gt;::RuntimeCall&gt; + BoundedBridgeGrandpaConfig&lt;GrandpaInstance&gt; + MessagesConfig&lt;Msgs::<a class="associatedtype" href="trait.RefundableMessagesLaneId.html#associatedtype.Instance" title="type bridge_runtime_common::refund_relayer_extension::RefundableMessagesLaneId::Instance">Instance</a>&gt; + RelayersConfig,
+    GrandpaInstance: 'static,
+    Msgs: <a class="trait" href="trait.RefundableMessagesLaneId.html" title="trait bridge_runtime_common::refund_relayer_extension::RefundableMessagesLaneId">RefundableMessagesLaneId</a>,
+    Refund: <a class="trait" href="trait.RefundCalculator.html" title="trait bridge_runtime_common::refund_relayer_extension::RefundCalculator">RefundCalculator</a>&lt;Balance = Runtime::Reward&gt;,
+    Priority: Get&lt;<a class="type" href="../../sp_runtime/transaction_validity/type.TransactionPriority.html" title="type sp_runtime::transaction_validity::TransactionPriority">TransactionPriority</a>&gt;,
+    Id: StaticStrProvider,
+    &lt;Runtime as Config&gt;::RuntimeCall: <a class="trait" href="../../sp_runtime/traits/trait.Dispatchable.html" title="trait sp_runtime::traits::Dispatchable">Dispatchable</a>&lt;Info = DispatchInfo, PostInfo = PostDispatchInfo&gt; + IsSubType&lt;CallableCallFor&lt;Pallet&lt;Runtime&gt;, Runtime&gt;&gt; + GrandpaCallSubType&lt;Runtime, GrandpaInstance&gt; + <a class="trait" href="../messages_call_ext/trait.MessagesCallSubType.html" title="trait bridge_runtime_common::messages_call_ext::MessagesCallSubType">MessagesCallSubType</a>&lt;Runtime, Msgs::<a class="associatedtype" href="trait.RefundableMessagesLaneId.html#associatedtype.Instance" title="type bridge_runtime_common::refund_relayer_extension::RefundableMessagesLaneId::Instance">Instance</a>&gt;,</span></h3></section></summary><div class="impl-items"><section id="associatedtype.Runtime-1" class="associatedtype trait-impl"><a href="#associatedtype.Runtime-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Runtime" class="associatedtype">Runtime</a> = Runtime</h4></section><section id="associatedtype.GrandpaInstance-1" class="associatedtype trait-impl"><a href="#associatedtype.GrandpaInstance-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.GrandpaInstance" class="associatedtype">GrandpaInstance</a> = GrandpaInstance</h4></section><section id="associatedtype.Msgs-1" class="associatedtype trait-impl"><a href="#associatedtype.Msgs-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Msgs" class="associatedtype">Msgs</a> = Msgs</h4></section><section id="associatedtype.Refund-1" class="associatedtype trait-impl"><a href="#associatedtype.Refund-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Refund" class="associatedtype">Refund</a> = Refund</h4></section><section id="associatedtype.Priority-1" class="associatedtype trait-impl"><a href="#associatedtype.Priority-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Priority" class="associatedtype">Priority</a> = Priority</h4></section><section id="associatedtype.Id-1" class="associatedtype trait-impl"><a href="#associatedtype.Id-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Id" class="associatedtype">Id</a> = Id</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-RefundTransactionExtension-for-RefundBridgedParachainMessages%3CRuntime,+Para,+Msgs,+Refund,+Priority,+Id%3E" class="impl"><a class="src rightside" href="../../src/bridge_runtime_common/refund_relayer_extension.rs.html#658-750">source</a><a href="#impl-RefundTransactionExtension-for-RefundBridgedParachainMessages%3CRuntime,+Para,+Msgs,+Refund,+Priority,+Id%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Runtime, Para, Msgs, Refund, Priority, Id&gt; <a class="trait" href="trait.RefundTransactionExtension.html" title="trait bridge_runtime_common::refund_relayer_extension::RefundTransactionExtension">RefundTransactionExtension</a> for <a class="struct" href="struct.RefundBridgedParachainMessages.html" title="struct bridge_runtime_common::refund_relayer_extension::RefundBridgedParachainMessages">RefundBridgedParachainMessages</a>&lt;Runtime, Para, Msgs, Refund, Priority, Id&gt;<span class="where fmt-newline">where
+    Self: 'static + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a>,
+    Runtime: UtilityConfig&lt;RuntimeCall = &lt;Runtime as Config&gt;::RuntimeCall&gt; + BoundedBridgeGrandpaConfig&lt;Runtime::BridgesGrandpaPalletInstance&gt; + ParachainsConfig&lt;Para::<a class="associatedtype" href="trait.RefundableParachainId.html#associatedtype.Instance" title="type bridge_runtime_common::refund_relayer_extension::RefundableParachainId::Instance">Instance</a>&gt; + MessagesConfig&lt;Msgs::<a class="associatedtype" href="trait.RefundableMessagesLaneId.html#associatedtype.Instance" title="type bridge_runtime_common::refund_relayer_extension::RefundableMessagesLaneId::Instance">Instance</a>&gt; + RelayersConfig,
+    Para: <a class="trait" href="trait.RefundableParachainId.html" title="trait bridge_runtime_common::refund_relayer_extension::RefundableParachainId">RefundableParachainId</a>,
+    Msgs: <a class="trait" href="trait.RefundableMessagesLaneId.html" title="trait bridge_runtime_common::refund_relayer_extension::RefundableMessagesLaneId">RefundableMessagesLaneId</a>,
+    Refund: <a class="trait" href="trait.RefundCalculator.html" title="trait bridge_runtime_common::refund_relayer_extension::RefundCalculator">RefundCalculator</a>&lt;Balance = Runtime::Reward&gt;,
+    Priority: Get&lt;<a class="type" href="../../sp_runtime/transaction_validity/type.TransactionPriority.html" title="type sp_runtime::transaction_validity::TransactionPriority">TransactionPriority</a>&gt;,
+    Id: StaticStrProvider,
+    &lt;Runtime as Config&gt;::RuntimeCall: <a class="trait" href="../../sp_runtime/traits/trait.Dispatchable.html" title="trait sp_runtime::traits::Dispatchable">Dispatchable</a>&lt;Info = DispatchInfo, PostInfo = PostDispatchInfo&gt; + IsSubType&lt;CallableCallFor&lt;Pallet&lt;Runtime&gt;, Runtime&gt;&gt; + GrandpaCallSubType&lt;Runtime, Runtime::BridgesGrandpaPalletInstance&gt; + ParachainsCallSubType&lt;Runtime, Para::<a class="associatedtype" href="trait.RefundableParachainId.html#associatedtype.Instance" title="type bridge_runtime_common::refund_relayer_extension::RefundableParachainId::Instance">Instance</a>&gt; + <a class="trait" href="../messages_call_ext/trait.MessagesCallSubType.html" title="trait bridge_runtime_common::messages_call_ext::MessagesCallSubType">MessagesCallSubType</a>&lt;Runtime, Msgs::<a class="associatedtype" href="trait.RefundableMessagesLaneId.html#associatedtype.Instance" title="type bridge_runtime_common::refund_relayer_extension::RefundableMessagesLaneId::Instance">Instance</a>&gt;,</span></h3></section></summary><div class="impl-items"><section id="associatedtype.Runtime-2" class="associatedtype trait-impl"><a href="#associatedtype.Runtime-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Runtime" class="associatedtype">Runtime</a> = Runtime</h4></section><section id="associatedtype.GrandpaInstance-2" class="associatedtype trait-impl"><a href="#associatedtype.GrandpaInstance-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.GrandpaInstance" class="associatedtype">GrandpaInstance</a> = &lt;Runtime as Config&lt;&lt;Para as <a class="trait" href="trait.RefundableParachainId.html" title="trait bridge_runtime_common::refund_relayer_extension::RefundableParachainId">RefundableParachainId</a>&gt;::<a class="associatedtype" href="trait.RefundableParachainId.html#associatedtype.Instance" title="type bridge_runtime_common::refund_relayer_extension::RefundableParachainId::Instance">Instance</a>&gt;&gt;::BridgesGrandpaPalletInstance</h4></section><section id="associatedtype.Msgs-2" class="associatedtype trait-impl"><a href="#associatedtype.Msgs-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Msgs" class="associatedtype">Msgs</a> = Msgs</h4></section><section id="associatedtype.Refund-2" class="associatedtype trait-impl"><a href="#associatedtype.Refund-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Refund" class="associatedtype">Refund</a> = Refund</h4></section><section id="associatedtype.Priority-2" class="associatedtype trait-impl"><a href="#associatedtype.Priority-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Priority" class="associatedtype">Priority</a> = Priority</h4></section><section id="associatedtype.Id-2" class="associatedtype trait-impl"><a href="#associatedtype.Id-2" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Id" class="associatedtype">Id</a> = Id</h4></section></div></details></div><script src="../../trait.impl/bridge_runtime_common/refund_relayer_extension/trait.RefundTransactionExtension.js" async></script></section></div></main></body></html>

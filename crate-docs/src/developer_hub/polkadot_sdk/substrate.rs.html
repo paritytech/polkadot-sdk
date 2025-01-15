@@ -1,0 +1,303 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `developer-hub/src/polkadot_sdk/substrate.rs`."><title>substrate.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="developer_hub" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../developer_hub/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<a href="#2" id="2">2</a>
+<a href="#3" id="3">3</a>
+<a href="#4" id="4">4</a>
+<a href="#5" id="5">5</a>
+<a href="#6" id="6">6</a>
+<a href="#7" id="7">7</a>
+<a href="#8" id="8">8</a>
+<a href="#9" id="9">9</a>
+<a href="#10" id="10">10</a>
+<a href="#11" id="11">11</a>
+<a href="#12" id="12">12</a>
+<a href="#13" id="13">13</a>
+<a href="#14" id="14">14</a>
+<a href="#15" id="15">15</a>
+<a href="#16" id="16">16</a>
+<a href="#17" id="17">17</a>
+<a href="#18" id="18">18</a>
+<a href="#19" id="19">19</a>
+<a href="#20" id="20">20</a>
+<a href="#21" id="21">21</a>
+<a href="#22" id="22">22</a>
+<a href="#23" id="23">23</a>
+<a href="#24" id="24">24</a>
+<a href="#25" id="25">25</a>
+<a href="#26" id="26">26</a>
+<a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
+<a href="#40" id="40">40</a>
+<a href="#41" id="41">41</a>
+<a href="#42" id="42">42</a>
+<a href="#43" id="43">43</a>
+<a href="#44" id="44">44</a>
+<a href="#45" id="45">45</a>
+<a href="#46" id="46">46</a>
+<a href="#47" id="47">47</a>
+<a href="#48" id="48">48</a>
+<a href="#49" id="49">49</a>
+<a href="#50" id="50">50</a>
+<a href="#51" id="51">51</a>
+<a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+</pre></div><pre class="rust"><code><span class="doccomment">//! # Substrate
+//!
+//! Substrate is a Rust framework for building blockchains in a modular and extensible way. While in
+//! itself un-opinionated, it is the main engine behind the Polkadot ecosystem.
+//!
+//! ## Overview, Philosophy
+//!
+//! Substrate approaches blockchain development with an acknowledgement of a few self-evident
+//! truths:
+//!
+//! 1. Society and technology evolves.
+//! 2. Humans are fallible.
+//!
+//! This, makes the task of designing a correct, safe and long-lasting blockchain system hard.
+//!
+//! Nonetheless, in strive towards achieve this goal, Substrate embraces the following:
+//!
+//! 1. Use of **Rust** as a modern and safe programming language, which limits human error through
+//!    various means, most notably memory and type safety.
+//! 2. Substrate is written from the ground-up with a *generic, modular and extensible* design. This
+//!    ensures that software components can be easily swapped and upgraded. Examples of this is
+//!    multiple consensus mechanisms provided by Substrate, as listed below.
+//! 3. Lastly, the final blockchain system created with the above properties needs to be
+//!    upgradeable. In order to achieve this, Substrate is designed as a meta-protocol, whereby the
+//!    application logic of the blockchain (called &quot;Runtime&quot;) is encoded as a WASM blob, and is
+//!    stored in the state. The rest of the system (called &quot;node&quot;) acts as the executor of the WASM
+//!    blob.
+//!
+//! In essence, the meta-protocol of all Substrate based chains is the &quot;Runtime as WASM blob&quot;
+//! accord. This enables the Runtime to become inherently upgradeable, crucially without forks. The
+//! upgrade is merely a matter of the WASM blob being changed in the state, which is, in principle,
+//! same as updating an account&#39;s balance. Learn more about this in detail in
+//! [`crate::reference_docs::wasm_meta_protocol`].
+//!
+//! &gt; A great analogy for substrate is the following: Substrate node is a gaming console, and a WASM
+//! &gt; runtime, possibly created with FRAME is the game being inserted into the console.
+//!
+//! [`frame`], Substrate&#39;s default runtime development library, takes the above safety practices
+//! even further by embracing a declarative programming model whereby correctness is enhanced and
+//! the system is highly configurable through parameterization. Learn more about this in
+//! [`crate::reference_docs::trait_based_programming`].
+//!
+//! ## How to Get Started
+//!
+//! Substrate offers different options at the spectrum of technical freedom &lt;-&gt; development ease.
+//!
+//! * The easiest way to use Substrate is to use one of the templates (some of which listed at
+//!   [`crate::polkadot_sdk::templates`]) and only tweak the parameters of the runtime or node. This
+//!   allows you to launch a blockchain in minutes, but is limited in technical freedom.
+//! * Next, most developers wish to develop their custom runtime modules, for which the de-facto way
+//! is [`frame`](crate::polkadot_sdk::frame_runtime).
+//! * Finally, Substrate is highly configurable at the node side as well, but this is the most
+//!   technically demanding.
+//!
+//! &gt; A notable Substrate-based blockchain that has built both custom FRAME pallets and custom
+//! &gt; node-side components is &lt;https://github.com/Cardinal-Cryptography/aleph-node&gt;.
+</span><span class="attr">#![doc = <span class="macro">simple_mermaid::mermaid!</span>(<span class="string">&quot;../../../docs/mermaid/substrate_dev.mmd&quot;</span>)]
+</span><span class="doccomment">//!
+//! ## Structure
+//!
+//! Substrate contains a large number of crates, therefore it is useful to have an overview of what
+//! they are, and how they are organized. In broad terms, these crates are divided into three
+//! categories:
+//!
+//! * `sc-*` (short for *Substrate-client*) crates, located under `./client` folder. These are all
+//!   the crates that lead to the node software. Notable examples [`sc_network`], various consensus
+//!   crates, RPC ([`sc_rpc_api`]) and database ([`sc_client_db`]), all of which are expected to
+//!   reside in the node side.
+//! * `sp-*` (short for *substrate-primitives*) crates, located under `./primitives` folder. These
+//!   are crates that facilitate both the node and the runtime, but are not opinionated about what
+//!   framework is using for building the runtime. Notable examples are [`sp_api`] and [`sp_io`],
+//!   which form the communication bridge between the node and runtime.
+//! * `pallet-*` and `frame-*` crates, located under `./frame` folder. These are the crates related
+//!   to FRAME. See [`frame`] for more information.
+//!
+//! ### WASM Build
+//!
+//! Many of the Substrate crates, such as entire `sp-*`, need to compile to both WASM (when a WASM
+//! runtime is being generated) and native (for example, when testing). To achieve this, Substrate
+//! follows the convention of the Rust community, and uses a `feature = &quot;std&quot;` to signify that a
+//!  crate is being built with the standard library, and is built for native. Otherwise, it is built
+//!  for `no_std`.
+//!
+//! This can be summarized in `#![cfg_attr(not(feature = &quot;std&quot;), no_std)]`, which you can often find
+//! in any Substrate-based runtime.
+//!
+//! Substrate-based runtimes use [`substrate_wasm_builder`] in their `build.rs` to automatically
+//! build their WASM files as a part of normal build command (e.g. `cargo build`). Once built, the
+//! wasm file is placed in `./target/{debug|release}/wbuild/{runtime_name}.wasm`.
+//!
+//! ### Binaries
+//!
+//! Multiple binaries are shipped with substrate, the most important of which are located in the
+//! [`./bin`](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/bin) folder.
+//!
+//! * [`node_cli`] is an extensive substrate node that contains the superset of all runtime and node
+//!   side features. The corresponding runtime, called [`kitchensink_runtime`] contains all of the
+//!   modules that are provided with `FRAME`. This node and runtime is only used for testing and
+//!   demonstration.
+//!     * [`chain_spec_builder`]: Utility to build more detailed chain-specs for the aforementioned
+//!       node. Other projects typically contain a `build-spec` subcommand that does the same.
+//! * [`node_template`](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/bin/node-template):
+//!   a template node that contains a minimal set of features and can act as a starting point of a
+//!   project.
+//! * [`subkey`]: Substrate&#39;s key management utility.
+//!
+//! ### Anatomy of a Binary Crate
+//!
+//! From the above, [`node_cli`]/[`kitchensink_runtime`] and `node-template` are essentially
+//! blueprints of a Substrate-based project, as the name of the latter is implying. Each
+//! Substrate-based project typically contains the following:
+//!
+//! * Under `./runtime`, a `./runtime/src/lib.rs` which is the top level runtime amalgamator file.
+//!   This file typically contains the [`frame::runtime::prelude::construct_runtime`] and
+//!   [`frame::runtime::prelude::impl_runtime_apis`] macro calls, which is the final definition of a
+//!   runtime.
+//!
+//! * Under `./node`, a `main.rs`, which is the starting point, and a `./service.rs`, which contains
+//!   all the node side components. Skimming this file yields an overview of the networking,
+//!   database, consensus and similar node side components.
+//!
+//! &gt; The above two are conventions, not rules.
+//!
+//! &gt; See &lt;https://github.com/paritytech/polkadot-sdk/issues/5&gt; for an update on how the node side
+//! &gt; components are being amalgamated.
+//!
+//! ## Parachain?
+//!
+//! As noted above, Substrate is the main engine behind the Polkadot ecosystem. One of the ways
+//! through which Polkadot can be utilized is by building &quot;parachains&quot;, blockchains that are
+//! connected to Polkadot&#39;s shared security.
+//!
+//! To build a parachain, one could use [Cumulus](crate::polkadot_sdk::cumulus), the library on
+//! top of Substrate, empowering any substrate-based chain to be a Polkadot parachain.
+//!
+//! ## Where To Go Next?
+//!
+//! Additional noteworthy crates within substrate:
+//!
+//! - RPC APIs of a Substrate node: [`sc_rpc_api`]/[`sc_rpc`]
+//! - CLI Options of a Substrate node: [`sc_cli`]
+//! - All of the consensus related crates provided by Substrate:
+//!     - [`sc_consensus_aura`]
+//!     - [`sc_consensus_babe`]
+//!     - [`sc_consensus_grandpa`]
+//!     - [`sc_consensus_beefy`] (TODO: @adrian, add some high level docs https://github.com/paritytech/polkadot-sdk-docs/issues/57)
+//!     - [`sc_consensus_manual_seal`]
+//!     - [`sc_consensus_pow`]
+
+</span><span class="attr">#[doc(hidden)]
+</span><span class="kw">pub use </span><span class="kw">crate</span>::polkadot_sdk;
+</code></pre></div></section></main></body></html>

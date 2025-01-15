@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["to_ethereum","to_rococo"],"struct":["BridgeTable","BridgingBenchmarksHelper","SiblingBridgeHub","SiblingBridgeHubParaId","XcmBridgeHubRouterBaseFee","XcmBridgeHubRouterByteFee","XcmBridgeHubRouterFeeAssetId"],"type":["NetworkExportTable"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["fill_block"],"struct":["FillBlock","TriggerDefensive"]};

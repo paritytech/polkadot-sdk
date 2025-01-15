@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["plan_config_change","report_equivocation","report_equivocation_unsigned"],"struct":["PlanConfigChange","ReportEquivocation","ReportEquivocationUnsigned"]};

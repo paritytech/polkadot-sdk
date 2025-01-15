@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["KX_PUBLIC_SIZE"],"enum":["MixnodesErr","SessionPhase"],"struct":["Mixnode","SessionStatus"],"type":["AuthorityId","AuthoritySignature","KxPublic","PeerId","SessionIndex"]};

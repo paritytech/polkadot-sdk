@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PEOPLE_WESTEND","PEOPLE_WESTEND_DEVELOPMENT","PEOPLE_WESTEND_ED","PEOPLE_WESTEND_LOCAL"],"fn":["genesis","local_config"]};

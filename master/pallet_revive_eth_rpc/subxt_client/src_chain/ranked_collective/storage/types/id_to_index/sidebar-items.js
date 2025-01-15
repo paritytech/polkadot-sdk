@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["IdToIndex","Param0","Param1"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["MetadataOwner","ReferendumInfo"],"struct":["Delegations","ReferendumStatus","Tally"]};

@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, minimum-scale=1.0, initial-scale=1, user-scalable=yes"
+    />
+    <style>
+      html {
+        font-family: BlinkMacSystemFont, -apple-system, "Segoe UI", Roboto,
+          Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue",
+          Helvetica, Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        font-size: 16px;
+      }
+      body {
+        margin: 8px;
+      }
+      header {
+        margin-bottom: 8px;
+        display: flex;
+        flex-direction: column;
+      }
+      main {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+      .small {
+        font-size: 0.75rem;
+      }
+      footer {
+        margin-top: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .header-label {
+        margin-right: 4px;
+      }
+      .benchmark-set {
+        margin: 8px 0;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+      .benchmark-title {
+        font-size: 2rem;
+        word-break: break-word;
+        text-align: center;
+        margin-bottom: 0.4em;
+      }
+      .benchmark-desc {
+        text-align: center;
+        margin-bottom: 2em;
+      }
+      .benchmark-graphs {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        flex-wrap: wrap;
+        width: 100%;
+      }
+      .benchmark-chart {
+        max-width: 1000px;
+      }
+    </style>
+  </head>
+  <body>
+    <header id="header">
+      <div class="header-item">
+        <strong class="header-label">Last Update:</strong>
+        <span id="last-update"></span>
+      </div>
+      <div class="header-item">
+        <strong class="header-label">Repository:</strong>
+        <a id="repository-link" rel="noopener"></a>
+      </div>
+    </header>
+    <main id="main"></main>
+    <footer>
+      <div>
+        <button id="dl-button">Download data as JSON</button>
+      </div>
+      <div class="small">
+        Powered by
+        <a
+          rel="noopener"
+          href="https://github.com/marketplace/actions/continuous-benchmark"
+          >github-action-benchmark</a
+        >
+      </div>
+    </footer>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.2/dist/Chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@0.5.7/chartjs-plugin-annotation.min.js"></script>
+    <script src="data.js"></script>
+    <script id="main-script">
+      "use strict";
+      (function () {
+        const color = "#dea584";
+        const average = {
+          "statement-distribution": 0.039,
+          "Received from peers": 106.4,
+          "Sent to peers": 127.91,
+        };
+
+        function init() {
+          const data = window.BENCHMARK_DATA;
+
+          // Render header
+          const lastUpdate = new Date(data.lastUpdate).toString();
+          document.getElementById("last-update").textContent = lastUpdate;
+          const repoLink = document.getElementById("repository-link");
+          repoLink.href = data.repoUrl;
+          repoLink.textContent = data.repoUrl;
+
+          // Render footer
+          document.getElementById("dl-button").onclick = () => {
+            const json = JSON.stringify(data)
+              .split("")
+              .map((c) => {
+                try {
+                  return c.match(
+                    /[A-Za-z0-9\.\,\;\:\/\*\-\=\_\~\'\"\!\$\@]/
+                  ) === null
+                    ? encodeURIComponent(c)
+                    : c;
+                } catch (e) {
+                  return "?";
+                }
+              })
+              .join("");
+            const a = document.createElement("a");
+            a.href = "data:," + json;
+            a.download = "benchmark_data.json";
+            a.click();
+          };
+
+          // Prepare data points for charts
+          return Object.keys(data.entries).map((name) => ({
+            name,
+            dataSet: collectBenchesPerTestCase(data.entries[name]),
+          }));
+        }
+
+        function collectBenchesPerTestCase(entries) {
+          const map = new Map();
+          for (const entry of entries) {
+            const { commit, date, tool, benches } = entry;
+            for (const bench of benches) {
+              const result = { commit, date, tool, bench };
+              const arr = map.get(bench.name);
+              if (arr === undefined) {
+                map.set(bench.name, [result]);
+              } else {
+                arr.push(result);
+              }
+            }
+          }
+          return map;
+        }
+
+        function renderGraph(parent, name, dataSet) {
+          const canvas = document.createElement("canvas");
+          canvas.height = 70;
+          canvas.className = "benchmark-chart";
+          parent.appendChild(canvas);
+
+          const values = dataSet.map((d) => d.bench.value);
+          const minValue = Math.min(...values);
+          const maxValue = Math.max(...values);
+          const minAvg = average[name] ? average[name] * 0.95 : minValue;
+          const maxAvg = average[name] ? average[name] * 1.05 : maxValue;
+
+          const data = {
+            labels: dataSet.map((d) => d.commit.id.slice(0, 7)),
+            datasets: [
+              {
+                label: dataSet.map((d) => d.bench.name)[0],
+                data: values,
+                borderColor: color,
+                fill: false,
+              },
+            ],
+          };
+          const options = {
+            title: {
+              display: true,
+              fontSize: "16",
+              text: name,
+              position: "top",
+              fontStyle: "normal",
+            },
+            legend: {
+              display: false,
+            },
+            layout: {
+              padding: {
+                left: 0,
+                right: 0,
+                top: 0,
+                bottom: 10,
+              },
+            },
+            scales: {
+              yAxes: [
+                {
+                  ticks: {
+                    suggestedMin: minAvg,
+                    suggestedMax: maxAvg,
+                  },
+                  scaleLabel: {
+                    display: true,
+                    labelString:
+                      dataSet.length > 0 ? dataSet[0].bench.unit : "",
+                  },
+                },
+              ],
+            },
+            tooltips: {
+              callbacks: {
+                afterTitle: (items) => {
+                  const { index } = items[0];
+                  const data = dataSet[index];
+                  return (
+                    "\n" +
+                    data.commit.message +
+                    "\n\n" +
+                    data.commit.timestamp +
+                    " committed by @" +
+                    data.commit.committer.username +
+                    "\n"
+                  );
+                },
+                label: (item) => {
+                  let label = item.value;
+                  const { range, unit } = dataSet[item.index].bench;
+                  label += " " + unit;
+                  if (range) {
+                    label += " (" + range + ")";
+                  }
+                  return label;
+                },
+                afterLabel: (item) => {
+                  const { extra } = dataSet[item.index].bench;
+                  return extra ? "\n" + extra : "";
+                },
+              },
+            },
+            onClick: (_mouseEvent, activeElems) => {
+              if (activeElems.length === 0) {
+                return;
+              }
+              const index = activeElems[0]._index;
+              const url = dataSet[index].commit.url;
+              window.open(url, "_blank");
+            },
+            annotation: {
+              annotations: average[name]
+                ? [
+                    {
+                      type: "line",
+                      mode: "horizontal",
+                      scaleID: "y-axis-0",
+                      value: average[name],
+                      borderColor: color + "80",
+                      borderWidth: 2,
+                    },
+                    {
+                      type: "box",
+                      yMin: minAvg,
+                      yMax: maxAvg,
+                      xScaleID: "x-axis-0",
+                      yScaleID: "y-axis-0",
+                      borderColor: "#00000000",
+                      backgroundColor: color + "20",
+                    },
+                  ]
+                : [],
+            },
+          };
+
+          Chart.defaults.global.defaultFontColor = "#000";
+          new Chart(canvas, {
+            type: "line",
+            data,
+            options,
+          });
+        }
+
+        function renderBenchSet(name, benchSet, main) {
+          // Actually, we have only one set per page
+          document.title = name;
+
+          const setElem = document.createElement("div");
+          setElem.className = "benchmark-set";
+          main.appendChild(setElem);
+
+          const nameElem = document.createElement("h1");
+          nameElem.className = "benchmark-title";
+          nameElem.textContent = name;
+          setElem.appendChild(nameElem);
+
+          const descElem = document.createElement("div");
+          descElem.className = "benchmark-desc";
+          descElem.innerHTML = `<span style='border: 2px solid ${color}80;'>A baseline value</span> along with <span style='background: ${color}30;'>a ±5% threshold</span> is displayed for the metrics being tracked`;
+          setElem.appendChild(descElem);
+
+          const graphsElem = document.createElement("div");
+          graphsElem.className = "benchmark-graphs";
+          setElem.appendChild(graphsElem);
+
+          sortByImportance([...benchSet.keys()]).forEach((benchName) =>
+            renderGraph(graphsElem, benchName, benchSet.get(benchName))
+          );
+        }
+
+        function sortByImportance(array) {
+          const specificStrings = [
+            "test-environment",
+            "Received from peers",
+            "Sent to peers",
+          ];
+          const mainArray = array
+            .sort()
+            .filter((item) => !specificStrings.includes(item));
+          const specificArray = specificStrings.filter((item) =>
+            array.includes(item)
+          );
+
+          return mainArray.concat(specificArray);
+        }
+
+        function renderAllChars(dataSets) {
+          const main = document.getElementById("main");
+          for (const { name, dataSet } of dataSets) {
+            renderBenchSet(name, dataSet, main);
+          }
+        }
+
+        renderAllChars(init());
+      })();
+    </script>
+  </body>
+</html>

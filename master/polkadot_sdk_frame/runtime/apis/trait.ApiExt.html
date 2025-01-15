@@ -1,0 +1,237 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Extends the runtime api implementation with some common functionality."><title>ApiExt in polkadot_sdk_frame::runtime::apis - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_frame" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../polkadot_sdk_frame/index.html">polkadot_sdk_frame</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">ApiExt</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.api_version">api_version</a></li><li><a href="#tymethod.execute_in_transaction">execute_in_transaction</a></li><li><a href="#tymethod.extract_proof">extract_proof</a></li><li><a href="#tymethod.has_api">has_api</a></li><li><a href="#tymethod.has_api_with">has_api_with</a></li><li><a href="#tymethod.into_storage_changes">into_storage_changes</a></li><li><a href="#tymethod.proof_recorder">proof_recorder</a></li><li><a href="#tymethod.record_proof">record_proof</a></li><li><a href="#tymethod.register_extension">register_extension</a></li><li><a href="#tymethod.set_call_context">set_call_context</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In polkadot_sdk_frame::runtime::apis</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../../index.html">polkadot_sdk_frame</a>::<wbr><a href="../index.html">runtime</a>::<wbr><a href="index.html">apis</a>::<wbr><a class="trait" href="#">ApiExt</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait ApiExt&lt;Block&gt;<div class="where">where
+    Block: <a class="trait" href="../../traits/trait.Block.html" title="trait polkadot_sdk_frame::traits::Block">Block</a>,</div>{
+    // Required methods
+    fn <a href="#tymethod.execute_in_transaction" class="fn">execute_in_transaction</a>&lt;F, R&gt;(&amp;self, call: F) -&gt; R
+       <span class="where">where F: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;Self</a>) -&gt; <a class="enum" href="enum.TransactionOutcome.html" title="enum polkadot_sdk_frame::runtime::apis::TransactionOutcome">TransactionOutcome</a>&lt;R&gt;,
+             Self: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a></span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.has_api" class="fn">has_api</a>&lt;A&gt;(
+        &amp;self,
+        at_hash: &lt;Block as <a class="trait" href="../../traits/trait.Block.html" title="trait polkadot_sdk_frame::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../traits/trait.Block.html#associatedtype.Hash" title="type polkadot_sdk_frame::traits::Block::Hash">Hash</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>, <a class="enum" href="enum.ApiError.html" title="enum polkadot_sdk_frame::runtime::apis::ApiError">ApiError</a>&gt;
+       <span class="where">where A: <a class="trait" href="trait.RuntimeApiInfo.html" title="trait polkadot_sdk_frame::runtime::apis::RuntimeApiInfo">RuntimeApiInfo</a> + ?<a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
+             Self: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a></span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.has_api_with" class="fn">has_api_with</a>&lt;A, P&gt;(
+        &amp;self,
+        at_hash: &lt;Block as <a class="trait" href="../../traits/trait.Block.html" title="trait polkadot_sdk_frame::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../traits/trait.Block.html#associatedtype.Hash" title="type polkadot_sdk_frame::traits::Block::Hash">Hash</a>,
+        pred: P,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>, <a class="enum" href="enum.ApiError.html" title="enum polkadot_sdk_frame::runtime::apis::ApiError">ApiError</a>&gt;
+       <span class="where">where A: <a class="trait" href="trait.RuntimeApiInfo.html" title="trait polkadot_sdk_frame::runtime::apis::RuntimeApiInfo">RuntimeApiInfo</a> + ?<a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
+             P: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>,
+             Self: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a></span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.api_version" class="fn">api_version</a>&lt;A&gt;(
+        &amp;self,
+        at_hash: &lt;Block as <a class="trait" href="../../traits/trait.Block.html" title="trait polkadot_sdk_frame::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../traits/trait.Block.html#associatedtype.Hash" title="type polkadot_sdk_frame::traits::Block::Hash">Hash</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;, <a class="enum" href="enum.ApiError.html" title="enum polkadot_sdk_frame::runtime::apis::ApiError">ApiError</a>&gt;
+       <span class="where">where A: <a class="trait" href="trait.RuntimeApiInfo.html" title="trait polkadot_sdk_frame::runtime::apis::RuntimeApiInfo">RuntimeApiInfo</a> + ?<a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
+             Self: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a></span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.record_proof" class="fn">record_proof</a>(&amp;mut self);
+<span class="item-spacer"></span>    fn <a href="#tymethod.extract_proof" class="fn">extract_proof</a>(&amp;mut self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.StorageProof.html" title="struct polkadot_sdk_frame::runtime::apis::StorageProof">StorageProof</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.proof_recorder" class="fn">proof_recorder</a>(
+        &amp;self,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Recorder&lt;&lt;&lt;Block as <a class="trait" href="../../traits/trait.Block.html" title="trait polkadot_sdk_frame::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../traits/trait.Block.html#associatedtype.Header" title="type polkadot_sdk_frame::traits::Block::Header">Header</a> as <a class="trait" href="../../traits/trait.Header.html" title="trait polkadot_sdk_frame::traits::Header">Header</a>&gt;::<a class="associatedtype" href="../../traits/trait.Header.html#associatedtype.Hashing" title="type polkadot_sdk_frame::traits::Header::Hashing">Hashing</a>&gt;&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.into_storage_changes" class="fn">into_storage_changes</a>&lt;B&gt;(
+        &amp;self,
+        backend: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;B</a>,
+        parent_hash: &lt;Block as <a class="trait" href="../../traits/trait.Block.html" title="trait polkadot_sdk_frame::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../traits/trait.Block.html#associatedtype.Hash" title="type polkadot_sdk_frame::traits::Block::Hash">Hash</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;StorageChanges&lt;&lt;&lt;Block as <a class="trait" href="../../traits/trait.Block.html" title="trait polkadot_sdk_frame::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../traits/trait.Block.html#associatedtype.Header" title="type polkadot_sdk_frame::traits::Block::Header">Header</a> as <a class="trait" href="../../traits/trait.Header.html" title="trait polkadot_sdk_frame::traits::Header">Header</a>&gt;::<a class="associatedtype" href="../../traits/trait.Header.html#associatedtype.Hashing" title="type polkadot_sdk_frame::traits::Header::Hashing">Hashing</a>&gt;, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;
+       <span class="where">where B: Backend&lt;&lt;&lt;Block as <a class="trait" href="../../traits/trait.Block.html" title="trait polkadot_sdk_frame::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../traits/trait.Block.html#associatedtype.Header" title="type polkadot_sdk_frame::traits::Block::Header">Header</a> as <a class="trait" href="../../traits/trait.Header.html" title="trait polkadot_sdk_frame::traits::Header">Header</a>&gt;::<a class="associatedtype" href="../../traits/trait.Header.html#associatedtype.Hashing" title="type polkadot_sdk_frame::traits::Header::Hashing">Hashing</a>&gt;,
+             Self: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a></span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_call_context" class="fn">set_call_context</a>(&amp;mut self, call_context: <a class="enum" href="enum.CallContext.html" title="enum polkadot_sdk_frame::runtime::apis::CallContext">CallContext</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.register_extension" class="fn">register_extension</a>&lt;E&gt;(&amp;mut self, extension: E)
+       <span class="where">where E: Extension</span>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Extends the runtime api implementation with some common functionality.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.execute_in_transaction" class="method"><h4 class="code-header">fn <a href="#tymethod.execute_in_transaction" class="fn">execute_in_transaction</a>&lt;F, R&gt;(&amp;self, call: F) -&gt; R<div class="where">where
+    F: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;Self</a>) -&gt; <a class="enum" href="enum.TransactionOutcome.html" title="enum polkadot_sdk_frame::runtime::apis::TransactionOutcome">TransactionOutcome</a>&lt;R&gt;,
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h4></section></summary><div class="docblock"><p>Execute the given closure inside a new transaction.</p>
+<p>Depending on the outcome of the closure, the transaction is committed or rolled-back.</p>
+<p>The internal result of the closure is returned afterwards.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.has_api" class="method"><h4 class="code-header">fn <a href="#tymethod.has_api" class="fn">has_api</a>&lt;A&gt;(&amp;self, at_hash: &lt;Block as <a class="trait" href="../../traits/trait.Block.html" title="trait polkadot_sdk_frame::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../traits/trait.Block.html#associatedtype.Hash" title="type polkadot_sdk_frame::traits::Block::Hash">Hash</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>, <a class="enum" href="enum.ApiError.html" title="enum polkadot_sdk_frame::runtime::apis::ApiError">ApiError</a>&gt;<div class="where">where
+    A: <a class="trait" href="trait.RuntimeApiInfo.html" title="trait polkadot_sdk_frame::runtime::apis::RuntimeApiInfo">RuntimeApiInfo</a> + ?<a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h4></section></summary><div class="docblock"><p>Checks if the given api is implemented and versions match.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.has_api_with" class="method"><h4 class="code-header">fn <a href="#tymethod.has_api_with" class="fn">has_api_with</a>&lt;A, P&gt;(
+    &amp;self,
+    at_hash: &lt;Block as <a class="trait" href="../../traits/trait.Block.html" title="trait polkadot_sdk_frame::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../traits/trait.Block.html#associatedtype.Hash" title="type polkadot_sdk_frame::traits::Block::Hash">Hash</a>,
+    pred: P,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>, <a class="enum" href="enum.ApiError.html" title="enum polkadot_sdk_frame::runtime::apis::ApiError">ApiError</a>&gt;<div class="where">where
+    A: <a class="trait" href="trait.RuntimeApiInfo.html" title="trait polkadot_sdk_frame::runtime::apis::RuntimeApiInfo">RuntimeApiInfo</a> + ?<a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
+    P: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>,
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h4></section></summary><div class="docblock"><p>Check if the given api is implemented and the version passes a predicate.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.api_version" class="method"><h4 class="code-header">fn <a href="#tymethod.api_version" class="fn">api_version</a>&lt;A&gt;(
+    &amp;self,
+    at_hash: &lt;Block as <a class="trait" href="../../traits/trait.Block.html" title="trait polkadot_sdk_frame::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../traits/trait.Block.html#associatedtype.Hash" title="type polkadot_sdk_frame::traits::Block::Hash">Hash</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;, <a class="enum" href="enum.ApiError.html" title="enum polkadot_sdk_frame::runtime::apis::ApiError">ApiError</a>&gt;<div class="where">where
+    A: <a class="trait" href="trait.RuntimeApiInfo.html" title="trait polkadot_sdk_frame::runtime::apis::RuntimeApiInfo">RuntimeApiInfo</a> + ?<a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h4></section></summary><div class="docblock"><p>Returns the version of the given api.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.record_proof" class="method"><h4 class="code-header">fn <a href="#tymethod.record_proof" class="fn">record_proof</a>(&amp;mut self)</h4></section></summary><div class="docblock"><p>Start recording all accessed trie nodes for generating proofs.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.extract_proof" class="method"><h4 class="code-header">fn <a href="#tymethod.extract_proof" class="fn">extract_proof</a>(&amp;mut self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.StorageProof.html" title="struct polkadot_sdk_frame::runtime::apis::StorageProof">StorageProof</a>&gt;</h4></section></summary><div class="docblock"><p>Extract the recorded proof.</p>
+<p>This stops the proof recording.</p>
+<p>If <code>record_proof</code> was not called before, this will return <code>None</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.proof_recorder" class="method"><h4 class="code-header">fn <a href="#tymethod.proof_recorder" class="fn">proof_recorder</a>(
+    &amp;self,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Recorder&lt;&lt;&lt;Block as <a class="trait" href="../../traits/trait.Block.html" title="trait polkadot_sdk_frame::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../traits/trait.Block.html#associatedtype.Header" title="type polkadot_sdk_frame::traits::Block::Header">Header</a> as <a class="trait" href="../../traits/trait.Header.html" title="trait polkadot_sdk_frame::traits::Header">Header</a>&gt;::<a class="associatedtype" href="../../traits/trait.Header.html#associatedtype.Hashing" title="type polkadot_sdk_frame::traits::Header::Hashing">Hashing</a>&gt;&gt;</h4></section></summary><div class="docblock"><p>Returns the current active proof recorder.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.into_storage_changes" class="method"><h4 class="code-header">fn <a href="#tymethod.into_storage_changes" class="fn">into_storage_changes</a>&lt;B&gt;(
+    &amp;self,
+    backend: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;B</a>,
+    parent_hash: &lt;Block as <a class="trait" href="../../traits/trait.Block.html" title="trait polkadot_sdk_frame::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../traits/trait.Block.html#associatedtype.Hash" title="type polkadot_sdk_frame::traits::Block::Hash">Hash</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;StorageChanges&lt;&lt;&lt;Block as <a class="trait" href="../../traits/trait.Block.html" title="trait polkadot_sdk_frame::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../traits/trait.Block.html#associatedtype.Header" title="type polkadot_sdk_frame::traits::Block::Header">Header</a> as <a class="trait" href="../../traits/trait.Header.html" title="trait polkadot_sdk_frame::traits::Header">Header</a>&gt;::<a class="associatedtype" href="../../traits/trait.Header.html#associatedtype.Hashing" title="type polkadot_sdk_frame::traits::Header::Hashing">Hashing</a>&gt;, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;<div class="where">where
+    B: Backend&lt;&lt;&lt;Block as <a class="trait" href="../../traits/trait.Block.html" title="trait polkadot_sdk_frame::traits::Block">Block</a>&gt;::<a class="associatedtype" href="../../traits/trait.Block.html#associatedtype.Header" title="type polkadot_sdk_frame::traits::Block::Header">Header</a> as <a class="trait" href="../../traits/trait.Header.html" title="trait polkadot_sdk_frame::traits::Header">Header</a>&gt;::<a class="associatedtype" href="../../traits/trait.Header.html#associatedtype.Hashing" title="type polkadot_sdk_frame::traits::Header::Hashing">Hashing</a>&gt;,
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</div></h4></section></summary><div class="docblock"><p>Convert the api object into the storage changes that were done while executing runtime
+api functions.</p>
+<p>After executing this function, all collected changes are reset.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.set_call_context" class="method"><h4 class="code-header">fn <a href="#tymethod.set_call_context" class="fn">set_call_context</a>(&amp;mut self, call_context: <a class="enum" href="enum.CallContext.html" title="enum polkadot_sdk_frame::runtime::apis::CallContext">CallContext</a>)</h4></section></summary><div class="docblock"><p>Set the <a href="enum.CallContext.html" title="enum polkadot_sdk_frame::runtime::apis::CallContext"><code>CallContext</code></a> to be used by the runtime api calls done by this instance.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.register_extension" class="method"><h4 class="code-header">fn <a href="#tymethod.register_extension" class="fn">register_extension</a>&lt;E&gt;(&amp;mut self, extension: E)<div class="where">where
+    E: Extension,</div></h4></section></summary><div class="docblock"><p>Register an [<code>Extension</code>] that will be accessible while executing a runtime api call.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../../trait.impl/sp_api/trait.ApiExt.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

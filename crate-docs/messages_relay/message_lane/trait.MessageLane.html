@@ -1,0 +1,179 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="One-way message lane."><title>MessageLane in messages_relay::message_lane - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="messages_relay" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../messages_relay/index.html">messages_relay</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">MessageLane</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.MessagesProof">MessagesProof</a></li><li><a href="#associatedtype.MessagesReceivingProof">MessagesReceivingProof</a></li><li><a href="#associatedtype.SourceChainBalance">SourceChainBalance</a></li><li><a href="#associatedtype.SourceHeaderHash">SourceHeaderHash</a></li><li><a href="#associatedtype.SourceHeaderNumber">SourceHeaderNumber</a></li><li><a href="#associatedtype.TargetHeaderHash">TargetHeaderHash</a></li><li><a href="#associatedtype.TargetHeaderNumber">TargetHeaderNumber</a></li></ul><h3><a href="#required-associated-consts">Required Associated Constants</a></h3><ul class="block"><li><a href="#associatedconstant.SOURCE_NAME">SOURCE_NAME</a></li><li><a href="#associatedconstant.TARGET_NAME">TARGET_NAME</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In messages_relay::message_lane</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">messages_relay</a>::<wbr><a href="index.html">message_lane</a>::<wbr><a class="trait" href="#">MessageLane</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/messages_relay/message_lane.rs.html#28-63">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait MessageLane: 'static + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> {
+    type <a href="#associatedtype.MessagesProof" class="associatedtype">MessagesProof</a>: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a>;
+    type <a href="#associatedtype.MessagesReceivingProof" class="associatedtype">MessagesReceivingProof</a>: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a>;
+    type <a href="#associatedtype.SourceChainBalance" class="associatedtype">SourceChainBalance</a>: <a class="trait" href="../../sp_arithmetic/traits/trait.AtLeast32BitUnsigned.html" title="trait sp_arithmetic::traits::AtLeast32BitUnsigned">AtLeast32BitUnsigned</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.PartialOrd.html" title="trait core::cmp::PartialOrd">PartialOrd</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/ops/arith/trait.Sub.html" title="trait core::ops::arith::Sub">Sub</a>&lt;Output = Self::<a class="associatedtype" href="trait.MessageLane.html#associatedtype.SourceChainBalance" title="type messages_relay::message_lane::MessageLane::SourceChainBalance">SourceChainBalance</a>&gt; + <a class="trait" href="https://docs.rs/num-traits/0.2/num_traits/ops/saturating/trait.SaturatingAdd.html" title="trait num_traits::ops::saturating::SaturatingAdd">SaturatingAdd</a> + <a class="trait" href="https://docs.rs/num-traits/0.2/num_traits/identities/trait.Zero.html" title="trait num_traits::identities::Zero">Zero</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a>;
+    type <a href="#associatedtype.SourceHeaderNumber" class="associatedtype">SourceHeaderNumber</a>: <a class="trait" href="../../relay_utils/trait.BlockNumberBase.html" title="trait relay_utils::BlockNumberBase">BlockNumberBase</a>;
+    type <a href="#associatedtype.SourceHeaderHash" class="associatedtype">SourceHeaderHash</a>: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.PartialEq.html" title="trait core::cmp::PartialEq">PartialEq</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a>;
+    type <a href="#associatedtype.TargetHeaderNumber" class="associatedtype">TargetHeaderNumber</a>: <a class="trait" href="../../relay_utils/trait.BlockNumberBase.html" title="trait relay_utils::BlockNumberBase">BlockNumberBase</a>;
+    type <a href="#associatedtype.TargetHeaderHash" class="associatedtype">TargetHeaderHash</a>: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.PartialEq.html" title="trait core::cmp::PartialEq">PartialEq</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a>;
+
+    const <a href="#associatedconstant.SOURCE_NAME" class="constant">SOURCE_NAME</a>: &amp;'static <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.str.html">str</a>;
+    const <a href="#associatedconstant.TARGET_NAME" class="constant">TARGET_NAME</a>: &amp;'static <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.str.html">str</a>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>One-way message lane.</p>
+</div></details><h2 id="required-associated-types" class="small-section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.MessagesProof" class="method"><a class="src rightside" href="../../src/messages_relay/message_lane.rs.html#35">source</a><h4 class="code-header">type <a href="#associatedtype.MessagesProof" class="associatedtype">MessagesProof</a>: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a></h4></section></summary><div class="docblock"><p>Messages proof.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MessagesReceivingProof" class="method"><a class="src rightside" href="../../src/messages_relay/message_lane.rs.html#37">source</a><h4 class="code-header">type <a href="#associatedtype.MessagesReceivingProof" class="associatedtype">MessagesReceivingProof</a>: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a></h4></section></summary><div class="docblock"><p>Messages receiving proof.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.SourceChainBalance" class="method"><a class="src rightside" href="../../src/messages_relay/message_lane.rs.html#44-53">source</a><h4 class="code-header">type <a href="#associatedtype.SourceChainBalance" class="associatedtype">SourceChainBalance</a>: <a class="trait" href="../../sp_arithmetic/traits/trait.AtLeast32BitUnsigned.html" title="trait sp_arithmetic::traits::AtLeast32BitUnsigned">AtLeast32BitUnsigned</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.PartialOrd.html" title="trait core::cmp::PartialOrd">PartialOrd</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/ops/arith/trait.Sub.html" title="trait core::ops::arith::Sub">Sub</a>&lt;Output = Self::<a class="associatedtype" href="trait.MessageLane.html#associatedtype.SourceChainBalance" title="type messages_relay::message_lane::MessageLane::SourceChainBalance">SourceChainBalance</a>&gt; + <a class="trait" href="https://docs.rs/num-traits/0.2/num_traits/ops/saturating/trait.SaturatingAdd.html" title="trait num_traits::ops::saturating::SaturatingAdd">SaturatingAdd</a> + <a class="trait" href="https://docs.rs/num-traits/0.2/num_traits/identities/trait.Zero.html" title="trait num_traits::identities::Zero">Zero</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a></h4></section></summary><div class="docblock"><p>The type of the source chain token balance, that is used to:</p>
+<ol>
+<li>pay transaction fees;</li>
+<li>pay message delivery and dispatch fee;</li>
+<li>pay relayer rewards.</li>
+</ol>
+</div></details><details class="toggle" open><summary><section id="associatedtype.SourceHeaderNumber" class="method"><a class="src rightside" href="../../src/messages_relay/message_lane.rs.html#55">source</a><h4 class="code-header">type <a href="#associatedtype.SourceHeaderNumber" class="associatedtype">SourceHeaderNumber</a>: <a class="trait" href="../../relay_utils/trait.BlockNumberBase.html" title="trait relay_utils::BlockNumberBase">BlockNumberBase</a></h4></section></summary><div class="docblock"><p>Number of the source header.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.SourceHeaderHash" class="method"><a class="src rightside" href="../../src/messages_relay/message_lane.rs.html#57">source</a><h4 class="code-header">type <a href="#associatedtype.SourceHeaderHash" class="associatedtype">SourceHeaderHash</a>: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.PartialEq.html" title="trait core::cmp::PartialEq">PartialEq</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a></h4></section></summary><div class="docblock"><p>Hash of the source header.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.TargetHeaderNumber" class="method"><a class="src rightside" href="../../src/messages_relay/message_lane.rs.html#60">source</a><h4 class="code-header">type <a href="#associatedtype.TargetHeaderNumber" class="associatedtype">TargetHeaderNumber</a>: <a class="trait" href="../../relay_utils/trait.BlockNumberBase.html" title="trait relay_utils::BlockNumberBase">BlockNumberBase</a></h4></section></summary><div class="docblock"><p>Number of the target header.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.TargetHeaderHash" class="method"><a class="src rightside" href="../../src/messages_relay/message_lane.rs.html#62">source</a><h4 class="code-header">type <a href="#associatedtype.TargetHeaderHash" class="associatedtype">TargetHeaderHash</a>: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/cmp/trait.PartialEq.html" title="trait core::cmp::PartialEq">PartialEq</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a></h4></section></summary><div class="docblock"><p>Hash of the target header.</p>
+</div></details></div><h2 id="required-associated-consts" class="small-section-header">Required Associated Constants<a href="#required-associated-consts" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedconstant.SOURCE_NAME" class="method"><a class="src rightside" href="../../src/messages_relay/message_lane.rs.html#30">source</a><h4 class="code-header">const <a href="#associatedconstant.SOURCE_NAME" class="constant">SOURCE_NAME</a>: &amp;'static <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.str.html">str</a></h4></section></summary><div class="docblock"><p>Name of the messages source.</p>
+</div></details><details class="toggle" open><summary><section id="associatedconstant.TARGET_NAME" class="method"><a class="src rightside" href="../../src/messages_relay/message_lane.rs.html#32">source</a><h4 class="code-header">const <a href="#associatedconstant.TARGET_NAME" class="constant">TARGET_NAME</a>: &amp;'static <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.str.html">str</a></h4></section></summary><div class="docblock"><p>Name of the messages target.</p>
+</div></details></div><h2 id="object-safety" class="small-section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.75.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/messages_relay/message_lane/trait.MessageLane.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

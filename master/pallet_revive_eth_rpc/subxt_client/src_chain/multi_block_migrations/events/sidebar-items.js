@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["historic_cleared","migration_advanced","migration_completed","migration_failed","migration_skipped","upgrade_started"],"struct":["HistoricCleared","MigrationAdvanced","MigrationCompleted","MigrationFailed","MigrationSkipped","UpgradeCompleted","UpgradeFailed","UpgradeStarted"]};

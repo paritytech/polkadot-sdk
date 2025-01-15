@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Wish"],"mod":["pallet"],"struct":["MemberStatus","ParamsType"]};
