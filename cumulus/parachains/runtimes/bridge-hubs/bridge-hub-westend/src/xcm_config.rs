@@ -123,7 +123,7 @@ pub type XcmOriginToTransactDispatchOrigin = (
 pub struct ParentOrParentsPlurality;
 impl Contains<Location> for ParentOrParentsPlurality {
 	fn contains(location: &Location) -> bool {
-		log::trace!(target: "xcm::contains", "ParentOrParentsPlurality: {:?}", &location);
+		tracing::trace!(target: "xcm::contains", ?location, "ParentOrParentsPlurality contains");
 		matches!(location.unpack(), (1, []) | (1, [Plurality { .. }]))
 	}
 }
@@ -301,7 +301,7 @@ impl<WaivedLocations: Contains<Location>, FeeHandler: HandleFee> FeeManager
 	}
 
 	fn handle_fee(fee: Assets, context: Option<&XcmContext>, reason: FeeReason) {
-		log::info!(target: "xcm::handle_fee", "handle fee: {fee:?}, with reason: {reason:?}");
+		tracing::trace!(target: "xcm::handle_fee", ?fee, ?context, ?reason, "FeeManager handle_fee");
 		FeeHandler::handle_fee(fee, context, reason);
 	}
 }
