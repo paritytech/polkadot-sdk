@@ -490,12 +490,80 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 					if matches!(origin, Location { parents: 1, interior: Here }) =>
 				{
 					log::warn!(
-						target: "xcm::barrier",
+						target: "xcm::barriers",
 						"Unexpected ReserveAssetDeposited from the Relay Chain",
 					);
 					Ok(ControlFlow::Continue(()))
 				},
 
+				_ => Ok(ControlFlow::Continue(())),
+			},
+		)?;
+
+		// Permit everything else
+		Ok(())
+	}
+}
+
+environmental::environmental!(recursion_count: u8);
+
+// TBD:
+/// Applies the `Inner` filter to the nested XCM for the `SetAppendix`, `SetErrorHandler`, and `ExecuteWithOrigin` instructions.
+///
+/// Note: The nested XCM is checked recursively!
+pub struct DenyInstructionsWithXcm<Inner>(PhantomData<Inner>);
+impl<Inner: ShouldExecute> ShouldExecute for DenyInstructionsWithXcm<Inner> {
+	fn should_execute<RuntimeCall>(
+		origin: &Location,
+		message: &mut [Instruction<RuntimeCall>],
+		max_weight: Weight,
+		properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		message.matcher().match_next_inst_while(
+			|_| true,
+			|inst| match inst {
+				SetAppendix(nested_xcm) |
+				SetErrorHandler(nested_xcm) |
+				ExecuteWithOrigin { xcm: nested_xcm, .. } => {
+					// check xcm instructions with `Inner` filter
+					let _ = Inner::should_execute(origin, nested_xcm.inner_mut(), max_weight, properties)
+						.inspect_err(|e| {
+							log::warn!(
+								target: "xcm::barriers",
+								"`DenyInstructionsWithXcm`'s `Inner::should_execute` did not pass for origin: {:?} and nested_xcm: {:?} with error: {:?}",
+								origin,
+								nested_xcm,
+								e
+							);
+						})?;
+
+					// Initialize the recursion count only the first time we hit this code in our
+					// potential recursive execution.
+					let _ = recursion_count::using_once(&mut 1, || {
+						recursion_count::with(|count| {
+							if *count > xcm_executor::RECURSION_LIMIT {
+								return Err(ProcessMessageError::StackLimitReached)
+							}
+							*count = count.saturating_add(1);
+							Ok(())
+						})
+							// This should always return `Some`, but let's play it safe.
+							.unwrap_or(Ok(()))?;
+
+						// Ensure that we always decrement the counter whenever we finish processing
+						// the `DenyInstructionsWithXcm`.
+						sp_core::defer! {
+							recursion_count::with(|count| {
+								*count = count.saturating_sub(1);
+							});
+						}
+
+						// check recursively with `DenyInstructionsWithXcm`
+						Self::should_execute(origin, nested_xcm.inner_mut(), max_weight, properties)
+					})?;
+
+					Ok(ControlFlow::Continue(()))
+				},
 				_ => Ok(ControlFlow::Continue(())),
 			},
 		)?;
