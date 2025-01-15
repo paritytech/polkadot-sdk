@@ -501,8 +501,9 @@ impl HostFn for HostFnImpl {
 	}
 
 	#[unstable_hostfn]
-	fn caller_is_root() -> u32 {
-		unsafe { sys::caller_is_root() }.into_u32()
+	fn caller_is_root() -> bool {
+		let ret_val = unsafe { sys::caller_is_root() };
+		ret_val.into_bool()
 	}
 
 	#[unstable_hostfn]
