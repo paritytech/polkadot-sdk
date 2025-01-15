@@ -769,6 +769,27 @@ impl<AccountId, Bound: Get<u32>> TryFrom<sp_npos_elections::Support<AccountId>>
 	}
 }
 
+impl<AccountId: Clone, Bound: Get<u32>> BoundedSupport<AccountId, Bound> {
+	pub fn sorted_truncate_from(mut support: sp_npos_elections::Support<AccountId>) -> Self {
+		// If bounds meet, then short circuit.
+		if let Ok(bounded) = support.clone().try_into() {
+			return bounded
+		}
+
+		// sort support based on stake of each backer, low to high.
+		support.voters.sort_by(|a, b| a.1.cmp(&b.1));
+		// then do the truncation.
+		let mut bounded = Self { voters: Default::default(), total: 0 };
+		while let Some((voter, weight)) = support.voters.pop() {
+			if let Err(_) = bounded.voters.try_push((voter, weight)) {
+				break
+			}
+			bounded.total += weight;
+		}
+		bounded
+	}
+}
+
 /// A bounded vector of [`BoundedSupport`].
 ///
 /// A [`BoundedSupports`] is a set of [`sp_npos_elections::Supports`] which are bounded in two
@@ -874,6 +895,35 @@ impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>> TryFrom<sp_npos_elections::S
 			.map_err(|_| crate::Error::BoundsExceeded)?;
 
 		Ok(outer_bounded_supports.into())
+	}
+}
+
+impl<AccountId: Clone, BOuter: Get<u32>, BInner: Get<u32>>
+	BoundedSupports<AccountId, BOuter, BInner>
+{
+	pub fn sorted_truncate_from(supports: Supports<AccountId>) -> Self {
+		// if bounds, meet, short circuit
+		if let Ok(bounded) = supports.clone().try_into() {
+			return bounded
+		}
+
+		// first, convert all inner supports.
+		let mut inner_supports = supports
+			.into_iter()
+			.map(|(account, support)| {
+				(account, BoundedSupport::<AccountId, BInner>::sorted_truncate_from(support))
+			})
+			.collect::<Vec<_>>();
+
+		// then sort outer supports based on total stake, high to low
+		inner_supports.sort_by(|a, b| b.1.total.cmp(&a.1.total));
+
+		// then take the first slice that can fit.
+		BoundedSupports(
+			BoundedVec::<(AccountId, BoundedSupport<AccountId, BInner>), BOuter>::truncate_from(
+				inner_supports,
+			),
+		)
 	}
 }
 

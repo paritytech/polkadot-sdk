@@ -276,7 +276,6 @@ fn configure_accounts(
 	)>,
 	initial_nominators: Vec<AccountId>,
 	endowed_accounts: Option<Vec<AccountId>>,
-	stash: Balance,
 ) -> (
 	Vec<(
 		AccountId,
@@ -305,21 +304,31 @@ fn configure_accounts(
 			}
 		});
 
-	// stakers: all validators and nominators.
+	use rand::Rng;
 	let mut rng = rand::thread_rng();
+	let mut rng2 = rand::thread_rng();
+	// stakers: all validators and nominators.
 	let stakers = initial_authorities
 		.iter()
-		.map(|x| (x.0.clone(), x.0.clone(), stash, StakerStatus::Validator))
+		.map(|x| {
+			(
+				x.0.clone(),
+				x.0.clone(),
+				rng.gen_range(ENDOWMENT / 100..ENDOWMENT / 2),
+				StakerStatus::Validator,
+			)
+		})
 		.chain(initial_nominators.iter().map(|x| {
 			use rand::{seq::SliceRandom, Rng};
 			let limit = (MaxNominations::get() as usize).min(initial_authorities.len());
-			let count = rng.gen::<usize>() % limit;
+			let count = (rng2.gen::<usize>() % limit).max(1);
 			let nominations = initial_authorities
 				.as_slice()
-				.choose_multiple(&mut rng, count)
+				.choose_multiple(&mut rng2, count)
 				.into_iter()
 				.map(|choice| choice.0.clone())
 				.collect::<Vec<_>>();
+			let stash = rng2.gen_range(ENDOWMENT / 100..ENDOWMENT / 2);
 			(x.clone(), x.clone(), stash, StakerStatus::Nominator(nominations))
 		}))
 		.collect::<Vec<_>>();
@@ -346,7 +355,8 @@ pub fn testnet_genesis(
 	endowed_accounts: Option<Vec<AccountId>>,
 ) -> serde_json::Value {
 	let (initial_authorities, endowed_accounts, num_endowed_accounts, stakers) =
-		configure_accounts(initial_authorities, initial_nominators, endowed_accounts, STASH);
+		configure_accounts(initial_authorities, initial_nominators, endowed_accounts);
+	const MAX_COLLECTIVE_SIZE: usize = 50;
 
 	serde_json::json!({
 		"balances": {
@@ -372,8 +382,8 @@ pub fn testnet_genesis(
 				.collect::<Vec<_>>(),
 		},
 		"staking": {
-			"validatorCount": initial_authorities.len() as u32,
-			"minimumValidatorCount": initial_authorities.len() as u32,
+			"validatorCount": (initial_authorities.len()/2usize) as u32,
+			"minimumValidatorCount": 4,
 			"invulnerables": initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
 			"slashRewardFraction": Perbill::from_percent(10),
 			"stakers": stakers.clone(),
@@ -381,7 +391,7 @@ pub fn testnet_genesis(
 		"elections": {
 			"members": endowed_accounts
 				.iter()
-				.take((num_endowed_accounts + 1) / 2)
+				.take(((num_endowed_accounts + 1) / 2).min(MAX_COLLECTIVE_SIZE))
 				.cloned()
 				.map(|member| (member, STASH))
 				.collect::<Vec<_>>(),
@@ -389,7 +399,7 @@ pub fn testnet_genesis(
 		"technicalCommittee": {
 			"members": endowed_accounts
 				.iter()
-				.take((num_endowed_accounts + 1) / 2)
+				.take(((num_endowed_accounts + 1) / 2).min(MAX_COLLECTIVE_SIZE))
 				.cloned()
 				.collect::<Vec<_>>(),
 		},
@@ -410,12 +420,34 @@ pub fn testnet_genesis(
 }
 
 fn development_config_genesis_json() -> serde_json::Value {
-	testnet_genesis(
-		vec![authority_keys_from_seed("Alice")],
-		vec![],
-		Sr25519Keyring::Alice.to_account_id(),
-		None,
-	)
+	if cfg!(feature = "staking-playground") {
+		let random_authorities_count = 100;
+		let random_nominators_count = 3000;
+		let mut random_authorities = (0..random_authorities_count)
+			.map(|i| authority_keys_from_seed(&format!("Random{}", i)))
+			.collect::<Vec<_>>();
+		let random_nominators = (0..random_nominators_count)
+			.map(|i| {
+				get_public_from_string_or_panic::<sr25519::Public>(&format!("Random{}", i)).into()
+			})
+			.collect::<Vec<_>>();
+		// Alice should also always be an authority.
+		random_authorities.push(authority_keys_from_seed("Alice"));
+
+		testnet_genesis(
+			random_authorities,
+			random_nominators,
+			Sr25519Keyring::Alice.to_account_id(),
+			None,
+		)
+	} else {
+		testnet_genesis(
+			vec![authority_keys_from_seed("Alice")],
+			vec![],
+			Sr25519Keyring::Alice.to_account_id(),
+			None,
+		)
+	}
 }
 
 fn props() -> Properties {

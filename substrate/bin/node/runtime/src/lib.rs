@@ -127,6 +127,7 @@ pub use pallet_balances::Call as BalancesCall;
 pub use pallet_staking::StakerStatus;
 #[cfg(any(feature = "std", test))]
 pub use pallet_sudo::Call as SudoCall;
+use sp_keyring;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 
@@ -663,16 +664,119 @@ impl_opaque_keys! {
 	}
 }
 
+#[cfg(feature = "staking-playground")]
+pub mod staking_playground {
+	use pallet_staking::Exposure;
+
+	use super::*;
+
+	/// An adapter to make the chain work with --dev only, even though it is running a large staking
+	/// election.
+	///
+	/// It will ignore the staking election and just set the validator set to alice.
+	///
+	/// Needs to be fed into `type SessionManager`.
+	pub struct AliceAsOnlyValidator;
+	impl pallet_session::SessionManager<AccountId> for AliceAsOnlyValidator {
+		fn end_session(end_index: sp_staking::SessionIndex) {
+			<Staking as pallet_session::SessionManager<AccountId>>::end_session(end_index)
+		}
+
+		fn new_session(new_index: sp_staking::SessionIndex) -> Option<Vec<AccountId>> {
+			<Staking as pallet_session::SessionManager<AccountId>>::new_session(new_index).map(
+				|_ignored_validators| {
+					vec![sp_keyring::Sr25519Keyring::AliceStash.to_account_id().into()]
+				},
+			)
+		}
+
+		fn new_session_genesis(new_index: sp_staking::SessionIndex) -> Option<Vec<AccountId>> {
+			<Staking as pallet_session::SessionManager<AccountId>>::new_session_genesis(new_index)
+				.map(|_ignored_validators| {
+					vec![sp_keyring::Sr25519Keyring::AliceStash.to_account_id().into()]
+				})
+		}
+
+		fn start_session(start_index: sp_staking::SessionIndex) {
+			<Staking as pallet_session::SessionManager<AccountId>>::start_session(start_index)
+		}
+	}
+
+	impl pallet_session::historical::SessionManager<AccountId, Exposure<AccountId, Balance>>
+		for AliceAsOnlyValidator
+	{
+		fn end_session(end_index: sp_staking::SessionIndex) {
+			<Staking as pallet_session::historical::SessionManager<
+				AccountId,
+				Exposure<AccountId, Balance>,
+			>>::end_session(end_index)
+		}
+
+		fn new_session(
+			new_index: sp_staking::SessionIndex,
+		) -> Option<Vec<(AccountId, Exposure<AccountId, Balance>)>> {
+			<Staking as pallet_session::historical::SessionManager<
+				AccountId,
+				Exposure<AccountId, Balance>,
+			>>::new_session(new_index)
+			.map(|_ignored| {
+				// construct a fake exposure for alice.
+				vec![(
+					sp_keyring::Sr25519Keyring::AliceStash.to_account_id().into(),
+					pallet_staking::Exposure {
+						total: 1_000_000_000,
+						own: 1_000_000_000,
+						others: vec![],
+					},
+				)]
+			})
+		}
+
+		fn new_session_genesis(
+			new_index: sp_staking::SessionIndex,
+		) -> Option<Vec<(AccountId, Exposure<AccountId, Balance>)>> {
+			<Staking as pallet_session::historical::SessionManager<
+				AccountId,
+				Exposure<AccountId, Balance>,
+			>>::new_session_genesis(new_index)
+			.map(|_ignored| {
+				// construct a fake exposure for alice.
+				vec![(
+					sp_keyring::Sr25519Keyring::AliceStash.to_account_id().into(),
+					pallet_staking::Exposure {
+						total: 1_000_000_000,
+						own: 1_000_000_000,
+						others: vec![],
+					},
+				)]
+			})
+		}
+
+		fn start_session(start_index: sp_staking::SessionIndex) {
+			<Staking as pallet_session::historical::SessionManager<
+				AccountId,
+				Exposure<AccountId, Balance>,
+			>>::start_session(start_index)
+		}
+	}
+}
+
 impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
 	type ValidatorIdOf = pallet_staking::StashOf<Self>;
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
-	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
 	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;
+	#[cfg(not(feature = "staking-playground"))]
+	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
+	#[cfg(feature = "staking-playground")]
+	type SessionManager = pallet_session::historical::NoteHistoricalRoot<
+		Self,
+		staking_playground::AliceAsOnlyValidator,
+	>;
 }
 
 impl pallet_session::historical::Config for Runtime {
@@ -691,8 +795,16 @@ pallet_staking_reward_curve::build! {
 	);
 }
 
+#[cfg(not(feature = "staking-playground"))]
 parameter_types! {
 	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
+}
+#[cfg(feature = "staking-playground")]
+parameter_types! {
+	pub const SessionsPerEra: sp_staking::SessionIndex = 2;
+}
+
+parameter_types! {
 	pub const BondingDuration: sp_staking::EraIndex = 24 * 28;
 	pub const SlashDeferDuration: sp_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
@@ -851,6 +963,7 @@ impl Get<Option<BalancingConfig>> for OffchainRandomBalancing {
 
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
+	type Sort = ConstBool<true>;
 	type System = Runtime;
 	type Solver = SequentialPhragmen<
 		AccountId,
@@ -1204,7 +1317,7 @@ parameter_types! {
 	// additional data per vote is 32 bytes (account id).
 	pub const VotingBondFactor: Balance = deposit(0, 32);
 	pub const TermDuration: BlockNumber = 7 * DAYS;
-	pub const DesiredMembers: u32 = 13;
+	pub const DesiredMembers: u32 = CouncilMaxMembers::get();
 	pub const DesiredRunnersUp: u32 = 7;
 	pub const MaxVotesPerVoter: u32 = 16;
 	pub const MaxVoters: u32 = 512;
@@ -1488,7 +1601,7 @@ parameter_types! {
 	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
 	/// We prioritize im-online heartbeats over election solution submission.
 	pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
-	pub const MaxAuthorities: u32 = 100;
+	pub const MaxAuthorities: u32 = 1000;
 	pub const MaxKeys: u32 = 10_000;
 	pub const MaxPeerInHeartbeats: u32 = 10_000;
 }

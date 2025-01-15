@@ -74,3 +74,5 @@ experimental = [
 	"pallet-example-tasks/experimental",
 ]
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]
+# Test temp feature to allow this chain to be used for swift testing of staking elections.
+staking-playground = []
