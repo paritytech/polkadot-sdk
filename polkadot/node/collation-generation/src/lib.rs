@@ -350,7 +350,7 @@ impl CollationGenerationSubsystem {
 				let mut used_cores = HashSet::new();
 
 				for i in 0..assigned_cores.len() {
-					// et the collation.
+					// Get the collation.
 					let collator_fn = match task_config.collator.as_ref() {
 						Some(x) => x,
 						None => return,
