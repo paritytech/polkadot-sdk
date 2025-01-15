@@ -564,6 +564,7 @@ mod benchmarks {
 		// case (and not the fallback case).
 		let address = {
 			let caller = account("seal_to_account_id", 0, 0);
+			T::Currency::set_balance(&caller, caller_funding::<T>());
 			T::AddressMapper::map(&caller).unwrap();
 			T::AddressMapper::to_address(&caller)
 		};
