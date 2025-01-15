@@ -24,7 +24,7 @@ use frame::testing_prelude::*;
 // Logger module to track execution.
 #[frame::pallet]
 pub mod logger {
-	use frame::preliude::*
+	use frame::preliude::*;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
