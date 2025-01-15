@@ -22,9 +22,7 @@ docify = { workspace = true }
 hex-literal = { optional = true, workspace = true, default-features = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-serde_json = { workspace = true, default-features = false, features = [
-	"alloc",
-] }
+serde_json = { workspace = true, default-features = false, features = ["alloc"] }
 smallvec = { workspace = true, default-features = true }
 
 # Local
