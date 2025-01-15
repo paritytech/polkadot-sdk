@@ -802,6 +802,8 @@ fn build_overseer(
 		Box::new(TestSyncOracle {}),
 		state.approval_voting_metrics.clone(),
 		Box::new(system_clock.clone()),
+		1,
+		Duration::from_secs(1),
 	);
 
 	let approval_distribution =
