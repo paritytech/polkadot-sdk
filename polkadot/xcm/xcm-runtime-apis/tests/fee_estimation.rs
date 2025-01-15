@@ -153,9 +153,15 @@ fn fee_estimation_for_teleport() {
 
 		let (destination, remote_messages) = forwarded_xcms_iter.next().unwrap();
 		let remote_message = &remote_messages[0];
+		let costum_asset = VersionedAssetId::from(AssetId(HereLocation::get()));
 
 		let delivery_fees = runtime_api
-			.query_delivery_fees(H256::zero(), destination.clone(), remote_message.clone())
+			.query_delivery_fees(
+				H256::zero(),
+				destination.clone(),
+				remote_message.clone(),
+				costum_asset,
+			)
 			.unwrap()
 			.unwrap();
 		assert_eq!(delivery_fees, VersionedAssets::from((Here, 20u128)));

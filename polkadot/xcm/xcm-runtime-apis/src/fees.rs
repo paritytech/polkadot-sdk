@@ -65,7 +65,7 @@ sp_api::decl_runtime_apis! {
 		///   size of the message.
 		/// * `destination`: The destination to send the message to. Different destinations may use
 		///   different senders that charge different fees.
-		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>) -> Result<VersionedAssets, Error>;
+		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>, asset: VersionedAssetId) -> Result<VersionedAssets, Error>;
 	}
 }
 

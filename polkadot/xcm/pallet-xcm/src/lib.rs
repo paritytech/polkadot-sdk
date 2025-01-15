@@ -2669,8 +2669,9 @@ impl<T: Config> Pallet<T> {
 	pub fn query_delivery_fees(
 		destination: VersionedLocation,
 		message: VersionedXcm<()>,
+		custom_asset: VersionedAssetId,
 	) -> Result<VersionedAssets, XcmPaymentApiError> {
-		let result_version = destination.identify_version().max(message.identify_version());
+		let result_version = custom_asset.identify_version();
 
 		let destination: Location = destination
 			.clone()
@@ -2690,6 +2691,12 @@ impl<T: Config> Pallet<T> {
 			tracing::error!(target: "xcm::pallet_xcm::query_delivery_fees", ?error, ?destination, ?message, "Failed to validate send to destination");
 			XcmPaymentApiError::Unroutable
 		})?;
+
+		// fees.into_inner().iter().for_each(|asset| {
+		// 	if asset.id != custom_asset {
+		// 		tracing::error!(target: "xcm::pallet_xcm::query_delivery_fees", ?asset,
+		// ?result_version, "Asset version mismatch"); 	}
+		// });
 
 		VersionedAssets::from(fees)
 			.into_version(result_version)
