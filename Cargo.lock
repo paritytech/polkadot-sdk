@@ -4419,14 +4419,8 @@ dependencies = [
  "log",
  "pallet-message-queue",
  "parity-scale-codec",
-<<<<<<< HEAD
  "polkadot-parachain-primitives",
- "polkadot-runtime-common",
  "polkadot-runtime-parachains",
-=======
- "polkadot-parachain-primitives 6.0.0",
- "polkadot-runtime-parachains 7.0.0",
->>>>>>> c10e25aa (dmp: Check that the para exist before delivering a message (#6604))
  "rand",
  "sc-client-api",
  "scale-info",
@@ -27221,21 +27215,14 @@ dependencies = [
 name = "xcm-executor-integration-tests"
 version = "1.0.0"
 dependencies = [
-<<<<<<< HEAD
  "frame-support",
+ "frame-system",
  "futures",
+ "pallet-sudo",
  "pallet-transaction-payment",
  "pallet-xcm",
-=======
- "frame-support 28.0.0",
- "frame-system 28.0.0",
- "futures",
- "pallet-sudo 28.0.0",
- "pallet-transaction-payment 28.0.0",
- "pallet-xcm 7.0.0",
->>>>>>> c10e25aa (dmp: Check that the para exist before delivering a message (#6604))
  "parity-scale-codec",
- "polkadot-runtime-parachains 7.0.0",
+ "polkadot-runtime-parachains",
  "polkadot-test-client",
  "polkadot-test-runtime",
  "polkadot-test-service",
