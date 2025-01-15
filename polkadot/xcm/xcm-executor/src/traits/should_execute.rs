@@ -161,7 +161,7 @@ impl ShouldNotExecute for Tuple {
             match Tuple::should_not_execute(origin, instructions, max_weight, properties) {
                 Ok(()) => {
                     tracing::trace!(
-                        target: "xcm::should_execute",
+                        target: "xcm::should_not_execute",
                         ?origin,
                         ?instructions,
                         ?max_weight,
@@ -172,7 +172,7 @@ impl ShouldNotExecute for Tuple {
                 },
                 Err(error) => {
                     tracing::trace!(
-                        target: "xcm::should_execute",
+                        target: "xcm::should_not_execute",
                         ?origin,
                         ?instructions,
                         ?max_weight,
