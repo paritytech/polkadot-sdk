@@ -33,7 +33,6 @@ mod shared;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use core::fmt::Debug;
-use frame::traits::*;
 
 use crate::{self as pallet_session, Pallet as Session};
 

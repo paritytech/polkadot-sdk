@@ -19267,7 +19267,6 @@ dependencies = [
  "sp-state-machine 0.35.0",
  "sp-storage 19.0.0",
  "sp-transaction-pool 26.0.0",
- "sp-trie 29.0.0",
  "sp-version 29.0.0",
 ]
 

@@ -25,8 +25,10 @@ use crate::historical as pallet_session_historical;
 use frame::testing_prelude::*;
 use std::collections::BTreeMap;
 
-// use sp_core::crypto::key_types::DUMMY;
-use frame::deps::{sp_staking::SessionIndex, sp_state_machine::BasicExternalities};
+use frame::deps::{
+	sp_core::crypto::key_types::DUMMY, sp_staking::SessionIndex,
+	sp_state_machine::BasicExternalities,
+};
 
 impl_opaque_keys! {
 	pub struct MockSessionKeys {
@@ -65,7 +67,7 @@ impl OpaqueKeys for PreUpgradeMockSessionKeys {
 	}
 }
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
 #[cfg(feature = "historical")]
 frame_support::construct_runtime!(
@@ -78,7 +80,7 @@ frame_support::construct_runtime!(
 );
 
 #[cfg(not(feature = "historical"))]
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,

@@ -17,7 +17,7 @@
 
 use core::str;
 
-use frame::prelude::*;
+use frame::testing_prelude::*;
 
 use crate::historical as pallet_session_historical;
 
