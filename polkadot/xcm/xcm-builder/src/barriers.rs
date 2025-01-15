@@ -507,13 +507,15 @@ impl ShouldNotExecute for DenyReserveTransferToRelayChain {
 	}
 }
 
-// See https://github.com/paritytech/polkadot-sdk/pull/6838
-pub struct DenyFirstExportMessageFrom<FromOrigin, ToGlobalConsensus>(
+/// Deny execution if the message contains instruction `ExportMessage` with
+/// a. origin is contained in `FromOrigin` (i.e.`FromOrigin::Contains(origin)`)
+/// b. network is contained in `ToGlobalConsensus`, (i.e. `ToGlobalConsensus::contains(network)`)
+pub struct DenyExportMessageFrom<FromOrigin, ToGlobalConsensus>(
 	PhantomData<(FromOrigin, ToGlobalConsensus)>,
 );
 
 impl<FromOrigin, ToGlobalConsensus> ShouldNotExecute
-	for DenyFirstExportMessageFrom<FromOrigin, ToGlobalConsensus>
+	for DenyExportMessageFrom<FromOrigin, ToGlobalConsensus>
 where
 	FromOrigin: Contains<Location>,
 	ToGlobalConsensus: Contains<NetworkId>,

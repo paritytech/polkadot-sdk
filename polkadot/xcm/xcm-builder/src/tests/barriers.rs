@@ -546,7 +546,7 @@ parameter_types! {
 #[test]
 fn deny_reserver_transfer_to_relaychain_should_work() {
 	pub type Barrier = DenyThenTry<
-		(DenyReserveTransferToRelayChain, DenyFirstExportMessageFrom<Everything, Everything>),
+		(DenyReserveTransferToRelayChain, DenyExportMessageFrom<Everything, Everything>),
 		TakeWeightCredit,
 	>;
 
@@ -571,10 +571,7 @@ fn deny_export_message_from_source_other_than_asset_hub_should_work() {
 	pub type Barrier = DenyThenTry<
 		(
 			DenyReserveTransferToRelayChain,
-			DenyFirstExportMessageFrom<
-				EverythingBut<Equals<AssetHubLocation>>,
-				Equals<EthereumNetwork>,
-			>,
+			DenyExportMessageFrom<EverythingBut<Equals<AssetHubLocation>>, Equals<EthereumNetwork>>,
 		),
 		TakeWeightCredit,
 	>;
@@ -603,10 +600,7 @@ fn allow_export_message_from_asset_hub_should_work() {
 	pub type Barrier = DenyThenTry<
 		(
 			DenyReserveTransferToRelayChain,
-			DenyFirstExportMessageFrom<
-				EverythingBut<Equals<AssetHubLocation>>,
-				Equals<EthereumNetwork>,
-			>,
+			DenyExportMessageFrom<EverythingBut<Equals<AssetHubLocation>>, Equals<EthereumNetwork>>,
 		),
 		TakeWeightCredit,
 	>;
@@ -635,10 +629,7 @@ fn allow_export_message_from_source_other_than_asset_hub_if_destination_other_th
 	pub type Barrier = DenyThenTry<
 		(
 			DenyReserveTransferToRelayChain,
-			DenyFirstExportMessageFrom<
-				EverythingBut<Equals<AssetHubLocation>>,
-				Equals<EthereumNetwork>,
-			>,
+			DenyExportMessageFrom<EverythingBut<Equals<AssetHubLocation>>, Equals<EthereumNetwork>>,
 		),
 		TakeWeightCredit,
 	>;
