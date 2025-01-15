@@ -24,7 +24,9 @@ use frame_support::{
 };
 use polkadot_parachain_primitives::primitives::IsSystem;
 use xcm::prelude::*;
-use xcm_executor::traits::{CheckSuspension, OnResponse, Properties, ShouldExecute};
+use xcm_executor::traits::{
+	CheckSuspension, OnResponse, Properties, ShouldExecute, ShouldNotExecute,
+};
 
 /// Execution barrier that just takes `max_weight` from `properties.weight_credit`.
 ///
@@ -444,12 +446,12 @@ impl ShouldExecute for AllowHrmpNotificationsFromRelayChain {
 /// If it passes the Deny, and matches one of the Allow cases then it is let through.
 pub struct DenyThenTry<Deny, Allow>(PhantomData<Deny>, PhantomData<Allow>)
 where
-	Deny: ShouldExecute,
+	Deny: ShouldNotExecute,
 	Allow: ShouldExecute;
 
 impl<Deny, Allow> ShouldExecute for DenyThenTry<Deny, Allow>
 where
-	Deny: ShouldExecute,
+	Deny: ShouldNotExecute,
 	Allow: ShouldExecute,
 {
 	fn should_execute<RuntimeCall>(
@@ -458,15 +460,15 @@ where
 		max_weight: Weight,
 		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		Deny::should_execute(origin, message, max_weight, properties)?;
+		Deny::should_not_execute(origin, message, max_weight, properties)?;
 		Allow::should_execute(origin, message, max_weight, properties)
 	}
 }
 
 // See issue <https://github.com/paritytech/polkadot/issues/5233>
 pub struct DenyReserveTransferToRelayChain;
-impl ShouldExecute for DenyReserveTransferToRelayChain {
-	fn should_execute<RuntimeCall>(
+impl ShouldNotExecute for DenyReserveTransferToRelayChain {
+	fn should_not_execute<RuntimeCall>(
 		origin: &Location,
 		message: &mut [Instruction<RuntimeCall>],
 		_max_weight: Weight,
@@ -501,6 +503,39 @@ impl ShouldExecute for DenyReserveTransferToRelayChain {
 		)?;
 
 		// Permit everything else
+		Ok(())
+	}
+}
+
+// See https://github.com/paritytech/polkadot-sdk/pull/6838
+pub struct DenyFirstExportMessageFrom<FromOrigin, ToGlobalConsensus>(
+	PhantomData<(FromOrigin, ToGlobalConsensus)>,
+);
+
+impl<FromOrigin, ToGlobalConsensus> ShouldNotExecute
+	for DenyFirstExportMessageFrom<FromOrigin, ToGlobalConsensus>
+where
+	FromOrigin: Contains<Location>,
+	ToGlobalConsensus: Contains<NetworkId>,
+{
+	fn should_not_execute<RuntimeCall>(
+		origin: &Location,
+		message: &mut [Instruction<RuntimeCall>],
+		_max_weight: Weight,
+		_properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		message.matcher().match_next_inst_while(
+			|_| true,
+			|inst| match inst {
+				ExportMessage { network, .. } =>
+					if ToGlobalConsensus::contains(network) && FromOrigin::contains(origin) {
+						return Err(ProcessMessageError::Unsupported)
+					} else {
+						Ok(ControlFlow::Continue(()))
+					},
+				_ => Ok(ControlFlow::Continue(())),
+			},
+		)?;
 		Ok(())
 	}
 }
