@@ -28,4 +28,4 @@ substrate-test-client = { workspace = true }
 substrate-test-runtime = { workspace = true, features = ["bls-experimental"] }
 
 [features]
-bls-experimental = ["substrate-test-runtime/bls-experimental"]
+bls-experimental = []
