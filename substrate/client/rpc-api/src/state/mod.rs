@@ -38,10 +38,46 @@ pub trait StateApi<Hash> {
 	#[method(name = "state_call", aliases = ["state_callAt"], blocking)]
 	fn call(&self, name: String, bytes: Bytes, hash: Option<Hash>) -> Result<Bytes, Error>;
 
-	/// Debug a method from the runtime API.
-	/// The method will be called at the block's parent state.
-	/// and passed the block to be replayed, followed by the decoded `bytes`
-	/// arguments.
+	/// Retrieve the block using the specified hash and invoke a runtime API method from the parent
+	/// state of this block. This allows the method to replay the extrinsics from the parent state
+	/// of the block.
+	///
+	/// This is typically used to replay transactions with tracing enabled. For example,
+	/// `pallet_revive` uses this to capture smart-contract call traces.
+	///
+	/// # Parameters
+	/// - `name`: The name of the runtime API method to call.
+	/// - `block`: The hash of the block to replay.
+	/// - `bytes`: Additional, encoded data to pass to the runtime API method, after the block data.
+	///
+	/// # `curl` example
+	///
+	/// - Call `pallet_revive` [`trace_block`](https://paritytech.github.io/polkadot-sdk/master/pallet_revive/trait.ReviveApi.html#method.trace_block)
+	///   to replay a block and capture call traces.
+	///
+	/// ```text
+	/// curl  http://localhost:9944 \
+	/// 	-H 'Content-Type: application/json' \
+	/// 	-d '{
+	/// 	      "id":1, "jsonrpc":"2.0", "method":"state_debugBlock", \
+	/// 	      "params": ["ReviveApi_trace_block", "0xb246acf1adea1f801ce15c77a5fa7d8f2eb8fed466978bcee172cc02cf64e264"]
+	///         }'
+	/// }'
+	/// ```
+	///
+	/// - Call `pallet_revive` [`trace_tx`](https://paritytech.github.io/polkadot-sdk/master/pallet_revive/trait.ReviveApi.html#method.trace_block)
+	///   to replay a block and capture the call trace of the transaction at the given index.
+	///
+	/// ```text
+	/// curl  http://localhost:9944 \
+	/// 	-H 'Content-Type: application/json' \
+	/// 	-d '{
+	/// 	      "id":1, "jsonrpc":"2.0", "method":"state_debugBlock", \
+	/// 	      "params": ["ReviveApi_trace_tx",
+	/// "0xb246acf1adea1f801ce15c77a5fa7d8f2eb8fed466978bcee172cc02cf64e264", "0x2a000000"]
+	///         }'
+	/// }'
+	/// ```
 	#[method(name = "state_debugBlock", blocking, with_extensions)]
 	fn debug_block(&self, name: String, block: Hash, bytes: Bytes) -> Result<Bytes, Error>;
 
