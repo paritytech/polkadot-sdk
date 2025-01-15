@@ -28,8 +28,7 @@
           }
         },
         "balances": {
-          "balances": [],
-          "devAccounts": null
+          "balances": []
         },
         "substrateTest": {
           "authorities": []
