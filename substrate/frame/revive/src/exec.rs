@@ -2709,7 +2709,10 @@ mod tests {
 			const UNMAPPED_ADDR: H160 = H160([99u8; 20]);
 			let mut unmapped_fallback_account_id = [0xEE; 32];
 			unmapped_fallback_account_id[..20].copy_from_slice(UNMAPPED_ADDR.as_bytes());
-			assert_eq!(ctx.ext.to_account_id(&UNMAPPED_ADDR), AccountId32::new(unmapped_fallback_account_id));
+			assert_eq!(
+				ctx.ext.to_account_id(&UNMAPPED_ADDR),
+				AccountId32::new(unmapped_fallback_account_id)
+			);
 
 			exec_success()
 		});

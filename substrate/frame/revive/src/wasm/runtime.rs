@@ -2177,7 +2177,12 @@ pub mod env {
 	/// Retrieves the account id for a specified contract address.
 	///
 	/// See [`pallet_revive_uapi::HostFn::to_account_id`].
-	fn to_account_id(&mut self, memory: &mut M, addr_ptr: u32, out_ptr: u32) -> Result<(), TrapReason> {
+	fn to_account_id(
+		&mut self,
+		memory: &mut M,
+		addr_ptr: u32,
+		out_ptr: u32,
+	) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::ToAccountId)?;
 		let address = memory.read_h160(addr_ptr)?;
 		let account_id = self.ext.to_account_id(&address);

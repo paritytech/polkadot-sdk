@@ -583,7 +583,10 @@ mod benchmarks {
 			[0xEE; 12],
 			"fallback suffix found where none should be"
 		);
-		assert_eq!(T::AccountId::decode(&mut memory.as_slice()), Ok(runtime.ext().to_account_id(&address)));
+		assert_eq!(
+			T::AccountId::decode(&mut memory.as_slice()),
+			Ok(runtime.ext().to_account_id(&address))
+		);
 	}
 
 	#[benchmark(pov_mode = Measured)]

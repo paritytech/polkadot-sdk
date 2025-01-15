@@ -4679,16 +4679,21 @@ fn to_account_id_works() {
 			[0xEE; 12],
 			"fallback suffix found where none should be"
 		);
-		assert_ok!(builder::call(addr).data((EVE_ADDR, expected_mapped_account_id).encode()).build());
+		assert_ok!(builder::call(addr)
+			.data((EVE_ADDR, expected_mapped_account_id).encode())
+			.build());
 
 		// fallback for unmapped accounts
-		let expected_fallback_account_id = &<Test as Config>::AddressMapper::to_account_id(&BOB_ADDR);
+		let expected_fallback_account_id =
+			&<Test as Config>::AddressMapper::to_account_id(&BOB_ADDR);
 		assert_eq!(
 			expected_fallback_account_id.encode()[20..32],
 			[0xEE; 12],
 			"no fallback suffix found where one should be"
 		);
-		assert_ok!(builder::call(addr).data((BOB_ADDR, expected_fallback_account_id).encode()).build());
+		assert_ok!(builder::call(addr)
+			.data((BOB_ADDR, expected_fallback_account_id).encode())
+			.build());
 	});
 }
 
