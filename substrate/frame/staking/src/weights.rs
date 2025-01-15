@@ -91,15 +91,15 @@ pub trait WeightInfo {
 /// Weights for `pallet_staking` using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	// TODO: run CI bench bot
+	// TODO CI-FAIL: run CI bench bot
 	fn on_initialize_noop() -> Weight {
-	    RocksDbWeight::get().reads(1)
+	    Default::default()
 	}
 	fn do_elect_paged(_v: u32,) -> Weight {
-	    RocksDbWeight::get().reads(1)
+	    Default::default()
 	}
 	fn clear_election_metadata() -> Weight {
-	    RocksDbWeight::get().reads(1)
+	    Default::default()
 	}
 
 	/// Storage: `Staking::Bonded` (r:1 w:1)

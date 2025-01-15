@@ -48,6 +48,16 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_staking`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
+	// TODO CI-FAIL: run CI bench bot
+	fn on_initialize_noop() -> Weight {
+	    Default::default()
+	}
+	fn do_elect_paged(_v: u32,) -> Weight {
+	    Default::default()
+	}
+	fn clear_election_metadata() -> Weight {
+	    Default::default()
+	}
 	/// Storage: `Staking::Bonded` (r:1 w:1)
 	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::Ledger` (r:1 w:1)
