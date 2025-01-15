@@ -1,6 +1,7 @@
 import { test, expect } from "bun:test";
 import {
 	wnd_ah,
+	wnd_penpal,
 	XcmV3Junctions,
 	XcmV3Junction,
 	XcmV3MultiassetFungibility,
@@ -25,9 +26,11 @@ const WESTEND_NETWORK = Uint8Array.from([225, 67, 242, 56, 3, 172, 80, 232, 246,
 const BOB_KEY = "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty";
 const ALICE_KEY = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
 
-// Create and initialize client
-const client = createClient(withPolkadotSdkCompat(getWsProvider("ws://localhost:8000")));
-const AHApi = client.getTypedApi(wnd_ah);
+// Create and initialize clients
+const ahClient = createClient(withPolkadotSdkCompat(getWsProvider("ws://localhost:8000")));
+const AHApi = ahClient.getTypedApi(wnd_ah);
+const penaplClient = createClient(withPolkadotSdkCompat(getWsProvider("ws://localhost:8001")));
+const PenpalApi = penaplClient.getTypedApi(wnd_penpal);
 
 // Initialize HDKD key pairs and signers
 const entropy = mnemonicToEntropy(DEV_PHRASE);
@@ -490,5 +493,83 @@ test("Local Reserve Asset Transfer of USDT from Asset Hub to Alice on Penpal", a
 		},
 	);
 	const r = await ahToWnd.signAndSubmit(aliceSigner);
+	expect(r).toBeTruthy();
+})
+
+// this test scenario works together with the previous one.
+// previous test serves as a set-up for this one.
+test("InitiateReserveWithdraw USDT from Penpal to Asset Hub Bob", async () => {
+	const msg = Enum('V5', [
+		XcmV4Instruction.WithdrawAsset([
+			{
+				id: {
+					parents: 1,
+					interior: XcmV3Junctions.Here(),
+				},
+				fun: XcmV3MultiassetFungibility.Fungible(3_995_000_000_000n),
+			},
+			{
+				id: {
+					parents: 1,
+					interior: XcmV3Junctions.X3([
+						XcmV3Junction.Parachain(1000),
+						XcmV3Junction.PalletInstance(50),
+						XcmV3Junction.GeneralIndex(1984n)]),
+				},
+				fun: XcmV3MultiassetFungibility.Fungible(70_000_000n),
+			},
+		]),
+		Enum('PayFees', {
+			asset: {
+				id: {
+					parents: 1,
+					interior: XcmV3Junctions.Here(),
+				},
+				fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
+			}
+		}),
+		XcmV4Instruction.InitiateReserveWithdraw({
+			assets: XcmV4AssetAssetFilter.Wild({
+				type: 'All',
+				value: undefined,
+			}),
+			reserve: {
+				parents: 1,
+				interior: XcmV3Junctions.X1(XcmV3Junction.Parachain(1000)),
+			},
+			xcm: [
+				Enum('PayFees', {
+					asset: {
+						id: {
+							parents: 1,
+							interior: XcmV3Junctions.Here(),
+						},
+						fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
+					}
+				}),
+				XcmV4Instruction.DepositAsset({
+					assets: XcmV3MultiassetMultiAssetFilter.Wild({
+						type: 'All',
+						value: undefined,
+					}),
+					beneficiary: {
+						parents: 0,
+						interior: XcmV3Junctions.X1(XcmV3Junction.AccountId32({
+							network: undefined,
+							id: Binary.fromBytes(hdkdKeyPairBob.publicKey),
+						})),
+					},
+				}),
+			],
+		}),
+	]);
+
+
+	const penpalToAH = PenpalApi.tx.PolkadotXcm.execute({
+			message: msg,
+			max_weight: { ref_time: 81834380000n, proof_size: 823193n },
+		},
+	);
+	const r = await penpalToAH.signAndSubmit(aliceSigner);
 	expect(r).toBeTruthy();
 })
