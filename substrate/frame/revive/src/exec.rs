@@ -325,7 +325,7 @@ pub trait Ext: sealing::Sealed {
 	/// Returns `Err(InvalidImmutableAccess)` if called from a constructor.
 	fn get_immutable_data(&mut self) -> Result<ImmutableData, DispatchError>;
 
-	/// Set the the immutable data of the current contract.
+	/// Set the immutable data of the current contract.
 	///
 	/// Returns `Err(InvalidImmutableAccess)` if not called from a constructor.
 	///

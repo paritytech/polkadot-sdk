@@ -488,7 +488,7 @@ pub trait HostFn: private::Sealed {
 	/// A return value of `true` indicates that this contract is being called by a root origin,
 	/// and `false` indicates that the caller is a signed origin.
 	#[unstable_hostfn]
-	fn caller_is_root() -> u32;
+	fn caller_is_root() -> bool;
 
 	/// Clear the value at the given key in the contract storage.
 	///
