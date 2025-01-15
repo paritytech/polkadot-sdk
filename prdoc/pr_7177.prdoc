@@ -2,11 +2,7 @@ title: Make frame crate not experimental
 doc:
 - audience: Runtime Dev
   description: |-
-    We already use it for lots of pallet.
-
-    Keeping it feature gated by experimental means we lose the information of which pallet was using experimental before the migration to frame crate usage.
-
-    I think we should rather just consider `frame` crate not experimental.
+    Frame crate may still be unstable, but it is no longer feature gated by the feature `experimental`.
 crates:
 - name: polkadot-sdk-frame
   bump: minor
