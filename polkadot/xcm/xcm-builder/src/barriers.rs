@@ -24,9 +24,7 @@ use frame_support::{
 };
 use polkadot_parachain_primitives::primitives::IsSystem;
 use xcm::prelude::*;
-use xcm_executor::traits::{
-	CheckSuspension, OnResponse, Properties, ShouldExecute, ShouldNotExecute,
-};
+use xcm_executor::traits::{CheckSuspension, DenyExecution, OnResponse, Properties, ShouldExecute};
 
 /// Execution barrier that just takes `max_weight` from `properties.weight_credit`.
 ///
@@ -446,12 +444,12 @@ impl ShouldExecute for AllowHrmpNotificationsFromRelayChain {
 /// If it passes the Deny, and matches one of the Allow cases then it is let through.
 pub struct DenyThenTry<Deny, Allow>(PhantomData<Deny>, PhantomData<Allow>)
 where
-	Deny: ShouldNotExecute,
+	Deny: DenyExecution,
 	Allow: ShouldExecute;
 
 impl<Deny, Allow> ShouldExecute for DenyThenTry<Deny, Allow>
 where
-	Deny: ShouldNotExecute,
+	Deny: DenyExecution,
 	Allow: ShouldExecute,
 {
 	fn should_execute<RuntimeCall>(
@@ -460,21 +458,23 @@ where
 		max_weight: Weight,
 		properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		Deny::should_not_execute(origin, message, max_weight, properties)?;
-		Allow::should_execute(origin, message, max_weight, properties)
+		match Deny::deny_execution(origin, message, max_weight, properties) {
+			Some(err) => Err(err),
+			None => Allow::should_execute(origin, message, max_weight, properties),
+		}
 	}
 }
 
 // See issue <https://github.com/paritytech/polkadot/issues/5233>
 pub struct DenyReserveTransferToRelayChain;
-impl ShouldNotExecute for DenyReserveTransferToRelayChain {
-	fn should_not_execute<RuntimeCall>(
+impl DenyExecution for DenyReserveTransferToRelayChain {
+	fn deny_execution<RuntimeCall>(
 		origin: &Location,
 		message: &mut [Instruction<RuntimeCall>],
 		_max_weight: Weight,
 		_properties: &mut Properties,
-	) -> Result<(), ProcessMessageError> {
-		message.matcher().match_next_inst_while(
+	) -> Option<ProcessMessageError> {
+		match message.matcher().match_next_inst_while(
 			|_| true,
 			|inst| match inst {
 				InitiateReserveWithdraw {
@@ -500,9 +500,9 @@ impl ShouldNotExecute for DenyReserveTransferToRelayChain {
 
 				_ => Ok(ControlFlow::Continue(())),
 			},
-		)?;
-
-		// Permit everything else
-		Ok(())
+		) {
+			Ok(_) => None,
+			Err(err) => Some(err),
+		}
 	}
 }

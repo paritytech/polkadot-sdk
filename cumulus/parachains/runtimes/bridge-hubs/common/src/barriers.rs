@@ -19,7 +19,7 @@ use frame_support::traits::{Contains, ProcessMessageError};
 use xcm::prelude::{ExportMessage, Instruction, Location, NetworkId};
 
 use xcm_builder::{CreateMatcher, MatchXcm};
-use xcm_executor::traits::{Properties, ShouldNotExecute};
+use xcm_executor::traits::{DenyExecution, Properties};
 
 /// Deny execution if the message contains instruction `ExportMessage` with
 /// a. origin is contained in `FromOrigin` (i.e.`FromOrigin::Contains(origin)`)
@@ -28,19 +28,19 @@ pub struct DenyExportMessageFrom<FromOrigin, ToGlobalConsensus>(
 	PhantomData<(FromOrigin, ToGlobalConsensus)>,
 );
 
-impl<FromOrigin, ToGlobalConsensus> ShouldNotExecute
+impl<FromOrigin, ToGlobalConsensus> DenyExecution
 	for DenyExportMessageFrom<FromOrigin, ToGlobalConsensus>
 where
 	FromOrigin: Contains<Location>,
 	ToGlobalConsensus: Contains<NetworkId>,
 {
-	fn should_not_execute<RuntimeCall>(
+	fn deny_execution<RuntimeCall>(
 		origin: &Location,
 		message: &mut [Instruction<RuntimeCall>],
 		_max_weight: Weight,
 		_properties: &mut Properties,
-	) -> Result<(), ProcessMessageError> {
-		message.matcher().match_next_inst_while(
+	) -> Option<ProcessMessageError> {
+		match message.matcher().match_next_inst_while(
 			|_| true,
 			|inst| match inst {
 				ExportMessage { network, .. } =>
@@ -51,7 +51,9 @@ where
 					},
 				_ => Ok(ControlFlow::Continue(())),
 			},
-		)?;
-		Ok(())
+		) {
+			Ok(_) => None,
+			Err(error) => Some(error),
+		}
 	}
 }

@@ -132,7 +132,7 @@ impl CheckSuspension for Tuple {
 ///
 /// Can be amalgamated into a tuple to have multiple trials. If any of the tuple elements returns
 /// `Err(())`, the execution stops. Else, `Ok(_)` is returned if all elements accept the message.
-pub trait ShouldNotExecute {
+pub trait DenyExecution {
 	/// Returns `Ok(())` means there is no reason not to execute the message
 	/// while Err(e) indicates there is a reason not to execute.
 	///
@@ -141,39 +141,28 @@ pub trait ShouldNotExecute {
 	/// - `max_weight`: The (possibly over-) estimation of the weight of execution of the message.
 	/// - `properties`: Various pre-established properties of the message which may be mutated by
 	///   this API.
-	fn should_not_execute<RuntimeCall>(
+	fn deny_execution<RuntimeCall>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
 		properties: &mut Properties,
-	) -> Result<(), ProcessMessageError>;
+	) -> Option<ProcessMessageError>;
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
-impl ShouldNotExecute for Tuple {
-	fn should_not_execute<RuntimeCall>(
+impl DenyExecution for Tuple {
+	fn deny_execution<RuntimeCall>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
 		properties: &mut Properties,
-	) -> Result<(), ProcessMessageError> {
+	) -> Option<ProcessMessageError> {
 		for_tuples!( #(
             let barrier = core::any::type_name::<Tuple>();
-            match Tuple::should_not_execute(origin, instructions, max_weight, properties) {
-                Ok(()) => {
+            match Tuple::deny_execution(origin, instructions, max_weight, properties) {
+                Some(error) => {
                     tracing::trace!(
-                        target: "xcm::should_not_execute",
-                        ?origin,
-                        ?instructions,
-                        ?max_weight,
-                        ?properties,
-                        %barrier,
-                        "pass barrier",
-                    );
-                },
-                Err(error) => {
-                    tracing::trace!(
-                        target: "xcm::should_not_execute",
+                        target: "xcm::should_execute",
                         ?origin,
                         ?instructions,
                         ?max_weight,
@@ -182,11 +171,22 @@ impl ShouldNotExecute for Tuple {
                         %barrier,
                         "did not pass barrier",
                     );
-                    return Err(error);
+                    return Some(error);
+                },
+				 None => {
+                    tracing::trace!(
+                        target: "xcm::should_execute",
+                        ?origin,
+                        ?instructions,
+                        ?max_weight,
+                        ?properties,
+                        %barrier,
+                        "pass barrier",
+                    );
                 },
             }
         )* );
 
-		Ok(())
+		None
 	}
 }
