@@ -1,12 +1,12 @@
 # Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
 # See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
 
-title: Bound resources for nested EVM contract calls
+title: Alter semantic meaning of 0 in metering limits of EVM contract calls
 
 doc:
   - audience: [ Runtime Dev, Runtime User ]
     description: |
-      Implementation of EIP-150 for `pallet-revive`-based EVM contracts.
+      A limit of 0, for gas meters and storage meters, no longer has the meaning of unlimited metering.
 
 crates:
   - name: pallet-revive
