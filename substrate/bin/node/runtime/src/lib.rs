@@ -1468,6 +1468,7 @@ impl pallet_revive::Config for Runtime {
 	type Xcm = ();
 	type ChainId = ConstU64<420_420_420>;
 	type NativeToEthRatio = ConstU32<1_000_000>; // 10^(18 - 12) Eth is 10^18, Native is 10^12.
+	type EthGasEncoder = ();
 }
 
 impl pallet_sudo::Config for Runtime {
@@ -3030,7 +3031,7 @@ impl_runtime_apis! {
 		}
 
 		fn current_set_id() -> sp_consensus_grandpa::SetId {
-			Grandpa::current_set_id()
+			pallet_grandpa::CurrentSetId::<Runtime>::get()
 		}
 
 		fn submit_report_equivocation_unsigned_extrinsic(
