@@ -6,7 +6,7 @@ crates:
 - name: asset-hub-westend-runtime
   bump: minor
 - name: pallet-revive
-  bump: minor
+  bump: major
 - name: pallet-revive-proc-macro
   bump: minor
 - name: pallet-revive-uapi
