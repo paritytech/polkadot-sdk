@@ -169,7 +169,7 @@ impl HostFn for HostFnImpl {
 		code_hash: &[u8; 32],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
-		deposit_limit: Option<&[u8; 32]>,
+		deposit_limit: &[u8; 32],
 		value: &[u8; 32],
 		input: &[u8],
 		mut address: Option<&mut [u8; 20]>,
@@ -181,7 +181,7 @@ impl HostFn for HostFnImpl {
 			None => crate::SENTINEL as _,
 		};
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
-		let deposit_limit_ptr = ptr_or_sentinel(&deposit_limit);
+		let deposit_limit_ptr = deposit_limit.as_ptr();
 		let salt_ptr = ptr_or_sentinel(&salt);
 		#[repr(C)]
 		#[allow(dead_code)]
@@ -226,13 +226,13 @@ impl HostFn for HostFnImpl {
 		callee: &[u8; 20],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
-		deposit_limit: Option<&[u8; 32]>,
+		deposit_limit: &[u8; 32],
 		value: &[u8; 32],
 		input: &[u8],
 		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
-		let deposit_limit_ptr = ptr_or_sentinel(&deposit_limit);
+		let deposit_limit_ptr = deposit_limit.as_ptr();
 		#[repr(C)]
 		#[allow(dead_code)]
 		struct Args {
@@ -274,12 +274,12 @@ impl HostFn for HostFnImpl {
 		address: &[u8; 20],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
-		deposit_limit: Option<&[u8; 32]>,
+		deposit_limit: &[u8; 32],
 		input: &[u8],
 		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
-		let deposit_limit_ptr = ptr_or_sentinel(&deposit_limit);
+		let deposit_limit_ptr = deposit_limit.as_ptr();
 		#[repr(C)]
 		#[allow(dead_code)]
 		struct Args {
@@ -507,8 +507,9 @@ impl HostFn for HostFnImpl {
 	}
 
 	#[unstable_hostfn]
-	fn caller_is_root() -> u32 {
-		unsafe { sys::caller_is_root() }.into_u32()
+	fn caller_is_root() -> bool {
+		let ret_val = unsafe { sys::caller_is_root() };
+		ret_val.into_bool()
 	}
 
 	#[unstable_hostfn]
