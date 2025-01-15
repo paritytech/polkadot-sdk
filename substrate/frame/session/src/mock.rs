@@ -25,10 +25,8 @@ use crate::historical as pallet_session_historical;
 use frame::testing_prelude::*;
 use std::collections::BTreeMap;
 
-use frame::deps::{
-	sp_core::crypto::key_types::DUMMY, sp_staking::SessionIndex,
-	sp_state_machine::BasicExternalities,
-};
+
+use frame::deps::{sp_staking::SessionIndex, sp_state_machine::BasicExternalities};
 
 impl_opaque_keys! {
 	pub struct MockSessionKeys {

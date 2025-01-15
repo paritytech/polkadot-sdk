@@ -457,7 +457,7 @@ fn test_migration_v1() {
 		historical::{HistoricalSessions, StoredRange},
 		mock::Historical,
 	};
-	use frame_support::traits::{PalletInfoAccess, StorageVersion};
+	use frame::traits::{PalletInfoAccess, StorageVersion};
 
 	new_test_ext().execute_with(|| {
 		assert!(HistoricalSessions::<Test>::iter_values().count() > 0);
@@ -465,7 +465,7 @@ fn test_migration_v1() {
 
 		let old_pallet = "Session";
 		let new_pallet = <Historical as PalletInfoAccess>::name();
-		frame_support::storage::migration::move_pallet(
+		migration::move_pallet(
 			new_pallet.as_bytes(),
 			old_pallet.as_bytes(),
 		);
