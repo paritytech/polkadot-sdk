@@ -202,13 +202,20 @@ pub mod prelude {
 
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
-	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
+	pub use frame_support::dispatch::{DispatchResult, GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::{
-		defensive, defensive_assert,
+		defensive, defensive_assert, ensure, print,
+		storage::{generator::StorageValue, migration, KeyPrefixIterator, StoragePrefixedMap},
 		traits::{
-			Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll,
-			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+			Contains, Defensive, DisabledValidators, EitherOf, EstimateNextNewSession,
+			EstimateNextSessionRotation, FindAuthor, Get, GetStorageVersion, IsSubType,
+			KeyOwnerProofSystem, MapSuccess, NoOpPoll, OnInitialize, OnRuntimeUpgrade,
+			OneSessionHandler, PalletInfoAccess, RankedMembers, RankedMembersSwapHandler,
+			StorageVersion, ValidatorRegistration, ValidatorSet, ValidatorSetWithIdentification,
+			STORAGE_VERSION_STORAGE_KEY_POSTFIX,
 		},
+		weights::Weight,
+		Parameter, LOG_TARGET,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -231,9 +238,14 @@ pub mod prelude {
 
 	/// Runtime traits
 	#[doc(no_inline)]
-	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+	pub use sp_runtime::{
+		offchain::storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
+		traits::{
+			AtLeast32BitUnsigned, BlockNumberProvider, Bounded, Convert, DispatchInfoOf,
+			Dispatchable, Member, One, OpaqueKeys, ReduceBy, ReplaceWithDefault,
+			SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput, Zero,
+		},
+		ConsensusEngineId, DispatchError, KeyTypeId, Permill, RuntimeAppPublic,
 	};
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
@@ -569,6 +581,9 @@ pub mod deps {
 	pub use sp_core;
 	pub use sp_io;
 	pub use sp_runtime;
+	pub use sp_session;
+	pub use sp_staking;
+	pub use sp_state_machine;
 
 	pub use codec;
 	pub use scale_info;

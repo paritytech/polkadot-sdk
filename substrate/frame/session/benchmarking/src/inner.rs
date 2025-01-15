@@ -19,12 +19,13 @@
 // This is separated into its own crate due to cyclic dependency issues.
 
 use alloc::{vec, vec::Vec};
-use sp_runtime::traits::{One, StaticLookup, TrailingZeroInput};
 
 use codec::Decode;
-use frame_benchmarking::v2::*;
-use frame_support::traits::{Get, KeyOwnerProofSystem, OnInitialize};
-use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
+use frame::{
+	benchmarking::prelude::*,
+	prelude::*,
+	traits::{Get, KeyOwnerProofSystem, OnInitialize},
+};
 use pallet_session::{historical::Pallet as Historical, Pallet as Session, *};
 use pallet_staking::{
 	benchmarking::create_validator_with_nominators, testing_utils::create_validators,

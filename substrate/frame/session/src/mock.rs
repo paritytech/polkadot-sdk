@@ -22,14 +22,11 @@ use crate as pallet_session;
 #[cfg(feature = "historical")]
 use crate::historical as pallet_session_historical;
 
+use frame::testing_prelude::*;
 use std::collections::BTreeMap;
 
-use sp_core::crypto::key_types::DUMMY;
-use sp_runtime::{impl_opaque_keys, testing::UintAuthorityId, BuildStorage};
-use sp_staking::SessionIndex;
-use sp_state_machine::BasicExternalities;
-
-use frame_support::{derive_impl, parameter_types, traits::ConstU64};
+// use sp_core::crypto::key_types::DUMMY;
+use frame::deps::{sp_staking::SessionIndex, sp_state_machine::BasicExternalities};
 
 impl_opaque_keys! {
 	pub struct MockSessionKeys {

@@ -16,16 +16,8 @@
 // limitations under the License.
 
 use core::str;
-use sp_io::hashing::twox_128;
 
-use frame_support::{
-	storage::{generator::StorageValue, StoragePrefixedMap},
-	traits::{
-		Get, GetStorageVersion, PalletInfoAccess, StorageVersion,
-		STORAGE_VERSION_STORAGE_KEY_POSTFIX,
-	},
-	weights::Weight,
-};
+use frame::prelude::*;
 
 use crate::historical as pallet_session_historical;
 
@@ -61,7 +53,7 @@ pub fn migrate<T: pallet_session_historical::Config, P: GetStorageVersion + Pall
 
 	if on_chain_storage_version < 1 {
 		let storage_prefix = pallet_session_historical::HistoricalSessions::<T>::storage_prefix();
-		frame_support::storage::migration::move_storage_from_pallet(
+		migration::move_storage_from_pallet(
 			storage_prefix,
 			OLD_PREFIX.as_bytes(),
 			new_pallet_name.as_bytes(),
@@ -69,7 +61,7 @@ pub fn migrate<T: pallet_session_historical::Config, P: GetStorageVersion + Pall
 		log_migration("migration", storage_prefix, OLD_PREFIX, new_pallet_name);
 
 		let storage_prefix = pallet_session_historical::StoredRange::<T>::storage_prefix();
-		frame_support::storage::migration::move_storage_from_pallet(
+		migration::move_storage_from_pallet(
 			storage_prefix,
 			OLD_PREFIX.as_bytes(),
 			new_pallet_name.as_bytes(),
@@ -112,11 +104,10 @@ pub fn pre_migrate<
 	let new_pallet_prefix = twox_128(new_pallet_name.as_bytes());
 	let storage_version_key = twox_128(STORAGE_VERSION_STORAGE_KEY_POSTFIX);
 
-	let mut new_pallet_prefix_iter = frame_support::storage::KeyPrefixIterator::new(
-		new_pallet_prefix.to_vec(),
-		new_pallet_prefix.to_vec(),
-		|key| Ok(key.to_vec()),
-	);
+	let mut new_pallet_prefix_iter =
+		KeyPrefixIterator::new(new_pallet_prefix.to_vec(), new_pallet_prefix.to_vec(), |key| {
+			Ok(key.to_vec())
+		});
 
 	// Ensure nothing except the storage_version_key is stored in the new prefix.
 	assert!(new_pallet_prefix_iter.all(|key| key == storage_version_key));
@@ -154,7 +145,7 @@ pub fn post_migrate<
 	let old_pallet_prefix = twox_128(OLD_PREFIX.as_bytes());
 	let old_historical_sessions_key =
 		[&old_pallet_prefix, &twox_128(storage_prefix_historical_sessions)[..]].concat();
-	let old_historical_sessions_key_iter = frame_support::storage::KeyPrefixIterator::new(
+	let old_historical_sessions_key_iter = KeyPrefixIterator::new(
 		old_historical_sessions_key.to_vec(),
 		old_historical_sessions_key.to_vec(),
 		|_| Ok(()),
@@ -163,7 +154,7 @@ pub fn post_migrate<
 
 	let old_stored_range_key =
 		[&old_pallet_prefix, &twox_128(storage_prefix_stored_range)[..]].concat();
-	let old_stored_range_key_iter = frame_support::storage::KeyPrefixIterator::new(
+	let old_stored_range_key_iter = KeyPrefixIterator::new(
 		old_stored_range_key.to_vec(),
 		old_stored_range_key.to_vec(),
 		|_| Ok(()),
@@ -174,11 +165,8 @@ pub fn post_migrate<
 	// moved to the new prefix.
 	// NOTE: storage_version_key is already in the new prefix.
 	let new_pallet_prefix = twox_128(new_pallet_name.as_bytes());
-	let new_pallet_prefix_iter = frame_support::storage::KeyPrefixIterator::new(
-		new_pallet_prefix.to_vec(),
-		new_pallet_prefix.to_vec(),
-		|_| Ok(()),
-	);
+	let new_pallet_prefix_iter =
+		KeyPrefixIterator::new(new_pallet_prefix.to_vec(), new_pallet_prefix.to_vec(), |_| Ok(()));
 	assert!(new_pallet_prefix_iter.count() >= 1);
 
 	assert_eq!(<P as GetStorageVersion>::on_chain_storage_version(), 1);

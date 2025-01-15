@@ -33,32 +33,28 @@ mod shared;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use core::fmt::Debug;
-use sp_runtime::{
-	traits::{Convert, OpaqueKeys},
-	KeyTypeId,
+use frame::traits::*;
+
+use crate::{self as pallet_session, Pallet as Session};
+
+use frame::{
+	deps::{
+		sp_session::{MembershipProof, ValidatorCount},
+		sp_staking::SessionIndex,
+	},
+	testing_prelude::*,
 };
-use sp_session::{MembershipProof, ValidatorCount};
-use sp_staking::SessionIndex;
+pub use pallet::*;
 use sp_trie::{
+	accessed_nodes_tracker::AccessedNodesTracker,
+	recorder_ext::RecorderExt,
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV0},
 	LayoutV0, MemoryDB, Recorder, StorageProof, Trie, TrieMut, TrieRecorder,
 };
 
-use frame_support::{
-	print,
-	traits::{KeyOwnerProofSystem, ValidatorSet, ValidatorSetWithIdentification},
-	Parameter, LOG_TARGET,
-};
-
-use crate::{self as pallet_session, Pallet as Session};
-
-pub use pallet::*;
-use sp_trie::{accessed_nodes_tracker::AccessedNodesTracker, recorder_ext::RecorderExt};
-
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -136,7 +132,7 @@ impl<T: Config> ValidatorSet<T::AccountId> for Pallet<T> {
 	type ValidatorId = T::ValidatorId;
 	type ValidatorIdOf = T::ValidatorIdOf;
 
-	fn session_index() -> sp_staking::SessionIndex {
+	fn session_index() -> SessionIndex {
 		super::Pallet::<T>::current_index()
 	}
 

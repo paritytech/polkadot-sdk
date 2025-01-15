@@ -20,7 +20,7 @@
 
 use alloc::{borrow::ToOwned, vec::Vec};
 use codec::Encode;
-use sp_staking::SessionIndex;
+use frame::deps::sp_staking::SessionIndex;
 
 pub(super) const PREFIX: &[u8] = b"session_historical";
 pub(super) const LAST_PRUNE: &[u8] = b"session_historical_last_prune";

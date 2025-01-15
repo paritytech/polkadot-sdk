@@ -123,22 +123,10 @@ use core::{
 	marker::PhantomData,
 	ops::{Rem, Sub},
 };
-use frame_support::{
-	dispatch::DispatchResult,
-	ensure,
-	traits::{
-		Defensive, EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get,
-		OneSessionHandler, ValidatorRegistration, ValidatorSet,
-	},
-	weights::Weight,
-	Parameter,
-};
-use frame_system::pallet_prelude::BlockNumberFor;
-use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, Convert, Member, One, OpaqueKeys, Zero},
-	ConsensusEngineId, DispatchError, KeyTypeId, Permill, RuntimeAppPublic,
-};
-use sp_staking::SessionIndex;
+
+use frame::prelude::*;
+
+use frame::deps::{sp_runtime, sp_staking::SessionIndex};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -368,11 +356,9 @@ impl<AId> SessionHandler<AId> for TestSessionHandler {
 	fn on_disabled(_: u32) {}
 }
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
@@ -421,7 +407,7 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
+	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		/// Initial list of validator at genesis representing by their `(AccountId, ValidatorId,
 		/// Keys)`. These keys will be considered authorities for the first two sessions and they
@@ -469,7 +455,7 @@ pub mod pallet {
 
 			let initial_validators_0 =
 				T::SessionManager::new_session_genesis(0).unwrap_or_else(|| {
-					frame_support::print(
+					print(
 						"No initial validator provided by `SessionManager`, use \
 						session config keys to generate initial validator set.",
 					);
@@ -927,7 +913,7 @@ impl<T: Config> ValidatorSet<T::AccountId> for Pallet<T> {
 	type ValidatorId = T::ValidatorId;
 	type ValidatorIdOf = T::ValidatorIdOf;
 
-	fn session_index() -> sp_staking::SessionIndex {
+	fn session_index() -> SessionIndex {
 		CurrentIndex::<T>::get()
 	}
 
@@ -948,7 +934,7 @@ impl<T: Config> EstimateNextNewSession<BlockNumberFor<T>> for Pallet<T> {
 	}
 }
 
-impl<T: Config> frame_support::traits::DisabledValidators for Pallet<T> {
+impl<T: Config> DisabledValidators for Pallet<T> {
 	fn is_disabled(index: u32) -> bool {
 		DisabledValidators::<T>::get().binary_search(&index).is_ok()
 	}

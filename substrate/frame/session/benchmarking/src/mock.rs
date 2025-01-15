@@ -19,15 +19,11 @@
 
 #![cfg(test)]
 
+use frame::testing_prelude::*;
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
 };
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64},
-};
-use sp_runtime::{traits::IdentityLookup, BuildStorage, KeyTypeId};
 
 type AccountId = u64;
 type Nonce = u32;
@@ -35,7 +31,7 @@ type Balance = u64;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,

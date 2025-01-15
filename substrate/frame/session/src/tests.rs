@@ -26,13 +26,7 @@ use crate::mock::{
 };
 
 use codec::Decode;
-use sp_core::crypto::key_types::DUMMY;
-use sp_runtime::testing::UintAuthorityId;
-
-use frame_support::{
-	assert_noop, assert_ok,
-	traits::{ConstU64, OnInitialize},
-};
+use frame::testing_prelude::*;
 
 fn initialize_block(block: u64) {
 	SessionChanged::mutate(|l| *l = false);

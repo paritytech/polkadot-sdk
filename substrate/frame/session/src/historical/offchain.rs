@@ -24,11 +24,7 @@
 //! and the off-chain indexing API.
 
 use alloc::vec::Vec;
-use sp_runtime::{
-	offchain::storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
-	KeyTypeId,
-};
-use sp_session::MembershipProof;
+use frame::{deps::sp_session::MembershipProof, testing_prelude::*};
 
 use super::{shared, Config, IdentificationTuple, ProvingTrie};
 use crate::{Pallet as SessionModule, SessionIndex};
