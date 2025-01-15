@@ -2643,9 +2643,21 @@ where
 						Vec::new(),
 					)),
 			};
+<<<<<<< HEAD
 			is_duplicate &= approval_entry.is_assigned(assignment.validator);
 			approval_entry.import_assignment(tranche, assignment.validator, tick_now);
 			import_assignment_span.add_uint_tag("tranche", tranche as u64);
+=======
+
+			let is_duplicate_for_candidate = approval_entry.is_assigned(assignment.validator);
+			is_duplicate &= is_duplicate_for_candidate;
+			approval_entry.import_assignment(
+				tranche,
+				assignment.validator,
+				tick_now,
+				is_duplicate_for_candidate,
+			);
+>>>>>>> 0d660a42 (approval-voting: Make importing of duplicate assignment idempotent (#6971))
 
 			// We've imported a new assignment, so we need to schedule a wake-up for when that might
 			// no-show.
