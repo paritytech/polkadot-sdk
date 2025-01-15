@@ -58,7 +58,7 @@ use litep2p::{
 	protocol::{
 		libp2p::{
 			bitswap::Config as BitswapConfig,
-			kademlia::{QueryId, Record, RecordsType},
+			kademlia::{QueryId, Record},
 		},
 		request_response::ConfigBuilder as RequestResponseConfigBuilder,
 	},
@@ -804,6 +804,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							self.peerstore_handle.add_known_peer(peer.into());
 						}
 					}
+<<<<<<< HEAD
 					Some(DiscoveryEvent::GetRecordSuccess { query_id, records }) => {
 						match self.pending_get_values.remove(&query_id) {
 							None => log::warn!(
@@ -811,11 +812,48 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 								"`GET_VALUE` succeeded for a non-existent query",
 							),
 							Some((key, started)) => {
+=======
+					Some(DiscoveryEvent::GetRecordPartialResult { query_id, record }) => {
+						if !self.pending_queries.contains_key(&query_id) {
+							log::error!(
+								target: LOG_TARGET,
+								"Missing/invalid pending query for `GET_VALUE` partial result: {query_id:?}"
+							);
+
+							continue
+						}
+
+						let peer_id: sc_network_types::PeerId = record.peer.into();
+						let record = PeerRecord {
+							record: P2PRecord {
+								key: record.record.key.to_vec().into(),
+								value: record.record.value,
+								publisher: record.record.publisher.map(|peer_id| {
+									let peer_id: sc_network_types::PeerId = peer_id.into();
+									peer_id.into()
+								}),
+								expires: record.record.expires,
+							},
+							peer: Some(peer_id.into()),
+						};
+
+						self.event_streams.send(
+							Event::Dht(
+								DhtEvent::ValueFound(
+									record.into()
+								)
+							)
+						);
+					}
+					Some(DiscoveryEvent::GetRecordSuccess { query_id }) => {
+						match self.pending_queries.remove(&query_id) {
+							Some(KadQuery::GetValue(key, started)) => {
+>>>>>>> 77c78e1 (litep2p: Provide partial results to speedup GetRecord queries (#7099))
 								log::trace!(
 									target: LOG_TARGET,
-									"`GET_VALUE` for {:?} ({query_id:?}) succeeded",
-									key,
+									"`GET_VALUE` for {key:?} ({query_id:?}) succeeded",
 								);
+<<<<<<< HEAD
 
 								let value_found = match records {
 									RecordsType::LocalStore(record) => vec![
@@ -829,6 +867,8 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 								self.event_streams.send(Event::Dht(
 									DhtEvent::ValueFound(value_found)
 								));
+=======
+>>>>>>> 77c78e1 (litep2p: Provide partial results to speedup GetRecord queries (#7099))
 
 								if let Some(ref metrics) = self.metrics {
 									metrics

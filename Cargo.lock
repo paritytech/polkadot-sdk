@@ -8167,9 +8167,15 @@ dependencies = [
 
 [[package]]
 name = "litep2p"
+<<<<<<< HEAD
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0f46c51c205264b834ceed95c8b195026e700494bc3991aaba3b4ea9e20626d9"
+=======
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ca6ee50a125dc4fc4e9a3ae3640010796d1d07bc517a0ac715fdf0b24a0b6ac"
+>>>>>>> 77c78e1 (litep2p: Provide partial results to speedup GetRecord queries (#7099))
 dependencies = [
  "async-trait",
  "bs58 0.4.0",

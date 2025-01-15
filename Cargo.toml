@@ -815,8 +815,13 @@ linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
 linregress = { version = "0.5.1" }
 lite-json = { version = "0.2.0", default-features = false }
+<<<<<<< HEAD
 litep2p = { version = "0.6.2" }
 log = { version = "0.4.21", default-features = false }
+=======
+litep2p = { version = "0.9.0", features = ["websocket"] }
+log = { version = "0.4.22", default-features = false }
+>>>>>>> 77c78e1 (litep2p: Provide partial results to speedup GetRecord queries (#7099))
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
 memmap2 = { version = "0.9.3" }
