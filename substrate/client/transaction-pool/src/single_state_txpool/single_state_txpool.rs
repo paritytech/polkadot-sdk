@@ -329,7 +329,7 @@ where
 		invalid_tx_errors: &[(TxHash<Self>, Option<sp_blockchain::Error>)],
 	) -> Vec<Arc<Self::InPoolTransaction>> {
 		let hashes = invalid_tx_errors.iter().map(|(hash, _)| *hash).collect::<Vec<_>>();
-		let removed = self.pool.validated_pool().remove_invalid(&hashes[..]);
+		let removed = self.pool.validated_pool().remove_invalid(&hashes);
 		self.metrics
 			.report(|metrics| metrics.validations_invalid.inc_by(removed.len() as u64));
 		removed

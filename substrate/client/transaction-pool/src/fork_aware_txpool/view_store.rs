@@ -667,7 +667,7 @@ where
 	/// also will not be banned. No event will be triggered.
 	///
 	/// For other errors, the transaction will be removed from the pool, and it will be included in
-	/// the returned vector. It will be included in the returned vector. Additionally transactions
+	/// the returned vector. Additionally, transactions
 	/// provided as input will be banned from re-entering the pool.
 	///
 	/// If the tuple's error is None, the transaction will be forcibly removed from the pool,
@@ -703,7 +703,7 @@ where
 		// be in the pool.
 		at.map(|at| {
 			self.get_view_at(at, true)
-				.map(|(view, _)| view.remove_invalid(&remove_from_view[..]))
+				.map(|(view, _)| view.remove_invalid(&remove_from_view))
 		});
 
 		let mut removed = vec![];
@@ -714,7 +714,7 @@ where
 				});
 			removed.extend(removed_from_pool);
 		}
-		self.listener.invalidate_transactions(&remove_from_pool[..]);
+		self.listener.invalidate_transactions(&remove_from_pool);
 
 		removed
 	}
