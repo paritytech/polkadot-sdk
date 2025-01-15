@@ -51,11 +51,10 @@ def get_members(workspace_dir, exclude):
 
 	members = []
 	for member in root_manifest['workspace']['members']:
-            # Exclude any crate listed in the exclusion list
-            if member in exclude:
-                print(f'❌ Excluded member should not appear in the workspace {member}')
-                sys.exit(1)
-            members.append(member)
+		if member in exclude:
+			print(f'❌ Excluded member should not appear in the workspace {member}')
+			sys.exit(1)
+		members.append(member)
 
 	return members
 
