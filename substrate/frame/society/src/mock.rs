@@ -138,18 +138,6 @@ impl EnvBuilder {
 	}
 }
 
-/// Run until a particular block.
-pub fn run_to_block(n: u64) {
-	while System::block_number() < n {
-		if System::block_number() > 1 {
-			System::on_finalize(System::block_number());
-		}
-		System::set_block_number(System::block_number() + 1);
-		System::on_initialize(System::block_number());
-		Society::on_initialize(System::block_number());
-	}
-}
-
 /// Creates a bid struct using input parameters.
 pub fn bid<AccountId, Balance>(
 	who: AccountId,
@@ -173,12 +161,12 @@ pub fn candidacy<AccountId, Balance>(
 pub fn next_challenge() {
 	let challenge_period: u64 = <Test as Config>::ChallengePeriod::get();
 	let now = System::block_number();
-	run_to_block(now + challenge_period - now % challenge_period);
+	System::run_to_block::<AllPalletsWithSystem>(now + challenge_period - now % challenge_period);
 }
 
 pub fn next_voting() {
 	if let Period::Voting { more, .. } = Society::period() {
-		run_to_block(System::block_number() + more);
+		System::run_to_block::<AllPalletsWithSystem>(System::block_number() + more);
 	}
 }
 
@@ -235,8 +223,11 @@ pub fn conclude_intake(allow_resignation: bool, judge_intake: Option<bool>) {
 pub fn next_intake() {
 	let claim_period: u64 = <Test as Config>::ClaimPeriod::get();
 	match Society::period() {
-		Period::Voting { more, .. } => run_to_block(System::block_number() + more + claim_period),
-		Period::Claim { more, .. } => run_to_block(System::block_number() + more),
+		Period::Voting { more, .. } => System::run_to_block::<AllPalletsWithSystem>(
+			System::block_number() + more + claim_period,
+		),
+		Period::Claim { more, .. } =>
+			System::run_to_block::<AllPalletsWithSystem>(System::block_number() + more),
 	}
 }
 

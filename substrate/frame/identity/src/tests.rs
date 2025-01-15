@@ -26,7 +26,7 @@ use crate::{
 use codec::{Decode, Encode};
 use frame_support::{
 	assert_err, assert_noop, assert_ok, derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64, Get, OnFinalize, OnInitialize},
+	traits::{ConstU32, ConstU64, Get},
 	BoundedVec,
 };
 use frame_system::EnsureRoot;
@@ -113,18 +113,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext.register_extension(KeystoreExt::new(MemoryKeystore::new()));
 	ext.execute_with(|| System::set_block_number(1));
 	ext
-}
-
-fn run_to_block(n: u64) {
-	while System::block_number() < n {
-		Identity::on_finalize(System::block_number());
-		Balances::on_finalize(System::block_number());
-		System::on_finalize(System::block_number());
-		System::set_block_number(System::block_number() + 1);
-		System::on_initialize(System::block_number());
-		Balances::on_initialize(System::block_number());
-		Identity::on_initialize(System::block_number());
-	}
 }
 
 fn account(id: u8) -> AccountIdOf<Test> {
@@ -1715,7 +1703,7 @@ fn unaccepted_usernames_through_grant_should_expire() {
 			Some((who.clone(), expiration, Provider::Allocation))
 		);
 
-		run_to_block(now + expiration - 1);
+		System::run_to_block::<AllPalletsWithSystem>(now + expiration - 1);
 
 		// Cannot be removed
 		assert_noop!(
@@ -1723,7 +1711,7 @@ fn unaccepted_usernames_through_grant_should_expire() {
 			Error::<Test>::NotExpired
 		);
 
-		run_to_block(now + expiration);
+		System::run_to_block::<AllPalletsWithSystem>(now + expiration);
 
 		// Anyone can remove
 		assert_ok!(Identity::remove_expired_approval(
@@ -1783,7 +1771,7 @@ fn unaccepted_usernames_through_deposit_should_expire() {
 			Some((who.clone(), expiration, Provider::AuthorityDeposit(username_deposit)))
 		);
 
-		run_to_block(now + expiration - 1);
+		System::run_to_block::<AllPalletsWithSystem>(now + expiration - 1);
 
 		// Cannot be removed
 		assert_noop!(
@@ -1791,7 +1779,7 @@ fn unaccepted_usernames_through_deposit_should_expire() {
 			Error::<Test>::NotExpired
 		);
 
-		run_to_block(now + expiration);
+		System::run_to_block::<AllPalletsWithSystem>(now + expiration);
 
 		// Anyone can remove
 		assert_eq!(

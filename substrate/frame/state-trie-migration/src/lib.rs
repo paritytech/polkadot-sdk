@@ -1312,16 +1312,17 @@ mod mock {
 	pub(crate) fn run_to_block(n: u32) -> (H256, Weight) {
 		let mut root = Default::default();
 		let mut weight_sum = Weight::zero();
+
 		log::trace!(target: LOG_TARGET, "running from {:?} to {:?}", System::block_number(), n);
-		while System::block_number() < n {
-			System::set_block_number(System::block_number() + 1);
-			System::on_initialize(System::block_number());
 
-			weight_sum += StateTrieMigration::on_initialize(System::block_number());
+		System::run_to_block_with::<AllPalletsWithSystem>(
+			n,
+			frame_system::RunToBlockHooks::default().after_initialize(|bn| {
+				weight_sum += StateTrieMigration::on_initialize(bn);
+				root = *System::finalize().state_root();
+			}),
+		);
 
-			root = *System::finalize().state_root();
-			System::on_finalize(System::block_number());
-		}
 		(root, weight_sum)
 	}
 }

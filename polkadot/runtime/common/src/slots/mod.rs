@@ -585,28 +585,16 @@ mod tests {
 		t.into()
 	}
 
-	fn run_to_block(n: BlockNumber) {
-		while System::block_number() < n {
-			Slots::on_finalize(System::block_number());
-			Balances::on_finalize(System::block_number());
-			System::on_finalize(System::block_number());
-			System::set_block_number(System::block_number() + 1);
-			System::on_initialize(System::block_number());
-			Balances::on_initialize(System::block_number());
-			Slots::on_initialize(System::block_number());
-		}
-	}
-
 	#[test]
 	fn basic_setup_works() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 			assert_eq!(Slots::lease_period_length(), (10, 0));
 			let now = System::block_number();
 			assert_eq!(Slots::lease_period_index(now).unwrap().0, 0);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 
-			run_to_block(10);
+			System::run_to_block::<AllPalletsWithSystem>(10);
 			let now = System::block_number();
 			assert_eq!(Slots::lease_period_index(now).unwrap().0, 1);
 		});
@@ -615,7 +603,7 @@ mod tests {
 	#[test]
 	fn lease_lifecycle_works() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 
 			assert_ok!(TestRegistrar::<Test>::register(
 				1,
@@ -628,11 +616,11 @@ mod tests {
 			assert_eq!(Slots::deposit_held(1.into(), &1), 1);
 			assert_eq!(Balances::reserved_balance(1), 1);
 
-			run_to_block(19);
+			System::run_to_block::<AllPalletsWithSystem>(19);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 1);
 			assert_eq!(Balances::reserved_balance(1), 1);
 
-			run_to_block(20);
+			System::run_to_block::<AllPalletsWithSystem>(20);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
 
@@ -646,7 +634,7 @@ mod tests {
 	#[test]
 	fn lease_interrupted_lifecycle_works() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 
 			assert_ok!(TestRegistrar::<Test>::register(
 				1,
@@ -658,19 +646,19 @@ mod tests {
 			assert_ok!(Slots::lease_out(1.into(), &1, 6, 1, 1));
 			assert_ok!(Slots::lease_out(1.into(), &1, 4, 3, 1));
 
-			run_to_block(19);
+			System::run_to_block::<AllPalletsWithSystem>(19);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 6);
 			assert_eq!(Balances::reserved_balance(1), 6);
 
-			run_to_block(20);
+			System::run_to_block::<AllPalletsWithSystem>(20);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 4);
 			assert_eq!(Balances::reserved_balance(1), 4);
 
-			run_to_block(39);
+			System::run_to_block::<AllPalletsWithSystem>(39);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 4);
 			assert_eq!(Balances::reserved_balance(1), 4);
 
-			run_to_block(40);
+			System::run_to_block::<AllPalletsWithSystem>(40);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
 
@@ -689,7 +677,7 @@ mod tests {
 	#[test]
 	fn lease_relayed_lifecycle_works() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 
 			assert_ok!(TestRegistrar::<Test>::register(
 				1,
@@ -705,25 +693,25 @@ mod tests {
 			assert_eq!(Slots::deposit_held(1.into(), &2), 4);
 			assert_eq!(Balances::reserved_balance(2), 4);
 
-			run_to_block(19);
+			System::run_to_block::<AllPalletsWithSystem>(19);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 6);
 			assert_eq!(Balances::reserved_balance(1), 6);
 			assert_eq!(Slots::deposit_held(1.into(), &2), 4);
 			assert_eq!(Balances::reserved_balance(2), 4);
 
-			run_to_block(20);
+			System::run_to_block::<AllPalletsWithSystem>(20);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
 			assert_eq!(Slots::deposit_held(1.into(), &2), 4);
 			assert_eq!(Balances::reserved_balance(2), 4);
 
-			run_to_block(29);
+			System::run_to_block::<AllPalletsWithSystem>(29);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
 			assert_eq!(Slots::deposit_held(1.into(), &2), 4);
 			assert_eq!(Balances::reserved_balance(2), 4);
 
-			run_to_block(30);
+			System::run_to_block::<AllPalletsWithSystem>(30);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
 			assert_eq!(Slots::deposit_held(1.into(), &2), 0);
@@ -739,7 +727,7 @@ mod tests {
 	#[test]
 	fn lease_deposit_increase_works() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 
 			assert_ok!(TestRegistrar::<Test>::register(
 				1,
@@ -756,11 +744,11 @@ mod tests {
 			assert_eq!(Slots::deposit_held(1.into(), &1), 6);
 			assert_eq!(Balances::reserved_balance(1), 6);
 
-			run_to_block(29);
+			System::run_to_block::<AllPalletsWithSystem>(29);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 6);
 			assert_eq!(Balances::reserved_balance(1), 6);
 
-			run_to_block(30);
+			System::run_to_block::<AllPalletsWithSystem>(30);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
 
@@ -774,7 +762,7 @@ mod tests {
 	#[test]
 	fn lease_deposit_decrease_works() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 
 			assert_ok!(TestRegistrar::<Test>::register(
 				1,
@@ -791,19 +779,19 @@ mod tests {
 			assert_eq!(Slots::deposit_held(1.into(), &1), 6);
 			assert_eq!(Balances::reserved_balance(1), 6);
 
-			run_to_block(19);
+			System::run_to_block::<AllPalletsWithSystem>(19);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 6);
 			assert_eq!(Balances::reserved_balance(1), 6);
 
-			run_to_block(20);
+			System::run_to_block::<AllPalletsWithSystem>(20);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 4);
 			assert_eq!(Balances::reserved_balance(1), 4);
 
-			run_to_block(29);
+			System::run_to_block::<AllPalletsWithSystem>(29);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 4);
 			assert_eq!(Balances::reserved_balance(1), 4);
 
-			run_to_block(30);
+			System::run_to_block::<AllPalletsWithSystem>(30);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
 
@@ -817,7 +805,7 @@ mod tests {
 	#[test]
 	fn clear_all_leases_works() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 
 			assert_ok!(TestRegistrar::<Test>::register(
 				1,
@@ -853,7 +841,7 @@ mod tests {
 	#[test]
 	fn lease_out_current_lease_period() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 
 			assert_ok!(TestRegistrar::<Test>::register(
 				1,
@@ -868,7 +856,7 @@ mod tests {
 				dummy_validation_code()
 			));
 
-			run_to_block(20);
+			System::run_to_block::<AllPalletsWithSystem>(20);
 			let now = System::block_number();
 			assert_eq!(Slots::lease_period_index(now).unwrap().0, 2);
 			// Can't lease from the past
@@ -885,7 +873,7 @@ mod tests {
 	#[test]
 	fn trigger_onboard_works() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 			assert_ok!(TestRegistrar::<Test>::register(
 				1,
 				ParaId::from(1_u32),

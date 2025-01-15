@@ -119,8 +119,6 @@ fn debugging_works() {
 			Code::Upload(wasm),
 			vec![],
 			Some([0u8; 32]),
-			DebugInfo::Skip,
-			CollectEvents::Skip,
 		)
 		.result
 		.unwrap()
@@ -204,8 +202,6 @@ fn call_interception_works() {
 			vec![],
 			// some salt to ensure that the address of this contract is unique among all tests
 			Some([0x41; 32]),
-			DebugInfo::Skip,
-			CollectEvents::Skip,
 		)
 		.result
 		.unwrap()
