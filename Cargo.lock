@@ -24092,10 +24092,13 @@ name = "xcm-executor-integration-tests"
 version = "1.0.0"
 dependencies = [
  "frame-support",
+ "frame-system",
  "futures",
+ "pallet-sudo",
  "pallet-transaction-payment",
  "pallet-xcm",
  "parity-scale-codec",
+ "polkadot-runtime-parachains",
  "polkadot-test-client",
  "polkadot-test-runtime",
  "polkadot-test-service",

@@ -35,10 +35,12 @@ polkadot-runtime-parachains.workspace = true
 polkadot-runtime-common = { optional = true, workspace = true }
 xcm.workspace = true
 xcm-builder.workspace = true
-cumulus-pallet-parachain-system-proc-macro.workspace = true
-cumulus-primitives-core.workspace = true
-cumulus-primitives-parachain-inherent.workspace = true
-cumulus-primitives-proof-size-hostfunction.workspace = true
+
+# Cumulus
+cumulus-pallet-parachain-system-proc-macro = { workspace = true }
+cumulus-primitives-core = { workspace = true }
+cumulus-primitives-parachain-inherent = { workspace = true }
+cumulus-primitives-proof-size-hostfunction = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
@@ -77,7 +79,6 @@ std = [
 	"log/std",
 	"pallet-message-queue/std",
 	"polkadot-parachain-primitives/std",
-	"polkadot-runtime-common/std",
 	"polkadot-runtime-parachains/std",
 	"scale-info/std",
 	"sp-core/std",
@@ -100,17 +101,16 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
-	"polkadot-runtime-common/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-message-queue/try-runtime",
-	"polkadot-runtime-common?/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]
