@@ -7,8 +7,8 @@ doc:
     Else, `Ok(_)` is returned if all elements accept the message.
 crates:
 - name: staging-xcm-executor
-  bump: patch
+  bump: minor
 - name: staging-xcm-builder
-  bump: patch
+  bump: minor
 - name: bridge-hub-common
-  bump: patch
+  bump: minor
