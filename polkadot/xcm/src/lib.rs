@@ -81,14 +81,14 @@ pub trait TryAs<T> {
 // Trait bounds are optional and can be provided as a comma-separated list after the type name.
 // NOTE: converting a v4 type into a versioned type will make it v5.
 macro_rules! versioned_type {
-	(@internal $n:ident, $v3:ty, $v4:ty,) => {
+	(@internal $n:ident, $v3:ty, $v4:ty, $v5:ty,) => {
 		impl MaxEncodedLen for $n {
 			fn max_encoded_len() -> usize {
-				<$v3>::max_encoded_len().max(<$v4>::max_encoded_len())
+				<$v3>::max_encoded_len().max(<$v4>::max_encoded_len().max(<$v5>::max_encoded_len()))
 			}
 		}
 	};
-	(@internal $n:ident, $v3:ty, $v4:ty, $t:ident) => {
+	(@internal $n:ident, $v3:ty, $v4:ty, $v5:ty, $t:ident) => {
 	};
 	($(#[$attr:meta])* pub enum $n:ident$(<$($gen:ident),*>)? {
 		$(#[$index3:meta])+
@@ -212,7 +212,7 @@ macro_rules! versioned_type {
 			}
 		}
 		// internal macro that handles some edge cases
-		versioned_type!(@internal $n, $v3, $v4, $($($gen),+)?);
+		versioned_type!(@internal $n, $v3, $v4, $v5, $($($gen),+)?);
 
 		impl<$($($gen),*)?> IntoVersion for $n<$($($gen),*)?>
 		$(
@@ -354,7 +354,14 @@ versioned_type! {
 	}
 }
 
-impl<C: Decode + GetDispatchInfo> VersionedXcm<C> {
+/// TODO: workaround because `From<v4::Xcm>: v5::Xcm> is not satisfied
+impl<RuntimeCall> From<v4::Xcm<RuntimeCall>> for VersionedXcm<RuntimeCall> {
+	fn from(x: v4::Xcm<RuntimeCall>) -> Self {
+		VersionedXcm::V4(x)
+	}
+}
+
+impl<C> VersionedXcm<C> {
 	/// Checks that the XCM is decodable with `MAX_XCM_DECODE_DEPTH`. Consequently, it also checks
 	/// all decode implementations and limits, such as MAX_ITEMS_IN_ASSETS or
 	/// MAX_INSTRUCTIONS_TO_DECODE.
@@ -395,7 +402,7 @@ pub trait GetVersion {
 /// `()` implementation does nothing with the XCM, just sending with whatever version it was
 /// authored as.
 impl WrapVersion for () {
-	fn wrap_version<RuntimeCall: Decode + GetDispatchInfo>(
+	fn wrap_version<RuntimeCall>(
 		_: &latest::Location,
 		xcm: impl Into<VersionedXcm<RuntimeCall>>,
 	) -> Result<VersionedXcm<RuntimeCall>, ()> {
