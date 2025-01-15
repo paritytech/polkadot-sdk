@@ -293,6 +293,9 @@ pub trait Ext: sealing::Sealed {
 	/// Check if a contract lives at the specified `address`.
 	fn is_contract(&self, address: &H160) -> bool;
 
+	/// Returns the account id for the given `address`.
+	fn to_account_id(&self, address: &H160) -> AccountIdOf<Self::T>;
+
 	/// Returns the code hash of the contract for the given `address`.
 	/// If not a contract but account exists then `keccak_256([])` is returned, otherwise `zero`.
 	fn code_hash(&self, address: &H160) -> H256;
@@ -1572,6 +1575,10 @@ where
 		ContractInfoOf::<T>::contains_key(&address)
 	}
 
+	fn to_account_id(&self, address: &H160) -> T::AccountId {
+		T::AddressMapper::to_account_id(address)
+	}
+
 	fn code_hash(&self, address: &H160) -> H256 {
 		<ContractInfoOf<T>>::get(&address)
 			.map(|contract| contract.code_hash)
@@ -2576,6 +2583,40 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
+				false,
+			);
+			assert_matches!(result, Ok(_));
+		});
+	}
+
+	#[test]
+	fn to_account_id_returns_proper_values() {
+		let bob_code_hash = MockLoader::insert(Call, |ctx, _| {
+			let alice_account_id = <Test as Config>::AddressMapper::to_account_id(&ALICE_ADDR);
+			assert_eq!(ctx.ext.to_account_id(&ALICE_ADDR), alice_account_id);
+
+			const UNMAPPED_ADDR: H160 = H160([99u8; 20]);
+			let mut unmapped_fallback_account_id = [0xEE; 32];
+			unmapped_fallback_account_id[..20].copy_from_slice(UNMAPPED_ADDR.as_bytes());
+			assert_eq!(
+				ctx.ext.to_account_id(&UNMAPPED_ADDR),
+				AccountId32::new(unmapped_fallback_account_id)
+			);
+
+			exec_success()
+		});
+
+		ExtBuilder::default().build().execute_with(|| {
+			place_contract(&BOB, bob_code_hash);
+			let origin = Origin::from_account_id(ALICE);
+			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+			let result = MockStack::run_call(
+				origin,
+				BOB_ADDR,
+				&mut GasMeter::<Test>::new(GAS_LIMIT),
+				&mut storage_meter,
+				U256::zero(),
+				vec![0],
 				false,
 			);
 			assert_matches!(result, Ok(_));
