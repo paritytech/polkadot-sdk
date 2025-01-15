@@ -5,6 +5,7 @@ on:
     workflows: [Build and push images]
     types: [completed]
   merge_group:
+  workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
