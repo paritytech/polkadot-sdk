@@ -42,9 +42,13 @@ use tokio::{sync::Mutex, task::JoinHandle};
 // litep2p/256KB  413041795 ns
 // const NUMBER_OF_NOTIFICATIONS: usize = 1000;
 
-const NUMBER_OF_NOTIFICATIONS: usize = 5000;
+// libp2p/64KB    220405786 ns
+// litep2p/64KB   247287037 ns
+// libp2p/256KB   1814364552 ns
+// litep2p/256KB  2008662039 ns
+// const NUMBER_OF_NOTIFICATIONS: usize = 5000;
 
-// const NUMBER_OF_NOTIFICATIONS: usize = 10000;
+const NUMBER_OF_NOTIFICATIONS: usize = 10000;
 const PAYLOAD: &[(u32, &'static str)] = &[
 	// (Exponent of size, label)
 	(15, "64KB"),
