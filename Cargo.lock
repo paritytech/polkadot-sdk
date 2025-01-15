@@ -4881,6 +4881,8 @@ name = "cumulus-pallet-aura-ext"
 version = "0.7.0"
 dependencies = [
  "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-primitives-core 0.7.0",
+ "cumulus-test-relay-sproof-builder 0.7.0",
  "frame-support 28.0.0",
  "frame-system 28.0.0",
  "pallet-aura 27.0.0",
@@ -4889,7 +4891,10 @@ dependencies = [
  "scale-info",
  "sp-application-crypto 30.0.0",
  "sp-consensus-aura 0.32.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
  "sp-runtime 31.0.1",
+ "sp-version 29.0.0",
 ]
 
 [[package]]
@@ -10465,9 +10470,9 @@ dependencies = [
 
 [[package]]
 name = "litep2p"
-version = "0.8.4"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b0fef34af8847e816003bf7fdeac5ea50b9a7a88441ac927a6166b5e812ab79"
+checksum = "6ca6ee50a125dc4fc4e9a3ae3640010796d1d07bc517a0ac715fdf0b24a0b6ac"
 dependencies = [
  "async-trait",
  "bs58",

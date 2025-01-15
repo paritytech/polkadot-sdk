@@ -38,9 +38,9 @@ use crate::{
 	tests::test_utils::{get_contract, get_contract_checked},
 	wasm::Memory,
 	weights::WeightInfo,
-	AccountId32Mapper, BalanceOf, Code, CodeInfoOf, CollectEvents, Config, ContractInfo,
-	ContractInfoOf, DebugInfo, DeletionQueueCounter, DepositLimit, Error, EthTransactError,
-	HoldReason, Origin, Pallet, PristineCode, H160,
+	AccountId32Mapper, BalanceOf, Code, CodeInfoOf, Config, ContractInfo, ContractInfoOf,
+	DeletionQueueCounter, DepositLimit, Error, EthTransactError, HoldReason, Origin, Pallet,
+	PristineCode, H160,
 };
 
 use crate::test_utils::builder::Contract;
@@ -1149,7 +1149,7 @@ fn delegate_call() {
 
 		assert_ok!(builder::call(caller_addr)
 			.value(1337)
-			.data((callee_addr, 0u64, 0u64).encode())
+			.data((callee_addr, u64::MAX, u64::MAX).encode())
 			.build());
 	});
 }
@@ -2185,58 +2185,6 @@ fn refcounter() {
 }
 
 #[test]
-fn debug_message_works() {
-	let (wasm, _code_hash) = compile_module("debug_message_works").unwrap();
-
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(wasm))
-			.value(30_000)
-			.build_and_unwrap_contract();
-		let result = builder::bare_call(addr).debug(DebugInfo::UnsafeDebug).build();
-
-		assert_matches!(result.result, Ok(_));
-		assert_eq!(std::str::from_utf8(&result.debug_message).unwrap(), "Hello World!");
-	});
-}
-
-#[test]
-fn debug_message_logging_disabled() {
-	let (wasm, _code_hash) = compile_module("debug_message_logging_disabled").unwrap();
-
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(wasm))
-			.value(30_000)
-			.build_and_unwrap_contract();
-		// the dispatchables always run without debugging
-		assert_ok!(Contracts::call(
-			RuntimeOrigin::signed(ALICE),
-			addr,
-			0,
-			GAS_LIMIT,
-			deposit_limit::<Test>(),
-			vec![]
-		));
-	});
-}
-
-#[test]
-fn debug_message_invalid_utf8() {
-	let (wasm, _code_hash) = compile_module("debug_message_invalid_utf8").unwrap();
-
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(wasm))
-			.value(30_000)
-			.build_and_unwrap_contract();
-		let result = builder::bare_call(addr).debug(DebugInfo::UnsafeDebug).build();
-		assert_ok!(result.result);
-		assert!(result.debug_message.is_empty());
-	});
-}
-
-#[test]
 fn gas_estimation_for_subcalls() {
 	let (caller_code, _caller_hash) = compile_module("call_with_limit").unwrap();
 	let (call_runtime_code, _caller_hash) = compile_module("call_runtime").unwrap();
@@ -2261,12 +2209,12 @@ fn gas_estimation_for_subcalls() {
 
 		// Run the test for all of those weight limits for the subcall
 		let weights = [
-			Weight::zero(),
+			Weight::MAX,
 			GAS_LIMIT,
 			GAS_LIMIT * 2,
 			GAS_LIMIT / 5,
-			Weight::from_parts(0, GAS_LIMIT.proof_size()),
-			Weight::from_parts(GAS_LIMIT.ref_time(), 0),
+			Weight::from_parts(u64::MAX, GAS_LIMIT.proof_size()),
+			Weight::from_parts(GAS_LIMIT.ref_time(), u64::MAX),
 		];
 
 		// This call is passed to the sub call in order to create a large `required_weight`
@@ -2449,79 +2397,6 @@ fn ecdsa_recover() {
 		assert!(!result.did_revert());
 		assert_eq!(result.data, EXPECTED_COMPRESSED_PUBLIC_KEY);
 	})
-}
-
-#[test]
-fn bare_instantiate_returns_events() {
-	let (wasm, _code_hash) = compile_module("transfer_return_code").unwrap();
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let min_balance = Contracts::min_balance();
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
-
-		let result = builder::bare_instantiate(Code::Upload(wasm))
-			.value(min_balance * 100)
-			.collect_events(CollectEvents::UnsafeCollect)
-			.build();
-
-		let events = result.events.unwrap();
-		assert!(!events.is_empty());
-		assert_eq!(events, System::events());
-	});
-}
-
-#[test]
-fn bare_instantiate_does_not_return_events() {
-	let (wasm, _code_hash) = compile_module("transfer_return_code").unwrap();
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let min_balance = Contracts::min_balance();
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
-
-		let result = builder::bare_instantiate(Code::Upload(wasm)).value(min_balance * 100).build();
-
-		let events = result.events;
-		assert!(!System::events().is_empty());
-		assert!(events.is_none());
-	});
-}
-
-#[test]
-fn bare_call_returns_events() {
-	let (wasm, _code_hash) = compile_module("transfer_return_code").unwrap();
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let min_balance = Contracts::min_balance();
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
-
-		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(wasm))
-			.value(min_balance * 100)
-			.build_and_unwrap_contract();
-
-		let result = builder::bare_call(addr).collect_events(CollectEvents::UnsafeCollect).build();
-
-		let events = result.events.unwrap();
-		assert_return_code!(&result.result.unwrap(), RuntimeReturnCode::Success);
-		assert!(!events.is_empty());
-		assert_eq!(events, System::events());
-	});
-}
-
-#[test]
-fn bare_call_does_not_return_events() {
-	let (wasm, _code_hash) = compile_module("transfer_return_code").unwrap();
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let min_balance = Contracts::min_balance();
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
-
-		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(wasm))
-			.value(min_balance * 100)
-			.build_and_unwrap_contract();
-
-		let result = builder::bare_call(addr).build();
-
-		let events = result.events;
-		assert_return_code!(&result.result.unwrap(), RuntimeReturnCode::Success);
-		assert!(!System::events().is_empty());
-		assert!(events.is_none());
-	});
 }
 
 #[test]
@@ -3327,14 +3202,11 @@ fn set_code_hash() {
 		// First call sets new code_hash and returns 1
 		let result = builder::bare_call(contract_addr)
 			.data(new_code_hash.as_ref().to_vec())
-			.debug(DebugInfo::UnsafeDebug)
 			.build_and_unwrap_result();
 		assert_return_code!(result, 1);
 
 		// Second calls new contract code that returns 2
-		let result = builder::bare_call(contract_addr)
-			.debug(DebugInfo::UnsafeDebug)
-			.build_and_unwrap_result();
+		let result = builder::bare_call(contract_addr).build_and_unwrap_result();
 		assert_return_code!(result, 2);
 
 		// Checking for the last event only
@@ -3453,13 +3325,13 @@ fn deposit_limit_in_nested_calls() {
 
 		// We do not remove any storage but add a storage item of 12 bytes in the caller
 		// contract. This would cost 12 + 2 = 14 Balance.
-		// The nested call doesn't get a special limit, which is set by passing 0 to it.
+		// The nested call doesn't get a special limit, which is set by passing `u64::MAX` to it.
 		// This should fail as the specified parent's limit is less than the cost: 13 <
 		// 14.
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller)
 				.storage_deposit_limit(13)
-				.data((100u32, &addr_callee, U256::from(0u64)).encode())
+				.data((100u32, &addr_callee, U256::MAX).encode())
 				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
@@ -3467,13 +3339,13 @@ fn deposit_limit_in_nested_calls() {
 		// Now we specify the parent's limit high enough to cover the caller's storage
 		// additions. However, we use a single byte more in the callee, hence the storage
 		// deposit should be 15 Balance.
-		// The nested call doesn't get a special limit, which is set by passing 0 to it.
+		// The nested call doesn't get a special limit, which is set by passing `u64::MAX` to it.
 		// This should fail as the specified parent's limit is less than the cost: 14
 		// < 15.
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller)
 				.storage_deposit_limit(14)
-				.data((101u32, &addr_callee, U256::from(0u64)).encode())
+				.data((101u32, &addr_callee, &U256::MAX).encode())
 				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
@@ -3495,7 +3367,7 @@ fn deposit_limit_in_nested_calls() {
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller)
 				.storage_deposit_limit(0)
-				.data((87u32, &addr_callee, U256::from(0u64)).encode())
+				.data((87u32, &addr_callee, &U256::MAX.to_little_endian()).encode())
 				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
@@ -3551,28 +3423,24 @@ fn deposit_limit_in_nested_instantiate() {
 		//
 		// Provided the limit is set to be 1 Balance less,
 		// this call should fail on the return from the caller contract.
-		assert_err_ignore_postinfo!(
-			builder::call(addr_caller)
-				.origin(RuntimeOrigin::signed(BOB))
-				.storage_deposit_limit(callee_info_len + 2 + ED + 1)
-				.data((0u32, &code_hash_callee, U256::from(0u64)).encode())
-				.build(),
-			<Error<Test>>::StorageDepositLimitExhausted,
-		);
+		let ret = builder::bare_call(addr_caller)
+			.origin(RuntimeOrigin::signed(BOB))
+			.storage_deposit_limit(DepositLimit::Balance(callee_info_len + 2 + ED + 1))
+			.data((0u32, &code_hash_callee, &U256::MAX.to_little_endian()).encode())
+			.build_and_unwrap_result();
+		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
 		// The charges made on instantiation should be rolled back.
 		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), 1_000_000);
 
 		// Now we give enough limit for the instantiation itself, but require for 1 more storage
 		// byte in the constructor. Hence +1 Balance to the limit is needed. This should fail on
 		// the return from constructor.
-		assert_err_ignore_postinfo!(
-			builder::call(addr_caller)
-				.origin(RuntimeOrigin::signed(BOB))
-				.storage_deposit_limit(callee_info_len + 2 + ED + 2)
-				.data((1u32, &code_hash_callee, U256::from(0u64)).encode())
-				.build(),
-			<Error<Test>>::StorageDepositLimitExhausted,
-		);
+		let ret = builder::bare_call(addr_caller)
+			.origin(RuntimeOrigin::signed(BOB))
+			.storage_deposit_limit(DepositLimit::Balance(callee_info_len + 2 + ED + 2))
+			.data((1u32, &code_hash_callee, U256::from(0u64)).encode())
+			.build_and_unwrap_result();
+		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
 		// The charges made on the instantiation should be rolled back.
 		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), 1_000_000);
 
@@ -4814,7 +4682,7 @@ fn skip_transfer_works() {
 					..Default::default()
 				},
 				Weight::MAX,
-				|_| 0u32
+				|_| 0u32,
 			),
 			EthTransactError::Message(format!(
 				"insufficient funds for gas * price + value: address {BOB_ADDR:?} have 0 (supplied gas 1)"
@@ -4829,7 +4697,7 @@ fn skip_transfer_works() {
 				..Default::default()
 			},
 			Weight::MAX,
-			|_| 0u32
+			|_| 0u32,
 		));
 
 		let Contract { addr, .. } =
@@ -4848,7 +4716,7 @@ fn skip_transfer_works() {
 					..Default::default()
 				},
 				Weight::MAX,
-				|_| 0u32
+				|_| 0u32,
 			),
 			EthTransactError::Message(format!(
 				"insufficient funds for gas * price + value: address {BOB_ADDR:?} have 0 (supplied gas 1)"
@@ -4856,26 +4724,24 @@ fn skip_transfer_works() {
 		);
 
 		// fails when calling from a contract when gas is specified.
-		assert_err!(
-			Pallet::<Test>::bare_eth_transact(
-				GenericTransaction {
-					from: Some(BOB_ADDR),
-					to: Some(caller_addr),
-					input: Some((0u32, &addr).encode().into()),
-					gas: Some(1u32.into()),
-					..Default::default()
-				},
-				Weight::MAX,
-				|_| 0u32
-			),
-			EthTransactError::Message(format!("insufficient funds for gas * price + value: address {BOB_ADDR:?} have 0 (supplied gas 1)"))
-		);
+		assert!(Pallet::<Test>::bare_eth_transact(
+			GenericTransaction {
+				from: Some(BOB_ADDR),
+				to: Some(caller_addr),
+				input: Some((0u32, &addr).encode().into()),
+				gas: Some(1u32.into()),
+				..Default::default()
+			},
+			Weight::MAX,
+			|_| 0u32
+		)
+		.is_err(),);
 
 		// works when no gas is specified.
 		assert_ok!(Pallet::<Test>::bare_eth_transact(
 			GenericTransaction { from: Some(BOB_ADDR), to: Some(addr), ..Default::default() },
 			Weight::MAX,
-			|_| 0u32
+			|_| 0u32,
 		));
 
 		// works when calling from a contract when no gas is specified.
@@ -4887,7 +4753,7 @@ fn skip_transfer_works() {
 				..Default::default()
 			},
 			Weight::MAX,
-			|_| 0u32
+			|_| 0u32,
 		));
 	});
 }
