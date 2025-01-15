@@ -1,0 +1,20 @@
+title: "collation-generation: resolve mismatch between descriptor and commitments core index"
+
+doc:
+  - audience: Node Dev
+    description: |
+      This PR resolves a bug where normal collators failed to generate and submit collations,
+      resulting in the following error:
+
+      ```
+      ERROR tokio-runtime-worker parachain::collation-generation: Failed to construct and
+      distribute collation: V2 core index check failed: The core index in commitments doesn't
+      match the one in descriptor.
+      ```
+
+      When core selectors are provided in the UMP signals, core indexes will be chosen using them.
+      The fix ensures that functionality remains unchanged for parachains not using UMP signals.
+
+crates:
+  - name: polkadot-node-collation-generation
+    bump: patch
