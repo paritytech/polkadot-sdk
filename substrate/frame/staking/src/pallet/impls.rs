@@ -459,6 +459,10 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Plan a new session potentially trigger a new era.
+	///
+	/// Subsequent function calls in the happy path are as follows:
+	/// 1. `try_trigger_new_era`
+	/// 2. `trigger_new_era`
 	fn new_session(
 		session_index: SessionIndex,
 		is_genesis: bool,
@@ -745,7 +749,8 @@ impl<T: Config> Pallet<T> {
 			},
 		};
 
-		if let Err(not_included) = Self::do_elect_paged_inner(paged_result) {
+		let inner_processing_results = Self::do_elect_paged_inner(paged_result);
+		if let Err(not_included) = inner_processing_results {
 			defensive!(
 				"electable stashes exceeded limit, unexpected but election proceeds.\
                 {} stashes from election result discarded",
@@ -753,14 +758,18 @@ impl<T: Config> Pallet<T> {
 			);
 		};
 
+		Self::deposit_event(Event::PagedElectionProceeded {
+			page,
+			result: inner_processing_results.map_err(|x| x as u32),
+		});
 		T::WeightInfo::do_elect_paged(T::MaxValidatorSet::get())
 	}
 
 	/// Inner implementation of [`Self::do_elect_paged`].
 	///
 	/// Returns an error if adding election winners to the electable stashes storage fails due to
-	/// exceeded bounds. In case of error, it returns the stashes that were not included in the
-	/// electable stashes storage due to bounds contraints.
+	/// exceeded bounds. In case of error, it returns the index of the first stash that failed to be
+	/// included.
 	pub(crate) fn do_elect_paged_inner(
 		mut supports: BoundedSupportsOf<T::ElectionProvider>,
 	) -> Result<(), usize> {
@@ -770,7 +779,8 @@ impl<T: Config> Pallet<T> {
 
 		match Self::add_electables(supports.iter().map(|(s, _)| s.clone())) {
 			Ok(_) => {
-				let _ = Self::store_stakers_info(Self::collect_exposures(supports), planning_era);
+				let exposures = Self::collect_exposures(supports);
+				let _ = Self::store_stakers_info(exposures, planning_era);
 				Ok(())
 			},
 			Err(not_included_idx) => {
@@ -785,7 +795,8 @@ impl<T: Config> Pallet<T> {
 				// filter out supports of stashes that do not fit within the electable stashes
 				// storage bounds to prevent collecting their exposures.
 				supports.truncate(not_included_idx);
-				let _ = Self::store_stakers_info(Self::collect_exposures(supports), planning_era);
+				let exposures = Self::collect_exposures(supports);
+				let _ = Self::store_stakers_info(exposures, planning_era);
 
 				Err(not_included)
 			},
@@ -816,7 +827,7 @@ impl<T: Config> Pallet<T> {
 		let elected_stashes: BoundedVec<_, MaxWinnersPerPageOf<T::ElectionProvider>> =
 			elected_stashes_page
 				.try_into()
-				.expect("both typs are bounded by MaxWinnersPerPageOf; qed");
+				.expect("both types are bounded by MaxWinnersPerPageOf; qed");
 
 		// adds to total stake in this era.
 		EraInfo::<T>::add_total_stake(new_planned_era, total_stake_page);
@@ -865,6 +876,7 @@ impl<T: Config> Pallet<T> {
 					.map(|(nominator, weight)| (nominator, to_currency(weight)))
 					.for_each(|(nominator, stake)| {
 						if nominator == validator {
+							defensive_assert!(own == Zero::zero(), "own stake should be unique");
 							own = own.saturating_add(stake);
 						} else {
 							others.push(IndividualExposure { who: nominator, value: stake });
@@ -884,10 +896,10 @@ impl<T: Config> Pallet<T> {
 	/// Deduplicates stashes in place and returns an error if the bounds are exceeded. In case of
 	/// error, it returns the iter index of the element that failed to add.
 	pub(crate) fn add_electables(
-		stashes_iter: impl Iterator<Item = T::AccountId>,
+		new_stashes: impl Iterator<Item = T::AccountId>,
 	) -> Result<(), usize> {
 		ElectableStashes::<T>::mutate(|electable| {
-			for (idx, stash) in stashes_iter.enumerate() {
+			for (idx, stash) in new_stashes.enumerate() {
 				if electable.try_insert(stash).is_err() {
 					return Err(idx);
 				}
@@ -1013,12 +1025,12 @@ impl<T: Config> Pallet<T> {
 	pub fn get_npos_voters(bounds: DataProviderBounds, page: PageIndex) -> Vec<VoterOf<Self>> {
 		let mut voters_size_tracker: StaticTracker<Self> = StaticTracker::default();
 
-		let final_predicted_len = {
+		let page_len_prediction = {
 			let all_voter_count = T::VoterList::count();
 			bounds.count.unwrap_or(all_voter_count.into()).min(all_voter_count.into()).0
 		};
 
-		let mut all_voters = Vec::<_>::with_capacity(final_predicted_len as usize);
+		let mut all_voters = Vec::<_>::with_capacity(page_len_prediction as usize);
 
 		// cache a few things.
 		let weight_of = Self::weight_of_fn();
@@ -1029,7 +1041,7 @@ impl<T: Config> Pallet<T> {
 		let mut min_active_stake = u64::MAX;
 
 		let mut sorted_voters = match VoterSnapshotStatus::<T>::get() {
-			// start the snapshot procssing from the beginning.
+			// start the snapshot processing from the beginning.
 			SnapshotStatus::Waiting => T::VoterList::iter(),
 			// snapshot continues, start from the last iterated voter in the list.
 			SnapshotStatus::Ongoing(account_id) => T::VoterList::iter_from(&account_id)
@@ -1038,8 +1050,8 @@ impl<T: Config> Pallet<T> {
 			SnapshotStatus::Consumed => Box::new(vec![].into_iter()),
 		};
 
-		while all_voters.len() < final_predicted_len as usize &&
-			voters_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * final_predicted_len as u32)
+		while all_voters.len() < page_len_prediction as usize &&
+			voters_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * page_len_prediction as u32)
 		{
 			let voter = match sorted_voters.next() {
 				Some(voter) => {
@@ -1074,6 +1086,7 @@ impl<T: Config> Pallet<T> {
 					all_voters.push(voter);
 					nominators_taken.saturating_inc();
 				} else {
+					defensive!("non-nominator fetched from voter list: {:?}", voter);
 					// technically should never happen, but not much we can do about it.
 				}
 				min_active_stake =
@@ -1104,7 +1117,7 @@ impl<T: Config> Pallet<T> {
 				// `T::NominationsQuota::get_quota`. The latter can rarely happen, and is not
 				// really an emergency or bug if it does.
 				defensive!(
-				    "DEFENSIVE: invalid item in `VoterList`: {:?}, this nominator probably has too many nominations now",
+				    "invalid item in `VoterList`: {:?}, this nominator probably has too many nominations now",
                     voter,
                 );
 			}
@@ -1134,7 +1147,7 @@ impl<T: Config> Pallet<T> {
 		});
 
 		// all_voters should have not re-allocated.
-		debug_assert!(all_voters.capacity() == final_predicted_len as usize);
+		debug_assert!(all_voters.capacity() == page_len_prediction as usize);
 
 		Self::register_weight(T::WeightInfo::get_npos_voters(validators_taken, nominators_taken));
 
@@ -2176,6 +2189,10 @@ impl<T: Config> Pallet<T> {
 			ensure!(
 				ElectingStartedAt::<T>::get().is_none(),
 				"unexpected election metadata while election prep hasn't started.",
+			);
+			ensure!(
+				VoterSnapshotStatus::<T>::get() == SnapshotStatus::Waiting,
+				"unexpected voter snapshot status in storage."
 			);
 
 			return Ok(())

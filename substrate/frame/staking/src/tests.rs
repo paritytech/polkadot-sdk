@@ -5164,41 +5164,6 @@ mod election_data_provider {
 	use frame_election_provider_support::ElectionDataProvider;
 
 	#[test]
-	fn targets_2sec_block() {
-		let mut validators = 1000;
-		while <Test as Config>::WeightInfo::get_npos_targets(validators).all_lt(Weight::from_parts(
-			2u64 * frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND,
-			u64::MAX,
-		)) {
-			validators += 1;
-		}
-
-		println!("Can create a snapshot of {} validators in 2sec block", validators);
-	}
-
-	#[test]
-	fn voters_2sec_block() {
-		// we assume a network only wants up to 1000 validators in most cases, thus having 2000
-		// candidates is as high as it gets.
-		let validators = 2000;
-		let mut nominators = 1000;
-
-		while <Test as Config>::WeightInfo::get_npos_voters(validators, nominators).all_lt(
-			Weight::from_parts(
-				2u64 * frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND,
-				u64::MAX,
-			),
-		) {
-			nominators += 1;
-		}
-
-		println!(
-			"Can create a snapshot of {} nominators [{} validators, each 1 slashing] in 2sec block",
-			nominators, validators
-		);
-	}
-
-	#[test]
 	fn set_minimum_active_stake_is_correct() {
 		ExtBuilder::default()
 			.nominate(false)
@@ -5584,7 +5549,7 @@ mod election_data_provider {
 	}
 
 	#[test]
-	fn estimate_next_election_works() {
+	fn estimate_next_election_single_page_works() {
 		ExtBuilder::default().session_per_era(5).period(5).build_and_execute(|| {
 			// first session is always length 0.
 			for b in 1..20 {
@@ -7490,6 +7455,7 @@ mod staking_unchecked {
 		})
 	}
 }
+
 mod ledger {
 	use super::*;
 

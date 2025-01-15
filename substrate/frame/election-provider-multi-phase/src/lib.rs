@@ -1007,7 +1007,7 @@ pub mod pallet {
 			ensure!(CurrentPhase::<T>::get().is_emergency(), Error::<T>::CallNotAllowed);
 
 			// bound supports with T::MaxWinners.
-			let supports: BoundedSupportsOf<Pallet<T>> =
+			let supports: BoundedSupportsOf<Self> =
 				supports.try_into().map_err(|_| Error::<T>::TooManyWinners)?;
 
 			// Note: we don't `rotate_round` at this point; the next call to

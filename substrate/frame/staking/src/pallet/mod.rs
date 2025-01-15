@@ -928,6 +928,15 @@ pub mod pallet {
 		ValidatorReenabled {
 			stash: T::AccountId,
 		},
+		/// A page from a multi-page election was fetched. A number of these are followed by
+		/// `StakersElected`.
+		///
+		/// The error indicates that a number of validators were dropped due to excess size, but
+		/// the overall election will continue.
+		PagedElectionProceeded {
+			page: PageIndex,
+			result: Result<(), u32>,
+		},
 	}
 
 	#[pallet::error]

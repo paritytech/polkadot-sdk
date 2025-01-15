@@ -1296,7 +1296,7 @@ impl<T: Config> EraInfo<T> {
 	///
 	/// If the exposure does not exist yet for the tuple (era, validator), it sets it. Otherwise,
 	/// it updates the existing record by ensuring *intermediate* exposure pages are filled up with
-	/// `T::MaxExposurePageSize` number of backers per page and the remaining exposures are addded
+	/// `T::MaxExposurePageSize` number of backers per page and the remaining exposures are added
 	/// to new exposure pages.
 	pub fn upsert_exposure(
 		era: EraIndex,
