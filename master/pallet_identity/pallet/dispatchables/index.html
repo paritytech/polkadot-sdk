@@ -1,0 +1,166 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Auto-generated docs-only module listing all defined dispatchables for this pallet."><title>pallet_identity::pallet::dispatchables - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pallet_identity" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../pallet_identity/index.html">pallet_identity</a><span class="version">29.0.0</span></h2></div><h2 class="location"><a href="#">Module dispatchables</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#functions">Functions</a></li></ul></section><h2><a href="../index.html">In pallet_identity::pallet</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">pallet_identity</a>::<wbr><a href="../index.html">pallet</a>::<wbr><a class="mod" href="#">dispatchables</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/pallet_identity/lib.rs.html#148">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Auto-generated docs-only module listing all defined dispatchables for this pallet.</p>
+<h2 id="warning-doc-only"><a class="doc-anchor" href="#warning-doc-only">§</a>Warning: Doc-Only</h2>
+<p>Members of this module cannot be used directly and are only provided for documentation
+purposes. To see the real version of each dispatchable, look for them in <a href="../struct.Pallet.html" title="struct pallet_identity::pallet::Pallet"><code>Pallet</code></a> or
+<a href="../enum.Call.html" title="enum pallet_identity::pallet::Call"><code>Call</code></a>.</p>
+</div></details><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.accept_username.html" title="fn pallet_identity::pallet::dispatchables::accept_username">accept_username</a></div><div class="desc docblock-short">Accept a given username that an <code>authority</code> granted. The call must include the full
+username, as in <code>username.suffix</code>.</div></li><li><div class="item-name"><a class="fn" href="fn.add_registrar.html" title="fn pallet_identity::pallet::dispatchables::add_registrar">add_registrar</a></div><div class="desc docblock-short">Add a registrar to the system.</div></li><li><div class="item-name"><a class="fn" href="fn.add_sub.html" title="fn pallet_identity::pallet::dispatchables::add_sub">add_sub</a></div><div class="desc docblock-short">Add the given account to the sender’s subs.</div></li><li><div class="item-name"><a class="fn" href="fn.add_username_authority.html" title="fn pallet_identity::pallet::dispatchables::add_username_authority">add_username_authority</a></div><div class="desc docblock-short">Add an <code>AccountId</code> with permission to grant usernames with a given <code>suffix</code> appended.</div></li><li><div class="item-name"><a class="fn" href="fn.cancel_request.html" title="fn pallet_identity::pallet::dispatchables::cancel_request">cancel_request</a></div><div class="desc docblock-short">Cancel a previous request.</div></li><li><div class="item-name"><a class="fn" href="fn.clear_identity.html" title="fn pallet_identity::pallet::dispatchables::clear_identity">clear_identity</a></div><div class="desc docblock-short">Clear an account’s identity info and all sub-accounts and return all deposits.</div></li><li><div class="item-name"><a class="fn" href="fn.kill_identity.html" title="fn pallet_identity::pallet::dispatchables::kill_identity">kill_identity</a></div><div class="desc docblock-short">Remove an account’s identity and sub-account information and slash the deposits.</div></li><li><div class="item-name"><a class="fn" href="fn.kill_username.html" title="fn pallet_identity::pallet::dispatchables::kill_username">kill_username</a></div><div class="desc docblock-short">Call with <a href="../trait.Config.html#associatedtype.ForceOrigin" title="associated type pallet_identity::pallet::Config::ForceOrigin">ForceOrigin</a> privileges which deletes a username
+and slashes any deposit associated with it.</div></li><li><div class="item-name"><a class="fn" href="fn.provide_judgement.html" title="fn pallet_identity::pallet::dispatchables::provide_judgement">provide_judgement</a></div><div class="desc docblock-short">Provide a judgement for an account’s identity.</div></li><li><div class="item-name"><a class="fn" href="fn.quit_sub.html" title="fn pallet_identity::pallet::dispatchables::quit_sub">quit_sub</a></div><div class="desc docblock-short">Remove the sender as a sub-account.</div></li><li><div class="item-name"><a class="fn" href="fn.remove_expired_approval.html" title="fn pallet_identity::pallet::dispatchables::remove_expired_approval">remove_expired_approval</a></div><div class="desc docblock-short">Remove an expired username approval. The username was approved by an authority but never
+accepted by the user and must now be beyond its expiration. The call must include the
+full username, as in <code>username.suffix</code>.</div></li><li><div class="item-name"><a class="fn" href="fn.remove_sub.html" title="fn pallet_identity::pallet::dispatchables::remove_sub">remove_sub</a></div><div class="desc docblock-short">Remove the given account from the sender’s subs.</div></li><li><div class="item-name"><a class="fn" href="fn.remove_username.html" title="fn pallet_identity::pallet::dispatchables::remove_username">remove_username</a></div><div class="desc docblock-short">Permanently delete a username which has been unbinding for longer than the grace period.
+Caller is refunded the fee if the username expired and the removal was successful.</div></li><li><div class="item-name"><a class="fn" href="fn.remove_username_authority.html" title="fn pallet_identity::pallet::dispatchables::remove_username_authority">remove_username_authority</a></div><div class="desc docblock-short">Remove <code>authority</code> from the username authorities.</div></li><li><div class="item-name"><a class="fn" href="fn.rename_sub.html" title="fn pallet_identity::pallet::dispatchables::rename_sub">rename_sub</a></div><div class="desc docblock-short">Alter the associated name of the given sub-account.</div></li><li><div class="item-name"><a class="fn" href="fn.request_judgement.html" title="fn pallet_identity::pallet::dispatchables::request_judgement">request_judgement</a></div><div class="desc docblock-short">Request a judgement from a registrar.</div></li><li><div class="item-name"><a class="fn" href="fn.set_account_id.html" title="fn pallet_identity::pallet::dispatchables::set_account_id">set_account_id</a></div><div class="desc docblock-short">Change the account associated with a registrar.</div></li><li><div class="item-name"><a class="fn" href="fn.set_fee.html" title="fn pallet_identity::pallet::dispatchables::set_fee">set_fee</a></div><div class="desc docblock-short">Set the fee required for a judgement to be requested from a registrar.</div></li><li><div class="item-name"><a class="fn" href="fn.set_fields.html" title="fn pallet_identity::pallet::dispatchables::set_fields">set_fields</a></div><div class="desc docblock-short">Set the field information for a registrar.</div></li><li><div class="item-name"><a class="fn" href="fn.set_identity.html" title="fn pallet_identity::pallet::dispatchables::set_identity">set_identity</a></div><div class="desc docblock-short">Set an account’s identity information and reserve the appropriate deposit.</div></li><li><div class="item-name"><a class="fn" href="fn.set_primary_username.html" title="fn pallet_identity::pallet::dispatchables::set_primary_username">set_primary_username</a></div><div class="desc docblock-short">Set a given username as the primary. The username should include the suffix.</div></li><li><div class="item-name"><a class="fn" href="fn.set_subs.html" title="fn pallet_identity::pallet::dispatchables::set_subs">set_subs</a></div><div class="desc docblock-short">Set the sub-accounts of the sender.</div></li><li><div class="item-name"><a class="fn" href="fn.set_username_for.html" title="fn pallet_identity::pallet::dispatchables::set_username_for">set_username_for</a></div><div class="desc docblock-short">Set the username for <code>who</code>. Must be called by a username authority.</div></li><li><div class="item-name"><a class="fn" href="fn.unbind_username.html" title="fn pallet_identity::pallet::dispatchables::unbind_username">unbind_username</a></div><div class="desc docblock-short">Start the process of removing a username by placing it in the unbinding usernames map.
+Once the grace period has passed, the username can be deleted by calling
+<a href="../enum.Call.html#variant.remove_username" title="variant pallet_identity::pallet::Call::remove_username">remove_username</a>.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

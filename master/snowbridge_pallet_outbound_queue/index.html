@@ -1,0 +1,228 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Pallet for committing outbound messages for delivery to Ethereum"><title>snowbridge_pallet_outbound_queue - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="snowbridge_pallet_outbound_queue" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../snowbridge_pallet_outbound_queue/index.html">snowbridge_pallet_outbound_queue</a><span class="version">0.2.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">snowbridge_pallet_outbound_queue</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/snowbridge_pallet_outbound_queue/lib.rs.html#3-420">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Pallet for committing outbound messages for delivery to Ethereum</p>
+<h2 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h2>
+<p>Messages come either from sibling parachains via XCM, or BridgeHub itself
+via the <code>snowbridge-pallet-system</code>:</p>
+<ol>
+<li><code>snowbridge_router_primitives::outbound::EthereumBlobExporter::deliver</code></li>
+<li><code>snowbridge_pallet_system::Pallet::send</code></li>
+</ol>
+<p>The message submission pipeline works like this:</p>
+<ol>
+<li>The message is first validated via the implementation for
+[<code>snowbridge_core::outbound::SendMessage::validate</code>]</li>
+<li>The message is then enqueued for later processing via the implementation for
+[<code>snowbridge_core::outbound::SendMessage::deliver</code>]</li>
+<li>The underlying message queue is implemented by <a href="pallet/trait.Config.html#associatedtype.MessageQueue" title="associated type snowbridge_pallet_outbound_queue::pallet::Config::MessageQueue"><code>Config::MessageQueue</code></a></li>
+<li>The message queue delivers messages back to this pallet via the implementation for
+[<code>frame_support::traits::ProcessMessage::process_message</code>]</li>
+<li>The message is processed in <code>Pallet::do_process_message</code>: a. Assigned a nonce b. ABI-encoded,
+hashed, and stored in the <code>MessageLeaves</code> vector</li>
+<li>At the end of the block, a merkle root is constructed from all the leaves in <code>MessageLeaves</code>.</li>
+<li>This merkle root is inserted into the parachain header as a digest item</li>
+<li>Offchain relayers are able to relay the message to Ethereum after: a. Generating a merkle
+proof for the committed message using the <code>prove_message</code> runtime API b. Reading the actual
+message content from the <code>Messages</code> vector in storage</li>
+</ol>
+<p>On the Ethereum side, the message root is ultimately the thing being
+verified by the Polkadot light client.</p>
+<h2 id="message-priorities"><a class="doc-anchor" href="#message-priorities">§</a>Message Priorities</h2>
+<p>The processing of governance commands can never be halted. This effectively
+allows us to pause processing of normal user messages while still allowing
+governance commands to be sent to Ethereum.</p>
+<h2 id="fees"><a class="doc-anchor" href="#fees">§</a>Fees</h2>
+<p>An upfront fee must be paid for delivering a message. This fee covers several
+components:</p>
+<ol>
+<li>The weight of processing the message locally</li>
+<li>The gas refund paid out to relayers for message submission</li>
+<li>An additional reward paid out to relayers for message submission</li>
+</ol>
+<p>Messages are weighed to determine the maximum amount of gas they could
+consume on Ethereum. Using this upper bound, a final fee can be calculated.</p>
+<p>The fee calculation also requires the following parameters:</p>
+<ul>
+<li>Average ETH/DOT exchange rate over some period</li>
+<li>Max fee per unit of gas that bridge is willing to refund relayers for</li>
+</ul>
+<p>By design, it is expected that governance should manually update these
+parameters every few weeks using the <code>set_pricing_parameters</code> extrinsic in the
+system pallet.</p>
+<p>This is an interim measure. Once ETH/DOT liquidity pools are available in the Polkadot network,
+we’ll use them as a source of pricing info, subject to certain safeguards.</p>
+<h3 id="fee-computation-function"><a class="doc-anchor" href="#fee-computation-function">§</a>Fee Computation Function</h3><div class="example-wrap"><pre class="language-text"><code>LocalFee(Message) = WeightToFee(ProcessMessageWeight(Message))
+RemoteFee(Message) = MaxGasRequired(Message) * Params.MaxFeePerGas + Params.Reward
+RemoteFeeAdjusted(Message) = Params.Multiplier * (RemoteFee(Message) / Params.Ratio(&quot;ETH/DOT&quot;))
+Fee(Message) = LocalFee(Message) + RemoteFeeAdjusted(Message)
+</code></pre></div>
+<p>By design, the computed fee includes a safety factor (the <code>Multiplier</code>) to cover
+unfavourable fluctuations in the ETH/DOT exchange rate.</p>
+<h3 id="fee-settlement"><a class="doc-anchor" href="#fee-settlement">§</a>Fee Settlement</h3>
+<p>On the remote side, in the gateway contract, the relayer accrues</p>
+<div class="example-wrap"><pre class="language-text"><code>Min(GasPrice, Message.MaxFeePerGas) * GasUsed() + Message.Reward
+</code></pre></div>
+<p>Or in plain english, relayers are refunded for gas consumption, using a
+price that is a minimum of the actual gas price, or <code>Message.MaxFeePerGas</code>.</p>
+<h2 id="extrinsics"><a class="doc-anchor" href="#extrinsics">§</a>Extrinsics</h2>
+<ul>
+<li><a href="pallet/enum.Call.html#variant.set_operating_mode" title="variant snowbridge_pallet_outbound_queue::pallet::Call::set_operating_mode"><code>Call::set_operating_mode</code></a>: Set the operating mode</li>
+</ul>
+<h2 id="runtime-api"><a class="doc-anchor" href="#runtime-api">§</a>Runtime API</h2>
+<ul>
+<li><code>prove_message</code>: Generate a merkle proof for a committed message</li>
+<li><code>calculate_fee</code>: Calculate the delivery fee for a message</li>
+</ul>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.CommittedMessage"><code>pub use types::<a class="struct" href="types/struct.CommittedMessage.html" title="struct snowbridge_pallet_outbound_queue::types::CommittedMessage">CommittedMessage</a>;</code></div></li><li><div class="item-name" id="reexport.ProcessMessageOriginOf"><code>pub use types::<a class="type" href="types/type.ProcessMessageOriginOf.html" title="type snowbridge_pallet_outbound_queue::types::ProcessMessageOriginOf">ProcessMessageOriginOf</a>;</code></div></li><li><div class="item-name" id="reexport.WeightInfo"><code>pub use weights::<a class="trait" href="weights/trait.WeightInfo.html" title="trait snowbridge_pallet_outbound_queue::weights::WeightInfo">WeightInfo</a>;</code></div></li><li><div class="item-name"><code>pub use <a class="mod" href="pallet/index.html" title="mod snowbridge_pallet_outbound_queue::pallet">pallet</a>::*;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="api/index.html" title="mod snowbridge_pallet_outbound_queue::api">api</a></div><div class="desc docblock-short">Helpers for implementing runtime api</div></li><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod snowbridge_pallet_outbound_queue::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="process_message_impl/index.html" title="mod snowbridge_pallet_outbound_queue::process_message_impl">process_message_impl</a></div><div class="desc docblock-short">Implementation for [<code>frame_support::traits::ProcessMessage</code>]</div></li><li><div class="item-name"><a class="mod" href="send_message_impl/index.html" title="mod snowbridge_pallet_outbound_queue::send_message_impl">send_message_impl</a></div><div class="desc docblock-short">Implementation for [<code>snowbridge_core::outbound::SendMessage</code>]</div></li><li><div class="item-name"><a class="mod" href="types/index.html" title="mod snowbridge_pallet_outbound_queue::types">types</a></div></li><li><div class="item-name"><a class="mod" href="weights/index.html" title="mod snowbridge_pallet_outbound_queue::weights">weights</a></div><div class="desc docblock-short">Autogenerated weights for <code>snowbridge-pallet-outbound-queue</code></div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.MerkleProof.html" title="struct snowbridge_pallet_outbound_queue::MerkleProof">MerkleProof</a></div><div class="desc docblock-short">A generated merkle proof.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

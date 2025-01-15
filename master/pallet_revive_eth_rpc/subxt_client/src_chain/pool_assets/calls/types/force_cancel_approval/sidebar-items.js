@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["Delegate","Id","Owner"]};

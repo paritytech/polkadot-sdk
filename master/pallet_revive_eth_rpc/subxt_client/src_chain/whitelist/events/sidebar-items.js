@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["call_whitelisted","whitelisted_call_dispatched","whitelisted_call_removed"],"struct":["CallWhitelisted","WhitelistedCallDispatched","WhitelistedCallRemoved"]};

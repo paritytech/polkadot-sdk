@@ -1,0 +1,162 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Configuration of the networking layer."><title>sc_network::config - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../sc_network/index.html">sc_network</a><span class="version">0.34.0</span></h2></div><h2 class="location"><a href="#">Module config</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section><h2><a href="../index.html">In crate sc_network</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">sc_network</a>::<wbr><a class="mod" href="#">config</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/sc_network/config.rs.html#19-980">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Configuration of the networking layer.</p>
+<p>The <a href="struct.Params.html" title="struct sc_network::config::Params"><code>Params</code></a> struct is the struct that must be passed in order to initialize the networking.
+See the documentation of <a href="struct.Params.html" title="struct sc_network::config::Params"><code>Params</code></a>.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.DEFAULT_KADEMLIA_REPLICATION_FACTOR"><code>pub use crate::discovery::<a class="constant" href="../discovery/constant.DEFAULT_KADEMLIA_REPLICATION_FACTOR.html" title="constant sc_network::discovery::DEFAULT_KADEMLIA_REPLICATION_FACTOR">DEFAULT_KADEMLIA_REPLICATION_FACTOR</a>;</code></div></li><li><div class="item-name" id="reexport.PeerStoreProvider"><code>pub use crate::peer_store::<a class="trait" href="../peer_store/trait.PeerStoreProvider.html" title="trait sc_network::peer_store::PeerStoreProvider">PeerStoreProvider</a>;</code></div></li><li><div class="item-name" id="reexport.IncomingRequest"><code>pub use crate::request_responses::<a class="struct" href="../request_responses/struct.IncomingRequest.html" title="struct sc_network::request_responses::IncomingRequest">IncomingRequest</a>;</code></div></li><li><div class="item-name" id="reexport.OutgoingResponse"><code>pub use crate::request_responses::<a class="struct" href="../request_responses/struct.OutgoingResponse.html" title="struct sc_network::request_responses::OutgoingResponse">OutgoingResponse</a>;</code></div></li><li><div class="item-name" id="reexport.RequestResponseConfig"><code>pub use crate::request_responses::<a class="struct" href="../request_responses/struct.ProtocolConfig.html" title="struct sc_network::request_responses::ProtocolConfig">ProtocolConfig</a> as RequestResponseConfig;</code></div></li><li><div class="item-name" id="reexport.NotificationConfig"><code>pub use crate::service::traits::<a class="trait" href="../service/traits/trait.NotificationConfig.html" title="trait sc_network::service::traits::NotificationConfig">NotificationConfig</a>;</code></div></li><li><div class="item-name" id="reexport.NotificationService"><code>pub use crate::service::traits::<a class="trait" href="../service/traits/trait.NotificationService.html" title="trait sc_network::service::traits::NotificationService">NotificationService</a>;</code></div></li><li><div class="item-name" id="reexport.PeerStore"><code>pub use crate::service::traits::<a class="trait" href="../service/traits/trait.PeerStore.html" title="trait sc_network::service::traits::PeerStore">PeerStore</a>;</code></div></li><li><div class="item-name" id="reexport.ProtocolName"><code>pub use crate::types::<a class="enum" href="../types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="ed25519/index.html" title="mod sc_network::config::ed25519">ed25519</a></div><div class="desc docblock-short">Ed25519 keys.</div></li></ul><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.build_multiaddr.html" title="macro sc_network::config::build_multiaddr">build_multiaddr</a></div><div class="desc docblock-short">Easy way for a user to create a <code>Multiaddr</code>.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.FullNetworkConfiguration.html" title="struct sc_network::config::FullNetworkConfiguration">FullNetworkConfiguration</a></div><div class="desc docblock-short">Full network configuration.</div></li><li><div class="item-name"><a class="struct" href="struct.MultiaddrWithPeerId.html" title="struct sc_network::config::MultiaddrWithPeerId">MultiaddrWithPeerId</a></div><div class="desc docblock-short">Address of a node, including its identity.</div></li><li><div class="item-name"><a class="struct" href="struct.NetworkConfiguration.html" title="struct sc_network::config::NetworkConfiguration">NetworkConfiguration</a></div><div class="desc docblock-short">Network service configuration.</div></li><li><div class="item-name"><a class="struct" href="struct.NonDefaultSetConfig.html" title="struct sc_network::config::NonDefaultSetConfig">NonDefaultSetConfig</a></div><div class="desc docblock-short">Extension to <a href="struct.SetConfig.html" title="struct sc_network::config::SetConfig"><code>SetConfig</code></a> for sets that aren’t the default set.</div></li><li><div class="item-name"><a class="struct" href="struct.NotificationHandshake.html" title="struct sc_network::config::NotificationHandshake">NotificationHandshake</a></div><div class="desc docblock-short">Custom handshake for the notification protocol</div></li><li><div class="item-name"><a class="struct" href="struct.NotificationMetrics.html" title="struct sc_network::config::NotificationMetrics">NotificationMetrics</a></div><div class="desc docblock-short">Notification metrics.</div></li><li><div class="item-name"><a class="struct" href="struct.NotificationsSink.html" title="struct sc_network::config::NotificationsSink">NotificationsSink</a></div><div class="desc docblock-short">Sink connected directly to the node background task. Allows sending notifications to the peer.</div></li><li><div class="item-name"><a class="struct" href="struct.Params.html" title="struct sc_network::config::Params">Params</a></div><div class="desc docblock-short">Network initialization parameters.</div></li><li><div class="item-name"><a class="struct" href="struct.ProtocolHandlePair.html" title="struct sc_network::config::ProtocolHandlePair">ProtocolHandlePair</a></div><div class="desc docblock-short">Channel pair which allows <code>Notifications</code> to interact with a protocol.</div></li><li><div class="item-name"><a class="struct" href="struct.ProtocolId.html" title="struct sc_network::config::ProtocolId">ProtocolId</a></div><div class="desc docblock-short">Protocol name prefix, transmitted on the wire for legacy protocol names.
+I.e., <code>dot</code> in <code>/dot/sync/2</code>. Should be unique for each chain. Always UTF-8.
+Deprecated in favour of genesis hash &amp; fork ID based protocol names.</div></li><li><div class="item-name"><a class="struct" href="struct.Roles.html" title="struct sc_network::config::Roles">Roles</a></div><div class="desc docblock-short">Bitmask of the roles that a node fulfills.</div></li><li><div class="item-name"><a class="struct" href="struct.SetConfig.html" title="struct sc_network::config::SetConfig">SetConfig</a></div><div class="desc docblock-short">Configuration for a set of nodes.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.NetworkBackendType.html" title="enum sc_network::config::NetworkBackendType">NetworkBackendType</a></div><div class="desc docblock-short">Network backend type.</div></li><li><div class="item-name"><a class="enum" href="enum.NodeKeyConfig.html" title="enum sc_network::config::NodeKeyConfig">NodeKeyConfig</a></div><div class="desc docblock-short">The configuration of a node’s secret key, describing the type of key
+and how it is obtained. A node’s identity keypair is the result of
+the evaluation of the node key configuration.</div></li><li><div class="item-name"><a class="enum" href="enum.NonReservedPeerMode.html" title="enum sc_network::config::NonReservedPeerMode">NonReservedPeerMode</a></div><div class="desc docblock-short">The policy for connections to non-reserved peers.</div></li><li><div class="item-name"><a class="enum" href="enum.ParseErr.html" title="enum sc_network::config::ParseErr">ParseErr</a></div><div class="desc docblock-short">Error that can be generated by <code>parse_str_addr</code>.</div></li><li><div class="item-name"><a class="enum" href="enum.Role.html" title="enum sc_network::config::Role">Role</a></div><div class="desc docblock-short">Role of the local node.</div></li><li><div class="item-name"><a class="enum" href="enum.Secret.html" title="enum sc_network::config::Secret">Secret</a></div><div class="desc docblock-short">The configuration options for obtaining a secret key <code>K</code>.</div></li><li><div class="item-name"><a class="enum" href="enum.SyncMode.html" title="enum sc_network::config::SyncMode">SyncMode</a></div><div class="desc docblock-short">Sync operation mode.</div></li><li><div class="item-name"><a class="enum" href="enum.TransportConfig.html" title="enum sc_network::config::TransportConfig">TransportConfig</a></div><div class="desc docblock-short">Configuration for the transport layer.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.ExHashT.html" title="trait sc_network::config::ExHashT">ExHashT</a></div><div class="desc docblock-short">Minimum Requirements for a Hash within Networking</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.notification_service.html" title="fn sc_network::config::notification_service">notification_service</a></div><div class="desc docblock-short">Create new (protocol, notification) handle pair.</div></li><li><div class="item-name"><a class="fn" href="fn.parse_addr.html" title="fn sc_network::config::parse_addr">parse_addr</a></div><div class="desc docblock-short">Splits a Multiaddress into a Multiaddress and PeerId.</div></li><li><div class="item-name"><a class="fn" href="fn.parse_str_addr.html" title="fn sc_network::config::parse_str_addr">parse_str_addr</a></div><div class="desc docblock-short">Parses a string address and splits it into Multiaddress and PeerId, if
+valid.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Ed25519Secret.html" title="type sc_network::config::Ed25519Secret">Ed25519Secret</a></div><div class="desc docblock-short">The options for obtaining a Ed25519 secret key.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ClaimState"],"mod":["pallet"],"struct":["ClaimantStatus","StatusType"]};

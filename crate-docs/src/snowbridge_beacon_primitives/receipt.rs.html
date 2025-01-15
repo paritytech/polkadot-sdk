@@ -1,0 +1,193 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/snowbridge/parachain/primitives/beacon/src/receipt.rs`."><title>receipt.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="snowbridge_beacon_primitives" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0 (79e9716c9 2023-11-13)" data-channel="1.74.0" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../snowbridge_beacon_primitives/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<a href="#2" id="2">2</a>
+<a href="#3" id="3">3</a>
+<a href="#4" id="4">4</a>
+<a href="#5" id="5">5</a>
+<a href="#6" id="6">6</a>
+<a href="#7" id="7">7</a>
+<a href="#8" id="8">8</a>
+<a href="#9" id="9">9</a>
+<a href="#10" id="10">10</a>
+<a href="#11" id="11">11</a>
+<a href="#12" id="12">12</a>
+<a href="#13" id="13">13</a>
+<a href="#14" id="14">14</a>
+<a href="#15" id="15">15</a>
+<a href="#16" id="16">16</a>
+<a href="#17" id="17">17</a>
+<a href="#18" id="18">18</a>
+<a href="#19" id="19">19</a>
+<a href="#20" id="20">20</a>
+<a href="#21" id="21">21</a>
+<a href="#22" id="22">22</a>
+<a href="#23" id="23">23</a>
+<a href="#24" id="24">24</a>
+<a href="#25" id="25">25</a>
+<a href="#26" id="26">26</a>
+<a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
+<a href="#40" id="40">40</a>
+<a href="#41" id="41">41</a>
+<a href="#42" id="42">42</a>
+<a href="#43" id="43">43</a>
+<a href="#44" id="44">44</a>
+<a href="#45" id="45">45</a>
+<a href="#46" id="46">46</a>
+<a href="#47" id="47">47</a>
+<a href="#48" id="48">48</a>
+<a href="#49" id="49">49</a>
+<a href="#50" id="50">50</a>
+<a href="#51" id="51">51</a>
+<a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+</pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
+</span><span class="kw">use </span>sp_core::H256;
+<span class="kw">use </span>sp_io::hashing::keccak_256;
+<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
+
+<span class="kw">use </span>snowbridge_ethereum::{mpt, Receipt};
+
+<span class="kw">pub fn </span>verify_receipt_proof(
+	receipts_root: H256,
+	proof: <span class="kw-2">&amp;</span>[Vec&lt;u8&gt;],
+) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;Receipt, rlp::DecoderError&gt;&gt; {
+	<span class="kw">match </span>apply_merkle_proof(proof) {
+		<span class="prelude-val">Some</span>((root, data)) <span class="kw">if </span>root == receipts_root =&gt; <span class="prelude-val">Some</span>(rlp::decode(<span class="kw-2">&amp;</span>data)),
+		<span class="prelude-val">Some</span>((<span class="kw">_</span>, <span class="kw">_</span>)) =&gt; <span class="prelude-val">None</span>,
+		<span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
+	}
+}
+
+<span class="kw">fn </span>apply_merkle_proof(proof: <span class="kw-2">&amp;</span>[Vec&lt;u8&gt;]) -&gt; <span class="prelude-ty">Option</span>&lt;(H256, Vec&lt;u8&gt;)&gt; {
+	<span class="kw">let </span><span class="kw-2">mut </span>iter = proof.iter().rev();
+	<span class="kw">let </span>first_bytes = <span class="kw">match </span>iter.next() {
+		<span class="prelude-val">Some</span>(b) =&gt; b,
+		<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
+	};
+	<span class="kw">let </span>item_to_prove: mpt::ShortNode = rlp::decode(first_bytes).ok()<span class="question-mark">?</span>;
+
+	<span class="kw">let </span>final_hash: <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">32</span>]&gt; = iter.try_fold(keccak_256(first_bytes), |acc, x| {
+		<span class="kw">let </span>node: Box&lt;<span class="kw">dyn </span>mpt::Node&gt; = x.as_slice().try_into().ok()<span class="question-mark">?</span>;
+		<span class="kw">if </span>(<span class="kw-2">*</span>node).contains_hash(acc.into()) {
+			<span class="kw">return </span><span class="prelude-val">Some</span>(keccak_256(x))
+		}
+		<span class="prelude-val">None
+	</span>});
+
+	final_hash.map(|hash| (hash.into(), item_to_prove.value))
+}
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">use </span>hex_literal::hex;
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>test_verify_receipt_proof() {
+		<span class="kw">let </span>root: H256 =
+			<span class="macro">hex!</span>(<span class="string">&quot;fd5e397a84884641f53c496804f24b5276cbb8c5c9cfc2342246be8e3ce5ad02&quot;</span>).into();
+
+		<span class="comment">// Valid proof
+		</span><span class="kw">let </span>proof_receipt5 = <span class="macro">vec!</span>(
+			<span class="macro">hex!</span>(<span class="string">&quot;f90131a0b5ba404eb5a6a88e56579f4d37ef9813b5ad7f86f0823ff3b407ac5a6bb465eca0398ead2655e78e03c127ce22c5830e90f18b1601ec055f938336c084feb915a9a026d322c26e46c50942c1aabde50e36df5cde572aed650ce73ea3182c6e90a02ca00600a356135f4db1db0d9842264cdff2652676f881669e91e316c0b6dd783011a0837f1deb4075336da320388c1edfffc56c448a43f4a5ba031300d32a7b509fc5a01c3ac82fd65b4aba7f9afaf604d9c82ec7e2deb573a091ae235751bc5c0c288da05d454159d9071b0f68b6e0503d290f23ac7602c1db0c569dee4605d8f5298f09a00bbed10350ec954448df795f6fd46e3faefc800ede061b3840eedc6e2b07a74da0acb02d26a3650f2064c14a435fdf1f668d8655daf455ebdf671713a7c089b3898080808080808080&quot;</span>).to_vec(),
+			<span class="macro">hex!</span>(<span class="string">&quot;f901f180a00046a08d4f0bdbdc6b31903086ce323182bce6725e7d9415f7ff91ee8f4820bda0e7cd26ad5f3d2771e4b5ab788e268a14a10209f94ee918eb6c829d21d3d11c1da00d4a56d9e9a6751874fd86c7e3cb1c6ad5a848da62751325f478978a00ea966ea064b81920c8f04a8a1e21f53a8280e739fbb7b00b2ab92493ca3f610b70e8ac85a0b1040ed4c55a73178b76abb16f946ce5bebd6b93ab873c83327df54047d12c27a0de6485e9ac58dc6e2b04b4bb38f562684f0b1a2ee586cc11079e7d9a9dc40b32a0d394f4d3532c3124a65fa36e69147e04fd20453a72ee9c50660f17e13ce9df48a066501003fc3e3478efd2803cd0eded6bbe9243ca01ba754d6327071ddbcbc649a0b2684e518f325fee39fc8ea81b68f3f5c785be00d087f3bed8857ae2ee8da26ea071060a5c52042e8d7ce21092f8ecf06053beb9a0b773a6f91a30c4220aa276b2a0fc22436632574ccf6043d0986dede27ea94c9ca9a3bb5ec03ce776a4ddef24a9a05a8a1d6698c4e7d8cc3a2506cb9b12ea9a079c9c7099bc919dc804033cc556e4a0170c468b0716fd36d161f0bf05875f15756a2976de92f9efe7716320509d79c9a0182f909a90cab169f3efb62387f9cccdd61440acc4deec42f68a4f7ca58075c7a055cf0e9202ac75689b76318f1171f3a44465eddc06aae0713bfb6b34fdd27b7980&quot;</span>).to_vec(),
+			<span class="macro">hex!</span>(<span class="string">&quot;f904de20b904daf904d701830652f0b9010004200000000000000000000080020000000000010000000000010000000000000000000000000000000000000000000002000000080000000000000000200000000000000000000000000008000000220000000000400010000000000000000000000000000000000000000000000000000000000000040000000010000100000000000800000000004000000000000000000000000000080000004000000000020000000000020000000000000000000000000000000000000000000004000000000002000000000100000000000000000000000000001000000002000020000010200000000000010000000000000000000000000000000000000010000000f903ccf89b9421130f34829b4c343142047a28ce96ec07814b15f863a0ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa00000000000000000000000007d843005c7433c16b27ff939cb37471541561ebda0000000000000000000000000e9c1281aae66801fa35ec404d5f2aea393ff6988a000000000000000000000000000000000000000000000000000000005d09b7380f89b9421130f34829b4c343142047a28ce96ec07814b15f863a08c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925a00000000000000000000000007d843005c7433c16b27ff939cb37471541561ebda00000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488da0ffffffffffffffffffffffffffffffffffffffffffffffffffffffcc840c6920f89b94c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2f863a0ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa0000000000000000000000000e9c1281aae66801fa35ec404d5f2aea393ff6988a00000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488da000000000000000000000000000000000000000000000000003e973b5a5d1078ef87994e9c1281aae66801fa35ec404d5f2aea393ff6988e1a01c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1b840000000000000000000000000000000000000000000000000000001f1420ad1d40000000000000000000000000000000000000000000000014ad400879d159a38f8fc94e9c1281aae66801fa35ec404d5f2aea393ff6988f863a0d78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822a00000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488da00000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488db88000000000000000000000000000000000000000000000000000000005d415f3320000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003e973b5a5d1078ef87a94c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2f842a07fcf532c15f0a6db0bd6d0e038bea71d30d808c7d98cb3bf7268a95bf5081b65a00000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488da000000000000000000000000000000000000000000000000003e973b5a5d1078e&quot;</span>).to_vec(),
+		);
+		<span class="macro">assert!</span>(verify_receipt_proof(root, <span class="kw-2">&amp;</span>proof_receipt5).is_some());
+
+		<span class="comment">// Various invalid proofs
+		</span><span class="kw">let </span>proof_empty: Vec&lt;Vec&lt;u8&gt;&gt; = <span class="macro">vec!</span>[];
+		<span class="kw">let </span>proof_missing_full_node = <span class="macro">vec!</span>[proof_receipt5[<span class="number">0</span>].clone(), proof_receipt5[<span class="number">2</span>].clone()];
+		<span class="kw">let </span>proof_missing_short_node1 = <span class="macro">vec!</span>[proof_receipt5[<span class="number">0</span>].clone(), proof_receipt5[<span class="number">1</span>].clone()];
+		<span class="kw">let </span>proof_missing_short_node2 = <span class="macro">vec!</span>[proof_receipt5[<span class="number">0</span>].clone()];
+		<span class="kw">let </span>proof_invalid_encoding = <span class="macro">vec!</span>[proof_receipt5[<span class="number">2</span>][<span class="number">2</span>..].to_vec()];
+		<span class="kw">let </span>proof_no_full_node = <span class="macro">vec!</span>[proof_receipt5[<span class="number">2</span>].clone(), proof_receipt5[<span class="number">2</span>].clone()];
+		<span class="macro">assert!</span>(verify_receipt_proof(root, <span class="kw-2">&amp;</span>proof_empty).is_none());
+		<span class="macro">assert!</span>(verify_receipt_proof(root, <span class="kw-2">&amp;</span>proof_missing_full_node).is_none());
+
+		<span class="macro">assert_eq!</span>(
+			verify_receipt_proof(root, <span class="kw-2">&amp;</span>proof_missing_short_node1),
+			<span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(rlp::DecoderError::Custom(<span class="string">&quot;Unsupported receipt type&quot;</span>)))
+		);
+
+		<span class="macro">assert_eq!</span>(
+			verify_receipt_proof(root, <span class="kw-2">&amp;</span>proof_missing_short_node2),
+			<span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(rlp::DecoderError::Custom(<span class="string">&quot;Unsupported receipt type&quot;</span>)))
+		);
+
+		<span class="macro">assert!</span>(verify_receipt_proof(root, <span class="kw-2">&amp;</span>proof_invalid_encoding).is_none());
+		<span class="macro">assert!</span>(verify_receipt_proof(root, <span class="kw-2">&amp;</span>proof_no_full_node).is_none());
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>test_verify_receipt_proof_with_intermediate_short_node() {
+		<span class="kw">let </span>root: H256 =
+			<span class="macro">hex!</span>(<span class="string">&quot;d128e3a57142d2bf15bc0cbcac7ad54f40750d571b5c3097e425882c10c9ba66&quot;</span>).into();
+
+		<span class="kw">let </span>proof_receipt263 = <span class="macro">vec!</span>[
+			<span class="macro">hex!</span>(<span class="string">&quot;f90131a00d3cb8d3f57ac1c0e12918a2ebe0cafed8c273577b9dd73e7ed1079b403ef494a0678b9835b834f8a287c0dd33a8fca9146e456ca688555ed4ec1361a2180b778da0fe42da181a46677a043b3d9d4b8bb05a6a17b7b5c010c17e7c1d31cfb7c4f911a0c89f0e2c53241cdb578e1f2b4caf6ba36e00500bdc57fecd66b84a6a58394c19a086c3c1fae5a0575940b5d38e111c469d07883106c26856f3ef608469a2081f13a06c5992ff00aab6226a70a032fd2f571ba22f797321f45e2daa73020d638d21b0a050861e9503ef68728f6c90a44f7fe1bceb2a9bdab6957bbe7136166bd849561ea006aa6eaca8a07e57176e9aa41e6a09edfb7678d1a112404e0ec779d7e567e82ea0bb0b430d303ba21b0af11c487b8a218bd75db54c98940b3f11bad8ff47cad3ef8080808080808080&quot;</span>).to_vec(),
+			<span class="macro">hex!</span>(<span class="string">&quot;f871a0246de222036ee6a03329b0105da0a6b3f916fc95a9ed5a403a581a0c4d74242ca0ac108a49a88b57a05ac34a108b39f1e45f6f167f2b9fbc8d52fb58e2e5a6af1ea0fcfe07ac2ccd3c28b6eab68d1bce112f6f6dbd9023e4ec3c05b96615aa803d798080808080808080808080808080&quot;</span>).to_vec(),
+			<span class="macro">hex!</span>(<span class="string">&quot;e4820001a04fff54398cad4d05ea6abfd8b0f3b4fe14c04d7ff5f5211c5b927d9cf72ac1d8&quot;</span>).to_vec(),
+			<span class="macro">hex!</span>(<span class="string">&quot;f851a096d010643ca2d47412ca66898286b5f2412963b9ec051b33e570d575914c9c5ca028cd24c652989542fe89479ec6388eac4592432242af5ba97563b3ac7c71c019808080808080808080808080808080&quot;</span>).to_vec(),
+			<span class="macro">hex!</span>(<span class="string">&quot;f90211a0bb35a84c5b1dcb78ec9d32614912c696e62df77bebf9ab326ee55b5d3acdde46a01084b30dac8df0accfcd0fd6330b7f6fc72a4651246d0694be9162151686a620a03eed50afdce7909d784c6157c445a444c806b5f23d31f3b63786f600c84a95b2a0af5232f1df6c6d41879804d081abe867002abe26ba3e5f8e0254a83a54769831a0607915fb13dd5da594256389a45007a67a7f7a86e95d38d8462792b6c98a722ea00e1260fda1730f2738c650ce2bfba83857bc10f8fb119ebc4fb39acba24e6fbaa0d11de17e417327457812675ca3b84ae8e1b64827abfe01420953697c8313d5b1a05fcaf2f7a88f76336a0c32ffc78acb87ae2005454bd25d658035331be3173b46a03f94f4952ab9e650f83cfd0e7f367b1bcc493aacf39a06f16c4a2e1b5605da48a0bdb4ec79785ca8ae22d60f1bbd42d707b4d7ec4aff231a3ebab755e315b35053a043a67c3f2bcef37c8f47a673adcb7061007a553696d1092408601c11b2e6846aa0c519d5af48cae87c7f4538845417c9735813bee892a6fe2dda79f5c414e8576aa0f7058256e09589501d7c231d739e61c84a850e139690989d24fda6058b432e98a081a52faab520978cb19ce14400dba0cd5bcdc4e5a3c0740678aa8f97ee0e5c56a0bcecc61cadeae52518e3b68a48af4b11603dfd9d99d99d7985efa6d2de44f904a02cba4accfc6f39bc5adb6d4440eb6358b4a5103ef93298e4e694f1f940f8b48280&quot;</span>).to_vec(),
+			<span class="macro">hex!</span>(<span class="string">&quot;f901ae20b901aaf901a70183bb444eb9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000001000000000000000000000000000100000000000008000000000000000000000000000000000000000000000000000000000000000000000000000000000200000000000010000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000080000000000000000000000000000000000000000000000002000000000000000000081000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000f89df89b94dac17f958d2ee523a2206206994597c13d831ec7f863a0ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa00000000000000000000000002e514404ff6823f1b46a8318a709251db414e5e1a000000000000000000000000055021c55847c00d764357a352e5803237d328954a0000000000000000000000000000000000000000000000000000000000201c370&quot;</span>).to_vec(),
+		];
+		<span class="macro">assert!</span>(verify_receipt_proof(root, <span class="kw-2">&amp;</span>proof_receipt263).is_some());
+	}
+}
+</code></pre></div></section></main></body></html>

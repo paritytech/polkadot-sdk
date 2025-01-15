@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"macro":["_runtime_benchmarks_enabled","runtime_benchmarks_enabled"],"mod":["pallet","weights"],"struct":["AccountIdConverter","AccountIdConverterNoSeed","Ascending","Chain","NativeOrWithIdFactory","PoolInfo","WithFirstAsset"],"trait":["AssetConversionApi","BenchmarkHelper","PoolLocator","QuotePrice","Swap","SwapCredit"],"type":["CreditOf"]};

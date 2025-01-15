@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["BlockBuilder","BlockBuilderBuilder","BlockBuilderBuilderStage1","BlockBuilderBuilderStage2","BuiltBlock"],"trait":["BlockBuilderApi"]};

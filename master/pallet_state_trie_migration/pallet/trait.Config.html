@@ -1,0 +1,198 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Configuration trait of this pallet."><title>Config in pallet_state_trie_migration::pallet - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_state_trie_migration" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_state_trie_migration/index.html">pallet_state_trie_migration</a><span class="version">29.0.0</span></h2></div><h2 class="location"><a href="#">Config</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.ControlOrigin">ControlOrigin</a></li><li><a href="#associatedtype.Currency">Currency</a></li><li><a href="#associatedtype.MaxKeyLen">MaxKeyLen</a></li><li><a href="#associatedtype.RuntimeEvent">RuntimeEvent</a></li><li><a href="#associatedtype.RuntimeHoldReason">RuntimeHoldReason</a></li><li><a href="#associatedtype.SignedDepositBase">SignedDepositBase</a></li><li><a href="#associatedtype.SignedDepositPerItem">SignedDepositPerItem</a></li><li><a href="#associatedtype.SignedFilter">SignedFilter</a></li><li><a href="#associatedtype.WeightInfo">WeightInfo</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In pallet_state_trie_migration::pallet</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">pallet_state_trie_migration</a>::<wbr><a href="index.html">pallet</a>::<wbr><a class="trait" href="#">Config</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/pallet_state_trie_migration/lib.rs.html#478-543">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Config: Config {
+    type <a href="#associatedtype.ControlOrigin" class="associatedtype">ControlOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin&gt;;
+    type <a href="#associatedtype.SignedFilter" class="associatedtype">SignedFilter</a>: EnsureOrigin&lt;Self::RuntimeOrigin, Success = Self::AccountId&gt;;
+    type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Event.html" title="enum pallet_state_trie_migration::pallet::Event">Event</a>&lt;Self&gt;&gt; + IsType&lt;&lt;Self as Config&gt;::RuntimeEvent&gt;;
+    type <a href="#associatedtype.Currency" class="associatedtype">Currency</a>: InspectHold&lt;Self::AccountId&gt; + Mutate&lt;Self::AccountId&gt; + MutateHold&lt;Self::AccountId, Reason = Self::<a class="associatedtype" href="trait.Config.html#associatedtype.RuntimeHoldReason" title="type pallet_state_trie_migration::pallet::Config::RuntimeHoldReason">RuntimeHoldReason</a>&gt; + Balanced&lt;Self::AccountId&gt;;
+    type <a href="#associatedtype.RuntimeHoldReason" class="associatedtype">RuntimeHoldReason</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.HoldReason.html" title="enum pallet_state_trie_migration::pallet::HoldReason">HoldReason</a>&gt;;
+    type <a href="#associatedtype.MaxKeyLen" class="associatedtype">MaxKeyLen</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.SignedDepositPerItem" class="associatedtype">SignedDepositPerItem</a>: Get&lt;&lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait pallet_state_trie_migration::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type pallet_state_trie_migration::pallet::Config::Currency">Currency</a> as Inspect&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::Balance&gt;;
+    type <a href="#associatedtype.SignedDepositBase" class="associatedtype">SignedDepositBase</a>: Get&lt;&lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait pallet_state_trie_migration::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type pallet_state_trie_migration::pallet::Config::Currency">Currency</a> as Inspect&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::Balance&gt;;
+    type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="../weights/trait.WeightInfo.html" title="trait pallet_state_trie_migration::weights::WeightInfo">WeightInfo</a>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Configuration trait of this pallet.</p>
+<p>The main purpose of this trait is to act as an interface between this pallet and the runtime in
+which it is embedded in. A type, function, or constant in this trait is essentially left to be
+configured by the runtime that includes this pallet.</p>
+<p>Consequently, a runtime that wants to include this pallet must implement this trait.
+Configurations of this pallet.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.ControlOrigin" class="method"><a class="src rightside" href="../../src/pallet_state_trie_migration/lib.rs.html#481">source</a><h4 class="code-header">type <a href="#associatedtype.ControlOrigin" class="associatedtype">ControlOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin&gt;</h4></section></summary><div class="docblock"><p>Origin that can control the configurations of this pallet.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.SignedFilter" class="method"><a class="src rightside" href="../../src/pallet_state_trie_migration/lib.rs.html#485">source</a><h4 class="code-header">type <a href="#associatedtype.SignedFilter" class="associatedtype">SignedFilter</a>: EnsureOrigin&lt;Self::RuntimeOrigin, Success = Self::AccountId&gt;</h4></section></summary><div class="docblock"><p>Filter on which origin that trigger the manual migrations.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.RuntimeEvent" class="method"><a class="src rightside" href="../../src/pallet_state_trie_migration/lib.rs.html#489">source</a><h4 class="code-header">type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Event.html" title="enum pallet_state_trie_migration::pallet::Event">Event</a>&lt;Self&gt;&gt; + IsType&lt;&lt;Self as Config&gt;::RuntimeEvent&gt;</h4></section></summary><div class="docblock"><p>The overarching event type.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Currency" class="method"><a class="src rightside" href="../../src/pallet_state_trie_migration/lib.rs.html#493-496">source</a><h4 class="code-header">type <a href="#associatedtype.Currency" class="associatedtype">Currency</a>: InspectHold&lt;Self::AccountId&gt; + Mutate&lt;Self::AccountId&gt; + MutateHold&lt;Self::AccountId, Reason = Self::<a class="associatedtype" href="trait.Config.html#associatedtype.RuntimeHoldReason" title="type pallet_state_trie_migration::pallet::Config::RuntimeHoldReason">RuntimeHoldReason</a>&gt; + Balanced&lt;Self::AccountId&gt;</h4></section></summary><div class="docblock"><p>The currency provider type.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.RuntimeHoldReason" class="method"><a class="src rightside" href="../../src/pallet_state_trie_migration/lib.rs.html#500">source</a><h4 class="code-header">type <a href="#associatedtype.RuntimeHoldReason" class="associatedtype">RuntimeHoldReason</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.HoldReason.html" title="enum pallet_state_trie_migration::pallet::HoldReason">HoldReason</a>&gt;</h4></section></summary><div class="docblock"><p>The overarching runtime hold reason.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxKeyLen" class="method"><a class="src rightside" href="../../src/pallet_state_trie_migration/lib.rs.html#526">source</a><h4 class="code-header">type <a href="#associatedtype.MaxKeyLen" class="associatedtype">MaxKeyLen</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>Maximal number of bytes that a key can have.</p>
+<p>FRAME itself does not limit the key length.
+The concrete value must therefore depend on your storage usage.
+A [<code>frame_support::storage::StorageNMap</code>] for example can have an arbitrary number of
+keys which are then hashed and concatenated, resulting in arbitrarily long keys.</p>
+<p>Use the <em>state migration RPC</em> to retrieve the length of the longest key in your
+storage: <a href="https://github.com/paritytech/substrate/issues/11642">https://github.com/paritytech/substrate/issues/11642</a></p>
+<p>The migration will halt with a <code>Halted</code> event if this value is too small.
+Since there is no real penalty from over-estimating, it is advised to use a large
+value. The default is 512 byte.</p>
+<p>Some key lengths for reference:</p>
+<ul>
+<li>[<code>frame_support::storage::StorageValue</code>]: 32 byte</li>
+<li>[<code>frame_support::storage::StorageMap</code>]: 64 byte</li>
+<li>[<code>frame_support::storage::StorageDoubleMap</code>]: 96 byte</li>
+</ul>
+<p>For more info see
+<a href="https://www.shawntabrizi.com/blog/substrate/querying-substrate-storage-via-rpc/">https://www.shawntabrizi.com/blog/substrate/querying-substrate-storage-via-rpc/</a></p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.SignedDepositPerItem" class="method"><a class="src rightside" href="../../src/pallet_state_trie_migration/lib.rs.html#532">source</a><h4 class="code-header">type <a href="#associatedtype.SignedDepositPerItem" class="associatedtype">SignedDepositPerItem</a>: Get&lt;&lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait pallet_state_trie_migration::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type pallet_state_trie_migration::pallet::Config::Currency">Currency</a> as Inspect&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::Balance&gt;</h4></section></summary><div class="docblock"><p>The amount of deposit collected per item in advance, for signed migrations.</p>
+<p>This should reflect the average storage value size in the worse case.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.SignedDepositBase" class="method"><a class="src rightside" href="../../src/pallet_state_trie_migration/lib.rs.html#538">source</a><h4 class="code-header">type <a href="#associatedtype.SignedDepositBase" class="associatedtype">SignedDepositBase</a>: Get&lt;&lt;&lt;Self as <a class="trait" href="trait.Config.html" title="trait pallet_state_trie_migration::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="trait.Config.html#associatedtype.Currency" title="type pallet_state_trie_migration::pallet::Config::Currency">Currency</a> as Inspect&lt;&lt;Self as Config&gt;::AccountId&gt;&gt;::Balance&gt;</h4></section></summary><div class="docblock"><p>The base value of <a href="trait.Config.html#associatedtype.SignedDepositPerItem" title="associated type pallet_state_trie_migration::pallet::Config::SignedDepositPerItem"><code>Config::SignedDepositPerItem</code></a>.</p>
+<p>Final deposit is <code>items * SignedDepositPerItem + SignedDepositBase</code>.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.WeightInfo" class="method"><a class="src rightside" href="../../src/pallet_state_trie_migration/lib.rs.html#542">source</a><h4 class="code-header">type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="../weights/trait.WeightInfo.html" title="trait pallet_state_trie_migration::weights::WeightInfo">WeightInfo</a></h4></section></summary><div class="docblock"><p>The weight information of this pallet.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/pallet_state_trie_migration/pallet/trait.Config.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

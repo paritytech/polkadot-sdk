@@ -1,0 +1,195 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A trait to handle errors and options when you are really sure that a condition must hold, but not brave enough to `expect` on it, or a default fallback value makes more sense."><title>Defensive in polkadot_sdk_frame::traits::defensive_prelude - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_frame" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../polkadot_sdk_frame/index.html">polkadot_sdk_frame</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">Defensive</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.defensive">defensive</a></li><li><a href="#tymethod.defensive_proof">defensive_proof</a></li><li><a href="#tymethod.defensive_unwrap_or">defensive_unwrap_or</a></li><li><a href="#tymethod.defensive_unwrap_or_default">defensive_unwrap_or_default</a></li><li><a href="#tymethod.defensive_unwrap_or_else">defensive_unwrap_or_else</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-Defensive%3CT%3E-for-Option%3CT%3E">Option&lt;T&gt;</a></li><li><a href="#impl-Defensive%3CT%3E-for-Result%3CT,+E%3E">Result&lt;T, E&gt;</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In polkadot_sdk_frame::traits::defensive_prelude</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../../index.html">polkadot_sdk_frame</a>::<wbr><a href="../index.html">traits</a>::<wbr><a href="index.html">defensive_prelude</a>::<wbr><a class="trait" href="#">Defensive</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Defensive&lt;T&gt; {
+    // Required methods
+    fn <a href="#tymethod.defensive_unwrap_or" class="fn">defensive_unwrap_or</a>(self, other: T) -&gt; T;
+<span class="item-spacer"></span>    fn <a href="#tymethod.defensive_unwrap_or_else" class="fn">defensive_unwrap_or_else</a>&lt;F&gt;(self, f: F) -&gt; T
+       <span class="where">where F: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>() -&gt; T</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.defensive_unwrap_or_default" class="fn">defensive_unwrap_or_default</a>(self) -&gt; T
+       <span class="where">where T: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a></span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.defensive" class="fn">defensive</a>(self) -&gt; Self;
+<span class="item-spacer"></span>    fn <a href="#tymethod.defensive_proof" class="fn">defensive_proof</a>(self, proof: &amp;'static <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.str.html">str</a>) -&gt; Self;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A trait to handle errors and options when you are really sure that a condition must hold, but
+not brave enough to <code>expect</code> on it, or a default fallback value makes more sense.</p>
+<p>This trait mostly focuses on methods that eventually unwrap the inner value. See
+<a href="../trait.DefensiveResult.html" title="trait polkadot_sdk_frame::traits::DefensiveResult"><code>DefensiveResult</code></a> and <a href="../trait.DefensiveOption.html" title="trait polkadot_sdk_frame::traits::DefensiveOption"><code>DefensiveOption</code></a> for methods that specifically apply to the
+respective types.</p>
+<p>Each function in this trait will have two side effects, aside from behaving exactly as the name
+would suggest:</p>
+<ol>
+<li>It panics on <code>#[debug_assertions]</code>, so if the infallible code is reached in any of the tests,
+you realize.</li>
+<li>It will log an error using the runtime logging system. This might help you detect such bugs
+in production as well. Note that the log message, as of now, are not super expressive. Your
+best shot of fully diagnosing the error would be to infer the block number of which the log
+message was emitted, then re-execute that block using <code>check-block</code> or <code>try-runtime</code>
+subcommands in substrate client.</li>
+</ol>
+</div></details><h2 id="required-methods" class="small-section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.defensive_unwrap_or" class="method"><h4 class="code-header">fn <a href="#tymethod.defensive_unwrap_or" class="fn">defensive_unwrap_or</a>(self, other: T) -&gt; T</h4></section></summary><div class="docblock"><p>Exactly the same as <code>unwrap_or</code>, but it does the defensive warnings explained in the trait
+docs.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.defensive_unwrap_or_else" class="method"><h4 class="code-header">fn <a href="#tymethod.defensive_unwrap_or_else" class="fn">defensive_unwrap_or_else</a>&lt;F&gt;(self, f: F) -&gt; T<span class="where fmt-newline">where
+    F: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>() -&gt; T,</span></h4></section></summary><div class="docblock"><p>Exactly the same as <code>unwrap_or_else</code>, but it does the defensive warnings explained in the
+trait docs.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.defensive_unwrap_or_default" class="method"><h4 class="code-header">fn <a href="#tymethod.defensive_unwrap_or_default" class="fn">defensive_unwrap_or_default</a>(self) -&gt; T<span class="where fmt-newline">where
+    T: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a>,</span></h4></section></summary><div class="docblock"><p>Exactly the same as <code>unwrap_or_default</code>, but it does the defensive warnings explained in the
+trait docs.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.defensive" class="method"><h4 class="code-header">fn <a href="#tymethod.defensive" class="fn">defensive</a>(self) -&gt; Self</h4></section></summary><div class="docblock"><p>Does not alter the inner value at all, but it will log warnings if the inner value is <code>None</code>
+or <code>Err</code>.</p>
+<p>In some ways, this is like  <code>.defensive_map(|x| x)</code>.</p>
+<p>This is useful as:</p>
+<div class="example-wrap"><pre class="language-nocompile"><code>if let Some(inner) = maybe_value().defensive() {
+	 	..
+}
+</code></pre></div></div></details><details class="toggle method-toggle" open><summary><section id="tymethod.defensive_proof" class="method"><h4 class="code-header">fn <a href="#tymethod.defensive_proof" class="fn">defensive_proof</a>(self, proof: &amp;'static <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.str.html">str</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Same as <a href="../trait.Defensive.html#tymethod.defensive" title="method polkadot_sdk_frame::traits::Defensive::defensive"><code>Defensive::defensive</code></a>, but it takes a proof as input, and displays it if the
+defensive operation has been triggered.</p>
+</div></details></div><h2 id="object-safety" class="small-section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.75.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="small-section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-Defensive%3CT%3E-for-Option%3CT%3E" class="impl"><a href="#impl-Defensive%3CT%3E-for-Option%3CT%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="../trait.Defensive.html" title="trait polkadot_sdk_frame::traits::Defensive">Defensive</a>&lt;T&gt; for <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;T&gt;</h3></section></summary><div class="impl-items"><section id="method.defensive_unwrap_or" class="method trait-impl"><a href="#method.defensive_unwrap_or" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.defensive_unwrap_or" class="fn">defensive_unwrap_or</a>(self, or: T) -&gt; T</h4></section><section id="method.defensive_unwrap_or_else" class="method trait-impl"><a href="#method.defensive_unwrap_or_else" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.defensive_unwrap_or_else" class="fn">defensive_unwrap_or_else</a>&lt;F&gt;(self, f: F) -&gt; T<span class="where fmt-newline">where
+    F: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>() -&gt; T,</span></h4></section><section id="method.defensive_unwrap_or_default" class="method trait-impl"><a href="#method.defensive_unwrap_or_default" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.defensive_unwrap_or_default" class="fn">defensive_unwrap_or_default</a>(self) -&gt; T<span class="where fmt-newline">where
+    T: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a>,</span></h4></section><section id="method.defensive" class="method trait-impl"><a href="#method.defensive" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.defensive" class="fn">defensive</a>(self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;T&gt;</h4></section><section id="method.defensive_proof" class="method trait-impl"><a href="#method.defensive_proof" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.defensive_proof" class="fn">defensive_proof</a>(self, proof: &amp;'static <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.str.html">str</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;T&gt;</h4></section></div></details><details class="toggle implementors-toggle"><summary><section id="impl-Defensive%3CT%3E-for-Result%3CT,+E%3E" class="impl"><a href="#impl-Defensive%3CT%3E-for-Result%3CT,+E%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T, E&gt; <a class="trait" href="../trait.Defensive.html" title="trait polkadot_sdk_frame::traits::Defensive">Defensive</a>&lt;T&gt; for <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, E&gt;<span class="where fmt-newline">where
+    E: <a class="trait" href="../../derive/trait.Debug.html" title="trait polkadot_sdk_frame::derive::Debug">Debug</a>,</span></h3></section></summary><div class="impl-items"><section id="method.defensive_unwrap_or-1" class="method trait-impl"><a href="#method.defensive_unwrap_or-1" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.defensive_unwrap_or" class="fn">defensive_unwrap_or</a>(self, or: T) -&gt; T</h4></section><section id="method.defensive_unwrap_or_else-1" class="method trait-impl"><a href="#method.defensive_unwrap_or_else-1" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.defensive_unwrap_or_else" class="fn">defensive_unwrap_or_else</a>&lt;F&gt;(self, f: F) -&gt; T<span class="where fmt-newline">where
+    F: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>() -&gt; T,</span></h4></section><section id="method.defensive_unwrap_or_default-1" class="method trait-impl"><a href="#method.defensive_unwrap_or_default-1" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.defensive_unwrap_or_default" class="fn">defensive_unwrap_or_default</a>(self) -&gt; T<span class="where fmt-newline">where
+    T: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/default/trait.Default.html" title="trait core::default::Default">Default</a>,</span></h4></section><section id="method.defensive-1" class="method trait-impl"><a href="#method.defensive-1" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.defensive" class="fn">defensive</a>(self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, E&gt;</h4></section><section id="method.defensive_proof-1" class="method trait-impl"><a href="#method.defensive_proof-1" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.defensive_proof" class="fn">defensive_proof</a>(self, proof: &amp;'static <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.str.html">str</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, E&gt;</h4></section></div></details><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../../trait.impl/frame_support/traits/misc/trait.Defensive.js" data-ignore-extern-crates="core" async></script></section></div></main></body></html>

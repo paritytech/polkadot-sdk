@@ -1,0 +1,163 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Network protocol types for parachains."><title>polkadot_node_network_protocol - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="polkadot_node_network_protocol" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../polkadot_node_network_protocol/index.html">polkadot_node_network_protocol</a><span class="version">7.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">polkadot_node_network_protocol</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/polkadot_node_network_protocol/lib.rs.html#17-917">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Network protocol types for parachains.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="authority_discovery/index.html" title="mod polkadot_node_network_protocol::authority_discovery">authority_discovery</a></div><div class="desc docblock-short">Accessing authority discovery service
+Authority discovery service interfacing.</div></li><li><div class="item-name"><a class="mod" href="grid_topology/index.html" title="mod polkadot_node_network_protocol::grid_topology">grid_topology</a></div><div class="desc docblock-short">Grid topology support module
+Grid topology support implementation
+The basic operation of the 2D grid topology is that:</div></li><li><div class="item-name"><a class="mod" href="peer_set/index.html" title="mod polkadot_node_network_protocol::peer_set">peer_set</a></div><div class="desc docblock-short">Peer-sets and protocols used for parachains.
+All peersets and protocols used for parachains.</div></li><li><div class="item-name"><a class="mod" href="request_response/index.html" title="mod polkadot_node_network_protocol::request_response">request_response</a></div><div class="desc docblock-short">Request/response protocols used in Polkadot.
+Overview over request/responses as used in <code>Polkadot</code>.</div></li><li><div class="item-name"><a class="mod" href="v1/index.html" title="mod polkadot_node_network_protocol::v1">v1</a></div><div class="desc docblock-short">v1 notification protocol types.</div></li><li><div class="item-name"><a class="mod" href="v2/index.html" title="mod polkadot_node_network_protocol::v2">v2</a></div><div class="desc docblock-short">v2 network protocol types.</div></li><li><div class="item-name"><a class="mod" href="v3/index.html" title="mod polkadot_node_network_protocol::v3">v3</a></div><div class="desc docblock-short">v3 network protocol types.
+Purpose is for changing ApprovalDistributionMessage to
+include more than one assignment and approval in a message.</div></li></ul><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.our_view.html" title="macro polkadot_node_network_protocol::our_view">our_view</a></div><div class="desc docblock-short">Construct a new <a href="struct.OurView.html" title="struct polkadot_node_network_protocol::OurView"><code>OurView</code></a> with the given chain heads, finalized number 0</div></li><li><div class="item-name"><a class="macro" href="macro.view.html" title="macro polkadot_node_network_protocol::view">view</a></div><div class="desc docblock-short">Construct a new view with the given chain heads and finalized number 0.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.OurView.html" title="struct polkadot_node_network_protocol::OurView">OurView</a></div><div class="desc docblock-short">Specialized wrapper around <a href="struct.View.html" title="struct polkadot_node_network_protocol::View"><code>View</code></a>.</div></li><li><div class="item-name"><a class="struct" href="struct.PeerId.html" title="struct polkadot_node_network_protocol::PeerId">PeerId</a></div><div class="desc docblock-short">Identifier of a peer of the network.</div></li><li><div class="item-name"><a class="struct" href="struct.ReputationChange.html" title="struct polkadot_node_network_protocol::ReputationChange">ReputationChange</a></div><div class="desc docblock-short">Description of a reputation adjustment for a node.</div></li><li><div class="item-name"><a class="struct" href="struct.View.html" title="struct polkadot_node_network_protocol::View">View</a></div><div class="desc docblock-short">A succinct representation of a peer’s view. This consists of a bounded amount of chain heads
+and the highest known finalized block number.</div></li><li><div class="item-name"><a class="struct" href="struct.WrongVariant.html" title="struct polkadot_node_network_protocol::WrongVariant">WrongVariant</a></div><div class="desc docblock-short">An error indicating that this the over-arching message type had the wrong variant</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.ObservedRole.html" title="enum polkadot_node_network_protocol::ObservedRole">ObservedRole</a></div><div class="desc docblock-short">The advertised role of a node.</div></li><li><div class="item-name"><a class="enum" href="enum.UnifiedReputationChange.html" title="enum polkadot_node_network_protocol::UnifiedReputationChange">UnifiedReputationChange</a></div><div class="desc docblock-short">Unified annoyance cost and good behavior benefits.</div></li><li><div class="item-name"><a class="enum" href="enum.Versioned.html" title="enum polkadot_node_network_protocol::Versioned">Versioned</a></div><div class="desc docblock-short">A protocol-versioned type.</div></li></ul><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.MIN_GOSSIP_PEERS.html" title="constant polkadot_node_network_protocol::MIN_GOSSIP_PEERS">MIN_GOSSIP_PEERS</a></div><div class="desc docblock-short">The minimum amount of peers to send gossip messages to.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.filter_by_peer_version.html" title="fn polkadot_node_network_protocol::filter_by_peer_version">filter_by_peer_version</a></div><div class="desc docblock-short">Returns the subset of <code>peers</code> with the specified <code>version</code>.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.ApprovalDistributionMessage.html" title="type polkadot_node_network_protocol::ApprovalDistributionMessage">ApprovalDistributionMessage</a></div><div class="desc docblock-short">Version-annotated messages used by the approval distribution subsystem.</div></li><li><div class="item-name"><a class="type" href="type.BitfieldDistributionMessage.html" title="type polkadot_node_network_protocol::BitfieldDistributionMessage">BitfieldDistributionMessage</a></div><div class="desc docblock-short">Version-annotated messages used by the bitfield distribution subsystem.</div></li><li><div class="item-name"><a class="type" href="type.CollatorProtocolMessage.html" title="type polkadot_node_network_protocol::CollatorProtocolMessage">CollatorProtocolMessage</a></div><div class="desc docblock-short">Version-annotated messages used by the bitfield distribution subsystem.</div></li><li><div class="item-name"><a class="type" href="type.GossipSupportNetworkMessage.html" title="type polkadot_node_network_protocol::GossipSupportNetworkMessage">GossipSupportNetworkMessage</a></div><div class="desc docblock-short">Version-annotated messages used by the gossip-support subsystem (this is void).</div></li><li><div class="item-name"><a class="type" href="type.StatementDistributionMessage.html" title="type polkadot_node_network_protocol::StatementDistributionMessage">StatementDistributionMessage</a></div><div class="desc docblock-short">Version-annotated messages used by the statement distribution subsystem.</div></li><li><div class="item-name"><a class="type" href="type.VersionedCollationProtocol.html" title="type polkadot_node_network_protocol::VersionedCollationProtocol">VersionedCollationProtocol</a></div><div class="desc docblock-short">All supported versions of the collation protocol message.</div></li><li><div class="item-name"><a class="type" href="type.VersionedValidationProtocol.html" title="type polkadot_node_network_protocol::VersionedValidationProtocol">VersionedValidationProtocol</a></div><div class="desc docblock-short">All supported versions of the validation protocol message.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

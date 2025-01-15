@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["authored_blocks","heartbeat_after","keys","received_heartbeats"]};

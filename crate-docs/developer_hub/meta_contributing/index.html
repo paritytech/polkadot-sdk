@@ -1,0 +1,124 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Meta information about this crate, how it is built, what principles dictates its evolution and how one can contribute to it."><title>developer_hub::meta_contributing - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="developer_hub" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../developer_hub/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../../developer_hub/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2 class="location"><a href="#">Module meta_contributing</a></h2><div class="sidebar-elems"></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">developer_hub</a>::<wbr><a class="mod" href="#">meta_contributing</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/developer_hub/meta_contributing.rs.html#1-146">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Meta information about this crate, how it is built, what principles dictates its evolution and
+how one can contribute to it.</p>
+<h2 id="contribution"><a href="#contribution">Contribution</a></h2>
+<p>The following sections cover more detailed information about this crate and how it should be
+maintained.</p>
+<h3 id="why-rust-docs"><a href="#why-rust-docs">Why Rust Docs?</a></h3>
+<p>We acknowledge that blockchain based systems, particularly a cutting-edge one like Polkadot SDK
+is a software artifact that is complex, and rapidly evolving. This makes the task of documenting
+it externally extremely difficult, especially with regards to making sure it is up-to-date.</p>
+<p>Consequently, we argue that the best hedge against this is to move as much of the documentation
+near the source code as possible. This would further incentivize developers to keep the
+documentation up-to-date, as the overhead is reduced by making sure everything is in one
+repository, and everything being in <code>.rs</code> files.</p>
+<blockquote>
+<p>This is not say that a more visually appealing version of this crate (for example as an
+<code>md-book</code>) cannot exist, but it would be outside the scope of this crate.</p>
+</blockquote>
+<p>Moreover, we acknowledge that a major pain point has been not only outdated <em>concepts</em>, but also
+<em>outdated code</em>. For this, we commit to making sure no code-snippet in this crate is left as
+<code>///ignore</code> or <code>///no_compile</code>, making sure all code snippets are self-contained, compile-able,
+and correct at every single revision of the entire repository.</p>
+<blockquote>
+<p>This also allows us to have a clear versioning on the entire content of this crate. For every
+commit of the Polkadot SDK, there would be one version of this crate that is guaranteed to be
+correct.</p>
+</blockquote>
+<blockquote>
+<p>To achieve this, we often use <a href="https://github.com/sam0x17/docify"><code>docify</code></a>, a nifty invention
+of <code>@sam0x17</code>.</p>
+</blockquote>
+<p>Also see: <a href="https://github.com/paritytech/polkadot-sdk/issues/991">https://github.com/paritytech/polkadot-sdk/issues/991</a>.</p>
+<h3 id="scope"><a href="#scope">Scope</a></h3>
+<p>The above would NOT be attainable if we don’t acknowledge that the scope of this crate MUST be
+limited, or else its maintenance burden would be infeasible or not worthwhile. In short, future
+maintainers should always strive to keep the content of this repository as minimal as possible.
+Some of the following principles are specifically there to be the guidance for this.</p>
+<h3 id="principles"><a href="#principles">Principles</a></h3>
+<p>The following guidelines are meant to be the guiding torch of those who contribute to this
+crate.</p>
+<ol>
+<li>🔺 Ground Up: Information should be layed out in the most ground-up fashion. The lowest level
+(i.e. “ground”) is Rust-docs. The highest level (i.e. “up”) is “outside of this crate”. In
+between lies <a href="../reference_docs/index.html" title="mod developer_hub::reference_docs"><code>reference_docs</code></a> and <a href="../guides/index.html" title="mod developer_hub::guides"><code>guides</code></a>, from low to high. The point of this principle
+is to document as much of the information as possible in the lower level media, as it is
+easier to maintain and more reachable. Then, use excessive linking to back-link when writing
+in a more high level.</li>
+</ol>
+<blockquote>
+<p>A prime example of this, the details of the FRAME storage APIs should NOT be explained in a
+high level tutorial. They should be explained in the rust-doc of the corresponding type or
+macro.</p>
+</blockquote>
+<ol start="2">
+<li>🧘 Less is More: For reasons mentioned <a href="#crate::why-rust-docs">above</a>, the more concise this
+crate is, the better.</li>
+<li>√ Don’t Repeat Yourself – DRY: A summary of the above two points. Authors should always
+strive to avoid any duplicate information. Every concept should ideally be documented in
+<em>ONE</em> place and one place only. This makes the task of maintaining topics significantly
+easier.</li>
+</ol>
+<blockquote>
+<p>A prime example of this, the list of CLI arguments of a particular binary should not be
+documented in multiple places across this crate. It should be only be documented in the
+corresponding crate (e.g. <code>sc_cli</code>).</p>
+</blockquote>
+<blockquote>
+<p>Moreover, this means that as a contributor, <strong>it is your responsibility to have a grasp over
+what topics are already covered in this crate, and how you can build on top of the information
+that they already pose, rather than repeating yourself</strong>.</p>
+</blockquote>
+<p>For more details about documenting guidelines, see:
+<a href="https://github.com/paritytech/polkadot-sdk/master/docs/DOCUMENTATION_GUIDELINES.md">https://github.com/paritytech/polkadot-sdk/master/docs/DOCUMENTATION_GUIDELINES.md</a></p>
+<h5 id="example-explaining-palletcall"><a href="#example-explaining-palletcall">Example: Explaining <code>#[pallet::call]</code></a></h5><details>
+<summary>
+Let's consider the seemingly simple example of explaining to someone dead-simple code of a FRAME
+call and see how we can use the above principles.
+</summary>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[frame::pallet(dev_mode)]
+</span><span class="kw">pub mod </span>pallet {
+    <span class="attr">#[pallet::call]
+    </span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+        <span class="kw">pub fn </span>a_simple_call(origin: OriginFor&lt;T&gt;, data: u32) -&gt; DispatchResult {
+            <span class="macro">ensure!</span>(data &gt; <span class="number">10</span>, <span class="string">&quot;SomeStaticString&quot;</span>);
+            <span class="macro">todo!</span>();
+        }
+    }
+}</code></pre></div>
+<ul>
+<li>Before even getting started, what is with all of this <code>&lt;T: Config&gt;</code>? We link to
+<a href="../reference_docs/trait_based_programming/index.html" title="mod developer_hub::reference_docs::trait_based_programming"><code>crate::reference_docs::trait_based_programming</code></a>.</li>
+<li>First, the name. Why is this called <code>pallet::call</code>? This goes back to <code>enum Call</code>, which is
+explained in <a href="../reference_docs/frame_composite_enums/index.html" title="mod developer_hub::reference_docs::frame_composite_enums"><code>crate::reference_docs::frame_composite_enums</code></a>. Build on top of this!</li>
+<li>Then, what is <code>origin</code>? Just an account id? <a href="../reference_docs/frame_origin/index.html" title="mod developer_hub::reference_docs::frame_origin"><code>crate::reference_docs::frame_origin</code></a>.</li>
+<li>Then, what is <code>DispatchResult</code>? Why is this called <em>dispatch</em>? Probably something that can be
+explained in the documentation of <a href="../../frame_support/dispatch/type.DispatchResult.html" title="type frame_support::dispatch::DispatchResult"><code>frame::prelude::DispatchResult</code></a>.</li>
+<li>Why is <code>&quot;SomeStaticString&quot;</code> a valid error? Because there is implementation for it that you can
+see <a href="../../sp_runtime/enum.DispatchError.html#impl-From%3C%26&#x27;static+str%3E-for-DispatchError" title="enum sp_runtime::DispatchError">here</a>.</li>
+</ul>
+<p>All of these are examples of underlying information that a contributor should:</p>
+<ol>
+<li>Try and create and they are going along.</li>
+<li>Back-link to if they already exist.</li>
+</ol>
+<p>Of course, all of this is not set in stone as a either/or rule. Sometimes, it is necessary to
+rephrase a concept in a new context.</p>
+</details>
+<h3 id="docssubstrateio"><a href="#docssubstrateio"><code>docs.substrate.io</code></a></h3>
+<p>This crate is meant to gradually replace <code>docs.substrate.io</code>. As any content is added here, the
+corresponding counter-part should be marked as deprecated, as described
+<a href="https://github.com/paritytech/polkadot-sdk-docs/issues/26">here</a>.</p>
+<h3 id="cratesio-and-publishing"><a href="#cratesio-and-publishing"><code>crates.io</code> and Publishing</a></h3>
+<p>As it stands now, this crate cannot be published to crates.io because of its use of
+<a href="https://github.com/sam0x17/docify/issues/22">workspace-level <code>docify</code></a>. For now, we accept this
+compromise, but in the long term, we should work towards finding a way to maintain different
+revisions of this crate.</p>
+<h3 id="how-to-build"><a href="#how-to-build">How to Build</a></h3>
+<p>To build this crate properly, with with right HTML headers injected, run:</p>
+<div class="example-wrap"><pre class="language-no_compile"><code>RUSTDOCFLAGS=&quot;--html-in-header $(pwd)/developer-hub/headers/toc.html&quot; cargo doc -p developer-hub
+</code></pre></div>
+<p>adding <code>--no-deps</code> would speed up the process while development. If even faster build time for
+docs is needed, you can temporarily remove most of the substrate/cumulus dependencies that are
+only used for linking purposes.</p>
+</div></details></section></div></main></body></html>

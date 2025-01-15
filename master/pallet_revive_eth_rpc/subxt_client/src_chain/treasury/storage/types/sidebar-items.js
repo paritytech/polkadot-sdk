@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["approvals","deactivated","last_spend_period","proposal_count","proposals","spend_count","spends"]};

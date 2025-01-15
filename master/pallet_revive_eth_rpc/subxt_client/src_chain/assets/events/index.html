@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `events` mod in crate `pallet_revive_eth_rpc`."><title>pallet_revive_eth_rpc::subxt_client::src_chain::assets::events - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="pallet_revive_eth_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../../pallet_revive_eth_rpc/index.html">pallet_revive_eth_rpc</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">Module events</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li></ul></section><h2><a href="../index.html">In pallet_revive_eth_rpc::subxt_client::src_chain::assets</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../../../index.html">pallet_revive_eth_rpc</a>::<wbr><a href="../../../index.html">subxt_client</a>::<wbr><a href="../../index.html">src_chain</a>::<wbr><a href="../index.html">assets</a>::<wbr><a class="mod" href="#">events</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../../../src/pallet_revive_eth_rpc/subxt_client.rs.html#22-49">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="accounts_destroyed/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::accounts_destroyed">accounts_destroyed</a></div></li><li><div class="item-name"><a class="mod" href="approval_cancelled/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::approval_cancelled">approval_cancelled</a></div></li><li><div class="item-name"><a class="mod" href="approvals_destroyed/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::approvals_destroyed">approvals_destroyed</a></div></li><li><div class="item-name"><a class="mod" href="approved_transfer/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::approved_transfer">approved_transfer</a></div></li><li><div class="item-name"><a class="mod" href="asset_frozen/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::asset_frozen">asset_frozen</a></div></li><li><div class="item-name"><a class="mod" href="asset_min_balance_changed/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::asset_min_balance_changed">asset_min_balance_changed</a></div></li><li><div class="item-name"><a class="mod" href="asset_status_changed/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::asset_status_changed">asset_status_changed</a></div></li><li><div class="item-name"><a class="mod" href="asset_thawed/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::asset_thawed">asset_thawed</a></div></li><li><div class="item-name"><a class="mod" href="blocked/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::blocked">blocked</a></div></li><li><div class="item-name"><a class="mod" href="burned/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::burned">burned</a></div></li><li><div class="item-name"><a class="mod" href="created/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::created">created</a></div></li><li><div class="item-name"><a class="mod" href="deposited/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::deposited">deposited</a></div></li><li><div class="item-name"><a class="mod" href="destroyed/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::destroyed">destroyed</a></div></li><li><div class="item-name"><a class="mod" href="destruction_started/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::destruction_started">destruction_started</a></div></li><li><div class="item-name"><a class="mod" href="force_created/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::force_created">force_created</a></div></li><li><div class="item-name"><a class="mod" href="frozen/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::frozen">frozen</a></div></li><li><div class="item-name"><a class="mod" href="issued/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::issued">issued</a></div></li><li><div class="item-name"><a class="mod" href="metadata_cleared/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::metadata_cleared">metadata_cleared</a></div></li><li><div class="item-name"><a class="mod" href="metadata_set/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::metadata_set">metadata_set</a></div></li><li><div class="item-name"><a class="mod" href="owner_changed/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::owner_changed">owner_changed</a></div></li><li><div class="item-name"><a class="mod" href="team_changed/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::team_changed">team_changed</a></div></li><li><div class="item-name"><a class="mod" href="thawed/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::thawed">thawed</a></div></li><li><div class="item-name"><a class="mod" href="touched/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::touched">touched</a></div></li><li><div class="item-name"><a class="mod" href="transferred/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::transferred">transferred</a></div></li><li><div class="item-name"><a class="mod" href="transferred_approved/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::transferred_approved">transferred_approved</a></div></li><li><div class="item-name"><a class="mod" href="withdrawn/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::withdrawn">withdrawn</a></div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.AccountsDestroyed.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::AccountsDestroyed">AccountsDestroyed</a></div></li><li><div class="item-name"><a class="struct" href="struct.ApprovalCancelled.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::ApprovalCancelled">ApprovalCancelled</a></div></li><li><div class="item-name"><a class="struct" href="struct.ApprovalsDestroyed.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::ApprovalsDestroyed">ApprovalsDestroyed</a></div></li><li><div class="item-name"><a class="struct" href="struct.ApprovedTransfer.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::ApprovedTransfer">ApprovedTransfer</a></div></li><li><div class="item-name"><a class="struct" href="struct.AssetFrozen.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::AssetFrozen">AssetFrozen</a></div></li><li><div class="item-name"><a class="struct" href="struct.AssetMinBalanceChanged.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::AssetMinBalanceChanged">AssetMinBalanceChanged</a></div></li><li><div class="item-name"><a class="struct" href="struct.AssetStatusChanged.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::AssetStatusChanged">AssetStatusChanged</a></div></li><li><div class="item-name"><a class="struct" href="struct.AssetThawed.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::AssetThawed">AssetThawed</a></div></li><li><div class="item-name"><a class="struct" href="struct.Blocked.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::Blocked">Blocked</a></div></li><li><div class="item-name"><a class="struct" href="struct.Burned.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::Burned">Burned</a></div></li><li><div class="item-name"><a class="struct" href="struct.Created.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::Created">Created</a></div></li><li><div class="item-name"><a class="struct" href="struct.Deposited.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::Deposited">Deposited</a></div></li><li><div class="item-name"><a class="struct" href="struct.Destroyed.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::Destroyed">Destroyed</a></div></li><li><div class="item-name"><a class="struct" href="struct.DestructionStarted.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::DestructionStarted">DestructionStarted</a></div></li><li><div class="item-name"><a class="struct" href="struct.ForceCreated.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::ForceCreated">ForceCreated</a></div></li><li><div class="item-name"><a class="struct" href="struct.Frozen.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::Frozen">Frozen</a></div></li><li><div class="item-name"><a class="struct" href="struct.Issued.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::Issued">Issued</a></div></li><li><div class="item-name"><a class="struct" href="struct.MetadataCleared.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::MetadataCleared">MetadataCleared</a></div></li><li><div class="item-name"><a class="struct" href="struct.MetadataSet.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::MetadataSet">MetadataSet</a></div></li><li><div class="item-name"><a class="struct" href="struct.OwnerChanged.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::OwnerChanged">OwnerChanged</a></div></li><li><div class="item-name"><a class="struct" href="struct.TeamChanged.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::TeamChanged">TeamChanged</a></div></li><li><div class="item-name"><a class="struct" href="struct.Thawed.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::Thawed">Thawed</a></div></li><li><div class="item-name"><a class="struct" href="struct.Touched.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::Touched">Touched</a></div></li><li><div class="item-name"><a class="struct" href="struct.Transferred.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::Transferred">Transferred</a></div></li><li><div class="item-name"><a class="struct" href="struct.TransferredApproved.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::TransferredApproved">TransferredApproved</a></div></li><li><div class="item-name"><a class="struct" href="struct.Withdrawn.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::assets::events::Withdrawn">Withdrawn</a></div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["close_bridge","open_bridge"]};

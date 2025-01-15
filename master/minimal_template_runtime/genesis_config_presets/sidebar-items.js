@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["development_config_genesis","get_preset","preset_names"]};

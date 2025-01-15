@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["polkadot_chain_spec_properties","polkadot_local_testnet_config","polkadot_local_testnet_genesis"],"trait":["IdentifyVariant"],"type":["PolkadotChainSpec"]};

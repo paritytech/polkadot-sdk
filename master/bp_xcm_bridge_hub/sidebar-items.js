@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BridgeLocationsError","BridgeState","XcmBridgeHubCall"],"struct":["Bridge","BridgeId","BridgeLocations"],"trait":["LocalXcmChannelManager"],"type":["XcmAsPlainPayload"]};

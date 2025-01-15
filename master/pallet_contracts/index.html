@@ -1,0 +1,215 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Contracts Pallet"><title>pallet_contracts - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_contracts" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_contracts/index.html">pallet_contracts</a><span class="version">27.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">pallet_contracts</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/pallet_contracts/lib.rs.html#18-1986">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="contracts-pallet"><a class="doc-anchor" href="#contracts-pallet">§</a>Contracts Pallet</h2>
+<p>The Contracts module provides functionality for the runtime to deploy and execute WebAssembly
+smart-contracts.</p>
+<ul>
+<li><a href="pallet/trait.Config.html" title="trait pallet_contracts::pallet::Config"><code>Config</code></a></li>
+<li><a href="pallet/enum.Call.html" title="enum pallet_contracts::pallet::Call"><code>Call</code></a></li>
+</ul>
+<h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3>
+<p>This module extends accounts based on the [<code>frame_support::traits::fungible</code>] traits to have
+smart-contract functionality. It can be used with other modules that implement accounts based on
+the [<code>frame_support::traits::fungible</code>] traits. These “smart-contract accounts” have the ability
+to instantiate smart-contracts and make calls to other contract and non-contract accounts.</p>
+<p>The smart-contract code is stored once, and later retrievable via its hash.
+This means that multiple smart-contracts can be instantiated from the same hash, without
+replicating the code each time.</p>
+<p>When a smart-contract is called, its associated code is retrieved via the code hash and gets
+executed. This call can alter the storage entries of the smart-contract account, instantiate new
+smart-contracts, or call other smart-contracts.</p>
+<p>Finally, when an account is reaped, its associated code and storage of the smart-contract
+account will also be deleted.</p>
+<h4 id="weight"><a class="doc-anchor" href="#weight">§</a>Weight</h4>
+<p>Senders must specify a [<code>Weight</code>] limit with every call, as all instructions invoked by the
+smart-contract require weight. Unused weight is refunded after the call, regardless of the
+execution outcome.</p>
+<p>If the weight limit is reached, then all calls and state changes (including balance transfers)
+are only reverted at the current call’s contract level. For example, if contract A calls B and B
+runs out of gas mid-call, then all of B’s calls are reverted. Assuming correct error handling by
+contract A, A’s other calls and state changes still persist.</p>
+<h4 id="notable-scenarios"><a class="doc-anchor" href="#notable-scenarios">§</a>Notable Scenarios</h4>
+<p>Contract call failures are not always cascading. When failures occur in a sub-call, they do not
+“bubble up”, and the call will only revert at the specific contract level. For example, if
+contract A calls contract B, and B fails, A can decide how to handle that failure, either
+proceeding or reverting A’s changes.</p>
+<h3 id="interface"><a class="doc-anchor" href="#interface">§</a>Interface</h3><h4 id="dispatchable-functions"><a class="doc-anchor" href="#dispatchable-functions">§</a>Dispatchable functions</h4>
+<ul>
+<li><a href="pallet/struct.Pallet.html#method.instantiate_with_code" title="associated function pallet_contracts::pallet::Pallet::instantiate_with_code"><code>Pallet::instantiate_with_code</code></a> - Deploys a new contract from the supplied Wasm binary,
+optionally transferring
+some balance. This instantiates a new smart contract account with the supplied code and
+calls its constructor to initialize the contract.</li>
+<li><a href="pallet/struct.Pallet.html#method.instantiate" title="associated function pallet_contracts::pallet::Pallet::instantiate"><code>Pallet::instantiate</code></a> - The same as <code>instantiate_with_code</code> but instead of uploading new
+code an existing <code>code_hash</code> is supplied.</li>
+<li><a href="pallet/struct.Pallet.html#method.call" title="associated function pallet_contracts::pallet::Pallet::call"><code>Pallet::call</code></a> - Makes a call to an account, optionally transferring some balance.</li>
+<li><a href="pallet/struct.Pallet.html#method.upload_code" title="associated function pallet_contracts::pallet::Pallet::upload_code"><code>Pallet::upload_code</code></a> - Uploads new code without instantiating a contract from it.</li>
+<li><a href="pallet/struct.Pallet.html#method.remove_code" title="associated function pallet_contracts::pallet::Pallet::remove_code"><code>Pallet::remove_code</code></a> - Removes the stored code and refunds the deposit to its owner. Only
+allowed to code owner.</li>
+<li><a href="pallet/struct.Pallet.html#method.set_code" title="associated function pallet_contracts::pallet::Pallet::set_code"><code>Pallet::set_code</code></a> - Changes the code of an existing contract. Only allowed to <code>Root</code>
+origin.</li>
+<li><a href="pallet/struct.Pallet.html#method.migrate" title="associated function pallet_contracts::pallet::Pallet::migrate"><code>Pallet::migrate</code></a> - Runs migration steps of current multi-block migration in priority,
+before [<code>Hooks::on_idle</code>][frame_support::traits::Hooks::on_idle] activates.</li>
+</ul>
+<h3 id="usage"><a class="doc-anchor" href="#usage">§</a>Usage</h3>
+<ul>
+<li><a href="https://use.ink"><code>ink!</code></a> is language that enables writing Wasm-based smart contracts in plain
+Rust.</li>
+</ul>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.Tracing"><code>pub use crate::debug::<a class="trait" href="debug/trait.Tracing.html" title="trait pallet_contracts::debug::Tracing">Tracing</a>;</code></div></li><li><div class="item-name" id="reexport.MigrateSequence"><code>pub use crate::migration::<a class="trait" href="migration/trait.MigrateSequence.html" title="trait pallet_contracts::migration::MigrateSequence">MigrateSequence</a>;</code></div></li><li><div class="item-name" id="reexport.Migration"><code>pub use crate::migration::<a class="struct" href="migration/struct.Migration.html" title="struct pallet_contracts::migration::Migration">Migration</a>;</code></div></li><li><div class="item-name" id="reexport.NoopMigration"><code>pub use crate::migration::NoopMigration;</code></div></li><li><div class="item-name" id="reexport.WeightInfo"><code>pub use weights::<a class="trait" href="weights/trait.WeightInfo.html" title="trait pallet_contracts::weights::WeightInfo">WeightInfo</a>;</code></div></li><li><div class="item-name"><code>pub use crate::<a class="mod" href="pallet/index.html" title="mod pallet_contracts::pallet">pallet</a>::*;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="api_doc/index.html" title="mod pallet_contracts::api_doc">api_doc</a></div><div class="desc docblock-short">Documentation of the API (host functions) available to contracts.</div></li><li><div class="item-name"><a class="mod" href="chain_extension/index.html" title="mod pallet_contracts::chain_extension">chain_extension</a></div><div class="desc docblock-short">A mechanism for runtime authors to augment the functionality of contracts.</div></li><li><div class="item-name"><a class="mod" href="debug/index.html" title="mod pallet_contracts::debug">debug</a></div></li><li><div class="item-name"><a class="mod" href="migration/index.html" title="mod pallet_contracts::migration">migration</a></div><div class="desc docblock-short">Multi-block Migration framework for pallet-contracts.</div></li><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod pallet_contracts::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="test_utils/index.html" title="mod pallet_contracts::test_utils">test_utils</a></div><div class="desc docblock-short">Shared utilities for testing contracts.
+This is not part of the tests module because it is made public for other crates to use.</div></li><li><div class="item-name"><a class="mod" href="weights/index.html" title="mod pallet_contracts::weights">weights</a></div><div class="desc docblock-short">Autogenerated weights for <code>pallet_contracts</code></div></li></ul><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.build_runtime.html" title="macro pallet_contracts::build_runtime">build_runtime</a></div></li><li><div class="item-name"><a class="macro" href="macro.memory.html" title="macro pallet_contracts::memory">memory</a></div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.ApiVersion.html" title="struct pallet_contracts::ApiVersion">ApiVersion</a></div><div class="desc docblock-short">Defines the current version of the HostFn APIs.
+This is used to communicate the available APIs in pallet-contracts.</div></li><li><div class="item-name"><a class="struct" href="struct.CodeUploadReturnValue.html" title="struct pallet_contracts::CodeUploadReturnValue">CodeUploadReturnValue</a></div><div class="desc docblock-short">The result of successfully uploading a contract.</div></li><li><div class="item-name"><a class="struct" href="struct.ContractResult.html" title="struct pallet_contracts::ContractResult">ContractResult</a></div><div class="desc docblock-short">Result type of a <code>bare_call</code> or <code>bare_instantiate</code> call as well as <code>ContractsApi::call</code> and
+<code>ContractsApi::instantiate</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.DefaultAddressGenerator.html" title="struct pallet_contracts::DefaultAddressGenerator">DefaultAddressGenerator</a></div><div class="desc docblock-short">Default address generator.</div></li><li><div class="item-name"><a class="struct" href="struct.Environment.html" title="struct pallet_contracts::Environment">Environment</a></div><div class="desc docblock-short">List of all runtime configurable types that are used in the communication between
+<code>pallet-contracts</code> and any given contract.</div></li><li><div class="item-name"><a class="struct" href="struct.EnvironmentType.html" title="struct pallet_contracts::EnvironmentType">EnvironmentType</a></div><div class="desc docblock-short">Wrapper around <code>PhantomData</code> to prevent it being filtered by <code>scale-info</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.ExecReturnValue.html" title="struct pallet_contracts::ExecReturnValue">ExecReturnValue</a></div><div class="desc docblock-short">Output of a contract call or instantiation which ran to completion.</div></li><li><div class="item-name"><a class="struct" href="struct.Frame.html" title="struct pallet_contracts::Frame">Frame</a></div><div class="desc docblock-short">Represents one entry in the call stack.</div></li><li><div class="item-name"><a class="struct" href="struct.InstantiateReturnValue.html" title="struct pallet_contracts::InstantiateReturnValue">InstantiateReturnValue</a></div><div class="desc docblock-short">The result of a successful contract instantiation.</div></li><li><div class="item-name"><a class="struct" href="struct.InstructionWeights.html" title="struct pallet_contracts::InstructionWeights">InstructionWeights</a></div><div class="desc docblock-short">Gas metering of Wasm executed instructions is being done on the engine side.
+This struct holds a reference value used to gas units scaling between host and engine.</div></li><li><div class="item-name"><a class="struct" href="struct.Limits.html" title="struct pallet_contracts::Limits">Limits</a></div><div class="desc docblock-short">Describes the upper limits on various metrics.</div></li><li><div class="item-name"><a class="struct" href="struct.Schedule.html" title="struct pallet_contracts::Schedule">Schedule</a></div><div class="desc docblock-short">Definition of the cost schedule and other parameterizations for the wasm vm.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.Code.html" title="enum pallet_contracts::Code">Code</a></div><div class="desc docblock-short">Reference to an existing code hash or a new wasm module.</div></li><li><div class="item-name"><a class="enum" href="enum.CollectEvents.html" title="enum pallet_contracts::CollectEvents">CollectEvents</a></div><div class="desc docblock-short">Determines whether events should be collected during execution.</div></li><li><div class="item-name"><a class="enum" href="enum.ContractAccessError.html" title="enum pallet_contracts::ContractAccessError">ContractAccessError</a></div><div class="desc docblock-short">The possible errors that can happen querying the storage of a contract.</div></li><li><div class="item-name"><a class="enum" href="enum.DebugInfo.html" title="enum pallet_contracts::DebugInfo">DebugInfo</a></div><div class="desc docblock-short">Determines whether debug messages will be collected.</div></li><li><div class="item-name"><a class="enum" href="enum.Determinism.html" title="enum pallet_contracts::Determinism">Determinism</a></div><div class="desc docblock-short">Defines the required determinism level of a wasm blob when either running or uploading code.</div></li><li><div class="item-name"><a class="enum" href="enum.Origin.html" title="enum pallet_contracts::Origin">Origin</a></div><div class="desc docblock-short">The type of origins supported by the contracts pallet.</div></li><li><div class="item-name"><a class="enum" href="enum.StorageDeposit.html" title="enum pallet_contracts::StorageDeposit">StorageDeposit</a></div><div class="desc docblock-short">The amount of balance that was either charged or refunded in order to pay for storage.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.AddressGenerator.html" title="trait pallet_contracts::AddressGenerator">AddressGenerator</a></div><div class="desc docblock-short">Provides the contract address generation method.</div></li><li><div class="item-name"><a class="trait" href="trait.ContractsApi.html" title="trait pallet_contracts::ContractsApi">ContractsApi</a></div><div class="desc docblock-short">The API used to dry-run contract interactions.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.CodeUploadResult.html" title="type pallet_contracts::CodeUploadResult">CodeUploadResult</a></div><div class="desc docblock-short">Result type of a <code>bare_code_upload</code> call.</div></li><li><div class="item-name"><a class="type" href="type.ContractExecResult.html" title="type pallet_contracts::ContractExecResult">ContractExecResult</a></div><div class="desc docblock-short">Result type of a <code>bare_call</code> call as well as <code>ContractsApi::call</code>.</div></li><li><div class="item-name"><a class="type" href="type.ContractInstantiateResult.html" title="type pallet_contracts::ContractInstantiateResult">ContractInstantiateResult</a></div><div class="desc docblock-short">Result type of a <code>bare_instantiate</code> call as well as <code>ContractsApi::instantiate</code>.</div></li><li><div class="item-name"><a class="type" href="type.GetStorageResult.html" title="type pallet_contracts::GetStorageResult">GetStorageResult</a></div><div class="desc docblock-short">Result type of a <code>get_storage</code> call.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

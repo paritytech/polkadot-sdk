@@ -1,0 +1,797 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Defines all the host apis available to contracts."><title>HostFn in pallet_revive_uapi - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_revive_uapi" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-4c98445ec4002617.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_revive_uapi/index.html">pallet_revive_uapi</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">HostFn</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.address">address</a></li><li><a href="#tymethod.balance">balance</a></li><li><a href="#tymethod.block_number">block_number</a></li><li><a href="#tymethod.call">call</a></li><li><a href="#tymethod.call_chain_extension">call_chain_extension</a></li><li><a href="#tymethod.call_runtime">call_runtime</a></li><li><a href="#tymethod.caller">caller</a></li><li><a href="#tymethod.caller_is_origin">caller_is_origin</a></li><li><a href="#tymethod.caller_is_root">caller_is_root</a></li><li><a href="#tymethod.clear_storage">clear_storage</a></li><li><a href="#tymethod.code_hash">code_hash</a></li><li><a href="#tymethod.contains_storage">contains_storage</a></li><li><a href="#tymethod.debug_message">debug_message</a></li><li><a href="#tymethod.delegate_call">delegate_call</a></li><li><a href="#tymethod.deposit_event">deposit_event</a></li><li><a href="#tymethod.ecdsa_recover">ecdsa_recover</a></li><li><a href="#tymethod.ecdsa_to_eth_address">ecdsa_to_eth_address</a></li><li><a href="#tymethod.get_storage">get_storage</a></li><li><a href="#tymethod.hash_blake2_128">hash_blake2_128</a></li><li><a href="#tymethod.hash_blake2_256">hash_blake2_256</a></li><li><a href="#tymethod.hash_keccak_256">hash_keccak_256</a></li><li><a href="#tymethod.hash_sha2_256">hash_sha2_256</a></li><li><a href="#tymethod.input">input</a></li><li><a href="#tymethod.instantiate">instantiate</a></li><li><a href="#tymethod.is_contract">is_contract</a></li><li><a href="#tymethod.lock_delegate_dependency">lock_delegate_dependency</a></li><li><a href="#tymethod.minimum_balance">minimum_balance</a></li><li><a href="#tymethod.now">now</a></li><li><a href="#tymethod.own_code_hash">own_code_hash</a></li><li><a href="#tymethod.return_value">return_value</a></li><li><a href="#tymethod.set_code_hash">set_code_hash</a></li><li><a href="#tymethod.set_storage">set_storage</a></li><li><a href="#tymethod.sr25519_verify">sr25519_verify</a></li><li><a href="#tymethod.take_storage">take_storage</a></li><li><a href="#tymethod.terminate">terminate</a></li><li><a href="#tymethod.transfer">transfer</a></li><li><a href="#tymethod.unlock_delegate_dependency">unlock_delegate_dependency</a></li><li><a href="#tymethod.value_transferred">value_transferred</a></li><li><a href="#tymethod.weight_left">weight_left</a></li><li><a href="#tymethod.weight_to_fee">weight_to_fee</a></li><li><a href="#tymethod.xcm_execute">xcm_execute</a></li><li><a href="#tymethod.xcm_send">xcm_send</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In crate pallet_revive_uapi</a></h2></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../pallet_revive_uapi/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">pallet_revive_uapi</a>::<wbr><a class="trait" href="#">HostFn</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/pallet_revive_uapi/host.rs.html#40-638">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait HostFn: Sealed {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 42 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.address" class="fn">address</a>(output: &amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]);
+<span class="item-spacer"></span>    fn <a href="#tymethod.lock_delegate_dependency" class="fn">lock_delegate_dependency</a>(code_hash: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]);
+<span class="item-spacer"></span>    fn <a href="#tymethod.balance" class="fn">balance</a>(output: &amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]);
+<span class="item-spacer"></span>    fn <a href="#tymethod.block_number" class="fn">block_number</a>(output: &amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]);
+<span class="item-spacer"></span>    fn <a href="#tymethod.call" class="fn">call</a>(
+        flags: <a class="struct" href="struct.CallFlags.html" title="struct pallet_revive_uapi::CallFlags">CallFlags</a>,
+        callee: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+        ref_time_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
+        proof_size_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
+        deposit: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]&gt;,
+        value: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+        input_data: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+        output: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]&gt;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.call_chain_extension" class="fn">call_chain_extension</a>(
+        func_id: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+        input: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+        output: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]&gt;
+    ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.call_runtime" class="fn">call_runtime</a>(call: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.caller" class="fn">caller</a>(output: &amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]);
+<span class="item-spacer"></span>    fn <a href="#tymethod.caller_is_origin" class="fn">caller_is_origin</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.caller_is_root" class="fn">caller_is_root</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.clear_storage" class="fn">clear_storage</a>(flags: <a class="struct" href="struct.StorageFlags.html" title="struct pallet_revive_uapi::StorageFlags">StorageFlags</a>, key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.code_hash" class="fn">code_hash</a>(
+        account_id: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+        output: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.contains_storage" class="fn">contains_storage</a>(flags: <a class="struct" href="struct.StorageFlags.html" title="struct pallet_revive_uapi::StorageFlags">StorageFlags</a>, key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.debug_message" class="fn">debug_message</a>(str: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.delegate_call" class="fn">delegate_call</a>(
+        flags: <a class="struct" href="struct.CallFlags.html" title="struct pallet_revive_uapi::CallFlags">CallFlags</a>,
+        code_hash: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+        input_data: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+        output: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]&gt;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.deposit_event" class="fn">deposit_event</a>(topics: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>], data: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]);
+<span class="item-spacer"></span>    fn <a href="#tymethod.ecdsa_recover" class="fn">ecdsa_recover</a>(
+        signature: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">65</a>],
+        message_hash: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">32</a>],
+        output: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">33</a>]
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.ecdsa_to_eth_address" class="fn">ecdsa_to_eth_address</a>(
+        pubkey: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">33</a>],
+        output: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">20</a>]
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.weight_left" class="fn">weight_left</a>(output: &amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]);
+<span class="item-spacer"></span>    fn <a href="#tymethod.get_storage" class="fn">get_storage</a>(
+        flags: <a class="struct" href="struct.StorageFlags.html" title="struct pallet_revive_uapi::StorageFlags">StorageFlags</a>,
+        key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+        output: &amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.hash_sha2_256" class="fn">hash_sha2_256</a>(input: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>], output: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">32</a>]);
+<span class="item-spacer"></span>    fn <a href="#tymethod.hash_keccak_256" class="fn">hash_keccak_256</a>(input: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>], output: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">32</a>]);
+<span class="item-spacer"></span>    fn <a href="#tymethod.hash_blake2_256" class="fn">hash_blake2_256</a>(input: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>], output: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">32</a>]);
+<span class="item-spacer"></span>    fn <a href="#tymethod.hash_blake2_128" class="fn">hash_blake2_128</a>(input: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>], output: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">16</a>]);
+<span class="item-spacer"></span>    fn <a href="#tymethod.input" class="fn">input</a>(output: &amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]);
+<span class="item-spacer"></span>    fn <a href="#tymethod.instantiate" class="fn">instantiate</a>(
+        code_hash: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+        ref_time_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
+        proof_size_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
+        deposit: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]&gt;,
+        value: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+        input: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+        address: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]&gt;,
+        output: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]&gt;,
+        salt: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.is_contract" class="fn">is_contract</a>(account_id: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.minimum_balance" class="fn">minimum_balance</a>(output: &amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]);
+<span class="item-spacer"></span>    fn <a href="#tymethod.own_code_hash" class="fn">own_code_hash</a>(output: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]);
+<span class="item-spacer"></span>    fn <a href="#tymethod.now" class="fn">now</a>(output: &amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]);
+<span class="item-spacer"></span>    fn <a href="#tymethod.unlock_delegate_dependency" class="fn">unlock_delegate_dependency</a>(code_hash: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]);
+<span class="item-spacer"></span>    fn <a href="#tymethod.return_value" class="fn">return_value</a>(flags: <a class="struct" href="struct.ReturnFlags.html" title="struct pallet_revive_uapi::ReturnFlags">ReturnFlags</a>, return_value: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.never.html">!</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_code_hash" class="fn">set_code_hash</a>(code_hash: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.set_storage" class="fn">set_storage</a>(flags: <a class="struct" href="struct.StorageFlags.html" title="struct pallet_revive_uapi::StorageFlags">StorageFlags</a>, key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>], value: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.sr25519_verify" class="fn">sr25519_verify</a>(
+        signature: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">64</a>],
+        message: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+        pub_key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">32</a>]
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.take_storage" class="fn">take_storage</a>(
+        flags: <a class="struct" href="struct.StorageFlags.html" title="struct pallet_revive_uapi::StorageFlags">StorageFlags</a>,
+        key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+        output: &amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.transfer" class="fn">transfer</a>(account_id: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>], value: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.terminate" class="fn">terminate</a>(beneficiary: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.never.html">!</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.value_transferred" class="fn">value_transferred</a>(output: &amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]);
+<span class="item-spacer"></span>    fn <a href="#tymethod.weight_to_fee" class="fn">weight_to_fee</a>(
+        ref_time_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
+        proof_size_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
+        output: &amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]
+    );
+<span class="item-spacer"></span>    fn <a href="#tymethod.xcm_execute" class="fn">xcm_execute</a>(msg: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.xcm_send" class="fn">xcm_send</a>(
+        dest: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+        msg: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+        output: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">32</a>]
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;;
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Defines all the host apis available to contracts.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.address" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#48">source</a><h4 class="code-header">fn <a href="#tymethod.address" class="fn">address</a>(output: &amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>])</h4></section></summary><div class="docblock"><p>Stores the address of the current contract into the supplied buffer.</p>
+<p>If the available space in <code>output</code> is less than the size of the value a trap is triggered.</p>
+<h5 id="parameters"><a class="doc-anchor" href="#parameters">§</a>Parameters</h5>
+<ul>
+<li><code>output</code>: A reference to the output data buffer to write the address.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.lock_delegate_dependency" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#59">source</a><h4 class="code-header">fn <a href="#tymethod.lock_delegate_dependency" class="fn">lock_delegate_dependency</a>(code_hash: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>])</h4></section></summary><div class="docblock"><p>Lock a new delegate dependency to the contract.</p>
+<p>Traps if the maximum number of delegate_dependencies is reached or if
+the delegate dependency already exists.</p>
+<h5 id="parameters-1"><a class="doc-anchor" href="#parameters-1">§</a>Parameters</h5>
+<ul>
+<li><code>code_hash</code>: The code hash of the dependency. Should be decodable as an <code>T::Hash</code>. Traps
+otherwise.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.balance" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#68">source</a><h4 class="code-header">fn <a href="#tymethod.balance" class="fn">balance</a>(output: &amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>])</h4></section></summary><div class="docblock"><p>Stores the <em>free</em> balance of the current account into the supplied buffer.</p>
+<p>If the available space in <code>output</code> is less than the size of the value a trap is triggered.</p>
+<h5 id="parameters-2"><a class="doc-anchor" href="#parameters-2">§</a>Parameters</h5>
+<ul>
+<li><code>output</code>: A reference to the output data buffer to write the balance.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.block_number" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#77">source</a><h4 class="code-header">fn <a href="#tymethod.block_number" class="fn">block_number</a>(output: &amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>])</h4></section></summary><div class="docblock"><p>Stores the current block number of the current contract into the supplied buffer.</p>
+<p>If the available space in <code>output</code> is less than the size of the value a trap is triggered.</p>
+<h5 id="parameters-3"><a class="doc-anchor" href="#parameters-3">§</a>Parameters</h5>
+<ul>
+<li><code>output</code>: A reference to the output data buffer to write the block number.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.call" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#106-115">source</a><h4 class="code-header">fn <a href="#tymethod.call" class="fn">call</a>(
+    flags: <a class="struct" href="struct.CallFlags.html" title="struct pallet_revive_uapi::CallFlags">CallFlags</a>,
+    callee: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+    ref_time_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
+    proof_size_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
+    deposit: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]&gt;,
+    value: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+    input_data: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+    output: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]&gt;
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;</h4></section></summary><div class="docblock"><p>Call (possibly transferring some amount of funds) into the specified account.</p>
+<h5 id="parameters-4"><a class="doc-anchor" href="#parameters-4">§</a>Parameters</h5>
+<ul>
+<li><code>flags</code>: See <a href="struct.CallFlags.html" title="struct pallet_revive_uapi::CallFlags"><code>CallFlags</code></a> for a documentation of the supported flags.</li>
+<li><code>callee</code>: The address of the callee. Should be decodable as an <code>T::AccountId</code>. Traps
+otherwise.</li>
+<li><code>ref_time_limit</code>: how much <em>ref_time</em> Weight to devote to the execution.</li>
+<li><code>proof_size_limit</code>: how much <em>proof_size</em> Weight to devote to the execution.</li>
+<li><code>deposit</code>: The storage deposit limit for instantiation. Should be decodable as a
+<code>Option&lt;T::Balance&gt;</code>. Traps otherwise. Passing <code>None</code> means setting no specific limit for
+the call, which implies storage usage up to the limit of the parent call.</li>
+<li><code>value</code>: The value to transfer into the contract. Should be decodable as a <code>T::Balance</code>.
+Traps otherwise.</li>
+<li><code>input</code>: The input data buffer used to call the contract.</li>
+<li><code>output</code>: A reference to the output data buffer to write the call output buffer. If <code>None</code>
+is provided then the output buffer is not copied.</li>
+</ul>
+<h5 id="errors"><a class="doc-anchor" href="#errors">§</a>Errors</h5>
+<p>An error means that the call wasn’t successful output buffer is returned unless
+stated otherwise.</p>
+<ul>
+<li><a href="enum.ReturnErrorCode.html#variant.CalleeReverted" title="variant pallet_revive_uapi::ReturnErrorCode::CalleeReverted">CalleeReverted</a>: Output buffer is returned.</li>
+<li><a href="enum.ReturnErrorCode.html#variant.CalleeTrapped" title="variant pallet_revive_uapi::ReturnErrorCode::CalleeTrapped">CalleeTrapped</a></li>
+<li><a href="enum.ReturnErrorCode.html#variant.TransferFailed" title="variant pallet_revive_uapi::ReturnErrorCode::TransferFailed">TransferFailed</a></li>
+<li><a href="enum.ReturnErrorCode.html#variant.NotCallable" title="variant pallet_revive_uapi::ReturnErrorCode::NotCallable">NotCallable</a></li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.call_chain_extension" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#139">source</a><h4 class="code-header">fn <a href="#tymethod.call_chain_extension" class="fn">call_chain_extension</a>(
+    func_id: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>,
+    input: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+    output: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]&gt;
+) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a></h4></section></summary><div class="docblock"><p>Call into the chain extension provided by the chain if any.</p>
+<p>Handling of the input values is up to the specific chain extension and so is the
+return value. The extension can decide to use the inputs as primitive inputs or as
+in/out arguments by interpreting them as pointers. Any caller of this function
+must therefore coordinate with the chain that it targets.</p>
+<h5 id="note"><a class="doc-anchor" href="#note">§</a>Note</h5>
+<p>If no chain extension exists the contract will trap with the <code>NoChainExtension</code>
+module error.</p>
+<h5 id="parameters-5"><a class="doc-anchor" href="#parameters-5">§</a>Parameters</h5>
+<ul>
+<li><code>func_id</code>: The function id of the chain extension.</li>
+<li><code>input</code>: The input data buffer.</li>
+<li><code>output</code>: A reference to the output data buffer to write the call output buffer. If <code>None</code>
+is provided then the output buffer is not copied.</li>
+</ul>
+<h5 id="return"><a class="doc-anchor" href="#return">§</a>Return</h5>
+<p>The chain extension returned value, if executed successfully.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.call_runtime" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#165">source</a><h4 class="code-header">fn <a href="#tymethod.call_runtime" class="fn">call_runtime</a>(call: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;</h4></section></summary><div class="docblock"><p>Call some dispatchable of the runtime.</p>
+<h5 id="parameters-6"><a class="doc-anchor" href="#parameters-6">§</a>Parameters</h5>
+<ul>
+<li><code>call</code>: The call data.</li>
+</ul>
+<h5 id="return-1"><a class="doc-anchor" href="#return-1">§</a>Return</h5>
+<p>Returns <code>Error::Success</code> when the dispatchable was successfully executed and
+returned <code>Ok</code>. When the dispatchable was executed but returned an error
+<code>Error::CallRuntimeFailed</code> is returned. The full error is not
+provided because it is not guaranteed to be stable.</p>
+<h5 id="comparison-with-chainextension"><a class="doc-anchor" href="#comparison-with-chainextension">§</a>Comparison with <code>ChainExtension</code></h5>
+<p>Just as a chain extension this API allows the runtime to extend the functionality
+of contracts. While making use of this function is generally easier it cannot be
+used in all cases. Consider writing a chain extension if you need to do perform
+one of the following tasks:</p>
+<ul>
+<li>Return data.</li>
+<li>Provide functionality <strong>exclusively</strong> to contracts.</li>
+<li>Provide custom weights.</li>
+<li>Avoid the need to keep the <code>Call</code> data structure stable.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.caller" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#181">source</a><h4 class="code-header">fn <a href="#tymethod.caller" class="fn">caller</a>(output: &amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>])</h4></section></summary><div class="docblock"><p>Stores the address of the caller into the supplied buffer.</p>
+<p>If the available space in <code>output</code> is less than the size of the value a trap is triggered.</p>
+<p>If this is a top-level call (i.e. initiated by an extrinsic) the origin address of the
+extrinsic will be returned. Otherwise, if this call is initiated by another contract then
+the address of the contract will be returned.</p>
+<p>If there is no address associated with the caller (e.g. because the caller is root) then
+it traps with <code>BadOrigin</code>.</p>
+<h5 id="parameters-7"><a class="doc-anchor" href="#parameters-7">§</a>Parameters</h5>
+<ul>
+<li><code>output</code>: A reference to the output data buffer to write the caller address.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.caller_is_origin" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#193">source</a><h4 class="code-header">fn <a href="#tymethod.caller_is_origin" class="fn">caller_is_origin</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Checks whether the caller of the current contract is the origin of the whole call stack.</p>
+<p>Prefer this over <a href="trait.HostFn.html#tymethod.is_contract"><code>is_contract()</code></a> when checking whether your contract
+is being called by a contract or a plain account. The reason is that it performs better
+since it does not need to do any storage lookups.</p>
+<h5 id="return-2"><a class="doc-anchor" href="#return-2">§</a>Return</h5>
+<p>A return value of <code>true</code> indicates that this contract is being called by a plain account
+and <code>false</code> indicates that the caller is another contract.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.caller_is_root" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#202">source</a><h4 class="code-header">fn <a href="#tymethod.caller_is_root" class="fn">caller_is_root</a>() -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a></h4></section></summary><div class="docblock"><p>Checks whether the caller of the current contract is root.</p>
+<p>Note that only the origin of the call stack can be root. Hence this function returning
+<code>true</code> implies that the contract is being called by the origin.</p>
+<p>A return value of <code>true</code> indicates that this contract is being called by a root origin,
+and <code>false</code> indicates that the caller is a signed origin.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.clear_storage" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#213">source</a><h4 class="code-header">fn <a href="#tymethod.clear_storage" class="fn">clear_storage</a>(flags: <a class="struct" href="struct.StorageFlags.html" title="struct pallet_revive_uapi::StorageFlags">StorageFlags</a>, key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>Clear the value at the given key in the contract storage.</p>
+<h5 id="parameters-8"><a class="doc-anchor" href="#parameters-8">§</a>Parameters</h5>
+<ul>
+<li><code>key</code>: The storage key.</li>
+</ul>
+<h5 id="return-3"><a class="doc-anchor" href="#return-3">§</a>Return</h5>
+<p>Returns the size of the pre-existing value at the specified key if any.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.code_hash" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#227">source</a><h4 class="code-header">fn <a href="#tymethod.code_hash" class="fn">code_hash</a>(
+    account_id: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+    output: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;</h4></section></summary><div class="docblock"><p>Retrieve the code hash for a specified contract address.</p>
+<h5 id="parameters-9"><a class="doc-anchor" href="#parameters-9">§</a>Parameters</h5>
+<ul>
+<li><code>account_id</code>: The address of the contract.Should be decodable as an <code>T::AccountId</code>. Traps
+otherwise.</li>
+<li><code>output</code>: A reference to the output data buffer to write the code hash.</li>
+</ul>
+<h5 id="errors-1"><a class="doc-anchor" href="#errors-1">§</a>Errors</h5>
+<ul>
+<li><a href="enum.ReturnErrorCode.html#variant.CodeNotFound" title="variant pallet_revive_uapi::ReturnErrorCode::CodeNotFound">CodeNotFound</a></li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.contains_storage" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#239">source</a><h4 class="code-header">fn <a href="#tymethod.contains_storage" class="fn">contains_storage</a>(flags: <a class="struct" href="struct.StorageFlags.html" title="struct pallet_revive_uapi::StorageFlags">StorageFlags</a>, key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>Checks whether there is a value stored under the given key.</p>
+<p>The key length must not exceed the maximum defined by the contracts module parameter.</p>
+<h5 id="parameters-10"><a class="doc-anchor" href="#parameters-10">§</a>Parameters</h5>
+<ul>
+<li><code>key</code>: The storage key.</li>
+</ul>
+<h5 id="return-4"><a class="doc-anchor" href="#return-4">§</a>Return</h5>
+<p>Returns the size of the pre-existing value at the specified key if any.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.debug_message" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#258">source</a><h4 class="code-header">fn <a href="#tymethod.debug_message" class="fn">debug_message</a>(str: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;</h4></section></summary><div class="docblock"><p>Emit a custom debug message.</p>
+<p>No newlines are added to the supplied message.
+Specifying invalid UTF-8 just drops the message with no trap.</p>
+<p>This is a no-op if debug message recording is disabled which is always the case
+when the code is executing on-chain. The message is interpreted as UTF-8 and
+appended to the debug buffer which is then supplied to the calling RPC client.</p>
+<h5 id="note-1"><a class="doc-anchor" href="#note-1">§</a>Note</h5>
+<p>Even though no action is taken when debug message recording is disabled there is still
+a non trivial overhead (and weight cost) associated with calling this function. Contract
+languages should remove calls to this function (either at runtime or compile time) when
+not being executed as an RPC. For example, they could allow users to disable logging
+through compile time flags (cargo features) for on-chain deployment. Additionally, the
+return value of this function can be cached in order to prevent further calls at runtime.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.delegate_call" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#282-287">source</a><h4 class="code-header">fn <a href="#tymethod.delegate_call" class="fn">delegate_call</a>(
+    flags: <a class="struct" href="struct.CallFlags.html" title="struct pallet_revive_uapi::CallFlags">CallFlags</a>,
+    code_hash: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+    input_data: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+    output: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]&gt;
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;</h4></section></summary><div class="docblock"><p>Execute code in the context (storage, caller, value) of the current contract.</p>
+<p>Reentrancy protection is always disabled since the callee is allowed
+to modify the callers storage. This makes going through a reentrancy attack
+unnecessary for the callee when it wants to exploit the caller.</p>
+<h5 id="parameters-11"><a class="doc-anchor" href="#parameters-11">§</a>Parameters</h5>
+<ul>
+<li><code>flags</code>: See <a href="struct.CallFlags.html" title="struct pallet_revive_uapi::CallFlags"><code>CallFlags</code></a> for a documentation of the supported flags.</li>
+<li><code>code_hash</code>: The hash of the code to be executed.</li>
+<li><code>input</code>: The input data buffer used to call the contract.</li>
+<li><code>output</code>: A reference to the output data buffer to write the call output buffer. If <code>None</code>
+is provided then the output buffer is not copied.</li>
+</ul>
+<h5 id="errors-2"><a class="doc-anchor" href="#errors-2">§</a>Errors</h5>
+<p>An error means that the call wasn’t successful and no output buffer is returned unless
+stated otherwise.</p>
+<ul>
+<li><a href="enum.ReturnErrorCode.html#variant.CalleeReverted" title="variant pallet_revive_uapi::ReturnErrorCode::CalleeReverted">CalleeReverted</a>: Output buffer is returned.</li>
+<li><a href="enum.ReturnErrorCode.html#variant.CalleeTrapped" title="variant pallet_revive_uapi::ReturnErrorCode::CalleeTrapped">CalleeTrapped</a></li>
+<li><a href="enum.ReturnErrorCode.html#variant.CodeNotFound" title="variant pallet_revive_uapi::ReturnErrorCode::CodeNotFound">CodeNotFound</a></li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.deposit_event" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#297">source</a><h4 class="code-header">fn <a href="#tymethod.deposit_event" class="fn">deposit_event</a>(topics: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>], data: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>])</h4></section></summary><div class="docblock"><p>Deposit a contract event with the data buffer and optional list of topics. There is a limit
+on the maximum number of topics specified by <code>event_topics</code>.</p>
+<p>There should not be any duplicates in <code>topics</code>.</p>
+<h5 id="parameters-12"><a class="doc-anchor" href="#parameters-12">§</a>Parameters</h5>
+<ul>
+<li><code>topics</code>: The topics list encoded as <code>Vec&lt;T::Hash&gt;</code>. It can’t contain duplicates.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.ecdsa_recover" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#313-317">source</a><h4 class="code-header">fn <a href="#tymethod.ecdsa_recover" class="fn">ecdsa_recover</a>(
+    signature: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">65</a>],
+    message_hash: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">32</a>],
+    output: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">33</a>]
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;</h4></section></summary><div class="docblock"><p>Recovers the ECDSA public key from the given message hash and signature.</p>
+<p>Writes the public key into the given output buffer.
+Assumes the secp256k1 curve.</p>
+<h5 id="parameters-13"><a class="doc-anchor" href="#parameters-13">§</a>Parameters</h5>
+<ul>
+<li><code>signature</code>: The signature bytes.</li>
+<li><code>message_hash</code>: The message hash bytes.</li>
+<li><code>output</code>: A reference to the output data buffer to write the public key.</li>
+</ul>
+<h5 id="errors-3"><a class="doc-anchor" href="#errors-3">§</a>Errors</h5>
+<ul>
+<li><a href="enum.ReturnErrorCode.html#variant.EcdsaRecoveryFailed" title="variant pallet_revive_uapi::ReturnErrorCode::EcdsaRecoveryFailed">EcdsaRecoveryFailed</a></li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.ecdsa_to_eth_address" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#330">source</a><h4 class="code-header">fn <a href="#tymethod.ecdsa_to_eth_address" class="fn">ecdsa_to_eth_address</a>(
+    pubkey: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">33</a>],
+    output: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">20</a>]
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;</h4></section></summary><div class="docblock"><p>Calculates Ethereum address from the ECDSA compressed public key and stores
+it into the supplied buffer.</p>
+<h5 id="parameters-14"><a class="doc-anchor" href="#parameters-14">§</a>Parameters</h5>
+<ul>
+<li><code>pubkey</code>: The public key bytes.</li>
+<li><code>output</code>: A reference to the output data buffer to write the address.</li>
+</ul>
+<h5 id="errors-4"><a class="doc-anchor" href="#errors-4">§</a>Errors</h5>
+<ul>
+<li><a href="enum.ReturnErrorCode.html#variant.EcdsaRecoveryFailed" title="variant pallet_revive_uapi::ReturnErrorCode::EcdsaRecoveryFailed">EcdsaRecoveryFailed</a></li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.weight_left" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#340">source</a><h4 class="code-header">fn <a href="#tymethod.weight_left" class="fn">weight_left</a>(output: &amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>])</h4></section></summary><div class="docblock"><p>Stores the amount of weight left into the supplied buffer.
+The data is encoded as Weight.</p>
+<p>If the available space in <code>output</code> is less than the size of the value a trap is triggered.</p>
+<h5 id="parameters-15"><a class="doc-anchor" href="#parameters-15">§</a>Parameters</h5>
+<ul>
+<li><code>output</code>: A reference to the output data buffer to write the weight left.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.get_storage" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#353">source</a><h4 class="code-header">fn <a href="#tymethod.get_storage" class="fn">get_storage</a>(
+    flags: <a class="struct" href="struct.StorageFlags.html" title="struct pallet_revive_uapi::StorageFlags">StorageFlags</a>,
+    key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+    output: &amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;</h4></section></summary><div class="docblock"><p>Retrieve the value under the given key from storage.</p>
+<p>The key length must not exceed the maximum defined by the contracts module parameter.</p>
+<h5 id="parameters-16"><a class="doc-anchor" href="#parameters-16">§</a>Parameters</h5>
+<ul>
+<li><code>key</code>: The storage key.</li>
+<li><code>output</code>: A reference to the output data buffer to write the storage entry.</li>
+</ul>
+<h5 id="errors-5"><a class="doc-anchor" href="#errors-5">§</a>Errors</h5>
+<p><a href="enum.ReturnErrorCode.html#variant.KeyNotFound" title="variant pallet_revive_uapi::ReturnErrorCode::KeyNotFound">KeyNotFound</a></p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.hash_sha2_256" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#355">source</a><h4 class="code-header">fn <a href="#tymethod.hash_sha2_256" class="fn">hash_sha2_256</a>(input: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>], output: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">32</a>])</h4></section></summary><div class="docblock"><p>Computes the sha2_256 32-bit hash on the given input buffer.</p>
+<h5 id="notes"><a class="doc-anchor" href="#notes">§</a>Notes</h5>
+<ul>
+<li>The <code>input</code> and <code>output</code> buffer may overlap.</li>
+<li>The output buffer is expected to hold at least 32 bits.</li>
+<li>It is the callers responsibility to provide an output buffer that is large enough to hold the expected amount of bytes returned by the hash function.</li>
+</ul>
+<h5 id="parameters-17"><a class="doc-anchor" href="#parameters-17">§</a>Parameters</h5>
+<ul>
+<li><code>input</code>: The input data buffer.</li>
+<li><code>output</code>: The output buffer to write the hash result to.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.hash_keccak_256" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#356">source</a><h4 class="code-header">fn <a href="#tymethod.hash_keccak_256" class="fn">hash_keccak_256</a>(input: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>], output: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">32</a>])</h4></section></summary><div class="docblock"><p>Computes the keccak_256 32-bit hash on the given input buffer.</p>
+<h5 id="notes-1"><a class="doc-anchor" href="#notes-1">§</a>Notes</h5>
+<ul>
+<li>The <code>input</code> and <code>output</code> buffer may overlap.</li>
+<li>The output buffer is expected to hold at least 32 bits.</li>
+<li>It is the callers responsibility to provide an output buffer that is large enough to hold the expected amount of bytes returned by the hash function.</li>
+</ul>
+<h5 id="parameters-18"><a class="doc-anchor" href="#parameters-18">§</a>Parameters</h5>
+<ul>
+<li><code>input</code>: The input data buffer.</li>
+<li><code>output</code>: The output buffer to write the hash result to.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.hash_blake2_256" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#357">source</a><h4 class="code-header">fn <a href="#tymethod.hash_blake2_256" class="fn">hash_blake2_256</a>(input: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>], output: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">32</a>])</h4></section></summary><div class="docblock"><p>Computes the blake2_256 32-bit hash on the given input buffer.</p>
+<h5 id="notes-2"><a class="doc-anchor" href="#notes-2">§</a>Notes</h5>
+<ul>
+<li>The <code>input</code> and <code>output</code> buffer may overlap.</li>
+<li>The output buffer is expected to hold at least 32 bits.</li>
+<li>It is the callers responsibility to provide an output buffer that is large enough to hold the expected amount of bytes returned by the hash function.</li>
+</ul>
+<h5 id="parameters-19"><a class="doc-anchor" href="#parameters-19">§</a>Parameters</h5>
+<ul>
+<li><code>input</code>: The input data buffer.</li>
+<li><code>output</code>: The output buffer to write the hash result to.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.hash_blake2_128" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#358">source</a><h4 class="code-header">fn <a href="#tymethod.hash_blake2_128" class="fn">hash_blake2_128</a>(input: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>], output: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">16</a>])</h4></section></summary><div class="docblock"><p>Computes the blake2_128 16-bit hash on the given input buffer.</p>
+<h5 id="notes-3"><a class="doc-anchor" href="#notes-3">§</a>Notes</h5>
+<ul>
+<li>The <code>input</code> and <code>output</code> buffer may overlap.</li>
+<li>The output buffer is expected to hold at least 16 bits.</li>
+<li>It is the callers responsibility to provide an output buffer that is large enough to hold the expected amount of bytes returned by the hash function.</li>
+</ul>
+<h5 id="parameters-20"><a class="doc-anchor" href="#parameters-20">§</a>Parameters</h5>
+<ul>
+<li><code>input</code>: The input data buffer.</li>
+<li><code>output</code>: The output buffer to write the hash result to.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.input" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#371">source</a><h4 class="code-header">fn <a href="#tymethod.input" class="fn">input</a>(output: &amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>])</h4></section></summary><div class="docblock"><p>Stores the input passed by the caller into the supplied buffer.</p>
+<h5 id="note-2"><a class="doc-anchor" href="#note-2">§</a>Note</h5>
+<p>This function traps if:</p>
+<ul>
+<li>the input is larger than the available space.</li>
+<li>the input was previously forwarded by a <a href="trait.HostFn.html#tymethod.call"><code>call()</code></a>.</li>
+</ul>
+<h5 id="parameters-21"><a class="doc-anchor" href="#parameters-21">§</a>Parameters</h5>
+<ul>
+<li><code>output</code>: A reference to the output data buffer to write the input data.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.instantiate" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#407-417">source</a><h4 class="code-header">fn <a href="#tymethod.instantiate" class="fn">instantiate</a>(
+    code_hash: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+    ref_time_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
+    proof_size_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
+    deposit: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]&gt;,
+    value: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+    input: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+    address: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]&gt;,
+    output: <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]&gt;,
+    salt: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;</h4></section></summary><div class="docblock"><p>Instantiate a contract with the specified code hash.</p>
+<p>This function creates an account and executes the constructor defined in the code specified
+by the code hash.</p>
+<h5 id="parameters-22"><a class="doc-anchor" href="#parameters-22">§</a>Parameters</h5>
+<ul>
+<li><code>code_hash</code>: The hash of the code to be instantiated.</li>
+<li><code>ref_time_limit</code>: how much <em>ref_time</em> Weight to devote to the execution.</li>
+<li><code>proof_size_limit</code>: how much <em>proof_size</em> Weight to devote to the execution.</li>
+<li><code>deposit</code>: The storage deposit limit for instantiation. Should be decodable as a
+<code>Option&lt;T::Balance&gt;</code>. Traps otherwise. Passing <code>None</code> means setting no specific limit for
+the call, which implies storage usage up to the limit of the parent call.</li>
+<li><code>value</code>: The value to transfer into the contract. Should be decodable as a <code>T::Balance</code>.
+Traps otherwise.</li>
+<li><code>input</code>: The input data buffer.</li>
+<li><code>address</code>: A reference to the address buffer to write the address of the contract. If
+<code>None</code> is provided then the output buffer is not copied.</li>
+<li><code>output</code>: A reference to the return value buffer to write the constructor output buffer.
+If <code>None</code> is provided then the output buffer is not copied.</li>
+<li><code>salt</code>: The salt bytes to use for this instantiation.</li>
+</ul>
+<h5 id="errors-6"><a class="doc-anchor" href="#errors-6">§</a>Errors</h5>
+<p>Please consult the <a href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a> enum declaration for more
+information on those errors. Here we only note things specific to this function.</p>
+<p>An error means that the account wasn’t created and no address or output buffer
+is returned unless stated otherwise.</p>
+<ul>
+<li><a href="enum.ReturnErrorCode.html#variant.CalleeReverted" title="variant pallet_revive_uapi::ReturnErrorCode::CalleeReverted">CalleeReverted</a>: Output buffer is returned.</li>
+<li><a href="enum.ReturnErrorCode.html#variant.CalleeTrapped" title="variant pallet_revive_uapi::ReturnErrorCode::CalleeTrapped">CalleeTrapped</a></li>
+<li><a href="enum.ReturnErrorCode.html#variant.TransferFailed" title="variant pallet_revive_uapi::ReturnErrorCode::TransferFailed">TransferFailed</a></li>
+<li><a href="enum.ReturnErrorCode.html#variant.CodeNotFound" title="variant pallet_revive_uapi::ReturnErrorCode::CodeNotFound">CodeNotFound</a></li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.is_contract" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#429">source</a><h4 class="code-header">fn <a href="#tymethod.is_contract" class="fn">is_contract</a>(account_id: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Checks whether a specified address belongs to a contract.</p>
+<h5 id="parameters-23"><a class="doc-anchor" href="#parameters-23">§</a>Parameters</h5>
+<ul>
+<li><code>account_id</code>: The address to check. Should be decodable as an <code>T::AccountId</code>. Traps
+otherwise.</li>
+</ul>
+<h5 id="return-5"><a class="doc-anchor" href="#return-5">§</a>Return</h5>
+<p>Returns <code>true</code> if the address belongs to a contract.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.minimum_balance" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#439">source</a><h4 class="code-header">fn <a href="#tymethod.minimum_balance" class="fn">minimum_balance</a>(output: &amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>])</h4></section></summary><div class="docblock"><p>Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
+The data is encoded as <code>T::Balance</code>.</p>
+<p>If the available space in <code>output</code> is less than the size of the value a trap is triggered.</p>
+<h5 id="parameters-24"><a class="doc-anchor" href="#parameters-24">§</a>Parameters</h5>
+<ul>
+<li><code>output</code>: A reference to the output data buffer to write the minimum balance.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.own_code_hash" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#446">source</a><h4 class="code-header">fn <a href="#tymethod.own_code_hash" class="fn">own_code_hash</a>(output: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>])</h4></section></summary><div class="docblock"><p>Retrieve the code hash of the currently executing contract.</p>
+<h5 id="parameters-25"><a class="doc-anchor" href="#parameters-25">§</a>Parameters</h5>
+<ul>
+<li><code>output</code>: A reference to the output data buffer to write the code hash.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.now" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#455">source</a><h4 class="code-header">fn <a href="#tymethod.now" class="fn">now</a>(output: &amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>])</h4></section></summary><div class="docblock"><p>Load the latest block timestamp into the supplied buffer</p>
+<p>If the available space in <code>output</code> is less than the size of the value a trap is triggered.</p>
+<h5 id="parameters-26"><a class="doc-anchor" href="#parameters-26">§</a>Parameters</h5>
+<ul>
+<li><code>output</code>: A reference to the output data buffer to write the timestamp.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.unlock_delegate_dependency" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#465">source</a><h4 class="code-header">fn <a href="#tymethod.unlock_delegate_dependency" class="fn">unlock_delegate_dependency</a>(code_hash: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>])</h4></section></summary><div class="docblock"><p>Removes the delegate dependency from the contract.</p>
+<p>Traps if the delegate dependency does not exist.</p>
+<h5 id="parameters-27"><a class="doc-anchor" href="#parameters-27">§</a>Parameters</h5>
+<ul>
+<li><code>code_hash</code>: The code hash of the dependency. Should be decodable as an <code>T::Hash</code>. Traps
+otherwise.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.return_value" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#483">source</a><h4 class="code-header">fn <a href="#tymethod.return_value" class="fn">return_value</a>(flags: <a class="struct" href="struct.ReturnFlags.html" title="struct pallet_revive_uapi::ReturnFlags">ReturnFlags</a>, return_value: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.never.html">!</a></h4></section></summary><div class="docblock"><p>Cease contract execution and save a data buffer as a result of the execution.</p>
+<p>This function never returns as it stops execution of the caller.
+This is the only way to return a data buffer to the caller. Returning from
+execution without calling this function is equivalent to calling:</p>
+<div class="example-wrap"><pre class="language-nocompile"><code>return_value(ReturnFlags::empty(), &amp;[])
+</code></pre></div>
+<p>Using an unnamed non empty <code>ReturnFlags</code> triggers a trap.</p>
+<h5 id="parameters-28"><a class="doc-anchor" href="#parameters-28">§</a>Parameters</h5>
+<ul>
+<li><code>flags</code>: Flag used to signal special return conditions to the supervisor. See
+<a href="struct.ReturnFlags.html" title="struct pallet_revive_uapi::ReturnFlags"><code>ReturnFlags</code></a> for a documentation of the supported flags.</li>
+<li><code>return_value</code>: The return value buffer.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.set_code_hash" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#513">source</a><h4 class="code-header">fn <a href="#tymethod.set_code_hash" class="fn">set_code_hash</a>(code_hash: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;</h4></section></summary><div class="docblock"><p>Replace the contract code at the specified address with new code.</p>
+<h5 id="note-3"><a class="doc-anchor" href="#note-3">§</a>Note</h5>
+<p>There are a couple of important considerations which must be taken into account when
+using this API:</p>
+<ol>
+<li>
+<p>The storage at the code address will remain untouched. This means that contract
+developers must ensure that the storage layout of the new code is compatible with that of
+the old code.</p>
+</li>
+<li>
+<p>Contracts using this API can’t be assumed as having deterministic addresses. Said another
+way, when using this API you lose the guarantee that an address always identifies a specific
+code hash.</p>
+</li>
+<li>
+<p>If a contract calls into itself after changing its code the new call would use
+the new code. However, if the original caller panics after returning from the sub call it
+would revert the changes made by <a href="trait.HostFn.html#tymethod.set_code_hash"><code>set_code_hash()</code></a> and the next
+caller would use the old code.</p>
+</li>
+</ol>
+<h5 id="parameters-29"><a class="doc-anchor" href="#parameters-29">§</a>Parameters</h5>
+<ul>
+<li><code>code_hash</code>: The hash of the new code. Should be decodable as an <code>T::Hash</code>. Traps
+otherwise.</li>
+</ul>
+<h5 id="errors-7"><a class="doc-anchor" href="#errors-7">§</a>Errors</h5>
+<ul>
+<li><a href="enum.ReturnErrorCode.html#variant.CodeNotFound" title="variant pallet_revive_uapi::ReturnErrorCode::CodeNotFound">CodeNotFound</a></li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.set_storage" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#528">source</a><h4 class="code-header">fn <a href="#tymethod.set_storage" class="fn">set_storage</a>(flags: <a class="struct" href="struct.StorageFlags.html" title="struct pallet_revive_uapi::StorageFlags">StorageFlags</a>, key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>], value: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>Set the value at the given key in the contract storage.</p>
+<p>The key and value lengths must not exceed the maximums defined by the contracts module
+parameters.</p>
+<h5 id="parameters-30"><a class="doc-anchor" href="#parameters-30">§</a>Parameters</h5>
+<ul>
+<li><code>key</code>: The storage key.</li>
+<li><code>encoded_value</code>: The storage value.</li>
+</ul>
+<h5 id="return-6"><a class="doc-anchor" href="#return-6">§</a>Return</h5>
+<p>Returns the size of the pre-existing value at the specified key if any.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.sr25519_verify" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#540">source</a><h4 class="code-header">fn <a href="#tymethod.sr25519_verify" class="fn">sr25519_verify</a>(
+    signature: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">64</a>],
+    message: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+    pub_key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">32</a>]
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;</h4></section></summary><div class="docblock"><p>Verify a sr25519 signature</p>
+<h5 id="parameters-31"><a class="doc-anchor" href="#parameters-31">§</a>Parameters</h5>
+<ul>
+<li><code>signature</code>: The signature bytes.</li>
+<li><code>message</code>: The message bytes.</li>
+</ul>
+<h5 id="errors-8"><a class="doc-anchor" href="#errors-8">§</a>Errors</h5>
+<ul>
+<li><a href="enum.ReturnErrorCode.html#variant.Sr25519VerifyFailed" title="variant pallet_revive_uapi::ReturnErrorCode::Sr25519VerifyFailed">Sr25519VerifyFailed</a></li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.take_storage" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#551">source</a><h4 class="code-header">fn <a href="#tymethod.take_storage" class="fn">take_storage</a>(
+    flags: <a class="struct" href="struct.StorageFlags.html" title="struct pallet_revive_uapi::StorageFlags">StorageFlags</a>,
+    key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+    output: &amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;</h4></section></summary><div class="docblock"><p>Retrieve and remove the value under the given key from storage.</p>
+<h5 id="parameters-32"><a class="doc-anchor" href="#parameters-32">§</a>Parameters</h5>
+<ul>
+<li><code>key</code>: The storage key.</li>
+<li><code>output</code>: A reference to the output data buffer to write the storage entry.</li>
+</ul>
+<h5 id="errors-9"><a class="doc-anchor" href="#errors-9">§</a>Errors</h5>
+<p><a href="enum.ReturnErrorCode.html#variant.KeyNotFound" title="variant pallet_revive_uapi::ReturnErrorCode::KeyNotFound">KeyNotFound</a></p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.transfer" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#564">source</a><h4 class="code-header">fn <a href="#tymethod.transfer" class="fn">transfer</a>(account_id: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>], value: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;</h4></section></summary><div class="docblock"><p>Transfer some amount of funds into the specified account.</p>
+<h5 id="parameters-33"><a class="doc-anchor" href="#parameters-33">§</a>Parameters</h5>
+<ul>
+<li><code>account_id</code>: The address of the account to transfer funds to. Should be decodable as an
+<code>T::AccountId</code>. Traps otherwise.</li>
+<li><code>value</code>: The value to transfer. Should be decodable as a <code>T::Balance</code>. Traps otherwise.</li>
+</ul>
+<h5 id="errors-10"><a class="doc-anchor" href="#errors-10">§</a>Errors</h5>
+<ul>
+<li><a href="enum.ReturnErrorCode.html#variant.TransferFailed" title="variant pallet_revive_uapi::ReturnErrorCode::TransferFailed">TransferFailed</a></li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.terminate" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#582">source</a><h4 class="code-header">fn <a href="#tymethod.terminate" class="fn">terminate</a>(beneficiary: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.never.html">!</a></h4></section></summary><div class="docblock"><p>Remove the calling account and transfer remaining <strong>free</strong> balance.</p>
+<p>This function never returns. Either the termination was successful and the
+execution of the destroyed contract is halted. Or it failed during the termination
+which is considered fatal and results in a trap + rollback.</p>
+<h5 id="parameters-34"><a class="doc-anchor" href="#parameters-34">§</a>Parameters</h5>
+<ul>
+<li><code>beneficiary</code>: The address of the beneficiary account, Should be decodable as an
+<code>T::AccountId</code>.</li>
+</ul>
+<h5 id="traps"><a class="doc-anchor" href="#traps">§</a>Traps</h5>
+<ul>
+<li>The contract is live i.e is already on the call stack.</li>
+<li>Failed to send the balance to the beneficiary.</li>
+<li>The deletion queue is full.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.value_transferred" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#592">source</a><h4 class="code-header">fn <a href="#tymethod.value_transferred" class="fn">value_transferred</a>(output: &amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>])</h4></section></summary><div class="docblock"><p>Stores the value transferred along with this call/instantiate into the supplied buffer.
+The data is encoded as <code>T::Balance</code>.</p>
+<p>If the available space in <code>output</code> is less than the size of the value a trap is triggered.</p>
+<h5 id="parameters-35"><a class="doc-anchor" href="#parameters-35">§</a>Parameters</h5>
+<ul>
+<li><code>output</code>: A reference to the output data buffer to write the transferred value.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.weight_to_fee" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#604">source</a><h4 class="code-header">fn <a href="#tymethod.weight_to_fee" class="fn">weight_to_fee</a>(
+    ref_time_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
+    proof_size_limit: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u64.html">u64</a>,
+    output: &amp;mut &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]
+)</h4></section></summary><div class="docblock"><p>Stores the price for the specified amount of gas into the supplied buffer.
+The data is encoded as <code>T::Balance</code>.</p>
+<p>If the available space in <code>output</code> is less than the size of the value a trap is triggered.</p>
+<h5 id="parameters-36"><a class="doc-anchor" href="#parameters-36">§</a>Parameters</h5>
+<ul>
+<li><code>ref_time_limit</code>: The <em>ref_time</em> Weight limit to query the price for.</li>
+<li><code>proof_size_limit</code>: The <em>proof_size</em> Weight limit to query the price for.</li>
+<li><code>output</code>: A reference to the output data buffer to write the price.</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.xcm_execute" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#620">source</a><h4 class="code-header">fn <a href="#tymethod.xcm_execute" class="fn">xcm_execute</a>(msg: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;</h4></section></summary><div class="docblock"><p>Execute an XCM program locally, using the contract’s address as the origin.
+This is equivalent to dispatching <code>pallet_xcm::execute</code> through call_runtime, except that
+the function is called directly instead of being dispatched.</p>
+<h5 id="parameters-37"><a class="doc-anchor" href="#parameters-37">§</a>Parameters</h5>
+<ul>
+<li><code>msg</code>: The message, should be decodable as a <a href="https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedXcm.html">VersionedXcm</a>,
+traps otherwise.</li>
+<li><code>output</code>: A reference to the output data buffer to write the <a href="https://paritytech.github.io/polkadot-sdk/master/staging_xcm/v3/enum.Outcome.html">Outcome</a></li>
+</ul>
+<h5 id="return-7"><a class="doc-anchor" href="#return-7">§</a>Return</h5>
+<p>Returns <code>Error::Success</code> when the XCM execution attempt is successful. When the XCM
+execution fails, <code>ReturnCode::XcmExecutionFailed</code> is returned</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.xcm_send" class="method"><a class="src rightside" href="../src/pallet_revive_uapi/host.rs.html#637">source</a><h4 class="code-header">fn <a href="#tymethod.xcm_send" class="fn">xcm_send</a>(
+    dest: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+    msg: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>],
+    output: &amp;mut [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">32</a>]
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ReturnErrorCode.html" title="enum pallet_revive_uapi::ReturnErrorCode">ReturnErrorCode</a>&gt;</h4></section></summary><div class="docblock"><p>Send an XCM program from the contract to the specified destination.
+This is equivalent to dispatching <code>pallet_xcm::send</code> through <code>call_runtime</code>, except that
+the function is called directly instead of being dispatched.</p>
+<h5 id="parameters-38"><a class="doc-anchor" href="#parameters-38">§</a>Parameters</h5>
+<ul>
+<li><code>dest</code>: The XCM destination, should be decodable as <a href="https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedLocation.html">VersionedLocation</a>,
+traps otherwise.</li>
+<li><code>msg</code>: The message, should be decodable as a <a href="https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedXcm.html">VersionedXcm</a>,
+traps otherwise.</li>
+</ul>
+<h5 id="return-8"><a class="doc-anchor" href="#return-8">§</a>Return</h5>
+<p>Returns <code>ReturnCode::Success</code> when the message was successfully sent. When the XCM
+execution fails, <code>ReturnErrorCode::XcmSendFailed</code> is returned.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.77.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/pallet_revive_uapi/host/trait.HostFn.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["bounties","bounty_approvals","bounty_count","bounty_descriptions"]};

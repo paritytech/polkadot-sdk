@@ -1,0 +1,60 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Functionality for sandboxing workers by restricting their capabilities by blocking certain syscalls with seccomp."><title>polkadot_node_core_pvf_common::worker::security::seccomp - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="polkadot_node_core_pvf_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../../polkadot_node_core_pvf_common/index.html"><img class="rust-logo" src="../../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../../../../polkadot_node_core_pvf_common/index.html"><img class="rust-logo" src="../../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2 class="location"><a href="#">Module seccomp</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#enums">Enums</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Definitions</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../../index.html">polkadot_node_core_pvf_common</a>::<wbr><a href="../../index.html">worker</a>::<wbr><a href="../index.html">security</a>::<wbr><a class="mod" href="#">seccomp</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../../src/polkadot_node_core_pvf_common/worker/security/seccomp.rs.html#17-201">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Functionality for sandboxing workers by restricting their capabilities by blocking certain
+syscalls with seccomp.</p>
+<p>For security we block the following:</p>
+<ul>
+<li>
+<p>creation of new sockets - these are unneeded in PVF jobs, and we can safely block them without
+affecting consensus.</p>
+</li>
+<li>
+<p><code>io_uring</code> - allows for networking and needs to be blocked. See below for a discussion on the
+safety of doing this.</p>
+</li>
+</ul>
+<h2 id="safety-of-blocking-io_uring"><a href="#safety-of-blocking-io_uring">Safety of blocking io_uring</a></h2>
+<p><code>io_uring</code> is just a way of issuing system calls in an async manner, and there is nothing
+stopping wasmtime from legitimately using it. Fortunately, at the moment it does not. Generally,
+not many applications use <code>io_uring</code> in production yet, because of the numerous kernel CVEs
+discovered. It’s still under a lot of development. Android outright banned <code>io_uring</code> for these
+reasons.</p>
+<p>Considering <code>io_uring</code>’s status discussed above, and that it very likely would get detected
+either by our <a href="https://github.com/paritytech/polkadot-sdk/pull/1663">static analysis</a> or by
+testing, we think it is safe to block it.</p>
+<h3 id="consensus-analysis"><a href="#consensus-analysis">Consensus analysis</a></h3>
+<p>If execution hits an edge case code path unique to a given machine, it’s already taken a
+non-deterministic branch anyway. After all, we just care that the majority of validators reach
+the same result and preserve consensus. So worst-case scenario, there’s a dispute, and we can
+always admit fault and refund the wrong validator. On the other hand, if all validators take the
+code path that results in a seccomp violation, then they would all vote against the current
+candidate, which is also fine. The violation would get logged (in big scary letters) and
+hopefully some validator reports it to us.</p>
+<p>Actually, a worst-worse-case scenario is that 50% of validators vote against, so that there is
+no consensus. But so many things would have to go wrong for that to happen:</p>
+<ol>
+<li>
+<p>An update to <code>wasmtime</code> is introduced that uses io_uring (unlikely as io_uring is mainly for
+IO-heavy applications)</p>
+</li>
+<li>
+<p>The new syscall is not detected by our static analysis</p>
+</li>
+<li>
+<p>It is never triggered in any of our tests</p>
+</li>
+<li>
+<p>It then gets triggered on some super edge case in production on 50% of validators causing a
+stall (bad but very unlikely)</p>
+</li>
+<li>
+<p>Or, it triggers on only a few validators causing a dispute (more likely but not as bad)</p>
+</li>
+</ol>
+<p>Considering how many things would have to go wrong here, we believe it’s safe to block
+<code>io_uring</code>.</p>
+<h2 id="action-on-syscall-violations"><a href="#action-on-syscall-violations">Action on syscall violations</a></h2>
+<p>On syscall violations we currently only log, to make sure this works correctly before enforcing.</p>
+<p>In the future, when a forbidden syscall is attempted we immediately kill the process in order to
+prevent the attacker from doing anything else. In execution, this will result in voting against
+the candidate.</p>
+</div></details><h2 id="enums" class="small-section-header"><a href="#enums">Enums</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.Error.html" title="enum polkadot_node_core_pvf_common::worker::security::seccomp::Error">Error</a></div></li></ul><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.check_is_fully_enabled.html" title="fn polkadot_node_core_pvf_common::worker::security::seccomp::check_is_fully_enabled">check_is_fully_enabled</a></div><div class="desc docblock-short">Runs a check for seccomp and returns a single bool indicating whether seccomp with our rules is
+fully enabled on the current Linux environment.</div></li><li><div class="item-name"><a class="fn" href="fn.enable_for_worker.html" title="fn polkadot_node_core_pvf_common::worker::security::seccomp::enable_for_worker">enable_for_worker</a></div><div class="desc docblock-short">Try to enable seccomp for the given kind of worker.</div></li><li><div class="item-name"><a class="fn" href="fn.try_restrict.html" title="fn polkadot_node_core_pvf_common::worker::security::seccomp::try_restrict">try_restrict</a></div><div class="desc docblock-short">Applies a <code>seccomp</code> filter to disable networking for the PVF threads.</div></li></ul><h2 id="types" class="small-section-header"><a href="#types">Type Definitions</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Result.html" title="type polkadot_node_core_pvf_common::worker::security::seccomp::Result">Result</a></div></li></ul></section></div></main></body></html>

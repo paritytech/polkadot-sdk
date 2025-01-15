@@ -1,0 +1,189 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A trait implemented by an offence report."><title>Offence in sp_staking::offence - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_staking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../sp_staking/index.html">sp_staking</a><span class="version">26.0.0</span></h2></div><h2 class="location"><a href="#">Offence</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.TimeSlot">TimeSlot</a></li></ul><h3><a href="#required-associated-consts">Required Associated Constants</a></h3><ul class="block"><li><a href="#associatedconstant.ID">ID</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.offenders">offenders</a></li><li><a href="#tymethod.session_index">session_index</a></li><li><a href="#tymethod.slash_fraction">slash_fraction</a></li><li><a href="#tymethod.time_slot">time_slot</a></li><li><a href="#tymethod.validator_set_count">validator_set_count</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In sp_staking::offence</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">sp_staking</a>::<wbr><a href="index.html">offence</a>::<wbr><a class="trait" href="#">Offence</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/sp_staking/offence.rs.html#45-87">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Offence&lt;Offender&gt; {
+    type <a href="#associatedtype.TimeSlot" class="associatedtype">TimeSlot</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + Codec + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a>;
+
+    const <a href="#associatedconstant.ID" class="constant">ID</a>: <a class="type" href="type.Kind.html" title="type sp_staking::offence::Kind">Kind</a>;
+
+    // Required methods
+    fn <a href="#tymethod.offenders" class="fn">offenders</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;Offender&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.session_index" class="fn">session_index</a>(&amp;self) -&gt; <a class="type" href="../type.SessionIndex.html" title="type sp_staking::SessionIndex">SessionIndex</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.validator_set_count" class="fn">validator_set_count</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.time_slot" class="fn">time_slot</a>(&amp;self) -&gt; Self::<a class="associatedtype" href="trait.Offence.html#associatedtype.TimeSlot" title="type sp_staking::offence::Offence::TimeSlot">TimeSlot</a>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.slash_fraction" class="fn">slash_fraction</a>(&amp;self, offenders_count: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Perbill;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A trait implemented by an offence report.</p>
+<p>This trait assumes that the offence is legitimate and was validated already.</p>
+<p>Examples of offences include: a BABE equivocation or a GRANDPA unjustified vote.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.TimeSlot" class="method"><a class="src rightside" href="../../src/sp_staking/offence.rs.html#53">source</a><h4 class="code-header">type <a href="#associatedtype.TimeSlot" class="associatedtype">TimeSlot</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + Codec + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a></h4></section></summary><div class="docblock"><p>A type that represents a point in time on an abstract timescale.</p>
+<p>See <code>Offence::time_slot</code> for details. The only requirement is that such timescale could be
+represented by a single <code>u128</code> value.</p>
+</div></details></div><h2 id="required-associated-consts" class="section-header">Required Associated Constants<a href="#required-associated-consts" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedconstant.ID" class="method"><a class="src rightside" href="../../src/sp_staking/offence.rs.html#47">source</a><h4 class="code-header">const <a href="#associatedconstant.ID" class="constant">ID</a>: <a class="type" href="type.Kind.html" title="type sp_staking::offence::Kind">Kind</a></h4></section></summary><div class="docblock"><p>Identifier which is unique for this kind of an offence.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.offenders" class="method"><a class="src rightside" href="../../src/sp_staking/offence.rs.html#58">source</a><h4 class="code-header">fn <a href="#tymethod.offenders" class="fn">offenders</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;Offender&gt;</h4></section></summary><div class="docblock"><p>The list of all offenders involved in this incident.</p>
+<p>The list has no duplicates, so it is rather a set.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.session_index" class="method"><a class="src rightside" href="../../src/sp_staking/offence.rs.html#64">source</a><h4 class="code-header">fn <a href="#tymethod.session_index" class="fn">session_index</a>(&amp;self) -&gt; <a class="type" href="../type.SessionIndex.html" title="type sp_staking::SessionIndex">SessionIndex</a></h4></section></summary><div class="docblock"><p>The session index that is used for querying the validator set for the <code>slash_fraction</code>
+function.</p>
+<p>This is used for filtering historical sessions.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.validator_set_count" class="method"><a class="src rightside" href="../../src/sp_staking/offence.rs.html#67">source</a><h4 class="code-header">fn <a href="#tymethod.validator_set_count" class="fn">validator_set_count</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a></h4></section></summary><div class="docblock"><p>Return a validator set count at the time when the offence took place.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.time_slot" class="method"><a class="src rightside" href="../../src/sp_staking/offence.rs.html#80">source</a><h4 class="code-header">fn <a href="#tymethod.time_slot" class="fn">time_slot</a>(&amp;self) -&gt; Self::<a class="associatedtype" href="trait.Offence.html#associatedtype.TimeSlot" title="type sp_staking::offence::Offence::TimeSlot">TimeSlot</a></h4></section></summary><div class="docblock"><p>A point in time when this offence happened.</p>
+<p>This is used for looking up offences that happened at the “same time”.</p>
+<p>The timescale is abstract and doesn’t have to be the same across different implementations
+of this trait. The value doesn’t represent absolute timescale though since it is interpreted
+along with the <code>session_index</code>. Two offences are considered to happen at the same time iff
+both <code>session_index</code> and <code>time_slot</code> are equal.</p>
+<p>As an example, for GRANDPA timescale could be a round number and for BABE it could be a slot
+number. Note that for GRANDPA the round number is reset each epoch.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.slash_fraction" class="method"><a class="src rightside" href="../../src/sp_staking/offence.rs.html#86">source</a><h4 class="code-header">fn <a href="#tymethod.slash_fraction" class="fn">slash_fraction</a>(&amp;self, offenders_count: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) -&gt; Perbill</h4></section></summary><div class="docblock"><p>A slash fraction of the total exposure that should be slashed for this
+particular offence for the <code>offenders_count</code> that happened at a singular <code>TimeSlot</code>.</p>
+<p><code>offenders_count</code> - the count of unique offending authorities for this <code>TimeSlot</code>. It is &gt;0.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/sp_staking/offence/trait.Offence.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>
