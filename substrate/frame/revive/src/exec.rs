@@ -2618,7 +2618,6 @@ mod tests {
 				U256::zero(),
 				vec![0],
 				false,
-				None,
 			);
 			assert_matches!(result, Ok(_));
 		});
