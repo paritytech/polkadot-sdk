@@ -22,23 +22,11 @@
 use super::*;
 use crate as pallet_bounties;
 
-use frame_support::{
-	assert_noop, assert_ok, derive_impl, parameter_types,
-	traits::{
-		tokens::{PayFromAccount, UnityAssetBalanceConversion},
-		ConstU32, ConstU64, OnInitialize,
-	},
-	PalletId,
-};
-
-use sp_runtime::{
-	traits::{BadOrigin, IdentityLookup},
-	BuildStorage, Perbill, Storage,
-};
+use frame::testing_prelude::*;
 
 use super::Event as BountiesEvent;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
 // This function directly jumps to a block number, and calls `on_initialize`.
 fn go_to_block(n: u64) {
@@ -46,7 +34,7 @@ fn go_to_block(n: u64) {
 	<Treasury as OnInitialize<u64>>::on_initialize(n);
 }
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -955,7 +943,7 @@ fn test_migration_v4() {
 
 	s.top = data.into_iter().collect();
 
-	sp_io::TestExternalities::new(s).execute_with(|| {
+	TestExternalities::new(s).execute_with(|| {
 		use frame_support::traits::PalletInfo;
 		let old_pallet_name = <Test as frame_system::Config>::PalletInfo::name::<Bounties>()
 			.expect("Bounties is part of runtime, so it has a name; qed");

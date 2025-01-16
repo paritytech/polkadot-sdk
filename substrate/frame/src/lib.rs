@@ -202,13 +202,23 @@ pub mod prelude {
 
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
-	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
+	pub use frame_support::dispatch::{
+		DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo,
+	};
 	pub use frame_support::{
 		defensive, defensive_assert,
+		storage::{generator::StorageValue, StoragePrefixedMap, migration},
 		traits::{
-			Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll,
-			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+			tokens::{PayFromAccount, UnityAssetBalanceConversion},
+			Contains, Currency, EitherOf, EnsureOrigin, EstimateNextSessionRotation,
+			ExistenceRequirement::AllowDeath,
+			Get, GetStorageVersion, Imbalance, IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade,
+			OnUnbalanced, OneSessionHandler, PalletInfoAccess, RankedMembers,
+			RankedMembersSwapHandler, ReservableCurrency, StorageVersion,
+			STORAGE_VERSION_STORAGE_KEY_POSTFIX,
 		},
+		weights::Weight,
+		PalletId,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -231,9 +241,13 @@ pub mod prelude {
 
 	/// Runtime traits
 	#[doc(no_inline)]
-	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+	pub use sp_runtime::{
+		traits::{
+			AccountIdConversion, BadOrigin, BlockNumberProvider, Bounded, Convert, DispatchInfoOf,
+			Dispatchable, IdentityLookup, ReduceBy, ReplaceWithDefault, SaturatedConversion,
+			Saturating, StaticLookup, TrailingZeroInput, Zero,
+		},
+		BuildStorage, DispatchResult, Perbill, Permill, RuntimeDebug, Storage,
 	};
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
