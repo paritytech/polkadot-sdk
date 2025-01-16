@@ -179,12 +179,14 @@ where
 	let authorities = runtime_api.authorities(parent_hash).ok()?;
 	let author_pub = aura_internal::claim_slot::<P>(para_slot, &authorities, keystore).await?;
 
-	let Ok(Some(api_version)) =
-		runtime_api.api_version::<dyn AuraUnincludedSegmentApi<Block>>(parent_hash)
-	else {
-		return (parent_hash == included_block)
-			.then(|| SlotClaim::unchecked::<P>(author_pub, para_slot, timestamp));
-	};
+	if parent_hash == included_block {
+		return Some(SlotClaim::unchecked::<P>(author_pub, para_slot, timestamp));
+	}
+
+	let api_version = runtime_api
+		.api_version::<dyn AuraUnincludedSegmentApi<Block>>(parent_hash)
+		.ok()
+		.flatten()?;
 
 	let slot = if api_version > 1 { relay_slot } else { para_slot };
 
