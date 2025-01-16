@@ -423,6 +423,7 @@ pub fn construct_extrinsic(
 		frame_system::CheckNonce::<Runtime>::from(nonce),
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+		frame_system::WeightReclaim::<Runtime>::new(),
 	)
 		.into();
 	let raw_payload = SignedPayload::from_raw(
@@ -434,6 +435,7 @@ pub fn construct_extrinsic(
 			VERSION.transaction_version,
 			genesis_block,
 			current_block_hash,
+			(),
 			(),
 			(),
 			(),
@@ -451,8 +453,8 @@ pub fn construct_extrinsic(
 /// Construct a transfer extrinsic.
 pub fn construct_transfer_extrinsic(
 	client: &Client,
-	origin: sp_keyring::AccountKeyring,
-	dest: sp_keyring::AccountKeyring,
+	origin: sp_keyring::Sr25519Keyring,
+	dest: sp_keyring::Sr25519Keyring,
 	value: Balance,
 ) -> UncheckedExtrinsic {
 	let function =

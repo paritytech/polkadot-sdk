@@ -140,7 +140,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn set_asset_claimer() -> Result<(), BenchmarkError> {
+	fn asset_claimer() -> Result<(), BenchmarkError> {
 		let mut executor = new_executor::<T>(Default::default());
 		let (_, sender_location) = account_and_location::<T>(1);
 
@@ -407,6 +407,9 @@ mod benchmarks {
 		let mut executor = new_executor::<T>(origin.clone());
 		let instruction = Instruction::SubscribeVersion { query_id, max_response_weight };
 		let xcm = Xcm(vec![instruction]);
+
+		T::DeliveryHelper::ensure_successful_delivery(&origin, &origin, FeeReason::QueryPallet);
+
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -422,6 +425,9 @@ mod benchmarks {
 		use xcm_executor::traits::VersionChangeNotifier;
 		// First we need to subscribe to notifications.
 		let (origin, _) = T::transact_origin_and_runtime_call()?;
+
+		T::DeliveryHelper::ensure_successful_delivery(&origin, &origin, FeeReason::QueryPallet);
+
 		let query_id = Default::default();
 		let max_response_weight = Default::default();
 		<T::XcmConfig as xcm_executor::Config>::SubscriptionService::start(
