@@ -44,6 +44,7 @@ pub mod __private {
 	pub use alloc::{
 		boxed::Box,
 		rc::Rc,
+		string::String,
 		vec,
 		vec::{IntoIter, Vec},
 	};
@@ -502,9 +503,9 @@ macro_rules! runtime_print {
 	($($arg:tt)+) => {
 		{
 			use core::fmt::Write;
-			let mut w = $crate::__private::sp_std::Writer::default();
-			let _ = core::write!(&mut w, $($arg)+);
-			$crate::__private::sp_io::misc::print_utf8(&w.inner())
+			let mut msg = $crate::__private::String::default();
+			let _ = core::write!(&mut msg, $($arg)+);
+			$crate::__private::sp_io::misc::print_utf8(msg.as_bytes())
 		}
 	}
 }

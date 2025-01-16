@@ -19,20 +19,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
-use scale_info::TypeInfo;
-use sp_arithmetic::traits::{Saturating, Zero};
-use sp_runtime::{Perbill, RuntimeDebug};
-
-use frame_support::{
-	defensive,
-	dispatch::DispatchResultWithPostInfo,
-	ensure,
-	traits::{
-		tokens::{GetSalary, Pay, PaymentStatus},
-		RankedMembers, RankedMembersSwapHandler,
-	},
+use frame::{
+	prelude::*,
+	traits::tokens::{GetSalary, Pay, PaymentStatus},
 };
 
 #[cfg(test)]
@@ -85,12 +75,9 @@ pub struct ClaimantStatus<CycleIndex, Balance, Id> {
 	status: ClaimState<Balance, Id>,
 }
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{dispatch::Pays, pallet_prelude::*};
-	use frame_system::pallet_prelude::*;
-
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
@@ -460,15 +447,15 @@ impl<T: Config<I>, I: 'static>
 	) {
 		if who == new_who {
 			defensive!("Should not try to swap with self");
-			return
+			return;
 		}
 		if Claimant::<T, I>::contains_key(new_who) {
 			defensive!("Should not try to overwrite existing claimant");
-			return
+			return;
 		}
 
 		let Some(claimant) = Claimant::<T, I>::take(who) else {
-			frame_support::defensive!("Claimant should exist when swapping");
+			defensive!("Claimant should exist when swapping");
 			return;
 		};
 
