@@ -221,6 +221,8 @@ pub mod pallet {
 		FailedSpendOperation,
 		/// Still not in claiming period
 		NotClaimingPeriod,
+		/// Still not in funds unlock period
+		NotUnlockPeriod,
 		/// Funds locking failed
 		FundsReserveFailed,
 		/// An invalid result  was returned
@@ -237,7 +239,9 @@ pub mod pallet {
 		SubmittedProjectId,
 		/// Project batch already submitted
 		BatchAlreadySubmitted,
+		/// Requested vote data do not exist
 		NoVoteData,
+		/// Not enough funds to process the transaction
 		NotEnoughFunds,
 	}
 
@@ -287,9 +291,12 @@ pub mod pallet {
 
 			let current_round_index = round_index.saturating_sub(1);
 
-			let round_infos = VotingRounds::<T>::get(current_round_index).expect("InvalidResult");
+			let mut round_infos = VotingRounds::<T>::get(current_round_index).expect("InvalidResult");
+			
+
 			// Check no Project batch has been submitted yet
 			ensure!(!round_infos.batch_submitted, Error::<T>::BatchAlreadySubmitted);
+			round_infos.batch_submitted = true;
 			let round_ending_block = round_infos.round_ending_block;
 
 			// If current voting round is over, start a new one
@@ -324,10 +331,14 @@ pub mod pallet {
 					*value = Some(new_infos);
 				});
 			}
+			VotingRounds::<T>::mutate(current_round_index, |round|{
+				*round = Some(round_infos)
+			});
 
 			Self::deposit_event(Event::Projectslisted { when, projects_id });
 			Ok(())
 		}
+		
 
 		/// OPF Projects de-listing
 		///
@@ -470,6 +481,28 @@ pub mod pallet {
 			// for now we are using the temporary-constant reward.
 			let _ = Self::calculate_rewards(T::TemporaryRewards::get())?;
 
+			Ok(())
+		}
+
+		#[pallet::call_index(7)]
+		#[transactional]
+		pub fn release_voter_funds(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
+			let voter_id = ensure_signed(origin)?;
+			ensure!(Votes::<T>::contains_key(&project_id, &voter_id), Error::<T>::NoVoteData);
+			let infos = Votes::<T>::get(&project_id, &voter_id).ok_or( Error::<T>::NoVoteData)?;
+			let release_block = infos.funds_unlock_block;
+			let amount = infos.amount;
+
+			let now = T::BlockNumberProvider::current_block_number();
+			ensure!(now>=release_block, Error::<T>::NotUnlockPeriod);
+			T::NativeBalance::release(
+				&HoldReason::FundsReserved.into(),
+				&voter_id,
+				amount,
+				Precision::Exact,
+			)?;
+
+			Votes::<T>::remove(&project_id, &voter_id);
 			Ok(())
 		}
 	}

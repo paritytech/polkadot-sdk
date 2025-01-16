@@ -146,8 +146,8 @@ parameter_types! {
 	pub const PotId: PalletId = PalletId(*b"py/potid");
 	pub const MaxProjects:u32 = 50;
 	pub const TemporaryRewards: Balance = 100_000;
-	pub const VoteLockingPeriod:u32 = 10;
-	pub const VotingPeriod:u32 = 30;
+	pub const VoteLockingPeriod:u64 = 10;
+	pub const VotingPeriod:u64 = 30;
 }
 impl pallet_opf::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
