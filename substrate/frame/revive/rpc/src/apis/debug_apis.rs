@@ -14,7 +14,7 @@ pub trait DebugRpc {
 	#[method(name = "debug_traceBlockByNumber")]
 	async fn trace_block_by_number(
 		&self,
-		block: Option<BlockNumberOrTag>,
+		block: BlockNumberOrTag,
 		tracer_config: TracerConfig,
 	) -> RpcResult<Vec<TransactionTrace>>;
 
@@ -31,7 +31,7 @@ pub trait DebugRpc {
 		&self,
 		transaction_hash: H256,
 		tracer_config: TracerConfig,
-	) -> RpcResult<CallTrace<U256, Bytes>>;
+	) -> RpcResult<EthTraces>;
 }
 
 pub struct DebugRpcServerImpl {
@@ -48,9 +48,10 @@ impl DebugRpcServerImpl {
 impl DebugRpcServer for DebugRpcServerImpl {
 	async fn trace_block_by_number(
 		&self,
-		block: Option<BlockNumberOrTag>,
+		block: BlockNumberOrTag,
 		tracer_config: TracerConfig,
 	) -> RpcResult<Vec<TransactionTrace>> {
+		log::debug!(target: crate::LOG_TARGET, "trace_block_by_number: {block:?} config: {tracer_config:?}");
 		let traces = self.client.trace_block_by_number(block, tracer_config).await?;
 		Ok(traces)
 	}
@@ -59,7 +60,7 @@ impl DebugRpcServer for DebugRpcServerImpl {
 		&self,
 		transaction_hash: H256,
 		tracer_config: TracerConfig,
-	) -> RpcResult<CallTrace<U256, Bytes>> {
+	) -> RpcResult<EthTraces> {
 		let traces = self.client.trace_transaction(transaction_hash, tracer_config).await?;
 		Ok(traces)
 	}

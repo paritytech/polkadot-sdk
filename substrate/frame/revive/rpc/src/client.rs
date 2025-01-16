@@ -22,12 +22,13 @@ use crate::{
 	subxt_client::{
 		revive::calls::types::EthTransact, runtime_types::pallet_revive::storage::ContractInfo,
 	},
-	BlockInfoProvider, ReceiptProvider, TransactionInfo, LOG_TARGET,
+	BlockInfoProvider, EthTraces, ReceiptProvider, TransactionInfo, LOG_TARGET,
 };
+use codec::{Decode, Encode};
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	evm::{
-		extract_revert_message, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Bytes, CallTrace,
+		extract_revert_message, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Bytes,
 		GenericTransaction, ReceiptInfo, SyncingProgress, SyncingStatus, TracerConfig,
 		TransactionSigned, TransactionTrace, H160, H256, U256,
 	},
@@ -209,6 +210,10 @@ pub async fn connect(
 	let api = OnlineClient::<SrcChainConfig>::from_rpc_client(rpc_client.clone()).await?;
 	let rpc = LegacyRpcMethods::<SrcChainConfig>::new(RpcClient::new(rpc_client.clone()));
 	Ok((api, rpc_client, rpc))
+}
+
+fn to_hex(bytes: impl AsRef<[u8]>) -> String {
+	format!("0x{}", hex::encode(bytes.as_ref()))
 }
 
 impl Client {
@@ -630,28 +635,32 @@ impl Client {
 	/// Get the transaction traces for the given block.
 	pub async fn trace_block_by_number(
 		&self,
-		block: Option<BlockNumberOrTag>,
+		block: BlockNumberOrTag,
 		tracer_config: TracerConfig,
 	) -> Result<Vec<TransactionTrace>, ClientError> {
-		let hash = match block {
-			Some(BlockNumberOrTag::U256(n)) => {
+		let block_hash = match block {
+			BlockNumberOrTag::U256(n) => {
 				let block_number: SubstrateBlockNumber =
 					n.try_into().map_err(|_| ClientError::ConversionFailed)?;
 				self.get_block_hash(block_number).await?
 			},
-			Some(BlockNumberOrTag::BlockTag(_)) | None =>
-				self.latest_block().await.map(|b| b.hash()),
+			BlockNumberOrTag::BlockTag(_) => self.latest_block().await.map(|b| b.hash()),
 		};
-		let hash = hash.ok_or(ClientError::BlockNotFound)?;
+		let block_hash = block_hash.ok_or(ClientError::BlockNotFound)?;
 
 		let rpc_client = RpcClient::new(self.rpc_client.clone());
-		let params = subxt::rpc_params!["ReviveApi_trace_tx", hash, tracer_config];
-		let traces: Vec<(u32, pallet_revive::evm::EthTraces)> =
-			rpc_client.request("state_debugBlock", params).await?;
+		let params =
+			subxt::rpc_params!["ReviveApi_trace_block", block_hash, to_hex(tracer_config.encode())];
+		let bytes: Bytes =
+			rpc_client.request("state_debugBlock", params).await.inspect_err(|err| {
+				log::error!(target: LOG_TARGET, "state_debugBlock failed with: {err:?}");
+			})?;
+
+		let traces = Vec::<(u32, pallet_revive::evm::EthTraces)>::decode(&mut &bytes.0[..])?;
 
 		let mut hashes = self
 			.receipt_provider
-			.block_transaction_hashes(&hash)
+			.block_transaction_hashes(&block_hash)
 			.await
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
@@ -670,22 +679,27 @@ impl Client {
 		&self,
 		transaction_hash: H256,
 		tracer_config: TracerConfig,
-	) -> Result<CallTrace<U256, Bytes>, ClientError> {
+	) -> Result<EthTraces, ClientError> {
 		let rpc_client = RpcClient::new(self.rpc_client.clone());
 
-		let receipt = self
+		let ReceiptInfo { block_hash, transaction_index, .. } = self
 			.receipt_provider
 			.receipt_by_hash(&transaction_hash)
 			.await
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
+		log::debug!(target: LOG_TARGET, "Found eth_tx at {block_hash:?} index: {transaction_index:?}");
 		let params = subxt::rpc_params![
 			"ReviveApi_trace_tx",
-			tracer_config,
-			receipt.block_hash,
-			receipt.transaction_index
+			block_hash,
+			to_hex((transaction_index.as_u32(), tracer_config).encode())
 		];
-		let traces = rpc_client.request("state_debugBlock", params).await?;
+		let bytes: Bytes =
+			rpc_client.request("state_debugBlock", params).await.inspect_err(|err| {
+				log::error!(target: LOG_TARGET, "state_debugBlock failed with: {err:?}");
+			})?;
+
+		let traces = pallet_revive::evm::EthTraces::decode(&mut &bytes.0[..])?;
 		Ok(traces)
 	}
 
@@ -763,4 +777,12 @@ impl Client {
 	pub fn max_block_weight(&self) -> Weight {
 		self.max_block_weight
 	}
+}
+
+#[test]
+fn print_stuff() {
+	let transaction_index = 2u32;
+	let tracer_config = TracerConfig::CallTracer { with_logs: true };
+	let x = to_hex((transaction_index, tracer_config).encode());
+	println!("{}", x);
 }

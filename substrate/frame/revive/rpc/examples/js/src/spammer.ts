@@ -96,7 +96,11 @@ try {
 		console.time(hash)
 		wallet.waitForTransactionReceipt({ hash }).then((receipt) => {
 			console.timeEnd(hash)
-			console.log(`${receipt.status ? '✅' : '❌'} - ${hash}`)
+			console.log('-----------------------------------')
+			console.log(`status: ${receipt.status ? '✅' : '❌'}`)
+			console.log(`block: ${receipt.blockNumber} - hash: ${receipt.blockHash}`)
+			console.log(`tx: ${hash}`)
+			console.log('-----------------------------------')
 		})
 		await wait(1_000)
 		nonce++
