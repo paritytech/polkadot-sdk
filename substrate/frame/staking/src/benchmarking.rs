@@ -1251,7 +1251,7 @@ mod tests {
 				false,
 				false,
 				RewardDestination::Staked,
-				CurrentEra::<T>::get().unwrap(),
+				CurrentEra::<Test>::get().unwrap(),
 			)
 			.unwrap();
 
@@ -1284,7 +1284,7 @@ mod tests {
 				false,
 				false,
 				RewardDestination::Staked,
-				CurrentEra::<T>::get().unwrap(),
+				CurrentEra::<Test>::get().unwrap(),
 			)
 			.unwrap();
 

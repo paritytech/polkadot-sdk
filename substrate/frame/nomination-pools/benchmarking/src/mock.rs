@@ -84,7 +84,7 @@ impl pallet_staking::Config for Runtime {
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type ElectionProvider =
-		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, ())>;
+		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, (), ())>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = VoterList;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
