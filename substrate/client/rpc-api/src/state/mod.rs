@@ -50,6 +50,13 @@ pub trait StateApi<Hash> {
 	/// - `block`: The hash of the block to replay.
 	/// - `bytes`: Additional, encoded data to pass to the runtime API method, after the block data.
 	///
+	/// # Note
+	///
+	/// - This API is designed to be executed on dedicated nodes, such as tracing nodes, whose sole
+	///   purpose is to run a node to index data.
+	/// - These nodes may need to adjust `--rpc-max-response-limit` to a higher value if large
+	///   responses are anticipated.
+	///
 	/// # `curl` example
 	///
 	/// - Call `pallet_revive` [`trace_block`](https://paritytech.github.io/polkadot-sdk/master/pallet_revive/trait.ReviveApi.html#method.trace_block)
