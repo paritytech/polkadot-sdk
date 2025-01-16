@@ -5,7 +5,6 @@ COPY . /polkadot
 
 RUN cargo fetch
 RUN cargo build --workspace --locked --release
-RUN cargo build --features generate-readme
 
 FROM docker.io/parity/base-bin:latest
 
