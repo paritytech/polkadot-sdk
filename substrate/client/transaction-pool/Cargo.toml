@@ -42,14 +42,23 @@ tokio = { workspace = true, default-features = true, features = ["macros", "time
 tokio-stream = { workspace = true }
 
 [dev-dependencies]
+anyhow = { workspace = true }
 array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
+cmd_lib = { workspace = true }
 criterion = { workspace = true, default-features = true }
+env_logger = { workspace = true }
+log = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 substrate-test-runtime = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
 substrate-test-runtime-transaction-pool = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+which = { workspace = true }
+zombienet-configuration = { workspace = true }
+zombienet-sdk = { workspace = true }
+
 
 [[bench]]
 name = "basics"
