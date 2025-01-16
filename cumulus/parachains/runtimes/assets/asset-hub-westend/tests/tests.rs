@@ -975,6 +975,8 @@ fn authorized_aliases_work() {
 			let alice_on_relay = Location::new(1, AccountId32 { network: None, id: ALICE });
 			let bob_on_relay = Location::new(1, AccountId32 { network: None, id: [42_u8; 32] });
 
+			assert_ok!(Balances::mint_into(&alice, 2 * UNITS));
+
 			// neither `alice_on_sibling_para`, `alice_on_relay`, `bob_on_relay` are allowed to
 			// alias into `local_alice`
 			for aliaser in [&alice_on_sibling_para, &alice_on_relay, &bob_on_relay] {
