@@ -1077,7 +1077,7 @@ where
 			let contract_address = T::AddressMapper::to_address(account_id);
 			let maybe_caller_address = caller.account_id().map(T::AddressMapper::to_address);
 
-			crate::with_tracer(|tracer| {
+			crate::if_tracer(|tracer| {
 				tracer.enter_child_span(
 					maybe_caller_address.unwrap_or_default(),
 					contract_address,
@@ -1092,7 +1092,7 @@ where
 			let output = T::Debug::intercept_call(&contract_address, entry_point, &input_data)
 				.unwrap_or_else(|| executable.execute(self, entry_point, input_data))
 				.map_err(|e| {
-					crate::with_tracer(|tracer| {
+					crate::if_tracer(|tracer| {
 						tracer.exit_child_span_with_error(
 							e.error,
 							top_frame_mut!(self).nested_gas.gas_consumed(),
@@ -1101,7 +1101,7 @@ where
 					ExecError { error: e.error, origin: ErrorOrigin::Callee }
 				})?;
 
-			crate::with_tracer(|tracer| {
+			crate::if_tracer(|tracer| {
 				tracer.exit_child_span(&output, top_frame_mut!(self).nested_gas.gas_consumed());
 			});
 
@@ -1422,7 +1422,7 @@ where
 			)? {
 				self.run(executable, input_data)
 			} else {
-				crate::with_tracer(|tracer| {
+				crate::if_tracer(|tracer| {
 					let address = T::AddressMapper::to_address(self.account_id());
 					tracer.enter_child_span(
 						address,
@@ -1442,7 +1442,7 @@ where
 					value,
 				) {
 					Ok(output) => {
-						crate::with_tracer(|t| {
+						crate::if_tracer(|t| {
 							t.exit_child_span(
 								&output,
 								Weight::zero(), // TODO define gas_used for transfer
@@ -1451,7 +1451,7 @@ where
 						Ok(())
 					},
 					Err(e) => {
-						crate::with_tracer(|t| {
+						crate::if_tracer(|t| {
 							t.exit_child_span_with_error(
 								e.error.clone().into(),
 								Weight::zero(), // TODO define gas_used for transfer
@@ -1719,7 +1719,7 @@ where
 
 	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) {
 		let contract = T::AddressMapper::to_address(self.account_id());
-		crate::with_tracer(|tracer| {
+		crate::if_tracer(|tracer| {
 			tracer.log_event(contract, &topics, &data);
 		});
 		Contracts::<Self::T>::deposit_event(Event::ContractEmitted { contract, data, topics });
