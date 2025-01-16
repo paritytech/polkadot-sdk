@@ -19,7 +19,7 @@ mod test_runtime {
 		RuntimeSlashReason,
 		RuntimeLockId,
 		RuntimeTask,
-		RuntimeViewFunction
+		DispatchViewFunction,
 	)]
 	pub struct Test;
 

@@ -2387,7 +2387,7 @@ mod runtime {
 		RuntimeSlashReason,
 		RuntimeLockId,
 		RuntimeTask,
-		RuntimeViewFunction
+		DispatchViewFunction,
 	)]
 	pub struct Runtime;
 
@@ -2933,7 +2933,7 @@ impl_runtime_apis! {
 
 	impl sp_api::RuntimeViewFunction<Block> for Runtime {
 		fn execute_view_function(id: ViewFunctionId, input: Vec<u8>) -> Result<Vec<u8>, ViewFunctionDispatchError> {
-			Runtime::execute_view_function(id, input)
+			<Runtime as DispatchViewFunction>::execute_view_function(id, input)
 		}
 	}
 

@@ -225,7 +225,7 @@ fn construct_runtime_final_expansion(
 			RuntimeType::RuntimeTask(_) => {
 				task = Some(expand::expand_outer_task(&name, &pallets, &scrate));
 			},
-			RuntimeType::RuntimeViewFunction(_) => {
+			RuntimeType::DispatchViewFunction(_) => {
 				query = Some(expand::expand_outer_query(&name, &pallets, &scrate));
 			},
 		}

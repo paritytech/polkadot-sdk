@@ -17,7 +17,7 @@
 
 use crate::construct_runtime::Pallet;
 use core::str::FromStr;
-use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
+use proc_macro2::{Ident, TokenStream as TokenStream2};
 
 /// Expands implementation of runtime level `DispatchViewFunction`.
 pub fn expand_outer_query(
@@ -25,8 +25,6 @@ pub fn expand_outer_query(
 	pallet_decls: &[Pallet],
 	scrate: &TokenStream2,
 ) -> TokenStream2 {
-	let runtime_view_function = syn::Ident::new("RuntimeViewFunction", Span::call_site());
-
 	let prefix_conditionals = pallet_decls.iter().map(|pallet| {
 		let pallet_name = &pallet.name;
 		let attr = pallet.cfg_pattern.iter().fold(TokenStream2::new(), |acc, pattern| {
@@ -46,18 +44,8 @@ pub fn expand_outer_query(
 	});
 
 	quote::quote! {
-		/// Runtime query type.
-		#[derive(
-			Clone, PartialEq, Eq,
-			#scrate::__private::codec::Encode,
-			#scrate::__private::codec::Decode,
-			#scrate::__private::scale_info::TypeInfo,
-			#scrate::__private::RuntimeDebug,
-		)]
-		pub enum #runtime_view_function {}
-
 		const _: () = {
-			impl #scrate::traits::DispatchViewFunction for #runtime_view_function {
+			impl #scrate::traits::DispatchViewFunction for #runtime_name {
 				fn dispatch_view_function<O: #scrate::__private::codec::Output>(
 					id: & #scrate::__private::ViewFunctionId,
 					input: &mut &[u8],
@@ -66,19 +54,6 @@ pub fn expand_outer_query(
 				{
 					#( #prefix_conditionals )*
 					Err(#scrate::__private::ViewFunctionDispatchError::NotFound(id.clone()))
-				}
-			}
-
-			impl #runtime_name {
-				/// Convenience function for query execution from the runtime API.
-				pub fn execute_view_function(
-					id: #scrate::__private::ViewFunctionId,
-					input: #scrate::__private::sp_std::vec::Vec<::core::primitive::u8>,
-				) -> Result<#scrate::__private::sp_std::vec::Vec<::core::primitive::u8>, #scrate::__private::ViewFunctionDispatchError>
-				{
-					let mut output = #scrate::__private::sp_std::vec![];
-					<#runtime_view_function as #scrate::traits::DispatchViewFunction>::dispatch_view_function(&id, &mut &input[..], &mut output)?;
-					Ok(output)
 				}
 			}
 		};

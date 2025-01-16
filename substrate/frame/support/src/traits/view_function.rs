@@ -27,6 +27,16 @@ pub trait DispatchViewFunction {
 		input: &mut &[u8],
 		output: &mut O,
 	) -> Result<(), ViewFunctionDispatchError>;
+
+	/// Convenience function to dispatch a view function and return the result as a vector.
+	fn execute_view_function(
+		id: &ViewFunctionId,
+		mut input: &[u8],
+	) -> Result<alloc::vec::Vec<u8>, ViewFunctionDispatchError> {
+		let mut output = Default::default();
+		Self::dispatch_view_function(id, &mut input, &mut output)?;
+		Ok(output)
+	}
 }
 
 impl DispatchViewFunction for () {
@@ -48,6 +58,7 @@ pub trait ViewFunctionIdSuffix {
 }
 
 /// implemented for each pallet view function method
+#[deprecated] // no longer used?
 pub trait ViewFunction: DecodeAll {
 	fn id() -> ViewFunctionId;
 	type ReturnType: Encode;

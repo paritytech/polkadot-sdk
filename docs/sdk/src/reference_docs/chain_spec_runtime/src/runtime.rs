@@ -63,7 +63,7 @@ mod runtime {
 		RuntimeError,
 		RuntimeOrigin,
 		RuntimeTask,
-		RuntimeViewFunction
+		DispatchViewFunction,
 	)]
 	pub struct Runtime;
 
