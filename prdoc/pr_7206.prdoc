@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Add a runtime API to pallet-collator-selection"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      - Implements a runtime API for pallet-collator-selection that allows to query the derived pot account.
+
+crates:
+  - name: pallet-collator-selection
+    bump: minor
