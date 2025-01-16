@@ -221,9 +221,6 @@ pub mod prelude {
 	/// All arithmetic types used for safe math.
 	pub use super::arithmetic::*;
 
-	/// All currency related things.
-	pub use super::currency::*;
-
 	/// All account related things.
 	pub use super::account::*;
 
@@ -559,13 +556,6 @@ pub mod cryptography {
 		Pair, H160, H256, H512, U256, U512,
 	};
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256, Verify};
-}
-
-/// Currency related traits.
-pub mod currency {
-	pub use frame_support::traits::{
-		Currency, ExistenceRequirement::KeepAlive, OnUnbalanced, ReservableCurrency,
-	};
 }
 
 /// Traits related to Accounts on substrate based chains.
