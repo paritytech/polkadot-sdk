@@ -533,7 +533,6 @@ pub struct Overseer<SupportsParachains> {
 	#[subsystem(ProvisionerMessage, sends: [
 		RuntimeApiMessage,
 		CandidateBackingMessage,
-		ChainApiMessage,
 		DisputeCoordinatorMessage,
 		ProspectiveParachainsMessage,
 	])]

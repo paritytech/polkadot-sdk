@@ -772,6 +772,9 @@ pub enum RuntimeApiRequest {
 	/// Get the candidates pending availability for a particular parachain
 	/// `V11`
 	CandidatesPendingAvailability(ParaId, RuntimeApiSender<Vec<CommittedCandidateReceipt>>),
+	/// Get the lookahead from the scheduler params.
+	/// `V12`
+	SchedulingLookahead(SessionIndex, RuntimeApiSender<u32>),
 }
 
 impl RuntimeApiRequest {
@@ -812,6 +815,9 @@ impl RuntimeApiRequest {
 
 	/// `candidates_pending_availability`
 	pub const CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT: u32 = 11;
+
+	/// `SchedulingLookahead`
+	pub const SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT: u32 = 12;
 }
 
 /// A message to the Runtime API subsystem.
@@ -846,9 +852,6 @@ pub enum StatementDistributionMessage {
 pub enum ProvisionableData {
 	/// This bitfield indicates the availability of various candidate blocks.
 	Bitfield(Hash, SignedAvailabilityBitfield),
-	/// The Candidate Backing subsystem believes that this candidate is valid, pending
-	/// availability.
-	BackedCandidate(CandidateReceipt),
 	/// Misbehavior reports are self-contained proofs of validator misbehavior.
 	MisbehaviorReport(Hash, ValidatorIndex, Misbehavior),
 	/// Disputes trigger a broad dispute resolution process.

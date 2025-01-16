@@ -46,12 +46,12 @@ use polkadot_node_subsystem_util::{
 	backing_implicit_view::{BlockInfoProspectiveParachains as BlockInfo, View as ImplicitView},
 	inclusion_emulator::{Constraints, RelayChainBlockInfo},
 	request_session_index_for_child,
-	runtime::{fetch_claim_queue, prospective_parachains_mode, ProspectiveParachainsMode},
+	runtime::{fetch_claim_queue, fetch_scheduling_lookahead},
 };
 use polkadot_primitives::{
 	vstaging::{
 		async_backing::CandidatePendingAvailability,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
 	},
 	BlockNumber, CandidateHash, Hash, HeadData, Header, Id as ParaId, PersistedValidationData,
 };
@@ -214,23 +214,13 @@ async fn handle_active_leaves_update<Context>(
 
 		let hash = activated.hash;
 
-		let mode = prospective_parachains_mode(ctx.sender(), hash)
-			.await
-			.map_err(JfyiError::Runtime)?;
+		let claim_queue = fetch_claim_queue(ctx.sender(), hash).await?;
 
-		let ProspectiveParachainsMode::Enabled { max_candidate_depth, allowed_ancestry_len } = mode
-		else {
-			gum::trace!(
-				target: LOG_TARGET,
-				block_hash = ?hash,
-				"Skipping leaf activation since async backing is disabled"
-			);
-
-			// Not a part of any allowed ancestry.
-			return Ok(())
-		};
-
-		let scheduled_paras = fetch_upcoming_paras(ctx, hash).await?;
+		let scheduled_paras: HashSet<_> = claim_queue
+			.iter_all_claims()
+			.flat_map(|(_, paras)| paras.into_iter())
+			.copied()
+			.collect();
 
 		let block_info = match fetch_block_info(ctx, &mut temp_header_cache, hash).await? {
 			None => {
@@ -248,8 +238,17 @@ async fn handle_active_leaves_update<Context>(
 			Some(info) => info,
 		};
 
+		let session_index = request_session_index_for_child(hash, ctx.sender())
+			.await
+			.await
+			.map_err(JfyiError::RuntimeApiRequestCanceled)??;
+		let ancestry_len = fetch_scheduling_lookahead(hash, session_index, ctx.sender())
+			.await?
+			.saturating_sub(1);
+
 		let ancestry =
-			fetch_ancestry(ctx, &mut temp_header_cache, hash, allowed_ancestry_len).await?;
+			fetch_ancestry(ctx, &mut temp_header_cache, hash, ancestry_len as usize, session_index)
+				.await?;
 
 		let prev_fragment_chains =
 			ancestry.first().and_then(|prev_leaf| view.get_fragment_chains(&prev_leaf.hash));
@@ -307,11 +306,15 @@ async fn handle_active_leaves_update<Context>(
 				compact_pending.push(c.compact);
 			}
 
+			let max_backable_chain_len = claim_queue
+				.iter_all_claims()
+				.filter(|(_core, claims)| claims.contains(&para))
+				.count();
 			let scope = match FragmentChainScope::with_ancestors(
 				block_info.clone().into(),
 				constraints,
 				compact_pending,
-				max_candidate_depth,
+				max_backable_chain_len,
 				ancestry
 					.iter()
 					.map(|a| RelayChainBlockInfo::from(a.clone()))
@@ -322,7 +325,7 @@ async fn handle_active_leaves_update<Context>(
 					gum::warn!(
 						target: LOG_TARGET,
 						para_id = ?para,
-						max_candidate_depth,
+						max_backable_chain_len,
 						?ancestry,
 						leaf = ?hash,
 						"Relay chain ancestors have wrong order: {:?}",
@@ -336,6 +339,7 @@ async fn handle_active_leaves_update<Context>(
 				target: LOG_TARGET,
 				relay_parent = ?hash,
 				min_relay_parent = scope.earliest_relay_parent().number,
+				max_backable_chain_len,
 				para_id = ?para,
 				ancestors = ?ancestry,
 				"Creating fragment chain"
@@ -897,57 +901,6 @@ async fn fetch_backing_state<Context>(
 		.map(|s| (From::from(s.constraints), s.pending_availability)))
 }
 
-#[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
-async fn fetch_upcoming_paras<Context>(
-	ctx: &mut Context,
-	relay_parent: Hash,
-) -> JfyiErrorResult<HashSet<ParaId>> {
-	Ok(match fetch_claim_queue(ctx.sender(), relay_parent).await? {
-		Some(claim_queue) => {
-			// Runtime supports claim queue - use it
-			claim_queue
-				.iter_all_claims()
-				.flat_map(|(_, paras)| paras.into_iter())
-				.copied()
-				.collect()
-		},
-		None => {
-			// fallback to availability cores - remove this branch once claim queue is released
-			// everywhere
-			let (tx, rx) = oneshot::channel();
-			ctx.send_message(RuntimeApiMessage::Request(
-				relay_parent,
-				RuntimeApiRequest::AvailabilityCores(tx),
-			))
-			.await;
-
-			let cores = rx.await.map_err(JfyiError::RuntimeApiRequestCanceled)??;
-
-			let mut upcoming = HashSet::with_capacity(cores.len());
-			for core in cores {
-				match core {
-					CoreState::Occupied(occupied) => {
-						// core sharing won't work optimally with this branch because the collations
-						// can't be prepared in advance.
-						if let Some(next_up_on_available) = occupied.next_up_on_available {
-							upcoming.insert(next_up_on_available.para_id);
-						}
-						if let Some(next_up_on_time_out) = occupied.next_up_on_time_out {
-							upcoming.insert(next_up_on_time_out.para_id);
-						}
-					},
-					CoreState::Scheduled(scheduled) => {
-						upcoming.insert(scheduled.para_id);
-					},
-					CoreState::Free => {},
-				}
-			}
-
-			upcoming
-		},
-	})
-}
-
 // Fetch ancestors in descending order, up to the amount requested.
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
 async fn fetch_ancestry<Context>(
@@ -955,6 +908,7 @@ async fn fetch_ancestry<Context>(
 	cache: &mut HashMap<Hash, Header>,
 	relay_hash: Hash,
 	ancestors: usize,
+	required_session: u32,
 ) -> JfyiErrorResult<Vec<BlockInfo>> {
 	if ancestors == 0 {
 		return Ok(Vec::new())
@@ -969,10 +923,6 @@ async fn fetch_ancestry<Context>(
 	.await;
 
 	let hashes = rx.map_err(JfyiError::ChainApiRequestCanceled).await??;
-	let required_session = request_session_index_for_child(relay_hash, ctx.sender())
-		.await
-		.await
-		.map_err(JfyiError::RuntimeApiRequestCanceled)??;
 
 	let mut block_info = Vec::with_capacity(hashes.len());
 	for hash in hashes {

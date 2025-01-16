@@ -36,7 +36,7 @@ use polkadot_primitives::{
 	AsyncBackingParams, CandidateHash, CoreIndex, EncodeAs, ExecutorParams, GroupIndex,
 	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures, SessionIndex, SessionInfo,
 	Signed, SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId,
-	ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
+	ValidatorIndex, DEFAULT_SCHEDULING_LOOKAHEAD, LEGACY_MIN_BACKING_VOTES,
 };
 
 use std::collections::{BTreeMap, VecDeque};
@@ -559,6 +559,7 @@ pub async fn request_min_backing_votes(
 /// Request the node features enabled in the runtime.
 /// Pass in the session index for caching purposes, as it should only change on session boundaries.
 /// Prior to runtime API version 9, just return `None`.
+/// TODO: remove special handling.
 pub async fn request_node_features(
 	parent: Hash,
 	session_index: SessionIndex,
@@ -655,27 +656,43 @@ pub async fn get_disabled_validators_with_fallback<Sender: SubsystemSender<Runti
 	Ok(disabled_validators)
 }
 
-/// Checks if the runtime supports `request_claim_queue` and attempts to fetch the claim queue.
-/// Returns `ClaimQueueSnapshot` or `None` if claim queue API is not supported by runtime.
-/// Any specific `RuntimeApiError` is bubbled up to the caller.
+/// Fetch the claim queue and wrap it into a helpful `ClaimQueueSnapshot`
 pub async fn fetch_claim_queue(
 	sender: &mut impl SubsystemSender<RuntimeApiMessage>,
 	relay_parent: Hash,
-) -> Result<Option<ClaimQueueSnapshot>> {
-	if has_required_runtime(
-		sender,
-		relay_parent,
-		RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT,
+) -> Result<ClaimQueueSnapshot> {
+	let cq = request_claim_queue(relay_parent, sender)
+		.await
+		.await
+		.map_err(Error::RuntimeRequestCanceled)??;
+
+	Ok(cq.into())
+}
+
+/// Checks if the runtime supports `request_claim_queue` and attempts to fetch the claim queue.
+/// Returns `ClaimQueueSnapshot` or `None` if claim queue API is not supported by runtime.
+pub async fn fetch_scheduling_lookahead(
+	parent: Hash,
+	session_index: SessionIndex,
+	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
+) -> Result<u32> {
+	let res = recv_runtime(
+		request_from_runtime(parent, sender, |tx| {
+			RuntimeApiRequest::SchedulingLookahead(session_index, tx)
+		})
+		.await,
 	)
-	.await
-	{
-		let res = request_claim_queue(relay_parent, sender)
-			.await
-			.await
-			.map_err(Error::RuntimeRequestCanceled)??;
-		Ok(Some(res.into()))
+	.await;
+
+	if let Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) = res {
+		gum::trace!(
+			target: LOG_TARGET,
+			?parent,
+			"Querying the scheduling lookahead from the runtime is not supported by the current Runtime API, falling back to default value",
+		);
+
+		Ok(DEFAULT_SCHEDULING_LOOKAHEAD)
 	} else {
-		gum::trace!(target: LOG_TARGET, "Runtime doesn't support `request_claim_queue`");
-		Ok(None)
+		res
 	}
 }

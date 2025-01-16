@@ -32,12 +32,14 @@ use pallet_transaction_payment::FungibleAdapter;
 
 use polkadot_runtime_parachains::{
 	assigner_coretime as parachains_assigner_coretime, configuration as parachains_configuration,
-	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio, coretime,
-	disputes as parachains_disputes, disputes::slashing as parachains_slashing,
+	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio,
+	coretime, disputes as parachains_disputes,
+	disputes::slashing as parachains_slashing,
 	dmp as parachains_dmp, hrmp as parachains_hrmp, inclusion as parachains_inclusion,
 	initializer as parachains_initializer, on_demand as parachains_on_demand,
 	origin as parachains_origin, paras as parachains_paras,
-	paras_inherent as parachains_paras_inherent, runtime_api_impl::v11 as runtime_impl,
+	paras_inherent as parachains_paras_inherent,
+	runtime_api_impl::{v11 as runtime_impl, vstaging as staging_runtime_impl},
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
 	shared as parachains_shared,
 };
@@ -930,7 +932,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(11)]
+	#[api_version(12)]
 	impl polkadot_primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			runtime_impl::validators::<Runtime>()
@@ -1090,6 +1092,10 @@ sp_api::impl_runtime_apis! {
 
 		fn candidates_pending_availability(para_id: ParaId) -> Vec<CommittedCandidateReceipt<Hash>> {
 			runtime_impl::candidates_pending_availability::<Runtime>(para_id)
+		}
+
+		fn scheduling_lookahead() -> u32 {
+			staging_runtime_impl::scheduling_lookahead::<Runtime>()
 		}
 	}
 

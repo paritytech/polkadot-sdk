@@ -453,8 +453,8 @@ pub(crate) struct Scope {
 	pending_availability: Vec<PendingAvailability>,
 	/// The base constraints derived from the latest included candidate.
 	base_constraints: Constraints,
-	/// Equal to `max_candidate_depth`.
-	max_depth: usize,
+	/// Maximum length of the best backable chain (including candidates pending availability).
+	max_backable_len: usize,
 }
 
 /// An error variant indicating that ancestors provided to a scope
@@ -474,7 +474,8 @@ pub(crate) struct UnexpectedAncestor {
 impl Scope {
 	/// Define a new [`Scope`].
 	///
-	/// All arguments are straightforward except the ancestors.
+	/// `max_backable_len` should be the maximum length of the best backable chain (excluding
+	/// pending availability candidates).
 	///
 	/// Ancestors should be in reverse order, starting with the parent
 	/// of the `relay_parent`, and proceeding backwards in block number
@@ -492,7 +493,7 @@ impl Scope {
 		relay_parent: RelayChainBlockInfo,
 		base_constraints: Constraints,
 		pending_availability: Vec<PendingAvailability>,
-		max_depth: usize,
+		max_backable_len: usize,
 		ancestors: impl IntoIterator<Item = RelayChainBlockInfo>,
 	) -> Result<Self, UnexpectedAncestor> {
 		let mut ancestors_map = BTreeMap::new();
@@ -517,8 +518,8 @@ impl Scope {
 		Ok(Scope {
 			relay_parent,
 			base_constraints,
+			max_backable_len: max_backable_len + pending_availability.len(),
 			pending_availability,
-			max_depth,
 			ancestors: ancestors_map,
 			ancestors_by_hash,
 		})
@@ -1181,7 +1182,7 @@ impl FragmentChain {
 		let Some(mut earliest_rp) = self.earliest_relay_parent() else { return };
 
 		loop {
-			if self.best_chain.chain.len() > self.scope.max_depth {
+			if self.best_chain.chain.len() > self.scope.max_backable_len {
 				break;
 			}
 

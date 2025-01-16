@@ -297,5 +297,10 @@ sp_api::decl_runtime_apis! {
 		/// Elastic scaling support
 		#[api_version(11)]
 		fn candidates_pending_availability(para_id: ppp::Id) -> Vec<CommittedCandidateReceipt<Hash>>;
+
+		/***** Vstaging *****/
+		/// Retrieve the scheduling lookahead
+		#[api_version(12)]
+		fn scheduling_lookahead() -> u32;
 	}
 }

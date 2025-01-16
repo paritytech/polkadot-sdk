@@ -168,7 +168,7 @@ where
 			KeyOwnershipProof(relay_parent, validator_id, key_ownership_proof) => self
 				.requests_cache
 				.cache_key_ownership_proof((relay_parent, validator_id), key_ownership_proof),
-			RequestResult::ApprovalVotingParams(_relay_parent, session_index, params) =>
+			ApprovalVotingParams(_relay_parent, session_index, params) =>
 				self.requests_cache.cache_approval_voting_params(session_index, params),
 			SubmitReportDisputeLost(_) => {},
 			DisabledValidators(relay_parent, disabled_validators) =>
@@ -183,6 +183,9 @@ where
 			ClaimQueue(relay_parent, sender) => {
 				self.requests_cache.cache_claim_queue(relay_parent, sender);
 			},
+			SchedulingLookahead(session_index, scheduling_lookahead) => self
+				.requests_cache
+				.cache_scheduling_lookahead(session_index, scheduling_lookahead),
 		}
 	}
 
@@ -340,6 +343,15 @@ where
 			},
 			Request::ClaimQueue(sender) =>
 				query!(claim_queue(), sender).map(|sender| Request::ClaimQueue(sender)),
+			Request::SchedulingLookahead(index, sender) => {
+				if let Some(value) = self.requests_cache.scheduling_lookahead(index) {
+					self.metrics.on_cached_request();
+					let _ = sender.send(Ok(value));
+					None
+				} else {
+					Some(Request::SchedulingLookahead(index, sender))
+				}
+			},
 		}
 	}
 
@@ -651,6 +663,13 @@ where
 			claim_queue(),
 			ver = Request::CLAIM_QUEUE_RUNTIME_REQUIREMENT,
 			sender
+		),
+		Request::SchedulingLookahead(index, sender) => query!(
+			SchedulingLookahead,
+			scheduling_lookahead(),
+			ver = Request::SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT,
+			sender,
+			result = (index)
 		),
 	}
 }

@@ -28,23 +28,21 @@ use schnellru::{ByLength, LruMap};
 
 use polkadot_node_subsystem::{
 	messages::{
-		Ancestors, CandidateBackingMessage, ChainApiMessage, ProspectiveParachainsMessage,
-		ProvisionableData, ProvisionerInherentData, ProvisionerMessage, RuntimeApiRequest,
+		Ancestors, CandidateBackingMessage, ProspectiveParachainsMessage, ProvisionableData,
+		ProvisionerInherentData, ProvisionerMessage,
 	},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
 	SubsystemError,
 };
 use polkadot_node_subsystem_util::{
-	has_required_runtime, request_availability_cores, request_persisted_validation_data,
-	request_session_index_for_child,
-	runtime::{prospective_parachains_mode, request_node_features, ProspectiveParachainsMode},
+	request_availability_cores, request_session_index_for_child, runtime::request_node_features,
 	TimeoutExt,
 };
 use polkadot_primitives::{
 	node_features::FeatureIndex,
-	vstaging::{BackedCandidate, CandidateReceiptV2 as CandidateReceipt, CoreState},
-	BlockNumber, CandidateHash, CoreIndex, Hash, Id as ParaId, NodeFeatures,
-	OccupiedCoreAssumption, SessionIndex, SignedAvailabilityBitfield, ValidatorIndex,
+	vstaging::{BackedCandidate, CoreState},
+	CandidateHash, CoreIndex, Hash, Id as ParaId, NodeFeatures, SessionIndex,
+	SignedAvailabilityBitfield, ValidatorIndex,
 };
 use std::collections::{BTreeMap, HashMap};
 
@@ -65,9 +63,6 @@ const SEND_INHERENT_DATA_TIMEOUT: std::time::Duration = core::time::Duration::fr
 
 const LOG_TARGET: &str = "parachain::provisioner";
 
-const PRIORITIZED_SELECTION_RUNTIME_VERSION_REQUIREMENT: u32 =
-	RuntimeApiRequest::DISPUTES_RUNTIME_REQUIREMENT;
-
 /// The provisioner subsystem.
 pub struct ProvisionerSubsystem {
 	metrics: Metrics,
@@ -82,15 +77,12 @@ impl ProvisionerSubsystem {
 
 /// Per-session info we need for the provisioner subsystem.
 pub struct PerSession {
-	prospective_parachains_mode: ProspectiveParachainsMode,
 	elastic_scaling_mvp: bool,
 }
 
 /// A per-relay-parent state for the provisioning subsystem.
 pub struct PerRelayParent {
 	leaf: ActivatedLeaf,
-	backed_candidates: Vec<CandidateReceipt>,
-	prospective_parachains_mode: ProspectiveParachainsMode,
 	elastic_scaling_mvp: bool,
 	signed_bitfields: Vec<SignedAvailabilityBitfield>,
 	is_inherent_ready: bool,
@@ -101,8 +93,6 @@ impl PerRelayParent {
 	fn new(leaf: ActivatedLeaf, per_session: &PerSession) -> Self {
 		Self {
 			leaf,
-			backed_candidates: Vec::new(),
-			prospective_parachains_mode: per_session.prospective_parachains_mode,
 			elastic_scaling_mvp: per_session.elastic_scaling_mvp,
 			signed_bitfields: Vec::new(),
 			is_inherent_ready: false,
@@ -212,8 +202,6 @@ async fn handle_active_leaves_update(
 			.await
 			.map_err(Error::CanceledSessionIndex)??;
 		if per_session.get(&session_index).is_none() {
-			let prospective_parachains_mode =
-				prospective_parachains_mode(sender, leaf.hash).await?;
 			let elastic_scaling_mvp = request_node_features(leaf.hash, session_index, sender)
 				.await?
 				.unwrap_or(NodeFeatures::EMPTY)
@@ -221,10 +209,7 @@ async fn handle_active_leaves_update(
 				.map(|b| *b)
 				.unwrap_or(false);
 
-			per_session.insert(
-				session_index,
-				PerSession { prospective_parachains_mode, elastic_scaling_mvp },
-			);
+			per_session.insert(session_index, PerSession { elastic_scaling_mvp });
 		}
 
 		let session_info = per_session.get(&session_index).expect("Just inserted");
@@ -287,8 +272,6 @@ async fn send_inherent_data_bg<Context>(
 ) -> Result<(), Error> {
 	let leaf = per_relay_parent.leaf.clone();
 	let signed_bitfields = per_relay_parent.signed_bitfields.clone();
-	let backed_candidates = per_relay_parent.backed_candidates.clone();
-	let mode = per_relay_parent.prospective_parachains_mode;
 	let elastic_scaling_mvp = per_relay_parent.elastic_scaling_mvp;
 
 	let mut sender = ctx.sender().clone();
@@ -305,8 +288,6 @@ async fn send_inherent_data_bg<Context>(
 		let send_result = send_inherent_data(
 			&leaf,
 			&signed_bitfields,
-			&backed_candidates,
-			mode,
 			elastic_scaling_mvp,
 			return_senders,
 			&mut sender,
@@ -357,16 +338,6 @@ fn note_provisionable_data(
 	match provisionable_data {
 		ProvisionableData::Bitfield(_, signed_bitfield) =>
 			per_relay_parent.signed_bitfields.push(signed_bitfield),
-		ProvisionableData::BackedCandidate(backed_candidate) => {
-			let candidate_hash = backed_candidate.hash();
-			gum::trace!(
-				target: LOG_TARGET,
-				?candidate_hash,
-				para = ?backed_candidate.descriptor().para_id(),
-				"noted backed candidate",
-			);
-			per_relay_parent.backed_candidates.push(backed_candidate);
-		},
 		// We choose not to punish these forms of misbehavior for the time being.
 		// Risks from misbehavior are sufficiently mitigated at the protocol level
 		// via reputation changes. Punitive actions here may become desirable
@@ -412,8 +383,6 @@ type CoreAvailability = BitVec<u8, bitvec::order::Lsb0>;
 async fn send_inherent_data(
 	leaf: &ActivatedLeaf,
 	bitfields: &[SignedAvailabilityBitfield],
-	candidates: &[CandidateReceipt],
-	prospective_parachains_mode: ProspectiveParachainsMode,
 	elastic_scaling_mvp: bool,
 	return_senders: Vec<oneshot::Sender<ProvisionerInherentData>>,
 	from_job: &mut impl overseer::ProvisionerSenderTrait,
@@ -435,16 +404,6 @@ async fn send_inherent_data(
 		"Selecting disputes"
 	);
 
-	debug_assert!(
-		has_required_runtime(
-			from_job,
-			leaf.hash,
-			PRIORITIZED_SELECTION_RUNTIME_VERSION_REQUIREMENT,
-		)
-		.await,
-		"randomized selection no longer supported, please upgrade your runtime!"
-	);
-
 	let disputes = disputes::prioritized_selection::select_disputes(from_job, metrics, leaf).await;
 
 	gum::trace!(
@@ -461,16 +420,9 @@ async fn send_inherent_data(
 		"Selected bitfields"
 	);
 
-	let candidates = select_candidates(
-		&availability_cores,
-		&bitfields,
-		candidates,
-		prospective_parachains_mode,
-		elastic_scaling_mvp,
-		leaf.hash,
-		from_job,
-	)
-	.await?;
+	let candidates =
+		select_candidates(&availability_cores, &bitfields, elastic_scaling_mvp, leaf, from_job)
+			.await?;
 
 	gum::trace!(
 		target: LOG_TARGET,
@@ -577,114 +529,16 @@ fn select_availability_bitfields(
 	selected.into_values().collect()
 }
 
-/// Selects candidates from tracked ones to note in a relay chain block.
-///
-/// Should be called when prospective parachains are disabled.
-async fn select_candidate_hashes_from_tracked(
-	availability_cores: &[CoreState],
-	bitfields: &[SignedAvailabilityBitfield],
-	candidates: &[CandidateReceipt],
-	relay_parent: Hash,
-	sender: &mut impl overseer::ProvisionerSenderTrait,
-) -> Result<HashMap<ParaId, Vec<(CandidateHash, Hash)>>, Error> {
-	let block_number = get_block_number_under_construction(relay_parent, sender).await?;
-
-	let mut selected_candidates =
-		HashMap::with_capacity(candidates.len().min(availability_cores.len()));
-
-	gum::debug!(
-		target: LOG_TARGET,
-		leaf_hash=?relay_parent,
-		n_candidates = candidates.len(),
-		"Candidate receipts (before selection)",
-	);
-
-	for (core_idx, core) in availability_cores.iter().enumerate() {
-		let (scheduled_core, assumption) = match core {
-			CoreState::Scheduled(scheduled_core) => (scheduled_core, OccupiedCoreAssumption::Free),
-			CoreState::Occupied(occupied_core) => {
-				if bitfields_indicate_availability(core_idx, bitfields, &occupied_core.availability)
-				{
-					if let Some(ref scheduled_core) = occupied_core.next_up_on_available {
-						(scheduled_core, OccupiedCoreAssumption::Included)
-					} else {
-						continue
-					}
-				} else {
-					if occupied_core.time_out_at != block_number {
-						continue
-					}
-					if let Some(ref scheduled_core) = occupied_core.next_up_on_time_out {
-						(scheduled_core, OccupiedCoreAssumption::TimedOut)
-					} else {
-						continue
-					}
-				}
-			},
-			CoreState::Free => continue,
-		};
-
-		if selected_candidates.contains_key(&scheduled_core.para_id) {
-			// We already picked a candidate for this parachain. Elastic scaling only works with
-			// prospective parachains mode.
-			continue
-		}
-
-		let validation_data = match request_persisted_validation_data(
-			relay_parent,
-			scheduled_core.para_id,
-			assumption,
-			sender,
-		)
-		.await
-		.await
-		.map_err(|err| Error::CanceledPersistedValidationData(err))??
-		{
-			Some(v) => v,
-			None => continue,
-		};
-
-		let computed_validation_data_hash = validation_data.hash();
-
-		// we arbitrarily pick the first of the backed candidates which match the appropriate
-		// selection criteria
-		if let Some(candidate) = candidates.iter().find(|backed_candidate| {
-			let descriptor = &backed_candidate.descriptor;
-			descriptor.para_id() == scheduled_core.para_id &&
-				descriptor.persisted_validation_data_hash() == computed_validation_data_hash
-		}) {
-			let candidate_hash = candidate.hash();
-			gum::trace!(
-				target: LOG_TARGET,
-				leaf_hash=?relay_parent,
-				?candidate_hash,
-				para = ?candidate.descriptor.para_id(),
-				core = core_idx,
-				"Selected candidate receipt",
-			);
-
-			selected_candidates.insert(
-				candidate.descriptor.para_id(),
-				vec![(candidate_hash, candidate.descriptor.relay_parent())],
-			);
-		}
-	}
-
-	Ok(selected_candidates)
-}
-
 /// Requests backable candidates from Prospective Parachains subsystem
 /// based on core states.
-///
-/// Should be called when prospective parachains are enabled.
 async fn request_backable_candidates(
 	availability_cores: &[CoreState],
 	elastic_scaling_mvp: bool,
 	bitfields: &[SignedAvailabilityBitfield],
-	relay_parent: Hash,
+	relay_parent: &ActivatedLeaf,
 	sender: &mut impl overseer::ProvisionerSenderTrait,
 ) -> Result<HashMap<ParaId, Vec<(CandidateHash, Hash)>>, Error> {
-	let block_number = get_block_number_under_construction(relay_parent, sender).await?;
+	let block_number_under_construction = relay_parent.number + 1;
 
 	// Record how many cores are scheduled for each paraid. Use a BTreeMap because
 	// we'll need to iterate through them.
@@ -716,7 +570,7 @@ async fn request_backable_candidates(
 						// Request a new backable candidate for the newly scheduled para id.
 						*scheduled_cores_per_para.entry(scheduled_core.para_id).or_insert(0) += 1;
 					}
-				} else if occupied_core.time_out_at <= block_number {
+				} else if occupied_core.time_out_at <= block_number_under_construction {
 					// Timed out before being available.
 
 					if let Some(ref scheduled_core) = occupied_core.next_up_on_time_out {
@@ -747,7 +601,7 @@ async fn request_backable_candidates(
 		}
 
 		let response = get_backable_candidates(
-			relay_parent,
+			relay_parent.hash,
 			para_id,
 			para_ancestors,
 			core_count as u32,
@@ -758,7 +612,7 @@ async fn request_backable_candidates(
 		if response.is_empty() {
 			gum::debug!(
 				target: LOG_TARGET,
-				leaf_hash = ?relay_parent,
+				leaf_hash = ?relay_parent.hash,
 				?para_id,
 				"No backable candidate returned by prospective parachains",
 			);
@@ -776,38 +630,26 @@ async fn request_backable_candidates(
 async fn select_candidates(
 	availability_cores: &[CoreState],
 	bitfields: &[SignedAvailabilityBitfield],
-	candidates: &[CandidateReceipt],
-	prospective_parachains_mode: ProspectiveParachainsMode,
 	elastic_scaling_mvp: bool,
-	relay_parent: Hash,
+	leaf: &ActivatedLeaf,
 	sender: &mut impl overseer::ProvisionerSenderTrait,
 ) -> Result<Vec<BackedCandidate>, Error> {
+	let relay_parent = leaf.hash;
 	gum::trace!(
 		target: LOG_TARGET,
 		leaf_hash=?relay_parent,
 		"before GetBackedCandidates"
 	);
 
-	let selected_candidates = match prospective_parachains_mode {
-		ProspectiveParachainsMode::Enabled { .. } =>
-			request_backable_candidates(
-				availability_cores,
-				elastic_scaling_mvp,
-				bitfields,
-				relay_parent,
-				sender,
-			)
-			.await?,
-		ProspectiveParachainsMode::Disabled =>
-			select_candidate_hashes_from_tracked(
-				availability_cores,
-				bitfields,
-				&candidates,
-				relay_parent,
-				sender,
-			)
-			.await?,
-	};
+	let selected_candidates = request_backable_candidates(
+		availability_cores,
+		elastic_scaling_mvp,
+		bitfields,
+		leaf,
+		sender,
+	)
+	.await?;
+
 	gum::debug!(target: LOG_TARGET, ?selected_candidates, "Got backable candidates");
 
 	// now get the backed candidates corresponding to these candidate receipts
@@ -817,8 +659,11 @@ async fn select_candidates(
 		tx,
 	));
 	let candidates = rx.await.map_err(|err| Error::CanceledBackedCandidates(err))?;
-	gum::trace!(target: LOG_TARGET, leaf_hash=?relay_parent,
-				"Got {} backed candidates", candidates.len());
+	gum::trace!(
+		target: LOG_TARGET,
+		leaf_hash=?relay_parent,
+		"Got {} backed candidates", candidates.len()
+	);
 
 	// keep only one candidate with validation code.
 	let mut with_validation_code = false;
@@ -848,22 +693,6 @@ async fn select_candidates(
 	);
 
 	Ok(merged_candidates)
-}
-
-/// Produces a block number 1 higher than that of the relay parent
-/// in the event of an invalid `relay_parent`, returns `Ok(0)`
-async fn get_block_number_under_construction(
-	relay_parent: Hash,
-	sender: &mut impl overseer::ProvisionerSenderTrait,
-) -> Result<BlockNumber, Error> {
-	let (tx, rx) = oneshot::channel();
-	sender.send_message(ChainApiMessage::BlockNumber(relay_parent, tx)).await;
-
-	match rx.await.map_err(|err| Error::CanceledBlockNumber(err))? {
-		Ok(Some(n)) => Ok(n + 1),
-		Ok(None) => Ok(0),
-		Err(err) => Err(err.into()),
-	}
 }
 
 /// Requests backable candidates from Prospective Parachains based on

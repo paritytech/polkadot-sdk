@@ -15,3 +15,10 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Put implementations of functions from staging APIs here.
+
+use crate::{configuration, initializer};
+
+/// Approval voting subsystem configuration parameters
+pub fn scheduling_lookahead<T: initializer::Config>() -> u32 {
+	configuration::ActiveConfig::<T>::get().scheduler_params.lookahead
+}

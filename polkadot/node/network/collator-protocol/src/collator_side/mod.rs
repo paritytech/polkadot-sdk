@@ -40,23 +40,18 @@ use polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement};
 use polkadot_node_subsystem::{
 	messages::{
 		CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage, ParentHeadData,
-		RuntimeApiMessage,
 	},
 	overseer, FromOrchestra, OverseerSignal,
 };
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
-	runtime::{
-		fetch_claim_queue, get_availability_cores, get_group_rotation_info,
-		prospective_parachains_mode, ProspectiveParachainsMode, RuntimeInfo,
-	},
+	runtime::{fetch_claim_queue, get_group_rotation_info, ClaimQueueSnapshot, RuntimeInfo},
 	TimeoutExt,
 };
 use polkadot_primitives::{
-	vstaging::{CandidateReceiptV2 as CandidateReceipt, CoreState},
-	AuthorityDiscoveryId, CandidateHash, CollatorPair, CoreIndex, GroupIndex, Hash, HeadData,
-	Id as ParaId, SessionIndex,
+	vstaging::CandidateReceiptV2 as CandidateReceipt, AuthorityDiscoveryId, CandidateHash,
+	CollatorPair, CoreIndex, GroupIndex, Hash, HeadData, Id as ParaId, SessionIndex,
 };
 
 use super::LOG_TARGET;
@@ -229,21 +224,27 @@ impl CollationWithCoreIndex {
 }
 
 struct PerRelayParent {
-	prospective_parachains_mode: ProspectiveParachainsMode,
 	/// Per core index validators group responsible for backing candidates built
 	/// on top of this relay parent.
 	validator_group: HashMap<CoreIndex, ValidatorGroup>,
 	/// Distributed collations.
 	collations: HashMap<CandidateHash, CollationWithCoreIndex>,
+	/// Number of assignments per core
+	assignments: HashMap<CoreIndex, usize>,
 }
 
 impl PerRelayParent {
-	fn new(mode: ProspectiveParachainsMode) -> Self {
-		Self {
-			prospective_parachains_mode: mode,
-			validator_group: HashMap::default(),
-			collations: HashMap::new(),
-		}
+	fn new(para_id: ParaId, claim_queue: ClaimQueueSnapshot) -> Self {
+		let assignments =
+			claim_queue.iter_all_claims().fold(HashMap::new(), |mut acc, (core, claims)| {
+				let n_claims = claims.iter().filter(|para| para == &&para_id).count();
+				if n_claims > 0 {
+					acc.insert(*core, n_claims);
+				}
+				acc
+			});
+
+		Self { validator_group: HashMap::default(), collations: HashMap::new(), assignments }
 	}
 }
 
@@ -262,23 +263,10 @@ struct State {
 	/// to determine what is relevant to them.
 	peer_data: HashMap<PeerId, PeerData>,
 
-	/// Leaves that do support asynchronous backing along with
-	/// implicit ancestry. Leaves from the implicit view are present in
-	/// `active_leaves`, the opposite doesn't hold true.
-	///
-	/// Relay-chain blocks which don't support prospective parachains are
-	/// never included in the fragment chains of active leaves which do. In
-	/// particular, this means that if a given relay parent belongs to implicit
-	/// ancestry of some active leaf, then it does support prospective parachains.
+	/// Leaves along with implicit ancestry.
 	///
 	/// It's `None` if the collator is not yet collating for a paraid.
 	implicit_view: Option<ImplicitView>,
-
-	/// All active leaves observed by us, including both that do and do not
-	/// support prospective parachains. This mapping works as a replacement for
-	/// [`polkadot_node_network_protocol::View`] and can be dropped once the transition
-	/// to asynchronous backing is done.
-	active_leaves: HashMap<Hash, ProspectiveParachainsMode>,
 
 	/// Validators and distributed collations tracked for each relay parent from
 	/// our view, including both leaves and implicit ancestry.
@@ -340,7 +328,6 @@ impl State {
 			collating_on: Default::default(),
 			peer_data: Default::default(),
 			implicit_view: None,
-			active_leaves: Default::default(),
 			per_relay_parent: Default::default(),
 			collation_result_senders: Default::default(),
 			peer_ids: Default::default(),
@@ -359,7 +346,7 @@ impl State {
 /// Figure out the core our para is assigned to and the relevant validators.
 /// Issue a connection request to these validators.
 /// If the para is not scheduled or next up on any core, at the relay-parent,
-/// or the relay-parent isn't in the active-leaves set, we ignore the message
+/// or the relay-parent isn't in the implicit ancestry, we ignore the message
 /// as it must be invalid in that case - although this indicates a logic error
 /// elsewhere in the node.
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
@@ -391,18 +378,24 @@ async fn distribute_collation<Context>(
 			return Ok(())
 		},
 	};
-	let relay_parent_mode = per_relay_parent.prospective_parachains_mode;
 
-	let collations_limit = match relay_parent_mode {
-		ProspectiveParachainsMode::Disabled => 1,
-		ProspectiveParachainsMode::Enabled { max_candidate_depth, .. } => max_candidate_depth + 1,
+	let Some(collations_limit) = per_relay_parent.assignments.get(&core_index) else {
+		gum::warn!(
+			target: LOG_TARGET,
+			para_id = %id,
+			relay_parent = ?candidate_relay_parent,
+			cores = ?per_relay_parent.assignments.keys(),
+			?core_index,
+			"Attempting to distribute collation for a core we are not assigned to ",
+		);
+
+		return Ok(())
 	};
 
-	if per_relay_parent.collations.len() >= collations_limit {
+	if per_relay_parent.collations.len() >= *collations_limit {
 		gum::debug!(
 			target: LOG_TARGET,
 			?candidate_relay_parent,
-			?relay_parent_mode,
 			"The limit of {} collations per relay parent is already reached",
 			collations_limit,
 		);
@@ -420,54 +413,21 @@ async fn distribute_collation<Context>(
 		return Ok(())
 	}
 
-	// Determine which core(s) the para collated-on is assigned to.
-	// If it is not scheduled then ignore the message.
-	let (our_cores, num_cores) =
-		match determine_cores(ctx.sender(), id, candidate_relay_parent, relay_parent_mode).await? {
-			(cores, _num_cores) if cores.is_empty() => {
-				gum::warn!(
-					target: LOG_TARGET,
-					para_id = %id,
-					"looks like no core is assigned to {} at {}", id, candidate_relay_parent,
-				);
-
-				return Ok(())
-			},
-			(cores, num_cores) => (cores, num_cores),
-		};
-
-	let elastic_scaling = our_cores.len() > 1;
+	let elastic_scaling = per_relay_parent.assignments.len() > 1;
 	if elastic_scaling {
 		gum::debug!(
 			target: LOG_TARGET,
 			para_id = %id,
-			cores = ?our_cores,
-			"{} is assigned to {} cores at {}", id, our_cores.len(), candidate_relay_parent,
+			cores = ?per_relay_parent.assignments.keys(),
+			"{} is assigned to {} cores at {}", id, per_relay_parent.assignments.len(), candidate_relay_parent,
 		);
-	}
-
-	// Double check that the specified `core_index` is among the ones our para has assignments for.
-	if !our_cores.iter().any(|assigned_core| assigned_core == &core_index) {
-		gum::warn!(
-			target: LOG_TARGET,
-			para_id = %id,
-			relay_parent = ?candidate_relay_parent,
-			cores = ?our_cores,
-			?core_index,
-			"Attempting to distribute collation for a core we are not assigned to ",
-		);
-
-		return Ok(())
 	}
 
 	let our_core = core_index;
 
 	// Determine the group on that core.
-	//
-	// When prospective parachains are disabled, candidate relay parent here is
-	// guaranteed to be an active leaf.
 	let GroupValidators { validators, session_index, group_index } =
-		determine_our_validators(ctx, runtime, our_core, num_cores, candidate_relay_parent).await?;
+		determine_our_validators(ctx, runtime, our_core, candidate_relay_parent).await?;
 
 	if validators.is_empty() {
 		gum::warn!(
@@ -495,7 +455,6 @@ async fn distribute_collation<Context>(
 		target: LOG_TARGET,
 		para_id = %id,
 		candidate_relay_parent = %candidate_relay_parent,
-		relay_parent_mode = ?relay_parent_mode,
 		?candidate_hash,
 		pov_hash = ?pov.hash(),
 		core = ?our_core,
@@ -536,21 +495,16 @@ async fn distribute_collation<Context>(
 	//
 	// It's collation-producer responsibility to verify that there exists
 	// a hypothetical membership in a fragment chain for the candidate.
-	let interested =
-		state
-			.peer_data
-			.iter()
-			.filter(|(_, PeerData { view: v, .. })| match relay_parent_mode {
-				ProspectiveParachainsMode::Disabled => v.contains(&candidate_relay_parent),
-				ProspectiveParachainsMode::Enabled { .. } => v.iter().any(|block_hash| {
-					state.implicit_view.as_ref().map(|implicit_view| {
-						implicit_view
-							.known_allowed_relay_parents_under(block_hash, Some(id))
-							.unwrap_or_default()
-							.contains(&candidate_relay_parent)
-					}) == Some(true)
-				}),
-			});
+	let interested = state.peer_data.iter().filter(|(_, PeerData { view: v, .. })| {
+		v.iter().any(|block_hash| {
+			state.implicit_view.as_ref().map(|implicit_view| {
+				implicit_view
+					.known_allowed_relay_parents_under(block_hash, Some(id))
+					.unwrap_or_default()
+					.contains(&candidate_relay_parent)
+			}) == Some(true)
+		})
+	});
 
 	// Make sure already connected peers get collations:
 	for (peer_id, peer_data) in interested {
@@ -568,45 +522,6 @@ async fn distribute_collation<Context>(
 	}
 
 	Ok(())
-}
-
-/// Get the core indices that are assigned to the para being collated on if any
-/// and the total number of cores.
-async fn determine_cores(
-	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
-	para_id: ParaId,
-	relay_parent: Hash,
-	relay_parent_mode: ProspectiveParachainsMode,
-) -> Result<(Vec<CoreIndex>, usize)> {
-	let cores = get_availability_cores(sender, relay_parent).await?;
-	let n_cores = cores.len();
-	let mut assigned_cores = Vec::new();
-	let maybe_claim_queue = fetch_claim_queue(sender, relay_parent).await?;
-
-	for (idx, core) in cores.iter().enumerate() {
-		let core_is_scheduled = match maybe_claim_queue {
-			Some(ref claim_queue) => {
-				// Runtime supports claim queue - use it.
-				claim_queue
-					.iter_claims_for_core(&CoreIndex(idx as u32))
-					.any(|para| para == &para_id)
-			},
-			None => match core {
-				CoreState::Scheduled(scheduled) if scheduled.para_id == para_id => true,
-				CoreState::Occupied(occupied) if relay_parent_mode.is_enabled() =>
-				// With async backing we don't care about the core state,
-				// it is only needed for figuring our validators group.
-					occupied.next_up_on_available.as_ref().map(|c| c.para_id) == Some(para_id),
-				_ => false,
-			},
-		};
-
-		if core_is_scheduled {
-			assigned_cores.push(CoreIndex::from(idx as u32));
-		}
-	}
-
-	Ok((assigned_cores, n_cores))
 }
 
 /// Validators of a particular group index.
@@ -627,7 +542,6 @@ async fn determine_our_validators<Context>(
 	ctx: &mut Context,
 	runtime: &mut RuntimeInfo,
 	core_index: CoreIndex,
-	cores: usize,
 	relay_parent: Hash,
 ) -> Result<GroupValidators> {
 	let session_index = runtime.get_session_index_for_child(ctx.sender(), relay_parent).await?;
@@ -637,9 +551,10 @@ async fn determine_our_validators<Context>(
 		.session_info;
 	gum::debug!(target: LOG_TARGET, ?session_index, "Received session info");
 	let groups = &info.validator_groups;
+	let num_cores = groups.len();
 	let rotation_info = get_group_rotation_info(ctx.sender(), relay_parent).await?;
 
-	let current_group_index = rotation_info.group_for_core(core_index, cores);
+	let current_group_index = rotation_info.group_for_core(core_index, num_cores);
 	let current_validators =
 		groups.get(current_group_index).map(|v| v.as_slice()).unwrap_or_default();
 
@@ -746,15 +661,13 @@ async fn advertise_collation<Context>(
 
 		// Check that peer will be able to request the collation.
 		if let CollationVersion::V1 = protocol_version {
-			if per_relay_parent.prospective_parachains_mode.is_enabled() {
-				gum::trace!(
-					target: LOG_TARGET,
-					?relay_parent,
-					peer_id = %peer,
-					"Skipping advertising to validator, incorrect network protocol version",
-				);
-				return
-			}
+			gum::trace!(
+				target: LOG_TARGET,
+				?relay_parent,
+				peer_id = %peer,
+				"Skipping advertising to validator, incorrect network protocol version",
+			);
+			return
 		}
 
 		let Some(validator_group) = per_relay_parent.validator_group.get_mut(&core_index) else {
@@ -1092,18 +1005,14 @@ async fn handle_incoming_request<Context>(
 					return Ok(())
 				},
 			};
-			let mode = per_relay_parent.prospective_parachains_mode;
 
 			let collation_with_core = match &req {
-				VersionedCollationRequest::V1(_) if !mode.is_enabled() =>
-					per_relay_parent.collations.values_mut().next(),
 				VersionedCollationRequest::V2(req) =>
 					per_relay_parent.collations.get_mut(&req.payload.candidate_hash),
 				_ => {
 					gum::warn!(
 						target: LOG_TARGET,
 						relay_parent = %relay_parent,
-						prospective_parachains_mode = ?mode,
 						?peer_id,
 						"Collation request version is invalid",
 					);
@@ -1198,20 +1107,15 @@ async fn handle_peer_view_change<Context>(
 	*current = view;
 
 	for added in added.into_iter() {
-		let block_hashes = match state
-			.per_relay_parent
-			.get(&added)
-			.map(|per_relay_parent| per_relay_parent.prospective_parachains_mode)
-		{
-			Some(ProspectiveParachainsMode::Disabled) => std::slice::from_ref(&added),
-			Some(ProspectiveParachainsMode::Enabled { .. }) => state
+		let block_hashes = match state.per_relay_parent.contains_key(&added) {
+			true => state
 				.implicit_view
 				.as_ref()
 				.and_then(|implicit_view| {
 					implicit_view.known_allowed_relay_parents_under(&added, state.collating_on)
 				})
 				.unwrap_or_default(),
-			None => {
+			false => {
 				gum::trace!(
 					target: LOG_TARGET,
 					?peer_id,
@@ -1334,77 +1238,63 @@ async fn handle_our_view_change<Context>(
 	state: &mut State,
 	view: OurView,
 ) -> Result<()> {
-	let current_leaves = state.active_leaves.clone();
+	let Some(implicit_view) = &mut state.implicit_view else { return Ok(()) };
+	let Some(para_id) = state.collating_on else { return Ok(()) };
 
-	let removed = current_leaves.iter().filter(|(h, _)| !view.contains(h));
-	let added = view.iter().filter(|h| !current_leaves.contains_key(h));
+	let removed: Vec<_> =
+		implicit_view.leaves().map(|l| *l).filter(|h| !view.contains(h)).collect();
+	let added: Vec<_> = view.iter().filter(|h| !implicit_view.contains_leaf(h)).collect();
 
 	for leaf in added {
-		let mode = prospective_parachains_mode(ctx.sender(), *leaf).await?;
+		let claim_queue = fetch_claim_queue(ctx.sender(), *leaf).await?;
+		state.per_relay_parent.insert(*leaf, PerRelayParent::new(para_id, claim_queue));
 
-		state.active_leaves.insert(*leaf, mode);
-		state.per_relay_parent.insert(*leaf, PerRelayParent::new(mode));
+		implicit_view
+			.activate_leaf(ctx.sender(), *leaf)
+			.await
+			.map_err(Error::ImplicitViewFetchError)?;
 
-		if mode.is_enabled() {
-			if let Some(ref mut implicit_view) = state.implicit_view {
-				implicit_view
-					.activate_leaf(ctx.sender(), *leaf)
-					.await
-					.map_err(Error::ImplicitViewFetchError)?;
+		let allowed_ancestry = implicit_view
+			.known_allowed_relay_parents_under(leaf, state.collating_on)
+			.unwrap_or_default();
 
-				let allowed_ancestry = implicit_view
-					.known_allowed_relay_parents_under(leaf, state.collating_on)
-					.unwrap_or_default();
+		// Get the peers that already reported us this head, but we didn't knew it at this
+		// point.
+		let peers = state
+			.peer_data
+			.iter_mut()
+			.filter_map(|(id, data)| data.unknown_heads.remove(leaf).map(|_| (id, data.version)))
+			.collect::<Vec<_>>();
 
-				// Get the peers that already reported us this head, but we didn't knew it at this
-				// point.
-				let peers = state
-					.peer_data
-					.iter_mut()
-					.filter_map(|(id, data)| {
-						data.unknown_heads.remove(leaf).map(|_| (id, data.version))
-					})
-					.collect::<Vec<_>>();
+		for block_hash in allowed_ancestry {
+			let claim_queue = fetch_claim_queue(ctx.sender(), *block_hash).await?;
+			let per_relay_parent = state
+				.per_relay_parent
+				.entry(*block_hash)
+				.or_insert_with(|| PerRelayParent::new(para_id, claim_queue));
 
-				for block_hash in allowed_ancestry {
-					let per_relay_parent = state
-						.per_relay_parent
-						.entry(*block_hash)
-						.or_insert_with(|| PerRelayParent::new(mode));
-
-					// Announce relevant collations to these peers.
-					for (peer_id, peer_version) in &peers {
-						advertise_collation(
-							ctx,
-							*block_hash,
-							per_relay_parent,
-							&peer_id,
-							*peer_version,
-							&state.peer_ids,
-							&mut state.advertisement_timeouts,
-							&state.metrics,
-						)
-						.await;
-					}
-				}
+			// Announce relevant collations to these peers.
+			for (peer_id, peer_version) in &peers {
+				advertise_collation(
+					ctx,
+					*block_hash,
+					per_relay_parent,
+					&peer_id,
+					*peer_version,
+					&state.peer_ids,
+					&mut state.advertisement_timeouts,
+					&state.metrics,
+				)
+				.await;
 			}
 		}
 	}
 
-	for (leaf, mode) in removed {
-		state.active_leaves.remove(leaf);
+	for leaf in removed {
 		// If the leaf is deactivated it still may stay in the view as a part
 		// of implicit ancestry. Only update the state after the hash is actually
 		// pruned from the block info storage.
-		let pruned = if mode.is_enabled() {
-			state
-				.implicit_view
-				.as_mut()
-				.map(|view| view.deactivate_leaf(*leaf))
-				.unwrap_or_default()
-		} else {
-			vec![*leaf]
-		};
+		let pruned = implicit_view.deactivate_leaf(leaf);
 
 		for removed in &pruned {
 			gum::debug!(target: LOG_TARGET, relay_parent = ?removed, "Removing relay parent because our view changed.");
@@ -1558,17 +1448,11 @@ async fn run_inner<Context>(
 						None => continue,
 					};
 
-					match (per_relay_parent.prospective_parachains_mode, &next) {
-						(ProspectiveParachainsMode::Disabled, VersionedCollationRequest::V1(_)) => {
-							per_relay_parent.collations.values().next()
-						},
-						(ProspectiveParachainsMode::Enabled { .. }, VersionedCollationRequest::V2(req)) => {
-							per_relay_parent.collations.get(&req.payload.candidate_hash)
-						},
-						_ => {
-							// Request version is checked in `handle_incoming_request`.
-							continue
-						},
+					if let VersionedCollationRequest::V2(req) = &next {
+						per_relay_parent.collations.get(&req.payload.candidate_hash)
+					} else {
+						// Request version is checked in `handle_incoming_request`.
+						continue
 					}
 				};
 
