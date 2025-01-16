@@ -244,8 +244,8 @@ try-runtime = [
 std = [
 	"assets-common/std",
 	"bp-asset-hub-next-westend/std",
-	"bp-asset-hub-rococo/std",
 	"bp-asset-hub-next-westend/std",
+	"bp-asset-hub-rococo/std",
 	"bp-bridge-hub-rococo/std",
 	"bp-bridge-hub-westend/std",
 	"codec/std",

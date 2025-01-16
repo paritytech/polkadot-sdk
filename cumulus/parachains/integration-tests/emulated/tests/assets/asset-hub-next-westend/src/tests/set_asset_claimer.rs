@@ -61,7 +61,8 @@ fn test_set_asset_claimer_within_a_chain() {
 		<AssetHubNextWestend as Chain>::account_data_of(alice_account.clone()).free;
 	assert_eq!(alice_balance_after - balance_after_trap, trap_amount);
 
-	let bob_balance_before = <AssetHubNextWestend as Chain>::account_data_of(bob_account.clone()).free;
+	let bob_balance_before =
+		<AssetHubNextWestend as Chain>::account_data_of(bob_account.clone()).free;
 	let claim_xcm = Xcm::<RuntimeCall>::builder_unsafe()
 		.claim_asset(assets.clone(), Here)
 		.deposit_asset(AllCounted(assets.len() as u32), bob_location.clone())
@@ -75,7 +76,8 @@ fn test_set_asset_claimer_within_a_chain() {
 		.dispatch(AssetHubRuntimeOrigin::signed(bob_account.clone())));
 	});
 
-	let bob_balance_after = <AssetHubNextWestend as Chain>::account_data_of(bob_account.clone()).free;
+	let bob_balance_after =
+		<AssetHubNextWestend as Chain>::account_data_of(bob_account.clone()).free;
 	assert_eq!(bob_balance_after - bob_balance_before, trap_amount);
 }
 

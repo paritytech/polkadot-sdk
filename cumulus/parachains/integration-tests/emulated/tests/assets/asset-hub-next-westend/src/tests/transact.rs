@@ -89,7 +89,8 @@ fn transact_from_para_to_para_through_asset_hub() {
 		AssetHubNextWestend::sibling_location_of(PenpalA::para_id());
 	let sov_of_sender_on_asset_hub =
 		AssetHubNextWestend::sovereign_account_id_of(sender_chain_as_seen_by_asset_hub);
-	let receiver_as_seen_by_asset_hub = AssetHubNextWestend::sibling_location_of(PenpalB::para_id());
+	let receiver_as_seen_by_asset_hub =
+		AssetHubNextWestend::sibling_location_of(PenpalB::para_id());
 	let sov_of_receiver_on_asset_hub =
 		AssetHubNextWestend::sovereign_account_id_of(receiver_as_seen_by_asset_hub);
 
