@@ -29,7 +29,7 @@ use crate::{
 		ChainExtension, Environment, Ext, RegisteredChainExtension, Result as ExtensionResult,
 		RetVal, ReturnFlags,
 	},
-	debug::Tracer,
+	debug::make_tracer,
 	evm::{runtime::GAS_PRICE, GenericTransaction},
 	exec::Key,
 	limits,
@@ -4594,8 +4594,8 @@ fn tracing_works() {
 		];
 
 		for (tracer_config, logs) in tracer_options {
-			let mut tracer = Tracer::from_config(tracer_config);
-			using_tracer(&mut tracer, || {
+			let mut tracer = make_tracer(tracer_config);
+			using_tracer(&mut *tracer, || {
 				builder::bare_call(addr).data((3u32, addr_callee).encode()).build()
 			});
 
