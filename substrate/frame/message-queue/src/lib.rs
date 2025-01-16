@@ -208,26 +208,14 @@ extern crate alloc;
 use alloc::{vec, vec::Vec};
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
 use core::{fmt::Debug, ops::Deref};
-use frame_support::{
-	defensive,
-	pallet_prelude::*,
-	traits::{
-		Defensive, DefensiveSaturating, DefensiveTruncateFrom, EnqueueMessage,
-		ExecuteOverweightError, Footprint, ProcessMessage, ProcessMessageError, QueueFootprint,
-		QueuePausedQuery, ServiceQueues,
-	},
-	BoundedSlice, CloneNoBound, DefaultNoBound,
-};
+
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use scale_info::TypeInfo;
-use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
-use sp_core::{defer, H256};
-use sp_runtime::{
-	traits::{One, Zero},
-	SaturatedConversion, Saturating, TransactionOutcome,
-};
-use sp_weights::WeightMeter;
+use frame::deps::sp_arithmetic::traits::{BaseArithmetic, Unsigned};
+use frame::deps::sp_core::{defer, H256};
+
+use frame::deps::sp_weights::WeightMeter;
 pub use weights::WeightInfo;
 
 /// Type for identifying a page.
