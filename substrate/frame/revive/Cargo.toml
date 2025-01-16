@@ -102,6 +102,7 @@ std = [
 	"subxt-signer",
 	"xcm-builder/std",
 	"xcm/std",
+	"ethabi/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
