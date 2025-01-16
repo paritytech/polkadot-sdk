@@ -102,22 +102,3 @@ pub async fn assert_blocks_are_being_finalized(
 
 	Ok(())
 }
-
-/// Wait for a `NewSession` event.
-pub async fn wait_for_session_change(
-	relay_client: &OnlineClient<PolkadotConfig>,
-) -> Result<(), anyhow::Error> {
-	let mut blocks_sub = relay_client.blocks().subscribe_best().await?;
-
-	while let Some(block) = blocks_sub.next().await {
-		let block = block?;
-		let events = block.events().await?;
-		let is_session_change = events.has::<rococo::session::events::NewSession>()?;
-
-		if is_session_change {
-			log::info!("Session changed at block {}", block.number());
-			break
-		}
-	}
-	Ok(())
-}
