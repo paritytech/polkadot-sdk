@@ -22,7 +22,7 @@ use core::num::NonZeroU32;
 use frame_support::weights::Weight;
 
 /// The possible capacity of the unincluded segment.
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct UnincludedSegmentCapacity(UnincludedSegmentCapacityInner);
 
 impl UnincludedSegmentCapacity {
@@ -41,7 +41,7 @@ impl UnincludedSegmentCapacity {
 	}
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) enum UnincludedSegmentCapacityInner {
 	ExpectParentIncluded,
 	Value(NonZeroU32),
