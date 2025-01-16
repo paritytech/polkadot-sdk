@@ -325,7 +325,7 @@ pub mod testing_prelude {
 		assert_storage_noop, hypothetically, storage_alias,
 	};
 
-	pub use frame_system::{self, mocking::*};
+	pub use frame_system::{self, mocking::*, RunToBlockHooks};
 
 	#[deprecated(note = "Use `frame::testing_prelude::TestState` instead.")]
 	pub use sp_io::TestExternalities;

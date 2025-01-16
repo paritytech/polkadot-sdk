@@ -268,22 +268,19 @@ impl ExtBuilder {
 }
 
 pub(crate) fn run_to_block(n: u64, on_idle: bool) {
-	let current_block = System::block_number();
-	assert!(n > current_block);
-	while System::block_number() < n {
-		Balances::on_finalize(System::block_number());
-		Staking::on_finalize(System::block_number());
-		FastUnstake::on_finalize(System::block_number());
-
-		System::set_block_number(System::block_number() + 1);
-
-		Balances::on_initialize(System::block_number());
-		Staking::on_initialize(System::block_number());
-		FastUnstake::on_initialize(System::block_number());
-		if on_idle {
-			FastUnstake::on_idle(System::block_number(), BlockWeights::get().max_block);
-		}
-	}
+	System::run_to_block_with::<AllPalletsWithSystem>(
+		n,
+		frame_system::RunToBlockHooks::default()
+			.before_finalize(|_| {
+				// Satisfy the timestamp pallet.
+				Timestamp::set_timestamp(0);
+			})
+			.after_initialize(|bn| {
+				if on_idle {
+					FastUnstake::on_idle(bn, BlockWeights::get().max_block);
+				}
+			}),
+	);
 }
 
 pub(crate) fn next_block(on_idle: bool) {
