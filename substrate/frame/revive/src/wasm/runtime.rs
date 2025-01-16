@@ -293,6 +293,8 @@ pub enum RuntimeCosts {
 	CallDataSize,
 	/// Weight of calling `seal_return_data_size`.
 	ReturnDataSize,
+	/// Weight of calling `seal_to_account_id`.
+	ToAccountId,
 	/// Weight of calling `seal_origin`.
 	Origin,
 	/// Weight of calling `seal_is_contract`.
@@ -466,6 +468,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Caller => T::WeightInfo::seal_caller(),
 			Origin => T::WeightInfo::seal_origin(),
 			IsContract => T::WeightInfo::seal_is_contract(),
+			ToAccountId => T::WeightInfo::seal_to_account_id(),
 			CodeHash => T::WeightInfo::seal_code_hash(),
 			CodeSize => T::WeightInfo::seal_code_size(),
 			OwnCodeHash => T::WeightInfo::seal_own_code_hash(),
@@ -998,8 +1001,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		self.charge_gas(call_type.cost())?;
 
 		let callee = memory.read_h160(callee_ptr)?;
-		let deposit_limit =
-			if deposit_ptr == SENTINEL { U256::zero() } else { memory.read_u256(deposit_ptr)? };
+		let deposit_limit = memory.read_u256(deposit_ptr)?;
 
 		let input_data = if flags.contains(CallFlags::CLONE_INPUT) {
 			let input = self.input_data.as_ref().ok_or(Error::<E::T>::InputForwarded)?;
@@ -1085,8 +1087,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		salt_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.charge_gas(RuntimeCosts::Instantiate { input_data_len })?;
-		let deposit_limit: U256 =
-			if deposit_ptr == SENTINEL { U256::zero() } else { memory.read_u256(deposit_ptr)? };
+		let deposit_limit: U256 = memory.read_u256(deposit_ptr)?;
 		let value = memory.read_u256(value_ptr)?;
 		let code_hash = memory.read_h256(code_hash_ptr)?;
 		let input_data = memory.read(input_data_ptr, input_data_len)?;
@@ -2141,5 +2142,26 @@ pub mod env {
 				Ok(ReturnErrorCode::XcmSendFailed)
 			},
 		}
+	}
+
+	/// Retrieves the account id for a specified contract address.
+	///
+	/// See [`pallet_revive_uapi::HostFn::to_account_id`].
+	fn to_account_id(
+		&mut self,
+		memory: &mut M,
+		addr_ptr: u32,
+		out_ptr: u32,
+	) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::ToAccountId)?;
+		let address = memory.read_h160(addr_ptr)?;
+		let account_id = self.ext.to_account_id(&address);
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&account_id.encode(),
+			false,
+			already_charged,
+		)?)
 	}
 }

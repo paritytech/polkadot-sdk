@@ -33,10 +33,9 @@ pub extern "C" fn call() {
 
 	let err_code = match api::instantiate(
 		code_hash,
-		0u64, // How much ref_time weight to devote for the execution. 0 = all.
-		0u64, /* How much proof_size weight to devote for the execution. 0 =
-		       * all. */
-		None,                   // No deposit limit.
+		u64::MAX,               // How much ref_time weight to devote for the execution. u64::MAX = use all.
+		u64::MAX,               // How much proof_size weight to devote for the execution. u64::MAX = use all.
+		&[u8::MAX; 32],         // No deposit limit.
 		&u256_bytes(10_000u64), // Value to transfer.
 		input,
 		None,

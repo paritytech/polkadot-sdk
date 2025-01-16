@@ -46,7 +46,7 @@ use crate::{
 		runtime::{gas_from_fee, GAS_PRICE},
 		GasEncoder, GenericTransaction, Traces,
 	},
-	exec::{AccountIdOf, ExecError, Executable, Ext, Key, Origin, Stack as ExecStack},
+	exec::{AccountIdOf, ExecError, Executable, Ext, Key, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
 	wasm::{CodeInfo, RuntimeCosts, WasmBlob},
@@ -86,7 +86,7 @@ use sp_runtime::{
 pub use crate::{
 	address::{create1, create2, AccountId32Mapper, AddressMapper},
 	debug::Tracing,
-	exec::MomentOf,
+	exec::{MomentOf, Origin},
 	pallet::*,
 };
 pub use primitives::*;
@@ -381,25 +381,6 @@ pub mod pallet {
 
 	#[pallet::event]
 	pub enum Event<T: Config> {
-		/// Contract deployed by address at the specified address.
-		Instantiated { deployer: H160, contract: H160 },
-
-		/// Contract has been removed.
-		///
-		/// # Note
-		///
-		/// The only way for a contract to be removed and emitting this event is by calling
-		/// `seal_terminate`.
-		Terminated {
-			/// The contract that was terminated.
-			contract: H160,
-			/// The account that received the contracts remaining balance
-			beneficiary: H160,
-		},
-
-		/// Code with the specified hash has been stored.
-		CodeStored { code_hash: H256, deposit_held: BalanceOf<T>, uploader: H160 },
-
 		/// A custom event emitted by the contract.
 		ContractEmitted {
 			/// The contract that emitted the event.
@@ -411,54 +392,6 @@ pub mod pallet {
 			/// Number of topics is capped by [`limits::NUM_EVENT_TOPICS`].
 			topics: Vec<H256>,
 		},
-
-		/// A code with the specified hash was removed.
-		CodeRemoved { code_hash: H256, deposit_released: BalanceOf<T>, remover: H160 },
-
-		/// A contract's code was updated.
-		ContractCodeUpdated {
-			/// The contract that has been updated.
-			contract: H160,
-			/// New code hash that was set for the contract.
-			new_code_hash: H256,
-			/// Previous code hash of the contract.
-			old_code_hash: H256,
-		},
-
-		/// A contract was called either by a plain account or another contract.
-		///
-		/// # Note
-		///
-		/// Please keep in mind that like all events this is only emitted for successful
-		/// calls. This is because on failure all storage changes including events are
-		/// rolled back.
-		Called {
-			/// The caller of the `contract`.
-			caller: Origin<T>,
-			/// The contract that was called.
-			contract: H160,
-		},
-
-		/// A contract delegate called a code hash.
-		///
-		/// # Note
-		///
-		/// Please keep in mind that like all events this is only emitted for successful
-		/// calls. This is because on failure all storage changes including events are
-		/// rolled back.
-		DelegateCalled {
-			/// The contract that performed the delegate call and hence in whose context
-			/// the `code_hash` is executed.
-			contract: H160,
-			/// The code hash that was delegate called.
-			code_hash: H256,
-		},
-
-		/// Some funds have been transferred and held as storage deposit.
-		StorageDepositTransferredAndHeld { from: H160, to: H160, amount: BalanceOf<T> },
-
-		/// Some storage deposit funds have been transferred and released.
-		StorageDepositTransferredAndReleased { from: H160, to: H160, amount: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -1004,11 +937,6 @@ pub mod pallet {
 				};
 				<ExecStack<T, WasmBlob<T>>>::increment_refcount(code_hash)?;
 				<ExecStack<T, WasmBlob<T>>>::decrement_refcount(contract.code_hash);
-				Self::deposit_event(Event::ContractCodeUpdated {
-					contract: dest,
-					new_code_hash: code_hash,
-					old_code_hash: contract.code_hash,
-				});
 				contract.code_hash = code_hash;
 				Ok(())
 			})
