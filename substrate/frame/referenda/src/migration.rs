@@ -217,46 +217,8 @@ pub mod switch_block_number_provider {
 		}
 
 		fn on_runtime_upgrade() -> Weight {
-			let in_code_version = Pallet::<T, I>::in_code_storage_version();
-			let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
-			let mut weight = T::DbWeight::get().reads(1);
-			log::info!(
-				target: TARGET,
-				"running migration with in-code storage version {:?} / onchain {:?}.",
-				in_code_version,
-				on_chain_version
-			);
-
-			v1::ReferendumInfoFor::<T, I>::iter().for_each(|(key, value)| {
-				let maybe_new_value = match value {
-					ReferendumInfo::Ongoing(_) | ReferendumInfo::Killed(_) => None,
-					ReferendumInfo::Approved(e, s, d) => {
-						let new_e = BlockConverter::convert_block_number(e);
-						Some(ReferendumInfo::Approved(new_e, s, d))
-					},
-					ReferendumInfo::Rejected(e, s, d) => {
-						let new_e = BlockConverter::convert_block_number(e);
-						Some(ReferendumInfo::Rejected(new_e, s, d))
-					},
-					ReferendumInfo::Cancelled(e, s, d) => {
-						let new_e = BlockConverter::convert_block_number(e);
-						Some(ReferendumInfo::Cancelled(new_e, s, d))
-					},
-					ReferendumInfo::TimedOut(e, s, d) => {
-						let new_e = BlockConverter::convert_block_number(e);
-						Some(ReferendumInfo::TimedOut(new_e, s, d))
-					},
-				};
-				if let Some(new_value) = maybe_new_value {
-					weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
-					log::info!(target: TARGET, "migrating referendum #{:?}", &key);
-					ReferendumInfoFor::<T, I>::insert(key, new_value);
-				} else {
-					weight.saturating_accrue(T::DbWeight::get().reads(1));
-				}
-			});
-			StorageVersion::new(1).put::<Pallet<T, I>>();
-			weight.saturating_accrue(T::DbWeight::get().writes(1));
+			let mut weight = Weight::zero();
+			weight.saturating_accrue(migrate_v1_to_v2::<BlockConverter, T, I>());
 			weight
 		}
 
@@ -271,6 +233,56 @@ pub mod switch_block_number_provider {
 			log::info!(target: TARGET, "migrated all referendums.");
 			Ok(())
 		}
+	}
+
+	pub fn migrate_v1_to_v2<BlockConverter, T, I: 'static>() -> Weight
+	where
+		BlockConverter: BlockNumberConversion<SystemBlockNumberFor<T>, BlockNumberFor<T, I>>,
+		T: Config<I>,
+	{
+		let in_code_version = Pallet::<T, I>::in_code_storage_version();
+		let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
+		let mut weight = T::DbWeight::get().reads(1);
+		log::info!(
+			target: "runtime::referenda::migration::change_block_number_provider",
+			"running migration with in-code storage version {:?} / onchain {:?}.",
+			in_code_version,
+			on_chain_version
+		);
+
+		// Migration logic here
+		v1::ReferendumInfoFor::<T, I>::iter().for_each(|(key, value)| {
+			let maybe_new_value = match value {
+				ReferendumInfo::Ongoing(_) | ReferendumInfo::Killed(_) => None,
+				ReferendumInfo::Approved(e, s, d) => {
+					let new_e = BlockConverter::convert_block_number(e);
+					Some(ReferendumInfo::Approved(new_e, s, d))
+				}
+				ReferendumInfo::Rejected(e, s, d) => {
+					let new_e = BlockConverter::convert_block_number(e);
+					Some(ReferendumInfo::Rejected(new_e, s, d))
+				}
+				ReferendumInfo::Cancelled(e, s, d) => {
+					let new_e = BlockConverter::convert_block_number(e);
+					Some(ReferendumInfo::Cancelled(new_e, s, d))
+				}
+				ReferendumInfo::TimedOut(e, s, d) => {
+					let new_e = BlockConverter::convert_block_number(e);
+					Some(ReferendumInfo::TimedOut(new_e, s, d))
+				}
+			};
+			if let Some(new_value) = maybe_new_value {
+				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+				log::info!(target: "runtime::referenda::migration::change_block_number_provider", "migrating referendum #{:?}", &key);
+				ReferendumInfoFor::<T, I>::insert(key, new_value);
+			} else {
+				weight.saturating_accrue(T::DbWeight::get().reads(1));
+			}
+		});
+
+		StorageVersion::new(1).put::<Pallet<T, I>>();
+		weight.saturating_accrue(T::DbWeight::get().writes(1));
+		weight
 	}
 }
 
