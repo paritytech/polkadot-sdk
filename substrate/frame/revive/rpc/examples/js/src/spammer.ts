@@ -9,55 +9,60 @@ import {
 } from './util'
 import { FlipperAbi } from '../abi/Flipper'
 
-//Run the substate node
-console.log('🚀 Start kitchensink...')
-killProcessOnPort(9944)
-spawn(
-	[
-		'./target/debug/substrate-node',
-		'--dev',
-		'-l=error,evm=debug,sc_rpc_server=info,runtime::revive=debug',
-	],
-	{
-		stdout: Bun.file('/tmp/kitchensink.out.log'),
-		stderr: Bun.file('/tmp/kitchensink.err.log'),
-		cwd: polkadotSdkPath,
-	}
-)
+if (process.env.START_KITCHENSINK) {
+	console.log('🚀 Start kitchensink...')
+	killProcessOnPort(9944)
+	spawn(
+		[
+			'./target/debug/substrate-node',
+			'--dev',
+			'-l=error,evm=debug,sc_rpc_server=info,runtime::revive=debug',
+		],
+		{
+			stdout: Bun.file('/tmp/kitchensink.out.log'),
+			stderr: Bun.file('/tmp/kitchensink.err.log'),
+			cwd: polkadotSdkPath,
+		}
+	)
+}
 
-// Run eth-indexer
-console.log('🔍 Start indexer...')
-spawn(
-	[
-		'./target/debug/eth-indexer',
-		'--node-rpc-url=ws://localhost:9944',
-		'-l=eth-rpc=debug',
-		'--database-url ${polkadotSdkPath}/substrate/frame/revive/rpc/tx_hashes.db',
-	],
-	{
-		stdout: Bun.file('/tmp/eth-indexer.out.log'),
-		stderr: Bun.file('/tmp/eth-indexer.err.log'),
-		cwd: polkadotSdkPath,
-	}
-)
+if (process.env.START_ETH_INDEXER) {
+	console.log('🚀 Start indexer...')
+	spawn(
+		[
+			'./target/debug/eth-indexer',
+			'--node-rpc-url=ws://localhost:9944',
+			'-l=eth-rpc=debug',
+			'--database-url ${polkadotSdkPath}/substrate/frame/revive/rpc/tx_hashes.db',
+		],
+		{
+			stdout: Bun.file('/tmp/eth-indexer.out.log'),
+			stderr: Bun.file('/tmp/eth-indexer.err.log'),
+			cwd: polkadotSdkPath,
+		}
+	)
+}
 
 // Run eth-rpc on 8545
-console.log('💻 Start eth-rpc...')
-killProcessOnPort(8545)
-spawn(
-	[
-		'./target/debug/eth-rpc',
-		'--dev',
-		'--node-rpc-url=ws://localhost:9944',
-		'-l=rpc-metrics=debug,eth-rpc=debug',
-	],
-	{
-		stdout: Bun.file('/tmp/eth-rpc.out.log'),
-		stderr: Bun.file('/tmp/eth-rpc.err.log'),
-		cwd: polkadotSdkPath,
-	}
-)
-await waitForHealth('http://localhost:8545').catch()
+console.log('🚀 Start eth-rpc...')
+if (process.env.START_ETH_RPC) {
+	console.log('🔍 Start eth-rpc...')
+	killProcessOnPort(8545)
+	spawn(
+		[
+			'./target/debug/eth-rpc',
+			'--dev',
+			'--node-rpc-url=ws://localhost:9944',
+			'-l=rpc-metrics=debug,eth-rpc=debug',
+		],
+		{
+			stdout: Bun.file('/tmp/eth-rpc.out.log'),
+			stderr: Bun.file('/tmp/eth-rpc.err.log'),
+			cwd: polkadotSdkPath,
+		}
+	)
+	await waitForHealth('http://localhost:8545').catch()
+}
 
 const env = await createEnv('kitchensink')
 const wallet = env.accountWallet

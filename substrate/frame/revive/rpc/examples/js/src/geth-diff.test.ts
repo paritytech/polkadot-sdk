@@ -363,6 +363,7 @@ for (const env of envs) {
 					abi: TracingCallerAbi,
 					args: [calleeAddress],
 					bytecode: getByteCode('TracingCaller', env.evm),
+					value: parseEther('10'),
 				})
 				const receipt = await env.serverWallet.waitForTransactionReceipt({
 					hash,
@@ -383,11 +384,11 @@ for (const env of envs) {
 				return await env.serverWallet.waitForTransactionReceipt({ hash })
 			})()
 			console.error('Tx hash:', receipt.transactionHash)
-			let res = await env.debugClient.traceTransaction(receipt.transactionHash)
-			Bun.write('/tmp/trace_transaction.json', JSON.stringify(res, null, 2))
-			console.log('Wrote /tmp/trace_transaction.json')
+			//let res = await env.debugClient.traceTransaction(receipt.transactionHash)
+			//Bun.write('/tmp/trace_transaction.json', JSON.stringify(res, null, 2))
+			//console.log('Wrote /tmp/trace_transaction.json')
 
-			res = await env.debugClient.traceBlock(receipt.blockNumber)
+			let res = await env.debugClient.traceBlock(receipt.blockNumber)
 			Bun.write('/tmp/trace_block.json', JSON.stringify(res, null, 2))
 			console.log('Wrote /tmp/trace_block.json')
 		})

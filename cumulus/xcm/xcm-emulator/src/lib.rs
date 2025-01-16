@@ -1118,6 +1118,7 @@ macro_rules! decl_test_networks {
 				) -> $crate::ParachainInherentData {
 					let mut sproof = $crate::RelayStateSproofBuilder::default();
 					sproof.para_id = para_id.into();
+					sproof.current_slot = $crate::polkadot_primitives::Slot::from(relay_parent_number as u64);
 
 					// egress channel
 					let e_index = sproof.hrmp_egress_channel_index.get_or_insert_with(Vec::new);

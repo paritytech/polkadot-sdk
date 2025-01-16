@@ -69,6 +69,7 @@ mod sys {
 		pub fn caller(out_ptr: *mut u8);
 		pub fn origin(out_ptr: *mut u8);
 		pub fn is_contract(account_ptr: *const u8) -> ReturnCode;
+		pub fn to_account_id(address_ptr: *const u8, out_ptr: *mut u8);
 		pub fn code_hash(address_ptr: *const u8, out_ptr: *mut u8);
 		pub fn code_size(address_ptr: *const u8) -> u64;
 		pub fn own_code_hash(out_ptr: *mut u8);
@@ -167,7 +168,7 @@ impl HostFn for HostFnImpl {
 		code_hash: &[u8; 32],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
-		deposit_limit: Option<&[u8; 32]>,
+		deposit_limit: &[u8; 32],
 		value: &[u8; 32],
 		input: &[u8],
 		mut address: Option<&mut [u8; 20]>,
@@ -179,7 +180,7 @@ impl HostFn for HostFnImpl {
 			None => crate::SENTINEL as _,
 		};
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
-		let deposit_limit_ptr = ptr_or_sentinel(&deposit_limit);
+		let deposit_limit_ptr = deposit_limit.as_ptr();
 		let salt_ptr = ptr_or_sentinel(&salt);
 		#[repr(C)]
 		#[allow(dead_code)]
@@ -224,13 +225,13 @@ impl HostFn for HostFnImpl {
 		callee: &[u8; 20],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
-		deposit_limit: Option<&[u8; 32]>,
+		deposit_limit: &[u8; 32],
 		value: &[u8; 32],
 		input: &[u8],
 		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
-		let deposit_limit_ptr = ptr_or_sentinel(&deposit_limit);
+		let deposit_limit_ptr = deposit_limit.as_ptr();
 		#[repr(C)]
 		#[allow(dead_code)]
 		struct Args {
@@ -272,12 +273,12 @@ impl HostFn for HostFnImpl {
 		address: &[u8; 20],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
-		deposit_limit: Option<&[u8; 32]>,
+		deposit_limit: &[u8; 32],
 		input: &[u8],
 		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
-		let deposit_limit_ptr = ptr_or_sentinel(&deposit_limit);
+		let deposit_limit_ptr = deposit_limit.as_ptr();
 		#[repr(C)]
 		#[allow(dead_code)]
 		struct Args {
@@ -457,6 +458,11 @@ impl HostFn for HostFnImpl {
 	}
 
 	#[unstable_hostfn]
+	fn to_account_id(address: &[u8; 20], output: &mut [u8]) {
+		unsafe { sys::to_account_id(address.as_ptr(), output.as_mut_ptr()) }
+	}
+
+	#[unstable_hostfn]
 	fn block_hash(block_number_ptr: &[u8; 32], output: &mut [u8; 32]) {
 		unsafe { sys::block_hash(block_number_ptr.as_ptr(), output.as_mut_ptr()) };
 	}
@@ -500,8 +506,9 @@ impl HostFn for HostFnImpl {
 	}
 
 	#[unstable_hostfn]
-	fn caller_is_root() -> u32 {
-		unsafe { sys::caller_is_root() }.into_u32()
+	fn caller_is_root() -> bool {
+		let ret_val = unsafe { sys::caller_is_root() };
+		ret_val.into_bool()
 	}
 
 	#[unstable_hostfn]

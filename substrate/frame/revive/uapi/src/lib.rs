@@ -86,6 +86,8 @@ define_error_codes! {
 	/// Transfer failed for other not further specified reason. Most probably
 	/// reserved or locked balance of the sender that was preventing the transfer.
 	TransferFailed = 4,
+	/// The subcall ran out of weight or storage deposit.
+	OutOfResources = 5,
 	/// The call dispatched by `call_runtime` was executed but returned an error.
 	CallRuntimeFailed = 6,
 	/// ECDSA public key recovery failed. Most probably wrong recovery id or signature.
@@ -96,8 +98,6 @@ define_error_codes! {
 	XcmExecutionFailed = 9,
 	/// The `xcm_send` call failed.
 	XcmSendFailed = 10,
-	/// The subcall ran out of weight or storage deposit.
-	OutOfResources = 11,
 }
 
 /// The raw return code returned by the host side.
