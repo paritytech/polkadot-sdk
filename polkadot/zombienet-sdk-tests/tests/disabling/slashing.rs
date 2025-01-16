@@ -94,12 +94,14 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 	flaky_0.pause().await?;
 
 	// wait for a dispute to be initiated
-	let dispute_session: u32;
-	loop {
+	let mut best_blocks = relay_client.blocks().subscribe_best().await?;
+	let mut dispute_session: u32 = u32::MAX;
+	while let Some(block) = best_blocks.next().await {
+		// NOTE: we can't use `at_latest` here, because it will utilize latest *finalized* block
+		// and finality is stalled...
 		let disputes = relay_client
 			.runtime_api()
-			.at_latest()
-			.await?
+			.at(block?.hash())
 			.call_raw::<Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>>(
 				"ParachainHost_disputes",
 				None,
@@ -109,22 +111,20 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 			dispute_session = *session;
 			break
 		}
-		tokio::time::sleep(tokio::time::Duration::from_secs(6)).await;
 	}
 
+	assert_ne!(dispute_session, u32::MAX, "dispute should be initiated");
 	log::info!("Dispute initiated, now waiting for a new session");
 
-	loop {
+	while let Some(block) = best_blocks.next().await {
 		let current_session = relay_client
 			.runtime_api()
-			.at_latest()
-			.await?
+			.at(block?.hash())
 			.call_raw::<SessionIndex>("ParachainHost_session_index_for_child", None)
 			.await?;
 		if current_session > dispute_session {
 			break
 		}
-		tokio::time::sleep(tokio::time::Duration::from_secs(6)).await;
 	}
 
 	// We don't need malus anymore
@@ -161,6 +161,7 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
+// TODO: replace with zombienet-sdk built-in
 pub async fn wait_for_metric(node: &NetworkNode, metric: &str, value: u64) -> u64 {
 	log::info!("Waiting for {metric} to reach {value}:");
 	loop {
