@@ -231,9 +231,14 @@ pub mod prelude {
 
 	/// Runtime traits
 	#[doc(no_inline)]
-	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+	pub use sp_runtime::{
+		impl_tx_ext_default,
+		traits::{
+			BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ExtrinsicLike,
+			ReduceBy, ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup,
+			TrailingZeroInput, TransactionExtension,
+		},
+		transaction_validity::{TransactionSource, UnknownTransaction},
 	};
 	/// Other error/result types for runtime
 	#[doc(no_inline)]

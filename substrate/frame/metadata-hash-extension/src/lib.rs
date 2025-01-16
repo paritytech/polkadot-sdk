@@ -39,14 +39,9 @@ extern crate alloc;
 extern crate self as frame_metadata_hash_extension;
 
 use codec::{Decode, Encode};
-use frame_support::{pallet_prelude::Weight, DebugNoBound};
+use frame::prelude::*;
 use frame_system::Config;
 use scale_info::TypeInfo;
-use sp_runtime::{
-	impl_tx_ext_default,
-	traits::TransactionExtension,
-	transaction_validity::{TransactionValidityError, UnknownTransaction},
-};
 
 #[cfg(test)]
 mod tests;

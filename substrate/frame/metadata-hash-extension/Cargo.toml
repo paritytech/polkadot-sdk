@@ -11,18 +11,15 @@ description = "FRAME signed extension for verifying the metadata hash"
 [dependencies]
 array-bytes = { workspace = true, default-features = true }
 codec = { features = ["derive"], workspace = true }
+frame = { workspace = true, features = ["experimental", "runtime"]}
 const-hex = { workspace = true }
 docify = { workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
-sp-runtime = { features = ["serde"], workspace = true }
 
 [dev-dependencies]
 frame-metadata = { features = ["current", "unstable"], workspace = true, default-features = true }
 merkleized-metadata = { workspace = true }
-sp-api = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 sp-transaction-pool = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
@@ -32,10 +29,8 @@ substrate-wasm-builder = { features = ["metadata-hash"], workspace = true, defau
 default = ["std"]
 std = [
 	"codec/std",
+	"frame/std",
 	"const-hex/std",
-	"frame-support/std",
-	"frame-system/std",
 	"log/std",
 	"scale-info/std",
-	"sp-runtime/std",
 ]
