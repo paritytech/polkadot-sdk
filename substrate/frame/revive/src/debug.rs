@@ -51,7 +51,7 @@ pub trait Tracing {
 	/// Called when a contract call terminates with an error
 	fn exit_child_span_with_error(&mut self, error: DispatchError, gas_left: Weight);
 
-	/// Takes the traces collected by the tracer and resets them.
+	/// Collects and returns the traces recorded by the tracer, then clears them.
 	fn collect_traces(&mut self) -> Traces;
 }
 
