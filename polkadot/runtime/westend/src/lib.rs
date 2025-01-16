@@ -94,7 +94,7 @@ use sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},
 	mmr::{BeefyDataProvider, MmrLeafVersion},
 };
-use sp_core::{ConstU8, OpaqueMetadata, RuntimeDebug, H256};
+use sp_core::{ConstBool, ConstU8, OpaqueMetadata, RuntimeDebug, H256};
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{
@@ -600,6 +600,7 @@ frame_election_provider_support::generate_solution_type!(
 
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
+	type Sort = ConstBool<true>;
 	type System = Runtime;
 	type Solver = SequentialPhragmen<AccountId, OnChainAccuracy>;
 	type DataProvider = Staking;
@@ -1150,8 +1151,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				matches!(
 					c,
 					RuntimeCall::Staking(..) |
-						RuntimeCall::Session(..) |
-						RuntimeCall::Utility(..) |
+						RuntimeCall::Session(..) | RuntimeCall::Utility(..) |
 						RuntimeCall::FastUnstake(..) |
 						RuntimeCall::VoterList(..) |
 						RuntimeCall::NominationPools(..)

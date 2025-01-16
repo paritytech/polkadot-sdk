@@ -35,7 +35,7 @@ use sp_core::{
 		testing::{PoolState, TestOffchainExt, TestTransactionPoolExt},
 		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
 	},
-	H256,
+	ConstBool, H256,
 };
 use sp_npos_elections::{
 	assignment_ratio_to_staked_normalized, seq_phragmen, to_supports, BalancingConfig,
@@ -313,6 +313,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type WeightInfo = ();
 	type MaxWinnersPerPage = MaxWinners;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type Sort = ConstBool<true>;
 	type Bounds = OnChainElectionsBounds;
 }
 

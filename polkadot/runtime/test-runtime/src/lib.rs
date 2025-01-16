@@ -77,7 +77,7 @@ use polkadot_runtime_common::{
 use polkadot_runtime_parachains::reward_points::RewardValidatorsWithEraPoints;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_beefy::ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature};
-use sp_core::{ConstU32, OpaqueMetadata};
+use sp_core::{ConstBool, ConstU32, OpaqueMetadata};
 use sp_mmr_primitives as mmr;
 use sp_runtime::{
 	curve::PiecewiseLinear,
@@ -359,7 +359,9 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type DataProvider = Staking;
 	type WeightInfo = ();
 	type Bounds = ElectionBoundsOnChain;
-	type MaxWinners = OnChainMaxWinners;
+	type MaxWinnersPerPage = OnChainMaxWinners;
+	type MaxBackersPerWinner = ConstU32<{ u32::MAX }>;
+	type Sort = ConstBool<true>;
 }
 
 /// Upper limit on the number of NPOS nominations.
@@ -396,6 +398,7 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = ();
 	type WeightInfo = ();
 	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy;
+	type MaxValidatorSet = MaxAuthorities;
 }
 
 parameter_types! {

@@ -32,6 +32,7 @@ use frame_support::{
 	weights::constants::RocksDbWeight,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
+use sp_core::ConstBool;
 use sp_io;
 use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{
@@ -290,6 +291,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type DataProvider = Staking;
 	type WeightInfo = ();
 	type Bounds = ElectionsBounds;
+	type Sort = ConstBool<true>;
 	type MaxBackersPerWinner = ConstU32<{ u32::MAX }>;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 }
