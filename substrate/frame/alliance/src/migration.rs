@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{Config, Pallet, Weight, LOG_TARGET};
-use frame::testing_prelude::*;
+use frame::runtime::prelude::*;
 use log;
 use storage::migration;
 
