@@ -127,7 +127,6 @@ pub use pallet_balances::Call as BalancesCall;
 pub use pallet_staking::StakerStatus;
 #[cfg(any(feature = "std", test))]
 pub use pallet_sudo::Call as SudoCall;
-use sp_keyring;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 
