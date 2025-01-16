@@ -960,5 +960,8 @@ pub async fn benchmark_statement_distribution(
 	);
 
 	env.stop().await;
-	env.collect_resource_usage(&["statement-distribution"], false)
+	env.collect_resource_usage(
+		&["statement-distribution", "network-bridge-tx", "network-bridge-rx"],
+		false,
+	)
 }
