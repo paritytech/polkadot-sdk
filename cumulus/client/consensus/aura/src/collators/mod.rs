@@ -179,9 +179,11 @@ where
 	let authorities = runtime_api.authorities(parent_hash).ok()?;
 	let author_pub = aura_internal::claim_slot::<P>(para_slot, &authorities, keystore).await?;
 
-	// This check is necessary because we can encounter situations where the unincluded segment
-	// in the runtime is full, but the included block hash we pass is not known to it. We need to
-	// make sure that building on the included block is always allowed.
+	// This function is typically called when we want to build block N. At that point, the
+	// unincluded segment in the runtime is unaware of the hash of block N-1. If the unincluded
+	// segment in the runtime is full, but block N-1 is the included block, the unincluded segment
+	// should have length 0 and we can build. Since the hash is not available to the runtime
+	// however, we need this extra check here.
 	if parent_hash == included_block {
 		return Some(SlotClaim::unchecked::<P>(author_pub, para_slot, timestamp));
 	}
@@ -255,15 +257,13 @@ mod tests {
 	use codec::Encode;
 	use cumulus_primitives_aura::Slot;
 	use cumulus_primitives_core::BlockT;
-	use cumulus_relay_chain_interface::{PHash, RelayChainInterface};
+	use cumulus_relay_chain_interface::PHash;
 	use cumulus_test_client::{
-		runtime::{Block, Hash, Header},
-		Backend, Client, DefaultTestClientBuilderExt, InitBlockBuilder, TestClientBuilder,
+		runtime::{Block, Hash},
+		Client, DefaultTestClientBuilderExt, InitBlockBuilder, TestClientBuilder,
 		TestClientBuilderExt,
 	};
 	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
-	use futures::{executor::block_on, FutureExt, StreamExt};
-	use polkadot_node_subsystem::ChainApiBackend;
 	use polkadot_primitives::HeadData;
 	use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 	use sp_consensus::BlockOrigin;
@@ -299,7 +299,7 @@ mod tests {
 
 		let block_builder = client.init_block_builder(None, sproof).block_builder;
 
-		let mut block = block_builder.build().unwrap().block;
+		let block = block_builder.build().unwrap().block;
 
 		let origin = BlockOrigin::NetworkInitialSync;
 		import_block(client, block.clone(), origin, true).await;
@@ -326,19 +326,24 @@ mod tests {
 	/// we are ensuring on the node side that we are are always able to build on the included block.
 	#[tokio::test]
 	async fn test_can_build_upon() {
-		sp_tracing::try_init_simple();
 		let (client, keystore) = set_up_components();
 
 		let genesis_hash = client.chain_info().genesis_hash;
 		let mut last_hash = None;
-		for _ in 0..cumulus_test_runtime::UNINCLUDED_SEGMENT_CAPACITY {
+
+		// Fill up the unincluded segment tracker in the runtime.
+		for _ in 0..cumulus_test_client::runtime::UNINCLUDED_SEGMENT_CAPACITY {
 			let block = build_and_import_block(&client, genesis_hash).await;
 			last_hash = Some(block.header().hash());
 		}
 
 		let last_hash = last_hash.expect("must exist");
+		// We don't care much about the slots.
 		let para_slot = Slot::from(u64::MAX);
 		let relay_slot = Slot::from(u64::MAX);
+
+		// Blocks were built with the genesis hash set as included block.
+		// We call `can_build_upon` with the last built block as the included block.
 		let result = can_build_upon::<_, _, sp_consensus_aura::sr25519::AuthorityPair>(
 			para_slot,
 			relay_slot,
