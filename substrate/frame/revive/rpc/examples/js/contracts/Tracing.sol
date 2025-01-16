@@ -3,21 +3,20 @@ pragma solidity ^0.8.0;
 
 contract TracingCaller {
 	event TraceEvent(uint256 value, string message);
-    address public callee;
+    address payable public callee;
 
-    constructor(address _callee) {
+	constructor(address payable _callee) payable {
         require(_callee != address(0), "Callee address cannot be zero");
         callee = _callee;
     }
 
     function start(uint256 counter) external {
         if (counter == 0) {
-			// Testing failing transaction
-			// uint256 a = 1;
-			// uint256 b = 0;
-			// uint256 c = a / b;
 			return;
         }
+
+        uint256 paymentAmount = 0.01 ether;
+        callee.transfer(paymentAmount);
 
         emit TraceEvent(counter, "before");
         TracingCallee(callee).consumeGas();
@@ -50,5 +49,8 @@ contract TracingCallee {
     function failingFunction() external pure {
         require(false, "This function always fails");
     }
+
+	// Enable contract to receive Ether
+    receive() external payable {}
 }
 
