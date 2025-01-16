@@ -25,7 +25,7 @@ use crate::{
 		ChainExtension, Environment, Ext, RegisteredChainExtension, Result as ExtensionResult,
 		RetVal, ReturnFlags,
 	},
-	evm::{runtime::GAS_PRICE, GenericTransaction},
+	evm::{runtime::GAS_PRICE, CallTrace, CallTracer, CallType, GenericTransaction},
 	exec::Key,
 	limits,
 	primitives::CodeUploadReturnValue,
@@ -4548,6 +4548,27 @@ fn unstable_interface_rejected() {
 
 		Test::set_unstable_interface(true);
 		assert_ok!(builder::bare_instantiate(Code::Upload(code)).build().result);
+	});
+}
+
+#[test]
+fn tracing_works_for_transfers() {
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
+		let mut tracer = CallTracer::new(false, |_| U256::zero());
+		using_tracer(&mut tracer, || {
+			builder::bare_call(BOB_ADDR).value(10_000_000).build_and_unwrap_result();
+		});
+		assert_eq!(
+			tracer.collect_traces(),
+			vec![CallTrace {
+				from: ALICE_ADDR,
+				to: BOB_ADDR,
+				value: U256::from(10_000_000),
+				call_type: CallType::Call,
+				..Default::default()
+			},]
+		)
 	});
 }
 
