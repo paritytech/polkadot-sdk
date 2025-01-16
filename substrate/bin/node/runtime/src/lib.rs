@@ -3324,7 +3324,6 @@ impl_runtime_apis! {
 				}
 			});
 
-			log::debug!(target: "runtime::revive", "collected traces: {traces:?}");
 			traces
 		}
 
