@@ -7,11 +7,13 @@ doc:
 crates:
 - name: snowbridge-pallet-ethereum-client
   bump: major
+- name: snowbridge-pallet-inbound-queue
+  bump: minor
 - name: snowbridge-beacon-primitives
   bump: major
 - name: bridge-hub-westend-emulated-chain
   bump: minor
 - name: bridge-hub-rococo-runtime
-  bump: minor
+  bump: patch
 - name: bridge-hub-westend-runtime
-  bump: minor
+  bump: patch
