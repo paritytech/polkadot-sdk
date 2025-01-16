@@ -39,7 +39,7 @@ pub enum Traces<Gas = Weight, Output = ExecReturnValue>
 where
 	Output: Default + PartialEq,
 {
-	/// The call traces captured during the transaction.
+	/// The call traces captured by a [`CallTracer`] during the transaction.
 	CallTraces(Vec<CallTrace<Gas, Output>>),
 }
 
