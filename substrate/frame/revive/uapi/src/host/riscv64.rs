@@ -98,6 +98,7 @@ mod sys {
 		pub fn call_data_size() -> u64;
 		pub fn block_number(out_ptr: *mut u8);
 		pub fn block_hash(block_number_ptr: *const u8, out_ptr: *mut u8);
+		pub fn block_author(out_ptr: *mut u8);
 		pub fn hash_sha2_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
 		pub fn hash_keccak_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
 		pub fn hash_blake2_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
@@ -409,6 +410,10 @@ impl HostFn for HostFnImpl {
 
 	fn block_number(output: &mut [u8; 32]) {
 		unsafe { sys::block_number(output.as_mut_ptr()) }
+	}
+
+	fn block_author(output: &mut [u8; 20]) {
+		unsafe { sys::block_author(output.as_mut_ptr()) }
 	}
 
 	fn weight_to_fee(ref_time_limit: u64, proof_size_limit: u64, output: &mut [u8; 32]) {

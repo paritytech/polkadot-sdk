@@ -55,7 +55,7 @@ use frame_support::{
 	traits::{
 		fungible::{BalancedHold, Inspect, Mutate, MutateHold},
 		tokens::Preservation,
-		ConstU32, ConstU64, Contains, OnIdle, OnInitialize, StorageVersion,
+		ConstU32, ConstU64, Contains, FindAuthor, OnIdle, OnInitialize, StorageVersion,
 	},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, FixedFee, IdentityFee, Weight, WeightMeter},
 };
@@ -509,6 +509,15 @@ parameter_types! {
 	pub static UnstableInterface: bool = true;
 }
 
+impl FindAuthor<<Test as frame_system::Config>::AccountId> for Test {
+	fn find_author<'a, I>(_digests: I) -> Option<<Test as frame_system::Config>::AccountId>
+	where
+		I: 'a + IntoIterator<Item = (frame_support::ConsensusEngineId, &'a [u8])>,
+	{
+		Some(EVE)
+	}
+}
+
 #[derive_impl(crate::config_preludes::TestDefaultConfig)]
 impl Config for Test {
 	type Time = Timestamp;
@@ -525,6 +534,7 @@ impl Config for Test {
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type Debug = TestDebug;
 	type ChainId = ChainId;
+	type FindAuthor = Test;
 }
 
 impl TryFrom<RuntimeCall> for crate::Call<Test> {
@@ -4021,6 +4031,21 @@ fn block_hash_works() {
 
 		// A block number out of range returns the zero value
 		assert_ok!(builder::call(addr).data((U256::from(1), H256::zero()).encode()).build());
+	});
+}
+
+#[test]
+fn block_author_works() {
+	let (code, _) = compile_module("block_author").unwrap();
+
+	ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// The fixture asserts the input to match the find_author API method output.
+		assert_ok!(builder::call(addr).data(EVE_ADDR.encode()).build());
 	});
 }
 

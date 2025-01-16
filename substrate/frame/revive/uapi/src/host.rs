@@ -398,6 +398,13 @@ pub trait HostFn: private::Sealed {
 	/// Returns the amount of ref_time left.
 	fn ref_time_left() -> u64;
 
+	/// Stores the current block author of into the supplied buffer.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the output data buffer to write the block author.
+	fn block_author(output: &mut [u8; 20]);
+
 	/// Stores the current block number of the current contract into the supplied buffer.
 	///
 	/// # Parameters
