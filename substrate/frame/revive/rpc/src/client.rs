@@ -24,6 +24,7 @@ use crate::{
 	},
 	BlockInfoProvider, ReceiptProvider, TransactionInfo, LOG_TARGET,
 };
+use codec::{Decode, Encode};
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	evm::{
@@ -633,7 +634,7 @@ impl Client {
 		block: Option<BlockNumberOrTag>,
 		tracer_config: TracerConfig,
 	) -> Result<Vec<TransactionTrace>, ClientError> {
-		let hash = match block {
+		let block_hash = match block {
 			Some(BlockNumberOrTag::U256(n)) => {
 				let block_number: SubstrateBlockNumber =
 					n.try_into().map_err(|_| ClientError::ConversionFailed)?;
@@ -642,16 +643,24 @@ impl Client {
 			Some(BlockNumberOrTag::BlockTag(_)) | None =>
 				self.latest_block().await.map(|b| b.hash()),
 		};
-		let hash = hash.ok_or(ClientError::BlockNotFound)?;
+		let block_hash = block_hash.ok_or(ClientError::BlockNotFound)?;
 
 		let rpc_client = RpcClient::new(self.rpc_client.clone());
-		let params = subxt::rpc_params!["ReviveApi_trace_tx", hash, tracer_config];
-		let traces: Vec<(u32, pallet_revive::evm::EthTraces)> =
-			rpc_client.request("state_debugBlock", params).await?;
+		let params = subxt::rpc_params![
+			"ReviveApi_trace_block",
+			block_hash,
+			hex::encode(tracer_config.encode())
+		];
+		let traces: Bytes =
+			rpc_client.request("state_debugBlock", params).await.inspect_err(|err| {
+				log::debug!(target: LOG_TARGET, "state_debugBlock failed with: {err:?}");
+			})?;
+
+		let traces = Vec::<(u32, pallet_revive::evm::EthTraces)>::decode(&mut &traces.0[..])?;
 
 		let mut hashes = self
 			.receipt_provider
-			.block_transaction_hashes(&hash)
+			.block_transaction_hashes(&block_hash)
 			.await
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
@@ -681,9 +690,9 @@ impl Client {
 
 		let params = subxt::rpc_params![
 			"ReviveApi_trace_tx",
-			tracer_config,
 			receipt.block_hash,
-			receipt.transaction_index
+			receipt.transaction_index,
+			tracer_config.encode()
 		];
 		let traces = rpc_client.request("state_debugBlock", params).await?;
 		Ok(traces)
