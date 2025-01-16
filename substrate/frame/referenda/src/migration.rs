@@ -187,22 +187,23 @@ pub mod switch_block_number_provider {
 	/// The log target.
 	const TARGET: &'static str = "runtime::referenda::migration::change_block_number_provider";
 	/// Convert from one to another block number provider/type.
-	pub trait BlockToRelayHeightConversion<T: Config<I>, I: 'static> {
+	pub trait BlockNumberConversion<Old, New> {
 		/// Convert the `old` block number type to the new block number type.
 		///
 		/// Any changes in the rate of blocks need to be taken into account.
-		fn convert_block_number_to_relay_height(
-			block_number: SystemBlockNumberFor<T>,
-		) -> BlockNumberFor<T, I>;
+		fn convert_block_number(block_number: Old) -> New;
 	}
 
 	/// Transforms SystemBlockNumberFor<T> to BlockNumberFor<T,I>
-	pub struct MigrateV1ToV2<BlockConversion, T, I = ()>(
+	pub struct MigrateV1ToV2<BlockConverter, T, I = ()>(
 		PhantomData<(T, I)>,
-		PhantomData<BlockConversion>,
+		PhantomData<BlockConverter>,
 	);
-	impl<BlockConversion: BlockToRelayHeightConversion<T, I>, T: Config<I>, I: 'static>
-		OnRuntimeUpgrade for MigrateV1ToV2<BlockConversion, T, I>
+	impl<BlockConverter: BlockNumberConversion<T, I>, T: Config<I>, I: 'static> OnRuntimeUpgrade
+		for MigrateV1ToV2<BlockConverter, T, I>
+	where
+		BlockConverter: BlockNumberConversion<SystemBlockNumberFor<T>, BlockNumberFor<T, I>>,
+		T: Config<I>,
 	{
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
@@ -230,19 +231,19 @@ pub mod switch_block_number_provider {
 				let maybe_new_value = match value {
 					ReferendumInfo::Ongoing(_) | ReferendumInfo::Killed(_) => None,
 					ReferendumInfo::Approved(e, s, d) => {
-						let new_e = BlockConversion::convert_block_number_to_relay_height(e);
+						let new_e = BlockConverter::convert_block_number(e);
 						Some(ReferendumInfo::Approved(new_e, s, d))
 					},
 					ReferendumInfo::Rejected(e, s, d) => {
-						let new_e = BlockConversion::convert_block_number_to_relay_height(e);
+						let new_e = BlockConverter::convert_block_number(e);
 						Some(ReferendumInfo::Rejected(new_e, s, d))
 					},
 					ReferendumInfo::Cancelled(e, s, d) => {
-						let new_e = BlockConversion::convert_block_number_to_relay_height(e);
+						let new_e = BlockConverter::convert_block_number(e);
 						Some(ReferendumInfo::Cancelled(new_e, s, d))
 					},
 					ReferendumInfo::TimedOut(e, s, d) => {
-						let new_e = BlockConversion::convert_block_number_to_relay_height(e);
+						let new_e = BlockConverter::convert_block_number(e);
 						Some(ReferendumInfo::TimedOut(new_e, s, d))
 					},
 				};
