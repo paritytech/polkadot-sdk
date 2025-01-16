@@ -134,6 +134,6 @@ pub fn new_test_ext(root_key: u64) -> TestState {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-pub fn new_bench_ext() -> sp_io::TestExternalities {
+pub fn new_bench_ext() -> TestState {
 	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
 }
