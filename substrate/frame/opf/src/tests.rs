@@ -33,7 +33,7 @@ pub fn next_block() {
 }
 
 pub fn project_list() -> Vec<ProjectId<Test>> {
-	vec![ALICE, BOB, DAVE]
+	vec![101, 102, 103]
 }
 
 pub fn run_to_block(n: BlockNumberFor<Test>) {
@@ -88,7 +88,7 @@ fn project_registration_works() {
 		let mut round_info = VotingRounds::<Test>::get(0).unwrap();
 		assert_eq!(round_info.batch_submitted, false);
 		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch));
-		let project_list = WhiteListedProjectAccounts::<Test>::get(BOB);
+		let project_list = WhiteListedProjectAccounts::<Test>::get(101);
 		assert!(project_list.is_some());
 		// we should have 3 referendum started
 		assert_eq!(pallet_democracy::PublicProps::<Test>::get().len(), 3);
@@ -111,18 +111,18 @@ fn conviction_vote_works() {
 		let round_end = now.saturating_add(voting_period);
 
 		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch));
-		// Bob vote for Alice
+		// Bob vote for project_101
 		assert_ok!(Opf::vote(
 			RuntimeOrigin::signed(BOB),
-			ALICE,
+			101,
 			100,
 			true,
 			pallet_democracy::Conviction::Locked1x
 		));
-		// Dave vote for Alice
+		// Dave vote for project_102
 		assert_ok!(Opf::vote(
 			RuntimeOrigin::signed(DAVE),
-			ALICE,
+			102,
 			100,
 			true,
 			pallet_democracy::Conviction::Locked2x
@@ -142,10 +142,113 @@ fn conviction_vote_works() {
 		let bob_vote_unlock = round_end.saturating_add(vote_validity);
 		let dave_vote_unlock = bob_vote_unlock.clone().saturating_add(vote_validity);
 
-		let bob_vote_info = Votes::<Test>::get(ALICE, BOB).unwrap();
-		let dave_vote_info = Votes::<Test>::get(ALICE, DAVE).unwrap();
+		let bob_vote_info = Votes::<Test>::get(101, BOB).unwrap();
+		let dave_vote_info = Votes::<Test>::get(102, DAVE).unwrap();
 
 		assert_eq!(bob_vote_info.funds_unlock_block, bob_vote_unlock);
 		assert_eq!(dave_vote_info.funds_unlock_block, dave_vote_unlock);
+	})
+}
+
+#[test]
+fn rewards_calculation_works() {
+	new_test_ext().execute_with(|| {
+		let batch = project_list();
+		let voting_period = <Test as Config>::VotingPeriod::get();
+		let vote_validity = <Test as Config>::VoteValidityPeriod::get();
+		let now = <Test as Config>::BlockNumberProvider::current_block_number();
+		//round_end_block
+		let round_end = now.saturating_add(voting_period);
+
+		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch));
+
+		// Bob nominate project_101 with an amount of 1000*BSX with a conviction x2 => equivalent to
+		// 3000*BSX locked
+		assert_ok!(Opf::vote(
+			RawOrigin::Signed(BOB).into(),
+			101,
+			1000 * BSX,
+			true,
+			pallet_democracy::Conviction::Locked2x
+		));
+		
+		// Alice nominate project_101 with an amount of 5000*BSX with conviction 1x => equivalent to
+		// 10000*BSX locked
+		assert_ok!(Opf::vote(
+			RawOrigin::Signed(ALICE).into(),
+			101,
+			5000 * BSX,
+			true,
+			pallet_democracy::Conviction::Locked1x
+		));
+		let p1 = ProjectFunds::<Test>::get(101);
+		println!("the reward is: {:?}", p1);
+
+		// DAVE vote against project_102 with an amount of 3000*BSX with conviction 1x => equivalent
+		// to 6000*BSX locked
+		assert_ok!(Opf::vote(
+			RawOrigin::Signed(DAVE).into(),
+			102,
+			3000 * BSX,
+			false,
+			pallet_democracy::Conviction::Locked1x
+		));
+		// Eve nominate project_102 with an amount of 5000*BSX with conviction 1x => equivalent to
+		// 10000*BSX locked
+		assert_ok!(Opf::vote(
+			RawOrigin::Signed(EVE).into(),
+			102,
+			5000 * BSX,
+			true,
+			pallet_democracy::Conviction::Locked1x
+		));
+
+		let p2 = ProjectFunds::<Test>::get(102);
+		println!("the reward is: {:?}", p2);
+
+		let round_info = VotingRounds::<Test>::get(0).unwrap();
+
+		run_to_block(round_end);
+		let mut now =
+			<Test as Config>::BlockNumberProvider::current_block_number();
+
+		println!("Now is:{}", now);
+		assert_eq!(now, round_info.round_ending_block);
+
+		// The right events are emitted
+		expect_events(vec![RuntimeEvent::Opf(Event::VotingRoundEnded {
+			when: now,
+			round_number: 0,
+		})]);
+
+		// The total equivalent amount voted is 17000
+		// Project 101: 13000 -> ~76.5%; Project 102: 4000 -> ~23.5%
+		// Distributed to project 101 -> 44%*100_000; Distributed to project 102 -> 55%*100_000
+		//Opf::calculate_rewards(<Test as Config>::TemporaryRewards::get());
+		next_block();
+		next_block();
+		let reward_101 = WhiteListedProjectAccounts::<Test>::get(101).unwrap();
+		let reward_102 = WhiteListedProjectAccounts::<Test>::get(102).unwrap();
+		println!("p101_infos:{:?}", reward_101);
+		println!("p101_infos:{:?}", reward_102);
+		let referenda = pallet_democracy::ReferendumInfoOf::<Test>::get(0);
+
+		println!("ref:{:?}", referenda);
+		// New round is properly started
+	/*	run_to_block(round_info.round_ending_block);
+		now = round_info.round_ending_block;
+		expect_events(vec![RuntimeEvent::Opf(Event::VotingRoundEnded {
+			when: now,
+			round_number: 0,
+		})]);
+		let new_round_number = VotingRoundNumber::<Test>::get() - 1;
+		assert_eq!(new_round_number, 1);
+		let next_round = VotingRounds::<Test>::get(1);
+		assert_eq!(next_round.is_some(), true);
+
+		now = now.saturating_add(<Test as Config>::VoteLockingPeriod::get().into());
+		// Unlock funds
+		run_to_block(now);
+		assert_ok!(Opf::unlock_funds(RawOrigin::Signed(ALICE).into(), 101));*/
 	})
 }

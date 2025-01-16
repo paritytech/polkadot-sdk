@@ -321,7 +321,7 @@ pub mod pallet {
 				let referendum_index = Democracy::Pallet::<T>::internal_start_referendum(
 					call_f,
 					threshold,
-					Zero::zero(),
+					T::EnactmentPeriod::get(),
 				);
 				let mut new_infos = WhiteListedProjectAccounts::<T>::get(&project_id)
 					.ok_or(Error::<T>::NoProjectAvailable)?;
@@ -477,6 +477,8 @@ pub mod pallet {
 			// prepare reward distribution
 			// for now we are using the temporary-constant reward.
 			let _ = Self::calculate_rewards(T::TemporaryRewards::get())?;
+						// Clear ProjectFunds storage
+			ProjectFunds::<T>::drain();
 
 			Ok(())
 		}

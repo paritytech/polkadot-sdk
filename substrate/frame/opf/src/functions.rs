@@ -263,6 +263,9 @@ impl<T: Config> Pallet<T> {
 							amount: final_amount,
 							index: ref_index,
 						};
+						WhiteListedProjectAccounts::<T>::mutate(project_id.clone(), |val|{
+							*val = Some(project_info.clone());
+						});
 
 						// create a spend for project to be rewarded
 						let _ = SpendInfo::<T>::new(&project_info);
@@ -311,9 +314,7 @@ impl<T: Config> Pallet<T> {
 
 		// Conditions for reward distribution preparations are:
 		// - We are at the end of voting_round period
-		if now > round_ending_block {
-			// Clear ProjectFunds storage
-			ProjectFunds::<T>::drain();
+		if now >= round_ending_block {
 			// Emmit events
 			Self::deposit_event(Event::<T>::VotingRoundEnded {
 				when: now,
