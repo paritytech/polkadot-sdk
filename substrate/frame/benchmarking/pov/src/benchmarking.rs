@@ -21,13 +21,10 @@
 
 use super::*;
 
-use frame_benchmarking::v2::*;
-use frame_support::traits::UnfilteredDispatchable;
-use frame_system::{Pallet as System, RawOrigin};
-use sp_runtime::traits::Hash;
+use frame::benchmarking::prelude::*;
 
 #[cfg(feature = "std")]
-frame_support::parameter_types! {
+parameter_types! {
 	pub static StorageRootHash: Option<alloc::vec::Vec<u8>> = None;
 }
 
@@ -113,7 +110,7 @@ mod benchmarks {
 		// Assume there are 16-256 other storage items.
 		(0..(1u32 << 4)).for_each(|i| {
 			let k = T::Hashing::hash(&i.to_be_bytes());
-			frame_support::storage::unhashed::put(k.as_ref(), &i);
+			unhashed::put(k.as_ref(), &i);
 		});
 
 		#[block]
@@ -128,7 +125,7 @@ mod benchmarks {
 		// Assume there are 256-4096 other storage items.
 		(0..(1u32 << 8)).for_each(|i| {
 			let k = T::Hashing::hash(&i.to_be_bytes());
-			frame_support::storage::unhashed::put(k.as_ref(), &i);
+			unhashed::put(k.as_ref(), &i);
 		});
 
 		#[block]
@@ -143,7 +140,7 @@ mod benchmarks {
 		// Assume there are 4096-65536 other storage items.
 		(0..(1u32 << 12)).for_each(|i| {
 			let k = T::Hashing::hash(&i.to_be_bytes());
-			frame_support::storage::unhashed::put(k.as_ref(), &i);
+			unhashed::put(k.as_ref(), &i);
 		});
 
 		#[block]

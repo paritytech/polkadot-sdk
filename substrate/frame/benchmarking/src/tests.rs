@@ -19,18 +19,11 @@
 
 #![cfg(test)]
 
-use frame_support::{derive_impl, parameter_types, traits::ConstU32};
-use sp_runtime::{
-	testing::H256,
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
+use frame::testing_prelude::*;
 use std::cell::RefCell;
 
-#[frame_support::pallet(dev_mode)]
+#[frame::pallet(dev_mode)]
 mod pallet_test {
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -64,9 +57,9 @@ mod pallet_test {
 	}
 }
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -111,7 +104,7 @@ impl pallet_test::Config for Test {
 	type MaybeItem = MaybeItem;
 }
 
-fn new_test_ext() -> sp_io::TestExternalities {
+fn new_test_ext() -> TestState {
 	RuntimeGenesisConfig::default().build_storage().unwrap().into()
 }
 
@@ -126,8 +119,6 @@ thread_local! {
 mod benchmarks {
 	use super::{new_test_ext, pallet_test::Value, Test, VALUES_PER_COMPONENT};
 	use crate::{account, BenchmarkError, BenchmarkParameter, BenchmarkResult, BenchmarkingSetup};
-	use frame_support::{assert_err, assert_ok, ensure, traits::Get};
-	use frame_system::RawOrigin;
 	use rusty_fork::rusty_fork_test;
 
 	// Additional used internally by the benchmark macro.

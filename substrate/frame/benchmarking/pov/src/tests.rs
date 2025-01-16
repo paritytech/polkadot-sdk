@@ -20,6 +20,8 @@
 #![cfg(test)]
 
 use super::weights::WeightInfo;
+use frame::testing_prelude::*;
+
 use mock::Test as T;
 type W = crate::weights::SubstrateWeight<T>;
 
@@ -162,12 +164,11 @@ fn noop_is_free() {
 }
 
 mod mock {
-	use frame_support::derive_impl;
-	use sp_runtime::testing::H256;
+	// use sp_runtime::testing::H256;
 
-	type Block = frame_system::mocking::MockBlock<Test>;
+	type Block = MockBlock<Test>;
 
-	frame_support::construct_runtime!(
+	construct_runtime!(
 		pub enum Test
 		{
 			System: frame_system,

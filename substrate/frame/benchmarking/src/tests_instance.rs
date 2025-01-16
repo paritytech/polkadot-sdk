@@ -19,17 +19,10 @@
 
 #![cfg(test)]
 
-use frame_support::{derive_impl, traits::ConstU32};
-use sp_runtime::{
-	testing::H256,
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
+use frame::testing_prelude::*;
 
-#[frame_support::pallet]
+#[frame::pallet]
 mod pallet_test {
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);

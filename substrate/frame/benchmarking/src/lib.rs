@@ -39,13 +39,10 @@ pub mod v1;
 pub mod __private {
 	pub use alloc::{boxed::Box, str, vec, vec::Vec};
 	pub use codec;
-	pub use frame_support::{storage, traits};
+	pub use frame::deps::{sp_core::defer, sp_io::storage::root as storage_root};
 	pub use log;
 	pub use paste;
-	pub use sp_core::defer;
-	pub use sp_io::storage::root as storage_root;
-	pub use sp_runtime::{traits::Zero, StateVersion};
-	pub use sp_storage::{well_known_keys, TrackedStorageKey};
+	pub use frame::deps::sp_storage::{well_known_keys, TrackedStorageKey};
 }
 
 #[cfg(feature = "std")]
@@ -72,7 +69,7 @@ pub use v1::*;
 /// #![cfg(feature = "runtime-benchmarks")]
 ///
 /// use super::{mock_helpers::*, Pallet as MyPallet};
-/// use frame_benchmarking::v2::*;
+/// use frame::benchmarking::prelude::*;
 ///
 /// #[benchmarks]
 /// mod benchmarks {
@@ -283,7 +280,7 @@ pub use v1::*;
 /// #![cfg(feature = "runtime-benchmarks")]
 ///
 /// use super::{mock_helpers::*, Pallet as MyPallet};
-/// use frame_benchmarking::v2::*;
+/// use frame::benchmarking::prelude::*;
 ///
 /// #[benchmarks]
 /// mod benchmarks {
@@ -344,7 +341,7 @@ pub use v1::*;
 /// ```ignore
 /// #![cfg(feature = "runtime-benchmarks")]
 ///
-/// use frame_benchmarking::v1::*;
+/// use frame::benchmarking::prelude::*;
 ///
 /// benchmarks! {
 ///

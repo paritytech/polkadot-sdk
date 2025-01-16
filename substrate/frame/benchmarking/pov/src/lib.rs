@@ -24,14 +24,13 @@ mod tests;
 mod weights;
 
 extern crate alloc;
+use frame::prelude::*;
 
 pub use pallet::*;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use alloc::vec::Vec;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
