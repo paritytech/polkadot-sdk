@@ -3368,11 +3368,11 @@ impl_runtime_apis! {
 			config: pallet_revive::evm::TracerConfig
 		) -> Vec<(u32, pallet_revive::evm::EthTraces)> {
 			log::debug!(target: "runtime::revive", "Tracing block {:?}", block.header().number);
-			let mut tracer = pallet_revive::debug::Tracer::from_config(config);
+			let mut tracer = pallet_revive::debug::make_tracer(config);
 			let mut traces = vec![];
 			let (header, extrinsics) = block.deconstruct();
 
-			pallet_revive::using_tracer(&mut tracer, || {
+			pallet_revive::using_tracer(&mut *tracer, || {
 				Executive::initialize_block(&header);
 				for (index, ext) in extrinsics.into_iter().enumerate() {
 					let _ = Executive::apply_extrinsic(ext);
@@ -3393,13 +3393,13 @@ impl_runtime_apis! {
 			tx_index: u32,
 			config: pallet_revive::evm::TracerConfig
 		) -> pallet_revive::evm::EthTraces {
-			let mut tracer = pallet_revive::debug::Tracer::from_config(config);
+			let mut tracer = pallet_revive::debug::make_tracer(config);
 			let (header, extrinsics) = block.deconstruct();
 
 			Executive::initialize_block(&header);
 			for (index, ext) in extrinsics.into_iter().enumerate() {
 				if index as u32 == tx_index {
-					pallet_revive::using_tracer(&mut tracer, || {
+					pallet_revive::using_tracer(&mut *tracer, || {
 						let _ = Executive::apply_extrinsic(ext);
 					});
 					break;
