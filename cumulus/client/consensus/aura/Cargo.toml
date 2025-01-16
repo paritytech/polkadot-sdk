@@ -59,6 +59,15 @@ polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-overseer = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 
+[dev-dependencies]
+sp-tracing = { workspace = true, default-features = true }
+cumulus-test-client = { workspace = true }
+sp-version.workspace = true
+sp-keyring.workspace = true
+futures-timer.workspace = true
+cumulus-test-relay-sproof-builder.workspace = true
+cumulus-test-runtime.workspace = true
+
 [features]
 # Allows collator to use full PoV size for block building
 full-pov-size = []

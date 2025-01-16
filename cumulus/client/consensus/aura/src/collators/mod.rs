@@ -74,7 +74,7 @@ async fn check_validation_code_or_log(
 				%para_id,
 				"Failed to fetch validation code hash",
 			);
-			return
+			return;
 		},
 	};
 
@@ -147,7 +147,7 @@ async fn cores_scheduled_for_para(
 				?relay_parent,
 				"Failed to query claim queue runtime API",
 			);
-			return Vec::new()
+			return Vec::new();
 		},
 	};
 
@@ -179,6 +179,9 @@ where
 	let authorities = runtime_api.authorities(parent_hash).ok()?;
 	let author_pub = aura_internal::claim_slot::<P>(para_slot, &authorities, keystore).await?;
 
+	// This check is necessary because we can encounter situations where the unincluded segment
+	// in the runtime is full, but the included block hash we pass is not known to it. We need to
+	// make sure that building on the included block is always allowed.
 	if parent_hash == included_block {
 		return Some(SlotClaim::unchecked::<P>(author_pub, para_slot, timestamp));
 	}
@@ -244,4 +247,108 @@ where
 		.into_iter()
 		.max_by_key(|a| a.depth)
 		.map(|parent| (included_block, parent))
+}
+
+#[cfg(test)]
+mod tests {
+	use crate::collators::can_build_upon;
+	use codec::Encode;
+	use cumulus_primitives_aura::Slot;
+	use cumulus_primitives_core::BlockT;
+	use cumulus_relay_chain_interface::{PHash, RelayChainInterface};
+	use cumulus_test_client::{
+		runtime::{Block, Hash, Header},
+		Backend, Client, DefaultTestClientBuilderExt, InitBlockBuilder, TestClientBuilder,
+		TestClientBuilderExt,
+	};
+	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
+	use futures::{executor::block_on, FutureExt, StreamExt};
+	use polkadot_node_subsystem::ChainApiBackend;
+	use polkadot_primitives::HeadData;
+	use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
+	use sp_consensus::BlockOrigin;
+	use sp_keystore::{Keystore, KeystorePtr};
+	use sp_timestamp::Timestamp;
+	use std::sync::Arc;
+
+	async fn import_block<I: BlockImport<Block>>(
+		importer: &I,
+		block: Block,
+		origin: BlockOrigin,
+		import_as_best: bool,
+	) {
+		let (header, body) = block.deconstruct();
+
+		let mut block_import_params = BlockImportParams::new(origin, header);
+		block_import_params.fork_choice = Some(ForkChoiceStrategy::Custom(import_as_best));
+		block_import_params.body = Some(body);
+		importer.import_block(block_import_params).await.unwrap();
+	}
+
+	fn sproof_with_parent_by_hash(client: &Client, hash: PHash) -> RelayStateSproofBuilder {
+		let header = client.header(hash).ok().flatten().expect("No header for parent block");
+		let included = HeadData(header.encode());
+		let mut x = RelayStateSproofBuilder::default();
+		x.para_id = cumulus_test_client::runtime::PARACHAIN_ID.into();
+		x.included_para_head = Some(included);
+
+		x
+	}
+	async fn build_and_import_block(client: &Client, included: Hash) -> Block {
+		let sproof = sproof_with_parent_by_hash(client, included);
+
+		let block_builder = client.init_block_builder(None, sproof).block_builder;
+
+		let mut block = block_builder.build().unwrap().block;
+
+		let origin = BlockOrigin::NetworkInitialSync;
+		import_block(client, block.clone(), origin, true).await;
+		block
+	}
+
+	fn set_up_components() -> (Arc<Client>, KeystorePtr) {
+		let keystore = Arc::new(sp_keystore::testing::MemoryKeystore::new()) as Arc<_>;
+		for key in sp_keyring::Sr25519Keyring::iter() {
+			Keystore::sr25519_generate_new(
+				&*keystore,
+				sp_application_crypto::key_types::AURA,
+				Some(&key.to_seed()),
+			)
+			.expect("Can insert key into MemoryKeyStore");
+		}
+		(Arc::new(TestClientBuilder::new().build()), keystore)
+	}
+
+	/// This tests a special scenario where the unincluded segment in the runtime
+	/// is full. We are calling `can_build_upon`, passing the last built block as the
+	/// included one. In the runtime we will not find the hash of the included block in the
+	/// unincluded segment. The `can_build_upon` runtime API would therefore return `false`, but
+	/// we are ensuring on the node side that we are are always able to build on the included block.
+	#[tokio::test]
+	async fn test_can_build_upon() {
+		sp_tracing::try_init_simple();
+		let (client, keystore) = set_up_components();
+
+		let genesis_hash = client.chain_info().genesis_hash;
+		let mut last_hash = None;
+		for _ in 0..cumulus_test_runtime::UNINCLUDED_SEGMENT_CAPACITY {
+			let block = build_and_import_block(&client, genesis_hash).await;
+			last_hash = Some(block.header().hash());
+		}
+
+		let last_hash = last_hash.expect("must exist");
+		let para_slot = Slot::from(u64::MAX);
+		let relay_slot = Slot::from(u64::MAX);
+		let result = can_build_upon::<_, _, sp_consensus_aura::sr25519::AuthorityPair>(
+			para_slot,
+			relay_slot,
+			Timestamp::default(),
+			last_hash,
+			last_hash,
+			&*client,
+			&keystore,
+		)
+		.await;
+		assert!(result.is_some());
+	}
 }
