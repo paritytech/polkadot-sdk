@@ -768,9 +768,9 @@ pub enum RuntimeApiRequest {
 	/// Get the candidates pending availability for a particular parachain
 	/// `V11`
 	CandidatesPendingAvailability(ParaId, RuntimeApiSender<Vec<CommittedCandidateReceipt>>),
-	/// Get the constraints for a particular parachain.
+	/// Get the backing constraints for a particular parachain.
 	/// `V12`
-	Constraints(ParaId, RuntimeApiSender<Option<Constraints>>),
+	BackingConstraints(ParaId, RuntimeApiSender<Option<Constraints>>),
 }
 
 impl RuntimeApiRequest {
@@ -812,7 +812,7 @@ impl RuntimeApiRequest {
 	/// `candidates_pending_availability`
 	pub const CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT: u32 = 11;
 
-	/// `constraints`
+	/// `backing_constraints`
 	pub const CONSTRAINTS_RUNTIME_REQUIREMENT: u32 = 12;
 }
 

@@ -302,6 +302,6 @@ sp_api::decl_runtime_apis! {
 		/// Returns the constraints on the actions that can be taken by a new parachain
 		/// block.
 		#[api_version(12)]
-		fn constraints(para_id: ppp::Id) -> Option<Constraints>;
+		fn backing_constraints(para_id: ppp::Id) -> Option<Constraints>;
 	}
 }

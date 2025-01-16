@@ -2161,8 +2161,8 @@ sp_api::impl_runtime_apis! {
 			parachains_runtime_api_impl::candidates_pending_availability::<Runtime>(para_id)
 		}
 
-		fn constraints(para_id: ParaId) -> Option<Constraints> {
-			parachains_runtime_vstaging_api_impl::constraints::<Runtime>(para_id)
+		fn backing_constraints(para_id: ParaId) -> Option<Constraints> {
+			parachains_runtime_vstaging_api_impl::backing_constraints::<Runtime>(para_id)
 		}
 	}
 

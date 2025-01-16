@@ -43,8 +43,9 @@ use futures::channel::{mpsc, oneshot};
 use polkadot_primitives::{
 	slashing,
 	vstaging::{
-		async_backing::{Constraints, BackingState}, CandidateEvent,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, ScrapedOnChainVotes,
+		async_backing::{BackingState, Constraints},
+		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
+		ScrapedOnChainVotes,
 	},
 	AsyncBackingParams, AuthorityDiscoveryId, CandidateHash, CoreIndex, EncodeAs, ExecutorParams,
 	GroupIndex, GroupRotationInfo, Hash, Id as ParaId, OccupiedCoreAssumption,
@@ -313,7 +314,7 @@ specialize_requests! {
 	fn request_async_backing_params() -> AsyncBackingParams; AsyncBackingParams;
 	fn request_claim_queue() -> BTreeMap<CoreIndex, VecDeque<ParaId>>; ClaimQueue;
 	fn request_para_backing_state(para_id: ParaId) -> Option<BackingState>; ParaBackingState;
-	fn request_constraints(para_id: ParaId) -> Option<Constraints>; Constraints;
+	fn request_backing_constraints(para_id: ParaId) -> Option<Constraints>; BackingConstraints;
 
 }
 

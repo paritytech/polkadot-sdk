@@ -347,7 +347,7 @@ pub trait RuntimeApiSubsystemClient {
 	// == v12 ==
 	/// Get the constraints on the actions that can be taken by a new parachain
 	/// block.
-	async fn constraints(
+	async fn backing_constraints(
 		&self,
 		at: Hash,
 		para_id: Id,
@@ -630,8 +630,8 @@ where
 		self.client.runtime_api().claim_queue(at)
 	}
 
-	async fn constraints(&self, at: Hash, para_id: Id) -> Result<Option<Constraints>, ApiError> {
-		self.client.runtime_api().constraints(at, para_id)
+	async fn backing_constraints(&self, at: Hash, para_id: Id) -> Result<Option<Constraints>, ApiError> {
+		self.client.runtime_api().backing_constraints(at, para_id)
 	}
 }
 

@@ -75,7 +75,7 @@ pub(crate) struct RequestResultCache {
 	node_features: LruMap<SessionIndex, NodeFeatures>,
 	approval_voting_params: LruMap<SessionIndex, ApprovalVotingParams>,
 	claim_queue: LruMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
-	constraints: LruMap<(Hash, ParaId), Option<Constraints>>,
+	backing_constraints: LruMap<(Hash, ParaId), Option<Constraints>>,
 }
 
 impl Default for RequestResultCache {
@@ -113,7 +113,7 @@ impl Default for RequestResultCache {
 			async_backing_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			node_features: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			claim_queue: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
-			constraints: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			backing_constraints: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 		}
 	}
 }
@@ -562,12 +562,19 @@ impl RequestResultCache {
 		self.claim_queue.insert(relay_parent, value);
 	}
 
-	pub(crate) fn constraints(&mut self, key: (Hash, ParaId)) -> Option<&Option<Constraints>> {
-		self.constraints.get(&key).map(|v| &*v)
+	pub(crate) fn backing_constraints(
+		&mut self,
+		key: (Hash, ParaId),
+	) -> Option<&Option<Constraints>> {
+		self.backing_constraints.get(&key).map(|v| &*v)
 	}
 
-	pub(crate) fn cache_constraints(&mut self, key: (Hash, ParaId), value: Option<Constraints>) {
-		self.constraints.insert(key, value);
+	pub(crate) fn cache_backing_constraints(
+		&mut self,
+		key: (Hash, ParaId),
+		value: Option<Constraints>,
+	) {
+		self.backing_constraints.insert(key, value);
 	}
 }
 
@@ -620,5 +627,5 @@ pub(crate) enum RequestResult {
 	NodeFeatures(SessionIndex, NodeFeatures),
 	ClaimQueue(Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>),
 	CandidatesPendingAvailability(Hash, ParaId, Vec<CommittedCandidateReceipt>),
-	Constraints(Hash, ParaId, Option<Constraints>),
+	BackingConstraints(Hash, ParaId, Option<Constraints>),
 }

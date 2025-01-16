@@ -183,8 +183,9 @@ where
 			ClaimQueue(relay_parent, sender) => {
 				self.requests_cache.cache_claim_queue(relay_parent, sender);
 			},
-			Constraints(relay_parent, para_id, constraints) =>
-				self.requests_cache.cache_constraints((relay_parent, para_id), constraints),
+			BackingConstraints(relay_parent, para_id, constraints) => self
+				.requests_cache
+				.cache_backing_constraints((relay_parent, para_id), constraints),
 		}
 	}
 
@@ -342,8 +343,8 @@ where
 			},
 			Request::ClaimQueue(sender) =>
 				query!(claim_queue(), sender).map(|sender| Request::ClaimQueue(sender)),
-			Request::Constraints(para, sender) =>
-				query!(constraints(para), sender).map(|sender| Request::Constraints(para, sender)),
+			Request::BackingConstraints(para, sender) => query!(backing_constraints(para), sender)
+				.map(|sender| Request::BackingConstraints(para, sender)),
 		}
 	}
 
@@ -656,10 +657,10 @@ where
 			ver = Request::CLAIM_QUEUE_RUNTIME_REQUIREMENT,
 			sender
 		),
-		Request::Constraints(para, sender) => {
+		Request::BackingConstraints(para, sender) => {
 			query!(
-				Constraints,
-				constraints(para),
+				BackingConstraints,
+				backing_constraints(para),
 				ver = Request::CONSTRAINTS_RUNTIME_REQUIREMENT,
 				sender
 			)

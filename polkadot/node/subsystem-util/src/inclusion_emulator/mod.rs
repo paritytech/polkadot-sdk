@@ -83,10 +83,9 @@
 use polkadot_node_subsystem::messages::HypotheticalCandidate;
 use polkadot_primitives::{
 	async_backing::Constraints as OldPrimitiveConstraints,
-	vstaging::async_backing::Constraints as PrimitiveConstraints,
-	vstaging::skip_ump_signals, BlockNumber,
-	CandidateCommitments, CandidateHash, Hash, HeadData, Id as ParaId, PersistedValidationData,
-	UpgradeRestriction, ValidationCodeHash,
+	vstaging::{async_backing::Constraints as PrimitiveConstraints, skip_ump_signals},
+	BlockNumber, CandidateCommitments, CandidateHash, Hash, HeadData, Id as ParaId,
+	PersistedValidationData, UpgradeRestriction, ValidationCodeHash,
 };
 use std::{collections::HashMap, sync::Arc};
 
@@ -179,7 +178,6 @@ impl From<PrimitiveConstraints> for Constraints {
 		}
 	}
 }
-
 
 impl From<OldPrimitiveConstraints> for Constraints {
 	fn from(c: OldPrimitiveConstraints) -> Self {
@@ -748,7 +746,10 @@ pub fn validate_commitments(
 	}
 
 	if commitments.head_data.0.len() > constraints.max_head_data_size {
-		return Err(FragmentValidityError::HeadDataTooLarge(constraints.max_head_data_size, commitments.head_data.0.len()))
+		return Err(FragmentValidityError::HeadDataTooLarge(
+			constraints.max_head_data_size,
+			commitments.head_data.0.len(),
+		))
 	}
 
 	if relay_parent.number < constraints.min_relay_parent_number {
@@ -766,7 +767,6 @@ pub fn validate_commitments(
 		}
 	}
 
-
 	let announced_code_size =
 		commitments.new_validation_code.as_ref().map_or(0, |code| code.0.len());
 
@@ -783,7 +783,7 @@ pub fn validate_commitments(
 			messages_submitted: commitments.horizontal_messages.len(),
 		})
 	}
-	
+
 	Ok(())
 }
 
@@ -795,7 +795,6 @@ fn validate_against_constraints(
 	validation_code_hash: &ValidationCodeHash,
 	modifications: &ConstraintModifications,
 ) -> Result<(), FragmentValidityError> {
-	
 	validate_commitments(constraints, relay_parent, commitments, validation_code_hash)?;
 
 	let expected_pvd = PersistedValidationData {
@@ -1034,6 +1033,7 @@ mod tests {
 			validation_code_hash: ValidationCode(vec![4, 5, 6]).hash(),
 			upgrade_restriction: None,
 			future_validation_code: None,
+			max_head_data_size: 1024,
 		}
 	}
 
@@ -1539,6 +1539,26 @@ mod tests {
 		assert_eq!(
 			Fragment::new(relay_parent, constraints, Arc::new(candidate.clone())),
 			Err(FragmentValidityError::HrmpMessagesDescendingOrDuplicate(1)),
+		);
+	}
+
+	#[test]
+	fn head_data_size_too_large() {
+		let relay_parent = RelayChainBlockInfo {
+			number: 6,
+			hash: Hash::repeat_byte(0xcc),
+			storage_root: Hash::repeat_byte(0xff),
+		};
+
+		let constraints = make_constraints();
+		let mut candidate = make_candidate(&constraints, &relay_parent);
+
+		let head_data_size = constraints.max_head_data_size;
+		candidate.commitments.head_data = vec![0; head_data_size + 1].into();
+
+		assert_eq!(
+			Fragment::new(relay_parent, constraints, Arc::new(candidate.clone())),
+			Err(FragmentValidityError::HeadDataTooLarge(head_data_size, head_data_size + 1)),
 		);
 	}
 }

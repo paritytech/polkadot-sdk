@@ -455,12 +455,12 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 			.await?)
 	}
 
-	async fn constraints(
+	async fn backing_constraints(
 		&self,
 		at: Hash,
 		para_id: ParaId,
 	) -> Result<Option<Constraints>, ApiError> {
-		Ok(self.rpc_client.parachain_host_constraints(at, para_id).await?)
+		Ok(self.rpc_client.parachain_host_backing_constraints(at, para_id).await?)
 	}
 }
 

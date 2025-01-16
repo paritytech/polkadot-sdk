@@ -911,7 +911,7 @@ fn introduce_candidates_error(#[case] runtime_api_version: u32) {
 			test_state.validation_code_hash,
 		);
 
-		// Candidate C.
+		// Candidate C commits to oversized head data.
 		let (candidate_c, pvd_c) = make_candidate(
 			leaf_a.hash,
 			leaf_a.number,

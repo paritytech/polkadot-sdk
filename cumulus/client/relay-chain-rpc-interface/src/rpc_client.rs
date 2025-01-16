@@ -720,12 +720,12 @@ impl RelayChainRpcClient {
 		.await
 	}
 
-	pub async fn parachain_host_constraints(
+	pub async fn parachain_host_backing_constraints(
 		&self,
 		at: RelayHash,
 		para_id: ParaId,
 	) -> Result<Option<Constraints>, RelayChainError> {
-		self.call_remote_runtime_function("ParachainHost_constraints", at, Some(para_id))
+		self.call_remote_runtime_function("ParachainHost_backing_constraints", at, Some(para_id))
 			.await
 	}
 

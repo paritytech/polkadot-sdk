@@ -45,7 +45,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::{BlockInfoProspectiveParachains as BlockInfo, View as ImplicitView},
 	inclusion_emulator::{Constraints, RelayChainBlockInfo},
-	request_candidates_pending_availability, request_constraints, request_session_index_for_child,
+	request_candidates_pending_availability, request_backing_constraints, request_session_index_for_child,
 	runtime::{fetch_claim_queue, prospective_parachains_mode, ProspectiveParachainsMode},
 };
 use polkadot_primitives::{
@@ -255,7 +255,7 @@ async fn handle_active_leaves_update<Context>(
 		for para in scheduled_paras {
 			// Find constraints and pending availability candidates.
 			let Some((constraints, pending_availability)) =
-				fetch_constraints_and_candidates(ctx, hash, para).await?
+				fetch_backing_constraints_and_candidates(ctx, hash, para).await?
 			else {
 				// This indicates a runtime conflict of some kind.
 				gum::debug!(
@@ -905,13 +905,12 @@ async fn fetch_backing_state<Context>(
 }
 
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
-async fn fetch_constraints_and_candidates<Context>(
+async fn fetch_backing_constraints_and_candidates<Context>(
 	ctx: &mut Context,
 	relay_parent: Hash,
 	para_id: ParaId,
 ) -> JfyiErrorResult<Option<(Constraints, Vec<CommittedCandidateReceipt>)>> {
-	match fetch_constraints_and_candidates_inner(ctx, relay_parent, para_id).await {
-		Ok(None) => fetch_backing_state(ctx, relay_parent, para_id).await,
+	match fetch_backing_constraints_and_candidates_inner(ctx, relay_parent, para_id).await {
 		Err(error) => {
 			gum::debug!(
 				target: LOG_TARGET,
@@ -924,17 +923,17 @@ async fn fetch_constraints_and_candidates<Context>(
 			// Fallback to backing state.
 			fetch_backing_state(ctx, relay_parent, para_id).await
 		},
-		Ok(Some(constraints_and_candidates)) => Ok(Some(constraints_and_candidates)),
+		Ok(maybe_constraints_and_candidatest) => Ok(maybe_constraints_and_candidatest),
 	}
 }
 
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
-async fn fetch_constraints_and_candidates_inner<Context>(
+async fn fetch_backing_constraints_and_candidates_inner<Context>(
 	ctx: &mut Context,
 	relay_parent: Hash,
 	para_id: ParaId,
 ) -> JfyiErrorResult<Option<(Constraints, Vec<CommittedCandidateReceipt>)>> {
-	let maybe_constraints = request_constraints(relay_parent, para_id, ctx.sender())
+	let maybe_constraints = request_backing_constraints(relay_parent, para_id, ctx.sender())
 		.await
 		.await
 		.map_err(JfyiError::RuntimeApiRequestCanceled)??;
