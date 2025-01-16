@@ -140,13 +140,14 @@ pub use weights::WeightInfo;
 
 pub use extension::CheckOnlySudoAccount;
 pub use pallet::*;
+use frame::prelude::*;
+
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 #[frame::pallet]
 pub mod pallet {
 	use super::{DispatchResult, *};
-	use frame::prelude::*;
 
 	/// Default preludes for [`Config`].
 	pub mod config_preludes {

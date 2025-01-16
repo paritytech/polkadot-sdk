@@ -24,7 +24,6 @@ use frame::testing_prelude::*;
 // Logger module to track execution.
 #[frame::pallet]
 pub mod logger {
-	use frame::preliude::*;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -83,9 +82,9 @@ pub mod logger {
 	pub(super) type I32Log<T> = StorageValue<_, BoundedVec<i32, ConstU32<1_000>>, ValueQuery>;
 }
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
