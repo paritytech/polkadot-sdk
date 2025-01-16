@@ -17,7 +17,7 @@
 
 #![cfg(test)]
 
-use frame_support::{pallet_prelude::Weight, traits::OnRuntimeUpgrade};
+use frame::testing_prelude::*;
 
 use crate::{
 	mock::{Test as T, *},

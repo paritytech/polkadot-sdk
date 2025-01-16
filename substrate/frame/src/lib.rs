@@ -205,10 +205,13 @@ pub mod prelude {
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::{
 		defensive, defensive_assert,
+		migrations::FreezeChainOnFailedMigration,
 		traits::{
-			Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll,
-			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+			Contains, EitherOf, EstimateNextSessionRotation, Get, Hooks, IsSubType, MapSuccess,
+			NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
 		},
+		weights::{Weight, WeightMeter},
+		BoundedVec,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -231,9 +234,12 @@ pub mod prelude {
 
 	/// Runtime traits
 	#[doc(no_inline)]
-	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+	pub use sp_runtime::{
+		traits::{
+			BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, One, ReduceBy,
+			ReplaceWithDefault, SaturatedConversion, StaticLookup, TrailingZeroInput,
+		},
+		Saturating,
 	};
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
@@ -322,7 +328,8 @@ pub mod testing_prelude {
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{
 		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok,
-		assert_storage_noop, hypothetically, storage_alias,
+		assert_storage_noop, derive_impl, hypothetically, parameter_types, register_default_impl,
+		storage_alias,
 	};
 
 	pub use frame_system::{self, mocking::*, RunToBlockHooks};

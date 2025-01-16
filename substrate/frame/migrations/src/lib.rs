@@ -158,19 +158,8 @@ pub use weights::WeightInfo;
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::ops::ControlFlow;
-use frame_support::{
-	defensive, defensive_assert,
-	migrations::*,
-	pallet_prelude::*,
-	traits::Get,
-	weights::{Weight, WeightMeter},
-	BoundedVec,
-};
-use frame_system::{
-	pallet_prelude::{BlockNumberFor, *},
-	Pallet as System,
-};
-use sp_runtime::Saturating;
+use frame::prelude::*;
+
 
 /// Points to the next migration to execute.
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
@@ -290,11 +279,11 @@ struct PreUpgradeBytesWrapper(pub Vec<u8>);
 ///
 /// Define this outside of the pallet so it is not confused with actual storage.
 #[cfg(feature = "try-runtime")]
-#[frame_support::storage_alias]
+#[frame::storage_alias]
 type PreUpgradeBytes<T: Config> =
 	StorageMap<Pallet<T>, Twox64Concat, IdentifierOf<T>, PreUpgradeBytesWrapper, ValueQuery>;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
 
@@ -354,12 +343,8 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::{inject_runtime_type, DefaultConfig};
-		use frame_support::{
-			derive_impl,
-			migrations::FreezeChainOnFailedMigration,
-			pallet_prelude::{ConstU32, *},
-		};
-		use frame_system::limits::BlockWeights;
+
+		// use frame_system::limits::BlockWeights;
 
 		/// Provides a viable default config that can be used with
 		/// [`derive_impl`](`frame_support::derive_impl`) to derive a testing pallet config
@@ -369,7 +354,7 @@ pub mod pallet {
 		/// a downstream user of this particular `TestDefaultConfig`
 		pub struct TestDefaultConfig;
 
-		frame_support::parameter_types! {
+		parameter_types! {
 			/// Maximal weight per block that can be spent on migrations in tests.
 			pub TestMaxServiceWeight: Weight = <<TestDefaultConfig as frame_system::DefaultConfig>::BlockWeights as Get<BlockWeights>>::get().max_block.div(2);
 		}
@@ -377,7 +362,7 @@ pub mod pallet {
 		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for TestDefaultConfig {}
 
-		#[frame_support::register_default_impl(TestDefaultConfig)]
+		#[register_default_impl(TestDefaultConfig)]
 		impl DefaultConfig for TestDefaultConfig {
 			#[inject_runtime_type]
 			type RuntimeEvent = ();
@@ -474,7 +459,7 @@ pub mod pallet {
 		#[cfg(feature = "std")]
 		fn integrity_test() {
 			// Check that the migrations tuple is legit.
-			frame_support::assert_ok!(T::Migrations::integrity_test());
+			assert_ok!(T::Migrations::integrity_test());
 
 			// Very important! Ensure that the pallet is configured in `System::Config`.
 			{

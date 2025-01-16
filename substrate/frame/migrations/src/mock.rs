@@ -20,15 +20,14 @@
 #![cfg(test)]
 
 use crate::{mock_helpers::*, Event, Historic};
+use frame::testing_prelude::*;
 
-use frame_support::{derive_impl, migrations::*, weights::Weight};
-use frame_system::EventRecord;
-use sp_core::H256;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+
+type Block = MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test {
 		System: frame_system,
 		Migrations: crate,
