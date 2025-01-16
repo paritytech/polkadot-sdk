@@ -964,7 +964,7 @@ fn introduce_candidates_error(#[case] runtime_api_version: u32) {
 		// This one will not be backed.
 		back_candidate(&mut virtual_overseer, &candidate_c, candidate_c.hash()).await;
 
-		// Expect onlt A and B to be backable
+		// Expect only A and B to be backable
 		get_backable_candidates(
 			&mut virtual_overseer,
 			&leaf_a,
