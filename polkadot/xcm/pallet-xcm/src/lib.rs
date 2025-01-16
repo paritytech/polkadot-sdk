@@ -2870,7 +2870,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Returns locations allowed to alias into and act as `target`.
-	fn authorized_aliasers(target: VersionedLocation) -> Vec<OriginAliaser> {
+	pub fn authorized_aliasers(target: VersionedLocation) -> Vec<OriginAliaser> {
 		AuthorizedAliases::<T>::get(&target)
 			.map(|authorized| authorized.aliasers.into_iter().collect())
 			.unwrap_or_default()
