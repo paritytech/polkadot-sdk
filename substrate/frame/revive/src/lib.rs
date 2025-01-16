@@ -685,7 +685,7 @@ pub mod pallet {
 	}
 
 	/// Run the closure when the tracer is enabled.
-	pub fn with_tracer<F: FnOnce(&mut (dyn Tracing + 'static))>(f: F) {
+	pub fn if_tracer<F: FnOnce(&mut (dyn Tracing + 'static))>(f: F) {
 		tracer::with(f);
 	}
 
