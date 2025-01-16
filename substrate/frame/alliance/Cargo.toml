@@ -17,12 +17,12 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 array-bytes = { optional = true, workspace = true, default-features = true }
-log = { workspace = true }
 codec = { features = ["derive"], workspace = true }
-scale-info = { features = ["derive"], workspace = true }
 frame = { workspace = true, features = ["experimental", "runtime"] }
+log = { workspace = true }
 pallet-collective = { optional = true, workspace = true }
 pallet-identity = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }

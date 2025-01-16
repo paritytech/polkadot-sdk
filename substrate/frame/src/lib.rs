@@ -204,9 +204,12 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::{
-    defensive, defensive_assert,
-    traits::{
-		Contains, EitherOf, IsSubType, EstimateNextSessionRotation, OnRuntimeUpgrade, UnfilteredDispatchable, MapSuccess, NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler}
+		defensive, defensive_assert,
+		traits::{
+			Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll,
+			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+			UnfilteredDispatchable,
+		},
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -230,9 +233,6 @@ pub mod prelude {
 	/// All account related things.
 	pub use super::account::*;
 
-	/// All arithmetic types and traits used for safe math.
-	pub use super::arithmetic::*;
-
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
@@ -246,8 +246,8 @@ pub mod prelude {
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
 	pub use sp_runtime::{
-		DispatchError,
-		BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
+		BoundToRuntimeAppPublic, DispatchError, DispatchErrorWithPostInfo, DispatchResultWithInfo,
+		TokenError,
 	};
 }
 
