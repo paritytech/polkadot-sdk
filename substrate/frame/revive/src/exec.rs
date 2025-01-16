@@ -17,7 +17,7 @@
 
 use crate::{
 	address::{self, AddressMapper},
-	debug::{CallInterceptor, Tracer, Tracing},
+	debug::CallInterceptor,
 	gas::GasMeter,
 	limits,
 	primitives::{ExecReturnValue, StorageDeposit},
@@ -1079,13 +1079,13 @@ where
 
 			crate::with_tracer(|tracer| {
 				tracer.enter_child_span(
-					&maybe_caller_address.unwrap_or_default(),
-					&contract_address,
+					maybe_caller_address.unwrap_or_default(),
+					contract_address,
 					is_delegate_call,
 					read_only,
-					&value_transferred,
+					value_transferred,
 					&input_data,
-					&frame.nested_gas,
+					frame.nested_gas.gas_left(),
 				);
 			});
 
@@ -1093,33 +1093,21 @@ where
 				.unwrap_or_else(|| executable.execute(self, entry_point, input_data))
 				.map_err(|e| {
 					crate::with_tracer(|tracer| {
-						tracer
-							.exit_child_span_with_error(e.error, &top_frame_mut!(self).nested_gas);
+						tracer.exit_child_span_with_error(
+							e.error,
+							top_frame_mut!(self).nested_gas.gas_consumed(),
+						);
 					});
 					ExecError { error: e.error, origin: ErrorOrigin::Callee }
 				})?;
 
-			// Avoid useless work that would be reverted anyways.
-			if output.did_revert() {
-				crate::with_tracer(|tracer| {
-					tracer.exit_child_span(&output, &top_frame_mut!(self).nested_gas);
-				});
-				return Ok(output);
-			}
-
 			crate::with_tracer(|tracer| {
-				tracer.exit_child_span(&output, &top_frame_mut!(self).nested_gas);
+				tracer.exit_child_span(&output, top_frame_mut!(self).nested_gas.gas_consumed());
 			});
 
-			// Storage limit is normally enforced as late as possible (when the last frame returns)
-			// so that the ordering of storage accesses does not matter.
-			// (However, if a special limit was set for a sub-call, it should be enforced right
-			// after the sub-call returned. See below for this case of enforcement).
-			if self.frames.is_empty() {
-				let frame = &mut self.first_frame;
-				frame.contract_info.load(&frame.account_id);
-				let contract = frame.contract_info.as_contract();
-				frame.nested_storage.enforce_limit(contract)?;
+			// Avoid useless work that would be reverted anyways.
+			if output.did_revert() {
+				return Ok(output);
 			}
 
 			let frame = self.top_frame_mut();
@@ -1701,7 +1689,7 @@ where
 	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) {
 		let contract = T::AddressMapper::to_address(self.account_id());
 		crate::with_tracer(|tracer| {
-			<Tracer as Tracing<T>>::log_event(tracer, &contract, &topics, &data);
+			tracer.log_event(contract, &topics, &data);
 		});
 		Contracts::<Self::T>::deposit_event(Event::ContractEmitted { contract, data, topics });
 	}

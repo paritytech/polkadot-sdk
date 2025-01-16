@@ -120,7 +120,7 @@ const LOG_TARGET: &str = "runtime::revive";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use crate::debug::{Debugger, Tracer};
+	use crate::debug::Debugger;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use sp_core::U256;
@@ -679,15 +679,15 @@ pub mod pallet {
 		}
 	}
 
-	environmental!(tracer: Tracer);
+	environmental!(tracer: dyn Tracing + 'static);
 
 	/// Run the given closure with the given tracer.
-	pub fn using_tracer<R>(t: &mut Tracer, f: impl FnOnce() -> R) -> R {
-		tracer::using(t, f)
+	pub fn using_tracer<R, F: FnOnce() -> R>(tracer: &mut (dyn Tracing + 'static), f: F) -> R {
+		tracer::using(tracer, f)
 	}
 
 	/// Run the closure when the tracer is enabled.
-	pub fn with_tracer(f: impl FnOnce(&mut Tracer)) {
+	pub fn with_tracer<F: FnOnce(&mut (dyn Tracing + 'static))>(f: F) {
 		tracer::with(f);
 	}
 
