@@ -47,18 +47,15 @@ pub fn run_to_block(n: BlockNumberFor<Test>) {
 	}
 }
 
-
 #[test]
 fn first_round_creation_works() {
 	new_test_ext().execute_with(|| {
-		
 		let batch = project_list();
 
 		// First round is created
 		next_block();
 		let voting_period = <Test as Config>::VotingPeriod::get();
-		let now =
-		<Test as Config>::BlockNumberProvider::current_block_number();
+		let now = <Test as Config>::BlockNumberProvider::current_block_number();
 
 		let round_ending_block = now.saturating_add(voting_period.into());
 
@@ -109,11 +106,10 @@ fn conviction_vote_works() {
 		let batch = project_list();
 		let voting_period = <Test as Config>::VotingPeriod::get();
 		let vote_validity = <Test as Config>::VoteValidityPeriod::get();
-		let now =
-		<Test as Config>::BlockNumberProvider::current_block_number();
+		let now = <Test as Config>::BlockNumberProvider::current_block_number();
 		//round_end_block
 		let round_end = now.saturating_add(voting_period);
-		
+
 		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch));
 		// Bob vote for Alice
 		assert_ok!(Opf::vote(
@@ -142,7 +138,7 @@ fn conviction_vote_works() {
 		assert_eq!(dave_hold, 100);
 		let round_number = NextVotingRoundNumber::<Test>::get().saturating_sub(1);
 		assert_eq!(round_number, 0);
-		
+
 		let bob_vote_unlock = round_end.saturating_add(vote_validity);
 		let dave_vote_unlock = bob_vote_unlock.clone().saturating_add(vote_validity);
 

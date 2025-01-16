@@ -291,8 +291,8 @@ pub mod pallet {
 
 			let current_round_index = round_index.saturating_sub(1);
 
-			let mut round_infos = VotingRounds::<T>::get(current_round_index).expect("InvalidResult");
-			
+			let mut round_infos =
+				VotingRounds::<T>::get(current_round_index).expect("InvalidResult");
 
 			// Check no Project batch has been submitted yet
 			ensure!(!round_infos.batch_submitted, Error::<T>::BatchAlreadySubmitted);
@@ -331,14 +331,11 @@ pub mod pallet {
 					*value = Some(new_infos);
 				});
 			}
-			VotingRounds::<T>::mutate(current_round_index, |round|{
-				*round = Some(round_infos)
-			});
+			VotingRounds::<T>::mutate(current_round_index, |round| *round = Some(round_infos));
 
 			Self::deposit_event(Event::Projectslisted { when, projects_id });
 			Ok(())
 		}
-		
 
 		/// OPF Projects de-listing
 		///
@@ -486,15 +483,18 @@ pub mod pallet {
 
 		#[pallet::call_index(7)]
 		#[transactional]
-		pub fn release_voter_funds(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
+		pub fn release_voter_funds(
+			origin: OriginFor<T>,
+			project_id: ProjectId<T>,
+		) -> DispatchResult {
 			let voter_id = ensure_signed(origin)?;
 			ensure!(Votes::<T>::contains_key(&project_id, &voter_id), Error::<T>::NoVoteData);
-			let infos = Votes::<T>::get(&project_id, &voter_id).ok_or( Error::<T>::NoVoteData)?;
+			let infos = Votes::<T>::get(&project_id, &voter_id).ok_or(Error::<T>::NoVoteData)?;
 			let release_block = infos.funds_unlock_block;
 			let amount = infos.amount;
 
 			let now = T::BlockNumberProvider::current_block_number();
-			ensure!(now>=release_block, Error::<T>::NotUnlockPeriod);
+			ensure!(now >= release_block, Error::<T>::NotUnlockPeriod);
 			T::NativeBalance::release(
 				&HoldReason::FundsReserved.into(),
 				&voter_id,
