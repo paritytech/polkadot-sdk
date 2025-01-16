@@ -1165,7 +1165,6 @@ where
 			DepositLimit::Unchecked
 		};
 
-		// TODO remove once we have revisited how we encode the gas limit.
 		if tx.nonce.is_none() {
 			tx.nonce = Some(<System<T>>::account_nonce(&origin).into());
 		}
