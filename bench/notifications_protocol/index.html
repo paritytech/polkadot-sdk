@@ -56,6 +56,11 @@
       margin-bottom: 0.4em;
     }
 
+    .benchmark-desc {
+      text-align: center;
+      margin-bottom: 2em;
+    }
+
     .benchmark-subtitle {
       font-size: 1.5rem;
       word-break: break-word;
@@ -273,6 +278,11 @@
           titleElem.className = 'benchmark-title';
           titleElem.textContent = name;
           main.appendChild(titleElem);
+
+          const descriptionElem = document.createElement('div');
+          descriptionElem.className = 'benchmark-desc';
+          descriptionElem.textContent = 'Time to send and receive a message of the appropriate size, smaller is better';
+          main.appendChild(descriptionElem);
 
           // Group benchmarks by payload size
           const payloadGroups = new Map();
