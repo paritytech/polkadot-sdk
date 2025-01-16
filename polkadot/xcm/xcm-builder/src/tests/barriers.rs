@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use frame_support::traits::ProcessMessageError::Unsupported;
 use xcm_executor::traits::Properties;
 
 use super::*;
@@ -592,4 +593,51 @@ fn deny_then_try_works() {
 		Parachain(1).into_location(),
 		Err(ProcessMessageError::Unsupported),
 	);
+}
+
+#[test]
+fn deny_reserver_transfer_to_relaychain_should_work() {
+	let assert_deny_execution = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
+		assert_eq!(
+			DenyReserveTransferToRelayChain::deny_execution(
+				&origin,
+				&mut xcm,
+				Weight::from_parts(10, 10),
+				&mut props(Weight::zero()),
+			),
+			expected_result
+		);
+	};
+	// deny DepositReserveAsset to RelayChain
+	assert_deny_execution(
+		vec![DepositReserveAsset {
+			assets: Wild(All),
+			dest: Location::parent(),
+			xcm: vec![].into(),
+		}],
+		Here.into_location(),
+		Some(Unsupported),
+	);
+	// deny InitiateReserveWithdraw to RelayChain
+	assert_deny_execution(
+		vec![InitiateReserveWithdraw {
+			assets: Wild(All),
+			reserve: Location::parent(),
+			xcm: vec![].into(),
+		}],
+		Here.into_location(),
+		Some(Unsupported),
+	);
+	// deny TransferReserveAsset to RelayChain
+	assert_deny_execution(
+		vec![TransferReserveAsset {
+			assets: vec![].into(),
+			dest: Location::parent(),
+			xcm: vec![].into(),
+		}],
+		Here.into_location(),
+		Some(Unsupported),
+	);
+	// others will pass
+	assert_deny_execution(vec![ClearOrigin], Here.into_location(), None);
 }
