@@ -1,0 +1,18 @@
+title: 'Collator: Fix `can_build_upon` by always allowing to build on included block'
+doc:
+- audience: Node Dev
+  description: |-
+    Follow-up to #6825, which introduced this bug.
+
+    We use the `can_build_upon` method to ask the runtime if it is fine to build another block. The runtime checks this based on the [`ConsensusHook`](https://github.com/paritytech/polkadot-sdk/blob/c1b7c3025aa4423d4cf3e57309b60fb7602c2db6/cumulus/pallets/aura-ext/src/consensus_hook.rs#L110-L110) implementation, the most popular one being the `FixedConsensusHook`.
+
+    In #6825 I removed a check that would always allow us to build when we are building on an included block. Turns out this check is still required when:
+    1. The [`UnincludedSegment` ](https://github.com/paritytech/polkadot-sdk/blob/c1b7c3025aa4423d4cf3e57309b60fb7602c2db6/cumulus/pallets/parachain-system/src/lib.rs#L758-L758) storage item in pallet-parachain-system is equal or larger than the unincluded segment.
+    2. We are calling the `can_build_upon` runtime API where the included block has progressed offchain to the current parent block (so last entry in the `UnincludedSegment` storage item).
+
+    In this scenario the last entry in `UnincludedSegment` does not have a hash assigned yet (because it was not available in `on_finalize` of the previous block). So the unincluded segment will be reported at its maximum length which will forbid building another block.
+
+    Ideally we would have a more elegant solution than to rely on the node-side here. But for now the check is reintroduced and a test is added to not break it again by accident.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: minor
