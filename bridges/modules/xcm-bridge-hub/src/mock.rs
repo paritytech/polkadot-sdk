@@ -46,7 +46,7 @@ use xcm::{latest::ROCOCO_GENESIS_HASH, prelude::*};
 use xcm_builder::{
 	AllowUnpaidExecutionFrom, DispatchBlob, DispatchBlobError, FixedWeightBounds,
 	InspectMessageQueues, NetworkExportTable, NetworkExportTableItem, ParentIsPreset,
-	SiblingParachainConvertsVia, SovereignPaidRemoteExporter, UnpaidLocalExporter,
+	SiblingParachainConvertsVia, SovereignPaidRemoteExporter, LocalExporter,
 };
 use xcm_executor::{
 	traits::{ConvertLocation, ConvertOrigin},
@@ -283,12 +283,12 @@ impl pallet_xcm_bridge_hub_router::Config<XcmOverBridgeWrappedWithExportMessageR
 pub type XcmOverBridgeByExportXcmRouterInstance = pallet_xcm_bridge_hub_router::Instance2;
 #[derive_impl(pallet_xcm_bridge_hub_router::config_preludes::TestDefaultConfig)]
 impl pallet_xcm_bridge_hub_router::Config<XcmOverBridgeByExportXcmRouterInstance> for TestRuntime {
-	// We use `UnpaidLocalExporter` with `ViaLocalBridgeHubExporter` here to test and ensure that
+	// We use `LocalExporter` with `ViaLocalBridgeHubExporter` here to test and ensure that
 	// `pallet_xcm_bridge_hub_router` can trigger directly `pallet_xcm_bridge_hub` as exporter.
 	type MessageExporter = pallet_xcm_bridge_hub_router::impls::ViaLocalBridgeHubExporter<
 		TestRuntime,
 		XcmOverBridgeByExportXcmRouterInstance,
-		UnpaidLocalExporter<XcmOverBridge, UniversalLocation>,
+		LocalExporter<XcmOverBridge, UniversalLocation>,
 	>;
 
 	type BridgeIdResolver =

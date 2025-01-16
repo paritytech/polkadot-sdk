@@ -188,7 +188,7 @@ where
 /// Adapter implementation for [`SendXcm`] that allows adding a message size fee and/or dynamic fees
 /// based on the `BridgeId` resolved by the `T::BridgeIdResolver` resolver, if and only if `E`
 /// supports routing. This adapter can be used, for example, as a wrapper over
-/// [`xcm_builder::UnpaidLocalExporter`], enabling it to compute message and/or dynamic fees using a
+/// [`xcm_builder::LocalExporter`], enabling it to compute message and/or dynamic fees using a
 /// fee factor.
 pub struct ViaLocalBridgeHubExporter<T, I, E>(PhantomData<(T, I, E)>);
 impl<T: Config<I>, I: 'static, E: SendXcm> SendXcm for ViaLocalBridgeHubExporter<T, I, E> {
