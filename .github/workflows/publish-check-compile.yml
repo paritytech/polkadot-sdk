@@ -31,7 +31,10 @@ jobs:
           cache-on-failure: true
 
       - name: install parity-publish
-        run: cargo install parity-publish@0.10.4 --locked -q
+        run:
+          # Todo: remove this line once the default rust version is ^1.82.0 
+          rustup install 1.82.0
+          cargo +stable install parity-publish@0.10.4 --locked -q
 
       - name: parity-publish update plan
         run: parity-publish --color always plan --skip-check --prdoc prdoc/
