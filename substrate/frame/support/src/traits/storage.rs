@@ -201,6 +201,18 @@ where
 	}
 }
 
+/// Constant `Price` regardless of the given [`Footprint`].
+pub struct ConstantStoragePrice<Price, Balance>(PhantomData<(Price, Balance)>);
+impl<Price, Balance> Convert<Footprint, Balance> for ConstantStoragePrice<Price, Balance>
+where
+	Price: Get<Balance>,
+	Balance: From<u64> + sp_runtime::Saturating,
+{
+	fn convert(_: Footprint) -> Balance {
+		Price::get()
+	}
+}
+
 /// Placeholder marking functionality disabled. Useful for disabling various (sub)features.
 #[derive(CloneNoBound, Debug, Encode, Eq, Decode, TypeInfo, MaxEncodedLen, PartialEq)]
 pub struct Disabled;

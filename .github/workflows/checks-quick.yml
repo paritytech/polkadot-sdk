@@ -138,7 +138,7 @@ jobs:
           # Fixes "detected dubious ownership" error in the ci
           git config --global --add safe.directory '*'
           python3 scripts/generate-umbrella.py --sdk . --version 0.1.0
-          cargo +nightly fmt --all
+          cargo +nightly fmt -p polkadot-sdk
 
           if [ -n "$(git status --porcelain)" ]; then
             cat <<EOF
