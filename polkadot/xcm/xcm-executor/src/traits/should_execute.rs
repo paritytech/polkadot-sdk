@@ -133,8 +133,8 @@ impl CheckSuspension for Tuple {
 /// Can be amalgamated into a tuple to have multiple trials. If any of the tuple elements returns
 /// `Err(())`, the execution stops. Else, `Ok(_)` is returned if all elements accept the message.
 pub trait DenyExecution {
-	/// Returns `Ok(())` means there is no reason not to execute the message
-	/// while Err(e) indicates there is a reason not to execute.
+	/// Returns `None` if there is no reason to deny execution,
+	/// while `Some(ProcessMessageError)` indicates there is a reason to deny execution.
 	///
 	/// - `origin`: The origin (sender) of the message.
 	/// - `instructions`: The message itself.
