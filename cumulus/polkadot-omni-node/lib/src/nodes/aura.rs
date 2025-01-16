@@ -42,7 +42,6 @@ use cumulus_client_consensus_aura::collators::{
 	slot_based::{SlotBasedBlockImport, SlotBasedBlockImportHandle},
 };
 use cumulus_client_consensus_proposer::{Proposer, ProposerInterface};
-use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 #[allow(deprecated)]
 use cumulus_client_service::CollatorSybilResistance;
 use cumulus_primitives_core::{relay_chain::ValidationCode, ParaId};
@@ -53,7 +52,7 @@ use prometheus_endpoint::Registry;
 use sc_client_api::BlockchainEvents;
 use sc_client_db::DbHash;
 use sc_consensus::{
-	import_queue::{BasicQueue, Verifier as VerifierT},
+	import_queue::{Verifier as VerifierT},
 	BlockImportParams, DefaultImportQueue,
 };
 use sc_service::{Configuration, Error, TaskManager};
@@ -118,50 +117,26 @@ where
 		telemetry_handle: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
 	) -> sc_service::error::Result<DefaultImportQueue<Block>> {
-		let verifier_client = client.clone();
 
-		let aura_verifier = cumulus_client_consensus_aura::build_verifier::<
-			<AuraId as AppCrypto>::Pair,
-			_,
-			_,
-			_,
-		>(cumulus_client_consensus_aura::BuildVerifierParams {
-			client: verifier_client.clone(),
-			create_inherent_data_providers: move |parent_hash, _| {
-				let cidp_client = verifier_client.clone();
-				async move {
-					let slot_duration = cumulus_client_consensus_aura::slot_duration_at(
-						&*cidp_client,
-						parent_hash,
-					)?;
-					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-
-					let slot =
-                        sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-                            *timestamp,
-                            slot_duration,
-                        );
-
-					Ok((slot, timestamp))
-				}
-			},
-			telemetry: telemetry_handle,
-		});
-
-		let relay_chain_verifier =
-			Box::new(RelayChainVerifier::new(client.clone(), |_, _| async { Ok(()) }));
-
-		let verifier = Verifier {
-			client,
-			relay_chain_verifier,
-			aura_verifier: Box::new(aura_verifier),
-			_phantom: PhantomData,
+		let inherent_data_providers = move |_, _| async move {
+			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+			Ok(timestamp)
 		};
-
 		let registry = config.prometheus_registry();
 		let spawner = task_manager.spawn_essential_handle();
 
-		Ok(BasicQueue::new(verifier, Box::new(block_import), None, &spawner, registry))
+		let aura_verifier = cumulus_client_consensus_aura::equivocation_import_queue::fully_verifying_import_queue::
+		<<AuraId as AppCrypto>::Pair,_,_,_,_>
+		(
+			client,
+			block_import,
+			inherent_data_providers,
+			&spawner,
+			registry,
+		 	telemetry_handle
+		);
+		
+		Ok(aura_verifier)
 	}
 }
 
