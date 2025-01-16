@@ -218,7 +218,7 @@ pub mod switch_block_number_provider {
 
 		fn on_runtime_upgrade() -> Weight {
 			let mut weight = Weight::zero();
-			weight.saturating_accrue(migrate_v1_to_v2::<BlockConverter, T, I>());
+			weight.saturating_accrue(migrate_block_number_provider::<BlockConverter, T, I>());
 			weight
 		}
 
@@ -235,7 +235,7 @@ pub mod switch_block_number_provider {
 		}
 	}
 
-	pub fn migrate_v1_to_v2<BlockConverter, T, I: 'static>() -> Weight
+	pub fn migrate_block_number_provider<BlockConverter, T, I: 'static>() -> Weight
 	where
 		BlockConverter: BlockNumberConversion<SystemBlockNumberFor<T>, BlockNumberFor<T, I>>,
 		T: Config<I>,
@@ -257,23 +257,23 @@ pub mod switch_block_number_provider {
 				ReferendumInfo::Approved(e, s, d) => {
 					let new_e = BlockConverter::convert_block_number(e);
 					Some(ReferendumInfo::Approved(new_e, s, d))
-				}
+				},
 				ReferendumInfo::Rejected(e, s, d) => {
 					let new_e = BlockConverter::convert_block_number(e);
 					Some(ReferendumInfo::Rejected(new_e, s, d))
-				}
+				},
 				ReferendumInfo::Cancelled(e, s, d) => {
 					let new_e = BlockConverter::convert_block_number(e);
 					Some(ReferendumInfo::Cancelled(new_e, s, d))
-				}
+				},
 				ReferendumInfo::TimedOut(e, s, d) => {
 					let new_e = BlockConverter::convert_block_number(e);
 					Some(ReferendumInfo::TimedOut(new_e, s, d))
-				}
+				},
 			};
 			if let Some(new_value) = maybe_new_value {
 				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
-				log::info!(target: "runtime::referenda::migration::change_block_number_provider", "migrating referendum #{:?}", &key);
+				log::info!(target: TARGET, "migrating referendum #{:?}", &key);
 				ReferendumInfoFor::<T, I>::insert(key, new_value);
 			} else {
 				weight.saturating_accrue(T::DbWeight::get().reads(1));
