@@ -18,7 +18,7 @@ use codec::Encode;
 use core::cell::RefCell;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
-	traits::{Everything, Nothing},
+	traits::{Disabled, Everything, Nothing},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
@@ -226,6 +226,8 @@ impl pallet_xcm::Config for Runtime {
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	// Aliasing is disabled: xcm_executor::Config::Aliasers is set to `Nothing`.
+	type AuthorizedAliasConsideration = Disabled;
 }
 
 impl origin::Config for Runtime {}

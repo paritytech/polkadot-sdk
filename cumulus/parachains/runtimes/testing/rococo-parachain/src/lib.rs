@@ -69,7 +69,7 @@ pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
 use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector, ParaId};
-use frame_support::traits::TransformOrigin;
+use frame_support::traits::{Disabled, TransformOrigin};
 use parachains_common::{
 	impls::{AssetsFrom, NonZeroIssuance},
 	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
@@ -539,6 +539,8 @@ impl pallet_xcm::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
+	// Aliasing is disabled: xcm_executor::Config::Aliasers is set to `Nothing`.
+	type AuthorizedAliasConsideration = Disabled;
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {
