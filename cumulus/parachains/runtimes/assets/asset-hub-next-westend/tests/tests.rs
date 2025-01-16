@@ -1263,8 +1263,8 @@ fn report_bridge_status_from_xcm_bridge_router_for_rococo_works() {
 	>(
 		collator_session_keys(),
 		bridging_to_asset_hub_rococo,
-		|| bp_asset_hub_westend::build_congestion_message(Default::default(), true).into(),
-		|| bp_asset_hub_westend::build_congestion_message(Default::default(), false).into(),
+		|| bp_asset_hub_next_westend::build_congestion_message(Default::default(), true).into(),
+		|| bp_asset_hub_next_westend::build_congestion_message(Default::default(), false).into(),
 	)
 }
 
@@ -1277,8 +1277,8 @@ fn test_report_bridge_status_call_compatibility() {
 			is_congested: true,
 		})
 		.encode(),
-		bp_asset_hub_westend::Call::ToRococoXcmRouter(
-			bp_asset_hub_westend::XcmBridgeHubRouterCall::report_bridge_status {
+		bp_asset_hub_next_westend::Call::ToRococoXcmRouter(
+			bp_asset_hub_next_westend::XcmBridgeHubRouterCall::report_bridge_status {
 				bridge_id: Default::default(),
 				is_congested: true,
 			}
@@ -1293,7 +1293,7 @@ fn check_sane_weight_report_bridge_status() {
 	let actual = <Runtime as pallet_xcm_bridge_hub_router::Config<
 		ToRococoXcmRouterInstance,
 	>>::WeightInfo::report_bridge_status();
-	let max_weight = bp_asset_hub_westend::XcmBridgeHubRouterTransactCallMaxWeight::get();
+	let max_weight = bp_asset_hub_next_westend::XcmBridgeHubRouterTransactCallMaxWeight::get();
 	assert!(
 		actual.all_lte(max_weight),
 		"max_weight: {:?} should be adjusted to actual {:?}",

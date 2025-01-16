@@ -59,7 +59,7 @@ impl_accounts_helpers_for_parachain!(AssetHubNextWestend);
 impl_assert_events_helpers_for_parachain!(AssetHubNextWestend);
 impl_assets_helpers_for_system_parachain!(AssetHubNextWestend, Westend);
 impl_assets_helpers_for_parachain!(AssetHubNextWestend);
-impl_foreign_assets_helpers_for_parachain!(AssetHubNextWestend, xcm::v4::Location);
+impl_foreign_assets_helpers_for_parachain!(AssetHubNextWestend, xcm::v5::Location);
 impl_xcm_helpers_for_parachain!(AssetHubNextWestend);
 impl_bridge_helpers_for_chain!(
 	AssetHubNextWestend,

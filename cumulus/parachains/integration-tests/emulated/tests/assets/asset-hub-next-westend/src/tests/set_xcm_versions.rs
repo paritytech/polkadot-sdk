@@ -19,7 +19,8 @@ use crate::imports::*;
 fn relay_sets_system_para_xcm_supported_version() {
 	// Init tests variables
 	let sudo_origin = <Westend as Chain>::RuntimeOrigin::root();
-	let system_para_destination: Location = Westend::child_location_of(AssetHubNextWestend::para_id());
+	let system_para_destination: Location =
+		Westend::child_location_of(AssetHubNextWestend::para_id());
 
 	// Relay Chain sets supported version for Asset Parachain
 	Westend::execute_with(|| {
@@ -67,10 +68,7 @@ fn system_para_sets_relay_xcm_supported_version() {
 	AssetHubNextWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubNextWestend as Chain>::RuntimeEvent;
 
-		AssetHubNextWestend::assert_dmp_queue_complete(Some(Weight::from_parts(
-			1_019_210_000,
-			200_000,
-		)));
+		AssetHubNextWestend::assert_dmp_queue_complete(Some(Weight::from_parts(115_688_000, 0)));
 
 		assert_expected_events!(
 			AssetHubNextWestend,

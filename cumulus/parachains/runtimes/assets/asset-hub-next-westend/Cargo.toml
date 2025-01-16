@@ -116,7 +116,6 @@ testnet-parachains-constants = { features = ["westend"], workspace = true }
 # Bridges
 bp-asset-hub-next-westend = { workspace = true }
 bp-asset-hub-rococo = { workspace = true }
-bp-asset-hub-westend = { workspace = true }
 bp-bridge-hub-rococo = { workspace = true }
 bp-bridge-hub-westend = { workspace = true }
 pallet-xcm-bridge-hub-router = { workspace = true }
@@ -246,7 +245,7 @@ std = [
 	"assets-common/std",
 	"bp-asset-hub-next-westend/std",
 	"bp-asset-hub-rococo/std",
-	"bp-asset-hub-westend/std",
+	"bp-asset-hub-next-westend/std",
 	"bp-bridge-hub-rococo/std",
 	"bp-bridge-hub-westend/std",
 	"codec/std",
