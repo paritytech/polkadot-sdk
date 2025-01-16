@@ -53,7 +53,7 @@ use sp_core::{
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
-	traits::{BadOrigin, Convert, Dispatchable, Saturating, Zero},
+	traits::{BadOrigin, Bounded, Convert, Dispatchable, Saturating, Zero},
 	DispatchError, SaturatedConversion,
 };
 
@@ -293,6 +293,9 @@ pub trait Ext: sealing::Sealed {
 	/// Check if a contract lives at the specified `address`.
 	fn is_contract(&self, address: &H160) -> bool;
 
+	/// Returns the account id for the given `address`.
+	fn to_account_id(&self, address: &H160) -> AccountIdOf<Self::T>;
+
 	/// Returns the code hash of the contract for the given `address`.
 	/// If not a contract but account exists then `keccak_256([])` is returned, otherwise `zero`.
 	fn code_hash(&self, address: &H160) -> H256;
@@ -325,7 +328,7 @@ pub trait Ext: sealing::Sealed {
 	/// Returns `Err(InvalidImmutableAccess)` if called from a constructor.
 	fn get_immutable_data(&mut self) -> Result<ImmutableData, DispatchError>;
 
-	/// Set the the immutable data of the current contract.
+	/// Set the immutable data of the current contract.
 	///
 	/// Returns `Err(InvalidImmutableAccess)` if not called from a constructor.
 	///
@@ -850,9 +853,9 @@ where
 			args,
 			value,
 			gas_meter,
-			Weight::zero(),
+			Weight::max_value(),
 			storage_meter,
-			BalanceOf::<T>::zero(),
+			BalanceOf::<T>::max_value(),
 			false,
 			true,
 		)?
@@ -1121,41 +1124,20 @@ where
 
 			let frame = self.top_frame_mut();
 
-			// If a special limit was set for the sub-call, we enforce it here.
-			// The sub-call will be rolled back in case the limit is exhausted.
+			// The storage deposit is only charged at the end of every call stack.
+			// To make sure that no sub call uses more than it is allowed to,
+			// the limit is manually enforced here.
 			let contract = frame.contract_info.as_contract();
 			frame
 				.nested_storage
-				.enforce_subcall_limit(contract)
+				.enforce_limit(contract)
 				.map_err(|e| ExecError { error: e, origin: ErrorOrigin::Callee })?;
 
-			let account_id = T::AddressMapper::to_address(&frame.account_id);
-			match (entry_point, delegated_code_hash) {
-				(ExportedFunction::Constructor, _) => {
-					// It is not allowed to terminate a contract inside its constructor.
-					if matches!(frame.contract_info, CachedContract::Terminated) {
-						return Err(Error::<T>::TerminatedInConstructor.into());
-					}
-
-					// Deposit an instantiation event.
-					Contracts::<T>::deposit_event(Event::Instantiated {
-						deployer: maybe_caller_address?,
-						contract: account_id,
-					});
-				},
-				(ExportedFunction::Call, Some(code_hash)) => {
-					Contracts::<T>::deposit_event(Event::DelegateCalled {
-						contract: account_id,
-						code_hash,
-					});
-				},
-				(ExportedFunction::Call, None) => {
-					let caller = self.caller();
-					Contracts::<T>::deposit_event(Event::Called {
-						caller: caller.clone(),
-						contract: account_id,
-					});
-				},
+			// It is not allowed to terminate a contract inside its constructor.
+			if entry_point == ExportedFunction::Constructor &&
+				matches!(frame.contract_info, CachedContract::Terminated)
+			{
+				return Err(Error::<T>::TerminatedInConstructor.into());
 			}
 
 			Ok(output)
@@ -1446,7 +1428,7 @@ where
 				FrameArgs::Call { dest: dest.clone(), cached_info, delegated_call: None },
 				value,
 				gas_limit,
-				deposit_limit.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
+				deposit_limit.saturated_into::<BalanceOf<T>>(),
 				// Enable read-only access if requested; cannot disable it if already set.
 				read_only || self.is_read_only(),
 			)? {
@@ -1502,7 +1484,7 @@ where
 			},
 			value,
 			gas_limit,
-			deposit_limit.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
+			deposit_limit.saturated_into::<BalanceOf<T>>(),
 			self.is_read_only(),
 		)?;
 		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data)
@@ -1532,7 +1514,7 @@ where
 			},
 			value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 			gas_limit,
-			deposit_limit.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
+			deposit_limit.saturated_into::<BalanceOf<T>>(),
 			self.is_read_only(),
 		)?;
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
@@ -1562,10 +1544,6 @@ where
 				.charge_deposit(frame.account_id.clone(), StorageDeposit::Refund(*deposit));
 		}
 
-		Contracts::<T>::deposit_event(Event::Terminated {
-			contract: account_address,
-			beneficiary: *beneficiary,
-		});
 		Ok(())
 	}
 
@@ -1633,6 +1611,10 @@ where
 
 	fn is_contract(&self, address: &H160) -> bool {
 		ContractInfoOf::<T>::contains_key(&address)
+	}
+
+	fn to_account_id(&self, address: &H160) -> T::AccountId {
+		T::AddressMapper::to_account_id(address)
 	}
 
 	fn code_hash(&self, address: &H160) -> H256 {
@@ -1818,11 +1800,6 @@ where
 
 		Self::increment_refcount(hash)?;
 		Self::decrement_refcount(prev_hash);
-		Contracts::<Self::T>::deposit_event(Event::ContractCodeUpdated {
-			contract: T::AddressMapper::to_address(&frame.account_id),
-			new_code_hash: hash,
-			old_code_hash: prev_hash,
-		});
 		Ok(())
 	}
 
@@ -2651,6 +2628,40 @@ mod tests {
 	}
 
 	#[test]
+	fn to_account_id_returns_proper_values() {
+		let bob_code_hash = MockLoader::insert(Call, |ctx, _| {
+			let alice_account_id = <Test as Config>::AddressMapper::to_account_id(&ALICE_ADDR);
+			assert_eq!(ctx.ext.to_account_id(&ALICE_ADDR), alice_account_id);
+
+			const UNMAPPED_ADDR: H160 = H160([99u8; 20]);
+			let mut unmapped_fallback_account_id = [0xEE; 32];
+			unmapped_fallback_account_id[..20].copy_from_slice(UNMAPPED_ADDR.as_bytes());
+			assert_eq!(
+				ctx.ext.to_account_id(&UNMAPPED_ADDR),
+				AccountId32::new(unmapped_fallback_account_id)
+			);
+
+			exec_success()
+		});
+
+		ExtBuilder::default().build().execute_with(|| {
+			place_contract(&BOB, bob_code_hash);
+			let origin = Origin::from_account_id(ALICE);
+			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+			let result = MockStack::run_call(
+				origin,
+				BOB_ADDR,
+				&mut GasMeter::<Test>::new(GAS_LIMIT),
+				&mut storage_meter,
+				U256::zero(),
+				vec![0],
+				false,
+			);
+			assert_matches!(result, Ok(_));
+		});
+	}
+
+	#[test]
 	fn code_hash_returns_proper_values() {
 		let bob_code_hash = MockLoader::insert(Call, |ctx, _| {
 			// ALICE is not a contract but account exists so it returns hash of empty data
@@ -2969,13 +2980,6 @@ mod tests {
 					ContractInfo::<Test>::load_code_hash(&instantiated_contract_id).unwrap(),
 					dummy_ch
 				);
-				assert_eq!(
-					&events(),
-					&[Event::Instantiated {
-						deployer: ALICE_ADDR,
-						contract: instantiated_contract_address
-					}]
-				);
 			});
 	}
 
@@ -3035,8 +3039,8 @@ mod tests {
 				let (address, output) = ctx
 					.ext
 					.instantiate(
-						Weight::zero(),
-						U256::zero(),
+						Weight::MAX,
+						U256::MAX,
 						dummy_ch,
 						<Test as Config>::Currency::minimum_balance().into(),
 						vec![],
@@ -3091,19 +3095,6 @@ mod tests {
 					ContractInfo::<Test>::load_code_hash(&instantiated_contract_id).unwrap(),
 					dummy_ch
 				);
-				assert_eq!(
-					&events(),
-					&[
-						Event::Instantiated {
-							deployer: BOB_ADDR,
-							contract: instantiated_contract_address
-						},
-						Event::Called {
-							caller: Origin::from_account_id(ALICE),
-							contract: BOB_ADDR
-						},
-					]
-				);
 			});
 	}
 
@@ -3154,13 +3145,6 @@ mod tests {
 						false,
 					),
 					Ok(_)
-				);
-
-				// The contract wasn't instantiated so we don't expect to see an instantiation
-				// event here.
-				assert_eq!(
-					&events(),
-					&[Event::Called { caller: Origin::from_account_id(ALICE), contract: BOB_ADDR },]
 				);
 			});
 	}
@@ -3501,24 +3485,14 @@ mod tests {
 			let remark_hash = <Test as frame_system::Config>::Hashing::hash(b"Hello World");
 			assert_eq!(
 				System::events(),
-				vec![
-					EventRecord {
-						phase: Phase::Initialization,
-						event: MetaEvent::System(frame_system::Event::Remarked {
-							sender: BOB_FALLBACK,
-							hash: remark_hash
-						}),
-						topics: vec![],
-					},
-					EventRecord {
-						phase: Phase::Initialization,
-						event: MetaEvent::Contracts(crate::Event::Called {
-							caller: Origin::from_account_id(ALICE),
-							contract: BOB_ADDR,
-						}),
-						topics: vec![],
-					},
-				]
+				vec![EventRecord {
+					phase: Phase::Initialization,
+					event: MetaEvent::System(frame_system::Event::Remarked {
+						sender: BOB_FALLBACK,
+						hash: remark_hash
+					}),
+					topics: vec![],
+				},]
 			);
 		});
 	}
@@ -3607,14 +3581,6 @@ mod tests {
 						},),
 						topics: vec![],
 					},
-					EventRecord {
-						phase: Phase::Initialization,
-						event: MetaEvent::Contracts(crate::Event::Called {
-							caller: Origin::from_account_id(ALICE),
-							contract: BOB_ADDR,
-						}),
-						topics: vec![],
-					},
 				]
 			);
 		});
@@ -3627,8 +3593,8 @@ mod tests {
 		let succ_fail_code = MockLoader::insert(Constructor, move |ctx, _| {
 			ctx.ext
 				.instantiate(
-					Weight::zero(),
-					U256::zero(),
+					Weight::MAX,
+					U256::MAX,
 					fail_code,
 					ctx.ext.minimum_balance() * 100,
 					vec![],
@@ -3644,8 +3610,8 @@ mod tests {
 			let addr = ctx
 				.ext
 				.instantiate(
-					Weight::zero(),
-					U256::zero(),
+					Weight::MAX,
+					U256::MAX,
 					success_code,
 					ctx.ext.minimum_balance() * 100,
 					vec![],
@@ -4407,7 +4373,7 @@ mod tests {
 				// Successful instantiation should set the output
 				let address = ctx
 					.ext
-					.instantiate(Weight::zero(), U256::zero(), ok_ch, value, vec![], None)
+					.instantiate(Weight::MAX, U256::MAX, ok_ch, value, vec![], None)
 					.unwrap();
 				assert_eq!(
 					ctx.ext.last_frame_output(),
@@ -4416,15 +4382,7 @@ mod tests {
 
 				// Balance transfers should reset the output
 				ctx.ext
-					.call(
-						Weight::zero(),
-						U256::zero(),
-						&address,
-						U256::from(1),
-						vec![],
-						true,
-						false,
-					)
+					.call(Weight::MAX, U256::MAX, &address, U256::from(1), vec![], true, false)
 					.unwrap();
 				assert_eq!(ctx.ext.last_frame_output(), &Default::default());
 
@@ -4634,7 +4592,7 @@ mod tests {
 
 				// Constructors can not access the immutable data
 				ctx.ext
-					.instantiate(Weight::zero(), U256::zero(), dummy_ch, value, vec![], None)
+					.instantiate(Weight::MAX, U256::MAX, dummy_ch, value, vec![], None)
 					.unwrap();
 
 				exec_success()
@@ -4749,7 +4707,7 @@ mod tests {
 			move |ctx, _| {
 				let value = <Test as Config>::Currency::minimum_balance().into();
 				ctx.ext
-					.instantiate(Weight::zero(), U256::zero(), dummy_ch, value, vec![], None)
+					.instantiate(Weight::MAX, U256::MAX, dummy_ch, value, vec![], None)
 					.unwrap();
 
 				exec_success()
@@ -4793,7 +4751,7 @@ mod tests {
 			move |ctx, _| {
 				let value = <Test as Config>::Currency::minimum_balance().into();
 				ctx.ext
-					.instantiate(Weight::zero(), U256::zero(), dummy_ch, value, vec![], None)
+					.instantiate(Weight::MAX, U256::MAX, dummy_ch, value, vec![], None)
 					.unwrap();
 
 				exec_success()

@@ -34,7 +34,15 @@ pub extern "C" fn call() {
 	);
 
 	let input = [0u8; 0];
-	let ret = api::delegate_call(uapi::CallFlags::empty(), address, 0, 0, Some(&u256_bytes(deposit_limit)), &input, None);
+	let ret = api::delegate_call(
+		uapi::CallFlags::empty(),
+		address,
+		u64::MAX,
+		u64::MAX,
+		&u256_bytes(deposit_limit),
+		&input,
+		None
+	);
 
 	if let Err(code) = ret {
 		api::return_value(uapi::ReturnFlags::REVERT, &(code as u32).to_le_bytes());

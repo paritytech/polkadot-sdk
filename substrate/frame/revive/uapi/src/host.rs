@@ -113,7 +113,7 @@ pub trait HostFn: private::Sealed {
 		callee: &[u8; 20],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
-		deposit: Option<&[u8; 32]>,
+		deposit: &[u8; 32],
 		value: &[u8; 32],
 		input_data: &[u8],
 		output: Option<&mut &mut [u8]>,
@@ -143,6 +143,18 @@ pub trait HostFn: private::Sealed {
 	///
 	/// - `output`: A reference to the output data buffer to write the origin's address.
 	fn origin(output: &mut [u8; 20]);
+
+	/// Retrieve the account id for a specified address.
+	///
+	/// # Parameters
+	///
+	/// - `addr`: A `H160` address.
+	/// - `output`: A reference to the output data buffer to write the account id.
+	///
+	/// # Note
+	///
+	/// If no mapping exists for `addr`, the fallback account id will be returned.
+	fn to_account_id(addr: &[u8; 20], output: &mut [u8]);
 
 	/// Retrieve the code hash for a specified contract address.
 	///
@@ -202,7 +214,7 @@ pub trait HostFn: private::Sealed {
 		address: &[u8; 20],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
-		deposit_limit: Option<&[u8; 32]>,
+		deposit_limit: &[u8; 32],
 		input_data: &[u8],
 		output: Option<&mut &mut [u8]>,
 	) -> Result;
@@ -318,7 +330,7 @@ pub trait HostFn: private::Sealed {
 		code_hash: &[u8; 32],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
-		deposit: Option<&[u8; 32]>,
+		deposit: &[u8; 32],
 		value: &[u8; 32],
 		input: &[u8],
 		address: Option<&mut [u8; 20]>,
@@ -488,7 +500,7 @@ pub trait HostFn: private::Sealed {
 	/// A return value of `true` indicates that this contract is being called by a root origin,
 	/// and `false` indicates that the caller is a signed origin.
 	#[unstable_hostfn]
-	fn caller_is_root() -> u32;
+	fn caller_is_root() -> bool;
 
 	/// Clear the value at the given key in the contract storage.
 	///
