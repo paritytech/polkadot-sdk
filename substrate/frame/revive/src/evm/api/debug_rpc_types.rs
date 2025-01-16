@@ -102,7 +102,7 @@ impl<'de> Deserialize<'de> for TracerConfig {
 }
 
 #[test]
-fn test_deserialize_call_tracer_with_logs_true() {
+fn test_tracer_config_serialization() {
 	let tracers = vec![
 		(r#"{"tracer": "callTracer"}"#, TracerConfig::CallTracer { with_logs: true }),
 		(
