@@ -21,7 +21,7 @@ pub use crate::{
 	exec::{ExecResult, ExportedFunction},
 	primitives::ExecReturnValue,
 };
-use alloc::{format, string::ToString, vec::Vec};
+use alloc::{boxed::Box, format, string::ToString, vec::Vec};
 use sp_core::{H160, H256, U256};
 
 /// Umbrella trait for all interfaces that serves for debugging.
