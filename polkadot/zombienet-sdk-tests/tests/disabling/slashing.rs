@@ -37,7 +37,10 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 						"config": {
 							"scheduler_params": {
 								"group_rotation_frequency": 3,
-								"max_validators_per_core": 1
+								"max_validators_per_core": 1,
+								"lookahead": 2,
+								"max_candidate_depth": 3,
+								"allowed_ancestry_len": 2
 							},
 							"needed_approvals": 2
 						}
@@ -61,14 +64,20 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 			p.with_id(1337)
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_default_args(vec![("-lparachain=debug").into()])
+				.with_default_args(vec![
+					"--experimental-use-slot-based".into(),
+					"-lparachain=debug".into(),
+				])
 				.with_collator(|n| n.with_name("collator-1337"))
 		})
 		.with_parachain(|p| {
 			p.with_id(2025)
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_default_args(vec![("-lparachain=debug").into()])
+				.with_default_args(vec![
+					"--experimental-use-slot-based".into(),
+					"-lparachain=debug".into(),
+				])
 				.with_collator(|n| n.with_name("collator-2025"))
 		})
 		.build()
@@ -92,30 +101,41 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 
 	// Let's initiate a dispute
 	malus.resume().await?;
-
-	let timeout_secs: u64 = 360;
-	let disputes_total_metric = "polkadot_parachain_candidate_disputes_total";
-	wait_for_metric(&honest, disputes_total_metric, 1).await;
-
-	// Pause first flaky node, so they stop concluding
+	// Pause flaky nodes, so a dispute doesn't conclude
 	let flaky_0 = network.get_node("honest-flaky-validator-0")?;
 	flaky_0.pause().await?;
 
-	// Wait for a dispute that will not conclude
-	let disputes = wait_for_metric(&honest, disputes_total_metric, 2).await;
+	let disputes_total_metric = "polkadot_parachain_candidate_disputes_total";
+	wait_for_metric(&honest, disputes_total_metric, 1).await;
+
 	log::info!("Dispute initiated, now waiting for a session change");
-
-	wait_for_session_change(&relay_client).await?;
-
-	// Now resume flaky validator
-	log::info!("Resuming the flaky node - disputes should conclude");
-	flaky_0.resume().await?;
 	// We don't need malus anymore
 	malus.pause().await?;
 
-	wait_for_metric(&honest, "polkadot_parachain_candidate_dispute_concluded{validity=\"invalid\"}", disputes).await;
+	wait_for_session_change(&relay_client).await?;
+
+	let concluded_disputes = wait_for_metric(
+		&honest,
+		"polkadot_parachain_candidate_dispute_concluded{validity=\"invalid\"}",
+		0,
+	)
+	.await;
+
+	assert_eq!(concluded_disputes, 0, "with one offline honest node, dispute should not conclude");
+
+	// Now resume flaky validators
+	log::info!("Resuming flaky nodes - dispute should conclude");
+	flaky_0.resume().await?;
+
+	wait_for_metric(
+		&honest,
+		"polkadot_parachain_candidate_dispute_concluded{validity=\"invalid\"}",
+		1,
+	)
+	.await;
 	log::info!("A dispute has concluded");
 
+	let timeout_secs: u64 = 360;
 	honest
 		.wait_log_line_count_with_timeout(
 			"*Successfully reported pending slash*",
@@ -133,12 +153,13 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 }
 
 pub async fn wait_for_metric(node: &NetworkNode, metric: &str, value: u64) -> u64 {
-    println!("Waiting for {metric} to reach {value}:");
-    loop {
-        let current = node.reports(metric).await.unwrap_or(0.0) as u64;
-        log::debug!("{metric} = {current}");
-        if current >= value {
-            return current;
-        }
-    }
+	log::info!("Waiting for {metric} to reach {value}:");
+	loop {
+		let current = node.reports(metric).await.unwrap_or(0.0) as u64;
+		log::debug!("{metric} = {current}");
+		if current >= value {
+			return current;
+		}
+		tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+	}
 }
