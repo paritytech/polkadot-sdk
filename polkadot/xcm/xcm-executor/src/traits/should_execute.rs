@@ -161,7 +161,7 @@ impl DenyExecution for Tuple {
             let barrier = core::any::type_name::<Tuple>();
             match Tuple::deny_execution(origin, instructions, max_weight, properties) {
                 Some(error) => {
-                    tracing::trace!(
+                    tracing::error!(
                         target: "xcm::should_execute",
                         ?origin,
                         ?instructions,
