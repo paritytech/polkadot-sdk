@@ -26,6 +26,7 @@ frame-system = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-session = { workspace = true }
+sp-api = { workspace = true }
 sp-runtime = { workspace = true }
 sp-staking = { workspace = true }
 
@@ -62,6 +63,7 @@ std = [
 	"pallet-session/std",
 	"rand/std",
 	"scale-info/std",
+	"sp-api/std",
 	"sp-runtime/std",
 	"sp-staking/std",
 ]

@@ -1540,6 +1540,12 @@ impl_runtime_apis! {
 			PolkadotXcm::is_trusted_teleporter(asset, location)
 		}
 	}
+
+	impl pallet_collator_selection::CollatorSelectionApi<Block, AccountId> for Runtime {
+		fn account_id() -> AccountId {
+			CollatorSelection::account_id()
+		}
+	}
 }
 
 #[cfg(test)]

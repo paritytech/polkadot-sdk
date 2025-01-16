@@ -2276,6 +2276,12 @@ impl_runtime_apis! {
 			)
 		}
 	}
+
+	impl pallet_collator_selection::CollatorSelectionApi<Block, AccountId> for Runtime {
+		fn account_id() -> AccountId {
+			CollatorSelection::account_id()
+		}
+	}
 }
 
 cumulus_pallet_parachain_system::register_validate_block! {
