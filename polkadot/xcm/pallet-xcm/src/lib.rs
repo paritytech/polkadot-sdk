@@ -68,7 +68,7 @@ use xcm_executor::{
 	AssetsInHolding,
 };
 use xcm_runtime_apis::{
-	authorized_aliases::OriginAliaser,
+	authorized_aliases::{Error as AuthorizedAliasersApiError, OriginAliaser},
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
 	trusted_query::Error as TrustedQueryApiError,
@@ -535,13 +535,9 @@ pub mod pallet {
 		VersionMigrationFinished { version: XcmVersion },
 		/// An `aliaser` location was authorized by `target` to alias it, authorization valid until
 		/// `expiry` block number.
-		AliasAuthorized {
-			aliaser: VersionedLocation,
-			target: VersionedLocation,
-			expiry: Option<u64>,
-		},
+		AliasAuthorized { aliaser: Location, target: Location, expiry: Option<u64> },
 		/// `target` removed alias authorization for `aliaser`.
-		AliasAuthorizationRemoved { aliaser: VersionedLocation, target: VersionedLocation },
+		AliasAuthorizationRemoved { aliaser: Location, target: Location },
 	}
 
 	#[pallet::origin]
@@ -1509,9 +1505,10 @@ pub mod pallet {
 		) -> DispatchResult {
 			let signed_origin = ensure_signed(origin.clone())?;
 			let origin_location: Location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
-			let aliaser: Location = (*aliaser).try_into().map_err(|()| Error::<T>::BadVersion)?;
-			tracing::debug!(target: "xcm::pallet_xcm::add_authorized_alias", ?origin_location, ?aliaser, ?expires);
-			ensure!(origin_location != aliaser, Error::<T>::BadLocation);
+			let new_aliaser: Location =
+				(*aliaser).try_into().map_err(|()| Error::<T>::BadVersion)?;
+			tracing::debug!(target: "xcm::pallet_xcm::add_authorized_alias", ?origin_location, ?new_aliaser, ?expires);
+			ensure!(origin_location != new_aliaser, Error::<T>::BadLocation);
 			if let Some(expiry) = expires {
 				ensure!(
 					expiry >
@@ -1519,9 +1516,8 @@ pub mod pallet {
 					Error::<T>::ExpiresInPast
 				);
 			}
-			let versioned_origin = VersionedLocation::from(origin_location);
-			let versioned_aliaser = VersionedLocation::from(aliaser);
-
+			let versioned_origin = VersionedLocation::from(origin_location.clone());
+			let versioned_aliaser = VersionedLocation::from(new_aliaser.clone());
 			let entry = if let Some(entry) = AuthorizedAliases::<T>::get(&versioned_origin) {
 				// entry already exists, update it
 				let (mut aliasers, mut ticket) = (entry.aliasers, entry.ticket);
@@ -1551,8 +1547,8 @@ pub mod pallet {
 			// write to storage
 			AuthorizedAliases::<T>::insert(&versioned_origin, entry);
 			Self::deposit_event(Event::AliasAuthorized {
-				aliaser: versioned_aliaser,
-				target: versioned_origin,
+				aliaser: new_aliaser,
+				target: origin_location,
 				expiry: expires,
 			});
 			Ok(())
@@ -1570,8 +1566,9 @@ pub mod pallet {
 			let to_remove: Location = (*aliaser).try_into().map_err(|()| Error::<T>::BadVersion)?;
 			tracing::debug!(target: "xcm::pallet_xcm::add_authorized_alias", ?origin_location, ?to_remove);
 			ensure!(origin_location != to_remove, Error::<T>::BadLocation);
-			let versioned_origin = VersionedLocation::from(origin_location);
-			let versioned_to_remove = VersionedLocation::from(to_remove);
+			// convert to latest versioned
+			let versioned_origin = VersionedLocation::from(origin_location.clone());
+			let versioned_to_remove = VersionedLocation::from(to_remove.clone());
 			if let Some(entry) = AuthorizedAliases::<T>::get(&versioned_origin) {
 				let (mut aliasers, mut ticket) = (entry.aliasers, entry.ticket);
 				let old_len = aliasers.len();
@@ -1582,8 +1579,8 @@ pub mod pallet {
 					ticket.drop(&signed_origin)?;
 					AuthorizedAliases::<T>::remove(&versioned_origin);
 					Self::deposit_event(Event::AliasAuthorizationRemoved {
-						aliaser: versioned_to_remove,
-						target: versioned_origin,
+						aliaser: to_remove,
+						target: origin_location,
 					});
 				} else if old_len != new_len {
 					// update aliasers and storage deposit
@@ -1591,8 +1588,8 @@ pub mod pallet {
 					let entry = AuthorizedAliasesEntry { aliasers, ticket };
 					AuthorizedAliases::<T>::insert(&versioned_origin, entry);
 					Self::deposit_event(Event::AliasAuthorizationRemoved {
-						aliaser: versioned_to_remove,
-						target: versioned_origin,
+						aliaser: to_remove,
+						target: origin_location,
 					});
 				}
 			}
@@ -2827,8 +2824,7 @@ impl<T: Config> Pallet<T> {
 		let location: Location = location.try_into().map_err(|e| {
 			tracing::debug!(
 				target: "xcm::pallet_xcm::is_trusted_reserve",
-				"Asset version conversion failed with error: {:?}",
-				e,
+				?e, "Failed to convert versioned location",
 			);
 			TrustedQueryApiError::VersionedLocationConversionFailed
 		})?;
@@ -2836,8 +2832,7 @@ impl<T: Config> Pallet<T> {
 		let a: Asset = asset.try_into().map_err(|e| {
 			tracing::debug!(
 				target: "xcm::pallet_xcm::is_trusted_reserve",
-				"Location version conversion failed with error: {:?}",
-				e,
+				 ?e, "Failed to convert versioned asset",
 			);
 			TrustedQueryApiError::VersionedAssetConversionFailed
 		})?;
@@ -2853,16 +2848,14 @@ impl<T: Config> Pallet<T> {
 		let location: Location = location.try_into().map_err(|e| {
 			tracing::debug!(
 				target: "xcm::pallet_xcm::is_trusted_teleporter",
-				"Asset version conversion failed with error: {:?}",
-				e,
+				?e, "Failed to convert versioned location",
 			);
 			TrustedQueryApiError::VersionedLocationConversionFailed
 		})?;
 		let a: Asset = asset.try_into().map_err(|e| {
 			tracing::debug!(
 				target: "xcm::pallet_xcm::is_trusted_teleporter",
-				"Location version conversion failed with error: {:?}",
-				e,
+				 ?e, "Failed to convert versioned asset",
 			);
 			TrustedQueryApiError::VersionedAssetConversionFailed
 		})?;
@@ -2870,31 +2863,66 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Returns locations allowed to alias into and act as `target`.
-	pub fn authorized_aliasers(target: VersionedLocation) -> Vec<OriginAliaser> {
-		AuthorizedAliases::<T>::get(&target)
-			.map(|authorized| authorized.aliasers.into_iter().collect())
-			.unwrap_or_default()
+	pub fn authorized_aliasers(
+		target: VersionedLocation,
+	) -> Result<Vec<OriginAliaser>, AuthorizedAliasersApiError> {
+		let desired_version = target.identify_version();
+		// storage entries are always latest version
+		let target: VersionedLocation = target.into_version(XCM_VERSION).map_err(|e| {
+			tracing::debug!(
+				target: "xcm::pallet_xcm::authorized_aliasers",
+				?e, "Failed to convert versioned location",
+			);
+			AuthorizedAliasersApiError::LocationVersionConversionFailed
+		})?;
+		Ok(AuthorizedAliases::<T>::get(&target)
+			.map(|authorized| {
+				authorized
+					.aliasers
+					.into_iter()
+					.filter_map(|aliaser| {
+						let OriginAliaser { location, expiry } = aliaser;
+						location
+							.into_version(desired_version)
+							.map(|location| OriginAliaser { location, expiry })
+							.ok()
+					})
+					.collect()
+			})
+			.unwrap_or_default())
 	}
 
 	/// Given an `origin` and a `target`, returns if the `origin` location was added by `target` as
 	/// an authorized aliaser.
 	///
 	/// Effectively says whether `origin` is allowed to alias into and act as `target`.
-	pub fn is_authorized_alias(origin: VersionedLocation, target: VersionedLocation) -> bool {
-		Self::authorized_aliasers(target)
-			.iter()
-			.find(|&aliaser| {
+	pub fn is_authorized_alias(
+		origin: VersionedLocation,
+		target: VersionedLocation,
+	) -> Result<bool, AuthorizedAliasersApiError> {
+		let desired_version = target.identify_version();
+		let origin = origin.into_version(desired_version).map_err(|e| {
+			tracing::debug!(
+				target: "xcm::pallet_xcm::is_authorized_alias",
+				?e, "mismatching origin and target versions",
+			);
+			AuthorizedAliasersApiError::LocationVersionConversionFailed
+		})?;
+		Ok(Self::authorized_aliasers(target)?
+			.into_iter()
+			.find(|aliaser| {
+				// `aliasers` and `origin` have already been transformed to `desired_version`, we
+				// can just directly compare them.
 				aliaser.location == origin &&
 					aliaser
 						.expiry
 						.map(|expiry| {
-							expiry <
-								frame_system::Pallet::<T>::current_block_number()
-									.saturated_into::<u64>()
+							frame_system::Pallet::<T>::current_block_number()
+								.saturated_into::<u64>() < expiry
 						})
 						.unwrap_or(true)
 			})
-			.is_some()
+			.is_some())
 	}
 
 	/// Create a new expectation of a query response with the querier being here.
@@ -3651,7 +3679,7 @@ impl<L: Into<VersionedLocation> + Clone, T: Config> ContainsPair<L, L> for Autho
 		tracing::trace!(target: "xcm::pallet_xcm::AuthorizedAliasers::contains", ?origin, ?target);
 		// return true if the `origin` has been explicitly authorized by `target` as aliaser, and
 		// the authorization has not expired
-		Pallet::<T>::is_authorized_alias(origin, target)
+		Pallet::<T>::is_authorized_alias(origin, target).unwrap_or(false)
 	}
 }
 

@@ -845,10 +845,16 @@ impl_runtime_apis! {
 	}
 
 	impl xcm_runtime_apis::authorized_aliases::AuthorizedAliasersApi<Block> for Runtime {
-		fn authorized_aliasers(target: VersionedLocation) -> Vec<xcm_runtime_apis::authorized_aliases::OriginAliaser> {
+		fn authorized_aliasers(target: VersionedLocation) -> Result<
+			Vec<xcm_runtime_apis::authorized_aliases::OriginAliaser>,
+			xcm_runtime_apis::authorized_aliases::Error
+		> {
 			PolkadotXcm::authorized_aliasers(target)
 		}
-		fn is_authorized_alias(origin: VersionedLocation, target: VersionedLocation) -> bool {
+		fn is_authorized_alias(origin: VersionedLocation, target: VersionedLocation) -> Result<
+			bool,
+			xcm_runtime_apis::authorized_aliases::Error
+		> {
 			PolkadotXcm::is_authorized_alias(origin, target)
 		}
 	}

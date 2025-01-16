@@ -176,21 +176,24 @@ pub mod data {
 	{
 		type MigratedData = (VersionedLocation, AuthorizedAliasesEntry<TicketOf<T>, M>);
 
-		fn needs_migration(&self, _: XcmVersion) -> bool {
-			self.0.identify_version() < XCM_VERSION ||
+		fn needs_migration(&self, required_version: XcmVersion) -> bool {
+			self.0.identify_version() != required_version ||
 				self.1
 					.aliasers
 					.iter()
-					.any(|alias| alias.location.identify_version() < XCM_VERSION)
+					.any(|alias| alias.location.identify_version() != required_version)
 		}
 
-		fn try_migrate(self, _: XcmVersion) -> Result<Option<Self::MigratedData>, ()> {
-			if !self.needs_migration(XCM_VERSION) {
+		fn try_migrate(
+			self,
+			required_version: XcmVersion,
+		) -> Result<Option<Self::MigratedData>, ()> {
+			if !self.needs_migration(required_version) {
 				return Ok(None)
 			}
 
-			let key = if self.0.identify_version() < XCM_VERSION {
-				let Ok(converted_key) = self.0.clone().into_version(XCM_VERSION) else {
+			let key = if self.0.identify_version() != required_version {
+				let Ok(converted_key) = self.0.clone().into_version(required_version) else {
 					return Err(())
 				};
 				converted_key
@@ -202,8 +205,8 @@ pub mod data {
 			let (aliasers, ticket) = (self.1.aliasers, self.1.ticket);
 			for alias in aliasers {
 				let OriginAliaser { mut location, expiry } = alias.clone();
-				if location.identify_version() < XCM_VERSION {
-					location = location.into_version(XCM_VERSION)?;
+				if location.identify_version() != required_version {
+					location = location.into_version(required_version)?;
 				}
 				new_aliases.try_push(OriginAliaser { location, expiry }).map_err(|_| ())?;
 			}

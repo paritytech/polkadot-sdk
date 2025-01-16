@@ -33,8 +33,16 @@ sp_api::decl_runtime_apis! {
 	/// API for querying XCM authorized aliases
 	pub trait AuthorizedAliasersApi {
 		/// Returns locations allowed to alias into and act as `target`.
-		fn authorized_aliasers(target: VersionedLocation) -> Vec<OriginAliaser>;
+		fn authorized_aliasers(target: VersionedLocation) -> Result<Vec<OriginAliaser>, Error>;
 		/// Returns whether `origin` is allowed to alias into and act as `target`.
-		fn is_authorized_alias(origin: VersionedLocation, target: VersionedLocation) -> bool;
+		fn is_authorized_alias(origin: VersionedLocation, target: VersionedLocation) -> Result<bool, Error>;
 	}
+}
+
+/// `AuthorizedAliasersApi` Runtime APIs errors.
+#[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
+pub enum Error {
+	/// Converting a location from one version to another failed.
+	#[codec(index = 0)]
+	LocationVersionConversionFailed,
 }

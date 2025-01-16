@@ -44,7 +44,9 @@ sp_api::decl_runtime_apis! {
 #[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
 pub enum Error {
 	/// Converting a versioned Asset structure from one version to another failed.
+	#[codec(index = 0)]
 	VersionedAssetConversionFailed,
 	/// Converting a versioned Location structure from one version to another failed.
+	#[codec(index = 1)]
 	VersionedLocationConversionFailed,
 }
