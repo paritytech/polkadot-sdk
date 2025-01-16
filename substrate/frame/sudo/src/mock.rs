@@ -128,7 +128,7 @@ pub fn new_test_ext(root_key: u64) -> TestState {
 	sudo::GenesisConfig::<Test> { key: Some(root_key) }
 		.assimilate_storage(&mut t)
 		.unwrap();
-	let mut ext: sp_io::TestExternalities = t.into();
+	let mut ext: TestExternalities = t.into();
 	ext.execute_with(|| System::set_block_number(1));
 	ext
 }
