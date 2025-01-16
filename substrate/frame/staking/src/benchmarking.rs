@@ -336,7 +336,7 @@ mod benchmarks {
 
 		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
 
-		// setup a worst case list scenario. Note that we don't care about the setup of the
+		// Setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
 		let controller = scenario.origin_controller1.clone();
@@ -461,7 +461,7 @@ mod benchmarks {
 
 		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
 
-		// setup a worst case list scenario. Note we don't care about the destination position,
+		// Setup a worst case list scenario. Note we don't care about the destination position,
 		// because we are just doing an insert into the origin position.
 		ListScenario::<T>::new(origin_weight, true)?;
 		let (stash, controller) = create_stash_controller_with_balance::<T>(
@@ -494,7 +494,7 @@ mod benchmarks {
 
 		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
 
-		// setup a worst case list scenario. Note that we don't care about the setup of the
+		// Setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
 		let controller = scenario.origin_controller1.clone();
@@ -655,7 +655,7 @@ mod benchmarks {
 
 		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
 
-		// setup a worst case list scenario. Note that we don't care about the setup of the
+		// Setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
 		let controller = scenario.origin_controller1.clone();
@@ -749,7 +749,7 @@ mod benchmarks {
 			// we use 100 to play friendly with the list threshold values in the mock
 			.max(100u32.into());
 
-		// setup a worst case list scenario.
+		// Setup a worst case list scenario.
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
 		let dest_weight = scenario.dest_weight;
 
@@ -793,7 +793,7 @@ mod benchmarks {
 
 		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
 
-		// setup a worst case list scenario. Note that we don't care about the setup of the
+		// Setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
 		let controller = scenario.origin_controller1.clone();
@@ -1006,6 +1006,7 @@ mod benchmarks {
 			ConfigOp::Set(u32::MAX),
 			ConfigOp::Set(u32::MAX),
 			ConfigOp::Set(Percent::max_value()),
+			ConfigOp::Set(T::HistoryDepth::get()),
 			ConfigOp::Set(Perbill::max_value()),
 			ConfigOp::Set(Percent::max_value()),
 		);
@@ -1015,6 +1016,7 @@ mod benchmarks {
 		assert_eq!(MaxNominatorsCount::<T>::get(), Some(u32::MAX));
 		assert_eq!(MaxValidatorsCount::<T>::get(), Some(u32::MAX));
 		assert_eq!(ChillThreshold::<T>::get(), Some(Percent::from_percent(100)));
+		assert_eq!(ChillInactiveValidatorThreshold::<T>::get(), T::HistoryDepth::get());
 		assert_eq!(MinCommission::<T>::get(), Perbill::from_percent(100));
 		assert_eq!(MaxStakedRewards::<T>::get(), Some(Percent::from_percent(100)));
 	}
@@ -1024,6 +1026,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		set_staking_configs(
 			RawOrigin::Root,
+			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
@@ -1049,7 +1052,7 @@ mod benchmarks {
 
 		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
 
-		// setup a worst case list scenario. Note that we don't care about the setup of the
+		// Setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
 		let stash = scenario.origin_stash1;
@@ -1062,6 +1065,7 @@ mod benchmarks {
 			ConfigOp::Set(0),
 			ConfigOp::Set(0),
 			ConfigOp::Set(Percent::from_percent(0)),
+			ConfigOp::Set(2),
 			ConfigOp::Set(Zero::zero()),
 			ConfigOp::Noop,
 		)?;
@@ -1129,6 +1133,51 @@ mod benchmarks {
 		_(RawOrigin::Root, stash.clone(), None, None, None);
 
 		assert_eq!(Staking::<T>::inspect_bond_state(&stash), Ok(LedgerIntegrityState::Ok));
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn chill_inactive_validator(
+		l: Linear<2, { ChillInactiveValidatorThreshold::<T>::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let (stash, _) =
+			create_validator_with_nominators::<T>(0, 0, false, true, RewardDestination::Staked)?;
+		assert!(T::VoterList::contains(&stash));
+
+		Staking::<T>::set_staking_configs(
+			RawOrigin::Root.into(),
+			ConfigOp::Set(BalanceOf::<T>::max_value()),
+			ConfigOp::Set(BalanceOf::<T>::max_value()),
+			ConfigOp::Set(0),
+			ConfigOp::Set(0),
+			ConfigOp::Set(Percent::from_percent(0)),
+			ConfigOp::Set(l),
+			ConfigOp::Set(Zero::zero()),
+			ConfigOp::Noop,
+		)?;
+
+		let caller = whitelisted_caller();
+		// Set the validator has been inactive for `l` eras.
+		let proof = (0..l)
+			.map(|era| {
+				ErasRewardPoints::<T>::insert(
+					era,
+					EraRewardPoints {
+						total: 0,
+						individual: BTreeMap::from_iter([(stash.clone(), 0)]),
+					},
+				);
+
+				era
+			})
+			.collect::<Vec<_>>();
+		let proof = BoundedVec::truncate_from(proof);
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), stash.clone(), proof);
+
+		assert!(!T::VoterList::contains(&stash));
 
 		Ok(())
 	}
