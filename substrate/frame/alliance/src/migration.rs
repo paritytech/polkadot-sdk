@@ -164,6 +164,7 @@ pub(crate) mod v1_to_v2 {
 mod test {
 	use super::*;
 	use crate::{mock::*, MemberRole, Members};
+	use frame::testing_prelude::*;
 
 	#[test]
 	fn migration_v1_to_v2_works() {
