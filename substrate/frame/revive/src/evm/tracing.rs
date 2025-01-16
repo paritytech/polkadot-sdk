@@ -14,56 +14,19 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-use crate::{evm::TracerConfig, Config, DispatchError, Weight};
-pub use crate::{
-	evm::{CallLog, CallTrace, CallType, EthTraces, Traces},
-	exec::{ExecResult, ExportedFunction},
+use crate::{
+	evm::{extract_revert_message, CallLog, CallTrace, CallType},
 	primitives::ExecReturnValue,
+	DispatchError, Tracer, Weight,
 };
-use alloc::{boxed::Box, format, string::ToString, vec::Vec};
+use alloc::{format, string::ToString, vec::Vec};
 use sp_core::{H160, H256, U256};
 
-/// Umbrella trait for all interfaces that serves for debugging.
-pub trait Debugger<T: Config>: CallInterceptor<T> {}
-impl<T: Config, V> Debugger<T> for V where V: CallInterceptor<T> {}
-
-/// Defines methods to capture contract calls
-pub trait Tracing {
-	/// Called before a contract call is executed
-	fn enter_child_span(
-		&mut self,
-		from: H160,
-		to: H160,
-		is_delegate_call: bool,
-		is_read_only: bool,
-		value: U256,
-		input: &[u8],
-		gas: Weight,
-	);
-
-	/// Record a log event
-	fn log_event(&mut self, event: H160, topics: &[H256], data: &[u8]);
-
-	/// Called after a contract call is executed
-	fn exit_child_span(&mut self, output: &ExecReturnValue, gas_left: Weight);
-
-	/// Called when a contract call terminates with an error
-	fn exit_child_span_with_error(&mut self, error: DispatchError, gas_left: Weight);
-
-	/// Collects and returns the traces recorded by the tracer, then clears them.
-	fn collect_traces(&mut self) -> Traces;
-}
-
-/// Creates a new tracer from the given config.
-pub fn make_tracer(config: TracerConfig) -> Box<dyn Tracing> {
-	match config {
-		TracerConfig::CallTracer { with_logs } => Box::new(CallTracer::new(with_logs)),
-	}
-}
-
+/// A Tracer that reports logs and nested call traces transactions
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
-pub struct CallTracer {
+pub struct CallTracer<GasMapper: Fn(Weight) -> U256> {
+	/// Map Weight to Gas equivalent
+	gas_mapper: GasMapper,
 	/// Store all in-progress CallTrace instances
 	traces: Vec<CallTrace>,
 	/// Stack of indices to the current active traces
@@ -72,13 +35,19 @@ pub struct CallTracer {
 	with_log: bool,
 }
 
-impl CallTracer {
-	pub fn new(with_log: bool) -> Self {
-		Self { traces: Vec::new(), current_stack: Vec::new(), with_log }
+impl<GasMapper: Fn(Weight) -> U256> CallTracer<GasMapper> {
+	/// Create a new [`CallTracer`] instance
+	pub fn new(with_log: bool, gas_mapper: GasMapper) -> Self {
+		Self { gas_mapper, traces: Vec::new(), current_stack: Vec::new(), with_log }
+	}
+
+	/// Collect the traces and return them
+	pub fn collect_traces(&mut self) -> Vec<CallTrace> {
+		core::mem::take(&mut self.traces)
 	}
 }
 
-impl Tracing for CallTracer {
+impl<GasMapper: Fn(Weight) -> U256> Tracer for CallTracer<GasMapper> {
 	fn enter_child_span(
 		&mut self,
 		from: H160,
@@ -103,7 +72,7 @@ impl Tracing for CallTracer {
 			value,
 			call_type,
 			input: input.to_vec(),
-			gas: gas_left,
+			gas: (self.gas_mapper)(gas_left),
 			..Default::default()
 		});
 
@@ -129,10 +98,11 @@ impl Tracing for CallTracer {
 		// Set the output of the current trace
 		let current_index = self.current_stack.pop().unwrap();
 		let trace = &mut self.traces[current_index];
-		trace.output = output.clone();
-		trace.gas_used = gas_used;
+		trace.output = output.data.clone().into();
+		trace.gas_used = (self.gas_mapper)(gas_used);
 
 		if output.did_revert() {
+			trace.revert_reason = extract_revert_message(&output.data);
 			trace.error = Some("execution reverted".to_string());
 		}
 
@@ -146,7 +116,7 @@ impl Tracing for CallTracer {
 		// Set the output of the current trace
 		let current_index = self.current_stack.pop().unwrap();
 		let trace = &mut self.traces[current_index];
-		trace.gas_used = gas_used;
+		trace.gas_used = (self.gas_mapper)(gas_used);
 
 		trace.error = match error {
 			DispatchError::Module(sp_runtime::ModuleError { message, .. }) =>
@@ -160,37 +130,4 @@ impl Tracing for CallTracer {
 			self.traces[*parent_index].calls.push(child_trace);
 		}
 	}
-
-	fn collect_traces(&mut self) -> Traces {
-		let traces = core::mem::take(&mut self.traces);
-		Traces::CallTraces(traces)
-	}
 }
-
-/// Provides an interface for intercepting contract calls.
-pub trait CallInterceptor<T: Config> {
-	/// Allows to intercept contract calls and decide whether they should be executed or not.
-	/// If the call is intercepted, the mocked result of the call is returned.
-	///
-	/// # Arguments
-	///
-	/// * `contract_address` - The address of the contract that is about to be executed.
-	/// * `entry_point` - Describes whether the call is the constructor or a regular call.
-	/// * `input_data` - The raw input data of the call.
-	///
-	/// # Expected behavior
-	///
-	/// This method should return:
-	/// * `Some(ExecResult)` - if the call should be intercepted and the mocked result of the call
-	/// is returned.
-	/// * `None` - otherwise, i.e. the call should be executed normally.
-	fn intercept_call(
-		_contract_address: &H160,
-		_entry_point: ExportedFunction,
-		_input_data: &[u8],
-	) -> Option<ExecResult> {
-		None
-	}
-}
-
-impl<T: Config> CallInterceptor<T> for () {}
