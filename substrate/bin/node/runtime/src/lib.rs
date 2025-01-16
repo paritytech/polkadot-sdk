@@ -3366,7 +3366,7 @@ impl_runtime_apis! {
 		fn trace_block(
 			_block: Block,
 			_config: pallet_revive::evm::TracerConfig
-		) -> Result<Vec<(u32, pallet_revive::evm::EthTraces)>, sp_runtime::DispatchError> {
+		) -> Vec<(u32, pallet_revive::evm::EthTraces)> {
 			unimplemented!()
 		}
 
@@ -3374,7 +3374,7 @@ impl_runtime_apis! {
 			_block: Block,
 			_tx_index: u32,
 			_config: pallet_revive::evm::TracerConfig
-		) -> Result<pallet_revive::evm::EthTraces, sp_runtime::DispatchError> {
+		) -> pallet_revive::evm::EthTraces {
 			unimplemented!()
 		}
 	}
