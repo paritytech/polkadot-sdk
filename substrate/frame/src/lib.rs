@@ -193,9 +193,8 @@ pub mod prelude {
 	/// polkadot_sdk_frame::prelude::*`
 	#[doc(inline)]
 	pub use frame_system;
-	
-	pub use frame_system::{Pallet as System, RawOrigin};
 
+	pub use frame_system::{Pallet as System, RawOrigin};
 
 	/// Pallet prelude of `frame-support`.
 	///
@@ -248,12 +247,12 @@ pub mod prelude {
 			InvalidTransaction, TransactionPriority, TransactionValidityError, UnknownTransaction,
 			ValidTransaction,
 		},
-		DispatchResult,
 	};
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
 	pub use sp_runtime::{
-		BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
+		BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithInfo,
+		TokenError,
 	};
 }
 
@@ -555,8 +554,8 @@ pub mod derive {
 	pub use codec::{Decode, Encode};
 	pub use core::fmt::Debug;
 	pub use frame_support::{
-		CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, OrdNoBound, PartialEqNoBound, register_default_impl, derive_impl,
-		PartialOrdNoBound, RuntimeDebugNoBound,
+		derive_impl, register_default_impl, CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound,
+		OrdNoBound, PartialEqNoBound, PartialOrdNoBound, RuntimeDebugNoBound,
 	};
 	pub use scale_info::TypeInfo;
 	pub use sp_runtime::RuntimeDebug;
