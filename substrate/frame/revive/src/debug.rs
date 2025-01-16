@@ -65,7 +65,7 @@ pub fn make_tracer(config: TracerConfig) -> Box<dyn Tracing> {
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct CallTracer {
 	/// Store all in-progress CallTrace instances
-	pub traces: Vec<CallTrace>,
+	traces: Vec<CallTrace>,
 	/// Stack of indices to the current active traces
 	current_stack: Vec<usize>,
 	/// whether or not to capture logs
