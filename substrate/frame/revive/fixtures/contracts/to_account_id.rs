@@ -1,3 +1,5 @@
+// This file is part of Substrate.
+
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -13,13 +15,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod claim_assets;
-mod hybrid_transfers;
-mod reserve_transfer;
-mod reward_pool;
-mod send;
-mod set_xcm_versions;
-mod swap;
-mod teleport;
-mod treasury;
-mod xcm_fee_estimation;
+#![no_std]
+#![no_main]
+
+use common::input;
+use uapi::{HostFn, HostFnImpl as api};
+
+#[no_mangle]
+#[polkavm_derive::polkavm_export]
+pub extern "C" fn deploy() {}
+
+#[no_mangle]
+#[polkavm_derive::polkavm_export]
+pub extern "C" fn call() {
+    input!(
+        address: &[u8; 20],
+        expected_account_id: &[u8; 32],
+    );
+
+    let mut account_id = [0u8; 32];
+    api::to_account_id(address, &mut account_id);
+
+    assert!(&account_id == expected_account_id);
+}
