@@ -151,15 +151,3 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 pub fn new_test_ext_empty() -> sp_io::TestExternalities {
 	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
 }
-
-pub fn run_to_block(n: u64) {
-	while System::block_number() < n {
-		Nis::on_finalize(System::block_number());
-		Balances::on_finalize(System::block_number());
-		System::on_finalize(System::block_number());
-		System::set_block_number(System::block_number() + 1);
-		System::on_initialize(System::block_number());
-		Balances::on_initialize(System::block_number());
-		Nis::on_initialize(System::block_number());
-	}
-}

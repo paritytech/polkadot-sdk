@@ -32,7 +32,7 @@ use litep2p::{
 		libp2p::{
 			identify::{Config as IdentifyConfig, IdentifyEvent},
 			kademlia::{
-				Config as KademliaConfig, ConfigBuilder as KademliaConfigBuilder,
+				Config as KademliaConfig, ConfigBuilder as KademliaConfigBuilder, ContentProvider,
 				IncomingRecordValidationMode, KademliaEvent, KademliaHandle, QueryId, Quorum,
 				Record, RecordKey, RecordsType,
 			},
@@ -144,6 +144,14 @@ pub enum DiscoveryEvent {
 		query_id: QueryId,
 	},
 
+	/// Providers were successfully retrieved.
+	GetProvidersSuccess {
+		/// Query ID.
+		query_id: QueryId,
+		/// Found providers sorted by distance to provided key.
+		providers: Vec<ContentProvider>,
+	},
+
 	/// Query failed.
 	QueryFailed {
 		/// Query ID.
@@ -246,7 +254,7 @@ impl Discovery {
 		_peerstore_handle: Arc<dyn PeerStoreProvider>,
 	) -> (Self, PingConfig, IdentifyConfig, KademliaConfig, Option<MdnsConfig>) {
 		let (ping_config, ping_event_stream) = PingConfig::default();
-		let user_agent = format!("{} ({})", config.client_version, config.node_name);
+		let user_agent = format!("{} ({}) (litep2p)", config.client_version, config.node_name);
 
 		let (identify_config, identify_event_stream) =
 			IdentifyConfig::new("/substrate/1.0".to_string(), Some(user_agent));
@@ -405,6 +413,21 @@ impl Discovery {
 				expires,
 			})
 			.await;
+	}
+
+	/// Start providing `key`.
+	pub async fn start_providing(&mut self, key: KademliaKey) {
+		self.kademlia_handle.start_providing(key.into()).await;
+	}
+
+	/// Stop providing `key`.
+	pub async fn stop_providing(&mut self, key: KademliaKey) {
+		self.kademlia_handle.stop_providing(key.into()).await;
+	}
+
+	/// Get providers for `key`.
+	pub async fn get_providers(&mut self, key: KademliaKey) -> QueryId {
+		self.kademlia_handle.get_providers(key.into()).await
 	}
 
 	/// Check if the observed address is a known address.
@@ -581,8 +604,22 @@ impl Stream for Discovery {
 
 				return Poll::Ready(Some(DiscoveryEvent::IncomingRecord { record }))
 			},
-			// Content provider events are ignored for now.
-			Poll::Ready(Some(KademliaEvent::GetProvidersSuccess { .. })) |
+			Poll::Ready(Some(KademliaEvent::GetProvidersSuccess {
+				provided_key,
+				providers,
+				query_id,
+			})) => {
+				log::trace!(
+					target: LOG_TARGET,
+					"`GET_PROVIDERS` for {query_id:?} with {provided_key:?} yielded {providers:?}",
+				);
+
+				return Poll::Ready(Some(DiscoveryEvent::GetProvidersSuccess {
+					query_id,
+					providers,
+				}))
+			},
+			// We do not validate incoming providers.
 			Poll::Ready(Some(KademliaEvent::IncomingProvider { .. })) => {},
 		}
 

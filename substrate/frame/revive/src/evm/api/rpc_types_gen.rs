@@ -87,7 +87,7 @@ pub struct Block {
 	/// Total difficulty
 	#[serde(rename = "totalDifficulty", skip_serializing_if = "Option::is_none")]
 	pub total_difficulty: Option<U256>,
-	pub transactions: H256OrTransactionInfo,
+	pub transactions: HashesOrTransactionInfos,
 	/// Transactions root
 	#[serde(rename = "transactionsRoot")]
 	pub transactions_root: H256,
@@ -357,15 +357,15 @@ pub enum BlockTag {
 	Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, From, TryInto, Eq, PartialEq,
 )]
 #[serde(untagged)]
-pub enum H256OrTransactionInfo {
+pub enum HashesOrTransactionInfos {
 	/// Transaction hashes
-	H256s(Vec<H256>),
+	Hashes(Vec<H256>),
 	/// Full transactions
 	TransactionInfos(Vec<TransactionInfo>),
 }
-impl Default for H256OrTransactionInfo {
+impl Default for HashesOrTransactionInfos {
 	fn default() -> Self {
-		H256OrTransactionInfo::H256s(Default::default())
+		HashesOrTransactionInfos::Hashes(Default::default())
 	}
 }
 

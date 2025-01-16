@@ -41,8 +41,11 @@ pub mod test_utils;
 pub mod weights;
 
 use crate::{
-	evm::{runtime::GAS_PRICE, GenericTransaction},
-	exec::{AccountIdOf, ExecError, Executable, Ext, Key, Origin, Stack as ExecStack},
+	evm::{
+		runtime::{gas_from_fee, GAS_PRICE},
+		GasEncoder, GenericTransaction,
+	},
+	exec::{AccountIdOf, ExecError, Executable, Ext, Key, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
 	wasm::{CodeInfo, RuntimeCosts, WasmBlob},
@@ -81,7 +84,7 @@ use sp_runtime::{
 pub use crate::{
 	address::{create1, create2, AccountId32Mapper, AddressMapper},
 	debug::Tracing,
-	exec::MomentOf,
+	exec::{MomentOf, Origin},
 	pallet::*,
 };
 pub use primitives::*;
@@ -114,19 +117,6 @@ const SENTINEL: u32 = u32::MAX;
 ///
 /// Example: `RUST_LOG=runtime::revive=debug my_code --dev`
 const LOG_TARGET: &str = "runtime::revive";
-
-/// This version determines which syscalls are available to contracts.
-///
-/// Needs to be bumped every time a versioned syscall is added.
-const API_VERSION: u16 = 0;
-
-#[test]
-fn api_version_up_to_date() {
-	assert!(
-		API_VERSION == crate::wasm::HIGHEST_API_VERSION,
-		"A new versioned API has been added. The `API_VERSION` needs to be bumped."
-	);
-}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -308,6 +298,11 @@ pub mod pallet {
 		/// The ratio between the decimal representation of the native token and the ETH token.
 		#[pallet::constant]
 		type NativeToEthRatio: Get<u32>;
+
+		/// Encode and decode Ethereum gas values.
+		/// Only valid value is `()`. See [`GasEncoder`].
+		#[pallet::no_default_bounds]
+		type EthGasEncoder: GasEncoder<BalanceOf<Self>>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -381,6 +376,7 @@ pub mod pallet {
 			type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
 			type ChainId = ConstU64<0>;
 			type NativeToEthRatio = ConstU32<1>;
+			type EthGasEncoder = ();
 		}
 	}
 
@@ -573,6 +569,8 @@ pub mod pallet {
 		AccountUnmapped,
 		/// Tried to map an account that is already mapped.
 		AccountAlreadyMapped,
+		/// The transaction used to dry-run a contract is invalid.
+		InvalidGenericTransaction,
 	}
 
 	/// A reason for the pallet contracts placing a hold on funds.
@@ -622,14 +620,6 @@ pub mod pallet {
 	/// use it with this pallet.
 	#[pallet::storage]
 	pub(crate) type AddressSuffix<T: Config> = StorageMap<_, Identity, H160, [u8; 12]>;
-
-	#[pallet::extra_constants]
-	impl<T: Config> Pallet<T> {
-		#[pallet::constant_name(ApiVersion)]
-		fn api_version() -> u16 {
-			API_VERSION
-		}
-	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -782,12 +772,7 @@ pub mod pallet {
 		#[allow(unused_variables)]
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::MAX)]
-		pub fn eth_transact(
-			origin: OriginFor<T>,
-			payload: Vec<u8>,
-			gas_limit: Weight,
-			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
-		) -> DispatchResultWithPostInfo {
+		pub fn eth_transact(origin: OriginFor<T>, payload: Vec<u8>) -> DispatchResultWithPostInfo {
 			Err(frame_system::Error::CallFiltered::<T>.into())
 		}
 
@@ -1427,11 +1412,8 @@ where
 				return Err(EthTransactError::Message("Invalid transaction".into()));
 			};
 
-			let eth_dispatch_call = crate::Call::<T>::eth_transact {
-				payload: unsigned_tx.dummy_signed_payload(),
-				gas_limit: result.gas_required,
-				storage_deposit_limit: result.storage_deposit,
-			};
+			let eth_dispatch_call =
+				crate::Call::<T>::eth_transact { payload: unsigned_tx.dummy_signed_payload() };
 			let encoded_len = utx_encoded_size(eth_dispatch_call);
 			let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(
 				encoded_len,
@@ -1439,7 +1421,9 @@ where
 				0u32.into(),
 			)
 			.into();
-			let eth_gas: U256 = (fee / GAS_PRICE.into()).into();
+			let eth_gas = gas_from_fee(fee);
+			let eth_gas =
+				T::EthGasEncoder::encode(eth_gas, result.gas_required, result.storage_deposit);
 
 			if eth_gas == result.eth_gas {
 				log::trace!(target: LOG_TARGET, "bare_eth_call: encoded_len: {encoded_len:?} eth_gas: {eth_gas:?}");

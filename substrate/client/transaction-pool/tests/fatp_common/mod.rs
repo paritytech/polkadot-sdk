@@ -24,7 +24,7 @@ use sp_runtime::transaction_validity::TransactionSource;
 use std::sync::Arc;
 use substrate_test_runtime_client::{
 	runtime::{Block, Hash, Header},
-	AccountKeyring::*,
+	Sr25519Keyring::*,
 };
 use substrate_test_runtime_transaction_pool::{uxt, TestApi};
 pub const LOG_TARGET: &str = "txpool";
@@ -192,12 +192,9 @@ macro_rules! assert_ready_iterator {
 		let output: Vec<_> = ready_iterator.collect();
 		log::debug!(target:LOG_TARGET, "expected: {:#?}", expected);
 		log::debug!(target:LOG_TARGET, "output: {:#?}", output);
+		let output = output.into_iter().map(|t|t.hash).collect::<Vec<_>>();
 		assert_eq!(expected.len(), output.len());
-		assert!(
-			output.iter().zip(expected.iter()).all(|(o,e)| {
-				o.hash == *e
-			})
-		);
+		assert_eq!(output,expected);
 	}};
 }
 
@@ -212,6 +209,18 @@ macro_rules! assert_future_iterator {
 		let hsf = futures.iter().map(|a| a.hash).collect::<std::collections::HashSet<_>>();
 		let hse = expected.into_iter().collect::<std::collections::HashSet<_>>();
 		assert_eq!(hse,hsf);
+	}};
+}
+
+#[macro_export]
+macro_rules! assert_watcher_stream {
+	($stream:ident, [$( $event:expr ),*]) => {{
+		let expected = vec![ $($event),*];
+		log::debug!(target:LOG_TARGET, "expected: {:#?} {}, block now:", expected, expected.len());
+		let output = futures::executor::block_on_stream($stream).take(expected.len()).collect::<Vec<_>>();
+		log::debug!(target:LOG_TARGET, "output: {:#?}", output);
+		assert_eq!(expected.len(), output.len());
+		assert_eq!(output, expected);
 	}};
 }
 
