@@ -345,6 +345,8 @@ std = [
 	"xcm/std",
 ]
 
+fast-runtime = []
+
 # Enable the metadata hash generation in the wasm builder.
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]
 

@@ -28,7 +28,7 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		tokens::imbalance::{ResolveAssetTo, ResolveTo},
-		ConstU32, Contains, Equals, Everything, Nothing, PalletInfoAccess,
+		ConstU32, Contains, Equals, Everything, PalletInfoAccess,
 	},
 };
 use frame_system::EnsureRoot;

@@ -63,7 +63,8 @@ use frame_system::{
 	EnsureRoot, EnsureSigned, EnsureSignedBy,
 };
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
-use pallet_nfts::{DestroyWitness, PalletFeatures};
+use pallet_nfts::PalletFeatures;
+use pallet_nomination_pools::PoolId;
 use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
 use pallet_xcm::EnsureXcm;
 use parachains_common::{
@@ -75,7 +76,7 @@ use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, U256};
 use sp_runtime::{
 	generic, impl_opaque_keys,
-	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Saturating, Verify},
+	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Verify},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Perbill, Permill, RuntimeDebug,
 };
@@ -125,8 +126,8 @@ impl_opaque_keys! {
 
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("asset-hub-next-westend"),
-	impl_name: create_runtime_str!("asset-hub-next-westend"),
+	spec_name: alloc::borrow::Cow::Borrowed("asset-hub-next-westend"),
+	impl_name: alloc::borrow::Cow::Borrowed("asset-hub-next-westend"),
 	authoring_version: 1,
 	spec_version: 1_017_000,
 	impl_version: 0,
@@ -221,8 +222,8 @@ impl pallet_balances::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type DoneSlashHandler = ();
 }
 
@@ -1641,15 +1642,15 @@ impl_runtime_apis! {
 			NominationPools::api_pending_rewards(member).unwrap_or_default()
 		}
 
-		fn points_to_balance(pool_id: pallet_nomination_pools::PoolId, points: Balance) -> Balance {
+		fn points_to_balance(pool_id: PoolId, points: Balance) -> Balance {
 			NominationPools::api_points_to_balance(pool_id, points)
 		}
 
-		fn balance_to_points(pool_id: pallet_nomination_pools::PoolId, new_funds: Balance) -> Balance {
+		fn balance_to_points(pool_id: PoolId, new_funds: Balance) -> Balance {
 			NominationPools::api_balance_to_points(pool_id, new_funds)
 		}
 
-		fn pool_pending_slash(pool_id: pallet_nomination_pools::PoolId) -> Balance {
+		fn pool_pending_slash(pool_id: PoolId) -> Balance {
 			NominationPools::api_pool_pending_slash(pool_id)
 		}
 
@@ -1657,7 +1658,7 @@ impl_runtime_apis! {
 			NominationPools::api_member_pending_slash(member)
 		}
 
-		fn pool_needs_delegate_migration(pool_id: pallet_nomination_pools::PoolId) -> bool {
+		fn pool_needs_delegate_migration(pool_id: PoolId) -> bool {
 			NominationPools::api_pool_needs_delegate_migration(pool_id)
 		}
 
@@ -1669,8 +1670,12 @@ impl_runtime_apis! {
 			NominationPools::api_member_total_balance(member)
 		}
 
-		fn pool_balance(pool_id: pallet_nomination_pools::PoolId) -> Balance {
+		fn pool_balance(pool_id: PoolId) -> Balance {
 			NominationPools::api_pool_balance(pool_id)
+		}
+
+		fn pool_accounts(pool_id: PoolId) -> (AccountId, AccountId) {
+			NominationPools::api_pool_accounts(pool_id)
 		}
 	}
 

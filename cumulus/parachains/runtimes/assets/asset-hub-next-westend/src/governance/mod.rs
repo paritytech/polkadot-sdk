@@ -18,6 +18,7 @@
 
 use super::*;
 use crate::xcm_config::Collectives;
+use cumulus_pallet_parachain_system::RelaychainDataProvider;
 use frame_support::{
 	parameter_types,
 	traits::{
@@ -31,7 +32,10 @@ use polkadot_runtime_common::impls::{
 	ContainsParts, LocatableAssetConverter, VersionedLocatableAsset, VersionedLocationConverter,
 };
 use sp_runtime::{traits::IdentityLookup, Percent};
-use xcm::latest::BodyId;
+use xcm::latest::{
+	prelude::{InteriorLocation, PalletInstance},
+	BodyId,
+};
 
 mod origins;
 pub use origins::{
@@ -160,6 +164,7 @@ impl pallet_treasury::Config for Runtime {
 	type PayoutPeriod = PayoutSpendPeriod;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 }
 
 impl pallet_asset_rate::Config for Runtime {
