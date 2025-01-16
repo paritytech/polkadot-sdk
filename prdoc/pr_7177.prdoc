@@ -6,3 +6,15 @@ doc:
 crates:
 - name: polkadot-sdk-frame
   bump: minor
+- name: pallet-salary
+  bump: patch
+- name: pallet-multisig
+  bump: patch
+- name: pallet-proxy
+  bump: patch
+- name: pallet-atomic-swap
+  bump: patch
+- name: pallet-mixnet
+  bump: patch
+- name: pallet-node-authorization
+  bump: patch
