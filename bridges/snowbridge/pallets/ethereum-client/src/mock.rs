@@ -151,7 +151,6 @@ impl ethereum_beacon_client::Config for Test {
 
 // Build genesis storage according to the mock runtime.
 pub fn new_tester() -> sp_io::TestExternalities {
-	println!("DENEB storage");
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let ext = sp_io::TestExternalities::new(t);
 	ext

@@ -637,12 +637,10 @@ pub mod pallet {
 		pub(super) fn select_fork_version(fork_versions: &ForkVersions, epoch: u64) -> ForkVersion {
 			if epoch >= fork_versions.electra.epoch {
 				log::info!(target: LOG_TARGET,"💫 Found Electra fork.");
-				println!("ELECTRA");
 				return fork_versions.electra.version
 			}
 			if epoch >= fork_versions.deneb.epoch {
 				log::info!(target: LOG_TARGET,"💫 Found Deneb fork.");
-				println!("DENEB");
 				return fork_versions.deneb.version
 			}
 			if epoch >= fork_versions.capella.epoch {
