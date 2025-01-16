@@ -30,8 +30,8 @@ use polkadot_node_subsystem_util::reexports::SubsystemContext;
 use polkadot_overseer::ActivatedLeaf;
 use polkadot_primitives::{
 	vstaging::{
-		CandidateDescriptorV2, ClaimQueueOffset, CoreSelector, MutateDescriptorV2, UMPSignal,
-		UMP_SEPARATOR,
+		CandidateDescriptorV2, CandidateDescriptorVersion, ClaimQueueOffset, CoreSelector,
+		MutateDescriptorV2, UMPSignal, UMP_SEPARATOR,
 	},
 	CandidateDescriptor, CoreIndex, GroupIndex, HeadData, Id as ParaId, OccupiedCoreAssumption,
 	SessionInfo, UpwardMessage, ValidatorId,
@@ -851,7 +851,7 @@ fn invalid_session_or_core_index() {
 	))
 	.unwrap();
 
-	// Validation doesn't fail for approvals, core/session index is not checked.
+	// Validation doesn't fail for disputes, core/session index is not checked.
 	assert_matches!(v, ValidationResult::Valid(outputs, used_validation_data) => {
 		assert_eq!(outputs.head_data, HeadData(vec![1, 1, 1]));
 		assert_eq!(outputs.upward_messages, commitments.upward_messages);
@@ -911,6 +911,69 @@ fn invalid_session_or_core_index() {
 		assert_eq!(outputs.hrmp_watermark, 0);
 		assert_eq!(used_validation_data, validation_data);
 	});
+
+	// Test that a v1 candidate that outputs the core selector UMP signal is invalid.
+	let descriptor_v1 = make_valid_candidate_descriptor(
+		ParaId::from(1_u32),
+		dummy_hash(),
+		dummy_hash(),
+		pov.hash(),
+		validation_code.hash(),
+		validation_result.head_data.hash(),
+		dummy_hash(),
+		sp_keyring::Sr25519Keyring::Ferdie,
+	);
+	let descriptor: CandidateDescriptorV2 = descriptor_v1.into();
+
+	perform_basic_checks(&descriptor, validation_data.max_pov_size, &pov, &validation_code.hash())
+		.unwrap();
+	assert_eq!(descriptor.version(), CandidateDescriptorVersion::V1);
+	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
+
+	for exec_kind in
+		[PvfExecKind::Backing(dummy_hash()), PvfExecKind::BackingSystemParas(dummy_hash())]
+	{
+		let result = executor::block_on(validate_candidate_exhaustive(
+			Some(1),
+			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
+			validation_data.clone(),
+			validation_code.clone(),
+			candidate_receipt.clone(),
+			Arc::new(pov.clone()),
+			ExecutorParams::default(),
+			exec_kind,
+			&Default::default(),
+			Some(Default::default()),
+		))
+		.unwrap();
+		assert_matches!(result, ValidationResult::Invalid(InvalidCandidate::InvalidCoreIndex));
+	}
+
+	// Validation doesn't fail for approvals and disputes, core/session index is not checked.
+	for exec_kind in [PvfExecKind::Approval, PvfExecKind::Dispute] {
+		let v = executor::block_on(validate_candidate_exhaustive(
+			Some(1),
+			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
+			validation_data.clone(),
+			validation_code.clone(),
+			candidate_receipt.clone(),
+			Arc::new(pov.clone()),
+			ExecutorParams::default(),
+			exec_kind,
+			&Default::default(),
+			Default::default(),
+		))
+		.unwrap();
+
+		assert_matches!(v, ValidationResult::Valid(outputs, used_validation_data) => {
+			assert_eq!(outputs.head_data, HeadData(vec![1, 1, 1]));
+			assert_eq!(outputs.upward_messages, commitments.upward_messages);
+			assert_eq!(outputs.horizontal_messages, Vec::new());
+			assert_eq!(outputs.new_validation_code, Some(vec![2, 2, 2].into()));
+			assert_eq!(outputs.hrmp_watermark, 0);
+			assert_eq!(used_validation_data, validation_data);
+		});
+	}
 }
 
 #[test]
@@ -1407,7 +1470,7 @@ fn compressed_code_works() {
 		ExecutorParams::default(),
 		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
-		Default::default(),
+		Some(Default::default()),
 	));
 
 	assert_matches!(v, Ok(ValidationResult::Valid(_, _)));

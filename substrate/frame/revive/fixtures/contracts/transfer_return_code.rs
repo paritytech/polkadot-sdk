@@ -33,7 +33,7 @@ pub extern "C" fn call() {
 		&[0u8; 20],
 		0,
 		0,
-		None,
+		&[u8::MAX; 32],
 		&u256_bytes(100u64),
 		&[],
 		None,
