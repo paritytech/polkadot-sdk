@@ -3305,7 +3305,8 @@ impl_runtime_apis! {
 		fn trace_block(
 			block: Block,
 			config: pallet_revive::evm::TracerConfig
-		) -> Result<Vec<(u32, pallet_revive::evm::EthTraces)>, sp_runtime::DispatchError> {
+		) -> Vec<(u32, pallet_revive::evm::EthTraces)> {
+			log::debug!(target: "runtime::revive", "Tracing block {:?}", block.header().number);
 			let mut tracer = pallet_revive::debug::Tracer::from_config(config);
 			let mut traces = vec![];
 
@@ -3315,22 +3316,23 @@ impl_runtime_apis! {
 				for (index, ext) in block.extrinsics().into_iter().enumerate() {
 					let _ = Executive::apply_extrinsic(ext.clone());
 					pallet_revive::with_tracer(|tracer| {
-						if !tracer.has_traces() {
-							let tx_traces = tracer.collect_traces().as_eth_traces::<Runtime>();
-							 traces.push((index as u32, tx_traces));
+						let tx_traces = tracer.collect_traces();
+						if !tx_traces.is_empty() {
+							traces.push((index as u32, tx_traces.as_eth_traces::<Runtime>()));
 						}
 					});
 				}
 			});
 
-			Ok(traces)
+			log::debug!(target: "runtime::revive", "collected traces: {traces:?}");
+			traces
 		}
 
 		fn trace_tx(
 			block: Block,
 			tx_index: u32,
 			config: pallet_revive::evm::TracerConfig
-		) -> Result<pallet_revive::evm::EthTraces, sp_runtime::DispatchError> {
+		) -> pallet_revive::evm::EthTraces {
 			let mut tracer = pallet_revive::debug::Tracer::from_config(config);
 			Executive::initialize_block(block.header());
 
@@ -3345,7 +3347,7 @@ impl_runtime_apis! {
 				}
 			}
 
-			Ok(tracer.collect_traces().as_eth_traces::<Runtime>())
+			tracer.collect_traces().as_eth_traces::<Runtime>()
 		}
 	}
 
