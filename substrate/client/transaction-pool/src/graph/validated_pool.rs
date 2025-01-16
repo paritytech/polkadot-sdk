@@ -704,20 +704,12 @@ impl<B: ChainApi> ValidatedPool<B> {
 			return vec![]
 		}
 
-		log::trace!(target: LOG_TARGET, "Removing invalid transactions: {:?}", hashes.len());
+		let invalid = self.remove_subtree(hashes, |listener, removed_tx_hash| {
+			listener.invalid(&removed_tx_hash);
+		});
 
-		// temporarily ban invalid transactions
-		self.rotator.ban(&Instant::now(), hashes.iter().cloned());
-
-		let invalid = self.pool.write().remove_subtree(hashes);
-
-		log::trace!(target: LOG_TARGET, "Removed invalid transactions: {:?}", invalid.len());
+		log::trace!(target: LOG_TARGET, "Removed invalid transactions: {:?}/{:?}", hashes.len(), invalid.len());
 		log_xt_trace!(target: LOG_TARGET, invalid.iter().map(|t| t.hash), "{:?} Removed invalid transaction");
-
-		let mut listener = self.listener.write();
-		for tx in &invalid {
-			listener.invalid(&tx.hash);
-		}
 
 		invalid
 	}
@@ -790,16 +782,17 @@ impl<B: ChainApi> ValidatedPool<B> {
 	/// transaction specified by `tx_hash`.
 	pub fn remove_subtree<F>(
 		&self,
-		tx_hash: ExtrinsicHash<B>,
+		hashes: &[ExtrinsicHash<B>],
 		listener_action: F,
 	) -> Vec<TransactionFor<B>>
 	where
 		F: Fn(&mut Listener<B>, ExtrinsicHash<B>),
 	{
-		self.rotator.ban(&Instant::now(), std::iter::once(tx_hash));
-		self.pool
-			.write()
-			.remove_subtree(&[tx_hash])
+		// temporarily ban invalid transactions
+		self.rotator.ban(&Instant::now(), hashes.iter().cloned());
+		let removed = self.pool.write().remove_subtree(hashes);
+
+		removed
 			.into_iter()
 			.map(|tx| {
 				let removed_tx_hash = tx.hash;

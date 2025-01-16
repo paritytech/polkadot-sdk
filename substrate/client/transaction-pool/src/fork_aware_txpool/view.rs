@@ -478,12 +478,12 @@ where
 	/// Refer to [`crate::graph::ValidatedPool::remove_subtree`] for more details.
 	pub fn remove_subtree<F>(
 		&self,
-		tx_hash: ExtrinsicHash<ChainApi>,
+		hashes: &[ExtrinsicHash<ChainApi>],
 		listener_action: F,
 	) -> Vec<TransactionFor<ChainApi>>
 	where
 		F: Fn(&mut crate::graph::Listener<ChainApi>, ExtrinsicHash<ChainApi>),
 	{
-		self.pool.validated_pool().remove_subtree(tx_hash, listener_action)
+		self.pool.validated_pool().remove_subtree(hashes, listener_action)
 	}
 }

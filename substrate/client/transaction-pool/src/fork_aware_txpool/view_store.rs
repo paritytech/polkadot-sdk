@@ -664,7 +664,8 @@ where
 	///
 	/// Invalid future and stale transaction will be removed only from given `at` view, and will be
 	/// kept in the transaction pool. Such transaction will not be reported in returned vector. They
-	/// also will not be banned. No event will be triggered.
+	/// also will not be banned from re-entering the pool (however can be rejected from re-entring
+	/// the view). No event will be triggered.
 	///
 	/// For other errors, the transaction will be removed from the pool, and it will be included in
 	/// the returned vector. Additionally, transactions
@@ -776,7 +777,7 @@ where
 					));
 				},
 				PreInsertAction::RemoveSubtree(ref removal) => {
-					view.remove_subtree(removal.xt_hash, &*removal.listener_action);
+					view.remove_subtree(&[removal.xt_hash], &*removal.listener_action);
 				},
 			}
 		}
@@ -908,7 +909,7 @@ where
 			.iter()
 			.chain(self.inactive_views.read().iter())
 			.filter(|(_, view)| view.is_imported(&xt_hash))
-			.flat_map(|(_, view)| view.remove_subtree(xt_hash, &listener_action))
+			.flat_map(|(_, view)| view.remove_subtree(&[xt_hash], &listener_action))
 			.filter_map(|xt| seen.insert(xt.hash).then(|| xt.clone()))
 			.collect();
 
