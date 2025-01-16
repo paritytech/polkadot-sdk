@@ -49,13 +49,6 @@ such as a [Balances pallet](https://paritytech.github.io/polkadot-sdk/master/pal
 
 - 👤 The template has no consensus configured - it is best for experimenting with a single node network.
 
-
-- ⚠️ The README files for the templates in this repository are currently speculative.
-A stable release addressing this is expected in December.
-
-
--  Follow solely the templates' READMEs and templates themselves from Polkadot-sdk master branch,
-but ignore the references to the dedicated templates directory.
 For the most accurate chain spec generation,  `staging-chain-spec-builder` or other mentioned binaries and runtimes,
 please try to build them based on the Polkadot-sdk most updated master branch an example:
   ```bash
@@ -82,7 +75,7 @@ compiled unless building the entire workspace).
 - 🛠️ Depending on your operating system and Rust version, there might be additional
 packages required to compile this template - please take note of the Rust compiler output.
 
-Fetch minimal template code (Note: The template repositories are outdated, and their READMEs are not synced. Please ignore this step for now.):
+Fetch minimal template code.
 
 ```sh
 git clone https://github.com/paritytech/polkadot-sdk-minimal-template.git minimal-template
