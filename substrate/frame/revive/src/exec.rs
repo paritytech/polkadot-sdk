@@ -773,7 +773,27 @@ where
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
-			Self::transfer_from_origin(&origin, &origin, &dest, value)
+			if_tracer(|t| {
+				let address =
+					origin.account_id().map(T::AddressMapper::to_address).unwrap_or_default();
+				let dest = T::AddressMapper::to_address(&dest);
+				t.enter_child_span(address, dest, false, false, value, &input_data, Weight::zero());
+			});
+
+			let result = Self::transfer_from_origin(&origin, &origin, &dest, value);
+			match result {
+				Ok(ref output) => {
+					if_tracer(|t| {
+						t.exit_child_span(&output, Weight::zero());
+					});
+				},
+				Err(e) => {
+					if_tracer(|t| {
+						t.exit_child_span_with_error(e.error.clone().into(), Weight::zero())
+					});
+				},
+			}
+			result
 		}
 	}
 
@@ -1420,44 +1440,13 @@ where
 			)? {
 				self.run(executable, input_data)
 			} else {
-				if_tracer(|tracer| {
-					let address = T::AddressMapper::to_address(self.account_id());
-					tracer.enter_child_span(
-						address,
-						*dest_addr,
-						false,
-						false,
-						value,
-						&input_data,
-						gas_limit,
-					);
-				});
-
-				match Self::transfer_from_origin(
+				Self::transfer_from_origin(
 					&self.origin,
 					&Origin::from_account_id(self.account_id().clone()),
 					&dest,
 					value,
-				) {
-					Ok(output) => {
-						if_tracer(|t| {
-							t.exit_child_span(
-								&output,
-								Weight::zero(), // TODO define gas_used for transfer
-							)
-						});
-						Ok(())
-					},
-					Err(e) => {
-						if_tracer(|t| {
-							t.exit_child_span_with_error(
-								e.error.clone().into(),
-								Weight::zero(), // TODO define gas_used for transfer
-							)
-						});
-						Err(e)
-					},
-				}
+				)?;
+				Ok(())
 			}
 		};
 
