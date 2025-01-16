@@ -1379,7 +1379,7 @@ where
 		&mut self,
 		gas_limit: Weight,
 		deposit_limit: U256,
-		dest: &H160,
+		dest_addr: &H160,
 		value: U256,
 		input_data: Vec<u8>,
 		allows_reentry: bool,
@@ -1395,7 +1395,7 @@ where
 		*self.last_frame_output_mut() = Default::default();
 
 		let try_call = || {
-			let dest = T::AddressMapper::to_account_id(dest);
+			let dest = T::AddressMapper::to_account_id(dest_addr);
 			if !self.allows_reentry(&dest) {
 				return Err(<Error<T>>::ReentranceDenied.into());
 			}
@@ -1422,13 +1422,44 @@ where
 			)? {
 				self.run(executable, input_data)
 			} else {
-				Self::transfer_from_origin(
+				crate::with_tracer(|tracer| {
+					let address = T::AddressMapper::to_address(self.account_id());
+					tracer.enter_child_span(
+						address,
+						*dest_addr,
+						false,
+						false,
+						value,
+						&input_data,
+						gas_limit,
+					);
+				});
+
+				match Self::transfer_from_origin(
 					&self.origin,
 					&Origin::from_account_id(self.account_id().clone()),
 					&dest,
 					value,
-				)?;
-				Ok(())
+				) {
+					Ok(output) => {
+						crate::with_tracer(|t| {
+							t.exit_child_span(
+								&output,
+								Weight::zero(), // TODO define gas_used for transfer
+							)
+						});
+						Ok(())
+					},
+					Err(e) => {
+						crate::with_tracer(|t| {
+							t.exit_child_span_with_error(
+								e.error.clone().into(),
+								Weight::zero(), // TODO define gas_used for transfer
+							)
+						});
+						Err(e)
+					},
+				}
 			}
 		};
 
