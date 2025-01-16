@@ -15,12 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Emit a "Hello World!" debug message but assume that logging is disabled.
 #![no_std]
 #![no_main]
 
-extern crate common;
-use uapi::{HostFn, HostFnImpl as api, ReturnErrorCode};
+use common::input;
+use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -29,5 +28,13 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	assert_eq!(api::debug_message(b"Hello World!"), Err(ReturnErrorCode::LoggingDisabled));
+    input!(
+        address: &[u8; 20],
+        expected_account_id: &[u8; 32],
+    );
+
+    let mut account_id = [0u8; 32];
+    api::to_account_id(address, &mut account_id);
+
+    assert!(&account_id == expected_account_id);
 }

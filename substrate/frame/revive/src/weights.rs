@@ -67,6 +67,7 @@ pub trait WeightInfo {
 	fn seal_caller() -> Weight;
 	fn seal_origin() -> Weight;
 	fn seal_is_contract() -> Weight;
+	fn seal_to_account_id() -> Weight;
 	fn seal_code_hash() -> Weight;
 	fn seal_own_code_hash() -> Weight;
 	fn seal_code_size() -> Weight;
@@ -97,7 +98,6 @@ pub trait WeightInfo {
 	fn seal_return(n: u32, ) -> Weight;
 	fn seal_terminate(n: u32, ) -> Weight;
 	fn seal_deposit_event(t: u32, n: u32, ) -> Weight;
-	fn seal_debug_message(i: u32, ) -> Weight;
 	fn get_storage_empty() -> Weight;
 	fn get_storage_full() -> Weight;
 	fn set_storage_empty() -> Weight;
@@ -379,6 +379,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(10_336_000, 3771)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 	}
+	/// Storage: `Revive::AddressSuffix` (r:1 w:0)
+	/// Proof: `Revive::AddressSuffix` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `Measured`)
+	fn seal_to_account_id() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `212`
+		//  Estimated: `3677`
+		// Minimum execution time: 4_000_000 picoseconds.
+		Weight::from_parts(4_000_000, 3677)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+	}
 	/// Storage: `Revive::ContractInfoOf` (r:1 w:0)
 	/// Proof: `Revive::ContractInfoOf` (`max_values`: None, `max_size`: Some(1779), added: 4254, mode: `Measured`)
 	fn seal_code_hash() -> Weight {
@@ -650,16 +660,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(194_546, 0).saturating_mul(t.into()))
 			// Standard Error: 34
 			.saturating_add(Weight::from_parts(774, 0).saturating_mul(n.into()))
-	}
-	/// The range of component `i` is `[0, 262144]`.
-	fn seal_debug_message(i: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 340_000 picoseconds.
-		Weight::from_parts(306_527, 0)
-			// Standard Error: 1
-			.saturating_add(Weight::from_parts(728, 0).saturating_mul(i.into()))
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -1282,6 +1282,16 @@ impl WeightInfo for () {
 		Weight::from_parts(10_336_000, 3771)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 	}
+	/// Storage: `Revive::AddressSuffix` (r:1 w:0)
+	/// Proof: `Revive::AddressSuffix` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `Measured`)
+	fn seal_to_account_id() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `212`
+		//  Estimated: `3677`
+		// Minimum execution time: 4_000_000 picoseconds.
+		Weight::from_parts(4_000_000, 3677)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	}
 	/// Storage: `Revive::ContractInfoOf` (r:1 w:0)
 	/// Proof: `Revive::ContractInfoOf` (`max_values`: None, `max_size`: Some(1779), added: 4254, mode: `Measured`)
 	fn seal_code_hash() -> Weight {
@@ -1553,16 +1563,6 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(194_546, 0).saturating_mul(t.into()))
 			// Standard Error: 34
 			.saturating_add(Weight::from_parts(774, 0).saturating_mul(n.into()))
-	}
-	/// The range of component `i` is `[0, 262144]`.
-	fn seal_debug_message(i: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 340_000 picoseconds.
-		Weight::from_parts(306_527, 0)
-			// Standard Error: 1
-			.saturating_add(Weight::from_parts(728, 0).saturating_mul(i.into()))
 	}
 	/// Storage: `Skipped::Metadata` (r:0 w:0)
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)

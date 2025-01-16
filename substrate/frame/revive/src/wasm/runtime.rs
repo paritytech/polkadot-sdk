@@ -293,6 +293,8 @@ pub enum RuntimeCosts {
 	CallDataSize,
 	/// Weight of calling `seal_return_data_size`.
 	ReturnDataSize,
+	/// Weight of calling `seal_to_account_id`.
+	ToAccountId,
 	/// Weight of calling `seal_origin`.
 	Origin,
 	/// Weight of calling `seal_is_contract`.
@@ -341,8 +343,6 @@ pub enum RuntimeCosts {
 	Terminate(u32),
 	/// Weight of calling `seal_deposit_event` with the given number of topics and event size.
 	DepositEvent { num_topic: u32, len: u32 },
-	/// Weight of calling `seal_debug_message` per byte of passed message.
-	DebugMessage(u32),
 	/// Weight of calling `seal_set_storage` for the given storage item sizes.
 	SetStorage { old_bytes: u32, new_bytes: u32 },
 	/// Weight of calling `seal_clear_storage` per cleared byte.
@@ -470,6 +470,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Caller => T::WeightInfo::seal_caller(),
 			Origin => T::WeightInfo::seal_origin(),
 			IsContract => T::WeightInfo::seal_is_contract(),
+			ToAccountId => T::WeightInfo::seal_to_account_id(),
 			CodeHash => T::WeightInfo::seal_code_hash(),
 			CodeSize => T::WeightInfo::seal_code_size(),
 			OwnCodeHash => T::WeightInfo::seal_own_code_hash(),
@@ -492,7 +493,6 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			WeightToFee => T::WeightInfo::seal_weight_to_fee(),
 			Terminate(locked_dependencies) => T::WeightInfo::seal_terminate(locked_dependencies),
 			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len),
-			DebugMessage(len) => T::WeightInfo::seal_debug_message(len),
 			SetStorage { new_bytes, old_bytes } => {
 				cost_storage!(write, seal_set_storage, new_bytes, old_bytes)
 			},
@@ -672,10 +672,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		match result {
 			Ok(_) => Ok(ReturnErrorCode::Success),
 			Err(e) => {
-				if self.ext.debug_buffer_enabled() {
-					self.ext.append_debug_buffer("call failed with: ");
-					self.ext.append_debug_buffer(e.into());
-				};
+				log::debug!(target: LOG_TARGET, "call failed with: {e:?}");
 				Ok(ErrorReturnCode::get())
 			},
 		}
@@ -1007,8 +1004,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		self.charge_gas(call_type.cost())?;
 
 		let callee = memory.read_h160(callee_ptr)?;
-		let deposit_limit =
-			if deposit_ptr == SENTINEL { U256::zero() } else { memory.read_u256(deposit_ptr)? };
+		let deposit_limit = memory.read_u256(deposit_ptr)?;
 
 		let input_data = if flags.contains(CallFlags::CLONE_INPUT) {
 			let input = self.input_data.as_ref().ok_or(Error::<E::T>::InputForwarded)?;
@@ -1094,8 +1090,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		salt_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.charge_gas(RuntimeCosts::Instantiate { input_data_len })?;
-		let deposit_limit: U256 =
-			if deposit_ptr == SENTINEL { U256::zero() } else { memory.read_u256(deposit_ptr)? };
+		let deposit_limit: U256 = memory.read_u256(deposit_ptr)?;
 		let value = memory.read_u256(value_ptr)?;
 		let code_hash = memory.read_h256(code_hash_ptr)?;
 		let input_data = memory.read(input_data_ptr, input_data_len)?;
@@ -1856,27 +1851,6 @@ pub mod env {
 		self.contains_storage(memory, flags, key_ptr, key_len)
 	}
 
-	/// Emit a custom debug message.
-	/// See [`pallet_revive_uapi::HostFn::debug_message`].
-	fn debug_message(
-		&mut self,
-		memory: &mut M,
-		str_ptr: u32,
-		str_len: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
-		let str_len = str_len.min(limits::DEBUG_BUFFER_BYTES);
-		self.charge_gas(RuntimeCosts::DebugMessage(str_len))?;
-		if self.ext.append_debug_buffer("") {
-			let data = memory.read(str_ptr, str_len)?;
-			if let Some(msg) = core::str::from_utf8(&data).ok() {
-				self.ext.append_debug_buffer(msg);
-			}
-			Ok(ReturnErrorCode::Success)
-		} else {
-			Ok(ReturnErrorCode::LoggingDisabled)
-		}
-	}
-
 	/// Recovers the ECDSA public key from the given message hash and signature.
 	/// See [`pallet_revive_uapi::HostFn::ecdsa_recover`].
 	fn ecdsa_recover(
@@ -2186,12 +2160,30 @@ pub mod env {
 				Ok(ReturnErrorCode::Success)
 			},
 			Err(e) => {
-				if self.ext.append_debug_buffer("") {
-					self.ext.append_debug_buffer("seal0::xcm_send failed with: ");
-					self.ext.append_debug_buffer(e.into());
-				};
+				log::debug!(target: LOG_TARGET, "seal0::xcm_send failed with: {e:?}");
 				Ok(ReturnErrorCode::XcmSendFailed)
 			},
 		}
+	}
+
+	/// Retrieves the account id for a specified contract address.
+	///
+	/// See [`pallet_revive_uapi::HostFn::to_account_id`].
+	fn to_account_id(
+		&mut self,
+		memory: &mut M,
+		addr_ptr: u32,
+		out_ptr: u32,
+	) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::ToAccountId)?;
+		let address = memory.read_h160(addr_ptr)?;
+		let account_id = self.ext.to_account_id(&address);
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&account_id.encode(),
+			false,
+			already_charged,
+		)?)
 	}
 }
