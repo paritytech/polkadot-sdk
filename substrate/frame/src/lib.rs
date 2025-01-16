@@ -106,7 +106,7 @@
 //! [dependencies]
 //! codec = { features = ["max-encoded-len"], workspace = true }
 //! scale-info = { features = ["derive"], workspace = true }
-//! frame = { workspace = true, features = ["experimental", "runtime"] }
+//! frame = { workspace = true, features = ["runtime"] }
 //!
 //! [features]
 //! default = ["std"]
