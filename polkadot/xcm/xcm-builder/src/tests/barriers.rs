@@ -532,3 +532,64 @@ fn allow_hrmp_notifications_from_relay_chain_should_work() {
 		Ok(()),
 	);
 }
+
+#[test]
+fn deny_then_try_works() {
+	// closure for (xcm, origin) testing with `DenyThenTry`
+	let assert_should_execute = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
+		pub type Barrier = DenyThenTry<
+			(
+				DenyClearTransactStatusAsYield,
+				DenyClearOriginFromHereAsBadFormat,
+				DenyUnsubscribeVersionAsStackLimitReached,
+			),
+			(AllowSingleClearErrorOrYield, AllowClearTopicFromHere),
+		>;
+		assert_eq!(
+			Barrier::should_execute(
+				&origin,
+				&mut xcm,
+				Weight::from_parts(10, 10),
+				&mut props(Weight::zero()),
+			),
+			expected_result
+		);
+	};
+
+	// Deny cases:
+	// trigger DenyClearTransactStatusAsYield
+	assert_should_execute(
+		vec![ClearTransactStatus],
+		Parachain(1).into_location(),
+		Err(ProcessMessageError::Yield),
+	);
+	// DenyClearTransactStatusAsYield wins against AllowClearErrorOrYield
+	assert_should_execute(
+		vec![ClearError, ClearTransactStatus],
+		Parachain(1).into_location(),
+		Err(ProcessMessageError::Yield),
+	);
+	// trigger DenyClearOriginFromHereAsBadFormat
+	assert_should_execute(
+		vec![ClearOrigin],
+		Here.into_location(),
+		Err(ProcessMessageError::BadFormat),
+	);
+	// trigger DenyUnsubscribeVersionAsStackLimitReached
+	assert_should_execute(
+		vec![UnsubscribeVersion],
+		Here.into_location(),
+		Err(ProcessMessageError::StackLimitReached),
+	);
+
+	// ok
+	assert_should_execute(vec![ClearError], Parachain(1).into_location(), Ok(()));
+	assert_should_execute(vec![ClearTopic], Here.into(), Ok(()));
+
+	// deny because none of the allow items match
+	assert_should_execute(
+		vec![ClearError, ClearTopic],
+		Parachain(1).into_location(),
+		Err(ProcessMessageError::Unsupported),
+	);
+}

@@ -17,124 +17,66 @@
 #![cfg(test)]
 use bridge_hub_common::DenyExportMessageFrom;
 use frame_support::{
-	assert_err, assert_ok, parameter_types,
-	traits::{Equals, Everything, EverythingBut, ProcessMessageError},
+	parameter_types,
+	traits::{Equals, EverythingBut, ProcessMessageError::Unsupported},
 };
 use xcm::prelude::{
-	AliasOrigin, All, AssetFilter, DepositReserveAsset, Ethereum, ExportMessage, Here, Instruction,
-	Location, NetworkId, NetworkId::Polkadot, Parachain, Weight, Wild,
+	AliasOrigin, ByGenesis, ExportMessage, Here, Instruction, Location, NetworkId, Parachain,
+	Weight,
 };
-use xcm_builder::{DenyReserveTransferToRelayChain, DenyThenTry, TakeWeightCredit};
-use xcm_executor::traits::{Properties, ShouldExecute};
+use xcm_executor::traits::{DenyExecution, Properties};
 
 parameter_types! {
-	pub AssetHubLocation: Location = Location::new(1, Parachain(1000));
-	pub ParachainLocation: Location = Location::new(1, Parachain(2000));
-	pub EthereumNetwork: NetworkId = Ethereum { chain_id: 1 };
+	pub Source1: Location = Location::new(1, Parachain(1));
+	pub Source2: Location = Location::new(1, Parachain(2));
+	pub Remote1: NetworkId = ByGenesis([1;32]);
+	pub Remote2: NetworkId = ByGenesis([2;32]);
 }
 
 #[test]
-fn deny_export_message_from_source_other_than_asset_hub_should_work() {
-	pub type Barrier = DenyThenTry<
-		(
-			DenyReserveTransferToRelayChain,
-			DenyExportMessageFrom<EverythingBut<Equals<AssetHubLocation>>, Equals<EthereumNetwork>>,
-		),
-		TakeWeightCredit,
-	>;
+fn test_deny_export_message_from() {
+	pub type Denied = DenyExportMessageFrom<EverythingBut<Equals<Source1>>, Equals<Remote1>>;
 
-	let mut xcm: Vec<Instruction<()>> = vec![
-		AliasOrigin(Here.into()),
-		ExportMessage {
-			network: EthereumNetwork::get(),
-			destination: Here,
-			xcm: Default::default(),
-		},
-	];
+	let assert_deny_execution = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
+		assert_eq!(
+			Denied::deny_execution(
+				&origin,
+				&mut xcm,
+				Weight::zero(),
+				&mut Properties { weight_credit: Weight::zero(), message_id: None }
+			),
+			expected_result
+		);
+	};
 
-	let result = Barrier::should_execute(
-		&ParachainLocation::get(),
-		&mut xcm,
-		Weight::zero(),
-		&mut Properties { weight_credit: Weight::zero(), message_id: None },
+	// No ExportMessage should pass
+	assert_deny_execution(vec![AliasOrigin(Here.into())], Source1::get(), None);
+
+	// Export message from source1 and remote1 should pass
+	assert_deny_execution(
+		vec![ExportMessage { network: Remote1::get(), destination: Here, xcm: Default::default() }],
+		Source1::get(),
+		None,
 	);
 
-	assert_err!(result, ProcessMessageError::Unsupported);
-}
-
-#[test]
-fn allow_export_message_from_asset_hub_should_work() {
-	pub type Barrier = DenyThenTry<
-		(
-			DenyReserveTransferToRelayChain,
-			DenyExportMessageFrom<EverythingBut<Equals<AssetHubLocation>>, Equals<EthereumNetwork>>,
-		),
-		TakeWeightCredit,
-	>;
-
-	let mut xcm: Vec<Instruction<()>> = vec![
-		AliasOrigin(Here.into()),
-		ExportMessage {
-			network: EthereumNetwork::get(),
-			destination: Here,
-			xcm: Default::default(),
-		},
-	];
-
-	let result = Barrier::should_execute(
-		&AssetHubLocation::get(),
-		&mut xcm,
-		Weight::zero(),
-		&mut Properties { weight_credit: Weight::zero(), message_id: None },
+	// Export message from source1 and remote2 should pass
+	assert_deny_execution(
+		vec![ExportMessage { network: Remote2::get(), destination: Here, xcm: Default::default() }],
+		Source1::get(),
+		None,
 	);
 
-	assert_ok!(result);
-}
-
-#[test]
-fn allow_export_message_from_source_other_than_asset_hub_if_destination_other_than_ethereum() {
-	pub type Barrier = DenyThenTry<
-		(
-			DenyReserveTransferToRelayChain,
-			DenyExportMessageFrom<EverythingBut<Equals<AssetHubLocation>>, Equals<EthereumNetwork>>,
-		),
-		TakeWeightCredit,
-	>;
-
-	let mut xcm: Vec<Instruction<()>> = vec![
-		AliasOrigin(Here.into()),
-		ExportMessage { network: Polkadot, destination: Here, xcm: Default::default() },
-	];
-
-	let result = Barrier::should_execute(
-		&ParachainLocation::get(),
-		&mut xcm,
-		Weight::zero(),
-		&mut Properties { weight_credit: Weight::zero(), message_id: None },
+	// Export message from source2 and remote2 should pass
+	assert_deny_execution(
+		vec![ExportMessage { network: Remote2::get(), destination: Here, xcm: Default::default() }],
+		Source2::get(),
+		None,
 	);
 
-	assert_ok!(result);
-}
-
-#[test]
-fn deny_reserver_transfer_to_relaychain_does_not_break() {
-	pub type Barrier = DenyThenTry<
-		(DenyReserveTransferToRelayChain, DenyExportMessageFrom<Everything, Everything>),
-		TakeWeightCredit,
-	>;
-
-	let mut xcm: Vec<Instruction<()>> = vec![DepositReserveAsset {
-		assets: AssetFilter::try_from(Wild(All)).unwrap(),
-		dest: Location { parents: 1, interior: Here },
-		xcm: Default::default(),
-	}];
-
-	let result = Barrier::should_execute(
-		&Here.into(),
-		&mut xcm,
-		Weight::zero(),
-		&mut Properties { weight_credit: Weight::zero(), message_id: None },
+	// Export message from source2 and remote1 should be banned
+	assert_deny_execution(
+		vec![ExportMessage { network: Remote1::get(), destination: Here, xcm: Default::default() }],
+		Source2::get(),
+		Some(Unsupported),
 	);
-
-	assert_err!(result, ProcessMessageError::Unsupported);
 }
