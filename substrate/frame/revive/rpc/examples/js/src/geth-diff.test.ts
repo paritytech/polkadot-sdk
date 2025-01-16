@@ -383,12 +383,29 @@ for (const env of envs) {
 				const hash = await env.serverWallet.writeContract(request)
 				return await env.serverWallet.waitForTransactionReceipt({ hash })
 			})()
-			console.error('Tx hash:', receipt.transactionHash)
-			//let res = await env.debugClient.traceTransaction(receipt.transactionHash)
-			//Bun.write('/tmp/trace_transaction.json', JSON.stringify(res, null, 2))
-			//console.log('Wrote /tmp/trace_transaction.json')
+			console.log('Tx hash:', receipt.transactionHash)
+			let res = await env.debugClient.traceTransaction(receipt.transactionHash)
+			Bun.write('/tmp/trace_transaction.json', JSON.stringify(res, null, 2))
+			console.log('Wrote /tmp/trace_transaction.json')
 
-			let res = await env.debugClient.traceBlock(receipt.blockNumber)
+			res = await env.debugClient.traceBlock(receipt.blockNumber)
+			Bun.write('/tmp/trace_block.json', JSON.stringify(res, null, 2))
+			console.log('Wrote /tmp/trace_block.json')
+		})
+
+		test.only('tracing_transfer', async () => {
+			let hash = await env.serverWallet.sendTransaction({
+				to: '0x75E480dB528101a381Ce68544611C169Ad7EB342',
+				value: parseEther('1.0'),
+			})
+			const receipt = await env.serverWallet.waitForTransactionReceipt({ hash })
+			console.log('Tx hash:', receipt.transactionHash)
+
+			let res = await env.debugClient.traceTransaction(receipt.transactionHash)
+			Bun.write('/tmp/trace_transaction.json', JSON.stringify(res, null, 2))
+			console.log('Wrote /tmp/trace_transaction.json')
+
+			res = await env.debugClient.traceBlock(receipt.blockNumber)
 			Bun.write('/tmp/trace_block.json', JSON.stringify(res, null, 2))
 			console.log('Wrote /tmp/trace_block.json')
 		})
