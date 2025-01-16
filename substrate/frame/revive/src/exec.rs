@@ -1111,17 +1111,6 @@ where
 				tracer.exit_child_span(&output, &top_frame_mut!(self).nested_gas);
 			});
 
-			// Storage limit is normally enforced as late as possible (when the last frame returns)
-			// so that the ordering of storage accesses does not matter.
-			// (However, if a special limit was set for a sub-call, it should be enforced right
-			// after the sub-call returned. See below for this case of enforcement).
-			if self.frames.is_empty() {
-				let frame = &mut self.first_frame;
-				frame.contract_info.load(&frame.account_id);
-				let contract = frame.contract_info.as_contract();
-				frame.nested_storage.enforce_limit(contract)?;
-			}
-
 			let frame = self.top_frame_mut();
 
 			// The storage deposit is only charged at the end of every call stack.
