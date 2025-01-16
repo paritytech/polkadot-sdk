@@ -569,7 +569,7 @@ impl pallet_xcm::Config for Test {
 	type MaxRemoteLockConsumers = frame_support::traits::ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = TestWeightInfo;
-	type Consideration =
+	type AuthorizedAliasConsideration =
 		HoldConsideration<AccountId, Balances, AuthorizeAliasHoldReason, ConvertDeposit>;
 }
 

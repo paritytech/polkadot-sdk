@@ -235,7 +235,7 @@ pub mod pallet {
 
 	pub type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-	pub type TicketOf<T> = <T as Config>::Consideration;
+	pub type TicketOf<T> = <T as Config>::AuthorizedAliasConsideration;
 
 	#[pallet::config]
 	/// The module configuration trait.
@@ -250,8 +250,8 @@ pub mod pallet {
 		/// The `Asset` matcher for `Currency`.
 		type CurrencyMatcher: MatchesFungible<BalanceOf<Self>>;
 
-		/// A means of providing some cost while data is stored on-chain.
-		type Consideration: Consideration<Self::AccountId, Footprint>;
+		/// A means of providing some cost while Authorized Aliasers data is stored on-chain.
+		type AuthorizedAliasConsideration: Consideration<Self::AccountId, Footprint>;
 
 		/// Required origin for sending XCM messages. If successful, it resolves to `Location`
 		/// which exists as an interior location within this chain's XCM context.
