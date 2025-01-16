@@ -68,14 +68,6 @@ impl Tracer {
 		}
 	}
 
-	/// Returns `true` if some traces have been collected.
-	pub fn has_traces(&self) -> bool {
-		match self {
-			Tracer::CallTracer(tracer) => !tracer.traces.is_empty(),
-			_ => false,
-		}
-	}
-
 	/// Takes the traces collected by the tracer and resets them.
 	pub fn collect_traces(&mut self) -> Traces {
 		match self {
