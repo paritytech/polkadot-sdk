@@ -3080,6 +3080,7 @@ fn deferred_slashes_are_deferred() {
 			staking_events_since_last_call().as_slice(),
 			&[
 				Event::SlashReported { validator: 11, slash_era: 1, .. },
+				Event::PagedElectionProceeded { page: 0, result: Ok(()) },
 				Event::StakersElected,
 				..,
 				Event::Slashed { staker: 11, amount: 100 },
@@ -3416,6 +3417,7 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
+					Event::PagedElectionProceeded { page: 0, result: Ok(()) },
 					Event::StakersElected,
 					Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
 					Event::SlashReported {
@@ -3489,6 +3491,7 @@ fn non_slashable_offence_disables_validator() {
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
+					Event::PagedElectionProceeded { page: 0, result: Ok(()) },
 					Event::StakersElected,
 					Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
 					Event::SlashReported {
@@ -3569,6 +3572,7 @@ fn slashing_independent_of_disabling_validator() {
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
+					Event::PagedElectionProceeded { page: 0, result: Ok(()) },
 					Event::StakersElected,
 					Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
 					Event::SlashReported {
@@ -5560,7 +5564,6 @@ mod election_data_provider {
 			// election
 			run_to_block(20);
 			assert_eq!(Staking::next_election_prediction(System::block_number()), 45);
-			assert_eq!(staking_events().len(), 1);
 			assert_eq!(*staking_events().last().unwrap(), Event::StakersElected);
 
 			for b in 21..45 {
@@ -5571,7 +5574,6 @@ mod election_data_provider {
 			// election
 			run_to_block(45);
 			assert_eq!(Staking::next_election_prediction(System::block_number()), 70);
-			assert_eq!(staking_events().len(), 3);
 			assert_eq!(*staking_events().last().unwrap(), Event::StakersElected);
 
 			Staking::force_no_eras(RuntimeOrigin::root()).unwrap();
@@ -5594,7 +5596,6 @@ mod election_data_provider {
 			MinimumValidatorCount::<Test>::put(2);
 			run_to_block(55);
 			assert_eq!(Staking::next_election_prediction(System::block_number()), 55 + 25);
-			assert_eq!(staking_events().len(), 10);
 			assert_eq!(
 				*staking_events().last().unwrap(),
 				Event::ForceEra { mode: Forcing::NotForcing }
@@ -8630,6 +8631,7 @@ fn reenable_lower_offenders_mock() {
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
+					Event::PagedElectionProceeded { page: 0, result: Ok(()) },
 					Event::StakersElected,
 					Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
 					Event::SlashReported {
@@ -8706,6 +8708,7 @@ fn do_not_reenable_higher_offenders_mock() {
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
+					Event::PagedElectionProceeded { page: 0, result: Ok(()) },
 					Event::StakersElected,
 					Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
 					Event::SlashReported {

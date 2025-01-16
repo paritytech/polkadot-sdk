@@ -31,7 +31,7 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use sp_runtime::{
-	traits::{One, SaturatedConversion, StaticLookup, Zero},
+	traits::{SaturatedConversion, StaticLookup, Zero},
 	ArithmeticError, Perbill, Percent, Saturating,
 };
 
@@ -739,10 +739,12 @@ pub mod pallet {
 
 	/// Keeps track of an ongoing multi-page election solution request.
 	///
-	/// Stores the block number of when the first election page was requested. `None` indicates
-	/// that the election results haven't started to be fetched.
+	/// If `Some(_)``, it is the next page that we intend to elect. If `None`, we are not in the
+	/// election process.
+	///
+	/// This is only set in multi-block elections. Should always be `None` otherwise.
 	#[pallet::storage]
-	pub(crate) type ElectingStartedAt<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
+	pub(crate) type NextElectionPage<T: Config> = StorageValue<_, PageIndex, OptionQuery>;
 
 	/// A bounded list of the "electable" stashes that resulted from a successful election.
 	#[pallet::storage]
@@ -1016,27 +1018,34 @@ pub mod pallet {
 		/// that the `ElectableStashes` has been populated with all validators from all pages at
 		/// the time of the election.
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			let pages: BlockNumberFor<T> = Self::election_pages().into();
+			let pages = Self::election_pages();
+			crate::log!(
+				trace,
+				"now: {:?}, NextElectionPage: {:?}",
+				now,
+				NextElectionPage::<T>::get()
+			);
 
 			// election ongoing, fetch the next page.
-			let inner_weight = if let Some(started_at) = ElectingStartedAt::<T>::get() {
-				let next_page =
-					pages.saturating_sub(One::one()).saturating_sub(now.saturating_sub(started_at));
-
-				Self::do_elect_paged(next_page.saturated_into::<PageIndex>())
+			let inner_weight = if let Some(next_page) = NextElectionPage::<T>::get() {
+				let next_next_page = next_page.checked_sub(1);
+				NextElectionPage::<T>::set(next_next_page);
+				Self::do_elect_paged(next_page)
 			} else {
 				// election isn't ongoing yet, check if it should start.
 				let next_election = <Self as ElectionDataProvider>::next_election_prediction(now);
 
-				if now == (next_election.saturating_sub(pages)) {
+				if now == (next_election.saturating_sub(pages.into())) {
 					crate::log!(
 						trace,
 						"elect(): start fetching solution pages. expected pages: {:?}",
 						pages
 					);
 
-					ElectingStartedAt::<T>::set(Some(now));
-					Self::do_elect_paged(pages.saturated_into::<PageIndex>().saturating_sub(1))
+					let current_page = pages.saturating_sub(1);
+					let next_page = current_page.checked_sub(1);
+					NextElectionPage::<T>::set(next_page);
+					Self::do_elect_paged(current_page)
 				} else {
 					Weight::default()
 				}

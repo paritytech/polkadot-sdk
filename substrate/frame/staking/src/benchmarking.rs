@@ -227,7 +227,7 @@ mod benchmarks {
 	#[benchmark]
 	fn on_initialize_noop() {
 		assert!(ElectableStashes::<T>::get().is_empty());
-		assert_eq!(ElectingStartedAt::<T>::get(), None);
+		assert_eq!(NextElectionPage::<T>::get(), None);
 
 		#[block]
 		{
@@ -235,7 +235,7 @@ mod benchmarks {
 		}
 
 		assert!(ElectableStashes::<T>::get().is_empty());
-		assert_eq!(ElectingStartedAt::<T>::get(), None);
+		assert_eq!(NextElectionPage::<T>::get(), None);
 	}
 
 	#[benchmark]
@@ -272,14 +272,14 @@ mod benchmarks {
 		}
 
 		ElectableStashes::<T>::set(stashes);
-		ElectingStartedAt::<T>::set(Some(10u32.into()));
+		NextElectionPage::<T>::set(Some(10u32.into()));
 
 		#[block]
 		{
 			Pallet::<T>::clear_election_metadata()
 		}
 
-		assert!(ElectingStartedAt::<T>::get().is_none());
+		assert!(NextElectionPage::<T>::get().is_none());
 		assert!(ElectableStashes::<T>::get().is_empty());
 
 		Ok(())
@@ -1245,19 +1245,18 @@ mod tests {
 		ExtBuilder::default().build_and_execute(|| {
 			let n = 10;
 
+			let current_era = CurrentEra::<Test>::get().unwrap();
 			let (validator_stash, nominators) = create_validator_with_nominators::<Test>(
 				n,
 				<<Test as Config>::MaxExposurePageSize as Get<_>>::get(),
 				false,
 				false,
 				RewardDestination::Staked,
-				CurrentEra::<Test>::get().unwrap(),
+				current_era,
 			)
 			.unwrap();
 
 			assert_eq!(nominators.len() as u32, n);
-
-			let current_era = CurrentEra::<Test>::get().unwrap();
 
 			let original_stakeable_balance = asset::stakeable_balance::<Test>(&validator_stash);
 			assert_ok!(Staking::payout_stakers_by_page(
