@@ -28,7 +28,7 @@ use alloc::sync::Arc;
 use codec::Encode;
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,
-	traits::{ConstU32, Currency, OnFinalize, OnInitialize},
+	traits::{ConstU32, Currency},
 	weights::Weight,
 	PalletId,
 };
@@ -377,14 +377,12 @@ fn add_blocks(n: u32) {
 }
 
 fn run_to_block(n: u32) {
-	assert!(System::block_number() < n);
-	while System::block_number() < n {
-		let block_number = System::block_number();
-		AllPalletsWithSystem::on_finalize(block_number);
-		System::set_block_number(block_number + 1);
-		maybe_new_session(block_number + 1);
-		AllPalletsWithSystem::on_initialize(block_number + 1);
-	}
+	System::run_to_block_with::<AllPalletsWithSystem>(
+		n,
+		frame_system::RunToBlockHooks::default().before_initialize(|bn| {
+			maybe_new_session(bn);
+		}),
+	);
 }
 
 fn run_to_session(n: u32) {
