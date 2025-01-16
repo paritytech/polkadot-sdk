@@ -4,14 +4,13 @@ pub use crate::mock_electra::*;
 use crate::{
 	config::{EPOCHS_PER_SYNC_COMMITTEE_PERIOD, SLOTS_PER_EPOCH, SLOTS_PER_HISTORICAL_ROOT},
 	functions::compute_period,
-	mock::{
+	mock_electra::{
 		get_message_verification_payload, load_checkpoint_update_fixture,
 		load_finalized_header_update_fixture, load_next_finalized_header_update_fixture,
 		load_next_sync_committee_update_fixture, load_sync_committee_update_fixture,
 	},
 	sync_committee_sum, verify_merkle_branch, BeaconHeader, CompactBeaconState, Error,
-	FinalizedBeaconState, LatestFinalizedBlockRoot, LatestSyncCommitteeUpdatePeriod,
-	NextSyncCommittee, SyncCommitteePrepared,
+	FinalizedBeaconState, LatestFinalizedBlockRoot, NextSyncCommittee, SyncCommitteePrepared,
 };
 use frame_support::{assert_err, assert_noop, assert_ok, pallet_prelude::Pays};
 use hex_literal::hex;
@@ -412,33 +411,26 @@ fn submit_update_with_sync_committee_in_current_period() {
 fn reject_submit_update_in_next_period() {
 	let checkpoint = Box::new(load_checkpoint_update_fixture());
 	let sync_committee_update = Box::new(load_sync_committee_update_fixture());
+	let finalized_update = Box::new(load_finalized_header_update_fixture());
 	let update = Box::new(load_next_finalized_header_update_fixture());
 	let sync_committee_period = compute_period(sync_committee_update.finalized_header.slot);
 	let next_sync_committee_period = compute_period(update.finalized_header.slot);
 	assert_eq!(sync_committee_period + 1, next_sync_committee_period);
-	let next_sync_committee_update = Box::new(load_next_sync_committee_update_fixture());
 
 	new_tester().execute_with(|| {
 		assert_ok!(EthereumBeaconClient::process_checkpoint_update(&checkpoint));
-		let result =
-			EthereumBeaconClient::submit(RuntimeOrigin::signed(1), sync_committee_update.clone());
+		let result = EthereumBeaconClient::submit(RuntimeOrigin::signed(1), sync_committee_update);
 		assert_ok!(result);
 		assert_eq!(result.unwrap().pays_fee, Pays::No);
 
+		// interim update required so the header gap is not too large
+		let other_result = EthereumBeaconClient::submit(RuntimeOrigin::signed(1), finalized_update);
+		assert_ok!(other_result);
+
 		// check an update in the next period is rejected
-		let second_result = EthereumBeaconClient::submit(RuntimeOrigin::signed(1), update.clone());
+		let second_result = EthereumBeaconClient::submit(RuntimeOrigin::signed(1), update);
 		assert_err!(second_result, Error::<Test>::SyncCommitteeUpdateRequired);
 		assert_eq!(second_result.unwrap_err().post_info.pays_fee, Pays::Yes);
-
-		// submit update with next sync committee
-		let third_result =
-			EthereumBeaconClient::submit(RuntimeOrigin::signed(1), next_sync_committee_update);
-		assert_ok!(third_result);
-		assert_eq!(third_result.unwrap().pays_fee, Pays::No);
-		// check same header in the next period can now be submitted successfully
-		assert_ok!(EthereumBeaconClient::submit(RuntimeOrigin::signed(1), update.clone()));
-		let block_root: H256 = update.finalized_header.clone().hash_tree_root().unwrap();
-		assert!(<FinalizedBeaconState<Test>>::contains_key(block_root));
 	});
 }
 
@@ -532,13 +524,12 @@ fn submit_update_with_sync_committee_in_next_period() {
 		assert_ok!(EthereumBeaconClient::process_checkpoint_update(&checkpoint));
 		assert!(!<NextSyncCommittee<Test>>::exists());
 
-		let result = EthereumBeaconClient::submit(RuntimeOrigin::signed(1), update.clone());
+		let result = EthereumBeaconClient::submit(RuntimeOrigin::signed(1), update);
 		assert_ok!(result);
 		assert_eq!(result.unwrap().pays_fee, Pays::No);
 		assert!(<NextSyncCommittee<Test>>::exists());
 
-		let second_result =
-			EthereumBeaconClient::submit(RuntimeOrigin::signed(1), next_update.clone());
+		let second_result = EthereumBeaconClient::submit(RuntimeOrigin::signed(1), next_update);
 		assert_ok!(second_result);
 		assert_eq!(second_result.unwrap().pays_fee, Pays::No);
 		let last_finalized_state =

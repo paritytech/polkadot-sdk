@@ -59,6 +59,13 @@ pub fn load_next_finalized_header_update_fixture() -> snowbridge_beacon_primitiv
 	load_fixture("next-finalized-header-update.json".to_string()).unwrap()
 }
 
+pub fn load_other_finalized_header_update_fixture() -> snowbridge_beacon_primitives::Update<
+	{ config::SYNC_COMMITTEE_SIZE },
+	{ config::SYNC_COMMITTEE_BITS_SIZE },
+> {
+	load_fixture("other-finalized-header-update.json".to_string()).unwrap()
+}
+
 pub fn get_message_verification_payload() -> (Log, Proof) {
 	let inbound_fixture = snowbridge_pallet_ethereum_client_fixtures::make_inbound_fixture();
 	(inbound_fixture.message.event_log, inbound_fixture.message.proof)
@@ -124,6 +131,7 @@ impl ethereum_beacon_client::Config for Test {
 
 // Build genesis storage according to the mock runtime.
 pub fn new_tester() -> sp_io::TestExternalities {
+	println!("ELECTRA storage");
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let ext = sp_io::TestExternalities::new(t);
 	ext
