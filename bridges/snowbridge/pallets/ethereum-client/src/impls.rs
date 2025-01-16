@@ -73,7 +73,6 @@ impl<T: Config> Pallet<T> {
 	/// chain.The beacon header containing the execution header is sent, plus the execution header,
 	/// along with a proof that the execution header is rooted in the beacon header body.
 	pub(crate) fn verify_execution_proof(execution_proof: &ExecutionProof) -> DispatchResult {
-		log::info!(target: "ethereum-client","💫in verification.");
 		let latest_finalized_state =
 			FinalizedBeaconState::<T>::get(LatestFinalizedBlockRoot::<T>::get())
 				.ok_or(Error::<T>::NotBootstrapped)?;
@@ -82,7 +81,6 @@ impl<T: Config> Pallet<T> {
 			execution_proof.header.slot <= latest_finalized_state.slot,
 			Error::<T>::HeaderNotFinalized
 		);
-		log::info!(target: "ethereum-client","💫header is finalized.");
 
 		let beacon_block_root: H256 = execution_proof
 			.header
@@ -91,7 +89,6 @@ impl<T: Config> Pallet<T> {
 
 		match &execution_proof.ancestry_proof {
 			Some(proof) => {
-				log::info!(target: "ethereum-client","💫verify ancestry proof.");
 				Self::verify_ancestry_proof(
 					beacon_block_root,
 					execution_proof.header.slot,
@@ -110,7 +107,6 @@ impl<T: Config> Pallet<T> {
 				}
 			},
 		}
-		log::info!(target: "ethereum-client","💫verified ancestry proof.");
 
 		// Gets the hash tree root of the execution header, in preparation for the execution
 		// header proof (used to check that the execution header is rooted in the beacon
@@ -124,7 +120,6 @@ impl<T: Config> Pallet<T> {
 			execution_proof.header.slot,
 			T::ForkVersions::get(),
 		);
-		log::info!(target: "ethereum-client","💫 execution_header_g_index: {}",execution_header_g_index);
 		ensure!(
 			verify_merkle_branch(
 				execution_header_root,
@@ -135,7 +130,6 @@ impl<T: Config> Pallet<T> {
 			),
 			Error::<T>::InvalidExecutionHeaderProof
 		);
-		log::info!(target: "ethereum-client","💫 done verifying execution header: {}",execution_header_g_index);
 		Ok(())
 	}
 
