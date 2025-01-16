@@ -19,15 +19,11 @@
 
 use alloc::{vec, vec::Vec};
 
-use frame_benchmarking::v2::*;
-use frame_support::traits::Get;
-use frame_system::{Config as SystemConfig, Pallet as System, RawOrigin};
+use frame::testing_prelude::*;
 
 use sp_runtime::{
-	traits::{Convert, Saturating, StaticLookup},
-	Perbill,
 };
-use sp_staking::offence::ReportOffence;
+use frame::deps::sp_staking::offence::ReportOffence;
 
 use pallet_babe::EquivocationOffence as BabeEquivocationOffence;
 use pallet_balances::Config as BalancesConfig;

@@ -27,8 +27,7 @@ use frame_support::{
 	traits::ConstU32,
 	weights::{constants::RocksDbWeight, Weight},
 };
-use sp_runtime::{traits::IdentityLookup, BuildStorage, Perbill};
-use sp_staking::{
+use frame::deps::sp_staking::{
 	offence::{self, Kind, OffenceDetails},
 	SessionIndex,
 };
@@ -85,7 +84,7 @@ impl Config for Runtime {
 	type OnOffenceHandler = OnOffenceHandler;
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestState {
 	let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(|| System::set_block_number(1));

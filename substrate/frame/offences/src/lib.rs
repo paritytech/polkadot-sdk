@@ -31,9 +31,8 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::Encode;
 use core::marker::PhantomData;
-use frame_support::weights::Weight;
-use sp_runtime::{traits::Hash, Perbill};
-use sp_staking::{
+use frame::prelude::*;
+use frame::deps::sp_staking::{
 	offence::{Kind, Offence, OffenceDetails, OffenceError, OnOffenceHandler, ReportOffence},
 	SessionIndex,
 };
@@ -48,10 +47,9 @@ type ReportIdOf<T> = <T as frame_system::Config>::Hash;
 
 const LOG_TARGET: &str = "runtime::offences";
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 

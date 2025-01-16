@@ -21,16 +21,10 @@ use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
 };
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64},
-};
+use frame::testing_prelude::*;
 use frame_system as system;
 use pallet_session::historical as pallet_session_historical;
-use sp_runtime::{
-	testing::{Header, UintAuthorityId},
-	BuildStorage, KeyTypeId, Perbill,
-};
+
 
 type AccountId = u64;
 type Balance = u64;
@@ -58,9 +52,9 @@ impl pallet_session::historical::Config for Test {
 	type FullIdentificationOf = pallet_staking::ExposureOf<Test>;
 }
 
-sp_runtime::impl_opaque_keys! {
+impl_opaque_keys! {
 	pub struct SessionKeys {
-		pub foo: sp_runtime::testing::UintAuthorityId,
+		pub foo: UintAuthorityId,
 	}
 }
 
@@ -179,7 +173,7 @@ impl crate::Config for Test {}
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, RuntimeCall, u64, ()>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: system::{Pallet, Call, Event<T>},
@@ -192,7 +186,7 @@ frame_support::construct_runtime!(
 	}
 );
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestExternalities {
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	sp_io::TestExternalities::new(t)
+	TestExternalities::new(t)
 }

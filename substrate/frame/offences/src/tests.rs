@@ -24,9 +24,8 @@ use crate::mock::{
 	new_test_ext, offence_reports, with_on_offence_fractions, Offence, Offences, Runtime,
 	RuntimeEvent, System, KIND,
 };
-use frame_system::{EventRecord, Phase};
-use sp_core::H256;
-use sp_runtime::Perbill;
+use frame::testing_prelude::*;
+use frame::deps::sp_core::H256;
 
 #[test]
 fn should_get_reports_with_storagemap_getter_and_function_getter() {

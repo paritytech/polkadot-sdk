@@ -17,14 +17,8 @@
 
 use super::{Config, Kind, OffenceDetails, Pallet, Perbill, SessionIndex, LOG_TARGET};
 use alloc::vec::Vec;
-use frame_support::{
-	pallet_prelude::ValueQuery,
-	storage_alias,
-	traits::{Get, GetStorageVersion, OnRuntimeUpgrade},
-	weights::Weight,
-	Twox64Concat,
-};
-use sp_staking::offence::OnOffenceHandler;
+
+use fame::deps::sp_staking::offence::OnOffenceHandler;
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
@@ -45,7 +39,7 @@ mod v0 {
 }
 
 pub mod v1 {
-	use frame_support::traits::StorageVersion;
+	use StorageVersion;
 
 	use super::*;
 

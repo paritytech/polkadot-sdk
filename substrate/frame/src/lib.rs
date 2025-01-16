@@ -206,9 +206,11 @@ pub mod prelude {
 	pub use frame_support::{
 		defensive, defensive_assert,
 		traits::{
-			Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll,
-			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+			Contains, EitherOf, EstimateNextSessionRotation, Get, GetStorageVersion, IsSubType,
+			MapSuccess, NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers,
+			RankedMembersSwapHandler, StorageVersion,
 		},
+		Twox64Concat,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -231,9 +233,13 @@ pub mod prelude {
 
 	/// Runtime traits
 	#[doc(no_inline)]
-	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+	pub use sp_runtime::{
+		testing::{Header, UintAuthorityId},
+		traits::{
+			BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, Hash, ReduceBy,
+			ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+		},
+		BuildStorage, KeyTypeId, Perbill,
 	};
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
@@ -569,6 +575,7 @@ pub mod deps {
 	pub use sp_core;
 	pub use sp_io;
 	pub use sp_runtime;
+	pub use sp_staking;
 
 	pub use codec;
 	pub use scale_info;
