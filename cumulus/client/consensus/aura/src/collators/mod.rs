@@ -288,11 +288,11 @@ mod tests {
 	fn sproof_with_parent_by_hash(client: &Client, hash: PHash) -> RelayStateSproofBuilder {
 		let header = client.header(hash).ok().flatten().expect("No header for parent block");
 		let included = HeadData(header.encode());
-		let mut x = RelayStateSproofBuilder::default();
-		x.para_id = cumulus_test_client::runtime::PARACHAIN_ID.into();
-		x.included_para_head = Some(included);
+		let mut builder = RelayStateSproofBuilder::default();
+		builder.para_id = cumulus_test_client::runtime::PARACHAIN_ID.into();
+		builder.included_para_head = Some(included);
 
-		x
+		builder
 	}
 	async fn build_and_import_block(client: &Client, included: Hash) -> Block {
 		let sproof = sproof_with_parent_by_hash(client, included);
