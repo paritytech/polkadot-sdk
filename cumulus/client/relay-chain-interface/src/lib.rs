@@ -244,6 +244,9 @@ pub trait RelayChainInterface: Send + Sync {
 		&self,
 		relay_parent: PHash,
 	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>>;
+
+	/// Fetch the scheduling lookahead value.
+	async fn scheduling_lookahead(&self, relay_parent: PHash) -> RelayChainResult<u32>;
 }
 
 #[async_trait]
@@ -397,6 +400,10 @@ where
 		relay_parent: PHash,
 	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>> {
 		(**self).claim_queue(relay_parent).await
+	}
+
+	async fn scheduling_lookahead(&self, relay_parent: PHash) -> RelayChainResult<u32> {
+		(**self).scheduling_lookahead(relay_parent).await
 	}
 }
 
