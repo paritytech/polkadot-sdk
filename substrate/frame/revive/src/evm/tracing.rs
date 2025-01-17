@@ -24,7 +24,7 @@ use sp_core::{H160, H256, U256};
 
 /// A Tracer that reports logs and nested call traces transactions.
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
-pub struct CallTracer<GasMapper: Fn(Weight) -> U256> {
+pub struct CallTracer<GasMapper> {
 	/// Map Weight to Gas equivalent.
 	gas_mapper: GasMapper,
 	/// Store all in-progress CallTrace instances.
@@ -35,7 +35,7 @@ pub struct CallTracer<GasMapper: Fn(Weight) -> U256> {
 	with_log: bool,
 }
 
-impl<GasMapper: Fn(Weight) -> U256> CallTracer<GasMapper> {
+impl<GasMapper> CallTracer<GasMapper> {
 	/// Create a new [`CallTracer`] instance.
 	pub fn new(with_log: bool, gas_mapper: GasMapper) -> Self {
 		Self { gas_mapper, traces: Vec::new(), current_stack: Vec::new(), with_log }
