@@ -144,6 +144,18 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the origin's address.
 	fn origin(output: &mut [u8; 20]);
 
+	/// Retrieve the account id for a specified address.
+	///
+	/// # Parameters
+	///
+	/// - `addr`: A `H160` address.
+	/// - `output`: A reference to the output data buffer to write the account id.
+	///
+	/// # Note
+	///
+	/// If no mapping exists for `addr`, the fallback account id will be returned.
+	fn to_account_id(addr: &[u8; 20], output: &mut [u8]);
+
 	/// Retrieve the code hash for a specified contract address.
 	///
 	/// # Parameters
@@ -514,26 +526,6 @@ pub trait HostFn: private::Sealed {
 	/// Returns the size of the pre-existing value at the specified key if any.
 	#[unstable_hostfn]
 	fn contains_storage(flags: StorageFlags, key: &[u8]) -> Option<u32>;
-
-	/// Emit a custom debug message.
-	///
-	/// No newlines are added to the supplied message.
-	/// Specifying invalid UTF-8 just drops the message with no trap.
-	///
-	/// This is a no-op if debug message recording is disabled which is always the case
-	/// when the code is executing on-chain. The message is interpreted as UTF-8 and
-	/// appended to the debug buffer which is then supplied to the calling RPC client.
-	///
-	/// # Note
-	///
-	/// Even though no action is taken when debug message recording is disabled there is still
-	/// a non trivial overhead (and weight cost) associated with calling this function. Contract
-	/// languages should remove calls to this function (either at runtime or compile time) when
-	/// not being executed as an RPC. For example, they could allow users to disable logging
-	/// through compile time flags (cargo features) for on-chain deployment. Additionally, the
-	/// return value of this function can be cached in order to prevent further calls at runtime.
-	#[unstable_hostfn]
-	fn debug_message(str: &[u8]) -> Result;
 
 	/// Recovers the ECDSA public key from the given message hash and signature.
 	///
