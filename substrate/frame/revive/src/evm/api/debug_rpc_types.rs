@@ -144,7 +144,7 @@ pub enum CallType {
 #[derive(
 	TypeInfo, Default, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq,
 )]
-pub struct CallTrace {
+pub struct CallTrace<Gas = U256> {
 	/// Address of the sender.
 	pub from: H160,
 	/// Address of the receiver.
@@ -158,10 +158,10 @@ pub struct CallTrace {
 	#[serde(rename = "type")]
 	pub call_type: CallType,
 	/// Amount of gas provided for the call.
-	pub gas: U256,
+	pub gas: Gas,
 	/// Amount of gas used.
 	#[serde(rename = "gasUsed")]
-	pub gas_used: U256,
+	pub gas_used: Gas,
 	/// Return data.
 	#[serde(flatten, skip_serializing_if = "Bytes::is_empty")]
 	pub output: Bytes,
@@ -173,7 +173,7 @@ pub struct CallTrace {
 	pub revert_reason: Option<String>,
 	/// List of sub-calls.
 	#[serde(skip_serializing_if = "Vec::is_empty")]
-	pub calls: Vec<CallTrace>,
+	pub calls: Vec<CallTrace<Gas>>,
 	/// List of logs emitted during the call.
 	#[serde(skip_serializing_if = "Vec::is_empty")]
 	pub logs: Vec<CallLog>,
