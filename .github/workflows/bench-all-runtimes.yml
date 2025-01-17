@@ -1,4 +1,4 @@
-name: Weekly update of benchmarks (frame-omni-bencher)
+name: Bench all runtimes (frame-omni-bencher)
 
 on:
   # schedule:
