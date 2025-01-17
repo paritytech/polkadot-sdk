@@ -116,8 +116,8 @@
 use crate::{
 	slashing,
 	vstaging::{
-		self, CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
-		ScrapedOnChainVotes, async_backing::Constraints,
+		self, async_backing::Constraints, CandidateEvent,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, ScrapedOnChainVotes,
 	},
 	ApprovalVotingParams, AsyncBackingParams, BlockNumber, CandidateCommitments, CandidateHash,
 	CoreIndex, DisputeState, ExecutorParams, GroupRotationInfo, Hash, NodeFeatures,
