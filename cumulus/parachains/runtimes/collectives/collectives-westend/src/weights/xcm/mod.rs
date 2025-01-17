@@ -262,7 +262,8 @@ impl<Call> XcmWeightInfo<Call> for CollectivesWestendXcmWeight<Call> {
 		XcmGeneric::<Runtime>::clear_topic()
 	}
 	fn alias_origin(_: &Location) -> Weight {
-		XcmGeneric::<Runtime>::alias_origin()
+		// XCM Executor does not currently support alias origin operations
+		Weight::MAX
 	}
 	fn unpaid_execution(_: &WeightLimit, _: &Option<Location>) -> Weight {
 		XcmGeneric::<Runtime>::unpaid_execution()
