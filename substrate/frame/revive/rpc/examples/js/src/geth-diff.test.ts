@@ -344,7 +344,7 @@ for (const env of envs) {
 			})
 		})
 
-		test.only('tracing', async () => {
+		test('tracing', async () => {
 			const calleeAddress = await (async () => {
 				const hash = await env.serverWallet.deployContract({
 					abi: TracingCalleeAbi,
@@ -371,7 +371,7 @@ for (const env of envs) {
 				return receipt.contractAddress!
 			})()
 
-			console.error('Caller address:', callerAddress)
+			console.log('Caller address:', callerAddress)
 			const receipt = await (async () => {
 				const { request } = await env.serverWallet.simulateContract({
 					address: callerAddress,
@@ -402,12 +402,12 @@ for (const env of envs) {
 			console.log('Tx hash:', receipt.transactionHash)
 
 			let res = await env.debugClient.traceTransaction(receipt.transactionHash)
-			Bun.write('/tmp/trace_transaction.json', JSON.stringify(res, null, 2))
-			console.log('Wrote /tmp/trace_transaction.json')
+			Bun.write('/tmp/trace_transfer_transaction.json', JSON.stringify(res, null, 2))
+			console.log('Wrote /tmp/trace_transfer_transaction.json')
 
 			res = await env.debugClient.traceBlock(receipt.blockNumber)
-			Bun.write('/tmp/trace_block.json', JSON.stringify(res, null, 2))
-			console.log('Wrote /tmp/trace_block.json')
+			Bun.write('/tmp/trace_transfer_block.json', JSON.stringify(res, null, 2))
+			console.log('Wrote /tmp/trace_transfer_block.json')
 		})
 	})
 }
