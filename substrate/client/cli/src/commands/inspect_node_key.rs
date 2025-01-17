@@ -19,7 +19,7 @@
 
 use crate::Error;
 use clap::Parser;
-use libp2p_identity::Keypair;
+use libp2p::identity::Keypair;
 use std::{
 	fs,
 	io::{self, Read},

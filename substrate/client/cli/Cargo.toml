@@ -23,7 +23,7 @@ codec = { workspace = true, default-features = true }
 fdlimit = { workspace = true }
 futures = { workspace = true }
 itertools = { workspace = true }
-libp2p-identity = { features = ["ed25519", "peerid"], workspace = true }
+libp2p = { workspace = true }
 log = { workspace = true, default-features = true }
 names = { workspace = true }
 rand = { workspace = true, default-features = true }

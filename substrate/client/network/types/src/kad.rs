@@ -18,7 +18,7 @@
 
 use crate::{multihash::Multihash, PeerId};
 use bytes::Bytes;
-use libp2p_kad::RecordKey as Libp2pKey;
+use libp2p::kad::RecordKey as Libp2pKey;
 use litep2p::protocol::libp2p::kademlia::{Record as Litep2pRecord, RecordKey as Litep2pKey};
 use std::{error::Error, fmt, time::Instant};
 
@@ -105,8 +105,8 @@ impl Record {
 	}
 }
 
-impl From<libp2p_kad::Record> for Record {
-	fn from(out: libp2p_kad::Record) -> Self {
+impl From<libp2p::kad::Record> for Record {
+	fn from(out: libp2p::kad::Record) -> Self {
 		let vec: Vec<u8> = out.key.to_vec();
 		let key: Key = vec.into();
 		let publisher = out.publisher.map(Into::into);
@@ -123,10 +123,10 @@ impl From<Record> for Litep2pRecord {
 	}
 }
 
-impl From<Record> for libp2p_kad::Record {
-	fn from(a: Record) -> libp2p_kad::Record {
+impl From<Record> for libp2p::kad::Record {
+	fn from(a: Record) -> libp2p::kad::Record {
 		let peer = a.publisher.map(Into::into);
-		libp2p_kad::Record {
+		libp2p::kad::Record {
 			key: a.key.to_vec().into(),
 			value: a.value,
 			publisher: peer,
@@ -145,8 +145,8 @@ pub struct PeerRecord {
 	pub record: Record,
 }
 
-impl From<libp2p_kad::PeerRecord> for PeerRecord {
-	fn from(out: libp2p_kad::PeerRecord) -> Self {
+impl From<libp2p::kad::PeerRecord> for PeerRecord {
+	fn from(out: libp2p::kad::PeerRecord) -> Self {
 		let peer = out.peer.map(Into::into);
 		let record = out.record.into();
 		PeerRecord { peer, record }

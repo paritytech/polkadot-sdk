@@ -25,7 +25,7 @@ codec = { features = [
 	"derive",
 ], workspace = true, default-features = true }
 futures = { workspace = true }
-libp2p-identity = { features = ["peerid"], workspace = true }
+libp2p = { workspace = true }
 sc-consensus = { workspace = true, default-features = true }
 sc-network-types = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }

@@ -21,7 +21,7 @@
 use crate::PeerId;
 use core::{cmp, fmt, hash};
 use ed25519_dalek::{self as ed25519, Signer as _, Verifier as _};
-use libp2p_identity::ed25519 as libp2p_ed25519;
+use libp2p::identity::ed25519 as libp2p_ed25519;
 use litep2p::crypto::ed25519 as litep2p_ed25519;
 use zeroize::Zeroize;
 

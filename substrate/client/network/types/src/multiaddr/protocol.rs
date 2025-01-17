@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::multihash::Multihash;
-use libp2p_identity::PeerId;
+use libp2p::PeerId;
 use litep2p::types::multiaddr::Protocol as LiteP2pProtocol;
 use multiaddr::Protocol as LibP2pProtocol;
 use std::{

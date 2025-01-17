@@ -105,15 +105,15 @@ impl PeerId {
 			return None
 		}
 
-		let public = libp2p_identity::PublicKey::try_decode_protobuf(hash.digest()).ok()?;
+		let public = libp2p::identity::PublicKey::try_decode_protobuf(hash.digest()).ok()?;
 		public.try_into_ed25519().ok().map(|public| public.to_bytes())
 	}
 
 	/// Get `PeerId` from ed25519 public key bytes.
 	pub fn from_ed25519(bytes: &[u8; 32]) -> Option<PeerId> {
-		let public = libp2p_identity::ed25519::PublicKey::try_from_bytes(bytes).ok()?;
-		let public: libp2p_identity::PublicKey = public.into();
-		let peer_id: libp2p_identity::PeerId = public.into();
+		let public = libp2p::identity::ed25519::PublicKey::try_from_bytes(bytes).ok()?;
+		let public: libp2p::identity::PublicKey = public.into();
+		let peer_id: libp2p::identity::PeerId = public.into();
 
 		Some(peer_id.into())
 	}
@@ -131,27 +131,27 @@ impl From<PeerId> for Multihash {
 	}
 }
 
-impl From<libp2p_identity::PeerId> for PeerId {
-	fn from(peer_id: libp2p_identity::PeerId) -> Self {
+impl From<libp2p::identity::PeerId> for PeerId {
+	fn from(peer_id: libp2p::identity::PeerId) -> Self {
 		PeerId { multihash: Multihash::from_bytes(&peer_id.to_bytes()).expect("to succeed") }
 	}
 }
 
-impl From<PeerId> for libp2p_identity::PeerId {
+impl From<PeerId> for libp2p::identity::PeerId {
 	fn from(peer_id: PeerId) -> Self {
-		libp2p_identity::PeerId::from_bytes(&peer_id.to_bytes()).expect("to succeed")
+		libp2p::identity::PeerId::from_bytes(&peer_id.to_bytes()).expect("to succeed")
 	}
 }
 
-impl From<&libp2p_identity::PeerId> for PeerId {
-	fn from(peer_id: &libp2p_identity::PeerId) -> Self {
+impl From<&libp2p::identity::PeerId> for PeerId {
+	fn from(peer_id: &libp2p::identity::PeerId) -> Self {
 		PeerId { multihash: Multihash::from_bytes(&peer_id.to_bytes()).expect("to succeed") }
 	}
 }
 
-impl From<&PeerId> for libp2p_identity::PeerId {
+impl From<&PeerId> for libp2p::identity::PeerId {
 	fn from(peer_id: &PeerId) -> Self {
-		libp2p_identity::PeerId::from_bytes(&peer_id.to_bytes()).expect("to succeed")
+		libp2p::identity::PeerId::from_bytes(&peer_id.to_bytes()).expect("to succeed")
 	}
 }
 

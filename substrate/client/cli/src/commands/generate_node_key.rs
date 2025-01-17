@@ -19,7 +19,7 @@
 
 use crate::{build_network_key_dir_or_default, Error, NODE_KEY_ED25519_FILE};
 use clap::{Args, Parser};
-use libp2p_identity::{ed25519, Keypair};
+use libp2p::identity::{ed25519, Keypair};
 use sc_service::BasePath;
 use std::{
 	fs,
