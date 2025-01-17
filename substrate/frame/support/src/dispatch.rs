@@ -732,7 +732,6 @@ mod weight_tests {
 			type RuntimeOrigin;
 			type RuntimeCall;
 			type RuntimeTask;
-			type RuntimeViewFunction;
 			type PalletInfo: crate::traits::PalletInfo;
 			type DbWeight: Get<crate::weights::RuntimeDbWeight>;
 		}
@@ -843,7 +842,6 @@ mod weight_tests {
 		type RuntimeOrigin = RuntimeOrigin;
 		type RuntimeCall = RuntimeCall;
 		type RuntimeTask = RuntimeTask;
-		type RuntimeViewFunction = RuntimeViewFunction;
 		type DbWeight = DbWeight;
 		type PalletInfo = PalletInfo;
 	}
@@ -1374,7 +1372,6 @@ mod extension_weight_tests {
 		type RuntimeOrigin = RuntimeOrigin;
 		type RuntimeCall = RuntimeCall;
 		type RuntimeTask = RuntimeTask;
-		type RuntimeViewFunction = RuntimeViewFunction;
 		type DbWeight = DbWeight;
 		type PalletInfo = PalletInfo;
 	}

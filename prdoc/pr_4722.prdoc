@@ -19,8 +19,6 @@ doc:
 crates:
   - name: frame-support
     bump: minor
-  - name: frame-system
-    bump: major
   - name: sp-core
     bump: minor
   - name: sp-api

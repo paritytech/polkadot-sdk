@@ -172,9 +172,7 @@ pub fn expand_runtime_metadata(
 						error_enum_ty: #scrate::__private::scale_info::meta_type::<RuntimeError>(),
 					},
 					view_functions: #scrate::__private::metadata_ir::RuntimeViewFunctionsIR {
-						ty: #scrate::__private::scale_info::meta_type::<
-							<#runtime as #system_path::Config>::RuntimeViewFunction
-						>(),
+						ty: #scrate::__private::scale_info::meta_type::<RuntimeViewFunction>(),
 						groups: #scrate::__private::sp_std::vec![ #(#view_functions),* ],
 					}
 				}
