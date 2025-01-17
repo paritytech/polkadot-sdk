@@ -1059,12 +1059,6 @@ pub mod pallet {
 		/// the time of the election.
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
 			let pages = Self::election_pages();
-			crate::log!(
-				trace,
-				"now: {:?}, NextElectionPage: {:?}",
-				now,
-				NextElectionPage::<T>::get()
-			);
 
 			// election ongoing, fetch the next page.
 			let inner_weight = if let Some(next_page) = NextElectionPage::<T>::get() {

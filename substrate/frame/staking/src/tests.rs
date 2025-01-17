@@ -3670,7 +3670,7 @@ fn slashing_independent_of_disabling_validator() {
 }
 
 #[test]
-fn offence_threshold_doesnt_trigger_new_era() {
+fn offence_threshold_doesnt_plan_new_era() {
 	ExtBuilder::default()
 		.validator_count(4)
 		.set_status(41, StakerStatus::Validator)

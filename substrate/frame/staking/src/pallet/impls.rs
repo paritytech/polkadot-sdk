@@ -80,7 +80,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Clears up all election preparation metadata in storage.
 	pub(crate) fn clear_election_metadata() {
-		// TODO: voter snapshot status should also be killed?
+		VoterSnapshotStatus::<T>::kill();
 		NextElectionPage::<T>::kill();
 		ElectableStashes::<T>::kill();
 	}
@@ -459,8 +459,8 @@ impl<T: Config> Pallet<T> {
 	/// Plan a new session potentially trigger a new era.
 	///
 	/// Subsequent function calls in the happy path are as follows:
-	/// 1. `try_trigger_new_era`
-	/// 2. `trigger_new_era`
+	/// 1. `try_plan_new_era`
+	/// 2. `plan_new_era`
 	fn new_session(
 		session_index: SessionIndex,
 		is_genesis: bool,
@@ -478,9 +478,9 @@ impl<T: Config> Pallet<T> {
 			match ForceEra::<T>::get() {
 				// Will be set to `NotForcing` again if a new era has been triggered.
 				Forcing::ForceNew => (),
-				// Short circuit to `try_trigger_new_era`.
+				// Short circuit to `try_plan_new_era`.
 				Forcing::ForceAlways => (),
-				// Only go to `try_trigger_new_era` if deadline reached.
+				// Only go to `try_plan_new_era` if deadline reached.
 				Forcing::NotForcing if era_length >= T::SessionsPerEra::get() => (),
 				_ => {
 					// Either `Forcing::ForceNone`,
@@ -490,7 +490,7 @@ impl<T: Config> Pallet<T> {
 			}
 
 			// New era.
-			let maybe_new_era_validators = Self::try_trigger_new_era(session_index, is_genesis);
+			let maybe_new_era_validators = Self::try_plan_new_era(session_index, is_genesis);
 			if maybe_new_era_validators.is_some() &&
 				matches!(ForceEra::<T>::get(), Forcing::ForceNew)
 			{
@@ -501,7 +501,7 @@ impl<T: Config> Pallet<T> {
 		} else {
 			// Set initial era.
 			log!(debug, "Starting the first era.");
-			Self::try_trigger_new_era(session_index, is_genesis)
+			Self::try_plan_new_era(session_index, is_genesis)
 		}
 	}
 
@@ -550,6 +550,7 @@ impl<T: Config> Pallet<T> {
 	fn start_era(start_session: SessionIndex) {
 		let active_era = ActiveEra::<T>::mutate(|active_era| {
 			let new_index = active_era.as_ref().map(|info| info.index + 1).unwrap_or(0);
+			log!(debug, "starting active era {:?}", new_index);
 			*active_era = Some(ActiveEraInfo {
 				index: new_index,
 				// Set new active era start in next `on_finalize`. To guarantee usage of `Time`
@@ -621,28 +622,6 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Plan a new era.
-	///
-	/// * Bump the current era storage (which holds the latest planned era).
-	/// * Store start session index for the new planned era.
-	/// * Clean old era information.
-	///
-	/// The new validator set for this era is stored under [`ElectableStashes`].
-	pub fn trigger_new_era(start_session_index: SessionIndex) {
-		// Increment or set current era.
-		let new_planned_era = CurrentEra::<T>::mutate(|s| {
-			*s = Some(s.map(|s| s + 1).unwrap_or(0));
-			s.unwrap()
-		});
-		ErasStartSessionIndex::<T>::insert(&new_planned_era, &start_session_index);
-
-		// Clean old era information.
-		if let Some(old_era) = new_planned_era.checked_sub(T::HistoryDepth::get() + 1) {
-			log!(trace, "Removing era information for {:?}", old_era);
-			Self::clear_era_information(old_era);
-		}
-	}
-
 	/// Potentially plan a new era.
 	///
 	/// The election results are either fetched directly from an election provider if it is the
@@ -651,7 +630,7 @@ impl<T: Config> Pallet<T> {
 	/// In case election result has more than [`MinimumValidatorCount`] validator trigger a new era.
 	///
 	/// In case a new era is planned, the new validator set is returned.
-	pub(crate) fn try_trigger_new_era(
+	pub(crate) fn try_plan_new_era(
 		start_session_index: SessionIndex,
 		is_genesis: bool,
 	) -> Option<BoundedVec<T::AccountId, MaxWinnersOf<T>>> {
@@ -722,9 +701,31 @@ impl<T: Config> Pallet<T> {
 		} else {
 			Self::deposit_event(Event::StakersElected);
 			Self::clear_election_metadata();
-			Self::trigger_new_era(start_session_index);
+			Self::plan_new_era(start_session_index);
 
 			Some(validators)
+		}
+	}
+
+	/// Plan a new era.
+	///
+	/// * Bump the current era storage (which holds the latest planned era).
+	/// * Store start session index for the new planned era.
+	/// * Clean old era information.
+	///
+	/// The new validator set for this era is stored under `ElectableStashes`.
+	pub fn plan_new_era(start_session_index: SessionIndex) {
+		// Increment or set current era.
+		let new_planned_era = CurrentEra::<T>::mutate(|s| {
+			*s = Some(s.map(|s| s + 1).unwrap_or(0));
+			s.unwrap()
+		});
+		ErasStartSessionIndex::<T>::insert(&new_planned_era, &start_session_index);
+
+		// Clean old era information.
+		if let Some(old_era) = new_planned_era.checked_sub(T::HistoryDepth::get() + 1) {
+			log!(trace, "Removing era information for {:?}", old_era);
+			Self::clear_era_information(old_era);
 		}
 	}
 
@@ -1594,6 +1595,15 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 /// Once the first new_session is planned, all session must start and then end in order, though
 /// some session can lag in between the newest session planned and the latest session started.
 impl<T: Config> pallet_session::SessionManager<T::AccountId> for Pallet<T> {
+	// └── Self::new_session(new_index, false)
+	//	└── Self::try_plan_new_era(session_index, is_genesis)
+	//    └── T::GenesisElectionProvider::elect() OR ElectableStashes::<T>::take()
+	//    └── Self::collect_exposures()
+	//    └── Self::store_stakers_info()
+	//    └── Self::plan_new_era()
+	//        └── CurrentEra increment
+	//        └── ErasStartSessionIndex update
+	//        └── Self::clear_era_information()
 	fn new_session(new_index: SessionIndex) -> Option<Vec<T::AccountId>> {
 		log!(trace, "planning new session {}", new_index);
 		CurrentPlannedSession::<T>::put(new_index);
@@ -1604,6 +1614,19 @@ impl<T: Config> pallet_session::SessionManager<T::AccountId> for Pallet<T> {
 		CurrentPlannedSession::<T>::put(new_index);
 		Self::new_session(new_index, true).map(|v| v.into_inner())
 	}
+	// start_session(start_session: SessionIndex)
+	//	└── Check if this is the start of next active era
+	//	└── Self::start_era(start_session)
+	//		└── Update active era index
+	//		└── Set active era start timestamp
+	//		└── Update BondedEras
+	//		└── Self::apply_unapplied_slashes()
+	//			└── Get slashes for era from UnappliedSlashes
+	//			└── Apply each slash
+	//			└── Clear slashes metadata
+	//	└── Process disabled validators
+	//	└── Get all disabled validators
+	//	└── Call T::SessionInterface::disable_validator() for each
 	fn start_session(start_index: SessionIndex) {
 		log!(trace, "starting session {}", start_index);
 		Self::start_session(start_index)
@@ -2346,6 +2369,13 @@ impl<T: Config> Pallet<T> {
 			<T as Config>::TargetList::count() == Validators::<T>::count(),
 			"wrong external count"
 		);
+		let max_validators_bound = MaxWinnersOf::<T>::get();
+		let max_winners_per_page_bound = MaxWinnersPerPageOf::<T::ElectionProvider>::get();
+		ensure!(
+			max_validators_bound >= max_winners_per_page_bound,
+			"max validators should be higher than per page bounds"
+		);
+		ensure!(ValidatorCount::<T>::get() <= max_validators_bound, Error::<T>::TooManyValidators);
 		Ok(())
 	}
 

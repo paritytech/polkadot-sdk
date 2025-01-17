@@ -643,7 +643,7 @@ mod paged_exposures {
 			let genesis_result = <<Test as Config>::GenesisElectionProvider>::elect(0u32).unwrap();
 			let expected_exposures = Staking::collect_exposures(genesis_result.clone());
 
-			Staking::try_trigger_new_era(0u32, true);
+			Staking::try_plan_new_era(0u32, true);
 
 			// expected exposures are stored for the expected genesis validators.
 			for exposure in expected_exposures {

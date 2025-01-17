@@ -161,7 +161,7 @@
 //!
 //! Note: [`frame_election_provider_support::ElectionDataProvider`] trait supports mulit-paged
 //! target snaphsot. However, this pallet only supports and implements a single-page snapshot.
-//! Calling [`ElectionDataProvider::electable_targets`] with a different index than 0 is redundant
+//! Calling `ElectionDataProvider::electable_targets` with a different index than 0 is redundant
 //! and the single page idx 0 of targets be returned.
 //!
 //! ### Prepare an election ahead of time with `on_initialize`
