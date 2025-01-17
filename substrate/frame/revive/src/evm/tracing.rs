@@ -24,30 +24,30 @@ use sp_core::{H160, H256, U256};
 
 /// A Tracer that reports logs and nested call traces transactions.
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
-pub struct CallTracer<GasMapper> {
+pub struct CallTracer<Gas, GasMapper> {
 	/// Map Weight to Gas equivalent.
 	gas_mapper: GasMapper,
 	/// Store all in-progress CallTrace instances.
-	traces: Vec<CallTrace>,
+	traces: Vec<CallTrace<Gas>>,
 	/// Stack of indices to the current active traces.
 	current_stack: Vec<usize>,
 	/// whether or not to capture logs.
 	with_log: bool,
 }
 
-impl<GasMapper> CallTracer<GasMapper> {
+impl<Gas, GasMapper> CallTracer<Gas, GasMapper> {
 	/// Create a new [`CallTracer`] instance.
 	pub fn new(with_log: bool, gas_mapper: GasMapper) -> Self {
 		Self { gas_mapper, traces: Vec::new(), current_stack: Vec::new(), with_log }
 	}
 
 	/// Collect the traces and return them.
-	pub fn collect_traces(&mut self) -> Vec<CallTrace> {
+	pub fn collect_traces(&mut self) -> Vec<CallTrace<Gas>> {
 		core::mem::take(&mut self.traces)
 	}
 }
 
-impl<GasMapper: Fn(Weight) -> U256> Tracer for CallTracer<GasMapper> {
+impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracer for CallTracer<Gas, GasMapper> {
 	fn enter_child_span(
 		&mut self,
 		from: H160,

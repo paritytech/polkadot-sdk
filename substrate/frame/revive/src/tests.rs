@@ -4608,6 +4608,15 @@ fn tracing_works() {
 			),
 		];
 
+		// Verify that the first trace report the same weight reported by bare_call
+		let mut tracer = CallTracer::new(false, |w| w);
+		let gas_used = using_tracer(&mut tracer, || {
+			builder::bare_call(addr).data((3u32, addr_callee).encode()).build().gas_consumed
+		});
+		let traces = tracer.collect_traces();
+		assert_eq!(&traces[0].gas_used, &gas_used);
+
+		// Discarding gas usage, check that traces reported are correct
 		for (with_logs, logs) in tracer_options {
 			let mut tracer = CallTracer::new(with_logs, |_| U256::zero());
 			using_tracer(&mut tracer, || {
