@@ -35,12 +35,11 @@ use alloc::vec::Vec;
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
 pub use weights::WeightInfo;
+use frame::prelude::*;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -69,7 +68,7 @@ pub mod pallet {
 		pub fn store(origin: OriginFor<T>, remark: Vec<u8>) -> DispatchResultWithPostInfo {
 			ensure!(!remark.is_empty(), Error::<T>::Empty);
 			let sender = ensure_signed(origin)?;
-			let content_hash = sp_io::hashing::blake2_256(&remark);
+			let content_hash = blake2_256(&remark);
 			let extrinsic_index = <frame_system::Pallet<T>>::extrinsic_index()
 				.ok_or_else(|| Error::<T>::BadContext)?;
 			sp_io::transaction_index::index(extrinsic_index, remark.len() as u32, content_hash);
@@ -82,6 +81,6 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Stored data off chain.
-		Stored { sender: T::AccountId, content_hash: sp_core::H256 },
+		Stored { sender: T::AccountId, content_hash: H256 },
 	}
 }

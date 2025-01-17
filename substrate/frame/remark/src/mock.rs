@@ -18,13 +18,12 @@
 //! Test environment for remarks pallet.
 
 use crate as pallet_remark;
-use frame_support::derive_impl;
-use sp_runtime::BuildStorage;
+use frame::testing_prelude::*;
 
-pub type Block = frame_system::mocking::MockBlock<Test>;
+pub type Block = MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -42,7 +41,7 @@ impl pallet_remark::Config for Test {
 	type WeightInfo = ();
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestState {
 	let t = RuntimeGenesisConfig { system: Default::default() }.build_storage().unwrap();
 	t.into()
 }

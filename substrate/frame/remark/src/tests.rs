@@ -19,8 +19,7 @@
 
 use super::{Error, Event, Pallet as Remark};
 use crate::mock::*;
-use frame_support::{assert_noop, assert_ok};
-use frame_system::RawOrigin;
+use frame::testing_prelude::*;
 
 #[test]
 fn generates_event() {
