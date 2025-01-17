@@ -1,8 +1,9 @@
 name: Weekly update of benchmarks (frame-omni-bencher)
 
 on:
-  schedule:
-    - cron: '0 1 * * 0' # weekly on Sunday night 01:00 UTC
+  # schedule:
+    # - cron: '0 1 * * 0' # weekly on Sunday night 01:00 UTC
+  workflow_dispatch:
 
 permissions: # allow the action to create a PR
   contents: write
