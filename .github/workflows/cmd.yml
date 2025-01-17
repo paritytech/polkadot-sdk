@@ -415,28 +415,39 @@ jobs:
             git config --global user.email "<>"
             git config --global pull.rebase false
 
-            # Push the results to the target branch
-            git remote add \
-              github \
-              "https://x-access-token:${{ steps.generate_token_commit.outputs.token }}@github.com/${{ needs.get-pr-branch.outputs.repo }}.git" || :
+            # Configure the token in a more reliable way
+            git config --global http.https://github.com/.extraheader "AUTHORIZATION: basic $(echo -n "x-access-token:${{ steps.generate_token_commit.outputs.token }}" | base64)"
+
+            # Remove any existing github remote
+            git remote remove github 2>/dev/null || true
+
+            # Add the remote with the token
+            git remote add github "https://github.com/${{ needs.get-pr-branch.outputs.repo }}.git"
 
             push_changes() {
-              git push github "HEAD:${{ needs.get-pr-branch.outputs.pr-branch }}"
+              # Add retry logic with exponential backoff
+              for i in {1..3}; do
+                if git push github "HEAD:${{ needs.get-pr-branch.outputs.pr-branch }}"; then
+                  return 0
+                fi
+                sleep $((2**$i))
+              done
+              return 1
             }
 
             git add .
-            git restore --staged Cargo.lock # ignore changes in Cargo.lock
+            git restore --staged Cargo.lock
             git commit -m "Update from ${{ github.actor }} running command '${{ steps.get-pr-comment.outputs.group2 }}'" || true
             
-            # Attempt to push changes
+            # Attempt to push changes with retries
             if ! push_changes; then
               echo "Push failed, trying to rebase..."
               git pull --rebase github "${{ needs.get-pr-branch.outputs.pr-branch }}"
-              # After successful rebase, try pushing again
+              # After rebase, try pushing again with retries
               push_changes
             fi
           else
-            echo "Nothing to commit";
+            echo "Nothing to commit"
           fi
 
       - name: Run Subweight
