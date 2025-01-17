@@ -11,7 +11,7 @@ description = "FRAME signed extension for verifying the metadata hash"
 [dependencies]
 array-bytes = { workspace = true, default-features = true }
 codec = { features = ["derive"], workspace = true }
-frame = { workspace = true, features = ["experimental", "runtime"]}
+frame = { workspace = true, features = ["runtime"]}
 const-hex = { workspace = true }
 docify = { workspace = true }
 log = { workspace = true }
