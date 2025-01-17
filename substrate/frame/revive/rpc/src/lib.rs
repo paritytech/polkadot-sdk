@@ -24,6 +24,7 @@ use jsonrpsee::{
 	types::{ErrorCode, ErrorObjectOwned},
 };
 use pallet_revive::evm::*;
+use sp_arithmetic::Permill;
 use sp_core::{keccak_256, H160, H256, U256};
 use thiserror::Error;
 
@@ -34,6 +35,12 @@ pub mod subxt_client;
 
 #[cfg(test)]
 mod tests;
+
+mod block_info_provider;
+pub use block_info_provider::*;
+
+mod receipt_provider;
+pub use receipt_provider::*;
 
 mod rpc_health;
 pub use rpc_health::*;
@@ -121,7 +128,12 @@ impl EthRpcServer for EthRpcServerImpl {
 		transaction_hash: H256,
 	) -> RpcResult<Option<ReceiptInfo>> {
 		let receipt = self.client.receipt(&transaction_hash).await;
-		log::debug!(target: LOG_TARGET, "transaction_receipt for {transaction_hash:?}: {}", receipt.is_some());
+		log::debug!(
+			target: LOG_TARGET,
+			"transaction_receipt for {transaction_hash:?}: received: {received} - success: {success:?}",
+			received = receipt.is_some(),
+			success = receipt.as_ref().map(|r| r.status == Some(U256::one()))
+		);
 		Ok(receipt)
 	}
 
@@ -197,12 +209,12 @@ impl EthRpcServer for EthRpcServerImpl {
 	async fn get_block_by_hash(
 		&self,
 		block_hash: H256,
-		_hydrated_transactions: bool,
+		hydrated_transactions: bool,
 	) -> RpcResult<Option<Block>> {
 		let Some(block) = self.client.block_by_hash(&block_hash).await? else {
 			return Ok(None);
 		};
-		let block = self.client.evm_block(block).await?;
+		let block = self.client.evm_block(block, hydrated_transactions).await?;
 		Ok(Some(block))
 	}
 
@@ -220,6 +232,11 @@ impl EthRpcServer for EthRpcServerImpl {
 		Ok(U256::from(GAS_PRICE))
 	}
 
+	async fn max_priority_fee_per_gas(&self) -> RpcResult<U256> {
+		// TODO: Provide better estimation
+		Ok(U256::from(Permill::from_percent(20).mul_ceil(GAS_PRICE)))
+	}
+
 	async fn get_code(&self, address: H160, block: BlockNumberOrTagOrHash) -> RpcResult<Bytes> {
 		let code = self.client.get_contract_code(&address, block).await?;
 		Ok(code.into())
@@ -232,12 +249,12 @@ impl EthRpcServer for EthRpcServerImpl {
 	async fn get_block_by_number(
 		&self,
 		block: BlockNumberOrTag,
-		_hydrated_transactions: bool,
+		hydrated_transactions: bool,
 	) -> RpcResult<Option<Block>> {
 		let Some(block) = self.client.block_by_number_or_tag(&block).await? else {
 			return Ok(None);
 		};
-		let block = self.client.evm_block(block).await?;
+		let block = self.client.evm_block(block, hydrated_transactions).await?;
 		Ok(Some(block))
 	}
 
