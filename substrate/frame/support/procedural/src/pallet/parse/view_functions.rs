@@ -33,9 +33,7 @@ pub struct ViewFunctionsImplDef {
 
 impl ViewFunctionsImplDef {
 	pub fn try_from(attr_span: proc_macro2::Span, item: &mut syn::Item) -> syn::Result<Self> {
-		let item_impl = if let syn::Item::Impl(item) = item {
-			item
-		} else {
+		let syn::Item::Impl(item_impl) = item else {
 			return Err(syn::Error::new(
 				item.span(),
 				"Invalid pallet::view_functions_experimental, expected item impl",
