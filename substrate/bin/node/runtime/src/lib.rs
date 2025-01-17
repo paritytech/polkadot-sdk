@@ -84,7 +84,7 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nfts::PalletFeatures;
 use pallet_nis::WithMaximumOf;
 use pallet_nomination_pools::PoolId;
-use pallet_revive::{evm::runtime::EthExtra, tracing::using_tracer, AddressMapper};
+use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
 use pallet_session::historical as pallet_session_historical;
 use sp_core::U256;
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
@@ -3366,6 +3366,7 @@ impl_runtime_apis! {
 			block: Block,
 			config: pallet_revive::evm::TracerConfig
 		) -> Vec<(u32, pallet_revive::evm::CallTrace)> {
+			use pallet_revive::tracing::trace;
 			log::debug!(target: "runtime::revive", "Tracing block {:?}", block.header().number);
 			let mut tracer = config.build(pallet_revive::evm::runtime::gas_from_weight::<Runtime>);
 			let mut traces = vec![];
@@ -3373,7 +3374,7 @@ impl_runtime_apis! {
 
 			Executive::initialize_block(&header);
 			for (index, ext) in extrinsics.into_iter().enumerate() {
-				using_tracer(&mut tracer, || {
+				trace(&mut tracer, || {
 					let _ = Executive::apply_extrinsic(ext);
 				});
 
@@ -3390,13 +3391,14 @@ impl_runtime_apis! {
 			tx_index: u32,
 			config: pallet_revive::evm::TracerConfig
 		) -> Option<pallet_revive::evm::CallTrace> {
+			use pallet_revive::tracing::trace;
 			let mut tracer = config.build(pallet_revive::evm::runtime::gas_from_weight::<Runtime>);
 			let (header, extrinsics) = block.deconstruct();
 
 			Executive::initialize_block(&header);
 			for (index, ext) in extrinsics.into_iter().enumerate() {
 				if index as u32 == tx_index {
-					using_tracer(&mut tracer, || {
+					trace(&mut tracer, || {
 						let _ = Executive::apply_extrinsic(ext);
 					});
 					break;
