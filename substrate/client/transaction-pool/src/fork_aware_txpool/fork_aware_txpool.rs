@@ -797,10 +797,16 @@ where
 		at: Option<<Self::Block as BlockT>::Hash>,
 		invalid_tx_errors: &[(TxHash<Self>, Option<sp_blockchain::Error>)],
 	) -> Vec<Arc<Self::InPoolTransaction>> {
+		log::debug!(target: LOG_TARGET, "fatp::report_invalid {}", invalid_tx_errors.len());
+		log_xt_trace!(data: tuple, target:LOG_TARGET, invalid_tx_errors, "[{:?}] fatp::report_invalid {:?}");
 		self.metrics
 			.report(|metrics| metrics.reported_invalid_txs.inc_by(invalid_tx_errors.len() as _));
 
 		let removed = self.view_store.report_invalid(at, invalid_tx_errors);
+
+		removed.iter().for_each(|tx| {
+			self.mempool.remove_transaction(&tx.hash);
+		});
 
 		self.metrics
 			.report(|metrics| metrics.removed_invalid_txs.inc_by(removed.len() as _));

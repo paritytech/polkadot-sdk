@@ -297,7 +297,8 @@ pub trait TransactionPool: Send + Sync {
 	/// block.
 	///
 	/// The transaction pool implementation decides which transactions to remove. Transactions
-	/// dependent on invalid ones will also be removed.
+	/// removed from the pool will be notified with `TransactionStatus::Invalid` event (if
+	/// `submit_and_watch` was used for submission).
 	///
 	/// If the tuple's error is None, the transaction will be forcibly removed from the pool.
 	///

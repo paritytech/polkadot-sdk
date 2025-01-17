@@ -660,25 +660,26 @@ where
 	/// optional error encountered during the transaction execution at a specific (also optional)
 	/// block.
 	///
-	/// Removal operation applies to provided transactions and their descendants.
+	/// Removal operation applies to provided transactions. Their descendants can be removed from
+	/// the view, but will not be invalidated or banned.
 	///
 	/// Invalid future and stale transaction will be removed only from given `at` view, and will be
-	/// kept in the transaction pool. Such transaction will not be reported in returned vector. They
+	/// kept in the view_store. Such transaction will not be reported in returned vector. They
 	/// also will not be banned from re-entering the pool (however can be rejected from re-entring
 	/// the view). No event will be triggered.
 	///
-	/// For other errors, the transaction will be removed from the pool, and it will be included in
-	/// the returned vector. Additionally, transactions
-	/// provided as input will be banned from re-entering the pool.
+	/// For other errors, the transaction will be removed from the view_store, and it will be
+	/// included in the returned vector. Additionally, transactions provided as input will be banned
+	/// from re-entering the pool.
 	///
-	/// If the tuple's error is None, the transaction will be forcibly removed from the pool,
+	/// If the tuple's error is None, the transaction will be forcibly removed from the view_store,
 	/// banned and included into the returned vector.
 	///
-	/// For every transaction removed from the pool (including descendants) an Invalid event is
-	/// triggered.
+	/// For every transaction removed from the view_store (excluding descendants) an Invalid event
+	/// is triggered.
 	///
-	/// Returns the list of actually removed transactions, which may include transactions dependent
-	/// on the provided set.
+	/// Returns the list of actually removed transactions from the mempool, which were included in
+	/// the provided input list.
 	pub(crate) fn report_invalid(
 		&self,
 		at: Option<Block::Hash>,
@@ -708,13 +709,17 @@ where
 		});
 
 		let mut removed = vec![];
-		for tx in &remove_from_pool {
+		for tx_hash in &remove_from_pool {
 			let removed_from_pool =
-				self.remove_transaction_subtree(*tx, |listener, removed_tx_hash| {
+				self.remove_transaction_subtree(*tx_hash, |listener, removed_tx_hash| {
 					listener.invalid(&removed_tx_hash);
 				});
-			removed.extend(removed_from_pool);
+			removed_from_pool
+				.iter()
+				.find(|tx| tx.hash == *tx_hash)
+				.map(|tx| removed.push(tx.clone()));
 		}
+
 		self.listener.invalidate_transactions(&remove_from_pool);
 
 		removed
