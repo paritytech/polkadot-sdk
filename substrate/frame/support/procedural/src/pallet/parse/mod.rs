@@ -375,6 +375,11 @@ impl Def {
 					defined in the system supertrait.";
 				Err(syn::Error::new(proc_macro2::Span::call_site(), msg))
 			},
+			(true, true, _) => {
+				let msg = "Invalid usage of RuntimeEvent, `Config` contains associated type `RuntimeEvent` and associated type bound `RuntimeEvent`. \
+					Only one of them should be used.";
+				Err(syn::Error::new(proc_macro2::Span::call_site(), msg))
+			},
 			_ => Ok(()),
 		}
 	}
