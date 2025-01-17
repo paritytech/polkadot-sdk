@@ -11,4 +11,4 @@ doc:
     4. Remove proxy.
 crates:
 - name: westend-runtime
-  bump: minor
+  bump: major
