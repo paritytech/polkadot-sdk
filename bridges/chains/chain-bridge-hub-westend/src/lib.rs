@@ -88,7 +88,7 @@ pub const WITH_BRIDGE_HUB_WESTEND_RELAYERS_PALLET_NAME: &str = "BridgeRelayers";
 pub const WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX: u8 = 44;
 
 decl_bridge_finality_runtime_apis!(bridge_hub_westend);
-decl_bridge_messages_runtime_apis!(bridge_hub_westend);
+decl_bridge_messages_runtime_apis!(bridge_hub_westend, LegacyLaneId);
 
 frame_support::parameter_types! {
 	/// The XCM fee that is paid for executing XCM program (with `ExportMessage` instruction) at the Westend
@@ -98,11 +98,11 @@ frame_support::parameter_types! {
 
 	/// Transaction fee that is paid at the Westend BridgeHub for delivering single inbound message.
 	/// (initially was calculated by test `BridgeHubWestend::can_calculate_fee_for_standalone_message_delivery_transaction` + `33%`)
-	pub const BridgeHubWestendBaseDeliveryFeeInWnds: u128 = 89_293_427_116;
+	pub const BridgeHubWestendBaseDeliveryFeeInWnds: u128 = 89_305_927_116;
 
 	/// Transaction fee that is paid at the Westend BridgeHub for delivering single outbound message confirmation.
 	/// (initially was calculated by test `BridgeHubWestend::can_calculate_fee_for_standalone_message_confirmation_transaction` + `33%`)
-	pub const BridgeHubWestendBaseConfirmationFeeInWnds: u128 = 17_022_177_116;
+	pub const BridgeHubWestendBaseConfirmationFeeInWnds: u128 = 17_034_677_116;
 }
 
 /// Wrapper over `BridgeHubWestend`'s `RuntimeCall` that can be used without a runtime.

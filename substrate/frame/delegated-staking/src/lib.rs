@@ -71,8 +71,8 @@
 //! - Migrate a `Nominator` account to an `agent` account. See [`Pallet::migrate_to_agent`].
 //!   Explained in more detail in the `Migration` section.
 //! - Migrate unclaimed delegated funds from `agent` to delegator. When a nominator migrates to an
-//! agent, the funds are held in a proxy account. This function allows the delegator to claim their
-//! share of the funds from the proxy account. See [`Pallet::migrate_delegation`].
+//!   agent, the funds are held in a proxy account. This function allows the delegator to claim
+//!   their share of the funds from the proxy account. See [`Pallet::migrate_delegation`].
 //!
 //! ## Lazy Slashing
 //! One of the reasons why direct nominators on staking pallet cannot scale well is because all
@@ -520,7 +520,7 @@ impl<T: Config> Pallet<T> {
 		let stake = T::CoreStaking::stake(who)?;
 
 		// release funds from core staking.
-		T::CoreStaking::migrate_to_virtual_staker(who);
+		T::CoreStaking::migrate_to_virtual_staker(who)?;
 
 		// transfer just released staked amount plus any free amount.
 		let amount_to_transfer =

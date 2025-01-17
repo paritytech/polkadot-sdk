@@ -27,11 +27,15 @@ use cumulus_client_collator::service::CollatorService;
 use cumulus_client_consensus_aura::{
 	collators::{
 		lookahead::{self as aura, Params as AuraParams},
-		slot_based::{self as slot_based, Params as SlotBasedParams},
+		slot_based::{
+			self as slot_based, Params as SlotBasedParams, SlotBasedBlockImport,
+			SlotBasedBlockImportHandle,
+		},
 	},
 	ImportQueueParams,
 };
 use cumulus_client_consensus_proposer::Proposer;
+use prometheus::Registry;
 use runtime::AccountId;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sp_consensus_aura::sr25519::AuthorityPair;
@@ -89,7 +93,7 @@ use sp_arithmetic::traits::SaturatedConversion;
 use sp_blockchain::HeaderBackend;
 use sp_core::Pair;
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::{codec::Encode, generic};
+use sp_runtime::{codec::Encode, generic, MultiAddress};
 use sp_state_machine::BasicExternalities;
 use std::sync::Arc;
 use substrate_test_client::{
@@ -130,10 +134,11 @@ pub type Client = TFullClient<runtime::NodeBlock, runtime::RuntimeApi, WasmExecu
 pub type Backend = TFullBackend<Block>;
 
 /// The block-import type being used by the test service.
-pub type ParachainBlockImport = TParachainBlockImport<Block, Arc<Client>, Backend>;
+pub type ParachainBlockImport =
+	TParachainBlockImport<Block, SlotBasedBlockImport<Block, Arc<Client>, Client>, Backend>;
 
 /// Transaction pool type used by the test service
-pub type TransactionPool = Arc<sc_transaction_pool::FullPool<Block, Client>>;
+pub type TransactionPool = Arc<sc_transaction_pool::TransactionPoolHandle<Block, Client>>;
 
 /// Recovery handle that fails regularly to simulate unavailable povs.
 pub struct FailingRecoveryHandle {
@@ -182,8 +187,8 @@ pub type Service = PartialComponents<
 	Backend,
 	(),
 	sc_consensus::import_queue::BasicQueue<Block>,
-	sc_transaction_pool::FullPool<Block, Client>,
-	ParachainBlockImport,
+	sc_transaction_pool::TransactionPoolHandle<Block, Client>,
+	(ParachainBlockImport, SlotBasedBlockImportHandle<Block>),
 >;
 
 /// Starts a `ServiceBuilder` for a full service.
@@ -216,14 +221,19 @@ pub fn new_partial(
 		)?;
 	let client = Arc::new(client);
 
-	let block_import = ParachainBlockImport::new(client.clone(), backend.clone());
+	let (block_import, slot_based_handle) =
+		SlotBasedBlockImport::new(client.clone(), client.clone());
+	let block_import = ParachainBlockImport::new(block_import, backend.clone());
 
-	let transaction_pool = sc_transaction_pool::BasicPool::new_full(
-		config.transaction_pool.clone(),
-		config.role.is_authority().into(),
-		config.prometheus_registry(),
-		task_manager.spawn_essential_handle(),
-		client.clone(),
+	let transaction_pool = Arc::from(
+		sc_transaction_pool::Builder::new(
+			task_manager.spawn_essential_handle(),
+			client.clone(),
+			config.role.is_authority().into(),
+		)
+		.with_options(config.transaction_pool.clone())
+		.with_prometheus(config.prometheus_registry())
+		.build(),
 	);
 
 	let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
@@ -256,7 +266,7 @@ pub fn new_partial(
 		task_manager,
 		transaction_pool,
 		select_chain: (),
-		other: block_import,
+		other: (block_import, slot_based_handle),
 	};
 
 	Ok(params)
@@ -264,11 +274,12 @@ pub fn new_partial(
 
 async fn build_relay_chain_interface(
 	relay_chain_config: Configuration,
+	parachain_prometheus_registry: Option<&Registry>,
 	collator_key: Option<CollatorPair>,
 	collator_options: CollatorOptions,
 	task_manager: &mut TaskManager,
 ) -> RelayChainResult<Arc<dyn RelayChainInterface + 'static>> {
-	let relay_chain_full_node = match collator_options.relay_chain_mode {
+	let relay_chain_node = match collator_options.relay_chain_mode {
 		cumulus_client_cli::RelayChainMode::Embedded => polkadot_test_service::new_full(
 			relay_chain_config,
 			if let Some(ref key) = collator_key {
@@ -283,6 +294,7 @@ async fn build_relay_chain_interface(
 		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) =>
 			return build_minimal_relay_chain_node_with_rpc(
 				relay_chain_config,
+				parachain_prometheus_registry,
 				task_manager,
 				rpc_target_urls,
 			)
@@ -294,13 +306,13 @@ async fn build_relay_chain_interface(
 				.map(|r| r.0),
 	};
 
-	task_manager.add_child(relay_chain_full_node.task_manager);
+	task_manager.add_child(relay_chain_node.task_manager);
 	tracing::info!("Using inprocess node.");
 	Ok(Arc::new(RelayChainInProcessInterface::new(
-		relay_chain_full_node.client.clone(),
-		relay_chain_full_node.backend.clone(),
-		relay_chain_full_node.sync_service.clone(),
-		relay_chain_full_node.overseer_handle.ok_or(RelayChainError::GenericError(
+		relay_chain_node.client.clone(),
+		relay_chain_node.backend.clone(),
+		relay_chain_node.sync_service.clone(),
+		relay_chain_node.overseer_handle.ok_or(RelayChainError::GenericError(
 			"Overseer should be running in full node.".to_string(),
 		))?,
 	)))
@@ -343,10 +355,11 @@ where
 	let client = params.client.clone();
 	let backend = params.backend.clone();
 
-	let block_import = params.other;
-
+	let block_import = params.other.0;
+	let slot_based_handle = params.other.1;
 	let relay_chain_interface = build_relay_chain_interface(
 		relay_chain_config,
+		parachain_config.prometheus_registry(),
 		collator_key.clone(),
 		collator_options.clone(),
 		&mut task_manager,
@@ -361,7 +374,7 @@ where
 		prometheus_registry.clone(),
 	);
 
-	let (network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
+	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 		build_network(BuildNetworkParams {
 			parachain_config: &parachain_config,
 			net_config,
@@ -486,26 +499,16 @@ where
 					keystore,
 					collator_key,
 					para_id,
-					relay_chain_slot_duration,
 					proposer,
 					collator_service,
 					authoring_duration: Duration::from_millis(2000),
 					reinitialize: false,
 					slot_drift: Duration::from_secs(1),
+					block_import_handle: slot_based_handle,
+					spawner: task_manager.spawn_handle(),
 				};
 
-				let (collation_future, block_builer_future) =
-					slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _>(params);
-				task_manager.spawn_essential_handle().spawn(
-					"collation-task",
-					None,
-					collation_future,
-				);
-				task_manager.spawn_essential_handle().spawn(
-					"block-builder-task",
-					None,
-					block_builer_future,
-				);
+				slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);
 			} else {
 				tracing::info!(target: LOG_TARGET, "Starting block authoring with lookahead collator.");
 				let params = AuraParams {
@@ -536,8 +539,6 @@ where
 			}
 		}
 	}
-
-	start_network.start_network();
 
 	Ok((task_manager, client, network, rpc_handlers, transaction_pool, backend))
 }
@@ -964,7 +965,7 @@ pub fn construct_extrinsic(
 		.map(|c| c / 2)
 		.unwrap_or(2) as u64;
 	let tip = 0;
-	let extra: runtime::SignedExtra = (
+	let tx_ext: runtime::TxExtension = (
 		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
 		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
 		frame_system::CheckGenesis::<runtime::Runtime>::new(),
@@ -975,19 +976,19 @@ pub fn construct_extrinsic(
 		frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(tip),
-		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::<runtime::Runtime>::new(),
-	);
+	)
+		.into();
 	let raw_payload = runtime::SignedPayload::from_raw(
 		function.clone(),
-		extra.clone(),
-		((), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
+		tx_ext.clone(),
+		((), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), ()),
 	);
 	let signature = raw_payload.using_encoded(|e| caller.sign(e));
 	runtime::UncheckedExtrinsic::new_signed(
 		function,
-		caller.public().into(),
+		MultiAddress::Id(caller.public().into()),
 		runtime::Signature::Sr25519(signature),
-		extra,
+		tx_ext,
 	)
 }
 

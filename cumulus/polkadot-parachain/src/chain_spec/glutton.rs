@@ -14,14 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::chain_spec::get_account_id_from_seed;
 use cumulus_primitives_core::ParaId;
 use parachains_common::AuraId;
-use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
+use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 use sc_service::ChainType;
-use sp_core::sr25519;
-
-use super::get_collator_keys_from_seed;
+use sp_keyring::Sr25519Keyring;
 
 fn glutton_genesis(parachain_id: ParaId, collators: Vec<AuraId>) -> serde_json::Value {
 	serde_json::json!( {
@@ -29,7 +26,7 @@ fn glutton_genesis(parachain_id: ParaId, collators: Vec<AuraId>) -> serde_json::
 			"parachainId": parachain_id
 		},
 		"sudo": {
-			"key": Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
+			"key": Some(Sr25519Keyring::Alice.to_account_id()),
 		},
 		"aura": { "authorities": collators },
 	})
@@ -45,7 +42,7 @@ pub fn glutton_westend_development_config(para_id: ParaId) -> GenericChainSpec {
 	.with_chain_type(ChainType::Local)
 	.with_genesis_config_patch(glutton_genesis(
 		para_id,
-		vec![get_collator_keys_from_seed::<AuraId>("Alice")],
+		vec![Sr25519Keyring::Alice.public().into()],
 	))
 	.build()
 }
@@ -60,10 +57,7 @@ pub fn glutton_westend_local_config(para_id: ParaId) -> GenericChainSpec {
 	.with_chain_type(ChainType::Local)
 	.with_genesis_config_patch(glutton_genesis(
 		para_id,
-		vec![
-			get_collator_keys_from_seed::<AuraId>("Alice"),
-			get_collator_keys_from_seed::<AuraId>("Bob"),
-		],
+		vec![Sr25519Keyring::Alice.public().into(), Sr25519Keyring::Bob.public().into()],
 	))
 	.build()
 }
@@ -81,10 +75,7 @@ pub fn glutton_westend_config(para_id: ParaId) -> GenericChainSpec {
 	.with_chain_type(ChainType::Live)
 	.with_genesis_config_patch(glutton_westend_genesis(
 		para_id,
-		vec![
-			get_collator_keys_from_seed::<AuraId>("Alice"),
-			get_collator_keys_from_seed::<AuraId>("Bob"),
-		],
+		vec![Sr25519Keyring::Alice.public().into(), Sr25519Keyring::Bob.public().into()],
 	))
 	.with_protocol_id(format!("glutton-westend-{}", para_id).as_str())
 	.with_properties(properties)
@@ -97,7 +88,7 @@ fn glutton_westend_genesis(parachain_id: ParaId, collators: Vec<AuraId>) -> serd
 			"parachainId": parachain_id
 		},
 		"sudo": {
-			"key": Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
+			"key": Some(Sr25519Keyring::Alice.to_account_id()),
 		},
 		"aura": { "authorities": collators },
 	})

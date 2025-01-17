@@ -66,8 +66,8 @@ use frame_support::{
 	ensure,
 	storage::bounded_vec::BoundedVec,
 	traits::{
-		Currency, ExistenceRequirement, Get, LockIdentifier, LockableCurrency, VestingSchedule,
-		WithdrawReasons,
+		Currency, ExistenceRequirement, Get, LockIdentifier, LockableCurrency, VestedTransfer,
+		VestingSchedule, WithdrawReasons,
 	},
 	weights::Weight,
 };
@@ -351,8 +351,8 @@ pub mod pallet {
 			schedule: VestingInfo<BalanceOf<T>, BlockNumberFor<T>>,
 		) -> DispatchResult {
 			let transactor = ensure_signed(origin)?;
-			let transactor = <T::Lookup as StaticLookup>::unlookup(transactor);
-			Self::do_vested_transfer(transactor, target, schedule)
+			let target = T::Lookup::lookup(target)?;
+			Self::do_vested_transfer(&transactor, &target, schedule)
 		}
 
 		/// Force a vested transfer.
@@ -380,7 +380,9 @@ pub mod pallet {
 			schedule: VestingInfo<BalanceOf<T>, BlockNumberFor<T>>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			Self::do_vested_transfer(source, target, schedule)
+			let target = T::Lookup::lookup(target)?;
+			let source = T::Lookup::lookup(source)?;
+			Self::do_vested_transfer(&source, &target, schedule)
 		}
 
 		/// Merge two vesting schedules together, creating a new vesting schedule that unlocks over
@@ -525,8 +527,8 @@ impl<T: Config> Pallet<T> {
 
 	// Execute a vested transfer from `source` to `target` with the given `schedule`.
 	fn do_vested_transfer(
-		source: AccountIdLookupOf<T>,
-		target: AccountIdLookupOf<T>,
+		source: &T::AccountId,
+		target: &T::AccountId,
 		schedule: VestingInfo<BalanceOf<T>, BlockNumberFor<T>>,
 	) -> DispatchResult {
 		// Validate user inputs.
@@ -534,27 +536,22 @@ impl<T: Config> Pallet<T> {
 		if !schedule.is_valid() {
 			return Err(Error::<T>::InvalidScheduleParams.into())
 		};
-		let target = T::Lookup::lookup(target)?;
-		let source = T::Lookup::lookup(source)?;
 
 		// Check we can add to this account prior to any storage writes.
 		Self::can_add_vesting_schedule(
-			&target,
+			target,
 			schedule.locked(),
 			schedule.per_block(),
 			schedule.starting_block(),
 		)?;
 
-		T::Currency::transfer(
-			&source,
-			&target,
-			schedule.locked(),
-			ExistenceRequirement::AllowDeath,
-		)?;
+		T::Currency::transfer(source, target, schedule.locked(), ExistenceRequirement::AllowDeath)?;
 
 		// We can't let this fail because the currency transfer has already happened.
+		// Must be successful as it has been checked before.
+		// Better to return error on failure anyway.
 		let res = Self::add_vesting_schedule(
-			&target,
+			target,
 			schedule.locked(),
 			schedule.per_block(),
 			schedule.starting_block(),
@@ -751,8 +748,8 @@ where
 		Ok(())
 	}
 
-	// Ensure we can call `add_vesting_schedule` without error. This should always
-	// be called prior to `add_vesting_schedule`.
+	/// Ensure we can call `add_vesting_schedule` without error. This should always
+	/// be called prior to `add_vesting_schedule`.
 	fn can_add_vesting_schedule(
 		who: &T::AccountId,
 		locked: BalanceOf<T>,
@@ -782,5 +779,34 @@ where
 		Self::write_vesting(who, schedules)?;
 		Self::write_lock(who, locked_now);
 		Ok(())
+	}
+}
+
+/// An implementation that allows the Vesting Pallet to handle a vested transfer
+/// on behalf of another Pallet.
+impl<T: Config> VestedTransfer<T::AccountId> for Pallet<T>
+where
+	BalanceOf<T>: MaybeSerializeDeserialize + Debug,
+{
+	type Currency = T::Currency;
+	type Moment = BlockNumberFor<T>;
+
+	fn vested_transfer(
+		source: &T::AccountId,
+		target: &T::AccountId,
+		locked: BalanceOf<T>,
+		per_block: BalanceOf<T>,
+		starting_block: BlockNumberFor<T>,
+	) -> DispatchResult {
+		use frame_support::storage::{with_transaction, TransactionOutcome};
+		let schedule = VestingInfo::new(locked, per_block, starting_block);
+		with_transaction(|| -> TransactionOutcome<DispatchResult> {
+			let result = Self::do_vested_transfer(source, target, schedule);
+
+			match &result {
+				Ok(()) => TransactionOutcome::Commit(result),
+				_ => TransactionOutcome::Rollback(result),
+			}
+		})
 	}
 }

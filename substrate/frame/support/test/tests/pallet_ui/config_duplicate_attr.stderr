@@ -1,0 +1,5 @@
+error: Invalid duplicated attribute for `#[pallet::config]`. Please remove duplicates: without_automatic_metadata.
+  --> tests/pallet_ui/config_duplicate_attr.rs:23:12
+   |
+23 |     #[pallet::config(with_default, without_automatic_metadata, without_automatic_metadata)]
+   |               ^^^^^^

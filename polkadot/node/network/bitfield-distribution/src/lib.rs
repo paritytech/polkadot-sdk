@@ -36,8 +36,8 @@ use polkadot_node_network_protocol::{
 	UnifiedReputationChange as Rep, Versioned, View,
 };
 use polkadot_node_subsystem::{
-	jaeger, messages::*, overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, PerLeafSpan,
-	SpawnedSubsystem, SubsystemError, SubsystemResult,
+	messages::*, overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
+	SubsystemError, SubsystemResult,
 };
 use polkadot_node_subsystem_util::{
 	self as util,
@@ -177,22 +177,14 @@ struct PerRelayParentData {
 	/// Track messages that were already received by a peer
 	/// to prevent flooding.
 	message_received_from_peer: HashMap<PeerId, HashSet<ValidatorId>>,
-
-	/// The span for this leaf/relay parent.
-	span: PerLeafSpan,
 }
 
 impl PerRelayParentData {
 	/// Create a new instance.
-	fn new(
-		signing_context: SigningContext,
-		validator_set: Vec<ValidatorId>,
-		span: PerLeafSpan,
-	) -> Self {
+	fn new(signing_context: SigningContext, validator_set: Vec<ValidatorId>) -> Self {
 		Self {
 			signing_context,
 			validator_set,
-			span,
 			one_per_validator: Default::default(),
 			message_sent_to_peer: Default::default(),
 			message_received_from_peer: Default::default(),
@@ -304,8 +296,6 @@ impl BitfieldDistribution {
 								let relay_parent = activated.hash;
 
 								gum::trace!(target: LOG_TARGET, ?relay_parent, "activated");
-								let span = PerLeafSpan::new(activated.span, "bitfield-distribution");
-								let _span = span.child("query-basics");
 
 								// query validator set and signing context per relay_parent once only
 								match query_basics(&mut ctx, relay_parent).await {
@@ -317,7 +307,7 @@ impl BitfieldDistribution {
 										// us anything to do with this relay-parent anyway.
 										let _ = state.per_relay_parent.insert(
 											relay_parent,
-											PerRelayParentData::new(signing_context, validator_set, span),
+											PerRelayParentData::new(signing_context, validator_set),
 										);
 									},
 									Err(err) => {
@@ -430,9 +420,7 @@ async fn relay_message<Context>(
 	rng: &mut (impl CryptoRng + Rng),
 ) {
 	let relay_parent = message.relay_parent;
-	let span = job_data.span.child("relay-msg");
 
-	let _span = span.child("provisionable");
 	// notify the overseer about a new and valid signed bitfield
 	ctx.send_message(ProvisionerMessage::ProvisionableData(
 		relay_parent,
@@ -440,11 +428,9 @@ async fn relay_message<Context>(
 	))
 	.await;
 
-	drop(_span);
 	let total_peers = peers.len();
 	let mut random_routing: RandomRouting = Default::default();
 
-	let _span = span.child("interested-peers");
 	// pass on the bitfield distribution to all interested peers
 	let interested_peers = peers
 		.iter()
@@ -487,8 +473,6 @@ async fn relay_message<Context>(
 			.insert(validator.clone());
 	});
 
-	drop(_span);
-
 	if interested_peers.is_empty() {
 		gum::trace!(
 			target: LOG_TARGET,
@@ -496,8 +480,6 @@ async fn relay_message<Context>(
 			"no peers are interested in gossip for relay parent",
 		);
 	} else {
-		let _span = span.child("gossip");
-
 		let v1_interested_peers =
 			filter_by_peer_version(&interested_peers, ValidationVersion::V1.into());
 		let v2_interested_peers =
@@ -593,14 +575,6 @@ async fn process_incoming_peer_message<Context>(
 	};
 
 	let validator_index = bitfield.unchecked_validator_index();
-
-	let mut _span = job_data
-		.span
-		.child("msg-received")
-		.with_peer_id(&origin)
-		.with_relay_parent(relay_parent)
-		.with_claimed_validator_index(validator_index)
-		.with_stage(jaeger::Stage::BitfieldDistribution);
 
 	let validator_set = &job_data.validator_set;
 	if validator_set.is_empty() {
@@ -914,7 +888,6 @@ async fn send_tracked_gossip_message<Context>(
 		return
 	};
 
-	let _span = job_data.span.child("gossip");
 	gum::trace!(
 		target: LOG_TARGET,
 		?dest,

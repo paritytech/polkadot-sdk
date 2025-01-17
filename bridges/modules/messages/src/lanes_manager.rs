@@ -21,8 +21,8 @@ use crate::{
 };
 
 use bp_messages::{
-	target_chain::MessageDispatch, ChainWithMessages, InboundLaneData, LaneId, LaneState,
-	MessageKey, MessageNonce, OutboundLaneData,
+	target_chain::MessageDispatch, ChainWithMessages, InboundLaneData, LaneState, MessageKey,
+	MessageNonce, OutboundLaneData,
 };
 use bp_runtime::AccountIdOf;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -68,7 +68,7 @@ impl<T: Config<I>, I: 'static> LanesManager<T, I> {
 	/// Create new inbound lane in `Opened` state.
 	pub fn create_inbound_lane(
 		&self,
-		lane_id: LaneId,
+		lane_id: T::LaneId,
 	) -> Result<InboundLane<RuntimeInboundLaneStorage<T, I>>, LanesManagerError> {
 		InboundLanes::<T, I>::try_mutate(lane_id, |lane| match lane {
 			Some(_) => Err(LanesManagerError::InboundLaneAlreadyExists),
@@ -87,7 +87,7 @@ impl<T: Config<I>, I: 'static> LanesManager<T, I> {
 	/// Create new outbound lane in `Opened` state.
 	pub fn create_outbound_lane(
 		&self,
-		lane_id: LaneId,
+		lane_id: T::LaneId,
 	) -> Result<OutboundLane<RuntimeOutboundLaneStorage<T, I>>, LanesManagerError> {
 		OutboundLanes::<T, I>::try_mutate(lane_id, |lane| match lane {
 			Some(_) => Err(LanesManagerError::OutboundLaneAlreadyExists),
@@ -103,7 +103,7 @@ impl<T: Config<I>, I: 'static> LanesManager<T, I> {
 	/// Get existing inbound lane, checking that it is in usable state.
 	pub fn active_inbound_lane(
 		&self,
-		lane_id: LaneId,
+		lane_id: T::LaneId,
 	) -> Result<InboundLane<RuntimeInboundLaneStorage<T, I>>, LanesManagerError> {
 		Ok(InboundLane::new(RuntimeInboundLaneStorage::from_lane_id(lane_id, true)?))
 	}
@@ -111,7 +111,7 @@ impl<T: Config<I>, I: 'static> LanesManager<T, I> {
 	/// Get existing outbound lane, checking that it is in usable state.
 	pub fn active_outbound_lane(
 		&self,
-		lane_id: LaneId,
+		lane_id: T::LaneId,
 	) -> Result<OutboundLane<RuntimeOutboundLaneStorage<T, I>>, LanesManagerError> {
 		Ok(OutboundLane::new(RuntimeOutboundLaneStorage::from_lane_id(lane_id, true)?))
 	}
@@ -119,7 +119,7 @@ impl<T: Config<I>, I: 'static> LanesManager<T, I> {
 	/// Get existing inbound lane without any additional state checks.
 	pub fn any_state_inbound_lane(
 		&self,
-		lane_id: LaneId,
+		lane_id: T::LaneId,
 	) -> Result<InboundLane<RuntimeInboundLaneStorage<T, I>>, LanesManagerError> {
 		Ok(InboundLane::new(RuntimeInboundLaneStorage::from_lane_id(lane_id, false)?))
 	}
@@ -127,7 +127,7 @@ impl<T: Config<I>, I: 'static> LanesManager<T, I> {
 	/// Get existing outbound lane without any additional state checks.
 	pub fn any_state_outbound_lane(
 		&self,
-		lane_id: LaneId,
+		lane_id: T::LaneId,
 	) -> Result<OutboundLane<RuntimeOutboundLaneStorage<T, I>>, LanesManagerError> {
 		Ok(OutboundLane::new(RuntimeOutboundLaneStorage::from_lane_id(lane_id, false)?))
 	}
@@ -135,14 +135,14 @@ impl<T: Config<I>, I: 'static> LanesManager<T, I> {
 
 /// Runtime inbound lane storage.
 pub struct RuntimeInboundLaneStorage<T: Config<I>, I: 'static = ()> {
-	pub(crate) lane_id: LaneId,
+	pub(crate) lane_id: T::LaneId,
 	pub(crate) cached_data: InboundLaneData<AccountIdOf<BridgedChainOf<T, I>>>,
 }
 
 impl<T: Config<I>, I: 'static> RuntimeInboundLaneStorage<T, I> {
 	/// Creates new runtime inbound lane storage for given **existing** lane.
 	fn from_lane_id(
-		lane_id: LaneId,
+		lane_id: T::LaneId,
 		check_active: bool,
 	) -> Result<RuntimeInboundLaneStorage<T, I>, LanesManagerError> {
 		let cached_data =
@@ -196,8 +196,9 @@ impl<T: Config<I>, I: 'static> RuntimeInboundLaneStorage<T, I> {
 
 impl<T: Config<I>, I: 'static> InboundLaneStorage for RuntimeInboundLaneStorage<T, I> {
 	type Relayer = AccountIdOf<BridgedChainOf<T, I>>;
+	type LaneId = T::LaneId;
 
-	fn id(&self) -> LaneId {
+	fn id(&self) -> Self::LaneId {
 		self.lane_id
 	}
 
@@ -225,15 +226,15 @@ impl<T: Config<I>, I: 'static> InboundLaneStorage for RuntimeInboundLaneStorage<
 
 /// Runtime outbound lane storage.
 #[derive(Debug, PartialEq, Eq)]
-pub struct RuntimeOutboundLaneStorage<T, I = ()> {
-	pub(crate) lane_id: LaneId,
+pub struct RuntimeOutboundLaneStorage<T: Config<I>, I: 'static> {
+	pub(crate) lane_id: T::LaneId,
 	pub(crate) cached_data: OutboundLaneData,
 	pub(crate) _phantom: PhantomData<(T, I)>,
 }
 
 impl<T: Config<I>, I: 'static> RuntimeOutboundLaneStorage<T, I> {
 	/// Creates new runtime outbound lane storage for given **existing** lane.
-	fn from_lane_id(lane_id: LaneId, check_active: bool) -> Result<Self, LanesManagerError> {
+	fn from_lane_id(lane_id: T::LaneId, check_active: bool) -> Result<Self, LanesManagerError> {
 		let cached_data =
 			OutboundLanes::<T, I>::get(lane_id).ok_or(LanesManagerError::UnknownOutboundLane)?;
 		ensure!(
@@ -246,8 +247,9 @@ impl<T: Config<I>, I: 'static> RuntimeOutboundLaneStorage<T, I> {
 
 impl<T: Config<I>, I: 'static> OutboundLaneStorage for RuntimeOutboundLaneStorage<T, I> {
 	type StoredMessagePayload = StoredMessagePayload<T, I>;
+	type LaneId = T::LaneId;
 
-	fn id(&self) -> LaneId {
+	fn id(&self) -> Self::LaneId {
 		self.lane_id
 	}
 

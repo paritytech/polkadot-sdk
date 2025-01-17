@@ -18,8 +18,8 @@
 //! This module contains functions to meter the storage deposit.
 
 use crate::{
-	address::AddressMapper, storage::ContractInfo, AccountIdOf, BalanceOf, CodeInfo, Config, Error,
-	Event, HoldReason, Inspect, Origin, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
+	storage::ContractInfo, AccountIdOf, BalanceOf, CodeInfo, Config, Error, HoldReason, Inspect,
+	Origin, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};
@@ -27,11 +27,10 @@ use frame_support::{
 	traits::{
 		fungible::{Mutate, MutateHold},
 		tokens::{Fortitude, Fortitude::Polite, Precision, Preservation, Restriction},
-		Get, IsType,
+		Get,
 	},
 	DefaultNoBound, RuntimeDebugNoBound,
 };
-use sp_core::H256;
 use sp_runtime::{
 	traits::{Saturating, Zero},
 	DispatchError, FixedPointNumber, FixedU128,
@@ -102,12 +101,8 @@ pub struct Root;
 
 /// State parameter that constitutes a meter that is in its nested state.
 /// Its value indicates whether the nested meter has its own limit.
-#[derive(DefaultNoBound, RuntimeDebugNoBound)]
-pub enum Nested {
-	#[default]
-	DerivedLimit,
-	OwnLimit,
-}
+#[derive(Default, Debug)]
+pub struct Nested;
 
 impl State for Root {}
 impl State for Nested {}
@@ -126,10 +121,8 @@ pub struct RawMeter<T: Config, E, S: State + Default + Debug> {
 	/// We only have one charge per contract hence the size of this vector is
 	/// limited by the maximum call depth.
 	charges: Vec<Charge<T>>,
-	/// We store the nested state to determine if it has a special limit for sub-call.
-	nested: S,
 	/// Type parameter only used in impls.
-	_phantom: PhantomData<E>,
+	_phantom: PhantomData<(E, S)>,
 }
 
 /// This type is used to describe a storage change when charging from the meter.
@@ -282,21 +275,14 @@ where
 	S: State + Default + Debug,
 {
 	/// Create a new child that has its `limit`.
-	/// Passing `0` as the limit is interpreted as to take whatever is remaining from its parent.
 	///
 	/// This is called whenever a new subcall is initiated in order to track the storage
 	/// usage for this sub call separately. This is necessary because we want to exchange balance
 	/// with the current contract we are interacting with.
 	pub fn nested(&self, limit: BalanceOf<T>) -> RawMeter<T, E, Nested> {
 		debug_assert!(matches!(self.contract_state(), ContractState::Alive));
-		// If a special limit is specified higher than it is available,
-		// we want to enforce the lesser limit to the nested meter, to fail in the sub-call.
-		let limit = self.available().min(limit);
-		if limit.is_zero() {
-			RawMeter { limit: self.available(), ..Default::default() }
-		} else {
-			RawMeter { limit, nested: Nested::OwnLimit, ..Default::default() }
-		}
+
+		RawMeter { limit: self.available().min(limit), ..Default::default() }
 	}
 
 	/// Absorb a child that was spawned to handle a sub call.
@@ -374,35 +360,42 @@ where
 		}
 	}
 
+	/// Create new storage meter without checking the limit.
+	pub fn new_unchecked(limit: BalanceOf<T>) -> Self {
+		return Self { limit, ..Default::default() }
+	}
+
 	/// The total amount of deposit that should change hands as result of the execution
 	/// that this meter was passed into. This will also perform all the charges accumulated
 	/// in the whole contract stack.
 	///
 	/// This drops the root meter in order to make sure it is only called when the whole
 	/// execution did finish.
-	pub fn try_into_deposit(self, origin: &Origin<T>) -> Result<DepositOf<T>, DispatchError> {
-		// Only refund or charge deposit if the origin is not root.
-		let origin = match origin {
-			Origin::Root => return Ok(Deposit::Charge(Zero::zero())),
-			Origin::Signed(o) => o,
-		};
-		for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Refund(_))) {
-			E::charge(origin, &charge.contract, &charge.amount, &charge.state)?;
+	pub fn try_into_deposit(
+		self,
+		origin: &Origin<T>,
+		skip_transfer: bool,
+	) -> Result<DepositOf<T>, DispatchError> {
+		if !skip_transfer {
+			// Only refund or charge deposit if the origin is not root.
+			let origin = match origin {
+				Origin::Root => return Ok(Deposit::Charge(Zero::zero())),
+				Origin::Signed(o) => o,
+			};
+			for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Refund(_))) {
+				E::charge(origin, &charge.contract, &charge.amount, &charge.state)?;
+			}
+			for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Charge(_))) {
+				E::charge(origin, &charge.contract, &charge.amount, &charge.state)?;
+			}
 		}
-		for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Charge(_))) {
-			E::charge(origin, &charge.contract, &charge.amount, &charge.state)?;
-		}
+
 		Ok(self.total_deposit)
 	}
 }
 
 /// Functions that only apply to the nested state.
-impl<T, E> RawMeter<T, E, Nested>
-where
-	T: Config,
-	T::Hash: IsType<H256>,
-	E: Ext<T>,
-{
+impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 	/// Charges `diff` from the meter.
 	pub fn charge(&mut self, diff: &Diff) {
 		match &mut self.own_contribution {
@@ -431,13 +424,18 @@ where
 		contract: &T::AccountId,
 		contract_info: &mut ContractInfo<T>,
 		code_info: &CodeInfo<T>,
+		skip_transfer: bool,
 	) -> Result<(), DispatchError> {
 		debug_assert!(matches!(self.contract_state(), ContractState::Alive));
 
 		// We need to make sure that the contract's account exists.
 		let ed = Pallet::<T>::min_balance();
 		self.total_deposit = Deposit::Charge(ed);
-		T::Currency::transfer(origin, contract, ed, Preservation::Preserve)?;
+		if skip_transfer {
+			T::Currency::set_balance(contract, ed);
+		} else {
+			T::Currency::transfer(origin, contract, ed, Preservation::Preserve)?;
+		}
 
 		// A consumer is added at account creation and removed it on termination, otherwise the
 		// runtime could remove the account. As long as a contract exists its account must exist.
@@ -466,13 +464,6 @@ where
 
 	/// [`Self::charge`] does not enforce the storage limit since we want to do this check as late
 	/// as possible to allow later refunds to offset earlier charges.
-	///
-	/// # Note
-	///
-	/// We normally need to call this **once** for every call stack and not for every cross contract
-	/// call. However, if a dedicated limit is specified for a sub-call, this needs to be called
-	/// once the sub-call has returned. For this, the [`Self::enforce_subcall_limit`] wrapper is
-	/// used.
 	pub fn enforce_limit(
 		&mut self,
 		info: Option<&mut ContractInfo<T>>,
@@ -485,29 +476,15 @@ where
 		}
 		if let Deposit::Charge(amount) = total_deposit {
 			if amount > self.limit {
+				log::debug!( target: LOG_TARGET, "Storage deposit limit exhausted: {:?} > {:?}", amount, self.limit);
 				return Err(<Error<T>>::StorageDepositLimitExhausted.into())
 			}
 		}
 		Ok(())
 	}
-
-	/// This is a wrapper around [`Self::enforce_limit`] to use on the exit from a sub-call to
-	/// enforce its special limit if needed.
-	pub fn enforce_subcall_limit(
-		&mut self,
-		info: Option<&mut ContractInfo<T>>,
-	) -> Result<(), DispatchError> {
-		match self.nested {
-			Nested::OwnLimit => self.enforce_limit(info),
-			Nested::DerivedLimit => Ok(()),
-		}
-	}
 }
 
-impl<T: Config> Ext<T> for ReservingExt
-where
-	T::Hash: IsType<H256>,
-{
+impl<T: Config> Ext<T> for ReservingExt {
 	fn check_limit(
 		origin: &T::AccountId,
 		limit: BalanceOf<T>,
@@ -539,12 +516,6 @@ where
 					Preservation::Preserve,
 					Fortitude::Polite,
 				)?;
-
-				Pallet::<T>::deposit_event(Event::StorageDepositTransferredAndHeld {
-					from: T::AddressMapper::to_address(origin),
-					to: T::AddressMapper::to_address(contract),
-					amount: *amount,
-				});
 			},
 			Deposit::Refund(amount) => {
 				let transferred = T::Currency::transfer_on_hold(
@@ -556,12 +527,6 @@ where
 					Restriction::Free,
 					Fortitude::Polite,
 				)?;
-
-				Pallet::<T>::deposit_event(Event::StorageDepositTransferredAndReleased {
-					from: T::AddressMapper::to_address(contract),
-					to: T::AddressMapper::to_address(origin),
-					amount: transferred,
-				});
 
 				if transferred < *amount {
 					// This should never happen, if it does it means that there is a bug in the
@@ -683,6 +648,7 @@ mod tests {
 		items: u32,
 		bytes_deposit: BalanceOf<Test>,
 		items_deposit: BalanceOf<Test>,
+		immutable_data_len: u32,
 	}
 
 	fn new_info(info: StorageInfo) -> ContractInfo<Test> {
@@ -695,6 +661,7 @@ mod tests {
 			storage_item_deposit: info.items_deposit,
 			storage_base_deposit: Default::default(),
 			delegate_dependencies: Default::default(),
+			immutable_data_len: info.immutable_data_len,
 		}
 	}
 
@@ -711,6 +678,49 @@ mod tests {
 				..Default::default()
 			}
 		)
+	}
+
+	/// Previously, passing a limit of 0 meant unlimited storage for a nested call.
+	///
+	/// Now, a limit of 0 means the subcall will not be able to use any storage.
+	#[test]
+	fn nested_zero_limit_requested() {
+		clear_ext();
+
+		let meter = TestMeter::new(&Origin::from_account_id(ALICE), 1_000, 0).unwrap();
+		assert_eq!(meter.available(), 1_000);
+		let nested0 = meter.nested(BalanceOf::<Test>::zero());
+		assert_eq!(nested0.available(), 0);
+	}
+
+	#[test]
+	fn nested_some_limit_requested() {
+		clear_ext();
+
+		let meter = TestMeter::new(&Origin::from_account_id(ALICE), 1_000, 0).unwrap();
+		assert_eq!(meter.available(), 1_000);
+		let nested0 = meter.nested(500);
+		assert_eq!(nested0.available(), 500);
+	}
+
+	#[test]
+	fn nested_all_limit_requested() {
+		clear_ext();
+
+		let meter = TestMeter::new(&Origin::from_account_id(ALICE), 1_000, 0).unwrap();
+		assert_eq!(meter.available(), 1_000);
+		let nested0 = meter.nested(1_000);
+		assert_eq!(nested0.available(), 1_000);
+	}
+
+	#[test]
+	fn nested_over_limit_requested() {
+		clear_ext();
+
+		let meter = TestMeter::new(&Origin::from_account_id(ALICE), 1_000, 0).unwrap();
+		assert_eq!(meter.available(), 1_000);
+		let nested0 = meter.nested(2_000);
+		assert_eq!(nested0.available(), 1_000);
 	}
 
 	#[test]
@@ -782,6 +792,7 @@ mod tests {
 				items: 5,
 				bytes_deposit: 100,
 				items_deposit: 10,
+				immutable_data_len: 0,
 			});
 			let mut nested0 = meter.nested(BalanceOf::<Test>::zero());
 			nested0.charge(&Diff {
@@ -797,6 +808,7 @@ mod tests {
 				items: 10,
 				bytes_deposit: 100,
 				items_deposit: 20,
+				immutable_data_len: 0,
 			});
 			let mut nested1 = nested0.nested(BalanceOf::<Test>::zero());
 			nested1.charge(&Diff { items_removed: 5, ..Default::default() });
@@ -807,6 +819,7 @@ mod tests {
 				items: 7,
 				bytes_deposit: 100,
 				items_deposit: 20,
+				immutable_data_len: 0,
 			});
 			let mut nested2 = nested0.nested(BalanceOf::<Test>::zero());
 			nested2.charge(&Diff { items_removed: 7, ..Default::default() });
@@ -815,7 +828,10 @@ mod tests {
 			nested0.enforce_limit(Some(&mut nested0_info)).unwrap();
 			meter.absorb(nested0, &BOB, Some(&mut nested0_info));
 
-			assert_eq!(meter.try_into_deposit(&test_case.origin).unwrap(), test_case.deposit);
+			assert_eq!(
+				meter.try_into_deposit(&test_case.origin, false).unwrap(),
+				test_case.deposit
+			);
 
 			assert_eq!(nested0_info.extra_deposit(), 112);
 			assert_eq!(nested1_info.extra_deposit(), 110);
@@ -862,7 +878,7 @@ mod tests {
 			let mut meter = TestMeter::new(&test_case.origin, 1_000, 0).unwrap();
 			assert_eq!(meter.available(), 1_000);
 
-			let mut nested0 = meter.nested(BalanceOf::<Test>::zero());
+			let mut nested0 = meter.nested(BalanceOf::<Test>::max_value());
 			nested0.charge(&Diff {
 				bytes_added: 5,
 				bytes_removed: 1,
@@ -876,8 +892,9 @@ mod tests {
 				items: 10,
 				bytes_deposit: 100,
 				items_deposit: 20,
+				immutable_data_len: 0,
 			});
-			let mut nested1 = nested0.nested(BalanceOf::<Test>::zero());
+			let mut nested1 = nested0.nested(BalanceOf::<Test>::max_value());
 			nested1.charge(&Diff { items_removed: 5, ..Default::default() });
 			nested1.charge(&Diff { bytes_added: 20, ..Default::default() });
 			nested1.terminate(&nested1_info, CHARLIE);
@@ -885,7 +902,10 @@ mod tests {
 			nested0.absorb(nested1, &CHARLIE, None);
 
 			meter.absorb(nested0, &BOB, None);
-			assert_eq!(meter.try_into_deposit(&test_case.origin).unwrap(), test_case.deposit);
+			assert_eq!(
+				meter.try_into_deposit(&test_case.origin, false).unwrap(),
+				test_case.deposit
+			);
 			assert_eq!(TestExtTestValue::get(), test_case.expected)
 		}
 	}

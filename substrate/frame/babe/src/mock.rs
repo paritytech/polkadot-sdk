@@ -68,12 +68,21 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u128>;
 }
 
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+impl<C> frame_system::offchain::CreateTransactionBase<C> for Test
 where
 	RuntimeCall: From<C>,
 {
-	type OverarchingCall = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
 	type Extrinsic = TestXt<RuntimeCall, ()>;
+}
+
+impl<C> frame_system::offchain::CreateInherent<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		TestXt::new_bare(call)
+	}
 }
 
 impl_opaque_keys! {
@@ -148,6 +157,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 
 #[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Test {
+	type OldCurrency = Balances;
 	type Currency = Balances;
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
@@ -230,7 +240,7 @@ pub fn start_session(session_index: SessionIndex) {
 /// Progress to the first block at the given era
 pub fn start_era(era_index: EraIndex) {
 	start_session((era_index * 3).into());
-	assert_eq!(Staking::current_era(), Some(era_index));
+	assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(era_index));
 }
 
 pub fn make_primary_pre_digest(
@@ -291,7 +301,7 @@ pub fn new_test_ext_with_pairs(
 	authorities_len: usize,
 ) -> (Vec<AuthorityPair>, sp_io::TestExternalities) {
 	let pairs = (0..authorities_len)
-		.map(|i| AuthorityPair::from_seed(&U256::from(i).into()))
+		.map(|i| AuthorityPair::from_seed(&U256::from(i).to_little_endian()))
 		.collect::<Vec<_>>();
 
 	let public = pairs.iter().map(|p| p.public()).collect();

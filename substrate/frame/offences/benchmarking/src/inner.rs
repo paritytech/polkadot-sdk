@@ -19,8 +19,8 @@
 
 use alloc::{vec, vec::Vec};
 
-use frame_benchmarking::v1::{account, benchmarks};
-use frame_support::traits::{Currency, Get};
+use frame_benchmarking::v2::*;
+use frame_support::traits::Get;
 use frame_system::{Config as SystemConfig, Pallet as System, RawOrigin};
 
 use sp_runtime::{
@@ -77,8 +77,7 @@ where
 }
 
 type LookupSourceOf<T> = <<T as SystemConfig>::Lookup as StaticLookup>::Source;
-type BalanceOf<T> =
-	<<T as StakingConfig>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
+type BalanceOf<T> = <T as StakingConfig>::CurrencyBalance;
 
 struct Offender<T: Config> {
 	pub controller: T::AccountId,
@@ -89,7 +88,7 @@ struct Offender<T: Config> {
 }
 
 fn bond_amount<T: Config>() -> BalanceOf<T> {
-	T::Currency::minimum_balance().saturating_mul(10_000u32.into())
+	pallet_staking::asset::existential_deposit::<T>().saturating_mul(10_000u32.into())
 }
 
 fn create_offender<T: Config>(n: u32, nominators: u32) -> Result<Offender<T>, &'static str> {
@@ -99,7 +98,7 @@ fn create_offender<T: Config>(n: u32, nominators: u32) -> Result<Offender<T>, &'
 	let amount = bond_amount::<T>();
 	// add twice as much balance to prevent the account from being killed.
 	let free_amount = amount.saturating_mul(2u32.into());
-	T::Currency::make_free_balance_be(&stash, free_amount);
+	pallet_staking::asset::set_stakeable_balance::<T>(&stash, free_amount);
 	Staking::<T>::bond(
 		RawOrigin::Signed(stash.clone()).into(),
 		amount,
@@ -116,7 +115,7 @@ fn create_offender<T: Config>(n: u32, nominators: u32) -> Result<Offender<T>, &'
 	for i in 0..nominators {
 		let nominator_stash: T::AccountId =
 			account("nominator stash", n * MAX_NOMINATORS + i, SEED);
-		T::Currency::make_free_balance_be(&nominator_stash, free_amount);
+		pallet_staking::asset::set_stakeable_balance::<T>(&nominator_stash, free_amount);
 
 		Staking::<T>::bond(
 			RawOrigin::Signed(nominator_stash.clone()).into(),
@@ -145,7 +144,7 @@ fn create_offender<T: Config>(n: u32, nominators: u32) -> Result<Offender<T>, &'
 fn make_offenders<T: Config>(
 	num_offenders: u32,
 	num_nominators: u32,
-) -> Result<(Vec<IdentificationTuple<T>>, Vec<Offender<T>>), &'static str> {
+) -> Result<Vec<IdentificationTuple<T>>, &'static str> {
 	Staking::<T>::new_session(0);
 
 	let mut offenders = vec![];
@@ -168,13 +167,46 @@ fn make_offenders<T: Config>(
 				.expect("failed to convert validator id to full identification")
 		})
 		.collect::<Vec<IdentificationTuple<T>>>();
-	Ok((id_tuples, offenders))
+	Ok(id_tuples)
 }
 
-benchmarks! {
-	report_offence_grandpa {
-		let n in 0 .. MAX_NOMINATORS.min(MaxNominationsOf::<T>::get());
+#[cfg(test)]
+fn assert_all_slashes_applied<T>(offender_count: usize)
+where
+	T: Config,
+	<T as frame_system::Config>::RuntimeEvent: TryInto<pallet_staking::Event<T>>,
+	<T as frame_system::Config>::RuntimeEvent: TryInto<pallet_balances::Event<T>>,
+	<T as frame_system::Config>::RuntimeEvent: TryInto<pallet_offences::Event>,
+	<T as frame_system::Config>::RuntimeEvent: TryInto<frame_system::Event<T>>,
+{
+	// make sure that all slashes have been applied
+	// deposit to reporter + reporter account endowed.
+	assert_eq!(System::<T>::read_events_for_pallet::<pallet_balances::Event<T>>().len(), 2);
+	// (n nominators + one validator) * slashed + Slash Reported
+	assert_eq!(
+		System::<T>::read_events_for_pallet::<pallet_staking::Event<T>>().len(),
+		1 * (offender_count + 1) as usize + 1
+	);
+	// offence
+	assert_eq!(System::<T>::read_events_for_pallet::<pallet_offences::Event>().len(), 1);
+	// reporter new account
+	assert_eq!(System::<T>::read_events_for_pallet::<frame_system::Event<T>>().len(), 1);
+}
 
+#[benchmarks(
+	where
+		<T as frame_system::Config>::RuntimeEvent: TryInto<pallet_staking::Event<T>>,
+		<T as frame_system::Config>::RuntimeEvent: TryInto<pallet_balances::Event<T>>,
+		<T as frame_system::Config>::RuntimeEvent: TryInto<pallet_offences::Event>,
+		<T as frame_system::Config>::RuntimeEvent: TryInto<frame_system::Event<T>>,
+)]
+mod benchmarks {
+	use super::*;
+
+	#[benchmark]
+	pub fn report_offence_grandpa(
+		n: Linear<0, { MAX_NOMINATORS.min(MaxNominationsOf::<T>::get()) }>,
+	) -> Result<(), BenchmarkError> {
 		// for grandpa equivocation reports the number of reporters
 		// and offenders is always 1
 		let reporters = vec![account("reporter", 1, SEED)];
@@ -182,7 +214,7 @@ benchmarks! {
 		// make sure reporters actually get rewarded
 		Staking::<T>::set_slash_reward_fraction(Perbill::one());
 
-		let (mut offenders, raw_offenders) = make_offenders::<T>(1, n)?;
+		let mut offenders = make_offenders::<T>(1, n)?;
 		let validator_set_count = Session::<T>::validators().len() as u32;
 
 		let offence = GrandpaEquivocationOffence {
@@ -192,26 +224,24 @@ benchmarks! {
 			offender: T::convert(offenders.pop().unwrap()),
 		};
 		assert_eq!(System::<T>::event_count(), 0);
-	}: {
-		let _ = Offences::<T>::report_offence(reporters, offence);
-	}
-	verify {
-		// make sure that all slashes have been applied
+
+		#[block]
+		{
+			let _ = Offences::<T>::report_offence(reporters, offence);
+		}
+
 		#[cfg(test)]
-		assert_eq!(
-			System::<T>::event_count(), 0
-			+ 1 // offence
-			+ 3 // reporter (reward + endowment)
-			+ 1 // offenders reported
-			+ 3 // offenders slashed
-			+ 1 // offenders chilled
-			+ 3 * n // nominators slashed
-		);
+		{
+			assert_all_slashes_applied::<T>(n as usize);
+		}
+
+		Ok(())
 	}
 
-	report_offence_babe {
-		let n in 0 .. MAX_NOMINATORS.min(MaxNominationsOf::<T>::get());
-
+	#[benchmark]
+	fn report_offence_babe(
+		n: Linear<0, { MAX_NOMINATORS.min(MaxNominationsOf::<T>::get()) }>,
+	) -> Result<(), BenchmarkError> {
 		// for babe equivocation reports the number of reporters
 		// and offenders is always 1
 		let reporters = vec![account("reporter", 1, SEED)];
@@ -219,7 +249,7 @@ benchmarks! {
 		// make sure reporters actually get rewarded
 		Staking::<T>::set_slash_reward_fraction(Perbill::one());
 
-		let (mut offenders, raw_offenders) = make_offenders::<T>(1, n)?;
+		let mut offenders = make_offenders::<T>(1, n)?;
 		let validator_set_count = Session::<T>::validators().len() as u32;
 
 		let offence = BabeEquivocationOffence {
@@ -229,21 +259,17 @@ benchmarks! {
 			offender: T::convert(offenders.pop().unwrap()),
 		};
 		assert_eq!(System::<T>::event_count(), 0);
-	}: {
-		let _ = Offences::<T>::report_offence(reporters, offence);
-	}
-	verify {
-		// make sure that all slashes have been applied
+
+		#[block]
+		{
+			let _ = Offences::<T>::report_offence(reporters, offence);
+		}
 		#[cfg(test)]
-		assert_eq!(
-			System::<T>::event_count(), 0
-			+ 1 // offence
-			+ 3 // reporter (reward + endowment)
-			+ 1 // offenders reported
-			+ 3 // offenders slashed
-			+ 1 // offenders chilled
-			+ 3 * n // nominators slashed
-		);
+		{
+			assert_all_slashes_applied::<T>(n as usize);
+		}
+
+		Ok(())
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

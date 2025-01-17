@@ -21,7 +21,7 @@
 
 mod chain_spec;
 
-use polkadot_parachain_lib::{run, CliConfig as CliConfigT, RunConfig};
+use polkadot_omni_node_lib::{run, CliConfig as CliConfigT, RunConfig};
 
 struct CliConfig;
 

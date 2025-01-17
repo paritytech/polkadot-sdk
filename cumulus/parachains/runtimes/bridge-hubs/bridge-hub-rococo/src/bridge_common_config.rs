@@ -64,11 +64,15 @@ impl pallet_bridge_parachains::Config<BridgeParachainWestendInstance> for Runtim
 }
 
 /// Allows collect and claim rewards for relayers
-impl pallet_bridge_relayers::Config for Runtime {
+pub type RelayersForLegacyLaneIdsMessagesInstance = ();
+impl pallet_bridge_relayers::Config<RelayersForLegacyLaneIdsMessagesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Reward = Balance;
-	type PaymentProcedure =
-		bp_relayers::PayRewardFromAccount<pallet_balances::Pallet<Runtime>, AccountId>;
+	type PaymentProcedure = bp_relayers::PayRewardFromAccount<
+		pallet_balances::Pallet<Runtime>,
+		AccountId,
+		Self::LaneId,
+	>;
 	type StakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
 		AccountId,
 		BlockNumber,
@@ -78,6 +82,29 @@ impl pallet_bridge_relayers::Config for Runtime {
 		RelayerStakeLease,
 	>;
 	type WeightInfo = weights::pallet_bridge_relayers::WeightInfo<Runtime>;
+	type LaneId = bp_messages::LegacyLaneId;
+}
+
+/// Allows collect and claim rewards for relayers
+pub type RelayersForPermissionlessLanesInstance = pallet_bridge_relayers::Instance2;
+impl pallet_bridge_relayers::Config<RelayersForPermissionlessLanesInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Reward = Balance;
+	type PaymentProcedure = bp_relayers::PayRewardFromAccount<
+		pallet_balances::Pallet<Runtime>,
+		AccountId,
+		Self::LaneId,
+	>;
+	type StakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
+		AccountId,
+		BlockNumber,
+		Balances,
+		RelayerStakeReserveId,
+		RequiredStakeForStakeAndSlash,
+		RelayerStakeLease,
+	>;
+	type WeightInfo = weights::pallet_bridge_relayers::WeightInfo<Runtime>;
+	type LaneId = bp_messages::HashedLaneId;
 }
 
 /// Add GRANDPA bridge pallet to track Rococo Bulletin chain.

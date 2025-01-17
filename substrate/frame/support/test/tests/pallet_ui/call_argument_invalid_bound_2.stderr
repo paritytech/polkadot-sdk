@@ -34,7 +34,7 @@ error[E0369]: binary operation `==` cannot be applied to type `&<T as pallet::Co
 38 |         pub fn foo(origin: OriginFor<T>, _bar: T::Bar) -> DispatchResultWithPostInfo {
    |                                          ^^^^
 
-error[E0277]: the trait bound `<T as pallet::Config>::Bar: WrapperTypeEncode` is not satisfied
+error[E0277]: the trait bound `<T as pallet::Config>::Bar: Encode` is not satisfied
   --> tests/pallet_ui/call_argument_invalid_bound_2.rs:38:36
    |
 18 | #[frame_support::pallet]
@@ -45,10 +45,19 @@ error[E0277]: the trait bound `<T as pallet::Config>::Bar: WrapperTypeEncode` is
    |
    = note: required for `<T as pallet::Config>::Bar` to implement `Encode`
 
-error[E0277]: the trait bound `<T as pallet::Config>::Bar: WrapperTypeDecode` is not satisfied
+error[E0277]: the trait bound `<T as pallet::Config>::Bar: Decode` is not satisfied
   --> tests/pallet_ui/call_argument_invalid_bound_2.rs:38:42
    |
 38 |         pub fn foo(origin: OriginFor<T>, _bar: T::Bar) -> DispatchResultWithPostInfo {
    |                                                ^^^^^^ the trait `WrapperTypeDecode` is not implemented for `<T as pallet::Config>::Bar`, which is required by `<T as pallet::Config>::Bar: Decode`
    |
    = note: required for `<T as pallet::Config>::Bar` to implement `Decode`
+
+error: unused variable: `origin`
+  --> tests/pallet_ui/call_argument_invalid_bound_2.rs:38:14
+   |
+38 |         pub fn foo(origin: OriginFor<T>, _bar: T::Bar) -> DispatchResultWithPostInfo {
+   |                    ^^^^^^ help: if this is intentional, prefix it with an underscore: `_origin`
+   |
+   = note: `-D unused-variables` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(unused_variables)]`

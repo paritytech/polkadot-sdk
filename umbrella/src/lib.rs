@@ -141,6 +141,10 @@ pub use cumulus_pallet_session_benchmarking;
 #[cfg(feature = "cumulus-pallet-solo-to-para")]
 pub use cumulus_pallet_solo_to_para;
 
+/// pallet and transaction extensions for accurate proof size reclaim.
+#[cfg(feature = "cumulus-pallet-weight-reclaim")]
+pub use cumulus_pallet_weight_reclaim;
+
 /// Pallet for stuff specific to parachains' usage of XCM.
 #[cfg(feature = "cumulus-pallet-xcm")]
 pub use cumulus_pallet_xcm;
@@ -307,6 +311,10 @@ pub use pallet_asset_conversion_tx_payment;
 /// Whitelist non-native assets for treasury spending and provide conversion to native balance.
 #[cfg(feature = "pallet-asset-rate")]
 pub use pallet_asset_rate;
+
+/// FRAME asset rewards pallet.
+#[cfg(feature = "pallet-asset-rewards")]
+pub use pallet_asset_rewards;
 
 /// pallet to manage transaction payments in assets.
 #[cfg(feature = "pallet-asset-tx-payment")]
@@ -580,9 +588,9 @@ pub use pallet_remark;
 #[cfg(feature = "pallet-revive")]
 pub use pallet_revive;
 
-/// Fixtures for testing and benchmarking.
-#[cfg(feature = "pallet-revive-fixtures")]
-pub use pallet_revive_fixtures;
+/// An Ethereum JSON-RPC server for pallet-revive.
+#[cfg(feature = "pallet-revive-eth-rpc")]
+pub use pallet_revive_eth_rpc;
 
 /// A mock network for testing pallet-revive.
 #[cfg(feature = "pallet-revive-mock-network")]
@@ -705,6 +713,10 @@ pub use pallet_uniques;
 #[cfg(feature = "pallet-utility")]
 pub use pallet_utility;
 
+/// FRAME verify signature pallet.
+#[cfg(feature = "pallet-verify-signature")]
+pub use pallet_verify_signature;
+
 /// FRAME pallet for manage vesting.
 #[cfg(feature = "pallet-vesting")]
 pub use pallet_vesting;
@@ -796,6 +808,10 @@ pub use polkadot_node_collation_generation;
 #[cfg(feature = "polkadot-node-core-approval-voting")]
 pub use polkadot_node_core_approval_voting;
 
+/// Approval Voting Subsystem running approval work in parallel.
+#[cfg(feature = "polkadot-node-core-approval-voting-parallel")]
+pub use polkadot_node_core_approval_voting_parallel;
+
 /// The Availability Store subsystem. Wrapper over the DB that stores availability data and
 /// chunks.
 #[cfg(feature = "polkadot-node-core-av-store")]
@@ -870,10 +886,6 @@ pub use polkadot_node_core_pvf_prepare_worker;
 #[cfg(feature = "polkadot-node-core-runtime-api")]
 pub use polkadot_node_core_runtime_api;
 
-/// Polkadot Jaeger primitives, but equally useful for Grafana/Tempo.
-#[cfg(feature = "polkadot-node-jaeger")]
-pub use polkadot_node_jaeger;
-
 /// Subsystem metric helpers.
 #[cfg(feature = "polkadot-node-metrics")]
 pub use polkadot_node_metrics;
@@ -898,13 +910,13 @@ pub use polkadot_node_subsystem_types;
 #[cfg(feature = "polkadot-node-subsystem-util")]
 pub use polkadot_node_subsystem_util;
 
+/// Helper library that can be used to build a parachain node.
+#[cfg(feature = "polkadot-omni-node-lib")]
+pub use polkadot_omni_node_lib;
+
 /// System overseer of the Polkadot node.
 #[cfg(feature = "polkadot-overseer")]
 pub use polkadot_overseer;
-
-/// Helper library that can be used to build a parachain node.
-#[cfg(feature = "polkadot-parachain-lib")]
-pub use polkadot_parachain_lib;
 
 /// Types and utilities for creating and working with parachains.
 #[cfg(feature = "polkadot-parachain-primitives")]
@@ -1114,6 +1126,10 @@ pub use sc_rpc_server;
 /// Substrate RPC interface v2.
 #[cfg(feature = "sc-rpc-spec-v2")]
 pub use sc_rpc_spec_v2;
+
+/// Substrate client utilities for frame runtime functions calls.
+#[cfg(feature = "sc-runtime-utilities")]
+pub use sc_runtime_utilities;
 
 /// Substrate service. Starts a thread that spins up the network, client, and extrinsic pool.
 /// Manages communication between them.

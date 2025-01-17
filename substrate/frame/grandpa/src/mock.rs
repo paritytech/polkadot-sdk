@@ -72,12 +72,21 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u128>;
 }
 
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+impl<C> frame_system::offchain::CreateTransactionBase<C> for Test
 where
 	RuntimeCall: From<C>,
 {
-	type OverarchingCall = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
 	type Extrinsic = TestXt<RuntimeCall, ()>;
+}
+
+impl<C> frame_system::offchain::CreateInherent<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		TestXt::new_bare(call)
+	}
 }
 
 parameter_types! {
@@ -152,6 +161,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 
 #[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Test {
+	type OldCurrency = Balances;
 	type Currency = Balances;
 	type CurrencyBalance = <Self as pallet_balances::Config>::Balance;
 	type SessionsPerEra = SessionsPerEra;
@@ -288,7 +298,7 @@ pub fn start_session(session_index: SessionIndex) {
 
 pub fn start_era(era_index: EraIndex) {
 	start_session((era_index * 3).into());
-	assert_eq!(Staking::current_era(), Some(era_index));
+	assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(era_index));
 }
 
 pub fn initialize_block(number: u64, parent_hash: H256) {

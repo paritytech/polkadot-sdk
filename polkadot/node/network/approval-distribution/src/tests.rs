@@ -54,7 +54,7 @@ type VirtualOverseer =
 
 fn test_harness<T: Future<Output = VirtualOverseer>>(
 	assignment_criteria: Arc<dyn AssignmentCriteria + Send + Sync>,
-	clock: Box<dyn Clock + Send + Sync>,
+	clock: Arc<dyn Clock + Send + Sync>,
 	mut state: State,
 	test_fn: impl FnOnce(VirtualOverseer) -> T,
 ) -> State {
@@ -535,7 +535,8 @@ impl AssignmentCriteria for MockAssignmentCriteria {
 		_relay_vrf_story: polkadot_node_primitives::approval::v1::RelayVRFStory,
 		_assignment: &polkadot_node_primitives::approval::v2::AssignmentCertV2,
 		_backing_groups: Vec<polkadot_primitives::GroupIndex>,
-	) -> Result<polkadot_node_primitives::approval::v1::DelayTranche, criteria::InvalidAssignment> {
+	) -> Result<polkadot_node_primitives::approval::v1::DelayTranche, criteria::InvalidAssignment>
+	{
 		self.tranche
 	}
 }
@@ -555,16 +556,15 @@ fn try_import_the_same_assignment() {
 
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
-			// setup peers
+
 			setup_peer_with_view(overseer, &peer_a, view![], ValidationVersion::V1).await;
 			setup_peer_with_view(overseer, &peer_b, view![hash], ValidationVersion::V1).await;
 			setup_peer_with_view(overseer, &peer_c, view![hash], ValidationVersion::V1).await;
 
-			// Set up a gossip topology, where a, b, c and d are topology neighbors to the node
 			// under testing.
 			let peers_with_optional_peer_id = peers
 				.iter()
@@ -661,7 +661,7 @@ fn try_import_the_same_assignment_v2() {
 
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -772,7 +772,7 @@ fn delay_reputation_change() {
 
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		state_with_reputation_delay(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -845,7 +845,7 @@ fn spam_attack_results_in_negative_reputation_change() {
 
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -942,7 +942,7 @@ fn peer_sending_us_the_same_we_just_sent_them_is_ok() {
 
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -1031,6 +1031,141 @@ fn peer_sending_us_the_same_we_just_sent_them_is_ok() {
 }
 
 #[test]
+fn peer_sending_us_duplicates_while_aggression_enabled_is_ok() {
+	let parent_hash = Hash::repeat_byte(0xFF);
+	let hash = Hash::repeat_byte(0xAA);
+
+	let peers = make_peers_and_authority_ids(8);
+	let peer_a = peers.first().unwrap().0;
+
+	let _ = test_harness(
+		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
+		Arc::new(SystemClock {}),
+		state_without_reputation_delay(),
+		|mut virtual_overseer| async move {
+			let overseer = &mut virtual_overseer;
+			let peer = &peer_a;
+			setup_peer_with_view(overseer, peer, view![], ValidationVersion::V3).await;
+
+			let peers_with_optional_peer_id = peers
+				.iter()
+				.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
+				.collect_vec();
+			// Setup a topology where peer_a is neighbor to current node.
+			setup_gossip_topology(
+				overseer,
+				make_gossip_topology(1, &peers_with_optional_peer_id, &[0], &[2], 1),
+			)
+			.await;
+
+			// new block `hash` with 1 candidates
+			let meta = BlockApprovalMeta {
+				hash,
+				parent_hash,
+				number: 1,
+				candidates: vec![Default::default(); 1],
+				slot: 1.into(),
+				session: 1,
+				vrf_story: RelayVRFStory(Default::default()),
+			};
+			let msg = ApprovalDistributionMessage::NewBlocks(vec![meta]);
+			overseer_send(overseer, msg).await;
+
+			// import an assignment related to `hash` locally
+			let validator_index = ValidatorIndex(0);
+			let candidate_indices: CandidateBitfield =
+				vec![0 as CandidateIndex].try_into().unwrap();
+			let candidate_bitfields = vec![CoreIndex(0)].try_into().unwrap();
+			let cert = fake_assignment_cert_v2(hash, validator_index, candidate_bitfields);
+			overseer_send(
+				overseer,
+				ApprovalDistributionMessage::DistributeAssignment(
+					cert.clone().into(),
+					candidate_indices.clone(),
+				),
+			)
+			.await;
+
+			// update peer view to include the hash
+			overseer_send(
+				overseer,
+				ApprovalDistributionMessage::NetworkBridgeUpdate(
+					NetworkBridgeEvent::PeerViewChange(*peer, view![hash]),
+				),
+			)
+			.await;
+
+			// we should send them the assignment
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+					peers,
+					Versioned::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+						protocol_v3::ApprovalDistributionMessage::Assignments(assignments)
+					))
+				)) => {
+					assert_eq!(peers.len(), 1);
+					assert_eq!(assignments.len(), 1);
+				}
+			);
+
+			// but if someone else is sending it the same assignment
+			// the peer could send us it as well
+			let assignments = vec![(cert, candidate_indices)];
+			let msg = protocol_v3::ApprovalDistributionMessage::Assignments(assignments);
+			send_message_from_peer_v3(overseer, peer, msg.clone()).await;
+
+			assert!(
+				overseer.recv().timeout(TIMEOUT).await.is_none(),
+				"we should not punish the peer"
+			);
+
+			// send the assignments again
+			send_message_from_peer_v3(overseer, peer, msg.clone()).await;
+
+			// now we should
+			expect_reputation_change(overseer, peer, COST_DUPLICATE_MESSAGE).await;
+
+			// Peers will be continously punished for sending duplicates until approval-distribution
+			// aggression kicks, at which point they aren't anymore.
+			let mut parent_hash = hash;
+			for level in 0..16 {
+				// As long as the lag is bellow l1 aggression, punish peers for duplicates.
+				send_message_from_peer_v3(overseer, peer, msg.clone()).await;
+				expect_reputation_change(overseer, peer, COST_DUPLICATE_MESSAGE).await;
+
+				let number = 1 + level + 1; // first block had number 1
+				let hash = BlakeTwo256::hash_of(&(parent_hash, number));
+				let meta = BlockApprovalMeta {
+					hash,
+					parent_hash,
+					number,
+					candidates: vec![],
+					slot: (level as u64).into(),
+					session: 1,
+					vrf_story: RelayVRFStory(Default::default()),
+				};
+
+				let msg = ApprovalDistributionMessage::ApprovalCheckingLagUpdate(level + 1);
+				overseer_send(overseer, msg).await;
+
+				let msg = ApprovalDistributionMessage::NewBlocks(vec![meta]);
+				overseer_send(overseer, msg).await;
+
+				parent_hash = hash;
+			}
+
+			// send the assignments again, we should not punish the peer because aggression is
+			// enabled.
+			send_message_from_peer_v3(overseer, peer, msg).await;
+
+			assert!(overseer.recv().timeout(TIMEOUT).await.is_none(), "no message should be sent");
+			virtual_overseer
+		},
+	);
+}
+
+#[test]
 fn import_approval_happy_path_v1_v2_peers() {
 	let peers = make_peers_and_authority_ids(15);
 
@@ -1043,7 +1178,7 @@ fn import_approval_happy_path_v1_v2_peers() {
 
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -1120,7 +1255,7 @@ fn import_approval_happy_path_v1_v2_peers() {
 				}
 			);
 
-			// send the an approval from peer_b
+			// send an approval from peer_b
 			let approval = IndirectSignedApprovalVoteV2 {
 				block_hash: hash,
 				candidate_indices: candidate_index.into(),
@@ -1183,7 +1318,7 @@ fn import_approval_happy_path_v2() {
 	let candidate_hash_second = polkadot_primitives::CandidateHash(Hash::repeat_byte(0xCC));
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -1250,7 +1385,7 @@ fn import_approval_happy_path_v2() {
 				}
 			);
 
-			// send the an approval from peer_b
+			// send an approval from peer_b
 			let approval = IndirectSignedApprovalVoteV2 {
 				block_hash: hash,
 				candidate_indices,
@@ -1314,7 +1449,7 @@ fn multiple_assignments_covered_with_one_approval_vote() {
 
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -1524,7 +1659,7 @@ fn unify_with_peer_multiple_assignments_covered_with_one_approval_vote() {
 
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -1723,7 +1858,7 @@ fn import_approval_bad() {
 
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -1758,7 +1893,7 @@ fn import_approval_bad() {
 				.unwrap()
 				.unwrap();
 
-			// send the an approval from peer_b, we don't have an assignment yet
+			// send an approval from peer_b, we don't have an assignment yet
 			let approval = IndirectSignedApprovalVoteV2 {
 				block_hash: hash,
 				candidate_indices: candidate_index.into(),
@@ -1810,7 +1945,7 @@ fn update_our_view() {
 
 	let state = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		State::default(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -1858,7 +1993,7 @@ fn update_our_view() {
 
 	let state = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		state,
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -1877,7 +2012,7 @@ fn update_our_view() {
 
 	let state = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		state,
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -1905,7 +2040,7 @@ fn update_peer_view() {
 
 	let state = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		State::default(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -2004,7 +2139,7 @@ fn update_peer_view() {
 
 	let state = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		state,
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -2064,7 +2199,7 @@ fn update_peer_view() {
 	let finalized_number = 4_000_000_000;
 	let state = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		state,
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -2106,7 +2241,7 @@ fn update_peer_authority_id() {
 
 	let _state = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		State::default(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -2287,7 +2422,7 @@ fn import_remotely_then_locally() {
 
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -2393,7 +2528,7 @@ fn sends_assignments_even_when_state_is_approved() {
 
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		State::default(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -2499,7 +2634,7 @@ fn sends_assignments_even_when_state_is_approved_v2() {
 
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		State::default(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -2625,7 +2760,7 @@ fn race_condition_in_local_vs_remote_view_update() {
 
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -2711,7 +2846,7 @@ fn propagates_locally_generated_assignment_to_both_dimensions() {
 
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		State::default(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -2841,7 +2976,7 @@ fn propagates_assignments_along_unshared_dimension() {
 
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -3000,7 +3135,7 @@ fn propagates_to_required_after_connect() {
 
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		State::default(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -3165,7 +3300,7 @@ fn sends_to_more_peers_after_getting_topology() {
 
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		State::default(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -3303,7 +3438,7 @@ fn originator_aggression_l1() {
 
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		state,
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -3484,7 +3619,7 @@ fn non_originator_aggression_l1() {
 
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		state,
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -3609,7 +3744,7 @@ fn non_originator_aggression_l2() {
 	let aggression_l2_threshold = state.aggression_config.l2_threshold.unwrap();
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		state,
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -3794,7 +3929,7 @@ fn resends_messages_periodically() {
 	state.aggression_config.resend_unfinalized_period = Some(2);
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		state,
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -3892,7 +4027,7 @@ fn resends_messages_periodically() {
 				// Add blocks until resend is done.
 				{
 					let mut parent_hash = hash;
-					for level in 0..2 {
+					for level in 0..4 {
 						number = number + 1;
 						let hash = BlakeTwo256::hash_of(&(parent_hash, number));
 						let meta = BlockApprovalMeta {
@@ -3958,7 +4093,7 @@ fn import_versioned_approval() {
 	let candidate_hash = polkadot_primitives::CandidateHash(Hash::repeat_byte(0xBB));
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		state,
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -4037,7 +4172,7 @@ fn import_versioned_approval() {
 				}
 			);
 
-			// send the an approval from peer_a
+			// send an approval from peer_a
 			let approval = IndirectSignedApprovalVote {
 				block_hash: hash,
 				candidate_index,
@@ -4131,7 +4266,7 @@ fn batch_test_round(message_count: usize) {
 	let subsystem = ApprovalDistribution::new_with_clock(
 		Default::default(),
 		Default::default(),
-		Box::new(SystemClock {}),
+		Arc::new(SystemClock {}),
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
 	);
 	let mut rng = rand_chacha::ChaCha12Rng::seed_from_u64(12345);
@@ -4318,7 +4453,7 @@ fn subsystem_rejects_assignment_in_future() {
 
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(89) }),
-		Box::new(DummyClock {}),
+		Arc::new(DummyClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -4384,7 +4519,7 @@ fn subsystem_rejects_bad_assignments() {
 		Arc::new(MockAssignmentCriteria {
 			tranche: Err(InvalidAssignment(criteria::InvalidAssignmentReason::NullAssignment)),
 		}),
-		Box::new(DummyClock {}),
+		Arc::new(DummyClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -4447,7 +4582,7 @@ fn subsystem_rejects_wrong_claimed_assignments() {
 
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(DummyClock {}),
+		Arc::new(DummyClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;
@@ -4531,7 +4666,7 @@ fn subsystem_accepts_tranche0_duplicate_assignments() {
 
 	let _ = test_harness(
 		Arc::new(MockAssignmentCriteria { tranche: Ok(0) }),
-		Box::new(DummyClock {}),
+		Arc::new(DummyClock {}),
 		state_without_reputation_delay(),
 		|mut virtual_overseer| async move {
 			let overseer = &mut virtual_overseer;

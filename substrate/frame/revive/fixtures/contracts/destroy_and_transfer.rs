@@ -35,14 +35,14 @@ pub extern "C" fn deploy() {
 
 	api::instantiate(
 		code_hash,
-		0u64, // How much ref_time weight to devote for the execution. 0 = all.
-		0u64, // How much proof_size weight to devote for the execution. 0 = all.
-		None, // No deposit limit.
+		u64::MAX,       // How much ref_time weight to devote for the execution. u64::MAX = use all.
+		u64::MAX,       // How much proof_size weight to devote for the execution. u64::MAX = use all.
+		&[u8::MAX; 32], // No deposit limit.
 		&VALUE,
 		&input,
 		Some(&mut address),
 		None,
-		&salt,
+		Some(&salt),
 	)
 	.unwrap();
 
@@ -62,9 +62,9 @@ pub extern "C" fn call() {
 	let res = api::call(
 		uapi::CallFlags::empty(),
 		&callee_addr,
-		0u64, // How much ref_time weight to devote for the execution. 0 = all.
-		0u64, // How much proof_size weight to devote for the execution. 0 = all.
-		None, // No deposit limit.
+		u64::MAX,       // How much ref_time weight to devote for the execution. u64::MAX = use all.
+		u64::MAX,       // How much proof_size weight to devote for the execution. u64::MAX = use all.
+		&[u8::MAX; 32], // No deposit limit.
 		&VALUE,
 		&[0u8; 1],
 		None,
@@ -75,9 +75,9 @@ pub extern "C" fn call() {
 	api::call(
 		uapi::CallFlags::empty(),
 		&callee_addr,
-		0u64, // How much ref_time weight to devote for the execution. 0 = all.
-		0u64, // How much proof_size weight to devote for the execution. 0 = all.
-		None, // No deposit limit.
+		u64::MAX,       // How much ref_time weight to devote for the execution. u64::MAX = use all.
+		u64::MAX,       // How much proof_size weight to devote for the execution. u64::MAX = use all.
+		&[u8::MAX; 32], // No deposit limit.
 		&VALUE,
 		&[0u8; 0],
 		None,
