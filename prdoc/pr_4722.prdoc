@@ -32,6 +32,6 @@ crates:
   - name: cumulus-pov-validator
     bump: none
   - name: cumulus-pallet-weight-reclaim
-    bump: minor
+    bump: patch
   - name: westend-runtime
     bump: minor
