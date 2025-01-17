@@ -26,9 +26,8 @@ extern crate alloc;
 
 mod xcm_config;
 
-
-use cumulus_primitives_core::ParaId;
 use crate::xcm_config::XcmOriginToTransactDispatchOrigin;
+use cumulus_primitives_core::ParaId;
 use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
 use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 
@@ -66,8 +65,10 @@ pub use frame_support::{
 	},
 	BoundedSlice, StorageValue,
 };
-use frame_system::limits::{BlockLength, BlockWeights};
-use frame_system::EnsureRoot;
+use frame_system::{
+	limits::{BlockLength, BlockWeights},
+	EnsureRoot,
+};
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -348,10 +349,10 @@ impl WeightToFeePolynomial for WeightToFee {
 			negative: false,
 			coeff_frac: Perbill::from_rational(p % q, q),
 			coeff_integer: p / q,
-		}].into()
+		}]
+		.into()
 	}
 }
-
 
 impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -444,7 +445,7 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		frame_system::CheckNonce<Runtime>,
 		frame_system::CheckWeight<Runtime>,
 		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-	)
+	),
 >;
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
