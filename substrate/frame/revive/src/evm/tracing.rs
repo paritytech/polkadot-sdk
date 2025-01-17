@@ -22,26 +22,26 @@ use crate::{
 use alloc::{format, string::ToString, vec::Vec};
 use sp_core::{H160, H256, U256};
 
-/// A Tracer that reports logs and nested call traces transactions
+/// A Tracer that reports logs and nested call traces transactions.
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct CallTracer<GasMapper: Fn(Weight) -> U256> {
-	/// Map Weight to Gas equivalent
+	/// Map Weight to Gas equivalent.
 	gas_mapper: GasMapper,
-	/// Store all in-progress CallTrace instances
+	/// Store all in-progress CallTrace instances.
 	traces: Vec<CallTrace>,
-	/// Stack of indices to the current active traces
+	/// Stack of indices to the current active traces.
 	current_stack: Vec<usize>,
-	/// whether or not to capture logs
+	/// whether or not to capture logs.
 	with_log: bool,
 }
 
 impl<GasMapper: Fn(Weight) -> U256> CallTracer<GasMapper> {
-	/// Create a new [`CallTracer`] instance
+	/// Create a new [`CallTracer`] instance.
 	pub fn new(with_log: bool, gas_mapper: GasMapper) -> Self {
 		Self { gas_mapper, traces: Vec::new(), current_stack: Vec::new(), with_log }
 	}
 
-	/// Collect the traces and return them
+	/// Collect the traces and return them.
 	pub fn collect_traces(&mut self) -> Vec<CallTrace> {
 		core::mem::take(&mut self.traces)
 	}
@@ -106,7 +106,7 @@ impl<GasMapper: Fn(Weight) -> U256> Tracer for CallTracer<GasMapper> {
 			trace.error = Some("execution reverted".to_string());
 		}
 
-		//  move the current trace into its parent
+		//  Move the current trace into its parent
 		if let Some(parent_index) = self.current_stack.last() {
 			let child_trace = self.traces.remove(current_index);
 			self.traces[*parent_index].calls.push(child_trace);
@@ -124,7 +124,7 @@ impl<GasMapper: Fn(Weight) -> U256> Tracer for CallTracer<GasMapper> {
 			_ => Some(format!("{:?}", error)),
 		};
 
-		//  move the current trace into its parent
+		//  Move the current trace into its parent
 		if let Some(parent_index) = self.current_stack.last() {
 			let child_trace = self.traces.remove(current_index);
 			self.traces[*parent_index].calls.push(child_trace);
