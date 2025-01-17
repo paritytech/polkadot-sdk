@@ -620,7 +620,8 @@ mod benchmarks {
 			let aliaser = OriginAliaser { location: alias, expiry: None };
 			existing_aliases.try_push(aliaser).unwrap()
 		}
-		let ticket = TicketOf::<T>::new(&who, aliasers_footprint(existing_aliases.len())).unwrap();
+		let ticket = TicketOf::<T>::new(&who, aliasers_footprint(existing_aliases.len()))
+			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		let entry = AuthorizedAliasesEntry { aliasers: existing_aliases, ticket };
 		AuthorizedAliases::<T>::insert(&origin_location, entry);
 
@@ -658,7 +659,8 @@ mod benchmarks {
 			let aliaser = OriginAliaser { location: alias, expiry: None };
 			existing_aliases.try_push(aliaser).unwrap()
 		}
-		let ticket = TicketOf::<T>::new(&who, aliasers_footprint(existing_aliases.len())).unwrap();
+		let ticket = TicketOf::<T>::new(&who, aliasers_footprint(existing_aliases.len()))
+			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		let entry = AuthorizedAliasesEntry { aliasers: existing_aliases, ticket };
 		AuthorizedAliases::<T>::insert(&origin_location, entry);
 
