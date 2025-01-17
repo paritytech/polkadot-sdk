@@ -204,10 +204,13 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::{
-		defensive, defensive_assert,
+		defensive, defensive_assert, ensure,
 		traits::{
-			Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll,
-			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+			fungible::{Inspect, Mutate, Unbalanced},
+			tokens::Preservation,
+			Contains, Currency, EitherOf, EstimateNextSessionRotation, Get, GetCallName, Imbalance,
+			IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers,
+			RankedMembersSwapHandler, UnfilteredDispatchable,
 		},
 	};
 
@@ -231,9 +234,13 @@ pub mod prelude {
 
 	/// Runtime traits
 	#[doc(no_inline)]
-	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+	pub use sp_runtime::{
+		traits::{
+			BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, IdentityLookup,
+			ReduceBy, ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup,
+			TrailingZeroInput, Zero,
+		},
+		BuildStorage, FixedU128, Perbill, Perquintill,
 	};
 	/// Other error/result types for runtime
 	#[doc(no_inline)]

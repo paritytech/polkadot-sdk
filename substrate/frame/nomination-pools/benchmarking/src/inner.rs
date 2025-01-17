@@ -18,16 +18,9 @@
 //! Benchmarks for the nomination pools coupled with the staking and bags list pallets.
 
 use alloc::{vec, vec::Vec};
-use frame_benchmarking::v2::*;
+use frame::benchmarking::prelude::*;
 use frame_election_provider_support::SortedListProvider;
-use frame_support::{
-	assert_ok, ensure,
-	traits::{
-		fungible::{Inspect, Mutate, Unbalanced},
-		tokens::Preservation,
-		Get, Imbalance,
-	},
-};
+
 use frame_system::RawOrigin as RuntimeOrigin;
 use pallet_nomination_pools::{
 	adapter::{Member, Pool, StakeStrategy, StakeStrategyType},
@@ -37,11 +30,8 @@ use pallet_nomination_pools::{
 	Pallet as Pools, PoolId, PoolMembers, PoolRoles, PoolState, RewardPools, SubPoolsStorage,
 };
 use pallet_staking::MaxNominationsOf;
-use sp_runtime::{
-	traits::{Bounded, StaticLookup, Zero},
-	Perbill,
-};
-use sp_staking::{EraIndex, StakingUnchecked};
+
+use frame::deps::sp_staking::{EraIndex, StakingUnchecked};
 // `frame_benchmarking::benchmarks!` macro needs this
 use pallet_nomination_pools::Call;
 
