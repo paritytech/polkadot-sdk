@@ -910,6 +910,7 @@ dependencies = [
  "cumulus-primitives-core 0.7.0",
  "emulated-integration-tests-common",
  "frame-support 28.0.0",
+ "pallet-asset-rewards",
  "parachains-common 7.0.0",
  "rococo-emulated-chain",
  "sp-core 28.0.0",
@@ -928,6 +929,7 @@ dependencies = [
  "emulated-integration-tests-common",
  "frame-support 28.0.0",
  "pallet-asset-conversion 10.0.0",
+ "pallet-asset-rewards",
  "pallet-assets 29.1.0",
  "pallet-balances 28.0.0",
  "pallet-message-queue 31.0.0",
@@ -978,6 +980,7 @@ dependencies = [
  "pallet-asset-conversion 10.0.0",
  "pallet-asset-conversion-ops 0.1.0",
  "pallet-asset-conversion-tx-payment 10.0.0",
+ "pallet-asset-rewards",
  "pallet-assets 29.1.0",
  "pallet-assets-freezer 0.1.0",
  "pallet-aura 27.0.0",
@@ -1063,6 +1066,7 @@ dependencies = [
  "frame-support 28.0.0",
  "frame-system 28.0.0",
  "pallet-asset-conversion 10.0.0",
+ "pallet-asset-rewards",
  "pallet-asset-tx-payment 28.0.0",
  "pallet-assets 29.1.0",
  "pallet-balances 28.0.0",
@@ -1114,6 +1118,7 @@ dependencies = [
  "pallet-asset-conversion 10.0.0",
  "pallet-asset-conversion-ops 0.1.0",
  "pallet-asset-conversion-tx-payment 10.0.0",
+ "pallet-asset-rewards",
  "pallet-assets 29.1.0",
  "pallet-assets-freezer 0.1.0",
  "pallet-aura 27.0.0",
@@ -12037,6 +12042,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-asset-rewards"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking 28.0.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "pallet-assets 29.1.0",
+ "pallet-assets-freezer 0.1.0",
+ "pallet-balances 28.0.0",
+ "parity-scale-codec",
+ "primitive-types 0.13.1",
+ "scale-info",
+ "sp-api 26.0.0",
+ "sp-arithmetic 23.0.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+]
+
+[[package]]
 name = "pallet-asset-tx-payment"
 version = "28.0.0"
 dependencies = [
@@ -13343,6 +13369,7 @@ dependencies = [
  "log",
  "pallet-bags-list 27.0.0",
  "pallet-balances 28.0.0",
+ "pallet-delegated-staking 1.0.0",
  "pallet-election-provider-multi-phase 27.0.0",
  "pallet-nomination-pools 25.0.0",
  "pallet-session 28.0.0",
@@ -14420,29 +14447,6 @@ dependencies = [
  "pallet-bags-list 27.0.0",
  "pallet-balances 28.0.0",
  "pallet-delegated-staking 1.0.0",
- "pallet-nomination-pools 25.0.0",
- "pallet-staking 28.0.0",
- "pallet-staking-reward-curve",
- "pallet-timestamp 27.0.0",
- "parity-scale-codec",
- "scale-info",
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
- "sp-staking 26.0.0",
- "sp-tracing 16.0.0",
-]
-
-[[package]]
-name = "pallet-nomination-pools-test-transfer-stake"
-version = "1.0.0"
-dependencies = [
- "frame-election-provider-support 28.0.0",
- "frame-support 28.0.0",
- "frame-system 28.0.0",
- "log",
- "pallet-bags-list 27.0.0",
- "pallet-balances 28.0.0",
  "pallet-nomination-pools 25.0.0",
  "pallet-staking 28.0.0",
  "pallet-staking-reward-curve",
@@ -18742,6 +18746,7 @@ dependencies = [
  "pallet-asset-conversion-ops 0.1.0",
  "pallet-asset-conversion-tx-payment 10.0.0",
  "pallet-asset-rate 7.0.0",
+ "pallet-asset-rewards",
  "pallet-asset-tx-payment 28.0.0",
  "pallet-assets 29.1.0",
  "pallet-assets-freezer 0.1.0",
