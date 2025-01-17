@@ -667,8 +667,8 @@ impl<T: Config> Pallet<T> {
 
 		log!(
 			info,
-			"electable validators count for session {:?}: {:?}",
-			start_session_index,
+			"electable validators count for era {:?}: {:?}",
+			CurrentEra::<T>::get().unwrap_or_default() + 1,
 			validators.len()
 		);
 
@@ -820,6 +820,12 @@ impl<T: Config> Pallet<T> {
 		let mut total_backers = 0u32;
 
 		exposures.into_iter().for_each(|(stash, exposure)| {
+			log!(
+				trace,
+				"stored exposure for stash {:?} and {:?} backers",
+				stash,
+				exposure.others.len()
+			);
 			// build elected stash.
 			elected_stashes_page.push(stash.clone());
 			// accumulate total stake.
@@ -843,15 +849,13 @@ impl<T: Config> Pallet<T> {
 			<ErasValidatorPrefs<T>>::insert(&new_planned_era, stash, pref);
 		}
 
-		if new_planned_era > 0 {
-			log!(
-				info,
-				"stored a page of stakers with {:?} validators and {:?} total backers for era {:?}",
-				elected_stashes.len(),
-				total_backers,
-				new_planned_era,
-			);
-		}
+		log!(
+			info,
+			"stored a page of stakers with {:?} validators and {:?} total backers for era {:?}",
+			elected_stashes.len(),
+			total_backers,
+			new_planned_era,
+		);
 
 		elected_stashes
 	}
@@ -2266,15 +2270,43 @@ impl<T: Config> Pallet<T> {
 		Self::ensure_disabled_validators_sorted()
 	}
 
-	/// Invariants:
-	///
 	/// Test invariants of:
 	///
-	/// - `NextElectionPage`
-	/// - `ElectableStashes`
-	/// - `VoterSnapshotStatus`
-	pub fn ensure_snapshot_metadata_state(_now: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
-		// TODO:
+	/// - `NextElectionPage`: should only be set if pages > 1 and if we are within `pages-election
+	///   -> election`
+	/// - `ElectableStashes`: should only be set in `pages-election -> election block`
+	/// - `VoterSnapshotStatus`: cannot be argued about as we don't know when we get a call to data
+	///   provider, but we know it should never be set if we have 1 page.
+	///
+	/// -- SHOULD ONLY BE CALLED AT THE END OF A GIVEN BLOCK.
+	pub fn ensure_snapshot_metadata_state(now: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+		let next_election = Self::next_election_prediction(now);
+		let pages = Self::election_pages().saturated_into::<BlockNumberFor<T>>();
+		let election_prep_start = next_election - pages;
+
+		if now >= election_prep_start && now < next_election {
+			ensure!(
+				!ElectableStashes::<T>::get().is_empty(),
+				"ElectableStashes should not be empty mid election"
+			);
+		}
+
+		if pages > One::one() && now >= election_prep_start {
+			ensure!(
+				NextElectionPage::<T>::get().is_some() || next_election == now + One::one(),
+				"NextElectionPage should be set mid election, except for last block"
+			);
+		} else if pages == One::one() {
+			ensure!(
+				NextElectionPage::<T>::get().is_none(),
+				"NextElectionPage should not be set mid election"
+			);
+			ensure!(
+				VoterSnapshotStatus::<T>::get() == SnapshotStatus::Waiting,
+				"VoterSnapshotStatus should not be set mid election"
+			);
+		}
+
 		Ok(())
 	}
 

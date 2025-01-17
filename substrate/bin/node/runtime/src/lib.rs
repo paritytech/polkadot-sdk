@@ -919,18 +919,16 @@ parameter_types! {
 	/// Note: the EPM in this runtime runs the election on-chain. The election bounds must be
 	/// carefully set so that an election round fits in one block.
 	pub ElectionBoundsMultiPhase: ElectionBounds = ElectionBoundsBuilder::default()
-		.voters_count(22500.into()).targets_count(1000.into()).build();
+		.voters_count(5000.into()).targets_count(10.into()).build();
 	pub ElectionBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default()
-		.voters_count(1000.into()).targets_count(100.into()).build();
+		.voters_count(1000.into()).targets_count(10.into()).build();
 
 	pub MaxNominations: u32 = <NposSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 	/// The maximum winners that can be elected by the Election pallet which is equivalent to the
 	/// maximum active validators the staking pallet can have.
 	pub MaxActiveValidators: u32 = 1000;
-	/// 512 backers per winner in the election solution.
-	pub MaxBackersPerWinner: u32 = 512;
-	/// 64 backers per exposure page.
-	pub MaxExposurePageSize: u32 = 64;
+	pub MaxBackersPerWinner: u32 = 32;
+	pub MaxExposurePageSize: u32 = 4;
 
 }
 

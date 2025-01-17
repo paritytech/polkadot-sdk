@@ -66,7 +66,7 @@ pub mod time {
 	#[cfg(not(feature = "staking-playground"))]
 	pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 10 * MINUTES;
 	#[cfg(feature = "staking-playground")]
-	pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 2 * MINUTES;
+	pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 1 * MINUTES;
 
 	pub const EPOCH_DURATION_IN_SLOTS: u64 = {
 		const SLOT_FILL_RATE: f64 = MILLISECS_PER_BLOCK as f64 / SLOT_DURATION as f64;

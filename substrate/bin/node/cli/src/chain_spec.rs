@@ -382,7 +382,7 @@ pub fn testnet_genesis(
 				.collect::<Vec<_>>(),
 		},
 		"staking": {
-			"validatorCount": (initial_authorities.len()/2usize) as u32,
+			"validatorCount": std::option_env!("VAL_COUNT").map(|v| v.parse::<u32>().unwrap()).unwrap_or((initial_authorities.len()/2usize) as u32),
 			"minimumValidatorCount": 4,
 			"invulnerables": initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
 			"slashRewardFraction": Perbill::from_percent(10),
