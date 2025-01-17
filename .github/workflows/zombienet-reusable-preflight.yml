@@ -125,9 +125,8 @@ jobs:
           export SOURCE_REF_NAME=${{ github.head_ref || github.ref_name }}
           echo "SOURCE_REF_SLUG=${SOURCE_REF_NAME//\//_}" >> $GITHUB_OUTPUT
           #
-          cat .github/zombienet-env
           cat .github/zombienet-env >> $GITHUB_OUTPUT
-
+          cat .github/zombienet-env
 
       #
       #
