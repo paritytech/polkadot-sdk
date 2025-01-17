@@ -123,7 +123,9 @@ jobs:
       - name: Set vars
         id: set_vars
         shell: bash
-        run: cat .github/zombienet-env >> $GITHUB_OUTPUT
+        run: |
+          cat .github/zombienet-env
+          cat .github/zombienet-env >> $GITHUB_OUTPUT
 
 
       #
