@@ -204,6 +204,7 @@ pub struct TransactionTrace {
 	/// The transaction hash.
 	#[serde(rename = "txHash")]
 	pub tx_hash: H256,
-	/// The traces of the transaction.
-	pub result: Vec<CallTrace>,
+	/// The trace of the transaction.
+	#[serde(rename = "result")]
+	pub trace: CallTrace,
 }
