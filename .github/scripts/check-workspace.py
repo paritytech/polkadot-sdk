@@ -144,7 +144,9 @@ def check_links(all_crates):
 						return
 
 		def check_crate(deps):
-			to_checks = ['dependencies', 'dev-dependencies', 'build-dependencies']
+			# We dont check dev-dependencies and build-dependencies for the stable2412 release since
+			# that they are using `path = ` instead of `workspace = true`.
+			to_checks = ['dependencies']
 
 			for to_check in to_checks:
 				if to_check in deps:
