@@ -20,7 +20,9 @@
 use codec::{DecodeAll, Encode, Output};
 use sp_core::{ViewFunctionDispatchError, ViewFunctionId};
 
-/// Implemented by both pallets and the runtime. The runtime is dispatching by prefix using the pallet implementation of `ViewFunctionIdPrefix` then the pallet is dispatching by suffix using the methods implementation of `ViewFunctionIdSuffix`.
+/// Implemented by both pallets and the runtime. The runtime is dispatching by prefix using the
+/// pallet implementation of `ViewFunctionIdPrefix` then the pallet is dispatching by suffix using
+/// the methods implementation of `ViewFunctionIdSuffix`.
 pub trait DispatchViewFunction {
 	fn dispatch_view_function<O: Output>(
 		id: &ViewFunctionId,
