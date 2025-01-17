@@ -756,6 +756,16 @@ fn deny_reserver_transfer_to_relaychain_should_work() {
 		Here.into_location(),
 		Some(Unsupported),
 	);
-	// others will pass
+	// accept DepositReserveAsset to destination other than RelayChain
+	assert_deny_execution(
+		vec![DepositReserveAsset {
+			assets: Wild(All),
+			dest: Here.into_location(),
+			xcm: vec![].into(),
+		}],
+		Here.into_location(),
+		None,
+	);
+	// others instructions should pass
 	assert_deny_execution(vec![ClearOrigin], Here.into_location(), None);
 }
