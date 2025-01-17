@@ -788,9 +788,7 @@ where
 					});
 				},
 				Err(e) => {
-					if_tracer(|t| {
-						t.exit_child_span_with_error(e.error.clone().into(), Weight::zero())
-					});
+					if_tracer(|t| t.exit_child_span_with_error(e.error.into(), Weight::zero()));
 				},
 			}
 			result
