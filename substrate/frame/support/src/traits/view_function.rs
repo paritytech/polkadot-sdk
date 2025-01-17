@@ -39,6 +39,7 @@ impl DispatchViewFunction for () {
 	}
 }
 
+/// Automatically implemented for each pallet by the macro [`pallet`](crate::pallet).
 pub trait ViewFunctionIdPrefix {
 	fn prefix() -> [u8; 16];
 }
