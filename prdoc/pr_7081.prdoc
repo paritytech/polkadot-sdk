@@ -12,5 +12,3 @@ doc:
 crates:
   - name: pallet-mmr
     bump: minor
-  - name: polkadot-sdk-frame
-    bump: minor
