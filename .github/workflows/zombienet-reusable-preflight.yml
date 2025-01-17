@@ -145,6 +145,7 @@ jobs:
         run: |
           echo "workflow file: ${{ steps.current_file.outputs.currentWorkflowFile }}"
           echo "Modified: ${{ steps.set_changes.outputs.modified_keys }}"
+          echo "ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}"
 
   #
   #
@@ -155,6 +156,8 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
     steps:
+      - uses: actions/checkout@v4
+
       - name: Info rust
         run: |
           rustup show
