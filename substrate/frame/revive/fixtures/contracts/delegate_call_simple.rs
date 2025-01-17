@@ -32,5 +32,13 @@ pub extern "C" fn call() {
 
 	// Delegate call into passed address.
 	let input = [0u8; 0];
-	api::delegate_call(uapi::CallFlags::empty(), address, 0, 0, None, &input, None).unwrap();
+	api::delegate_call(
+		uapi::CallFlags::empty(),
+		address,
+		u64::MAX,
+		u64::MAX,
+		&[u8::MAX; 32],
+		&input,
+		None
+	).unwrap();
 }
