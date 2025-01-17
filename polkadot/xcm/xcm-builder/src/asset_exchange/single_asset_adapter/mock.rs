@@ -23,7 +23,8 @@ use frame_support::{
 		fungible::{self, NativeFromLeft, NativeOrWithId},
 		fungibles::Mutate,
 		tokens::imbalance::ResolveAssetTo,
-		AsEnsureOriginWithArg, Equals, Everything, Nothing, OriginTrait, PalletInfoAccess,
+		AsEnsureOriginWithArg, Disabled, Equals, Everything, Nothing, OriginTrait,
+		PalletInfoAccess,
 	},
 	PalletId,
 };
