@@ -25,6 +25,10 @@ on:
         description: Enable runner debug logging
         required: false
         default: false
+      patch:
+        description: 'Patch number of the stable release we want to sync with'
+        required: false
+        default: ""
 
 jobs:
   sync-templates:
@@ -133,7 +137,14 @@ jobs:
           cp -r polkadot-sdk/templates/${{ matrix.template }}/* "${{ env.template-path }}/"
 
       - name: Run psvm on monorepo workspace dependencies
-        run: psvm -o -v ${{ github.event.inputs.stable_release_branch }} -p ./Cargo.toml
+        run: |
+          patch_input="${{ github.event.inputs.patch }}"
+          if [[ -n "$patch_input" ]]; then
+            patch="-$patch_input"
+          else
+            patch=""
+          fi
+          psvm -o -v "${{ github.event.inputs.stable_release_branch }}$patch" -p ./Cargo.toml
         working-directory: polkadot-sdk/
       - name: Copy over required workspace dependencies
         run: |
