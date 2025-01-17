@@ -631,8 +631,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 						else {
 							log::warn!(
 								target: "sub-libp2p",
-								"Request with id {:?} has no protocol registered.",
-								id.request_id,
+								"Request {id:?} has no protocol registered.",
 							);
 							return Some(id.clone())
 						};
@@ -665,7 +664,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 					{
 						log::debug!(
 							target: "sub-libp2p",
-							"Request with id {id:?} force detected as timeout. At the same time local \
+							"Request {id:?} force detected as timeout. At the same time local \
 							 node is no longer interested in the result.",
 						);
 					}
