@@ -699,8 +699,8 @@ impl Client {
 				log::error!(target: LOG_TARGET, "state_debugBlock failed with: {err:?}");
 			})?;
 
-		let traces = CallTrace::decode(&mut &bytes.0[..])?;
-		Ok(traces)
+		let trace = Option::<CallTrace>::decode(&mut &bytes.0[..])?;
+		Ok(trace.ok_or(ClientError::EthExtrinsicNotFound)?)
 	}
 
 	/// Get the EVM block for the given hash.

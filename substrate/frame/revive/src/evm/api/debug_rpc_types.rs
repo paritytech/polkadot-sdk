@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::evm::Bytes;
+use crate::evm::{Bytes, CallTracer};
 use alloc::{fmt, string::String, vec::Vec};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
@@ -36,6 +36,15 @@ pub enum TracerConfig {
 		#[serde(rename = "withLog")]
 		with_logs: bool,
 	},
+}
+
+impl TracerConfig {
+	/// Build the tracer associated to this config.
+	pub fn build<G>(self, gas_mapper: G) -> CallTracer<U256, G> {
+		match self {
+			Self::CallTracer { with_logs } => CallTracer::new(with_logs, gas_mapper),
+		}
+	}
 }
 
 /// Custom deserializer to support the following JSON format:
