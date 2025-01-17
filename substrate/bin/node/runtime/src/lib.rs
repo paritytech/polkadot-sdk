@@ -3365,7 +3365,7 @@ impl_runtime_apis! {
 		fn trace_block(
 			_block: Block,
 			_config: pallet_revive::evm::TracerConfig
-		) -> Vec<(u32, pallet_revive::evm::EthTraces)> {
+		) -> Vec<(u32, pallet_revive::evm::CallTrace)> {
 			unimplemented!()
 		}
 
@@ -3373,7 +3373,7 @@ impl_runtime_apis! {
 			_block: Block,
 			_tx_index: u32,
 			_config: pallet_revive::evm::TracerConfig
-		) -> pallet_revive::evm::EthTraces {
+		) -> Option<pallet_revive::evm::CallTrace> {
 			unimplemented!()
 		}
 	}
