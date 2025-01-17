@@ -31,7 +31,7 @@ pub trait DebugRpc {
 		&self,
 		transaction_hash: H256,
 		tracer_config: TracerConfig,
-	) -> RpcResult<EthTraces>;
+	) -> RpcResult<CallTrace>;
 }
 
 pub struct DebugRpcServerImpl {
@@ -60,8 +60,8 @@ impl DebugRpcServer for DebugRpcServerImpl {
 		&self,
 		transaction_hash: H256,
 		tracer_config: TracerConfig,
-	) -> RpcResult<EthTraces> {
-		let traces = self.client.trace_transaction(transaction_hash, tracer_config).await?;
-		Ok(traces)
+	) -> RpcResult<CallTrace> {
+		let trace = self.client.trace_transaction(transaction_hash, tracer_config).await?;
+		Ok(trace)
 	}
 }
