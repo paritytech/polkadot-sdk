@@ -378,7 +378,7 @@ pub struct RequestResponsesBehaviour {
 	/// We had issues in the past where libp2p did not produce a timeout event in due time.
 	///
 	/// For more details, see:
-	/// - https://github.com/paritytech/polkadot-sdk/issues/7076#issuecomment-2596085096
+	/// - <https://github.com/paritytech/polkadot-sdk/issues/7076#issuecomment-2596085096>
 	periodic_request_check: tokio::time::Interval,
 }
 
