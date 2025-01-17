@@ -997,23 +997,3 @@ where
 		<crate::Pallet<R>>::account_id()
 	}
 }
-
-sp_api::decl_runtime_apis! {
-	/// This runtime api allows to query the main pallet's pot account.
-	///
-	/// Sample implementation:
-	/// ```ignore
-	/// impl pallet_collator_selection::CollatorSelectionApi<Block, AccountId> for Runtime {
-	///    fn account_id() -> AccountId {
-	///        CollatorSelection::account_id()
-	///    }
-	/// }
-	/// ```
-	pub trait CollatorSelectionApi<AccountId>
-	where
-		AccountId: codec::Codec,
-	{
-		/// Queries the main pot account.
-		fn account_id() -> AccountId;
-	}
-}
