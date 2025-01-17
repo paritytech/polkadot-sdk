@@ -522,7 +522,10 @@ where
 	) -> Self {
 		let new_nominator_count = self.nominator_count.saturating_add(others_num);
 		let new_page_count =
-			new_nominator_count.saturating_add(Max::get()).saturating_div(Max::get());
+			new_nominator_count
+			    .defensive_saturating_add(Max::get())
+			    .defensive_saturating_sub(1)
+			    .saturating_div(Max::get());
 
 		Self {
 			total: self.total.saturating_add(others_balance),
