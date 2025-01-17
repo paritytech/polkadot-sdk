@@ -19,13 +19,7 @@
 
 mod mock;
 
-use frame_support::{
-	assert_noop, assert_ok, hypothetically,
-	traits::{
-		fungible::{InspectHold, Mutate},
-		Currency,
-	},
-};
+
 use mock::*;
 use pallet_nomination_pools::{
 	BondExtra, BondedPools, CommissionChangeRate, ConfigOp, Error as PoolsError,
@@ -36,9 +30,9 @@ use pallet_staking::{
 };
 
 use pallet_delegated_staking::Event as DelegatedStakingEvent;
+use frame::prelude::*;
 
-use sp_runtime::{bounded_btree_map, traits::Zero, Perbill};
-use sp_staking::Agent;
+use frame::deps::sp_staking::Agent;
 
 #[test]
 fn pool_lifecycle_e2e() {
