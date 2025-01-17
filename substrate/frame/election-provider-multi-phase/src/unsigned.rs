@@ -98,6 +98,8 @@ pub enum MinerError {
 	NoMoreVoters,
 	/// An error from the solver.
 	Solver,
+	/// Desired targets are mire than the maximum allowed winners.
+	TooManyDesiredTargets,
 }
 
 impl From<sp_npos_elections::Error> for MinerError {
@@ -202,6 +204,7 @@ impl<T: Config + CreateInherent<Call<T>>> Pallet<T> {
 		let RoundSnapshot { voters, targets } =
 			Snapshot::<T>::get().ok_or(MinerError::SnapshotUnAvailable)?;
 		let desired_targets = DesiredTargets::<T>::get().ok_or(MinerError::SnapshotUnAvailable)?;
+		ensure!(desired_targets <= T::MaxWinners::get(), MinerError::TooManyDesiredTargets);
 		let (solution, score, size, is_trimmed) =
 			Miner::<T::MinerConfig>::mine_solution_with_snapshot::<T::Solver>(
 				voters,
@@ -270,16 +273,17 @@ impl<T: Config + CreateInherent<Call<T>>> Pallet<T> {
 	/// Mine a new solution as a call. Performs all checks.
 	pub fn mine_checked_call() -> Result<Call<T>, MinerError> {
 		// get the solution, with a load of checks to ensure if submitted, IT IS ABSOLUTELY VALID.
-		let (raw_solution, witness, _) = Self::mine_and_check()?;
+		let (raw_solution, witness, _trimming) = Self::mine_and_check()?;
 
 		let score = raw_solution.score;
 		let call: Call<T> = Call::submit_unsigned { raw_solution: Box::new(raw_solution), witness };
 
 		log!(
 			debug,
-			"mined a solution with score {:?} and size {}",
+			"mined a solution with score {:?} and size {} and trimming {:?}",
 			score,
-			call.using_encoded(|b| b.len())
+			call.using_encoded(|b| b.len()),
+			_trimming
 		);
 
 		Ok(call)
@@ -556,11 +560,7 @@ impl<T: MinerConfig> Miner<T> {
 						.voters
 						.split_off(max_backers_per_winner)
 						.into_iter()
-						.map(|(who, stake)| {
-							// update total support of the target where the edge will be removed.
-							support.total -= stake;
-							who
-						})
+						.map(|(who, _stake)| who)
 						.collect();
 
 					// remove lowest stake edges calculated above from assignments.
@@ -685,7 +685,7 @@ impl<T: MinerConfig> Miner<T> {
 		let remove = assignments.len().saturating_sub(maximum_allowed_voters);
 
 		log_no_system!(
-			debug,
+			trace,
 			"from {} assignments, truncating to {} for length, removing {}",
 			assignments.len(),
 			maximum_allowed_voters,
@@ -1939,29 +1939,20 @@ mod tests {
 
 		let targets = vec![10, 20, 30, 40];
 		let voters = vec![
-			(1, 10, bounded_vec![10, 20, 30]),
-			(2, 10, bounded_vec![10, 20, 30]),
-			(3, 10, bounded_vec![10, 20, 30]),
-			(4, 10, bounded_vec![10, 20, 30]),
-			(5, 10, bounded_vec![10, 20, 40]),
+			(1, 11, bounded_vec![10, 20, 30]),
+			(2, 12, bounded_vec![10, 20, 30]),
+			(3, 13, bounded_vec![10, 20, 30]),
+			(4, 14, bounded_vec![10, 20, 30]),
+			(5, 15, bounded_vec![10, 20, 40]),
 		];
 		let snapshot = RoundSnapshot { voters: voters.clone(), targets: targets.clone() };
 		let (round, desired_targets) = (1, 3);
-
-		let expected_score_unbounded =
-			ElectionScore { minimal_stake: 12, sum_stake: 50, sum_stake_squared: 874 };
-		let expected_score_bounded =
-			ElectionScore { minimal_stake: 10, sum_stake: 30, sum_stake_squared: 300 };
-
-		// solution without max_backers_per_winner set will be higher than the score when bounds
-		// are set, confirming the trimming when using the same snapshot state.
-		assert!(expected_score_unbounded > expected_score_bounded);
 
 		// election with unbounded max backers per winnner.
 		ExtBuilder::default().max_backers_per_winner(u32::MAX).build_and_execute(|| {
 			assert_eq!(MaxBackersPerWinner::get(), u32::MAX);
 
-			let (solution, _, _, trimming_status) =
+			let (solution, expected_score_unbounded, _, trimming_status) =
 				Miner::<Runtime>::mine_solution_with_snapshot::<<Runtime as Config>::Solver>(
 					voters.clone(),
 					targets.clone(),
@@ -1984,10 +1975,10 @@ mod tests {
 				vec![
 					(
 						10,
-						BoundedSupport { total: 21, voters: bounded_vec![(1, 10), (4, 8), (5, 3)] }
+						BoundedSupport { total: 25, voters: bounded_vec![(1, 11), (5, 5), (4, 9)] }
 					),
-					(20, BoundedSupport { total: 17, voters: bounded_vec![(2, 10), (5, 7)] }),
-					(30, BoundedSupport { total: 12, voters: bounded_vec![(3, 10), (4, 2)] }),
+					(20, BoundedSupport { total: 22, voters: bounded_vec![(2, 12), (5, 10)] }),
+					(30, BoundedSupport { total: 18, voters: bounded_vec![(3, 13), (4, 5)] })
 				]
 			);
 
@@ -1999,7 +1990,7 @@ mod tests {
 		ExtBuilder::default().max_backers_per_winner(1).build_and_execute(|| {
 			assert_eq!(MaxBackersPerWinner::get(), 1);
 
-			let (solution, _, _, trimming_status) =
+			let (solution, expected_score_bounded, _, trimming_status) =
 				Miner::<Runtime>::mine_solution_with_snapshot::<<Runtime as Config>::Solver>(
 					voters,
 					targets,
@@ -2024,9 +2015,9 @@ mod tests {
 			assert_eq!(
 				ready_solution.supports.into_iter().collect::<Vec<_>>(),
 				vec![
-					(10, BoundedSupport { total: 10, voters: bounded_vec![(1, 10)] }),
-					(20, BoundedSupport { total: 10, voters: bounded_vec![(2, 10)] }),
-					(30, BoundedSupport { total: 10, voters: bounded_vec![(3, 10)] }),
+					(10, BoundedSupport { total: 11, voters: bounded_vec![(1, 11)] }),
+					(20, BoundedSupport { total: 12, voters: bounded_vec![(2, 12)] }),
+					(30, BoundedSupport { total: 13, voters: bounded_vec![(3, 13)] })
 				]
 			);
 

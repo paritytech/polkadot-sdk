@@ -849,7 +849,7 @@ impl pallet_staking::Config for Runtime {
 	type SessionInterface = Self;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
-	type MaxExposurePageSize = ConstU32<256>;
+	type MaxExposurePageSize = MaxExposurePageSize;
 	type MaxValidatorSet = MaxActiveValidators;
 	type ElectionProvider = ElectionProviderMultiPhase;
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
@@ -878,9 +878,9 @@ impl pallet_fast_unstake::Config for Runtime {
 }
 
 parameter_types! {
-	// phase durations. 1/4 of the last session for each.
-	pub const SignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
-	pub const UnsignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
+	// phase durations. 1/2 of the last session for each.
+	pub const SignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 2;
+	pub const UnsignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 2;
 
 	// signed config
 	pub const SignedRewardBase: Balance = 1 * DOLLARS;
@@ -907,25 +907,27 @@ frame_election_provider_support::generate_solution_type!(
 		VoterIndex = u32,
 		TargetIndex = u16,
 		Accuracy = sp_runtime::PerU16,
-		MaxVoters = MaxElectingVotersSolution,
+		MaxVoters = ConstU32<22500>,
 	>(16)
 );
 
 parameter_types! {
-	// Note: the EPM in this runtime runs the election on-chain. The election bounds must be
-	// carefully set so that an election round fits in one block.
+	/// Note: the EPM in this runtime runs the election on-chain. The election bounds must be
+	/// carefully set so that an election round fits in one block.
 	pub ElectionBoundsMultiPhase: ElectionBounds = ElectionBoundsBuilder::default()
-		.voters_count(10_000.into()).targets_count(1_500.into()).build();
+		.voters_count(22500.into()).targets_count(1000.into()).build();
 	pub ElectionBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default()
-		.voters_count(5_000.into()).targets_count(1_250.into()).build();
+		.voters_count(1000.into()).targets_count(100.into()).build();
 
 	pub MaxNominations: u32 = <NposSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
-	pub MaxElectingVotersSolution: u32 = 40_000;
-	// The maximum winners that can be elected by the Election pallet which is equivalent to the
-	// maximum active validators the staking pallet can have.
+	/// The maximum winners that can be elected by the Election pallet which is equivalent to the
+	/// maximum active validators the staking pallet can have.
 	pub MaxActiveValidators: u32 = 1000;
-	// Unbounded number of backers per winner in the election solution.
-	pub MaxBackersPerWinner: u32 = u32::MAX;
+	/// 512 backers per winner in the election solution.
+	pub MaxBackersPerWinner: u32 = 512;
+	/// 64 backers per exposure page.
+	pub MaxExposurePageSize: u32 = 64;
+
 }
 
 /// The numbers configured here could always be more than the the maximum limits of staking pallet

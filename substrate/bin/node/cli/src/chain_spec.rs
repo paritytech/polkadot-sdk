@@ -421,8 +421,12 @@ pub fn testnet_genesis(
 
 fn development_config_genesis_json() -> serde_json::Value {
 	if cfg!(feature = "staking-playground") {
-		let random_authorities_count = 100;
-		let random_nominators_count = 3000;
+		let random_authorities_count = std::option_env!("AUTHORITIES")
+			.map(|s| s.parse::<u32>().unwrap())
+			.unwrap_or(100);
+		let random_nominators_count = std::option_env!("NOMINATORS")
+			.map(|s| s.parse::<u32>().unwrap())
+			.unwrap_or(3000);
 		let mut random_authorities = (0..random_authorities_count)
 			.map(|i| authority_keys_from_seed(&format!("Random{}", i)))
 			.collect::<Vec<_>>();

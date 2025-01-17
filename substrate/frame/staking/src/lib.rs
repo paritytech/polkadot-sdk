@@ -1313,7 +1313,7 @@ impl<T: Config> EraInfo<T> {
 			let last_page_empty_slots =
 				T::MaxExposurePageSize::get().saturating_sub(last_page.others.len() as u32);
 
-			// splits the exposure so that `exposures_append` will fit witin the last exposure
+			// splits the exposure so that `exposures_append` will fit within the last exposure
 			// page, up to the max exposure page size. The remaining individual exposures in
 			// `exposure` will be added to new pages.
 			let exposures_append = exposure.split_others(last_page_empty_slots);

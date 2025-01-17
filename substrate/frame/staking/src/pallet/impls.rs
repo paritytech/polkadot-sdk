@@ -675,7 +675,7 @@ impl<T: Config> Pallet<T> {
 				.unwrap_or_default();
 
 			// set stakers info for genesis era (0).
-			Self::store_stakers_info(exposures, Zero::zero());
+			let _ = Self::store_stakers_info(exposures, Zero::zero());
 
 			validators
 		} else {
@@ -689,7 +689,12 @@ impl<T: Config> Pallet<T> {
 				.expect("same bounds, will fit; qed.")
 		};
 
-		log!(info, "electable validators for session {:?}: {:?}", start_session_index, validators);
+		log!(
+			info,
+			"electable validators count for session {:?}: {:?}",
+			start_session_index,
+			validators.len()
+		);
 
 		if (validators.len() as u32) < MinimumValidatorCount::<T>::get().max(1) {
 			// Session will panic if we ever return an empty validator set, thus max(1) ^^.
@@ -814,6 +819,7 @@ impl<T: Config> Pallet<T> {
 		// populate elected stash, stakers, exposures, and the snapshot of validator prefs.
 		let mut total_stake_page: BalanceOf<T> = Zero::zero();
 		let mut elected_stashes_page = Vec::with_capacity(exposures.len());
+		let mut total_backers = 0u32;
 
 		exposures.into_iter().for_each(|(stash, exposure)| {
 			// build elected stash.
@@ -821,7 +827,7 @@ impl<T: Config> Pallet<T> {
 			// accumulate total stake.
 			total_stake_page = total_stake_page.saturating_add(exposure.total);
 			// set or update staker exposure for this era.
-
+			total_backers += exposure.others.len() as u32;
 			EraInfo::<T>::upsert_exposure(new_planned_era, &stash, exposure);
 		});
 
@@ -842,8 +848,9 @@ impl<T: Config> Pallet<T> {
 		if new_planned_era > 0 {
 			log!(
 				info,
-				"updated validator set with {:?} validators for era {:?}",
+				"stored a page of stakers with {:?} validators and {:?} total backers for era {:?}",
 				elected_stashes.len(),
+				total_backers,
 				new_planned_era,
 			);
 		}
