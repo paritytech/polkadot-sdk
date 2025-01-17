@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use frame_support::traits::ProcessMessageError::Unsupported;
 use xcm_executor::traits::Properties;
 
 use super::*;
@@ -734,7 +733,7 @@ fn deny_reserver_transfer_to_relaychain_should_work() {
 			xcm: vec![].into(),
 		}],
 		Here.into_location(),
-		Some(Unsupported),
+		Some(ProcessMessageError::Unsupported),
 	);
 	// deny InitiateReserveWithdraw to RelayChain
 	assert_deny_execution(
@@ -744,7 +743,7 @@ fn deny_reserver_transfer_to_relaychain_should_work() {
 			xcm: vec![].into(),
 		}],
 		Here.into_location(),
-		Some(Unsupported),
+		Some(ProcessMessageError::Unsupported),
 	);
 	// deny TransferReserveAsset to RelayChain
 	assert_deny_execution(
@@ -754,7 +753,7 @@ fn deny_reserver_transfer_to_relaychain_should_work() {
 			xcm: vec![].into(),
 		}],
 		Here.into_location(),
-		Some(Unsupported),
+		Some(ProcessMessageError::Unsupported),
 	);
 	// accept DepositReserveAsset to destination other than RelayChain
 	assert_deny_execution(
