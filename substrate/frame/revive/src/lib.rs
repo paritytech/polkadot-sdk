@@ -43,7 +43,7 @@ pub mod weights;
 use crate::{
 	evm::{
 		runtime::{gas_from_fee, GAS_PRICE},
-		CallTrace, GasEncoder, GenericTransaction,
+		GasEncoder, GenericTransaction,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Ext, Key, Stack as ExecStack},
 	gas::GasMeter,
@@ -53,7 +53,6 @@ use crate::{
 use alloc::{boxed::Box, format, vec};
 use codec::{Codec, Decode, Encode};
 use environmental::*;
-use evm::TracerConfig;
 use frame_support::{
 	dispatch::{
 		DispatchErrorWithPostInfo, DispatchResultWithPostInfo, GetDispatchInfo, Pays,
