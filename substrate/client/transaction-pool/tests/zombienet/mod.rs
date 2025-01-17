@@ -28,17 +28,37 @@ use zombienet_sdk::{
 const DEFAULT_RC_NODE_RPC_PORT: u16 = 9944;
 const DEFAULT_PC_NODE_RPC_PORT: u16 = 8844;
 
+/// Type of the substrate node.
+
+#[derive(EnumString)]
+pub enum NodeType {
+	#[strum(serialize = "polkadot")]
+	Polkadot,
+	#[strum(serialize = "polkadot-parachain")]
+	PolkadotParachain,
+}
+
+/// Wrapper over a substrate node managed by zombienet..
+pub struct Node {
+	r#type: NodeType,
+	name: String,
+	args: Vec<Arg>,
+}
+
+impl Node {
+	pub fn new(r#type: NodeType, name: String, args: Vec<Arg>) -> Self {
+		Node { r#type, name, args }
+	}
+}
+
 pub trait Network {
 	// Ensure the necesary bins are on $PATH.
 	fn ensure_bins_on_path(&self) -> bool;
-	// Relaychain nodes names.
-	fn rc_nodes_names(&self) -> Vec<String>;
-	// Relaychain nodes count.
-	fn rc_nodes_count(&self) -> usize;
-	// Parachain nodes count.
-	fn pc_nodes_count(&self) -> usize;
-	// Parachain nodes names.
-	fn pc_nodes_names(&self) -> Vec<String>;
+	// Relaychain nodes.
+	fn rc_nodes(&self) -> Vec<Node>;
+	// Parachain nodes.
+	fn pc_nodes(&self) -> Vec<Node>;
+
 	// Provide zombienet network config.
 	fn config(&self) -> Result<NetworkConfig, anyhow::Error>;
 	// Start the network locally.
@@ -49,34 +69,46 @@ pub trait Network {
 
 // A zombienet network with two relaychain 'polkadot' validators and one parachain
 // validator based on yap-westend-live-2022 chain spec.
-pub struct ParachainNetwork {
-	required_bins: Vec<String>,
-	pc_nodes_count: usize,
-	rc_nodes_count: usize,
+pub struct SmallNetworkYap {
+	rc_nodes: Vec<Node>,
+	pc_nodes: Vec<Node>,
 }
 
-impl ParachainNetwork {
-	pub fn new(pc_nodes_count: usize, rc_nodes_count: usize) -> Self {
-		ParachainNetwork {
-			required_bins: vec![
-				"polkadot".to_owned(),
-				"polkadot-parachain".to_owned(),
-				"polkadot-prepare-worker".to_owned(),
-				"polkadot-execute-worker".to_owned(),
-			],
-			pc_nodes_count,
-			rc_nodes_count,
+impl SmallNetworkYap {
+	pub fn new() -> Self {
+		SmallNetworkYap {
+			rc_nodes: vec![Node::new(NodeType::Polkadot, "alice".to_owned(), vec![]), Node::new(NodeType::Polkadot, "bob", vec![])],
+			pc_nodes: vec![Node::new(NodeType::PolkadotParachain, "charlie".to_owned(), vec![
+					"--force-authoring".into(),
+					("--pool-limit", "500000").into(),
+					("--pool-kbytes", "2048000").into(),
+					("--rpc-max-connections", "15000").into(),
+					("--rpc-max-response-size", "150").into(),
+					"-lbasic-authorship=info".into(),
+					"-ltxpool=info".into(),
+					"-lsync=info".into(),
+					"-laura::cumulus=info".into(),
+					"-lpeerset=info".into(),
+					"-lsub-libp2p=info".into(),
+					"--state-pruning=1024".into(),
+					"--rpc-max-subscriptions-per-connection=128000".into(),
+				])],
 		}
 	}
 }
 
-impl Network for ParachainNetwork {
+impl Network for SmallNetworkYap {
 	fn ensure_bins_on_path(&self) -> bool {
 		// We need polkadot, polkadot-parachain, polkadot-execute-worker, polkadot-prepare-worker,
 		// (and ttxt? - maybe not for the network, but for the tests, definitely)
-		self.required_bins
+		self.
+
 			.iter()
-			.fold(true, |acc, bin| acc && which(bin).map(|_| true).unwrap_or(false))
+			.fold(true, |acc, bin| {
+				if
+			}
+
+				acc && which(bin).map(|_| true).unwrap_or(false))
 	}
 
 	fn config(&self) -> Result<NetworkConfig, anyhow::Error> {
@@ -152,25 +184,11 @@ impl Network for ParachainNetwork {
 		network_config.spawn_native().await.map_err(|err| anyhow!(format!("{}", err)))
 	}
 
-	fn rc_nodes_names(&self) -> Vec<String> {
-		vec!["alice".to_owned(), "bob".to_owned()]
-			.iter()
-			.take(self.rc_nodes_count)
-			.collect::<Vec<String>>()
+	fn rc_nodes(&self) -> &Vec<Node> {
+		&self.rc_nodes
 	}
 
-	fn pc_nodes_names(&self) -> Vec<String> {
-		vec!["charlie".to_owned(), "dave".to_owned(), "eve".to_owned(), "fredie".to_owned()]
-			.iter()
-			.take(self.pc_nodes_count)
-			.collect::<Vec<String>>()
-	}
-
-	fn rc_nodes_count(&self) -> usize {
-		self.rc_nodes_count
-	}
-
-	fn pc_nodes_count(&self) -> usize {
-		self.pc_nodes_count
+	fn pc_nodes(&self) -> &Vec<Node> {
+		&self.pc_nodes
 	}
 }
