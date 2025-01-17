@@ -21,13 +21,21 @@ use sp_core::{H160, H256, U256};
 
 environmental!(tracer: dyn Tracer + 'static);
 
-/// Run the given closure with the given tracer.
-pub fn using_tracer<R, F: FnOnce() -> R>(tracer: &mut (dyn Tracer + 'static), f: F) -> R {
+/// Trace the execution of the given closure.
+///
+/// # Warning
+///
+/// Only meant to be called from off-chain code as its additional resource usage is
+/// not accounted for in the weights or memory envelope.
+pub fn trace<R, F: FnOnce() -> R>(tracer: &mut (dyn Tracer + 'static), f: F) -> R {
 	tracer::using_once(tracer, f)
 }
 
-/// Run the closure when the tracer is enabled.
-pub(crate) fn if_tracer<F: FnOnce(&mut (dyn Tracer + 'static))>(f: F) {
+/// Run the closure when tracing is enabled.
+///
+/// This is safe to be called from on-chain code as tracing will never be activated
+/// there. Hence the closure is not executed in this case.
+pub(crate) fn if_tracing<F: FnOnce(&mut (dyn Tracer + 'static))>(f: F) {
 	tracer::with(f);
 }
 

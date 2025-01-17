@@ -22,7 +22,7 @@ use crate::{
 	primitives::{ExecReturnValue, StorageDeposit},
 	runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo},
 	storage::{self, meter::Diff, WriteOutcome},
-	tracing::if_tracer,
+	tracing::if_tracing,
 	transient_storage::TransientStorage,
 	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, Error, Event,
 	ImmutableData, ImmutableDataOf, Pallet as Contracts,
@@ -773,7 +773,7 @@ where
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
-			if_tracer(|t| {
+			if_tracing(|t| {
 				let address =
 					origin.account_id().map(T::AddressMapper::to_address).unwrap_or_default();
 				let dest = T::AddressMapper::to_address(&dest);
@@ -783,12 +783,12 @@ where
 			let result = Self::transfer_from_origin(&origin, &origin, &dest, value);
 			match result {
 				Ok(ref output) => {
-					if_tracer(|t| {
+					if_tracing(|t| {
 						t.exit_child_span(&output, Weight::zero());
 					});
 				},
 				Err(e) => {
-					if_tracer(|t| t.exit_child_span_with_error(e.error.into(), Weight::zero()));
+					if_tracing(|t| t.exit_child_span_with_error(e.error.into(), Weight::zero()));
 				},
 			}
 			result
@@ -1095,7 +1095,7 @@ where
 			let contract_address = T::AddressMapper::to_address(account_id);
 			let maybe_caller_address = caller.account_id().map(T::AddressMapper::to_address);
 
-			if_tracer(|tracer| {
+			if_tracing(|tracer| {
 				tracer.enter_child_span(
 					maybe_caller_address.unwrap_or_default(),
 					contract_address,
@@ -1108,7 +1108,7 @@ where
 			});
 
 			let output = executable.execute(self, entry_point, input_data).map_err(|e| {
-				if_tracer(|tracer| {
+				if_tracing(|tracer| {
 					tracer.exit_child_span_with_error(
 						e.error,
 						top_frame_mut!(self).nested_gas.gas_consumed(),
@@ -1117,7 +1117,7 @@ where
 				ExecError { error: e.error, origin: ErrorOrigin::Callee }
 			})?;
 
-			if_tracer(|tracer| {
+			if_tracing(|tracer| {
 				tracer.exit_child_span(&output, top_frame_mut!(self).nested_gas.gas_consumed());
 			});
 
@@ -1704,7 +1704,7 @@ where
 
 	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) {
 		let contract = T::AddressMapper::to_address(self.account_id());
-		if_tracer(|tracer| {
+		if_tracing(|tracer| {
 			tracer.log_event(contract, &topics, &data);
 		});
 		Contracts::<Self::T>::deposit_event(Event::ContractEmitted { contract, data, topics });
