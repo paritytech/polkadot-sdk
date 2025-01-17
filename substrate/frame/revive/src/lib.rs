@@ -41,10 +41,9 @@ pub mod tracing;
 pub mod weights;
 
 use crate::{
-	debug::EthTraces,
 	evm::{
 		runtime::{gas_from_fee, GAS_PRICE},
-		GasEncoder, GenericTransaction,
+		CallTrace, GasEncoder, GenericTransaction,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Ext, Key, Stack as ExecStack},
 	gas::GasMeter,
@@ -1482,7 +1481,7 @@ sp_api::decl_runtime_apis! {
 		fn trace_block(
 			block: Block,
 			config: TracerConfig
-		) -> Vec<(u32, EthTraces)>;
+		) -> Vec<(u32, Vec<CallTrace>)>;
 
 		/// Replay the block with the given hash.
 		/// This is intended to called through `state_debugBlock` RPC. Using [`using_tracer`]
@@ -1491,7 +1490,7 @@ sp_api::decl_runtime_apis! {
 			block: Block,
 			tx_index: u32,
 			config: TracerConfig
-		) -> EthTraces;
+		) -> CallTrace;
 
 	}
 }
