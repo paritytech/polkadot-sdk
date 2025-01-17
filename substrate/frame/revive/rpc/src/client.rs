@@ -778,11 +778,3 @@ impl Client {
 		self.max_block_weight
 	}
 }
-
-#[test]
-fn print_stuff() {
-	let transaction_index = 2u32;
-	let tracer_config = TracerConfig::CallTracer { with_logs: true };
-	let x = to_hex((transaction_index, tracer_config).encode());
-	println!("{}", x);
-}
