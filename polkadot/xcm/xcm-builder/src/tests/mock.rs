@@ -19,7 +19,7 @@
 use crate::{
 	barriers::{AllowSubscriptionsFrom, RespectSuspension, TrailingSetTopicAsId},
 	test_utils::*,
-	CreateMatcher, EnsureDecodableXcm, MatchXcm,
+	EnsureDecodableXcm,
 };
 pub use crate::{
 	AliasForeignAccountId32, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
@@ -33,7 +33,7 @@ pub use core::{
 	fmt::Debug,
 	ops::ControlFlow,
 };
-use frame_support::traits::{ContainsPair, Everything, ProcessMessageError};
+use frame_support::traits::{ContainsPair, Everything};
 pub use frame_support::{
 	dispatch::{DispatchInfo, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},
 	ensure, parameter_types,
@@ -45,7 +45,7 @@ pub use xcm_executor::{
 	traits::{
 		AssetExchange, AssetLock, CheckSuspension, ConvertOrigin, DenyExecution, Enact, ExportXcm,
 		FeeManager, FeeReason, LockError, OnResponse, Properties, QueryHandler,
-		QueryResponseStatus, ShouldExecute, TransactAsset,
+		QueryResponseStatus, TransactAsset,
 	},
 	AssetsInHolding, Config,
 };
@@ -772,123 +772,4 @@ pub fn fungible_multi_asset(location: Location, amount: u128) -> Asset {
 
 pub fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
 	message.using_encoded(sp_io::hashing::blake2_256)
-}
-
-/// A dummy `DenyExecution` impl which returns `ProcessMessageError::Yield` when XCM contains
-/// `ClearTransactStatus`
-pub struct DenyClearTransactStatusAsYield;
-impl DenyExecution for DenyClearTransactStatusAsYield {
-	fn deny_execution<RuntimeCall>(
-		_origin: &Location,
-		instructions: &mut [Instruction<RuntimeCall>],
-		_max_weight: Weight,
-		_properties: &mut Properties,
-	) -> Option<ProcessMessageError> {
-		match instructions.matcher().match_next_inst_while(
-			|_| true,
-			|inst| match inst {
-				ClearTransactStatus { .. } => Err(ProcessMessageError::Yield),
-				_ => Ok(ControlFlow::Continue(())),
-			},
-		) {
-			Ok(_) => None,
-			Err(err) => Some(err),
-		}
-	}
-}
-
-/// A dummy `DenyExecution` impl which returns `ProcessMessageError::BadFormat` when XCM contains
-/// `ClearOrigin` with origin location from `Here`
-pub struct DenyClearOriginFromHereAsBadFormat;
-impl DenyExecution for DenyClearOriginFromHereAsBadFormat {
-	fn deny_execution<RuntimeCall>(
-		origin: &Location,
-		instructions: &mut [Instruction<RuntimeCall>],
-		_max_weight: Weight,
-		_properties: &mut Properties,
-	) -> Option<ProcessMessageError> {
-		match instructions.matcher().match_next_inst_while(
-			|_| true,
-			|inst| match inst {
-				ClearOrigin { .. } =>
-					if origin.clone() == Here.into_location() {
-						Err(ProcessMessageError::BadFormat)
-					} else {
-						Ok(ControlFlow::Continue(()))
-					},
-				_ => Ok(ControlFlow::Continue(())),
-			},
-		) {
-			Ok(_) => None,
-			Err(err) => Some(err),
-		}
-	}
-}
-
-/// A dummy `DenyExecution` impl which returns `ProcessMessageError::StackLimitReached` when XCM
-/// contains a single `UnsubscribeVersion`
-pub struct DenyUnsubscribeVersionAsStackLimitReached;
-impl DenyExecution for DenyUnsubscribeVersionAsStackLimitReached {
-	fn deny_execution<RuntimeCall>(
-		_origin: &Location,
-		instructions: &mut [Instruction<RuntimeCall>],
-		_max_weight: Weight,
-		_properties: &mut Properties,
-	) -> Option<ProcessMessageError> {
-		if instructions.len() != 1 {
-			return None;
-		}
-		match instructions.get(0).unwrap() {
-			UnsubscribeVersion { .. } => Some(ProcessMessageError::StackLimitReached),
-			_ => None,
-		}
-	}
-}
-
-/// A dummy `ShouldExecute` impl which returns `Ok(())` when XCM contains a single `ClearError`,
-/// else return `ProcessMessageError::Yield`
-pub struct AllowSingleClearErrorOrYield;
-impl ShouldExecute for AllowSingleClearErrorOrYield {
-	fn should_execute<Call>(
-		_origin: &Location,
-		instructions: &mut [Instruction<Call>],
-		_max_weight: Weight,
-		_properties: &mut Properties,
-	) -> Result<(), ProcessMessageError> {
-		instructions
-			.matcher()
-			.assert_remaining_insts(1)?
-			.match_next_inst(|inst| match inst {
-				ClearError { .. } => Ok(()),
-				_ => Err(ProcessMessageError::Yield),
-			})?;
-		Ok(())
-	}
-}
-
-/// A dummy `ShouldExecute` impl which returns `Ok(())` when XCM contains `ClearTopic` and origin
-/// from `Here`, else return `ProcessMessageError::Unsupported`
-pub struct AllowClearTopicFromHere;
-impl ShouldExecute for AllowClearTopicFromHere {
-	fn should_execute<Call>(
-		origin: &Location,
-		instructions: &mut [Instruction<Call>],
-		_max_weight: Weight,
-		_properties: &mut Properties,
-	) -> Result<(), ProcessMessageError> {
-		ensure!(origin.clone() == Here.into_location(), ProcessMessageError::Unsupported);
-		let mut found = false;
-		instructions.matcher().match_next_inst_while(
-			|_| true,
-			|inst| match inst {
-				ClearTopic { .. } => {
-					found = true;
-					Ok(ControlFlow::Break(()))
-				},
-				_ => Ok(ControlFlow::Continue(())),
-			},
-		)?;
-		ensure!(found, ProcessMessageError::Unsupported);
-		Ok(())
-	}
 }

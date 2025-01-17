@@ -536,6 +536,123 @@ fn allow_hrmp_notifications_from_relay_chain_should_work() {
 
 #[test]
 fn deny_then_try_works() {
+	/// A dummy `DenyExecution` impl which returns `ProcessMessageError::Yield` when XCM contains
+	/// `ClearTransactStatus`
+	struct DenyClearTransactStatusAsYield;
+	impl DenyExecution for DenyClearTransactStatusAsYield {
+		fn deny_execution<RuntimeCall>(
+			_origin: &Location,
+			instructions: &mut [Instruction<RuntimeCall>],
+			_max_weight: Weight,
+			_properties: &mut Properties,
+		) -> Option<ProcessMessageError> {
+			match instructions.matcher().match_next_inst_while(
+				|_| true,
+				|inst| match inst {
+					ClearTransactStatus { .. } => Err(ProcessMessageError::Yield),
+					_ => Ok(ControlFlow::Continue(())),
+				},
+			) {
+				Ok(_) => None,
+				Err(err) => Some(err),
+			}
+		}
+	}
+
+	/// A dummy `DenyExecution` impl which returns `ProcessMessageError::BadFormat` when XCM
+	/// contains `ClearOrigin` with origin location from `Here`
+	struct DenyClearOriginFromHereAsBadFormat;
+	impl DenyExecution for DenyClearOriginFromHereAsBadFormat {
+		fn deny_execution<RuntimeCall>(
+			origin: &Location,
+			instructions: &mut [Instruction<RuntimeCall>],
+			_max_weight: Weight,
+			_properties: &mut Properties,
+		) -> Option<ProcessMessageError> {
+			match instructions.matcher().match_next_inst_while(
+				|_| true,
+				|inst| match inst {
+					ClearOrigin { .. } =>
+						if origin.clone() == Here.into_location() {
+							Err(ProcessMessageError::BadFormat)
+						} else {
+							Ok(ControlFlow::Continue(()))
+						},
+					_ => Ok(ControlFlow::Continue(())),
+				},
+			) {
+				Ok(_) => None,
+				Err(err) => Some(err),
+			}
+		}
+	}
+
+	/// A dummy `DenyExecution` impl which returns `ProcessMessageError::StackLimitReached` when XCM
+	/// contains a single `UnsubscribeVersion`
+	struct DenyUnsubscribeVersionAsStackLimitReached;
+	impl DenyExecution for DenyUnsubscribeVersionAsStackLimitReached {
+		fn deny_execution<RuntimeCall>(
+			_origin: &Location,
+			instructions: &mut [Instruction<RuntimeCall>],
+			_max_weight: Weight,
+			_properties: &mut Properties,
+		) -> Option<ProcessMessageError> {
+			if instructions.len() != 1 {
+				return None;
+			}
+			match instructions.get(0).unwrap() {
+				UnsubscribeVersion { .. } => Some(ProcessMessageError::StackLimitReached),
+				_ => None,
+			}
+		}
+	}
+
+	/// A dummy `ShouldExecute` impl which returns `Ok(())` when XCM contains a single `ClearError`,
+	/// else return `ProcessMessageError::Yield`
+	struct AllowSingleClearErrorOrYield;
+	impl ShouldExecute for AllowSingleClearErrorOrYield {
+		fn should_execute<Call>(
+			_origin: &Location,
+			instructions: &mut [Instruction<Call>],
+			_max_weight: Weight,
+			_properties: &mut Properties,
+		) -> Result<(), ProcessMessageError> {
+			instructions.matcher().assert_remaining_insts(1)?.match_next_inst(
+				|inst| match inst {
+					ClearError { .. } => Ok(()),
+					_ => Err(ProcessMessageError::Yield),
+				},
+			)?;
+			Ok(())
+		}
+	}
+
+	/// A dummy `ShouldExecute` impl which returns `Ok(())` when XCM contains `ClearTopic` and
+	/// origin from `Here`, else return `ProcessMessageError::Unsupported`
+	struct AllowClearTopicFromHere;
+	impl ShouldExecute for AllowClearTopicFromHere {
+		fn should_execute<Call>(
+			origin: &Location,
+			instructions: &mut [Instruction<Call>],
+			_max_weight: Weight,
+			_properties: &mut Properties,
+		) -> Result<(), ProcessMessageError> {
+			ensure!(origin.clone() == Here.into_location(), ProcessMessageError::Unsupported);
+			let mut found = false;
+			instructions.matcher().match_next_inst_while(
+				|_| true,
+				|inst| match inst {
+					ClearTopic { .. } => {
+						found = true;
+						Ok(ControlFlow::Break(()))
+					},
+					_ => Ok(ControlFlow::Continue(())),
+				},
+			)?;
+			ensure!(found, ProcessMessageError::Unsupported);
+			Ok(())
+		}
+	}
 	// closure for (xcm, origin) testing with `DenyThenTry`
 	let assert_should_execute = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
 		pub type Barrier = DenyThenTry<
