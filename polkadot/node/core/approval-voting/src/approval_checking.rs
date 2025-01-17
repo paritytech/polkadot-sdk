@@ -509,13 +509,13 @@ mod tests {
 	use crate::{approval_db, BTreeMap};
 	use bitvec::{bitvec, order::Lsb0 as BitOrderLsb0, vec::BitVec};
 	use polkadot_primitives::GroupIndex;
-	use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
+	use polkadot_primitives_test_helpers::{dummy_candidate_receipt_v2, dummy_hash};
 
 	#[test]
 	fn pending_is_not_approved() {
 		let candidate = CandidateEntry::from_v1(
 			approval_db::v1::CandidateEntry {
-				candidate: dummy_candidate_receipt(dummy_hash()),
+				candidate: dummy_candidate_receipt_v2(dummy_hash()),
 				session: 0,
 				block_assignments: BTreeMap::default(),
 				approvals: BitVec::default(),
@@ -550,7 +550,7 @@ mod tests {
 	fn exact_takes_only_assignments_up_to() {
 		let mut candidate: CandidateEntry = CandidateEntry::from_v1(
 			approval_db::v1::CandidateEntry {
-				candidate: dummy_candidate_receipt(dummy_hash()),
+				candidate: dummy_candidate_receipt_v2(dummy_hash()),
 				session: 0,
 				block_assignments: BTreeMap::default(),
 				approvals: bitvec![u8, BitOrderLsb0; 0; 10],
@@ -624,7 +624,7 @@ mod tests {
 	fn one_honest_node_always_approves() {
 		let mut candidate: CandidateEntry = CandidateEntry::from_v1(
 			approval_db::v1::CandidateEntry {
-				candidate: dummy_candidate_receipt(dummy_hash()),
+				candidate: dummy_candidate_receipt_v2(dummy_hash()),
 				session: 0,
 				block_assignments: BTreeMap::default(),
 				approvals: bitvec![u8, BitOrderLsb0; 0; 10],
@@ -1097,7 +1097,7 @@ mod tests {
 
 		let mut candidate: CandidateEntry = CandidateEntry::from_v1(
 			approval_db::v1::CandidateEntry {
-				candidate: dummy_candidate_receipt(dummy_hash()),
+				candidate: dummy_candidate_receipt_v2(dummy_hash()),
 				session: 0,
 				block_assignments: BTreeMap::default(),
 				approvals: bitvec![u8, BitOrderLsb0; 0; 3],

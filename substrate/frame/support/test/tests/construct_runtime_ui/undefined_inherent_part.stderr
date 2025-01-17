@@ -32,8 +32,9 @@ error[E0599]: no function or associated item named `create_inherent` found for s
    | |_^ function or associated item not found in `Pallet<Runtime>`
    |
    = help: items from traits can only be used if the trait is implemented and in scope
-   = note: the following trait defines an item `create_inherent`, perhaps you need to implement it:
-           candidate #1: `ProvideInherent`
+   = note: the following traits define an item `create_inherent`, perhaps you need to implement one of them:
+           candidate #1: `CreateInherent`
+           candidate #2: `ProvideInherent`
    = note: this error originates in the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0599]: no function or associated item named `is_inherent` found for struct `pallet::Pallet` in the current scope

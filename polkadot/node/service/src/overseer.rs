@@ -210,7 +210,7 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 			AuthorityDiscoveryService,
 		>,
 		ChainApiSubsystem<RuntimeClient>,
-		CollationGenerationSubsystem,
+		DummySubsystem,
 		CollatorProtocolSubsystem,
 		ApprovalDistributionSubsystem,
 		ApprovalVotingSubsystem,
@@ -237,6 +237,7 @@ where
 	let network_bridge_metrics: NetworkBridgeMetrics = Metrics::register(registry)?;
 	let approval_voting_parallel_metrics: ApprovalVotingParallelMetrics =
 		Metrics::register(registry)?;
+
 	let builder = Overseer::builder()
 		.network_bridge_tx(NetworkBridgeTxSubsystem::new(
 			network_service.clone(),
@@ -295,7 +296,7 @@ where
 		))
 		.pvf_checker(PvfCheckerSubsystem::new(keystore.clone(), Metrics::register(registry)?))
 		.chain_api(ChainApiSubsystem::new(runtime_client.clone(), Metrics::register(registry)?))
-		.collation_generation(CollationGenerationSubsystem::new(Metrics::register(registry)?))
+		.collation_generation(DummySubsystem)
 		.collator_protocol({
 			let side = match is_parachain_node {
 				IsParachainNode::Collator(_) | IsParachainNode::FullNode =>
@@ -358,7 +359,6 @@ where
 		.chain_selection(ChainSelectionSubsystem::new(chain_selection_config, parachains_db))
 		.prospective_parachains(ProspectiveParachainsSubsystem::new(Metrics::register(registry)?))
 		.activation_external_listeners(Default::default())
-		.span_per_active_leaf(Default::default())
 		.active_leaves(Default::default())
 		.supports_parachains(runtime_client)
 		.metrics(metrics)
@@ -435,7 +435,7 @@ pub fn validator_with_parallel_overseer_builder<Spawner, RuntimeClient>(
 			AuthorityDiscoveryService,
 		>,
 		ChainApiSubsystem<RuntimeClient>,
-		CollationGenerationSubsystem,
+		DummySubsystem,
 		CollatorProtocolSubsystem,
 		DummySubsystem,
 		DummySubsystem,
@@ -520,7 +520,7 @@ where
 		))
 		.pvf_checker(PvfCheckerSubsystem::new(keystore.clone(), Metrics::register(registry)?))
 		.chain_api(ChainApiSubsystem::new(runtime_client.clone(), Metrics::register(registry)?))
-		.collation_generation(CollationGenerationSubsystem::new(Metrics::register(registry)?))
+		.collation_generation(DummySubsystem)
 		.collator_protocol({
 			let side = match is_parachain_node {
 				IsParachainNode::Collator(_) | IsParachainNode::FullNode =>
@@ -580,7 +580,6 @@ where
 		.chain_selection(ChainSelectionSubsystem::new(chain_selection_config, parachains_db))
 		.prospective_parachains(ProspectiveParachainsSubsystem::new(Metrics::register(registry)?))
 		.activation_external_listeners(Default::default())
-		.span_per_active_leaf(Default::default())
 		.active_leaves(Default::default())
 		.supports_parachains(runtime_client)
 		.metrics(metrics)
@@ -728,7 +727,6 @@ where
 		.chain_selection(DummySubsystem)
 		.prospective_parachains(DummySubsystem)
 		.activation_external_listeners(Default::default())
-		.span_per_active_leaf(Default::default())
 		.active_leaves(Default::default())
 		.supports_parachains(runtime_client)
 		.metrics(Metrics::register(registry)?)

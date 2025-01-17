@@ -20,7 +20,6 @@ use rbtag::BuildInfo;
 use sp_runtime::traits::TryConvert;
 use std::str::FromStr;
 use structopt::StructOpt;
-use strum::{EnumString, VariantNames};
 
 pub mod bridge;
 pub mod chain_schema;
@@ -137,17 +136,6 @@ where
 			.map(ExplicitOrMaximal::Explicit)
 			.map_err(|e| format!("Failed to parse '{e:?}'. Expected 'max' or explicit value"))
 	}
-}
-
-#[doc = "Runtime version params."]
-#[derive(StructOpt, Debug, PartialEq, Eq, Clone, Copy, EnumString, VariantNames)]
-pub enum RuntimeVersionType {
-	/// Auto query version from chain
-	Auto,
-	/// Custom `spec_version` and `transaction_version`
-	Custom,
-	/// Read version from bundle dependencies directly.
-	Bundle,
 }
 
 #[cfg(test)]

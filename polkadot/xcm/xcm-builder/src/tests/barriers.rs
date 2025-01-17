@@ -284,6 +284,76 @@ fn allow_paid_should_work() {
 }
 
 #[test]
+fn allow_paid_should_deprivilege_origin() {
+	AllowPaidFrom::set(vec![Parent.into()]);
+	let fees = (Parent, 1).into();
+
+	let mut paying_message_clears_origin = Xcm::<()>(vec![
+		ReserveAssetDeposited((Parent, 100).into()),
+		ClearOrigin,
+		BuyExecution { fees, weight_limit: Limited(Weight::from_parts(30, 30)) },
+		DepositAsset { assets: AllCounted(1).into(), beneficiary: Here.into() },
+	]);
+	let r = AllowTopLevelPaidExecutionFrom::<IsInVec<AllowPaidFrom>>::should_execute(
+		&Parent.into(),
+		paying_message_clears_origin.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(r, Ok(()));
+
+	let mut paying_message_aliases_origin = paying_message_clears_origin.clone();
+	paying_message_aliases_origin.0[1] = AliasOrigin(Parachain(1).into());
+	let r = AllowTopLevelPaidExecutionFrom::<IsInVec<AllowPaidFrom>>::should_execute(
+		&Parent.into(),
+		paying_message_aliases_origin.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(r, Ok(()));
+
+	let mut paying_message_descends_origin = paying_message_clears_origin.clone();
+	paying_message_descends_origin.0[1] = DescendOrigin(Parachain(1).into());
+	let r = AllowTopLevelPaidExecutionFrom::<IsInVec<AllowPaidFrom>>::should_execute(
+		&Parent.into(),
+		paying_message_descends_origin.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(r, Ok(()));
+
+	let mut paying_message_fake_descends_origin = paying_message_clears_origin.clone();
+	paying_message_fake_descends_origin.0[1] = DescendOrigin(Here.into());
+	let r = AllowTopLevelPaidExecutionFrom::<IsInVec<AllowPaidFrom>>::should_execute(
+		&Parent.into(),
+		paying_message_fake_descends_origin.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(r, Err(ProcessMessageError::Overweight(Weight::from_parts(30, 30))));
+}
+
+#[test]
+fn allow_paid_should_allow_hints() {
+	AllowPaidFrom::set(vec![Parent.into()]);
+	let fees = (Parent, 1).into();
+
+	let mut paying_message_with_hints = Xcm::<()>(vec![
+		ReserveAssetDeposited((Parent, 100).into()),
+		SetHints { hints: vec![AssetClaimer { location: Location::here() }].try_into().unwrap() },
+		BuyExecution { fees, weight_limit: Limited(Weight::from_parts(30, 30)) },
+		DepositAsset { assets: AllCounted(1).into(), beneficiary: Here.into() },
+	]);
+	let r = AllowTopLevelPaidExecutionFrom::<IsInVec<AllowPaidFrom>>::should_execute(
+		&Parent.into(),
+		paying_message_with_hints.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(r, Ok(()));
+}
+
+#[test]
 fn suspension_should_work() {
 	TestSuspender::set_suspended(true);
 	AllowUnpaidFrom::set(vec![Parent.into()]);

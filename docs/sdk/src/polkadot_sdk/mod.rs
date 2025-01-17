@@ -75,6 +75,26 @@
 //! runtimes are located under the
 //! [`polkadot-fellows/runtimes`](https://github.com/polkadot-fellows/runtimes) repository.
 //!
+//! ### Binaries
+//!
+//! The main binaries that are part of the Polkadot SDK are:
+
+//! * [`polkadot`]: The Polkadot relay chain node binary, as noted above.
+//! * [`polkadot-omni-node`]: A white-labeled parachain collator node. See more in
+//!   [`crate::reference_docs::omni_node`].
+//! * [`polkadot-parachain-bin`]: The collator node used to run collators for all Polkadot system
+//!   parachains.
+//! * [`frame-omni-bencher`]: a benchmarking tool for FRAME-based runtimes. Nodes typically contain
+//!   a
+//!  `benchmark` subcommand that does the same.
+//! * [`chain_spec_builder`]: Utility to build chain-specs Nodes  typically contain a `build-spec`
+//!   subcommand that does the same.
+//! * [`subkey`]: Substrate's key management utility.
+//! * [`substrate-node`](node_cli) is an extensive substrate node that contains the superset of all
+//!   runtime and node side features. The corresponding runtime, called [`kitchensink_runtime`]
+//!   contains all of the modules that are provided with `FRAME`. This node and runtime is only used
+//!   for testing and demonstration.
+//!
 //! ### Summary
 //!
 //! The following diagram summarizes how some of the components of Polkadot SDK work together:
@@ -106,15 +126,19 @@
 //! A list of projects and tools in the blockchain ecosystem that one way or another use parts of
 //! the Polkadot SDK:
 //!
-//! * [Polygon's spin-off, Avail](https://github.com/availproject/avail)
+//! * [Avail](https://github.com/availproject/avail)
 //! * [Cardano Partner Chains](https://iohk.io/en/blog/posts/2023/11/03/partner-chains-are-coming-to-cardano/)
 //! * [Starknet's Madara Sequencer](https://github.com/keep-starknet-strange/madara)
+//! * [Polymesh](https://polymesh.network/)
 //!
 //! [`substrate`]: crate::polkadot_sdk::substrate
 //! [`frame`]: crate::polkadot_sdk::frame_runtime
 //! [`cumulus`]: crate::polkadot_sdk::cumulus
 //! [`polkadot`]: crate::polkadot_sdk::polkadot
 //! [`xcm`]: crate::polkadot_sdk::xcm
+//! [`frame-omni-bencher`]: https://crates.io/crates/frame-omni-bencher
+//! [`polkadot-parachain-bin`]: https://crates.io/crates/polkadot-parachain-bin
+//! [`polkadot-omni-node`]: https://crates.io/crates/polkadot-omni-node
 
 /// Learn about Cumulus, the framework that transforms [`substrate`]-based chains into
 /// [`polkadot`]-enabled parachains.

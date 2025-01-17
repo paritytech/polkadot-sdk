@@ -18,7 +18,6 @@ use super::*;
 
 use std::{
 	collections::{BTreeMap, HashSet, VecDeque},
-	sync::Arc,
 	time::Duration,
 };
 
@@ -42,7 +41,6 @@ use polkadot_node_network_protocol::{
 use polkadot_node_primitives::BlockData;
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
-	jaeger,
 	messages::{AllMessages, ReportPeerMessage, RuntimeApiMessage, RuntimeApiRequest},
 	ActiveLeavesUpdate,
 };

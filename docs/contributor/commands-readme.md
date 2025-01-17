@@ -24,11 +24,6 @@ By default, the Start and End/Failure of the command will be commented with the 
 If you want to avoid, use this flag. Go to
 [Action Tab](https://github.com/paritytech/polkadot-sdk/actions/workflows/cmd.yml) to see the pipeline status.
 
-2.`--continue-on-fail` to continue running the command even if something inside a command
-(like specific pallet weight generation) are failed.
-Basically avoids interruption in the middle with `exit 1`
-The pipeline logs will include what is failed (like which runtimes/pallets), then you can re-run them separately or not.
-
 3.`--clean` to clean up all yours and bot's comments in PR relevant to `/cmd` commands. If you run too many commands,
 or they keep failing, and you're rerunning them again, it's handy to add this flag to keep a PR clean.
 
@@ -44,4 +39,5 @@ the default branch.
 The regex in cmd.yml is: `^(\/cmd )([-\/\s\w.=:]+)$` accepts only alphanumeric, space, "-", "/", "=", ":", "." chars.
 
 `/cmd bench --runtime bridge-hub-westend --pallet=pallet_name`
+`/cmd prdoc --audience runtime_dev runtime_user --bump patch --force`
 `/cmd update-ui --image=docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v202407161507 --clean`

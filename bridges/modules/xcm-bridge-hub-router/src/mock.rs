@@ -80,6 +80,7 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type DestinationVersion =
 		LatestOrNoneForLocationVersionChecker<Equals<UnknownXcmVersionForRoutableLocation>>;
 
+	type BridgeHubOrigin = frame_system::EnsureRoot<u64>;
 	type ToBridgeHubSender = TestToBridgeHubSender;
 	type LocalXcmChannelManager = TestLocalXcmChannelManager;
 
@@ -141,8 +142,8 @@ impl InspectMessageQueues for TestToBridgeHubSender {
 				.iter()
 				.map(|(location, message)| {
 					(
-						VersionedLocation::V4(location.clone()),
-						vec![VersionedXcm::V4(message.clone())],
+						VersionedLocation::from(location.clone()),
+						vec![VersionedXcm::from(message.clone())],
 					)
 				})
 				.collect()
