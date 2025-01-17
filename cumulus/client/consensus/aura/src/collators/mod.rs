@@ -329,24 +329,30 @@ mod tests {
 		let (client, keystore) = set_up_components();
 
 		let genesis_hash = client.chain_info().genesis_hash;
-		let mut last_hash = None;
+		let mut last_hash = genesis_hash;
 
 		// Fill up the unincluded segment tracker in the runtime.
-		for _ in 0..cumulus_test_client::runtime::UNINCLUDED_SEGMENT_CAPACITY {
+		while can_build_upon::<_, _, sp_consensus_aura::sr25519::AuthorityPair>(
+			Slot::from(u64::MAX),
+			Slot::from(u64::MAX),
+			Timestamp::default(),
+			last_hash,
+			genesis_hash,
+			&*client,
+			&keystore,
+		)
+		.await
+		.is_some()
+		{
 			let block = build_and_import_block(&client, genesis_hash).await;
-			last_hash = Some(block.header().hash());
+			last_hash = block.header().hash();
 		}
-
-		let last_hash = last_hash.expect("must exist");
-		// We don't care much about the slots.
-		let para_slot = Slot::from(u64::MAX);
-		let relay_slot = Slot::from(u64::MAX);
 
 		// Blocks were built with the genesis hash set as included block.
 		// We call `can_build_upon` with the last built block as the included block.
 		let result = can_build_upon::<_, _, sp_consensus_aura::sr25519::AuthorityPair>(
-			para_slot,
-			relay_slot,
+			Slot::from(u64::MAX),
+			Slot::from(u64::MAX),
 			Timestamp::default(),
 			last_hash,
 			last_hash,

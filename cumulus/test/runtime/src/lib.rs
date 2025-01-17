@@ -99,12 +99,12 @@ impl_opaque_keys! {
 pub const PARACHAIN_ID: u32 = 100;
 
 #[cfg(not(feature = "elastic-scaling"))]
-pub const UNINCLUDED_SEGMENT_CAPACITY: u32 = 4;
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = 4;
 #[cfg(not(feature = "elastic-scaling"))]
-pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
+const BLOCK_PROCESSING_VELOCITY: u32 = 1;
 
 #[cfg(feature = "elastic-scaling")]
-pub const UNINCLUDED_SEGMENT_CAPACITY: u32 = 7;
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = 7;
 #[cfg(feature = "elastic-scaling")]
 const BLOCK_PROCESSING_VELOCITY: u32 = 4;
 
