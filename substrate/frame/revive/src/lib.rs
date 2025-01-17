@@ -1481,7 +1481,7 @@ sp_api::decl_runtime_apis! {
 		fn trace_block(
 			block: Block,
 			config: TracerConfig
-		) -> Vec<(u32, Vec<CallTrace>)>;
+		) -> Vec<(u32, CallTrace)>;
 
 		/// Replay the block with the given hash.
 		/// This is intended to called through `state_debugBlock` RPC. Using [`using_tracer`]
@@ -1490,7 +1490,6 @@ sp_api::decl_runtime_apis! {
 			block: Block,
 			tx_index: u32,
 			config: TracerConfig
-		) -> CallTrace;
-
+		) -> Option<CallTrace>;
 	}
 }
