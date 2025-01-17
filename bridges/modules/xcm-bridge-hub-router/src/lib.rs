@@ -328,11 +328,17 @@ pub mod pallet {
 		/// factor specified in the `bridge_state`. If the asset is fungible, the
 		/// `delivery_fee_factor` is applied to the asset’s amount, potentially altering its
 		/// value.
-		pub(crate) fn calculate_dynamic_fee(bridge_state: &BridgeState, mut asset: Asset) -> Asset {
-			if let Fungibility::Fungible(ref mut amount) = asset.fun {
-				*amount = bridge_state.delivery_fee_factor.saturating_mul_int(*amount);
+		pub(crate) fn calculate_dynamic_fee(bridge_state: &BridgeState, asset: Asset) -> Asset {
+			match asset.fun {
+				Fungible(amount) => {
+					let adjusted_amount = bridge_state.delivery_fee_factor.saturating_mul_int(amount);
+					Asset {
+						fun: Fungible(adjusted_amount),
+						..asset
+					}
+				}
+				_ => asset,
 			}
-			asset
 		}
 
 		/// Calculates an (optional) fee for message size based on `T::ByteFee` and `T::FeeAsset`.
