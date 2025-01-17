@@ -74,7 +74,7 @@ async fn check_validation_code_or_log(
 				%para_id,
 				"Failed to fetch validation code hash",
 			);
-			return;
+			return
 		},
 	};
 
@@ -147,7 +147,7 @@ async fn cores_scheduled_for_para(
 				?relay_parent,
 				"Failed to query claim queue runtime API",
 			);
-			return Vec::new();
+			return Vec::new()
 		},
 	};
 
