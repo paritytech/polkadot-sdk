@@ -26,15 +26,16 @@ use xcm::prelude::{
 };
 use xcm_executor::traits::{DenyExecution, Properties};
 
-parameter_types! {
-	pub Source1: Location = Location::new(1, Parachain(1));
-	pub Source2: Location = Location::new(1, Parachain(2));
-	pub Remote1: NetworkId = ByGenesis([1;32]);
-	pub Remote2: NetworkId = ByGenesis([2;32]);
-}
 
 #[test]
 fn test_deny_export_message_from() {
+	parameter_types! {
+		pub Source1: Location = Location::new(1, Parachain(1));
+		pub Source2: Location = Location::new(1, Parachain(2));
+		pub Remote1: NetworkId = ByGenesis([1;32]);
+		pub Remote2: NetworkId = ByGenesis([2;32]);
+	}
+
 	pub type Denied = DenyExportMessageFrom<EverythingBut<Equals<Source1>>, Equals<Remote1>>;
 
 	let assert_deny_execution = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
@@ -49,31 +50,31 @@ fn test_deny_export_message_from() {
 		);
 	};
 
-	// No ExportMessage should pass
+	// No `ExportMessage` should pass
 	assert_deny_execution(vec![AliasOrigin(Here.into())], Source1::get(), None);
 
-	// Export message from source1 and remote1 should pass
+	// `ExportMessage` from source1 and remote1 should pass
 	assert_deny_execution(
 		vec![ExportMessage { network: Remote1::get(), destination: Here, xcm: Default::default() }],
 		Source1::get(),
 		None,
 	);
 
-	// Export message from source1 and remote2 should pass
+	// `ExportMessage` from source1 and remote2 should pass
 	assert_deny_execution(
 		vec![ExportMessage { network: Remote2::get(), destination: Here, xcm: Default::default() }],
 		Source1::get(),
 		None,
 	);
 
-	// Export message from source2 and remote2 should pass
+	// `ExportMessage` from source2 and remote2 should pass
 	assert_deny_execution(
 		vec![ExportMessage { network: Remote2::get(), destination: Here, xcm: Default::default() }],
 		Source2::get(),
 		None,
 	);
 
-	// Export message from source2 and remote1 should be banned
+	// `ExportMessage` from source2 and remote1 should be banned
 	assert_deny_execution(
 		vec![ExportMessage { network: Remote1::get(), destination: Here, xcm: Default::default() }],
 		Source2::get(),
