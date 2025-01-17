@@ -20,7 +20,7 @@ use super::{
 use cumulus_primitives_core::AggregateMessageOrigin;
 use frame_support::{
 	parameter_types,
-	traits::{ConstU32, Contains, EitherOfDiverse, Equals, Everything, Nothing},
+	traits::{ConstU32, Contains, Disabled, EitherOfDiverse, Equals, Everything, Nothing},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
@@ -254,6 +254,7 @@ impl pallet_xcm::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
+	type AuthorizedAliasConsideration = Disabled;
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {
