@@ -14,86 +14,58 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use codec::{Codec, Encode};
+use codec::Codec;
 
-use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
-use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
-use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{GetCoreSelectorApi, PersistedValidationData};
-use cumulus_relay_chain_interface::RelayChainInterface;
+use cumulus_primitives_core::GetCoreSelectorApi;
+use cumulus_relay_chain_interface::{PHeader, RelayChainInterface};
 
-use polkadot_primitives::Id as ParaId;
+use polkadot_primitives::{CoreIndex, Id as ParaId};
 
 use futures::prelude::*;
-use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
-use sc_consensus::BlockImport;
+use sc_client_api::{BlockBackend, UsageProvider};
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::{AuraApi, Slot};
 use sp_core::crypto::Pair;
-use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
 use sp_timestamp::Timestamp;
 use std::{sync::Arc, time::Duration};
 
-use super::CollatorMessage;
 use crate::{
-	collator::{self as collator_util},
-	collators::{
-		check_validation_code_or_log,
-		slot_based::{
-			core_selector,
-			relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
-		},
+	collator::SlotClaim,
+	collators::slot_based::{
+		core_selector,
+		relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
 	},
 	LOG_TARGET,
 };
 
-pub struct SignalingTaskMessage {
-
+pub struct SignalingTaskMessage<Pub, Block: BlockT> {
+	pub slot_claim: SlotClaim<Pub>,
+	pub parent_header: Block::Header,
+	pub authoring_duration: Duration,
+	pub core_index: CoreIndex,
+	pub relay_parent_header: PHeader,
+	pub max_pov_size: u32,
 }
 
 /// Parameters for [`run_block_builder`].
-pub struct SignalingTaskParams<
-	Block: BlockT,
-	BI,
-	CIDP,
-	Client,
-	Backend,
-	RelayClient,
-	CHP,
-	Proposer,
-	CS,
-> {
-	/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.
-	/// the timestamp, slot, and paras inherents should be omitted, as they are set by this
-	/// collator.
-	pub create_inherent_data_providers: CIDP,
-	/// Used to actually import blocks.
-	pub block_import: BI,
+pub struct SignalingTaskParams<Block: BlockT, Client, Backend, RelayClient, Pub> {
 	/// The underlying para client.
 	pub para_client: Arc<Client>,
 	/// The para client's backend, used to access the database.
 	pub para_backend: Arc<Backend>,
 	/// A handle to the relay-chain client.
 	pub relay_client: RelayClient,
-	/// A validation code hash provider, used to get the current validation code hash.
-	pub code_hash_provider: CHP,
 	/// The underlying keystore, which should contain Aura consensus keys.
 	pub keystore: KeystorePtr,
 	/// The para's ID.
 	pub para_id: ParaId,
-	/// The underlying block proposer this should call into.
-	pub proposer: Proposer,
-	/// The generic collator service used to plug into this consensus engine.
-	pub collator_service: CS,
 	/// The amount of time to spend authoring each block.
 	pub authoring_duration: Duration,
-	/// Channel to send built blocks to the collation task.
-	pub collator_sender: sc_utils::mpsc::TracingUnboundedSender<CollatorMessage<Block>>,
 	/// Drift every slot by this duration.
 	/// This is a time quantity that is subtracted from the actual timestamp when computing
 	/// the time left to enter a new slot. In practice, this *left-shifts* the clock time with the
@@ -101,6 +73,8 @@ pub struct SignalingTaskParams<
 	/// likelihood of encountering unfavorable notification arrival timings (i.e. we don't want to
 	/// wait for relay chain notifications because we woke up too early).
 	pub slot_drift: Duration,
+	pub building_task_sender:
+		sc_utils::mpsc::TracingUnboundedSender<SignalingTaskMessage<Pub, Block>>,
 }
 
 #[derive(Debug)]
@@ -162,15 +136,13 @@ where
 }
 
 /// Run block-builder.
-pub fn run_signaling_task<Block, P, BI, CIDP, Client, Backend, RelayClient, CHP, Proposer, CS>(
-	params: SignalingTaskParams<Block, BI, CIDP, Client, Backend, RelayClient, CHP, Proposer, CS>,
+pub fn run_signaling_task<Block, P, Client, Backend, RelayClient>(
+	params: SignalingTaskParams<Block, Client, Backend, RelayClient, P::Public>,
 ) -> impl Future<Output = ()> + Send + 'static
 where
 	Block: BlockT,
 	Client: ProvideRuntimeApi<Block>
 		+ UsageProvider<Block>
-		+ BlockOf
-		+ AuxStore
 		+ HeaderBackend<Block>
 		+ BlockBackend<Block>
 		+ Send
@@ -180,12 +152,6 @@ where
 		AuraApi<Block, P::Public> + GetCoreSelectorApi<Block> + AuraUnincludedSegmentApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RelayClient: RelayChainInterface + Clone + 'static,
-	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
-	CIDP::InherentDataProviders: Send,
-	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
-	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
-	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
-	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
 	P: Pair,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
@@ -194,35 +160,16 @@ where
 		tracing::info!(target: LOG_TARGET, "Starting slot-based block-builder task.");
 		let SignalingTaskParams {
 			relay_client,
-			create_inherent_data_providers,
 			para_client,
 			keystore,
-			block_import,
 			para_id,
-			proposer,
-			collator_service,
-			collator_sender,
-			code_hash_provider,
 			authoring_duration,
 			para_backend,
 			slot_drift,
+			building_task_sender,
 		} = params;
 
 		let slot_timer = SlotTimer::<_, _, P>::new_with_drift(para_client.clone(), slot_drift);
-
-		let mut collator = {
-			let params = collator_util::Params {
-				create_inherent_data_providers,
-				block_import,
-				relay_client: relay_client.clone(),
-				keystore: keystore.clone(),
-				para_id,
-				proposer,
-				collator_service,
-			};
-
-			collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
-		};
 
 		let mut relay_chain_data_cache = RelayChainDataCache::new(relay_client.clone(), para_id);
 
@@ -232,6 +179,7 @@ where
 				return;
 			};
 
+			tracing::warn!(target: crate::LOG_TARGET, "New round in signaling task.");
 			let Ok(relay_parent) = relay_client.best_block_hash().await else {
 				tracing::warn!(target: crate::LOG_TARGET, "Unable to fetch latest relay chain block hash.");
 				continue
@@ -304,7 +252,9 @@ where
 
 			// We mainly call this to inform users at genesis if there is a mismatch with the
 			// on-chain data.
-			collator.collator_service().check_block_status(parent_hash, &parent_header);
+
+			// TODO skunert Fix this
+			// collator.collator_service().check_block_status(parent_hash, &parent_header);
 
 			let slot_claim = match crate::collators::can_build_upon::<_, _, P>(
 				para_slot.slot,
@@ -331,6 +281,28 @@ where
 					continue
 				},
 			};
+
+			tracing::debug!(
+				target: crate::LOG_TARGET,
+				?core_index,
+				slot_info = ?para_slot,
+				unincluded_segment_len = parent.depth,
+				relay_parent = %relay_parent,
+				included = %included_block,
+				parent = %parent_hash,
+				"Building block."
+			);
+			let build_signal = SignalingTaskMessage {
+				slot_claim,
+				parent_header,
+				authoring_duration,
+				core_index: core_index.clone(),
+				relay_parent_header: relay_parent_header.clone(),
+				max_pov_size: *max_pov_size,
+			};
+			building_task_sender
+				.unbounded_send(build_signal)
+				.expect("Should be able to send.")
 		}
 	}
 }

@@ -161,25 +161,36 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 
 	let collation_task_fut = run_collation_task::<Block, _, _>(collator_task_params);
 
+	let (to_builder_sender, from_signaling_receiver) =
+		tracing_unbounded("mpsc_builder_to_collator", 100);
 	let block_builder_params = block_builder_task::BuilderTaskParams {
 		create_inherent_data_providers,
 		block_import,
-		para_client,
-		para_backend,
-		relay_client,
+		relay_client: relay_client.clone(),
 		code_hash_provider,
-		keystore,
+		keystore: keystore.clone(),
 		para_id,
 		proposer,
 		collator_service,
-		authoring_duration,
 		collator_sender: tx,
-		slot_drift,
+		signaling_task_receiver: from_signaling_receiver,
 	};
 
-	let block_builder_fut =
-		run_block_builder::<Block, P, _, _, _, _, _, _, _, _>(block_builder_params);
+	let block_builder_fut = run_block_builder::<Block, P, _, _, _, _, _, _>(block_builder_params);
 
+	let signaling_task_params = signaling_task::SignalingTaskParams {
+		para_client,
+		para_backend,
+		relay_client,
+		keystore,
+		para_id,
+		authoring_duration,
+		slot_drift,
+		building_task_sender: to_builder_sender,
+	};
+
+	let signaling_fut =
+		signaling_task::run_signaling_task::<Block, P, _, _, _>(signaling_task_params);
 	spawner.spawn_blocking(
 		"slot-based-block-builder",
 		Some("slot-based-collator"),
@@ -189,6 +200,11 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		"slot-based-collation",
 		Some("slot-based-collator"),
 		collation_task_fut.boxed(),
+	);
+	spawner.spawn_blocking(
+		"slot-based-signaling",
+		Some("slot-based-collator"),
+		signaling_fut.boxed(),
 	);
 }
 
