@@ -653,16 +653,7 @@ pub(crate) fn decl_pallet_runtime_setup(
 		.collect::<Vec<_>>();
 	let pallet_attrs = pallet_declarations
 		.iter()
-		.map(|pallet| {
-			pallet.cfg_pattern.iter().fold(TokenStream2::new(), |acc, pattern| {
-				let attr = TokenStream2::from_str(&format!("#[cfg({})]", pattern.original()))
-					.expect("was successfully parsed before; qed");
-				quote! {
-					#acc
-					#attr
-				}
-			})
-		})
+		.map(|pallet| pallet.get_attributes())
 		.collect::<Vec<_>>();
 
 	quote!(
