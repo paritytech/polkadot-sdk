@@ -50,7 +50,7 @@ pub fn run_to_block(n: BlockNumberFor<Test>) {
 #[test]
 fn first_round_creation_works() {
 	new_test_ext().execute_with(|| {
-		let batch = project_list();
+		let _batch = project_list();
 
 		// First round is created
 		next_block();
@@ -155,7 +155,6 @@ fn rewards_calculation_works() {
 	new_test_ext().execute_with(|| {
 		let batch = project_list();
 		let voting_period = <Test as Config>::VotingPeriod::get();
-		let vote_validity = <Test as Config>::VoteValidityPeriod::get();
 		let now = <Test as Config>::BlockNumberProvider::current_block_number();
 		//round_end_block
 		let round_end = now.saturating_add(voting_period);
@@ -181,8 +180,6 @@ fn rewards_calculation_works() {
 			true,
 			pallet_democracy::Conviction::Locked1x
 		));
-		let p1 = ProjectFunds::<Test>::get(101);
-		println!("the reward is: {:?}", p1);
 
 		// DAVE vote against project_102 with an amount of 3000*BSX with conviction 1x => equivalent
 		// to 6000*BSX locked
@@ -203,15 +200,11 @@ fn rewards_calculation_works() {
 			pallet_democracy::Conviction::Locked1x
 		));
 
-		let p2 = ProjectFunds::<Test>::get(102);
-		println!("the reward is: {:?}", p2);
-
 		let round_info = VotingRounds::<Test>::get(0).unwrap();
 
 		run_to_block(round_end);
 		let now = <Test as Config>::BlockNumberProvider::current_block_number();
 
-		println!("Now is:{}", now);
 		assert_eq!(now, round_info.round_ending_block);
 
 		// The right events are emitted
@@ -220,23 +213,26 @@ fn rewards_calculation_works() {
 			round_number: 0,
 		})]);
 
-		// The total equivalent amount voted is 17000
+		// The total equivalent amount voted is 17000 = 23000 - 6000
 		// Project 101: 13000 -> ~76.5%; Project 102: 4000 -> ~23.5%
-		// Distributed to project 101 -> 44%*100_000; Distributed to project 102 -> 55%*100_000
+		// Distributed to project 101 -> 76%*100_000; Distributed to project 102 -> 23%*100_000
 		//Opf::calculate_rewards(<Test as Config>::TemporaryRewards::get());
 
 		
-		let reward_101 = WhiteListedProjectAccounts::<Test>::get(101).unwrap();
-		let reward_102 = WhiteListedProjectAccounts::<Test>::get(102).unwrap();
+		let reward_101 = WhiteListedProjectAccounts::<Test>::get(101).unwrap().amount;
+		let reward_102 = WhiteListedProjectAccounts::<Test>::get(102).unwrap().amount;
+		assert_eq!(reward_101, 76000);
+		assert_eq!(reward_102, 23000);
+
 		next_block();
 		next_block();
 		expect_events(vec![RuntimeEvent::Opf(Event::ProjectFundingAccepted {
 			project_id: 102,
-			amount: 23000,
+			amount: reward_102,
 		})]);
 		expect_events(vec![RuntimeEvent::Opf(Event::ProjectFundingAccepted {
 			project_id: 101,
-			amount: 76000,
+			amount: reward_101,
 		})]);
 
 	})

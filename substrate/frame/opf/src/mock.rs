@@ -18,10 +18,9 @@
 //! Test environment for OPF pallet.
 use crate as pallet_opf;
 use crate::Convert;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode};
 pub use frame_support::{
 	derive_impl, ord_parameter_types,
-	pallet_prelude::TypeInfo,
 	parameter_types,
 	traits::{
 		ConstU32, ConstU64, EqualPrivilegeOnly, OnFinalize, OnInitialize, OriginTrait,
@@ -33,7 +32,7 @@ pub use frame_support::{
 pub use frame_system::{EnsureRoot, EnsureSigned, EnsureSignedBy};
 pub use sp_runtime::{
 	traits::{AccountIdConversion, IdentityLookup},
-	BuildStorage, Perbill,
+	BuildStorage,
 };
 pub type Block = frame_system::mocking::MockBlock<Test>;
 pub type Balance = u64;
