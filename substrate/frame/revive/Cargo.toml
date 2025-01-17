@@ -25,7 +25,7 @@ hex = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
 paste = { workspace = true }
-polkavm = { version = "0.18.0", default-features = false }
+polkavm = { version = "0.19.0", default-features = false }
 rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = [
