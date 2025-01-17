@@ -113,6 +113,7 @@ pub mod __private {
 	pub use sp_runtime_interface::polkavm::{polkavm_abi, polkavm_export};
 }
 
+use alloc::vec::Vec;
 #[cfg(feature = "std")]
 pub use sp_core::traits::CallContext;
 use sp_core::{OpaqueMetadata, ViewFunctionDispatchError, ViewFunctionId};
@@ -127,7 +128,6 @@ use sp_runtime::{traits::Block as BlockT, ExtrinsicInclusionMode};
 pub use sp_state_machine::StorageProof;
 #[cfg(feature = "std")]
 use sp_state_machine::{backend::AsTrieBackend, Backend as StateBackend, OverlayedChanges};
-use sp_std::vec::Vec;
 use sp_version::RuntimeVersion;
 #[cfg(feature = "std")]
 use std::cell::RefCell;

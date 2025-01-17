@@ -30,7 +30,6 @@ sp-metadata-ir = { optional = true, workspace = true }
 sp-runtime = { workspace = true }
 sp-runtime-interface = { workspace = true }
 sp-state-machine = { optional = true, workspace = true }
-sp-std = { workspace = true }
 sp-trie = { optional = true, workspace = true }
 sp-version = { workspace = true }
 thiserror = { optional = true, workspace = true }
@@ -53,7 +52,6 @@ std = [
 	"sp-runtime-interface/std",
 	"sp-runtime/std",
 	"sp-state-machine/std",
-	"sp-std/std",
 	"sp-test-primitives/std",
 	"sp-trie/std",
 	"sp-version/std",

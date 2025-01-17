@@ -27,7 +27,6 @@ sp-core = { default-features = false, path = "../../../primitives/core", workspa
 sp-io = { path = "../../../primitives/io", default-features = false, workspace = true }
 sp-metadata-ir = { path = "../../../primitives/metadata-ir", default-features = false, workspace = true }
 sp-runtime = { path = "../../../primitives/runtime", default-features = false, workspace = true }
-sp-std = { path = "../../../primitives/std", default-features = false, workspace = true }
 
 frame-benchmarking = { path = "../../benchmarking", default-features = false, optional = true, workspace = true }
 
@@ -48,7 +47,6 @@ std = [
 	"sp-io/std",
 	"sp-metadata-ir/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
