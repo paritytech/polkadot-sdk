@@ -41,16 +41,14 @@ mod events;
 pub mod weights;
 pub use weights::*;
 
-use frame_support::pallet_macros::*;
+use frame::prelude::*;
 
 /// Imports a [`pallet_section`] defined at [`events::events`].
 /// This brings the events defined in that section into the pallet's namespace.
 #[import_section(events::events)]
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
