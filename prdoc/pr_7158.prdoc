@@ -8,5 +8,5 @@ doc:
       While at it, have registered a new inbound failure metric to have visibility into this.
 
 crates:
-- name: sc-network
-  bump: patch
+  - name: sc-network
+    bump: patch
