@@ -22,6 +22,7 @@
 
 use codec::Codec;
 use pallet_nomination_pools::PoolId;
+use frame::deps::sp_api;
 
 sp_api::decl_runtime_apis! {
 	/// Runtime api for accessing information about nomination pools.

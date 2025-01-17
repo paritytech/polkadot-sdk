@@ -18,7 +18,7 @@
 use super::*;
 use crate::log;
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
-use frame_support::traits::{OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade};
+use frame::testing_prelude::*;
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;

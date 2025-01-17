@@ -357,28 +357,12 @@ use adapter::{Member, Pool, StakeStrategy};
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use codec::Codec;
 use core::{fmt::Debug, ops::Div};
-use frame_support::{
-	defensive, defensive_assert, ensure,
-	pallet_prelude::{MaxEncodedLen, *},
-	storage::bounded_btree_map::BoundedBTreeMap,
-	traits::{
-		fungible::{Inspect, InspectFreeze, Mutate, MutateFreeze},
-		tokens::{Fortitude, Preservation},
-		Defensive, DefensiveOption, DefensiveResult, DefensiveSaturating, Get,
-	},
-	DefaultNoBound, PalletError,
-};
-use frame_system::pallet_prelude::BlockNumberFor;
+
 use scale_info::TypeInfo;
 use sp_core::U256;
-use sp_runtime::{
-	traits::{
-		AccountIdConversion, Bounded, CheckedAdd, CheckedSub, Convert, Saturating, StaticLookup,
-		Zero,
-	},
-	FixedPointNumber, Perbill,
-};
-use sp_staking::{EraIndex, StakingInterface};
+
+use frame::deps::sp_staking::{EraIndex, StakingInterface};
+use frame::prelude::*;
 
 #[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
 use sp_runtime::TryRuntimeError;
@@ -1561,12 +1545,9 @@ impl<T: Config> Get<u32> for TotalUnbondingPools<T> {
 	}
 }
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::traits::StorageVersion;
-	use frame_system::{ensure_signed, pallet_prelude::*};
-	use sp_runtime::Perbill;
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(8);

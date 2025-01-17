@@ -204,11 +204,17 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::{
-		defensive, defensive_assert,
+		defensive, defensive_assert, ensure,
+		storage::bounded_btree_map::BoundedBTreeMap,
 		traits::{
-			Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll,
-			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+			fungible::{Inspect, InspectFreeze, Mutate, MutateFreeze},
+			tokens::{Fortitude::Polite, Preservation::Expendable},
+			Contains, Defensive, DefensiveOption, DefensiveResult, DefensiveSaturating, EitherOf,
+			EstimateNextSessionRotation, Get, IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade,
+			OneSessionHandler, RankedMembers, RankedMembersSwapHandler, StorageVersion,
+			UncheckedOnRuntimeUpgrade, VariantCountOf,
 		},
+		PalletError, PalletId,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -231,9 +237,14 @@ pub mod prelude {
 
 	/// Runtime traits
 	#[doc(no_inline)]
-	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+	pub use sp_runtime::{
+		bounded_btree_map,
+		traits::{
+			AccountIdConversion, BadOrigin, BlockNumberProvider, Bounded, CheckedAdd, CheckedSub,
+			Convert, DispatchInfoOf, Dispatchable, ReduceBy, ReplaceWithDefault,
+			SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput, Zero,
+		},
+		BuildStorage, DispatchResult, FixedPointNumber, FixedU128, Perbill,
 	};
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
@@ -322,7 +333,7 @@ pub mod testing_prelude {
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{
 		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok,
-		assert_storage_noop, hypothetically, storage_alias,
+		assert_storage_noop, hypothetically, storage_alias, DefaultNoBound,
 	};
 
 	pub use frame_system::{self, mocking::*, RunToBlockHooks};
@@ -569,6 +580,7 @@ pub mod deps {
 	pub use sp_core;
 	pub use sp_io;
 	pub use sp_runtime;
+	pub use sp_staking;
 
 	pub use codec;
 	pub use scale_info;
