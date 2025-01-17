@@ -325,7 +325,7 @@ pub trait StakingUnchecked: StakingInterface {
 	/// Migrate an existing staker to a virtual staker.
 	///
 	/// It would release all funds held by the implementation pallet.
-	fn migrate_to_virtual_staker(who: &Self::AccountId);
+	fn migrate_to_virtual_staker(who: &Self::AccountId) -> DispatchResult;
 
 	/// Book-keep a new bond for `keyless_who` without applying any locks (hence virtual).
 	///
@@ -511,7 +511,7 @@ where
 		+ Copy
 		+ sp_runtime::traits::Debug,
 {
-	/// Consomes self and returns the result of the metadata updated with `other_balances` and
+	/// Consumes self and returns the result of the metadata updated with `other_balances` and
 	/// of adding `other_num` nominators to the metadata.
 	///
 	/// `Max` is a getter of the maximum number of nominators per page.
@@ -520,9 +520,12 @@ where
 		others_balance: Balance,
 		others_num: u32,
 	) -> Self {
+		let page_limit = Max::get().max(1);
 		let new_nominator_count = self.nominator_count.saturating_add(others_num);
-		let new_page_count =
-			new_nominator_count.saturating_add(Max::get()).saturating_div(Max::get());
+		let new_page_count = new_nominator_count
+			.saturating_add(page_limit)
+			.saturating_sub(1)
+			.saturating_div(page_limit);
 
 		Self {
 			total: self.total.saturating_add(others_balance),
@@ -696,7 +699,39 @@ sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "
 
 #[cfg(test)]
 mod tests {
+	use sp_core::ConstU32;
+
 	use super::*;
+
+	#[test]
+	fn update_with_works() {
+		let metadata = PagedExposureMetadata::<u32> {
+			total: 1000,
+			own: 0, // don't care
+			nominator_count: 10,
+			page_count: 1,
+		};
+
+		assert_eq!(
+			metadata.clone().update_with::<ConstU32<10>>(1, 1),
+			PagedExposureMetadata { total: 1001, own: 0, nominator_count: 11, page_count: 2 },
+		);
+
+		assert_eq!(
+			metadata.clone().update_with::<ConstU32<5>>(1, 1),
+			PagedExposureMetadata { total: 1001, own: 0, nominator_count: 11, page_count: 3 },
+		);
+
+		assert_eq!(
+			metadata.clone().update_with::<ConstU32<4>>(1, 1),
+			PagedExposureMetadata { total: 1001, own: 0, nominator_count: 11, page_count: 3 },
+		);
+
+		assert_eq!(
+			metadata.clone().update_with::<ConstU32<1>>(1, 1),
+			PagedExposureMetadata { total: 1001, own: 0, nominator_count: 11, page_count: 11 },
+		);
+	}
 
 	#[test]
 	fn individual_exposures_to_exposure_works() {

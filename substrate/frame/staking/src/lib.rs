@@ -161,7 +161,7 @@
 //!
 //! Note: [`frame_election_provider_support::ElectionDataProvider`] trait supports mulit-paged
 //! target snaphsot. However, this pallet only supports and implements a single-page snapshot.
-//! Calling [`ElectionDataProvider::electable_targets`] with a different index than 0 is redundant
+//! Calling `ElectionDataProvider::electable_targets` with a different index than 0 is redundant
 //! and the single page idx 0 of targets be returned.
 //!
 //! ### Prepare an election ahead of time with `on_initialize`
@@ -349,7 +349,8 @@ use frame_election_provider_support::ElectionProvider;
 use frame_support::{
 	defensive, defensive_assert,
 	traits::{
-		ConstU32, Currency, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
+		tokens::fungible::{Credit, Debt},
+		ConstU32, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
 	},
 	weights::Weight,
 	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
@@ -384,7 +385,17 @@ macro_rules! log {
 	};
 }
 
-/// Alias fo the maximum number of winners (aka. active validators), as defined in by this pallet's
+/// Alias for a bounded set of exposures behind a validator, parameterized by this pallet's
+/// election provider.
+pub type BoundedExposuresOf<T> = BoundedVec<
+	(
+		<T as frame_system::Config>::AccountId,
+		Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
+	),
+	MaxWinnersPerPageOf<<T as Config>::ElectionProvider>,
+>;
+
+/// Alias for the maximum number of winners (aka. active validators), as defined in by this pallet's
 /// config.
 pub type MaxWinnersOf<T> = <T as Config>::MaxValidatorSet;
 
@@ -401,12 +412,9 @@ pub type RewardPoint = u32;
 /// The balance type of this pallet.
 pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 
-type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::PositiveImbalance;
-pub type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
+type PositiveImbalanceOf<T> = Debt<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
+pub type NegativeImbalanceOf<T> =
+	Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
@@ -1286,7 +1294,7 @@ impl<T: Config> EraInfo<T> {
 	///
 	/// If the exposure does not exist yet for the tuple (era, validator), it sets it. Otherwise,
 	/// it updates the existing record by ensuring *intermediate* exposure pages are filled up with
-	/// `T::MaxExposurePageSize` number of backers per page and the remaining exposures are addded
+	/// `T::MaxExposurePageSize` number of backers per page and the remaining exposures are added
 	/// to new exposure pages.
 	pub fn upsert_exposure(
 		era: EraIndex,
@@ -1303,7 +1311,7 @@ impl<T: Config> EraInfo<T> {
 			let last_page_empty_slots =
 				T::MaxExposurePageSize::get().saturating_sub(last_page.others.len() as u32);
 
-			// splits the exposure so that `exposures_append` will fit witin the last exposure
+			// splits the exposure so that `exposures_append` will fit within the last exposure
 			// page, up to the max exposure page size. The remaining individual exposures in
 			// `exposure` will be added to new pages.
 			let exposures_append = exposure.split_others(last_page_empty_slots);
@@ -1336,7 +1344,7 @@ impl<T: Config> EraInfo<T> {
 			last_page.others.extend(exposures_append.others);
 			ErasStakersPaged::<T>::insert((era, &validator, last_page_idx), last_page);
 
-			// now handle the remainig exposures and append the exposure pages. The metadata update
+			// now handle the remaining exposures and append the exposure pages. The metadata update
 			// has been already handled above.
 			let (_, exposure_pages) = exposure.into_pages(page_size);
 

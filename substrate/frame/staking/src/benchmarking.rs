@@ -74,6 +74,7 @@ pub fn create_validator_with_nominators<T: Config>(
 	dead_controller: bool,
 	unique_controller: bool,
 	destination: RewardDestination<T::AccountId>,
+	era: u32,
 ) -> Result<(T::AccountId, Vec<(T::AccountId, T::AccountId)>), &'static str> {
 	// Clean up any existing state.
 	clear_validators_and_nominators::<T>();
@@ -116,7 +117,7 @@ pub fn create_validator_with_nominators<T: Config>(
 	ValidatorCount::<T>::put(1);
 
 	// Start a new Era
-	let new_validators = Staking::<T>::try_trigger_new_era(SessionIndex::one(), true).unwrap();
+	let new_validators = Staking::<T>::try_plan_new_era(SessionIndex::one(), true).unwrap();
 
 	assert_eq!(new_validators.len(), 1);
 	assert_eq!(new_validators[0], v_stash, "Our validator was not selected!");
@@ -129,14 +130,13 @@ pub fn create_validator_with_nominators<T: Config>(
 		individual: points_individual.into_iter().collect(),
 	};
 
-	let current_era = CurrentEra::<T>::get().unwrap();
-	ErasRewardPoints::<T>::insert(current_era, reward);
+	ErasRewardPoints::<T>::insert(era, reward);
 
 	// Create reward pool
 	let total_payout = asset::existential_deposit::<T>()
 		.saturating_mul(upper_bound.into())
 		.saturating_mul(1000u32.into());
-	<ErasValidatorReward<T>>::insert(current_era, total_payout);
+	<ErasValidatorReward<T>>::insert(era, total_payout);
 
 	Ok((v_stash, nominators))
 }
@@ -225,6 +225,67 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark]
+	fn on_initialize_noop() {
+		assert!(ElectableStashes::<T>::get().is_empty());
+		assert_eq!(NextElectionPage::<T>::get(), None);
+
+		#[block]
+		{
+			Pallet::<T>::on_initialize(1_u32.into());
+		}
+
+		assert!(ElectableStashes::<T>::get().is_empty());
+		assert_eq!(NextElectionPage::<T>::get(), None);
+	}
+
+	#[benchmark]
+	fn do_elect_paged(v: Linear<1, { T::MaxValidatorSet::get() }>) -> Result<(), BenchmarkError> {
+		assert!(ElectableStashes::<T>::get().is_empty());
+
+		create_validators_with_nominators_for_era::<T>(
+			v,
+			100,
+			MaxNominationsOf::<T>::get() as usize,
+			false,
+			None,
+		)?;
+
+		#[block]
+		{
+			Pallet::<T>::do_elect_paged(0u32);
+		}
+
+		assert!(!ElectableStashes::<T>::get().is_empty());
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn clear_election_metadata(
+		v: Linear<1, { T::MaxValidatorSet::get() }>,
+	) -> Result<(), BenchmarkError> {
+		use frame_support::BoundedBTreeSet;
+
+		let mut stashes: BoundedBTreeSet<T::AccountId, T::MaxValidatorSet> = BoundedBTreeSet::new();
+		for u in (0..v).into_iter() {
+			frame_support::assert_ok!(stashes.try_insert(account("stash", u, SEED)));
+		}
+
+		ElectableStashes::<T>::set(stashes);
+		NextElectionPage::<T>::set(Some(10u32.into()));
+
+		#[block]
+		{
+			Pallet::<T>::clear_election_metadata()
+		}
+
+		assert!(NextElectionPage::<T>::get().is_none());
+		assert!(ElectableStashes::<T>::get().is_empty());
+
+		Ok(())
+	}
+
+	#[benchmark]
 	fn bond() {
 		let stash = create_funded_user::<T>("stash", USER_SEED, 100);
 		let reward_destination = RewardDestination::Staked;
@@ -258,7 +319,11 @@ mod benchmarks {
 			.map(|l| l.active)
 			.ok_or("ledger not created after")?;
 
-		let _ = asset::mint_existing::<T>(&stash, max_additional).unwrap();
+		let _ = asset::mint_into_existing::<T>(
+			&stash,
+			max_additional + asset::existential_deposit::<T>(),
+		)
+		.unwrap();
 
 		whitelist_account!(stash);
 
@@ -696,15 +761,20 @@ mod benchmarks {
 	fn payout_stakers_alive_staked(
 		n: Linear<0, { T::MaxExposurePageSize::get() as u32 }>,
 	) -> Result<(), BenchmarkError> {
+		// reset genesis era 0 so that triggering the new genesis era works as expected.
+		CurrentEra::<T>::set(Some(0));
+		let current_era = CurrentEra::<T>::get().unwrap();
+		Staking::<T>::clear_era_information(current_era);
+
 		let (validator, nominators) = create_validator_with_nominators::<T>(
 			n,
 			T::MaxExposurePageSize::get() as u32,
 			false,
 			true,
 			RewardDestination::Staked,
+			current_era,
 		)?;
 
-		let current_era = CurrentEra::<T>::get().unwrap();
 		// set the commission for this particular era as well.
 		<ErasValidatorPrefs<T>>::insert(
 			current_era,
@@ -834,7 +904,7 @@ mod benchmarks {
 		#[block]
 		{
 			validators =
-				Staking::<T>::try_trigger_new_era(session_index, true).ok_or("`new_era` failed")?;
+				Staking::<T>::try_plan_new_era(session_index, true).ok_or("`new_era` failed")?;
 		}
 
 		assert!(validators.len() == v as usize);
@@ -852,7 +922,7 @@ mod benchmarks {
 			None,
 		)?;
 		// Start a new Era
-		let new_validators = Staking::<T>::try_trigger_new_era(SessionIndex::one(), true).unwrap();
+		let new_validators = Staking::<T>::try_plan_new_era(SessionIndex::one(), true).unwrap();
 		assert!(new_validators.len() == v as usize);
 
 		let current_era = CurrentEra::<T>::get().unwrap();
@@ -989,7 +1059,7 @@ mod benchmarks {
 		#[block]
 		{
 			// default bounds are unbounded.
-			targets = <Staking<T>>::get_npos_targets(DataProviderBounds::default(), SINGLE_PAGE);
+			targets = <Staking<T>>::get_npos_targets(DataProviderBounds::default());
 		}
 
 		assert_eq!(targets.len() as u32, v);
@@ -1134,6 +1204,23 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn migrate_currency() -> Result<(), BenchmarkError> {
+		let (stash, _ctrl) =
+			create_stash_controller::<T>(USER_SEED, 100, RewardDestination::Staked)?;
+		let stake = asset::staked::<T>(&stash);
+		migrate_to_old_currency::<T>(stash.clone());
+		// no holds
+		assert!(asset::staked::<T>(&stash).is_zero());
+		whitelist_account!(stash);
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(stash.clone()), stash.clone());
+
+		assert_eq!(asset::staked::<T>(&stash), stake);
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(
 		Staking,
 		crate::mock::ExtBuilder::default().has_stakers(true),
@@ -1179,18 +1266,18 @@ mod tests {
 		ExtBuilder::default().build_and_execute(|| {
 			let n = 10;
 
+			let current_era = CurrentEra::<Test>::get().unwrap();
 			let (validator_stash, nominators) = create_validator_with_nominators::<Test>(
 				n,
 				<<Test as Config>::MaxExposurePageSize as Get<_>>::get(),
 				false,
 				false,
 				RewardDestination::Staked,
+				current_era,
 			)
 			.unwrap();
 
 			assert_eq!(nominators.len() as u32, n);
-
-			let current_era = CurrentEra::<Test>::get().unwrap();
 
 			let original_stakeable_balance = asset::stakeable_balance::<Test>(&validator_stash);
 			assert_ok!(Staking::payout_stakers_by_page(
@@ -1217,6 +1304,7 @@ mod tests {
 				false,
 				false,
 				RewardDestination::Staked,
+				CurrentEra::<Test>::get().unwrap(),
 			)
 			.unwrap();
 

@@ -39,9 +39,8 @@ pub enum Error {
 	NposElections(sp_npos_elections::Error),
 	/// Errors from the data provider.
 	DataProvider(&'static str),
-	/// Configurational error caused by `desired_targets` requested by data provider exceeding
-	/// `MaxWinners`.
-	TooManyWinners,
+	/// Results failed to meet the bounds.
+	FailedToBound,
 	/// Election page index not supported.
 	UnsupportedPageIndex,
 }
@@ -65,6 +64,12 @@ pub type BoundedExecution<T> = OnChainExecution<T>;
 
 /// Configuration trait for an onchain election execution.
 pub trait Config {
+	/// Whether to try and sort or not.
+	///
+	/// If `true`, the supports will be sorted by descending total support to meet the bounds. If
+	/// `false`, `FailedToBound` error may be returned.
+	type Sort: Get<bool>;
+
 	/// Needed for weight registration.
 	type System: frame_system::Config;
 
@@ -113,9 +118,9 @@ impl<T: Config> OnChainExecution<T> {
 
 		let desired_targets = T::DataProvider::desired_targets().map_err(Error::DataProvider)?;
 
-		if desired_targets > T::MaxWinnersPerPage::get() {
-			// early exit
-			return Err(Error::TooManyWinners)
+		if (desired_targets > T::MaxWinnersPerPage::get()) && !T::Sort::get() {
+			// early exit what will fail in the last line anyways.
+			return Err(Error::FailedToBound)
 		}
 
 		let voters_len = voters.len() as u32;
@@ -145,13 +150,13 @@ impl<T: Config> OnChainExecution<T> {
 			DispatchClass::Mandatory,
 		);
 
-		// defensive: Since npos solver returns a result always bounded by `desired_targets`, and
-		// ensures the maximum backers per winner, this is never expected to happen as long as npos
-		// solver does what is expected for it to do.
-		let supports: BoundedSupportsOf<Self> =
-			to_supports(&staked).try_into().map_err(|_| Error::TooManyWinners)?;
-
-		Ok(supports)
+		let unbounded = to_supports(&staked);
+		let bounded = if T::Sort::get() {
+			BoundedSupportsOf::<Self>::sorted_truncate_from(unbounded)
+		} else {
+			unbounded.try_into().map_err(|_| Error::FailedToBound)?
+		};
+		Ok(bounded)
 	}
 }
 
@@ -198,6 +203,7 @@ mod tests {
 	use super::*;
 	use crate::{ElectionProvider, PhragMMS, SequentialPhragmen};
 	use frame_support::{assert_noop, derive_impl, parameter_types};
+	use sp_io::TestExternalities;
 	use sp_npos_elections::Support;
 	use sp_runtime::Perbill;
 	type AccountId = u64;
@@ -248,10 +254,12 @@ mod tests {
 		pub static MaxWinnersPerPage: u32 = 10;
 		pub static MaxBackersPerWinner: u32 = 20;
 		pub static DesiredTargets: u32 = 2;
+		pub static Sort: bool = false;
 		pub static Bounds: ElectionBounds = ElectionBoundsBuilder::default().voters_count(600.into()).targets_count(400.into()).build();
 	}
 
 	impl Config for PhragmenParams {
+		type Sort = Sort;
 		type System = Runtime;
 		type Solver = SequentialPhragmen<AccountId, Perbill>;
 		type DataProvider = mock_data_provider::DataProvider;
@@ -262,6 +270,7 @@ mod tests {
 	}
 
 	impl Config for PhragMMSParams {
+		type Sort = Sort;
 		type System = Runtime;
 		type Solver = PhragMMS<AccountId, Perbill>;
 		type DataProvider = mock_data_provider::DataProvider;
@@ -313,8 +322,8 @@ mod tests {
 
 	#[test]
 	fn onchain_seq_phragmen_works() {
-		sp_io::TestExternalities::new_empty().execute_with(|| {
-			let expected_suports = vec![
+		TestExternalities::new_empty().execute_with(|| {
+			let expected_supports = vec![
 				(
 					10 as AccountId,
 					Support { total: 25, voters: vec![(1 as AccountId, 10), (3, 15)] },
@@ -326,28 +335,77 @@ mod tests {
 
 			assert_eq!(
 				<OnChainExecution::<PhragmenParams> as ElectionProvider>::elect(0).unwrap(),
-				expected_suports,
+				expected_supports,
 			);
 		})
 	}
 
 	#[test]
-	fn too_many_winners_when_desired_targets_exceed_max_winners() {
-		sp_io::TestExternalities::new_empty().execute_with(|| {
-			// given desired targets larger than max winners
-			DesiredTargets::set(10);
-			MaxWinnersPerPage::set(9);
+	fn sorting_false_works() {
+		TestExternalities::new_empty().execute_with(|| {
+			// Default results would have 3 targets, but we allow for only 2.
+			DesiredTargets::set(3);
+			MaxWinnersPerPage::set(2);
 
 			assert_noop!(
 				<OnChainExecution::<PhragmenParams> as ElectionProvider>::elect(0),
-				Error::TooManyWinners,
+				Error::FailedToBound,
+			);
+		});
+
+		TestExternalities::new_empty().execute_with(|| {
+			// Default results would have 2 backers per winner
+			MaxBackersPerWinner::set(1);
+
+			assert_noop!(
+				<OnChainExecution::<PhragmenParams> as ElectionProvider>::elect(0),
+				Error::FailedToBound,
+			);
+		});
+	}
+
+	#[test]
+	fn sorting_true_works_winners() {
+		Sort::set(true);
+
+		TestExternalities::new_empty().execute_with(|| {
+			let expected_supports =
+				vec![(30, Support { total: 35, voters: vec![(2, 20), (3, 15)] })]
+					.try_into()
+					.unwrap();
+
+			// we want to allow 1 winner only, and allow sorting.
+			MaxWinnersPerPage::set(1);
+
+			assert_eq!(
+				<OnChainExecution::<PhragmenParams> as ElectionProvider>::elect(0).unwrap(),
+				expected_supports,
+			);
+		});
+
+		MaxWinnersPerPage::set(10);
+
+		TestExternalities::new_empty().execute_with(|| {
+			let expected_supports = vec![
+				(30, Support { total: 20, voters: vec![(2, 20)] }),
+				(10 as AccountId, Support { total: 15, voters: vec![(3 as AccountId, 15)] }),
+			]
+			.try_into()
+			.unwrap();
+
+			// we want to allow 2 winners only but 1 backer each, and allow sorting.
+			MaxBackersPerWinner::set(1);
+
+			assert_eq!(
+				<OnChainExecution::<PhragmenParams> as ElectionProvider>::elect(0).unwrap(),
+				expected_supports,
 			);
 		})
 	}
 
 	#[test]
 	fn onchain_phragmms_works() {
-		sp_io::TestExternalities::new_empty().execute_with(|| {
+		TestExternalities::new_empty().execute_with(|| {
 			assert_eq!(
 				<OnChainExecution::<PhragMMSParams> as ElectionProvider>::elect(0).unwrap(),
 				vec![

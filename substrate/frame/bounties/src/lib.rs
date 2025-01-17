@@ -36,7 +36,7 @@
 //! curator's deposit.
 //!
 //! This pallet may opt into using a [`ChildBountyManager`] that enables bounties to be split into
-//! sub-bounties, as children of anh established bounty (called the parent in the context of it's
+//! sub-bounties, as children of an established bounty (called the parent in the context of it's
 //! children).
 //!
 //! > NOTE: The parent bounty cannot be closed if it has a non-zero number of it has active child
@@ -84,6 +84,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub mod migrations;
 mod tests;

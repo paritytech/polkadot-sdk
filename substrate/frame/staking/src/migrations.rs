@@ -60,6 +60,66 @@ impl Default for ObsoleteReleases {
 #[storage_alias]
 type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, ValueQuery>;
 
+/// Migrates to multi-page election support.
+///
+/// See: <https://github.com/paritytech/polkadot-sdk/pull/6034>
+///
+/// Important note: this migration should be released with the election provider configured by this
+/// pallet supporting up to 1 page. Thus,
+/// * `VoterSnapshotStatus` does not need migration, as it will always be `Status::Waiting` when
+/// the number of election pages is 1.
+/// * `ElectableStashes` must be populated iif there are collected exposures for a future era (i.e.
+/// exposures have been collected but `fn try_plan_new_era` was not called).
+pub mod v17 {
+	use super::*;
+
+	pub struct VersionedMigrateV16ToV17<T>(core::marker::PhantomData<T>);
+	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionedMigrateV16ToV17<T> {
+		fn on_runtime_upgrade() -> Weight {
+			// Populates the `ElectableStashes` with the exposures of the next planning era if it
+			// is initialized (i.e. if the there are exposures collected for the next planning
+			// era).
+
+			// note: we expect the migration to be released with a single page config.
+			debug_assert!(Pallet::<T>::election_pages() == 1);
+
+			let next_era = CurrentEra::<T>::get().defensive_unwrap_or_default().saturating_add(1);
+			let prepared_exposures = ErasStakersOverview::<T>::iter_prefix(next_era)
+				.map(|(v, _)| v)
+				.collect::<Vec<_>>();
+			let migrated_stashes = prepared_exposures.len() as u32;
+
+			let result = Pallet::<T>::add_electables(prepared_exposures.into_iter());
+			debug_assert!(result.is_ok());
+
+			log!(info, "v17 applied successfully, migrated {:?}.", migrated_stashes);
+			T::DbWeight::get().reads_writes(
+				// 1x read per history depth and current era read.
+				(T::HistoryDepth::get() + 1u32).into(),
+				// 1x write per exposure migrated.
+				migrated_stashes.into(),
+			)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			frame_support::ensure!(
+				Pallet::<T>::on_chain_storage_version() >= 17,
+				"v17 not applied"
+			);
+			Ok(())
+		}
+	}
+
+	pub type MigrateV16ToV17<T> = VersionedMigration<
+		16,
+		17,
+		VersionedMigrateV16ToV17<T>,
+		Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+}
+
 /// Migrating `DisabledValidators` from `Vec<u32>` to `Vec<(u32, OffenceSeverity)>` to track offense
 /// severity for re-enabling purposes.
 pub mod v16 {

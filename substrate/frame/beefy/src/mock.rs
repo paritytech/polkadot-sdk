@@ -29,7 +29,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::HeaderFor;
 use pallet_session::historical as pallet_session_historical;
-use sp_core::{crypto::KeyTypeId, ConstU128};
+use sp_core::{crypto::KeyTypeId, ConstBool, ConstU128};
 use sp_runtime::{
 	app_crypto::ecdsa::Public,
 	curve::PiecewiseLinear,
@@ -228,13 +228,16 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Solver = SequentialPhragmen<u64, Perbill>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
-	type MaxWinners = ConstU32<100>;
+	type MaxWinnersPerPage = ConstU32<100>;
+	type MaxBackersPerWinner = ConstU32<100>;
+	type Sort = ConstBool<true>;
 	type Bounds = ElectionsBoundsOnChain;
 }
 
 #[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type OldCurrency = Balances;
 	type Currency = Balances;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type SessionInterface = Self;

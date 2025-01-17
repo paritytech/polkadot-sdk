@@ -256,9 +256,6 @@ pub struct Candidate<AccountId> {
 	elected: bool,
 	/// The round index at which this candidate was elected.
 	round: usize,
-	/// A list of included backers for this candidate. This can be used to control the bounds of
-	/// maximum backers per candidate.
-	bounded_backers: Vec<AccountId>,
 }
 
 impl<AccountId> Candidate<AccountId> {
@@ -281,8 +278,6 @@ pub struct Edge<AccountId> {
 	candidate: CandidatePtr<AccountId>,
 	/// The weight (i.e. stake given to `who`) of this edge.
 	weight: ExtendedBalance,
-	/// Skips this edge.
-	skip: bool,
 }
 
 #[cfg(test)]
@@ -290,14 +285,14 @@ impl<AccountId: Clone> Edge<AccountId> {
 	fn new(candidate: Candidate<AccountId>, weight: ExtendedBalance) -> Self {
 		let who = candidate.who.clone();
 		let candidate = Rc::new(RefCell::new(candidate));
-		Self { weight, who, candidate, load: Default::default(), skip: false }
+		Self { weight, who, candidate, load: Default::default() }
 	}
 }
 
 #[cfg(feature = "std")]
 impl<A: IdentifierT> core::fmt::Debug for Edge<A> {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-		write!(f, "Edge({:?}, weight = {:?}, skip = {})", self.who, self.weight, self.skip)
+		write!(f, "Edge({:?}, weight = {:?})", self.who, self.weight)
 	}
 }
 
@@ -496,8 +491,7 @@ pub fn to_support_map<AccountId: IdentifierT>(
 	supports
 }
 
-/// Same as [`to_support_map`] except it returns a
-/// flat vector.
+/// Same as [`to_support_map`] except it returns a flat vector.
 pub fn to_supports<AccountId: IdentifierT>(
 	assignments: &[StakedAssignment<AccountId>],
 ) -> Supports<AccountId> {
@@ -570,7 +564,6 @@ pub fn setup_inputs<AccountId: IdentifierT>(
 				backed_stake: Default::default(),
 				elected: Default::default(),
 				round: Default::default(),
-				bounded_backers: Default::default(),
 			}
 			.to_ptr()
 		})
@@ -595,7 +588,6 @@ pub fn setup_inputs<AccountId: IdentifierT>(
 						candidate: Rc::clone(&candidates[*idx]),
 						load: Default::default(),
 						weight: Default::default(),
-						skip: false,
 					});
 				} // else {} would be wrong votes. We don't really care about it.
 			}

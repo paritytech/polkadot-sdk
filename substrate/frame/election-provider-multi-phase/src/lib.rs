@@ -514,7 +514,7 @@ pub enum ElectionError<T: Config> {
 	DataProvider(&'static str),
 	/// An error nested in the fallback.
 	Fallback(FallbackErrorOf<T>),
-	/// An error occurred when requesting an election result. The caller expects a mulit-paged
+	/// An error occurred when requesting an election result. The caller expects a multi-paged
 	/// election, which this pallet does not support.
 	MultiPageNotSupported,
 	/// No solution has been queued.
@@ -679,6 +679,7 @@ pub mod pallet {
 		/// Maximum number of winners that an election supports.
 		///
 		/// Note: This must always be greater or equal to `T::DataProvider::desired_targets()`.
+		#[pallet::constant]
 		type MaxWinners: Get<u32>;
 
 		/// Maximum number of voters that can support a winner in an election solution.
@@ -777,9 +778,10 @@ pub mod pallet {
 
 			log!(
 				trace,
-				"current phase {:?}, next election {:?}, metadata: {:?}",
+				"current phase {:?}, next election {:?}, queued? {:?}, metadata: {:?}",
 				current_phase,
 				next_election,
+				QueuedSolution::<T>::get().map(|rs| (rs.supports.len(), rs.compute, rs.score)),
 				SnapshotMetadata::<T>::get()
 			);
 			match current_phase {
@@ -1006,7 +1008,7 @@ pub mod pallet {
 			ensure!(CurrentPhase::<T>::get().is_emergency(), Error::<T>::CallNotAllowed);
 
 			// bound supports with T::MaxWinners.
-			let supports: BoundedSupportsOf<Pallet<T>> =
+			let supports: BoundedSupportsOf<Self> =
 				supports.try_into().map_err(|_| Error::<T>::TooManyWinners)?;
 
 			// Note: we don't `rotate_round` at this point; the next call to
@@ -1651,6 +1653,7 @@ impl<T: Config> Pallet<T> {
 		QueuedSolution::<T>::take()
 			.ok_or(ElectionError::<T>::NothingQueued)
 			.or_else(|_| {
+				log!(warn, "No solution queued, falling back to instant fallback.",);
 				// default data provider bounds are unbounded. calling `instant_elect` with
 				// unbounded data provider bounds means that the on-chain `T:Bounds` configs will
 				// *not* be overwritten.
@@ -1669,16 +1672,12 @@ impl<T: Config> Pallet<T> {
 			})
 			.map(|ReadySolution { compute, score, supports }| {
 				Self::deposit_event(Event::ElectionFinalized { compute, score });
-				if Round::<T>::get() != 1 {
-					log!(info, "Finalized election round with compute {:?}.", compute);
-				}
+				log!(info, "Finalized election round with compute {:?}.", compute);
 				supports
 			})
 			.map_err(|err| {
 				Self::deposit_event(Event::ElectionFailed);
-				if Round::<T>::get() != 1 {
-					log!(warn, "Failed to finalize election round. reason {:?}", err);
-				}
+				log!(warn, "Failed to finalize election round. reason {:?}", err);
 				err
 			})
 	}
@@ -1789,7 +1788,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 		// Note: this pallet **MUST** only by used in the single-page mode.
 		ensure!(page == SINGLE_PAGE, ElectionError::<T>::MultiPageNotSupported);
 
-		match Self::do_elect() {
+		let res = match Self::do_elect() {
 			Ok(bounded_supports) => {
 				// All went okay, record the weight, put sign to be Off, clean snapshot, etc.
 				Self::weigh_supports(&bounded_supports);
@@ -1801,7 +1800,10 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 				Self::phase_transition(Phase::Emergency);
 				Err(why)
 			},
-		}
+		};
+
+		log!(info, "ElectionProvider::elect({}) => {:?}", page, res.as_ref().map(|s| s.len()));
+		res
 	}
 
 	fn ongoing() -> bool {

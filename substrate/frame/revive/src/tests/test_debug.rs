@@ -21,6 +21,7 @@ use crate::{
 	debug::{CallInterceptor, CallSpan, ExecResult, ExportedFunction, Tracing},
 	primitives::ExecReturnValue,
 	test_utils::*,
+	DepositLimit,
 };
 use frame_support::traits::Currency;
 use pretty_assertions::assert_eq;
@@ -114,12 +115,10 @@ fn debugging_works() {
 			RuntimeOrigin::signed(ALICE),
 			0,
 			GAS_LIMIT,
-			deposit_limit::<Test>(),
+			DepositLimit::Balance(deposit_limit::<Test>()),
 			Code::Upload(wasm),
 			vec![],
 			Some([0u8; 32]),
-			DebugInfo::Skip,
-			CollectEvents::Skip,
 		)
 		.result
 		.unwrap()
@@ -198,13 +197,11 @@ fn call_interception_works() {
 			RuntimeOrigin::signed(ALICE),
 			0,
 			GAS_LIMIT,
-			deposit_limit::<Test>(),
+			deposit_limit::<Test>().into(),
 			Code::Upload(wasm),
 			vec![],
 			// some salt to ensure that the address of this contract is unique among all tests
 			Some([0x41; 32]),
-			DebugInfo::Skip,
-			CollectEvents::Skip,
 		)
 		.result
 		.unwrap()

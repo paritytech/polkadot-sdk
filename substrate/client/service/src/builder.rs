@@ -25,7 +25,7 @@ use crate::{
 	start_rpc_servers, BuildGenesisBlock, GenesisBlockBuilder, RpcHandlers, SpawnTaskHandle,
 	TaskManager, TransactionPoolAdapter,
 };
-use futures::{future::ready, FutureExt, StreamExt};
+use futures::{select, FutureExt, StreamExt};
 use jsonrpsee::RpcModule;
 use log::info;
 use prometheus_endpoint::Registry;
@@ -90,7 +90,11 @@ use sp_consensus::block_validation::{
 use sp_core::traits::{CodeExecutor, SpawnNamed};
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, BlockIdTo, NumberFor, Zero};
-use std::{str::FromStr, sync::Arc, time::SystemTime};
+use std::{
+	str::FromStr,
+	sync::Arc,
+	time::{Duration, SystemTime},
+};
 
 /// Full client type.
 pub type TFullClient<TBl, TRtApi, TExec> =
@@ -577,22 +581,42 @@ pub async fn propagate_transaction_notifications<Block, ExPool>(
 	Block: BlockT,
 	ExPool: MaintainedTransactionPool<Block = Block, Hash = <Block as BlockT>::Hash>,
 {
+	const TELEMETRY_INTERVAL: Duration = Duration::from_secs(1);
+
 	// transaction notifications
-	transaction_pool
-		.import_notification_stream()
-		.for_each(move |hash| {
-			tx_handler_controller.propagate_transaction(hash);
-			let status = transaction_pool.status();
-			telemetry!(
-				telemetry;
-				SUBSTRATE_INFO;
-				"txpool.import";
-				"ready" => status.ready,
-				"future" => status.future,
-			);
-			ready(())
-		})
-		.await;
+	let mut notifications = transaction_pool.import_notification_stream().fuse();
+	let mut timer = futures_timer::Delay::new(TELEMETRY_INTERVAL).fuse();
+	let mut tx_imported = false;
+
+	loop {
+		select! {
+			notification = notifications.next() => {
+				let Some(hash) = notification else { return };
+
+				tx_handler_controller.propagate_transaction(hash);
+
+				tx_imported = true;
+			},
+			_ = timer => {
+				timer = futures_timer::Delay::new(TELEMETRY_INTERVAL).fuse();
+
+				if !tx_imported {
+					continue;
+				}
+
+				tx_imported = false;
+				let status = transaction_pool.status();
+
+				telemetry!(
+					telemetry;
+					SUBSTRATE_INFO;
+					"txpool.import";
+					"ready" => status.ready,
+					"future" => status.future,
+				);
+			}
+		}
+	}
 }
 
 /// Initialize telemetry with provided configuration and return telemetry handle
@@ -731,8 +755,7 @@ where
 			client.clone(),
 			backend.clone(),
 			genesis_hash,
-			// Defaults to sensible limits for the `Archive`.
-			sc_rpc_spec_v2::archive::ArchiveConfig::default(),
+			task_executor.clone(),
 		)
 		.into_rpc();
 		rpc_api.merge(archive_v2).map_err(|e| Error::Application(e.into()))?;
