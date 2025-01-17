@@ -65,10 +65,10 @@ pub fn expand_outer_query(
 				/// Convenience function for query execution from the runtime API.
 				pub fn execute_view_function(
 					id: #scrate::__private::ViewFunctionId,
-					input: #scrate::__private::sp_std::vec::Vec<::core::primitive::u8>,
-				) -> Result<#scrate::__private::sp_std::vec::Vec<::core::primitive::u8>, #scrate::__private::ViewFunctionDispatchError>
+					input: #scrate::__private::Vec<::core::primitive::u8>,
+				) -> Result<#scrate::__private::Vec<::core::primitive::u8>, #scrate::__private::ViewFunctionDispatchError>
 				{
-					let mut output = #scrate::__private::sp_std::vec![];
+					let mut output = #scrate::__private::vec![];
 					<#runtime_view_function as #scrate::traits::DispatchViewFunction>::dispatch_view_function(&id, &mut &input[..], &mut output)?;
 					Ok(output)
 				}
