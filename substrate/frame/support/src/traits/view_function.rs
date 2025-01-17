@@ -43,6 +43,7 @@ pub trait ViewFunctionIdPrefix {
 	fn prefix() -> [u8; 16];
 }
 
+/// Automatically implemented for each pallet view function method by the macro [`pallet`](crate::pallet).
 pub trait ViewFunctionIdSuffix {
 	const SUFFIX: [u8; 16];
 }
