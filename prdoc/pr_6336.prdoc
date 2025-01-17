@@ -22,37 +22,47 @@ doc:
       specifically in `<XcmConfig as xcm_executor::Config>::Aliasers`.
 
 crates:
+  - name: frame-support
+    bump: minor
   - name: pallet-xcm
     bump: major
+  - name: staging-xcm
+    bump: patch
   - name: xcm-runtime-apis
     bump: minor 
   - name: staging-xcm-builder
-    bump: none
+    bump: major
   - name: westend-runtime
-    bump: none
+    bump: major
   - name: rococo-runtime
-    bump: none
+    bump: major
   - name: asset-hub-rococo-runtime
-    bump: none
+    bump: major
   - name: asset-hub-westend-runtime
-    bump: none
+    bump: major
   - name: bridge-hub-rococo-runtime
-    bump: none
+    bump: major
   - name: bridge-hub-westend-runtime
-    bump: none
+    bump: major
   - name: collectives-westend-runtime
-    bump: none
+    bump: major
   - name: coretime-rococo-runtime
-    bump: none
+    bump: major
   - name: coretime-westend-runtime
-    bump: none
+    bump: major
   - name: people-rococo-runtime
-    bump: none
+    bump: major
   - name: people-westend-runtime
-    bump: none
+    bump: major
   - name: penpal-runtime
-    bump: none
+    bump: major
   - name: contracts-rococo-runtime
-    bump: none
+    bump: major
   - name: rococo-parachain-runtime
-    bump: none
+    bump: major
+  - name: pallet-contracts-mock-network
+    bump: major
+  - name: pallet-revive-mock-network
+    bump: major
+  - name: xcm-simulator-example
+    bump: major
