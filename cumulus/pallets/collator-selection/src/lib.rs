@@ -183,6 +183,14 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 	}
 
+	#[pallet::extra_constants]
+	impl<T: Config> Pallet<T> {
+		/// Gets this pallet's derived pot account.
+		fn pot_account() -> T::AccountId {
+			Self::account_id()
+		}
+	}
+
 	/// Basic information about a collation candidate.
 	#[derive(
 		PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen,
