@@ -32,7 +32,7 @@ use crate::{
 	storage::DeletionQueueManager,
 	test_utils::*,
 	tests::test_utils::{get_contract, get_contract_checked},
-	tracing::using_tracer,
+	tracing::trace,
 	wasm::Memory,
 	weights::WeightInfo,
 	AccountId32Mapper, BalanceOf, Code, CodeInfoOf, Config, ContractInfo, ContractInfoOf,
@@ -4556,7 +4556,7 @@ fn tracing_works_for_transfers() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
 		let mut tracer = CallTracer::new(false, |_| U256::zero());
-		using_tracer(&mut tracer, || {
+		trace(&mut tracer, || {
 			builder::bare_call(BOB_ADDR).value(10_000_000).build_and_unwrap_result();
 		});
 		assert_eq!(
@@ -4610,7 +4610,7 @@ fn tracing_works() {
 
 		// Verify that the first trace report the same weight reported by bare_call
 		let mut tracer = CallTracer::new(false, |w| w);
-		let gas_used = using_tracer(&mut tracer, || {
+		let gas_used = trace(&mut tracer, || {
 			builder::bare_call(addr).data((3u32, addr_callee).encode()).build().gas_consumed
 		});
 		let traces = tracer.collect_traces();
@@ -4619,7 +4619,7 @@ fn tracing_works() {
 		// Discarding gas usage, check that traces reported are correct
 		for (with_logs, logs) in tracer_options {
 			let mut tracer = CallTracer::new(with_logs, |_| U256::zero());
-			using_tracer(&mut tracer, || {
+			trace(&mut tracer, || {
 				builder::bare_call(addr).data((3u32, addr_callee).encode()).build()
 			});
 

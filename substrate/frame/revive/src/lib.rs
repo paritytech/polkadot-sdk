@@ -86,7 +86,6 @@ pub use crate::{
 	address::{create1, create2, AccountId32Mapper, AddressMapper},
 	exec::{MomentOf, Origin},
 	pallet::*,
-	tracing::Tracer,
 };
 pub use primitives::*;
 pub use weights::WeightInfo;
