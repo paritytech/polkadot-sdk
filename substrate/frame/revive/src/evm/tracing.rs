@@ -17,7 +17,8 @@
 use crate::{
 	evm::{extract_revert_message, CallLog, CallTrace, CallType},
 	primitives::ExecReturnValue,
-	DispatchError, Tracer, Weight,
+	tracing::Tracer,
+	DispatchError, Weight,
 };
 use alloc::{format, string::ToString, vec::Vec};
 use sp_core::{H160, H256, U256};

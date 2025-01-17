@@ -15,11 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use crate::{
-	exec::{ExecResult, ExportedFunction},
-	primitives::ExecReturnValue,
-};
-use crate::{DispatchError, Weight};
+use crate::{primitives::ExecReturnValue, DispatchError, Weight};
 use environmental::environmental;
 use sp_core::{H160, H256, U256};
 
@@ -31,7 +27,7 @@ pub fn using_tracer<R, F: FnOnce() -> R>(tracer: &mut (dyn Tracer + 'static), f:
 }
 
 /// Run the closure when the tracer is enabled.
-pub fn if_tracer<F: FnOnce(&mut (dyn Tracer + 'static))>(f: F) {
+pub(crate) fn if_tracer<F: FnOnce(&mut (dyn Tracer + 'static))>(f: F) {
 	tracer::with(f);
 }
 
