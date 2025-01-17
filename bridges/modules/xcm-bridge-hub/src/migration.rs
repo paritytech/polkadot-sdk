@@ -23,6 +23,7 @@ use frame_support::{
 };
 use xcm::prelude::{InteriorLocation, Location};
 
+// TODO: remove STORAGE_VERSION with v0 migration when renaming module - FAIL-CI
 /// The in-code storage version.
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
