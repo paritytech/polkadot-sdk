@@ -1,0 +1,32 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "FRAME: `RuntimeEvent` as associated type bound`"
+doc:
+  - audience: Runtime Dev
+    description: |
+      Using stabilized feature of associated type bounds, we can reduce redundant types defined in the pallet's `Config` traits. This PR adds
+      support for `RuntimeEvent` as an associated type bound.
+
+      With this change, we can do this:
+
+      ```rs
+      #[pallet::config]
+      pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
+      }
+      ```
+      instead of this:
+
+      ```rs
+      #[pallet::config]
+      pub trait Config: frame_system::Config {
+              /// Overarching event type.
+            type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+      }
+      ```
+
+crates: 
+  - name: frame-support
+    bump: minor
+  - name: pallet-examples
+    bump: minor

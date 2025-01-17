@@ -445,10 +445,12 @@ impl ConfigDef {
 			.iter()
 			.filter_map(|supertrait| syn::parse2::<syn::Path>(supertrait.to_token_stream()).ok())
 			.fold((false, false), |(mut has_system, mut has_event_bound), supertrait| {
-				has_system =
-					has_system || has_expected_system_config(supertrait.clone(), frame_system);
-				has_event_bound =
-					has_event_bound || contains_runtime_event_associated_type_bound(&supertrait);
+				if has_expected_system_config(supertrait.clone(), frame_system) {
+					has_system = true;
+					// only check for `RuntimeEvent` bound if `frame_system::Config` is found.
+					has_event_bound = has_event_bound ||
+						contains_runtime_event_associated_type_bound(&supertrait);
+				}
 
 				(has_system, has_event_bound)
 			});
