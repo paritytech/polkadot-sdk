@@ -735,7 +735,7 @@ pub struct BoundedSupport<AccountId, Bound: Get<u32>> {
 	pub voters: BoundedVec<(AccountId, ExtendedBalance), Bound>,
 }
 
-impl<AccountId, Bound: Get<u32>> sp_npos_elections::Backings for BoundedSupport<AccountId, Bound> {
+impl<AccountId, Bound: Get<u32>> sp_npos_elections::Backings for &BoundedSupport<AccountId, Bound> {
 	fn total(&self) -> ExtendedBalance {
 		self.total
 	}
@@ -803,6 +803,14 @@ impl<AccountId: Clone, Bound: Get<u32>> BoundedSupport<AccountId, Bound> {
 pub struct BoundedSupports<AccountId, BOuter: Get<u32>, BInner: Get<u32>>(
 	pub BoundedVec<(AccountId, BoundedSupport<AccountId, BInner>), BOuter>,
 );
+
+impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>> sp_npos_elections::EvaluateSupport
+	for BoundedSupports<AccountId, BOuter, BInner>
+{
+	fn evaluate(&self) -> sp_npos_elections::ElectionScore {
+		sp_npos_elections::evaluate_support(self.iter().map(|(_, s)| s))
+	}
+}
 
 impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>> sp_std::ops::DerefMut
 	for BoundedSupports<AccountId, BOuter, BInner>
