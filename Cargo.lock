@@ -18221,6 +18221,7 @@ dependencies = [
  "contracts-rococo-runtime",
  "coretime-rococo-runtime",
  "coretime-westend-runtime",
+ "cumulus-client-consensus-aura",
  "cumulus-primitives-core 0.7.0",
  "glutton-westend-runtime",
  "hex-literal",
@@ -18241,6 +18242,7 @@ dependencies = [
  "sp-keyring 31.0.0",
  "staging-xcm 7.0.0",
  "substrate-build-script-utils",
+ "yet-another-parachain-runtime",
 ]
 
 [[package]]
@@ -32131,6 +32133,58 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e17bb3549cc1321ae1296b9cdc2698e2b6cb1992adfa19a8c72e5b7a738f44cd"
 dependencies = [
  "time",
+]
+
+[[package]]
+name = "yet-another-parachain-runtime"
+version = "0.6.0"
+dependencies = [
+ "cumulus-pallet-aura-ext 0.7.0",
+ "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-weight-reclaim",
+ "cumulus-pallet-xcm 0.7.0",
+ "cumulus-pallet-xcmp-queue 0.7.0",
+ "cumulus-primitives-aura 0.7.0",
+ "cumulus-primitives-core 0.7.0",
+ "cumulus-primitives-utility 0.7.0",
+ "frame-benchmarking 28.0.0",
+ "frame-executive 28.0.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "frame-system-rpc-runtime-api 26.0.0",
+ "pallet-assets 29.1.0",
+ "pallet-aura 27.0.0",
+ "pallet-authorship 28.0.0",
+ "pallet-balances 28.0.0",
+ "pallet-message-queue 31.0.0",
+ "pallet-sudo 28.0.0",
+ "pallet-timestamp 27.0.0",
+ "pallet-transaction-payment 28.0.0",
+ "pallet-transaction-payment-rpc-runtime-api 28.0.0",
+ "pallet-utility 28.0.0",
+ "pallet-xcm 7.0.0",
+ "parachains-common 7.0.0",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives 6.0.0",
+ "polkadot-runtime-common 7.0.0",
+ "scale-info",
+ "sp-api 26.0.0",
+ "sp-block-builder 26.0.0",
+ "sp-consensus-aura 0.32.0",
+ "sp-core 28.0.0",
+ "sp-genesis-builder 0.8.0",
+ "sp-inherents 26.0.0",
+ "sp-offchain 26.0.0",
+ "sp-runtime 31.0.1",
+ "sp-session 27.0.0",
+ "sp-transaction-pool 26.0.0",
+ "sp-version 29.0.0",
+ "staging-parachain-info 0.7.0",
+ "staging-xcm 7.0.0",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+ "substrate-wasm-builder 17.0.0",
+ "testnet-parachains-constants 1.0.0",
 ]
 
 [[package]]
