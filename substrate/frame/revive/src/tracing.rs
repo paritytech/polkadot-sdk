@@ -39,7 +39,7 @@ pub(crate) fn if_tracing<F: FnOnce(&mut (dyn Tracer + 'static))>(f: F) {
 	tracer::with(f);
 }
 
-/// Defines methods to capture contract calls
+/// Defines methods to trace contract interactions.
 pub trait Tracer {
 	/// Called before a contract call is executed
 	fn enter_child_span(
