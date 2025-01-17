@@ -48,30 +48,6 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_xcm_bridge_hub_router`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_xcm_bridge_hub_router::WeightInfo for WeightInfo<T> {
-	/// Storage: `ToWestendXcmRouter::Bridges` (r:2 w:1)
-	/// Proof: `ToWestendXcmRouter::Bridges` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
-	fn on_idle_when_bridge_state_removed() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `204`
-		//  Estimated: `6070`
-		// Minimum execution time: 19_038_000 picoseconds.
-		Weight::from_parts(19_659_000, 0)
-			.saturating_add(Weight::from_parts(0, 6070))
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
-	/// Storage: `ToWestendXcmRouter::Bridges` (r:2 w:1)
-	/// Proof: `ToWestendXcmRouter::Bridges` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
-	fn on_idle_when_bridge_state_updated() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `204`
-		//  Estimated: `6070`
-		// Minimum execution time: 20_051_000 picoseconds.
-		Weight::from_parts(20_698_000, 0)
-			.saturating_add(Weight::from_parts(0, 6070))
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
 	/// Storage: `ToWestendXcmRouter::Bridges` (r:1 w:1)
 	/// Proof: `ToWestendXcmRouter::Bridges` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
 	fn update_bridge_status() -> Weight {

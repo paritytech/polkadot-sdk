@@ -50,39 +50,11 @@ use sp_std::marker::PhantomData;
 
 /// Weight functions needed for pallet_xcm_bridge_hub_router.
 pub trait WeightInfo {
-	fn on_idle_when_bridge_state_removed() -> Weight;
-	fn on_idle_when_bridge_state_updated() -> Weight;
 	fn update_bridge_status() -> Weight;
 }
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
-	/// Storage: `ToUnknownXcmRouter::Bridges` (r:2 w:1)
-	/// Proof: `ToUnknownXcmRouter::Bridges` (`max_values`: None, `max_size`: Some(65), added: 2540,
-	/// mode: `MaxEncodedLen`)
-	fn on_idle_when_bridge_state_removed() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `204`
-		//  Estimated: `6070`
-		// Minimum execution time: 19_370_000 picoseconds.
-		Weight::from_parts(19_928_000, 0)
-			.saturating_add(Weight::from_parts(0, 6070))
-			.saturating_add(RocksDbWeight::get().reads(2))
-			.saturating_add(RocksDbWeight::get().writes(1))
-	}
-	/// Storage: `ToUnknownXcmRouter::Bridges` (r:2 w:1)
-	/// Proof: `ToUnknownXcmRouter::Bridges` (`max_values`: None, `max_size`: Some(65), added: 2540,
-	/// mode: `MaxEncodedLen`)
-	fn on_idle_when_bridge_state_updated() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `204`
-		//  Estimated: `6070`
-		// Minimum execution time: 20_045_000 picoseconds.
-		Weight::from_parts(20_861_000, 0)
-			.saturating_add(Weight::from_parts(0, 6070))
-			.saturating_add(RocksDbWeight::get().reads(2))
-			.saturating_add(RocksDbWeight::get().writes(1))
-	}
 	/// Storage: `ToUnknownXcmRouter::Bridges` (r:1 w:1)
 	/// Proof: `ToUnknownXcmRouter::Bridges` (`max_values`: None, `max_size`: Some(65), added: 2540,
 	/// mode: `MaxEncodedLen`)

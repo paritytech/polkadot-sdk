@@ -1145,17 +1145,16 @@ mod tests {
 			);
 			// both routers are uncongested
 			assert!(
-				!router_bridge_state::<
+				router_bridge_state::<
 					TestRuntime,
 					XcmOverBridgeWrappedWithExportMessageRouterInstance,
-				>(&dest)
-				.unwrap()
-				.is_congested
+				>(&dest).is_none()
 			);
 			assert!(
-				!router_bridge_state::<TestRuntime, XcmOverBridgeByExportXcmRouterInstance>(&dest)
-					.unwrap()
-					.is_congested
+				router_bridge_state::<
+					TestRuntime,
+					XcmOverBridgeByExportXcmRouterInstance
+				>(&dest).is_none()
 			);
 			assert!(TestLocalXcmChannelManager::is_bridge_resumed(bridge_1.bridge_id()));
 			assert!(TestLocalXcmChannelManager::is_bridge_resumed(bridge_2.bridge_id()));

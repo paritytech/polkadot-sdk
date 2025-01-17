@@ -20,8 +20,7 @@
 
 use crate::{BridgeState, Bridges, Call, ResolveBridgeId, MINIMAL_DELIVERY_FEE_FACTOR};
 use frame_benchmarking::v2::*;
-use frame_support::traits::{EnsureOriginWithArg, Hooks};
-use sp_runtime::{traits::Zero, Saturating};
+use frame_support::traits::EnsureOriginWithArg;
 use xcm::prelude::*;
 
 /// Pallet we're benchmarking here.
@@ -38,54 +37,6 @@ pub trait Config<I: 'static>: crate::Config<I> {
 #[instance_benchmarks]
 mod benchmarks {
 	use super::*;
-
-	#[benchmark]
-	fn on_idle_when_bridge_state_removed() -> Result<(), BenchmarkError> {
-		let bridge_id =
-			T::BridgeIdResolver::resolve_for_dest(&T::ensure_bridged_target_destination()?)
-				.ok_or(BenchmarkError::Weightless)?;
-
-		// uncongested and less than a minimal factor is removed
-		Bridges::<T, I>::insert(
-			&bridge_id,
-			BridgeState { delivery_fee_factor: 0.into(), is_congested: false },
-		);
-		assert!(Bridges::<T, I>::get(&bridge_id).is_some());
-
-		#[block]
-		{
-			let _ = crate::Pallet::<T, I>::on_idle(Zero::zero(), Weight::MAX);
-		}
-
-		assert!(Bridges::<T, I>::get(bridge_id).is_none());
-
-		Ok(())
-	}
-
-	#[benchmark]
-	fn on_indle_when_bridge_state_updated() -> Result<(), BenchmarkError> {
-		let bridge_id =
-			T::BridgeIdResolver::resolve_for_dest(&T::ensure_bridged_target_destination()?)
-				.ok_or(BenchmarkError::Weightless)?;
-
-		// uncongested and higher than a minimal factor is decreased
-		let old_delivery_fee_factor = MINIMAL_DELIVERY_FEE_FACTOR.saturating_mul(1000.into());
-		Bridges::<T, I>::insert(
-			&bridge_id,
-			BridgeState { delivery_fee_factor: old_delivery_fee_factor, is_congested: false },
-		);
-		assert!(Bridges::<T, I>::get(&bridge_id).is_some());
-
-		#[block]
-		{
-			let _ = crate::Pallet::<T, I>::on_idle(Zero::zero(), Weight::MAX);
-		}
-
-		assert!(
-			Bridges::<T, I>::get(bridge_id).unwrap().delivery_fee_factor < old_delivery_fee_factor
-		);
-		Ok(())
-	}
 
 	#[benchmark]
 	fn update_bridge_status() -> Result<(), BenchmarkError> {

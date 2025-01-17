@@ -100,7 +100,7 @@ pub const LOG_TARGET: &str = "xcm::bridge-router";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{pallet_prelude::*, weights::WeightMeter};
+	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
@@ -175,78 +175,6 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
-	#[pallet::hooks]
-	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
-		fn on_idle(_n: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
-			let mut meter = WeightMeter::with_limit(remaining_weight);
-
-			// Iterate all congested bridges
-			let mut bridges_to_update = Vec::new();
-			let mut bridges_to_remove = Vec::new();
-			for (bridge_id, mut bridge_state) in Bridges::<T, I>::iter() {
-				meter.consume(T::DbWeight::get().reads(1));
-
-				// If no longer congested, we can start decreasing the fee factor.
-				if !bridge_state.is_congested {
-					let previous_factor = bridge_state.delivery_fee_factor;
-					let new_factor = previous_factor / EXPONENTIAL_FEE_BASE;
-					if new_factor >= MINIMAL_DELIVERY_FEE_FACTOR {
-						bridge_state.delivery_fee_factor = new_factor;
-						if meter
-							.try_consume(T::WeightInfo::on_idle_when_bridge_state_updated())
-							.is_err()
-						{
-							break;
-						}
-						bridges_to_update.push((bridge_id, previous_factor, bridge_state));
-					} else {
-						if meter
-							.try_consume(T::WeightInfo::on_idle_when_bridge_state_removed())
-							.is_err()
-						{
-							break;
-						}
-						bridges_to_remove.push((bridge_id, previous_factor));
-					}
-				}
-			}
-
-			// remove
-			for (bridge_id, previous_value) in bridges_to_remove.into_iter() {
-				log::info!(
-					target: LOG_TARGET,
-					"Bridge channel with id {:?} is uncongested. Removing fee factor!",
-					bridge_id,
-				);
-				Bridges::<T, I>::remove(&bridge_id);
-				Self::deposit_event(Event::DeliveryFeeFactorDecreased {
-					previous_value,
-					new_value: 0.into(),
-					bridge_id,
-				});
-			}
-			// update
-			for (bridge_id, previous_value, bridge_state) in bridges_to_update.into_iter() {
-				let new_value = bridge_state.delivery_fee_factor;
-				log::info!(
-					target: LOG_TARGET,
-					"Bridge channel with id {:?} is uncongested. Decreasing fee factor from {} to {}!",
-					bridge_id,
-					previous_value,
-					new_value,
-				);
-				Bridges::<T, I>::insert(&bridge_id, bridge_state);
-				Self::deposit_event(Event::DeliveryFeeFactorDecreased {
-					previous_value,
-					new_value,
-					bridge_id,
-				});
-			}
-
-			meter.consumed()
-		}
-	}
-
 	#[pallet::call]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Notification about congested bridge queue.
@@ -313,7 +241,6 @@ pub mod pallet {
 						previous_value: previous_factor,
 						new_value: bridge_state.delivery_fee_factor,
 						bridge_id: bridge_id.clone(),
-						dest,
 					});
 				},
 				_ => {
@@ -362,14 +289,29 @@ pub mod pallet {
 		///   `delivery_fee_factor`.
 		/// - `is_congested` is false, does nothing and no `BridgeState` is created.
 		pub(crate) fn do_update_bridge_status(bridge_id: BridgeIdOf<T, I>, is_congested: bool) {
-			Bridges::<T, I>::mutate(bridge_id, |bridge| match bridge {
-				Some(bridge) => bridge.is_congested = is_congested,
+			Bridges::<T, I>::mutate_exists(&bridge_id, |maybe_bridge| match maybe_bridge.take() {
+				Some(mut bridge) => if is_congested {
+					bridge.is_congested = is_congested;
+					*maybe_bridge = Some(bridge);
+				} else {
+					Self::deposit_event(Event::DeliveryFeeFactorDecreased {
+						previous_value: bridge.delivery_fee_factor,
+						new_value: 0.into(),
+						bridge_id: bridge_id.clone(),
+					});
+				},
 				None =>
 					if is_congested {
-						*bridge = Some(BridgeState {
+						*maybe_bridge = Some(BridgeState {
 							delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR,
 							is_congested,
-						})
+						});
+
+						Self::deposit_event(Event::DeliveryFeeFactorIncreased {
+							previous_value: 0.into(),
+							new_value: MINIMAL_DELIVERY_FEE_FACTOR,
+							bridge_id: bridge_id.clone(),
+						});
 					},
 			});
 		}
@@ -395,8 +337,6 @@ pub mod pallet {
 			new_value: FixedU128,
 			/// Bridge identifier.
 			bridge_id: BridgeIdOf<T, I>,
-			/// The destination to which the router sends the message.
-			dest: Location,
 		},
 	}
 }
@@ -505,93 +445,8 @@ mod tests {
 	use frame_support::assert_ok;
 	use mock::*;
 
-	use frame_support::traits::Hooks;
 	use frame_system::{EventRecord, Phase};
-	use sp_runtime::traits::{Dispatchable, One};
-
-	#[test]
-	fn fee_factor_is_not_decreased_from_on_initialize_when_bridge_is_congested() {
-		run_test(|| {
-			let dest = Location::new(2, [GlobalConsensus(BridgedNetworkId::get())]);
-			let old_delivery_fee_factor = FixedU128::from_rational(125, 100);
-
-			// make bridge congested + update fee factor
-			set_bridge_state_for::<TestRuntime, ()>(
-				&dest,
-				Some(BridgeState {
-					delivery_fee_factor: old_delivery_fee_factor,
-					is_congested: true,
-				}),
-			);
-
-			// it should not decrease, because queue is congested
-			XcmBridgeHubRouter::on_initialize(One::one());
-			assert_eq!(
-				get_bridge_state_for::<TestRuntime, ()>(&dest).unwrap().delivery_fee_factor,
-				old_delivery_fee_factor
-			);
-
-			assert_eq!(System::events(), vec![]);
-		})
-	}
-
-	#[test]
-	fn fee_factor_decreased_from_on_initialize_when_bridge_is_uncongested() {
-		run_test(|| {
-			let dest = Location::new(2, [GlobalConsensus(BridgedNetworkId::get())]);
-			let initial_fee_factor = FixedU128::from_rational(125, 100);
-			let mut remaining_weight = Weight::MAX;
-
-			// make bridge uncongested + update fee factor
-			let bridge_id = set_bridge_state_for::<TestRuntime, ()>(
-				&dest,
-				Some(BridgeState { delivery_fee_factor: initial_fee_factor, is_congested: false }),
-			);
-
-			// it should eventually decrease and remove
-			let mut last_delivery_fee_factor = initial_fee_factor;
-			while let Some(bridge_state) = get_bridge_state_for::<TestRuntime, ()>(&dest) {
-				last_delivery_fee_factor = bridge_state.delivery_fee_factor;
-				remaining_weight = XcmBridgeHubRouter::on_idle(One::one(), remaining_weight);
-
-				// avoid infinite loops (decreasing is expected)
-				if let Some(bridge_state) = get_bridge_state_for::<TestRuntime, ()>(&dest) {
-					assert!(bridge_state.delivery_fee_factor < last_delivery_fee_factor);
-				}
-			}
-			assert!(remaining_weight.all_lt(Weight::MAX));
-
-			// check emitted event
-			// (first one for updating)
-			let first_system_event = System::events().first().cloned();
-			assert_eq!(
-				first_system_event,
-				Some(EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::XcmBridgeHubRouter(Event::DeliveryFeeFactorDecreased {
-						previous_value: initial_fee_factor,
-						new_value: initial_fee_factor / EXPONENTIAL_FEE_BASE,
-						bridge_id,
-					}),
-					topics: vec![],
-				})
-			);
-			// (last one for removing)
-			let last_system_event = System::events().last().cloned();
-			assert_eq!(
-				last_system_event,
-				Some(EventRecord {
-					phase: Phase::Initialization,
-					event: RuntimeEvent::XcmBridgeHubRouter(Event::DeliveryFeeFactorDecreased {
-						previous_value: last_delivery_fee_factor,
-						new_value: 0.into(),
-						bridge_id,
-					}),
-					topics: vec![],
-				})
-			);
-		})
-	}
+	use sp_runtime::traits::Dispatchable;
 
 	#[test]
 	fn not_applicable_if_destination_is_within_other_network() {
@@ -832,10 +687,7 @@ mod tests {
 			update_bridge_status(bridge_id, false);
 			assert_eq!(
 				get_bridge_state_for::<TestRuntime, ()>(&dest),
-				Some(BridgeState {
-					delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR,
-					is_congested: false,
-				})
+				None
 			);
 		});
 	}
@@ -862,14 +714,22 @@ mod tests {
 				})
 			);
 
+			// increase fee factor when congested
+			Pallet::<TestRuntime, ()>::on_message_sent_to(5, dest.clone());
+			assert!(
+				get_bridge_state_for::<TestRuntime, ()>(&dest).unwrap().delivery_fee_factor > MINIMAL_DELIVERY_FEE_FACTOR
+			);
+			// update as is_congested=true - should not reset fee factor
+			Pallet::<TestRuntime, ()>::do_update_bridge_status(bridge_id, true);
+			assert!(
+				get_bridge_state_for::<TestRuntime, ()>(&dest).unwrap().delivery_fee_factor > MINIMAL_DELIVERY_FEE_FACTOR
+			);
+
 			// update as is_congested=false when `Some(..)`
 			Pallet::<TestRuntime, ()>::do_update_bridge_status(bridge_id, false);
 			assert_eq!(
 				get_bridge_state_for::<TestRuntime, ()>(&dest),
-				Some(BridgeState {
-					delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR,
-					is_congested: false,
-				})
+				None,
 			);
 		})
 	}
