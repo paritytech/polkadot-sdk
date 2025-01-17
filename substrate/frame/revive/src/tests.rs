@@ -16,12 +16,8 @@
 // limitations under the License.
 
 mod pallet_dummy;
-mod test_debug;
 
-use self::{
-	test_debug::TestDebug,
-	test_utils::{ensure_stored, expected_deposit},
-};
+use self::test_utils::{ensure_stored, expected_deposit};
 use crate::{
 	self as pallet_revive,
 	address::{create1, create2, AddressMapper},
@@ -29,13 +25,14 @@ use crate::{
 		ChainExtension, Environment, Ext, RegisteredChainExtension, Result as ExtensionResult,
 		RetVal, ReturnFlags,
 	},
-	evm::{runtime::GAS_PRICE, GenericTransaction},
+	evm::{runtime::GAS_PRICE, CallTrace, CallTracer, CallType, GenericTransaction},
 	exec::Key,
 	limits,
 	primitives::CodeUploadReturnValue,
 	storage::DeletionQueueManager,
 	test_utils::*,
 	tests::test_utils::{get_contract, get_contract_checked},
+	tracing::trace,
 	wasm::Memory,
 	weights::WeightInfo,
 	AccountId32Mapper, BalanceOf, Code, CodeInfoOf, Config, ContractInfo, ContractInfoOf,
@@ -523,7 +520,6 @@ impl Config for Test {
 	type UploadOrigin = EnsureAccount<Self, UploadAccount>;
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
-	type Debug = TestDebug;
 	type ChainId = ChainId;
 }
 
@@ -4552,5 +4548,153 @@ fn unstable_interface_rejected() {
 
 		Test::set_unstable_interface(true);
 		assert_ok!(builder::bare_instantiate(Code::Upload(code)).build().result);
+	});
+}
+
+#[test]
+fn tracing_works_for_transfers() {
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
+		let mut tracer = CallTracer::new(false, |_| U256::zero());
+		trace(&mut tracer, || {
+			builder::bare_call(BOB_ADDR).value(10_000_000).build_and_unwrap_result();
+		});
+		assert_eq!(
+			tracer.collect_traces(),
+			vec![CallTrace {
+				from: ALICE_ADDR,
+				to: BOB_ADDR,
+				value: U256::from(10_000_000),
+				call_type: CallType::Call,
+				..Default::default()
+			},]
+		)
+	});
+}
+
+#[test]
+fn tracing_works() {
+	use crate::evm::*;
+	use CallType::*;
+	let (code, _code_hash) = compile_module("tracing").unwrap();
+	let (wasm_callee, _) = compile_module("tracing_callee").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr: addr_callee, .. } =
+			builder::bare_instantiate(Code::Upload(wasm_callee)).build_and_unwrap_contract();
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let tracer_options = vec![
+			( false , vec![]),
+			(
+				true ,
+				vec![
+					CallLog {
+						address: addr,
+						topics: Default::default(),
+						data: b"before".to_vec().into(),
+						position: 0,
+					},
+					CallLog {
+						address: addr,
+						topics: Default::default(),
+						data: b"after".to_vec().into(),
+						position: 1,
+					},
+				],
+			),
+		];
+
+		// Verify that the first trace report the same weight reported by bare_call
+		let mut tracer = CallTracer::new(false, |w| w);
+		let gas_used = trace(&mut tracer, || {
+			builder::bare_call(addr).data((3u32, addr_callee).encode()).build().gas_consumed
+		});
+		let traces = tracer.collect_traces();
+		assert_eq!(&traces[0].gas_used, &gas_used);
+
+		// Discarding gas usage, check that traces reported are correct
+		for (with_logs, logs) in tracer_options {
+			let mut tracer = CallTracer::new(with_logs, |_| U256::zero());
+			trace(&mut tracer, || {
+				builder::bare_call(addr).data((3u32, addr_callee).encode()).build()
+			});
+
+
+			assert_eq!(
+				tracer.collect_traces(),
+				vec![CallTrace {
+					from: ALICE_ADDR,
+					to: addr,
+					input: (3u32, addr_callee).encode(),
+					call_type: Call,
+					logs: logs.clone(),
+					calls: vec![
+						CallTrace {
+							from: addr,
+							to: addr_callee,
+							input: 2u32.encode(),
+							output: hex_literal::hex!(
+										"08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001a546869732066756e6374696f6e20616c77617973206661696c73000000000000"
+									).to_vec().into(),
+							revert_reason: Some(
+								"execution reverted: This function always fails".to_string()
+							),
+							error: Some("execution reverted".to_string()),
+							call_type: Call,
+							..Default::default()
+						},
+						CallTrace {
+							from: addr,
+							to: addr,
+							input: (2u32, addr_callee).encode(),
+							call_type: Call,
+							logs: logs.clone(),
+							calls: vec![
+								CallTrace {
+									from: addr,
+									to: addr_callee,
+									input: 1u32.encode(),
+									output: Default::default(),
+									error: Some("ContractTrapped".to_string()),
+									call_type: Call,
+									..Default::default()
+								},
+								CallTrace {
+									from: addr,
+									to: addr,
+									input: (1u32, addr_callee).encode(),
+									call_type: Call,
+									logs: logs.clone(),
+									calls: vec![
+										CallTrace {
+											from: addr,
+											to: addr_callee,
+											input: 0u32.encode(),
+											output: 0u32.to_le_bytes().to_vec().into(),
+											call_type: Call,
+											..Default::default()
+										},
+										CallTrace {
+											from: addr,
+											to: addr,
+											input: (0u32, addr_callee).encode(),
+											call_type: Call,
+											..Default::default()
+										},
+									],
+									..Default::default()
+								},
+							],
+							..Default::default()
+						},
+					],
+					..Default::default()
+				},]
+			);
+		}
 	});
 }

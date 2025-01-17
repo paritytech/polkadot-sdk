@@ -14834,6 +14834,7 @@ dependencies = [
  "assert_matches",
  "derive_more 0.99.17",
  "environmental",
+ "ethabi-decode 2.0.0",
  "ethereum-types 0.15.1",
  "frame-benchmarking 28.0.0",
  "frame-support 28.0.0",
