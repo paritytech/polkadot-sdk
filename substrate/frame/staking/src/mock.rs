@@ -209,7 +209,7 @@ parameter_types! {
 	pub static MaxValidatorSet: u32 = 100;
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 	pub static AbsoluteMaxNominations: u32 = 16;
-	pub static MaxWinnersPerPage: u32 = 100;
+	pub static MaxWinnersPerPage: u32 = MaxValidatorSet::get();
 }
 
 type VoterBagsListInstance = pallet_bags_list::Instance1;

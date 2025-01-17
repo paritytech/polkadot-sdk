@@ -6594,6 +6594,7 @@ fn reducing_max_unlocking_chunks_abrupt() {
 fn cannot_set_unsupported_validator_count() {
 	ExtBuilder::default().build_and_execute(|| {
 		MaxValidatorSet::set(50);
+		MaxWinnersPerPage::set(50);
 		// set validator count works
 		assert_ok!(Staking::set_validator_count(RuntimeOrigin::root(), 30));
 		assert_ok!(Staking::set_validator_count(RuntimeOrigin::root(), 50));
@@ -6609,6 +6610,7 @@ fn cannot_set_unsupported_validator_count() {
 fn increase_validator_count_errors() {
 	ExtBuilder::default().build_and_execute(|| {
 		MaxValidatorSet::set(50);
+		MaxWinnersPerPage::set(50);
 		assert_ok!(Staking::set_validator_count(RuntimeOrigin::root(), 40));
 
 		// increase works
@@ -6627,6 +6629,7 @@ fn increase_validator_count_errors() {
 fn scale_validator_count_errors() {
 	ExtBuilder::default().build_and_execute(|| {
 		MaxValidatorSet::set(50);
+		MaxWinnersPerPage::set(50);
 		assert_ok!(Staking::set_validator_count(RuntimeOrigin::root(), 20));
 
 		// scale value works

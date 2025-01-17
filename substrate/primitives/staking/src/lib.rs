@@ -523,8 +523,8 @@ where
 		let page_limit = Max::get().max(1);
 		let new_nominator_count = self.nominator_count.saturating_add(others_num);
 		let new_page_count = new_nominator_count
-			.defensive_saturating_add(page_limit)
-			.defensive_saturating_sub(1)
+			.saturating_add(page_limit)
+			.saturating_sub(1)
 			.saturating_div(page_limit);
 
 		Self {
@@ -729,7 +729,7 @@ mod tests {
 
 		assert_eq!(
 			metadata.clone().update_with::<ConstU32<1>>(1, 1),
-			PagedExposureMetadata { total: 1001, own: 0, nominator_count: 11, page_count: 12 },
+			PagedExposureMetadata { total: 1001, own: 0, nominator_count: 11, page_count: 11 },
 		);
 	}
 
