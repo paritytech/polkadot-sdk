@@ -2908,21 +2908,18 @@ impl<T: Config> Pallet<T> {
 			);
 			AuthorizedAliasersApiError::LocationVersionConversionFailed
 		})?;
-		Ok(Self::authorized_aliasers(target)?
-			.into_iter()
-			.find(|aliaser| {
-				// `aliasers` and `origin` have already been transformed to `desired_version`, we
-				// can just directly compare them.
-				aliaser.location == origin &&
-					aliaser
-						.expiry
-						.map(|expiry| {
-							frame_system::Pallet::<T>::current_block_number()
-								.saturated_into::<u64>() < expiry
-						})
-						.unwrap_or(true)
-			})
-			.is_some())
+		Ok(Self::authorized_aliasers(target)?.into_iter().any(|aliaser| {
+			// `aliasers` and `origin` have already been transformed to `desired_version`, we
+			// can just directly compare them.
+			aliaser.location == origin &&
+				aliaser
+					.expiry
+					.map(|expiry| {
+						frame_system::Pallet::<T>::current_block_number().saturated_into::<u64>() <
+							expiry
+					})
+					.unwrap_or(true)
+		}))
 	}
 
 	/// Create a new expectation of a query response with the querier being here.
