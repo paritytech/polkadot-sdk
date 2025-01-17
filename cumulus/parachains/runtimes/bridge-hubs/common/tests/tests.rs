@@ -26,7 +26,6 @@ use xcm::prelude::{
 };
 use xcm_executor::traits::{DenyExecution, Properties};
 
-
 #[test]
 fn test_deny_export_message_from() {
 	parameter_types! {
