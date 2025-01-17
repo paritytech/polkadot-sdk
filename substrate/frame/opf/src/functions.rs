@@ -18,6 +18,31 @@
 
 pub use super::*;
 impl<T: Config> Pallet<T> {
+	pub fn get_formatted_call(call: Call<T>) -> <T as Config>::RuntimeCall {
+		call.into()
+	}
+
+	pub fn make_proposal(call: CallOf<T>) -> BoundedCallOf<T> {
+		<T as Democracy::Config>::Preimages::bound(call).unwrap()
+	}
+
+	pub fn add_proposal(who: T::AccountId, call: CallOf<T>) -> DispatchResult {
+		let value = <T as Democracy::Config>::MinimumDeposit::get();
+		let proposal: BoundedCallOf<T> = T::Preimages::bound(call.into())?;
+		Democracy::Pallet::<T>::propose(RawOrigin::Signed(who).into(), proposal.clone(), value)?;
+		Ok(())
+	}
+
+	pub fn start_dem_referendum(
+		proposal: BoundedCallOf<T>,
+		delay: BlockNumberFor<T>,
+	) -> Democracy::ReferendumIndex {
+		let threshold = Democracy::VoteThreshold::SimpleMajority;
+		let referendum_index =
+			Democracy::Pallet::<T>::internal_start_referendum(proposal, threshold, delay);
+		referendum_index
+	}
+
 	// Helper function for voting action. Existing votes are over-written, and Hold is adjusted
 	pub fn try_vote(
 		voter_id: VoterId<T>,
@@ -263,7 +288,7 @@ impl<T: Config> Pallet<T> {
 							amount: final_amount,
 							index: ref_index,
 						};
-						WhiteListedProjectAccounts::<T>::mutate(project_id.clone(), |val|{
+						WhiteListedProjectAccounts::<T>::mutate(project_id.clone(), |val| {
 							*val = Some(project_info.clone());
 						});
 
@@ -272,13 +297,10 @@ impl<T: Config> Pallet<T> {
 
 						Self::deposit_event(Event::<T>::ProjectFundingAccepted {
 							project_id: project_id.clone(),
-							when,
-							round_number,
 							amount: project_info.amount,
 						})
 					} else {
 						Self::deposit_event(Event::<T>::ProjectFundingRejected {
-							when,
 							project_id: project_id.clone(),
 						})
 					}
@@ -312,16 +334,27 @@ impl<T: Config> Pallet<T> {
 		let round_infos = VotingRounds::<T>::get(current_round_index).expect("InvalidResult");
 		let round_ending_block = round_infos.round_ending_block;
 
-		// Conditions for reward distribution preparations are:
-		// - We are at the end of voting_round period
-		if now >= round_ending_block {
+		if now == round_ending_block {
+			// Emmit event
+			Self::deposit_event(Event::<T>::VoteActionLocked {
+				when: now,
+				round_number: round_infos.round_number,
+			});
 			// Emmit events
 			Self::deposit_event(Event::<T>::VotingRoundEnded {
 				when: now,
 				round_number: round_infos.round_number,
 			});
-		}
+			// prepare reward distribution
+			// for now we are using the temporary-constant reward.
+			let _ = Self::calculate_rewards(T::TemporaryRewards::get())
+				.map_err(|_| Error::<T>::FailedRewardCalculation);
 
+			// Clear Votes storage
+			Votes::<T>::drain();
+			// Clear ProjectFunds storage
+			ProjectFunds::<T>::drain();
+		}
 		meter.consumed()
 	}
 }

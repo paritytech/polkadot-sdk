@@ -44,6 +44,7 @@ pub mod pallet {
 			+ Parameter
 			+ UnfilteredDispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
 			+ From<Call<Self>>
+			+ Into<<Self as frame_system::Config>::RuntimeCall>
 			+ GetDispatchInfo;
 		/// The admin origin that can list and un-list whitelisted projects.
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -182,18 +183,13 @@ pub mod pallet {
 		ProjectUnlisted { when: ProvidedBlockNumberFor<T>, project_id: ProjectId<T> },
 
 		/// Project Funding Accepted by voters
-		ProjectFundingAccepted {
-			project_id: ProjectId<T>,
-			when: ProvidedBlockNumberFor<T>,
-			round_number: u32,
-			amount: BalanceOf<T>,
-		},
+		ProjectFundingAccepted { project_id: ProjectId<T>, amount: BalanceOf<T> },
 
 		/// Reward claim has expired
 		ExpiredClaim { expired_when: ProvidedBlockNumberFor<T>, project_id: ProjectId<T> },
 
 		/// Project Funding rejected by voters
-		ProjectFundingRejected { when: ProvidedBlockNumberFor<T>, project_id: ProjectId<T> },
+		ProjectFundingRejected { project_id: ProjectId<T> },
 
 		/// A new voting round started
 		VotingRoundStarted { when: ProvidedBlockNumberFor<T>, round_number: u32 },
@@ -278,7 +274,7 @@ pub mod pallet {
 			projects_id: Vec<ProjectId<T>>,
 		) -> DispatchResult {
 			//T::AdminOrigin::ensure_origin_or_root(origin.clone())?;
-			let _who = T::SubmitOrigin::ensure_origin(origin.clone())?;
+			let who = T::SubmitOrigin::ensure_origin(origin.clone())?;
 			// Only 1 batch submission per round
 			let mut round_index = NextVotingRoundNumber::<T>::get();
 
@@ -309,20 +305,12 @@ pub mod pallet {
 			for project_id in &projects_id {
 				ProjectInfo::<T>::new(project_id.clone());
 				// Prepare the proposal call
-				let call0: <T as Config>::RuntimeCall = crate::Call::<T>::on_registration {}.into();
-				let call = <T as Config>::RuntimeCall::convert(call0);
-				let call_f = T::Preimages::bound(call)?;
-				let threshold = Democracy::VoteThreshold::SimpleMajority;
-				Democracy::Pallet::<T>::propose(
-					origin.clone(),
-					call_f.clone(),
-					T::MinimumDeposit::get(),
-				)?;
-				let referendum_index = Democracy::Pallet::<T>::internal_start_referendum(
-					call_f,
-					threshold,
-					T::EnactmentPeriod::get(),
-				);
+				let out_call = Call::<T>::on_registration { project_id: project_id.clone() };
+				let call0 = Self::get_formatted_call(out_call);
+				let proposal = Self::make_proposal(call0.clone().into());
+				Self::add_proposal(who.clone(), call0.clone().into())?;
+				let delay = T::EnactmentPeriod::get();
+				let referendum_index = Self::start_dem_referendum(proposal, delay);
 				let mut new_infos = WhiteListedProjectAccounts::<T>::get(&project_id)
 					.ok_or(Error::<T>::NoProjectAvailable)?;
 				new_infos.index = referendum_index;
@@ -472,13 +460,21 @@ pub mod pallet {
 
 		#[pallet::call_index(6)]
 		#[transactional]
-		pub fn on_registration(origin: OriginFor<T>) -> DispatchResult {
+		pub fn on_registration(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
 			let _who = T::SubmitOrigin::ensure_origin(origin.clone())?;
-			// prepare reward distribution
-			// for now we are using the temporary-constant reward.
-			let _ = Self::calculate_rewards(T::TemporaryRewards::get())?;
-						// Clear ProjectFunds storage
-			ProjectFunds::<T>::drain();
+			let infos = WhiteListedProjectAccounts::<T>::get(project_id.clone())
+				.ok_or(Error::<T>::NoProjectAvailable)?;
+			let ref_index = infos.index;
+			let amount = infos.amount;
+			if let Some(ref_infos) = Democracy::ReferendumInfoOf::<T>::get(ref_index) {
+				match ref_infos {
+					Democracy::ReferendumInfo::Finished { approved: true, .. } =>
+						Self::deposit_event(Event::ProjectFundingAccepted { project_id, amount }),
+					Democracy::ReferendumInfo::Finished { approved: false, .. } =>
+						Self::deposit_event(Event::ProjectFundingRejected { project_id }),
+					Democracy::ReferendumInfo::Ongoing(_) => (),
+				}
+			}
 
 			Ok(())
 		}

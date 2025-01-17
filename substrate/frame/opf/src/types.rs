@@ -114,8 +114,6 @@ impl<T: Config> SpendInfo<T> {
 		Spends::<T>::insert(whitelisted.project_id.clone(), spend.clone());
 		//Update Project infos in project list storage
 
-		
-
 		spend
 	}
 }

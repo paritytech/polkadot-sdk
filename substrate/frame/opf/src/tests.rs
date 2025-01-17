@@ -171,7 +171,7 @@ fn rewards_calculation_works() {
 			true,
 			pallet_democracy::Conviction::Locked2x
 		));
-		
+
 		// Alice nominate project_101 with an amount of 5000*BSX with conviction 1x => equivalent to
 		// 10000*BSX locked
 		assert_ok!(Opf::vote(
@@ -209,8 +209,7 @@ fn rewards_calculation_works() {
 		let round_info = VotingRounds::<Test>::get(0).unwrap();
 
 		run_to_block(round_end);
-		let mut now =
-			<Test as Config>::BlockNumberProvider::current_block_number();
+		let now = <Test as Config>::BlockNumberProvider::current_block_number();
 
 		println!("Now is:{}", now);
 		assert_eq!(now, round_info.round_ending_block);
@@ -225,30 +224,20 @@ fn rewards_calculation_works() {
 		// Project 101: 13000 -> ~76.5%; Project 102: 4000 -> ~23.5%
 		// Distributed to project 101 -> 44%*100_000; Distributed to project 102 -> 55%*100_000
 		//Opf::calculate_rewards(<Test as Config>::TemporaryRewards::get());
-		next_block();
-		next_block();
+
+		
 		let reward_101 = WhiteListedProjectAccounts::<Test>::get(101).unwrap();
 		let reward_102 = WhiteListedProjectAccounts::<Test>::get(102).unwrap();
-		println!("p101_infos:{:?}", reward_101);
-		println!("p101_infos:{:?}", reward_102);
-		let referenda = pallet_democracy::ReferendumInfoOf::<Test>::get(0);
-
-		println!("ref:{:?}", referenda);
-		// New round is properly started
-	/*	run_to_block(round_info.round_ending_block);
-		now = round_info.round_ending_block;
-		expect_events(vec![RuntimeEvent::Opf(Event::VotingRoundEnded {
-			when: now,
-			round_number: 0,
+		next_block();
+		next_block();
+		expect_events(vec![RuntimeEvent::Opf(Event::ProjectFundingAccepted {
+			project_id: 102,
+			amount: 23000,
 		})]);
-		let new_round_number = VotingRoundNumber::<Test>::get() - 1;
-		assert_eq!(new_round_number, 1);
-		let next_round = VotingRounds::<Test>::get(1);
-		assert_eq!(next_round.is_some(), true);
+		expect_events(vec![RuntimeEvent::Opf(Event::ProjectFundingAccepted {
+			project_id: 101,
+			amount: 76000,
+		})]);
 
-		now = now.saturating_add(<Test as Config>::VoteLockingPeriod::get().into());
-		// Unlock funds
-		run_to_block(now);
-		assert_ok!(Opf::unlock_funds(RawOrigin::Signed(ALICE).into(), 101));*/
 	})
 }
