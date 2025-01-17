@@ -33,9 +33,9 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
+use frame::prelude::*;
 pub use pallet::*;
 pub use weights::WeightInfo;
-use frame::prelude::*;
 
 #[frame::pallet]
 pub mod pallet {
