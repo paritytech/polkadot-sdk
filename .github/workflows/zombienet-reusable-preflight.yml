@@ -157,7 +157,6 @@ jobs:
         run: |
           rustup show
           cargo --version
-          cargo +nightly --version
           cargo clippy --version
 
       - name: Info vars
