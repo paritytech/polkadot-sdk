@@ -35,9 +35,8 @@ on:
         description: |
           Version for temp docker images.
 
-      # Global vars (from global preflight)
       SOURCE_REF_SLUG:
-        value: ${{ jobs.global_preflight.outputs.SOURCE_REF_SLUG }}
+        value: ${{ jobs.preflight.outputs.SOURCE_REF_SLUG }}
 
       # Zombie vars
       PUSHGATEWAY_URL:
@@ -65,8 +64,6 @@ on:
         description: "Base memory (request) for pod runner."
 
 jobs:
-  global_preflight:
-    uses: ./.github/workflows/reusable-preflight.yml
 
   #
   #
@@ -83,6 +80,7 @@ jobs:
 
       # common vars
       PUSHGATEWAY_URL: ${{ steps.set_vars.outputs.PUSHGATEWAY_URL }}
+      SOURCE_REF_SLUG: ${{ steps.set_vars.outputs.SOURCE_REF_SLUG }}
       DEBUG: ${{ steps.set_vars.outputs.DEBUG }}
       ZOMBIE_PROVIDER: ${{ steps.set_vars.outputs.ZOMBIE_PROVIDER }}
       RUST_LOG: ${{ steps.set_vars.outputs.RUST_LOG }}
@@ -124,6 +122,9 @@ jobs:
         id: set_vars
         shell: bash
         run: |
+          export SOURCE_REF_NAME=${{ github.head_ref || github.ref_name }}
+          echo "SOURCE_REF_SLUG=${SOURCE_REF_NAME//\//_}" >> $GITHUB_OUTPUT
+          #
           cat .github/zombienet-env
           cat .github/zombienet-env >> $GITHUB_OUTPUT
 
@@ -169,10 +170,7 @@ jobs:
           echo "ZOMBIENET_IMAGE: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}"
           echo "ZOMBIENET_RUNNER: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }}"
           echo "DOCKER_IMAGES_VERSION: ${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-          echo "REF_SLUG: ${{ needs.preflight.outputs.REF_SLUG }}"
-          echo "RUNNER: ${{ needs.preflight.outputs.RUNNER }}"
-          echo "IMAGE: ${{ needs.preflight.outputs.IMAGE }}"
-          echo "SOURCE_REF_SLUG: ${{ needs.global_preflight.outputs.SOURCE_REF_SLUG }}"
+          echo "SOURCE_REF_SLUG: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}"
           echo "PUSHGATEWAY_URL: ${{ needs.preflight.outputs.PUSHGATEWAY_URL }}"
           echo "DEBUG: ${{ needs.preflight.outputs.DEBUG }}"
           echo "ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}"
