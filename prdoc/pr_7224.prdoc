@@ -1,0 +1,7 @@
+title: Migrate pallet-examples-split to use umbrella crate
+doc:
+- audience: Runtime Dev
+  description: Part of https://github.com/paritytech/polkadot-sdk/issues/6504
+crates:
+- name: polkadot-sdk-frame
+  bump: minor
