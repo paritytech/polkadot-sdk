@@ -150,20 +150,10 @@ jobs:
   #
   #
   #
-  ci-versions:
+  ci-env:
     needs: [preflight]
     runs-on: ubuntu-latest
-    container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Info rust
-        run: |
-          rustup show
-          cargo --version
-          cargo clippy --version
-
       - name: Info vars
         run: |
           echo "ZOMBIENET_IMAGE: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}"
