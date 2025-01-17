@@ -17,12 +17,12 @@
 
 use crate::{
 	address::{self, AddressMapper},
-	debug::CallInterceptor,
 	gas::GasMeter,
 	limits,
 	primitives::{ExecReturnValue, StorageDeposit},
 	runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo},
 	storage::{self, meter::Diff, WriteOutcome},
+	tracing::if_tracer,
 	transient_storage::TransientStorage,
 	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, Error, Event,
 	ImmutableData, ImmutableDataOf, Pallet as Contracts,
@@ -773,7 +773,25 @@ where
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
-			Self::transfer_from_origin(&origin, &origin, &dest, value)
+			if_tracer(|t| {
+				let address =
+					origin.account_id().map(T::AddressMapper::to_address).unwrap_or_default();
+				let dest = T::AddressMapper::to_address(&dest);
+				t.enter_child_span(address, dest, false, false, value, &input_data, Weight::zero());
+			});
+
+			let result = Self::transfer_from_origin(&origin, &origin, &dest, value);
+			match result {
+				Ok(ref output) => {
+					if_tracer(|t| {
+						t.exit_child_span(&output, Weight::zero());
+					});
+				},
+				Err(e) => {
+					if_tracer(|t| t.exit_child_span_with_error(e.error.into(), Weight::zero()));
+				},
+			}
+			result
 		}
 	}
 
@@ -1077,7 +1095,7 @@ where
 			let contract_address = T::AddressMapper::to_address(account_id);
 			let maybe_caller_address = caller.account_id().map(T::AddressMapper::to_address);
 
-			crate::with_tracer(|tracer| {
+			if_tracer(|tracer| {
 				tracer.enter_child_span(
 					maybe_caller_address.unwrap_or_default(),
 					contract_address,
@@ -1089,19 +1107,17 @@ where
 				);
 			});
 
-			let output = T::Debug::intercept_call(&contract_address, entry_point, &input_data)
-				.unwrap_or_else(|| executable.execute(self, entry_point, input_data))
-				.map_err(|e| {
-					crate::with_tracer(|tracer| {
-						tracer.exit_child_span_with_error(
-							e.error,
-							top_frame_mut!(self).nested_gas.gas_consumed(),
-						);
-					});
-					ExecError { error: e.error, origin: ErrorOrigin::Callee }
-				})?;
+			let output = executable.execute(self, entry_point, input_data).map_err(|e| {
+				if_tracer(|tracer| {
+					tracer.exit_child_span_with_error(
+						e.error,
+						top_frame_mut!(self).nested_gas.gas_consumed(),
+					);
+				});
+				ExecError { error: e.error, origin: ErrorOrigin::Callee }
+			})?;
 
-			crate::with_tracer(|tracer| {
+			if_tracer(|tracer| {
 				tracer.exit_child_span(&output, top_frame_mut!(self).nested_gas.gas_consumed());
 			});
 
@@ -1379,7 +1395,7 @@ where
 		&mut self,
 		gas_limit: Weight,
 		deposit_limit: U256,
-		dest: &H160,
+		dest_addr: &H160,
 		value: U256,
 		input_data: Vec<u8>,
 		allows_reentry: bool,
@@ -1395,7 +1411,7 @@ where
 		*self.last_frame_output_mut() = Default::default();
 
 		let try_call = || {
-			let dest = T::AddressMapper::to_account_id(dest);
+			let dest = T::AddressMapper::to_account_id(dest_addr);
 			if !self.allows_reentry(&dest) {
 				return Err(<Error<T>>::ReentranceDenied.into());
 			}
@@ -1688,7 +1704,7 @@ where
 
 	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) {
 		let contract = T::AddressMapper::to_address(self.account_id());
-		crate::with_tracer(|tracer| {
+		if_tracer(|tracer| {
 			tracer.log_event(contract, &topics, &data);
 		});
 		Contracts::<Self::T>::deposit_event(Event::ContractEmitted { contract, data, topics });

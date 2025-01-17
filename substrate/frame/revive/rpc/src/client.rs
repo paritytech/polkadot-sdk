@@ -22,7 +22,7 @@ use crate::{
 	subxt_client::{
 		revive::calls::types::EthTransact, runtime_types::pallet_revive::storage::ContractInfo,
 	},
-	BlockInfoProvider, EthTraces, ReceiptProvider, TransactionInfo, LOG_TARGET,
+	BlockInfoProvider, CallTrace, ReceiptProvider, TransactionInfo, LOG_TARGET,
 };
 use codec::{Decode, Encode};
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
@@ -656,7 +656,7 @@ impl Client {
 				log::error!(target: LOG_TARGET, "state_debugBlock failed with: {err:?}");
 			})?;
 
-		let traces = Vec::<(u32, pallet_revive::evm::EthTraces)>::decode(&mut &bytes.0[..])?;
+		let traces = Vec::<(u32, CallTrace)>::decode(&mut &bytes.0[..])?;
 
 		let mut hashes = self
 			.receipt_provider
@@ -666,8 +666,8 @@ impl Client {
 
 		let traces = traces
 			.into_iter()
-			.filter_map(|(index, traces)| {
-				Some(TransactionTrace { tx_hash: hashes.remove(&index)?, result: traces })
+			.filter_map(|(index, trace)| {
+				Some(TransactionTrace { tx_hash: hashes.remove(&index)?, trace })
 			})
 			.collect();
 
@@ -679,7 +679,7 @@ impl Client {
 		&self,
 		transaction_hash: H256,
 		tracer_config: TracerConfig,
-	) -> Result<EthTraces, ClientError> {
+	) -> Result<CallTrace, ClientError> {
 		let rpc_client = RpcClient::new(self.rpc_client.clone());
 
 		let ReceiptInfo { block_hash, transaction_index, .. } = self
@@ -699,7 +699,7 @@ impl Client {
 				log::error!(target: LOG_TARGET, "state_debugBlock failed with: {err:?}");
 			})?;
 
-		let traces = pallet_revive::evm::EthTraces::decode(&mut &bytes.0[..])?;
+		let traces = CallTrace::decode(&mut &bytes.0[..])?;
 		Ok(traces)
 	}
 
