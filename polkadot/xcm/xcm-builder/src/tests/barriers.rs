@@ -583,16 +583,17 @@ fn deny_then_try_works() {
 		Err(ProcessMessageError::StackLimitReached),
 	);
 
-	// ok
-	assert_should_execute(vec![ClearError], Parachain(1).into_location(), Ok(()));
-	assert_should_execute(vec![ClearTopic], Here.into(), Ok(()));
-
 	// deny because none of the allow items match
 	assert_should_execute(
 		vec![ClearError, ClearTopic],
 		Parachain(1).into_location(),
 		Err(ProcessMessageError::Unsupported),
 	);
+
+	// ok
+	assert_should_execute(vec![ClearError], Parachain(1).into_location(), Ok(()));
+	assert_should_execute(vec![ClearTopic], Here.into(), Ok(()));
+	assert_should_execute(vec![ClearError, ClearTopic], Here.into_location(), Ok(()));
 }
 
 #[test]
