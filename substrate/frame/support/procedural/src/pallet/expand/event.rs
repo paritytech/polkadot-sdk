@@ -143,17 +143,25 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 
 		let PalletEventDepositAttr { fn_vis, fn_span, .. } = deposit_event;
 
+		// `RuntimeEvent` can be defined either as associated type in `Config` or as a type bound in
+		// system supertrait.
+		let runtime_event_path = if def.config.has_event_bound {
+			quote::quote! { <T as #frame_system::Config>::RuntimeEvent }
+		} else {
+			quote::quote! { <T as Config #trait_use_gen>::RuntimeEvent }
+		};
+
 		quote::quote_spanned!(*fn_span =>
 			impl<#type_impl_gen> #pallet_ident<#type_use_gen> #completed_where_clause {
 				#fn_vis fn deposit_event(event: Event<#event_use_gen>) {
 					let event = <
-						<T as Config #trait_use_gen>::RuntimeEvent as
+						#runtime_event_path as
 						From<Event<#event_use_gen>>
 					>::from(event);
 
 					let event = <
-						<T as Config #trait_use_gen>::RuntimeEvent as
-						Into<<T as #frame_system::Config>::RuntimeEvent>
+						#runtime_event_path as
+						Into<#runtime_event_path>
 					>::into(event);
 
 					<#frame_system::Pallet<T>>::deposit_event(event)

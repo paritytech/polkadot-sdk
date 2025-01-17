@@ -22,9 +22,7 @@ pub mod pallet {
 	use super::*;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
-		type RuntimeEvent: IsType<<Self as frame_system::Config>::RuntimeEvent> + From<Event<Self>>;
-	}
+	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -60,7 +58,5 @@ mod tests {
 		type Block = MockBlock<Self>;
 	}
 
-	impl my_pallet::Config for Runtime {
-		type RuntimeEvent = RuntimeEvent;
-	}
+	impl my_pallet::Config for Runtime {}
 }

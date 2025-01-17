@@ -70,9 +70,7 @@ impl pallet_balances::Config for Test {
 	type AccountStore = System;
 }
 
-impl Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-}
+impl Config for Test {}
 
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup.

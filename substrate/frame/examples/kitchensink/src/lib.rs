@@ -68,10 +68,7 @@ pub mod pallet {
 	/// * `#[pallet::disable_frame_system_supertrait_check]` would remove the need for
 	///   `frame_system::Config` to exist, which you should almost never need.
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
-		/// The overarching runtime event type.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
+	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
 		/// Type representing the weight of this pallet
 		type WeightInfo: WeightInfo;
 

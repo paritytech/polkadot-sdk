@@ -153,13 +153,12 @@ pub mod pallet {
 	///
 	/// `frame_system::Config` should always be included.
 	#[pallet::config]
-	pub trait Config: pallet_balances::Config + frame_system::Config {
+	pub trait Config:
+		pallet_balances::Config + frame_system::Config<RuntimeEvent: From<Event<Self>>>
+	{
 		// Setting a constant config parameter from the runtime
 		#[pallet::constant]
 		type MagicNumber: Get<Self::Balance>;
-
-		/// The overarching event type.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Type representing the weight of this pallet
 		type WeightInfo: WeightInfo;

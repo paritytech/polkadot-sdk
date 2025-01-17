@@ -352,19 +352,27 @@ impl Def {
 	}
 
 	/// Check that usage of trait `Event` is consistent with the definition, i.e. it is declared
-	/// and trait defines type RuntimeEvent, or not declared and no trait associated type.
+	/// and trait defines type or type bound `RuntimeEvent`, or not declared and no trait associated
+	/// type.
 	fn check_event_usage(&self) -> syn::Result<()> {
-		match (self.config.has_event_type, self.event.is_some()) {
-			(true, false) => {
+		match (self.config.has_event_type, self.config.has_event_bound, self.event.is_some()) {
+			(true, false, false) => {
 				let msg = "Invalid usage of RuntimeEvent, `Config` contains associated type `RuntimeEvent`, \
 					but enum `Event` is not declared (i.e. no use of `#[pallet::event]`). \
 					Note that type `RuntimeEvent` in trait is reserved to work alongside pallet event.";
 				Err(syn::Error::new(proc_macro2::Span::call_site(), msg))
 			},
-			(false, true) => {
+			(false, true, false) => {
+				let msg = "Invalid usage of `RuntimeEvent`, `frame_system::Config` contains associated type bound `RuntimeEvent`, \
+					but enum `Event` is not declared (i.e. no use of `#[pallet::event]`). \
+					Note that type associated type bound `RuntimeEvent` in trait is reserved to work alongside pallet event.";
+				Err(syn::Error::new(proc_macro2::Span::call_site(), msg))
+			},
+			(false, false, true) => {
 				let msg = "Invalid usage of RuntimeEvent, `Config` contains no associated type \
-					`RuntimeEvent`, but enum `Event` is declared (in use of `#[pallet::event]`). \
-					An RuntimeEvent associated type must be declare on trait `Config`.";
+					`RuntimeEvent` or associated type bound `RuntimeEvent`, but enum `Event` is declared (in use of `#[pallet::event]`). \
+					A `RuntimeEvent` associated type must be declare on trait `Config` or a `RuntimeEvent` associated type bound must be \
+					defined in the system supertrait.";
 				Err(syn::Error::new(proc_macro2::Span::call_site(), msg))
 			},
 			_ => Ok(()),

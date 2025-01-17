@@ -125,13 +125,12 @@ pub mod pallet {
 	/// This pallet's configuration trait
 	#[pallet::config]
 	pub trait Config:
-		CreateSignedTransaction<Call<Self>> + CreateInherent<Call<Self>> + frame_system::Config
+		CreateSignedTransaction<Call<Self>>
+		+ CreateInherent<Call<Self>>
+		+ frame_system::Config<RuntimeEvent: From<Event<Self>>>
 	{
 		/// The identifier type for an offchain worker.
 		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
-
-		/// The overarching event type.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		// Configuration parameters
 
