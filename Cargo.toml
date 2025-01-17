@@ -1469,3 +1469,6 @@ wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
+
+[replace]
+"libp2p:0.54.1" = { path = "../rust-libp2p/libp2p" }
