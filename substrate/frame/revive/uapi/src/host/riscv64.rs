@@ -69,6 +69,7 @@ mod sys {
 		pub fn caller(out_ptr: *mut u8);
 		pub fn origin(out_ptr: *mut u8);
 		pub fn is_contract(account_ptr: *const u8) -> ReturnCode;
+		pub fn to_account_id(address_ptr: *const u8, out_ptr: *mut u8);
 		pub fn code_hash(address_ptr: *const u8, out_ptr: *mut u8);
 		pub fn code_size(address_ptr: *const u8) -> u64;
 		pub fn own_code_hash(out_ptr: *mut u8);
@@ -109,7 +110,6 @@ mod sys {
 			out_ptr: *mut u8,
 			out_len_ptr: *mut u32,
 		) -> ReturnCode;
-		pub fn debug_message(str_ptr: *const u8, str_len: u32) -> ReturnCode;
 		pub fn call_runtime(call_ptr: *const u8, call_len: u32) -> ReturnCode;
 		pub fn ecdsa_recover(
 			signature_ptr: *const u8,
@@ -458,6 +458,11 @@ impl HostFn for HostFnImpl {
 	}
 
 	#[unstable_hostfn]
+	fn to_account_id(address: &[u8; 20], output: &mut [u8]) {
+		unsafe { sys::to_account_id(address.as_ptr(), output.as_mut_ptr()) }
+	}
+
+	#[unstable_hostfn]
 	fn block_hash(block_number_ptr: &[u8; 32], output: &mut [u8; 32]) {
 		unsafe { sys::block_hash(block_number_ptr.as_ptr(), output.as_mut_ptr()) };
 	}
@@ -516,12 +521,6 @@ impl HostFn for HostFnImpl {
 	fn contains_storage(flags: StorageFlags, key: &[u8]) -> Option<u32> {
 		let ret_code =
 			unsafe { sys::contains_storage(flags.bits(), key.as_ptr(), key.len() as u32) };
-		ret_code.into()
-	}
-
-	#[unstable_hostfn]
-	fn debug_message(str: &[u8]) -> Result {
-		let ret_code = unsafe { sys::debug_message(str.as_ptr(), str.len() as u32) };
 		ret_code.into()
 	}
 
