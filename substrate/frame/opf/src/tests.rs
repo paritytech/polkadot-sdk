@@ -156,11 +156,8 @@ fn rewards_calculation_works() {
 		let batch = project_list();
 		let voting_period = <Test as Config>::VotingPeriod::get();
 		let now = <Test as Config>::BlockNumberProvider::current_block_number();
-		println!("Now is: {:?}", now);
 		//round_end_block
 		let round_end = now.saturating_add(voting_period);
-
-		println!("Round will end at block: {:?}", round_end);
 		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch));
 
 		// Bob nominate project_101 with an amount of 1000*BSX with a conviction x2 => equivalent to
@@ -225,7 +222,13 @@ fn rewards_calculation_works() {
 		assert_eq!(reward_101, 76000);
 		assert_eq!(reward_102, 23000);
 
+		// Proposal Enactment did not happened yet
+		assert_eq!(Spends::<Test>::contains_key(101),false);
+
 		next_block();
+		
+		// Enactment happened as expected
+		assert_eq!(Spends::<Test>::contains_key(101),true);
 
 		expect_events(vec![RuntimeEvent::Opf(Event::ProjectFundingAccepted {
 			project_id: 102,

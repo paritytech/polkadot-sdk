@@ -299,8 +299,7 @@ impl<T: Config> Pallet<T> {
 							*val = Some(project_info.clone());
 						});
 
-						// create a spend for project to be rewarded
-						let _ = SpendInfo::<T>::new(&project_info);
+						
 
 					}
 				}
