@@ -35,9 +35,9 @@ mod wasm;
 mod tests;
 
 pub mod chain_extension;
-pub mod debug;
 pub mod evm;
 pub mod test_utils;
+pub mod tracing;
 pub mod weights;
 
 use crate::{
@@ -83,7 +83,6 @@ use sp_runtime::{
 
 pub use crate::{
 	address::{create1, create2, AccountId32Mapper, AddressMapper},
-	debug::Tracing,
 	exec::{MomentOf, Origin},
 	pallet::*,
 };
@@ -118,7 +117,6 @@ const LOG_TARGET: &str = "runtime::revive";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use crate::debug::Debugger;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use sp_core::U256;
@@ -255,12 +253,6 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type InstantiateOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
 
-		/// Debugging utilities for contracts.
-		/// For production chains, it's recommended to use the `()` implementation of this
-		/// trait.
-		#[pallet::no_default_bounds]
-		type Debug: Debugger<Self>;
-
 		/// A type that exposes XCM APIs, allowing contracts to interact with other parachains, and
 		/// execute XCM programs.
 		#[pallet::no_default_bounds]
@@ -367,7 +359,6 @@ pub mod pallet {
 			type InstantiateOrigin = EnsureSigned<AccountId>;
 			type WeightInfo = ();
 			type WeightPrice = Self;
-			type Debug = ();
 			type Xcm = ();
 			type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 			type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
@@ -1146,7 +1137,6 @@ where
 			DepositLimit::Unchecked
 		};
 
-		// TODO remove once we have revisited how we encode the gas limit.
 		if tx.nonce.is_none() {
 			tx.nonce = Some(<System<T>>::account_nonce(&origin).into());
 		}
