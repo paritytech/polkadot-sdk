@@ -452,7 +452,6 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 			self.own_contribution = Contribution::Checked(deposit);
 		}
 		if let Deposit::Charge(amount) = total_deposit {
-			println!("Enforcing {:?} < {:?}", amount, self.limit);
 			if amount > self.limit {
 				log::debug!( target: LOG_TARGET, "Storage deposit limit exhausted: {:?} > {:?}", amount, self.limit);
 				return Err(<Error<T>>::StorageDepositLimitExhausted.into())
