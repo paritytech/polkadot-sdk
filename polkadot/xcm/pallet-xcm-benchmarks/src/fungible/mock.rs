@@ -94,6 +94,7 @@ pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = EnsureDecodableXcm<DevNull>;
+	type XcmEventEmitter = ();
 	type AssetTransactor = AssetTransactor;
 	type OriginConverter = ();
 	type IsReserve = TrustedReserves;

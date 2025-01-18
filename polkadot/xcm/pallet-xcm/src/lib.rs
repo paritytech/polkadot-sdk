@@ -61,7 +61,7 @@ use xcm_builder::{
 use xcm_executor::{
 	traits::{
 		AssetTransferError, CheckSuspension, ClaimAssets, ConvertLocation, ConvertOrigin,
-		DropAssets, MatchesFungible, OnResponse, Properties, QueryHandler, QueryResponseStatus,
+		DropAssets, EventEmitter, MatchesFungible, OnResponse, Properties, QueryHandler, QueryResponseStatus,
 		RecordXcm, TransactAsset, TransferType, VersionChangeNotifier, WeightBounds,
 		XcmAssetTransfers,
 	},
@@ -399,6 +399,17 @@ pub mod pallet {
 			);
 
 			Ok(query_id)
+		}
+	}
+
+	impl<T: Config> EventEmitter for Pallet<T> {
+		fn emit_sent_event(
+		origin: Location,
+		destination: Location,
+		message: Xcm<()>,
+		message_id: XcmHash,
+		) {
+			Self::deposit_event(Event::Sent { origin, destination, message, message_id });
 		}
 	}
 

@@ -46,6 +46,7 @@ mod assets;
 pub use assets::AssetsInHolding;
 mod config;
 pub use config::Config;
+use crate::traits::EventEmitter;
 
 #[cfg(test)]
 mod tests;
@@ -427,9 +428,20 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			reason = ?reason,
 			"Sending msg",
 		);
-		let (ticket, fee) = validate_send::<Config::XcmSender>(dest, msg)?;
+		let (ticket, fee) = validate_send::<Config::XcmSender>(dest.clone(), msg.clone())?;
 		self.take_fee(fee, reason)?;
-		Config::XcmSender::deliver(ticket).map_err(Into::into)
+		let message_id = match Config::XcmSender::deliver(ticket) {
+			Ok(message_id) => message_id,
+			Err(e) => return Err(e.into()),
+		};
+
+		Config::XcmEventEmitter::emit_sent_event(
+			self.original_origin.clone(),
+			dest,
+			msg,
+			message_id.clone(),
+		);
+		Ok(message_id)
 	}
 
 	/// Remove the registered error handler and return it. Do not refund its weight.

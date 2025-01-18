@@ -1456,3 +1456,55 @@ fn record_xcm_works() {
 		assert_eq!(RecordedXcm::<Test>::get(), Some(message.into()));
 	});
 }
+
+#[test]
+fn execute_initiate_transfer_and_check_sent_event() {
+	let balances = vec![(ALICE, INITIAL_BALANCE)];
+	new_test_ext_with_balances(balances).execute_with(|| {
+		let dest: Location = Location::new(1, [Junction::AccountId32 { network: None, id: BOB.into() }]);
+		let assets: Asset = (Parent, SEND_AMOUNT).into();
+
+		let message = Xcm(vec![
+			InitiateReserveWithdraw {
+				assets: Wild(All),
+				reserve: Parent.into(),
+				xcm: Xcm(vec![
+					BuyExecution { fees: assets.clone(), weight_limit: Unlimited },
+					DepositAsset { assets: All.into(), beneficiary: dest.clone() },
+				]),
+			},
+		]);
+
+		assert_ok!(XcmPallet::execute(
+            RuntimeOrigin::signed(ALICE),
+            Box::new(VersionedXcm::from(message.clone())),
+            BaseXcmWeight::get() * 3,
+        ));
+
+		let sender: Location = AccountId32 { network: None, id: ALICE.into() }.into();
+		let expected_message = Xcm(vec![
+					WithdrawAsset(Assets::new()),
+					ClearOrigin,
+					BuyExecution { fees: assets.clone(), weight_limit: Unlimited },
+					DepositAsset { assets: All.into(), beneficiary: dest.clone() },
+				]);
+		let id = fake_message_hash(&expected_message);
+
+		assert_eq!(
+			last_events(2),
+			vec![
+				RuntimeEvent::XcmPallet(crate::Event::Sent {
+					origin: sender,
+					destination: Parent.into(),
+					message: expected_message,
+					message_id: id,
+				}),
+				RuntimeEvent::XcmPallet(crate::Event::Attempted {
+					outcome: Outcome::Complete {
+						used: Weight::from_parts(1000, 1000)
+					}
+				})
+			]
+		);
+	});
+}
