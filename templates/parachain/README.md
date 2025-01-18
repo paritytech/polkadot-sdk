@@ -35,10 +35,10 @@
 
 - ⏫ This template provides a starting point to build a [parachain](https://wiki.polkadot.network/docs/learn-parachains).
 
-- 🔧 To simplify the process of using Zombienet with Omni Node, we’ve added a pre-configured
-development chain spec (dev_chain_spec.json) to the parachain template. Additionally,
-the zombienet-omni-node.toml file has been updated to include a valid chain spec path
-pointing to dev_chain_spec.json
+
+- 🔧 To simplify the process of using the parachain-template with Zombienet and Omni Node, we've added a pre-configured development
+chain spec (dev_chain_spec.json) to the parachain template. The `zombienet-omni-node.toml` file of this template points to it, but 
+you can update it to an updated chain spec generated on your machine, as shown below:
 
 - ☁️ It is based on the
 [Cumulus](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/cumulus/index.html) framework.
@@ -48,12 +48,7 @@ such as a [Balances pallet](https://paritytech.github.io/polkadot-sdk/master/pal
 
 - 👉 Learn more about parachains [here](https://wiki.polkadot.network/docs/learn-parachains)
 
-- For the most accurate chain spec generation,  `staging-chain-spec-builder` or other mentioned
-binaries and runtimes,please try to build them based on the Polkadot-sdk most updated master branch 
-an example:
-  ```bash
-  cargo install --path substrate/bin/utils/chain-spec-builder
-  ```
+- For the most up-to-date chain specification, refer to [staging-chain-spec-builder](https://crates.io/crates/staging-chain-spec-builder)
 
 
 ## Template Structure
@@ -173,7 +168,7 @@ to `Omni Node`. Similarly, it requires setting up a relay chain, and we'll use `
 #### Install the `parachain-template-node`
 
 ```sh
-cargo install --path node
+cargo install --path node --locked
 ```
 
 #### Setup and start the network
