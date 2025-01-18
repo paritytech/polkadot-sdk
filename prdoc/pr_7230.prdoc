@@ -39,8 +39,8 @@ doc:
     This type used for testing could only have either entry points but not both. In order to fix the `immutable_data_set_overrides` I needed to a new function `add_both` to `MockExecutable` that allows to have both entry points. Make sure to make use of it in the future :)
 crates:
 - name: pallet-revive-fixtures
-  bump: major
+  bump: patch
 - name: pallet-revive
-  bump: major
+  bump: patch
 - name: pallet-revive-uapi
   bump: major
