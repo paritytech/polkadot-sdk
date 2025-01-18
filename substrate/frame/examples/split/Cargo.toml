@@ -20,7 +20,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-frame = { workspace = true, features = ["experimental", "runtime"]}
+frame = { workspace = true, features = ["runtime"]}
 
 
 [features]

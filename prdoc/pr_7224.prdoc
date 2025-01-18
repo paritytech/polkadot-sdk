@@ -1,7 +1,13 @@
-title: Migrate pallet-examples-split to use umbrella crate
+title: '[pallet-examples-split] Migrate to using frame umbrella crate'
+
 doc:
 - audience: Runtime Dev
-  description: Part of https://github.com/paritytech/polkadot-sdk/issues/6504
+      description: This PR migrates the pallet-examples-split to use the frame umbrella crate. This
+      is part of the ongoing effort to migrate all pallets to use the frame umbrella crate.
+      The effort is tracked [here](https://github.com/paritytech/polkadot-sdk/issues/6504).
+      
 crates:
-- name: polkadot-sdk-frame
-  bump: minor
+  - name: pallet-examples-split
+    bump: minor
+  - name: polkadot-sdk-frame
+    bump: minor
