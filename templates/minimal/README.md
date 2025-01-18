@@ -38,9 +38,8 @@
 template for building a blockchain node.
 
 
-- 🔧 To simplify the process of using Zombienet with Omni Node, we've added a pre-configured development
-chain spec (dev_chain_spec.json) to the minimal template. Additionally, the zombienet-omni-node.toml file
-has been updated to include a valid chain spec path pointing to dev_chain_spec.json
+- 🔧 To simplify the process of starting the minimal-template with Zombienet and Omni Node, we've added a pre-configured development
+chain spec (dev_chain_spec.json) to the minimal template. The `zombienet-omni-node.toml` file of this template points to it, but you can update it to an updated chain spec generated on your machine, as shown below:
 
 
 - 🔧 Its runtime is configured with a single custom pallet as a starting point, and a handful of ready-made pallets
