@@ -27,8 +27,8 @@ mod imports {
 
 	// Polkadot
 	pub use xcm::{
+		latest::{ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
 		prelude::{AccountId32 as AccountId32Junction, *},
-		v3,
 	};
 	pub use xcm_executor::traits::TransferType;
 
@@ -76,10 +76,11 @@ mod imports {
 			genesis::ED as ROCOCO_ED,
 			rococo_runtime::{
 				governance as rococo_governance,
+				governance::pallet_custom_origins::Origin::Treasurer,
 				xcm_config::{
 					UniversalLocation as RococoUniversalLocation, XcmConfig as RococoXcmConfig,
 				},
-				OriginCaller as RococoOriginCaller,
+				Dmp, OriginCaller as RococoOriginCaller,
 			},
 			RococoRelayPallet as RococoPallet,
 		},

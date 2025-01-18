@@ -44,6 +44,7 @@ pub mod __private {
 	pub use alloc::{
 		boxed::Box,
 		rc::Rc,
+		string::String,
 		vec,
 		vec::{IntoIter, Vec},
 	};
@@ -502,9 +503,9 @@ macro_rules! runtime_print {
 	($($arg:tt)+) => {
 		{
 			use core::fmt::Write;
-			let mut w = $crate::__private::sp_std::Writer::default();
-			let _ = core::write!(&mut w, $($arg)+);
-			$crate::__private::sp_io::misc::print_utf8(&w.inner())
+			let mut msg = $crate::__private::String::default();
+			let _ = core::write!(&mut msg, $($arg)+);
+			$crate::__private::sp_io::misc::print_utf8(msg.as_bytes())
 		}
 	}
 }
@@ -904,8 +905,9 @@ pub mod pallet_prelude {
 			StorageList,
 		},
 		traits::{
-			BuildGenesisConfig, ConstU32, EnsureOrigin, Get, GetDefault, GetStorageVersion, Hooks,
-			IsType, PalletInfoAccess, StorageInfoTrait, StorageVersion, Task, TypedGet,
+			BuildGenesisConfig, ConstU32, ConstUint, EnsureOrigin, Get, GetDefault,
+			GetStorageVersion, Hooks, IsType, PalletInfoAccess, StorageInfoTrait, StorageVersion,
+			Task, TypedGet,
 		},
 		Blake2_128, Blake2_128Concat, Blake2_256, CloneNoBound, DebugNoBound, EqNoBound, Identity,
 		PartialEqNoBound, RuntimeDebugNoBound, Twox128, Twox256, Twox64Concat,
@@ -1882,10 +1884,15 @@ pub mod pallet_macros {
 	/// }
 	/// ```
 	///
-	/// Please note that this only works for signed dispatchables and requires a signed
+	/// Please note that this only works for signed dispatchables and requires a transaction
 	/// extension such as [`pallet_skip_feeless_payment::SkipCheckIfFeeless`] to wrap the
 	/// existing payment extension. Else, this is completely ignored and the dispatchable is
 	/// still charged.
+	///
+	/// Also this will not allow accountless caller to send a transaction if some transaction
+	/// extension such as `frame_system::CheckNonce` is used.
+	/// Extensions such as `frame_system::CheckNonce` require a funded account to validate
+	/// the transaction.
 	///
 	/// ### Macro expansion
 	///

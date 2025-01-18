@@ -15,107 +15,9 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-//! Substrate's chain spec builder utility.
-//!
-//! A chain-spec is short for `chain-configuration`. See the [`sc-chain-spec`] for more information.
-//!
-//! Note that this binary is analogous to the `build-spec` subcommand, contained in typical
-//! substrate-based nodes. This particular binary is capable of interacting with
-//! [`sp-genesis-builder`] implementation of any provided runtime allowing to build chain-spec JSON
-//! files.
-//!
-//! See [`ChainSpecBuilderCmd`] for a list of available commands.
-//!
-//! ## Typical use-cases.
-//! ##### Generate chains-spec using default config from runtime.
-//!
-//!	Query the default genesis config from the provided `runtime.wasm` and use it in the chain
-//! spec.
-//!	```bash
-//! chain-spec-builder create -r runtime.wasm default
-//! ```
-//! 
-//! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] runtime function is
-//! called.
-//!
-//!
-//! ##### Display the runtime's default `GenesisConfig`
-//!
-//! Displays the content of the runtime's default `GenesisConfig`
-//! ```bash
-//! chain-spec-builder display-preset -r runtime.wasm
-//! ```
-//! 
-//! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] runtime function is called.
-//!
-//! ##### Display the `GenesisConfig` preset with given name
-//!
-//! Displays the content of the `GenesisConfig` preset for given name
-//! ```bash
-//! chain-spec-builder display-preset -r runtime.wasm -p "staging"
-//! ```
-//! 
-//! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] runtime function is called.
-//!
-//! ##### List the names of `GenesisConfig` presets provided by runtime.
-//!
-//! Displays the names of the presets of `GenesisConfigs` provided by runtime.
-//! ```bash
-//! chain-spec-builder list-presets -r runtime.wasm
-//! ```
-//! 
-//! _Note:_ [`GenesisBuilder::preset_names`][sp-genesis-builder-list] runtime function is called.
-//!
-//! ##### Generate chain spec using runtime provided genesis config preset.
-//!
-//! Patch the runtime's default genesis config with the named preset provided by the runtime and generate the plain
-//! version of chain spec:
-//! ```bash
-//! chain-spec-builder create -r runtime.wasm named-preset "staging"
-//! ```
-//! 
-//! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] and [`GenesisBuilder::build_state`][sp-genesis-builder-build] runtime functions are called.
-//!
-//! ##### Generate raw storage chain spec using genesis config patch.
-//!
-//! Patch the runtime's default genesis config with provided `patch.json` and generate raw
-//! storage (`-s`) version of chain spec:
-//! ```bash
-//! chain-spec-builder create -s -r runtime.wasm patch patch.json
-//! ```
-//! 
-//! _Note:_ [`GenesisBuilder::build_state`][sp-genesis-builder-build] runtime function is called.
-//!
-//! ##### Generate raw storage chain spec using full genesis config.
-//!
-//! Build the chain spec using provided full genesis config json file. No defaults will be used:
-//! ```bash
-//! chain-spec-builder create -s -r runtime.wasm full full-genesis-config.json
-//! ```
-//! 
-//! _Note_: [`GenesisBuilder::build_state`][sp-genesis-builder-build] runtime function is called.
-//!
-//! ##### Generate human readable chain spec using provided genesis config patch.
-//! ```bash
-//! chain-spec-builder create -r runtime.wasm patch patch.json
-//! ```
-//! 
-//! ##### Generate human readable chain spec using provided full genesis config.
-//! ```bash
-//! chain-spec-builder create -r runtime.wasm full full-genesis-config.json
-//! ```
-//! 
-//! ##### Extra tools.
-//! The `chain-spec-builder` provides also some extra utilities: [`VerifyCmd`], [`ConvertToRawCmd`],
-//! [`UpdateCodeCmd`].
-//!
-//! [`sc-chain-spec`]: ../sc_chain_spec/index.html
-//! [`node-cli`]: ../node_cli/index.html
-//! [`sp-genesis-builder`]: ../sp_genesis_builder/index.html
-//! [sp-genesis-builder-build]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.build_state
-//! [sp-genesis-builder-list]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.preset_names
-//! [sp-genesis-builder-get-preset]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset
+#![doc = include_str!("../README.md")]
+#[cfg(feature = "generate-readme")]
+docify::compile_markdown!("README.docify.md", "README.md");
 
 use clap::{Parser, Subcommand};
 use sc_chain_spec::{
@@ -359,19 +261,19 @@ impl ChainSpecBuilder {
 						.map_err(|e| format!("Conversion to json failed: {e}"))?;
 
 				// We want to extract only raw genesis ("genesis::raw" key), and apply it as a patch
-				// for the original json file. However, the file also contains original plain
-				// genesis ("genesis::runtimeGenesis") so set it to null so the patch will erase it.
+				// for the original json file.
 				genesis_json.as_object_mut().map(|map| {
 					map.retain(|key, _| key == "genesis");
-					map.get_mut("genesis").map(|genesis| {
-						genesis.as_object_mut().map(|genesis_map| {
-							genesis_map
-								.insert("runtimeGenesis".to_string(), serde_json::Value::Null);
-						});
-					});
 				});
 
 				let mut org_chain_spec_json = extract_chain_spec_json(input_chain_spec.as_path())?;
+
+				// The original plain genesis ("genesis::runtimeGenesis") is no longer needed, so
+				// just remove it:
+				org_chain_spec_json
+					.get_mut("genesis")
+					.and_then(|genesis| genesis.as_object_mut())
+					.and_then(|genesis| genesis.remove("runtimeGenesis"));
 				json_patch::merge(&mut org_chain_spec_json, genesis_json);
 
 				let chain_spec_json = serde_json::to_string_pretty(&org_chain_spec_json)
@@ -391,16 +293,6 @@ impl ChainSpecBuilder {
 				let presets = caller
 					.preset_names()
 					.map_err(|e| format!("getting default config from runtime should work: {e}"))?;
-				let presets: Vec<String> = presets
-					.into_iter()
-					.map(|preset| {
-						String::from(
-							TryInto::<&str>::try_into(&preset)
-								.unwrap_or_else(|_| "cannot display preset id")
-								.to_string(),
-						)
-					})
-					.collect();
 				println!("{}", serde_json::json!({"presets":presets}).to_string());
 			},
 			ChainSpecBuilderCmd::DisplayPreset(DisplayPresetCmd { runtime, preset_name }) => {

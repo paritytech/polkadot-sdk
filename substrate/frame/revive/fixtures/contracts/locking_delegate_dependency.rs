@@ -30,6 +30,7 @@ const ALICE_FALLBACK: [u8; 20] = [1u8; 20];
 fn load_input(delegate_call: bool) {
 	input!(
 		action: u32,
+		address: &[u8; 20],
 		code_hash: &[u8; 32],
 	);
 
@@ -51,7 +52,15 @@ fn load_input(delegate_call: bool) {
 	}
 
 	if delegate_call {
-		api::delegate_call(uapi::CallFlags::empty(), code_hash, &[], None).unwrap();
+		api::delegate_call(
+			uapi::CallFlags::empty(),
+			address,
+			u64::MAX,
+			u64::MAX,
+			&[u8::MAX; 32],
+			&[],
+			None
+		).unwrap();
 	}
 }
 

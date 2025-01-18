@@ -80,7 +80,7 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
 use prometheus_endpoint::Registry;
 #[cfg(feature = "full-node")]
 use sc_service::KeystoreContainer;
-use sc_service::{build_polkadot_syncing_strategy, RpcHandlers, SpawnTaskHandle};
+use sc_service::{RpcHandlers, SpawnTaskHandle};
 use sc_telemetry::TelemetryWorker;
 #[cfg(feature = "full-node")]
 use sc_telemetry::{Telemetry, TelemetryWorkerHandle};
@@ -944,14 +944,9 @@ pub fn new_full<
 				secure_validator_mode,
 				prep_worker_path,
 				exec_worker_path,
-				pvf_execute_workers_max_num: execute_workers_max_num.unwrap_or_else(
-					|| match config.chain_spec.identify_chain() {
-						// The intention is to use this logic for gradual increasing from 2 to 4
-						// of this configuration chain by chain until it reaches production chain.
-						Chain::Polkadot | Chain::Kusama => 2,
-						Chain::Rococo | Chain::Westend | Chain::Unknown => 4,
-					},
-				),
+				// Default execution workers is 4 because we have 8 cores on the reference hardware,
+				// and this accounts for 50% of that cpu capacity.
+				pvf_execute_workers_max_num: execute_workers_max_num.unwrap_or(4),
 				pvf_prepare_workers_soft_max_num: prepare_workers_soft_max_num.unwrap_or(1),
 				pvf_prepare_workers_hard_max_num: prepare_workers_hard_max_num.unwrap_or(2),
 			})
@@ -1003,17 +998,7 @@ pub fn new_full<
 		})
 	};
 
-	let syncing_strategy = build_polkadot_syncing_strategy(
-		config.protocol_id(),
-		config.chain_spec.fork_id(),
-		&mut net_config,
-		Some(WarpSyncConfig::WithProvider(warp_sync)),
-		client.clone(),
-		&task_manager.spawn_handle(),
-		config.prometheus_config.as_ref().map(|config| &config.registry),
-	)?;
-
-	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
+	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
 			net_config,
@@ -1022,7 +1007,7 @@ pub fn new_full<
 			spawn_handle: task_manager.spawn_handle(),
 			import_queue,
 			block_announce_validator_builder: None,
-			syncing_strategy,
+			warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
 			block_relay: None,
 			metrics,
 		})?;
@@ -1392,8 +1377,6 @@ pub fn new_full<
 			sc_consensus_grandpa::run_grandpa_voter(grandpa_config)?,
 		);
 	}
-
-	network_starter.start_network();
 
 	Ok(NewFull {
 		task_manager,

@@ -26,7 +26,7 @@ use crate::{
 use codec::{Decode, Encode};
 use frame_support::{
 	assert_err, assert_noop, assert_ok, derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64, Get, OnFinalize, OnInitialize},
+	traits::{ConstU32, ConstU64, Get},
 	BoundedVec,
 };
 use frame_system::EnsureRoot;
@@ -112,18 +112,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext.register_extension(KeystoreExt::new(MemoryKeystore::new()));
 	ext.execute_with(|| System::set_block_number(1));
 	ext
-}
-
-fn run_to_block(n: u64) {
-	while System::block_number() < n {
-		Identity::on_finalize(System::block_number());
-		Balances::on_finalize(System::block_number());
-		System::on_finalize(System::block_number());
-		System::set_block_number(System::block_number() + 1);
-		System::on_initialize(System::block_number());
-		Balances::on_initialize(System::block_number());
-		Identity::on_initialize(System::block_number());
-	}
 }
 
 fn account(id: u8) -> AccountIdOf<Test> {
@@ -273,6 +261,10 @@ fn editing_subaccounts_should_work() {
 
 		// rename first sub account
 		assert_ok!(Identity::rename_sub(RuntimeOrigin::signed(ten.clone()), one.clone(), data(11)));
+		System::assert_last_event(tests::RuntimeEvent::Identity(Event::SubIdentityRenamed {
+			main: ten.clone(),
+			sub: one.clone(),
+		}));
 		assert_eq!(SuperOf::<Test>::get(one.clone()), Some((ten.clone(), data(11))));
 		assert_eq!(SuperOf::<Test>::get(two.clone()), Some((ten.clone(), data(2))));
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - 2 * sub_deposit);
@@ -546,6 +538,13 @@ fn setting_subaccounts_should_work() {
 		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(ten.clone()), Box::new(ten_info)));
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit);
 		assert_ok!(Identity::set_subs(RuntimeOrigin::signed(ten.clone()), subs.clone()));
+
+		System::assert_last_event(tests::RuntimeEvent::Identity(Event::SubIdentitiesSet {
+			main: ten.clone(),
+			number_of_subs: 1,
+			new_deposit: sub_deposit,
+		}));
+
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - sub_deposit);
 		assert_eq!(
 			SubsOf::<Test>::get(ten.clone()),
@@ -1703,7 +1702,7 @@ fn unaccepted_usernames_through_grant_should_expire() {
 			Some((who.clone(), expiration, Provider::Allocation))
 		);
 
-		run_to_block(now + expiration - 1);
+		System::run_to_block::<AllPalletsWithSystem>(now + expiration - 1);
 
 		// Cannot be removed
 		assert_noop!(
@@ -1711,7 +1710,7 @@ fn unaccepted_usernames_through_grant_should_expire() {
 			Error::<Test>::NotExpired
 		);
 
-		run_to_block(now + expiration);
+		System::run_to_block::<AllPalletsWithSystem>(now + expiration);
 
 		// Anyone can remove
 		assert_ok!(Identity::remove_expired_approval(
@@ -1771,7 +1770,7 @@ fn unaccepted_usernames_through_deposit_should_expire() {
 			Some((who.clone(), expiration, Provider::AuthorityDeposit(username_deposit)))
 		);
 
-		run_to_block(now + expiration - 1);
+		System::run_to_block::<AllPalletsWithSystem>(now + expiration - 1);
 
 		// Cannot be removed
 		assert_noop!(
@@ -1779,7 +1778,7 @@ fn unaccepted_usernames_through_deposit_should_expire() {
 			Error::<Test>::NotExpired
 		);
 
-		run_to_block(now + expiration);
+		System::run_to_block::<AllPalletsWithSystem>(now + expiration);
 
 		// Anyone can remove
 		assert_eq!(

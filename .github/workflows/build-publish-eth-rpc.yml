@@ -12,7 +12,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  IMAGE_NAME: "docker.io/paritypr/eth-rpc"
+  ETH_RPC_IMAGE_NAME: "docker.io/paritypr/eth-rpc"
+  ETH_INDEXER_IMAGE_NAME: "docker.io/paritypr/eth-indexer"
 
 jobs:
   set-variables:
@@ -34,7 +35,7 @@ jobs:
           echo "set VERSION=${VERSION}"
 
   build_docker:
-    name: Build docker image
+    name: Build docker images
     runs-on: parity-large
     needs: [set-variables]
     env:
@@ -43,17 +44,26 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v4
 
-      - name: Build Docker image
-        uses: docker/build-push-action@v5
+      - name: Build eth-rpc Docker image
+        uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./substrate/frame/revive/rpc/Dockerfile
+          file: ./substrate/frame/revive/rpc/dockerfiles/eth-rpc/Dockerfile
           push: false
           tags: |
-            ${{ env.IMAGE_NAME }}:${{ env.VERSION }}
+            ${{ env.ETH_RPC_IMAGE_NAME }}:${{ env.VERSION }}
+
+      - name: Build eth-indexer Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./substrate/frame/revive/rpc/dockerfiles/eth-indexer/Dockerfile
+          push: false
+          tags: |
+            ${{ env.ETH_INDEXER_IMAGE_NAME }}:${{ env.VERSION }}
 
   build_push_docker:
-    name: Build and push docker image
+    name: Build and push docker images
     runs-on: parity-large
     if: github.ref == 'refs/heads/master'
     needs: [set-variables]
@@ -69,11 +79,20 @@ jobs:
           username: ${{ secrets.PARITYPR_DOCKERHUB_USERNAME }}
           password: ${{ secrets.PARITYPR_DOCKERHUB_PASSWORD }}
 
-      - name: Build Docker image
-        uses: docker/build-push-action@v5
+      - name: Build eth-rpc Docker image
+        uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./substrate/frame/revive/rpc/Dockerfile
+          file: ./substrate/frame/revive/rpc/dockerfiles/eth-rpc/Dockerfile
           push: true
           tags: |
-            ${{ env.IMAGE_NAME }}:${{ env.VERSION }}
+            ${{ env.ETH_RPC_IMAGE_NAME }}:${{ env.VERSION }}
+
+      - name: Build eth-indexer Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./substrate/frame/revive/rpc/dockerfiles/eth-indexer/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ETH_INDEXER_IMAGE_NAME }}:${{ env.VERSION }}

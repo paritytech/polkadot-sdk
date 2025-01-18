@@ -26,7 +26,10 @@ mod imports {
 	};
 
 	// Polkadot
-	pub use xcm::prelude::{AccountId32 as AccountId32Junction, *};
+	pub use xcm::{
+		latest::{AssetTransferFilter, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
+		prelude::{AccountId32 as AccountId32Junction, *},
+	};
 	pub use xcm_executor::traits::TransferType;
 
 	// Cumulus
@@ -42,7 +45,7 @@ mod imports {
 		xcm_helpers::{
 			get_amount_from_versioned_assets, non_fee_asset, xcm_transact_paid_execution,
 		},
-		ASSETS_PALLET_ID, RESERVABLE_ASSET_ID, XCM_V3,
+		ASSETS_PALLET_ID, RESERVABLE_ASSET_ID, USDT_ID, XCM_V3,
 	};
 	pub use parachains_common::{AccountId, Balance};
 	pub use westend_system_emulated_network::{
@@ -59,12 +62,16 @@ mod imports {
 			genesis::{AssetHubWestendAssetOwner, ED as ASSET_HUB_WESTEND_ED},
 			AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},
+		bridge_hub_westend_emulated_chain::bridge_hub_westend_runtime::xcm_config::{
+			self as bhw_xcm_config,
+		},
 		collectives_westend_emulated_chain::CollectivesWestendParaPallet as CollectivesWestendPallet,
 		penpal_emulated_chain::{
 			penpal_runtime::xcm_config::{
 				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
 				LocalReservableFromAssetHub as PenpalLocalReservableFromAssetHub,
 				LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
+				UniversalLocation as PenpalUniversalLocation,
 				UsdtFromAssetHub as PenpalUsdtFromAssetHub,
 			},
 			PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner,
@@ -72,8 +79,12 @@ mod imports {
 		},
 		westend_emulated_chain::{
 			genesis::ED as WESTEND_ED,
-			westend_runtime::xcm_config::{
-				UniversalLocation as WestendUniversalLocation, XcmConfig as WestendXcmConfig,
+			westend_runtime::{
+				governance::pallet_custom_origins::Origin::Treasurer,
+				xcm_config::{
+					UniversalLocation as WestendUniversalLocation, XcmConfig as WestendXcmConfig,
+				},
+				Dmp,
 			},
 			WestendRelayPallet as WestendPallet,
 		},
@@ -99,6 +110,7 @@ mod imports {
 	pub type ParaToParaThroughRelayTest = Test<PenpalA, PenpalB, Westend>;
 	pub type ParaToParaThroughAHTest = Test<PenpalA, PenpalB, AssetHubWestend>;
 	pub type RelayToParaThroughAHTest = Test<Westend, PenpalA, AssetHubWestend>;
+	pub type PenpalToRelayThroughAHTest = Test<PenpalA, Westend, AssetHubWestend>;
 }
 
 #[cfg(test)]

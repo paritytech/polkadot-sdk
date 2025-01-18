@@ -1180,7 +1180,7 @@ impl<Block: BlockT> Backend<Block> {
 	/// The second argument is the Column that stores the State.
 	///
 	/// Should only be needed for benchmarking.
-	#[cfg(any(feature = "runtime-benchmarks"))]
+	#[cfg(feature = "runtime-benchmarks")]
 	pub fn expose_db(&self) -> (Arc<dyn sp_database::Database<DbHash>>, sp_database::ColumnId) {
 		(self.storage.db.clone(), columns::STATE)
 	}
@@ -1188,7 +1188,7 @@ impl<Block: BlockT> Backend<Block> {
 	/// Expose the Storage that is used by this backend.
 	///
 	/// Should only be needed for benchmarking.
-	#[cfg(any(feature = "runtime-benchmarks"))]
+	#[cfg(feature = "runtime-benchmarks")]
 	pub fn expose_storage(&self) -> Arc<dyn sp_state_machine::Storage<HashingFor<Block>>> {
 		self.storage.clone()
 	}
@@ -1486,6 +1486,7 @@ impl<Block: BlockT> Backend<Block> {
 				.map(|(n, _)| n)
 				.unwrap_or(Zero::zero());
 			let existing_header = number <= highest_leaf && self.blockchain.header(hash)?.is_some();
+			let existing_body = pending_block.body.is_some();
 
 			// blocks are keyed by number + hash.
 			let lookup_key = utils::number_and_hash_to_lookup_key(number, hash)?;
@@ -1677,6 +1678,23 @@ impl<Block: BlockT> Backend<Block> {
 						children,
 					);
 				}
+			}
+
+			let should_check_block_gap = !existing_header || !existing_body;
+
+			if should_check_block_gap {
+				let insert_new_gap =
+					|transaction: &mut Transaction<DbHash>,
+					 new_gap: BlockGap<NumberFor<Block>>,
+					 block_gap: &mut Option<BlockGap<NumberFor<Block>>>| {
+						transaction.set(columns::META, meta_keys::BLOCK_GAP, &new_gap.encode());
+						transaction.set(
+							columns::META,
+							meta_keys::BLOCK_GAP_VERSION,
+							&BLOCK_GAP_CURRENT_VERSION.encode(),
+						);
+						block_gap.replace(new_gap);
+					};
 
 				if let Some(mut gap) = block_gap {
 					match gap.gap_type {
@@ -1695,43 +1713,65 @@ impl<Block: BlockT> Backend<Block> {
 									block_gap = None;
 									debug!(target: "db", "Removed block gap.");
 								} else {
-									block_gap = Some(gap);
+									insert_new_gap(&mut transaction, gap, &mut block_gap);
 									debug!(target: "db", "Update block gap. {block_gap:?}");
-									transaction.set(
-										columns::META,
-										meta_keys::BLOCK_GAP,
-										&gap.encode(),
-									);
-									transaction.set(
-										columns::META,
-										meta_keys::BLOCK_GAP_VERSION,
-										&BLOCK_GAP_CURRENT_VERSION.encode(),
-									);
 								}
 								block_gap_updated = true;
 							},
 						BlockGapType::MissingBody => {
-							unreachable!("Unsupported block gap. TODO: https://github.com/paritytech/polkadot-sdk/issues/5406")
+							// Gap increased when syncing the header chain during fast sync.
+							if number == gap.end + One::one() && !existing_body {
+								gap.end += One::one();
+								utils::insert_number_to_key_mapping(
+									&mut transaction,
+									columns::KEY_LOOKUP,
+									number,
+									hash,
+								)?;
+								insert_new_gap(&mut transaction, gap, &mut block_gap);
+								debug!(target: "db", "Update block gap. {block_gap:?}");
+								block_gap_updated = true;
+							// Gap decreased when downloading the full blocks.
+							} else if number == gap.start && existing_body {
+								gap.start += One::one();
+								if gap.start > gap.end {
+									transaction.remove(columns::META, meta_keys::BLOCK_GAP);
+									transaction.remove(columns::META, meta_keys::BLOCK_GAP_VERSION);
+									block_gap = None;
+									debug!(target: "db", "Removed block gap.");
+								} else {
+									insert_new_gap(&mut transaction, gap, &mut block_gap);
+									debug!(target: "db", "Update block gap. {block_gap:?}");
+								}
+								block_gap_updated = true;
+							}
 						},
 					}
-				} else if operation.create_gap &&
-					number > best_num + One::one() &&
-					self.blockchain.header(parent_hash)?.is_none()
-				{
-					let gap = BlockGap {
-						start: best_num + One::one(),
-						end: number - One::one(),
-						gap_type: BlockGapType::MissingHeaderAndBody,
-					};
-					transaction.set(columns::META, meta_keys::BLOCK_GAP, &gap.encode());
-					transaction.set(
-						columns::META,
-						meta_keys::BLOCK_GAP_VERSION,
-						&BLOCK_GAP_CURRENT_VERSION.encode(),
-					);
-					block_gap = Some(gap);
-					block_gap_updated = true;
-					debug!(target: "db", "Detected block gap {block_gap:?}");
+				} else if operation.create_gap {
+					if number > best_num + One::one() &&
+						self.blockchain.header(parent_hash)?.is_none()
+					{
+						let gap = BlockGap {
+							start: best_num + One::one(),
+							end: number - One::one(),
+							gap_type: BlockGapType::MissingHeaderAndBody,
+						};
+						insert_new_gap(&mut transaction, gap, &mut block_gap);
+						block_gap_updated = true;
+						debug!(target: "db", "Detected block gap (warp sync) {block_gap:?}");
+					} else if number == best_num + One::one() &&
+						self.blockchain.header(parent_hash)?.is_some() &&
+						!existing_body
+					{
+						let gap = BlockGap {
+							start: number,
+							end: number,
+							gap_type: BlockGapType::MissingBody,
+						};
+						insert_new_gap(&mut transaction, gap, &mut block_gap);
+						block_gap_updated = true;
+						debug!(target: "db", "Detected block gap (fast sync) {block_gap:?}");
+					}
 				}
 			}
 

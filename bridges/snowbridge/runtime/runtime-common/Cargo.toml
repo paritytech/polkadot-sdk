@@ -12,11 +12,11 @@ categories = ["cryptography::cryptocurrencies"]
 workspace = true
 
 [dependencies]
-log = { workspace = true }
 codec = { workspace = true }
 frame-support = { workspace = true }
-sp-std = { workspace = true }
+log = { workspace = true }
 sp-arithmetic = { workspace = true }
+sp-std = { workspace = true }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
@@ -43,4 +43,5 @@ runtime-benchmarks = [
 	"snowbridge-core/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]

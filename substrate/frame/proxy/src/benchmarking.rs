@@ -22,7 +22,9 @@
 use super::*;
 use crate::Pallet as Proxy;
 use alloc::{boxed::Box, vec};
-use frame::benchmarking::prelude::*;
+use frame::benchmarking::prelude::{
+	account, benchmarks, impl_test_function, whitelisted_caller, BenchmarkError, RawOrigin,
+};
 
 const SEED: u32 = 0;
 
@@ -317,7 +319,7 @@ mod benchmarks {
 			BlockNumberFor::<T>::zero(),
 			0,
 		)?;
-		let height = frame_system::Pallet::<T>::block_number();
+		let height = T::BlockNumberProvider::current_block_number();
 		let ext_index = frame_system::Pallet::<T>::extrinsic_index().unwrap_or(0);
 		let pure_account = Pallet::<T>::pure_account(&caller, &T::ProxyType::default(), 0, None);
 
