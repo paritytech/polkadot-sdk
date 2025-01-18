@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{Config, Pallet, LOG_TARGET, BalanceOf};
+use super::{BalanceOf, LOG_TARGET, *};
 use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::ValueQuery,
@@ -33,7 +33,7 @@ mod v0 {
 	use super::*;
 
 	#[storage_alias]
-    pub type Dummy<T: Config> = StorageValue<Pallet<T>, BalanceOf<T>>;
+	pub type Dummy<T: Config> = StorageValue<Pallet<T>, BalanceOf<T>>;
 }
 
 pub mod v1 {
@@ -64,7 +64,7 @@ pub mod v1 {
 			StorageVersion::new(1).put::<Pallet<T>>();
 
 			// + 1 for reading/writing the new storage version
-			T::DbWeight::get().reads_writes( 1, 1)
+			T::DbWeight::get().reads_writes(1, 1)
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -90,7 +90,7 @@ mod test {
 		let mut ext = new_test_ext();
 
 		ext.execute_with(|| {
-            <v0::Dummy<T>>::put(100);
+			<v0::Dummy<T>>::put(100);
 		});
 
 		ext.commit_all().unwrap();

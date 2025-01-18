@@ -21,7 +21,7 @@ use crate::*;
 use frame_support::{
 	assert_ok, derive_impl,
 	dispatch::{DispatchInfo, GetDispatchInfo},
-	traits::{ConstU64, OnInitialize, Currency},
+	traits::{ConstU64, Currency, OnInitialize},
 };
 use sp_core::H256;
 // The testing primitives are very useful for avoiding having to work with signatures
@@ -144,7 +144,7 @@ fn set_dummy_works() {
 fn signed_ext_watch_dummy_works() {
 	new_test_ext().execute_with(|| {
 		Balances::make_free_balance_be(&1, 100);
-		let call = pallet_example_basic::Call::set_dummy {who: 1,  new_value: 10 }.into();
+		let call = pallet_example_basic::Call::set_dummy { who: 1, new_value: 10 }.into();
 		let info = DispatchInfo::default();
 
 		assert_eq!(
@@ -187,7 +187,7 @@ fn weights_work() {
 	// `set_dummy` is simpler than `accumulate_dummy`, and the weight
 	//   should be less.
 	Balances::make_free_balance_be(&1, 100);
-	let custom_call = pallet_example_basic::Call::<Test>::set_dummy {who: 1, new_value: 20 };
+	let custom_call = pallet_example_basic::Call::<Test>::set_dummy { who: 1, new_value: 20 };
 	let info2 = custom_call.get_dispatch_info();
 	// TODO: account for proof size weight
 	assert!(info1.call_weight.ref_time() > info2.call_weight.ref_time());
