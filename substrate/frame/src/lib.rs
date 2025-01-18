@@ -201,12 +201,19 @@ pub mod prelude {
 
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
-	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
+	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo, DispatchResult};
 	pub use frame_support::{
-		defensive, defensive_assert,
+	BoundedVec,
+	defensive, defensive_assert, Parameter, ensure, 
 		traits::{
-			Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll,
-			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+			schedule::{
+				v3::{Anon as ScheduleAnon, Named as ScheduleNamed},
+				DispatchTime,
+			},
+			EqualPrivilegeOnly, OnInitialize, OriginTrait, Polling,
+			Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll, Get, Currency, LockIdentifier, OnUnbalanced, OriginTrait, PollStatus, Polling, QueryPreimage,
+			ReservableCurrency, StorePreimage, VoteTally,
+			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler, Currency, EnsureOrigin, EnsureOriginWithArg, UnfilteredDispatchable,
 		},
 	};
 
@@ -230,14 +237,16 @@ pub mod prelude {
 
 	/// Runtime traits
 	#[doc(no_inline)]
-	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
+	pub use sp_runtime::{traits::{
+		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy, One, Zero, AtLeast32BitUnsigned,
 		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
-	};
+	}, 
+	BuildStorage, DispatchResult, Perbill, PerThing, FixedI64, DispatchError,
+};
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
 	pub use sp_runtime::{
-		BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
+		BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError, DispatchError,
 	};
 }
 

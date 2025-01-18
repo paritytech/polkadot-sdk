@@ -69,25 +69,10 @@ extern crate alloc;
 use alloc::boxed::Box;
 use codec::{Codec, Encode};
 use core::fmt::Debug;
-use frame_support::{
-	dispatch::DispatchResult,
-	ensure,
-	traits::{
-		schedule::{
-			v3::{Anon as ScheduleAnon, Named as ScheduleNamed},
-			DispatchTime,
-		},
-		Currency, LockIdentifier, OnUnbalanced, OriginTrait, PollStatus, Polling, QueryPreimage,
-		ReservableCurrency, StorePreimage, VoteTally,
-	},
-	BoundedVec,
-};
-use frame_system::pallet_prelude::BlockNumberFor;
+
 use scale_info::TypeInfo;
-use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, Bounded, Dispatchable, One, Saturating, Zero},
-	DispatchError, Perbill,
-};
+
+use frame::runtime::prelude::*;
 
 mod branch;
 pub mod migration;
@@ -115,8 +100,6 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-pub use frame_support::traits::Get;
-
 #[macro_export]
 macro_rules! impl_tracksinfo_get {
 	($tracksinfo:ty, $balance:ty, $blocknumber:ty) => {
@@ -140,11 +123,10 @@ macro_rules! impl_tracksinfo_get {
 
 const ASSEMBLY_ID: LockIdentifier = *b"assembly";
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{pallet_prelude::*, traits::EnsureOriginWithArg};
-	use frame_system::pallet_prelude::*;
+	use frame::traits::EnsureOriginWithArg;
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -801,12 +783,11 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 			r
 		});
 		let now = frame_system::Pallet::<T>::block_number();
-		let dummy_account_id =
-			codec::Decode::decode(&mut sp_runtime::traits::TrailingZeroInput::new(&b"dummy"[..]))
-				.expect("infinite length input; no invalid inputs for type; qed");
+		let dummy_account_id = codec::Decode::decode(&mut TrailingZeroInput::new(&b"dummy"[..]))
+			.expect("infinite length input; no invalid inputs for type; qed");
 		let mut status = ReferendumStatusOf::<T, I> {
 			track: class,
-			origin: frame_support::dispatch::RawOrigin::Root.into(),
+			origin: RawOrigin::Root.into(),
 			proposal: T::Preimages::bound(CallOf::<T, I>::from(Call::nudge_referendum { index }))
 				.map_err(|_| ())?,
 			enactment: DispatchTime::After(Zero::zero()),
@@ -818,7 +799,7 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 			in_queue: false,
 			alarm: None,
 		};
-		Self::ensure_alarm_at(&mut status, index, sp_runtime::traits::Bounded::max_value());
+		Self::ensure_alarm_at(&mut status, index, Bounded::max_value());
 		ReferendumInfoFor::<T, I>::insert(index, ReferendumInfo::Ongoing(status));
 		Ok(index)
 	}
@@ -1335,7 +1316,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///   [`ReferendumInfoFor`].
 	/// * Referendum indices in [`MetadataOf`] must also be stored in [`ReferendumInfoFor`].
 	#[cfg(any(feature = "try-runtime", test))]
-	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+	fn do_try_state() -> Result<(), TryRuntimeError> {
 		ensure!(
 			ReferendumCount::<T, I>::get() as usize ==
 				ReferendumInfoFor::<T, I>::iter_keys().count(),
@@ -1365,7 +1346,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// * If alarm is set the nudge call has to be at most [`UndecidingTimeout`] blocks away
 	///  from the submission block.
 	#[cfg(any(feature = "try-runtime", test))]
-	fn try_state_referenda_info() -> Result<(), sp_runtime::TryRuntimeError> {
+	fn try_state_referenda_info() -> Result<(), TryRuntimeError> {
 		ReferendumInfoFor::<T, I>::iter().try_for_each(|(_, referendum)| {
 			match referendum {
 				ReferendumInfo::Ongoing(status) => {
@@ -1393,10 +1374,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// * The referendum indices stored in [`TrackQueue`] must exist as keys in the
 	///  [`ReferendumInfoFor`] storage map.
 	#[cfg(any(feature = "try-runtime", test))]
-	fn try_state_tracks() -> Result<(), sp_runtime::TryRuntimeError> {
+	fn try_state_tracks() -> Result<(), TryRuntimeError> {
 		T::Tracks::tracks().iter().try_for_each(|track| {
 			TrackQueue::<T, I>::get(track.0).iter().try_for_each(
-				|(referendum_index, _)| -> Result<(), sp_runtime::TryRuntimeError> {
+				|(referendum_index, _)| -> Result<(), TryRuntimeError> {
 					ensure!(
 					ReferendumInfoFor::<T, I>::contains_key(referendum_index),
 					"`ReferendumIndex` inside the `TrackQueue` should be a key in `ReferendumInfoFor`"

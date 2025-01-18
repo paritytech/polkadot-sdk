@@ -21,20 +21,12 @@ use super::*;
 use crate::Pallet as Referenda;
 use alloc::{vec, vec::Vec};
 use assert_matches::assert_matches;
-use frame_benchmarking::v1::{
-	account, benchmarks_instance_pallet, whitelist_account, BenchmarkError,
-};
-use frame_support::{
-	assert_ok,
-	traits::{Currency, EnsureOrigin, EnsureOriginWithArg, UnfilteredDispatchable},
-};
-use frame_system::RawOrigin;
-use sp_runtime::traits::Bounded as ArithBounded;
+use frame::benchmarking::prelude::{Pallet as System, RawOrigin, *};
 
 const SEED: u32 = 0;
 
 fn assert_last_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::RuntimeEvent) {
-	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
+	System::<T>::assert_last_event(generic_event.into());
 }
 
 fn funded_account<T: Config<I>, I: 'static>(name: &'static str, index: u32) -> T::AccountId {

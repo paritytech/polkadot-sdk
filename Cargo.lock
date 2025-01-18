@@ -14765,20 +14765,14 @@ name = "pallet-referenda"
 version = "28.0.0"
 dependencies = [
  "assert_matches",
- "frame-benchmarking 28.0.0",
- "frame-support 28.0.0",
- "frame-system 28.0.0",
  "log",
  "pallet-balances 28.0.0",
  "pallet-preimage 28.0.0",
  "pallet-scheduler 29.0.0",
  "parity-scale-codec",
+ "polkadot-sdk-frame 0.1.0",
  "scale-info",
  "serde",
- "sp-arithmetic 23.0.0",
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
 ]
 
 [[package]]

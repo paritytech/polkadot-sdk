@@ -20,22 +20,11 @@
 use super::*;
 use crate as pallet_referenda;
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{
-	assert_ok, derive_impl, ord_parameter_types, parameter_types,
-	traits::{
-		ConstU32, ConstU64, Contains, EqualPrivilegeOnly, OnInitialize, OriginTrait, Polling,
-	},
-	weights::Weight,
-};
-use frame_system::{EnsureRoot, EnsureSignedBy};
-use sp_runtime::{
-	traits::{BlakeTwo256, Hash},
-	BuildStorage, DispatchResult, Perbill,
-};
+use frame::testing_prelude::*;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -216,13 +205,13 @@ impl Default for ExtBuilder {
 }
 
 impl ExtBuilder {
-	pub fn build(self) -> sp_io::TestExternalities {
+	pub fn build(self) -> TestState {
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		let balances = vec![(1, 100), (2, 100), (3, 100), (4, 100), (5, 100), (6, 100)];
 		pallet_balances::GenesisConfig::<Test> { balances }
 			.assimilate_storage(&mut t)
 			.unwrap();
-		let mut ext = sp_io::TestExternalities::new(t);
+		let mut ext = TestState::new(t);
 		ext.execute_with(|| System::set_block_number(1));
 		ext
 	}
@@ -428,7 +417,7 @@ impl RefState {
 	pub fn create(self) -> ReferendumIndex {
 		assert_ok!(Referenda::submit(
 			RuntimeOrigin::signed(1),
-			Box::new(frame_support::dispatch::RawOrigin::Root.into()),
+			Box::new(RawOrigin::Root.into()),
 			set_balance_proposal_bounded(1),
 			DispatchTime::At(10),
 		));

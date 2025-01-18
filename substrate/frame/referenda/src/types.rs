@@ -20,13 +20,9 @@
 use super::*;
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use core::fmt::Debug;
-use frame_support::{
-	traits::{schedule::v3::Anon, Bounded},
-	Parameter,
-};
+
 use scale_info::TypeInfo;
-use sp_arithmetic::{Rounding::*, SignedRounding::*};
-use sp_runtime::{FixedI64, PerThing, RuntimeDebug};
+use frame::deps::sp_arithmetic::{Rounding::*, SignedRounding::*};
 
 pub type BalanceOf<T, I = ()> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -546,8 +542,7 @@ impl Debug for Curve {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use frame_support::traits::ConstU32;
-	use sp_runtime::PerThing;
+	use frame::testing_prelude::*;
 
 	const fn percent(x: u128) -> FixedI64 {
 		FixedI64::from_rational(x, 100)
