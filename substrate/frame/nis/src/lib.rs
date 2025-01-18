@@ -90,25 +90,11 @@ pub use pallet::*;
 pub use weights::WeightInfo;
 
 use alloc::{vec, vec::Vec};
-use frame::{
-	prelude::*,
-	traits::{
-		fungible::{
-			self, Balanced as FunBalanced, Inspect as FunInspect, Mutate as FunMutate,
-			MutateHold as FunMutateHold,
-		},
-		nonfungible::{Inspect as NftInspect, Transfer as NftTransfer},
-		tokens::{
-			Balance, DepositConsequence,
-			Fortitude::{self, *},
-			Precision::*,
-			Preservation::{self, *},
-			Provenance,
-			Restriction::*,
-			WithdrawConsequence,
-		},
-	},
-};
+use frame::prelude::*;
+use Fortitude::*;
+use Precision::*;
+use Preservation::*;
+use Restriction::*;
 
 pub struct WithMaximumOf<A: TypedGet>(core::marker::PhantomData<A>);
 impl<A: TypedGet> Convert<Perquintill, A::Type> for WithMaximumOf<A>
@@ -132,7 +118,7 @@ where
 }
 
 pub struct NoCounterpart<T>(core::marker::PhantomData<T>);
-impl<T> FunInspect<T> for NoCounterpart<T> {
+impl<T> FungibleInspect<T> for NoCounterpart<T> {
 	type Balance = u32;
 	fn total_issuance() -> u32 {
 		0
@@ -163,7 +149,7 @@ impl<T> fungible::Unbalanced<T> for NoCounterpart<T> {
 	}
 	fn set_total_issuance(_: Self::Balance) {}
 }
-impl<T: Eq> FunMutate<T> for NoCounterpart<T> {}
+impl<T: Eq> FungibleMutate<T> for NoCounterpart<T> {}
 impl<T> Convert<Perquintill, u32> for NoCounterpart<T> {
 	fn convert(_: Perquintill) -> u32 {
 		0
@@ -186,8 +172,9 @@ impl BenchmarkSetup for () {
 pub mod pallet {
 	use super::*;
 
-	type BalanceOf<T> =
-		<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
+	type BalanceOf<T> = <<T as Config>::Currency as FungibleInspect<
+		<T as frame_system::Config>::AccountId,
+	>>::Balance;
 	type DebtOf<T> =
 		fungible::Debt<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 	type ReceiptRecordOf<T> =
@@ -210,10 +197,10 @@ pub mod pallet {
 		type PalletId: Get<PalletId>;
 
 		/// Currency type that this works on.
-		type Currency: FunInspect<Self::AccountId, Balance = Self::CurrencyBalance>
-			+ FunMutate<Self::AccountId>
-			+ FunBalanced<Self::AccountId>
-			+ FunMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+		type Currency: FungibleInspect<Self::AccountId, Balance = Self::CurrencyBalance>
+			+ FungibleMutate<Self::AccountId>
+			+ FungibleBalanced<Self::AccountId>
+			+ FungibleMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// Overarching hold reason.
 		type RuntimeHoldReason: From<HoldReason>;
@@ -230,7 +217,7 @@ pub mod pallet {
 		type IgnoredIssuance: Get<BalanceOf<Self>>;
 
 		/// The accounting system for the fungible counterpart tokens.
-		type Counterpart: FunMutate<Self::AccountId>;
+		type Counterpart: FungibleMutate<Self::AccountId>;
 
 		/// The system to convert an overall proportion of issuance into a number of fungible
 		/// counterpart tokens.
@@ -238,7 +225,7 @@ pub mod pallet {
 		/// In general it's best to use `WithMaximumOf`.
 		type CounterpartAmount: ConvertBack<
 			Perquintill,
-			<Self::Counterpart as FunInspect<Self::AccountId>>::Balance,
+			<Self::Counterpart as FungibleInspect<Self::AccountId>>::Balance,
 		>;
 
 		/// Unbalanced handler to account for funds created (in case of a higher total issuance over
@@ -930,7 +917,7 @@ pub mod pallet {
 		pub required: Balance,
 	}
 
-	impl<T: Config> NftInspect<T::AccountId> for Pallet<T> {
+	impl<T: Config> NonFungibleInspect<T::AccountId> for Pallet<T> {
 		type ItemId = ReceiptIndex;
 
 		fn owner(item: &ReceiptIndex) -> Option<T::AccountId> {
@@ -949,7 +936,7 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> NftTransfer<T::AccountId> for Pallet<T> {
+	impl<T: Config> NonFungibleTransfer<T::AccountId> for Pallet<T> {
 		fn transfer(index: &ReceiptIndex, dest: &T::AccountId) -> DispatchResult {
 			let mut item = Receipts::<T>::get(index).ok_or(TokenError::UnknownAsset)?;
 			let (owner, on_hold) = item.owner.take().ok_or(Error::<T>::AlreadyCommunal)?;

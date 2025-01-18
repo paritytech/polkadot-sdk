@@ -17,10 +17,7 @@
 
 //! Tests for NIS pallet.
 
-use frame::{
-	runtime::prelude::TokenError::FundsUnavailable, testing_prelude::*,
-	traits::fungible::InspectHold,
-};
+use frame::{runtime::prelude::*, testing_prelude::*};
 
 use crate::{
 	mock::{Balance, *},
@@ -72,7 +69,7 @@ fn place_bid_works() {
 	new_test_ext().execute_with(|| {
 		System::run_to_block::<AllPalletsWithSystem>(1);
 		assert_noop!(Nis::place_bid(signed(1), 1, 2), Error::<Test>::AmountTooSmall);
-		assert_noop!(Nis::place_bid(signed(1), 101, 2), FundsUnavailable);
+		assert_noop!(Nis::place_bid(signed(1), 101, 2), TokenError::FundsUnavailable);
 		assert_noop!(Nis::place_bid(signed(1), 10, 4), Error::<Test>::DurationTooBig);
 		assert_ok!(Nis::place_bid(signed(1), 10, 2));
 		assert_eq!(Balances::reserved_balance(1), 10);

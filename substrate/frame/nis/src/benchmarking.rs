@@ -26,7 +26,7 @@ use crate::*;
 const SEED: u32 = 0;
 
 type BalanceOf<T> =
-	<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config>::Currency as FungibleInspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 fn fill_queues<T: Config>() -> Result<(), DispatchError> {
 	// filling queues involves filling the first queue entirely and placing a single item in all

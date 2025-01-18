@@ -206,9 +206,11 @@ pub mod prelude {
 	pub use frame_support::{
 		defensive, defensive_assert,
 		traits::{
-			Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll,
-			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+			Contains, Defensive, DefensiveSaturating, EitherOf, EstimateNextSessionRotation,
+			IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers,
+			RankedMembersSwapHandler,
 		},
+		PalletId,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -229,11 +231,15 @@ pub mod prelude {
 	/// All arithmetic types and traits used for safe math.
 	pub use super::arithmetic::*;
 
+	/// All token related types and traits.
+	pub use super::token::*;
+
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+		AccountIdConversion, BlockNumberProvider, Bounded, Convert, ConvertBack, DispatchInfoOf,
+		Dispatchable, ReduceBy, ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup,
+		TrailingZeroInput,
 	};
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
@@ -531,6 +537,20 @@ pub mod traits {
 /// This is already part of the [`prelude`].
 pub mod arithmetic {
 	pub use sp_arithmetic::{traits::*, *};
+}
+
+/// All token related types and traits.
+pub mod token {
+	pub use frame_support::traits::{
+		fungible::{
+			Balanced as FungibleBalanced, Inspect as FungibleInspect,
+			InspectHold as FungibleInspectHold, Mutate as FungibleMutate,
+			MutateHold as FungibleMutateHold,
+		},
+		nonfungible::{Inspect as NonFungibleInspect, Transfer as NonFungibleTransfer},
+		tokens::*,
+		OnUnbalanced,
+	};
 }
 
 /// All derive macros used in frame.
