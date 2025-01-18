@@ -304,13 +304,12 @@ pub mod pallet {
 
 			for project_id in &projects_id {
 				ProjectInfo::<T>::new(project_id.clone());
+
 				// Prepare the proposal call
-				let out_call = Call::<T>::on_registration { project_id: project_id.clone() };
-				let call0 = Self::get_formatted_call(out_call);
-				let proposal = Self::make_proposal(call0.clone().into());
-				Self::add_proposal(who.clone(), call0.clone().into())?;
-				let delay = T::EnactmentPeriod::get();
-				let referendum_index = Self::start_dem_referendum(proposal, delay);
+				let call = Call::<T>::on_registration { project_id: project_id.clone() };
+				let proposal = Self::create_proposal(who.clone(), call);
+				let referendum_index =
+					Self::start_dem_referendum(proposal, T::EnactmentPeriod::get());
 				let mut new_infos = WhiteListedProjectAccounts::<T>::get(&project_id)
 					.ok_or(Error::<T>::NoProjectAvailable)?;
 				new_infos.index = referendum_index;
@@ -502,6 +501,20 @@ pub mod pallet {
 
 			Votes::<T>::remove(&project_id, &voter_id);
 			Ok(())
+		}
+
+		#[pallet::call_index(8)]
+		#[transactional]
+		pub fn execute_call_dispatch(
+			origin: OriginFor<T>,
+			caller: T::AccountId,
+			proposal: Box<<T as Config>::RuntimeCall>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			proposal
+				.dispatch_bypass_filter(frame_system::RawOrigin::Signed(caller.clone()).into())
+				.ok();
+			Ok(().into())
 		}
 	}
 }

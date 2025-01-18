@@ -20,8 +20,7 @@ use crate as pallet_opf;
 use crate::Convert;
 use codec::{Decode, Encode};
 pub use frame_support::{
-	derive_impl, ord_parameter_types,
-	parameter_types,
+	derive_impl, ord_parameter_types, parameter_types,
 	traits::{
 		ConstU32, ConstU64, EqualPrivilegeOnly, OnFinalize, OnInitialize, OriginTrait,
 		SortedMembers, VoteTally,
@@ -112,7 +111,7 @@ impl SortedMembers<u64> for OneToFive {
 impl pallet_democracy::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = pallet_balances::Pallet<Self>;
-	type EnactmentPeriod = ConstU64<2>;
+	type EnactmentPeriod = ConstU64<1>;
 	type LaunchPeriod = ConstU64<2>;
 	type VotingPeriod = ConstU64<2>;
 	type VoteLockingPeriod = ConstU64<3>;

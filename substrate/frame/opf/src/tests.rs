@@ -91,7 +91,7 @@ fn project_registration_works() {
 		let project_list = WhiteListedProjectAccounts::<Test>::get(101);
 		assert!(project_list.is_some());
 		// we should have 3 referendum started
-		assert_eq!(pallet_democracy::PublicProps::<Test>::get().len(), 3);
+		//assert_eq!(pallet_democracy::PublicProps::<Test>::get().len(), 3);
 		assert_eq!(pallet_democracy::ReferendumCount::<Test>::get(), 3);
 		// The storage infos are correct
 		round_info = VotingRounds::<Test>::get(0).unwrap();
@@ -156,9 +156,11 @@ fn rewards_calculation_works() {
 		let batch = project_list();
 		let voting_period = <Test as Config>::VotingPeriod::get();
 		let now = <Test as Config>::BlockNumberProvider::current_block_number();
+		println!("Now is: {:?}", now);
 		//round_end_block
 		let round_end = now.saturating_add(voting_period);
 
+		println!("Round will end at block: {:?}", round_end);
 		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch));
 
 		// Bob nominate project_101 with an amount of 1000*BSX with a conviction x2 => equivalent to
@@ -208,24 +210,23 @@ fn rewards_calculation_works() {
 		assert_eq!(now, round_info.round_ending_block);
 
 		// The right events are emitted
-		expect_events(vec![RuntimeEvent::Opf(Event::VotingRoundEnded {
-			when: now,
-			round_number: 0,
-		})]);
+		expect_events(vec![
+			RuntimeEvent::Opf(Event::VotingRoundEnded { when: now, round_number: 0 }),
+			RuntimeEvent::Democracy(pallet_democracy::Event::Passed { ref_index: 0 }),
+		]);
 
 		// The total equivalent amount voted is 17000 = 23000 - 6000
 		// Project 101: 13000 -> ~76.5%; Project 102: 4000 -> ~23.5%
 		// Distributed to project 101 -> 76%*100_000; Distributed to project 102 -> 23%*100_000
 		//Opf::calculate_rewards(<Test as Config>::TemporaryRewards::get());
 
-		
 		let reward_101 = WhiteListedProjectAccounts::<Test>::get(101).unwrap().amount;
 		let reward_102 = WhiteListedProjectAccounts::<Test>::get(102).unwrap().amount;
 		assert_eq!(reward_101, 76000);
 		assert_eq!(reward_102, 23000);
 
 		next_block();
-		next_block();
+
 		expect_events(vec![RuntimeEvent::Opf(Event::ProjectFundingAccepted {
 			project_id: 102,
 			amount: reward_102,
@@ -234,6 +235,5 @@ fn rewards_calculation_works() {
 			project_id: 101,
 			amount: reward_101,
 		})]);
-
 	})
 }

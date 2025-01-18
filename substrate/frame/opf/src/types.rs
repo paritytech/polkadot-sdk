@@ -42,8 +42,8 @@ pub use frame_system::{pallet_prelude::*, RawOrigin};
 pub use scale_info::prelude::vec::Vec;
 pub use sp_runtime::{
 	traits::{
-		AccountIdConversion, BlockNumberProvider, Convert, Dispatchable, Saturating, StaticLookup,
-		Zero,
+		AccountIdConversion, BlockNumberProvider, Convert, Dispatchable, Hash, Saturating,
+		StaticLookup, Zero,
 	},
 	Percent, SaturatedConversion,
 };

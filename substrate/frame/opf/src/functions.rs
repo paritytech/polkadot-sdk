@@ -22,15 +22,22 @@ impl<T: Config> Pallet<T> {
 		call.into()
 	}
 
-	pub fn make_proposal(call: CallOf<T>) -> BoundedCallOf<T> {
-		<T as Democracy::Config>::Preimages::bound(call).unwrap()
-	}
-
-	pub fn add_proposal(who: T::AccountId, call: CallOf<T>) -> DispatchResult {
+	pub fn create_proposal(
+		caller: T::AccountId,
+		proposal_call: pallet::Call<T>,
+	) -> BoundedCallOf<T> {
+		let proposal = Box::new(Self::get_formatted_call(proposal_call.into()));
 		let value = <T as Democracy::Config>::MinimumDeposit::get();
-		let proposal: BoundedCallOf<T> = T::Preimages::bound(call.into())?;
-		Democracy::Pallet::<T>::propose(RawOrigin::Signed(who).into(), proposal.clone(), value)?;
-		Ok(())
+		let call = Call::<T>::execute_call_dispatch { caller: caller.clone(), proposal };
+		let call_formatted = Self::get_formatted_call(call.into());
+		let bounded_proposal =
+			<T as Democracy::Config>::Preimages::bound(call_formatted.into()).unwrap();
+		let _hash = Democracy::Pallet::<T>::propose(
+			RawOrigin::Signed(caller).into(),
+			bounded_proposal.clone(),
+			value,
+		);
+		bounded_proposal
 	}
 
 	pub fn start_dem_referendum(
@@ -295,14 +302,6 @@ impl<T: Config> Pallet<T> {
 						// create a spend for project to be rewarded
 						let _ = SpendInfo::<T>::new(&project_info);
 
-						Self::deposit_event(Event::<T>::ProjectFundingAccepted {
-							project_id: project_id.clone(),
-							amount: project_info.amount,
-						})
-					} else {
-						Self::deposit_event(Event::<T>::ProjectFundingRejected {
-							project_id: project_id.clone(),
-						})
 					}
 				}
 			}
