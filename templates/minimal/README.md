@@ -48,11 +48,8 @@ such as a [Balances pallet](https://paritytech.github.io/polkadot-sdk/master/pal
 
 - 👤 The template has no consensus configured - it is best for experimenting with a single node network.
 
-For the most accurate chain spec generation,  `staging-chain-spec-builder` or other mentioned binaries and runtimes,
-please try to build them based on the Polkadot-sdk most updated master branch an example:
-  ```bash
-  cargo install --path substrate/bin/utils/chain-spec-builder
-  ```
+
+- For the most up-to-date chain specification, refer to [staging-chain-spec-builder](https://crates.io/crates/staging-chain-spec-builder)
 
 
 ## Template Structure
@@ -94,18 +91,15 @@ be used to run the minimal template's runtime. `polkadot-omni-node` binary crate
 
 Please see installation section on [crates.io/omni-node](https://crates.io/crates/polkadot-omni-node).
 
-#### Build `minimal-template-runtime` (A reminder to  build on the most updated version of polkadot-sdk master)
+#### Build `minimal-template-runtime`
 
 ```sh
 cargo build -p minimal-template-runtime --release
 ```
 
 #### Install `staging-chain-spec-builder`
-  ```bash
-  cargo install --path substrate/bin/utils/chain-spec-builder
-```
 
-Or Please see the installation section at [`crates.io/staging-chain-spec-builder`](https://crates.io/crates/staging-chain-spec-builder).
+Please see the installation section at [`crates.io/staging-chain-spec-builder`](https://crates.io/crates/staging-chain-spec-builder).
 
 #### Use chain-spec-builder to generate the chain_spec.json file
 
