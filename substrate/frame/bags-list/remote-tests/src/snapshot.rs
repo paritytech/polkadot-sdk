@@ -16,13 +16,12 @@
 
 //! Test to execute the snapshot using the voter bag.
 
+use frame::testing_prelude::*;
 use frame_election_provider_support::{
 	bounds::{CountBound, DataProviderBounds},
 	SortedListProvider,
 };
-use frame_support::traits::PalletInfoAccess;
 use remote_externalities::{Builder, Mode, OnlineConfig};
-use sp_runtime::{traits::Block as BlockT, DeserializeOwned};
 
 /// Execute create a snapshot from pallet-staking.
 pub async fn execute<Runtime, Block>(voter_limit: Option<usize>, currency_unit: u64, ws_url: String)
@@ -31,8 +30,6 @@ where
 	Block: BlockT + DeserializeOwned,
 	Block::Header: DeserializeOwned,
 {
-	use frame_support::storage::generator::StorageMap;
-
 	let mut ext = Builder::<Block>::new()
 		.mode(Mode::Online(OnlineConfig {
 			transport: ws_url.to_string().into(),

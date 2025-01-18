@@ -203,11 +203,14 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::{
-		defensive, defensive_assert,
+		defensive, defensive_assert, ensure,
+		storage::generator::StorageMap,
 		traits::{
-			Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll,
-			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+			Contains, Defensive, DefensiveOption, EitherOf, EstimateNextSessionRotation, Get,
+			IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, PalletInfoAccess,
+			RankedMembers, RankedMembersSwapHandler,
 		},
+		PalletError,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -230,9 +233,12 @@ pub mod prelude {
 
 	/// Runtime traits
 	#[doc(no_inline)]
-	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+	pub use sp_runtime::{
+		traits::{
+			BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, One, ReduceBy,
+			ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+		},
+		BuildStorage,
 	};
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
