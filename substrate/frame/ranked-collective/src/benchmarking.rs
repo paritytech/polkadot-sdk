@@ -21,13 +21,9 @@ use super::*;
 #[allow(unused_imports)]
 use crate::Pallet as RankedCollective;
 use alloc::vec::Vec;
-use frame_benchmarking::{
-	v1::{account, BenchmarkError},
-	v2::*,
-};
+use frame::benchmarking::prelude::{RawOrigin as SystemOrigin, *};
 
-use frame_support::{assert_err, assert_ok, traits::NoOpPoll};
-use frame_system::RawOrigin as SystemOrigin;
+
 
 const SEED: u32 = 0;
 
@@ -58,7 +54,7 @@ fn make_member<T: Config<I>, I: 'static>(rank: Rank) -> T::AccountId {
 }
 
 #[instance_benchmarks(
-where <<T as pallet::Config<I>>::Polls as frame_support::traits::Polling<Tally<T, I, pallet::Pallet<T, I>>>>::Index: From<u8>
+where <<T as pallet::Config<I>>::Polls as Polling<Tally<T, I, pallet::Pallet<T, I>>>>::Index: From<u8>
 )]
 mod benchmarks {
 	use super::*;

@@ -45,22 +45,7 @@ extern crate alloc;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use scale_info::TypeInfo;
-use sp_arithmetic::traits::Saturating;
-use sp_runtime::{
-	traits::{Convert, StaticLookup},
-	ArithmeticError::Overflow,
-	DispatchError, Perbill, RuntimeDebug,
-};
-
-use frame_support::{
-	dispatch::{DispatchResultWithPostInfo, PostDispatchInfo},
-	ensure, impl_ensure_origin_with_arg_ignoring_arg,
-	traits::{
-		EnsureOrigin, EnsureOriginWithArg, PollStatus, Polling, RankedMembers,
-		RankedMembersSwapHandler, VoteTally,
-	},
-	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
-};
+use frame::prelude::*;
 
 #[cfg(test)]
 mod tests;
@@ -115,8 +100,8 @@ impl<T: Config<I>, I: 'static, M: GetMaxVoters> Tally<T, I, M> {
 // All functions of VoteTally now include the class as a param.
 
 pub type TallyOf<T, I = ()> = Tally<T, I, Pallet<T, I>>;
-pub type PollIndexOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
-pub type ClassOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Class;
+pub type PollIndexOf<T, I = ()> = <<T as Config<I>>::Polls as frame::traits::Polling<TallyOf<T, I>>>::Index;
+pub type ClassOf<T, I = ()> = <<T as Config<I>>::Polls as frame::traits::Polling<TallyOf<T, I>>>::Class;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 impl<T: Config<I>, I: 'static, M: GetMaxVoters<Class = ClassOf<T, I>>>
@@ -376,12 +361,11 @@ pub trait BenchmarkSetup<AccountId> {
 	fn ensure_member(acc: &AccountId);
 }
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{pallet_prelude::*, storage::KeyLenOf};
-	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::MaybeConvert;
+	use frame::prelude::*;
+	// use frame_support::{pallet_prelude::*, storage::KeyLenOf};
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
@@ -859,9 +843,9 @@ pub mod pallet {
 		/// Determine the rank of the account behind the `Signed` origin `o`, `None` if the account
 		/// is unknown to this collective or `o` is not `Signed`.
 		pub fn as_rank(
-			o: &<T::RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin,
+			o: &<T::RuntimeOrigin as OriginTrait>::PalletsOrigin,
 		) -> Option<u16> {
-			use frame_support::traits::CallerTrait;
+			use frame::traits::CallerTrait;
 			o.as_signed().and_then(Self::rank_of)
 		}
 

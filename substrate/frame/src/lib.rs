@@ -201,12 +201,18 @@ pub mod prelude {
 
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
-	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
+	pub use frame_support::dispatch::{
+		DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo,
+	};
+
+	pub use frame_support::traits::{CallerTrait, OriginTrait};
+
 	pub use frame_support::{
-		defensive, defensive_assert,
+		defensive, defensive_assert, ensure, impl_ensure_origin_with_arg_ignoring_arg,
 		traits::{
-			Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll,
-			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+			Contains, EitherOf, EnsureOrigin, EnsureOriginWithArg, EstimateNextSessionRotation,
+			IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, PollStatus,
+			Polling, RankedMembers, RankedMembersSwapHandler, VoteTally,
 		},
 	};
 
@@ -230,14 +236,20 @@ pub mod prelude {
 
 	/// Runtime traits
 	#[doc(no_inline)]
-	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+	pub use sp_runtime::{
+		traits::{
+			BadOrigin, BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable,
+			MaybeConvert, ReduceBy, ReplaceWithDefault, SaturatedConversion, Saturating,
+			StaticLookup, TrailingZeroInput,
+		},
+		ArithmeticError::Overflow,
+		Perbill, RuntimeDebug,
 	};
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
 	pub use sp_runtime::{
-		BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
+		BoundToRuntimeAppPublic, DispatchError, DispatchErrorWithPostInfo, DispatchResultWithInfo,
+		TokenError,
 	};
 }
 
