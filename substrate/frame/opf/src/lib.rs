@@ -463,16 +463,16 @@ pub mod pallet {
 			let _who = T::SubmitOrigin::ensure_origin(origin.clone())?;
 			let infos = WhiteListedProjectAccounts::<T>::get(project_id.clone())
 				.ok_or(Error::<T>::NoProjectAvailable)?;
-			
+
 			let ref_index = infos.index;
 			let amount = infos.amount;
 			if let Some(ref_infos) = Democracy::ReferendumInfoOf::<T>::get(ref_index) {
 				match ref_infos {
-					Democracy::ReferendumInfo::Finished { approved: true, .. } =>
-						{
-							// create a spend for project to be rewarded
+					Democracy::ReferendumInfo::Finished { approved: true, .. } => {
+						// create a spend for project to be rewarded
 						let _ = SpendInfo::<T>::new(&infos);
-							Self::deposit_event(Event::ProjectFundingAccepted { project_id, amount })},
+						Self::deposit_event(Event::ProjectFundingAccepted { project_id, amount })
+					},
 					Democracy::ReferendumInfo::Finished { approved: false, .. } =>
 						Self::deposit_event(Event::ProjectFundingRejected { project_id }),
 					Democracy::ReferendumInfo::Ongoing(_) => (),

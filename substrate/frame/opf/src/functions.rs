@@ -298,9 +298,6 @@ impl<T: Config> Pallet<T> {
 						WhiteListedProjectAccounts::<T>::mutate(project_id.clone(), |val| {
 							*val = Some(project_info.clone());
 						});
-
-						
-
 					}
 				}
 			}

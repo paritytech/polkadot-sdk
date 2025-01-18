@@ -223,12 +223,12 @@ fn rewards_calculation_works() {
 		assert_eq!(reward_102, 23000);
 
 		// Proposal Enactment did not happened yet
-		assert_eq!(Spends::<Test>::contains_key(101),false);
+		assert_eq!(Spends::<Test>::contains_key(101), false);
 
 		next_block();
-		
+
 		// Enactment happened as expected
-		assert_eq!(Spends::<Test>::contains_key(101),true);
+		assert_eq!(Spends::<Test>::contains_key(101), true);
 
 		expect_events(vec![RuntimeEvent::Opf(Event::ProjectFundingAccepted {
 			project_id: 102,
