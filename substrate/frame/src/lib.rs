@@ -201,20 +201,21 @@ pub mod prelude {
 
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
-	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo, DispatchResult};
+	pub use frame_support::dispatch::{DispatchResult, GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::{
-	BoundedVec,
-	defensive, defensive_assert, Parameter, ensure, 
+		defensive, defensive_assert, ensure,
 		traits::{
 			schedule::{
 				v3::{Anon as ScheduleAnon, Named as ScheduleNamed},
 				DispatchTime,
 			},
-			EqualPrivilegeOnly, OnInitialize, OriginTrait, Polling,
-			Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll, Get, Currency, LockIdentifier, OnUnbalanced, OriginTrait, PollStatus, Polling, QueryPreimage,
-			ReservableCurrency, StorePreimage, VoteTally,
-			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler, Currency, EnsureOrigin, EnsureOriginWithArg, UnfilteredDispatchable,
+			Contains, Currency, EitherOf, EnsureOrigin, EnsureOriginWithArg, EqualPrivilegeOnly,
+			EstimateNextSessionRotation, Get, IsSubType, LockIdentifier, MapSuccess, NoOpPoll,
+			OnInitialize, OnRuntimeUpgrade, OnUnbalanced, OneSessionHandler, OriginTrait,
+			PollStatus, Polling, QueryPreimage, RankedMembers, RankedMembersSwapHandler,
+			ReservableCurrency, StorePreimage, UnfilteredDispatchable, VoteTally,
 		},
+		BoundedVec, Parameter,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -237,16 +238,19 @@ pub mod prelude {
 
 	/// Runtime traits
 	#[doc(no_inline)]
-	pub use sp_runtime::{traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy, One, Zero, AtLeast32BitUnsigned,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
-	}, 
-	BuildStorage, DispatchResult, Perbill, PerThing, FixedI64, DispatchError,
-};
+	pub use sp_runtime::{
+		traits::{
+			AtLeast32BitUnsigned, BlockNumberProvider, Bounded, Convert, DispatchInfoOf,
+			Dispatchable, One, ReduceBy, ReplaceWithDefault, SaturatedConversion, Saturating,
+			StaticLookup, TrailingZeroInput, Zero,
+		},
+		BuildStorage, DispatchError, DispatchResult, FixedI64, PerThing, Perbill,
+	};
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
 	pub use sp_runtime::{
-		BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError, DispatchError,
+		BoundToRuntimeAppPublic, DispatchError, DispatchErrorWithPostInfo, DispatchResultWithInfo,
+		TokenError,
 	};
 }
 
