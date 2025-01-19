@@ -239,6 +239,7 @@ pub mod prelude {
 		traits::{
 			BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
 			ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+			Zero,
 		},
 		BuildStorage, Perbill,
 	};

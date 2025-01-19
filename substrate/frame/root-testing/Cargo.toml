@@ -29,4 +29,5 @@ std = [
 	"codec/std",
 	"frame/std",
 	"scale-info/std",
+	"scale-info/std",
 ]

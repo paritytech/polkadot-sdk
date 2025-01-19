@@ -39,6 +39,7 @@ pub use pallet::*;
 #[frame::pallet]
 pub mod pallet {
 	use super::*;
+	use frame::prelude::*;
 
 	#[pallet::config]
 	pub trait Config:
@@ -72,10 +73,8 @@ pub mod pallet {
 		FailedToGetActiveEra,
 	}
 
-	type OffenceDetails<T> = sp_staking::offence::OffenceDetails<
-		<T as frame_system::Config>::AccountId,
-		IdentificationTuple<T>,
-	>;
+	type OffenceDetails<T> =
+		OffenceDetails<<T as frame_system::Config>::AccountId, IdentificationTuple<T>>;
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -119,6 +118,9 @@ pub mod pallet {
 
 		/// Submits the offence by calling the `on_offence` function.
 		fn submit_offence(offenders: &[OffenceDetails<T>], slash_fraction: &[Perbill]) {
+			let session_index = <pallet_session::Pallet<T> as frame::traits::ValidatorSet<
+				T::AccountId,
+			>>::session_index();
 			let session_index = <pallet_session::Pallet<T> as frame::traits::ValidatorSet<
 				T::AccountId,
 			>>::session_index();

@@ -23,9 +23,13 @@ use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
 };
-use frame::testing_prelude::*;
 
-use frame::deps::sp_staking::{EraIndex, SessionIndex};
+use pallet_staking::StakerStatus;
+
+use frame::{
+	deps::sp_staking::{EraIndex, SessionIndex},
+	testing_prelude::*,
+};
 use pallet_staking::StakerStatus;
 
 type Block = MockBlock<Test>;
