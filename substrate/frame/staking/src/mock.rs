@@ -25,8 +25,7 @@ use frame_election_provider_support::{
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, LockableCurrency,
-		OnUnbalanced, OneSessionHandler, WithdrawReasons,
+		ConstU64, EitherOfDiverse, FindAuthor, Get, Imbalance, OnUnbalanced, OneSessionHandler,
 	},
 	weights::constants::RocksDbWeight,
 };
@@ -155,7 +154,7 @@ impl pallet_session::historical::Config for Test {
 }
 impl pallet_authorship::Config for Test {
 	type FindAuthor = Author11;
-	type EventHandler = Pallet<Test>;
+	type EventHandler = ();
 }
 
 impl pallet_timestamp::Config for Test {
@@ -264,6 +263,7 @@ pub(crate) const DISABLING_LIMIT_FACTOR: usize = 3;
 
 #[derive_impl(crate::config_preludes::TestDefaultConfig)]
 impl crate::pallet::pallet::Config for Test {
+	type OldCurrency = Balances;
 	type Currency = Balances;
 	type UnixTime = Timestamp;
 	type RewardRemainder = RewardRemainderMock;
@@ -432,6 +432,7 @@ impl ExtBuilder {
 	fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
 		let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+		let ed = ExistentialDeposit::get();
 
 		let _ = pallet_balances::GenesisConfig::<Test> {
 			balances: vec![
@@ -446,19 +447,23 @@ impl ExtBuilder {
 				(40, self.balance_factor),
 				(50, self.balance_factor),
 				// stashes
-				(11, self.balance_factor * 1000),
-				(21, self.balance_factor * 2000),
-				(31, self.balance_factor * 2000),
-				(41, self.balance_factor * 2000),
-				(51, self.balance_factor * 2000),
-				(201, self.balance_factor * 2000),
-				(202, self.balance_factor * 2000),
+				// Note: Previously this pallet used locks and stakers could stake all their
+				// balance including ED. Now with holds, stakers are required to maintain
+				// (non-staked) ED in their accounts. Therefore, we drop an additional existential
+				// deposit to genesis stakers.
+				(11, self.balance_factor * 1000 + ed),
+				(21, self.balance_factor * 2000 + ed),
+				(31, self.balance_factor * 2000 + ed),
+				(41, self.balance_factor * 2000 + ed),
+				(51, self.balance_factor * 2000 + ed),
+				(201, self.balance_factor * 2000 + ed),
+				(202, self.balance_factor * 2000 + ed),
 				// optional nominator
-				(100, self.balance_factor * 2000),
-				(101, self.balance_factor * 2000),
+				(100, self.balance_factor * 2000 + ed),
+				(101, self.balance_factor * 2000 + ed),
 				// aux accounts
 				(60, self.balance_factor),
-				(61, self.balance_factor * 2000),
+				(61, self.balance_factor * 2000 + ed),
 				(70, self.balance_factor),
 				(71, self.balance_factor * 2000),
 				(80, self.balance_factor),
@@ -544,13 +549,10 @@ impl ExtBuilder {
 		let mut ext = sp_io::TestExternalities::from(storage);
 
 		if self.initialize_first_session {
-			// We consider all test to start after timestamp is initialized This must be ensured by
-			// having `timestamp::on_initialize` called before `staking::on_initialize`. Also, if
-			// session length is 1, then it is already triggered.
 			ext.execute_with(|| {
-				System::set_block_number(1);
-				Session::on_initialize(1);
-				<Staking as Hooks<u64>>::on_initialize(1);
+				run_to_block(1);
+
+				// Force reset the timestamp to the initial timestamp for easy testing.
 				Timestamp::set_timestamp(INIT_TIMESTAMP);
 			});
 		}
@@ -578,7 +580,7 @@ pub(crate) fn current_era() -> EraIndex {
 }
 
 pub(crate) fn bond(who: AccountId, val: Balance) {
-	let _ = Balances::make_free_balance_be(&who, val);
+	let _ = asset::set_stakeable_balance::<Test>(&who, val);
 	assert_ok!(Staking::bond(RuntimeOrigin::signed(who), val, RewardDestination::Stash));
 }
 
@@ -603,10 +605,6 @@ pub(crate) fn bond_virtual_nominator(
 	val: Balance,
 	target: Vec<AccountId>,
 ) {
-	// In a real scenario, `who` is a keyless account managed by another pallet which provides for
-	// it.
-	System::inc_providers(&who);
-
 	// Bond who virtually.
 	assert_ok!(<Staking as sp_staking::StakingUnchecked>::virtual_bond(&who, val, &payee));
 	assert_ok!(Staking::nominate(RuntimeOrigin::signed(who), target));
@@ -618,33 +616,31 @@ pub(crate) fn bond_virtual_nominator(
 /// a block import/propose process where we first initialize the block, then execute some stuff (not
 /// in the function), and then finalize the block.
 pub(crate) fn run_to_block(n: BlockNumber) {
-	Staking::on_finalize(System::block_number());
-	for b in (System::block_number() + 1)..=n {
-		System::set_block_number(b);
-		Session::on_initialize(b);
-		<Staking as Hooks<u64>>::on_initialize(b);
-		Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
-		if b != n {
-			Staking::on_finalize(System::block_number());
-		}
-	}
+	System::run_to_block_with::<AllPalletsWithSystem>(
+		n,
+		frame_system::RunToBlockHooks::default().after_initialize(|bn| {
+			Timestamp::set_timestamp(bn * BLOCK_TIME + INIT_TIMESTAMP);
+		}),
+	);
 }
 
 /// Progresses from the current block number (whatever that may be) to the `P * session_index + 1`.
-pub(crate) fn start_session(session_index: SessionIndex) {
+pub(crate) fn start_session(end_session_idx: SessionIndex) {
+	let period = Period::get();
 	let end: u64 = if Offset::get().is_zero() {
-		(session_index as u64) * Period::get()
+		(end_session_idx as u64) * period
 	} else {
-		Offset::get() + (session_index.saturating_sub(1) as u64) * Period::get()
+		Offset::get() + (end_session_idx.saturating_sub(1) as u64) * period
 	};
+
 	run_to_block(end);
+
+	let curr_session_idx = Session::current_index();
+
 	// session must have progressed properly.
 	assert_eq!(
-		Session::current_index(),
-		session_index,
-		"current session index = {}, expected = {}",
-		Session::current_index(),
-		session_index,
+		curr_session_idx, end_session_idx,
+		"current session index = {curr_session_idx}, expected = {end_session_idx}",
 	);
 }
 
@@ -814,7 +810,7 @@ pub(crate) fn bond_extra_no_checks(stash: &AccountId, amount: Balance) {
 	let mut ledger = Ledger::<Test>::get(&controller).expect("ledger must exist to bond_extra");
 
 	let new_total = ledger.total + amount;
-	Balances::set_lock(crate::STAKING_ID, stash, new_total, WithdrawReasons::all());
+	let _ = asset::update_stake::<Test>(stash, new_total);
 	ledger.total = new_total;
 	ledger.active = new_total;
 	Ledger::<Test>::insert(controller, ledger);
@@ -823,10 +819,10 @@ pub(crate) fn bond_extra_no_checks(stash: &AccountId, amount: Balance) {
 pub(crate) fn setup_double_bonded_ledgers() {
 	let init_ledgers = Ledger::<Test>::iter().count();
 
-	let _ = Balances::make_free_balance_be(&333, 2000);
-	let _ = Balances::make_free_balance_be(&444, 2000);
-	let _ = Balances::make_free_balance_be(&555, 2000);
-	let _ = Balances::make_free_balance_be(&777, 2000);
+	let _ = asset::set_stakeable_balance::<Test>(&333, 2000);
+	let _ = asset::set_stakeable_balance::<Test>(&444, 2000);
+	let _ = asset::set_stakeable_balance::<Test>(&555, 2000);
+	let _ = asset::set_stakeable_balance::<Test>(&777, 2000);
 
 	assert_ok!(Staking::bond(RuntimeOrigin::signed(333), 10, RewardDestination::Staked));
 	assert_ok!(Staking::bond(RuntimeOrigin::signed(444), 20, RewardDestination::Staked));
@@ -928,5 +924,5 @@ pub(crate) fn staking_events_since_last_call() -> Vec<crate::Event<Test>> {
 }
 
 pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
-	(Balances::free_balance(who), Balances::reserved_balance(who))
+	(asset::stakeable_balance::<Test>(who), Balances::reserved_balance(who))
 }

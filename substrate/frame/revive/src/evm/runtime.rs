@@ -20,7 +20,7 @@ use crate::{
 		api::{GenericTransaction, TransactionSigned},
 		GasEncoder,
 	},
-	AccountIdOf, AddressMapper, BalanceOf, Config, MomentOf, LOG_TARGET,
+	AccountIdOf, AddressMapper, BalanceOf, Config, MomentOf, Weight, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
@@ -70,6 +70,18 @@ where
 	} else {
 		(fee.saturating_add(gas_price) / gas_price).into()
 	}
+}
+
+/// Convert a `Weight` into a gas value, using the fixed `GAS_PRICE`.
+/// and the `Config::WeightPrice` to compute the fee.
+/// The gas is calculated as `fee / GAS_PRICE`, rounded up to the nearest integer.
+pub fn gas_from_weight<T: Config>(weight: Weight) -> U256
+where
+	BalanceOf<T>: Into<U256>,
+{
+	use sp_runtime::traits::Convert;
+	let fee: BalanceOf<T> = T::WeightPrice::convert(weight);
+	gas_from_fee(fee)
 }
 
 /// Wraps [`generic::UncheckedExtrinsic`] to support checking unsigned
