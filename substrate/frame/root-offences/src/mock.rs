@@ -30,7 +30,6 @@ use frame::{
 	deps::sp_staking::{EraIndex, SessionIndex},
 	testing_prelude::*,
 };
-
 type Block = MockBlock<Test>;
 type AccountId = u64;
 type Balance = u64;
