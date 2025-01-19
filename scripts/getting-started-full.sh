@@ -5,7 +5,7 @@ set -e
 prompt() {
     while true; do
         printf "$1 [y/N]\n"
-        read yn
+        read yn < /dev/tty
         case $yn in
             [Yy]* ) return 0;;  # Yes, return 0 (true)
             [Nn]* ) return 1;;  # No, return 1 (false)
@@ -18,7 +18,7 @@ prompt() {
 prompt_default_yes() {
     while true; do
         printf "$1 [Y/n]\n"
-        read yn
+        read yn < /dev/tty
         case $yn in
             [Yy]* ) return 0;;  # Yes, return 0 (true)
             [Nn]* ) return 1;;  # No, return 1 (false)
@@ -153,7 +153,7 @@ while true; do
     printf "2) parachain template\n"
     printf "3) solochain template\n"
     printf "q) exit without template\n"
-    read -p "#? " template
+    read -p "#? " template < /dev/tty
     case $template in
         [1]* ) clone_and_enter_template minimal; break;;
         [2]* ) clone_and_enter_template parachain; break;;
