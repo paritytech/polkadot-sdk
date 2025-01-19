@@ -22,11 +22,11 @@ pub mod zombienet;
 
 use std::time::Duration;
 
-use crate::zombienet::Network as Net;
+use zombienet::Network;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tryout() {
-	let small_net = zombienet::SmallNetworkSingleCollator::new();
+	let small_net = zombienet::small_network_yap::SmallNetworkYap::new();
 	let _network = small_net.start().await.unwrap();
 
 	// Show basedir.
