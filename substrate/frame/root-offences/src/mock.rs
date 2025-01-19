@@ -30,7 +30,6 @@ use frame::{
 	deps::sp_staking::{EraIndex, SessionIndex},
 	testing_prelude::*,
 };
-use pallet_staking::StakerStatus;
 
 type Block = MockBlock<Test>;
 type AccountId = u64;
