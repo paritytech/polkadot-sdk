@@ -40,8 +40,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config + Democracy::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-		type RuntimeCall: Convert<<Self as Config>::RuntimeCall, <Self as frame_system::Config>::RuntimeCall>
-			+ Parameter
+		type RuntimeCall: Parameter
 			+ UnfilteredDispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
 			+ From<Call<Self>>
 			+ Into<<Self as frame_system::Config>::RuntimeCall>
