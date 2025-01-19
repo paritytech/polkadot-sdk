@@ -64,7 +64,7 @@ impl<
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		let dest = AccountIdConverter::convert_location(to)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-		Fungible::transfer(&source, &dest, amount, Preserve)
+		Fungible::transfer(&source, &dest, amount, Expendable)
 			.map_err(|error| XcmError::FailedToTransactAsset(error.into()))?;
 		Ok(what.clone().into())
 	}
