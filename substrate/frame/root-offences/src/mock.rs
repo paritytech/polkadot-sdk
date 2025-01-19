@@ -23,6 +23,7 @@ use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
 };
+use frame::testing_prelude::*;
 
 use frame::deps::sp_staking::{EraIndex, SessionIndex};
 use pallet_staking::StakerStatus;

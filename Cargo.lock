@@ -19402,6 +19402,7 @@ dependencies = [
  "sp-offchain 26.0.0",
  "sp-runtime 31.0.1",
  "sp-session 27.0.0",
+ "sp-staking 26.0.0",
  "sp-storage 19.0.0",
  "sp-transaction-pool 26.0.0",
  "sp-version 29.0.0",
