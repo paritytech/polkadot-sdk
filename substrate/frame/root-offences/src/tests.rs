@@ -16,13 +16,13 @@
 // limitations under the License.
 
 use super::*;
-use frame_support::{assert_err, assert_ok};
+use frame::testing_prelude::*;
 use mock::{active_era, start_session, ExtBuilder, RootOffences, RuntimeOrigin, System, Test as T};
 use pallet_staking::asset;
 
 #[test]
 fn create_offence_fails_given_signed_origin() {
-	use sp_runtime::traits::BadOrigin;
+	use frame::traits::BadOrigin;
 	ExtBuilder::default().build_and_execute(|| {
 		let offenders = (&[]).to_vec();
 		assert_err!(RootOffences::create_offence(RuntimeOrigin::signed(1), offenders), BadOrigin);

@@ -201,7 +201,7 @@ pub mod prelude {
 
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
-	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
+	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo, DispatchResult};
 	pub use frame_support::{
 		defensive, defensive_assert,
 		traits::{
@@ -230,9 +230,15 @@ pub mod prelude {
 
 	/// Runtime traits
 	#[doc(no_inline)]
-	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+	pub use sp_runtime::{
+		curve::PiecewiseLinear,
+		testing::UintAuthorityId,
+		traits::{
+			BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
+			ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+			Zero,
+		},
+		BuildStorage, Perbill,
 	};
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
@@ -568,6 +574,7 @@ pub mod deps {
 	pub use sp_core;
 	pub use sp_io;
 	pub use sp_runtime;
+	pub use sp_staking;
 
 	pub use codec;
 	pub use scale_info;

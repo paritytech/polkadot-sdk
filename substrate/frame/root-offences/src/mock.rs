@@ -23,15 +23,11 @@ use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
 };
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64, OneSessionHandler},
-};
-use pallet_staking::StakerStatus;
-use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
-use sp_staking::{EraIndex, SessionIndex};
 
-type Block = frame_system::mocking::MockBlock<Test>;
+use pallet_staking::StakerStatus;
+use frame::deps::sp_staking::{EraIndex, SessionIndex};
+
+type Block = MockBlock<Test>;
 type AccountId = u64;
 type Balance = u64;
 type BlockNumber = u64;
@@ -39,7 +35,7 @@ type BlockNumber = u64;
 pub const INIT_TIMESTAMP: u64 = 30_000;
 pub const BLOCK_TIME: u64 = 1000;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -148,7 +144,7 @@ impl pallet_session::historical::Config for Test {
 	type FullIdentificationOf = pallet_staking::ExposureOf<Test>;
 }
 
-sp_runtime::impl_opaque_keys! {
+impl_opaque_keys! {
 	pub struct SessionKeys {
 		pub other: OtherSessionHandler,
 	}
@@ -196,7 +192,7 @@ impl Default for ExtBuilder {
 }
 
 impl ExtBuilder {
-	fn build(self) -> sp_io::TestExternalities {
+	fn build(self) -> TestState {
 		let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 		pallet_balances::GenesisConfig::<Test> {
