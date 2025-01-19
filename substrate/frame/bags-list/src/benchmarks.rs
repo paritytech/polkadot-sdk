@@ -20,13 +20,8 @@
 use super::*;
 use crate::list::List;
 use alloc::{vec, vec::Vec};
-use frame_benchmarking::v1::{
-	account, benchmarks_instance_pallet, whitelist_account, whitelisted_caller,
-};
+use frame::benchmarking::prelude::{RawOrigin as SystemOrigin, *};
 use frame_election_provider_support::ScoreProvider;
-use frame_support::{assert_ok, traits::Get};
-use frame_system::RawOrigin as SystemOrigin;
-use sp_runtime::traits::One;
 
 benchmarks_instance_pallet! {
 	rebag_non_terminal {

@@ -25,8 +25,11 @@ use frame_election_provider_support::{
 };
 
 use pallet_staking::StakerStatus;
-use frame::deps::sp_staking::{EraIndex, SessionIndex};
 
+use frame::{
+	deps::sp_staking::{EraIndex, SessionIndex},
+	testing_prelude::*,
+};
 type Block = MockBlock<Test>;
 type AccountId = u64;
 type Balance = u64;

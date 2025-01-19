@@ -73,10 +73,15 @@ pub mod pallet {
 		FailedToGetActiveEra,
 	}
 
+<<<<<<< HEAD
 	type OffenceDetails<T> = OffenceDetails<
 		<T as frame_system::Config>::AccountId,
 		IdentificationTuple<T>,
 	>;
+=======
+	type OffenceDetails<T> =
+		OffenceDetails<<T as frame_system::Config>::AccountId, IdentificationTuple<T>>;
+>>>>>>> origin/pallet-root-offences
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -120,7 +125,16 @@ pub mod pallet {
 
 		/// Submits the offence by calling the `on_offence` function.
 		fn submit_offence(offenders: &[OffenceDetails<T>], slash_fraction: &[Perbill]) {
+<<<<<<< HEAD
 			let session_index = <pallet_session::Pallet<T> as frame::traits::ValidatorSet<T::AccountId>>::session_index();
+=======
+			let session_index = <pallet_session::Pallet<T> as frame::traits::ValidatorSet<
+				T::AccountId,
+			>>::session_index();
+			let session_index = <pallet_session::Pallet<T> as frame::traits::ValidatorSet<
+				T::AccountId,
+			>>::session_index();
+>>>>>>> origin/pallet-root-offences
 
 			<pallet_staking::Pallet<T> as OnOffenceHandler<
 				T::AccountId,

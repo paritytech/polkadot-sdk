@@ -17,15 +17,17 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-frame = { workspace = true, features = ["runtime"] }
+frame = { workspace = true, features = ["runtime"]}
 scale-info = { features = ["derive"], workspace = true }
 
 [features]
 try-runtime = [
+	"frame/try-runtime",
 ]
 default = ["std"]
 std = [
 	"codec/std",
 	"frame/std",
+	"scale-info/std",
 	"scale-info/std",
 ]

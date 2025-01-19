@@ -201,13 +201,16 @@ pub mod prelude {
 
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
-	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo, DispatchResult};
+	pub use frame_support::dispatch::{DispatchResult, GetDispatchInfo, PostDispatchInfo};
 	pub use frame_support::{
-		defensive, defensive_assert,
+		defensive, defensive_assert, ensure,
+		storage::generator::StorageMap,
 		traits::{
-			Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll,
-			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+			Contains, Defensive, DefensiveOption, EitherOf, EstimateNextSessionRotation, Get,
+			IsSubType, MapSuccess, NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, PalletInfoAccess,
+			RankedMembers, RankedMembersSwapHandler,
 		},
+		PalletError,
 	};
 
 	/// Pallet prelude of `frame-system`.

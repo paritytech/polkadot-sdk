@@ -126,12 +126,8 @@ extern crate alloc;
 
 use alloc::boxed::Box;
 use codec::FullCodec;
+use frame::prelude::*;
 use frame_election_provider_support::{ScoreProvider, SortedListProvider};
-use frame_system::ensure_signed;
-use sp_runtime::traits::{AtLeast32BitUnsigned, Bounded, StaticLookup};
-
-#[cfg(any(test, feature = "try-runtime", feature = "fuzz"))]
-use sp_runtime::TryRuntimeError;
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
 mod benchmarks;
@@ -158,7 +154,7 @@ macro_rules! log {
 			target: crate::LOG_TARGET,
 			concat!("[{:?}] 👜 [{}]", $patter),
 			<frame_system::Pallet<T>>::block_number(),
-			<crate::Pallet::<T, I> as frame_support::traits::PalletInfoAccess>::name()
+			<crate::Pallet::<T, I> as PalletInfoAccess>::name()
 			$(, $values)*
 		)
 	};
@@ -166,11 +162,10 @@ macro_rules! log {
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
+	use frame::prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(_);
@@ -361,7 +356,7 @@ pub mod pallet {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn try_state(_: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+		fn try_state(_: BlockNumberFor<T>) -> Result<(), frame::try_runtime::TryRuntimeError> {
 			<Self as SortedListProvider<T::AccountId>>::try_state()
 		}
 	}
@@ -369,7 +364,7 @@ pub mod pallet {
 
 #[cfg(any(test, feature = "try-runtime", feature = "fuzz"))]
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
-	pub fn do_try_state() -> Result<(), TryRuntimeError> {
+	pub fn do_try_state() -> Result<(), frame::try_runtime::TryRuntimeError> {
 		List::<T, I>::do_try_state()
 	}
 }
@@ -449,7 +444,7 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn try_state() -> Result<(), TryRuntimeError> {
+	fn try_state() -> Result<(), frame::try_runtime::TryRuntimeError> {
 		Self::do_try_state()
 	}
 

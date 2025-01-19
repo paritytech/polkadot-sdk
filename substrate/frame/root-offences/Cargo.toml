@@ -47,6 +47,10 @@ try-runtime = [
 	"pallet-session/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-timestamp/try-runtime",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"frame/runtime-benchmarks",
 ]
 default = ["std"]
 std = [

@@ -17,10 +17,8 @@
 //! Test to check the migration of the voter bag.
 
 use crate::{RuntimeT, LOG_TARGET};
-use frame_support::traits::PalletInfoAccess;
 use pallet_staking::Nominators;
 use remote_externalities::{Builder, Mode, OnlineConfig};
-use sp_runtime::{traits::Block as BlockT, DeserializeOwned};
 
 /// Test voter bags migration. `currency_unit` is the number of planks per the the runtimes `UNITS`
 /// (i.e. number of decimal places per DOT, KSM etc)
