@@ -15077,19 +15077,14 @@ name = "pallet-root-offences"
 version = "25.0.0"
 dependencies = [
  "frame-election-provider-support 28.0.0",
- "frame-support 28.0.0",
- "frame-system 28.0.0",
  "pallet-balances 28.0.0",
  "pallet-session 28.0.0",
  "pallet-staking 28.0.0",
  "pallet-staking-reward-curve",
  "pallet-timestamp 27.0.0",
  "parity-scale-codec",
+ "polkadot-sdk-frame 0.1.0",
  "scale-info",
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
- "sp-staking 26.0.0",
 ]
 
 [[package]]
@@ -15112,13 +15107,9 @@ dependencies = [
 name = "pallet-root-testing"
 version = "4.0.0"
 dependencies = [
- "frame-support 28.0.0",
- "frame-system 28.0.0",
  "parity-scale-codec",
+ "polkadot-sdk-frame 0.1.0",
  "scale-info",
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
 ]
 
 [[package]]

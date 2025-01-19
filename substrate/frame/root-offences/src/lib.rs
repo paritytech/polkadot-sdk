@@ -30,18 +30,15 @@ mod tests;
 extern crate alloc;
 
 use alloc::vec::Vec;
+use frame::deps::sp_staking::offence::{OffenceDetails, OnOffenceHandler};
 use pallet_session::historical::IdentificationTuple;
 use pallet_staking::{BalanceOf, Exposure, ExposureOf, Pallet as Staking};
-use sp_runtime::Perbill;
-use sp_staking::offence::OnOffenceHandler;
 
 pub use pallet::*;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
 	pub trait Config:
@@ -122,7 +119,9 @@ pub mod pallet {
 
 		/// Submits the offence by calling the `on_offence` function.
 		fn submit_offence(offenders: &[OffenceDetails<T>], slash_fraction: &[Perbill]) {
-			let session_index = <pallet_session::Pallet<T> as frame_support::traits::ValidatorSet<T::AccountId>>::session_index();
+			let session_index = <pallet_session::Pallet<T> as frame::traits::ValidatorSet<
+				T::AccountId,
+			>>::session_index();
 
 			<pallet_staking::Pallet<T> as OnOffenceHandler<
 				T::AccountId,

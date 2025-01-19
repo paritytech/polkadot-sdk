@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use super::*;
-use frame_support::{assert_err, assert_ok};
+use frame::testing_prelude::*;
 use mock::{active_era, start_session, ExtBuilder, RootOffences, RuntimeOrigin, System, Test as T};
 use pallet_staking::asset;
 
