@@ -42,7 +42,7 @@ use std::{fmt::Debug, sync::Arc};
 const LRU_WINDOW: u32 = 256;
 const EQUIVOCATION_LIMIT: usize = 16;
 
-struct NaiveEquivocationDefender {
+pub struct NaiveEquivocationDefender {
 	cache: LruMap<u64, usize>,
 }
 
@@ -68,12 +68,34 @@ impl NaiveEquivocationDefender {
 	}
 }
 
-struct Verifier<P, Client, Block, CIDP> {
+pub struct Verifier<P, Client, Block, CIDP> {
 	client: Arc<Client>,
 	create_inherent_data_providers: CIDP,
 	defender: Mutex<NaiveEquivocationDefender>,
 	telemetry: Option<TelemetryHandle>,
 	_phantom: std::marker::PhantomData<fn() -> (Block, P)>,
+}
+
+impl<P, Client, Block, CIDP> Verifier<P,Client, Block, CIDP>
+where
+	P: Pair,
+	P::Signature: Codec,
+	P::Public: Codec + Debug,
+	Block: BlockT,
+	Client: ProvideRuntimeApi<Block> + Send + Sync,
+	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block> + AuraApi<Block, P::Public>,
+
+	CIDP: CreateInherentDataProviders<Block, ()>,
+{
+	pub fn new(client: Arc<Client>, inherent_data_provider: CIDP, telemetry: Option<TelemetryHandle>) -> Self {
+		Self{
+			client,
+			create_inherent_data_providers: inherent_data_provider,
+			defender: Mutex::new(NaiveEquivocationDefender::default()),
+			telemetry,
+			_phantom: std::marker::PhantomData,
+		}
+	}
 }
 
 #[async_trait::async_trait]

@@ -37,10 +37,12 @@ use cumulus_client_collator::service::{
 use cumulus_client_consensus_aura::collators::slot_based::{
 	self as slot_based, Params as SlotBasedParams,
 };
-use cumulus_client_consensus_aura::collators::{
+use cumulus_client_consensus_aura::{collators::{
 	lookahead::{self as aura, Params as AuraParams},
-	slot_based::{SlotBasedBlockImport, SlotBasedBlockImportHandle},
+	slot_based::{SlotBasedBlockImport, SlotBasedBlockImportHandle}
+	},equivocation_import_queue::Verifier as EquivocationVerifier
 };
+use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use cumulus_client_consensus_proposer::{Proposer, ProposerInterface};
 #[allow(deprecated)]
 use cumulus_client_service::CollatorSybilResistance;
@@ -52,7 +54,7 @@ use prometheus_endpoint::Registry;
 use sc_client_api::BlockchainEvents;
 use sc_client_db::DbHash;
 use sc_consensus::{
-	import_queue::{Verifier as VerifierT},
+	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockImportParams, DefaultImportQueue,
 };
 use sc_service::{Configuration, Error, TaskManager};
@@ -125,18 +127,20 @@ where
 		let registry = config.prometheus_registry();
 		let spawner = task_manager.spawn_essential_handle();
 
-		let aura_verifier = cumulus_client_consensus_aura::equivocation_import_queue::fully_verifying_import_queue::
-		<<AuraId as AppCrypto>::Pair,_,_,_,_>
-		(
+		let relay_chain_verifier =
+			Box::new(RelayChainVerifier::new(client.clone(), |_, _| async { Ok(()) }));
+
+		let equivocation_aura_verifier = EquivocationVerifier::<<AuraId as AppCrypto>::Pair,_,_,_>::
+		new(client.clone(),inherent_data_providers,telemetry_handle);
+
+		let verifier = Verifier {
 			client,
-			block_import,
-			inherent_data_providers,
-			&spawner,
-			registry,
-		 	telemetry_handle
-		);
-		
-		Ok(aura_verifier)
+			aura_verifier: Box::new(equivocation_aura_verifier),
+			relay_chain_verifier,
+			_phantom: Default::default(),
+		};
+
+		Ok(BasicQueue::new(verifier, Box::new(block_import), None, &spawner, registry))
 	}
 }
 
