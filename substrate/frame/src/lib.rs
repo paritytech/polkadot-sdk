@@ -106,7 +106,7 @@
 //! [dependencies]
 //! codec = { features = ["max-encoded-len"], workspace = true }
 //! scale-info = { features = ["derive"], workspace = true }
-//! frame = { workspace = true, features = ["experimental", "runtime"] }
+//! frame = { workspace = true, features = ["runtime"] }
 //!
 //! [features]
 //! default = ["std"]
@@ -150,7 +150,6 @@
 //! * `runtime::apis` should expose all common runtime APIs that all FRAME-based runtimes need.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg(feature = "experimental")]
 
 #[doc(no_inline)]
 pub use frame_support::pallet;
@@ -203,8 +202,12 @@ pub mod prelude {
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{
-		Contains, EstimateNextSessionRotation, IsSubType, OnRuntimeUpgrade, OneSessionHandler,
+	pub use frame_support::{
+		defensive, defensive_assert,
+		traits::{
+			Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll,
+			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+		},
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -228,11 +231,10 @@ pub mod prelude {
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, DispatchInfoOf, Dispatchable, SaturatedConversion,
-		Saturating, StaticLookup, TrailingZeroInput,
+		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
+		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
 	};
-
-	/// Other runtime types and traits
+	/// Other error/result types for runtime
 	#[doc(no_inline)]
 	pub use sp_runtime::{
 		BoundToRuntimeAppPublic, DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
@@ -262,7 +264,7 @@ pub mod benchmarking {
 		pub use frame_benchmarking::benchmarking::*;
 		// The system origin, which is very often needed in benchmarking code. Might be tricky only
 		// if the pallet defines its own `#[pallet::origin]` and call it `RawOrigin`.
-		pub use frame_system::RawOrigin;
+		pub use frame_system::{Pallet as System, RawOrigin};
 	}
 
 	#[deprecated(
@@ -319,15 +321,18 @@ pub mod testing_prelude {
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{
 		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok,
-		assert_storage_noop, storage_alias,
+		assert_storage_noop, hypothetically, storage_alias,
 	};
 
-	pub use frame_system::{self, mocking::*};
+	pub use frame_system::{self, mocking::*, RunToBlockHooks};
 
-	#[deprecated(note = "Use `frame::testing_prelude::TestExternalities` instead.")]
+	#[deprecated(note = "Use `frame::testing_prelude::TestState` instead.")]
 	pub use sp_io::TestExternalities;
 
 	pub use sp_io::TestExternalities as TestState;
+
+	/// Commonly used runtime traits for testing.
+	pub use sp_runtime::{traits::BadOrigin, StateVersion};
 }
 
 /// All of the types and tools needed to build FRAME-based runtimes.
@@ -505,7 +510,7 @@ pub mod runtime {
 	#[cfg(feature = "std")]
 	pub mod testing_prelude {
 		pub use sp_core::storage::Storage;
-		pub use sp_runtime::BuildStorage;
+		pub use sp_runtime::{BuildStorage, DispatchError};
 	}
 }
 
