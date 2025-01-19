@@ -77,16 +77,3 @@ pub fn new_test_ext() -> TestExternalities {
 	.unwrap();
 	t.into()
 }
-
-/// Run until a particular block.
-pub fn run_to_block(n: u64) {
-	while System::block_number() < n {
-		if System::block_number() > 1 {
-			Lottery::on_finalize(System::block_number());
-			System::on_finalize(System::block_number());
-		}
-		System::set_block_number(System::block_number() + 1);
-		System::on_initialize(System::block_number());
-		Lottery::on_initialize(System::block_number());
-	}
-}

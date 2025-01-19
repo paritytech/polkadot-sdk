@@ -55,17 +55,14 @@ for (const file of input) {
 	}
 
 	console.log('Compiling with revive...')
-	const reviveOut = await compile(input)
+	const reviveOut = await compile(input, { bin: 'resolc' })
 
 	for (const contracts of Object.values(reviveOut.contracts)) {
 		for (const [name, contract] of Object.entries(contracts)) {
 			console.log(`📜 Add PVM contract ${name}`)
 			const abi = contract.abi
 			const abiName = `${name}Abi`
-			writeFileSync(
-				join(abiDir, `${name}.json`),
-				JSON.stringify(abi, null, 2)
-			)
+			writeFileSync(join(abiDir, `${name}.json`), JSON.stringify(abi, null, 2))
 
 			writeFileSync(
 				join(abiDir, `${name}.ts`),
