@@ -227,9 +227,9 @@ pub mod prelude {
 
 	/// All arithmetic types and traits used for safe math.
 	pub use super::arithmetic::*;
-  
-  /// All account management related things.
-  pub use super::account::*;
+
+	/// All account management related things.
+	pub use super::account::*;
 
 	/// Runtime traits
 	#[doc(no_inline)]
@@ -244,9 +244,8 @@ pub mod prelude {
 	/// Other runtime types and traits
 	#[doc(no_inline)]
 	pub use sp_runtime::{
-		BoundToRuntimeAppPublic,
-		DispatchError,
-		DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
+		BoundToRuntimeAppPublic, DispatchError, DispatchErrorWithPostInfo, DispatchResultWithInfo,
+		TokenError,
 	};
 }
 
