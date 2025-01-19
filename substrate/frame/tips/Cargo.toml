@@ -17,11 +17,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
+frame = { workspace = true, features = ["runtime"] }
 log = { workspace = true }
+pallet-treasury = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["derive"], optional = true, workspace = true, default-features = true }
-frame = { workspace = true, features = ["experimental", "runtime"] }
-pallet-treasury = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
