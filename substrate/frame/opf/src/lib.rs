@@ -538,6 +538,25 @@ pub mod pallet {
 			Ok(())
 		}
 
+
+		/// User's funds unlock
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be signed
+		///
+		/// ## Details
+		///
+		/// This extrinsic allows users to unlock funds related to a specific project,
+		/// provided the locking period (which is dependant of the conviction) has ended.
+		///
+		/// ### Parameters
+		/// - `project_id`: The account that will receive the reward.
+		///
+		/// ### Errors
+		/// - [`Error::<T>::NoVoteData`]: No vote data found for the specified project
+		///  
+		/// ## Events
 		#[pallet::call_index(7)]
 		#[transactional]
 		pub fn release_voter_funds(

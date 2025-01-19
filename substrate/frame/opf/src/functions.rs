@@ -346,7 +346,7 @@ impl<T: Config> Pallet<T> {
 				.map_err(|_| Error::<T>::FailedRewardCalculation);
 
 			// Clear Votes storage
-			Votes::<T>::drain();
+			//Votes::<T>::drain();
 			// Clear ProjectFunds storage
 			ProjectFunds::<T>::drain();
 		}
