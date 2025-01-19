@@ -24,11 +24,12 @@ use crate::{
 	},
 	DispatchResult,
 };
+use alloc::vec::Vec;
 use codec::{Codec, Decode, Encode};
-use impl_trait_for_tuples::impl_for_tuples;
+use core::fmt::Debug;
 #[doc(hidden)]
-pub use sp_std::marker::PhantomData;
-use sp_std::{self, fmt::Debug, prelude::*};
+pub use core::marker::PhantomData;
+use impl_trait_for_tuples::impl_for_tuples;
 use sp_weights::Weight;
 use tuplex::{PopFront, PushBack};
 
@@ -258,7 +259,7 @@ pub trait TransactionExtension<Call: Dispatchable>:
 	/// This method provides a default implementation that returns a vec containing a single
 	/// [`TransactionExtensionMetadata`].
 	fn metadata() -> Vec<TransactionExtensionMetadata> {
-		sp_std::vec![TransactionExtensionMetadata {
+		alloc::vec![TransactionExtensionMetadata {
 			identifier: Self::IDENTIFIER,
 			ty: scale_info::meta_type::<Self>(),
 			implicit: scale_info::meta_type::<Self::Implicit>()
@@ -487,7 +488,7 @@ pub trait TransactionExtension<Call: Dispatchable>:
 #[macro_export]
 macro_rules! impl_tx_ext_default {
 	($call:ty ; , $( $rest:tt )*) => {
-		impl_tx_ext_default!{$call ; $( $rest )*}
+		$crate::impl_tx_ext_default!{$call ; $( $rest )*}
 	};
 	($call:ty ; validate $( $rest:tt )*) => {
 		fn validate(
@@ -502,7 +503,7 @@ macro_rules! impl_tx_ext_default {
 		) -> $crate::traits::ValidateResult<Self::Val, $call> {
 			Ok((Default::default(), Default::default(), origin))
 		}
-		impl_tx_ext_default!{$call ; $( $rest )*}
+		$crate::impl_tx_ext_default!{$call ; $( $rest )*}
 	};
 	($call:ty ; prepare $( $rest:tt )*) => {
 		fn prepare(
@@ -515,13 +516,13 @@ macro_rules! impl_tx_ext_default {
 		) -> Result<Self::Pre, $crate::transaction_validity::TransactionValidityError> {
 			Ok(Default::default())
 		}
-		impl_tx_ext_default!{$call ; $( $rest )*}
+		$crate::impl_tx_ext_default!{$call ; $( $rest )*}
 	};
 	($call:ty ; weight $( $rest:tt )*) => {
 		fn weight(&self, _call: &$call) -> $crate::Weight {
 			$crate::Weight::zero()
 		}
-		impl_tx_ext_default!{$call ; $( $rest )*}
+		$crate::impl_tx_ext_default!{$call ; $( $rest )*}
 	};
 	($call:ty ;) => {};
 }
@@ -668,7 +669,7 @@ impl<Call: Dispatchable> TransactionExtension<Call> for Tuple {
 impl<Call: Dispatchable> TransactionExtension<Call> for () {
 	const IDENTIFIER: &'static str = "UnitTransactionExtension";
 	type Implicit = ();
-	fn implicit(&self) -> sp_std::result::Result<Self::Implicit, TransactionValidityError> {
+	fn implicit(&self) -> core::result::Result<Self::Implicit, TransactionValidityError> {
 		Ok(())
 	}
 	type Val = ();
