@@ -336,6 +336,7 @@ where
 				);
 				Some(super::can_build_upon::<_, _, P>(
 					slot_now,
+					relay_slot,
 					timestamp,
 					block_hash,
 					included_block,
