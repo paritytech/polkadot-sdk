@@ -308,6 +308,8 @@ pub mod pallet {
 				// Prepare the proposal call
 				let call = Call::<T>::on_registration { project_id: project_id.clone() };
 				let proposal = Self::create_proposal(who.clone(), call);
+
+				// Start Referendum
 				let referendum_index =
 					Self::start_dem_referendum(proposal, T::EnactmentPeriod::get());
 				let mut new_infos = WhiteListedProjectAccounts::<T>::get(&project_id)
@@ -356,6 +358,37 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// OPF voting logic
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be signed
+		///
+		/// ## Details
+		///
+		/// This extrinsic allows users to [vote for/nominate] a whitelisted project using their
+		/// funds. The amount defined by the user is locked and released only when the project
+		/// reward is ready for distribution, or when the project is not dimmed fundable.
+		/// Users can edit/over-write an existing vote within the vote-casting period.
+		/// At the end of the voting period, rewards are calculated based on the total user amount
+		/// attributed to each project by the user’s votes.
+		///
+		/// ### Parameters
+		/// - `project_id`: The account that will receive the reward.
+		/// - `amount`: Amount that will be locked in user’s balance to nominate a project.
+		/// - `is_fund`: Parameter that defines if user’s vote is in favor (*true*), or against
+		///   (*false*)
+		/// the project funding.
+		/// - `conviction`: Used to calculate the value allocated to the project, & determine
+		/// when the voter's funds will be unlocked. Amount actually locked is the amount without
+		/// conviction  
+		///
+		/// ### Errors
+		/// - [`Error::<T>::NotEnoughFunds`]: The user does not have enough balance to cast a vote
+		///  
+		/// ## Events
+		/// - [`Event::<T>::VoteCasted { who, when, project_id }`]: User's vote successfully
+		///   submitted
 		#[pallet::call_index(3)]
 		#[transactional]
 		pub fn vote(
@@ -396,6 +429,26 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// OPF vote removal logic
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be signed
+		///
+		/// ## Details
+		///
+		/// This extrinsic allows users to remove a casted vote, as long as it is within the
+		/// vote-casting period.
+		///
+		/// ### Parameters
+		/// - `project_id`: The account that will receive the reward.
+		///
+		/// ### Errors
+		/// - [`Error::<T>::NotEnoughFunds`]: The user does not have enough balance to cast a vote
+		///  
+		/// ## Events
+		/// - [`Event::<T>::VoteRemoved { who, when, project_id }`]: User's vote successfully
+		///   removed
 		#[pallet::call_index(4)]
 		#[transactional]
 		pub fn remove_vote(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
