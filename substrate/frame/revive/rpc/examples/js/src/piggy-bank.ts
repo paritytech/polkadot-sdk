@@ -4,7 +4,7 @@ import { parseEther } from 'viem'
 
 const hash = await walletClient.deployContract({
 	abi: PiggyBankAbi,
-	bytecode: getByteCode('piggyBank'),
+	bytecode: getByteCode('PiggyBank'),
 })
 const deployReceipt = await walletClient.waitForTransactionReceipt({ hash })
 const contractAddress = deployReceipt.contractAddress
@@ -31,9 +31,7 @@ assert(contractAddress, 'Contract address should be set')
 		value: parseEther('10'),
 	})
 
-	request.nonce = 0
 	const hash = await walletClient.writeContract(request)
-
 	const receipt = await walletClient.waitForTransactionReceipt({ hash })
 	console.log(`Deposit receipt: ${receipt.status}`)
 }

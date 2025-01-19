@@ -142,6 +142,10 @@ pub trait EthRpc {
 		transaction_hash: H256,
 	) -> RpcResult<Option<ReceiptInfo>>;
 
+	/// Returns the current maxPriorityFeePerGas per gas in wei.
+	#[method(name = "eth_maxPriorityFeePerGas")]
+	async fn max_priority_fee_per_gas(&self) -> RpcResult<U256>;
+
 	/// Submits a raw transaction. For EIP-4844 transactions, the raw form must be the network form.
 	/// This means it includes the blobs, KZG commitments, and KZG proofs.
 	#[method(name = "eth_sendRawTransaction")]
