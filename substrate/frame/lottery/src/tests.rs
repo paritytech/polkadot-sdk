@@ -18,11 +18,8 @@
 //! Tests for the module.
 
 use super::*;
+use crate::mock::{Lottery, *};
 use frame::testing_prelude::*;
-use crate::{
-	mock::{Lottery, *},
-	*,
-};
 
 #[test]
 fn initial_state() {
