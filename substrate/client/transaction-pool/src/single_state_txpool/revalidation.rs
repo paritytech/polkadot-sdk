@@ -384,7 +384,11 @@ mod tests {
 	#[test]
 	fn revalidation_queue_works() {
 		let api = Arc::new(TestApi::default());
-		let pool = Arc::new(Pool::new(Default::default(), true.into(), api.clone()));
+		let pool = Arc::new(Pool::new_with_staticly_sized_rotator(
+			Default::default(),
+			true.into(),
+			api.clone(),
+		));
 		let queue = Arc::new(RevalidationQueue::new(api.clone(), pool.clone()));
 
 		let uxt = uxt(Transfer {
@@ -401,7 +405,8 @@ mod tests {
 			TimedTransactionSource::new_external(false),
 			uxt.clone().into(),
 		))
-		.expect("Should be valid");
+		.expect("Should be valid")
+		.hash();
 
 		block_on(queue.revalidate_later(han_of_block0.hash, vec![uxt_hash]));
 
@@ -414,7 +419,11 @@ mod tests {
 	#[test]
 	fn revalidation_queue_skips_revalidation_for_unknown_block_hash() {
 		let api = Arc::new(TestApi::default());
-		let pool = Arc::new(Pool::new(Default::default(), true.into(), api.clone()));
+		let pool = Arc::new(Pool::new_with_staticly_sized_rotator(
+			Default::default(),
+			true.into(),
+			api.clone(),
+		));
 		let queue = Arc::new(RevalidationQueue::new(api.clone(), pool.clone()));
 
 		let uxt0 = uxt(Transfer {
@@ -440,7 +449,7 @@ mod tests {
 				vec![(source.clone(), uxt0.into()), (source, uxt1.into())],
 			))
 			.into_iter()
-			.map(|r| r.expect("Should be valid"))
+			.map(|r| r.expect("Should be valid").hash())
 			.collect::<Vec<_>>();
 
 		assert_eq!(api.validation_requests().len(), 2);
