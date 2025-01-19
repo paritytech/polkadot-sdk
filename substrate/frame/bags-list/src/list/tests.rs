@@ -20,7 +20,9 @@ use crate::{
 	mock::{test_utils::*, *},
 	ListBags, ListNodes,
 };
-use frame::{testing_prelude::*, try_runtime::TryRuntimeError};
+use frame_election_provider_support::{SortedListProvider, VoteWeight};
+use frame_support::{assert_ok, assert_storage_noop};
+use sp_runtime::TryRuntimeError;
 
 fn node(
 	id: AccountId,
@@ -369,8 +371,9 @@ mod list {
 			assert_eq!(crate::ListNodes::<Runtime>::count(), 4);
 			// we do some wacky stuff here to get access to the counter, since it is (reasonably)
 			// not exposed as mutable in any sense.
-			#[frame::storage_alias]
-			type CounterForListNodes<T: Config> = StorageValue<crate::Pallet<T>, u32, ValueQuery>;
+			#[frame_support::storage_alias]
+			type CounterForListNodes<T: Config> =
+				StorageValue<crate::Pallet<T>, u32, frame_support::pallet_prelude::ValueQuery>;
 			CounterForListNodes::<Runtime>::mutate(|counter| *counter += 1);
 			assert_eq!(crate::ListNodes::<Runtime>::count(), 5);
 

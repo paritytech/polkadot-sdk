@@ -19,8 +19,9 @@
 
 use super::*;
 use crate::{self as bags_list};
-use frame::testing_prelude::*;
 use frame_election_provider_support::VoteWeight;
+use frame_support::{derive_impl, parameter_types};
+use sp_runtime::BuildStorage;
 use std::collections::HashMap;
 
 pub type AccountId = <Runtime as frame_system::Config>::AccountId;
@@ -65,8 +66,8 @@ impl bags_list::Config for Runtime {
 	type Score = VoteWeight;
 }
 
-type Block = MockBlock<Runtime>;
-construct_runtime!(
+type Block = frame_system::mocking::MockBlock<Runtime>;
+frame_support::construct_runtime!(
 	pub enum Runtime {
 		System: frame_system,
 		BagsList: bags_list,
@@ -99,7 +100,7 @@ impl ExtBuilder {
 		self
 	}
 
-	pub(crate) fn build(self) -> TestState {
+	pub(crate) fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
 		let storage = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
@@ -109,10 +110,10 @@ impl ExtBuilder {
 			GENESIS_IDS.iter().chain(self.ids.iter()).collect()
 		};
 
-		let mut ext = TestState::from(storage);
+		let mut ext = sp_io::TestExternalities::from(storage);
 		ext.execute_with(|| {
 			for (id, weight) in ids_with_weight {
-				assert_ok!(List::<Runtime>::insert(*id, *weight));
+				frame_support::assert_ok!(List::<Runtime>::insert(*id, *weight));
 				StakingMock::set_score_of(id, *weight);
 			}
 		});

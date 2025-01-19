@@ -32,9 +32,13 @@ use alloc::{
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::{iter, marker::PhantomData};
 use frame_election_provider_support::ScoreProvider;
-
-use frame::testing_prelude::*;
+use frame_support::{
+	defensive, ensure,
+	traits::{Defensive, DefensiveOption, Get},
+	DefaultNoBound, PalletError,
+};
 use scale_info::TypeInfo;
+use sp_runtime::traits::{Bounded, Zero};
 
 #[cfg(any(
 	test,
@@ -45,6 +49,8 @@ use scale_info::TypeInfo;
 ))]
 use alloc::vec::Vec;
 #[cfg(any(test, feature = "try-runtime", feature = "fuzz"))]
+use sp_runtime::TryRuntimeError;
+
 #[derive(Debug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo, PalletError)]
 pub enum ListError {
 	/// A duplicate id has been detected.
@@ -567,7 +573,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 			let expected_bag = bags_map
 				.get(&node.bag_upper)
 				.ok_or("bag not found for the node in active bags")?;
-			ensure!(expected_bag.contains(node.id()), "node not found in the bag");
+			frame_support::ensure!(expected_bag.contains(node.id()), "node not found in the bag");
 
 			// verify node state
 			node.do_try_state()?
@@ -580,7 +586,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 	#[cfg(any(feature = "std", feature = "runtime-benchmarks"))]
 	#[allow(dead_code)]
 	pub(crate) fn get_bags() -> Vec<(T::Score, Vec<T::AccountId>)> {
-		use frame::traits::Get as _;
+		use frame_support::traits::Get as _;
 
 		let thresholds = T::BagThresholds::get();
 		let iter = thresholds.iter().copied();
@@ -769,8 +775,8 @@ impl<T: Config<I>, I: 'static> Bag<T, I> {
 	/// * Ensures tail has no next.
 	/// * Ensures there are no loops, traversal from head to tail is correct.
 	#[cfg(any(test, feature = "try-runtime", feature = "fuzz"))]
-	fn do_try_state(&self) -> Result<(), frame::try_runtime::TryRuntimeError> {
-		ensure!(
+	fn do_try_state(&self) -> Result<(), TryRuntimeError> {
+		frame_support::ensure!(
 			self.head()
 				.map(|head| head.prev().is_none())
 				// if there is no head, then there must not be a tail, meaning that the bag is
@@ -779,7 +785,7 @@ impl<T: Config<I>, I: 'static> Bag<T, I> {
 			"head has a prev"
 		);
 
-		ensure!(
+		frame_support::ensure!(
 			self.tail()
 				.map(|tail| tail.next().is_none())
 				// if there is no tail, then there must not be a head, meaning that the bag is
@@ -789,7 +795,7 @@ impl<T: Config<I>, I: 'static> Bag<T, I> {
 		);
 
 		let mut seen_in_bag = BTreeSet::new();
-		ensure!(
+		frame_support::ensure!(
 			self.iter()
 				.map(|node| node.id)
 				// each voter is only seen once, thus there is no cycle within a bag
@@ -812,7 +818,7 @@ impl<T: Config<I>, I: 'static> Bag<T, I> {
 #[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T, I))]
-#[cfg_attr(feature = "std", derive(DebugNoBound, Clone, PartialEq))]
+#[cfg_attr(feature = "std", derive(frame_support::DebugNoBound, Clone, PartialEq))]
 pub struct Node<T: Config<I>, I: 'static = ()> {
 	pub(crate) id: T::AccountId,
 	pub(crate) prev: Option<T::AccountId>,
@@ -908,7 +914,7 @@ impl<T: Config<I>, I: 'static> Node<T, I> {
 	}
 
 	#[cfg(any(test, feature = "try-runtime", feature = "fuzz"))]
-	fn do_try_state(&self) -> Result<(), frame::try_runtime::TryRuntimeError> {
+	fn do_try_state(&self) -> Result<(), TryRuntimeError> {
 		let expected_bag = Bag::<T, I>::get(self.bag_upper).ok_or("bag not found for node")?;
 		let id = self.id();
 
@@ -917,7 +923,7 @@ impl<T: Config<I>, I: 'static> Node<T, I> {
 			expected_bag.tail.as_ref() != Some(id);
 		let terminal_check =
 			expected_bag.head.as_ref() == Some(id) || expected_bag.tail.as_ref() == Some(id);
-		ensure!(
+		frame_support::ensure!(
 			non_terminal_check || terminal_check,
 			"a terminal node is neither its bag head or tail"
 		);
