@@ -387,8 +387,11 @@ pub mod pallet {
 			let converted_amount = Self::convert_balance(amount).ok_or("Failed Conversion!!!")?;
 			let account_vote = Democracy::AccountVote::Standard { vote, balance: converted_amount };
 
-			Self::try_vote(voter, project_id, amount, is_fund, conviction)?;
+			Self::try_vote(voter.clone(), project_id.clone(), amount, is_fund, conviction)?;
 			Democracy::Pallet::<T>::vote(origin, ref_index, account_vote)?;
+
+			let when = T::BlockNumberProvider::current_block_number();
+			Self::deposit_event(Event::<T>::VoteCasted { who: voter, when, project_id });
 
 			Ok(())
 		}

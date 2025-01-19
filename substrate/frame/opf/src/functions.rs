@@ -30,8 +30,8 @@ impl<T: Config> Pallet<T> {
 		let value = <T as Democracy::Config>::MinimumDeposit::get();
 		let call = Call::<T>::execute_call_dispatch { caller: caller.clone(), proposal };
 		let call_formatted = Self::get_formatted_call(call.into());
-		let bounded_proposal =
-			<T as Democracy::Config>::Preimages::bound(call_formatted.into()).unwrap();
+		let bounded_proposal = <T as Democracy::Config>::Preimages::bound(call_formatted.into())
+			.expect("Operation failed");
 		let _hash = Democracy::Pallet::<T>::propose(
 			RawOrigin::Signed(caller).into(),
 			bounded_proposal.clone(),

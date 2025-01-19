@@ -240,3 +240,217 @@ fn rewards_calculation_works() {
 		})]);
 	})
 }
+
+#[test]
+fn vote_removal_works() {
+	new_test_ext().execute_with(|| {
+		let batch = project_list();
+		//round_end_block
+		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch));
+
+		// Bob nominate project_102 with an amount of 1000 & conviction of 1 equivalent to
+		// 2000
+		assert_ok!(Opf::vote(
+			RawOrigin::Signed(BOB).into(),
+			101,
+			1000,
+			true,
+			pallet_democracy::Conviction::Locked1x
+		));
+
+		// Eve nominate project_101 with an amount of 5000 & conviction 1x => equivalent to
+		// 10000
+		assert_ok!(Opf::vote(
+			RawOrigin::Signed(EVE).into(),
+			101,
+			5000,
+			true,
+			pallet_democracy::Conviction::Locked1x
+		));
+
+		// ProjectFund is correctly updated
+		let project_fund_before = ProjectFunds::<Test>::get(101);
+		assert_eq!(project_fund_before[0], 12000);
+
+		// Voter's funds are locked
+		let locked_balance0 =
+			<<Test as Config>::NativeBalance as fungible::hold::Inspect<u64>>::balance_on_hold(
+				&HoldReason::FundsReserved.into(),
+				&BOB,
+			);
+
+		assert_eq!(locked_balance0, 1000);
+		assert_eq!(Votes::<Test>::get(101, BOB).is_some(), true);
+
+		// Bob removes his vote
+		assert_ok!(Opf::remove_vote(RawOrigin::Signed(BOB).into(), 101,));
+
+		let locked_balance1 =
+			<<Test as Config>::NativeBalance as fungible::hold::Inspect<u64>>::balance_on_hold(
+				&HoldReason::FundsReserved.into(),
+				&BOB,
+			);
+
+		// No more votes in storage and balance is unlocked
+		assert_eq!(Votes::<Test>::get(101, BOB).is_some(), false);
+		assert_eq!(locked_balance1, 0);
+
+		// ProjectFund is correctly updated
+		let project_fund_after = ProjectFunds::<Test>::get(101);
+		assert_eq!(project_fund_after[0], 10000);
+	})
+}
+
+#[test]
+fn vote_move_works() {
+	new_test_ext().execute_with(|| {
+		let batch = project_list();
+		let now = <Test as Config>::BlockNumberProvider::current_block_number();
+		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch));
+		// Bob nominate project_101 with an amount of 1000 with a conviction of 2 => amount+amount*2
+		// is the amount allocated to the project
+		assert_ok!(Opf::vote(
+			RawOrigin::Signed(BOB).into(),
+			101,
+			1000,
+			true,
+			pallet_democracy::Conviction::Locked2x
+		));
+
+		expect_events(vec![RuntimeEvent::Opf(Event::VoteCasted {
+			who: BOB,
+			when: now,
+			project_id: 101,
+		})]);
+
+		// 3000 is allocated to project 101
+		let mut funds = ProjectFunds::<Test>::get(101);
+		assert_eq!(funds[0], 3000);
+
+		// Bob nominate project_103 with an amount of 5000 with a conviction of 1 => amount+amount*1
+		// is the amount allocated to the project
+		assert_ok!(Opf::vote(
+			RawOrigin::Signed(BOB).into(),
+			103,
+			5000,
+			true,
+			pallet_democracy::Conviction::Locked1x
+		));
+
+		// 10000 is allocated to project 103
+		funds = ProjectFunds::<Test>::get(103);
+		assert_eq!(funds[0], 10000);
+
+		// Voter's funds are locked
+		let mut locked_balance0 = <<Test as Config>::NativeBalance as fungible::hold::Inspect<
+			u64,
+		>>::balance_on_hold(&HoldReason::FundsReserved.into(), &BOB);
+		assert!(locked_balance0 > 0);
+		assert_eq!(locked_balance0, 6000);
+
+		// Bob changes amount in project_103 to 4500
+		assert_ok!(Opf::vote(
+			RawOrigin::Signed(BOB).into(),
+			103,
+			4500,
+			true,
+			pallet_democracy::Conviction::Locked2x
+		));
+
+		// Allocated amount to project 103 is now 13500
+		funds = ProjectFunds::<Test>::get(103);
+		assert_eq!(funds[0], 13500);
+
+		// Storage was correctly updated
+		let vote_info = Votes::<Test>::get(103, BOB).unwrap();
+
+		locked_balance0 =
+			<<Test as Config>::NativeBalance as fungible::hold::Inspect<u64>>::balance_on_hold(
+				&HoldReason::FundsReserved.into(),
+				&BOB,
+			);
+
+		assert_eq!(4500, vote_info.amount);
+		assert_eq!(pallet_democracy::Conviction::Locked2x, vote_info.conviction);
+		assert_eq!(locked_balance0, 5500);
+	})
+}
+
+#[test]
+fn voting_action_locked() {
+	new_test_ext().execute_with(|| {
+		let batch = project_list();
+		let now = <Test as Config>::BlockNumberProvider::current_block_number();
+
+		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch));
+
+		// Bob nominate project_101 with an amount of 1000 and conviction 3 => 3000 locked
+		assert_ok!(Opf::vote(
+			RawOrigin::Signed(BOB).into(),
+			101,
+			1000,
+			true,
+			pallet_democracy::Conviction::Locked3x
+		));
+
+		expect_events(vec![RuntimeEvent::Opf(Event::VoteCasted {
+			who: BOB,
+			when: now,
+			project_id: 101,
+		})]);
+
+		// Bob nominate project_103 with an amount of 5000
+		assert_ok!(Opf::vote(
+			RawOrigin::Signed(BOB).into(),
+			103,
+			5000,
+			true,
+			pallet_democracy::Conviction::Locked1x
+		));
+
+		// Voter's funds are locked
+		let locked_balance0 =
+			<<Test as Config>::NativeBalance as fungible::hold::Inspect<u64>>::balance_on_hold(
+				&HoldReason::FundsReserved.into(),
+				&BOB,
+			);
+		assert!(locked_balance0 > Zero::zero());
+
+		let round_info = VotingRounds::<Test>::get(0).unwrap();
+		run_to_block(round_info.round_ending_block);
+
+		// Bob cannot edit his vote for project 101
+		assert_noop!(
+			Opf::vote(
+				RawOrigin::Signed(BOB).into(),
+				101,
+				2000,
+				true,
+				pallet_democracy::Conviction::Locked2x
+			),
+			Error::<Test>::VotingRoundOver
+		);
+	})
+}
+
+#[test]
+fn not_enough_funds_to_vote() {
+	new_test_ext().execute_with(|| {
+		let batch = project_list();
+		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch));
+		let balance_plus =
+			<<Test as Config>::NativeBalance as fungible::Inspect<u64>>::balance(&BOB) + 100;
+
+		// Bob vote with wrong amount
+		assert_noop!(
+			Opf::vote(
+				RawOrigin::Signed(BOB).into(),
+				101,
+				balance_plus,
+				true,
+				pallet_democracy::Conviction::Locked1x
+			),
+			Error::<Test>::NotEnoughFunds
+		);
+	})
+}
