@@ -17,10 +17,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
+frame = { workspace = true, features = ["runtime"] }
 log = { workspace = true }
-scale-info = { features = ["derive", "serde"], workspace = true }
-frame = { workspace = true, features = ["experimental", "runtime"] }
 pallet-authorship = { workspace = true }
+scale-info = { features = ["derive", "serde"], workspace = true }
 
 [dev-dependencies]
 pallet-session = { workspace = true, default-features = true }

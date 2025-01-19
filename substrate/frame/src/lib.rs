@@ -206,7 +206,8 @@ pub mod prelude {
 		defensive, defensive_assert,
 		traits::{
 			Contains, EitherOf, EstimateNextSessionRotation, IsSubType, MapSuccess, NoOpPoll,
-			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,UnfilteredDispatchable,
+			OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
+			UnfilteredDispatchable,
 		},
 	};
 
@@ -225,21 +226,18 @@ pub mod prelude {
 	/// All hashing related things
 	pub use super::cryptography::*;
 
-	/// All arithmetic types used for safe math.
+	/// All arithmetic types and traits used for safe math.
 	pub use super::arithmetic::*;
 
 	pub use super::offchain::*;
 
 	pub use super::session::*;
 
-	/// All arithmetic types and traits used for safe math.
-	pub use super::arithmetic::*;
-
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
 		BlockNumberProvider, Bounded, Convert, ConvertInto, DispatchInfoOf, Dispatchable, ReduceBy,
-		SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput, ReplaceWithDefault,
+		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
 	};
 
 	/// Bounded storage related types.
@@ -528,7 +526,7 @@ pub mod runtime {
 		pub use sp_core::storage::Storage;
 		pub use sp_runtime::{
 			testing::{TestSignature, TestXt, UintAuthorityId},
-			BuildStorage, DispatchError
+			BuildStorage, DispatchError,
 		};
 	}
 }
