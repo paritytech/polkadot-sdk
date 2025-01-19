@@ -280,7 +280,7 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `Command "$cmd" has started 🚀 [See logs here](${job_url})`
+              body: `Command "${cmd}" has started 🚀 [See logs here](${job_url})`
             })
       
       - name: Install dependencies for bench
@@ -454,7 +454,7 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `Command "$cmd" has finished ✅ [See logs here](${runUrl})${subweightCollapsed}${cmdOutputCollapsed}`
+              body: `Command "${cmd}" has finished ✅ [See logs here](${runUrl})${subweightCollapsed}${cmdOutputCollapsed}`
             })
 
       - name: Comment PR (Failure)
@@ -477,7 +477,7 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `Command "$cmd" has failed ❌! [See logs here](${jobUrl})${cmdOutputCollapsed}`
+              body: `Command "${cmd}" has failed ❌! [See logs here](${jobUrl})${cmdOutputCollapsed}`
             })
 
       - name: Add 😕 reaction on failure
