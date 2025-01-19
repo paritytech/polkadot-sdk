@@ -538,7 +538,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-
 		/// User's funds unlock
 		///
 		/// ## Dispatch Origin

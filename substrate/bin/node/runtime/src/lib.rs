@@ -1616,7 +1616,6 @@ impl pallet_offences::Config for Runtime {
 	type OnOffenceHandler = Staking;
 }
 
-
 parameter_types! {
 	// Id of the treasury
 	pub const PotId: PalletId = PalletId(*b"py/potid");
@@ -1626,7 +1625,7 @@ parameter_types! {
 
 	/// This should be calculated as a percentage of inflation.
 	pub const TemporaryRewards: Balance = 100000 * DOLLARS;
-	
+
 
 }
 impl pallet_opf::Config for Runtime {
@@ -1643,13 +1642,13 @@ impl pallet_opf::Config for Runtime {
 	/// Maximum number of whitelisted projects
 	type MaxProjects = MaxProjects;
 
-	/// Time period in which people can vote. 
-	/// After the period has ended, the votes are counted (STOP THE COUNT) 
+	/// Time period in which people can vote.
+	/// After the period has ended, the votes are counted (STOP THE COUNT)
 	/// and then the funds are distributed into Spends.
 	type VotingPeriod = VotingPeriod;
 
-	/// Time for claiming a Spend. 
-	/// After the period has passed, a spend is thrown away 
+	/// Time for claiming a Spend.
+	/// After the period has passed, a spend is thrown away
 	/// and the funds are available again for distribution in the pot.
 	type ClaimingPeriod = ClaimingPeriod;
 
@@ -1660,7 +1659,7 @@ impl pallet_opf::Config for Runtime {
 
 	/// This should be calculated as a percentage of inflation.
 	type TemporaryRewards = TemporaryRewards;
-	
+
 	type WeightInfo = (); //pallet_opf::weights::SubstrateWeight<Runtime>;
 }
 
@@ -2766,10 +2765,9 @@ mod runtime {
 
 	#[runtime::pallet_index(84)]
 	pub type AssetsFreezer = pallet_assets_freezer::Pallet<Runtime, Instance1>;
-  
-  #[runtime::pallet_index(85)]
-  pub type Opf = pallet_opf::Pallet<Runtime>;
 
+	#[runtime::pallet_index(85)]
+	pub type Opf = pallet_opf::Pallet<Runtime>;
 }
 
 impl TryFrom<RuntimeCall> for pallet_revive::Call<Runtime> {

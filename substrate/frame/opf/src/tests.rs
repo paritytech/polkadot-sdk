@@ -100,6 +100,29 @@ fn project_registration_works() {
 }
 
 #[test]
+fn cannot_register_twice_in_same_round() {
+	new_test_ext().execute_with(|| {
+		let batch = project_list();
+		next_block();
+		let mut round_info = VotingRounds::<Test>::get(0).unwrap();
+		assert_eq!(round_info.batch_submitted, false);
+		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch.clone()));
+		let project_list = WhiteListedProjectAccounts::<Test>::get(101);
+		assert!(project_list.is_some());
+		// we should have 3 referendum started
+		//assert_eq!(pallet_democracy::PublicProps::<Test>::get().len(), 3);
+		assert_eq!(pallet_democracy::ReferendumCount::<Test>::get(), 3);
+		// The storage infos are correct
+		round_info = VotingRounds::<Test>::get(0).unwrap();
+		assert_eq!(round_info.batch_submitted, true);
+		assert_noop!(
+			Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch),
+			Error::<Test>::BatchAlreadySubmitted
+		);
+	})
+}
+
+#[test]
 fn conviction_vote_works() {
 	new_test_ext().execute_with(|| {
 		next_block();
@@ -140,7 +163,7 @@ fn conviction_vote_works() {
 		assert_eq!(round_number, 0);
 
 		let bob_vote_unlock = round_end.saturating_add(vote_validity);
-		let dave_vote_unlock = bob_vote_unlock.clone().saturating_add(vote_validity);
+		let dave_vote_unlock = bob_vote_unlock.saturating_add(vote_validity);
 
 		let bob_vote_info = Votes::<Test>::get(101, BOB).unwrap();
 		let dave_vote_info = Votes::<Test>::get(102, DAVE).unwrap();
@@ -302,7 +325,7 @@ fn vote_removal_works() {
 }
 
 #[test]
-fn vote_move_works() {
+fn vote_overwrite_works() {
 	new_test_ext().execute_with(|| {
 		let batch = project_list();
 		let now = <Test as Config>::BlockNumberProvider::current_block_number();
