@@ -20,20 +20,20 @@
 
 pub mod zombienet;
 
-use std::time::Duration;
-
-use zombienet::Network;
+use zombienet::{Network, ParachainConfig, RelaychainConfig};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tryout() {
-	let small_net = zombienet::small_network_yap::SmallNetworkYap::new();
+	let relay_chain = RelaychainConfig {
+		default_command: "polkadot".to_owned(),
+		chain: "rococo-local".to_owned(),
+	};
+	let para_chain = ParachainConfig {
+		default_command: "polkadot-parachain".to_owned(),
+		chain_spec_path: "tests/zombienet/chain-specs/yap-westend-live-2022.json".to_owned(),
+		cumulus_based: true,
+		id: 2000,
+	};
+	let small_net = zombienet::small_network_yap::SmallNetworkYap::new(relay_chain, para_chain);
 	let _network = small_net.start().await.unwrap();
-
-	// Show basedir.
-	//println!("network_base_dir: {}", network.base_dir().unwrap());
-
-	//let ws = "--ws=ws://127.0.0.1:9944";
-	tokio::time::sleep(Duration::from_secs(350)).await;
-	//let mut result = cmd_lib::spawn_with_output!(sleep 350).unwrap();
-	//println!("{}", result.wait_with_output().unwrap());
 }

@@ -23,19 +23,24 @@ use zombienet_sdk::{LocalFileSystem, Network as ZNetwork, NetworkConfig};
 
 pub mod small_network_yap;
 
+// TODO: Add constant for path to default log base dir,
+// where a sym link to zombienet base dir exists.
+//
+//
+
 const DEFAULT_RC_NODE_RPC_PORT: u16 = 9944;
 const DEFAULT_PC_NODE_RPC_PORT: u16 = 8844;
 
 pub struct RelaychainConfig {
-	default_command: String,
-	chain: String,
+	pub default_command: String,
+	pub chain: String,
 }
 
 pub struct ParachainConfig {
-	default_command: String,
-	chain_spec_path: String,
-	cumulus_based: bool,
-	id: ParaId,
+	pub default_command: String,
+	pub chain_spec_path: String,
+	pub cumulus_based: bool,
+	pub id: ParaId,
 }
 
 /// Wrapper over a substrate node managed by zombienet..

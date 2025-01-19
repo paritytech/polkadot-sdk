@@ -97,10 +97,10 @@ impl Network for SmallNetworkYap {
 				let mut pc_nodes_iter = self.pc_nodes.iter();
 				let first_node = pc_nodes_iter.next();
 				let p = p
-					.with_id(2000)
+					.with_id(self.pc_config.id)
 					.cumulus_based(true)
-					.with_chain_spec_path("tests/zombienet/chain-specs/yap-westend-live-2022.json")
-					.with_default_command("polkadot-parachain")
+					.with_chain_spec_path(self.pc_config.chain_spec_path.as_str())
+					.with_default_command(self.pc_config.default_command.as_str())
 					.with_collator(|new_node| {
 						new_node
 							.with_name(
