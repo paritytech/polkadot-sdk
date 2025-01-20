@@ -116,7 +116,7 @@ impl<T: Config> Pallet<T> {
 			.hash_tree_root()
 			.map_err(|_| Error::<T>::BlockBodyHashTreeRootFailed)?;
 
-		let execution_header_g_index = Self::execution_header_gindex_at_slot(
+		let execution_header_gindex = Self::execution_header_gindex_at_slot(
 			execution_proof.header.slot,
 			T::ForkVersions::get(),
 		);
