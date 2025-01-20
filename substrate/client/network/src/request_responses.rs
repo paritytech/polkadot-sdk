@@ -633,12 +633,12 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 								target: "sub-libp2p",
 								"Request {id:?} has no protocol registered.",
 							);
-							return Some(id.clone())
+							return Some((id.clone(), None))
 						};
 
 						let elapsed = req.started_at.elapsed();
 						if elapsed > *request_timeout {
-							Some(id.clone())
+							Some((id.clone(), Some(elapsed)))
 						} else {
 							None
 						}
@@ -652,7 +652,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 					);
 				}
 
-				for id in timedout_requests {
+				for (id, _) in timedout_requests {
 					let Some(req) = self.pending_requests.remove(&id) else {
 						continue;
 					};
