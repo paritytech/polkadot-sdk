@@ -46,7 +46,6 @@ mod keyword {
 	syn::custom_keyword!(Task);
 	syn::custom_keyword!(LockId);
 	syn::custom_keyword!(SlashReason);
-	syn::custom_keyword!(Query);
 	syn::custom_keyword!(exclude_parts);
 	syn::custom_keyword!(use_parts);
 	syn::custom_keyword!(expanded);
@@ -395,7 +394,6 @@ pub enum PalletPartKeyword {
 	Task(keyword::Task),
 	LockId(keyword::LockId),
 	SlashReason(keyword::SlashReason),
-	Query(keyword::Query),
 }
 
 impl Parse for PalletPartKeyword {
@@ -430,8 +428,6 @@ impl Parse for PalletPartKeyword {
 			Ok(Self::LockId(input.parse()?))
 		} else if lookahead.peek(keyword::SlashReason) {
 			Ok(Self::SlashReason(input.parse()?))
-		} else if lookahead.peek(keyword::Query) {
-			Ok(Self::Query(input.parse()?))
 		} else {
 			Err(lookahead.error())
 		}
@@ -456,7 +452,6 @@ impl PalletPartKeyword {
 			Self::Task(_) => "Task",
 			Self::LockId(_) => "LockId",
 			Self::SlashReason(_) => "SlashReason",
-			Self::Query(_) => "Query",
 		}
 	}
 
@@ -488,7 +483,6 @@ impl ToTokens for PalletPartKeyword {
 			Self::Task(inner) => inner.to_tokens(tokens),
 			Self::LockId(inner) => inner.to_tokens(tokens),
 			Self::SlashReason(inner) => inner.to_tokens(tokens),
-			Self::Query(inner) => inner.to_tokens(tokens),
 		}
 	}
 }
