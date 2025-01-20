@@ -417,7 +417,7 @@ pub mod pallet {
 						Error::<T>::InvalidSyncCommitteeUpdate
 					);
 				}
-				let next_sync_committee_g_index = Self::next_sync_committee_gindex_at_slot(
+				let next_sync_committee_gindex = Self::next_sync_committee_gindex_at_slot(
 					update.attested_header.slot,
 					fork_versions,
 				);
