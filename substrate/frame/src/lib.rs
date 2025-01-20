@@ -226,7 +226,7 @@ pub mod prelude {
 	/// All crypto related things.
 	pub use super::cryptography::*;
 
-	/// All account management related things.
+	/// All account related things.
 	pub use super::account::*;
 
 	/// All arithmetic types and traits used for safe math.
