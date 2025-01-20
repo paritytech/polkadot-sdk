@@ -41,10 +41,6 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 								// Num cores is 4, because 2 extra will be added automatically when registering the paras.
 								"num_cores": 4,
 								"max_validators_per_core": 2
-							},
-							"async_backing_params": {
-								"max_candidate_depth": 6,
-								"allowed_ancestry_len": 2
 							}
 						}
 					}

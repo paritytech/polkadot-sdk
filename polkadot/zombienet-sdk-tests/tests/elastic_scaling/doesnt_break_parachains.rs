@@ -40,11 +40,7 @@ async fn doesnt_break_parachains_test() -> Result<(), anyhow::Error> {
 						"config": {
 							"scheduler_params": {
 								"num_cores": 1,
-								"max_validators_per_core": 2
-							},
-							"async_backing_params": {
-								"max_candidate_depth": 6,
-								"allowed_ancestry_len": 2
+								"max_validators_per_core": 2,
 							}
 						}
 					}
