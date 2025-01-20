@@ -1289,32 +1289,25 @@ mod tests {
 		);
 	}
 
-	#[test]
-	fn max_response_size_exceeded() {
+	#[tokio::test]
+	async fn max_response_size_exceeded() {
 		let protocol_name = ProtocolName::from("/test/req-resp/1");
-		let mut pool = LocalPool::new();
 
 		// Build swarms whose behaviour is [`RequestResponsesBehaviour`].
 		let mut swarms = (0..2)
 			.map(|_| {
 				let (tx, mut rx) = async_channel::bounded::<IncomingRequest>(64);
 
-				pool.spawner()
-					.spawn_obj(
-						async move {
-							while let Some(rq) = rx.next().await {
-								assert_eq!(rq.payload, b"this is a request");
-								let _ = rq.pending_response.send(super::OutgoingResponse {
-									result: Ok(b"this response exceeds the limit".to_vec()),
-									reputation_changes: Vec::new(),
-									sent_feedback: None,
-								});
-							}
-						}
-						.boxed()
-						.into(),
-					)
-					.unwrap();
+				tokio::spawn(async move {
+					while let Some(rq) = rx.next().await {
+						assert_eq!(rq.payload, b"this is a request");
+						let _ = rq.pending_response.send(super::OutgoingResponse {
+							result: Ok(b"this response exceeds the limit".to_vec()),
+							reputation_changes: Vec::new(),
+							sent_feedback: None,
+						});
+					}
+				});
 
 				let protocol_config = ProtocolConfig {
 					name: protocol_name.clone(),
@@ -1339,59 +1332,52 @@ mod tests {
 		// Running `swarm[0]` in the background until a `InboundRequest` event happens,
 		// which is a hint about the test having ended.
 		let (mut swarm, _) = swarms.remove(0);
-		pool.spawner()
-			.spawn_obj({
-				async move {
-					loop {
-						match swarm.select_next_some().await {
-							SwarmEvent::Behaviour(Event::InboundRequest { result, .. }) => {
-								assert!(result.is_ok());
-							},
-							SwarmEvent::ConnectionClosed { .. } => {
-								break;
-							},
-							_ => {},
-						}
-					}
-				}
-				.boxed()
-				.into()
-			})
-			.unwrap();
-
-		// Remove and run the remaining swarm.
-		let (mut swarm, _) = swarms.remove(0);
-		pool.run_until(async move {
-			let mut response_receiver = None;
-
+		tokio::spawn(async move {
 			loop {
 				match swarm.select_next_some().await {
-					SwarmEvent::ConnectionEstablished { peer_id, .. } => {
-						let (sender, receiver) = oneshot::channel();
-						swarm.behaviour_mut().send_request(
-							&peer_id,
-							protocol_name.clone(),
-							b"this is a request".to_vec(),
-							None,
-							sender,
-							IfDisconnected::ImmediateError,
-						);
-						assert!(response_receiver.is_none());
-						response_receiver = Some(receiver);
+					SwarmEvent::Behaviour(Event::InboundRequest { result, .. }) => {
+						assert!(result.is_ok());
 					},
-					SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
-						assert!(result.is_err());
-						break
+					SwarmEvent::ConnectionClosed { .. } => {
+						break;
 					},
 					_ => {},
 				}
 			}
-
-			match response_receiver.unwrap().await.unwrap().unwrap_err() {
-				RequestFailure::Network(OutboundFailure::Io(_)) => {},
-				request_failure => panic!("Unexpected failure: {request_failure:?}"),
-			}
 		});
+
+		// Remove and run the remaining swarm.
+		let (mut swarm, _) = swarms.remove(0);
+
+		let mut response_receiver = None;
+
+		loop {
+			match swarm.select_next_some().await {
+				SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+					let (sender, receiver) = oneshot::channel();
+					swarm.behaviour_mut().send_request(
+						&peer_id,
+						protocol_name.clone(),
+						b"this is a request".to_vec(),
+						None,
+						sender,
+						IfDisconnected::ImmediateError,
+					);
+					assert!(response_receiver.is_none());
+					response_receiver = Some(receiver);
+				},
+				SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
+					assert!(result.is_err());
+					break
+				},
+				_ => {},
+			}
+		}
+
+		match response_receiver.unwrap().await.unwrap().unwrap_err() {
+			RequestFailure::Network(OutboundFailure::Io(_)) => {},
+			request_failure => panic!("Unexpected failure: {request_failure:?}"),
+		}
 	}
 
 	/// A `RequestId` is a unique identifier among either all inbound or all outbound requests for
