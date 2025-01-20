@@ -1151,7 +1151,7 @@ mod tests {
 
 	use crate::mock::MockPeerStore;
 	use assert_matches::assert_matches;
-	use futures::{channel::oneshot, executor::LocalPool, task::Spawn};
+	use futures::channel::oneshot;
 	use libp2p::{
 		core::{
 			transport::{MemoryTransport, Transport},
@@ -1540,12 +1540,11 @@ mod tests {
 		);
 	}
 
-	#[test]
-	fn request_fallback() {
+	#[tokio::test]
+	async fn request_fallback() {
 		let protocol_name_1 = ProtocolName::from("/test/req-resp/2");
 		let protocol_name_1_fallback = ProtocolName::from("/test/req-resp/1");
 		let protocol_name_2 = ProtocolName::from("/test/another");
-		let mut pool = LocalPool::new();
 
 		let protocol_config_1 = ProtocolConfig {
 			name: protocol_name_1.clone(),
@@ -1583,39 +1582,31 @@ mod tests {
 			let mut protocol_config_2 = protocol_config_2.clone();
 			protocol_config_2.inbound_queue = Some(tx_2);
 
-			pool.spawner()
-				.spawn_obj(
-					async move {
-						for _ in 0..2 {
-							if let Some(rq) = rx_1.next().await {
-								let (fb_tx, fb_rx) = oneshot::channel();
-								assert_eq!(rq.payload, b"request on protocol /test/req-resp/1");
-								let _ = rq.pending_response.send(super::OutgoingResponse {
-									result: Ok(
-										b"this is a response on protocol /test/req-resp/1".to_vec()
-									),
-									reputation_changes: Vec::new(),
-									sent_feedback: Some(fb_tx),
-								});
-								fb_rx.await.unwrap();
-							}
-						}
-
-						if let Some(rq) = rx_2.next().await {
-							let (fb_tx, fb_rx) = oneshot::channel();
-							assert_eq!(rq.payload, b"request on protocol /test/other");
-							let _ = rq.pending_response.send(super::OutgoingResponse {
-								result: Ok(b"this is a response on protocol /test/other".to_vec()),
-								reputation_changes: Vec::new(),
-								sent_feedback: Some(fb_tx),
-							});
-							fb_rx.await.unwrap();
-						}
+			tokio::spawn(async move {
+				for _ in 0..2 {
+					if let Some(rq) = rx_1.next().await {
+						let (fb_tx, fb_rx) = oneshot::channel();
+						assert_eq!(rq.payload, b"request on protocol /test/req-resp/1");
+						let _ = rq.pending_response.send(super::OutgoingResponse {
+							result: Ok(b"this is a response on protocol /test/req-resp/1".to_vec()),
+							reputation_changes: Vec::new(),
+							sent_feedback: Some(fb_tx),
+						});
+						fb_rx.await.unwrap();
 					}
-					.boxed()
-					.into(),
-				)
-				.unwrap();
+				}
+
+				if let Some(rq) = rx_2.next().await {
+					let (fb_tx, fb_rx) = oneshot::channel();
+					assert_eq!(rq.payload, b"request on protocol /test/other");
+					let _ = rq.pending_response.send(super::OutgoingResponse {
+						result: Ok(b"this is a response on protocol /test/other".to_vec()),
+						reputation_changes: Vec::new(),
+						sent_feedback: Some(fb_tx),
+					});
+					fb_rx.await.unwrap();
+				}
+			});
 
 			build_swarm(vec![protocol_config_1_fallback, protocol_config_2].into_iter())
 		};
@@ -1636,133 +1627,125 @@ mod tests {
 		}
 
 		// Running `older_swarm`` in the background.
-		pool.spawner()
-			.spawn_obj({
-				async move {
-					loop {
-						_ = older_swarm.0.select_next_some().await;
-					}
-				}
-				.boxed()
-				.into()
-			})
-			.unwrap();
+		tokio::spawn(async move {
+			loop {
+				_ = older_swarm.0.select_next_some().await;
+			}
+		});
 
 		// Run the newer swarm. Attempt to make requests on all protocols.
 		let (mut swarm, _) = new_swarm;
 		let mut older_peer_id = None;
 
-		pool.run_until(async move {
-			let mut response_receiver = None;
-			// Try the new protocol with a fallback.
-			loop {
-				match swarm.select_next_some().await {
-					SwarmEvent::ConnectionEstablished { peer_id, .. } => {
-						older_peer_id = Some(peer_id);
-						let (sender, receiver) = oneshot::channel();
-						swarm.behaviour_mut().send_request(
-							&peer_id,
-							protocol_name_1.clone(),
-							b"request on protocol /test/req-resp/2".to_vec(),
-							Some((
-								b"request on protocol /test/req-resp/1".to_vec(),
-								protocol_config_1_fallback.name.clone(),
-							)),
-							sender,
-							IfDisconnected::ImmediateError,
-						);
-						response_receiver = Some(receiver);
-					},
-					SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
-						result.unwrap();
-						break
-					},
-					_ => {},
-				}
+		let mut response_receiver = None;
+		// Try the new protocol with a fallback.
+		loop {
+			match swarm.select_next_some().await {
+				SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+					older_peer_id = Some(peer_id);
+					let (sender, receiver) = oneshot::channel();
+					swarm.behaviour_mut().send_request(
+						&peer_id,
+						protocol_name_1.clone(),
+						b"request on protocol /test/req-resp/2".to_vec(),
+						Some((
+							b"request on protocol /test/req-resp/1".to_vec(),
+							protocol_config_1_fallback.name.clone(),
+						)),
+						sender,
+						IfDisconnected::ImmediateError,
+					);
+					response_receiver = Some(receiver);
+				},
+				SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
+					result.unwrap();
+					break
+				},
+				_ => {},
 			}
-			assert_eq!(
-				response_receiver.unwrap().await.unwrap().unwrap(),
-				(
-					b"this is a response on protocol /test/req-resp/1".to_vec(),
-					protocol_name_1_fallback.clone()
-				)
-			);
-			// Try the old protocol with a useless fallback.
-			let (sender, response_receiver) = oneshot::channel();
-			swarm.behaviour_mut().send_request(
-				older_peer_id.as_ref().unwrap(),
-				protocol_name_1_fallback.clone(),
-				b"request on protocol /test/req-resp/1".to_vec(),
-				Some((
-					b"dummy request, will fail if processed".to_vec(),
-					protocol_config_1_fallback.name.clone(),
-				)),
-				sender,
-				IfDisconnected::ImmediateError,
-			);
-			loop {
-				match swarm.select_next_some().await {
-					SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
-						result.unwrap();
-						break
-					},
-					_ => {},
-				}
+		}
+		assert_eq!(
+			response_receiver.unwrap().await.unwrap().unwrap(),
+			(
+				b"this is a response on protocol /test/req-resp/1".to_vec(),
+				protocol_name_1_fallback.clone()
+			)
+		);
+		// Try the old protocol with a useless fallback.
+		let (sender, response_receiver) = oneshot::channel();
+		swarm.behaviour_mut().send_request(
+			older_peer_id.as_ref().unwrap(),
+			protocol_name_1_fallback.clone(),
+			b"request on protocol /test/req-resp/1".to_vec(),
+			Some((
+				b"dummy request, will fail if processed".to_vec(),
+				protocol_config_1_fallback.name.clone(),
+			)),
+			sender,
+			IfDisconnected::ImmediateError,
+		);
+		loop {
+			match swarm.select_next_some().await {
+				SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
+					result.unwrap();
+					break
+				},
+				_ => {},
 			}
-			assert_eq!(
-				response_receiver.await.unwrap().unwrap(),
-				(
-					b"this is a response on protocol /test/req-resp/1".to_vec(),
-					protocol_name_1_fallback.clone()
-				)
-			);
-			// Try the new protocol with no fallback. Should fail.
-			let (sender, response_receiver) = oneshot::channel();
-			swarm.behaviour_mut().send_request(
-				older_peer_id.as_ref().unwrap(),
-				protocol_name_1.clone(),
-				b"request on protocol /test/req-resp-2".to_vec(),
-				None,
-				sender,
-				IfDisconnected::ImmediateError,
-			);
-			loop {
-				match swarm.select_next_some().await {
-					SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
-						assert_matches!(
-							result.unwrap_err(),
-							RequestFailure::Network(OutboundFailure::UnsupportedProtocols)
-						);
-						break
-					},
-					_ => {},
-				}
+		}
+		assert_eq!(
+			response_receiver.await.unwrap().unwrap(),
+			(
+				b"this is a response on protocol /test/req-resp/1".to_vec(),
+				protocol_name_1_fallback.clone()
+			)
+		);
+		// Try the new protocol with no fallback. Should fail.
+		let (sender, response_receiver) = oneshot::channel();
+		swarm.behaviour_mut().send_request(
+			older_peer_id.as_ref().unwrap(),
+			protocol_name_1.clone(),
+			b"request on protocol /test/req-resp-2".to_vec(),
+			None,
+			sender,
+			IfDisconnected::ImmediateError,
+		);
+		loop {
+			match swarm.select_next_some().await {
+				SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
+					assert_matches!(
+						result.unwrap_err(),
+						RequestFailure::Network(OutboundFailure::UnsupportedProtocols)
+					);
+					break
+				},
+				_ => {},
 			}
-			assert!(response_receiver.await.unwrap().is_err());
-			// Try the other protocol with no fallback.
-			let (sender, response_receiver) = oneshot::channel();
-			swarm.behaviour_mut().send_request(
-				older_peer_id.as_ref().unwrap(),
-				protocol_name_2.clone(),
-				b"request on protocol /test/other".to_vec(),
-				None,
-				sender,
-				IfDisconnected::ImmediateError,
-			);
-			loop {
-				match swarm.select_next_some().await {
-					SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
-						result.unwrap();
-						break
-					},
-					_ => {},
-				}
+		}
+		assert!(response_receiver.await.unwrap().is_err());
+		// Try the other protocol with no fallback.
+		let (sender, response_receiver) = oneshot::channel();
+		swarm.behaviour_mut().send_request(
+			older_peer_id.as_ref().unwrap(),
+			protocol_name_2.clone(),
+			b"request on protocol /test/other".to_vec(),
+			None,
+			sender,
+			IfDisconnected::ImmediateError,
+		);
+		loop {
+			match swarm.select_next_some().await {
+				SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
+					result.unwrap();
+					break
+				},
+				_ => {},
 			}
-			assert_eq!(
-				response_receiver.await.unwrap().unwrap(),
-				(b"this is a response on protocol /test/other".to_vec(), protocol_name_2.clone())
-			);
-		});
+		}
+		assert_eq!(
+			response_receiver.await.unwrap().unwrap(),
+			(b"this is a response on protocol /test/other".to_vec(), protocol_name_2.clone())
+		);
 	}
 
 	/// This test ensures the `RequestResponsesBehaviour` propagates back the Request::Timeout error
