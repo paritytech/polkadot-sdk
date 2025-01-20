@@ -576,12 +576,10 @@ pub mod hashing {
 /// This is already part of the [`prelude`].
 pub mod account {
 	pub use frame_support::traits::{
-		AsEnsureOriginWithArg, ChangeMembers, ContainsLengthBound, EitherOfDiverse, InitializeMembers, NeverEnsureOrigin,
-		SortedMembers,
+		AsEnsureOriginWithArg, ChangeMembers, ContainsLengthBound, EitherOfDiverse,
+		InitializeMembers, NeverEnsureOrigin, SortedMembers,
 	};
 	pub use sp_runtime::traits::{AccountIdConversion, IdentifyAccount, IdentityLookup};
-
-	pub use sp_runtime::traits::{IdentifyAccount, IdentityLookup};
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
