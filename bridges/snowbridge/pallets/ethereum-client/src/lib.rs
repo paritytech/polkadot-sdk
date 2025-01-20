@@ -388,7 +388,7 @@ pub mod pallet {
 			// Though following check does not belong to ALC spec we verify block_roots_root to
 			// match the finalized checkpoint root saved in the state of `finalized_header` so to
 			// cache it for later use in `verify_ancestry_proof`.
-			let block_roots_g_index = Self::block_roots_gindex_at_slot(
+			let block_roots_gindex = Self::block_roots_gindex_at_slot(
 				update.finalized_header.slot,
 				fork_versions.clone(),
 			);
