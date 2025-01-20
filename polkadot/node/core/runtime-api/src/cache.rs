@@ -75,7 +75,7 @@ pub(crate) struct RequestResultCache {
 	node_features: LruMap<SessionIndex, NodeFeatures>,
 	approval_voting_params: LruMap<SessionIndex, ApprovalVotingParams>,
 	claim_queue: LruMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
-	scheduling_lookahead: LruMap<SessionIndex, u32>
+	scheduling_lookahead: LruMap<SessionIndex, u32>,
 }
 
 impl Default for RequestResultCache {
@@ -113,7 +113,7 @@ impl Default for RequestResultCache {
 			async_backing_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			node_features: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			claim_queue: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
-			scheduling_lookahead: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP))
+			scheduling_lookahead: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 		}
 	}
 }
