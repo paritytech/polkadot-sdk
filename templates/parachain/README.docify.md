@@ -77,9 +77,7 @@ The parachain template relies on a hardcoded parachain id which is defined in th
 and referenced throughout the contents of this file as `{{PARACHAIN_ID}}`. Please replace
 any command or file referencing this placeholder with the value of the `PARACHAIN_ID` constant:
 
-```rust,ignore
-pub const PARACHAIN_ID: u32 = 1000;
-```
+<!-- docify::embed!("runtime/src/genesis_config_presets.rs", PARACHAIN_ID)-->
 
 ### Omni Node Prerequisites
 

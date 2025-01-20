@@ -18,10 +18,10 @@
 //! # Assets Freezer Pallet
 //!
 //! A pallet capable of freezing fungibles from `pallet-assets`. This is an extension of
-//! `pallet-assets`, wrapping [`fungibles::Inspect`](`frame_support::traits::fungibles::Inspect`).
+//! `pallet-assets`, wrapping [`fungibles::Inspect`](`Inspect`).
 //! It implements both
-//! [`fungibles::freeze::Inspect`](frame_support::traits::fungibles::freeze::Inspect) and
-//! [`fungibles::freeze::Mutate`](frame_support::traits::fungibles::freeze::Mutate). The complexity
+//! [`fungibles::freeze::Inspect`](InspectFreeze) and
+//! [`fungibles::freeze::Mutate`](MutateFreeze). The complexity
 //! of the operations is `O(n)`. where `n` is the variant count of `RuntimeFreezeReason`.
 //!
 //! ## Pallet API
@@ -35,25 +35,26 @@
 //!
 //! - Pallet hooks allowing [`pallet-assets`] to know the frozen balance for an account on a given
 //!   asset (see [`pallet_assets::FrozenBalance`]).
-//! - An implementation of
-//!   [`fungibles::freeze::Inspect`](frame_support::traits::fungibles::freeze::Inspect) and
-//!   [`fungibles::freeze::Mutate`](frame_support::traits::fungibles::freeze::Mutate), allowing
-//!   other pallets to manage freezes for the `pallet-assets` assets.
+//! - An implementation of [`fungibles::freeze::Inspect`](InspectFreeze) and
+//!   [`fungibles::freeze::Mutate`](MutateFreeze), allowing other pallets to manage freezes for the
+//!   `pallet-assets` assets.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{
-	pallet_prelude::*,
-	traits::{tokens::IdAmount, VariantCount, VariantCountOf},
-	BoundedVec,
-};
-use frame_system::pallet_prelude::BlockNumberFor;
-use sp_runtime::{
-	traits::{Saturating, Zero},
-	BoundedSlice,
+use frame::{
+	prelude::*,
+	traits::{
+		fungibles::{Inspect, InspectFreeze, MutateFreeze},
+		tokens::{
+			DepositConsequence, Fortitude, IdAmount, Preservation, Provenance, WithdrawConsequence,
+		},
+	},
 };
 
 pub use pallet::*;
+
+#[cfg(feature = "try-runtime")]
+use frame::try_runtime::TryRuntimeError;
 
 #[cfg(test)]
 mod mock;
@@ -62,7 +63,7 @@ mod tests;
 
 mod impls;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
 
@@ -125,7 +126,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
 		#[cfg(feature = "try-runtime")]
-		fn try_state(_: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+		fn try_state(_: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 			Self::do_try_state()
 		}
 	}
@@ -159,13 +160,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(())
 	}
 
-	#[cfg(any(test, feature = "try-runtime"))]
-	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+	#[cfg(feature = "try-runtime")]
+	fn do_try_state() -> Result<(), TryRuntimeError> {
 		for (asset, who, _) in FrozenBalances::<T, I>::iter() {
 			let max_frozen_amount =
 				Freezes::<T, I>::get(asset.clone(), who.clone()).iter().map(|l| l.amount).max();
 
-			frame_support::ensure!(
+			ensure!(
 				FrozenBalances::<T, I>::get(asset, who) == max_frozen_amount,
 				"The `FrozenAmount` is not equal to the maximum amount in `Freezes` for (`asset`, `who`)"
 			);

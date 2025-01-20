@@ -238,6 +238,10 @@ pub mod prelude {
 		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
 		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
 	};
+
+	/// Bounded storage related types.
+	pub use sp_runtime::{BoundedSlice, BoundedVec};
+
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
 	pub use sp_runtime::{
@@ -572,10 +576,12 @@ pub mod hashing {
 /// This is already part of the [`prelude`].
 pub mod account {
 	pub use frame_support::traits::{
-		ChangeMembers, ContainsLengthBound, EitherOfDiverse, InitializeMembers, NeverEnsureOrigin,
+		AsEnsureOriginWithArg, ChangeMembers, ContainsLengthBound, EitherOfDiverse, InitializeMembers, NeverEnsureOrigin,
 		SortedMembers,
 	};
 	pub use sp_runtime::traits::{AccountIdConversion, IdentifyAccount, IdentityLookup};
+
+	pub use sp_runtime::traits::{IdentifyAccount, IdentityLookup};
 }
 
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
