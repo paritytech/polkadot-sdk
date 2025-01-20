@@ -477,3 +477,64 @@ fn not_enough_funds_to_vote() {
 		);
 	})
 }
+
+#[test]
+fn spends_creation_works_but_not_executed_before_claim_period() {
+	new_test_ext().execute_with(|| {
+		let batch = project_list();
+		let voting_period = <Test as Config>::VotingPeriod::get();
+		let mut now = <Test as Config>::BlockNumberProvider::current_block_number();
+		let amount1 = 400 * BSX;
+		let amount2 = 320 * BSX;
+		let amount3 = 280 * BSX;
+		//round_end_block
+		let round_end = now.saturating_add(voting_period);
+		assert_ok!(Opf::register_projects_batch(RuntimeOrigin::signed(EVE), batch));
+
+		assert_ok!(Opf::vote(
+			RawOrigin::Signed(ALICE).into(),
+			101,
+			amount1,
+			true,
+			pallet_democracy::Conviction::None
+		));
+
+		assert_ok!(Opf::vote(
+			RawOrigin::Signed(DAVE).into(),
+			102,
+			amount2,
+			true,
+			pallet_democracy::Conviction::None
+		));
+
+		assert_ok!(Opf::vote(
+			RawOrigin::Signed(EVE).into(),
+			103,
+			amount3,
+			true,
+			pallet_democracy::Conviction::None
+		));
+
+		// The Spends Storage should be empty
+		assert_eq!(Spends::<Test>::count(), 0);
+
+		run_to_block(round_end);
+
+		next_block();
+		now = <Test as Config>::BlockNumberProvider::current_block_number();
+		let expire = now.saturating_add(<Test as Config>::ClaimingPeriod::get());
+
+		let info101 = WhiteListedProjectAccounts::<Test>::get(101).unwrap();
+		let spend101: types::SpendInfo<Test> = SpendInfo {
+			amount: 40000,
+			valid_from: now,
+			whitelisted_project: info101,
+			claimed: false,
+			expire,
+		};
+		assert_eq!(Spends::<Test>::get(101), Some(spend101));
+
+		// Claim works
+		assert_ok!(Opf::claim_reward_for(RawOrigin::Signed(EVE).into(), 101));
+	})
+}

@@ -218,8 +218,6 @@ pub mod pallet {
 		NotClaimingPeriod,
 		/// Still not in funds unlock period
 		NotUnlockPeriod,
-		/// Funds locking failed
-		FundsReserveFailed,
 		/// An invalid result  was returned
 		InvalidResult,
 		/// The reward calculation failed due to an internal error
@@ -521,12 +519,25 @@ pub mod pallet {
 
 			let ref_index = infos.index;
 			let amount = infos.amount;
+			let when = T::BlockNumberProvider::current_block_number();
 			if let Some(ref_infos) = Democracy::ReferendumInfoOf::<T>::get(ref_index) {
 				match ref_infos {
 					Democracy::ReferendumInfo::Finished { approved: true, .. } => {
+						let pot = Self::pot_account();
+						let balance = T::NativeBalance::balance(&pot);
+						let minimum_balance = T::NativeBalance::minimum_balance();
+						// check if the pot has enough fund for the Spend
+						// Check that the Pot as enough funds for the transfer
+						let remaining_balance = balance.saturating_sub(infos.amount);
+						ensure!(remaining_balance > minimum_balance, Error::<T>::NotEnoughFunds);
 						// create a spend for project to be rewarded
-						let _ = SpendInfo::<T>::new(&infos);
-						Self::deposit_event(Event::ProjectFundingAccepted { project_id, amount })
+						let new_spend = SpendInfo::<T>::new(&infos);
+						Self::deposit_event(Event::ProjectFundingAccepted { project_id, amount });
+						Self::deposit_event(Event::SpendCreated {
+							when,
+							amount: new_spend.amount,
+							project_id: infos.project_id.clone(),
+						});
 					},
 					Democracy::ReferendumInfo::Finished { approved: false, .. } =>
 						Self::deposit_event(Event::ProjectFundingRejected { project_id }),
