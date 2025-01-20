@@ -1390,11 +1390,10 @@ mod tests {
 	/// without a `RequestId` collision.
 	///
 	/// See [`ProtocolRequestId`] for additional information.
-	#[test]
-	fn request_id_collision() {
+	#[tokio::test]
+	async fn request_id_collision() {
 		let protocol_name_1 = ProtocolName::from("/test/req-resp-1/1");
 		let protocol_name_2 = ProtocolName::from("/test/req-resp-2/1");
-		let mut pool = LocalPool::new();
 
 		let mut swarm_1 = {
 			let protocol_configs = vec![
@@ -1452,106 +1451,93 @@ mod tests {
 		swarm_1.dial(listen_add_2).unwrap();
 
 		// Run swarm 2 in the background, receiving two requests.
-		pool.spawner()
-			.spawn_obj(
-				async move {
-					loop {
-						match swarm_2.select_next_some().await {
-							SwarmEvent::Behaviour(Event::InboundRequest { result, .. }) => {
-								result.unwrap();
-							},
-							_ => {},
-						}
-					}
+		tokio::spawn(async move {
+			loop {
+				match swarm_2.select_next_some().await {
+					SwarmEvent::Behaviour(Event::InboundRequest { result, .. }) => {
+						result.unwrap();
+					},
+					_ => {},
 				}
-				.boxed()
-				.into(),
-			)
-			.unwrap();
+			}
+		});
 
 		// Handle both requests sent by swarm 1 to swarm 2 in the background.
 		//
 		// Make sure both requests overlap, by answering the first only after receiving the
 		// second.
-		pool.spawner()
-			.spawn_obj(
-				async move {
-					let protocol_1_request = swarm_2_handler_1.next().await;
-					let protocol_2_request = swarm_2_handler_2.next().await;
+		tokio::spawn(async move {
+			let protocol_1_request = swarm_2_handler_1.next().await;
+			let protocol_2_request = swarm_2_handler_2.next().await;
 
-					protocol_1_request
-						.unwrap()
-						.pending_response
-						.send(OutgoingResponse {
-							result: Ok(b"this is a response".to_vec()),
-							reputation_changes: Vec::new(),
-							sent_feedback: None,
-						})
-						.unwrap();
-					protocol_2_request
-						.unwrap()
-						.pending_response
-						.send(OutgoingResponse {
-							result: Ok(b"this is a response".to_vec()),
-							reputation_changes: Vec::new(),
-							sent_feedback: None,
-						})
-						.unwrap();
-				}
-				.boxed()
-				.into(),
-			)
-			.unwrap();
+			protocol_1_request
+				.unwrap()
+				.pending_response
+				.send(OutgoingResponse {
+					result: Ok(b"this is a response".to_vec()),
+					reputation_changes: Vec::new(),
+					sent_feedback: None,
+				})
+				.unwrap();
+			protocol_2_request
+				.unwrap()
+				.pending_response
+				.send(OutgoingResponse {
+					result: Ok(b"this is a response".to_vec()),
+					reputation_changes: Vec::new(),
+					sent_feedback: None,
+				})
+				.unwrap();
+		});
 
 		// Have swarm 1 send two requests to swarm 2 and await responses.
-		pool.run_until(async move {
-			let mut response_receivers = None;
-			let mut num_responses = 0;
 
-			loop {
-				match swarm_1.select_next_some().await {
-					SwarmEvent::ConnectionEstablished { peer_id, .. } => {
-						let (sender_1, receiver_1) = oneshot::channel();
-						let (sender_2, receiver_2) = oneshot::channel();
-						swarm_1.behaviour_mut().send_request(
-							&peer_id,
-							protocol_name_1.clone(),
-							b"this is a request".to_vec(),
-							None,
-							sender_1,
-							IfDisconnected::ImmediateError,
-						);
-						swarm_1.behaviour_mut().send_request(
-							&peer_id,
-							protocol_name_2.clone(),
-							b"this is a request".to_vec(),
-							None,
-							sender_2,
-							IfDisconnected::ImmediateError,
-						);
-						assert!(response_receivers.is_none());
-						response_receivers = Some((receiver_1, receiver_2));
-					},
-					SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
-						num_responses += 1;
-						result.unwrap();
-						if num_responses == 2 {
-							break
-						}
-					},
-					_ => {},
-				}
+		let mut response_receivers = None;
+		let mut num_responses = 0;
+
+		loop {
+			match swarm_1.select_next_some().await {
+				SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+					let (sender_1, receiver_1) = oneshot::channel();
+					let (sender_2, receiver_2) = oneshot::channel();
+					swarm_1.behaviour_mut().send_request(
+						&peer_id,
+						protocol_name_1.clone(),
+						b"this is a request".to_vec(),
+						None,
+						sender_1,
+						IfDisconnected::ImmediateError,
+					);
+					swarm_1.behaviour_mut().send_request(
+						&peer_id,
+						protocol_name_2.clone(),
+						b"this is a request".to_vec(),
+						None,
+						sender_2,
+						IfDisconnected::ImmediateError,
+					);
+					assert!(response_receivers.is_none());
+					response_receivers = Some((receiver_1, receiver_2));
+				},
+				SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
+					num_responses += 1;
+					result.unwrap();
+					if num_responses == 2 {
+						break
+					}
+				},
+				_ => {},
 			}
-			let (response_receiver_1, response_receiver_2) = response_receivers.unwrap();
-			assert_eq!(
-				response_receiver_1.await.unwrap().unwrap(),
-				(b"this is a response".to_vec(), protocol_name_1)
-			);
-			assert_eq!(
-				response_receiver_2.await.unwrap().unwrap(),
-				(b"this is a response".to_vec(), protocol_name_2)
-			);
-		});
+		}
+		let (response_receiver_1, response_receiver_2) = response_receivers.unwrap();
+		assert_eq!(
+			response_receiver_1.await.unwrap().unwrap(),
+			(b"this is a response".to_vec(), protocol_name_1)
+		);
+		assert_eq!(
+			response_receiver_2.await.unwrap().unwrap(),
+			(b"this is a response".to_vec(), protocol_name_2)
+		);
 	}
 
 	#[test]
