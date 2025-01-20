@@ -369,6 +369,7 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use alloc::fmt::Debug;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
@@ -377,7 +378,7 @@ pub mod pallet {
 		/// The proof of key ownership, used for validating slashing reports.
 		/// The proof must include the session index and validator count of the
 		/// session at which the offence occurred.
-		type KeyOwnerProof: Parameter + GetSessionNumber + GetValidatorCount;
+		type KeyOwnerProof: Parameter + GetSessionNumber + GetValidatorCount + Debug + Encode;
 
 		/// The identification of a key owner, used when reporting slashes.
 		type KeyOwnerIdentification: Parameter;
@@ -617,9 +618,18 @@ fn is_known_offence<T: Config>(
 	dispute_proof: &DisputeProof,
 	key_owner_proof: &T::KeyOwnerProof,
 ) -> Result<(), TransactionValidityError> {
+	use codec::Encode;
 	// check the membership proof to extract the offender's id
 	let key = (polkadot_primitives::PARACHAIN_KEY_TYPE_ID, dispute_proof.validator_id.clone());
 
+	let proof_encoded: Vec<u8> = key_owner_proof.encode();
+	log::debug!(
+		target: LOG_TARGET,
+		"Validating key ownership proof key={:?}, proof={:?}, proof_encoded={:?}",
+		key,
+		key_owner_proof,
+		proof_encoded,
+	);
 	let offender = T::KeyOwnerProofSystem::check_proof(key, key_owner_proof.clone())
 		.ok_or(InvalidTransaction::BadProof)?;
 
