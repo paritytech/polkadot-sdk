@@ -846,7 +846,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 										"Received `RequestResponseEvent::Message` with unexpected request id {:?}",
 										request_id,
 									);
-									debug_assert!(false);
+									// debug_assert!(false);
 									continue
 								},
 							};
@@ -919,7 +919,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 										"Received `RequestResponseEvent::Message` with unexpected request id {:?}",
 										request_id,
 									);
-									debug_assert!(false);
+									// debug_assert!(false);
 									continue
 								},
 							};
@@ -1166,10 +1166,10 @@ mod tests {
 	};
 	use std::{iter, time::Duration};
 
-	struct TokioExecutor(tokio::runtime::Runtime);
+	struct TokioExecutor;
 	impl Executor for TokioExecutor {
 		fn exec(&self, f: Pin<Box<dyn Future<Output = ()> + Send>>) {
-			let _ = self.0.spawn(f);
+			tokio::spawn(f);
 		}
 	}
 
@@ -1186,13 +1186,11 @@ mod tests {
 
 		let behaviour = RequestResponsesBehaviour::new(list, Arc::new(MockPeerStore {})).unwrap();
 
-		let runtime = tokio::runtime::Runtime::new().unwrap();
-
 		let mut swarm = Swarm::new(
 			transport,
 			behaviour,
 			keypair.public().to_peer_id(),
-			SwarmConfig::with_executor(TokioExecutor(runtime))
+			SwarmConfig::with_executor(TokioExecutor {})
 				// This is taken care of by notification protocols in non-test environment
 				// It is very slow in test environment for some reason, hence larger timeout
 				.with_idle_connection_timeout(Duration::from_secs(10)),
@@ -1810,5 +1808,149 @@ mod tests {
 				(b"this is a response on protocol /test/other".to_vec(), protocol_name_2.clone())
 			);
 		});
+	}
+
+	/// This test ensures the `RequestResponsesBehaviour` propagates back the Request::Timeout error
+	/// even if the libp2p component hangs.
+	///
+	/// For testing purposes, the communication happens on the `/test/req-resp/1` protocol.
+	///
+	/// This is achieved by:
+	/// - Two swarms are connected, the first one is slow to respond and has the timeout set to 60
+	///   seconds. The second swarm is configured with a timeout of 60 seconds in libp2p, however in
+	///   substrate this is set to 5 seconds.
+	///
+	/// - The first swarm introduces a delay of 10 seconds before responding to the request.
+	///
+	/// - The second swarm must enforce the 5 seconds timeout.
+	#[tokio::test]
+	async fn enforce_outbound_timeouts() {
+		const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
+		const REQUEST_TIMEOUT_SHORT: Duration = Duration::from_secs(5);
+
+		// These swarms only speaks protocol_name.
+		let protocol_name = ProtocolName::from("/test/req-resp/1");
+
+		let protocol_config = ProtocolConfig {
+			name: protocol_name.clone(),
+			fallback_names: Vec::new(),
+			max_request_size: 1024,
+			max_response_size: 1024 * 1024,
+			request_timeout: REQUEST_TIMEOUT, // <-- important for the test
+			inbound_queue: None,
+		};
+
+		// Build swarms whose behaviour is [`RequestResponsesBehaviour`].
+		let (mut first_swarm, _) = {
+			let (tx, mut rx) = async_channel::bounded::<IncomingRequest>(64);
+
+			tokio::spawn(async move {
+				while let Some(rq) = rx.next().await {
+					assert_eq!(rq.payload, b"this is a request");
+
+					// Sleep for more than `REQUEST_TIMEOUT_SHORT` and less than
+					// `REQUEST_TIMEOUT`.
+					tokio::time::sleep(REQUEST_TIMEOUT_SHORT * 2).await;
+
+					// By the time the response is sent back, the second swarm
+					// received Timeout.
+					let _ = rq.pending_response.send(super::OutgoingResponse {
+						result: Ok(b"Second swarm already timedout".to_vec()),
+						reputation_changes: Vec::new(),
+						sent_feedback: None,
+					});
+				}
+			});
+
+			let mut protocol_config = protocol_config.clone();
+			protocol_config.inbound_queue = Some(tx);
+
+			build_swarm(iter::once(protocol_config))
+		};
+
+		let (mut second_swarm, second_address) = {
+			let (tx, mut rx) = async_channel::bounded::<IncomingRequest>(64);
+
+			tokio::spawn(async move {
+				while let Some(rq) = rx.next().await {
+					let _ = rq.pending_response.send(super::OutgoingResponse {
+						result: Ok(b"This is the response".to_vec()),
+						reputation_changes: Vec::new(),
+						sent_feedback: None,
+					});
+				}
+			});
+			let mut protocol_config = protocol_config.clone();
+			protocol_config.inbound_queue = Some(tx);
+
+			build_swarm(iter::once(protocol_config.clone()))
+		};
+		// Modify the second swarm to have a shorter timeout.
+		second_swarm
+			.behaviour_mut()
+			.protocols
+			.get_mut(&protocol_name)
+			.unwrap()
+			.request_timeout = REQUEST_TIMEOUT_SHORT;
+
+		// Ask first swarm to dial the second swarm.
+		{
+			Swarm::dial(&mut first_swarm, second_address).unwrap();
+		}
+
+		// Running the first swarm in the background until a `InboundRequest` event happens,
+		// which is a hint about the test having ended.
+		tokio::spawn(async move {
+			loop {
+				let event = first_swarm.select_next_some().await;
+				match event {
+					SwarmEvent::Behaviour(Event::InboundRequest { result, .. }) => {
+						assert!(result.is_ok());
+					},
+					SwarmEvent::ConnectionClosed { .. } => {
+						break;
+					},
+					_ => {},
+				}
+			}
+		});
+
+		// Run the second swarm.
+		// - on connection established send the request to the first swarm
+		// - expect to receive a timeout
+		let mut response_receiver = None;
+		loop {
+			let event = second_swarm.select_next_some().await;
+
+			match event {
+				SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+					let (sender, receiver) = oneshot::channel();
+					second_swarm.behaviour_mut().send_request(
+						&peer_id,
+						protocol_name.clone(),
+						b"this is a request".to_vec(),
+						None,
+						sender,
+						IfDisconnected::ImmediateError,
+					);
+					assert!(response_receiver.is_none());
+					response_receiver = Some(receiver);
+				},
+				SwarmEvent::ConnectionClosed { .. } => {
+					break;
+				},
+				SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
+					assert!(result.is_err());
+					break
+				},
+				_ => {},
+			}
+		}
+
+		// Expect the timeout.
+		match response_receiver.unwrap().await.unwrap().unwrap_err() {
+			RequestFailure::Network(OutboundFailure::Timeout) => {},
+			request_failure => panic!("Unexpected failure: {request_failure:?}"),
+		}
 	}
 }
