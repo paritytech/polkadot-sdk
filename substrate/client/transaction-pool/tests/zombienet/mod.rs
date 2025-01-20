@@ -34,6 +34,14 @@ const DEFAULT_BASE_DIR: &'static str = "/tmp/zn-spawner";
 const DEFAULT_RC_NODE_RPC_PORT: u16 = 9944;
 const DEFAULT_PC_NODE_RPC_PORT: u16 = 8844;
 
+/// TODO 1: each section has also a shared part that could be passed
+/// to each node: e.g. args that repeat through parachain nodes,
+/// and can be set sooner, at test inception.
+/// TODO 2: each network is mostly the same thing, with different args
+/// for parachains, and different numbers of parachains. The difference
+/// can be stored in dedicated functions that would setup the differences
+/// accordingly, part of a single `TxPoolPlayGroundNetwork` struct.
+
 #[derive(Default, Builder, Debug)]
 pub struct RelaychainConfig {
 	default_command: String,

@@ -23,6 +23,7 @@ pub mod zombienet;
 use zombienet::{Network, ParachainConfig, RelaychainConfig};
 
 #[tokio::test(flavor = "multi_thread")]
+// TODO: continue this scenario
 async fn send_future_and_then_ready() {
 	let relay_chain = RelaychainConfig::new("polkadot".to_owned(), "rococo-local".to_owned());
 	let para_chain = ParachainConfig::new(
