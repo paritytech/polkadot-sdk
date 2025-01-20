@@ -41,7 +41,6 @@ rand_chacha = { optional = true, workspace = true }
 [dev-dependencies]
 frame-benchmarking = { workspace = true, default-features = true }
 frame-election-provider-support = { workspace = true, default-features = true }
-frame-support = { features = ["experimental"], workspace = true, default-features = true }
 pallet-bags-list = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-staking-reward-curve = { workspace = true, default-features = true }

@@ -53,9 +53,7 @@ use frame_support::{
 			Balanced, Credit, HoldConsideration, ItemOf, NativeFromLeft, NativeOrWithId, UnionOf,
 		},
 		tokens::{
-			imbalance::{ResolveAssetTo, ResolveTo},
-			nonfungibles_v2::Inspect,
-			pay::PayAssetFromAccount,
+			imbalance::ResolveAssetTo, nonfungibles_v2::Inspect, pay::PayAssetFromAccount,
 			GetSalary, PayFromAccount,
 		},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, ConstU64,
@@ -721,15 +719,13 @@ impl pallet_staking::BenchmarkingConfig for StakingBenchmarkingConfig {
 }
 
 impl pallet_staking::Config for Runtime {
-	type OldCurrency = Balances;
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
 	type UnixTime = Timestamp;
 	type CurrencyToVote = sp_staking::currency_to_vote::U128CurrencyToVote;
-	type RewardRemainder = ResolveTo<TreasuryAccount, Balances>;
+	type RewardRemainder = Treasury;
 	type RuntimeEvent = RuntimeEvent;
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type Slash = ResolveTo<TreasuryAccount, Balances>; // send the slashed funds to the treasury.
+	type Slash = Treasury; // send the slashed funds to the treasury.
 	type Reward = (); // rewards are minted from the void
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
@@ -752,7 +748,7 @@ impl pallet_staking::Config for Runtime {
 	type MaxUnlockingChunks = ConstU32<32>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type HistoryDepth = HistoryDepth;
-	type EventListeners = (NominationPools, DelegatedStaking);
+	type EventListeners = NominationPools;
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
 	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy;
@@ -937,21 +933,6 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 }
 
 parameter_types! {
-	pub const DelegatedStakingPalletId: PalletId = PalletId(*b"py/dlstk");
-	pub const SlashRewardFraction: Perbill = Perbill::from_percent(1);
-}
-
-impl pallet_delegated_staking::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type PalletId = DelegatedStakingPalletId;
-	type Currency = Balances;
-	type OnSlash = ();
-	type SlashRewardFraction = SlashRewardFraction;
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type CoreStaking = Staking;
-}
-
-parameter_types! {
 	pub const PostUnbondPoolsWindow: u32 = 4;
 	pub const NominationPoolsPalletId: PalletId = PalletId(*b"py/nopls");
 	pub const MaxPointsToBalance: u8 = 10;
@@ -979,8 +960,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type RewardCounter = FixedU128;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
-	type StakeAdapter =
-		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
+	type StakeAdapter = pallet_nomination_pools::adapter::TransferStake<Self, Staking>;
 	type PostUnbondingPoolsWindow = PostUnbondPoolsWindow;
 	type MaxMetadataLen = ConstU32<256>;
 	type MaxUnbonding = ConstU32<8>;
@@ -2709,9 +2689,6 @@ mod runtime {
 
 	#[runtime::pallet_index(81)]
 	pub type VerifySignature = pallet_verify_signature::Pallet<Runtime>;
-
-	#[runtime::pallet_index(82)]
-	pub type DelegatedStaking = pallet_delegated_staking::Pallet<Runtime>;
 
 	#[runtime::pallet_index(83)]
 	pub type AssetRewards = pallet_asset_rewards::Pallet<Runtime>;

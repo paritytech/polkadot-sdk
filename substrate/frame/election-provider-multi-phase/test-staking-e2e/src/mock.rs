@@ -21,7 +21,6 @@ use frame_support::{
 	assert_ok, parameter_types, traits,
 	traits::{Hooks, UnfilteredDispatchable, VariantCountOf},
 	weights::constants,
-	PalletId,
 };
 use frame_system::EnsureRoot;
 use sp_core::{ConstU32, Get};
@@ -37,7 +36,7 @@ use sp_runtime::{
 };
 use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
-	Agent, DelegationInterface, EraIndex, SessionIndex, StakingInterface,
+	EraIndex, SessionIndex,
 };
 use std::collections::BTreeMap;
 
@@ -69,7 +68,6 @@ frame_support::construct_runtime!(
 		System: frame_system,
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
 		Staking: pallet_staking,
-		DelegatedStaking: pallet_delegated_staking,
 		Pools: pallet_nomination_pools,
 		Balances: pallet_balances,
 		BagsList: pallet_bags_list,
@@ -79,7 +77,7 @@ frame_support::construct_runtime!(
 	}
 );
 
-pub(crate) type AccountId = u128;
+pub(crate) type AccountId = u64;
 pub(crate) type AccountIndex = u32;
 pub(crate) type BlockNumber = u32;
 pub(crate) type Balance = u64;
@@ -89,10 +87,8 @@ pub(crate) type Moment = u32;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
-	type AccountId = AccountId;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type Lookup = sp_runtime::traits::IdentityLookup<Self::AccountId>;
 }
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
@@ -269,29 +265,13 @@ impl pallet_nomination_pools::Config for Runtime {
 	type RewardCounter = sp_runtime::FixedU128;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
-	type StakeAdapter =
-		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
+	type StakeAdapter = pallet_nomination_pools::adapter::TransferStake<Self, Staking>;
 	type PostUnbondingPoolsWindow = ConstU32<2>;
 	type PalletId = PoolsPalletId;
 	type MaxMetadataLen = ConstU32<256>;
 	type MaxUnbonding = MaxUnbonding;
 	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
-}
-
-parameter_types! {
-	pub const DelegatedStakingPalletId: PalletId = PalletId(*b"py/dlstk");
-	pub const SlashRewardFraction: Perbill = Perbill::from_percent(1);
-}
-
-impl pallet_delegated_staking::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type PalletId = DelegatedStakingPalletId;
-	type Currency = Balances;
-	type OnSlash = ();
-	type SlashRewardFraction = SlashRewardFraction;
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type CoreStaking = Staking;
 }
 
 parameter_types! {
@@ -305,7 +285,6 @@ pub(crate) const SLASHING_DISABLING_FACTOR: usize = 3;
 
 #[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Runtime {
-	type OldCurrency = Balances;
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
 	type UnixTime = Timestamp;
@@ -323,7 +302,7 @@ impl pallet_staking::Config for Runtime {
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<MAX_QUOTA_NOMINATIONS>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type MaxUnlockingChunks = MaxUnlockingChunks;
-	type EventListeners = (Pools, DelegatedStaking);
+	type EventListeners = Pools;
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type DisablingStrategy =
 		pallet_staking::UpToLimitWithReEnablingDisablingStrategy<SLASHING_DISABLING_FACTOR>;
@@ -523,7 +502,7 @@ impl Default for BalancesExtBuilder {
 			(100, 100),
 			(200, 100),
 			// stashes
-			(11, 1100),
+			(11, 1000),
 			(21, 2000),
 			(31, 3000),
 			(41, 4000),
@@ -602,7 +581,7 @@ impl ExtBuilder {
 			// set the keys for the first session.
 			keys: stakers
 				.into_iter()
-				.map(|(id, ..)| (id, id, SessionKeys { other: (id as AccountId as u64).into() }))
+				.map(|(id, ..)| (id, id, SessionKeys { other: (id as u64).into() }))
 				.collect(),
 			..Default::default()
 		}
@@ -947,11 +926,7 @@ pub(crate) fn set_minimum_election_score(
 }
 
 pub(crate) fn staked_amount_for(account_id: AccountId) -> Balance {
-	Staking::total_stake(&account_id).expect("account must be staker")
-}
-
-pub(crate) fn delegated_balance_for(account_id: AccountId) -> Balance {
-	DelegatedStaking::agent_balance(Agent::from(account_id)).unwrap_or_default()
+	pallet_staking::asset::staked::<Runtime>(&account_id)
 }
 
 pub(crate) fn staking_events() -> Vec<pallet_staking::Event<Runtime>> {

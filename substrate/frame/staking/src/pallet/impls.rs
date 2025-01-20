@@ -27,8 +27,8 @@ use frame_support::{
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
 	traits::{
-		Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance,
-		InspectLockableCurrency, Len, LockableCurrency, OnUnbalanced, TryCollect, UnixTime,
+		Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance, Len, OnUnbalanced,
+		TryCollect, UnixTime,
 	},
 	weights::Weight,
 };
@@ -36,9 +36,10 @@ use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_session::historical;
 use sp_runtime::{
 	traits::{
-		Bounded, CheckedAdd, Convert, One, SaturatedConversion, Saturating, StaticLookup, Zero,
+		Bounded, CheckedAdd, CheckedSub, Convert, One, SaturatedConversion, Saturating,
+		StaticLookup, Zero,
 	},
-	ArithmeticError, DispatchResult, Perbill, Percent,
+	ArithmeticError, Perbill, Percent,
 };
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
@@ -53,7 +54,6 @@ use crate::{
 	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
 	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota,
 	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
-	STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 
@@ -96,12 +96,10 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn inspect_bond_state(
 		stash: &T::AccountId,
 	) -> Result<LedgerIntegrityState, Error<T>> {
-		// look at any old unmigrated lock as well.
-		let hold_or_lock = asset::staked::<T>(&stash)
-			.max(T::OldCurrency::balance_locked(STAKING_ID, &stash).into());
+		let lock = asset::staked::<T>(&stash);
 
 		let controller = <Bonded<T>>::get(stash).ok_or_else(|| {
-			if hold_or_lock == Zero::zero() {
+			if lock == Zero::zero() {
 				Error::<T>::NotStash
 			} else {
 				Error::<T>::BadState
@@ -113,7 +111,7 @@ impl<T: Config> Pallet<T> {
 				if ledger.stash != *stash {
 					Ok(LedgerIntegrityState::Corrupted)
 				} else {
-					if hold_or_lock != ledger.total {
+					if lock != ledger.total {
 						Ok(LedgerIntegrityState::LockCorrupted)
 					} else {
 						Ok(LedgerIntegrityState::Ok)
@@ -165,7 +163,11 @@ impl<T: Config> Pallet<T> {
 			additional
 		} else {
 			// additional amount or actual balance of stash whichever is lower.
-			additional.min(asset::free_to_stake::<T>(stash))
+			additional.min(
+				asset::stakeable_balance::<T>(stash)
+					.checked_sub(&ledger.total)
+					.ok_or(ArithmeticError::Overflow)?,
+			)
 		};
 
 		ledger.total = ledger.total.checked_add(&extra).ok_or(ArithmeticError::Overflow)?;
@@ -414,12 +416,12 @@ impl<T: Config> Pallet<T> {
 		let dest = Self::payee(StakingAccount::Stash(stash.clone()))?;
 
 		let maybe_imbalance = match dest {
-			RewardDestination::Stash => asset::mint_into_existing::<T>(stash, amount),
+			RewardDestination::Stash => asset::mint_existing::<T>(stash, amount),
 			RewardDestination::Staked => Self::ledger(Stash(stash.clone()))
 				.and_then(|mut ledger| {
 					ledger.active += amount;
 					ledger.total += amount;
-					let r = asset::mint_into_existing::<T>(stash, amount);
+					let r = asset::mint_existing::<T>(stash, amount);
 
 					let _ = ledger
 						.update()
@@ -797,6 +799,8 @@ impl<T: Config> Pallet<T> {
 		Self::do_remove_validator(&stash);
 		Self::do_remove_nominator(&stash);
 
+		frame_system::Pallet::<T>::dec_consumers(&stash);
+
 		Ok(())
 	}
 
@@ -1158,81 +1162,6 @@ impl<T: Config> Pallet<T> {
 		account: &T::AccountId,
 	) -> Exposure<T::AccountId, BalanceOf<T>> {
 		EraInfo::<T>::get_full_exposure(era, account)
-	}
-
-	pub(super) fn do_migrate_currency(stash: &T::AccountId) -> DispatchResult {
-		if Self::is_virtual_staker(stash) {
-			return Self::do_migrate_virtual_staker(stash);
-		}
-
-		let ledger = Self::ledger(Stash(stash.clone()))?;
-		let staked: BalanceOf<T> = T::OldCurrency::balance_locked(STAKING_ID, stash).into();
-		ensure!(!staked.is_zero(), Error::<T>::AlreadyMigrated);
-		ensure!(ledger.total == staked, Error::<T>::BadState);
-
-		// remove old staking lock
-		T::OldCurrency::remove_lock(STAKING_ID, &stash);
-
-		// check if we can hold all stake.
-		let max_hold = asset::free_to_stake::<T>(&stash);
-		let force_withdraw = if max_hold >= staked {
-			// this means we can hold all stake. yay!
-			asset::update_stake::<T>(&stash, staked)?;
-			Zero::zero()
-		} else {
-			// if we are here, it means we cannot hold all user stake. We will do a force withdraw
-			// from ledger, but that's okay since anyways user do not have funds for it.
-			let force_withdraw = staked.saturating_sub(max_hold);
-
-			// we ignore if active is 0. It implies the locked amount is not actively staked. The
-			// account can still get away from potential slash but we can't do much better here.
-			StakingLedger {
-				total: max_hold,
-				active: ledger.active.saturating_sub(force_withdraw),
-				// we are not changing the stash, so we can keep the stash.
-				..ledger
-			}
-			.update()?;
-			force_withdraw
-		};
-
-		// Get rid of the extra consumer we used to have with OldCurrency.
-		frame_system::Pallet::<T>::dec_consumers(&stash);
-
-		Self::deposit_event(Event::<T>::CurrencyMigrated { stash: stash.clone(), force_withdraw });
-		Ok(())
-	}
-
-	fn do_migrate_virtual_staker(stash: &T::AccountId) -> DispatchResult {
-		// Funds for virtual stakers not managed/held by this pallet. We only need to clear
-		// the extra consumer we used to have with OldCurrency.
-		frame_system::Pallet::<T>::dec_consumers(&stash);
-
-		// The delegation system that manages the virtual staker needed to increment provider
-		// previously because of the consumer needed by this pallet. In reality, this stash
-		// is just a key for managing the ledger and the account does not need to hold any
-		// balance or exist. We decrement this provider.
-		let actual_providers = frame_system::Pallet::<T>::providers(stash);
-
-		let expected_providers =
-			// provider is expected to be 1 but someone can always transfer some free funds to
-			// these accounts, increasing the provider.
-			if asset::free_to_stake::<T>(&stash) >= asset::existential_deposit::<T>() {
-				2
-			} else {
-				1
-			};
-
-		// We should never have more than expected providers.
-		ensure!(actual_providers <= expected_providers, Error::<T>::BadState);
-
-		// if actual provider is less than expected, it is already migrated.
-		ensure!(actual_providers == expected_providers, Error::<T>::AlreadyMigrated);
-
-		// dec provider
-		let _ = frame_system::Pallet::<T>::dec_providers(&stash)?;
-
-		return Ok(())
 	}
 }
 
@@ -1996,10 +1925,9 @@ impl<T: Config> StakingInterface for Pallet<T> {
 }
 
 impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
-	fn migrate_to_virtual_staker(who: &Self::AccountId) -> DispatchResult {
-		asset::kill_stake::<T>(who)?;
+	fn migrate_to_virtual_staker(who: &Self::AccountId) {
+		asset::kill_stake::<T>(who);
 		VirtualStakers::<T>::insert(who, ());
-		Ok(())
 	}
 
 	/// Virtually bonds `keyless_who` to `payee` with `value`.
@@ -2017,6 +1945,9 @@ impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 		// check if payee not same as who.
 		ensure!(keyless_who != payee, Error::<T>::RewardDestinationRestricted);
 
+		// mark this pallet as consumer of `who`.
+		frame_system::Pallet::<T>::inc_consumers(&keyless_who).map_err(|_| Error::<T>::BadState)?;
+
 		// mark who as a virtual staker.
 		VirtualStakers::<T>::insert(keyless_who, ());
 
@@ -2028,13 +1959,11 @@ impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 		Ok(())
 	}
 
-	/// Only meant to be used in tests.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn migrate_to_direct_staker(who: &Self::AccountId) {
 		assert!(VirtualStakers::<T>::contains_key(who));
 		let ledger = StakingLedger::<T>::get(Stash(who.clone())).unwrap();
-		let _ = asset::update_stake::<T>(who, ledger.total)
-			.expect("funds must be transferred to stash");
+		asset::update_stake::<T>(who, ledger.total);
 		VirtualStakers::<T>::remove(who);
 	}
 }
@@ -2171,7 +2100,7 @@ impl<T: Config> Pallet<T> {
 				if VirtualStakers::<T>::contains_key(stash.clone()) {
 					ensure!(
 						asset::staked::<T>(&stash) == Zero::zero(),
-						"virtual stakers should not have any staked balance"
+						"virtual stakers should not have any locked balance"
 					);
 					ensure!(
 						<Bonded<T>>::get(stash.clone()).unwrap() == stash.clone(),
@@ -2199,7 +2128,7 @@ impl<T: Config> Pallet<T> {
 				} else {
 					ensure!(
 						Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
-						"bond, ledger and/or staking hold inconsistent for a bonded stash."
+						"bond, ledger and/or staking lock inconsistent for a bonded stash."
 					);
 				}
 
